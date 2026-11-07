@@ -41,6 +41,9 @@ pub struct Pending {
     pub issuer_name: String,
     /// The provider's username.
     pub username: String,
+    /// Under strict names, the name the account will have (0102 §1).
+    #[serde(default)]
+    pub name: Option<String>,
 }
 
 /// One sign-in method.

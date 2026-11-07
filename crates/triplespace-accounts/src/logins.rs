@@ -10,12 +10,14 @@
 
 use std::time::SystemTime;
 
+use scatter_actors::issuer::IssuerRegistry;
 use scatter_log::body::Body;
 use scatter_log::cbor::Value;
 use scatter_log::store::Draft;
 use tokio_postgres::GenericClient;
 
 use crate::AccountsError;
+use crate::bindings::{self, Binding};
 
 /// The payload type of a login record (payloads-actors.md, Login).
 pub const PAYLOAD_LOGIN: &str = "scatter:v0/login";
@@ -231,6 +233,134 @@ pub async fn without_external<C: GenericClient>(client: &C) -> Result<Vec<Login>
     Ok(rows.iter().map(row_of).collect())
 }
 
+/// Whether the instance derives every account's name from its login's external
+/// identity: `login.names = provider`, strict names (0102 §1; 07 §2.10).
+///
+/// # Errors
+///
+/// If the store fails.
+pub async fn strict_names<C: GenericClient>(client: &C) -> Result<bool, AccountsError> {
+    let (settings, _) = crate::settings::load(client, None).await?;
+    Ok(settings
+        .value("login.names")
+        .and_then(|v| v.as_str().map(|s| s == "provider"))
+        .unwrap_or(false))
+}
+
+/// The name an account has under strict names: `{label}-{username}`, the issuer's
+/// `oauth.label`, a hyphen and the username the provider's profile gave, normalized
+/// as every name is (0102 §1).
+#[must_use]
+pub fn derived_name(label: &str, username: &str) -> String {
+    scatter_actors::actor::normalize_name(&format!("{label}-{username}"))
+}
+
+/// The strict name for an issuer's username, where the issuer serves login through
+/// OAuth; `None` for any other issuer, which has no label to derive from.
+#[must_use]
+pub fn derived_name_for(registry: &IssuerRegistry, issuer: &str, username: &str) -> Option<String> {
+    let label = &registry.by_code(issuer)?.oauth.as_ref()?.label;
+    Some(derived_name(label, username))
+}
+
+/// A login's external identity: its only one under strict names (0102 §4), the oldest
+/// otherwise.
+///
+/// # Errors
+///
+/// If the store fails.
+pub async fn identity_of<C: GenericClient>(
+    client: &C,
+    login: i64,
+) -> Result<Option<Binding>, AccountsError> {
+    Ok(bindings::of_login(client, login).await?.into_iter().next())
+}
+
+/// The logins holding more than one external identity, oldest first: what enacting
+/// strict names waits on (0102 §5).
+///
+/// # Errors
+///
+/// If the store fails.
+pub async fn with_several_identities<C: GenericClient>(
+    client: &C,
+) -> Result<Vec<Login>, AccountsError> {
+    let rows = client
+        .query(
+            &format!(
+                "SELECT {COLUMNS} FROM private.login l
+                 WHERE (SELECT count(*) FROM private.binding b
+                        WHERE b.tenant = '' AND b.issuer <> 'login' AND b.holder = 'login:' || l.id) > 1
+                 ORDER BY l.id"
+            ),
+            &[],
+        )
+        .await?;
+    Ok(rows.iter().map(row_of).collect())
+}
+
+/// One account's name beside the name strict names would give it (0102 §5).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct NameCheck {
+    /// The tenant.
+    pub tenant: String,
+    /// The account.
+    pub actor_key: String,
+    /// Its name.
+    pub name: String,
+    /// The derived name, or `None` while the identity's username is not yet known:
+    /// it is learnt when the identity next authenticates (0102 A1).
+    pub derived: Option<String>,
+}
+
+impl NameCheck {
+    /// Whether the account's name is the derived one.
+    #[must_use]
+    pub fn matches(&self) -> bool {
+        self.derived.as_deref() == Some(self.name.as_str())
+    }
+}
+
+/// Every tenant account bound to a login that holds an external identity, with the
+/// name strict names derive from that identity's username, oldest identity first
+/// (0102 §5).
+///
+/// # Errors
+///
+/// If the store fails.
+pub async fn name_checks<C: GenericClient>(
+    client: &C,
+    registry: &IssuerRegistry,
+) -> Result<Vec<NameCheck>, AccountsError> {
+    let rows = client
+        .query(
+            "SELECT a.tenant, a.holder, v.name, e.issuer, e.username
+             FROM private.binding a
+             JOIN view.actor v ON v.tenant = a.tenant AND v.actor_key = a.holder
+             JOIN LATERAL (
+                 SELECT issuer, username FROM private.binding e
+                 WHERE e.tenant = '' AND e.issuer <> 'login' AND e.holder = 'login:' || a.subject
+                 ORDER BY e.added LIMIT 1) e ON true
+             WHERE a.issuer = 'login' AND v.name IS NOT NULL
+             ORDER BY a.tenant, v.name",
+            &[],
+        )
+        .await?;
+    Ok(rows
+        .iter()
+        .map(|r| {
+            let issuer: String = r.get(3);
+            let username: Option<String> = r.get(4);
+            NameCheck {
+                tenant: r.get(0),
+                actor_key: r.get(1),
+                name: r.get(2),
+                derived: username.and_then(|u| derived_name_for(registry, &issuer, &u)),
+            }
+        })
+        .collect())
+}
+
 /// Notes that the login authenticated.
 ///
 /// # Errors
@@ -342,6 +472,38 @@ mod tests {
         assert_eq!(id_of("login:17"), Some(17));
         assert_eq!(id_of("librarybase:17"), None);
         assert_eq!(name_key("Alice"), "alice");
+    }
+
+    #[test]
+    fn strict_names_derive_from_the_label_and_username() {
+        // 0102 §1
+        assert_eq!(derived_name("Wikimedia", "Alice"), "Wikimedia-Alice");
+        assert_eq!(
+            derived_name("Wikimedia", "alice_b"),
+            "Wikimedia-alice b",
+            "normalized as a name is: underscores are spaces"
+        );
+        let r = IssuerRegistry::default_registry();
+        assert_eq!(
+            derived_name_for(r, "wikimedia-central", "Bob").as_deref(),
+            Some("Wikimedia-Bob")
+        );
+        assert_eq!(derived_name_for(r, "password", "Bob"), None);
+        let c = NameCheck {
+            tenant: "t".into(),
+            actor_key: "t:1".into(),
+            name: "Wikimedia-Bob".into(),
+            derived: Some("Wikimedia-Bob".into()),
+        };
+        assert!(c.matches());
+        assert!(
+            !NameCheck {
+                derived: None,
+                ..c.clone()
+            }
+            .matches(),
+            "unknown is not a match"
+        );
     }
 
     #[test]

@@ -12,7 +12,9 @@ use triplespace_accounts::oauth::{self, Door, Flow, NewFlow, Outcome, Purpose};
 use triplespace_accounts::requests::{self, Outcome as RequestOutcome};
 use triplespace_accounts::session::Session;
 use triplespace_accounts::{bindings, challenge, logins};
-use triplespace_api_ingest::accounts::{CreateError, Credential, create, reclaim};
+use triplespace_api_ingest::accounts::{
+    CreateError, Credential, create, reclaim, rename_to_derived,
+};
 
 use crate::app::App;
 use crate::response::ApiError;
@@ -156,6 +158,15 @@ pub fn message(code: &str) -> &'static str {
             "Your request for an account is waiting for review. Try again later."
         }
         "ts-account-rejected" => "Your request for an account was not approved.",
+        "ts-strict-name" => {
+            "On this wiki an account is named after the account held with the provider; the name is not chosen."
+        }
+        "ts-strict-identity" => {
+            "On this wiki a login holds one external sign-in method, the one its name follows, so another cannot be added."
+        }
+        "ts-name-reserved" => {
+            "Names beginning with a provider's label and a hyphen are kept for accounts signed in through that provider."
+        }
         _ => "The sign-in did not complete.",
     }
 }
@@ -368,6 +379,10 @@ pub async fn conclude(
         Purpose::Login => match account {
             Some(actor_key) => {
                 bindings::touch(scope.db, "", &flow.issuer, &subject).await?;
+                bindings::set_username(scope.db, &flow.issuer, &subject, &username).await?;
+                if let Some(l) = login {
+                    follow_provider_name(scope, l, &flow.issuer, &username).await?;
+                }
                 log_in(scope, &actor_key, caller.session, false).await?
             }
             // No account here: a new identity, or a login with no account on this
@@ -381,7 +396,16 @@ pub async fn conclude(
                 Conclusion::Refused(Refusal::of("ts-oauth-bound"))
             } else {
                 let name = flow.name.clone().unwrap_or_default();
-                create_bound(scope, caller, &flow.issuer, &subject, &name, None).await?
+                create_bound(
+                    scope,
+                    caller,
+                    &flow.issuer,
+                    &subject,
+                    &name,
+                    Some(&username),
+                    None,
+                )
+                .await?
             }
         }
         Purpose::Link => {
@@ -395,12 +419,56 @@ pub async fn conclude(
                 (Some(_), Some(_), Some(_)) => {
                     Conclusion::Refused(Refusal::of("ts-oauth-bound-elsewhere"))
                 }
-                (None, Some(me), Some(_)) => link(scope, me, &flow.issuer, &subject).await?,
+                // Under strict names a login holds the one identity its name follows
+                // (0102 §4).
+                (None, Some(_), Some(_)) if logins::strict_names(scope.db).await? => {
+                    Conclusion::Refused(Refusal::of("ts-strict-identity"))
+                }
+                (None, Some(me), Some(_)) => {
+                    link(scope, me, &flow.issuer, &subject, &username).await?
+                }
             }
         }
     };
     oauth::finish(scope.db, &flow.state_hash).await?;
     Ok(conclusion)
+}
+
+/// Under strict names, renames the login's accounts after the username the provider
+/// just gave, where it changed (0102 §3): an instance act by the operator.
+async fn follow_provider_name(
+    scope: Scope<'_>,
+    login: i64,
+    issuer: &str,
+    username: &str,
+) -> Result<(), ApiError> {
+    if !logins::strict_names(scope.db).await? {
+        return Ok(());
+    }
+    let Some(derived) = logins::derived_name_for(Scope::registry(), issuer, username) else {
+        return Ok(());
+    };
+    let store = scope.app.store();
+    let operator = scope.app.config().farm.operator().to_string();
+    let mut cx = scatter_projection::Backend::begin(store).await?;
+    let done = rename_to_derived(
+        store,
+        scope.app.pipeline(),
+        &mut cx,
+        login,
+        &derived,
+        &operator,
+        crate::edit::now_micros(),
+    )
+    .await;
+    match done {
+        Ok(_) => scatter_projection::Backend::commit(store, cx).await?,
+        Err(e) => {
+            let _ = scatter_projection::Backend::rollback(store, cx).await;
+            return Err(ApiError::internal(e));
+        }
+    }
+    Ok(())
 }
 
 async fn log_in(
@@ -565,6 +633,7 @@ async fn vouch(
         &actor_key,
         issuer,
         subject,
+        Some(username),
         now,
     )
     .await;
@@ -591,6 +660,7 @@ async fn link(
     actor_key: &str,
     issuer: &str,
     subject: &str,
+    username: &str,
 ) -> Result<Conclusion, ApiError> {
     let store = scope.app.store();
     let mut cx = scatter_projection::Backend::begin(store).await?;
@@ -602,6 +672,7 @@ async fn link(
         actor_key,
         issuer,
         subject,
+        Some(username),
         actor_key,
         crate::edit::now_micros(),
     )
@@ -615,6 +686,10 @@ async fn link(
             let _ = scatter_projection::Backend::rollback(store, cx).await;
             Ok(Conclusion::Refused(Refusal::of("ts-oauth-bound-elsewhere")))
         }
+        Err(CreateError::StrictIdentity) => {
+            let _ = scatter_projection::Backend::rollback(store, cx).await;
+            Ok(Conclusion::Refused(Refusal::of("ts-strict-identity")))
+        }
         Err(e) => {
             let _ = scatter_projection::Backend::rollback(store, cx).await;
             Err(ApiError::internal(e))
@@ -624,17 +699,20 @@ async fn link(
 
 /// Creates an account bound to an identity, or files a request for one under
 /// `account.approval` (0088 §6); then logs in. No password and no challenge; the
-/// `createaccount` throttle counts it.
+/// `createaccount` throttle counts it. Under strict names the account is named after the
+/// provider's `username`, and `name` is that or empty (0102 §1, `ts-strict-name`).
 ///
 /// # Errors
 ///
 /// If the store fails.
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 pub async fn create_bound(
     scope: Scope<'_>,
     caller: Caller<'_>,
     issuer: &str,
     subject: &str,
     name: &str,
+    username: Option<&str>,
     statement: Option<&str>,
 ) -> Result<Conclusion, ApiError> {
     let tenant = scope.tenant.slug.as_str();
@@ -646,6 +724,27 @@ pub async fn create_bound(
     {
         return Ok(Conclusion::Refused(Refusal::of("ts-oauth-bound")));
     }
+    // Under strict names the name is derived, not chosen (0102 §1).
+    let derived = if logins::strict_names(scope.db).await? {
+        username.and_then(|u| logins::derived_name_for(Scope::registry(), issuer, u))
+    } else {
+        None
+    };
+    let name = match &derived {
+        Some(d) => {
+            let chosen = scatter_actors::actor::normalize_name(name);
+            if !chosen.is_empty() && chosen != *d {
+                return Ok(Conclusion::Refused(Refusal {
+                    code: "ts-strict-name",
+                    message: format!(
+                        "On this wiki the account is named `{d}`, after the account held with the provider; the name is not chosen."
+                    ),
+                }));
+            }
+            d.as_str()
+        }
+        None => name,
+    };
     let approval = crate::modules::account::Policy::load_for(scope.db, tenant).await?;
     if !caller.noratelimit {
         let made = challenge::count(
@@ -669,13 +768,19 @@ pub async fn create_bound(
     let store = scope.app.store();
     {
         let mut cx = scatter_projection::Backend::begin(store).await?;
-        let checked =
-            triplespace_api_ingest::accounts::check_available(&mut cx, tenant, name).await;
+        let checked = if derived.is_some() {
+            triplespace_api_ingest::accounts::check_derived(&mut cx, tenant, name).await
+        } else {
+            triplespace_api_ingest::accounts::check_available(&mut cx, tenant, name).await
+        };
         scatter_projection::Backend::rollback(store, cx).await?;
         match checked {
             Ok(_) => {}
             Err(CreateError::InvalidName(_) | CreateError::Taken) => {
                 return Ok(Conclusion::NameTaken);
+            }
+            Err(CreateError::Reserved(_)) => {
+                return Ok(Conclusion::Refused(Refusal::of("ts-name-reserved")));
             }
             Err(e) => return Err(ApiError::internal(e)),
         }
@@ -709,7 +814,11 @@ pub async fn create_bound(
         &mut cx,
         tenant,
         name,
-        Credential::External { issuer, subject },
+        Credential::External {
+            issuer,
+            subject,
+            username,
+        },
         None,
         "createaccount",
         crate::edit::now_micros(),
@@ -725,6 +834,12 @@ pub async fn create_bound(
             return match e {
                 CreateError::InvalidName(_) | CreateError::Taken => Ok(Conclusion::NameTaken),
                 CreateError::Bound => Ok(Conclusion::Refused(Refusal::of("ts-oauth-bound"))),
+                CreateError::Reserved(_) => {
+                    Ok(Conclusion::Refused(Refusal::of("ts-name-reserved")))
+                }
+                CreateError::StrictName(_) => {
+                    Ok(Conclusion::Refused(Refusal::of("ts-strict-name")))
+                }
                 other => Err(ApiError::internal(other)),
             };
         }
@@ -749,11 +864,17 @@ pub async fn pending(scope: Scope<'_>, session: &str) -> Result<Option<(Flow, Va
     let name = Scope::registry()
         .by_code(&flow.issuer)
         .map_or_else(|| flow.issuer.clone(), |i| i.name.clone());
-    let v = serde_json::json!({
+    let mut v = serde_json::json!({
         "issuer": flow.issuer,
         "issuer_name": name,
         "username": username,
     });
+    // Under strict names, the name the account will have (0102 §1).
+    if logins::strict_names(scope.db).await?
+        && let Some(d) = logins::derived_name_for(Scope::registry(), &flow.issuer, username)
+    {
+        v["name"] = serde_json::Value::String(d);
+    }
     Ok(Some((flow, v)))
 }
 

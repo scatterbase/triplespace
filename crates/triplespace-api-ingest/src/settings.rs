@@ -169,6 +169,13 @@ async fn save_in<R: Rights + Sync + ?Sized>(
     {
         external_required_unmet(cx.conn()).await?;
     }
+    if target == Target::Instance
+        && (patch.set.contains_key("login.names")
+            || patch.set.contains_key("login.external_required")
+            || patch.unset.iter().any(|k| k == "login.external_required"))
+    {
+        strict_names_unmet(cx.conn()).await?;
+    }
     if let Some(event) = planned.event(target) {
         let (log, seq_tenant) = match target {
             Target::Tenant => (parts.tenant_log, tenant.unwrap_or("")),
@@ -227,6 +234,39 @@ async fn external_required_unmet(client: &tokio_postgres::Client) -> Result<(), 
         key: Some("login.external_required".into()),
         message: format!(
             "Not every login could sign in through an external provider yet: {}. `triplespace logins check` names the logins.",
+            blockers.join("; ")
+        ),
+    }]))
+}
+
+/// Refuses a save that leaves strict names on while they cannot hold (0102 §5,
+/// `ts-strict-names-unmet`): `login.external_required` off, a login with more than one
+/// external identity, or an account whose name is not, or is not known to be, the one
+/// its identity's username derives. Runs after the writes, in their unit of work, so it
+/// sees what the save would leave. This implements 0102 §5 (A1) with
+/// `accounts::strict_readiness`.
+async fn strict_names_unmet(client: &tokio_postgres::Client) -> Result<(), SaveError> {
+    if !triplespace_accounts::logins::strict_names(client)
+        .await
+        .map_err(store_error)?
+    {
+        return Ok(());
+    }
+    let ready = crate::accounts::strict_readiness(
+        client,
+        scatter_actors::issuer::IssuerRegistry::default_registry(),
+    )
+    .await
+    .map_err(store_error)?;
+    let blockers = ready.blockers();
+    if blockers.is_empty() {
+        return Ok(());
+    }
+    Err(SaveError::Refused(vec![Refusal {
+        code: "ts-strict-names-unmet",
+        key: Some("login.names".into()),
+        message: format!(
+            "Not every account could carry its provider's name yet: {}. `triplespace logins check` names them.",
             blockers.join("; ")
         ),
     }]))

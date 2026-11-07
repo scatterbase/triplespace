@@ -48,6 +48,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0100 A1](0100-email-addresses-and-verification-codes.md#a1-the-login-an-address-belongs-to-until-instance-logins-exist) | 2026-11-06 | The login an address belongs to, until instance logins exist |
 | [0100 A2](0100-email-addresses-and-verification-codes.md#a2-the-postmark-transport-built-with-bounce-and-complaint-handling) | 2026-11-06 | The Postmark transport, built with bounce and complaint handling |
 | [0100 A3](0100-email-addresses-and-verification-codes.md#a3-addresses-keyed-by-the-login) | 2026-11-06 | Addresses keyed by the login |
+| [0102 A1](0102-strict-names-from-the-provider.md#a1-the-username-kept-on-the-identity-every-registry-prefix-reserved-a-held-derived-name) | 2026-11-07 | The username kept on the identity; every registry prefix reserved; a held derived name |
 
 ## Open questions
 

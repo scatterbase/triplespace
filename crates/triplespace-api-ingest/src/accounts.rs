@@ -15,7 +15,8 @@
 //! itself when a person registers, which `list=logevents` shows as `newusers/create`,
 //! and by its creator or reviewer otherwise, `newusers/create2` (16 §2.3).
 
-use scatter_actors::actor::{ActorRecord, check_name, normalize_name};
+use scatter_actors::actor::{ActorRecord, ActorStatus, check_name, normalize_name};
+use scatter_actors::issuer::IssuerRegistry;
 use scatter_actors::key::ActorKey;
 use scatter_ingest::store::{IngestStore as _, Sequence};
 use scatter_ingest::write::append_projected;
@@ -43,6 +44,10 @@ pub enum Credential<'a> {
         issuer: &'a str,
         /// The subject, normalized.
         subject: &'a str,
+        /// The username the provider's profile gave, where the identity has just
+        /// authenticated: kept on the binding, and under strict names what the account's
+        /// name must be derived from (0102 §1). `None` when a filed request is approved.
+        username: Option<&'a str>,
     },
 }
 
@@ -65,6 +70,21 @@ pub enum CreateError {
     /// without one: `ts-external-required` (0101 §1).
     #[error("this instance creates a login only from an external identity")]
     ExternalRequired,
+    /// The name begins with an OAuth issuer's strict-name prefix, which is reserved
+    /// for the names derived from its usernames: `ts-name-reserved` (0102 §2). Holds
+    /// the issuer's label.
+    #[error("names beginning with `{0}-` are reserved for accounts signed in through {0}")]
+    Reserved(String),
+    /// Under strict names the account's name is derived, not chosen:
+    /// `ts-strict-name` (0102 §1). Holds the derived name.
+    #[error(
+        "on this instance the account is named `{0}`, after the account held with the provider"
+    )]
+    StrictName(String),
+    /// Under strict names a login holds one external identity: `ts-strict-identity`
+    /// (0102 §4).
+    #[error("on this instance a login holds one external identity, the one its name derives from")]
+    StrictIdentity,
     /// The store failed.
     #[error("store: {0}")]
     Store(String),
@@ -74,18 +94,54 @@ fn store_error(e: impl std::fmt::Display) -> CreateError {
     CreateError::Store(e.to_string())
 }
 
-/// Checks a name against the name rules and the names taken, without writing.
+/// Checks a hand-made name against the name rules, the reserved prefixes and the names
+/// taken, without writing.
 ///
 /// # Errors
 ///
-/// [`CreateError::InvalidName`] or [`CreateError::Taken`].
+/// [`CreateError::InvalidName`], [`CreateError::Reserved`] or [`CreateError::Taken`].
 pub async fn check_available(
     cx: &mut PgCx,
     tenant: &str,
     name: &str,
 ) -> Result<String, CreateError> {
+    available(cx, tenant, name, false).await
+}
+
+/// [`check_available`] for a name derived from a provider username under strict names
+/// (0102 §1), which carries its issuer's reserved prefix.
+///
+/// # Errors
+///
+/// [`CreateError::InvalidName`] or [`CreateError::Taken`].
+pub async fn check_derived(cx: &mut PgCx, tenant: &str, name: &str) -> Result<String, CreateError> {
+    available(cx, tenant, name, true).await
+}
+
+/// The registry every name is checked against.
+fn registry() -> &'static IssuerRegistry {
+    IssuerRegistry::default_registry()
+}
+
+/// [`check_available`], where `derived` says the name was derived from a provider
+/// username and so may carry its issuer's prefix (0102 §1, §2).
+async fn available(
+    cx: &mut PgCx,
+    tenant: &str,
+    name: &str,
+    derived: bool,
+) -> Result<String, CreateError> {
     let name = normalize_name(name);
     check_name(&name).map_err(CreateError::InvalidName)?;
+    // Every OAuth issuer's `{label}-` is reserved for the names its usernames derive
+    // (0102 §2): a subsidiary, a name the CLI makes or a chosen name never has one.
+    if !derived && let Some(i) = registry().reserving(&name) {
+        return Err(CreateError::Reserved(
+            i.oauth
+                .as_ref()
+                .map_or_else(|| i.name.clone(), |o| o.label.clone()),
+        ));
+    }
     if requests::name_taken(cx.conn(), tenant, &name)
         .await
         .map_err(store_error)?
@@ -122,10 +178,15 @@ fn draft(
 /// Creates an account in the caller's unit of work and returns its actor key.
 /// `performer` is who created it, or `None` for a person registering themselves.
 ///
+/// Under strict names (0102 §1) an account bound to an identity whose username is known
+/// is named `{label}-{username}`: an empty `name` takes it, another is
+/// [`CreateError::StrictName`]. This implements 0102 §1 with the Action API's
+/// `createaccount` and the site's `Special:CreateAccount`.
+///
 /// # Errors
 ///
 /// A [`CreateError`]; the caller rolls back.
-#[allow(clippy::too_many_arguments)]
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 pub async fn create(
     store: &PgIngest,
     pipeline: &Pipeline<PgIngest>,
@@ -137,7 +198,26 @@ pub async fn create(
     comment: &str,
     now: u64,
 ) -> Result<String, CreateError> {
-    let name = check_available(cx, tenant, name).await?;
+    let strict = logins::strict_names(cx.conn()).await.map_err(store_error)?;
+    let derived = match credential {
+        Credential::External {
+            issuer,
+            username: Some(u),
+            ..
+        } if strict => logins::derived_name_for(registry(), issuer, u),
+        _ => None,
+    };
+    let name = match &derived {
+        Some(d) => {
+            let chosen = normalize_name(name);
+            if !chosen.is_empty() && chosen != *d {
+                return Err(CreateError::StrictName(d.clone()));
+            }
+            available(cx, tenant, d, true).await?
+        }
+        // A request filed under strict names carries the derived name already.
+        None => available(cx, tenant, name, strict && performer.is_some()).await?,
+    };
     if let Credential::Password(p) = credential
         && p.chars().count() < 8
     {
@@ -184,17 +264,29 @@ pub async fn create(
         .await
         .map_err(store_error)?;
     let login = match credential {
-        Credential::External { issuer, subject } => {
+        Credential::External {
+            issuer,
+            subject,
+            username,
+        } => {
             let held = bindings::find(cx.conn(), "", issuer, subject)
                 .await
                 .map_err(store_error)?
                 .and_then(|h| logins::id_of(&h));
             // The identity's login exists: the new account is one more of its accounts.
             if let Some(login) = held {
+                if let Some(u) = username {
+                    bindings::set_username(cx.conn(), issuer, subject, u)
+                        .await
+                        .map_err(store_error)?;
+                }
                 login
             } else {
                 let login = create_login(store, pipeline, cx, tenant, &name, attested, now).await?;
-                bind_external(store, pipeline, cx, login, issuer, subject, attested, now).await?;
+                bind_external(
+                    store, pipeline, cx, login, issuer, subject, username, attested, now,
+                )
+                .await?;
                 login
             }
         }
@@ -329,9 +421,12 @@ pub async fn bind_account(
 }
 
 /// Binds a subject of an external issuer to a login: the binding record keyed
-/// `login:{n}` in the instance's `logins` partition, and its row with the empty tenant. A
-/// subject bound already is [`CreateError::Bound`]. With the password keyed by the login
-/// in `triplespace_accounts::password` and [`unbind`], this implements 0089 §3 (A3).
+/// `login:{n}` in the instance's `logins` partition, and its row with the empty tenant,
+/// holding the provider's `username` where the identity has just authenticated. A
+/// subject bound already is [`CreateError::Bound`]; under strict names a second identity
+/// of the login is [`CreateError::StrictIdentity`] (0102 §4). With the password keyed by
+/// the login in `triplespace_accounts::password` and [`unbind`], this implements
+/// 0089 §3 (A3); the refusal, with the Action API's `linkaccount`, implements 0102 §4.
 ///
 /// # Errors
 ///
@@ -344,6 +439,7 @@ pub async fn bind_external(
     login: i64,
     issuer: &str,
     subject: &str,
+    username: Option<&str>,
     attested_by: &str,
     now: u64,
 ) -> Result<(), CreateError> {
@@ -353,6 +449,14 @@ pub async fn bind_external(
         .is_some()
     {
         return Err(CreateError::Bound);
+    }
+    if logins::strict_names(cx.conn()).await.map_err(store_error)?
+        && logins::identity_of(cx.conn(), login)
+            .await
+            .map_err(store_error)?
+            .is_some()
+    {
+        return Err(CreateError::StrictIdentity);
     }
     let logins_partition = logins_partition(store, cx).await?;
     let holder = logins::key_of(login);
@@ -371,6 +475,11 @@ pub async fn bind_external(
     )
     .await
     .map_err(store_error)?;
+    if let Some(u) = username {
+        bindings::set_username(cx.conn(), issuer, subject, u)
+            .await
+            .map_err(store_error)?;
+    }
     Ok(())
 }
 
@@ -390,6 +499,7 @@ pub async fn bind(
     actor_key: &str,
     issuer: &str,
     subject: &str,
+    username: Option<&str>,
     attested_by: &str,
     now: u64,
 ) -> Result<(), CreateError> {
@@ -404,10 +514,235 @@ pub async fn bind(
         login,
         issuer,
         subject,
+        username,
         attested_by,
         now,
     )
     .await
+}
+
+/// Renames a registered account: a new actor record with the new name, keyed by the
+/// actor key in the tenant's `actors` partition and projected, in the caller's unit of
+/// work. The name must be free on the tenant.
+///
+/// # Errors
+///
+/// A [`CreateError`]; the caller rolls back.
+#[allow(clippy::too_many_arguments)]
+pub async fn rename(
+    store: &PgIngest,
+    pipeline: &Pipeline<PgIngest>,
+    cx: &mut PgCx,
+    tenant: &str,
+    actor_key: &str,
+    new_name: &str,
+    attested_by: &str,
+    comment: &str,
+    now: u64,
+) -> Result<(), CreateError> {
+    let row = cx
+        .conn()
+        .query_opt(
+            "SELECT kind, status FROM view.actor WHERE tenant = $1 AND actor_key = $2",
+            &[&tenant, &actor_key],
+        )
+        .await
+        .map_err(store_error)?
+        .ok_or_else(|| CreateError::Store(format!("no account `{actor_key}` on `{tenant}`")))?;
+    if row.get::<_, String>(0) != "registered" {
+        return Err(CreateError::Store(format!(
+            "`{actor_key}` is not a registered account"
+        )));
+    }
+    let status: ActorStatus =
+        serde_json::from_value(serde_json::Value::String(row.get(1))).map_err(store_error)?;
+    let key = ActorKey::parse(actor_key).map_err(|e| CreateError::Store(e.to_string()))?;
+    let mut record = ActorRecord::registered(new_name);
+    record.status = status;
+    record
+        .validate(&key)
+        .map_err(|e| CreateError::Store(format!("actor record: {e}")))?;
+    let actors = store
+        .partition(cx, tenant, "actors")
+        .await
+        .map_err(store_error)?
+        .ok_or_else(|| CreateError::Store(format!("`{tenant}` has no actors partition")))?;
+    let mut d = draft(
+        payload::ACTOR,
+        actor_key,
+        &serde_json::to_value(&record).map_err(store_error)?,
+        comment,
+        attested_by,
+        now,
+    )?;
+    d.logid = Some(
+        store
+            .next_id(cx, tenant, &Sequence::Log)
+            .await
+            .map_err(store_error)?,
+    );
+    append_projected(store, pipeline, cx, actors, d, Budget::NONE)
+        .await
+        .map_err(store_error)?;
+    Ok(())
+}
+
+/// One account renamed after its provider username (0102 §3).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Renamed {
+    /// The tenant.
+    pub tenant: String,
+    /// The account.
+    pub actor_key: String,
+    /// The name it had.
+    pub from: String,
+}
+
+/// Under strict names, renames every account of a login whose name is not the one its
+/// identity's username now derives, as an instance act whose comment says the provider
+/// renamed it (0102 §3), in the caller's unit of work; `attested_by` is the operator
+/// actor. An account whose derived name another account on its tenant holds is left as
+/// it is (0102 A1). Returns what was renamed. This is the renaming of 0102 §3; the
+/// tombstone that yields to the issuer waits on name tombstones (0010 §10), so the
+/// section is not claimed.
+///
+/// # Errors
+///
+/// A [`CreateError`]; the caller rolls back.
+pub async fn rename_to_derived(
+    store: &PgIngest,
+    pipeline: &Pipeline<PgIngest>,
+    cx: &mut PgCx,
+    login: i64,
+    derived: &str,
+    attested_by: &str,
+    now: u64,
+) -> Result<Vec<Renamed>, CreateError> {
+    let mut out = Vec::new();
+    for (tenant, actor_key) in logins::accounts_of(cx.conn(), login)
+        .await
+        .map_err(store_error)?
+    {
+        let name: Option<String> = cx
+            .conn()
+            .query_opt(
+                "SELECT name FROM view.actor WHERE tenant = $1 AND actor_key = $2 AND kind = 'registered'",
+                &[&tenant, &actor_key],
+            )
+            .await
+            .map_err(store_error)?
+            .and_then(|r| r.get(0));
+        let Some(from) = name else { continue };
+        if from == derived
+            || requests::name_taken(cx.conn(), &tenant, derived)
+                .await
+                .map_err(store_error)?
+        {
+            continue;
+        }
+        rename(
+            store,
+            pipeline,
+            cx,
+            &tenant,
+            &actor_key,
+            derived,
+            attested_by,
+            "renameuser: renamed by the provider",
+            now,
+        )
+        .await?;
+        out.push(Renamed {
+            tenant,
+            actor_key,
+            from,
+        });
+    }
+    Ok(out)
+}
+
+/// What enacting strict names waits on (0102 §5; 07 §2.10): `login.external_required`
+/// must be on, every login must hold exactly one external identity, and every account's
+/// name must equal the name derived from its identity's username, which must be known.
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct StrictReadiness {
+    /// Whether `login.external_required` is on.
+    pub external_required: bool,
+    /// The logins holding more than one external identity, by name.
+    pub several_identities: Vec<String>,
+    /// Accounts whose identity's username is not yet known: `(tenant, name)`.
+    pub unknown: Vec<(String, String)>,
+    /// Accounts whose name is not the derived one: `(tenant, name, derived)`.
+    pub differing: Vec<(String, String, String)>,
+}
+
+impl StrictReadiness {
+    /// What stands in the way, one line each; empty when strict names can be enacted.
+    #[must_use]
+    pub fn blockers(&self) -> Vec<String> {
+        let mut out = Vec::new();
+        if !self.external_required {
+            out.push("`login.external_required` is off".to_string());
+        }
+        match self.several_identities.len() {
+            0 => {}
+            1 => out.push("1 login holds more than one external identity".to_string()),
+            n => out.push(format!("{n} logins hold more than one external identity")),
+        }
+        match self.unknown.len() {
+            0 => {}
+            1 => out.push(
+                "1 account's provider username is not known yet: its holder must sign in once"
+                    .to_string(),
+            ),
+            n => out.push(format!(
+                "{n} accounts' provider usernames are not known yet: their holders must sign in once"
+            )),
+        }
+        match self.differing.len() {
+            0 => {}
+            1 => out.push("1 account is not named after its provider username".to_string()),
+            n => out.push(format!(
+                "{n} accounts are not named after their provider usernames"
+            )),
+        }
+        out
+    }
+}
+
+/// Reads what enacting strict names waits on (0102 §5). This implements 0102 §5 (A1) with
+/// the refusal in `settings::save` and `logins check`.
+///
+/// # Errors
+///
+/// If the store fails.
+pub async fn strict_readiness<C: tokio_postgres::GenericClient>(
+    client: &C,
+    registry: &IssuerRegistry,
+) -> Result<StrictReadiness, CreateError> {
+    let mut r = StrictReadiness {
+        external_required: logins::external_required(client)
+            .await
+            .map_err(store_error)?,
+        several_identities: logins::with_several_identities(client)
+            .await
+            .map_err(store_error)?
+            .into_iter()
+            .map(|l| l.name)
+            .collect(),
+        ..StrictReadiness::default()
+    };
+    for c in logins::name_checks(client, registry)
+        .await
+        .map_err(store_error)?
+    {
+        match c.derived {
+            None => r.unknown.push((c.tenant, c.name)),
+            Some(d) if d != c.name => r.differing.push((c.tenant, c.name, d)),
+            Some(_) => {}
+        }
+    }
+    Ok(r)
 }
 
 /// Why a sign-in method was not removed.
@@ -662,6 +997,7 @@ pub async fn reclaim(
     actor_key: &str,
     issuer: &str,
     subject: &str,
+    username: Option<&str>,
     now: u64,
 ) -> Result<(), CreateError> {
     let held = bindings::find(cx.conn(), "", issuer, subject)
@@ -690,7 +1026,10 @@ pub async fn reclaim(
             now,
         )
         .await?;
-        bind_external(store, pipeline, cx, login, issuer, subject, actor_key, now).await?;
+        bind_external(
+            store, pipeline, cx, login, issuer, subject, username, actor_key, now,
+        )
+        .await?;
         login
     };
     bind_account(

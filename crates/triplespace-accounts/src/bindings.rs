@@ -35,6 +35,9 @@ pub struct Binding {
     pub added: SystemTime,
     /// When it was last used to log in.
     pub last_used: Option<SystemTime>,
+    /// For an external identity: the username the provider's profile last gave, from
+    /// which strict names are derived (0102 §1); `None` until it authenticates.
+    pub username: Option<String>,
 }
 
 fn u64_of(n: i64) -> u64 {
@@ -66,10 +69,12 @@ fn binding_of(r: &tokio_postgres::Row) -> Binding {
         offset: u64_of(r.get("offset")),
         added: r.get("added"),
         last_used: r.get("last_used"),
+        username: r.get("username"),
     }
 }
 
-const COLUMNS: &str = "issuer, subject, holder, \"partition\", \"offset\", added, last_used";
+const COLUMNS: &str =
+    "issuer, subject, holder, \"partition\", \"offset\", added, last_used, username";
 
 /// The binding record for a subject of an issuer (payloads.md §8), keyed by its holder:
 /// a login's key for an external identity, an account's actor key for its login.
@@ -200,6 +205,27 @@ pub async fn touch<C: GenericClient>(
         .execute(
             "UPDATE private.binding SET last_used = now() WHERE tenant = $1 AND issuer = $2 AND subject = $3",
             &[&tenant, &issuer, &subject],
+        )
+        .await?;
+    Ok(())
+}
+
+/// Keeps the username the provider's profile gave for an external identity (0102 §1,
+/// §3): what a strict name derives from, refreshed at every login.
+///
+/// # Errors
+///
+/// If the store fails.
+pub async fn set_username<C: GenericClient>(
+    client: &C,
+    issuer: &str,
+    subject: &str,
+    username: &str,
+) -> Result<(), AccountsError> {
+    client
+        .execute(
+            "UPDATE private.binding SET username = $3 WHERE tenant = '' AND issuer = $1 AND subject = $2",
+            &[&issuer, &subject, &username],
         )
         .await?;
     Ok(())

@@ -15,8 +15,9 @@
 <div class="ts-honeypot" aria-hidden="true"><label for="wpWebsite">{{ form.honeypot }}</label><input type="text" id="wpWebsite" name="wpWebsite" value="" tabindex="-1" autocomplete="off"></div>
 {%- if form.challenge %}{{ account.challenge(form.challenge) }}{% endif -%}
 <div class="ts-form__actions">{{ codex.button(form.submit) }}</div></form>{% endif -%}
-{%- if pending %}<form class="ts-form ts-createaccount" method="post" action="/w/index.php?title=Special:CreateAccount"><input type="hidden" name="createtoken" value="{{ pending.token }}"><input type="hidden" name="returnto" value="{{ pending.returnto }}"><input type="hidden" name="tspending" value="1">{{ codex.field(pending.username) }}
-{%- if pending.suggest %}<div class="ts-createaccount__suggest"><button class="cdx-button" type="submit" name="tssuggested" value="{{ pending.suggest.value }}" formnovalidate aria-describedby="ts-suggest-note">{{ pending.suggest.label }}</button><p class="ts-createaccount__suggest-note" id="ts-suggest-note">{{ pending.suggest.note }}</p></div>{% endif -%}
+{%- if pending %}<form class="ts-form ts-createaccount" method="post" action="/w/index.php?title=Special:CreateAccount"><input type="hidden" name="createtoken" value="{{ pending.token }}"><input type="hidden" name="returnto" value="{{ pending.returnto }}"><input type="hidden" name="tspending" value="1">
+{%- if pending.strict %}<p class="ts-createaccount__strict"><strong>{{ pending.strict }}</strong></p>{% else %}{{ codex.field(pending.username) }}
+{%- if pending.suggest %}<div class="ts-createaccount__suggest"><button class="cdx-button" type="submit" name="tssuggested" value="{{ pending.suggest.value }}" formnovalidate aria-describedby="ts-suggest-note">{{ pending.suggest.label }}</button><p class="ts-createaccount__suggest-note" id="ts-suggest-note">{{ pending.suggest.note }}</p></div>{% endif -%}{% endif -%}
 {%- if pending.statement %}{{ statement(pending.statement) }}{% endif -%}
 <div class="ts-form__actions">{{ codex.button(pending.submit) }}</div></form>{% endif -%}
 {%- if issuers %}{{ account.issuers(issuers) }}{% endif -%}

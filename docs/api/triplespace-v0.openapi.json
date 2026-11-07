@@ -1853,6 +1853,10 @@
                     },
                     "username": {
                       "type": "string"
+                    },
+                    "name": {
+                      "type": "string",
+                      "description": "Under strict names (`login.names = provider`), the name the account will have, `{label}-{username}`; the name is not chosen (0102 §1)."
                     }
                   }
                 }

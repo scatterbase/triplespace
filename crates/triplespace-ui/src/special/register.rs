@@ -201,6 +201,8 @@ pub struct PendingForm {
     pub username: FieldModel,
     /// The provider's username, where it has one.
     pub suggest: Option<SuggestModel>,
+    /// Under strict names, the derived name shown in place of the field (0102 §1).
+    pub strict: Option<String>,
     /// The statement, where the wiki asks for one.
     pub statement: Option<StatementModel>,
     /// **Create account**.
@@ -426,10 +428,19 @@ fn create_model(
             username,
             statement,
         } => {
-            page.texts.push(m.with(
-                "ts-createaccount-pending-intro",
-                &[label, &pending.username],
-            ));
+            // Under strict names the name is derived and shown, not asked for
+            // (0102 §1; 19 §2.3). This implements 0102 §1 with the Action API.
+            if let Some(derived) = &pending.name {
+                page.texts.push(m.with(
+                    "ts-createaccount-strict-intro",
+                    &[label, &pending.username, derived],
+                ));
+            } else {
+                page.texts.push(m.with(
+                    "ts-createaccount-pending-intro",
+                    &[label, &pending.username],
+                ));
+            }
             page.pending = Some(PendingForm {
                 token: token.clone(),
                 returnto: back.clone(),
@@ -442,14 +453,17 @@ fn create_model(
                     "ts-createaccount-username",
                     "username",
                 ),
-                suggest: (!pending.username.is_empty()).then(|| SuggestModel {
-                    value: pending.username.clone(),
-                    label: m.with(
-                        "ts-createaccount-pending-suggest",
-                        &[label, &pending.username],
-                    ),
-                    note: m.get("ts-createaccount-pending-suggest-note"),
+                suggest: (pending.name.is_none() && !pending.username.is_empty()).then(|| {
+                    SuggestModel {
+                        value: pending.username.clone(),
+                        label: m.with(
+                            "ts-createaccount-pending-suggest",
+                            &[label, &pending.username],
+                        ),
+                        note: m.get("ts-createaccount-pending-suggest-note"),
+                    }
                 }),
+                strict: pending.name.clone(),
                 statement: statement_model(m, statement.as_ref(), false),
                 submit: primary(&m.get("ts-createaccount-pending-submit")),
             });
@@ -658,7 +672,10 @@ async fn post_pending(
         );
     };
     let suggested = field("tssuggested").trim();
-    let name = if suggested.is_empty() {
+    let name = if p.name.is_some() {
+        // Derived by the API (0102 §1).
+        String::new()
+    } else if suggested.is_empty() {
         field("username").trim().to_string()
     } else {
         suggested.to_string()
@@ -811,6 +828,8 @@ fn refusal(m: &Messages, code: &str, message: &str) -> String {
         "ts-account-statement-required" => m.get("ts-createaccount-statement-required"),
         "ts-account-statement-long" => m.get("ts-createaccount-statement-long"),
         "ts-external-required" => m.get("ts-createaccount-external-only"),
+        "ts-name-reserved" => m.get("ts-name-reserved"),
+        "ts-strict-name" => m.get("ts-strict-name"),
         "permissiondenied" => m.get("ts-createaccount-not-allowed"),
         _ => message.to_string(),
     }
@@ -1269,13 +1288,14 @@ mod tests {
             issuer: "wikimedia".into(),
             issuer_name: "Wikimedia".into(),
             username: "Harej".into(),
+            name: None,
         };
         let p = create_model(
             &m,
             Some((MessageKind::Error, "Taken".into())),
             &CreateBody::Pending {
                 label: "Wikimedia".into(),
-                pending,
+                pending: pending.clone(),
                 token: "t".into(),
                 back: "Main Page".into(),
                 username: String::new(),
@@ -1285,10 +1305,37 @@ mod tests {
         assert!(p.notice.unwrap().classes.contains("cdx-message--error"));
         let pf = p.pending.unwrap();
         assert_eq!(pf.suggest.unwrap().value, "Harej");
+        assert!(pf.strict.is_none());
         assert!(
             pf.statement.unwrap().optional.is_none(),
             "the pending form shows no flag"
         );
+        // Under strict names the derived name is shown and nothing is asked (0102 §1).
+        let p = create_model(
+            &m,
+            None,
+            &CreateBody::Pending {
+                label: "Wikimedia".into(),
+                pending: Pending {
+                    name: Some("Wikimedia-Harej".into()),
+                    ..pending
+                },
+                token: "t".into(),
+                back: "Main Page".into(),
+                username: String::new(),
+                statement: None,
+            },
+        );
+        assert_eq!(
+            p.texts,
+            vec![m.with(
+                "ts-createaccount-strict-intro",
+                &["Wikimedia", "Harej", "Wikimedia-Harej"]
+            )]
+        );
+        let pf = p.pending.unwrap();
+        assert_eq!(pf.strict.as_deref(), Some("Wikimedia-Harej"));
+        assert!(pf.suggest.is_none());
 
         let text = create_model(
             &m,
