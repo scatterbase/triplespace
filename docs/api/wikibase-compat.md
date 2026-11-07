@@ -71,6 +71,8 @@ Statement = mainsnak, qualifiers{propertyId → [Snak]}, qualifiers-order,
 Snak      = property, snaktype ∈ {value, somevalue, novalue}, datavalue (value only), datatype, hash
 ```
 
+A statement's **`id`** (its GUID) is checked by `StatementGuidValidator` (`lib/packages/wikibase/data-model-services`) wherever a statement is written, so through `wbeditentity` and `wbsetclaim` alike: exactly one `$`, an entity ID before it that parses, and after it `/^\{?[A-Z\d]{8}-[A-Z\d]{4}-[A-Z\d]{4}-[A-Z\d]{4}-[A-Z\d]{12}\}?\z/i`. That is a UUID's shape in letters and digits, optionally in braces, not a UUID: the part need not be hexadecimal. Wikibase generates uppercase hexadecimal UUIDs, but a client may supply its own, and Wikidata holds such IDs written by hand (`Q126373047$5627445f-43cb-ed6d-3adb-tracklists01`; `docs/samples/wikidata/wikidata-Q126373047.json`). `StatementGuidParser` checks only the entity part.
+
 Each **data type** (a property-level concept) is backed by a **value type** (the kind of `datavalue` stored). Several data types can share one value type.
 
 | Data type | Value type | Defined by | RDF `wikibase:propertyType` | `wdt:` property kind |
