@@ -57,6 +57,8 @@ pub enum Feature {
     /// The report pages: `Special:WantedPages`, `Special:ShortPages` and the rest
     /// (`list=querypage` with `ts-state`; 0047 §4).
     Reports,
+    /// `Special:Export` (`POST /export`; 0047 §8.1).
+    Export,
 }
 
 impl Feature {
@@ -85,6 +87,7 @@ impl Feature {
             Self::Notifications => "notifications",
             Self::Watchlist => "watchlist",
             Self::Reports => "reports",
+            Self::Export => "export",
         }
     }
 }
@@ -111,6 +114,7 @@ pub const BUILT: &[Feature] = &[
     Feature::Notifications,
     Feature::Watchlist,
     Feature::Reports,
+    Feature::Export,
 ];
 
 /// What the site offers on one request.

@@ -9,6 +9,7 @@ pub mod dumps;
 pub mod editpage;
 pub mod entities;
 pub mod entitydata;
+pub mod export;
 pub mod info;
 pub mod issuers;
 pub mod login;

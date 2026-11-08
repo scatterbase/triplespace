@@ -124,6 +124,10 @@ pub struct ApiResponse {
     pub set_cookie: Option<String>,
     /// The error, if the request failed.
     pub error: Option<ApiError>,
+    /// A body sent as it is, with its content type, in place of the JSON: what
+    /// `exportnowrap` asks for (0047 §8.1). Warnings and the JSON body are then dropped,
+    /// as MediaWiki drops them.
+    pub raw: Option<(&'static str, String)>,
 }
 
 impl ApiResponse {
@@ -186,13 +190,17 @@ impl ApiResponse {
 
 impl IntoResponse for ApiResponse {
     fn into_response(self) -> Response {
-        let body = self.to_value().to_string();
+        let (content_type, body) = match &self.raw {
+            Some((ct, body)) if self.error.is_none() => (*ct, body.clone()),
+            _ => (
+                "application/json; charset=utf-8",
+                self.to_value().to_string(),
+            ),
+        };
         let mut r = Response::new(body.into());
         *r.status_mut() = StatusCode::OK;
-        r.headers_mut().insert(
-            header::CONTENT_TYPE,
-            HeaderValue::from_static("application/json; charset=utf-8"),
-        );
+        r.headers_mut()
+            .insert(header::CONTENT_TYPE, HeaderValue::from_static(content_type));
         r.headers_mut().insert(
             header::CACHE_CONTROL,
             HeaderValue::from_static("private, no-cache"),

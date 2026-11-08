@@ -15,6 +15,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0005 A115](0005-crate-organization.md#a115-scatter-wikibase-rdf-depends-on-scatter-normalize-oxttl-and-md-5) | 2026-11-07 | `scatter-wikibase-rdf` depends on `scatter-normalize`, `oxttl` and `md-5` |
 | [0005 A116](0005-crate-organization.md#a116-triplespace-rdf-is-built-what-it-the-api-and-the-cli-depend-on) | 2026-11-07 | `triplespace-rdf` is built; what it, the API and the CLI depend on |
 | [0005 A118](0005-crate-organization.md#a118-triplespace-rdf-writes-bundles-too) | 2026-11-07 | `triplespace-rdf` writes bundles too |
+| [0005 A120](0005-crate-organization.md#a120-two-edges-for-the-xml-export) | 2026-11-08 | Two edges for the XML export |
 | [0006 A26](0006-log-integrity-and-erasure.md#a26-a-nesting-depth-limit-for-canonical-cbor) | 2026-11-06 | A nesting-depth limit for canonical CBOR |
 | [0006 A29](0006-log-integrity-and-erasure.md#a29-origins-fixed-by-the-first-checkpoint-what-the-commands-check) | 2026-11-07 | Origins fixed by the first checkpoint; what the commands check |
 | [0006 A31](0006-log-integrity-and-erasure.md#a31-how-the-export-scope-decides-each-record) | 2026-11-07 | How the export scope decides each record |
@@ -47,6 +48,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0042 A22](0042-template-expansion-and-parsoid.md#a22-which-template-drew-a-block) | 2026-11-04 | Which template drew a block |
 | [0047 A29](0047-special-pages.md#a29-pagerandom-is-derived-from-the-page) | 2026-11-02 | `page_random` is derived from the page |
 | [0047 A31](0047-special-pages.md#a31-the-records-export-as-built) | 2026-11-08 | The `records` export as built |
+| [0047 A35](0047-special-pages.md#a35-the-mediawiki-xml-export-as-built) | 2026-11-08 | The MediaWiki XML export as built |
 | [0051 A8](0051-page-redirects.md#a8-actionmove-the-calls-made-building-it) | 2026-10-30 | `action=move`: the calls made building it |
 | [0056 A27](0056-security-model.md#a27-entities-the-live-attack-and-tiers-78-the-calls-made-building-them) | 2026-10-30 | Entities, the live attack and tiers 7–8: the calls made building them |
 | [0066 A3](0066-lexemes.md#a3-the-part-suffix-belongs-to-the-lexeme-entity-type-not-to-a-grammar) | 2026-11-04 | The part suffix belongs to the lexeme entity type, not to a grammar |
@@ -244,15 +246,13 @@ Every unstruck question in every ADR (24 §8), with its first sentence. Settle o
 | [0045 Q3](0045-table-content-model.md) | Values as of a time | `revid` gives the definition as of a revision but current values. |
 | [0045 Q7](0045-table-content-model.md) | A faster lane for people | Whether a large paste by a person should count against a class other than `edit`, or whether rate limits as they stand are the right brake. |
 | [0046 Q1](0046-primary-tenant.md) | Instance groups separate from the primary tenant's groups | Whether instance rights should be granted by instance-scope group records rather than by the primary tenant's own groups, so that a community wiki can be primary without its bureaucrats approving consumers. |
-| [0046 Q2](0046-primary-tenant.md) | Public dumps of the instance `log` | Its job records and consumer events are public; its takedown and expunge records are not. |
 | [0046 Q3](0046-primary-tenant.md) | Two owners for a transfer | Whether offering the role should, like expunge (0040 Q1), need two members of `owner`. |
 | [0046 Q4](0046-primary-tenant.md) | Offer expiry default | Seven days is a placeholder. |
 | [0047 Q1](0047-special-pages.md) | The external-links table | Its shape (MediaWiki's `externallinks` stores reversed domains for prefix search) decides `LinkSearch`, `list=exturlusage`, and edit-filter variables over added links. |
 | [0047 Q3](0047-special-pages.md) | Global Nuke | Whether a global group at the farm base (0028 §3) may nuke a farm account across every tenant it is linked to, as one job per tenant or as an instance act (0040). |
-| [0047 Q4](0047-special-pages.md) | Page statements in exports | Whether to carry them in MediaWiki XML as an extra slot, which only Triplespace would read, or only in `records`. |
 | [0047 Q5](0047-special-pages.md) | Mute | Whether `Special:Mute` and user-level muting of notifications (0021) and email should exist at all. |
 | [0047 Q6](0047-special-pages.md) | Reports over mirror graphs | Which batch reports over a mirror are worth offering by default, for example mirrored properties without a local constraint, and whether their snapshots should be shared across tenants that mirror the same provider. |
-| [0047 Q7](0047-special-pages.md) | Thresholds | The defaults are placeholders: `nuke.confirm_threshold` (500), `export.sync_revisions` (5,000), `export.max_history` (1,000) and the `reports` `batch_limit` (1,000). |
+| [0047 Q7](0047-special-pages.md) | Thresholds | The defaults are placeholders: `nuke.confirm_threshold` (500) and the `reports` `batch_limit` (1,000). |
 | [0048 Q1](0048-notation.md) | Scheme names and interwiki prefixes | MediaWiki refuses a talk-page title whose text begins with an interwiki prefix. |
 | [0048 Q2](0048-notation.md) | The IRI's form | `https://scatter.red/notation/osm:amenity=cafe` keeps the key whole. |
 | [0048 Q3](0048-notation.md) | Which candidate ships next, | `hashtag` with federation's inbound posts or `media-type` with files, and their grammars. |
@@ -276,7 +276,7 @@ Every unstruck question in every ADR (24 §8), with its first sentence. Settle o
 | [0053 Q1](0053-mirrored-pages.md) | Enterprise as the default for Wikimedia wikis | Whether an instance with Enterprise credentials should prefer `enterprise` for every Wikimedia repository automatically, given its one-call bundle and its Realtime stream. |
 | [0053 Q2](0053-mirrored-pages.md) | Mirroring categories' members | `mirror.set = all` holds every page of a category; whether `view.page_category` should then include mirrored members for the listing tenants (0052 Q3). |
 | [0053 Q3](0053-mirrored-pages.md) | Interlanguage links | A bundle carries the repository's language links; whether the frame should show them as sitelinks of the paired item, as upstream's are, or as links out. |
-| [0053 Q4](0053-mirrored-pages.md) | `full` history for a mirror | The partition allows it; whether any tenant wants every rendering of every mirrored page kept, and what `Special:Export` should write for it. |
+| [0053 Q4](0053-mirrored-pages.md) | `full` history for a mirror | The partition allows it; whether any tenant wants every rendering of every mirrored page kept. |
 | [0053 Q5](0053-mirrored-pages.md) | Pre-rendering the frame | Whether the rewritten HTML could be served from the HTTP cache with the frame rendered client-side, for mirrors whose read traffic dwarfs everything else. |
 | [0053 Q6](0053-mirrored-pages.md) | Non-Parsoid repositories | How far section editing and fork-over-HTML should degrade for a repository whose HTML comes from the legacy parser, or whether such repositories should be served from wikitext through the expander instead. |
 | [0054 Q2](0054-forking-a-mirrored-page.md) | Forking into another namespace | Whether a repository's page may be forked under a different local title, which the stack's title identity does not allow today. |

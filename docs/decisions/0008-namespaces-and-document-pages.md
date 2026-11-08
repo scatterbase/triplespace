@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-29 (A47)
+- **Updated:** 2026-11-08 (A48)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -70,9 +70,9 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 
 ### 9. Importing pages from another wiki
 
-*Changed by A7, A10, A12, A16, A23, A38, A41, A43, A45.*
+*Changed by A7, A10, A12, A16, A23, A38, A41, A43, A45, A48.*
 
-*Current text: [10](../architecture/10-pages-and-content-models.md) §6.*
+*Current text: [10](../architecture/10-pages-and-content-models.md) §6; [21](../architecture/21-special-pages.md) §4.3.*
 
 ### 10. Links and metadata
 
@@ -660,3 +660,10 @@ Replaced text ([10](../architecture/10-pages-and-content-models.md) §1.4, as it
 Replaced text ([10](../architecture/10-pages-and-content-models.md) §1.4, as it stood):
 
 > | 12 | Help | `reserved` | — | — | — | Rule 1. Help content goes in `Project` |
+
+### A48. Importing onto an existing title follows MediaWiki; entity pages only from the adopted wiki
+
+- **Date:** 2026-11-08
+- **Source:** Direct: James, design discussion of 2026-11-08
+- **Change:** extends §9
+- **Summary:** Two of the import decisions of SCA-298. (1) Importing onto an existing title does what MediaWiki's importer does: the file's revisions are merged into the page's history by timestamp, revisions already held (same timestamp and text hash) are skipped, the newest by timestamp becomes current, and the census reports the collisions first; nothing is refused or renamed. (2) Entity pages in an export are imported only from the adopted wiki, within the adoption job, which keeps their IDs; from any other source the census refuses them, since identifiers are assigned by the load path that creates an entity. Page content from any wiki goes through the same load channels as every ingest, which mint its page IDs. Chapter text: 10 §6; 21 §4.3.

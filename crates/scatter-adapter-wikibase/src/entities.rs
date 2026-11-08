@@ -22,8 +22,8 @@ use crate::xml_dump::XmlDump;
 pub enum Entities<R: BufRead> {
     /// A JSON dump.
     Json(JsonDump<R>),
-    /// An XML dump.
-    Xml(XmlDump<R>),
+    /// An XML dump, boxed: it keeps the dump's `<siteinfo>`.
+    Xml(Box<XmlDump<R>>),
 }
 
 impl Entities<Box<dyn BufRead + Send>> {
@@ -33,7 +33,7 @@ impl Entities<Box<dyn BufRead + Send>> {
         let mut reader = crate::open(path)?;
         let first = reader.fill_buf()?.first().copied();
         Ok(if first == Some(b'<') {
-            Self::Xml(XmlDump::new(reader))
+            Self::Xml(Box::new(XmlDump::new(reader)))
         } else {
             Self::Json(JsonDump::new(reader))
         })
@@ -82,7 +82,7 @@ impl<R: BufRead> Entities<R> {
             Self::Xml(d) => loop {
                 let page = match d.next()? {
                     Ok(p) => p,
-                    Err(e) => return Some(Err(e)),
+                    Err(e) => return Some(Err(e.into())),
                 };
                 let Some(latest) = page.latest() else {
                     continue;
@@ -163,10 +163,11 @@ mod tests {
 
     #[test]
     fn xml_pages_become_entities_with_revisions() {
-        let items: Vec<ParsedEntity> =
-            Entities::Xml(XmlDump::new(crate::xml_dump::tests::SAMPLE.as_bytes()))
-                .map(Result::unwrap)
-                .collect();
+        let items: Vec<ParsedEntity> = Entities::Xml(Box::new(XmlDump::new(
+            crate::xml_dump::tests::SAMPLE.as_bytes(),
+        )))
+        .map(Result::unwrap)
+        .collect();
         assert_eq!(items.len(), 2);
         let page = items[0].page.as_ref().unwrap();
         assert_eq!((page.pageid, page.lastrevid), (Some(12), Some(41_877)));
@@ -175,11 +176,12 @@ mod tests {
 
     #[test]
     fn entries_keep_the_redirects() {
-        let entries: Vec<DumpEntry> =
-            Entities::Xml(XmlDump::new(crate::xml_dump::tests::SAMPLE.as_bytes()))
-                .entries()
-                .map(Result::unwrap)
-                .collect();
+        let entries: Vec<DumpEntry> = Entities::Xml(Box::new(XmlDump::new(
+            crate::xml_dump::tests::SAMPLE.as_bytes(),
+        )))
+        .entries()
+        .map(Result::unwrap)
+        .collect();
         let redirects: Vec<&DumpRedirect> = entries
             .iter()
             .filter_map(|e| match e {

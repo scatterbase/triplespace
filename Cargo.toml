@@ -9,6 +9,7 @@ members = [
     "crates/scatter-wikibase-changeset",
     "crates/scatter-wikibase-resolve",
     "crates/scatter-wikibase-rdf",
+    "crates/scatter-mediawiki-xml",
     "crates/scatter-ingest",
     "crates/triplespace-api-ingest",
     "crates/scatter-adapter-mediawiki",
@@ -65,6 +66,7 @@ scatter-wikibase-shape = { path = "crates/scatter-wikibase-shape" }
 scatter-wikibase-changeset = { path = "crates/scatter-wikibase-changeset" }
 scatter-wikibase-resolve = { path = "crates/scatter-wikibase-resolve" }
 scatter-wikibase-rdf = { path = "crates/scatter-wikibase-rdf" }
+scatter-mediawiki-xml = { path = "crates/scatter-mediawiki-xml" }
 scatter-ingest = { path = "crates/scatter-ingest" }
 triplespace-api-ingest = { path = "crates/triplespace-api-ingest" }
 triplespace-accounts = { path = "crates/triplespace-accounts" }

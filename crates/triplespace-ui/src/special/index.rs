@@ -225,6 +225,12 @@ pub const PAGES: &[(&str, &str, &str, Option<Feature>)] = &[
         Some(Feature::Move),
     ),
     (
+        "Special:Export",
+        "ts-export-title",
+        "ts-specialpages-export",
+        Some(Feature::Export),
+    ),
+    (
         "Special:NewItem",
         "ts-newitem-title",
         "ts-specialpages-newitem",

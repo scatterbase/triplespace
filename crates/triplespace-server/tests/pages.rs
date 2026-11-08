@@ -972,6 +972,8 @@ struct Got {
     status: StatusCode,
     location: String,
     cache_control: String,
+    content_type: String,
+    disposition: String,
     body: String,
 }
 
@@ -1032,6 +1034,8 @@ impl Browser {
         };
         let location = header(header::LOCATION);
         let cache_control = header(header::CACHE_CONTROL);
+        let content_type = header(header::CONTENT_TYPE);
+        let disposition = header(header::CONTENT_DISPOSITION);
         for sc in r.headers().get_all(header::SET_COOKIE) {
             if let Some(v) = sc
                 .to_str()
@@ -1047,6 +1051,8 @@ impl Browser {
             status,
             location,
             cache_control,
+            content_type,
+            disposition,
             body: String::from_utf8_lossy(&bytes).into_owned(),
         }
     }
@@ -1596,10 +1602,16 @@ async fn a_records_export_of_librarybase_pages_verifies() {
     .await;
     let current = records_in(&bytes);
     assert_eq!(current, 1);
-    // The XML format is not built yet.
-    let (status, _, _) =
+    // The XML format is the other one `POST /export` serves (21 §4.2).
+    let (status, headers, _) =
         export(serde_json::json!({"format": "xml", "pages": ["Project:Home"]})).await;
-    assert_eq!(status, StatusCode::NOT_IMPLEMENTED);
+    assert_eq!(status, StatusCode::OK);
+    assert!(
+        headers[header::CONTENT_TYPE]
+            .to_str()
+            .unwrap()
+            .starts_with("application/xml")
+    );
 }
 
 fn records_in(bytes: &[u8]) -> u64 {
@@ -1613,4 +1625,509 @@ fn records_in(bytes: &[u8]) -> u64 {
             .all(scatter_integrity::records::PartitionReport::is_clean)
     );
     reports.iter().map(|r| r.records).sum()
+}
+
+/// The MediaWiki XML export of Librarybase pages and items round-trips through the
+/// reader (21 §4.2; 0047 §8.1): `POST /export` with `format: xml` streams a schema-0.11
+/// document holding the pages' revisions and the items' local-graph states, which
+/// `scatter-mediawiki-xml` reads back, writes again and reads to the same pages; a
+/// revision-deleted text is written as MediaWiki writes it; `action=query&export`,
+/// `exportnowrap` and `Special:Export` give the same document.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn an_xml_export_of_librarybase_pages_round_trips() {
+    use scatter_mediawiki_xml::Writer;
+    let Some((database, key_file)) = setup("tspages_xml_test").await else {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    };
+    let api = router(&database, &key_file).await;
+    let export = |body: Value| export_from(api.clone(), body);
+    let read = read_xml;
+
+    // Full history of a page; a title that does not exist is missing; `templates` is
+    // answered with a notice.
+    let (status, headers, bytes) = export(serde_json::json!({
+        "format": "xml",
+        "pages": ["Project:Home", "No such page"],
+        "history": true,
+        "templates": true,
+    }))
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "{}",
+        String::from_utf8_lossy(&bytes)
+    );
+    assert!(
+        headers[header::CONTENT_TYPE]
+            .to_str()
+            .unwrap()
+            .starts_with("application/xml"),
+        "{headers:?}"
+    );
+    assert_eq!(headers["x-export-missing"], "1");
+    assert!(
+        headers["x-export-notice"]
+            .to_str()
+            .unwrap()
+            .contains("no templates were added"),
+        "{headers:?}"
+    );
+    let text = String::from_utf8_lossy(&bytes).into_owned();
+    assert!(text.starts_with("<mediawiki xmlns=\"http://www.mediawiki.org/xml/export-0.11/\""));
+    assert!(
+        text.contains("  <!-- templates: no templates were added"),
+        "{text}"
+    );
+    let (site, pages) = read(&bytes);
+    assert_eq!(site.sitename, "librarybase");
+    assert_eq!(site.generator, "Triplespace test");
+    assert!(
+        site.base.starts_with("https://librarybase.org/wiki/"),
+        "{}",
+        site.base
+    );
+    assert!(
+        site.namespaces.iter().any(|n| n.key == 4),
+        "{:?}",
+        site.namespaces
+    );
+    assert_eq!(
+        pages.len(),
+        1,
+        "{:?}",
+        pages.iter().map(|p| &p.title).collect::<Vec<_>>()
+    );
+    let home = pages.iter().find(|p| p.ns == 4).expect("Project:Home");
+    assert_eq!(home.id, 489);
+    assert!(home.title.ends_with(":Home"), "{}", home.title);
+    assert_eq!(home.revisions.len(), 18, "every revision of the page");
+    assert!(
+        home.revisions
+            .windows(2)
+            .all(|w| w[0].id < w[1].id && w[1].parent_id == Some(w[0].id))
+    );
+    assert_eq!(home.revisions[0].parent_id, None);
+    assert_eq!(home.revisions[0].model.as_deref(), Some("wikitext"));
+    assert_eq!(home.revisions[0].format.as_deref(), Some("text/x-wiki"));
+    let latest = home.latest().unwrap();
+    let mut api_client = Client {
+        router: api.clone(),
+        cookie: None,
+    };
+    let served = api_client
+        .get("action=query&prop=revisions&titles=Project:Home&rvprop=ids|content&rvslots=main")
+        .await;
+    let rev = &served["query"]["pages"][0]["revisions"][0];
+    assert_eq!(rev["revid"].as_u64().unwrap(), latest.id);
+    assert_eq!(
+        rev["slots"]["main"]["content"].as_str().unwrap(),
+        latest.text
+    );
+    assert_eq!(
+        latest.sha1.as_deref(),
+        Some(scatter_mediawiki_xml::sha1_base36(&latest.text).as_str())
+    );
+    // Written again by the same crate, it reads to the same pages.
+    let mut writer = Writer::new(Vec::new());
+    writer.start(&site).unwrap();
+    for p in &pages {
+        writer.page(p).unwrap();
+    }
+    let (site_again, again) = read(&writer.finish().unwrap());
+    assert_eq!(site_again, site);
+    assert_eq!(again, pages);
+
+    // Without `history`, the current revision alone; a namespace needs the setting.
+    let (_, _, bytes) =
+        export(serde_json::json!({"format": "xml", "pages": "Project:Home\nProject:Scope"})).await;
+    let (_, current) = read(&bytes);
+    assert_eq!(current.len(), 2);
+    assert!(
+        current.iter().all(|p| p.revisions.len() == 1),
+        "{current:?}"
+    );
+    assert_eq!(current[0].revisions[0].id, latest.id);
+    let (status, _, bytes) = export(serde_json::json!({"format": "xml", "namespaces": [4]})).await;
+    assert_eq!(
+        status,
+        StatusCode::FORBIDDEN,
+        "{}",
+        String::from_utf8_lossy(&bytes)
+    );
+    let (status, _, bytes) = export(serde_json::json!({"format": "xml", "pages": []})).await;
+    assert_eq!(
+        status,
+        StatusCode::BAD_REQUEST,
+        "{}",
+        String::from_utf8_lossy(&bytes)
+    );
+
+    // `action=query&export` wraps the same document; `exportnowrap` sends it bare.
+    let v = api_client
+        .get("action=query&export&titles=Project:Home|Project:Scope")
+        .await;
+    let wrapped = v["query"]["export"].as_str().unwrap_or_default();
+    assert!(wrapped.starts_with("<mediawiki "), "{v}");
+    assert!(wrapped.contains(":Scope</title>"), "{wrapped}");
+    let (_, from_api) = read(wrapped.as_bytes());
+    assert_eq!(from_api.len(), 2);
+    assert_eq!(
+        from_api[0].revisions.len(),
+        1,
+        "current revisions, as MediaWiki exports"
+    );
+    let req = Request::builder()
+        .uri("/w/api.php?action=query&export&exportnowrap&titles=Project:Scope&format=json")
+        .header(header::HOST, HOST)
+        .body(Body::empty())
+        .unwrap();
+    let resp = api.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    assert!(
+        resp.headers()[header::CONTENT_TYPE]
+            .to_str()
+            .unwrap()
+            .starts_with("text/xml")
+    );
+    let bare = resp.into_body().collect().await.unwrap().to_bytes();
+    assert!(bare.starts_with(b"<mediawiki "));
+    let (_, nowrap) = read(&bare);
+    assert!(nowrap[0].title.ends_with(":Scope"), "{}", nowrap[0].title);
+
+    // A revision-deleted text is written as MediaWiki writes it, for everyone.
+    let t = api_client.get("action=query&meta=tokens&type=login").await;
+    let login = t["query"]["tokens"]["logintoken"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let cl = api_client
+        .post(
+            "action=clientlogin",
+            &format!(
+                "username=Librarybase&password=owner-secret-1234&logintoken={}&loginreturnurl=https://{HOST}/",
+                enc(&login)
+            ),
+        )
+        .await;
+    assert_eq!(cl["clientlogin"]["status"], "PASS", "{cl}");
+    let csrf = api_client.get("action=query&meta=tokens").await["query"]["tokens"]["csrftoken"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let hidden_id = home.revisions[0].id;
+    let h = api_client
+        .post(
+            "action=revisiondelete",
+            &format!(
+                "type=revision&ids={hidden_id}&hide=content&reason=test&token={}",
+                enc(&csrf)
+            ),
+        )
+        .await;
+    assert_eq!(h["revisiondelete"]["items"][0]["texthidden"], true, "{h}");
+    let (_, _, bytes) =
+        export(serde_json::json!({"format": "xml", "pages": ["Project:Home"], "history": true}))
+            .await;
+    let text = String::from_utf8_lossy(&bytes).into_owned();
+    assert!(
+        text.contains("deleted=\"deleted\" />\n      <sha1 />"),
+        "{text}"
+    );
+    let (_, redacted) = read(&bytes);
+    let first = &redacted[0].revisions[0];
+    assert_eq!(first.id, hidden_id);
+    assert!(first.text_hidden && first.text.is_empty());
+    assert!(!first.user_hidden && first.user.is_some());
+    assert!(redacted[0].revisions[1..].iter().all(|r| !r.text_hidden));
+
+    // `Special:Export` through the site: the form, and the file it posts for.
+    let site_router =
+        api.clone()
+            .fallback_service(triplespace_ui::router(triplespace_client::Client::new(
+                triplespace_client::ServiceTransport::new(api.clone()),
+            )));
+    let mut b = Browser {
+        router: site_router,
+        cookie: None,
+    };
+    let form = b.get("/wiki/Special:Export/Project:Home").await;
+    assert_eq!(form.status, StatusCode::OK, "{}", form.body);
+    assert!(form.body.contains("name=\"pages\""), "{}", form.body);
+    assert!(
+        form.body.contains(">Project:Home\n</textarea>"),
+        "{}",
+        form.body
+    );
+    assert!(form.body.contains("name=\"curonly\"") && form.body.contains("name=\"wpDownload\""));
+    assert!(
+        form.body.contains("name=\"format\" value=\"records\""),
+        "{}",
+        form.body
+    );
+    assert!(
+        !form.body.contains("name=\"nsindex\""),
+        "addns waits for export.from_namespaces"
+    );
+    let file = b
+        .post(
+            "/wiki/Special:Export",
+            &[
+                ("pages", "Project:Home\nProject:Scope"),
+                ("curonly", "1"),
+                ("format", "xml"),
+                ("wpDownload", "1"),
+            ],
+        )
+        .await;
+    assert_eq!(file.status, StatusCode::OK, "{}", file.body);
+    assert!(
+        file.content_type.starts_with("application/xml"),
+        "{}",
+        file.content_type
+    );
+    assert!(
+        file.disposition
+            .starts_with("attachment; filename=\"librarybase-"),
+        "{}",
+        file.disposition
+    );
+    let (_, from_site) = read(file.body.as_bytes());
+    assert_eq!(from_site.len(), 2);
+    assert_eq!(from_site[0].revisions.len(), 1);
+    // Shown rather than saved, without `wpDownload`; and the records format.
+    let shown = b
+        .post(
+            "/wiki/Special:Export",
+            &[
+                ("pages", "Project:Scope"),
+                ("curonly", "1"),
+                ("format", "xml"),
+            ],
+        )
+        .await;
+    assert_eq!(shown.status, StatusCode::OK);
+    assert!(shown.disposition.is_empty(), "{}", shown.disposition);
+    let records = b
+        .post(
+            "/wiki/Special:Export",
+            &[
+                ("pages", "Project:Home"),
+                ("curonly", "1"),
+                ("format", "records"),
+                ("wpDownload", "1"),
+            ],
+        )
+        .await;
+    assert_eq!(records.status, StatusCode::OK);
+    assert_eq!(
+        records.content_type,
+        "application/vnd.triplespace.records+cbor"
+    );
+    // An empty list comes back as the form with a warning; Add from a category too.
+    let empty = b
+        .post("/wiki/Special:Export", &[("pages", ""), ("format", "xml")])
+        .await;
+    assert_eq!(empty.status, StatusCode::OK);
+    assert!(
+        empty.body.contains("List at least one page."),
+        "{}",
+        empty.body
+    );
+    let added = b
+        .post(
+            "/wiki/Special:Export",
+            &[
+                ("pages", "Project:Home"),
+                ("catname", "Nothing here"),
+                ("addcat", "1"),
+            ],
+        )
+        .await;
+    assert_eq!(added.status, StatusCode::OK);
+    assert!(added.body.contains("Added 0 pages."), "{}", added.body);
+    assert!(
+        added.body.contains(">Project:Home\n</textarea>"),
+        "{}",
+        added.body
+    );
+}
+
+/// `POST /export` on a router: the status, the headers and the body.
+async fn export_from(api: Router, body: Value) -> (StatusCode, axum::http::HeaderMap, Vec<u8>) {
+    let req = Request::builder()
+        .method("POST")
+        .uri("/w/rest.php/triplespace/v0/export")
+        .header(header::HOST, HOST)
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(body.to_string()))
+        .unwrap();
+    let resp = api.oneshot(req).await.unwrap();
+    let status = resp.status();
+    let headers = resp.headers().clone();
+    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    (status, headers, bytes.to_vec())
+}
+
+/// A MediaWiki XML export read back: its `<siteinfo>` and its pages.
+fn read_xml(
+    bytes: &[u8],
+) -> (
+    scatter_mediawiki_xml::SiteInfo,
+    Vec<scatter_mediawiki_xml::DumpPage>,
+) {
+    let mut dump = scatter_mediawiki_xml::XmlDump::new(bytes);
+    let pages: Vec<scatter_mediawiki_xml::DumpPage> = dump
+        .by_ref()
+        .map(|p| p.expect("a well-formed page"))
+        .collect();
+    (dump.siteinfo().clone(), pages)
+}
+
+/// Librarybase's items and properties export as Wikibase entity pages (21 §4.2; 0047
+/// §8.1): from an instance that adopted the entity sample (its own, since the sample and
+/// the wikitext dump are dumps of two builds of the wiki and share revision IDs), each
+/// entity one `wikibase-item` or `wikibase-property` page whose revisions carry the
+/// canonical JSON of its local-graph state, and the document reads back, writes again
+/// and reads to the same pages.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn an_xml_export_of_librarybase_items_round_trips() {
+    use scatter_mediawiki_xml::Writer;
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let database = fresh_database("tspages_xml_items_test").await;
+    let dir = std::env::temp_dir().join(format!("tspages-xml-items-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let pw = dir.join("owner.pw");
+    std::fs::write(&pw, "owner-secret-1234\n").unwrap();
+    let key_file = dir.join("triplespace.key");
+    instance::run(instance::Create {
+        database: database.clone(),
+        key_file: key_file.clone(),
+        tenant: TENANT.into(),
+        base: format!("https://{HOST}"),
+        name: None,
+        farm_slug: "testfarm".into(),
+        tenancy: "isolated".into(),
+        farm_base: None,
+        providers: vec![],
+        adopt: Some(format!("https://{HOST}/")),
+        owner: Some(7),
+        owner_name: "Alice".into(),
+        owner_password_file: Some(pw),
+    })
+    .await
+    .expect("instance create");
+    adopt::run(adopt::Adopt {
+        database: database.clone(),
+        tenant: TENANT.into(),
+        dump: PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .join("../../docs/samples/librarybase/dump/librarybase-sample.xml.gz"),
+        source: format!("https://{HOST}/"),
+        version: Some("LibrarybaseSample-20261101".into()),
+        frozen: true,
+        current_only: false,
+        counters: None,
+        log_floor: 0,
+        entity_sources: vec![],
+        subsidiary: None,
+        batch: 50,
+        skip_talk: true,
+        no_accounts: false,
+    })
+    .await
+    .expect("adopt the entity sample");
+    let api = router(&database, &key_file).await;
+    let (status, headers, bytes) = export_from(
+        api.clone(),
+        serde_json::json!({
+            "format": "xml",
+            "pages": ["Item:Q1", "Property:P1", "Item:Q999999999"],
+            "history": true,
+        }),
+    )
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "{}",
+        String::from_utf8_lossy(&bytes)
+    );
+    assert_eq!(headers["x-export-missing"], "1");
+    let (site, pages) = read_xml(&bytes);
+    assert!(
+        site.namespaces
+            .iter()
+            .any(|n| n.key == 120 && n.name == "Item"),
+        "{:?}",
+        site.namespaces
+    );
+    assert_eq!(
+        pages.len(),
+        2,
+        "{:?}",
+        pages.iter().map(|p| &p.title).collect::<Vec<_>>()
+    );
+    let q1 = pages
+        .iter()
+        .find(|p| p.title == "Item:Q1")
+        .expect("Item:Q1");
+    assert_eq!(q1.ns, 120);
+    assert_eq!(q1.revisions.len(), 6, "every local revision of the item");
+    assert_eq!((q1.revisions[0].id, q1.revisions[1].id), (2, 3));
+    assert!(
+        q1.revisions
+            .windows(2)
+            .all(|w| w[1].parent_id == Some(w[0].id))
+    );
+    assert_eq!(q1.revisions[0].user, Some((3, "Librarybase".into())));
+    assert_eq!(q1.revisions[1].user, Some((0, "imported>Harej".into())));
+    assert_eq!(q1.revisions[1].model.as_deref(), Some("wikibase-item"));
+    assert_eq!(q1.revisions[1].format.as_deref(), Some("application/json"));
+    let state: Value = serde_json::from_str(&q1.revisions[1].text).unwrap();
+    assert_eq!(state["id"], "Q1");
+    assert_eq!(state["labels"]["en"]["value"], "Librarybase");
+    assert!(
+        state["claims"]
+            .as_object()
+            .is_some_and(|c| c.contains_key("P1")),
+        "{state}"
+    );
+    let p1 = pages
+        .iter()
+        .find(|p| p.title == "Property:P1")
+        .expect("Property:P1");
+    assert_eq!(p1.ns, 122);
+    assert_eq!(p1.revisions[0].model.as_deref(), Some("wikibase-property"));
+    assert_eq!(
+        serde_json::from_str::<Value>(&p1.revisions[0].text).unwrap()["datatype"],
+        "url"
+    );
+
+    // Written again by the same crate, it reads to the same pages.
+    let mut w = Writer::new(Vec::new());
+    w.start(&site).unwrap();
+    for p in &pages {
+        w.page(p).unwrap();
+    }
+    let (site_again, again) = read_xml(&w.finish().unwrap());
+    assert_eq!(site_again, site);
+    assert_eq!(again, pages);
+    // Without history, each entity's current state alone.
+    let (_, _, bytes) = export_from(
+        api.clone(),
+        serde_json::json!({"format": "xml", "pages": ["Item:Q1", "Property:P1"]}),
+    )
+    .await;
+    let (_, current) = read_xml(&bytes);
+    assert!(
+        current.iter().all(|p| p.revisions.len() == 1),
+        "{current:?}"
+    );
+    assert_eq!(current[0].revisions[0].id, q1.latest().unwrap().id);
 }
