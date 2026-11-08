@@ -14,9 +14,10 @@ use scatter_log::record::Record;
 use scatter_log::store::Slot;
 use scatter_log_postgres::PgClient;
 use tokio_postgres::GenericClient;
-use triplespace_projections::acl_read::{self, ActivityTarget};
+use tokio_postgres::types::ToSql;
+use triplespace_projections::acl_read;
 use triplespace_projections::common::target_kind;
-use triplespace_projections::feed::Viewer;
+use triplespace_projections::feed::{self, Viewer};
 
 fn now_micros() -> u64 {
     u64::try_from(
@@ -225,32 +226,44 @@ impl Reader {
             Offsets::Range(r) => (Some(bound(r.start)), Some(bound(r.end)), None),
             Offsets::At(list) => (None, None, Some(list.iter().map(|&o| bound(o)).collect())),
         };
+        // The feeds' own row rules (0006 A31), selected per row rather than filtering:
+        // whether the viewer may see the row's target at all, and whether a suppression
+        // event is its group's (09 §6.5). A null answer (a suppression naming no group) is
+        // "may not".
+        let mut params: Vec<feed::Param> = vec![
+            Box::new(tenant.to_string()),
+            Box::new(ids.to_vec()),
+            Box::new(from),
+            Box::new(to),
+            Box::new(at),
+        ];
+        let targets = feed::visible_targets(&self.viewer.hidden, &mut params)
+            .unwrap_or_else(|| "true".into());
+        let suppressions = feed::visible_suppressions(&self.viewer, &mut params);
+        let sql = format!(
+            "SELECT a.partition, a.\"offset\", a.target_kind, a.target_id,
+                    a.params->'of'->>'kind', a.params->'of'->>'id', a.visibility,
+                    a.actor_key, lp.name,
+                    coalesce(({targets}), false), coalesce(({suppressions}), false)
+             FROM view.activity a
+             JOIN log.partition lp ON lp.partition = a.partition
+             WHERE a.tenant = $1 AND a.partition = ANY($2)
+               AND ($3::bigint IS NULL OR a.\"offset\" >= $3)
+               AND ($4::bigint IS NULL OR a.\"offset\" < $4)
+               AND ($5::bigint[] IS NULL OR a.\"offset\" = ANY($5))"
+        );
+        let refs: Vec<&(dyn ToSql + Sync)> = params
+            .iter()
+            .map(|p| p.as_ref() as &(dyn ToSql + Sync))
+            .collect();
         let rows = tx
-            .query(
-                "SELECT a.partition, a.\"offset\", a.target_kind, a.target_id,
-                        a.params->'of'->>'kind', a.params->'of'->>'id', a.visibility, a.log_type,
-                        coalesce(a.params->'restrictions'->'read'->>'group',
-                                 a.params->'previous'->'read'->>'group'),
-                        a.actor_key, lp.name, p.ns, op.ns
-                 FROM view.activity a
-                 JOIN log.partition lp ON lp.partition = a.partition
-                 LEFT JOIN view.page p ON p.tenant = a.tenant AND a.target_kind = 2
-                      AND p.page_id = CASE WHEN a.target_id ~ '^[0-9]+$' THEN a.target_id::bigint END
-                 LEFT JOIN view.page op ON op.tenant = a.tenant AND a.params->'of'->>'kind' = '2'
-                      AND op.page_id = CASE WHEN a.params->'of'->>'id' ~ '^[0-9]+$'
-                                            THEN (a.params->'of'->>'id')::bigint END
-                 WHERE a.tenant = $1 AND a.partition = ANY($2)
-                   AND ($3::bigint IS NULL OR a.\"offset\" >= $3)
-                   AND ($4::bigint IS NULL OR a.\"offset\" < $4)
-                   AND ($5::bigint[] IS NULL OR a.\"offset\" = ANY($5))",
-                &[&tenant, &ids, &from, &to, &at],
-            )
+            .query(&sql, &refs)
             .await
             .map_err(|e| format!("reading view.activity: {e}"))?;
         let at = Timestamp(now_micros());
         let actors: Vec<String> = rows
             .iter()
-            .filter_map(|r| r.get::<_, Option<String>>(9))
+            .filter_map(|r| r.get::<_, Option<String>>(7))
             .collect();
         let hidden_actors =
             acl_read::hidden_actors(tx, tenant, &actors, |g| self.viewer.reads_in(g), at).await?;
@@ -264,26 +277,14 @@ impl Reader {
             let id: Option<String> = r.get(3);
             let of_kind: Option<i16> = r.get::<_, Option<String>>(4).and_then(|k| k.parse().ok());
             let of_id: Option<String> = r.get(5);
-            let target = ActivityTarget {
-                kind,
-                id: id.clone(),
-                of_kind,
-                of_id: of_id.clone(),
-                page_ns: r.get(11),
-                of_page_ns: r.get(12),
-                partition_name: r.get(10),
-            };
+            let partition_name: String = r.get(8);
             // Absent: a target a confidential restriction hides.
-            if self.viewer.hidden.hides_activity(&target) {
+            if !r.get::<_, bool>(9) {
                 out.insert((partition, offset), Withhold::Record);
                 continue;
             }
             // A suppression event is its group's (09 §6.5).
-            let log_type: Option<String> = r.get(7);
-            let named: Option<String> = r.get(8);
-            if log_type.as_deref() == Some("suppress")
-                && !named.as_deref().is_some_and(|g| self.viewer.reads_in(g))
-            {
+            if !r.get::<_, bool>(10) {
                 out.insert((partition, offset), Withhold::AllParts);
                 continue;
             }
@@ -299,7 +300,7 @@ impl Reader {
                     *ok
                 } else {
                     let ok = self
-                        .target_readable(tx, tenant, tk, &tid, &target.partition_name, at)
+                        .target_readable(tx, tenant, tk, &tid, &partition_name, at)
                         .await?;
                     readable.insert(key, ok);
                     ok
@@ -318,7 +319,7 @@ impl Reader {
             if visibility & bits::COMMENT != 0 {
                 parts.push(COMMENT);
             }
-            let actor: Option<String> = r.get(9);
+            let actor: Option<String> = r.get(7);
             if visibility & bits::USER != 0 || actor.is_some_and(|a| hidden_actors.contains(&a)) {
                 parts.push(ATTESTATION);
             }
