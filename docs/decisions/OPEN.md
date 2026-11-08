@@ -43,6 +43,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0032 A14](0032-sparql-update-stream.md#a14-the-skolem-preimage-property-iris-per-property-indexes-references-without-the-uuid) | 2026-11-07 | The skolem preimage: property IRIs, per-property indexes, references without the UUID |
 | [0033 A25](0033-backend-stack.md#a25-tls-to-postgres-when-the-url-says-sslmoderequire) | 2026-10-31 | TLS to Postgres when the URL says `sslmode=require` |
 | [0034 A15](0034-frontend-stack.md#a15-uselangqqx-shows-message-keys) | 2026-11-04 | `uselang=qqx` shows message keys |
+| [0039 A15](0039-files-and-media.md#a15-staging-keys-commit-retries-and-reserved-scope-names) | 2026-11-07 | Staging keys, commit retries and reserved scope names |
 | [0042 A22](0042-template-expansion-and-parsoid.md#a22-which-template-drew-a-block) | 2026-11-04 | Which template drew a block |
 | [0047 A29](0047-special-pages.md#a29-pagerandom-is-derived-from-the-page) | 2026-11-02 | `page_random` is derived from the page |
 | [0047 A31](0047-special-pages.md#a31-the-records-export-as-built) | 2026-11-08 | The `records` export as built |

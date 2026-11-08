@@ -63,6 +63,8 @@ Bytes live in the blob store of [03](03-storage-caches-and-search.md) §8, addre
 
 **Under `instance`,** every warning and listing stays per tenant: `duplicate` warnings and `prop=duplicatefiles` name only the uploader's own tenant's files, and an upload of bytes already stored still runs every check and takes as long as reading them. What the setting cannot hide is that the store skips a write.
 
+**A scope name beginning with `_` is reserved** for the instance's own scopes, of which `_instance` is the first, so no tenant's slug can name one; `scatter-blob` refuses such a tenant scope ([0039](../decisions/0039-files-and-media.md) A15).
+
 **Changing the setting** is a job (`triplespace-cli files rescope`) that copies objects into the new scopes, re-derives `view.blob` ([03](03-storage-caches-and-search.md) §4.9), and switches reads when it finishes. It needs `owner`, as the identity switches of [0028](../decisions/0028-tenancy-policy.md) §2 do.
 
 ## 3. Uploading
