@@ -85,3 +85,4 @@ Thumbs.db
 
 # Python virtualenv made by tools/dev_env.sh for the client-compatibility checks
 .venv/
+.claude/worktrees/
