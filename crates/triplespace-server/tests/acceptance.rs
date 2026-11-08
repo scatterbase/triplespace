@@ -223,6 +223,7 @@ async fn a_bot_logs_in_reads_and_edits() {
         batch: 200,
         rejects: None,
         no_bootstrap: false,
+        writers: sync::WRITERS,
     })
     .await
     .expect("sync");

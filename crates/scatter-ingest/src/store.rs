@@ -20,6 +20,9 @@ use scatter_wikibase_model::value::DataType;
 
 use crate::IngestError;
 
+/// Why a store without concurrent bootstrap blocks refuses to write one.
+const NOT_CONCURRENT: &str = "this store writes one bootstrap block at a time";
+
 /// A per-tenant sequence (0013 §6). The instance's own sequences are under the tenant `""`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Sequence {
@@ -104,6 +107,45 @@ pub trait IngestStore: Backend {
     /// nothing.
     fn encoded(&self, body: &scatter_log::body::Body, op: scatter_wikibase_changeset::Operation) {
         let _ = (body, op);
+    }
+
+    /// Whether a bootstrap load may write several blocks at once, each in a unit of work
+    /// of its own (0013 §9, A82): whether [`Self::write_sealed`] and
+    /// [`Self::advance_partition`] are implemented and units of work run concurrently. The
+    /// default is `false`, and a load then writes one block at a time.
+    fn concurrent_blocks(&self) -> bool {
+        false
+    }
+
+    /// Writes a block a bootstrap load has sealed at offsets it assigned, with the tree
+    /// nodes its leaves complete, which the load folded in order (0013 §9, A82). Takes no
+    /// lock on the partition and leaves its next offset alone: the load moves it with
+    /// [`Self::advance_partition`] once every earlier block has committed. Only for a
+    /// store whose [`Self::concurrent_blocks`] is `true`; the default refuses.
+    fn write_sealed(
+        &self,
+        cx: &mut Self::Cx,
+        partition: u64,
+        records: &[Record],
+        nodes: &[(u32, u64, Hash)],
+    ) -> impl Future<Output = Result<(), IngestError>> + Send {
+        let _ = (cx, partition, records, nodes);
+        async { Err(IngestError::Adapter(NOT_CONCURRENT.into())) }
+    }
+
+    /// Moves a partition's next offset from `start` to `end`, last in a bootstrap block's
+    /// unit of work (0013 §9, A82). Fails if the next offset is not `start`, which would
+    /// mean a block committing out of order. Only for a store whose
+    /// [`Self::concurrent_blocks`] is `true`; the default refuses.
+    fn advance_partition(
+        &self,
+        cx: &mut Self::Cx,
+        partition: u64,
+        start: u64,
+        end: u64,
+    ) -> impl Future<Output = Result<(), IngestError>> + Send {
+        let _ = (cx, partition, start, end);
+        async { Err(IngestError::Adapter(NOT_CONCURRENT.into())) }
     }
 
     /// Appends drafts at consecutive offsets of a partition inside the unit of work, each

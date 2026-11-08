@@ -402,6 +402,54 @@ pub async fn append_many<C: PgClient>(
     Ok(records)
 }
 
+/// A block a bootstrap load has sealed at offsets it assigned, with the tree nodes its
+/// leaves complete, which the load folded in order (0013 §9, A82): one `COPY` of the
+/// records and one of the nodes. Takes no row lock and leaves `next_offset` alone, so that
+/// several blocks can be written at once; [`advance_next_offset`] moves it, last in each
+/// block's transaction, once every earlier block has committed.
+///
+/// # Errors
+///
+/// When the database fails.
+pub async fn write_sealed<C: PgClient>(
+    client: &C,
+    partition: u64,
+    records: &[Record],
+    nodes: &[(u32, u64, Hash)],
+) -> Result<(), StoreError> {
+    copy_records(client, partition, records).await?;
+    copy_nodes(client, partition, nodes).await
+}
+
+/// Moves `next_offset` from `start` to `end` (0013 §9, A82). Fails when it is not at
+/// `start`: the blocks of a bootstrap load commit in order, and this is where an
+/// out-of-order commit would show.
+///
+/// # Errors
+///
+/// When the database fails, or `next_offset` is not `start`.
+pub async fn advance_next_offset<C: PgClient>(
+    client: &C,
+    partition: u64,
+    start: u64,
+    end: u64,
+) -> Result<(), StoreError> {
+    let n = client
+        .execute(
+            "UPDATE log.partition SET next_offset = $3 WHERE partition = $1 AND next_offset = $2",
+            &[&partition_to_db(partition), &to_db(start)?, &to_db(end)?],
+        )
+        .await
+        .map_err(|e| storage_error(&e))?;
+    if n == 1 {
+        Ok(())
+    } else {
+        Err(StoreError::Storage(format!(
+            "partition {partition}: next_offset is not {start}; a block committed out of order"
+        )))
+    }
+}
+
 /// The records of [`append_many`], by binary `COPY` into `log.record`, with the columns
 /// [`insert_record`] writes for an unerased record.
 async fn copy_records<C: PgClient>(

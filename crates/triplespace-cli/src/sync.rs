@@ -32,7 +32,7 @@ use triplespace_api_ingest::follow::{KIND_PROVIDER, KIND_SOURCE, record_load};
 
 use crate::follow::tenant_registry;
 
-use crate::common::{connect, farm_of, now, store};
+use crate::common::{connect, farm_of, now, store_sized};
 
 /// `sync`.
 #[derive(Debug, Args)]
@@ -71,7 +71,15 @@ pub struct Sync {
     /// instance mirror, no key map, a JSON dump; 0013 §9).
     #[arg(long)]
     pub no_bootstrap: bool,
+    /// How many blocks a bootstrap load writes at once, each on a connection of its own and
+    /// committed in dump order (0013 A82); 1 writes one block at a time.
+    #[arg(long, default_value_t = WRITERS)]
+    pub writers: usize,
 }
+
+/// A bootstrap load's blocks in flight by default (0013 A82): the fastest of 1, 2, 4 and 8 on
+/// the full Wikidata dump on 16 cores, where preparing the records was then the limit.
+pub const WRITERS: usize = 4;
 
 /// What a dump yields for the sync: its items in dump order, read as the sync asks for
 /// them, so a dump of any size is held one entity at a time (`run_sync_in` takes any
@@ -369,7 +377,8 @@ pub async fn run(args: Sync) -> Result<()> {
     }
     let mut watch = Watch::new(args.rejects.as_deref())?;
     let farm = farm_of(&client).await?;
-    let (store, pipeline) = store(&args.database, &farm)?;
+    // A bootstrap load's writers each hold a connection, beside its coordinator's.
+    let (store, pipeline) = store_sized(&args.database, &farm, args.writers.max(1) + 4)?;
     let version = args.version.clone().unwrap_or_else(|| {
         args.dump
             .file_name()
@@ -470,23 +479,18 @@ async fn load_bootstrapped(
         "bootstrap: the mirror is empty; loading in blocks, prepared on {workers} threads (0013 §9)"
     );
     let tally = Arc::new(crate::bootstrap::Tally::default());
-    let outcome = run_bootstrap(
-        store,
-        pipeline,
-        header,
-        attestation,
-        registry,
-        now(),
-        args.batch.max(1),
-        |prepare| {
+    let items = {
+        let tally = Arc::clone(&tally);
+        let adapter = &adapter;
+        move |prepare: scatter_ingest::Prepare| {
             // The projections' per-record work runs on the workers too (0013 A74).
             let prepare = prepare.warmed_by(Arc::new(triplespace_projections::common::warm));
             let prepared: Box<dyn Iterator<Item = Result<Prepared, IngestError>>> =
-                match crate::bootstrap::prepared(&args.dump, &adapter, prepare, workers, &tally) {
+                match crate::bootstrap::prepared(&args.dump, adapter, prepare, workers, &tally) {
                     Ok(ordered) => Box::new(ordered),
                     Err(e) => Box::new(std::iter::once(Err(e))),
                 };
-            prepared.inspect(|p| {
+            prepared.inspect(move |p| {
                 if let Ok(Prepared::Rejected {
                     upstream_id,
                     reason,
@@ -498,7 +502,24 @@ async fn load_bootstrapped(
                     });
                 }
             })
-        },
+        }
+    };
+    if args.writers > 1 {
+        eprintln!(
+            "bootstrap: up to {} blocks written at once, committed in order (0013 A82)",
+            args.writers
+        );
+    }
+    let outcome = run_bootstrap(
+        store,
+        pipeline,
+        header,
+        attestation,
+        registry,
+        now(),
+        args.batch.max(1),
+        args.writers.max(1),
+        items,
     )
     .await
     .context("bootstrap")?;

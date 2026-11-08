@@ -64,8 +64,26 @@ pub async fn migrate<C: tokio_postgres::GenericClient>(
     Ok(())
 }
 
-/// Turns a driver error into the store's.
+/// Turns a driver error into the store's, keeping the server's message (see [`describe`]).
 #[must_use]
 pub fn storage_error(e: &tokio_postgres::Error) -> scatter_log::store::StoreError {
-    scatter_log::store::StoreError::Storage(e.to_string())
+    scatter_log::store::StoreError::Storage(describe(e))
+}
+
+/// A Postgres error as the stores report it: the driver's one-word summary ("db error")
+/// with the server's message, code and detail, so that a refused write says which
+/// statement or constraint refused it.
+#[must_use]
+pub fn describe(e: &tokio_postgres::Error) -> String {
+    match e.as_db_error() {
+        Some(d) => {
+            let mut s = format!("{e}: {} [{}]", d.message(), d.code().code());
+            if let Some(detail) = d.detail() {
+                s.push_str(": ");
+                s.push_str(detail);
+            }
+            s
+        }
+        None => e.to_string(),
+    }
 }

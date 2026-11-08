@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-07 (A81)
+- **Updated:** 2026-11-08 (A83)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -129,7 +129,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 9. Bootstrap mode (extends 0002 §8.6; uses 0006 §5)
 
-*Changed by A31, A53, A70, A71, A72, A73, A74.*
+*Changed by A31, A53, A70, A71, A72, A73, A74, A82, A83.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.8.*
 
@@ -1069,3 +1069,25 @@ Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §4.1, as it sto
 - **Source:** Direct: Claude, while building the public bundle (SCA-302), 2026-11-07; confirmed by James, 2026-11-08
 - **Change:** extends §8
 - **Summary:** 17 §1.1 publishes an export bundle of the `local` partition "one bundle per snapshot" at `{base}/dumps/local/bundle/`. Calls made building it. (1) `triplespace dump` writes it into the dump's own directory, `bundle/`, in the dump's `REPEATABLE READ` snapshot, so the bundle and the RDF files describe one instant; it is the export scope of [0103](0103-export-transfer-and-backup.md) §1 for an anonymous reader, decided as `export --scope export` decides ([0006](0006-log-integrity-and-erasure.md) A31), and carries the checkpoints signed so far, so a dump taken after `triplespace checkpoint` verifies against them. (2) It is served as its directory tree, file by file, not as an archive: `GET /dumps/local/bundle/` lists the dumps that carry one with its origin, record, withheld and checkpoint counts (also in the dump's `manifest.json` as `bundle`), `GET /dumps/local/bundle/{name}/` lists its files and `GET /dumps/local/bundle/{name}/{path}` serves one, every path segment checked so nothing outside the bundle can be named; a reader fetching segments one at a time needs no archive tool, and a tree needs no new dependency. (3) The bundle is checked at level 1 as it is written. (4) The code `triplespace export` and the dump share (partitions, origins, `key:` records and the export scope's reader) moves into `triplespace-rdf`. Chapter text: [17](../architecture/17-federation-and-publication.md) §1.1.
+
+### A82. A bootstrap load writes several blocks at once and commits them in order
+
+- **Date:** 2026-11-08
+- **Source:** Direct: James, design discussion of 2026-11-08
+- **Change:** amends §9
+- **Summary:** A bootstrap load writes up to `--writers` blocks at once (4 by default), each in a transaction of its own, and commits them in dump order. One coordinator gives each block, in order, its page IDs, its offsets and the tree nodes its leaves complete, keeping the partition's Merkle frontier in memory; each block's transaction then `COPY`s its records and nodes and runs its projections, and its last statement, which moves the partition's next offset from the block's first offset to past its last, runs only once every earlier block has committed, followed by the commit (the projections' positions are written at commit). So what has committed, and what a crash leaves, is always a prefix of whole blocks, with the records, tree, views and positions agreeing, as with one block at a time; a statement that finds the next offset elsewhere fails rather than commit out of order. The text of §9 had a coordinator hand writers offset blocks from an `ops.bootstrap_block` table and hand out again the block of a writer that failed, with the tree folded in one pass after the load; neither was built, the load having so far written one block at a time with each block's tree nodes, and the commit order now keeps a failed block from leaving a hole instead. Why several blocks: one block at a time left Postgres waiting on the client and the client on Postgres, neither near its limit. Why 4: on the full Wikidata dump on 16 cores, 40 minutes from empty loaded 4.81M entities with 1 writer, 5.96M with 2, 7.15M with 4 and 6.57M with 8; from 2 writers up, the 14 threads preparing records ran at 93–98% in dense stretches, so preparation, not writing, became the limit, and 8 only added connections. No relationship with the number of cores was found to set it by. Loading the dump to 40M entities with 4 writers took 4 h 00 min, against 5 h 07 min for the whole-dump load's first 40M with one, the gain growing as the database outgrew memory (`docs/testing/performance.md` §8).
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.8, as it stood):
+
+> 2. A coordinator hands each writer a contiguous block of offsets from `ops.bootstrap_block`. Writers `COPY` records in parallel. A block whose writer fails is handed out again, so no segment is sealed with a hole. Into a `packed` partition, writers pack bodies in-process with the domain's key and dictionaries and `COPY` new fragments into a staging table, merged into `log.fragment` after the load; a load and a sweep of the same domain exclude each other (below).
+
+> 3. Leaf hashes are computed by the writers. Segment subtrees and the partition root are folded in one pass afterwards, as [0006](../decisions/0006-log-integrity-and-erasure.md) §5 describes, and written to `log.merkle_node`.
+
+> Nothing about this is specific to Postgres except the use of `COPY` and the deferred index build, which is how any bulk load into it is done.
+
+### A83. How a bootstrap load keeps its blocks apart
+
+- **Date:** 2026-11-08
+- **Source:** Direct: Claude, while building bootstrap mode's concurrent blocks, 2026-11-08; unconfirmed
+- **Change:** extends §9
+- **Summary:** Calls made building A82. (1) A block waits for every earlier block to commit before its transaction starts when it holds a record other than a `put`, names a subject twice, or names a subject a block still in flight names. A block's projections read what earlier blocks wrote about its subjects, which they cannot see before those commit; and a later block that reached a row first would hold it while the earlier block, inside the database, waited on it, and it, in the client, on the earlier block, a deadlock Postgres cannot see. A JSON dump of new subjects meets none of these, so the rule costs nothing on the common case; the race it avoids was not reproduced, and a test checks the rule itself. (2) A block that fails stops the load: every block after it rolls back rather than commit, so no transaction is left open and nothing past the failure commits; the rerun continues through the ordinary sync as before (A70). (3) Page IDs are reserved for each block in a short transaction of the coordinator's, committed at once, so that the blocks need not wait on one another for the sequence; the IDs a rolled-back block reserved are not reused, a gap like any sequence's. (4) The job's start commits on its own before the first block, rather than with it. (5) A store says whether it can run several units of work at once (`IngestStore::concurrent_blocks`, with `write_sealed` and `advance_partition`); the in-memory store cannot, and writes one block at a time whatever `--writers` asks. (6) The command's connection pool is the writers and four more. The blocks in flight are driven on the coordinator's own task, polled between the items it takes, so no runtime or new dependency is named.

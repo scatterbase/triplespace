@@ -1700,6 +1700,7 @@ fn a_bootstrap_load_warms_with_what_it_appends() {
             registry(),
             NOW,
             2,
+            1,
             |prepare| {
                 let prepare = prepare.warmed_by(warm);
                 bootstrap_items()
@@ -1765,6 +1766,7 @@ fn a_bootstrap_load_writes_what_a_sync_writes() {
             registry(),
             NOW,
             2,
+            1,
             |prepare| {
                 bootstrap_items()
                     .into_iter()
@@ -1809,6 +1811,7 @@ fn a_bootstrap_load_writes_what_a_sync_writes() {
             registry(),
             NOW,
             2,
+            1,
             |prepare| {
                 bootstrap_items()
                     .into_iter()
@@ -1819,6 +1822,40 @@ fn a_bootstrap_load_writes_what_a_sync_writes() {
         .await
         .unwrap_err();
         assert!(err.to_string().contains("empty partition"), "{err}");
+    });
+}
+
+/// A store that cannot run several units of work at once writes one block at a time
+/// whatever the writers asked for (0013 §9, A83): the same counts and records as one writer.
+#[test]
+fn a_store_without_concurrent_units_writes_one_block_at_a_time() {
+    pollster::block_on(async {
+        let mut loads = Vec::new();
+        for writers in [1, 4] {
+            let (store, pipeline) = setup();
+            let outcome = scatter_ingest::run_bootstrap(
+                &store,
+                &pipeline,
+                sync_header(Mode::Upsert),
+                Attestation::by("instance:scatter"),
+                registry(),
+                NOW,
+                2,
+                writers,
+                |prepare| {
+                    bootstrap_items()
+                        .into_iter()
+                        .map(move |item| prepare.item(item))
+                        .collect::<Vec<_>>()
+                },
+            )
+            .await
+            .unwrap();
+            let records: Vec<_> = store.records(MIRROR_XD).iter().map(comparable).collect();
+            loads.push((outcome.counts, records));
+        }
+        assert_eq!(loads[1], loads[0]);
+        assert_eq!(loads[0].1.len(), 4);
     });
 }
 

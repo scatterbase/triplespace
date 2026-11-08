@@ -86,7 +86,17 @@ where
 
 /// The store and its pipeline.
 pub fn store(database: &str, farm: &Farm) -> Result<(PgIngest, Pipeline<PgIngest>)> {
-    let pool = triplespace_db::pool::pool(database, 8).context("pool")?;
+    store_sized(database, farm, 8)
+}
+
+/// [`store`] with a pool of `size` connections, for a command that holds several units of
+/// work at once (a bootstrap load's writers, 0013 A82).
+pub fn store_sized(
+    database: &str,
+    farm: &Farm,
+    size: usize,
+) -> Result<(PgIngest, Pipeline<PgIngest>)> {
+    let pool = triplespace_db::pool::pool(database, size).context("pool")?;
     let store = PgIngest::new(PgBackend::new(pool));
     let pipeline = milestone_pipeline(IssuerRegistry::default_registry().clone(), farm.clone())
         .and_then(triplespace_notify::with_addressing)

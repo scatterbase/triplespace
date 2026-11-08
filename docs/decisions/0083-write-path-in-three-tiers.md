@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-09
-- **Updated:** 2026-10-30 (A5)
+- **Updated:** 2026-11-08 (A6)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0032](0032-sparql-update-stream.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0047](0047-special-pages.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [0056](0056-security-model.md), [0059](0059-query-service.md), [0060](0060-scopes.md), [0061](0061-sprints-and-tasks.md), [0064](0064-entityschema-and-validation.md), [0067](0067-proposals.md), [0070](0070-shallow-entity-mirroring.md), [0071](0071-derived-statements-from-mirrored-pages.md)
 - **Uses:** [0082](0082-source-form-and-the-shared-view.md), [0084](0084-wikibase-writes-against-the-resolved-view.md)
@@ -45,6 +45,8 @@ James's direction, from the design review of 2026-10-09:
 *Current text: [00](../architecture/00-overview.md) §5; [01](../architecture/01-log-and-records.md) §2.5; [03](../architecture/03-storage-caches-and-search.md) §4.2, §5; [05](../architecture/05-providers-and-ingest.md) §2.5; [10](../architecture/10-pages-and-content-models.md) §3.2; [18](../architecture/18-api.md) §1.3, §2.3, §3.2, §5.1, §5.2.*
 
 ### 5. Bulk append into a live partition, and catch-up (amends 0013 §2 and §9; extends 0002 §8 and 0070 §7)
+
+*Changed by A6.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §2.1, §6.2; [05](../architecture/05-providers-and-ingest.md) §3.10.*
 
@@ -137,3 +139,18 @@ Replaced text (§6, as it stood):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§8
 - **Summary:** The Decision's current text now lives in the architecture chapters [00](../architecture/00-overview.md), [01](../architecture/01-log-and-records.md), [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [05](../architecture/05-providers-and-ingest.md), [06](../architecture/06-statements-and-properties.md), [07](../architecture/07-actors-and-accounts.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [10](../architecture/10-pages-and-content-models.md), [11](../architecture/11-rendering-templates-and-modules.md), [12](../architecture/12-files-and-media.md), [13](../architecture/13-mirrored-pages.md), [14](../architecture/14-discussions.md), [15](../architecture/15-structured-pages.md), [16](../architecture/16-logs-feeds-and-notifications.md), [17](../architecture/17-federation-and-publication.md), [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.
+
+### A6. Bulk append's blocks are bootstrap's blocks, not an `ops.bootstrap_block` table
+
+- **Date:** 2026-11-08
+- **Source:** Direct: James, review of bootstrap mode's concurrent blocks, 2026-11-08
+- **Change:** corrects §5
+- **Summary:** §5 pointed at `ops.bootstrap_block` as the shape of a bulk-append block. That table was 0013 §9's coordinator hand-out of offset blocks; it was never built, and [0013](0013-postgres-storage.md) A82 replaced it with a coordinator that assigns each block its offsets in memory and commits blocks in order. A bulk-append block is the same unit, a run of records written together, so §5 now names bootstrap's blocks (05 §3.8) instead of the table. Nothing in bulk append changes, and bulk append itself is still unbuilt.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6.2, as it stood):
+
+> takes the partition lock once per block (`ops.bootstrap_block` has the shape), `COPY`s the block's records
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.10, as it stood):
+
+> takes the partition lock **once per block** (`ops.bootstrap_block` has the shape, §3.8), `COPY`s the block's records
