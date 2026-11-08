@@ -83,6 +83,8 @@ pub struct AclWrite {
     /// The namespaces and sets enclosing the target, against which a scoped group's
     /// rights are tested (09 §3.4); empty counts unscoped rights only.
     pub enclosing: Vec<Target>,
+    /// The job whose run writes the record (a batch, 0104 §1; a revert, 0104 §3).
+    pub job: Option<u64>,
 }
 
 /// The target's current ACL.
@@ -195,13 +197,15 @@ pub async fn write(
         body: Body::core(
             &content,
             &Value::text(&w.reason),
-            &Value::map(if suppressed {
-                vec![
-                    (Value::text("actor"), Value::text(actor)),
-                    (Value::text("suppress"), Value::Bool(true)),
-                ]
-            } else {
-                vec![(Value::text("actor"), Value::text(actor))]
+            &Value::map({
+                let mut pairs = vec![(Value::text("actor"), Value::text(actor))];
+                if let Some(j) = w.job {
+                    pairs.push((Value::text("job"), Value::Int(i128::from(j))));
+                }
+                if suppressed {
+                    pairs.push((Value::text("suppress"), Value::Bool(true)));
+                }
+                pairs
             }),
         )
         .map_err(store_err)?,

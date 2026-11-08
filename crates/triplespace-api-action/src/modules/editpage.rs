@@ -365,6 +365,10 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     let store = ctx.app.store();
     let pipeline = ctx.app.pipeline();
     let mut cx = store.begin().await?;
+    if let Err(e) = crate::batch::attach(ctx, &mut cx, &mut request.attestation).await {
+        let _ = store.rollback(cx).await;
+        return Err(e);
+    }
     let raw = RawRecord {
         graph: "pages".into(),
         payload_type: PAYLOAD_PAGE.into(),

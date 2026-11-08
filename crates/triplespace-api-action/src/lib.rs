@@ -26,6 +26,7 @@ pub mod activity;
 pub mod api;
 pub mod app;
 pub mod auth;
+pub mod batch;
 pub mod edit;
 pub mod entity_json;
 pub mod external;

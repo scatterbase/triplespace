@@ -709,7 +709,8 @@ CREATE TABLE view.job (                         -- projected from the local log 
   source text NOT NULL, source_version text, adapter_version text, mode text, graph text NOT NULL,
   params jsonb NOT NULL, status text NOT NULL, started timestamptz NOT NULL, finished timestamptz,
   counts jsonb, checkpoint_size bigint, sweep_count integer, sweep_threshold integer,
-  start_offset bigint NOT NULL, finish_offset bigint
+  start_offset bigint NOT NULL, finish_offset bigint,
+  batch text                                    -- a batch's hash, for the write that names it (0104 §1)
 );
 CREATE TABLE view.job_reject (job_id bigint NOT NULL, line bigint NOT NULL, match_key text, reason text NOT NULL, PRIMARY KEY (job_id, line));
 

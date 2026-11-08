@@ -21,6 +21,11 @@ pub enum Mode {
     /// A general import of pages from a MediaWiki XML export (0008 §9): page records
     /// only, under the tenant's own IDs.
     Import,
+    /// A batch the submitter keyed (0104 §1): interactive writes that named a batch
+    /// value, grouped under one job opened by the first of them.
+    Batch,
+    /// A revert of another job (0104 §3): the inverse of each record it wrote.
+    Revert,
 }
 
 /// Which partition a job writes.

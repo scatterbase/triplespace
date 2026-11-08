@@ -434,6 +434,11 @@ async fn save(
         Ok(s) => s,
         Err(r) => return r,
     };
+    // The batch the write names (0104 §1), joined in the write's unit of work below.
+    let batch_value = match string(body, "batch") {
+        Ok(b) => b.map(|b| b.trim().to_string()).filter(|b| !b.is_empty()),
+        Err(r) => return r,
+    };
     let created = thread.is_none();
     let watchlist = match string(body, "watchlist") {
         Ok(w) => w,
@@ -492,6 +497,47 @@ async fn save(
         Ok(cx) => cx,
         Err(e) => return internal(&e),
     };
+    let mut batch = None;
+    if let Some(value) = &batch_value {
+        use triplespace_api_ingest::batch::{self, BatchError};
+        let operator = match batch::operator_of(cx.conn(), &tenant.slug, actor).await {
+            Ok(o) => o,
+            Err(e) => {
+                let _ = scatter_projection::Backend::rollback(store, cx).await;
+                return internal(&e);
+            }
+        };
+        let hash = batch::hash(&tenant.slug, &operator, value);
+        match batch::attach(
+            store,
+            app.pipeline(),
+            &mut cx,
+            &tenant.slug,
+            actor,
+            &operator,
+            &hash,
+            triplespace_api_action::edit::now_micros(),
+        )
+        .await
+        {
+            Ok(a) => {
+                batch = Some(a.job);
+                request.attestation.job = Some(a.job);
+            }
+            Err(BatchError::Rejected { job }) => {
+                let _ = scatter_projection::Backend::rollback(store, cx).await;
+                return error(
+                    StatusCode::CONFLICT,
+                    "ts-batch-rejected",
+                    format!("This batch was rejected as job {job}; writes naming it are refused."),
+                );
+            }
+            Err(BatchError::Ingest(e)) => {
+                let _ = scatter_projection::Backend::rollback(store, cx).await;
+                return internal(&e);
+            }
+        }
+    }
     let out = match write(store, app.pipeline(), &mut cx, &request, w).await {
         Ok(out) => out,
         Err(e) => {
@@ -522,12 +568,15 @@ async fn save(
         return error(StatusCode::BAD_REQUEST, &e.code, e.info);
     }
     let title = title_of(app, &tenant.slug, out.thread).await;
-    let body = json!({
+    let mut body = json!({
         "thread": out.thread,
         "title": title,
         "revid": out.revid,
         "base": out.written.offset(),
     });
+    if let Some(b) = batch {
+        body["batch"] = json!(b);
+    }
     http_cache::respond(
         &HeaderMap::new(),
         if created {

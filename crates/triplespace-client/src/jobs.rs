@@ -1,11 +1,12 @@
 //! `GET /jobs` and `GET /jobs/{id}` (0104 §6; 18 §3.2): the tenant's jobs, running and
 //! recent, and one job, as `Special:Jobs` and `Special:Jobs/{id}` read them (0010 §9).
 
+use axum::http::Method;
 use serde::Deserialize;
 use serde_json::Value;
 
 use crate::api::{CacheInfo, Fetched};
-use crate::settings::{BASE, read};
+use crate::settings::{BASE, Saved, read, saved};
 use crate::transport::ClientError;
 use crate::{Client, Incoming};
 
@@ -101,6 +102,21 @@ pub struct JobInfo {
     /// The first rejects (`GET /jobs/{id}`).
     #[serde(default)]
     pub rejects: Vec<JobReject>,
+    /// A batch's hash (0104 §1).
+    #[serde(default)]
+    pub batch: Option<String>,
+    /// The operator a batch is keyed by.
+    #[serde(default)]
+    pub operator: Option<String>,
+    /// A rejected job's reason.
+    #[serde(default)]
+    pub reason: Option<String>,
+    /// The revert a rejection started.
+    #[serde(default)]
+    pub revert: Option<u64>,
+    /// The revert job that reverted this one.
+    #[serde(default)]
+    pub reverted_by: Option<u64>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -143,5 +159,85 @@ impl Client {
             value: read(&r, "job")?,
             cache: CacheInfo::of(&r),
         })
+    }
+}
+
+/// What `POST /jobs/{id}/reject` takes.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct RejectAsk {
+    /// The reason.
+    pub reason: String,
+    /// Also queue a revert.
+    pub revert: bool,
+    /// The CSRF token.
+    pub token: String,
+}
+
+impl Client {
+    /// `POST /jobs/{id}/reject` (0104 §2).
+    ///
+    /// # Errors
+    ///
+    /// The API away or unreadable; a refusal is in the `Saved`.
+    pub async fn reject_job(
+        &self,
+        incoming: &Incoming,
+        id: u64,
+        ask: &RejectAsk,
+    ) -> Result<Saved<Value>, ClientError> {
+        let r = self
+            .send_json(
+                incoming,
+                Method::POST,
+                &format!("{BASE}/jobs/{id}/reject"),
+                &serde_json::json!({"reason": ask.reason, "revert": ask.revert, "token": ask.token}),
+            )
+            .await?;
+        saved(&r, "reject")
+    }
+
+    /// `POST /jobs/{id}/revert` (0104 §3): the revert job queued, `job` in the answer.
+    ///
+    /// # Errors
+    ///
+    /// The API away or unreadable; a refusal is in the `Saved`.
+    pub async fn revert_job(
+        &self,
+        incoming: &Incoming,
+        id: u64,
+        reason: &str,
+        token: &str,
+    ) -> Result<Saved<Value>, ClientError> {
+        let r = self
+            .send_json(
+                incoming,
+                Method::POST,
+                &format!("{BASE}/jobs/{id}/revert"),
+                &serde_json::json!({"reason": reason, "token": token}),
+            )
+            .await?;
+        saved(&r, "revert")
+    }
+
+    /// `POST /jobs/{id}/close` (0104 §1).
+    ///
+    /// # Errors
+    ///
+    /// The API away or unreadable; a refusal is in the `Saved`.
+    pub async fn close_job(
+        &self,
+        incoming: &Incoming,
+        id: u64,
+        token: &str,
+    ) -> Result<Saved<Value>, ClientError> {
+        let r = self
+            .send_json(
+                incoming,
+                Method::POST,
+                &format!("{BASE}/jobs/{id}/close"),
+                &serde_json::json!({"token": token}),
+            )
+            .await?;
+        saved(&r, "close")
     }
 }

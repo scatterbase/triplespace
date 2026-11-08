@@ -5964,6 +5964,292 @@
           }
         }
       }
+    },
+    "/jobs/{id}/reject": {
+      "post": {
+        "operationId": "rejectJob",
+        "summary": "Reject a batch or a running job",
+        "description": "Writes `job/reject` with a reason (ADR 0104 §2): the job is `rejected`, and a write naming its batch is refused with `ts-batch-rejected`. With `revert: true` a revert of the job is queued in the same call. Needs `ts-revertjob`.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "reason"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "revert": {
+                    "type": "boolean"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Rejected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "revert": {
+                      "type": "integer",
+                      "description": "The revert job queued, when asked for."
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`ts-reason-required`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` without `ts-revertjob`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`job-not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`job-not-running`: only a running job is rejected.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/jobs/{id}/revert": {
+      "post": {
+        "operationId": "revertJob",
+        "summary": "Revert a job",
+        "description": "Queues a job of mode `revert` that appends the inverse of each record the job wrote, attributed to the caller, skipping and listing records changed since (ADR 0104 §3); the answer names the revert job, whose page lists what was skipped once it has run. A running job is rejected or closed first. Needs `ts-revertjob`.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The revert job, queued.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "job": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "reverts": {
+                      "type": "integer"
+                    },
+                    "links": {
+                      "type": "object",
+                      "properties": {
+                        "page": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` without `ts-revertjob`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`job-not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`job-running`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/jobs/{id}/close": {
+      "post": {
+        "operationId": "closeJob",
+        "summary": "Close a batch",
+        "description": "Writes `job/close` (ADR 0104 §1): the batch ends, and a later write naming its value opens a new one. The batch's submitter, their operator, or a holder of `ts-revertjob`.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Closed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`job-not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`job-not-batch` or `job-not-running`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -8096,6 +8382,10 @@
           },
           "watchlistexpiry": {
             "type": "string"
+          },
+          "batch": {
+            "type": "string",
+            "description": "A batch value (ADR 0104 §1): the write joins, or opens, the caller's batch of that name, and the answer carries the job as `batch`; refused with `ts-batch-rejected` for a rejected batch."
           }
         }
       },
@@ -8160,6 +8450,10 @@
           },
           "watchlistexpiry": {
             "type": "string"
+          },
+          "batch": {
+            "type": "string",
+            "description": "A batch value (ADR 0104 §1): the write joins, or opens, the caller's batch of that name, and the answer carries the job as `batch`; refused with `ts-batch-rejected` for a rejected batch."
           }
         }
       },
@@ -9205,6 +9499,26 @@
                 "description": "The job's page, `/wiki/Special:Jobs/{id}`."
               }
             }
+          },
+          "batch": {
+            "type": "string",
+            "description": "A batch's hash, the first 20 bytes of SHA-256 over the tenant, the operator and the submitter's value in z-base-32 (ADR 0104 §1); never the value."
+          },
+          "operator": {
+            "type": "string",
+            "description": "The operator a batch is keyed by: the submitter's account, or a subsidiary's operator."
+          },
+          "reason": {
+            "type": "string",
+            "description": "A rejected job's reason."
+          },
+          "revert": {
+            "type": "integer",
+            "description": "The revert a rejection started, if it did."
+          },
+          "reverted_by": {
+            "type": "integer",
+            "description": "The revert job that reverted this one."
           }
         }
       }

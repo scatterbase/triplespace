@@ -212,6 +212,13 @@ pub(crate) async fn save(
     let enclosing = enclosing(ctx, &target, reserve.as_ref()).await?;
     let store = ctx.app.store();
     let mut cx = store.begin().await.map_err(ApiError::internal)?;
+    let job = match crate::batch::join(ctx, &mut cx).await {
+        Ok(j) => j,
+        Err(e) => {
+            let _ = store.rollback(cx).await;
+            return Err(e);
+        }
+    };
     let out = write(
         store,
         ctx.app.pipeline(),
@@ -226,6 +233,7 @@ pub(crate) async fn save(
             suppress_group: suppress_group.to_string(),
             reserve,
             enclosing,
+            job,
         },
         now_micros(),
     )
@@ -613,6 +621,7 @@ async fn restore(
                 suppress_group: suppress_group.to_string(),
                 reserve: None,
                 enclosing: enclosing.clone(),
+                job: None,
             }
         })
         .collect();
@@ -623,6 +632,7 @@ async fn restore(
         suppress_group: suppress_group.to_string(),
         reserve: None,
         enclosing,
+        job: None,
     });
     for w in writes {
         if let Err(e) = write(

@@ -235,6 +235,7 @@ pub async fn post(
         "MovePage" => Some(movepage::post(site, headers, peer, title, params).await),
         "Export" => Some(export::post(site, headers, peer, query, params).await),
         "Import" => Some(import::post(site, headers, peer, query, params).await),
+        "Jobs" => Some(jobs::post(site, headers, peer, title, query, params).await),
         "Notifications" => Some(notifications::post(site, headers, peer, params).await),
         "Watchlist" => Some(watchlist::post(site, headers, peer, params).await),
         "EditWatchlist" => Some(watchlist::edit_post(site, headers, peer, params).await),

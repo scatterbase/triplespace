@@ -3,13 +3,20 @@
 //! job's page has the parts 19 §3.10 lists: the identity line with the Job chip, the ID
 //! and the status; the header with the actor, the account it ran for, the times and the
 //! mode; the counts; the rejects; where it came from. A queued job shows its place in
-//! the queue, a running one the runner's progress. The actions (Revert, Reject, Close)
-//! wait on the routes of 0104 §3, which are not served yet.
+//! the queue, a running one the runner's progress. The actions (0104 §9): **Reject this
+//! batch…** with a reason and, if asked, the revert in the same step; **Revert this
+//! job…**; **Close** for a batch's submitter; each a form posting back here, which calls
+//! the job routes of 18 §3.2 and returns to the page, or to the revert job's.
+//!
+//! implements 0104 §9
+
+use std::collections::BTreeMap;
 
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
 use serde::Serialize;
-use triplespace_client::{ClientError, JobInfo};
+use triplespace_client::settings::Saved;
+use triplespace_client::{ClientError, JobInfo, RejectAsk};
 
 use crate::Site;
 use crate::codex::{Chip, ChipKind, ChipModel, MessageKind};
@@ -267,6 +274,113 @@ pub struct JobPage {
     pub changes: Link,
     /// Back to the list.
     pub list: Link,
+    /// The actions the viewer may take (0104 §9).
+    pub actions: Option<Actions>,
+    /// What was skipped by a revert, as listed on its page.
+    pub skipped_heading: String,
+    /// The skipped columns.
+    pub skipped_columns: Vec<String>,
+    /// The records skipped.
+    pub skipped: Vec<SkippedRow>,
+}
+
+/// One record a revert left as it was.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SkippedRow {
+    /// The target.
+    pub target: String,
+    /// The record.
+    pub record: String,
+    /// Why.
+    pub reason: String,
+}
+
+/// The forms on a job page (19 §3.10).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Actions {
+    /// Where they post.
+    pub action: String,
+    /// The CSRF token.
+    pub token: String,
+    /// **Reject this batch…**: a running job, for a holder of `ts-revertjob`.
+    pub reject: Option<RejectForm>,
+    /// **Revert this job…**: a finished job, for a holder of `ts-revertjob`.
+    pub revert: Option<RevertForm>,
+    /// **Close**: a running batch, for its submitter.
+    pub close: Option<String>,
+}
+
+/// The reject form's texts.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct RejectForm {
+    /// The legend.
+    pub legend: String,
+    /// The reason's label.
+    pub reason_label: String,
+    /// The checkbox's label.
+    pub revert_label: String,
+    /// The button.
+    pub submit: String,
+}
+
+/// The revert form's texts.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct RevertForm {
+    /// The legend.
+    pub legend: String,
+    /// What it does.
+    pub note: String,
+    /// The reason's label.
+    pub reason_label: String,
+    /// The button.
+    pub submit: String,
+}
+
+/// Who the viewer is to a job: what the forms depend on.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Viewer {
+    /// The viewer's name, when signed in.
+    pub name: Option<String>,
+    /// Whether they hold `ts-revertjob`.
+    pub reverts: bool,
+    /// The CSRF token.
+    pub token: String,
+}
+
+/// The forms a viewer gets on a job.
+#[must_use]
+pub fn actions_model(m: &Messages, info: &JobInfo, viewer: &Viewer) -> Option<Actions> {
+    viewer.name.as_ref()?;
+    let running = info.status == "running";
+    let batch = info.mode.as_deref() == Some("batch");
+    let own = viewer.name.is_some() && viewer.name == info.actor.name;
+    let reject = (viewer.reverts && running).then(|| RejectForm {
+        legend: m.get("ts-job-reject"),
+        reason_label: m.get("ts-job-reject-reason"),
+        revert_label: m.get("ts-job-reject-revert"),
+        submit: m.get("ts-job-reject-submit"),
+    });
+    let revert = (viewer.reverts
+        && !running
+        && info.status != "queued"
+        && info.mode.as_deref() != Some("revert"))
+    .then(|| RevertForm {
+        legend: m.get("ts-job-revert"),
+        note: m.get("ts-job-revert-note"),
+        reason_label: m.get("ts-job-reject-reason"),
+        submit: m.get("ts-job-revert-submit"),
+    });
+    let close = (batch && running && (own || viewer.reverts)).then(|| m.get("ts-job-close"));
+    if reject.is_none() && revert.is_none() && close.is_none() {
+        return None;
+    }
+    Some(Actions {
+        action: href(info.id),
+        token: viewer.token.clone(),
+        reject,
+        revert,
+        close,
+    })
 }
 
 fn fact(label: String, value: String) -> Fact {
@@ -281,7 +395,7 @@ fn fact(label: String, value: String) -> Fact {
 /// The job page's model.
 #[must_use]
 #[allow(clippy::too_many_lines)]
-pub fn job_model(m: &Messages, info: &JobInfo) -> JobPage {
+pub fn job_model(m: &Messages, info: &JobInfo, viewer: &Viewer) -> JobPage {
     let actor = actor_link(info);
     let mut header = vec![Fact {
         label: m.get("ts-job-actor"),
@@ -317,6 +431,52 @@ pub fn job_model(m: &Messages, info: &JobInfo) -> JobPage {
     if let Some(a) = info.attempts.filter(|a| *a > 1) {
         header.push(fact(m.get("ts-job-attempts"), a.to_string()));
     }
+    // A batch: its hash, never its value, and the operator it is keyed by (0104 §1).
+    if let Some(b) = &info.batch {
+        header.push(Fact {
+            label: m.get("ts-job-batch"),
+            value: b.clone(),
+            href: None,
+            mono: true,
+        });
+        if let Some(o) = &info.operator {
+            header.push(Fact {
+                label: m.get("ts-job-operator"),
+                value: o.clone(),
+                href: Some(format!("/wiki/Special:Contributions/{}", title_url(o))),
+                mono: false,
+            });
+        }
+    }
+    // A revert: the job it reverts; a reverted job: the revert.
+    if let Some(r) = info
+        .params
+        .get("reverts")
+        .and_then(serde_json::Value::as_u64)
+    {
+        header.push(Fact {
+            label: m.get("ts-job-reverts"),
+            value: m.with("ts-changes-job", &[&r.to_string()]),
+            href: Some(href(r)),
+            mono: false,
+        });
+    }
+    if let Some(r) = info.reverted_by {
+        header.push(Fact {
+            label: m.get("ts-job-reverted-by"),
+            value: m.with("ts-changes-job", &[&r.to_string()]),
+            href: Some(href(r)),
+            mono: false,
+        });
+    }
+    if let Some(r) = info.revert {
+        header.push(Fact {
+            label: m.get("ts-job-revert-started"),
+            value: m.with("ts-changes-job", &[&r.to_string()]),
+            href: Some(href(r)),
+            mono: false,
+        });
+    }
     let notice = match info.status.as_str() {
         "failed" => Some(m.with("ts-job-error", &[info.error.as_deref().unwrap_or_default()])),
         "interrupted" => Some(match info.interrupted_by {
@@ -327,8 +487,31 @@ pub fn job_model(m: &Messages, info: &JobInfo) -> JobPage {
             .position
             .map(|p| m.with("ts-job-position", &[&p.to_string()])),
         "running" => progress_text(m, info),
+        "rejected" => Some(m.with(
+            "ts-job-rejected-reason",
+            &[info.reason.as_deref().unwrap_or_default()],
+        )),
         _ => None,
     };
+    let skipped: Vec<SkippedRow> = info
+        .counts
+        .as_ref()
+        .and_then(|c| c.get("skipped"))
+        .and_then(serde_json::Value::as_array)
+        .map(|rows| {
+            rows.iter()
+                .map(|s| SkippedRow {
+                    target: s["target"].as_str().unwrap_or_default().to_string(),
+                    record: format!(
+                        "{}:{}",
+                        s["partition"].as_u64().unwrap_or(0),
+                        s["offset"].as_u64().unwrap_or(0)
+                    ),
+                    reason: s["reason"].as_str().unwrap_or_default().to_string(),
+                })
+                .collect()
+        })
+        .unwrap_or_default();
     let counted = |fields: &[(&str, &str)], c: &serde_json::Map<String, serde_json::Value>| {
         fields
             .iter()
@@ -421,6 +604,17 @@ pub fn job_model(m: &Messages, info: &JobInfo) -> JobPage {
             href: "/wiki/Special:Jobs".into(),
             text: m.get("ts-jobs-title"),
         },
+        actions: actions_model(m, info, viewer),
+        skipped_heading: m.get("ts-job-skipped"),
+        skipped_columns: [
+            "ts-job-skipped-col-target",
+            "ts-job-skipped-col-record",
+            "ts-job-skipped-col-reason",
+        ]
+        .iter()
+        .map(|k| m.get(k))
+        .collect(),
+        skipped,
     }
 }
 
@@ -445,8 +639,29 @@ pub async fn serve(
         return match site.client().job(&incoming, id).await {
             Ok(found) => {
                 cx.inputs.push(found.cache);
-                let model = job_model(&cx.m, &found.value);
-                let body = cx.draw("special/job.html", &model);
+                let mut viewer = Viewer {
+                    name: cx.user.clone(),
+                    reverts: cx.rights.iter().any(|r| r == "ts-revertjob"),
+                    token: String::new(),
+                };
+                if viewer.name.is_some() {
+                    match site.client().token(&incoming, "csrf").await {
+                        Ok(t) => {
+                            cx.inputs.push(t.value.cache.clone());
+                            viewer.token = t.value.value;
+                        }
+                        Err(e) => return pages::api_failed(&cx, headers, &e),
+                    }
+                }
+                let notice = params
+                    .map
+                    .get("done")
+                    .filter(|d| matches!(d.as_str(), "rejected" | "reverted" | "closed"))
+                    .map(|d| cx.m.get(&format!("ts-job-done-{d}")))
+                    .map(|t| cx.message(MessageKind::Success, &t))
+                    .unwrap_or_default();
+                let model = job_model(&cx.m, &found.value, &viewer);
+                let body = format!("{notice}{}", cx.draw("special/job.html", &model));
                 pages::respond(&cx, headers, StatusCode::OK, |m| Page {
                     title: m.with("ts-job-title", &[&id.to_string()]),
                     returnto: Some(format!("{TITLE}/{id}")),
@@ -474,6 +689,84 @@ pub async fn serve(
                 title: m.get("ts-jobs-title"),
                 returnto: Some(TITLE.to_string()),
                 body,
+                ..Page::default()
+            })
+        }
+        Err(e) => pages::api_failed(&cx, headers, &e),
+    }
+}
+
+/// `POST Special:Jobs/{id}`: `wpAction` is `reject`, `revert` or `close`, with
+/// `wpReason` and, for a reject, `wpRevert`; back to the page, or to the revert job's.
+pub async fn post(
+    site: &Site,
+    headers: &HeaderMap,
+    peer: Peer,
+    title: &str,
+    _query: &BTreeMap<String, String>,
+    params: &Params,
+) -> Response {
+    let incoming = pages::incoming(headers, peer);
+    let cx = match pages::context(site, &incoming, &params.map).await {
+        Ok(cx) => cx,
+        Err(r) => return r,
+    };
+    let form = &params.map;
+    let Some(id) = title
+        .split_once('/')
+        .and_then(|(_, s)| s.trim().parse::<u64>().ok())
+    else {
+        return not_found(&cx, headers, title);
+    };
+    let token = form.get("wpEditToken").map_or("", String::as_str);
+    let reason = form.get("wpReason").map_or("", String::as_str).trim();
+    let action = form.get("wpAction").map_or("", String::as_str);
+    let outcome = match action {
+        "reject" => site
+            .client()
+            .reject_job(
+                &incoming,
+                id,
+                &RejectAsk {
+                    reason: reason.to_string(),
+                    revert: form.get("wpRevert").is_some_and(|v| v == "1"),
+                    token: token.to_string(),
+                },
+            )
+            .await
+            .map(|s| (s, "rejected")),
+        "revert" => site
+            .client()
+            .revert_job(&incoming, id, reason, token)
+            .await
+            .map(|s| (s, "reverted")),
+        "close" => site
+            .client()
+            .close_job(&incoming, id, token)
+            .await
+            .map(|s| (s, "closed")),
+        _ => return pages::see_other(&href(id), &[]),
+    };
+    match outcome {
+        Ok((Saved::Ok(v), done)) => {
+            // A revert started goes to the revert job's page, where its outcome shows.
+            let to = v
+                .get("job")
+                .or_else(|| v.get("revert"))
+                .and_then(serde_json::Value::as_u64)
+                .map_or_else(|| href(id), href);
+            pages::see_other(&format!("{to}?done={done}"), &[])
+        }
+        Ok((Saved::Refused(r), _)) => {
+            let text = r
+                .iter()
+                .map(|x| x.message.clone())
+                .collect::<Vec<_>>()
+                .join(" ");
+            pages::respond(&cx, headers, StatusCode::BAD_REQUEST, |m| Page {
+                title: m.with("ts-job-title", &[&id.to_string()]),
+                returnto: Some(format!("{TITLE}/{id}")),
+                body: cx.message(MessageKind::Error, &text),
                 ..Page::default()
             })
         }
@@ -551,7 +844,11 @@ mod tests {
         let plain = crate::skin::Skins::load(None);
         let plain = plain.get("plain").expect("plain");
         let html = plain
-            .render("special/job.html", &m, job_model(&m, &job("finished")))
+            .render(
+                "special/job.html",
+                &m,
+                job_model(&m, &job("finished"), &Viewer::default()),
+            )
             .unwrap();
         assert!(html.contains("Job 12"), "{html}");
         assert!(html.contains("Finished"), "{html}");
@@ -561,8 +858,50 @@ mod tests {
         let mut failed = job("failed");
         failed.error = Some("the file is not an export".into());
         let html = plain
-            .render("special/job.html", &m, job_model(&m, &failed))
+            .render(
+                "special/job.html",
+                &m,
+                job_model(&m, &failed, &Viewer::default()),
+            )
             .unwrap();
         assert!(html.contains("the file is not an export"), "{html}");
+    }
+
+    /// The actions depend on who looks (0104 §9): a holder of `ts-revertjob` rejects a
+    /// running job and reverts a finished one; a batch's submitter closes it.
+    #[test]
+    fn the_actions_follow_the_viewer() {
+        let m = Messages::for_language("en");
+        let plain = crate::skin::Skins::load(None);
+        let plain = plain.get("plain").expect("plain");
+        let nobody = Viewer::default();
+        assert!(actions_model(&m, &job("running"), &nobody).is_none());
+        let moderator = Viewer {
+            name: Some("Mod".into()),
+            reverts: true,
+            token: "t".into(),
+        };
+        let a = actions_model(&m, &job("running"), &moderator).unwrap();
+        assert!(a.reject.is_some() && a.revert.is_none() && a.close.is_none());
+        let a = actions_model(&m, &job("finished"), &moderator).unwrap();
+        assert!(a.reject.is_none() && a.revert.is_some());
+        let mut batch = job("running");
+        batch.mode = Some("batch".into());
+        let owner = Viewer {
+            name: Some("Owner".into()),
+            reverts: false,
+            token: "t".into(),
+        };
+        let a = actions_model(&m, &batch, &owner).unwrap();
+        assert!(a.reject.is_none() && a.close.is_some());
+        let html = plain
+            .render("special/job.html", &m, job_model(&m, &batch, &moderator))
+            .unwrap();
+        assert!(
+            html.contains("name=\"wpAction\" value=\"reject\""),
+            "{html}"
+        );
+        assert!(html.contains("name=\"wpRevert\""), "{html}");
+        assert!(html.contains("name=\"wpAction\" value=\"close\""), "{html}");
     }
 }

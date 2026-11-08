@@ -43,6 +43,8 @@ pub struct Ctx {
     pub cache_tags: Vec<String>,
     /// The request's `Accept-Language`, for the preferences negotiated from it (0085 §2.2).
     pub accept_language: Option<String>,
+    /// The batch the write joined (0104 §1), which the response reports; 0 for none.
+    pub batch: std::sync::atomic::AtomicU64,
 }
 
 impl Ctx {
@@ -184,12 +186,20 @@ pub async fn handle(
             .get(axum::http::header::ACCEPT_LANGUAGE)
             .and_then(|v| v.to_str().ok())
             .map(str::to_owned),
+        batch: std::sync::atomic::AtomicU64::new(0),
     };
     let mut response = match dispatch(&mut ctx).await {
         Ok(r) => r,
         Err(e) => ApiResponse::err(e),
     };
     response.warnings.append(&mut ctx.warnings);
+    // The batch a write joined (0104 §6), beside the module's own answer.
+    let batch = ctx.batch.load(std::sync::atomic::Ordering::Relaxed);
+    if batch != 0 && response.error.is_none() {
+        response
+            .body
+            .insert("batch".into(), serde_json::json!(batch));
+    }
     if response.set_cookie.is_none() {
         response.set_cookie = ctx.set_cookie.take();
     }

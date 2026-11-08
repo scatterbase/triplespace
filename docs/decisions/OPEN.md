@@ -53,6 +53,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0102 A1](0102-strict-names-from-the-provider.md#a1-the-username-kept-on-the-identity-every-registry-prefix-reserved-a-held-derived-name) | 2026-11-07 | The username kept on the identity; every registry prefix reserved; a held derived name |
 | [0102 A2](0102-strict-names-from-the-provider.md#a2-a-rename-by-hand-the-tombstone-that-yields) | 2026-11-07 | A rename by hand; the tombstone that yields |
 | [0104 A1](0104-batches-and-the-job-runner.md#a1-calls-made-while-building-the-runner) | 2026-11-08 | Calls made while building the runner |
+| [0104 A2](0104-batches-and-the-job-runner.md#a2-calls-made-while-building-the-batches) | 2026-11-08 | Calls made while building the batches |
 
 ## Open questions
 
