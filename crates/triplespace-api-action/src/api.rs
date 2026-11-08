@@ -124,6 +124,16 @@ async fn multipart_into(
     Ok(())
 }
 
+/// The batch a write joined (0104 §6), reported beside the module's own answer.
+fn with_batch(ctx: &Ctx, response: &mut ApiResponse) {
+    let batch = ctx.batch.load(std::sync::atomic::Ordering::Relaxed);
+    if batch != 0 && response.error.is_none() {
+        response
+            .body
+            .insert("batch".into(), serde_json::json!(batch));
+    }
+}
+
 /// The `api.php` handler.
 pub async fn handle(
     State(app): State<App>,
@@ -193,13 +203,7 @@ pub async fn handle(
         Err(e) => ApiResponse::err(e),
     };
     response.warnings.append(&mut ctx.warnings);
-    // The batch a write joined (0104 §6), beside the module's own answer.
-    let batch = ctx.batch.load(std::sync::atomic::Ordering::Relaxed);
-    if batch != 0 && response.error.is_none() {
-        response
-            .body
-            .insert("batch".into(), serde_json::json!(batch));
-    }
+    with_batch(&ctx, &mut response);
     if response.set_cookie.is_none() {
         response.set_cookie = ctx.set_cookie.take();
     }

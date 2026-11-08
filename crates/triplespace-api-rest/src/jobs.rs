@@ -398,14 +398,32 @@ async fn job_row<C: GenericClient>(
     }))
 }
 
-fn parse_id(id: &str) -> Result<u64, Response> {
+/// A job ID from the path, or the `job-not-found` answer.
+fn parse_id(id: &str) -> Result<u64, Box<Response>> {
     id.parse::<u64>().map_err(|_| {
-        error(
+        Box::new(error(
             StatusCode::NOT_FOUND,
             "job-not-found",
             format!("`{id}` is not a job ID"),
-        )
+        ))
     })
+}
+
+/// The job's row, or the answer for a job that is not there.
+async fn find_job<C: GenericClient>(
+    client: &C,
+    tenant: &str,
+    job_id: u64,
+) -> Result<JobRow, Box<Response>> {
+    match job_row(client, tenant, job_id).await {
+        Ok(Some(r)) => Ok(r),
+        Ok(None) => Err(Box::new(error(
+            StatusCode::NOT_FOUND,
+            "job-not-found",
+            format!("no job {job_id} on this wiki"),
+        ))),
+        Err(e) => Err(Box::new(internal(&e))),
+    }
 }
 
 /// Queues a revert of `reverts` as `actor`; the revert job's ID.
@@ -415,7 +433,7 @@ async fn queue_revert(
     actor: &str,
     reverts: u64,
     reason: Option<&str>,
-) -> Result<u64, Response> {
+) -> Result<u64, Box<Response>> {
     let mut params = json!({"reverts": reverts});
     if let Some(r) = reason.filter(|r| !r.is_empty()) {
         params["reason"] = json!(r);
@@ -431,7 +449,7 @@ async fn queue_revert(
         },
     )
     .await
-    .map_err(|e| internal(&e))
+    .map_err(|e| Box::new(internal(&e)))
 }
 
 /// `POST /jobs/{id}/reject`: `{reason, revert?}`; needs `ts-revertjob`.
@@ -462,7 +480,7 @@ pub async fn reject(
     };
     let job_id = match parse_id(&id) {
         Ok(j) => j,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     let reason = object
         .get("reason")
@@ -482,16 +500,9 @@ pub async fn reject(
         .and_then(Value::as_bool)
         .unwrap_or(false);
     let tenant = ctx.tenant.slug.clone();
-    let row = match job_row(ctx.db(), &tenant, job_id).await {
-        Ok(Some(r)) => r,
-        Ok(None) => {
-            return error(
-                StatusCode::NOT_FOUND,
-                "job-not-found",
-                format!("no job {job_id} on this wiki"),
-            );
-        }
-        Err(e) => return internal(&e),
+    let row = match find_job(ctx.db(), &tenant, job_id).await {
+        Ok(r) => r,
+        Err(r) => return *r,
     };
     if row.status != "running" {
         return error(
@@ -506,7 +517,7 @@ pub async fn reject(
     let revert_job = if revert {
         match queue_revert(&app, &tenant, &actor, job_id, Some(&reason)).await {
             Ok(j) => Some(j),
-            Err(r) => return r,
+            Err(r) => return *r,
         }
     } else {
         None
@@ -573,19 +584,12 @@ pub async fn revert(
     };
     let job_id = match parse_id(&id) {
         Ok(j) => j,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     let tenant = ctx.tenant.slug.clone();
-    let row = match job_row(ctx.db(), &tenant, job_id).await {
-        Ok(Some(r)) => r,
-        Ok(None) => {
-            return error(
-                StatusCode::NOT_FOUND,
-                "job-not-found",
-                format!("no job {job_id} on this wiki"),
-            );
-        }
-        Err(e) => return internal(&e),
+    let row = match find_job(ctx.db(), &tenant, job_id).await {
+        Ok(r) => r,
+        Err(r) => return *r,
     };
     if row.status == "running" {
         return error(
@@ -604,7 +608,7 @@ pub async fn revert(
             &headers,
             &json!({"job": r, "status": "queued", "reverts": job_id, "links": {"page": format!("/wiki/Special:Jobs/{r}")}}),
         ),
-        Err(r) => r,
+        Err(r) => *r,
     }
 }
 
@@ -629,19 +633,12 @@ pub async fn close(
     };
     let job_id = match parse_id(&id) {
         Ok(j) => j,
-        Err(r) => return r,
+        Err(r) => return *r,
     };
     let tenant = ctx.tenant.slug.clone();
-    let row = match job_row(ctx.db(), &tenant, job_id).await {
-        Ok(Some(r)) => r,
-        Ok(None) => {
-            return error(
-                StatusCode::NOT_FOUND,
-                "job-not-found",
-                format!("no job {job_id} on this wiki"),
-            );
-        }
-        Err(e) => return internal(&e),
+    let row = match find_job(ctx.db(), &tenant, job_id).await {
+        Ok(r) => r,
+        Err(r) => return *r,
     };
     if row.mode.as_deref() != Some("batch") {
         return error(
