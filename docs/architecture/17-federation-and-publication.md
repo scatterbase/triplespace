@@ -8,7 +8,7 @@ This chapter covers what leaves an instance for another party and what comes bac
 
 ### 1.1 What an instance publishes
 
-*Sources: [0022](../decisions/0022-federation.md) §1; [0081](../decisions/0081-recovery-keys-and-continuations.md) §9.*
+*Sources: [0022](../decisions/0022-federation.md) §1; [0081](../decisions/0081-recovery-keys-and-continuations.md) §9; [0013](../decisions/0013-postgres-storage.md) §8.*
 
 Every instance, for each tenant that has a provider code ([0015](../decisions/0015-record-format-and-partition-registry.md) §5), publishes at the tenant's base:
 
@@ -24,6 +24,8 @@ Every instance, for each tenant that has a provider code ([0015](../decisions/00
 | The **key chain**: every `key:` record of the tenant's `config` partition ([08](08-tenants-and-instances.md) §2.4), with its `recovery-key`, `continuation` and `continuation-cancel` records, so a reader has the chain of custody from one URL ([0081](../decisions/0081-recovery-keys-and-continuations.md) §9) | `GET /.well-known/tlog/keys` | [0015](../decisions/0015-record-format-and-partition-registry.md) §3, [0018](../decisions/0018-tenants.md) §2 |
 
 Only partitions whose export policy is `public` are published ([0005](../decisions/0005-crate-organization.md) §4.1); `internal` and `private` partitions have no records, checkpoints or proofs here. The local-graph source dump and the export bundle exist so that a reader can take a tenant's own assertions without the tenant's mirrors, for the reason §1.2 gives.
+
+**What is built of these.** Each dump `triplespace dump` writes carries the public bundle of the tenant's `local` partition in `bundle/`: the export scope of [01](01-log-and-records.md) §8, in the dump's own snapshot, with the checkpoints signed so far and the instance's `key:` records, what an anonymous reader may not read withheld and listed. `GET /dumps/local/bundle/` lists the dumps that carry one, newest first, with each bundle's origin, record count, withheld count and checkpoint count; `GET /dumps/local/bundle/{name}/` lists its files, and `GET /dumps/local/bundle/{name}/{path}` serves one, `latest` naming the newest dump, so that a reader fetches the tree and runs `triplespace verify` on it ([0013](../decisions/0013-postgres-storage.md) A81).
 
 ### 1.2 The Triplespace adapter reads the local graph and verifies it
 

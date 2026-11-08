@@ -6,7 +6,11 @@
 //! - `GET /dumps/` lists the dumps, newest first, each by its manifest;
 //! - `GET /dumps/{name}/{file}` serves a file of one, and `latest` names the newest;
 //! - `GET /dumps/local/` and `GET /dumps/local/{name}/{file}` are the same restricted to
-//!   the local-graph source dump, where a `stream` or `verified` reader looks (17 §1.1).
+//!   the local-graph source dump, where a `stream` or `verified` reader looks (17 §1.1);
+//! - `GET /dumps/local/bundle/` lists the public bundles of the `local` partition, newest
+//!   first; `GET /dumps/local/bundle/{name}/` lists one bundle's files, and
+//!   `GET /dumps/local/bundle/{name}/{*path}` serves one, the tree a `verified` reader
+//!   bootstraps from and `triplespace verify` checks (0103 §1; 0013 A81).
 //!
 //! A dump holds what an anonymous reader may read, so a tenant an anonymous reader may not
 //! read serves none, whatever was written while it was public (09 §4.7; 02 §6.4). Without
@@ -222,4 +226,157 @@ pub async fn get_local(
         Ok(dir) => file(&dir, &name, &f, true).await,
         Err(r) => r,
     }
+}
+
+/// The dumps that carry a public bundle, newest first, each by its manifest's `bundle`.
+fn bundle_index(dir: &FsPath) -> Value {
+    let mut names = triplespace_rdf::list(dir).unwrap_or_default();
+    names.reverse();
+    let bundles: Vec<Value> = names
+        .iter()
+        .filter_map(|name| {
+            let m = manifest(dir, name)?;
+            let mut b = m.get("bundle")?.clone();
+            if b.is_null() {
+                return None;
+            }
+            b["name"] = json!(name);
+            b["taken"] = m["taken"].clone();
+            b["url"] = json!(format!("/dumps/local/bundle/{name}/"));
+            Some(b)
+        })
+        .collect();
+    json!({ "bundles": bundles })
+}
+
+/// A dump's name, `latest` resolving to the newest.
+fn dump_name(dir: &FsPath, name: &str) -> Option<String> {
+    if name == "latest" {
+        triplespace_rdf::list(dir).ok().and_then(|mut n| n.pop())
+    } else if triplespace_rdf::is_dump_name(name) {
+        Some(name.to_string())
+    } else {
+        None
+    }
+}
+
+/// A path inside a bundle, segment by segment: letters, digits, `.`, `_` and `-`, never
+/// `.` or `..` alone, so that nothing outside the bundle can be named.
+fn bundle_path(path: &str) -> Option<PathBuf> {
+    let mut out = PathBuf::new();
+    for seg in path.split('/') {
+        if seg.is_empty()
+            || seg == "."
+            || seg == ".."
+            || !seg
+                .bytes()
+                .all(|b| b.is_ascii_alphanumeric() || matches!(b, b'.' | b'_' | b'-'))
+        {
+            return None;
+        }
+        out.push(seg);
+    }
+    Some(out)
+}
+
+/// Every file of a bundle, as paths relative to it.
+fn bundle_files(root: &FsPath) -> Vec<String> {
+    fn walk(root: &FsPath, dir: &FsPath, out: &mut Vec<String>) {
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return;
+        };
+        for e in entries.flatten() {
+            let p = e.path();
+            if p.is_dir() {
+                walk(root, &p, out);
+            } else if let Ok(rel) = p.strip_prefix(root) {
+                out.push(rel.to_string_lossy().replace('\\', "/"));
+            }
+        }
+    }
+    let mut out = Vec::new();
+    walk(root, root, &mut out);
+    out.sort();
+    out
+}
+
+/// `GET /dumps/local/bundle/`.
+pub async fn list_bundles(
+    State(app): State<App>,
+    Extension(origin): Extension<Origin>,
+    headers: HeaderMap,
+) -> Response {
+    match tenant_dir(&app, &origin, &headers).await {
+        Ok(dir) => json_response(&bundle_index(&dir)),
+        Err(r) => r,
+    }
+}
+
+/// `GET /dumps/local/bundle/{name}/`: the bundle's files.
+pub async fn bundle_listing(
+    State(app): State<App>,
+    Extension(origin): Extension<Origin>,
+    headers: HeaderMap,
+    Path(name): Path<String>,
+) -> Response {
+    let dir = match tenant_dir(&app, &origin, &headers).await {
+        Ok(d) => d,
+        Err(r) => return r,
+    };
+    let Some(name) = dump_name(&dir, &name) else {
+        return not_found();
+    };
+    let root = dir.join(&name).join("bundle");
+    if !root.join("bundle.cbor").exists() {
+        return not_found();
+    }
+    let files: Vec<Value> = bundle_files(&root)
+        .into_iter()
+        .map(|f| json!({"path": f, "url": format!("/dumps/local/bundle/{name}/{f}")}))
+        .collect();
+    json_response(&json!({ "name": name, "files": files }))
+}
+
+/// `GET /dumps/local/bundle/{name}/{*path}`: one file of a bundle.
+pub async fn bundle_file(
+    State(app): State<App>,
+    Extension(origin): Extension<Origin>,
+    headers: HeaderMap,
+    Path((name, path)): Path<(String, String)>,
+) -> Response {
+    let dir = match tenant_dir(&app, &origin, &headers).await {
+        Ok(d) => d,
+        Err(r) => return r,
+    };
+    let (Some(name), Some(rel)) = (dump_name(&dir, &name), bundle_path(&path)) else {
+        return not_found();
+    };
+    let file = dir.join(&name).join("bundle").join(&rel);
+    let Ok(f) = tokio::fs::File::open(&file).await else {
+        return not_found();
+    };
+    let len = f
+        .metadata()
+        .await
+        .ok()
+        .filter(std::fs::Metadata::is_file)
+        .map(|m| m.len());
+    let Some(len) = len else {
+        return not_found();
+    };
+    let content_type = match rel.extension().and_then(|e| e.to_str()) {
+        Some("cbor") => "application/cbor",
+        Some("txt") => "text/plain; charset=utf-8",
+        _ => "application/octet-stream",
+    };
+    let mut response = Response::new(Body::from_stream(tokio_util::io::ReaderStream::new(f)));
+    let h = response.headers_mut();
+    if let Ok(v) = content_type.parse() {
+        h.insert(header::CONTENT_TYPE, v);
+    }
+    h.insert(header::CONTENT_LENGTH, len.into());
+    if let Ok(v) = "public, max-age=31536000, immutable".parse() {
+        h.insert(header::CACHE_CONTROL, v);
+    }
+    response
 }

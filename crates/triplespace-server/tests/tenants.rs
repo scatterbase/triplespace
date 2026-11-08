@@ -432,6 +432,7 @@ async fn two_tenants_on_one_instance() {
                 actor_keys: None,
                 part_names: None,
                 is_config,
+                withheld: None,
             },
         )
         .await;

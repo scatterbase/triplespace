@@ -918,6 +918,54 @@ async fn a_bot_logs_in_reads_and_edits() {
     );
     let (status, _, _) = download("/dumps/../manifest.json".into()).await;
     assert_ne!(status, StatusCode::OK);
+    // The public bundle of the `local` partition rides in the same dump (17 §1.1; 0013
+    // A81): listed, served file by file, and verifiable once downloaded.
+    assert_eq!(
+        latest["bundle"]["origin"],
+        format!("{HOST}/log/local"),
+        "{latest}"
+    );
+    assert!(
+        latest["bundle"]["records"].as_u64().unwrap() > 0,
+        "{latest}"
+    );
+    let (status, _, body) = download("/dumps/local/bundle/".into()).await;
+    assert_eq!(status, StatusCode::OK);
+    let bundles: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(bundles["bundles"][0]["name"], name.as_str(), "{bundles}");
+    let (status, _, body) = download(format!("/dumps/local/bundle/{name}/")).await;
+    assert_eq!(status, StatusCode::OK);
+    let listing: Value = serde_json::from_slice(&body).unwrap();
+    let paths: Vec<String> = listing["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["path"].as_str().unwrap().to_string())
+        .collect();
+    assert!(
+        paths.iter().any(|p| p == "bundle.cbor") && paths.iter().any(|p| p == "keys.seg"),
+        "{paths:?}"
+    );
+    let fetched = std::env::temp_dir().join(format!("tsaccept-fetched-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&fetched);
+    for path in &paths {
+        let (status, _, bytes) = download(format!("/dumps/local/bundle/{name}/{path}")).await;
+        assert_eq!(status, StatusCode::OK, "{path}");
+        let to = fetched.join(path);
+        std::fs::create_dir_all(to.parent().unwrap()).unwrap();
+        std::fs::write(&to, bytes).unwrap();
+    }
+    let reports = triplespace_cli::log_bundle::verify(&triplespace_cli::log_bundle::Verify {
+        bundle: fetched.clone(),
+        level: triplespace_cli::log_bundle::VerifyLevel::Bodies,
+    })
+    .await
+    .unwrap();
+    assert_eq!(reports.len(), 1);
+    assert!(reports[0].1.is_clean(), "{:?}", reports[0].1.problems);
+    let _ = std::fs::remove_dir_all(&fetched);
+    let (status, _, _) = download(format!("/dumps/local/bundle/{name}/..%2Fmanifest.json")).await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "nothing outside the bundle");
     let _ = std::fs::remove_dir_all(&dumps);
 
     // 7d. The log's own copies (0006 §6, §9; 0103 §1): sign every partition's head, write
@@ -986,15 +1034,19 @@ async fn a_bot_logs_in_reads_and_edits() {
         Ok(reports) => reports.iter().any(|(_, r)| !r.is_clean()),
     };
     assert!(caught, "the changed byte is caught");
-    for scope in [Scope::Export, Scope::Transfer] {
+    // The transfer scope is not built; the export scope is one tenant's.
+    for (scope, tenant) in [
+        (Scope::Transfer, Some(TENANT.to_string())),
+        (Scope::Export, None),
+    ] {
         let refused = log_bundle::export(&Export {
             database: database.clone(),
             scope,
-            tenant: Some(TENANT.into()),
-            out: bundle.join("unbuilt"),
+            tenant,
+            out: bundle.join("refused"),
         })
         .await;
-        assert!(refused.is_err(), "{scope:?} is not built yet");
+        assert!(refused.is_err(), "{scope:?}");
     }
     let _ = std::fs::remove_dir_all(&bundle);
 

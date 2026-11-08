@@ -219,6 +219,11 @@ purpose = "One file of a dump's local-graph source dump"
 sources = "[0013](../decisions/0013-postgres-storage.md) A79; [0022](../decisions/0022-federation.md) §1"
 
 [[route]]
+routes = ["GET /dumps/local/bundle/", "GET /dumps/local/bundle/{name}/", "GET /dumps/local/bundle/{name}/{path}"]
+purpose = "The public bundles of the `local` partition, newest first; one bundle's files; one file, `latest` naming the newest dump. A tenant an anonymous reader may not read serves none ([17](17-federation-and-publication.md) §1.1)"
+sources = "[0022](../decisions/0022-federation.md) §1; [0013](../decisions/0013-postgres-storage.md) A81"
+
+[[route]]
 routes = ["/dumps/local/"]
 purpose = "The local-graph source dump ([17](17-federation-and-publication.md))"
 sources = "[0012](../decisions/0012-api-requirements.md) §5; [0022](../decisions/0022-federation.md) §11"

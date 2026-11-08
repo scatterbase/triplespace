@@ -66,6 +66,11 @@ pub struct Verify<'a> {
     pub part_names: Option<PartNames<'a>>,
     /// Whether this is a `config` partition, whose key chain is rebuilt and checked.
     pub is_config: bool,
+    /// What the bundle withheld from this partition on purpose (0006 A30): by offset, the
+    /// parts left out, or `None` for a record written as its leaf alone. A listed part is
+    /// accounted for, as an erased part is by an `erase` record; anything missing that is
+    /// not listed is still a problem.
+    pub withheld: Option<&'a std::collections::BTreeMap<u64, Option<Vec<usize>>>>,
 }
 
 /// One thing wrong.
@@ -179,6 +184,8 @@ pub struct Report {
     pub compacted: u64,
     /// Records with at least one erased part.
     pub erased: u64,
+    /// Records the bundle withheld in whole or in part, as its withheld list says.
+    pub withheld: u64,
     /// Checkpoints checked.
     pub checkpoints: usize,
     /// Manifests checked.
@@ -237,6 +244,7 @@ fn erasure_of(record: &Record) -> Option<Erasure> {
 }
 
 /// Verifies one partition.
+#[allow(clippy::too_many_lines)]
 pub async fn verify<S: LogStore, C: CheckpointStore>(
     store: &S,
     checkpoints: &C,
@@ -279,8 +287,13 @@ pub async fn verify<S: LogStore, C: CheckpointStore>(
         let leaf = slot.leaf();
         leaves.push(leaf);
         frontier.push_leaf(leaf);
+        let listed = what.withheld.and_then(|w| w.get(&offset));
         let Slot::Record(record) = slot else {
-            report.compacted += 1;
+            if matches!(listed, Some(None)) {
+                report.withheld += 1;
+            } else {
+                report.compacted += 1;
+            }
             continue;
         };
         report.records += 1;
@@ -300,12 +313,16 @@ pub async fn verify<S: LogStore, C: CheckpointStore>(
         if record.body().verify(&h.commitment).is_err() {
             report.problems.push(Problem::Commitment { offset });
         }
+        let withheld_parts: &[usize] = listed.and_then(Option::as_deref).unwrap_or(&[]);
+        if !withheld_parts.is_empty() {
+            report.withheld += 1;
+        }
         let erased: Vec<usize> = record
             .body()
             .parts()
             .iter()
             .enumerate()
-            .filter(|(_, p)| p.is_erased())
+            .filter(|(i, p)| p.is_erased() && !withheld_parts.contains(i))
             .map(|(i, _)| i)
             .collect();
         if !erased.is_empty() {
@@ -691,6 +708,7 @@ mod tests {
             actor_keys: None,
             part_names: None,
             is_config: false,
+            withheld: None,
         }
     }
 

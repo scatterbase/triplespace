@@ -885,6 +885,90 @@ async fn protect_delete_undelete_and_hide() {
             .status,
         StatusCode::GONE
     );
+
+    // The export scope (0103 §1; 0006 A30, A31): what an anonymous reader may not read is
+    // left out of the bundle and listed, so it verifies clean; the confidential page's
+    // records are leaves alone, and the libel revision's hidden content is withheld.
+    let bundle = std::env::temp_dir().join(format!("tsmoderation-export-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&bundle);
+    triplespace_cli::log_bundle::export(&triplespace_cli::log_bundle::Export {
+        database: database.clone(),
+        scope: triplespace_cli::log_bundle::Scope::Export,
+        tenant: Some(TENANT.into()),
+        out: bundle.clone(),
+    })
+    .await
+    .unwrap();
+    let opened = scatter_integrity::bundle::Bundle::open(&bundle).unwrap();
+    assert_eq!(opened.manifest().scope, "export");
+    let reports = opened
+        .verify(scatter_integrity::verify::Level::Bodies, None, None)
+        .await;
+    for r in &reports {
+        assert!(r.is_clean(), "{:?}", r.problems);
+    }
+    assert!(reports.iter().map(|r| r.withheld).sum::<u64>() > 0);
+    assert!(
+        opened
+            .manifest()
+            .partitions
+            .iter()
+            .all(|p| p.name != "accounts" && p.name != "log"),
+        "only public partitions are exported"
+    );
+    let db = triplespace_cli::common::connect(&database).await.unwrap();
+    let locate = |sql: &'static str, arg: i64| {
+        let db = &db;
+        async move {
+            db.query(sql, &[&TENANT, &arg])
+                .await
+                .unwrap()
+                .iter()
+                .map(|r| {
+                    (
+                        scatter_log_postgres::ids::partition_from_db(r.get(0)),
+                        u64::try_from(r.get::<_, i64>(1)).unwrap(),
+                    )
+                })
+                .collect::<Vec<_>>()
+        }
+    };
+    let libel_at = locate(
+        "SELECT partition, \"offset\" FROM view.activity WHERE tenant = $1 AND revid = $2",
+        i64::try_from(libel).unwrap(),
+    )
+    .await;
+    let (lp, lo) = libel_at[0];
+    let listed = opened.withheld()[&lp][&lo]
+        .clone()
+        .expect("parts, not the whole record");
+    assert!(listed.contains(&scatter_log::body::CONTENT), "{listed:?}");
+    let secret_at = locate(
+        "SELECT partition, \"offset\" FROM view.activity WHERE tenant = $1 AND target_kind = 2 AND target_id = $2::bigint::text",
+        i64::try_from(secret).unwrap(),
+    )
+    .await;
+    assert!(!secret_at.is_empty());
+    // Its edit, in `pages`; its protection event is in the internal `log`, not exported.
+    let exported: Vec<(u64, u64)> = secret_at
+        .into_iter()
+        .filter(|(sp, _)| {
+            opened
+                .manifest()
+                .partitions
+                .iter()
+                .any(|p| p.partition == *sp)
+        })
+        .collect();
+    assert!(!exported.is_empty());
+    for (sp, so) in exported {
+        assert_eq!(
+            opened.withheld()[&sp][&so],
+            None,
+            "the confidential page's record is a leaf alone"
+        );
+    }
+    let _ = std::fs::remove_dir_all(&bundle);
 }
 
 /// Confidentiality holds against administrators outside the group (0056 A18; 09 §4.5,
