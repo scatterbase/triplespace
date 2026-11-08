@@ -670,13 +670,23 @@ purpose = "Runs with parameters; `Query-Cursor` and `Query-Truncated` headers as
 sources = "[0063](../decisions/0063-query-namespace.md) §7"
 
 [[route]]
+routes = ["GET /record/proofs?partition=&checkpoint=&from=&to="]
+purpose = "The inclusion proofs of a range of at most 1000 records against one checkpoint, each node any of them needs sent once as `{level, index, hash}` and each leaf's path as positions in that list ([17](17-federation-and-publication.md) §1.1)"
+sources = "[0012](../decisions/0012-api-requirements.md) §5; [0022](../decisions/0022-federation.md) §1"
+
+[[route]]
+routes = ["GET /record/{partition}/{offset}"]
+purpose = "One record of a partition published to the caller, as an export shows it ([01](01-log-and-records.md) §8): the header decoded, each part with its leaf and state (`present`, `withheld`, `erased`), the canonical CBOR in `record`, the attestation's signature; a confidential target's record is its leaf alone. `Accept: application/cbor` sends the bytes. Partition IDs are decimal strings, hashes base64"
+sources = "[0012](../decisions/0012-api-requirements.md) §5"
+
+[[route]]
 routes = ["GET /record/{partition}/{offset}/checkpoint"]
-purpose = "The earliest checkpoint that includes the record"
+purpose = "The earliest checkpoint that includes the record, as its signed note; a `hashed` partition has none"
 sources = "[0012](../decisions/0012-api-requirements.md) §5"
 
 [[route]]
 routes = ["GET /record/{partition}/{offset}/proof?checkpoint="]
-purpose = "An inclusion proof ([01](01-log-and-records.md) §8). Both record routes return the record's signature, where it has one"
+purpose = "An RFC 9162 inclusion proof against the checkpoint of that tree size, the latest by default, as `{leaf_index, tree_size, audit_path, checkpoint}` ([01](01-log-and-records.md) §8)"
 sources = "[0012](../decisions/0012-api-requirements.md) §5"
 
 [[route]]

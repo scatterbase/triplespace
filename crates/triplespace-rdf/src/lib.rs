@@ -632,7 +632,7 @@ async fn write_bundle(
         .map_err(DumpError::Database)?;
     let ids = [scatter_log_postgres::ids::partition_to_db(row.partition)];
     let withhold = reader
-        .decide(tx, req.tenant, &ids)
+        .decide(tx, req.tenant, &ids, None)
         .await
         .map_err(DumpError::Database)?;
     let keys = bundle::key_records(&store)

@@ -3622,6 +3622,7 @@ name = "triplespace-api-action"
 version = "0.0.1"
 dependencies = [
  "axum",
+ "base64 0.22.1",
  "deadpool-postgres",
  "percent-encoding",
  "scatter-actors",
@@ -3719,6 +3720,7 @@ dependencies = [
  "triplespace-api-ingest",
  "triplespace-notify",
  "triplespace-projections",
+ "triplespace-rdf",
  "url",
 ]
 

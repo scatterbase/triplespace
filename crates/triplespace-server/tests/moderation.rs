@@ -943,6 +943,30 @@ async fn protect_delete_undelete_and_hide() {
         .clone()
         .expect("parts, not the whole record");
     assert!(listed.contains(&scatter_log::body::CONTENT), "{listed:?}");
+    // The record route shows it the same way (0012 §5; 17 §1.1): the content is its
+    // commitment, named in `withheld`, and the leaf is unchanged.
+    let shown = anon
+        .send(
+            "GET",
+            &format!("/w/rest.php/triplespace/v0/record/{lp}/{lo}"),
+            None,
+            None,
+            &[],
+        )
+        .await;
+    assert_eq!(shown.status, StatusCode::OK, "{}", shown.body);
+    assert_eq!(
+        shown.body["parts"][0]["state"], "withheld",
+        "{}",
+        shown.body
+    );
+    assert!(shown.body["parts"][0]["value"].is_null());
+    assert!(
+        shown.body["withheld"]
+            .as_array()
+            .unwrap()
+            .contains(&json!(scatter_log::body::CONTENT))
+    );
     let secret_at = locate(
         "SELECT partition, \"offset\" FROM view.activity WHERE tenant = $1 AND target_kind = 2 AND target_id = $2::bigint::text",
         i64::try_from(secret).unwrap(),
@@ -966,6 +990,21 @@ async fn protect_delete_undelete_and_hide() {
             opened.withheld()[&sp][&so],
             None,
             "the confidential page's record is a leaf alone"
+        );
+        let shown = anon
+            .send(
+                "GET",
+                &format!("/w/rest.php/triplespace/v0/record/{sp}/{so}"),
+                None,
+                None,
+                &[],
+            )
+            .await;
+        assert_eq!(shown.status, StatusCode::OK);
+        assert!(
+            shown.body["header"].is_null() && shown.body["leaf"].is_string(),
+            "a leaf alone, as compacted: {}",
+            shown.body
         );
     }
     let _ = std::fs::remove_dir_all(&bundle);

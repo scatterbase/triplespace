@@ -852,6 +852,28 @@ async fn a_bot_logs_in_reads_and_edits() {
             )
         }
     };
+    let download_as = |uri: String, accept: &'static str| {
+        let router = c.router.clone();
+        async move {
+            let req = Request::builder()
+                .uri(uri)
+                .header(header::HOST, HOST)
+                .header(header::ACCEPT, accept)
+                .body(Body::empty())
+                .unwrap();
+            let resp = router.oneshot(req).await.unwrap();
+            let status = resp.status();
+            let headers = resp.headers().clone();
+            let body = resp
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes()
+                .to_vec();
+            (status, headers, body)
+        }
+    };
     let (status, headers, gz) = download(format!("/dumps/{name}/wikibase.nt.gz")).await;
     assert_eq!(status, StatusCode::OK);
     assert_eq!(headers[header::CONTENT_TYPE], "application/gzip");
@@ -1049,6 +1071,131 @@ async fn a_bot_logs_in_reads_and_edits() {
         assert!(refused.is_err(), "{scope:?}");
     }
     let _ = std::fs::remove_dir_all(&bundle);
+
+    // 7e. The record and proof routes (0012 §5; 17 §1.1), checked as a verifying reader
+    // checks them: the checkpoint against the key chain, a record's leaf against it by an
+    // inclusion proof, a range by the multi-proof, and the tree's growth by consistency.
+    {
+        use base64::Engine as _;
+        use scatter_integrity::checkpoint::SignedCheckpoint;
+        use scatter_integrity::keys::KeyChain;
+        use scatter_integrity::proof::{verify_consistency, verify_inclusion};
+        use scatter_log::hash::Hash;
+        use scatter_log::record::Record;
+        let b64 = |v: &Value| -> Vec<u8> {
+            base64::engine::general_purpose::STANDARD
+                .decode(v.as_str().unwrap())
+                .unwrap()
+        };
+        let hash = |v: &Value| -> Hash { b64(v).try_into().unwrap() };
+        let json_of = |body: &[u8]| -> Value { serde_json::from_slice(body).unwrap() };
+        let api = "/w/rest.php/triplespace/v0";
+        let p = local.0.partition;
+        let origin = format!("{HOST}/log/local");
+        let (status, _, note) = download("/.well-known/tlog/local/checkpoint".into()).await;
+        assert_eq!(status, StatusCode::OK);
+        let signed = SignedCheckpoint::parse(&note).unwrap();
+        let (size, root) = (signed.checkpoint.size, signed.checkpoint.root);
+        assert!(size > 1, "{size}");
+        let (status, headers, seq) = download("/.well-known/tlog/keys".into()).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(headers[header::CONTENT_TYPE], "application/cbor-seq");
+        let mut keys = Vec::new();
+        let mut left = seq.as_slice();
+        while !left.is_empty() {
+            let (v, used) = scatter_log::cbor::decode_prefix(left).unwrap();
+            keys.push(Record::from_value(&v).unwrap());
+            left = &left[used..];
+        }
+        let chain = KeyChain::from_records(&keys).unwrap();
+        signed.verify(&origin, &chain.verifiers(&origin)).unwrap();
+        let (_, _, same) = download(format!("/.well-known/tlog/local/checkpoint/{size}")).await;
+        assert_eq!(same, note, "the checkpoint by its size");
+        // One record, its proof, and the checkpoint that first covers it.
+        let (status, _, body) = download(format!("{api}/record/{p}/0")).await;
+        assert_eq!(status, StatusCode::OK);
+        let rec = json_of(&body);
+        let leaf0 = hash(&rec["leaf"]);
+        let decoded = Record::decode(&b64(&rec["record"])).unwrap();
+        assert_eq!(
+            decoded.leaf(),
+            leaf0,
+            "the bytes are the record the leaf commits to"
+        );
+        assert_eq!(rec["partition"], p.to_string());
+        assert!(rec["header"]["payload_type"].is_string(), "{rec}");
+        let (_, headers, cbor) =
+            download_as(format!("{api}/record/{p}/0"), "application/cbor").await;
+        assert_eq!(headers[header::CONTENT_TYPE], "application/cbor");
+        assert_eq!(Record::decode(&cbor).unwrap().leaf(), leaf0);
+        let (status, _, body) =
+            download(format!("{api}/record/{p}/0/proof?checkpoint={size}")).await;
+        assert_eq!(status, StatusCode::OK);
+        let proof = json_of(&body);
+        let path: Vec<Hash> = proof["audit_path"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(hash)
+            .collect();
+        verify_inclusion(&leaf0, 0, size, &path, &root).unwrap();
+        let (status, _, first) = download(format!("{api}/record/{p}/0/checkpoint")).await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(SignedCheckpoint::parse(&first).unwrap().checkpoint.size > 0);
+        // A range against the same checkpoint: every leaf verifies through the shared nodes.
+        let to = size.min(20);
+        let (status, _, body) = download(format!(
+            "{api}/record/proofs?partition={p}&checkpoint={size}&from=0&to={to}"
+        ))
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        let multi = json_of(&body);
+        let nodes: Vec<Hash> = multi["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| hash(&n["hash"]))
+            .collect();
+        for proof in multi["proofs"].as_array().unwrap() {
+            let i = proof["leaf_index"].as_u64().unwrap();
+            let (_, _, body) = download(format!("{api}/record/{p}/{i}")).await;
+            let leaf = hash(&json_of(&body)["leaf"]);
+            let path: Vec<Hash> = proof["path"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|at| nodes[usize::try_from(at.as_u64().unwrap()).unwrap()])
+                .collect();
+            verify_inclusion(&leaf, i, size, &path, &root)
+                .unwrap_or_else(|e| panic!("record {i}: {e}"));
+        }
+        // The tree of one leaf grew into the checkpoint's.
+        let (status, _, body) = download(format!(
+            "/.well-known/tlog/local/consistency?from=1&to={size}"
+        ))
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        let grew: Vec<Hash> = json_of(&body)["consistency"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(hash)
+            .collect();
+        verify_consistency(1, size, &leaf0, &root, &grew).unwrap();
+        // An `internal` partition is not published: no checkpoint, no record.
+        let log_partition = reports
+            .iter()
+            .find(|(p, _)| p.origin == format!("{HOST}/log/log"))
+            .unwrap()
+            .0
+            .partition;
+        let (status, _, _) = download("/.well-known/tlog/log/checkpoint".into()).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        let (status, _, _) = download(format!("{api}/record/{log_partition}/0")).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        let (status, _, _) = download(format!("{api}/record/{p}/{size}0")).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "past the head");
+    }
 
     // 7b. The feeds (0020 §1–2, §5): the bot's edits are recent changes and its
     // contributions, the adoption and the mirror sync are jobs, and the REST feed

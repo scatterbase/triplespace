@@ -147,6 +147,7 @@ pub fn router_with(app: App, extra: Router<App>) -> Router {
         )
         .route("/dumps/local/{name}/{file}", get(modules::dumps::get_local))
         .route("/dumps/{name}/{file}", get(modules::dumps::get))
+        .route("/.well-known/tlog/{*rest}", get(modules::tlog::handle))
         .route("/healthz", get(|| async { "ok" }))
         .merge(extra)
         .layer(axum::middleware::from_fn_with_state(

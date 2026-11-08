@@ -186,6 +186,69 @@ pub fn verify_consistency(
     }
 }
 
+/// The nodes of the inclusion proof of leaf `index` in a tree of `size` leaves, as
+/// `(level, index)`, leaf level first: what a store with interior nodes reads to prove it,
+/// each node's head cut at `size` ([`node_head`]). The same hashes as [`inclusion_proof`].
+#[must_use]
+pub fn inclusion_nodes(index: u64, size: u64) -> Vec<(u32, u64)> {
+    let mut out = Vec::new();
+    if index >= size {
+        return out;
+    }
+    let mut level = 0u32;
+    while (1u64 << level) < size {
+        let sibling = (index >> level) ^ 1;
+        if sibling < index >> level || (sibling << level) < size {
+            out.push((level, sibling));
+        }
+        level += 1;
+    }
+    out
+}
+
+/// The nodes of the consistency proof from a tree of `first` leaves to one of `second`
+/// (RFC 9162 §2.1.4.1), as `(level, index)` in proof order, each cut at `second`. The
+/// same hashes as [`consistency_proof`].
+#[must_use]
+pub fn consistency_nodes(first: u64, second: u64) -> Vec<(u32, u64)> {
+    fn node(start: u64, len: u64) -> (u32, u64) {
+        let level = 64 - (len - 1).leading_zeros();
+        let level = if len == 1 { 0 } else { level };
+        (level, start >> level)
+    }
+    fn sub(out: &mut Vec<(u32, u64)>, m: u64, start: u64, n: u64, complete: bool) {
+        if m == n {
+            if !complete {
+                out.push(node(start, n));
+            }
+            return;
+        }
+        let k = split_point(usize::try_from(n).unwrap_or(usize::MAX)) as u64;
+        if m <= k {
+            sub(out, m, start, k, complete);
+            out.push(node(start + k, n - k));
+        } else {
+            sub(out, m - k, start + k, n - k, false);
+            out.push(node(start, k));
+        }
+    }
+    let mut out = Vec::new();
+    if first == 0 || first >= second {
+        return out;
+    }
+    sub(&mut out, first, 0, second, true);
+    out
+}
+
+/// The head of the subtree `(level, index)` over `leaves`, cut at `size`: the reference
+/// for a store that reads stored nodes instead.
+#[must_use]
+pub fn node_head(leaves: &[Hash], level: u32, index: u64, size: u64) -> Hash {
+    let start = usize::try_from(index << level).unwrap_or(usize::MAX);
+    let end = usize::try_from(((index + 1) << level).min(size)).unwrap_or(usize::MAX);
+    root_of(&leaves[start..end])
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -289,5 +352,38 @@ mod tests {
             vec![d[1], root_of(&d[2..4]), root_of(&d[4..7])]
         );
         assert!(consistency_proof(&d, 7, 7).is_empty());
+    }
+
+    /// The node coordinates give the same proofs as the leaf-based generators.
+    #[test]
+    fn nodes_match_the_generators() {
+        let all: Vec<Hash> = (0u8..40)
+            .map(|i| scatter_log::hash::merkle_leaf(&[i]))
+            .collect();
+        for size in 1..=40u64 {
+            let leaves = &all[..usize::try_from(size).unwrap()];
+            for index in 0..size {
+                let by_nodes: Vec<Hash> = inclusion_nodes(index, size)
+                    .into_iter()
+                    .map(|(l, i)| node_head(leaves, l, i, size))
+                    .collect();
+                assert_eq!(
+                    by_nodes,
+                    inclusion_proof(leaves, index),
+                    "{index} of {size}"
+                );
+            }
+            for first in 1..size {
+                let by_nodes: Vec<Hash> = consistency_nodes(first, size)
+                    .into_iter()
+                    .map(|(l, i)| node_head(leaves, l, i, size))
+                    .collect();
+                assert_eq!(
+                    by_nodes,
+                    consistency_proof(leaves, first, size),
+                    "{first} to {size}"
+                );
+            }
+        }
     }
 }

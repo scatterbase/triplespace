@@ -11,7 +11,8 @@ use scatter_integrity::keys::KeyChain;
 use scatter_log::body::{ATTESTATION, COMMENT, CONTENT};
 use scatter_log::header::CONFIG_PARTITION;
 use scatter_log::record::Record;
-use scatter_log::store::LogStore;
+use scatter_log::store::{LogStore, Slot};
+use scatter_log_postgres::PgClient;
 use tokio_postgres::GenericClient;
 use triplespace_projections::acl_read::{self, ActivityTarget};
 use triplespace_projections::common::target_kind;
@@ -163,8 +164,8 @@ impl Reader {
     /// # Errors
     ///
     /// A tenant the reader may not read, or a database failure.
-    pub async fn new(
-        tx: &tokio_postgres::Transaction<'_>,
+    pub async fn new<C: PgClient>(
+        tx: &C,
         tenant: &str,
         effective: Effective,
     ) -> Result<Self, String> {
@@ -177,7 +178,7 @@ impl Reader {
         .await?;
         if read_decision(&effective, &chain, at) != ReadDecision::Readable {
             return Err(format!(
-                "tenant `{tenant}` is not readable without logging in, so it has no export"
+                "tenant `{tenant}` is not readable by this reader, so it has no export"
             ));
         }
         let hidden = acl_read::hidden(tx, tenant, &effective, at).await?;
@@ -187,17 +188,23 @@ impl Reader {
         })
     }
 
-    /// What to withhold of each record of the partitions `ids` that has an activity row.
+    /// What to withhold of each record of the partitions `ids` that has an activity row,
+    /// all of them or those at `offsets`.
     ///
     /// # Errors
     ///
     /// A database failure.
-    pub async fn decide(
+    #[allow(clippy::too_many_lines)]
+    pub async fn decide<C: PgClient>(
         &self,
-        tx: &tokio_postgres::Transaction<'_>,
+        tx: &C,
         tenant: &str,
         ids: &[i64],
+        offsets: Option<std::ops::Range<u64>>,
     ) -> Result<std::collections::BTreeMap<(u64, u64), Withhold>, String> {
+        let bound = |n: u64| i64::try_from(n).unwrap_or(i64::MAX);
+        let from: Option<i64> = offsets.as_ref().map(|r| bound(r.start));
+        let to: Option<i64> = offsets.as_ref().map(|r| bound(r.end));
         let rows = tx
             .query(
                 "SELECT a.partition, a.\"offset\", a.target_kind, a.target_id,
@@ -212,8 +219,10 @@ impl Reader {
                  LEFT JOIN view.page op ON op.tenant = a.tenant AND a.params->'of'->>'kind' = '2'
                       AND op.page_id = CASE WHEN a.params->'of'->>'id' ~ '^[0-9]+$'
                                             THEN (a.params->'of'->>'id')::bigint END
-                 WHERE a.tenant = $1 AND a.partition = ANY($2)",
-                &[&tenant, &ids],
+                 WHERE a.tenant = $1 AND a.partition = ANY($2)
+                   AND ($3::bigint IS NULL OR a.\"offset\" >= $3)
+                   AND ($4::bigint IS NULL OR a.\"offset\" < $4)",
+                &[&tenant, &ids, &from, &to],
             )
             .await
             .map_err(|e| format!("reading view.activity: {e}"))?;
@@ -300,9 +309,9 @@ impl Reader {
     }
 
     /// Whether the reader may read an entity or page now, by its chain (09 §5).
-    async fn target_readable(
+    async fn target_readable<C: PgClient>(
         &self,
-        tx: &tokio_postgres::Transaction<'_>,
+        tx: &C,
         tenant: &str,
         kind: i16,
         id: &str,
@@ -321,4 +330,85 @@ impl Reader {
             _ => true,
         })
     }
+}
+
+/// How a route names a partition: by ID, as record IRIs do, or by name, as origin lines
+/// and `/.well-known/tlog/` do.
+#[derive(Debug, Clone, Copy)]
+pub enum PartitionRef<'a> {
+    /// The partition ID.
+    Id(u64),
+    /// The partition's name on its tenant.
+    Name(&'a str),
+}
+
+/// The partition `which` of `tenant` if it is published to `reader`: the tenant's own,
+/// `public`, and of no graph a confidential restriction hides from the reader (17 §1.1).
+///
+/// # Errors
+///
+/// A database failure.
+pub async fn published<C: GenericClient>(
+    client: &C,
+    tenant: &str,
+    reader: &Reader,
+    which: PartitionRef<'_>,
+) -> Result<Option<PartitionRow>, String> {
+    Ok(partition_rows(client, Some(tenant))
+        .await?
+        .into_iter()
+        .find(|r| match which {
+            PartitionRef::Id(id) => r.partition == id,
+            PartitionRef::Name(name) => r.name == name,
+        })
+        .filter(|r| r.export == "public" && !reader.viewer.hidden.graphs.contains(&r.name)))
+}
+
+/// One offset as an export shows it (01 §8; 0103 A1).
+#[derive(Debug, Clone)]
+pub enum Shown {
+    /// Only the leaf: a compacted record, or one of a target a confidential restriction
+    /// hides, which reads the same.
+    Leaf(scatter_log::hash::Hash),
+    /// The record, with the parts the reader may not read reduced to their commitments.
+    Record {
+        /// The record, those parts erased.
+        record: Record,
+        /// The parts withheld, apart from those erased in the log.
+        withheld: Vec<usize>,
+    },
+}
+
+/// What an export shows of `slot` under `withhold`, as [`scatter_integrity::bundle`]
+/// writes it.
+///
+/// # Errors
+///
+/// A part index the body does not have.
+pub fn redact(slot: Slot, withhold: Option<&Withhold>) -> Result<Shown, String> {
+    let mut record = match (slot, withhold) {
+        (slot, Some(Withhold::Record)) => return Ok(Shown::Leaf(slot.leaf())),
+        (Slot::Compacted { leaf }, _) => return Ok(Shown::Leaf(leaf)),
+        (Slot::Record(r), _) => r,
+    };
+    let present: Vec<usize> = record
+        .body()
+        .parts()
+        .iter()
+        .enumerate()
+        .filter(|(_, p)| !p.is_erased())
+        .map(|(i, _)| i)
+        .collect();
+    let parts: Vec<usize> = match withhold {
+        Some(Withhold::Parts(want)) => present.into_iter().filter(|i| want.contains(i)).collect(),
+        Some(Withhold::AllParts) => present,
+        _ => Vec::new(),
+    };
+    for &i in &parts {
+        record.body_mut().erase(i).map_err(|e| e.to_string())?;
+    }
+    Ok(Shown::Record {
+        record,
+        withheld: parts,
+    })
 }

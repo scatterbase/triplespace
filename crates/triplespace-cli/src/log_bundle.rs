@@ -226,7 +226,7 @@ pub async fn export(args: &Export) -> Result<Vec<BundlePartition>> {
             .map(|r| scatter_log_postgres::ids::partition_to_db(r.partition))
             .collect();
         withhold = reader
-            .decide(&tx, tenant, &ids)
+            .decide(&tx, tenant, &ids, None)
             .await
             .map_err(anyhow::Error::msg)?;
     }
