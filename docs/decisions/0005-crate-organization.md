@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-07 (A116)
+- **Updated:** 2026-11-07 (A117)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -59,7 +59,7 @@ Since this ADR was first written, twenty-six further ADRs have added crates, cha
 
 #### 4.1 Named graphs are registry entries
 
-*Changed by A2, A3, A6, A10, A11, A14, A31.*
+*Changed by A2, A3, A6, A10, A11, A14, A31, A117.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.1, §1.2; [22](../architecture/22-crates-and-stack.md) §1.3.*
 
@@ -1210,3 +1210,14 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §3.3, as it stood):
 - **Source:** Direct: Claude, while building the dumps (SCA-301), 2026-11-07; unconfirmed
 - **Change:** extends §2
 - **Summary:** `triplespace-rdf` is built as the dump writer and depends on `triplespace-projections` (the composed read of each entity and the ACL chain), `scatter-actors` (the read decision), `scatter-wikibase-model`, `scatter-providers`, `scatter-normalize`, `oxrdf`, `flate2`, `sha2` and `tokio-postgres`, beside the edges its row already named; `scatter-mwlog` and `scatter-quadstore` stay named for the metadata graph and the local quad store. `scatter-wikibase-rdf` names its blank nodes by SHA-256 ([0032](0032-sparql-update-stream.md) A13) and drops `md-5` for `sha2`. Three helpers move from `triplespace-api-action` into `triplespace-projections::read` so that `Special:EntityData` and the dumps share them: which statements are named as their upstream names them, keyed entities' derived terms, and ISO dates. `triplespace-api-action` uses `triplespace-rdf` to list dumps and `tokio-util`, already in the lockfile, to stream them; the CLI uses it for `triplespace dump`. All are within the rows' `lower` rules.
+
+### A117. Export policies say which bundle scopes carry a partition
+
+- **Date:** 2026-11-07
+- **Source:** [0103](0103-export-transfer-and-backup.md) §2
+- **Change:** amends §4.1
+- **Summary:** `internal` was "served by the API but never exported" and `private` "never projected, placed on a feed or exported", which seemed to forbid a tenant move carrying `internal` partitions and a rehost carrying `private`. Each policy now names the scopes of 0006 §9 that carry it: `public` is exported, transferred and backed up; `internal` is transferred and backed up, never exported; `private` is backed up only, a transfer carrying its portable content, sealed. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §1.1.
+
+Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §1.1, as it stood):
+
+> - its **export policy**: `public`, published to external stores; `internal`, served by the API but never exported; or `private`, never projected, placed on a feed or exported ([0007](../decisions/0007-actor-identity.md) §8).

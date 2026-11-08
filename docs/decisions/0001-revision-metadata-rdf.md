@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-24
-- **Updated:** 2026-11-07 (A22)
+- **Updated:** 2026-11-07 (A23)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md)
 - **Uses:** [0000](0000-init.md), [MediaWiki API contract](../api/mediawiki-compat.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -43,7 +43,7 @@ Under [0000](0000-init.md), the append-only log is the source of truth and RDF i
 
 ### 2. Two named graphs: main and metadata
 
-*Changed by A1, A2, A6, A11.*
+*Changed by A1, A2, A6, A11, A23.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.2, §1.5.*
 
@@ -297,3 +297,14 @@ Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §4.2, as it sto
 - **Source:** Direct: Claude, while building `Special:EntityData`'s `full` flavor (SCA-301), 2026-11-07; unconfirmed
 - **Change:** extends §3
 - **Summary:** Three calls made building A21. (1) Each mentioned ID is read through the same path as `Special:EntityData/{id}.json`, one read per mention, so a stub honours read restrictions, aliases (written as `owl:sameAs` to the target, then the target's stub, as Wikibase's `addEntityRedirect` does) and deletion; a batched read would be faster for an entity that mentions hundreds of others and can replace it without changing the output. (2) Wikibase writes stubs in the request's language fallback chain (`getFetchLanguageCodes`); Triplespace has no fallback chains, so stubs use the reader's `label-languages` preference, else `uselang` or their `language`, then English. (3) A stub's type triple is written for items and properties only, as the entity's own is; lexemes, MediaInfo and the keyed types get labels and descriptions only, until their node types are written (0066 §6, 0065, 0048 §5). Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §4.2.
+
+### A23. The metadata graph is exportable, in the full dump only
+
+- **Date:** 2026-11-07
+- **Source:** [0103](0103-export-transfer-and-backup.md) §5
+- **Change:** amends §2
+- **Summary:** The metadata graph was kept out of external stores to keep the external contract simple, not for secrecy. Its export policy is now `public`: the full dump, an export served at `{base}/dumps/`, carries it in its visible form, naming surrogates by IRI only; the Wikibase-compatible dump still never does, by its own definition. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §1.5.
+
+Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §1.5, as it stood):
+
+> a full dump is the instance's own export and carries both ([0013](../decisions/0013-postgres-storage.md) §8).

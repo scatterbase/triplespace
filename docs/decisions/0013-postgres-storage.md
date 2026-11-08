@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-07 (A79)
+- **Updated:** 2026-11-07 (A80)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -123,7 +123,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 8. RDF becomes an output, not the read path (amends 0001 §2 and 0005 §4.4)
 
-*Changed by A9, A10, A32, A78, A79.*
+*Changed by A9, A10, A32, A78, A79, A80.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.5, §4.1, §6.5.*
 
@@ -1051,3 +1051,14 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.8, as it sto
 - **Source:** Direct: Claude, while building the dumps (SCA-301), 2026-11-07; unconfirmed
 - **Change:** extends §8
 - **Summary:** Calls made building A78. (1) One directory per dump, `{dumps.dir}/{tenant}/{YYYYMMDDTHHMMSSZ}/`, named by the snapshot's time, written as `.{name}.partial` and renamed once complete, holding both products: `wikibase.nt.gz` and `wikibase-skolem.nt.gz` (N-Triples, the resolved view being one graph), `local.nq.gz` and `local-skolem.nq.gz` (N-Quads in `{base}/graph/local`), `local.json.gz` (one entity per line with its newest local record's partition, offset and revision ID), and `manifest.json` (tenant, base, time, whether from a replica, RDF format version, cursor, entity counts, and per file its records, size and SHA-256). (2) The resolved view is written as `dumpRdf.php --flavor full-dump` writes an entity, with the upstream naming of [0002](0002-source-graphs-and-mass-ingest.md) A43; the local graph without truthy triples (05 §1.4) but with `wikibase:BestRank` computed within the graph. (3) Each file opens with a comment naming the base, the time and the cursor, the stamp 02 §6.4 asks for. (4) A dump holds what an anonymous reader may read, entity by entity through the read check `.json` uses; a tenant an anonymous reader may not read gets no dump, and `{base}/dumps/` serves nothing for it, whatever was written while it was public. (5) The tenant setting `dumps.keep` (default 7), defined for scope dumps by [0076](0076-dataset-publication.md) §1, also sets how many of the tenant's own dumps are kept. (6) Reference and value nodes already written are remembered per 10,000 entities and then forgotten, bounding memory as Wikibase's dumper does; a node met again is written again, which a set of triples does not mind. (7) One worker reads the snapshot; the exported snapshot is there for the parallel workers 02 §4.1 asks for. (8) `GET /dumps/` answers JSON, the manifests newest first with each file's URL; files are served as `application/gzip` with the SHA-256 as the `ETag`, immutable but for `latest`. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §4.1.
+
+### A80. The full dump is an export, never a backup
+
+- **Date:** 2026-11-07
+- **Source:** [0103](0103-export-transfer-and-backup.md) §5
+- **Change:** amends §8
+- **Summary:** The full dump carries the resolved view, the exportable source graphs and the metadata graph, each in its visible form; it is published at `{base}/dumps/` like the other dumps and is no longer described as being for backups, which are the operator's copies of the database (0103 §1). Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §4.1.
+
+Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §4.1, as it stood):
+
+>   - **A full dump** holds the resolved view, every source graph whose export policy allows it (§1.1), and the metadata graph. It is the RDF form of the instance's own history: for the instance's own SPARQL endpoint, for backups, and for another instance that wants the whole record.

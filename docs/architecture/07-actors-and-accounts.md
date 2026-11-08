@@ -91,7 +91,7 @@ Actor records are projected to `view.actor`, whose columns, including `operator`
 
 ### 1.4 Actors with no stable numeric ID
 
-*Sources: [0007](../decisions/0007-actor-identity.md) §5.*
+*Sources: [0007](../decisions/0007-actor-identity.md) §5; [0103](../decisions/0103-export-transfer-and-backup.md) §6.*
 
 | Case | Treatment |
 |---|---|
@@ -103,6 +103,8 @@ Actor records are projected to `view.actor`, whose columns, including `operator`
 | **Fediverse actors** replying to a federated talk page | A surrogate `{base}/actor/{n}` of kind `federated`, whose actor record holds the remote actor IRI and its last-seen name; the IRI is content, never a key ([0022](../decisions/0022-federation.md) §8). |
 
 **Surrogates are minted by the tenant, in sequence,** from `log."{tenant}.actor_surrogate"` ([03](03-storage-caches-and-search.md) §2.3). Their actor key is `actor:{n}`: like `local`, the code `actor` is never registered, reads as the current tenant's, and is reserved in the shared namespace of slugs and issuer codes; outside the tenant a surrogate is named by its IRI. Its actor record is in the tenant's `actors` partition, keyed by that key. Surrogates carry no information about what they stand for. If a surrogate's actor record is erased, the surrogate stays behind as an opaque anonymous actor, and its revisions stay grouped. An IP seen after that erasure gets a new surrogate.
+
+**No export carries a surrogate's raw value.** RDF, dumps, the update stream and federation name a surrogate by its IRI, `{base}/actor/{n}`, and nothing else; the raw value it stands for, an upstream IP address among them, stays in the actor record, which transfers and backups carry with the `actors` partition ([0103](../decisions/0103-export-transfer-and-backup.md) §6).
 
 ### 1.5 Providers without individual actors
 
@@ -119,7 +121,7 @@ Such a provider has one actor record, of kind `provider` (§1.3), in its `actors
 
 ### 1.6 The actor graphs and private state
 
-*Sources: [0007](../decisions/0007-actor-identity.md) §8.*
+*Sources: [0007](../decisions/0007-actor-identity.md) §8; [0103](../decisions/0103-export-transfer-and-backup.md) §2.*
 
 Three kinds of graph are in Triplespace's registry for actors; the first two fill the "destructible data" row of [0005](../decisions/0005-crate-organization.md) §4.1. Each tenant has its own `accounts` and `actors` partitions ([0018](../decisions/0018-tenants.md) §4); under farm identity, the farm's are instance partitions ([0028](../decisions/0028-tenancy-policy.md) §2; [08](08-tenants-and-instances.md)). The graph catalogue is in [02](02-graphs-rdf-and-query.md).
 
@@ -129,7 +131,7 @@ Three kinds of graph are in Triplespace's registry for actors; the first two fil
 | **Actors** | `{base}/graph/actors` | Source | Account management, renames, links | Full | `logged` | Internal only |
 | **Foreign actors**, one per provider | `{base}/graph/actors/wikidata` | Source | That provider's sync jobs | `latest` | `hashed` | Internal only |
 
-**`private` is an export policy.** A private graph is never projected into any graph, never placed on a feed, and never included in an export bundle ([0006](../decisions/0006-log-integrity-and-erasure.md) §9), including one made for verification. Its integrity can be checked only by the instance itself.
+**`private` is an export policy.** A private graph is never projected into any graph, never placed on a feed, and never in an export or a transfer ([0006](../decisions/0006-log-integrity-and-erasure.md) §9; [01](01-log-and-records.md) §8), including a bundle made for verification; only the operator's backups carry it ([0103](../decisions/0103-export-transfer-and-backup.md) §2). Its integrity can be checked only by the instance itself.
 
 The metadata graph ([0001](../decisions/0001-revision-metadata-rdf.md) §2) projects from the actor graphs: actor nodes, current names, kinds and links. It never reads the accounts graph.
 
@@ -744,14 +746,14 @@ The classification is data: each `private` table is tagged in `triplespace-db`'s
 
 ### 8.5 The private extract in a tenant move
 
-*Sources: [0027](../decisions/0027-preferences-and-portability.md) §4.*
+*Sources: [0027](../decisions/0027-preferences-and-portability.md) §4; [0103](../decisions/0103-export-transfer-and-backup.md) §3, §7.*
 
-A **cooperative** move ([0018](../decisions/0018-tenants.md) §10; [08](08-tenants-and-instances.md)) carries three things beside the bundle: the retention extract, the binding digest, and a **private extract**: for every account of the tenant, its user data bundle of §8.4 (inbox included), encrypted so that only the receiving instance can read it. The receiving instance supplies, with the public key it already supplies for the key-chain rotation, an **encryption key** for the move; the extract is sealed to it; the old instance keeps no copy once the move completes. The extract travels operator to operator, as the binding digest does, never in the public bundle.
+A **cooperative** move ([0018](../decisions/0018-tenants.md) §10; [08](08-tenants-and-instances.md)) carries three things beside the bundle: the retention extract, the binding digest, and a **private extract**: for every account of the tenant, its user data bundle of §8.4 (inbox included), encrypted so that only the receiving instance can read it. The receiving instance supplies, with the public key it already supplies for the key-chain rotation, an **encryption key** for the move; the extract is sealed to it; the old instance keeps no copy once the move completes. The extract is sealed with the rest of the transfer ([08](08-tenants-and-instances.md) §6.2), and the binding digest's secret travels operator to operator; neither is ever in an export ([0103](../decisions/0103-export-transfer-and-backup.md) §3).
 
 **Applied on reclaim.** A bundle is applied to an account when, and only when, that account is reclaimed by one of the three routes 0018 §10 gives, so nobody's settings appear under an account its holder has not yet proved is theirs. Contacts arrive **verified**, since the old instance had verified them and the move is cooperative; the fediverse handle's *follow* of the notifier has to be renewed, because the notifier is a new actor ([0021](../decisions/0021-notifications.md) §5), and the account page says so. Keys are not in the extract; the operator reissues them, after reclaiming their own account ([0024](../decisions/0024-subsidiary-accounts.md) §7).
 
 **Unreclaimed accounts.** Bundles for accounts never reclaimed are deleted when the reclaim grace period ends, and the receiving instance logs the deletion count. An account can still be reclaimed afterwards; it simply arrives with defaults, and the person may import a bundle they downloaded themselves.
 
-**Non-cooperative moves** have no private extract: `private` is not in backups the new operator can be handed responsibly, and 0018 §10 already limits that case to the public bundle. Self-service export and import (§8.4) are what a person has then, which is why **Download my data** exists at all and why the account page suggests it before a vanish (§3.2).
+**Non-cooperative moves** have no private extract: `private` is not in backups the new operator can be handed responsibly, and what else such a move carries depends on its continuation: the visible form only when it is `unauthorized`, the tenant's restricted content too when its recovery keys sign it ([08](08-tenants-and-instances.md) §6.3; [0103](../decisions/0103-export-transfer-and-backup.md) §7). Self-service export and import (§8.4) are what a person has then, which is why **Download my data** exists at all and why the account page suggests it before a vanish (§3.2).
 
 **Rehosting an instance whole** carries `private` with it ([0018](../decisions/0018-tenants.md) §10) and needs none of this.

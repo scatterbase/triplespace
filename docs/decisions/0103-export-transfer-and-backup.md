@@ -1,0 +1,85 @@
+# 0103. Export, transfer and backup
+
+- **Status:** Proposed
+- **Date:** 2026-11-07
+- **Author:** James Hare / Claude Opus
+- **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0027](0027-preferences-and-portability.md), [0056](0056-security-model.md)
+- **Uses:** [0039](0039-files-and-media.md), [0081](0081-recovery-keys-and-continuations.md)
+
+## Context
+
+Every graph has an export policy (0005 §4.1): `public`, published to external stores; `internal`, served by the API but never exported; `private`, never projected, placed on a feed or exported (0007 §8). The policies were written with publication in mind, and the documents then used "export" for every copy of the data that leaves the live database, which made them say more than intended:
+
+- Moving a tenant (0018 §10) carries its `log` and `actors` partitions, which are `internal`, "as an export bundle", while export bundles follow each graph's export policy (0006 §9). Read literally, a move could not carry the tenant's own log.
+- The move bundle holds hidden, suppressed and restricted parts in full, but only the private extract was sealed to the receiving instance (0027 §4); the bundle itself travelled however the operators chose.
+- Rehosting an instance carries `private` (0018 §10), which "never exported" seemed to forbid.
+- The full dump (0013 §8), served at `{base}/dumps/` (0022 §1), carries the `metadata` graph, which was `internal`, and was described as the instance's own export "for backups"; 0023 §7 called it "a full dump made by the instance for itself".
+
+Building the dumps (SCA-301) and discussing how to relaunch an instance or a tenant elsewhere brought these together. The `metadata` graph was kept out of external stores to keep the external contract simple (0001's Consequences), not because it is sensitive: what it holds, revision metadata and log events, the API already shows, and Wikimedia publishes the same in its stub-meta-history dumps.
+
+### Direction
+
+James's direction, from the design discussion of 2026-11-07:
+
+- **"I agree with naming the bundle scopes explicitly."**
+- **"I am fine with keeping the grace period for trusted-move tenants in case the tenant has to move back."**
+- **"Your described behavior of restricted content on tenants moved to new instances sounds correct; you need to verify you are who you say you are to get access to your old privileges."**
+- **"I guess then the differentiation is between export and *backup*"**
+- On reclassifying `metadata` as exportable: **"Yes, full dump only"**.
+- Asked how a move the old operator does not sign should treat restricted content, James chose that a **`recovered` continuation carries the tenant's restricted content and an `unauthorized` one only the export scope**, with suppressed and confidential parts never travelling this way and restricted content held until the recovery delay has passed.
+- Asked, James chose the name **transfer** for the middle scope, to **seal the whole transfer bundle** to the receiving instance's key, and to **state the rule** that no export carries a surrogate's raw value.
+
+## Decision
+
+### 1. Three scopes: export, transfer and backup (amends 0006 §9)
+
+*Current text: [01](../architecture/01-log-and-records.md) §8.*
+
+### 2. Export policies say which scopes carry a partition (amends 0005 §4.1; amends 0007 §8; amends 0056 §6)
+
+*Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.1; [07](../architecture/07-actors-and-accounts.md) §1.6; [09](../architecture/09-security-and-moderation.md) §5.4.*
+
+### 3. A transfer is sealed whole (amends 0018 §10; amends 0027 §4)
+
+*Current text: [07](../architecture/07-actors-and-accounts.md) §8.5; [08](../architecture/08-tenants-and-instances.md) §6.2.*
+
+### 4. Backups and rehosting carry everything (extends 0018 §10; amends 0023 §7)
+
+*Current text: [08](../architecture/08-tenants-and-instances.md) §6.7; [09](../architecture/09-security-and-moderation.md) §6.5.*
+
+### 5. The metadata graph is exportable, in the full dump only (amends 0001 §2; amends 0013 §8; amends 0011 §2)
+
+*Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.5, §4.1; [16](../architecture/16-logs-feeds-and-notifications.md) §1.2.*
+
+### 6. No export carries a surrogate's raw value (extends 0007 §5)
+
+*Current text: [07](../architecture/07-actors-and-accounts.md) §1.4.*
+
+### 7. A transfer without the old operator (amends 0018 §10; amends 0027 §4; uses 0081 §3, §4)
+
+*Current text: [07](../architecture/07-actors-and-accounts.md) §8.5; [08](../architecture/08-tenants-and-instances.md) §6.3.*
+
+## Alternatives considered
+
+- **Keep "export" for every copy and add exceptions** ("never exported, except by a move or a backup"). It is what the documents had drifted into, and each exception had to be restated wherever a policy was.
+- **Make the full dump a backup or transfer artifact**, unpublished, so that `metadata` could stay `internal`. The full dump is the only public RDF of an instance's history, and nothing in `metadata` needed hiding once visibility is applied.
+- **Seal only the private extract**, as before. The partitions carry what the instance shows no anonymous reader, so the bundle is as sensitive as `private`.
+- **Call the middle scope "move"**, after "moving a tenant". "Transfer" names what kind of copy it is, beside export and backup, rather than the act.
+
+## Consequences
+
+- **"Never exported" means what it says.** A rehost or a backup is not an export, so no export policy limits it; its limits are the custody rules of 20 §5.3.
+- **A tenant's restricted content travels in full and stays restricted.** The ACLs, groups and memberships travel with it; logins do not, so a member regains access only by reclaiming the account (08 §6.4), and until then only the new instance's operators read it by prerogative.
+- **The old instance keeps the moved tenant's partitions read-only for the grace period** (08 §6.6), so the tenant can move back; until then the old operator still holds restricted content, under backup custody.
+- **The full dump publishes revision metadata and log events** in their visible form: names an account later vanishes from remain in dumps already downloaded, as they do in Wikimedia's dumps; the update stream carries the erasure to consumers that follow it (02 §6.3).
+- **A community can leave a vanished or hostile host with its own restricted content**, if its recovery-key holders sign; a leaked backup without them yields only what an anonymous reader could already see, and the continuation says `unauthorized` to every reader. Nothing here stops a leak itself: an instance backup holds every tenant and `private`, and only encryption at rest and the custody rules of 20 §5.3 protect it.
+- **A raw upstream IP, or any surrogate's raw value, never leaves the instance in an export**; transfers and backups carry it, since they carry the `actors` partition.
+
+## Open questions
+
+- **Q1.** ~~**A transfer without the old operator.** A non-cooperative move (08 §6.3) takes its bundle "from backups or from the old instance's public exports". Whether a backup handed over by someone other than the old operator counts as a transfer, with the sealing of §3, or must be reduced to the export scope first, is left open.~~ *Settled by §7: what a non-cooperative move carries depends on its continuation's mode. A backup yields only the tenant's own partitions. An `unauthorized` continuation carries the export scope; a `recovered` one also the tenant's read-restricted and hidden parts, held sealed until the recovery delay passes uncancelled; suppressed and confidential parts never travel this way.*
+
+## References
+
+- [docs/registry/graphs.toml](../registry/graphs.toml): the export policy of every graph.
+- Wikimedia's XML dumps, which publish revision metadata with user names (`stub-meta-history`).

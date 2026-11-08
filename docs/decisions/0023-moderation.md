@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-30 (A17)
+- **Updated:** 2026-11-07 (A18)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0006](0006-log-integrity-and-erasure.md), [0009](0009-keyed-entity-types-and-domain.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -69,6 +69,8 @@ Patrolling is the odd one out, since it restricts nothing: it is a mark that a t
 *Current text: [09](../architecture/09-security-and-moderation.md) §6.4.*
 
 ### 7. Visibility of the moderation records themselves
+
+*Changed by A18.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §6.5.*
 
@@ -324,3 +326,14 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §4.3, as it 
   - `type=logging` addresses events in every partition, not only `log`; the event is `delete/event` whenever the hidden record has a log ID and no revision ID (16 §2.3 says "Hide a record in `log`").
   - `actionhidden` hides the event's title and params from everyone, as the other hidden parts are hidden from everyone in the feeds today; a group-aware reveal is a feed-wide change, not made.
   - Migration `0020_page_title_bytes`: a second index on `view.page (tenant, ns, title COLLATE "C")`, every page, deleted ones included.
+
+### A18. Moderation records enter no export, the full dump included
+
+- **Date:** 2026-11-07
+- **Source:** [0103](0103-export-transfer-and-backup.md) §4
+- **Change:** amends §7
+- **Summary:** "A full dump made by the instance for itself" was a backup by another name. The `log` partition enters no export; the full dump, an export, carries log events only through the metadata graph in their visible form, and transfers and backups carry the records. Chapter text: [09](../architecture/09-security-and-moderation.md) §6.5.
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §6.5, as it stood):
+
+> - **The `log` partition's export policy is internal**, so none of these records enters a public dump; a full dump made by the instance for itself carries them, and it is the instance's to protect.

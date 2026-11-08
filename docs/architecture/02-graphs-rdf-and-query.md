@@ -10,7 +10,7 @@ Triplespace's RDF projection is a set of quads spread across named graphs. The m
 
 ### 1.1 Graphs are registry entries
 
-*Sources: [0005](../decisions/0005-crate-organization.md) §4.1.*
+*Sources: [0005](../decisions/0005-crate-organization.md) §4.1; [0103](../decisions/0103-export-transfer-and-backup.md) §2.*
 
 `scatter-log` does not enumerate graphs. Each deployment registers its own. A registry entry records:
 
@@ -19,7 +19,7 @@ Triplespace's RDF projection is a set of quads spread across named graphs. The m
 - its **ACL**: which groups may write to it ([0016](../decisions/0016-permissions-and-access-control.md) §4);
 - its **history policy**: `full` or `latest` ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §2);
 - its **integrity policy**, `logged` or `hashed` ([0006](../decisions/0006-log-integrity-and-erasure.md) §4);
-- its **export policy**: `public`, published to external stores; `internal`, served by the API but never exported; or `private`, never projected, placed on a feed or exported ([0007](../decisions/0007-actor-identity.md) §8).
+- its **export policy**, which says which bundle scopes of [01](01-log-and-records.md) §8 carry it: `public`, exported, transferred with its tenant and backed up; `internal`, served by the API but never exported, and transferred and backed up; or `private`, never projected or placed on a feed, never exported or transferred as records, and backed up ([0007](../decisions/0007-actor-identity.md) §8; [0103](../decisions/0103-export-transfer-and-backup.md) §2). A transfer carries a `private` partition's portable content only, sealed ([07](07-actors-and-accounts.md) §8.5).
 
 Triplespace and Scatterbase register different sets:
 
@@ -108,14 +108,14 @@ Every graph's kind, integrity policy and export policy are those `graphs.toml` r
 
 ### 1.5 The main graph and the metadata graph
 
-*Sources: [0001](../decisions/0001-revision-metadata-rdf.md) §2; [0013](../decisions/0013-postgres-storage.md) §8.*
+*Sources: [0001](../decisions/0001-revision-metadata-rdf.md) §2; [0013](../decisions/0013-postgres-storage.md) §8; [0103](../decisions/0103-export-transfer-and-backup.md) §5.*
 
 | Graph | Contents | Consumers |
 |---|---|---|
 | **Main graph** (`resolved`) | The Wikibase-compatible RDF described in [wikibase-compat.md](../api/wikibase-compat.md), computed by reconciling the source graphs ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §3) | External triplestores (QLever) and any Wikibase or Wikidata tool, through the Wikibase-compatible dump (§4.1) |
 | **Metadata graph** | Revision nodes, actors, summaries, tags, flags, log events, and the links from main-graph nodes to the revisions that produced them | The instance's own SPARQL endpoint and its full dumps (§4.1) |
 
-**Exporting to QLever means exporting the main graph only.** The Wikibase-compatible dump never contains the metadata graph. "Not published to external RDF stores" and "never exported to external stores" ([0011](../decisions/0011-logs.md) §2) mean the Wikibase-compatible dump; a full dump is the instance's own export and carries both ([0013](../decisions/0013-postgres-storage.md) §8). The application's history views, attribution, diffs and moderation read the `view.activity` projection and the records, not RDF.
+**Exporting to QLever means exporting the main graph only.** The Wikibase-compatible dump never contains the metadata graph. "Not published to external RDF stores" and "never exported to external stores" ([0011](../decisions/0011-logs.md) §2) mean the Wikibase-compatible dump; the metadata graph's export policy is `public`, and the full dump, an export like the others, carries it beside the main graph, in its visible form and naming surrogates by IRI only ([0013](../decisions/0013-postgres-storage.md) §8; [0103](../decisions/0103-export-transfer-and-backup.md) §5, §6). The application's history views, attribution, diffs and moderation read the `view.activity` projection and the records, not RDF.
 
 **Consumers can stay current.** For every graph an instance publishes, it also publishes the changes to that graph as a stream of SPARQL 1.1 Update requests that continues from a dump (§6).
 
@@ -233,12 +233,12 @@ The list is illustrative: later sections of this chapter use further terms (`sca
 
 ### 4.1 RDF is an output, not the read path; the three dumps
 
-*Sources: [0013](../decisions/0013-postgres-storage.md) §8; [0033](../decisions/0033-backend-stack.md) §8; [0082](../decisions/0082-source-form-and-the-shared-view.md) §3.*
+*Sources: [0013](../decisions/0013-postgres-storage.md) §8; [0033](../decisions/0033-backend-stack.md) §8; [0082](../decisions/0082-source-form-and-the-shared-view.md) §3; [0103](../decisions/0103-export-transfer-and-backup.md) §5.*
 
 - **The API and UI read only `view`.** No request path queries a triplestore.
 - **The RDF projection streams.** The resolved view (the main graph of §1.5, computed as [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §3 describes), the source graphs and the metadata graph are produced as N-Quads from `view` and `log` by `triplespace-rdf` ([0005](../decisions/0005-crate-organization.md) §2). No intermediate quad store is needed to produce them. **A dump is taken under `pg_export_snapshot()`**, from a replica where the operator names one and otherwise from the primary, under the same snapshot either way, so that every file of a dump describes one instant; a replica keeps the load off the primary, and parallel workers are to share the one snapshot ([0032](../decisions/0032-sparql-update-stream.md) A12). **Every dump is in source form**: entity IDs are the IDs their source wrote, `WDQ5` where Wikidata wrote `Q5`, and the response-time rewriting of [04](04-entities-and-identifiers.md) never touches a dump; a rewritten dump profile, if ever wanted, is a serialization-time pass over a dump and not a stored form ([0082](../decisions/0082-source-form-and-the-shared-view.md) §3). Three dump products are offered:
   - **A Wikibase-compatible dump** holds the resolved view only. It is what QLever and any Wikibase or Wikidata tool load, and it never contains the metadata graph. Source graphs may be added to it for consumers who want to compare what a provider asserts with what the instance asserts ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §3).
-  - **A full dump** holds the resolved view, every source graph whose export policy allows it (§1.1), and the metadata graph. It is the RDF form of the instance's own history: for the instance's own SPARQL endpoint, for backups, and for another instance that wants the whole record.
+  - **A full dump** holds the resolved view, every source graph whose export policy allows it (§1.1), and the metadata graph, each in its visible form. It is the RDF form of the instance's history: for the instance's own SPARQL endpoint and for anyone, another instance included, who wants the whole record. It is an export, served at `{base}/dumps/` beside the others, and never a backup: a backup is the operator's copy of the database ([01](01-log-and-records.md) §8; [0103](../decisions/0103-export-transfer-and-backup.md) §5).
   - **A local-graph source dump** holds the `local` partition's current state as N-Quads and as canonical JSON, one file per snapshot, with the record coordinates of each entity's newest record. It is what another instance reads for verified sync ([0022](../decisions/0022-federation.md) §1).
 
   Every dump is stamped with the cursor of the SPARQL Update stream it continues into, and is offered in a second form with blank nodes skolemized; the plain form is unchanged (§4.3, §6). None is the log export bundle of [0006](../decisions/0006-log-integrity-and-erasure.md) §9, which carries records, not RDF.

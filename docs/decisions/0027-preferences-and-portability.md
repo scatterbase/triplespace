@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-05 (A10)
+- **Updated:** 2026-11-07 (A12)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md)
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -36,6 +36,8 @@ This ADR does three things: it names every kind of private state and puts prefer
 *Current text: [07](../architecture/07-actors-and-accounts.md) §6.2, §8.4.*
 
 ### 4. The private extract in a tenant move (extends 0018 §10; extends 0007 §4)
+
+*Changed by A11, A12.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §3.2, §8.5.*
 
@@ -195,3 +197,25 @@ Replaced text ([07](../architecture/07-actors-and-accounts.md) §8.3, as it stoo
 Replaced text ([07](../architecture/07-actors-and-accounts.md) §8.4, as it stood):
 
 > - `contacts`: email address and fediverse handle, each with `verified`;
+
+### A11. The private extract is sealed with the rest of the transfer
+
+- **Date:** 2026-11-07
+- **Source:** [0103](0103-export-transfer-and-backup.md) §3
+- **Change:** amends §4
+- **Summary:** The private extract no longer travels apart from the bundle: the whole transfer is sealed to the receiving instance's key, the extract with it, and the binding digest's secret still passes operator to operator. Chapter text: [07](../architecture/07-actors-and-accounts.md) §8.5.
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §8.5, as it stood):
+
+> The extract travels operator to operator, as the binding digest does, never in the public bundle.
+
+### A12. A recovered move carries restricted content
+
+- **Date:** 2026-11-07
+- **Source:** [0103](0103-export-transfer-and-backup.md) §7
+- **Change:** amends §4
+- **Summary:** A non-cooperative move was limited to the public bundle. It still carries no private extract, but a `recovered` continuation also carries the tenant's restricted content (0103 §7). Chapter text: [07](../architecture/07-actors-and-accounts.md) §8.5.
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §8.5, as it stood):
+
+> `private` is not in backups the new operator can be handed responsibly, and 0018 §10 already limits that case to the public bundle.

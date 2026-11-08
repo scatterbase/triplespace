@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-06 (A28)
+- **Updated:** 2026-11-07 (A29)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0013](0013-postgres-storage.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md)
@@ -60,7 +60,7 @@ Four constraints follow from how MediaWiki treats accounts:
 
 ### 5. Actors with no stable numeric ID
 
-*Changed by A6, A27.*
+*Changed by A6, A27, A29.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §1.4.*
 
@@ -78,7 +78,7 @@ Four constraints follow from how MediaWiki treats accounts:
 
 ### 8. Graphs (amends 0005 §4.1)
 
-*Changed by A2, A4, A5, A10, A11.*
+*Changed by A2, A4, A5, A10, A11, A29.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §1.6, §8.3.*
 
@@ -400,3 +400,14 @@ Replaced text ([07](../architecture/07-actors-and-accounts.md) §1.4, as it stoo
 - **Source:** [0102](0102-strict-names-from-the-provider.md) §2, §3
 - **Change:** extends §4
 - **Summary:** Under strict names an account's name is derived from its login's external identity as `{label}-{username}`; every offered issuer's prefix is reserved against hand-made names; and a rename upstream renames the account on every tenant at the next login, as an instance act ([07](../architecture/07-actors-and-accounts.md) §2.10).
+
+### A29. `private` is backed up only; exports never carry a surrogate's raw value
+
+- **Date:** 2026-11-07
+- **Source:** [0103](0103-export-transfer-and-backup.md) §2, §6
+- **Change:** amends §8; extends §5
+- **Summary:** A private graph is never in an export or a transfer, and only the operator's backups carry it (0103 §2); and RDF, dumps, the stream and federation name a surrogate by its IRI alone, never the raw value an actor record keeps for it, an upstream IP address among them (0103 §6). Chapter text: [07](../architecture/07-actors-and-accounts.md) §1.6, §1.4.
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §1.6, as it stood):
+
+> **`private` is an export policy.** A private graph is never projected into any graph, never placed on a feed, and never included in an export bundle ([0006](../decisions/0006-log-integrity-and-erasure.md) §9), including one made for verification. Its integrity can be checked only by the instance itself.
