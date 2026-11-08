@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-11-08 (A31)
+- **Updated:** 2026-11-08 (A34)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0029](0029-resolver-namespaces.md), [0031](0031-property-constraints.md), [0042](0042-template-expansion-and-parsoid.md), [0046](0046-primary-tenant.md)
 - **Uses:** [0019](0019-discussions.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md)
@@ -115,6 +115,8 @@ James's direction, from the design discussion of 2026-09-30:
 
 #### 8.1 Special:Export
 
+*Changed by A32, A33, A34.*
+
 *Current text: [21](../architecture/21-special-pages.md) §4.2.*
 
 #### 8.2 The `records` export
@@ -174,10 +176,10 @@ James's direction, from the design discussion of 2026-09-30:
 - **Q1. The external-links table.** Its shape (MediaWiki's `externallinks` stores reversed domains for prefix search) decides `LinkSearch`, `list=exturlusage`, and edit-filter variables over added links.
 - **Q2.** ~~**A page-properties table.** It would serve `PagesWithProp`, `list=pageswithprop` and `prop=pageprops`.~~ *Settled by [0055](0055-templatestyles-templatedata-and-page-properties.md) §6: `view.page_prop`.*
 - **Q3. Global Nuke.** Whether a global group at the farm base ([0028](0028-tenancy-policy.md) §3) may nuke a farm account across every tenant it is linked to, as one job per tenant or as an instance act ([0040](0040-instance-prerogatives.md)).
-- **Q4. Page statements in exports.** Whether to carry them in MediaWiki XML as an extra slot, which only Triplespace would read, or only in `records`.
+- **Q4.** ~~**Page statements in exports.** Whether to carry them in MediaWiki XML as an extra slot, which only Triplespace would read, or only in `records`.~~ *Settled by A32: `records` only; the XML stays a plain MediaWiki export.*
 - **Q5. Mute.** Whether `Special:Mute` and user-level muting of notifications ([0021](0021-notifications.md)) and email should exist at all.
 - **Q6. Reports over mirror graphs.** Which batch reports over a mirror are worth offering by default, for example mirrored properties without a local constraint, and whether their snapshots should be shared across tenants that mirror the same provider.
-- **Q7. Thresholds.** The defaults are placeholders: `nuke.confirm_threshold` (500), `export.sync_revisions` (5,000), `export.max_history` (1,000) and the `reports` `batch_limit` (1,000).
+- **Q7. Thresholds.** The defaults are placeholders: `nuke.confirm_threshold` (500) and the `reports` `batch_limit` (1,000). *The export thresholds, `export.sync_revisions` (5,000) and `export.max_history` (1,000), were kept by A34.*
 
 ## References
 
@@ -556,3 +558,24 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.5, as i
 - **Source:** Direct: Claude, while building the `records` export (SCA-302), 2026-11-08; unconfirmed
 - **Change:** extends §8
 - **Summary:** Calls made building A30. (1) It is served by `POST /export` in the REST API with a JSON body (`format`, `pages` as a list or one title per line, `history`) and the media type `application/vnd.triplespace.records+cbor`; `Special:Export`, the XML format (`501 not-built`) and export jobs wait for SCA-300 and the job runner, so a selection over `export.sync_revisions` records is refused with `413 export-too-large`, and the `export` rate class is not applied yet. (2) The document's fields are `format` (`triplespace-records`), `version` (1), `created`, `keys`, `missing` and `partitions`, each partition with `partition`, `name`, `origin`, `checkpoint`, `nodes`, `records` (`offset`, `record` or `leaf`, `withheld`, `path`) and `pending`; it lives in `scatter-integrity::records` with its verifier, and the builder beside the bundle code in `triplespace-rdf`. (3) A title in an entity namespace names that local entity; `history` is off by default, as `Special:Export`'s `curonly` is on, is honoured only where `export.history` is, and is capped by `export.max_history` per page and `export.max_entity_history` per entity. (4) Records are shown as the export scope shows them to the caller, decided as the record route decides ([0012](0012-api-requirements.md) A85), so a revision-deleted part is withheld from every caller; a page or entity whose records would all be leaves alone, or which has none, is listed in `missing` with what was asked, as an absent one is, and the leaves are not carried. (5) `triplespace verify --records` checks each checkpoint against the key chain in the file, each leaf by its proof, each header against its partition and offset, and each withheld part as erased; it does not check the signatures inside attestations, since the actor key records they need are not carried. Chapter text: [21](../architecture/21-special-pages.md) §4.2.
+
+### A32. Page statements travel in `records` only
+
+- **Date:** 2026-11-08
+- **Source:** Direct: James, design discussion of 2026-11-08
+- **Change:** extends §8.1
+- **Summary:** Settles Q4. Asked whether MediaWiki XML should carry page statements as an extra slot only Triplespace would read, James chose `records` only: the XML stays a plain MediaWiki export that a stock importer reads whole, and the verifiable format already carries every record of a page. Chapter text: 21 §4.2.
+
+### A33. `templates` in export waits for `view.transclusion`
+
+- **Date:** 2026-11-08
+- **Source:** Direct: James, design discussion of 2026-11-08
+- **Change:** extends §8.1
+- **Summary:** Asked whether to build `view.transclusion` (0042 §10) first or ship `Special:Export` without `templates`, James chose to defer the parameter until the functionality exists: until then it is accepted and the response says that no templates were added. Chapter text: 21 §4.2.
+
+### A34. The export thresholds stand
+
+- **Date:** 2026-11-08
+- **Source:** Direct: James, design discussion of 2026-11-08
+- **Change:** extends §8.1
+- **Summary:** Of Q7's placeholders, James kept `export.sync_revisions` (5,000) and `export.max_history` (1,000) as the defaults, both tenant settings a tenant raises; Q7 keeps `nuke.confirm_threshold` and the `reports` `batch_limit`. Chapter text: 21 §4.2.
