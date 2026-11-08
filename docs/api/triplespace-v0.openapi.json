@@ -5750,6 +5750,106 @@
           }
         }
       }
+    },
+    "/export": {
+      "post": {
+        "operationId": "postExport",
+        "summary": "Export selected pages",
+        "description": "An export of selected pages and local entities, streamed (ADR 0047 §8; architecture 21 §4.2). The `records` format is built: the selected targets' records from the tenant's `pages` and `local` partitions, each with an inclusion proof against its partition's latest checkpoint, that checkpoint and the instance's `key:` records, as one canonical-CBOR document that `triplespace verify --records` checks. A record past the latest checkpoint is left out and listed as pending. Every record is shown as the export scope shows it to the caller (architecture 01 §8): parts the caller may not read are their commitments, and a page or entity the caller may not know of is listed in `missing`, as one that does not exist is. A title in an entity namespace names that local entity. `history` (off by default) is allowed where `export.history` is, capped by `export.max_history` per page and `export.max_entity_history` per entity. Needs `read`. The MediaWiki XML format and export jobs are not built.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "format",
+                  "pages"
+                ],
+                "properties": {
+                  "format": {
+                    "enum": [
+                      "records",
+                      "xml"
+                    ]
+                  },
+                  "pages": {
+                    "oneOf": [
+                      {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      {
+                        "type": "string",
+                        "description": "Titles, one per line."
+                      }
+                    ]
+                  },
+                  "history": {
+                    "type": "boolean",
+                    "default": false
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The export. `X-Export-Missing` counts the titles in `missing`.",
+            "content": {
+              "application/vnd.triplespace.records+cbor": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`invalid-json`, `unknown-format` or `no-pages`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`tenant-not-readable`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "`export-too-large`: more than `export.sync_revisions` records, which export jobs will take.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "`not-built`: the `xml` format.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

@@ -48,6 +48,9 @@
 //!   shows it, the checkpoint that first covers it, and inclusion proofs, one or a range's
 //!   with their shared nodes once (0012 §5; 17 §1.1).
 //!
+//! - `POST /export` ([`export`]): the `records` export of selected pages and local
+//!   entities, with their proofs (0047 §8; 21 §4.2).
+//!
 //! Every route runs behind the Action API's request layers ([`triplespace_api_action`]):
 //! the tenant the host names (421 otherwise), the caller, the redaction of 0012 §8, and
 //! the HTTP caching of 0014 §6 ([`triplespace_api_action::http_cache`]). Errors are JSON
@@ -63,6 +66,7 @@ pub mod auth;
 pub mod diff;
 pub mod email;
 mod entity_route;
+pub mod export;
 pub mod groups;
 pub mod history;
 pub mod provenance;
@@ -137,6 +141,7 @@ pub const PATHS: &[&str] = &[
     "/record/{partition}/{offset}/checkpoint",
     "/record/{partition}/{offset}/proof",
     "/record/proofs",
+    "/export",
 ];
 
 /// The REST routes, to be merged into the server's router.
@@ -228,7 +233,8 @@ pub fn routes() -> Router<App> {
             .route(&format!("{base}{}", PATHS[49]), get(record::get))
             .route(&format!("{base}{}", PATHS[50]), get(record::checkpoint))
             .route(&format!("{base}{}", PATHS[51]), get(record::proof))
-            .route(&format!("{base}{}", PATHS[52]), get(record::proofs));
+            .route(&format!("{base}{}", PATHS[52]), get(record::proofs))
+            .route(&format!("{base}{}", PATHS[53]), post(export::post));
     }
     r
 }

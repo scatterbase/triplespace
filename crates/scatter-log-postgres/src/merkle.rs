@@ -221,9 +221,7 @@ pub async fn consistency_proof<C: PgClient>(
 }
 
 /// The inclusion proofs of leaves `from..to` against the tree of `size` leaves, with the
-/// nodes they share sent once (17 §1.1): every node any of the proofs needs, as
-/// `(level, index, head)` in first-use order, and each leaf's path, leaf level first, as
-/// positions in that list.
+/// nodes they share sent once (17 §1.1), as [`proofs`] gives them.
 pub async fn range_proof<C: PgClient>(
     client: &C,
     partition: u64,
@@ -237,10 +235,30 @@ pub async fn range_proof<C: PgClient>(
             offset: to.max(from),
         });
     }
+    let offsets: Vec<u64> = (from..to).collect();
+    proofs(client, partition, &offsets, size).await
+}
+
+/// The inclusion proofs of the leaves at `offsets` against the tree of `size` leaves,
+/// with the nodes they share sent once: every node any of the proofs needs, as
+/// `(level, index, head)` in first-use order, and each leaf's path, leaf level first, as
+/// positions in that list, in the order of `offsets` (17 §1.1; 21 §4.2).
+pub async fn proofs<C: PgClient>(
+    client: &C,
+    partition: u64,
+    offsets: &[u64],
+    size: u64,
+) -> Result<(Vec<(u32, u64, Hash)>, Vec<Vec<usize>>), StoreError> {
+    if let Some(&past) = offsets.iter().find(|&&o| o >= size) {
+        return Err(StoreError::NoOffset {
+            partition,
+            offset: past,
+        });
+    }
     let mut position = std::collections::HashMap::new();
     let mut nodes = Vec::new();
     let mut paths = Vec::new();
-    for index in from..to {
+    for &index in offsets {
         let mut path = Vec::new();
         for (level, i) in scatter_integrity::proof::inclusion_nodes(index, size) {
             let at = if let Some(&at) = position.get(&(level, i)) {

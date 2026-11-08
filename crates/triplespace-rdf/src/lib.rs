@@ -28,6 +28,7 @@
 //! About 0013 §8 (02 §4.1) and 0022 §1 (17 §1.1).
 
 pub mod bundle;
+pub mod records;
 
 use std::collections::BTreeSet;
 use std::fs::{self, File};
@@ -632,12 +633,10 @@ async fn write_bundle(
         .map_err(DumpError::Database)?;
     let ids = [scatter_log_postgres::ids::partition_to_db(row.partition)];
     let withhold = reader
-        .decide(tx, req.tenant, &ids, None)
+        .decide(tx, req.tenant, &ids, bundle::Offsets::All)
         .await
         .map_err(DumpError::Database)?;
-    let keys = bundle::key_records(&store)
-        .await
-        .map_err(DumpError::Database)?;
+    let keys = bundle::key_records(tx).await.map_err(DumpError::Database)?;
     let partition = BundlePartition {
         partition: row.partition,
         name: row.name.clone(),

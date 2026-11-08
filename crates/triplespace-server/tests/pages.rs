@@ -25,23 +25,23 @@ fn admin_config() -> Option<Config> {
     Some(url.parse().expect("TRIPLESPACE_TEST_DATABASE_URL parses"))
 }
 
-async fn fresh_database() -> String {
+async fn fresh_database(name: &str) -> String {
     let admin = admin_config().expect("checked by the caller");
     let (client, connection) = admin.connect(NoTls).await.expect("connect");
     tokio::spawn(async move {
         let _ = connection.await;
     });
     let _ = client
-        .batch_execute(&format!("DROP DATABASE IF EXISTS {DB} WITH (FORCE)"))
+        .batch_execute(&format!("DROP DATABASE IF EXISTS {name} WITH (FORCE)"))
         .await;
     client
-        .batch_execute(&format!("CREATE DATABASE {DB}"))
+        .batch_execute(&format!("CREATE DATABASE {name}"))
         .await
         .expect("create database");
-    triplespace_db::scratch::drop_at_thread_end(DB);
+    triplespace_db::scratch::drop_at_thread_end(name);
     let url = std::env::var("TRIPLESPACE_TEST_DATABASE_URL").unwrap();
     url.rsplit_once('/')
-        .map(|(head, _)| format!("{head}/{DB}"))
+        .map(|(head, _)| format!("{head}/{name}"))
         .unwrap()
 }
 
@@ -50,10 +50,10 @@ fn fixture() -> PathBuf {
         .join("../../docs/samples/librarybase/dump/librarybase-wikitext.xml.gz")
 }
 
-async fn setup() -> Option<(String, PathBuf)> {
+async fn setup(name: &str) -> Option<(String, PathBuf)> {
     admin_config()?;
-    let database = fresh_database().await;
-    let dir = std::env::temp_dir().join(format!("tspages-{}", std::process::id()));
+    let database = fresh_database(name).await;
+    let dir = std::env::temp_dir().join(format!("{name}-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
     let pw = dir.join("owner.pw");
     std::fs::write(&pw, "owner-secret-1234\n").unwrap();
@@ -177,7 +177,7 @@ async fn adopting_again_changes_nothing(database: &str) {
 
 #[tokio::test]
 async fn librarybase_pages_are_adopted_with_their_history() {
-    let Some((database, key_file)) = setup().await else {
+    let Some((database, key_file)) = setup(DB).await else {
         eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
         return;
     };
@@ -317,8 +317,8 @@ fn enc(s: &str) -> String {
     url::form_urlencoded::byte_serialize(s.as_bytes()).collect()
 }
 
-#[allow(clippy::too_many_lines)]
-async fn api(database: &str, key_file: &std::path::Path) {
+/// The Action API and REST routes over the database.
+async fn router(database: &str, key_file: &std::path::Path) -> Router {
     let farm = triplespace_cli::common::farm_at(database).await.unwrap();
     let signing = triplespace_cli::common::signing_key(key_file).unwrap();
     let app = App::new(
@@ -335,7 +335,12 @@ async fn api(database: &str, key_file: &std::path::Path) {
         },
     )
     .unwrap();
-    let api = router_with(app, triplespace_api_rest::routes());
+    router_with(app, triplespace_api_rest::routes())
+}
+
+#[allow(clippy::too_many_lines)]
+async fn api(database: &str, key_file: &std::path::Path) {
+    let api = router(database, key_file).await;
     let site =
         api.clone()
             .fallback_service(triplespace_ui::router(triplespace_client::Client::new(
@@ -1495,4 +1500,92 @@ async fn pages_on_the_site(site: Router, project: &str) {
         stale.body
     );
     assert!(stale.body.contains(">\nFive</textarea>"));
+}
+
+/// A `records` export of Librarybase pages verifies on its own (21 §4.2; 0006 §9): signed,
+/// exported over `POST /export` with history, and checked with `triplespace verify
+/// --records` holding only the file.
+#[tokio::test]
+async fn a_records_export_of_librarybase_pages_verifies() {
+    let Some((database, key_file)) = setup("tspages_records_test").await else {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    };
+    triplespace_cli::log_bundle::checkpoint(&triplespace_cli::log_bundle::Checkpoint {
+        database: database.clone(),
+        key_file: key_file.clone(),
+        tenant: None,
+    })
+    .await
+    .unwrap();
+    let api = router(&database, &key_file).await;
+    let export = |body: Value| {
+        let api = api.clone();
+        async move {
+            let req = Request::builder()
+                .method("POST")
+                .uri("/w/rest.php/triplespace/v0/export")
+                .header(header::HOST, HOST)
+                .header(header::CONTENT_TYPE, "application/json")
+                .body(Body::from(body.to_string()))
+                .unwrap();
+            let resp = api.oneshot(req).await.unwrap();
+            let status = resp.status();
+            let headers = resp.headers().clone();
+            let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+            (status, headers, bytes.to_vec())
+        }
+    };
+    let (status, headers, bytes) = export(serde_json::json!({
+        "format": "records",
+        "pages": ["Project:Home", "No such page"],
+        "history": true,
+    }))
+    .await;
+    assert_eq!(
+        status,
+        StatusCode::OK,
+        "{}",
+        String::from_utf8_lossy(&bytes)
+    );
+    assert_eq!(
+        headers[header::CONTENT_TYPE],
+        "application/vnd.triplespace.records+cbor"
+    );
+    let file = std::env::temp_dir().join(format!("tspages-records-{}.cbor", std::process::id()));
+    std::fs::write(&file, &bytes).unwrap();
+    let (read, reports) = triplespace_cli::log_bundle::verify_records(&file).unwrap();
+    let _ = std::fs::remove_file(&file);
+    assert_eq!(read.missing, ["No such page"]);
+    assert_eq!(reports.len(), 1, "only the `pages` partition: {reports:?}");
+    let pages = &reports[0];
+    assert!(pages.is_clean(), "{:?}", pages.problems);
+    assert!(pages.origin.ends_with("/log/pages"), "{}", pages.origin);
+    // Project:Home has 18 revisions, every one checkpointed and proved.
+    assert_eq!((pages.records, pages.pending), (18, 0), "{pages:?}");
+    // Without history, the current revision alone.
+    let (_, _, bytes) = export(serde_json::json!({
+        "format": "records",
+        "pages": "Project:Home",
+    }))
+    .await;
+    let current = records_in(&bytes);
+    assert_eq!(current, 1);
+    // The XML format is not built yet.
+    let (status, _, _) =
+        export(serde_json::json!({"format": "xml", "pages": ["Project:Home"]})).await;
+    assert_eq!(status, StatusCode::NOT_IMPLEMENTED);
+}
+
+fn records_in(bytes: &[u8]) -> u64 {
+    let file = std::env::temp_dir().join(format!("tspages-current-{}.cbor", std::process::id()));
+    std::fs::write(&file, bytes).unwrap();
+    let (_, reports) = triplespace_cli::log_bundle::verify_records(&file).unwrap();
+    let _ = std::fs::remove_file(&file);
+    assert!(
+        reports
+            .iter()
+            .all(scatter_integrity::records::PartitionReport::is_clean)
+    );
+    reports.iter().map(|r| r.records).sum()
 }

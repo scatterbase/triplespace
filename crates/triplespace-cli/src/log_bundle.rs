@@ -78,14 +78,7 @@ pub async fn checkpoint(args: &Checkpoint) -> Result<Signed> {
     let key = signing_key(&args.key_file)?;
     let mut client = connect(&args.database).await?;
     let farm = farm_of(&client).await?;
-    let keys = {
-        let tx = client.transaction().await?;
-        let keys = key_records(&PgLog::new(&tx))
-            .await
-            .map_err(anyhow::Error::msg)?;
-        tx.commit().await?;
-        keys
-    };
+    let keys = key_records(&client).await.map_err(anyhow::Error::msg)?;
     let chain = KeyChain::from_records(&keys).context("the instance key chain")?;
     let current = chain
         .current()
@@ -226,7 +219,7 @@ pub async fn export(args: &Export) -> Result<Vec<BundlePartition>> {
             .map(|r| scatter_log_postgres::ids::partition_to_db(r.partition))
             .collect();
         withhold = reader
-            .decide(&tx, tenant, &ids, None)
+            .decide(&tx, tenant, &ids, triplespace_rdf::bundle::Offsets::All)
             .await
             .map_err(anyhow::Error::msg)?;
     }
@@ -243,7 +236,7 @@ pub async fn export(args: &Export) -> Result<Vec<BundlePartition>> {
     if partitions.is_empty() {
         bail!("no partitions to bundle");
     }
-    let keys = key_records(&store).await.map_err(anyhow::Error::msg)?;
+    let keys = key_records(&tx).await.map_err(anyhow::Error::msg)?;
     export_scoped(
         &store,
         &checkpoints,
@@ -303,11 +296,70 @@ pub enum VerifyLevel {
 /// `triplespace verify`'s arguments.
 #[derive(Debug, clap::Args)]
 pub struct Verify {
-    /// The bundle's directory.
+    /// The bundle's directory, or with `--records` the export's file.
     pub bundle: PathBuf,
-    /// How deep to go.
+    /// How deep to go, for a bundle.
     #[arg(long, value_enum, default_value = "bodies")]
     pub level: VerifyLevel,
+    /// The path is a `records` export (21 §4.2), not a bundle.
+    #[arg(long)]
+    pub records: bool,
+}
+
+/// Verifies a `records` export (21 §4.2; 0006 §9): its checkpoints against the key chain
+/// it carries, and each record against its checkpoint, one report per partition.
+///
+/// # Errors
+///
+/// A file that cannot be read or is not a `records` export, or a key chain that does not
+/// verify.
+pub fn verify_records(
+    path: &std::path::Path,
+) -> Result<(
+    scatter_integrity::records::RecordsExport,
+    Vec<scatter_integrity::records::PartitionReport>,
+)> {
+    let bytes = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+    let export = scatter_integrity::records::RecordsExport::decode(&bytes)
+        .with_context(|| format!("reading {}", path.display()))?;
+    let reports = scatter_integrity::records::verify(&export)
+        .map_err(|e| anyhow::anyhow!("the key chain: {e}"))?;
+    Ok((export, reports))
+}
+
+fn run_verify_records(path: &std::path::Path) -> Result<()> {
+    let (export, reports) = verify_records(path)?;
+    let mut problems = 0;
+    for r in &reports {
+        println!(
+            "{:<28} checkpoint {:>9}  records {:>7}  withheld {:>5}  erased {:>5}  leaf only {:>5}  pending {:>5}  {}",
+            r.origin,
+            r.checkpoint
+                .map_or_else(|| "none".to_string(), |s| s.to_string()),
+            r.records,
+            r.withheld,
+            r.erased,
+            r.leaf_only,
+            r.pending,
+            if r.is_clean() { "ok" } else { "PROBLEMS" }
+        );
+        for problem in &r.problems {
+            println!("    {problem}");
+        }
+        problems += r.problems.len();
+    }
+    for m in &export.missing {
+        println!("missing: {m}");
+    }
+    if problems > 0 {
+        bail!("{problems} problems in {} partitions", reports.len());
+    }
+    println!(
+        "verified {} records in {} partitions",
+        reports.iter().map(|r| r.records).sum::<u64>(),
+        reports.len()
+    );
+    Ok(())
 }
 
 /// Verifies a bundle, one report per partition.
@@ -340,6 +392,9 @@ pub async fn verify(
 ///
 /// As [`verify`], or any problem found.
 pub async fn run_verify(args: Verify) -> Result<()> {
+    if args.records {
+        return run_verify_records(&args.bundle);
+    }
     let results = verify(&args).await?;
     let mut problems = 0;
     for (p, r) in &results {

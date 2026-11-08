@@ -39,7 +39,9 @@ use triplespace_api_action::auth::bearer;
 use triplespace_api_action::forwarded::Origin;
 use triplespace_api_action::http_cache::{self, Class};
 use triplespace_projections::feed::iso8601;
-use triplespace_rdf::bundle::{PartitionRef, PartitionRow, Reader, Shown, published, redact};
+use triplespace_rdf::bundle::{
+    Offsets, PartitionRef, PartitionRow, Reader, Shown, published, redact,
+};
 
 use crate::entity_route::{error, internal};
 use crate::settings::prelude;
@@ -227,7 +229,7 @@ pub async fn get(
             &**o.client,
             &o.tenant,
             &[ids::partition_to_db(partition)],
-            Some(offset..offset + 1),
+            Offsets::Range(offset..offset + 1),
         )
         .await
     {

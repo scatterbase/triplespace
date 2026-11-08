@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-11-02 (A29)
+- **Updated:** 2026-11-08 (A31)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0029](0029-resolver-namespaces.md), [0031](0031-property-constraints.md), [0042](0042-template-expansion-and-parsoid.md), [0046](0046-primary-tenant.md)
 - **Uses:** [0019](0019-discussions.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md)
@@ -109,7 +109,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 8. Special:Export and Special:Import
 
-*Changed by A20.*
+*Changed by A20, A30, A31.*
 
 *Current text: [21](../architecture/21-special-pages.md) §4.2, §4.3.*
 
@@ -530,3 +530,17 @@ Replaced text ([21](../architecture/21-special-pages.md) §1.1, as it stood):
 Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.5, as it stood):
 
 > - `random double precision`: drawn at creation, as `page_random`.
+
+### A30. The `records` export is one document, and leaves out what no checkpoint covers
+
+- **Date:** 2026-11-08
+- **Source:** Direct: James, design discussion of 2026-11-08
+- **Change:** extends §8
+- **Summary:** Asked how to build §8's `records` format (SCA-302), James chose: the export is one canonical-CBOR document carrying the checkpoints as signed notes, the key records, and per partition the records with their shared proof nodes once, rather than a bundle-shaped tree or JSON; a selected record newer than its partition's latest checkpoint is left out and listed as pending, rather than refusing the export or carrying it unproved, since checkpoints are signed by the instance's signer and not on request; and records are selected as the XML export selects pages, by title with or without history under the same caps, the records being the targets' rows in the tenant's `pages` and `local` partitions, rather than also by explicit record coordinates. Chapter text: [21](../architecture/21-special-pages.md) §4.2.
+
+### A31. The `records` export as built
+
+- **Date:** 2026-11-08
+- **Source:** Direct: Claude, while building the `records` export (SCA-302), 2026-11-08; unconfirmed
+- **Change:** extends §8
+- **Summary:** Calls made building A30. (1) It is served by `POST /export` in the REST API with a JSON body (`format`, `pages` as a list or one title per line, `history`) and the media type `application/vnd.triplespace.records+cbor`; `Special:Export`, the XML format (`501 not-built`) and export jobs wait for SCA-300 and the job runner, so a selection over `export.sync_revisions` records is refused with `413 export-too-large`, and the `export` rate class is not applied yet. (2) The document's fields are `format` (`triplespace-records`), `version` (1), `created`, `keys`, `missing` and `partitions`, each partition with `partition`, `name`, `origin`, `checkpoint`, `nodes`, `records` (`offset`, `record` or `leaf`, `withheld`, `path`) and `pending`; it lives in `scatter-integrity::records` with its verifier, and the builder beside the bundle code in `triplespace-rdf`. (3) A title in an entity namespace names that local entity; `history` is off by default, as `Special:Export`'s `curonly` is on, is honoured only where `export.history` is, and is capped by `export.max_history` per page and `export.max_entity_history` per entity. (4) Records are shown as the export scope shows them to the caller, decided as the record route decides ([0012](0012-api-requirements.md) A85), so a revision-deleted part is withheld from every caller; a page or entity whose records would all be leaves alone, or which has none, is listed in `missing` with what was asked, as an absent one is, and the leaves are not carried. (5) `triplespace verify --records` checks each checkpoint against the key chain in the file, each leaf by its proof, each header against its partition and offset, and each withheld part as erased; it does not check the signatures inside attestations, since the actor key records they need are not carried. Chapter text: [21](../architecture/21-special-pages.md) §4.2.
