@@ -215,11 +215,13 @@ pub fn plan(
             let mut claims: Map<String, Value> = Map::new();
             let mut errors = Vec::new();
             let mut add_claim = |property: &str, s: Value| {
-                claims
+                if let Some(a) = claims
                     .entry(property.to_string())
                     .or_insert_with(|| Value::Array(Vec::new()))
                     .as_array_mut()
-                    .map(|a| a.push(s));
+                {
+                    a.push(s);
+                }
             };
             for (col, cell) in columns.iter().zip(cells.iter()) {
                 if cell.is_empty() {
@@ -519,8 +521,9 @@ fn row_summary(m: &Messages, data: &Value) -> String {
     let statements: usize = data
         .get("claims")
         .and_then(Value::as_object)
-        .map(|c| c.values().filter_map(Value::as_array).map(Vec::len).sum())
-        .unwrap_or(0);
+        .map_or(0, |c| {
+            c.values().filter_map(Value::as_array).map(Vec::len).sum()
+        });
     if statements > 0 {
         parts.push(m.with(
             "ts-createentities-row-statements",
@@ -938,8 +941,13 @@ mod tests {
         ];
         let rows = vec![
             vec!["Six".into(), "Q5".into(), "6".into(), "x".into()],
-            vec!["".into(), "Q5".into(), "".into(), "".into()],
-            vec!["Eight".into(), "nonsense".into(), "eight".into(), "".into()],
+            vec![String::new(), "Q5".into(), String::new(), String::new()],
+            vec![
+                "Eight".into(),
+                "nonsense".into(),
+                "eight".into(),
+                String::new(),
+            ],
         ];
         let shared = vec![Shared {
             raw: "P31:Q1".into(),
