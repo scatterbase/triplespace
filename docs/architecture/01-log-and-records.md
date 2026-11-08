@@ -498,7 +498,7 @@ It needs nothing else to verify. Bundles are written in the logical form (§2.7)
 
 ### 8.2 Scopes
 
-*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §9.2; [0103](../decisions/0103-export-transfer-and-backup.md) §1.*
+*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §9.2, A32; [0103](../decisions/0103-export-transfer-and-backup.md) §1.*
 
 **A bundle has a scope**, which decides what it holds ([0103](../decisions/0103-export-transfer-and-backup.md) §1):
 
@@ -508,7 +508,7 @@ It needs nothing else to verify. Bundles are written in the logical form (§2.7)
 
 Bundles also take `--blobs include|list|omit` ([0039](../decisions/0039-files-and-media.md) §14); a transfer takes `include`.
 
-**What is built.** `triplespace export --scope backup --out {dir}` writes every partition, or with `--tenant` one tenant's, verbatim from one `REPEATABLE READ` snapshot, with every checkpoint and manifest and the instance's `key:` records; file bytes are not included until the blob store exists. `--scope export --tenant {slug}` writes the visible form of the tenant's `public` partitions, deciding each record from its activity row as the feeds decide a row ([0006](../decisions/0006-log-integrity-and-erasure.md) A31); a tenant an anonymous reader may not read has no export, and the transfer scope is refused until built ([0006](../decisions/0006-log-integrity-and-erasure.md) A28, A29).
+**What is built.** `triplespace export --scope backup --out {dir}` writes every partition, or with `--tenant` one tenant's, verbatim from one `REPEATABLE READ` snapshot, with every checkpoint and manifest and the instance's `key:` records; file bytes are not included until the blob store exists. `--scope export --tenant {slug}` writes the visible form of the tenant's `public` partitions, deciding each record from its activity row by the one statement of the row rules the feed's query and the export reader share, the SQL, which a database test runs both ways over the same rows ([0006](../decisions/0006-log-integrity-and-erasure.md) A31, A32); a tenant an anonymous reader may not read has no export, and the transfer scope is refused until built ([0006](../decisions/0006-log-integrity-and-erasure.md) A28, A29).
 
 ### 8.3 `verify`
 

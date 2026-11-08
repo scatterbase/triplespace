@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-07 (A31)
+- **Updated:** 2026-11-08 (A32)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md)
 
@@ -83,7 +83,7 @@ Three terms are used precisely below:
 
 ### 9. Verification and export
 
-*Changed by A3, A6, A10, A11, A17, A19, A24, A27, A28, A29, A30, A31.*
+*Changed by A3, A6, A10, A11, A17, A19, A24, A27, A28, A29, A30, A31, A32.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §8.*
 
@@ -454,3 +454,10 @@ Replaced text ([01](../architecture/01-log-and-records.md) §8, as it stood):
 - **Source:** Direct: Claude, while building `export --scope export` (SCA-302), 2026-11-07; confirmed by James, 2026-11-08
 - **Change:** extends §9
 - **Summary:** Calls made building A30 and [0103](0103-export-transfer-and-backup.md) A1. (1) The export scope is one tenant's (`--tenant` required) and covers its `public` partitions, leaving out any whose graph a restriction hides. (2) Each record is decided from its activity row, row by row with the rules the feed query applies in SQL, written once more as `Hidden::hides_activity` in `triplespace-projections` and tested against the same cases: a row on a target a confidential restriction hides is written as its leaf alone; a suppression event is withheld whole unless the reader is in the group it names; a row whose entity or page the reader may not read by its chain (deleted, or under a moderation restriction) has every part withheld, its header kept; otherwise the content, comment or attestation part is withheld as the row's visibility bits say, and the attestation of a hidden actor. The two copies of the feed's rules can drift; one shared implementation would remove that. (3) A record with no activity row is exported as it is: configuration records and records the activity projection does not cover. (4) `view.activity.read_groups` is written by nothing yet, so read restrictions are found through the chains instead. Chapter text: [01](../architecture/01-log-and-records.md) §8.
+
+### A32. One statement of the row rules, for the feed and the export reader
+
+- **Date:** 2026-11-08
+- **Source:** Direct: James, review of A31 on 2026-11-08
+- **Change:** extends §9
+- **Summary:** A31 (2) wrote the feed's row rules a second time in Rust for the export scope, and said the two copies could drift. James chose one implementation. The SQL is it: the rules that hide a row by its target, a page's or a namespace's restriction, an entity's, its type's or its graph's, an ACL event's key, a revision-deletion event's record, and a suppression event's group (09 §6.5), are one statement over the activity row alone, which the feed appends to its `WHERE` and the export reader selects as boolean columns for each row it decides; one database test runs the pinned cases both ways and asserts they agree. Unifying them found three places the copies had drifted, now settled by the one text: a row with no target kind (an ACL or protection event) was dropped by the feed whenever anything was hidden, since its `NULL` fell through `NOT (…)`, and is kept, as the Rust copy kept it; a hidden `pages` graph switched off the entity, type, graph and ACL-key rules in the feed, and now replaces only the page and namespace rules; and a hidden entity namespace was found by the entity's type in the feed and by its ID's prefix in Rust, and the type lookup stands. A Rust rule table generating both the SQL and a row evaluator was the alternative, rejected because the rules need lookups the row does not carry, so each rule would still be two hand-written halves. Chapter text: 01 §8.2; 09 §6.5.
