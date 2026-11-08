@@ -144,8 +144,8 @@ sources = "[0012](../decisions/0012-api-requirements.md) §8; [0016](../decision
 names = ["ts-revertjob"]
 granted_note = ", and the job's own actor"
 new = true
-allows = "Reverting a job"
-sources = "[0012](../decisions/0012-api-requirements.md) §8; [0016](../decisions/0016-permissions-and-access-control.md) §2"
+allows = "Reverting a job, record by record, as a job of its own; rejecting a batch or a running job, after which writes naming the batch are refused ([16](16-logs-feeds-and-notifications.md) §2.2)"
+sources = "[0012](../decisions/0012-api-requirements.md) §8; [0016](../decisions/0016-permissions-and-access-control.md) §2; [0104](../decisions/0104-batches-and-the-job-runner.md) §5"
 
 [[permission]]
 names = ["ts-viewrejects"]

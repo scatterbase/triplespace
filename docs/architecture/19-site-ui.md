@@ -460,7 +460,7 @@ A line diff keeps MediaWiki's two lines of context around each change; **More co
 
 ### 3.10 Jobs
 
-*Sources: [0010](../decisions/0010-site-ui.md) §9; [0018](../decisions/0018-tenants.md) §11; [0034](../decisions/0034-frontend-stack.md) §4.*
+*Sources: [0010](../decisions/0010-site-ui.md) §9; [0018](../decisions/0018-tenants.md) §11; [0034](../decisions/0034-frontend-stack.md) §4; [0104](../decisions/0104-batches-and-the-job-runner.md) §3, §9.*
 
 `Special:Jobs` lists running and recent jobs. Mirror sync jobs are instance jobs, attested by the primary tenant's actors and listed at the farm base; local bulk jobs are tenant jobs ([0018](../decisions/0018-tenants.md) §11; [08](08-tenants-and-instances.md)). `Special:Jobs/{id}` is a job's page, with these parts:
 
@@ -474,7 +474,10 @@ A line diff keeps MediaWiki's two lines of context around each change; **More co
 
 **Actions:**
 
-- **Revert this job…** (local jobs) appends the inverse change sets as a new job ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.3). Where someone has edited an affected entity since, that later edit is kept, and those entities are listed first for review.
+- **Revert this job…** (local jobs) appends the inverse of each record the job wrote as a new job of mode `revert`, attributed to the reverter ([05](05-providers-and-ingest.md) §3.3; [0104](../decisions/0104-batches-and-the-job-runner.md) §3). Where someone has edited an affected record since, that later edit is kept, and those records are listed first for review. Needs `ts-revertjob`.
+- **Reject this batch…** (a keyed batch, or any running job) takes a reason, writes `job/reject`, after which writes naming the batch are refused, and offers the revert in the same step ([16](16-logs-feeds-and-notifications.md) §2.2). Needs `ts-revertjob`.
+- **Close** (the submitter of a keyed batch) ends the batch; further writes naming its value open a new one.
+- A **queued** job shows its place in the queue; a batch's page shows the hash, never the value, and the operator who owns it.
 - **Sync again** (mirror jobs) is the mirror's form of a revert.
 - **Run again** repeats a local job with the same parameters. Match keys make this idempotent.
 

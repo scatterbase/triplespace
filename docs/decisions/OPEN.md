@@ -443,6 +443,9 @@ Every unstruck question in every ADR (24 §8), with its first sentence. Settle o
 | [0102 Q2](0102-strict-names-from-the-provider.md) | Farm accounts | What a farm account (08 §3.5) is named under strict names: the same derived name is the natural answer, and the farm name registry then holds one name per login. |
 | [0102 Q3](0102-strict-names-from-the-provider.md) | A provider's username grammar | Wikimedia's follows MediaWiki's, which the local grammar matches; a later provider (0088 Q1) may allow what the local grammar forbids, and would need a mapping or a refusal. |
 | [0102 Q4](0102-strict-names-from-the-provider.md) | The stale window | Whether an instance may ask the provider's users API for the current name on a schedule, so that renames land before the next login, at the cost of a request per account. |
+| [0104 Q1](0104-batches-and-the-job-runner.md) | Reverting page and thread records | A page revision reverts by restoring the previous text as an edit; a post in a thread has no inverse but hiding its text, as Nuke does (0047 §7). |
+| [0104 Q2](0104-batches-and-the-job-runner.md) | Idle batches | A keyed batch stays open until its submitter closes it or it is rejected. |
+| [0104 Q3](0104-batches-and-the-job-runner.md) | The queue beyond one process | The runner claims queued jobs with the database's row locks, so several server processes could share the queue; nothing partitions the work between them yet, and a job that one process started is finished by that process… |
 
 ## Pending registry allocations
 

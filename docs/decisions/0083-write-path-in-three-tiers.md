@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-09
-- **Updated:** 2026-11-08 (A6)
+- **Updated:** 2026-11-08 (A7)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0032](0032-sparql-update-stream.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0047](0047-special-pages.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [0056](0056-security-model.md), [0059](0059-query-service.md), [0060](0060-scopes.md), [0061](0061-sprints-and-tasks.md), [0064](0064-entityschema-and-validation.md), [0067](0067-proposals.md), [0070](0070-shallow-entity-mirroring.md), [0071](0071-derived-statements-from-mirrored-pages.md)
 - **Uses:** [0082](0082-source-form-and-the-shared-view.md), [0084](0084-wikibase-writes-against-the-resolved-view.md)
@@ -46,7 +46,7 @@ James's direction, from the design review of 2026-10-09:
 
 ### 5. Bulk append into a live partition, and catch-up (amends 0013 §2 and §9; extends 0002 §8 and 0070 §7)
 
-*Changed by A6.*
+*Changed by A6, A7.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §2.1, §6.2; [05](../architecture/05-providers-and-ingest.md) §3.10.*
 
@@ -154,3 +154,9 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6.2, as i
 Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.10, as it stood):
 
 > takes the partition lock **once per block** (`ops.bootstrap_block` has the shape, §3.8), `COPY`s the block's records
+### A7. The runner is background tasks of the server
+
+- **Date:** 2026-11-08
+- **Source:** [0104](0104-batches-and-the-job-runner.md) §4
+- **Change:** extends §5
+- **Summary:** The worker §5 names is built as background tasks of `triplespace-server`, one per partition a job writes, claiming `ops.job_queue` under the database's row lock, running the job as the command line would, a block at a time, and writing its finish or fail record; a job whose process died is found by the next claim and marked interrupted, and queued again when resumable. Chapter text: [16](../architecture/16-logs-feeds-and-notifications.md) §2.2.
