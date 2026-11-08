@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-17 (A14)
+- **Updated:** 2026-11-07 (A15)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0035](0035-adopting-a-wikibase.md), [0038](0038-page-metadata-and-categories.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0007](0007-actor-identity.md), [0019](0019-discussions.md), [0040](0040-instance-prerogatives.md), [0041](0041-content-models.md)
@@ -38,9 +38,13 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 3. The blob store (uses 0033 §1)
 
+*Changed by A15.*
+
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §8.*
 
 ### 4. Storage scopes: separate per tenant by default (extends 0018 §2)
+
+*Changed by A15.*
 
 *Current text: [12](../architecture/12-files-and-media.md) §2.*
 
@@ -341,3 +345,10 @@ Replaced text ([12](../architecture/12-files-and-media.md) §4.1, as it stood):
 - **Source:** [0086](0086-theming.md) §3
 - **Change:** extends §5
 - **Summary:** WOFF2 and WOFF join the permitted file types, served as attachments on the media routes and as site assets when a type set names them; ICO joins them for `site.icon` ([0085](0085-settings-and-preferences.md) §7). The registry entries are in `docs/registry/file-types.toml`; the chapter text is [12](../architecture/12-files-and-media.md) §4.5.
+
+### A15. Staging keys, commit retries and reserved scope names
+
+- **Date:** 2026-11-07
+- **Source:** Direct: Claude, while building `scatter-blob`'s filesystem backend (SCA-299), 2026-11-07; unconfirmed
+- **Change:** extends §3, §4
+- **Summary:** Three calls the crate needed that §3 and §4 did not make. A streamed write whose caller names no stash key is staged under a store-generated `stash/tmp-{pid}-{nanos}-{n}` key, left for the orphan sweep on a crash. A commit (copy-if-absent, then stash deletion) retried after its stash object is gone succeeds when the `sha256/` address holds an object and is not-found only when neither exists, so the two steps need no transaction. Scope names beginning with `_` are reserved for the instance's own scopes, so `_instance` can never collide with a tenant slug. Also: the `fs` backend creates a missing root directory and removes a shard directory emptied by a deletion. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §8 and [12](../architecture/12-files-and-media.md) §2.

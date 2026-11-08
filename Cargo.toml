@@ -27,6 +27,7 @@ members = [
     "crates/scatter-challenge",
     "crates/scatter-log",
     "crates/scatter-mail",
+    "crates/scatter-blob",
     "crates/scatter-integrity",
     "crates/scatter-log-postgres",
     "crates/triplespace-db",
@@ -82,6 +83,7 @@ scatter-actors = { path = "crates/scatter-actors" }
 scatter-challenge = { path = "crates/scatter-challenge" }
 scatter-log = { path = "crates/scatter-log" }
 scatter-mail = { path = "crates/scatter-mail" }
+scatter-blob = { path = "crates/scatter-blob" }
 scatter-integrity = { path = "crates/scatter-integrity" }
 scatter-log-postgres = { path = "crates/scatter-log-postgres" }
 triplespace-db = { path = "crates/triplespace-db" }
