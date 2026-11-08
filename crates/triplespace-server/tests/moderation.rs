@@ -1009,9 +1009,9 @@ async fn protect_delete_undelete_and_hide() {
     }
     let _ = std::fs::remove_dir_all(&bundle);
 
-    // A `records` export shows them the same way (21 §4.2): the libel revision's content
-    // is withheld and still proved, and the confidential page is missing, as an absent
-    // one is.
+    // A `records` export shows them the same way (21 §4.4; 0047 §8.2): the libel
+    // revision's content is withheld and still proved, and the confidential page is
+    // missing, as an absent one is.
     triplespace_cli::log_bundle::checkpoint(&triplespace_cli::log_bundle::Checkpoint {
         database: database.clone(),
         key_file: std::env::temp_dir()
@@ -1042,7 +1042,7 @@ async fn protect_delete_undelete_and_hide() {
     let file =
         std::env::temp_dir().join(format!("tsmoderation-records-{}.cbor", std::process::id()));
     std::fs::write(&file, &bytes).unwrap();
-    let (export, reports) = triplespace_cli::log_bundle::verify_records(&file).unwrap();
+    let (export, reports) = triplespace_cli::log_bundle::verify_records(&file, None).unwrap();
     let _ = std::fs::remove_file(&file);
     assert_eq!(export.missing, ["Project:Secret"]);
     for r in &reports {
@@ -1063,6 +1063,92 @@ async fn protect_delete_undelete_and_hide() {
         &libel_entry.shown,
         scatter_integrity::records::Shown::Record { withheld, .. } if withheld.contains(&scatter_log::body::CONTENT)
     ));
+
+    // An erased part still verifies as erased (0006 §7, §9.4; 01 §8.3): the libel
+    // revision's comment is erased in the log, as an erasure leaves it, with its leaf;
+    // the export proves the record as before, counts the part erased rather than
+    // withheld, and the record route shows it `erased`. (Nothing in the product writes
+    // an `erase` record for page content yet, so the part is erased in the store
+    // directly, which is what an erasure does to the record.)
+    {
+        let (mut db, conn) = database
+            .parse::<Config>()
+            .unwrap()
+            .connect(NoTls)
+            .await
+            .unwrap();
+        tokio::spawn(async move {
+            let _ = conn.await;
+        });
+        let tx = db.transaction().await.unwrap();
+        scatter_log_postgres::log::erase_parts(&tx, lp, lo, &[scatter_log::body::COMMENT], None)
+            .await
+            .unwrap();
+        tx.commit().await.unwrap();
+    }
+    let mut req = Request::builder()
+        .method("POST")
+        .uri("/w/rest.php/triplespace/v0/export")
+        .header(header::HOST, HOST)
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(
+            json!({"format": "records", "pages": ["Project:Scope"], "history": true}).to_string(),
+        ))
+        .unwrap();
+    req.extensions_mut()
+        .insert(ConnectInfo(SocketAddr::from(([203, 0, 113, 9], 50000))));
+    let resp = anon.router.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    let file =
+        std::env::temp_dir().join(format!("tsmoderation-erased-{}.cbor", std::process::id()));
+    std::fs::write(&file, &bytes).unwrap();
+    let (export, reports) = triplespace_cli::log_bundle::verify_records(&file, None).unwrap();
+    let _ = std::fs::remove_file(&file);
+    for r in &reports {
+        assert!(r.is_clean(), "{:?}", r.problems);
+    }
+    assert!(
+        reports.iter().map(|r| r.erased).sum::<u64>() >= 1,
+        "{reports:?}"
+    );
+    let libel_entry = export
+        .partitions
+        .iter()
+        .filter(|p| p.partition == lp)
+        .flat_map(|p| &p.entries)
+        .find(|e| e.offset == lo)
+        .expect("the libel revision is still exported");
+    match &libel_entry.shown {
+        scatter_integrity::records::Shown::Record { record, withheld } => {
+            assert!(
+                withheld.contains(&scatter_log::body::CONTENT),
+                "{withheld:?}"
+            );
+            assert!(
+                !withheld.contains(&scatter_log::body::COMMENT),
+                "{withheld:?}"
+            );
+            assert!(record.body().parts()[scatter_log::body::COMMENT].is_erased());
+        }
+        other @ scatter_integrity::records::Shown::Leaf(_) => panic!("{other:?}"),
+    }
+    let shown = anon
+        .send(
+            "GET",
+            &format!("/w/rest.php/triplespace/v0/record/{lp}/{lo}"),
+            None,
+            None,
+            &[],
+        )
+        .await;
+    assert_eq!(shown.status, StatusCode::OK, "{}", shown.body);
+    assert_eq!(
+        shown.body["parts"][scatter_log::body::COMMENT]["state"],
+        "erased",
+        "{}",
+        shown.body
+    );
 }
 
 /// Confidentiality holds against administrators outside the group (0056 A18; 09 §4.5,

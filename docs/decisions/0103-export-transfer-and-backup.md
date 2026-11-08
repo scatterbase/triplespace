@@ -36,7 +36,7 @@ James's direction, from the design discussion of 2026-11-07:
 
 *Changed by A1.*
 
-*Current text: [01](../architecture/01-log-and-records.md) §8.*
+*Current text: [01](../architecture/01-log-and-records.md) §8.2.*
 
 ### 2. Export policies say which scopes carry a partition (amends 0005 §4.1; amends 0007 §8; amends 0056 §6)
 

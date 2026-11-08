@@ -981,6 +981,7 @@ async fn a_bot_logs_in_reads_and_edits() {
         bundle: fetched.clone(),
         level: triplespace_cli::log_bundle::VerifyLevel::Bodies,
         records: false,
+        keys: None,
     })
     .await
     .unwrap();
@@ -991,7 +992,7 @@ async fn a_bot_logs_in_reads_and_edits() {
     assert_eq!(status, StatusCode::NOT_FOUND, "nothing outside the bundle");
     let _ = std::fs::remove_dir_all(&dumps);
 
-    // 7d. The log's own copies (0006 §6, §9; 0103 §1): sign every partition's head, write
+    // 7d. The log's own copies (0006 §6, §9.1, §9.2, §9.3; 0103 §1): sign every partition's head, write
     // the operator's backup bundle, and verify it; a byte changed in it is caught.
     let signing = Checkpoint {
         database: database.clone(),
@@ -1029,6 +1030,7 @@ async fn a_bot_logs_in_reads_and_edits() {
         bundle: bundle.clone(),
         level: VerifyLevel::Bodies,
         records: false,
+        keys: None,
     };
     let reports = log_bundle::verify(&check).await.unwrap();
     for (p, r) in &reports {
@@ -1074,7 +1076,7 @@ async fn a_bot_logs_in_reads_and_edits() {
     }
     let _ = std::fs::remove_dir_all(&bundle);
 
-    // 7e. The record and proof routes (0012 §5; 17 §1.1), checked as a verifying reader
+    // 7e. The record and proof routes (0012 §5; 0006 §9.4; 17 §1.1), checked as a verifying reader
     // checks them: the checkpoint against the key chain, a record's leaf against it by an
     // inclusion proof, a range by the multi-proof, and the tree's growth by consistency.
     {

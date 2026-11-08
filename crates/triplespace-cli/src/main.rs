@@ -96,9 +96,9 @@ enum Command {
     Dump(dump::Dump),
     /// Sign every partition's new head and unsigned full segments (0006 §6).
     Checkpoint(log_bundle::Checkpoint),
-    /// Write a bundle of the log (0006 §9; 0103 §1).
+    /// Write a bundle of the log (0006 §9.1, §9.2; 0103 §1).
     Export(log_bundle::Export),
-    /// Verify a bundle (0006 §9).
+    /// Verify a bundle (0006 §9.3).
     Verify(log_bundle::Verify),
     /// Partitions, heads and projection lags, and any migration not yet applied.
     Status(status::Target),

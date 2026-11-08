@@ -25,7 +25,7 @@ Two smaller gaps are closed with them: the document node of a foreign entity on 
 
 *Changed by A4, A5, A13, A14, A17, A18, A29, A31, A46, A52, A53.*
 
-*Current text: [01](../architecture/01-log-and-records.md) §2.3, §2.4, §5.1, §5.3, §8.*
+*Current text: [01](../architecture/01-log-and-records.md) §2.3, §2.4, §5.1, §5.3, §8.1, §8.3.*
 
 ### 2. Global IDs live in the header (amends 0006 §3 and 0013 §6)
 

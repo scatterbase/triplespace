@@ -61,7 +61,7 @@ James's direction, from the design discussion of 2026-10-09:
 
 ### 8. Verification (extends 0006 §9)
 
-*Current text: [01](../architecture/01-log-and-records.md) §8.*
+*Current text: [01](../architecture/01-log-and-records.md) §8.3.*
 
 ### 9. Configuration and API (extends 0015 §3)
 

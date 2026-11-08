@@ -1,9 +1,10 @@
-//! `POST /export` (0047 §8, §11; 21 §4.2): an export of selected pages, streamed. The
-//! `records` format is built: the selected pages' and local entities' records, each with
-//! an inclusion proof against its partition's latest checkpoint, the checkpoint and the
-//! key records that check it, as one canonical-CBOR document
-//! (`scatter_integrity::records`) that `triplespace verify --records` checks. The MediaWiki
-//! XML format, `Special:Export` and export jobs are not built yet.
+//! `POST /export` (0047 §8.1, §11; 21 §4.2): an export of selected pages, streamed. The
+//! `records` format is built, which implements 0047 §8.2 (21 §4.4): the selected pages'
+//! and local entities' records, each with an inclusion proof against its partition's
+//! latest checkpoint, the checkpoint and the key records that check it, as one
+//! canonical-CBOR document (`scatter_integrity::records`) that `triplespace verify
+//! --records` checks. The MediaWiki XML format, `Special:Export` and export jobs are not
+//! built yet.
 //!
 //! The body is JSON: `{"format": "records", "pages": [title, …] | "Title\nTitle",
 //! "history": bool}`. A title in an entity namespace (`Item:Q6`) names that local entity.

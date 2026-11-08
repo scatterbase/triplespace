@@ -367,11 +367,40 @@ impl PartitionReport {
 /// A key chain that does not verify, against which nothing else can be checked.
 pub fn verify(export: &RecordsExport) -> Result<Vec<PartitionReport>, String> {
     let chain = KeyChain::from_records(&export.keys).map_err(|e| e.to_string())?;
-    Ok(export
+    Ok(verify_partitions(&chain, export))
+}
+
+/// Checks an export against a key chain fetched apart from it, from
+/// `/.well-known/tlog/keys` or a bundle's `keys.seg` (21 §4.4): every `key:` record the
+/// file carries must be in `chain`, with the same key, so that a third party trusts the
+/// published chain and not the file's own; then as [`verify`], against `chain`.
+///
+/// # Errors
+///
+/// A key chain that does not verify, or a key record in the file that the supplied chain
+/// does not hold.
+pub fn verify_with(
+    export: &RecordsExport,
+    chain: &KeyChain,
+) -> Result<Vec<PartitionReport>, String> {
+    let own = KeyChain::from_records(&export.keys).map_err(|e| e.to_string())?;
+    for k in own.keys() {
+        if chain.get(&k.entry.key_id).map(|c| &c.entry) != Some(&k.entry) {
+            return Err(format!(
+                "the file carries key {}, which the supplied key chain does not hold",
+                k.entry.key_id
+            ));
+        }
+    }
+    Ok(verify_partitions(chain, export))
+}
+
+fn verify_partitions(chain: &KeyChain, export: &RecordsExport) -> Vec<PartitionReport> {
+    export
         .partitions
         .iter()
-        .map(|p| verify_partition(&chain, p))
-        .collect())
+        .map(|p| verify_partition(chain, p))
+        .collect()
 }
 
 fn verify_partition(chain: &KeyChain, p: &RecordsPartition) -> PartitionReport {
@@ -466,7 +495,7 @@ mod tests {
     use crate::checkpoints::checkpoint;
     use crate::proof::{inclusion_nodes, node_head};
 
-    /// 0006 §9; 21 §4.2: a records export round-trips, verifies with withheld, erased and
+    /// 0047 §8.2; 0006 §9.4; 21 §4.4: a records export round-trips, verifies with withheld, erased and
     /// leaf-only records, and catches a changed record, a forged leaf and a wrong key.
     #[test]
     #[allow(clippy::too_many_lines)]
@@ -573,6 +602,15 @@ mod tests {
                 (4, 1, 1, 1, 1)
             );
             assert_eq!(r.checkpoint, Some(11));
+            // Against a key chain fetched apart from the file (21 §4.4): the same chain
+            // verifies it, and one that lacks the file's key refuses it.
+            let chain = KeyChain::from_records(&keys).unwrap();
+            assert_eq!(verify_with(&read, &chain).unwrap(), reports);
+            assert!(
+                verify_with(&read, &KeyChain::new())
+                    .unwrap_err()
+                    .contains("does not hold")
+            );
 
             // A forged leaf fails its proof.
             let mut forged = read.clone();

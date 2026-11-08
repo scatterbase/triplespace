@@ -481,7 +481,11 @@ Scatterbase's prior-use acknowledgments are the same check applied to each term 
 
 ## 8. Verification and export
 
-*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §9; [0015](../decisions/0015-record-format-and-partition-registry.md) §1; [0058](../decisions/0058-packed-record-storage.md) §1; [0081](../decisions/0081-recovery-keys-and-continuations.md) §8; [0103](../decisions/0103-export-transfer-and-backup.md) §1.*
+*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §9.*
+
+### 8.1 What a bundle holds
+
+*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §9.1; [0015](../decisions/0015-record-format-and-partition-registry.md) §1; [0058](../decisions/0058-packed-record-storage.md) §1.*
 
 **An export bundle** holds, for each exported partition:
 
@@ -490,7 +494,13 @@ Scatterbase's prior-use acknowledgments are the same check applied to each term 
 - the configuration records that register and rotate keys, and the `graph:` record that names the partition, its hash function, `k` and its policies (§1.2);
 - for each exported partition that holds client-signed records, the `scatter:v0/key` records of the `actors` partition for every actor whose signatures appear (§2.4).
 
-It needs nothing else to verify. Bundles are written in the logical form (§2.7), whichever backend is live. **A bundle has a scope**, which decides what it holds ([0103](../decisions/0103-export-transfer-and-backup.md) §1):
+It needs nothing else to verify. Bundles are written in the logical form (§2.7), whichever backend is live.
+
+### 8.2 Scopes
+
+*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §9.2; [0103](../decisions/0103-export-transfer-and-backup.md) §1.*
+
+**A bundle has a scope**, which decides what it holds ([0103](../decisions/0103-export-transfer-and-backup.md) §1):
 
 - an **export** publishes: a public bundle, a dump, the update stream, outbound federation. It holds only what the export policies of [02](02-graphs-rdf-and-query.md) §1.1 allow, in its visible form: every part an anonymous reader may not read, hidden, suppressed or restricted, is carried as its commitment, as an erased part is, so every proof still verifies; and a record about a target a confidential restriction hides is carried as its leaf alone, header included, as a compacted record is, since its header would name a target that is answered as absent ([09](09-security-and-moderation.md) §5.4; [0103](../decisions/0103-export-transfer-and-backup.md) A1). Both are listed in the bundle's `withheld.cbor`, so that `verify` accounts for them; anything missing that the list does not name still fails ([0006](../decisions/0006-log-integrity-and-erasure.md) A30);
 - a **transfer** hands one tenant from one operator to another ([0018](../decisions/0018-tenants.md) §10; [08](08-tenants-and-instances.md) §6.2): every partition of the tenant but its `private` ones, every present part in full, with the move's extracts, sealed whole to the receiving instance;
@@ -498,7 +508,11 @@ It needs nothing else to verify. Bundles are written in the logical form (§2.7)
 
 Bundles also take `--blobs include|list|omit` ([0039](../decisions/0039-files-and-media.md) §14); a transfer takes `include`.
 
-**What is built.** `triplespace export --scope backup --out {dir}` writes every partition, or with `--tenant` one tenant's, verbatim from one `REPEATABLE READ` snapshot, with every checkpoint and manifest and the instance's `key:` records; file bytes are not included until the blob store exists. `--scope export --tenant {slug}` writes the visible form of the tenant's `public` partitions, deciding each record from its activity row as the feeds decide a row ([0006](../decisions/0006-log-integrity-and-erasure.md) A31); a tenant an anonymous reader may not read has no export, and the transfer scope is refused until built. `triplespace verify {dir}` checks levels 1 and 2 (`--level structure|bodies`, `bodies` by default), counts what the bundle withheld beside what was erased, prints one line per partition with its problems, and exits non-zero on any; a body that no longer matches its header already fails as the bundle is opened. Level 3 needs a database and is not built ([0006](../decisions/0006-log-integrity-and-erasure.md) A28, A29).
+**What is built.** `triplespace export --scope backup --out {dir}` writes every partition, or with `--tenant` one tenant's, verbatim from one `REPEATABLE READ` snapshot, with every checkpoint and manifest and the instance's `key:` records; file bytes are not included until the blob store exists. `--scope export --tenant {slug}` writes the visible form of the tenant's `public` partitions, deciding each record from its activity row as the feeds decide a row ([0006](../decisions/0006-log-integrity-and-erasure.md) A31); a tenant an anonymous reader may not read has no export, and the transfer scope is refused until built ([0006](../decisions/0006-log-integrity-and-erasure.md) A28, A29).
+
+### 8.3 `verify`
+
+*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §9.3; [0015](../decisions/0015-record-format-and-partition-registry.md) §1; [0081](../decisions/0081-recovery-keys-and-continuations.md) §8.*
 
 **`verify` checks three levels:**
 
@@ -506,6 +520,16 @@ Bundles also take `--blobs include|list|omit` ([0039](../decisions/0039-files-an
 2. **Bodies.** Every present part against its leaf and the commitment: a present part hashes to a leaf that reproduces the commitment; a missing part carries its leaf and is named by an `erase` record, and the verifier reports it as erased, naming the erasing offset; a missing part with no `erase` record, or anything else, is a failure. Every blob a present upload record names, at depth `presence` or `full`; a missing object with no `erase` accounting for it is a failure ([0039](../decisions/0039-files-and-media.md) §14). Every present client signature against the key records in the bundle (§2.4). Every instance attestation's signature against the key chain, with the key current when the record was appended ([0040](../decisions/0040-instance-prerogatives.md) §8).
 3. **Projections** (optional and expensive). Rebuild projections from the log and compare them with the stored ones.
 
-**Inclusion proofs** are available for any record against any later checkpoint. With one, a third party can check that a particular revision is in the log without holding the whole log.
+**What is built.** `triplespace verify {dir}` checks levels 1 and 2 (`--level structure|bodies`, `bodies` by default), counts what the bundle withheld beside what was erased, prints one line per partition with its problems, and exits non-zero on any; a body that no longer matches its header already fails as the bundle is opened. Level 1 does not yet report the chain of custody, and level 2 does not yet check blobs. Level 3 needs a database and is not built ([0006](../decisions/0006-log-integrity-and-erasure.md) A28, A29).
+
+### 8.4 Inclusion proofs
+
+*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §9.4.*
+
+**Inclusion proofs** are available for any record against any later checkpoint. With one, a third party can check that a particular revision is in the log without holding the whole log. They are served by the record and proof routes ([17](17-federation-and-publication.md) §1.1) and carried by the `records` export ([21](21-special-pages.md) §4.4).
+
+### 8.5 The authority extract
+
+*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §9.5.*
 
 **Bundles carry an authority extract:** the authority records the tenant's instance attestations cite, with inclusion proofs and with the operator's attestation part withheld ([0040](../decisions/0040-instance-prerogatives.md) §8).
