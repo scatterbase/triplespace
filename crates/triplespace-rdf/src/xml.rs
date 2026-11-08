@@ -12,7 +12,7 @@
 //!
 //! Two phases, so that a refusal (`413` for a selection over `export.sync_revisions`)
 //! comes before any byte of the body: [`plan`] reads the metadata of every revision and
-//! decides what is withheld; [`write`] then reads each revision's content and streams the
+//! decides what is withheld; [`write()`] then reads each revision's content and streams the
 //! document into any `Write`. [`build`] does both into memory.
 //!
 //! **Not yet:** mirrored pages from `pages/{repo}` (13 §2.6), since no such partition is
@@ -147,7 +147,7 @@ struct PagePlan {
     revisions: Vec<RevisionPlan>,
 }
 
-/// An export planned: what [`write`] streams.
+/// An export planned: what [`write()`] streams.
 #[derive(Debug, Clone)]
 pub struct Plan {
     site: SiteInfo,
@@ -675,7 +675,7 @@ pub async fn write<C: PgClient, W: Write>(
     w.finish().map_err(io)
 }
 
-/// A whole export in memory: [`plan`], then [`write`] into a `Vec`.
+/// A whole export in memory: [`plan`], then [`write()`] into a `Vec`.
 #[derive(Debug, Clone)]
 pub struct Export {
     /// The document.
