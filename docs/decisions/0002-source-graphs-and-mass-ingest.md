@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-24
-- **Updated:** 2026-10-26 (A40)
+- **Updated:** 2026-11-07 (A44)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md)
 - **Uses:** [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -45,7 +45,7 @@ Four scenarios were used to test the design:
 
 ### 4. IRIs for foreign entities
 
-*Changed by A2, A7, A8, A18, A28, A35, A37, A38, A39, A40.*
+*Changed by A2, A7, A8, A18, A28, A35, A37, A38, A39, A40, A41, A42, A43, A44.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §1.5, §8.1, §8.2, §8.3, §8.4, §8.5.*
 
@@ -577,3 +577,43 @@ Replaced text (05 §8.1, the Adapter column of `XD`, as it stood):
 Replaced text (05 §8.3, as it stood):
 
 > Librarybase (`LB`, number 2) is any MediaWiki+Wikibase mirrored through `scatter-adapter-wikidata`, which is parameterised by the registry entry;
+
+### A41. A foreign property's predicates come from its concept IRI
+
+- **Date:** 2026-11-07
+- **Source:** Direct: Claude, while building `scatter-wikibase-rdf` (SCA-301), 2026-11-07; unconfirmed
+- **Change:** extends §4
+- **Summary:** §4 gave Wikidata's predicates as the example of upstream IRIs kept, and the provider registry records a concept IRI template but no predicate base. The renderer derives one: where a foreign property's concept IRI is `{upstream base}entity/{upstream ID}`, as every Wikibase's is, its predicates are `{upstream base}prop/direct/{upstream ID}` and the rest of Wikibase's family; a foreign property whose template has any other shape, which no registered provider has today, has its predicates under the instance's base by its prefixed ID (`{base}prop/direct/XXP1`). A registry field for the predicate base was the alternative, needless while every provider of properties is a Wikibase. Chapter text: [05](../architecture/05-providers-and-ingest.md) §1.5.
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §1.5, as it stood):
+
+> - Nodes that come from upstream keep upstream's IRIs. Examples are Wikidata's statement nodes and mirrored property predicates such as `http://www.wikidata.org/prop/direct/P31`.
+
+### A42. A foreign property's predicates follow Wikibase's rule
+
+- **Date:** 2026-11-07
+- **Source:** Direct: James, design discussion of 2026-11-07
+- **Change:** amends §4
+- **Summary:** A41 derived a foreign property's predicates only from a template ending `entity/{upstream_id}` and named every other foreign property under the instance's base. Shown that Wikibase itself (`RdfVocabulary::getConceptUriBase`) takes the concept base, drops a trailing `entity/` if there is one and appends `prop/`, James chose that rule exactly, so that a Wikibase with a concept base of another shape is read with the predicates it publishes. Only a template with something after the ID, which no Wikibase can have, falls back to the instance's base. Every registered provider with properties (Wikidata, Librarybase, Internet Domains, the OpenStreetMap wiki) has the `entity/` form, so no IRI written today changes. Chapter text: [05](../architecture/05-providers-and-ingest.md) §1.5.
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §1.5, as it stood):
+
+> A foreign property's predicates are derived from its concept IRI: where that is `{upstream base}entity/{upstream ID}`, as every Wikibase's is, they are `{upstream base}prop/direct/{upstream ID}` and the rest of Wikibase's family; any other property is named under the instance's base by its prefixed ID ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) A41).
+
+### A43. A mirrored statement keeps its upstream's nodes while it says what upstream says
+
+- **Date:** 2026-11-07
+- **Source:** Direct: James, design discussion of 2026-11-07
+- **Change:** amends §4
+- **Summary:** §4 said nodes from upstream keep upstream's IRIs, with Wikidata's statement nodes as the example, and that the local graph's statements about a foreign entity are named under the instance's base, but nothing said which statements of the resolved view are upstream's. James chose the rule that an upstream node keeps its IRI exactly while it says what upstream says: a statement whose every member a mirror or entity-source graph asserts, with no local correction on any member, is named as its upstream names it, statement, reference and value nodes alike, with the hashes taken over upstream's ID forms; every other statement, including a mirrored one under a rank override, is the instance's. The alternative, upstream's IRI whenever a mirror asserts the statement, would give one node two ranks in a store fed by the upstream and the tenant, the merge 02 §4.3's skolem IRIs are designed to keep clean. A correction therefore moves a statement to a new IRI, which the update stream carries as a delete and an insert. `Special:EntityData` renders from the resolved view with the resolver's per-statement provenance to apply it. Chapter text: [05](../architecture/05-providers-and-ingest.md) §1.5.
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §1.5, as it stood):
+
+> - Statements that the local graph makes about a foreign entity get statement IRIs under the instance's base.
+
+### A44. Statements fused from two mirrors, and key-mapped statements
+
+- **Date:** 2026-11-07
+- **Source:** Direct: Claude, while building upstream statement nodes (SCA-301), 2026-11-07; unconfirmed
+- **Change:** extends §4
+- **Summary:** Two cases A43 leaves open. (1) A statement two mirrors both assert (Wikidata and Librarybase, say) takes the first member's ID in provider order, as the resolver already gives it, and is named under that provider's base; its references, combined from both, are named and hashed under the same provider, so a reference only the second mirror carries gets a node the first does not have. Naming each reference by the mirror that carries it would be exact and needs the resolver to keep per-reference provenance. (2) A key-mapped provider's statement is stored with the keyed entity's ID (`domain:wikipedia.org$…`), not the upstream item's (`XDQ11$…`), so its upstream statement IRI (`https://internetdomains.wiki/entity/statement/Q11-…`) cannot be derived from it; it is named under the instance's base. Naming it upstream's way needs the adapter to keep the upstream item ID beside the statement, or a lookup of the item the keyed entity was mapped from (05 §4.1). Chapter text: [05](../architecture/05-providers-and-ingest.md) §1.5.

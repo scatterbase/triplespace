@@ -78,6 +78,10 @@ struct Args {
     /// Where the `log` transport writes each message as an `.eml` file (`mail.log_dir`).
     #[arg(long, env = "TRIPLESPACE_MAIL_LOG_DIR", default_value = "data/mail")]
     mail_log_dir: PathBuf,
+    /// Where `triplespace dump` writes each tenant's dumps, which `{base}/dumps/` serves
+    /// (`dumps.dir`, 0013 A78).
+    #[arg(long, env = "TRIPLESPACE_DUMPS_DIR", default_value = "data/dumps")]
+    dumps_dir: PathBuf,
     /// The SMTP relay (`mail.smtp.url`): `smtps://user@host` for implicit TLS,
     /// `smtp://user@host` with STARTTLS required, plaintext only to a loopback host.
     #[arg(long, env = "TRIPLESPACE_MAIL_SMTP_URL")]
@@ -405,6 +409,7 @@ async fn run() -> Result<()> {
     )
     .map_err(|e| anyhow::anyhow!(e))?;
     app.set_mail(mail);
+    app.set_dumps_dir(args.dumps_dir.clone());
     if let Some(transport) = transport {
         eprintln!("mail: transport {}", transport.name());
         tokio::spawn(deliver(app.clone(), args.database.clone(), transport));

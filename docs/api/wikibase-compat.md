@@ -392,6 +392,25 @@ The simple form is the object of `wdt:`, `ps:`, `pq:` and `pr:`. The full form i
 
 *To be filled from the observed dump, as §5.2–5.5 were.* The mapping ADR 0066 §6 fixes: a lexeme is an `ontolex:LexicalEntry` with `wikibase:lemma` and `rdfs:label` per lemma, `dct:language`, `wikibase:lexicalCategory`, `ontolex:lexicalForm` and `ontolex:sense`; a form is an `ontolex:Form` with `ontolex:representation` and `wikibase:grammaticalFeature`; a sense is an `ontolex:LexicalSense` with `skos:definition`; statements on all three as §5.4. Part IRIs carry the `-F`/`-S` suffix in the entity's local part.
 
+### 5.7 Skolem IRIs (Triplespace; ADR 0032 §7, A13, A14)
+
+Not Wikibase's: the form of Triplespace's dumps and update stream in which every blank node of §5.4 and §5.3 is an IRI ([02](../architecture/02-graphs-rdf-and-query.md) §4.3). Each node is `https://scatter.red/genid/{hash}`, where `{hash}` is the SHA-256 of the UTF-8 preimage below, written as 64 lowercase hex digits. The plain form labels the node's blank node with the same hash (`_:{hash}`), so the two forms map one to one.
+
+| Node | Preimage |
+|---|---|
+| A main snak's unknown value | `main\|{UUID}\|{property IRI}\|0` |
+| A qualifier's unknown value | `qualifier\|{UUID}\|{property IRI}\|{index}` |
+| A reference snak's unknown value | `reference\|{reference hash}\|{property IRI}\|{index}` |
+| A property's `owl:complementOf` restriction (§5.3) | `novalue\|{property IRI}` |
+
+- `{UUID}` is the UUID part of the statement ID, in upper case, without its entity part.
+- `{property IRI}` is the property's concept IRI, `http://www.wikidata.org/entity/P31` for Wikidata's P31 however an instance prefixes it.
+- `{index}` is the snak's zero-based position among the snaks of its property in its qualifiers or its reference.
+- `{reference hash}` is the reference's hash as the JSON carries it (§3), so that a reference shared by many statements has one node for each of its snaks, as it has one `ref:` node.
+- The fields are joined with `|`; none of them can contain it.
+
+Test vector, from Q8 of the reference install, whose statement `Q8$1D2AD30E-661B-4261-8031-D87FFD783EAE` has an unknown P4 value: the preimage `main|1D2AD30E-661B-4261-8031-D87FFD783EAE|http://localhost:8080/entity/P4|0` hashes to `e8bbd8b5d234a4104ecacb4cc2f97e66ab3cd9a4f0c36d61cbe9504940fd5aa0`, so `ps:P4` and `wdt:P4` point at `<https://scatter.red/genid/e8bbd8b5d234a4104ecacb4cc2f97e66ab3cd9a4f0c36d61cbe9504940fd5aa0>`.
+
 ## 6. EDTF extension (WikibaseEDTF)
 
 ### 6.1 What it is
@@ -524,6 +543,8 @@ A Triplespace implementation that claims Wikibase-compatible output should repro
    - `propertyType wikibase:Edtf`.
 
    Reproducing the §6.4 defects (off-by-one negative years, unshifted UTC offsets) is a policy choice for Triplespace. They should not be copied without a decision.
+
+   **Decided for now** ([0001](../decisions/0001-revision-metadata-rdf.md) A19): Triplespace writes the raw `xsd:edtf` literal and `propertyType wikibase:Edtf`, but none of the derived `xsd:dateTime` values or `TimeValue` nodes, until it is decided whether to copy or correct the defects.
 
 ## 8. Regenerating
 

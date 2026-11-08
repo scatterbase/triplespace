@@ -250,8 +250,8 @@ group = "exchange"
 type = "integer"
 default = 7
 by_rule = true
-meaning = "Previous dumps of each format kept per scope"
-source = "[0076](../decisions/0076-dataset-publication.md) §1"
+meaning = "Dumps kept: of each format per scope, and of the tenant's own dumps, the newest included"
+source = "[0076](../decisions/0076-dataset-publication.md) §1; [0013](../decisions/0013-postgres-storage.md) A79"
 
 [[setting]]
 key = "email.max_addresses"

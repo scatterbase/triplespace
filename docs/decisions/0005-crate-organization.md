@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-07 (A114)
+- **Updated:** 2026-11-07 (A116)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -41,7 +41,7 @@ Since this ADR was first written, twenty-six further ADRs have added crates, cha
 
 ### 2. Crate map
 
-*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, A31, A32, A33, A34, A35, A36, A37, A38, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A51, A52, A53, A54, A55, A57, A58, A59, A60, A61, A62, A63, A64, A65, A66, A67, A68, A69, A70, A71, A72, A73, A74, A75, A76, A77, A78, A79, A80, A84, A86, A87, A88, A89, A90, A91, A92, A93, A95, A96, A97, A98, A99, A100, A101, A102, A103, A104, A105, A106, A107, A108, A109, A110, A113.*
+*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, A31, A32, A33, A34, A35, A36, A37, A38, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A51, A52, A53, A54, A55, A57, A58, A59, A60, A61, A62, A63, A64, A65, A66, A67, A68, A69, A70, A71, A72, A73, A74, A75, A76, A77, A78, A79, A80, A84, A86, A87, A88, A89, A90, A91, A92, A93, A95, A96, A97, A98, A99, A100, A101, A102, A103, A104, A105, A106, A107, A108, A109, A110, A113, A115, A116.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
 
@@ -1196,3 +1196,17 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §3.3, as it stood):
 
 > - **Triplespace is GPL-3.0-or-later.** That covers every crate in this workspace and the `ui/` package. Workspace crates and `ui/package.json` declare `GPL-3.0-or-later`, set once in `[workspace.package]` ([0033](../decisions/0033-backend-stack.md) §16).
 > - **The shared `scatter-*` crates are dual-licensed.** Like the Scatterbase kernel, they are also available under a commercial license from the copyright holder. Dual licensing requires Scatter to hold copyright in every shared crate, so outside contributions need a contributor license agreement.
+
+### A115. `scatter-wikibase-rdf` depends on `scatter-normalize`, `oxttl` and `md-5`
+
+- **Date:** 2026-11-07
+- **Source:** Direct: Claude, while building `scatter-wikibase-rdf` (SCA-301), 2026-11-07; unconfirmed
+- **Change:** extends §2
+- **Summary:** The crate's row named only `scatter-wikibase-model`, `scatter-vocab` and `scatter-providers`. Building it took three more: `scatter-normalize`, whose keyed-type registry turns a keyed ID into its concept IRI (`https://scatter.red/domain/{key}`, [04](../architecture/04-entities-and-identifiers.md) §3.5), as the provider registry does a foreign one; `oxttl`, which [02](../architecture/02-graphs-rdf-and-query.md) §4.1 already names for writing N-Triples and Turtle without a store ([0033](0033-backend-stack.md) §8), added to the workspace at 0.2 to match `oxrdf` 0.3; and `md-5`, for naming blank nodes. All three are pure and build for wasm32. `oxrdf`, which the crate's terms are, is listed too. `triplespace-api-action` uses the crate for `Special:EntityData`'s RDF forms under its `lower` rule, with no change to its row.
+
+### A116. `triplespace-rdf` is built; what it, the API and the CLI depend on
+
+- **Date:** 2026-11-07
+- **Source:** Direct: Claude, while building the dumps (SCA-301), 2026-11-07; unconfirmed
+- **Change:** extends §2
+- **Summary:** `triplespace-rdf` is built as the dump writer and depends on `triplespace-projections` (the composed read of each entity and the ACL chain), `scatter-actors` (the read decision), `scatter-wikibase-model`, `scatter-providers`, `scatter-normalize`, `oxrdf`, `flate2`, `sha2` and `tokio-postgres`, beside the edges its row already named; `scatter-mwlog` and `scatter-quadstore` stay named for the metadata graph and the local quad store. `scatter-wikibase-rdf` names its blank nodes by SHA-256 ([0032](0032-sparql-update-stream.md) A13) and drops `md-5` for `sha2`. Three helpers move from `triplespace-api-action` into `triplespace-projections::read` so that `Special:EntityData` and the dumps share them: which statements are named as their upstream names them, keyed entities' derived terms, and ISO dates. `triplespace-api-action` uses `triplespace-rdf` to list dumps and `tokio-util`, already in the lockfile, to stream them; the CLI uses it for `triplespace dump`. All are within the rows' `lower` rules.

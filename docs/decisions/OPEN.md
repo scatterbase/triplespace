@@ -8,6 +8,12 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 
 | Entry | Date | Title |
 |---|---|---|
+| [0001 A20](0001-revision-metadata-rdf.md#a20-specialentitydata-serves-ttl-and-nt-in-the-dump-flavor) | 2026-11-07 | `Special:EntityData` serves `.ttl` and `.nt` in the dump flavor |
+| [0001 A22](0001-revision-metadata-rdf.md#a22-stubs-are-read-as-json-reads-them-in-the-readers-label-languages) | 2026-11-07 | Stubs are read as `.json` reads them, in the reader's label languages |
+| [0002 A41](0002-source-graphs-and-mass-ingest.md#a41-a-foreign-propertys-predicates-come-from-its-concept-iri) | 2026-11-07 | A foreign property's predicates come from its concept IRI |
+| [0002 A44](0002-source-graphs-and-mass-ingest.md#a44-statements-fused-from-two-mirrors-and-key-mapped-statements) | 2026-11-07 | Statements fused from two mirrors, and key-mapped statements |
+| [0005 A115](0005-crate-organization.md#a115-scatter-wikibase-rdf-depends-on-scatter-normalize-oxttl-and-md-5) | 2026-11-07 | `scatter-wikibase-rdf` depends on `scatter-normalize`, `oxttl` and `md-5` |
+| [0005 A116](0005-crate-organization.md#a116-triplespace-rdf-is-built-what-it-the-api-and-the-cli-depend-on) | 2026-11-07 | `triplespace-rdf` is built; what it, the API and the CLI depend on |
 | [0006 A26](0006-log-integrity-and-erasure.md#a26-a-nesting-depth-limit-for-canonical-cbor) | 2026-11-06 | A nesting-depth limit for canonical CBOR |
 | [0010 A47](0010-site-ui.md#a47-the-acl-site-ui-the-calls-made-building-it) | 2026-10-30 | The ACL site UI: the calls made building it |
 | [0010 A49](0010-site-ui.md#a49-the-compare-form-and-the-diff-views-the-calls-made-building-them) | 2026-11-04 | The compare form and the diff views: the calls made building them |
@@ -20,6 +26,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0013 A74](0013-postgres-storage.md#a74-a-bootstrap-loads-projections-compute-ahead-on-the-preparing-threads) | 2026-11-06 | A bootstrap load's projections compute ahead on the preparing threads |
 | [0013 A75](0013-postgres-storage.md#a75-the-projections-take-the-operation-the-write-path-encoded-and-the-record-in-hand) | 2026-11-06 | The projections take the operation the write path encoded, and the record in hand |
 | [0013 A77](0013-postgres-storage.md#a77-a-syncs-per-item-work-runs-on-every-core) | 2026-11-06 | A sync's per-item work runs on every core |
+| [0013 A79](0013-postgres-storage.md#a79-a-dumps-layout-files-and-manifest-and-how-it-is-served) | 2026-11-07 | A dump's layout, files and manifest, and how it is served |
 | [0016 A42](0016-permissions-and-access-control.md#a42-delegated-administration-the-calls-made-while-drafting-and-building-tier-4) | 2026-10-30 | Delegated administration: the calls made while drafting and building tier 4 |
 | [0018 A33](0018-tenants.md#a33-multi-tenant-round-1-the-assumptions-the-implementation-made) | 2026-10-30 | Multi-tenant round 1: the assumptions the implementation made |
 | [0019 A31](0019-discussions.md#a31-a-threads-actions-from-the-page-the-calls-made-building-them) | 2026-11-05 | A thread's actions from the page: the calls made building them |
@@ -27,6 +34,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0023 A17](0023-moderation.md#a17-partial-undelete-and-hidden-events-the-calls-made-building-them) | 2026-10-30 | Partial undelete and hidden events: the calls made building them |
 | [0026 A8](0026-sitelinks.md#a8-a-stray-does-not-gain-an-escape-from-a-decoded-digit) | 2026-11-06 | A stray `%` does not gain an escape from a decoded digit |
 | [0029 A11](0029-resolver-namespaces.md#a11-a-doi-is-percent-decoded-only-when-written-as-a-uri) | 2026-11-06 | A DOI is percent-decoded only when written as a URI |
+| [0032 A14](0032-sparql-update-stream.md#a14-the-skolem-preimage-property-iris-per-property-indexes-references-without-the-uuid) | 2026-11-07 | The skolem preimage: property IRIs, per-property indexes, references without the UUID |
 | [0033 A25](0033-backend-stack.md#a25-tls-to-postgres-when-the-url-says-sslmoderequire) | 2026-10-31 | TLS to Postgres when the URL says `sslmode=require` |
 | [0034 A15](0034-frontend-stack.md#a15-uselangqqx-shows-message-keys) | 2026-11-04 | `uselang=qqx` shows message keys |
 | [0042 A22](0042-template-expansion-and-parsoid.md#a22-which-template-drew-a-block) | 2026-11-04 | Which template drew a block |

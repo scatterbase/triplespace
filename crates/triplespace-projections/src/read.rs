@@ -56,6 +56,67 @@ impl Current {
     }
 }
 
+impl Current {
+    /// The statements of the resolved view that say exactly what an upstream says, which RDF
+    /// names as the upstream names them (05 §1.5; 0002 A43): every member asserted by a
+    /// mirror or entity source graph, and no local correction on any member. A statement the
+    /// local graph or a derived graph asserts, or whose rank or membership a correction
+    /// changes, is the instance's.
+    #[must_use]
+    pub fn upstream_statements(
+        &self,
+        registry: &scatter_providers::Registry,
+    ) -> std::collections::BTreeSet<StatementId> {
+        let mirrors: std::collections::HashSet<String> = registry
+            .providers()
+            .iter()
+            .chain(registry.sources())
+            .map(scatter_providers::Provider::mirror_graph)
+            .collect();
+        self.resolved
+            .entity
+            .all_statements()
+            .zip(&self.resolved.statements)
+            .filter(|(_, prov)| {
+                !prov.graphs.is_empty()
+                    && prov.graphs.iter().all(|g| mirrors.contains(g))
+                    && !prov
+                        .members
+                        .iter()
+                        .any(|m| self.corrections.contains_key(m))
+            })
+            .filter_map(|(s, _)| s.id.clone())
+            .collect()
+    }
+}
+
+/// Adds a keyed entity's derived label and alias (0009 §5) where the resolved state has
+/// no `mul` label of its own.
+pub fn add_derived_terms(entity: &mut scatter_wikibase_model::entity::Entity) {
+    let Some((t, key)) = entity
+        .id
+        .keyed_parts()
+        .map(|(t, k)| (t.to_string(), k.to_string()))
+    else {
+        return;
+    };
+    let Some(kt) = scatter_normalize::KeyedRegistry::default_registry().by_name(&t) else {
+        return;
+    };
+    let Some(label) = kt.derived_label(&key) else {
+        return;
+    };
+    if !entity.labels.contains_key("mul") {
+        entity.labels.insert("mul".into(), label.clone());
+    }
+    if label != key {
+        let aliases = entity.aliases.entry("mul".into()).or_default();
+        if !aliases.contains(&key) {
+            aliases.push(key);
+        }
+    }
+}
+
 /// The keyed entity a key-mapped provider's own item ID is an alias of (05 §4.1): `XDQ9`
 /// → `domain:example.org` when `view.keyed_map` says the provider wrote `Q9` under that
 /// key, for the tenant or the instance. `None` for anything else: a local or keyed ID, a
@@ -256,4 +317,29 @@ pub async fn standing<C: Partitions>(
         })
         .collect();
     Ok(out)
+}
+
+/// `YYYY-MM-DDTHH:MM:SSZ` from microseconds since the epoch.
+#[must_use]
+pub fn iso8601(micros: u64) -> String {
+    let secs = micros / 1_000_000;
+    let days = i64::try_from(secs / 86_400).unwrap_or(0);
+    let rem = secs % 86_400;
+    // Howard Hinnant's civil-from-days.
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let y = yoe + era * 400;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let d = doy - (153 * mp + 2) / 5 + 1;
+    let m = if mp < 10 { mp + 3 } else { mp - 9 };
+    let y = if m <= 2 { y + 1 } else { y };
+    format!(
+        "{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z",
+        rem / 3600,
+        (rem % 3600) / 60,
+        rem % 60
+    )
 }

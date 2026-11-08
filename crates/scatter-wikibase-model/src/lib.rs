@@ -48,6 +48,7 @@ pub use hash::{HashMismatches, Hasher};
 pub use id::{EntityId, IdForm, IdParseError, LexemePart, StatementId, Subject};
 pub use json::{Form, JsonError};
 pub use key::{Canon, Identity, snak_key, statement_key, value_key};
+pub use php::float_string as php_float_string;
 pub use search::{DocumentContext, EntityDocument, entity_document};
 pub use sites::{Site, SiteRegistry, SiteRegistryError};
 pub use statement::{Rank, Reference, Snak, SnakKind, Statement};

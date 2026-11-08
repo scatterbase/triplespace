@@ -2,7 +2,6 @@
 //! 0009 §4–5; 0017 §1): the Wikibase form with `pageid`, `ns`, `title`, `lastrevid` and
 //! `modified`, a Domain's derived `mul` label, and the `props` and `languages` filters.
 
-use scatter_normalize::keyed::KeyedRegistry;
 use scatter_providers::Registry;
 use scatter_wikibase_model::entity::{Entity, EntityType, PageInfo};
 use scatter_wikibase_model::hash::Hasher;
@@ -29,30 +28,7 @@ pub fn title_of(id: &EntityId, entity_type: &EntityType) -> (i64, String) {
     }
 }
 
-/// `YYYY-MM-DDTHH:MM:SSZ` from microseconds since the epoch.
-#[must_use]
-pub fn iso8601(micros: u64) -> String {
-    let secs = micros / 1_000_000;
-    let days = i64::try_from(secs / 86_400).unwrap_or(0);
-    let rem = secs % 86_400;
-    // Howard Hinnant's civil-from-days.
-    let z = days + 719_468;
-    let era = z.div_euclid(146_097);
-    let doe = z.rem_euclid(146_097);
-    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
-    let y = yoe + era * 400;
-    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
-    let mp = (5 * doy + 2) / 153;
-    let d = doy - (153 * mp + 2) / 5 + 1;
-    let m = if mp < 10 { mp + 3 } else { mp - 9 };
-    let y = if m <= 2 { y + 1 } else { y };
-    format!(
-        "{y:04}-{m:02}-{d:02}T{:02}:{:02}:{:02}Z",
-        rem / 3600,
-        (rem % 3600) / 60,
-        rem % 60
-    )
-}
+pub use triplespace_projections::read::iso8601;
 
 /// The hasher for an entity's snak and reference hashes: the provider's for a foreign
 /// ID, the local one otherwise.
@@ -66,36 +42,22 @@ pub fn hasher_for(id: &EntityId, registry: &Registry) -> Hasher {
     Hasher::local()
 }
 
-/// Adds a keyed entity's derived label and alias (0009 §5) where the resolved state has
-/// no `mul` label of its own.
-pub fn add_derived_terms(entity: &mut Entity) {
-    let Some((t, key)) = entity
-        .id
-        .keyed_parts()
-        .map(|(t, k)| (t.to_string(), k.to_string()))
-    else {
-        return;
-    };
-    let Some(kt) = KeyedRegistry::default_registry().by_name(&t) else {
-        return;
-    };
-    let Some(label) = kt.derived_label(&key) else {
-        return;
-    };
-    if !entity.labels.contains_key("mul") {
-        entity.labels.insert("mul".into(), label.clone());
-    }
-    if label != key {
-        let aliases = entity.aliases.entry("mul".into()).or_default();
-        if !aliases.contains(&key) {
-            aliases.push(key);
-        }
-    }
-}
+/// Adds a keyed entity's derived label and alias (0009 §5); now in the projections, so
+/// that `Special:EntityData` and the dumps serve the same terms.
+pub use triplespace_projections::read::add_derived_terms;
 
 /// The served JSON of a present entity.
 #[must_use]
 pub fn present(current: &Current, registry: &Registry) -> Value {
+    let (entity, page) = served(current);
+    let text = entity.to_wikibase_json(&hasher_for(&entity.id, registry), Some(&page));
+    serde_json::from_str(&text).unwrap_or(Value::Null)
+}
+
+/// The entity as it is served, with its derived terms, and its page information: what
+/// [`present`] writes as JSON and `Special:EntityData` renders as RDF.
+#[must_use]
+pub fn served(current: &Current) -> (Entity, PageInfo) {
     let mut entity = current.resolved.entity.clone();
     add_derived_terms(&mut entity);
     let (ns, title) = title_of(&entity.id, &entity.entity_type);
@@ -106,8 +68,16 @@ pub fn present(current: &Current, registry: &Registry) -> Value {
         lastrevid: current.lastrevid,
         modified: Some(iso8601(current.modified)),
     };
-    let text = entity.to_wikibase_json(&hasher_for(&entity.id, registry), Some(&page));
-    serde_json::from_str(&text).unwrap_or(Value::Null)
+    (entity, page)
+}
+
+/// The statements of the resolved view named as their upstream names them (0002 A43).
+#[must_use]
+pub fn upstream_statements(
+    current: &Current,
+    registry: &Registry,
+) -> std::collections::BTreeSet<scatter_wikibase_model::StatementId> {
+    current.upstream_statements(registry)
 }
 
 /// The ID as the tenant's table of names canonicalizes it (0078 §2): a source ID's rest
@@ -187,6 +157,68 @@ pub fn entities_object(entries: Vec<(String, Value)>) -> Value {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// Which statements are named as their upstream names them (0002 A43): a statement only
+    /// a mirror asserts is; one the local graph also asserts, one the local graph alone
+    /// asserts, and a mirrored one under a local rank override are the instance's.
+    #[test]
+    fn upstream_statements_are_the_mirror_only_and_uncorrected() {
+        use scatter_wikibase_model::{Rank, StatementId};
+        use scatter_wikibase_resolve::{Contribution, Correction, resolve};
+        use std::collections::BTreeMap;
+
+        let statement = |guid: &str, value: &str| {
+            json!({"mainsnak": {"snaktype": "value", "property": "WDP1", "datatype": "string",
+                "datavalue": {"value": value, "type": "string"}},
+                "type": "statement", "rank": "normal", "id": guid})
+        };
+        let entity = |claims: Vec<Value>| {
+            Entity::from_value(json!({"type": "item", "id": "WDQ42", "claims": {"WDP1": claims}}))
+                .unwrap()
+                .entity
+        };
+        let only_mirror = "WDQ42$00000000-0000-0000-0000-000000000001";
+        let fused_mirror = "WDQ42$00000000-0000-0000-0000-000000000002";
+        let fused_local = "WDQ42$00000000-0000-0000-0000-000000000003";
+        let only_local = "WDQ42$00000000-0000-0000-0000-000000000004";
+        let corrected = "WDQ42$00000000-0000-0000-0000-000000000005";
+        let contributions = vec![
+            Contribution {
+                graph: "local".into(),
+                entity: entity(vec![
+                    statement(fused_local, "both"),
+                    statement(only_local, "ours"),
+                ]),
+            },
+            Contribution {
+                graph: "mirror/wikidata".into(),
+                entity: entity(vec![
+                    statement(only_mirror, "theirs"),
+                    statement(fused_mirror, "both"),
+                    statement(corrected, "ranked here"),
+                ]),
+            },
+        ];
+        let corrections: BTreeMap<StatementId, Correction> = BTreeMap::from([(
+            StatementId::parse(corrected).unwrap(),
+            Correction::Rank(Rank::Preferred),
+        )]);
+        let current = Current {
+            resolved: resolve(&contributions, &corrections).unwrap(),
+            contributions,
+            corrections,
+            page_id: 1,
+            lastrevid: None,
+            modified: 0,
+            local_offset: None,
+            local_revid: None,
+        };
+        let upstream: Vec<String> = upstream_statements(&current, Registry::default_registry())
+            .iter()
+            .map(|s| s.as_str().to_string())
+            .collect();
+        assert_eq!(upstream, vec![only_mirror.to_string()]);
+    }
 
     #[test]
     fn times_and_titles() {

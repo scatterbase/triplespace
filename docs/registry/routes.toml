@@ -209,6 +209,16 @@ purpose = "Local corrections by state, for reporting upstream ([05](05-providers
 sources = "[0012](../decisions/0012-api-requirements.md) §5"
 
 [[route]]
+routes = ["GET /dumps/", "GET /dumps/{name}/{file}"]
+purpose = "The tenant's dumps, newest first, each by its manifest with its files' URLs; one file of one dump, `latest` naming the newest. A tenant an anonymous reader may not read serves none ([02](02-graphs-rdf-and-query.md) §4.1)"
+sources = "[0013](../decisions/0013-postgres-storage.md) §8, A78, A79"
+
+[[route]]
+routes = ["GET /dumps/local/{name}/{file}"]
+purpose = "One file of a dump's local-graph source dump"
+sources = "[0013](../decisions/0013-postgres-storage.md) A79; [0022](../decisions/0022-federation.md) §1"
+
+[[route]]
 routes = ["/dumps/local/"]
 purpose = "The local-graph source dump ([17](17-federation-and-publication.md))"
 sources = "[0012](../decisions/0012-api-requirements.md) §5; [0022](../decisions/0022-federation.md) §11"

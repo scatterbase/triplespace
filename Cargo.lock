@@ -1870,6 +1870,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "oxttl"
+version = "0.2.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b1d0fe19fa62a6a102f85b052bbd86e3cdc3360cd6a338d01bab1a6743bf1d8e"
+dependencies = [
+ "memchr",
+ "oxilangtag",
+ "oxiri",
+ "oxrdf",
+ "thiserror",
+]
+
+[[package]]
 name = "parking_lot"
 version = "0.12.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2824,6 +2837,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "scatter-wikibase-rdf"
+version = "0.0.1"
+dependencies = [
+ "getrandom 0.3.4",
+ "oxrdf",
+ "oxttl",
+ "scatter-normalize",
+ "scatter-providers",
+ "scatter-vocab",
+ "scatter-wikibase-model",
+ "serde_json",
+ "sha2 0.10.9",
+]
+
+[[package]]
 name = "scatter-wikibase-resolve"
 version = "0.0.1"
 dependencies = [
@@ -3609,6 +3637,7 @@ dependencies = [
  "scatter-titles",
  "scatter-wikibase-changeset",
  "scatter-wikibase-model",
+ "scatter-wikibase-rdf",
  "scatter-wikibase-resolve",
  "scatter-wikitext",
  "scatter-wikitext-expand",
@@ -3618,12 +3647,14 @@ dependencies = [
  "thiserror",
  "tokio",
  "tokio-postgres",
+ "tokio-util",
  "toml",
  "triplespace-accounts",
  "triplespace-api-ingest",
  "triplespace-db",
  "triplespace-notify",
  "triplespace-projections",
+ "triplespace-rdf",
  "url",
 ]
 
@@ -3726,6 +3757,7 @@ dependencies = [
  "triplespace-db",
  "triplespace-notify",
  "triplespace-projections",
+ "triplespace-rdf",
  "triplespace-upstream",
  "url",
 ]
@@ -3808,6 +3840,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "triplespace-rdf"
+version = "0.0.1"
+dependencies = [
+ "flate2",
+ "oxrdf",
+ "scatter-actors",
+ "scatter-normalize",
+ "scatter-providers",
+ "scatter-wikibase-model",
+ "scatter-wikibase-rdf",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "thiserror",
+ "tokio",
+ "tokio-postgres",
+ "triplespace-projections",
+]
+
+[[package]]
 name = "triplespace-server"
 version = "0.0.1"
 dependencies = [
@@ -3816,6 +3868,7 @@ dependencies = [
  "base64 0.22.1",
  "clap",
  "ed25519-dalek",
+ "flate2",
  "http-body-util",
  "mimalloc",
  "scatter-actors",
