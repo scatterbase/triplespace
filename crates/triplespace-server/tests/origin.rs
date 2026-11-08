@@ -129,6 +129,7 @@ async fn signed(database: &str) -> Vec<(String, SignedCheckpoint)> {
 
 // 01 §4.2; 0006 A29: the origin is fixed at creation, recorded, and read from there.
 #[tokio::test]
+#[allow(clippy::too_many_lines)]
 async fn origin_is_fixed_at_creation_not_at_first_checkpoint() {
     if admin_config().is_none() {
         eprintln!("skipping: TRIPLESPACE_TEST_DATABASE_URL is not set");

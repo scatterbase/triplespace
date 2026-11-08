@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-08 (A32)
+- **Updated:** 2026-11-08 (A33)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md)
 
@@ -65,7 +65,7 @@ Three terms are used precisely below:
 
 ### 6. Checkpoints and keys
 
-*Changed by A3, A6, A8, A12, A19, A22, A24, A25, A28, A29.*
+*Changed by A3, A6, A8, A12, A19, A22, A24, A25, A28, A29, A33.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §4.2, §4.3.*
 
@@ -461,3 +461,14 @@ Replaced text ([01](../architecture/01-log-and-records.md) §8, as it stood):
 - **Source:** Direct: James, review of A31 on 2026-11-08
 - **Change:** extends §9
 - **Summary:** A31 (2) wrote the feed's row rules a second time in Rust for the export scope, and said the two copies could drift. James chose one implementation. The SQL is it: the rules that hide a row by its target, a page's or a namespace's restriction, an entity's, its type's or its graph's, an ACL event's key, a revision-deletion event's record, and a suppression event's group (09 §6.5), are one statement over the activity row alone, which the feed appends to its `WHERE` and the export reader selects as boolean columns for each row it decides; one database test runs the pinned cases both ways and asserts they agree. Unifying them found three places the copies had drifted, now settled by the one text: a row with no target kind (an ACL or protection event) was dropped by the feed whenever anything was hidden, since its `NULL` fell through `NOT (…)`, and is kept, as the Rust copy kept it; a hidden `pages` graph switched off the entity, type, graph and ACL-key rules in the feed, and now replaces only the page and namespace rules; and a hidden entity namespace was found by the entity's type in the feed and by its ID's prefix in Rust, and the type lookup stands. A Rust rule table generating both the SQL and a row evaluator was the alternative, rejected because the rules need lookups the row does not carry, so each rule would still be two hand-written halves. Chapter text: 01 §8.2; 09 §6.5.
+
+### A33. A partition's origin is recorded at creation
+
+- **Date:** 2026-11-08
+- **Source:** Direct: James, review of A29 on 2026-11-08
+- **Change:** amends §6
+- **Summary:** A29 (1) fixed a partition's origin line by its first checkpoint or manifest, derived from the tenant's host at that time, so a tenant aliased before its first checkpoint would sign under its new host, against 01 §4.2. James chose the exact fix: the origin is recorded when the partition is created, as a column of its registry row (`log.partition.origin`), derived from the same base the graph IRI is built from, by the one function the signer also uses for a row with none; every signer and bundle writer reads it from there, and only a row without one falls back to its first checkpoint, then to the current host. Two migrations backfill existing rows: the log schema's from the first checkpoint's or manifest's origin line, and the instance's from each tenant's current base in the registry, the best that can be done; a database migrated before its registry projection is current keeps the row empty and is derived at first signing. A field in the `graph:` config record was the alternative, rejected because it would have changed a hashed record's shape for something only the signer reads. Chapter text: 01 §4.2; 03 §2.1 (`log.partition`).
+
+Replaced text ([01](../architecture/01-log-and-records.md) §4.2, as it stood):
+
+> **A partition's origin is fixed by its first checkpoint or manifest** and reused for every later one; the first is derived from the tenant's current host, or the farm's ([0006](../decisions/0006-log-integrity-and-erasure.md) A29).

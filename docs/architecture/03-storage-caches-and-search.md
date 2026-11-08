@@ -87,6 +87,7 @@ CREATE TABLE log.partition (
   segment_k     smallint NOT NULL,             -- segments hold 2^k records (0006 §5)
   hash          text NOT NULL,                 -- named in the partition's graph: record in config (0006 §2, 0015 §3)
   next_offset   bigint NOT NULL DEFAULT 0,
+  origin        text,                          -- the origin line its checkpoints are signed under, fixed at creation (0006 A33)
   UNIQUE (tenant, name)                        -- the registry key of 0018 §2
 );
 
