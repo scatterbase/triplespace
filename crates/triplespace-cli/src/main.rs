@@ -12,8 +12,8 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use triplespace_cli::{
-    accounts, adopt, challenge, dump, env_file, follow, forwarder, instance, logins, oauth_client,
-    rights, settings, source, status, sync, tenant,
+    accounts, adopt, challenge, dump, env_file, follow, forwarder, instance, log_bundle, logins,
+    oauth_client, rights, settings, source, status, sync, tenant,
 };
 
 /// Triplespace: a Wikibase as an append-only log.
@@ -94,6 +94,12 @@ enum Command {
     },
     /// Write a tenant's dumps: the resolved view and the local graph (02 §4.1).
     Dump(dump::Dump),
+    /// Sign every partition's new head and unsigned full segments (0006 §6).
+    Checkpoint(log_bundle::Checkpoint),
+    /// Write a bundle of the log (0006 §9; 0103 §1).
+    Export(log_bundle::Export),
+    /// Verify a bundle (0006 §9).
+    Verify(log_bundle::Verify),
     /// Partitions, heads and projection lags, and any migration not yet applied.
     Status(status::Target),
     /// Apply the migrations this binary carries that the database has not applied.
@@ -165,6 +171,9 @@ async fn run() -> Result<()> {
         Command::Group { command } => rights::run_group(command).await,
         Command::Acl { command } => rights::run_acl(command).await,
         Command::Dump(args) => dump::run(args).await,
+        Command::Checkpoint(args) => log_bundle::run_checkpoint(args).await,
+        Command::Export(args) => log_bundle::run_export(args).await,
+        Command::Verify(args) => log_bundle::run_verify(args).await,
         Command::Status(args) => status::status(args).await,
         Command::Migrate(args) => status::migrate(args).await,
         Command::Logins { command } => logins::run(command).await,

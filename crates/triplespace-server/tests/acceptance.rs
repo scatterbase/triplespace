@@ -5,6 +5,7 @@
 //! `TRIPLESPACE_TEST_DATABASE_URL`; vacuous without it.
 
 use std::path::PathBuf;
+use triplespace_cli::log_bundle::{self, Checkpoint, Export, Scope, Verify, VerifyLevel};
 
 use axum::Router;
 use axum::body::Body;
@@ -918,6 +919,84 @@ async fn a_bot_logs_in_reads_and_edits() {
     let (status, _, _) = download("/dumps/../manifest.json".into()).await;
     assert_ne!(status, StatusCode::OK);
     let _ = std::fs::remove_dir_all(&dumps);
+
+    // 7d. The log's own copies (0006 §6, §9; 0103 §1): sign every partition's head, write
+    // the operator's backup bundle, and verify it; a byte changed in it is caught.
+    let signing = Checkpoint {
+        database: database.clone(),
+        key_file: key_file.clone(),
+        tenant: None,
+    };
+    let signed = log_bundle::checkpoint(&signing).await.unwrap();
+    assert!(signed.checkpoints > 0, "{signed:?}");
+    assert_eq!(
+        log_bundle::checkpoint(&signing).await.unwrap().checkpoints,
+        0,
+        "nothing new to sign"
+    );
+    let bundle = std::env::temp_dir().join(format!("tsaccept-bundle-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&bundle);
+    let parts = log_bundle::export(&Export {
+        database: database.clone(),
+        scope: Scope::Backup,
+        tenant: None,
+        out: bundle.clone(),
+    })
+    .await
+    .unwrap();
+    assert!(
+        parts
+            .iter()
+            .any(|p| p.origin == format!("{HOST}/log/local")),
+        "{parts:?}"
+    );
+    assert!(
+        parts.iter().any(|p| p.name == "accounts"),
+        "a backup carries `private` partitions"
+    );
+    let check = Verify {
+        bundle: bundle.clone(),
+        level: VerifyLevel::Bodies,
+    };
+    let reports = log_bundle::verify(&check).await.unwrap();
+    for (p, r) in &reports {
+        assert!(r.is_clean(), "{}: {:?}", p.origin, r.problems);
+    }
+    let local = reports
+        .iter()
+        .find(|(p, _)| p.origin == format!("{HOST}/log/local"))
+        .unwrap();
+    assert!(
+        local.1.checkpoints > 0 && local.1.records > 0,
+        "{:?}",
+        local.1
+    );
+    // Change one byte near the end of the local partition's first segment.
+    let seg = bundle
+        .join(format!("{:016x}", local.0.partition))
+        .join("00000000.seg");
+    let mut bytes = std::fs::read(&seg).unwrap();
+    let at = bytes.len() - 8;
+    bytes[at] ^= 0x01;
+    std::fs::write(&seg, bytes).unwrap();
+    // Caught either as the bundle is opened (a body that no longer matches its header) or
+    // as a problem in the report.
+    let caught = match log_bundle::verify(&check).await {
+        Err(_) => true,
+        Ok(reports) => reports.iter().any(|(_, r)| !r.is_clean()),
+    };
+    assert!(caught, "the changed byte is caught");
+    for scope in [Scope::Export, Scope::Transfer] {
+        let refused = log_bundle::export(&Export {
+            database: database.clone(),
+            scope,
+            tenant: Some(TENANT.into()),
+            out: bundle.join("unbuilt"),
+        })
+        .await;
+        assert!(refused.is_err(), "{scope:?} is not built yet");
+    }
+    let _ = std::fs::remove_dir_all(&bundle);
 
     // 7b. The feeds (0020 §1–2, §5): the bot's edits are recent changes and its
     // contributions, the adoption and the mirror sync are jobs, and the REST feed

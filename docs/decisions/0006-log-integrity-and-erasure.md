@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-07 (A27)
+- **Updated:** 2026-11-07 (A29)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md)
 
@@ -65,7 +65,7 @@ Three terms are used precisely below:
 
 ### 6. Checkpoints and keys
 
-*Changed by A3, A6, A8, A12, A19, A22, A24, A25.*
+*Changed by A3, A6, A8, A12, A19, A22, A24, A25, A28, A29.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §4.2, §4.3.*
 
@@ -83,7 +83,7 @@ Three terms are used precisely below:
 
 ### 9. Verification and export
 
-*Changed by A3, A6, A10, A11, A17, A19, A24, A27.*
+*Changed by A3, A6, A10, A11, A17, A19, A24, A27, A28, A29.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §8.*
 
@@ -406,3 +406,17 @@ Replaced text ([01](../architecture/01-log-and-records.md) §4.1, as it stood):
 Replaced text ([01](../architecture/01-log-and-records.md) §8, as it stood):
 
 > Default exports follow each graph's export policy ([0005](../decisions/0005-crate-organization.md) §4.1). Bundles also take `--blobs include|list|omit` ([0039](../decisions/0039-files-and-media.md) §14). A bundle that moves a tenant carries its extracts as well ([0018](../decisions/0018-tenants.md) §10).
+
+### A28. `triplespace checkpoint` signs until the worker does; `export` and `verify` on the command line
+
+- **Date:** 2026-11-07
+- **Source:** Direct: James, design discussion of 2026-11-07
+- **Change:** extends §6, §9
+- **Summary:** Building `export` and `verify` showed that nothing signed checkpoints: `log.checkpoint` existed and stayed empty, so a bundle had nothing for `verify` to check its tree against. Asked, James chose a command, `triplespace checkpoint`, that signs every partition's new head and every unsigned full segment with the instance key, run by hand, by cron or before an export, until the projection worker signs on a cadence once §6's N and T are chosen (Q4). Of the bundle scopes of [0103](0103-export-transfer-and-backup.md) §1, the backup scope is built with `export` and `verify`; the export scope, which withholds what an anonymous reader may not read, comes next, before a public bundle is served. Chapter text: [01](../architecture/01-log-and-records.md) §4.2, §8.
+
+### A29. Origins fixed by the first checkpoint; what the commands check
+
+- **Date:** 2026-11-07
+- **Source:** Direct: Claude, while building `triplespace checkpoint`, `export` and `verify` (SCA-302), 2026-11-07; unconfirmed
+- **Change:** extends §6, §9
+- **Summary:** Calls made building A28. (1) Nothing recorded a partition's origin line, which must not change with an alias (01 §4.2): a partition's origin is taken from its first checkpoint or manifest and reused; the first is derived from the tenant's current host, or the farm's for an instance partition, so a tenant aliased before its first checkpoint would sign under its new host. Recording the origin at partition creation would be exact. (2) The signer takes `pg_advisory_xact_lock(hashtextextended('checkpoint:{partition}', 0))` per partition, the lock the worker is to take, and refuses a key file that is not the chain's current key, or a missing one, rather than generate a key as the other commands do. (3) A `logged` partition is signed when its head has passed its latest checkpoint; a `hashed` one gets a manifest for each full segment that has none, and no checkpoint. (4) `export --scope backup` takes every partition, or one tenant's with `--tenant`, `private` ones included, in one `REPEATABLE READ` snapshot, with the instance `config`'s `key:` records; file bytes wait for the blob store. (5) `verify` defaults to level 2, passes no actor keys (client signatures unchecked) and no part names beyond the three core parts, prints a line per partition, and exits non-zero on any problem; a body changed in the bundle already fails as the bundle is opened. Chapter text: [01](../architecture/01-log-and-records.md) §4.2, §8.
