@@ -409,10 +409,12 @@ async fn a_table_becomes_items_under_one_batch() {
     let items = query(
         &database,
         "SELECT t.text FROM view.term t WHERE t.tenant = 'wiki' AND t.kind = 1 AND t.lang = 'en'
-           AND t.entity_id LIKE 'Q%' ORDER BY t.text",
+           AND t.entity_id LIKE 'Q%'",
     )
     .await;
-    let labels: Vec<String> = items.iter().map(|r| r.get(0)).collect();
+    // Sorted here, not by the database: its collation differs between hosts.
+    let mut labels: Vec<String> = items.iter().map(|r| r.get(0)).collect();
+    labels.sort();
     assert_eq!(labels, ["Portland", "Salem", "city"]);
     let found = owner
         .api("action=wbsearchentities&search=Portland&language=en&type=item")
