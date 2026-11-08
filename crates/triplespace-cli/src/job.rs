@@ -283,7 +283,7 @@ async fn start_import(args: StartImport) -> Result<()> {
     .await?;
     println!(
         "job {id} queued: {} bytes of {} for `{}`; Special:Jobs/{id} shows it",
-        args.file.metadata().map(|m| m.len()).unwrap_or(0),
+        args.file.metadata().map_or(0, |m| m.len()),
         args.file.display(),
         args.tenant
     );

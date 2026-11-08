@@ -1114,7 +1114,9 @@ async fn special_import_shows_the_census_then_imports() {
         history.body
     );
     assert!(
-        history.body.contains("class=\"ts-change__job\" href=\"/wiki/Special:Jobs/"),
+        history
+            .body
+            .contains("class=\"ts-change__job\" href=\"/wiki/Special:Jobs/"),
         "the job is linked to its page (0104 §9): {}",
         history.body
     );

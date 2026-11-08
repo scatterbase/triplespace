@@ -420,19 +420,7 @@ async fn run() -> Result<()> {
         tokio::spawn(deliver(app.clone(), args.database.clone(), transport));
     }
     background(&app, args.workers).await;
-    // The job runner (0104 §4): background tasks claiming `ops.job_queue`, each with a
-    // store of its own, since a job's units of work are its own transactions.
-    for n in 0..args.job_runners {
-        let (store, pipeline) = triplespace_cli::common::store(&args.database, &app.config().farm)
-            .context("job runner")?;
-        tokio::spawn(triplespace_api_ingest::jobs::run_forever(
-            store,
-            pipeline,
-            format!("runner {n}"),
-            WORKER_IDLE,
-            triplespace_cli::common::now,
-        ));
-    }
+    job_runners(&app, &args.database, args.job_runners)?;
     if let Some(admin) = &args.admin_listen {
         let admin_router =
             axum::Router::new().route("/healthz", axum::routing::get(|| async { "ok" }));
@@ -479,6 +467,23 @@ fn with_site(api: axum::Router, skins: Option<&std::path::Path>) -> axum::Router
     let client = Client::new(ServiceTransport::new(api.clone()));
     let site = triplespace_ui::Site::new(client).with_skins_dir(skins);
     api.fallback_service(triplespace_ui::router_for(site))
+}
+
+/// The job runner (0104 §4): background tasks claiming `ops.job_queue`, each with a
+/// store of its own, since a job's units of work are its own transactions.
+fn job_runners(app: &triplespace_api_action::App, database: &str, n: usize) -> Result<()> {
+    for i in 0..n {
+        let (store, pipeline) =
+            triplespace_cli::common::store(database, &app.config().farm).context("job runner")?;
+        tokio::spawn(triplespace_api_ingest::jobs::run_forever(
+            store,
+            pipeline,
+            format!("runner {i}"),
+            WORKER_IDLE,
+            triplespace_cli::common::now,
+        ));
+    }
+    Ok(())
 }
 
 /// How often the services are probed for Special:Version (0077 §4), in seconds.
