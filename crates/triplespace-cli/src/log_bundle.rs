@@ -9,8 +9,14 @@
 //!   (0006 Q4), an operator runs it by hand or by cron, and before an export (0006 A28).
 //! - **`export --scope backup`** writes every partition, or one tenant's, verbatim from one
 //!   `REPEATABLE READ` snapshot, with their checkpoints and manifests and the instance's
-//!   `key:` records: the operator's own copy (0103 §1). The export scope, which carries
-//!   only the visible form, and the transfer scope are not built yet.
+//!   `key:` records: the operator's own copy (0103 §1).
+//! - **`export --scope export --tenant`** writes the visible form of one tenant's `public`
+//!   partitions (0103 §1): a record about a target a confidential restriction hides is
+//!   written as its leaf alone; every part of a record whose target an anonymous reader
+//!   may not read (deleted, or under a moderation restriction), and of a suppression
+//!   event, is withheld; and the parts a record's visibility hides, content, comment or
+//!   the actor, are withheld, each listed in the bundle (0006 A30, A31). A tenant an
+//!   anonymous reader may not read has no export. The transfer scope is not built yet.
 //! - **`verify`** checks a bundle at level 1 (structure: the tree, checkpoints, consistency,
 //!   manifests, the key chain) or level 2 (also bodies against their commitments,
 //!   erasures and client signatures), and exits non-zero on any problem. Level 3, which
@@ -24,114 +30,18 @@
 use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
-use scatter_integrity::bundle::{Bundle, BundlePartition, export as write_bundle};
-use scatter_integrity::checkpoint::{instance_origin, tenant_origin};
+use scatter_actors::{GrantRegistry, Principal, evaluate};
+use scatter_integrity::bundle::{Bundle, BundlePartition, export_scoped};
 use scatter_integrity::checkpoints::{CheckpointStore, checkpoint as sign_head, segment_manifest};
 use scatter_integrity::keys::KeyChain;
 use scatter_integrity::verify::Level;
-use scatter_log::header::CONFIG_PARTITION;
-use scatter_log::record::Record;
 use scatter_log::store::LogStore;
 use scatter_log_postgres::checkpoints::PgCheckpoints;
 use scatter_log_postgres::log::PgLog;
-use tokio_postgres::{GenericClient, IsolationLevel};
+use tokio_postgres::IsolationLevel;
+use triplespace_rdf::bundle::{Reader, host_of, key_records, origin_of, partition_rows};
 
 use crate::common::{connect, farm_of, now, signing_key};
-
-/// One partition as `log.partition` registers it.
-#[derive(Debug, Clone)]
-struct PartitionRow {
-    partition: u64,
-    tenant: String,
-    name: String,
-    integrity: String,
-}
-
-/// The partitions, all or one tenant's, ascending by ID.
-async fn partition_rows<C: GenericClient>(
-    client: &C,
-    tenant: Option<&str>,
-) -> Result<Vec<PartitionRow>> {
-    let rows = client
-        .query(
-            "SELECT partition, COALESCE(tenant, ''), name, integrity FROM log.partition
-             WHERE $1::text IS NULL OR tenant = $1 ORDER BY partition",
-            &[&tenant],
-        )
-        .await
-        .context("reading log.partition")?;
-    Ok(rows
-        .iter()
-        .map(|r| PartitionRow {
-            partition: scatter_log_postgres::ids::partition_from_db(r.get(0)),
-            tenant: r.get(1),
-            name: r.get(2),
-            integrity: r.get(3),
-        })
-        .collect())
-}
-
-/// The host of a base URI, without scheme or path.
-fn host_of(base: &str) -> String {
-    let rest = base.split_once("://").map_or(base, |(_, r)| r);
-    rest.split(['/', '?', '#'])
-        .next()
-        .unwrap_or(rest)
-        .to_string()
-}
-
-/// The tenant's current base, from the instance registry.
-async fn tenant_base<C: GenericClient>(client: &C, tenant: &str) -> Result<String> {
-    client
-        .query_opt(
-            "SELECT config->>'base' FROM view.registry WHERE tenant = '' AND kind = 'tenant' AND code = $1",
-            &[&tenant],
-        )
-        .await?
-        .and_then(|r| r.get::<_, Option<String>>(0))
-        .with_context(|| format!("no base for tenant `{tenant}`"))
-}
-
-/// A partition's origin line: its first checkpoint's or manifest's where it has one, so
-/// that it never changes; otherwise derived from the current host.
-async fn origin_of<C: GenericClient, S: CheckpointStore>(
-    client: &C,
-    checkpoints: &S,
-    row: &PartitionRow,
-    farm_host: &str,
-) -> Result<String> {
-    if let Some(first) = checkpoints.list(row.partition).await?.first() {
-        return Ok(first.checkpoint.origin.clone());
-    }
-    if let Some((n, first)) = checkpoints.manifests(row.partition).await?.first() {
-        let suffix = format!("/segment/{n}");
-        if let Some(origin) = first.checkpoint.origin.strip_suffix(&suffix) {
-            return Ok(origin.to_string());
-        }
-    }
-    Ok(if row.tenant.is_empty() {
-        instance_origin(farm_host, &row.name)
-    } else {
-        tenant_origin(
-            &host_of(&tenant_base(client, &row.tenant).await?),
-            &row.name,
-        )
-    })
-}
-
-/// The `key:` records of the instance `config` partition, in order.
-async fn key_records<S: LogStore>(store: &S) -> Result<Vec<Record>> {
-    let head = store.head(CONFIG_PARTITION).await?;
-    let mut out = Vec::new();
-    for offset in 0..head.size {
-        if let Some(r) = store.read(CONFIG_PARTITION, offset).await?.record()
-            && KeyChain::is_key_record(r)
-        {
-            out.push(r.clone());
-        }
-    }
-    Ok(out)
-}
 
 /// `triplespace checkpoint`'s arguments.
 #[derive(Debug, clap::Args)]
@@ -170,7 +80,9 @@ pub async fn checkpoint(args: &Checkpoint) -> Result<Signed> {
     let farm = farm_of(&client).await?;
     let keys = {
         let tx = client.transaction().await?;
-        let keys = key_records(&PgLog::new(&tx)).await?;
+        let keys = key_records(&PgLog::new(&tx))
+            .await
+            .map_err(anyhow::Error::msg)?;
         tx.commit().await?;
         keys
     };
@@ -186,7 +98,10 @@ pub async fn checkpoint(args: &Checkpoint) -> Result<Signed> {
     }
     let farm_host = host_of(&farm.base);
     let mut signed = Signed::default();
-    for row in partition_rows(&client, args.tenant.as_deref()).await? {
+    for row in partition_rows(&client, args.tenant.as_deref())
+        .await
+        .map_err(anyhow::Error::msg)?
+    {
         let tx = client.transaction().await?;
         // The signing worker's lock (01 §4.2), so that two signers never race.
         tx.execute(
@@ -200,7 +115,9 @@ pub async fn checkpoint(args: &Checkpoint) -> Result<Signed> {
         if head.size == 0 {
             continue;
         }
-        let origin = origin_of(&tx, &checkpoints, &row, &farm_host).await?;
+        let origin = origin_of(&tx, &checkpoints, &row, &farm_host)
+            .await
+            .map_err(anyhow::Error::msg)?;
         if row.integrity == "hashed" {
             let have: std::collections::BTreeSet<u64> = checkpoints
                 .manifests(row.partition)
@@ -277,13 +194,12 @@ pub struct Export {
 ///
 /// A scope not built yet, a database failure, or a directory that is not empty.
 pub async fn export(args: &Export) -> Result<Vec<BundlePartition>> {
-    match args.scope {
-        Scope::Backup => {}
-        Scope::Export => bail!(
-            "the export scope, which withholds what an anonymous reader may not read (0103 §1), is not built yet"
-        ),
-        Scope::Transfer => bail!("the transfer scope (0103 §3) is not built yet"),
-    }
+    let (scope, tenant) = match (args.scope, &args.tenant) {
+        (Scope::Backup, t) => ("backup", t.clone()),
+        (Scope::Export, Some(t)) => ("export", Some(t.clone())),
+        (Scope::Export, None) => bail!("the export scope is one tenant's: name it with --tenant"),
+        (Scope::Transfer, _) => bail!("the transfer scope (0103 §3) is not built yet"),
+    };
     let mut client = connect(&args.database).await?;
     let farm = farm_of(&client).await?;
     let farm_host = host_of(&farm.base);
@@ -296,23 +212,67 @@ pub async fn export(args: &Export) -> Result<Vec<BundlePartition>> {
         .await?;
     let store = PgLog::new(&tx);
     let checkpoints = PgCheckpoints::new(&tx);
+    let mut rows = partition_rows(&tx, tenant.as_deref())
+        .await
+        .map_err(anyhow::Error::msg)?;
+    let mut withhold = std::collections::BTreeMap::new();
+    if scope == "export" {
+        let tenant = tenant.as_deref().unwrap_or_default();
+        let reader = anonymous_reader(&tx, tenant).await?;
+        // Only what an export may carry: `public` partitions, none of a restricted graph.
+        rows.retain(|r| r.export == "public" && !reader.viewer.hidden.graphs.contains(&r.name));
+        let ids: Vec<i64> = rows
+            .iter()
+            .map(|r| scatter_log_postgres::ids::partition_to_db(r.partition))
+            .collect();
+        withhold = reader
+            .decide(&tx, tenant, &ids, None)
+            .await
+            .map_err(anyhow::Error::msg)?;
+    }
     let mut partitions = Vec::new();
-    for row in partition_rows(&tx, args.tenant.as_deref()).await? {
+    for row in rows {
         partitions.push(BundlePartition {
             partition: row.partition,
-            origin: origin_of(&tx, &checkpoints, &row, &farm_host).await?,
+            origin: origin_of(&tx, &checkpoints, &row, &farm_host)
+                .await
+                .map_err(anyhow::Error::msg)?,
             name: row.name,
         });
     }
     if partitions.is_empty() {
         bail!("no partitions to bundle");
     }
-    let keys = key_records(&store).await?;
-    write_bundle(&store, &checkpoints, &partitions, &keys, now(), &args.out)
-        .await
-        .with_context(|| format!("writing {}", args.out.display()))?;
+    let keys = key_records(&store).await.map_err(anyhow::Error::msg)?;
+    export_scoped(
+        &store,
+        &checkpoints,
+        &partitions,
+        &keys,
+        now(),
+        &args.out,
+        scope,
+        &withhold,
+    )
+    .await
+    .with_context(|| format!("writing {}", args.out.display()))?;
     tx.commit().await?;
     Ok(partitions)
+}
+
+/// The anonymous reader of `tenant`, for the export scope.
+async fn anonymous_reader(tx: &tokio_postgres::Transaction<'_>, tenant: &str) -> Result<Reader> {
+    let groups = triplespace_accounts::groups::registry(tx, tenant)
+        .await
+        .context("the tenant's groups")?;
+    let effective = evaluate(
+        &Principal::anonymous(),
+        &groups,
+        GrantRegistry::default_registry(),
+    );
+    Reader::new(tx, tenant, effective)
+        .await
+        .map_err(anyhow::Error::msg)
 }
 
 /// Runs `triplespace export`.

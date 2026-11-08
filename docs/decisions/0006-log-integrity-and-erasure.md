@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-07 (A29)
+- **Updated:** 2026-11-07 (A31)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md)
 
@@ -83,7 +83,7 @@ Three terms are used precisely below:
 
 ### 9. Verification and export
 
-*Changed by A3, A6, A10, A11, A17, A19, A24, A27, A28, A29.*
+*Changed by A3, A6, A10, A11, A17, A19, A24, A27, A28, A29, A30, A31.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §8.*
 
@@ -420,3 +420,17 @@ Replaced text ([01](../architecture/01-log-and-records.md) §8, as it stood):
 - **Source:** Direct: Claude, while building `triplespace checkpoint`, `export` and `verify` (SCA-302), 2026-11-07; unconfirmed
 - **Change:** extends §6, §9
 - **Summary:** Calls made building A28. (1) Nothing recorded a partition's origin line, which must not change with an alias (01 §4.2): a partition's origin is taken from its first checkpoint or manifest and reused; the first is derived from the tenant's current host, or the farm's for an instance partition, so a tenant aliased before its first checkpoint would sign under its new host. Recording the origin at partition creation would be exact. (2) The signer takes `pg_advisory_xact_lock(hashtextextended('checkpoint:{partition}', 0))` per partition, the lock the worker is to take, and refuses a key file that is not the chain's current key, or a missing one, rather than generate a key as the other commands do. (3) A `logged` partition is signed when its head has passed its latest checkpoint; a `hashed` one gets a manifest for each full segment that has none, and no checkpoint. (4) `export --scope backup` takes every partition, or one tenant's with `--tenant`, `private` ones included, in one `REPEATABLE READ` snapshot, with the instance `config`'s `key:` records; file bytes wait for the blob store. (5) `verify` defaults to level 2, passes no actor keys (client signatures unchecked) and no part names beyond the three core parts, prints a line per partition, and exits non-zero on any problem; a body changed in the bundle already fails as the bundle is opened. Chapter text: [01](../architecture/01-log-and-records.md) §4.2, §8.
+
+### A30. A bundle lists what it withholds
+
+- **Date:** 2026-11-07
+- **Source:** Direct: James, design discussion of 2026-11-07
+- **Change:** extends §9
+- **Summary:** An export-scope bundle ([0103](0103-export-transfer-and-backup.md) §1) leaves out what an anonymous reader may not read, and level 2 counted every missing part without an `erase` record as a failure. Asked, James chose that a bundle carries a withheld list, `withheld.cbor`, naming by partition and offset the parts it left out, or the whole record written as its leaf alone; `verify` accounts for what the list names and reports a `withheld` count, and anything missing that the list does not name still fails. The list says only which parts are absent, which the API's hidden flags already show. The manifest records the bundle's scope. Chapter text: [01](../architecture/01-log-and-records.md) §8.
+
+### A31. How the export scope decides each record
+
+- **Date:** 2026-11-07
+- **Source:** Direct: Claude, while building `export --scope export` (SCA-302), 2026-11-07; unconfirmed
+- **Change:** extends §9
+- **Summary:** Calls made building A30 and [0103](0103-export-transfer-and-backup.md) A1. (1) The export scope is one tenant's (`--tenant` required) and covers its `public` partitions, leaving out any whose graph a restriction hides. (2) Each record is decided from its activity row, row by row with the rules the feed query applies in SQL, written once more as `Hidden::hides_activity` in `triplespace-projections` and tested against the same cases: a row on a target a confidential restriction hides is written as its leaf alone; a suppression event is withheld whole unless the reader is in the group it names; a row whose entity or page the reader may not read by its chain (deleted, or under a moderation restriction) has every part withheld, its header kept; otherwise the content, comment or attestation part is withheld as the row's visibility bits say, and the attestation of a hidden actor. The two copies of the feed's rules can drift; one shared implementation would remove that. (3) A record with no activity row is exported as it is: configuration records and records the activity projection does not cover. (4) `view.activity.read_groups` is written by nothing yet, so read restrictions are found through the chains instead. Chapter text: [01](../architecture/01-log-and-records.md) §8.

@@ -4,8 +4,10 @@
 //!
 //! ```text
 //! {dir}/
-//!   bundle.cbor          {"format": 1, "created": µs, "partitions": [{"partition", "name", "origin"}]}
+//!   bundle.cbor          {"format": 1, "created": µs, "partitions": [{"partition", "name", "origin"}],
+//!                         "scope": "backup" | "export" | "transfer"}
 //!   keys.seg             the `key:` records of the signing config partition, a CBOR sequence
+//!   withheld.cbor        what the bundle left out on purpose, by partition: [[offset, [part, …] | null], …]
 //!   {partition as 16 hex digits}/
 //!     partition.cbor, 00000000.seg, …      the `segments` layout (payloads.md §10)
 //!     checkpoints/{size}.txt, manifests/{n}.txt
@@ -14,14 +16,21 @@
 //! A bundle is itself a `SegmentStore` root, so it can be opened as a log; `export`
 //! builds one from any `LogStore` by restoring every slot, and `Bundle::verify` runs
 //! [`verify()`](crate::verify::verify) over every partition in it.
+//!
+//! **Scopes** (0103 §1). A backup restores every slot as it is. An export withholds what
+//! its reader may not read, as [`export_scoped`] is told: a part is left out as an erased
+//! part is, its leaf kept so that every proof still verifies, and a whole record is
+//! written as its leaf alone, as a compacted one is. Each is listed in `withheld.cbor`, so
+//! that `verify` accounts for it, and what the list does not name still fails (0006 A30).
 
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
 
 use scatter_log::cbor::{self, Value};
 use scatter_log::record::Record;
 use scatter_log::segments::SegmentStore;
-use scatter_log::store::{LogStore, StoreError};
+use scatter_log::store::{LogStore, Slot, StoreError};
 
 use crate::checkpoints::{CheckpointStore, CheckpointStoreError, FileCheckpoints};
 use crate::keys::{ChainError, KeyChain};
@@ -32,6 +41,7 @@ pub const BUNDLE_FORMAT: u64 = 1;
 
 const MANIFEST_FILE: &str = "bundle.cbor";
 const KEYS_FILE: &str = "keys.seg";
+const WITHHELD_FILE: &str = "withheld.cbor";
 
 /// One exported partition.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -51,13 +61,32 @@ pub struct BundleManifest {
     pub created: u64,
     /// The partitions in it.
     pub partitions: Vec<BundlePartition>,
+    /// Its scope (0103 §1): `backup`, `export` or `transfer`; `backup` when the manifest
+    /// predates scopes.
+    pub scope: String,
 }
+
+/// What an export leaves out of one record.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum Withhold {
+    /// These parts, by index; an index past the record's parts is ignored.
+    Parts(Vec<usize>),
+    /// Every part the record has.
+    AllParts,
+    /// The whole record, header included: written as its leaf alone.
+    Record,
+}
+
+/// What a bundle left out of one partition: by offset, the parts, or `None` for a record
+/// written as its leaf alone.
+pub type WithheldList = BTreeMap<u64, Option<Vec<usize>>>;
 
 impl BundleManifest {
     fn to_value(&self) -> Value {
         Value::map(vec![
             (Value::text("format"), Value::Int(i128::from(BUNDLE_FORMAT))),
             (Value::text("created"), Value::Int(i128::from(self.created))),
+            (Value::text("scope"), Value::text(&self.scope)),
             (
                 Value::text("partitions"),
                 Value::Array(
@@ -112,9 +141,15 @@ impl BundleManifest {
                 })
             })
             .collect::<Result<_, BundleError>>()?;
+        let scope = v
+            .get("scope")
+            .and_then(Value::as_text)
+            .unwrap_or("backup")
+            .to_string();
         Ok(Self {
             created,
             partitions,
+            scope,
         })
     }
 }
@@ -152,9 +187,9 @@ impl From<std::io::Error> for BundleError {
     }
 }
 
-/// Writes a bundle of `partitions` from `store` and `checkpoints` to `dest`, which must
-/// not exist or be empty. `key_records` are the `key:` records of the config partition
-/// that signs these partitions, in order.
+/// Writes a backup bundle of `partitions` from `store` and `checkpoints` to `dest`, which
+/// must not exist or be empty: every slot as it is. `key_records` are the `key:` records
+/// of the config partition that signs these partitions, in order.
 pub async fn export<S: LogStore, C: CheckpointStore>(
     store: &S,
     checkpoints: &C,
@@ -163,18 +198,82 @@ pub async fn export<S: LogStore, C: CheckpointStore>(
     created: u64,
     dest: &Path,
 ) -> Result<(), BundleError> {
+    export_scoped(
+        store,
+        checkpoints,
+        partitions,
+        key_records,
+        created,
+        dest,
+        "backup",
+        &BTreeMap::new(),
+    )
+    .await
+}
+
+/// Writes a bundle of `scope` (0103 §1), leaving out of each `(partition, offset)` what
+/// `withhold` says and listing it in `withheld.cbor`; everything else as it is.
+#[allow(clippy::too_many_arguments)]
+pub async fn export_scoped<S: LogStore, C: CheckpointStore>(
+    store: &S,
+    checkpoints: &C,
+    partitions: &[BundlePartition],
+    key_records: &[Record],
+    created: u64,
+    dest: &Path,
+    scope: &str,
+    withhold: &BTreeMap<(u64, u64), Withhold>,
+) -> Result<(), BundleError> {
     if dest.exists() && fs::read_dir(dest)?.next().is_some() {
         return Err(BundleError::NotEmpty(dest.to_path_buf()));
     }
     fs::create_dir_all(dest)?;
     let mut out = SegmentStore::open(dest)?;
     let mut cps = FileCheckpoints::new(dest);
+    let mut left_out: BTreeMap<u64, WithheldList> = BTreeMap::new();
     for p in partitions {
         let head = store.head(p.partition).await?;
         out.create_partition(p.partition, head.segments).await?;
         for offset in 0..head.size {
             let slot = store.read(p.partition, offset).await?;
-            out.append_slot(p.partition, slot).await?;
+            match (withhold.get(&(p.partition, offset)), &slot) {
+                (Some(Withhold::Record), _) => {
+                    let leaf = slot.leaf();
+                    out.append_slot(p.partition, Slot::Compacted { leaf })
+                        .await?;
+                    left_out
+                        .entry(p.partition)
+                        .or_default()
+                        .insert(offset, None);
+                }
+                (Some(w @ (Withhold::Parts(_) | Withhold::AllParts)), Slot::Record(r)) => {
+                    let present: Vec<usize> = r
+                        .body()
+                        .parts()
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, part)| !part.is_erased())
+                        .map(|(i, _)| i)
+                        .collect();
+                    let parts: Vec<usize> = match w {
+                        Withhold::Parts(want) => {
+                            present.into_iter().filter(|i| want.contains(i)).collect()
+                        }
+                        _ => present,
+                    };
+                    out.append_slot(p.partition, slot.clone()).await?;
+                    if !parts.is_empty() {
+                        out.erase_parts(p.partition, offset, &parts).await?;
+                        left_out
+                            .entry(p.partition)
+                            .or_default()
+                            .insert(offset, Some(parts));
+                    }
+                }
+                _ => {
+                    out.append_slot(p.partition, slot).await?;
+                }
+            }
         }
         for cp in checkpoints.list(p.partition).await? {
             cps.put(p.partition, &cp).await?;
@@ -188,15 +287,88 @@ pub async fn export<S: LogStore, C: CheckpointStore>(
         keys.extend_from_slice(&r.encode());
     }
     fs::write(dest.join(KEYS_FILE), keys)?;
+    if !left_out.is_empty() {
+        fs::write(
+            dest.join(WITHHELD_FILE),
+            cbor::encode(&withheld_to_value(&left_out)).expect("the list encodes"),
+        )?;
+    }
     let manifest = BundleManifest {
         created,
         partitions: partitions.to_vec(),
+        scope: scope.to_string(),
     };
     fs::write(
         dest.join(MANIFEST_FILE),
         cbor::encode(&manifest.to_value()).expect("the manifest encodes"),
     )?;
     Ok(())
+}
+
+fn withheld_to_value(w: &BTreeMap<u64, WithheldList>) -> Value {
+    Value::map(
+        w.iter()
+            .map(|(partition, list)| {
+                (
+                    Value::Int(i128::from(*partition)),
+                    Value::Array(
+                        list.iter()
+                            .map(|(offset, parts)| {
+                                Value::Array(vec![
+                                    Value::Int(i128::from(*offset)),
+                                    parts.as_ref().map_or(Value::Null, |ps| {
+                                        Value::Array(
+                                            ps.iter().map(|i| Value::Int(*i as i128)).collect(),
+                                        )
+                                    }),
+                                ])
+                            })
+                            .collect(),
+                    ),
+                )
+            })
+            .collect(),
+    )
+}
+
+fn withheld_from_value(v: &Value) -> Result<BTreeMap<u64, WithheldList>, BundleError> {
+    let bad = || BundleError::Manifest("withheld list");
+    let Value::Map(entries) = v else {
+        return Err(bad());
+    };
+    let mut out = BTreeMap::new();
+    for (k, list) in entries {
+        let partition = k.as_u64().ok_or_else(bad)?;
+        let Value::Array(items) = list else {
+            return Err(bad());
+        };
+        let mut l = WithheldList::new();
+        for item in items {
+            let Value::Array(pair) = item else {
+                return Err(bad());
+            };
+            let [offset, parts] = pair.as_slice() else {
+                return Err(bad());
+            };
+            let offset = offset.as_u64().ok_or_else(bad)?;
+            let parts = match parts {
+                Value::Null => None,
+                Value::Array(ps) => Some(
+                    ps.iter()
+                        .map(|p| {
+                            p.as_u64()
+                                .and_then(|n| usize::try_from(n).ok())
+                                .ok_or_else(bad)
+                        })
+                        .collect::<Result<Vec<_>, _>>()?,
+                ),
+                _ => return Err(bad()),
+            };
+            l.insert(offset, parts);
+        }
+        out.insert(partition, l);
+    }
+    Ok(out)
 }
 
 /// An opened bundle.
@@ -207,6 +379,7 @@ pub struct Bundle {
     store: SegmentStore,
     checkpoints: FileCheckpoints,
     chain: KeyChain,
+    withheld: BTreeMap<u64, WithheldList>,
 }
 
 impl Bundle {
@@ -228,12 +401,20 @@ impl Bundle {
         let chain = KeyChain::from_records(&records)?;
         let store = SegmentStore::open(&dir)?;
         let checkpoints = FileCheckpoints::new(&dir);
+        let withheld = match fs::read(dir.join(WITHHELD_FILE)) {
+            Ok(bytes) => withheld_from_value(
+                &cbor::decode(&bytes).map_err(|_| BundleError::Manifest("withheld list"))?,
+            )?,
+            Err(e) if e.kind() == std::io::ErrorKind::NotFound => BTreeMap::new(),
+            Err(e) => return Err(e.into()),
+        };
         Ok(Self {
             dir,
             manifest,
             store,
             checkpoints,
             chain,
+            withheld,
         })
     }
 
@@ -267,6 +448,12 @@ impl Bundle {
         &self.chain
     }
 
+    /// What the bundle withheld on purpose, by partition (0006 A30).
+    #[must_use]
+    pub fn withheld(&self) -> &BTreeMap<u64, WithheldList> {
+        &self.withheld
+    }
+
     /// Verifies every partition in the bundle, one report each, in manifest order.
     pub async fn verify(
         &self,
@@ -284,6 +471,7 @@ impl Bundle {
                 actor_keys,
                 part_names,
                 is_config: p.name == "config",
+                withheld: self.withheld.get(&p.partition),
             };
             reports.push(verify(&self.store, &self.checkpoints, &what).await);
         }
@@ -426,6 +614,55 @@ mod tests {
             assert_eq!(reports[1].manifests, 1);
             let reports = bundle.verify(Level::Structure, None, None).await;
             assert!(reports.iter().all(Report::is_clean));
+
+            // An export-scope bundle (0103 §1; 0006 A30): what it withholds is listed and
+            // accounted for, and verify still reports the unlisted erasure at offset 1.
+            let scoped = dest.with_extension("scoped");
+            let _ = fs::remove_dir_all(&scoped);
+            let withhold: BTreeMap<(u64, u64), Withhold> = [
+                ((7, 0), Withhold::AllParts),
+                ((7, 4), Withhold::Parts(vec![scatter_log::body::COMMENT])),
+                ((7, 3), Withhold::Record),
+            ]
+            .into_iter()
+            .collect();
+            export_scoped(
+                &store,
+                &cps,
+                &partitions,
+                &key_records,
+                124,
+                &scoped,
+                "export",
+                &withhold,
+            )
+            .await
+            .unwrap();
+            let bundle = Bundle::open(&scoped).unwrap();
+            assert_eq!(bundle.manifest().scope, "export");
+            let withheld_list = &bundle.withheld()[&7];
+            assert_eq!(withheld_list.get(&3), Some(&None));
+            assert_eq!(withheld_list.get(&4), Some(&Some(vec![1])));
+            assert!(matches!(
+                bundle.store().read(7, 3).await.unwrap(),
+                Slot::Compacted { .. }
+            ));
+            let reports = bundle.verify(Level::Bodies, None, None).await;
+            assert!(reports[0].is_clean(), "{:?}", reports[0].problems);
+            assert_eq!(
+                reports[1].problems,
+                vec![Problem::Erasure { offset: 1, part: 2 }],
+                "only the unlisted erasure"
+            );
+            assert_eq!(reports[1].withheld, 3);
+            // Without its list, the withheld parts are unaccounted erasures.
+            fs::remove_file(scoped.join("withheld.cbor")).unwrap();
+            let reports = Bundle::open(&scoped)
+                .unwrap()
+                .verify(Level::Bodies, None, None)
+                .await;
+            assert!(reports[1].problems.len() > 1, "{:?}", reports[1].problems);
+            fs::remove_dir_all(&scoped).unwrap();
 
             // Tampering with a body is caught on open (strict decoding) or by verify.
             let seg = dest.join("0000000000000007/00000000.seg");

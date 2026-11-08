@@ -25,6 +25,7 @@ scatter-mail.workspace = true
 base64.workspace = true
 scatter-log.workspace = true
 scatter-log-postgres.workspace = true
+triplespace-rdf.workspace = true
 scatter-wikibase-changeset.workspace = true
 scatter-wikibase-model.workspace = true
 scatter-wikibase-resolve.workspace = true

@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-07
+- **Updated:** 2026-11-07 (A1)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0027](0027-preferences-and-portability.md), [0056](0056-security-model.md)
 - **Uses:** [0039](0039-files-and-media.md), [0081](0081-recovery-keys-and-continuations.md)
@@ -32,6 +33,8 @@ James's direction, from the design discussion of 2026-11-07:
 ## Decision
 
 ### 1. Three scopes: export, transfer and backup (amends 0006 §9)
+
+*Changed by A1.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §8.*
 
@@ -83,3 +86,16 @@ James's direction, from the design discussion of 2026-11-07:
 
 - [docs/registry/graphs.toml](../registry/graphs.toml): the export policy of every graph.
 - Wikimedia's XML dumps, which publish revision metadata with user names (`stub-meta-history`).
+
+## Amendment log
+
+### A1. A confidential target's records are exported as leaves alone
+
+- **Date:** 2026-11-07
+- **Source:** Direct: James, design discussion of 2026-11-07
+- **Change:** amends §1
+- **Summary:** §1 carried every part an anonymous reader may not read as its commitment, the header kept. A record's header names its key, payload type, time and revision, so for a target a confidential restriction hides, which is answered as a target that does not exist ([0056](0056-security-model.md) §5), the header itself would show that it exists. Asked, James chose that such a record is exported as its leaf alone, header included, as a compacted record is: the tree still folds and every other proof verifies, but nothing says what the offset held. Restricted and hidden targets keep their headers with their parts withheld. Chapter text: [01](../architecture/01-log-and-records.md) §8.
+
+Replaced text ([01](../architecture/01-log-and-records.md) §8, as it stood):
+
+> - an **export** publishes: a public bundle, a dump, the update stream, outbound federation. It holds only what the export policies of [02](../architecture/02-graphs-rdf-and-query.md) §1.1 allow, in its visible form: every part an anonymous reader may not read, hidden, suppressed, confidential or restricted, is carried as its commitment, as an erased part is, so every proof still verifies ([09](../architecture/09-security-and-moderation.md) §5.4);

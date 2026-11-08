@@ -43,6 +43,11 @@
 //! - `GET /reports` and `GET /reports/{name}` ([`reports`]): every report with its state, and
 //!   one report's rows, as `list=querypage` serves them (0047 §11).
 //!
+//! - `GET /record/{partition}/{offset}`, its `checkpoint` and `proof`, and
+//!   `GET /record/proofs` ([`record`]): one record of a published partition as an export
+//!   shows it, the checkpoint that first covers it, and inclusion proofs, one or a range's
+//!   with their shared nodes once (0012 §5; 17 §1.1).
+//!
 //! Every route runs behind the Action API's request layers ([`triplespace_api_action`]):
 //! the tenant the host names (421 otherwise), the caller, the redaction of 0012 §8, and
 //! the HTTP caching of 0014 §6 ([`triplespace_api_action::http_cache`]). Errors are JSON
@@ -62,6 +67,7 @@ pub mod groups;
 pub mod history;
 pub mod provenance;
 pub mod purges;
+pub mod record;
 pub mod reports;
 pub mod settings;
 pub mod tenancy;
@@ -127,6 +133,10 @@ pub const PATHS: &[&str] = &[
     "/auth/email/primary",
     "/auth/email/remove",
     "/mail/postmark",
+    "/record/{partition}/{offset}",
+    "/record/{partition}/{offset}/checkpoint",
+    "/record/{partition}/{offset}/proof",
+    "/record/proofs",
 ];
 
 /// The REST routes, to be merged into the server's router.
@@ -214,7 +224,11 @@ pub fn routes() -> Router<App> {
             .route(
                 &format!("{base}{}", PATHS[48]),
                 post(email::postmark_webhook),
-            );
+            )
+            .route(&format!("{base}{}", PATHS[49]), get(record::get))
+            .route(&format!("{base}{}", PATHS[50]), get(record::checkpoint))
+            .route(&format!("{base}{}", PATHS[51]), get(record::proof))
+            .route(&format!("{base}{}", PATHS[52]), get(record::proofs));
     }
     r
 }

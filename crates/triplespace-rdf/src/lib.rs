@@ -27,6 +27,8 @@
 //!
 //! About 0013 §8 (02 §4.1) and 0022 §1 (17 §1.1).
 
+pub mod bundle;
+
 use std::collections::BTreeSet;
 use std::fs::{self, File};
 use std::io::{self, BufWriter, Write};
@@ -106,6 +108,22 @@ pub struct FileEntry {
     pub sha256: String,
 }
 
+/// The public bundle a dump carries (17 §1.1; 0103 §1): the export scope of the tenant's
+/// `local` partition, which a `verified` reader bootstraps from (0022 §2).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct BundleEntry {
+    /// Its directory in the dump, `bundle/`.
+    pub path: String,
+    /// The partition's checkpoint origin line.
+    pub origin: String,
+    /// Records in it.
+    pub records: u64,
+    /// Records it withholds in whole or in part (0006 A30).
+    pub withheld: u64,
+    /// Checkpoints it carries.
+    pub checkpoints: usize,
+}
+
 /// A dump's `manifest.json`.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Manifest {
@@ -130,6 +148,8 @@ pub struct Manifest {
     pub entities: u64,
     /// Entities with a local-graph state written.
     pub local_entities: u64,
+    /// The public bundle of the `local` partition, in `bundle/`, where the tenant has one.
+    pub bundle: Option<BundleEntry>,
     /// The files.
     pub files: Vec<FileEntry>,
 }
@@ -325,7 +345,16 @@ pub async fn dump(client: &mut Client, req: &Request<'_>) -> Result<Manifest, Du
     }
     fs::create_dir_all(&partial).map_err(|e| DumpError::Io(partial.clone(), e))?;
 
-    let result = write_files(&tx, req, &partial, &taken, &name).await;
+    let result = match write_files(&tx, req, &partial, &taken, &name).await {
+        Ok(mut m) => match write_bundle(&tx, req, &partial.join("bundle")).await {
+            Ok(b) => {
+                m.bundle = b;
+                Ok(m)
+            }
+            Err(e) => Err(e),
+        },
+        Err(e) => Err(e),
+    };
     let manifest = match result {
         Ok(m) => m,
         Err(e) => {
@@ -570,6 +599,80 @@ impl Walk<'_> {
     }
 }
 
+/// Writes the export-scope bundle of the tenant's `local` partition into `dest`, in the
+/// dump's own snapshot (0013 A81): what the reader may read of it, the rest withheld and
+/// listed (0006 A30, A31). `None` when the tenant has no `local` partition yet.
+async fn write_bundle(
+    tx: &tokio_postgres::Transaction<'_>,
+    req: &Request<'_>,
+    dest: &Path,
+) -> Result<Option<BundleEntry>, DumpError> {
+    use scatter_integrity::bundle::{BundlePartition, export_scoped};
+    use scatter_log_postgres::checkpoints::PgCheckpoints;
+    use scatter_log_postgres::log::PgLog;
+    let rows = bundle::partition_rows(tx, Some(req.tenant))
+        .await
+        .map_err(DumpError::Database)?;
+    let Some(row) = rows
+        .into_iter()
+        .find(|r| r.name == "local" && r.export == "public")
+    else {
+        return Ok(None);
+    };
+    let reader = bundle::Reader::new(tx, req.tenant, req.reader.clone())
+        .await
+        .map_err(DumpError::Database)?;
+    if reader.viewer.hidden.graphs.contains(&row.name) {
+        return Ok(None);
+    }
+    let store = PgLog::new(tx);
+    let checkpoints = PgCheckpoints::new(tx);
+    let origin = bundle::origin_of(tx, &checkpoints, &row, "")
+        .await
+        .map_err(DumpError::Database)?;
+    let ids = [scatter_log_postgres::ids::partition_to_db(row.partition)];
+    let withhold = reader
+        .decide(tx, req.tenant, &ids, None)
+        .await
+        .map_err(DumpError::Database)?;
+    let keys = bundle::key_records(&store)
+        .await
+        .map_err(DumpError::Database)?;
+    let partition = BundlePartition {
+        partition: row.partition,
+        name: row.name.clone(),
+        origin: origin.clone(),
+    };
+    export_scoped(
+        &store,
+        &checkpoints,
+        std::slice::from_ref(&partition),
+        &keys,
+        now_micros(),
+        dest,
+        "export",
+        &withhold,
+    )
+    .await
+    .map_err(|e| DumpError::Io(dest.to_path_buf(), io::Error::other(e.to_string())))?;
+    let opened = scatter_integrity::bundle::Bundle::open(dest)
+        .map_err(|e| DumpError::Io(dest.to_path_buf(), io::Error::other(e.to_string())))?;
+    let report = opened
+        .verify(scatter_integrity::verify::Level::Structure, None, None)
+        .await
+        .remove(0);
+    Ok(Some(BundleEntry {
+        path: "bundle/".into(),
+        origin,
+        records: report.records,
+        withheld: opened
+            .withheld()
+            .get(&row.partition)
+            .map_or(0, |l| l.len() as u64),
+        checkpoints: report.checkpoints,
+    }))
+}
+
 async fn write_files(
     tx: &tokio_postgres::Transaction<'_>,
     req: &Request<'_>,
@@ -632,6 +735,7 @@ async fn write_files(
         cursor: None,
         entities,
         local_entities,
+        bundle: None,
         files: files.finish()?,
     })
 }

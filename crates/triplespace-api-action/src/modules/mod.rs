@@ -24,6 +24,7 @@ pub mod querypage;
 pub mod renameuser;
 pub mod revisions;
 pub mod search;
+pub mod tlog;
 pub mod userrights;
 pub mod watch;
 pub mod write;

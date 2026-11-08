@@ -14,13 +14,16 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0002 A44](0002-source-graphs-and-mass-ingest.md#a44-statements-fused-from-two-mirrors-and-key-mapped-statements) | 2026-11-07 | Statements fused from two mirrors, and key-mapped statements |
 | [0005 A115](0005-crate-organization.md#a115-scatter-wikibase-rdf-depends-on-scatter-normalize-oxttl-and-md-5) | 2026-11-07 | `scatter-wikibase-rdf` depends on `scatter-normalize`, `oxttl` and `md-5` |
 | [0005 A116](0005-crate-organization.md#a116-triplespace-rdf-is-built-what-it-the-api-and-the-cli-depend-on) | 2026-11-07 | `triplespace-rdf` is built; what it, the API and the CLI depend on |
+| [0005 A118](0005-crate-organization.md#a118-triplespace-rdf-writes-bundles-too) | 2026-11-07 | `triplespace-rdf` writes bundles too |
 | [0006 A26](0006-log-integrity-and-erasure.md#a26-a-nesting-depth-limit-for-canonical-cbor) | 2026-11-06 | A nesting-depth limit for canonical CBOR |
 | [0006 A29](0006-log-integrity-and-erasure.md#a29-origins-fixed-by-the-first-checkpoint-what-the-commands-check) | 2026-11-07 | Origins fixed by the first checkpoint; what the commands check |
+| [0006 A31](0006-log-integrity-and-erasure.md#a31-how-the-export-scope-decides-each-record) | 2026-11-07 | How the export scope decides each record |
 | [0010 A47](0010-site-ui.md#a47-the-acl-site-ui-the-calls-made-building-it) | 2026-10-30 | The ACL site UI: the calls made building it |
 | [0010 A49](0010-site-ui.md#a49-the-compare-form-and-the-diff-views-the-calls-made-building-them) | 2026-11-04 | The compare form and the diff views: the calls made building them |
 | [0010 A50](0010-site-ui.md#a50-a-document-pages-tabs-its-about-panel-and-its-format-selector-the-calls-made-building-them) | 2026-11-05 | A document page's tabs, its About panel and its Format selector: the calls made building them |
 | [0010 A53](0010-site-ui.md#a53-name-tombstones-and-renameuser-the-calls-made-building-them) | 2026-11-07 | Name tombstones and `renameuser`: the calls made building them |
 | [0011 A38](0011-logs.md#a38-a-followers-batch-waits-for-the-load-lock-a-dump-load-waits-a-minute) | 2026-11-06 | A follower's batch waits for the load lock; a dump load waits a minute |
+| [0012 A85](0012-api-requirements.md#a85-what-the-record-routes-show-and-to-whom) | 2026-11-07 | What the record routes show, and to whom |
 | [0013 A70](0013-postgres-storage.md#a70-how-a-load-enters-bootstrap-mode) | 2026-11-05 | How a load enters bootstrap mode |
 | [0013 A71](0013-postgres-storage.md#a71-bootstrap-projections-run-per-block-during-the-load) | 2026-11-05 | Bootstrap projections run per block, during the load |
 | [0013 A73](0013-postgres-storage.md#a73-a-bootstrap-load-refreshes-the-planners-statistics-as-its-tables-double) | 2026-11-05 | A bootstrap load refreshes the planner's statistics as its tables double |
@@ -28,10 +31,12 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0013 A75](0013-postgres-storage.md#a75-the-projections-take-the-operation-the-write-path-encoded-and-the-record-in-hand) | 2026-11-06 | The projections take the operation the write path encoded, and the record in hand |
 | [0013 A77](0013-postgres-storage.md#a77-a-syncs-per-item-work-runs-on-every-core) | 2026-11-06 | A sync's per-item work runs on every core |
 | [0013 A79](0013-postgres-storage.md#a79-a-dumps-layout-files-and-manifest-and-how-it-is-served) | 2026-11-07 | A dump's layout, files and manifest, and how it is served |
+| [0013 A81](0013-postgres-storage.md#a81-each-dump-carries-the-public-bundle-of-the-local-partition) | 2026-11-07 | Each dump carries the public bundle of the `local` partition |
 | [0016 A42](0016-permissions-and-access-control.md#a42-delegated-administration-the-calls-made-while-drafting-and-building-tier-4) | 2026-10-30 | Delegated administration: the calls made while drafting and building tier 4 |
 | [0018 A33](0018-tenants.md#a33-multi-tenant-round-1-the-assumptions-the-implementation-made) | 2026-10-30 | Multi-tenant round 1: the assumptions the implementation made |
 | [0019 A31](0019-discussions.md#a31-a-threads-actions-from-the-page-the-calls-made-building-them) | 2026-11-05 | A thread's actions from the page: the calls made building them |
 | [0021 A23](0021-notifications.md#a23-accountability-the-calls-made-building-tier-5) | 2026-10-30 | Accountability: the calls made building tier 5 |
+| [0022 A13](0022-federation.md#a13-the-well-knowntlog-routes-as-built) | 2026-11-07 | The `/.well-known/tlog/` routes as built |
 | [0023 A17](0023-moderation.md#a17-partial-undelete-and-hidden-events-the-calls-made-building-them) | 2026-10-30 | Partial undelete and hidden events: the calls made building them |
 | [0026 A8](0026-sitelinks.md#a8-a-stray-does-not-gain-an-escape-from-a-decoded-digit) | 2026-11-06 | A stray `%` does not gain an escape from a decoded digit |
 | [0029 A11](0029-resolver-namespaces.md#a11-a-doi-is-percent-decoded-only-when-written-as-a-uri) | 2026-11-06 | A DOI is percent-decoded only when written as a URI |

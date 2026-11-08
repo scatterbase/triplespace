@@ -38,6 +38,7 @@ tokio-postgres.workspace = true
 tokio-util = { workspace = true, features = ["io"] }
 triplespace-rdf.workspace = true
 deadpool-postgres.workspace = true
+base64.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 sha2.workspace = true

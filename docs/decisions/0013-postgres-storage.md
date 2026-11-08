@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-07 (A80)
+- **Updated:** 2026-11-07 (A81)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -123,7 +123,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 8. RDF becomes an output, not the read path (amends 0001 §2 and 0005 §4.4)
 
-*Changed by A9, A10, A32, A78, A79, A80.*
+*Changed by A9, A10, A32, A78, A79, A80, A81.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.5, §4.1, §6.5.*
 
@@ -1062,3 +1062,10 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.8, as it sto
 Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §4.1, as it stood):
 
 >   - **A full dump** holds the resolved view, every source graph whose export policy allows it (§1.1), and the metadata graph. It is the RDF form of the instance's own history: for the instance's own SPARQL endpoint, for backups, and for another instance that wants the whole record.
+
+### A81. Each dump carries the public bundle of the `local` partition
+
+- **Date:** 2026-11-07
+- **Source:** Direct: Claude, while building the public bundle (SCA-302), 2026-11-07; unconfirmed
+- **Change:** extends §8
+- **Summary:** 17 §1.1 publishes an export bundle of the `local` partition "one bundle per snapshot" at `{base}/dumps/local/bundle/`. Calls made building it. (1) `triplespace dump` writes it into the dump's own directory, `bundle/`, in the dump's `REPEATABLE READ` snapshot, so the bundle and the RDF files describe one instant; it is the export scope of [0103](0103-export-transfer-and-backup.md) §1 for an anonymous reader, decided as `export --scope export` decides ([0006](0006-log-integrity-and-erasure.md) A31), and carries the checkpoints signed so far, so a dump taken after `triplespace checkpoint` verifies against them. (2) It is served as its directory tree, file by file, not as an archive: `GET /dumps/local/bundle/` lists the dumps that carry one with its origin, record, withheld and checkpoint counts (also in the dump's `manifest.json` as `bundle`), `GET /dumps/local/bundle/{name}/` lists its files and `GET /dumps/local/bundle/{name}/{path}` serves one, every path segment checked so nothing outside the bundle can be named; a reader fetching segments one at a time needs no archive tool, and a tree needs no new dependency. (3) The bundle is checked at level 1 as it is written. (4) The code `triplespace export` and the dump share (partitions, origins, `key:` records and the export scope's reader) moves into `triplespace-rdf`. Chapter text: [17](../architecture/17-federation-and-publication.md) §1.1.

@@ -186,3 +186,74 @@ pub async fn inclusion_proof<C: PgClient>(
     }
     Ok(path)
 }
+
+/// The heads of the subtrees `nodes` names, each cut at `size`, in order: the hashes a
+/// proof made of [`scatter_integrity::proof`]'s node coordinates carries.
+pub async fn heads<C: PgClient>(
+    client: &C,
+    partition: u64,
+    nodes: &[(u32, u64)],
+    size: u64,
+) -> Result<Vec<Hash>, StoreError> {
+    let mut out = Vec::with_capacity(nodes.len());
+    for &(level, index) in nodes {
+        out.push(subtree_root(client, partition, level, index, size).await?);
+    }
+    Ok(out)
+}
+
+/// The consistency proof from the tree of `first` leaves to the tree of `second` (RFC
+/// 9162 §2.1.4.1), from stored nodes. Empty when `first` is 0 or equals `second`.
+pub async fn consistency_proof<C: PgClient>(
+    client: &C,
+    partition: u64,
+    first: u64,
+    second: u64,
+) -> Result<Vec<Hash>, StoreError> {
+    if first > second {
+        return Err(StoreError::NoOffset {
+            partition,
+            offset: first,
+        });
+    }
+    let nodes = scatter_integrity::proof::consistency_nodes(first, second);
+    heads(client, partition, &nodes, second).await
+}
+
+/// The inclusion proofs of leaves `from..to` against the tree of `size` leaves, with the
+/// nodes they share sent once (17 §1.1): every node any of the proofs needs, as
+/// `(level, index, head)` in first-use order, and each leaf's path, leaf level first, as
+/// positions in that list.
+pub async fn range_proof<C: PgClient>(
+    client: &C,
+    partition: u64,
+    from: u64,
+    to: u64,
+    size: u64,
+) -> Result<(Vec<(u32, u64, Hash)>, Vec<Vec<usize>>), StoreError> {
+    if from >= to || to > size {
+        return Err(StoreError::NoOffset {
+            partition,
+            offset: to.max(from),
+        });
+    }
+    let mut position = std::collections::HashMap::new();
+    let mut nodes = Vec::new();
+    let mut paths = Vec::new();
+    for index in from..to {
+        let mut path = Vec::new();
+        for (level, i) in scatter_integrity::proof::inclusion_nodes(index, size) {
+            let at = if let Some(&at) = position.get(&(level, i)) {
+                at
+            } else {
+                let head = subtree_root(client, partition, level, i, size).await?;
+                nodes.push((level, i, head));
+                position.insert((level, i), nodes.len() - 1);
+                nodes.len() - 1
+            };
+            path.push(at);
+        }
+        paths.push(path);
+    }
+    Ok((nodes, paths))
+}

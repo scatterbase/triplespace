@@ -5268,6 +5268,488 @@
           }
         }
       }
+    },
+    "/record/{partition}/{offset}": {
+      "get": {
+        "operationId": "getRecord",
+        "summary": "One record of a published partition",
+        "description": "The record as an export shows it to the caller (architecture 01 §8; ADR 0012 §5): the header decoded, each part with its leaf and its value when it is present, `withheld` naming the parts the caller may not read, which are reduced to their commitments as erased parts are, the canonical CBOR in `record`, and the attestation's signature where there is one. A record of a target a confidential restriction hides answers as a compacted one: its leaf alone, every other field null (ADR 0103 A1). `Accept: application/cbor` sends the record's canonical bytes alone. Served only for a partition published to the caller: the tenant's own, with export policy `public`, of no graph hidden from the caller (architecture 17 §1.1); any other answers `partition-not-found`.",
+        "parameters": [
+          {
+            "name": "partition",
+            "in": "path",
+            "required": true,
+            "description": "The partition ID, 64 bits, in decimal.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "offset",
+            "in": "path",
+            "required": true,
+            "description": "The record's offset in the partition.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The record, or its leaf alone.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "partition",
+                    "offset",
+                    "leaf",
+                    "header",
+                    "parts",
+                    "withheld",
+                    "record",
+                    "signature"
+                  ],
+                  "properties": {
+                    "partition": {
+                      "type": "string"
+                    },
+                    "offset": {
+                      "type": "integer"
+                    },
+                    "leaf": {
+                      "type": "string",
+                      "contentEncoding": "base64"
+                    },
+                    "header": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "version": {
+                          "type": "integer"
+                        },
+                        "appended_at": {
+                          "type": "string"
+                        },
+                        "payload_type": {
+                          "type": "string"
+                        },
+                        "key": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "commitment": {
+                          "type": "string",
+                          "contentEncoding": "base64"
+                        },
+                        "revid": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "logid": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        },
+                        "page_id": {
+                          "type": [
+                            "integer",
+                            "null"
+                          ]
+                        }
+                      }
+                    },
+                    "parts": {
+                      "type": [
+                        "array",
+                        "null"
+                      ],
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "index": {
+                            "type": "integer"
+                          },
+                          "name": {
+                            "type": [
+                              "string",
+                              "null"
+                            ]
+                          },
+                          "state": {
+                            "enum": [
+                              "present",
+                              "withheld",
+                              "erased"
+                            ]
+                          },
+                          "leaf": {
+                            "type": "string",
+                            "contentEncoding": "base64"
+                          },
+                          "value": {}
+                        }
+                      }
+                    },
+                    "withheld": {
+                      "type": [
+                        "array",
+                        "null"
+                      ],
+                      "items": {
+                        "type": "integer"
+                      }
+                    },
+                    "record": {
+                      "type": [
+                        "string",
+                        "null"
+                      ],
+                      "contentEncoding": "base64"
+                    },
+                    "signature": {
+                      "type": [
+                        "object",
+                        "null"
+                      ],
+                      "properties": {
+                        "key": {
+                          "type": "string"
+                        },
+                        "alg": {
+                          "type": "string"
+                        },
+                        "sig": {
+                          "type": "string",
+                          "contentEncoding": "base64"
+                        }
+                      }
+                    }
+                  }
+                }
+              },
+              "application/cbor": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`partition-not-found`, `record-not-found`, or `record-leaf-only` for `application/cbor` when only the leaf is published.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/record/{partition}/{offset}/checkpoint": {
+      "get": {
+        "operationId": "getRecordCheckpoint",
+        "summary": "The earliest checkpoint that covers a record",
+        "description": "The C2SP signed note of the smallest checkpoint whose tree size is past the offset (architecture 03 §4; 01 §4.2), on a `logged` partition. Served only for a partition published to the caller: the tenant's own, with export policy `public`, of no graph hidden from the caller (architecture 17 §1.1); any other answers `partition-not-found`.",
+        "parameters": [
+          {
+            "name": "partition",
+            "in": "path",
+            "required": true,
+            "description": "The partition ID, 64 bits, in decimal.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "offset",
+            "in": "path",
+            "required": true,
+            "description": "The record's offset in the partition.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The signed note.",
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`partition-not-found`, `record-not-found`, `no-checkpoints` on a `hashed` partition, or `not-checkpointed` when none covers it yet.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/record/{partition}/{offset}/proof": {
+      "get": {
+        "operationId": "getRecordProof",
+        "summary": "An inclusion proof of a record",
+        "description": "The RFC 9162 inclusion proof of the record's leaf against a stored checkpoint, with the checkpoint's signed note (architecture 01 §8). Served only for a partition published to the caller: the tenant's own, with export policy `public`, of no graph hidden from the caller (architecture 17 §1.1); any other answers `partition-not-found`.",
+        "parameters": [
+          {
+            "name": "partition",
+            "in": "path",
+            "required": true,
+            "description": "The partition ID, 64 bits, in decimal.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "offset",
+            "in": "path",
+            "required": true,
+            "description": "The record's offset in the partition.",
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "checkpoint",
+            "in": "query",
+            "description": "The tree size of a stored checkpoint; the latest by default.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The proof.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "leaf_index",
+                    "tree_size",
+                    "audit_path",
+                    "checkpoint"
+                  ],
+                  "properties": {
+                    "leaf_index": {
+                      "type": "integer"
+                    },
+                    "tree_size": {
+                      "type": "integer"
+                    },
+                    "audit_path": {
+                      "type": "array",
+                      "items": {
+                        "type": "string",
+                        "contentEncoding": "base64"
+                      }
+                    },
+                    "checkpoint": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`invalid-checkpoint`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`partition-not-found`, `record-not-found`, `no-checkpoints` or `checkpoint-not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`not-in-checkpoint`: the record is past the checkpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/record/proofs": {
+      "get": {
+        "operationId": "getRecordProofs",
+        "summary": "Inclusion proofs of a range of records",
+        "description": "The inclusion proofs of the records `from..to` (at most 1000) against one checkpoint, for a reader verifying a batch (architecture 17 §1.2): every node any of them needs, once, as `{level, index, hash}`, and each leaf's path, leaf level first, as positions in `nodes`. Served only for a partition published to the caller: the tenant's own, with export policy `public`, of no graph hidden from the caller (architecture 17 §1.1); any other answers `partition-not-found`.",
+        "parameters": [
+          {
+            "name": "partition",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 0
+            }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "description": "One past the last offset.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          },
+          {
+            "name": "checkpoint",
+            "in": "query",
+            "description": "The tree size of a stored checkpoint; the latest by default.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The proofs.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "tree_size",
+                    "checkpoint",
+                    "nodes",
+                    "proofs"
+                  ],
+                  "properties": {
+                    "tree_size": {
+                      "type": "integer"
+                    },
+                    "checkpoint": {
+                      "type": "string"
+                    },
+                    "nodes": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "level": {
+                            "type": "integer"
+                          },
+                          "index": {
+                            "type": "integer"
+                          },
+                          "hash": {
+                            "type": "string",
+                            "contentEncoding": "base64"
+                          }
+                        }
+                      }
+                    },
+                    "proofs": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "leaf_index": {
+                            "type": "integer"
+                          },
+                          "path": {
+                            "type": "array",
+                            "items": {
+                              "type": "integer"
+                            }
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`invalid-range` or `invalid-checkpoint`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`partition-not-found`, `no-checkpoints` or `checkpoint-not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`not-in-checkpoint`: the range runs past the checkpoint.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

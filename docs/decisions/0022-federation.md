@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A12)
+- **Updated:** 2026-11-07 (A13)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md)
 - **Uses:** [0000](0000-init.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0014](0014-caches-and-search.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0030](0030-edit-filters.md)
@@ -17,7 +17,7 @@ The two halves share a stance. Triplespace federates **facts and speech, not ide
 
 ### 1. What a Triplespace instance publishes (settles 0006 Q3)
 
-*Changed by A2, A10, A12.*
+*Changed by A2, A10, A12, A13.*
 
 *Current text: [17](../architecture/17-federation-and-publication.md) §1.1.*
 
@@ -237,3 +237,10 @@ Replaced text ([17](../architecture/17-federation-and-publication.md) §1.2, as 
 Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.2, as it stood):
 
 > **Verified providers.** The mirror record content for a `verified` provider carries the provider header and checkpoint size ([0022](../decisions/0022-federation.md) §2); `view.entity_source` holds them in `provider_revid` and `verified_at_size`.
+
+### A13. The `/.well-known/tlog/` routes as built
+
+- **Date:** 2026-11-07
+- **Source:** Direct: Claude, while building the record and proof routes (SCA-302), 2026-11-07; unconfirmed
+- **Change:** extends §1
+- **Summary:** Calls made building the checkpoint, manifest, consistency and key-chain routes of §1. (1) A partition is named by its name on the tenant, as its origin line has it, so a name may hold `/`; the path is read from its end (`…/checkpoint`, `…/checkpoint/{size}`, `…/segment/{n}`, `…/consistency`). Only a partition published to the caller is served, as on the record routes ([0012](0012-api-requirements.md) A85). (2) `GET /.well-known/tlog/keys` serves the instance's `key:` records, the chain that signs every checkpoint, as a CBOR sequence (RFC 8742) of canonical records; the tenant's `recovery-key`, `continuation` and `continuation-cancel` records ([0081](0081-recovery-keys-and-continuations.md) §9) are not written by anything yet, and join the sequence when they are. (3) A consistency proof is served between any two tree sizes up to the head, not only between stored checkpoints, on a `logged` partition; a `hashed` partition has segment manifests and nothing else here. (4) Proofs are computed from the stored interior nodes of `log.merkle_node`. Chapter text: [17](../architecture/17-federation-and-publication.md) §1.1.

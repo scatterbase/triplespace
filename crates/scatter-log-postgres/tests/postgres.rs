@@ -6,7 +6,7 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use scatter_integrity::checkpoint::Checkpoint;
 use scatter_integrity::checkpoints::{CheckpointStore, checkpoint, segment_manifest};
-use scatter_integrity::proof::verify_inclusion;
+use scatter_integrity::proof::{verify_consistency, verify_inclusion};
 use scatter_log::body::{ATTESTATION, COMMENT};
 use scatter_log::conformance::{self, draft};
 use scatter_log::header::Header;
@@ -228,7 +228,30 @@ async fn merkle_nodes_give_roots_and_proofs() {
             )
             .unwrap_or_else(|e| panic!("size {size} index {index}: {e}"));
         }
+        // Consistency with every smaller tree (RFC 9162 §2.1.4).
+        for first in 1..size {
+            let old = root_of(&leaves[..usize::try_from(first).unwrap()]);
+            let proof = merkle::consistency_proof(client, 1, first, size)
+                .await
+                .unwrap();
+            verify_consistency(first, size, &old, &want, &proof)
+                .unwrap_or_else(|e| panic!("{first} to {size}: {e}"));
+        }
     }
+    // A range's proofs share their nodes, and each one verifies.
+    let size = 21u64;
+    let want = root_of(&leaves);
+    let (nodes, paths) = merkle::range_proof(client, 1, 5, 17, size).await.unwrap();
+    assert_eq!(paths.len(), 12);
+    let mut separate = 0;
+    for (n, path) in paths.iter().enumerate() {
+        let index = 5 + u64::try_from(n).unwrap();
+        let proof: Vec<_> = path.iter().map(|&at| nodes[at].2).collect();
+        separate += proof.len();
+        verify_inclusion(&leaves[n + 5], index, size, &proof, &want)
+            .unwrap_or_else(|e| panic!("range proof of {index}: {e}"));
+    }
+    assert!(nodes.len() < separate, "the shared nodes are sent once");
     // Compacted offsets still read as their leaves.
     assert_eq!(
         store.read(1, 4).await.unwrap(),
