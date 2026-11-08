@@ -120,6 +120,12 @@ sources = "[0012](../decisions/0012-api-requirements.md) §4; [0024](../decision
 
 [[module]]
 kind = "action"
+modules = ["action=import"]
+changes = "MediaWiki's module over the general import job of [0008](../decisions/0008-namespaces-and-document-pages.md) §9, run on the request path until a job runner exists: `xml` (a multipart upload, `importupload`) or `interwikisource` as a site alias of [0026](../decisions/0026-sitelinks.md) §2 with `interwikipage`, `fullhistory` and `templates` passed to that wiki's `Special:Export`; `interwikiprefix` names the imported authors' surrogate prefix; `census` returns the template census and imports nothing; `namespace` and `rootpage` are warned about. The response adds `job` (ID, counts, the talk conversion, what was left out) and `census`"
+sources = "[0047](../decisions/0047-special-pages.md) §8.3; [0008](../decisions/0008-namespaces-and-document-pages.md) §9"
+
+[[module]]
+kind = "action"
 modules = ["action=move"]
 changes = "`noredirect`, `movesubpages`, `movetalk` (accepted, no effect) and the move-over-redirect rule of [0051](../decisions/0051-page-redirects.md) §3; the response reports `redirectcreated`. File pages move with `movefile`; the bytes do not move, since nothing is keyed by title. On a foreign primary: `ts-foreign-page`"
 sources = "[0051](../decisions/0051-page-redirects.md) §7; [0039](../decisions/0039-files-and-media.md) §17; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6"

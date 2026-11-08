@@ -208,6 +208,17 @@ pub enum ControlModel {
         /// The element describing it.
         described_by: Option<String>,
     },
+    /// A file to upload (`Special:Import`'s `xml`); the form is `multipart/form-data`.
+    File {
+        /// The element ID, where the page refers to it.
+        id: Option<String>,
+        /// The field's name.
+        name: String,
+        /// The media types or extensions accepted (`.xml,application/xml`).
+        accept: Option<String>,
+        /// The element describing it.
+        described_by: Option<String>,
+    },
     /// A text area.
     TextArea {
         /// The element ID, where the page refers to it.
@@ -430,6 +441,7 @@ impl FormItem {
             | ControlModel::Radio { name, .. }
             | ControlModel::Select { name, .. }
             | ControlModel::Input { name, .. }
+            | ControlModel::File { name, .. }
             | ControlModel::TextArea { name, .. } => Some(name),
             ControlModel::ReadOnly { .. } => None,
         }

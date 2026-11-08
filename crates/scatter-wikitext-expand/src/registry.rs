@@ -34,6 +34,12 @@ pub struct Registry {
     magic: HashSet<String>,
     /// Extension tags, lowercase.
     tags: HashSet<String>,
+    /// Each variable's and function's status, by its name and each synonym.
+    magic_status: BTreeMap<String, String>,
+    /// Each spelling's canonical name.
+    canonical: BTreeMap<String, String>,
+    /// Each tag's status, by its name and each synonym, lowercase.
+    tag_status: BTreeMap<String, String>,
 }
 
 /// Modifiers a call may start with; this slice leaves them all as written.
@@ -57,17 +63,71 @@ impl Registry {
     pub fn parse(toml_text: &str) -> Result<Self, toml::de::Error> {
         let f: File = toml::from_str(toml_text)?;
         let mut magic = HashSet::new();
+        let mut magic_status = BTreeMap::new();
+        let mut canonical = BTreeMap::new();
         for (name, e) in f.variable.iter().chain(f.function.iter()) {
-            let _ = &e.status;
             magic.insert(name.clone());
             magic.extend(e.synonyms.iter().cloned());
+            for spelling in std::iter::once(name).chain(e.synonyms.iter()) {
+                magic_status.insert(spelling.clone(), e.status.clone());
+                canonical.insert(spelling.clone(), name.clone());
+            }
         }
         let mut tags: HashSet<String> = HashSet::new();
+        let mut tag_status = BTreeMap::new();
         for (name, e) in &f.tag {
             tags.insert(name.to_lowercase());
             tags.extend(e.synonyms.iter().map(|s| s.to_lowercase()));
+            for spelling in std::iter::once(name).chain(e.synonyms.iter()) {
+                tag_status.insert(spelling.to_lowercase(), e.status.clone());
+            }
         }
-        Ok(Self { magic, tags })
+        Ok(Self {
+            magic,
+            tags,
+            magic_status,
+            canonical,
+            tag_status,
+        })
+    }
+
+    /// The status of a variable or parser function by a spelling (`#if`, `PAGENAME`,
+    /// `lc`), case-insensitively for lowercase function names; `None` when unregistered.
+    #[must_use]
+    pub fn magic_status(&self, name: &str) -> Option<&str> {
+        let name = name.trim();
+        if let Some(s) = self.magic_status.get(name) {
+            return Some(s);
+        }
+        self.magic_status
+            .iter()
+            .find(|(k, _)| {
+                k.eq_ignore_ascii_case(name) && k.chars().all(|c| !c.is_ascii_uppercase())
+            })
+            .map(|(_, s)| s.as_str())
+    }
+
+    /// The registry's own spelling of a variable or function, by any of its spellings.
+    #[must_use]
+    pub fn canonical_magic(&self, name: &str) -> Option<&str> {
+        let name = name.trim();
+        if let Some(c) = self.canonical.get(name) {
+            return Some(c);
+        }
+        self.canonical
+            .iter()
+            .find(|(k, _)| {
+                k.eq_ignore_ascii_case(name) && k.chars().all(|c| !c.is_ascii_uppercase())
+            })
+            .map(|(_, c)| c.as_str())
+    }
+
+    /// The status of an extension tag, lowercase; `None` when unregistered.
+    #[must_use]
+    pub fn tag_status(&self, name: &str) -> Option<&str> {
+        self.tag_status
+            .get(&name.to_lowercase())
+            .map(String::as_str)
     }
 
     /// Whether a call's name is a variable, a parser function or a modified call, which

@@ -32,6 +32,7 @@ pub mod email;
 pub mod entity;
 pub mod export;
 pub mod forward;
+pub mod import;
 pub mod issuers;
 pub mod notifications;
 pub mod pages;
@@ -59,6 +60,7 @@ pub use email::{EmailAddress, EmailInfo, EmailOutcome};
 pub use entity::{Entities, Provenance};
 pub use export::{ExportAsk, Exported};
 pub use forward::Incoming;
+pub use import::ImportAsk;
 pub use issuers::{AccountInfo, LoginIssuer, Pending};
 pub use notifications::{Counts, Item as Notification, Listing as NotificationPage};
 pub use pages::{

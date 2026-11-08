@@ -394,14 +394,16 @@ The `records` format of §4.4 is the second format the page offers.
 
 ### 4.3 Special:Import
 
-*Sources: [0047](../decisions/0047-special-pages.md) §8.3; [0008](../decisions/0008-namespaces-and-document-pages.md) §9.*
+*Sources: [0047](../decisions/0047-special-pages.md) §8.3, A36; [0008](../decisions/0008-namespaces-and-document-pages.md) §9, A49.*
 
-**`Special:Import` is the form for [0008](../decisions/0008-namespaces-and-document-pages.md) §9's import job** ([10](10-pages-and-content-models.md)).
+**`Special:Import` is the form for [0008](../decisions/0008-namespaces-and-document-pages.md) §9's import job** ([10](10-pages-and-content-models.md) §6), offered under the `import` capability and restricted to `import` ([0047](../decisions/0047-special-pages.md) A36).
 
-- **Upload an XML file** (`importupload`), or **import from another wiki** named by site alias ([0026](../decisions/0026-sitelinks.md) §2) in place of MediaWiki's interwiki sources (`import`).
-- It runs the template census first, shows its report, and on confirmation starts the job and goes to `Special:Jobs/{id}`.
-- A title that already exists takes the file's revisions into its history as MediaWiki does, and an entity page in the file is refused by the census unless the source is the adopted wiki ([10](10-pages-and-content-models.md) §6; [0008](../decisions/0008-namespaces-and-document-pages.md) §9, A48).
+- **Upload an XML file** (`importupload`), or **import from another wiki** named by site alias ([0026](../decisions/0026-sitelinks.md) §2) in place of MediaWiki's interwiki sources (`import`), with `fullhistory` and `templates` passed to that wiki's `Special:Export`; a reason, recorded with the job; and the prefix the imported authors carry, `imported` by default ([10](10-pages-and-content-models.md) §6.1).
+- It runs the template census first and shows its report ([10](10-pages-and-content-models.md) §6.2): the file's pages and revisions, what will be imported, converted or refused, the titles that already exist, the templates the file lacks and the calls outside the registry. On confirmation it runs the job through `action=import` and shows the job's report: the counts, each page with what it got, the talk pages converted, what was left out. `Special:Jobs/{id}` is not built yet, so the job is named, not linked ([0008](../decisions/0008-namespaces-and-document-pages.md) A49).
+- The site keeps nothing between requests: an uploaded file of up to 2 MB rides along the confirmation as a hidden field, a larger one is asked for again, and a page of another wiki is fetched again.
+- A title that already exists takes the file's revisions into its history as MediaWiki does, and an entity page in the file is refused by the census unless the source is the adopted wiki ([10](10-pages-and-content-models.md) §6.4; [0008](../decisions/0008-namespaces-and-document-pages.md) §9, A48).
 - It accepts MediaWiki XML only. Data moves between instances by a tenant move ([0018](../decisions/0018-tenants.md) §10) or verified sync ([0022](../decisions/0022-federation.md)), not by importing `records`.
+- **`action=import`** is MediaWiki's module over the same job ([18](18-api-surface.md) §2.3): `xml` as a multipart upload, `interwikisource` and `interwikipage`, `fullhistory`, `templates`, `summary`, `interwikiprefix` and `tags`; `census` answers the census and imports nothing; `namespace` and `rootpage` are warned about. The response adds `job` to MediaWiki's `import` list. An upload or a fetched export is at most 64 MB, within the server's request body limit.
 
 ### 4.4 The `records` export
 

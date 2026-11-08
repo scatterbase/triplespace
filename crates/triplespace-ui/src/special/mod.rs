@@ -22,6 +22,8 @@
 //! - [`undelete`]: `Special:Undelete`, the deletions and the way back (09 §6.2).
 //! - [`movepage`]: `Special:MovePage`, the Move form (10 §2.5).
 //! - [`export`]: `Special:Export`, MediaWiki XML or records of listed pages (21 §4.2).
+//! - [`import`]: `Special:Import`, a MediaWiki XML export into this wiki, the census
+//!   first (21 §4.3).
 //! - [`protected`]: `Special:ProtectedPages`, the restrictions in force, the sets and the
 //!   empty-group report (09 §4.5).
 //! - [`notifications`]: `Special:Notifications`, the viewer's inbox (19 §6.2).
@@ -55,6 +57,7 @@ pub mod compare;
 pub mod controls;
 pub mod export;
 pub mod external;
+pub mod import;
 pub mod index;
 pub mod info;
 pub mod login;
@@ -167,6 +170,7 @@ pub async fn serve(
         "Undelete" => Some(undelete::serve(site, headers, peer, title, params).await),
         "MovePage" => Some(movepage::serve(site, headers, peer, title, params).await),
         "Export" => Some(export::serve(site, headers, peer, title, params).await),
+        "Import" => Some(import::serve(site, headers, peer, params).await),
         "Notifications" => Some(notifications::serve(site, headers, peer, params).await),
         "Watchlist" => Some(watchlist::serve(site, headers, peer, params).await),
         "EditWatchlist" => Some(watchlist::edit(site, headers, peer, params).await),
@@ -228,6 +232,7 @@ pub async fn post(
         }
         "MovePage" => Some(movepage::post(site, headers, peer, title, params).await),
         "Export" => Some(export::post(site, headers, peer, query, params).await),
+        "Import" => Some(import::post(site, headers, peer, query, params).await),
         "Notifications" => Some(notifications::post(site, headers, peer, params).await),
         "Watchlist" => Some(watchlist::post(site, headers, peer, params).await),
         "EditWatchlist" => Some(watchlist::edit_post(site, headers, peer, params).await),

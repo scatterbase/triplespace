@@ -2,7 +2,8 @@
 //! the tenant's `local` graph, revision by revision (A12), or, with `--current-only`, as
 //! each entity's newest revision. Its document pages come in the same job, into `pages`
 //! ([`crate::adopt_pages`], A13). Two passes over the dump: a survey for the floors, the
-//! accounts and whether the dump carries history, then the adoption job itself.
+//! accounts and whether the dump carries history, then the adoption job itself; a third
+//! converts the talk pages (`triplespace_api_ingest::talk_import`, 0090 §10).
 
 use std::collections::BTreeMap;
 use std::path::PathBuf;
@@ -19,6 +20,7 @@ use scatter_ingest::adopt::{Adopted, AdoptedItem, Adoption, Floors, run_adoption
 use scatter_ingest::write::Attestation;
 use scatter_providers::Registry;
 use scatter_wikibase_model::id::EntityId;
+use triplespace_api_ingest::talk_import;
 use triplespace_projections::actors::payload;
 
 use crate::common::{connect, draft, farm_of, issuer_of, now, store};
@@ -273,8 +275,8 @@ pub async fn run(args: Adopt) -> Result<()> {
                 .is_some_and(|m| ENTITY_MODELS.contains(&m));
             if !entity_page {
                 // Talk pages are converted after the job, through the thread writer
-                // (0090 §10; `adopt_talk`), once their subjects and accounts are here.
-                if !args.skip_talk && crate::adopt_talk::is_talk_page(&page) {
+                // (0090 §10; `talk_import`), once their subjects and accounts are here.
+                if !args.skip_talk && talk_import::is_talk_page(&page) {
                     talk_pages += 1;
                     return Vec::new();
                 }
@@ -404,11 +406,13 @@ pub async fn run(args: Adopt) -> Result<()> {
     if talk_pages > 0 {
         eprintln!("converting {talk_pages} talk pages");
         let site = scatter_talk::Site::english();
-        let ctx = crate::adopt_talk::TalkContext {
+        let ctx = talk_import::TalkContext {
             tenant: &args.tenant,
-            issuer: &issuer,
             source: &args.source,
-            accounts: &survey.accounts,
+            authors: talk_import::Authors::Adopted {
+                issuer: &issuer,
+                accounts: &survey.accounts,
+            },
             actor: &actor,
             job: Some(outcome.job_id),
             site: &site,
@@ -416,8 +420,8 @@ pub async fn run(args: Adopt) -> Result<()> {
         let pages = xml_dump::open(&args.dump)
             .context("open dump")?
             .filter_map(Result::ok)
-            .filter(crate::adopt_talk::is_talk_page);
-        let talk = crate::adopt_talk::convert_all(&store, &pipeline, &ctx, pages, now()).await?;
+            .filter(talk_import::is_talk_page);
+        let talk = talk_import::convert_all(&store, &pipeline, &ctx, pages, now()).await?;
         println!(
             "  talk       {} pages converted into {} threads, {} posts; {} already present",
             talk.pages, talk.threads, talk.posts, talk.present

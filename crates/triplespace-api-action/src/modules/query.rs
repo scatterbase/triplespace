@@ -900,7 +900,7 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                     "tenant": slug,
                     "farm": ctx.app.config().farm.slug,
                     "search": "postgres",
-                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "createaccount", "bearer", "version", "recentchanges", "activity", "history", "revisions", "diff", "options", "preferences", "settings", "pages", "parse", "edit", "move", "protect", "userrights", "renameuser", "block", "delete", "notifications", "watchlist", "reports", "export"],
+                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "createaccount", "bearer", "version", "recentchanges", "activity", "history", "revisions", "diff", "options", "preferences", "settings", "pages", "parse", "edit", "move", "protect", "userrights", "renameuser", "block", "delete", "notifications", "watchlist", "reports", "export", "import"],
                     "providers": Registry::default_registry().providers().iter().map(|p| p.slug.clone()).collect::<Vec<_>>(),
                     "rate_limits": [],
                     "grants": scatter_actors::grant::GrantRegistry::default_registry().grants().iter().map(|g| g.name.clone()).collect::<Vec<_>>(),
@@ -1069,6 +1069,7 @@ const ACTION_MODULES: &[(&str, bool)] = &[
     ("compare", false),
     ("edit", true),
     ("move", true),
+    ("import", true),
     ("delete", true),
     ("undelete", true),
     ("protect", true),
@@ -1770,6 +1771,24 @@ fn module_parameters(name: &str) -> Vec<Value> {
             ("unwatch", json!("boolean")),
             ("expiry", json!("expiry")),
             ("tsnotify", json!("boolean")),
+            ("token", json!("string")),
+        ]
+        .into_iter()
+        .enumerate()
+        .map(|(i, (n, t))| Value::Object(parameter(i, n, t)))
+        .collect(),
+        "import" => [
+            ("summary", json!("string")),
+            ("xml", json!("upload")),
+            ("interwikiprefix", json!("string")),
+            ("interwikisource", json!("string")),
+            ("interwikipage", json!("string")),
+            ("fullhistory", json!("boolean")),
+            ("templates", json!("boolean")),
+            ("namespace", json!("integer")),
+            ("rootpage", json!("string")),
+            ("census", json!("boolean")),
+            ("tags", json!("tags")),
             ("token", json!("string")),
         ]
         .into_iter()

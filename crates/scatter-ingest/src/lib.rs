@@ -15,6 +15,9 @@
 //!   the surfaces implement, each written as an `upsert` sync, the position saved after.
 //! - [`adopt`]: the adoption job of 0035: preconditions, sequence floors, idempotent
 //!   resume, adopted accounts.
+//! - [`import`]: the general import job of 0008 §9: pages from any MediaWiki's XML
+//!   export under the tenant's own IDs, merged by timestamp onto titles that exist,
+//!   with the template census that comes first.
 //!
 //! Everything runs against an [`IngestStore`], the projection backend extended with
 //! appending, sequences and the lookups a job needs; [`memory::MemoryIngest`] is the
@@ -26,6 +29,7 @@ pub mod adopt;
 pub mod batch;
 pub mod bootstrap;
 pub mod follow;
+pub mod import;
 pub mod job;
 pub mod memory;
 pub mod store;
@@ -36,6 +40,10 @@ pub use adopt::{Adoption, AdoptionOutcome, Floors};
 pub use batch::{BatchOutcome, run_batch};
 pub use bootstrap::{Prepare, Prepared, Warm, run_bootstrap};
 pub use follow::{ChangeBatch, ChangeSource, FollowOutcome, run_follow};
+pub use import::{
+    HeldPage, HeldRevision, Import, ImportHost, ImportOutcome, ImportPage, ImportRevision,
+    run_import,
+};
 pub use job::{Counts, Job, Reject};
 pub use store::{Cursor, IngestStore, Sequence};
 pub use sync::{SyncItem, SyncOutcome, run_sync};

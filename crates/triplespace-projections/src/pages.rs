@@ -240,11 +240,11 @@ impl PageRecord {
     }
 }
 
-/// The time a page record shows: an adopted revision's source time, else the append time.
+/// The time a page record shows: an adopted or imported revision's source time (0035 A13;
+/// 0008 §9), else the append time.
 #[must_use]
 pub fn shown_time(header: &Header, op: &PageOp) -> u64 {
     op.source()
-        .filter(|s| header.revid == Some(s.source_revid))
         .and_then(|s| crate::feed::parse_timestamp(&s.source_time))
         .unwrap_or(header.appended_at)
 }

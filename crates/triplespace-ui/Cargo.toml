@@ -30,6 +30,7 @@ scatter-titles.workspace = true
 scatter-pages.workspace = true
 tokio = { workspace = true, features = ["macros"] }
 url.workspace = true
+base64.workspace = true
 
 [dev-dependencies]
 insta.workspace = true
