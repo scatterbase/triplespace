@@ -37,8 +37,7 @@ fn ok(headers: &HeaderMap, body: &Value) -> Response {
 
 fn micros(t: std::time::SystemTime) -> u64 {
     t.duration_since(std::time::UNIX_EPOCH)
-        .map(|d| u64::try_from(d.as_micros()).unwrap_or(u64::MAX))
-        .unwrap_or(0)
+        .map_or(0, |d| u64::try_from(d.as_micros()).unwrap_or(u64::MAX))
 }
 
 /// A `view.job` row as the API shows it.

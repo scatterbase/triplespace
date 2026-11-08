@@ -173,7 +173,9 @@ expression: main
 <td class="ts-change__cell ts-change__cell--flags">
 </td>
 <td class="ts-change__cell ts-change__cell--target">
-<span class="ts-change__part ts-change__target">Job 7</span>
+<span class="ts-change__part">
+<a href="/wiki/Special:Jobs/7" class="ts-change__target">Job 7</a>
+</span>
 </td>
 <td class="ts-change__cell ts-change__cell--size">
 </td>

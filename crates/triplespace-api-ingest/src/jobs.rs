@@ -148,8 +148,7 @@ pub struct QueuedJob {
 
 fn micros(t: std::time::SystemTime) -> u64 {
     t.duration_since(std::time::UNIX_EPOCH)
-        .map(|d| u64::try_from(d.as_micros()).unwrap_or(u64::MAX))
-        .unwrap_or(0)
+        .map_or(0, |d| u64::try_from(d.as_micros()).unwrap_or(u64::MAX))
 }
 
 const QUEUED_COLUMNS: &str = "q.tenant, q.job_id, q.kind, q.params, q.actor_key, q.submitted,

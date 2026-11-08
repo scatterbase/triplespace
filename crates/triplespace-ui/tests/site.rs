@@ -189,7 +189,7 @@ async fn the_main_page_has_its_old_names_and_other_titles_are_404() {
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert!(html.contains("There is no page called Project:About."));
     for absent in [
-        "Special:Jobs",
+        "Special:Nuke",
         "Special:RecentChanges",
         "Special:UserLogin",
         "Special:NewItem",
