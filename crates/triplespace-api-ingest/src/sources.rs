@@ -188,6 +188,12 @@ async fn open_partition(
                 integrity: graph.integrity.unwrap_or(Integrity::Hashed),
                 export: graph.export,
                 hash: HASH_SHA256.into(),
+                // Fixed here, under the tenant's host at creation (01 §4.2; 0006 A29).
+                origin: Some(scatter_log_postgres::partition::origin_under(
+                    base,
+                    Some(tenant),
+                    &graph_name,
+                )),
             },
         )
         .await

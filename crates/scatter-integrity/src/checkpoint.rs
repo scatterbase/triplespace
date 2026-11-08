@@ -19,6 +19,17 @@ use scatter_log::hash::Hash;
 
 use crate::note::{Note, NoteError, NoteSigner, NoteVerifier};
 
+/// The host of a base URI, `librarybase.org` or `wiki.example:8080`: what an origin line
+/// starts with, without scheme, path, query or fragment.
+#[must_use]
+pub fn host_of(base: &str) -> String {
+    let rest = base.split_once("://").map_or(base, |(_, r)| r);
+    rest.split(['/', '?', '#'])
+        .next()
+        .unwrap_or(rest)
+        .to_string()
+}
+
 /// The origin line of a tenant partition: `{host}/log/{name}` (0006 §6; 0015 §5).
 #[must_use]
 pub fn tenant_origin(host: &str, partition_name: &str) -> String {
@@ -183,6 +194,9 @@ mod tests {
 
     #[test]
     fn origins() {
+        assert_eq!(host_of("https://librarybase.org/"), "librarybase.org");
+        assert_eq!(host_of("http://wiki.example:8080/w/"), "wiki.example:8080");
+        assert_eq!(host_of("wiki.example?x"), "wiki.example");
         assert_eq!(
             tenant_origin("librarybase.org", "local"),
             "librarybase.org/log/local"

@@ -6,16 +6,17 @@
 use scatter_actors::{Effective, ReadDecision, Timestamp, read_decision};
 use scatter_integrity::bundle::Withhold;
 use scatter_integrity::checkpoint::{instance_origin, tenant_origin};
-use scatter_integrity::checkpoints::CheckpointStore;
 use scatter_integrity::keys::KeyChain;
 use scatter_log::body::{ATTESTATION, COMMENT, CONTENT};
 use scatter_log::header::CONFIG_PARTITION;
 use scatter_log::record::Record;
 use scatter_log::store::Slot;
-use scatter_log_postgres::PgClient;
+use scatter_log_postgres::{PgClient, checkpoints};
 use tokio_postgres::GenericClient;
 use tokio_postgres::types::ToSql;
 use triplespace_projections::acl_read;
+
+pub use scatter_integrity::checkpoint::host_of;
 use triplespace_projections::common::target_kind;
 use triplespace_projections::feed::{self, Viewer};
 
@@ -41,6 +42,9 @@ pub struct PartitionRow {
     pub integrity: String,
     /// `public`, `internal` or `private`.
     pub export: String,
+    /// The origin line recorded at creation (01 §4.2; 0006 A29); none for a partition
+    /// created before the column existed that no migration could fill.
+    pub origin: Option<String>,
 }
 
 /// The partitions, all or one tenant's, ascending by ID.
@@ -50,7 +54,7 @@ pub async fn partition_rows<C: GenericClient>(
 ) -> Result<Vec<PartitionRow>, String> {
     let rows = client
         .query(
-            "SELECT partition, COALESCE(tenant, ''), name, integrity, export FROM log.partition
+            "SELECT partition, COALESCE(tenant, ''), name, integrity, export, origin FROM log.partition
              WHERE $1::text IS NULL OR tenant = $1 ORDER BY partition",
             &[&tenant],
         )
@@ -64,17 +68,9 @@ pub async fn partition_rows<C: GenericClient>(
             name: r.get(2),
             integrity: r.get(3),
             export: r.get(4),
+            origin: r.get(5),
         })
         .collect())
-}
-
-/// The host of a base URI, without scheme or path.
-pub fn host_of(base: &str) -> String {
-    let rest = base.split_once("://").map_or(base, |(_, r)| r);
-    rest.split(['/', '?', '#'])
-        .next()
-        .unwrap_or(rest)
-        .to_string()
 }
 
 /// The tenant's current base, from the instance registry.
@@ -90,20 +86,30 @@ pub async fn tenant_base<C: GenericClient>(client: &C, tenant: &str) -> Result<S
         .ok_or_else(|| format!("no base for tenant `{tenant}`"))
 }
 
-/// A partition's origin line: its first checkpoint's or manifest's where it has one, so
-/// that it never changes; otherwise derived from the current host.
-pub async fn origin_of<C: GenericClient, S: CheckpointStore>(
+/// A partition's origin line, which everything that signs, bundles or proves goes
+/// through: the one its registry row recorded at creation (01 §4.2; 0006 A29), so that a
+/// tenant aliased to a new host signs under the host it was created under. Only a
+/// partition created before `log.partition.origin` existed, and that no migration could
+/// fill, falls back to its first checkpoint's or manifest's origin, and before any to one
+/// derived from the tenant's current host, or the farm's: the best that can be done when
+/// the host at creation was not recorded (0006 A29).
+pub async fn origin_of<C: PgClient + GenericClient>(
     client: &C,
-    checkpoints: &S,
     row: &PartitionRow,
     farm_host: &str,
 ) -> Result<String, String> {
+    if let Some(origin) = &row.origin {
+        return Ok(origin.clone());
+    }
     let s = |e: scatter_integrity::checkpoints::CheckpointStoreError| e.to_string();
-    if let Some(first) = checkpoints.list(row.partition).await.map_err(s)?.first() {
+    if let Some(first) = checkpoints::list(client, row.partition)
+        .await
+        .map_err(s)?
+        .first()
+    {
         return Ok(first.checkpoint.origin.clone());
     }
-    if let Some((n, first)) = checkpoints
-        .manifests(row.partition)
+    if let Some((n, first)) = checkpoints::manifests(client, row.partition)
         .await
         .map_err(s)?
         .first()

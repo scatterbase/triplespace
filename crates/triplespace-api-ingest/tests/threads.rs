@@ -161,6 +161,7 @@ async fn seed(client: Client) -> Client {
                 integrity: Integrity::Logged,
                 export: Export::Public,
                 hash: "sha-256".into(),
+                origin: None,
             },
         )
         .await

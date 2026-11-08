@@ -629,7 +629,7 @@ async fn write_bundle(
     }
     let store = PgLog::new(tx);
     let checkpoints = PgCheckpoints::new(tx);
-    let origin = bundle::origin_of(tx, &checkpoints, &row, "")
+    let origin = bundle::origin_of(tx, &row, "")
         .await
         .map_err(DumpError::Database)?;
     let ids = [scatter_log_postgres::ids::partition_to_db(row.partition)];

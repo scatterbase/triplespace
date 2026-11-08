@@ -9,7 +9,6 @@
 use std::collections::BTreeMap;
 
 use scatter_integrity::bundle::Withhold;
-use scatter_integrity::checkpoint::tenant_origin;
 use scatter_integrity::records::{Entry, RecordsExport, RecordsPartition};
 use scatter_log_postgres::{PgClient, checkpoints, ids, log, merkle};
 use tokio_postgres::GenericClient;
@@ -17,9 +16,7 @@ use triplespace_projections::common::target_kind;
 
 pub use scatter_integrity::records::{MEDIA_TYPE, RecordsExport as Export};
 
-use crate::bundle::{
-    Offsets, PartitionRef, Reader, host_of, key_records, published, redact, tenant_base,
-};
+use crate::bundle::{Offsets, PartitionRef, Reader, key_records, origin_of, published, redact};
 
 /// What to export: pages and local entities, each with the text it was asked by.
 #[derive(Debug, Clone, Default)]
@@ -201,13 +198,8 @@ pub async fn build<C: PgClient + GenericClient>(
             .pop();
         let size = checkpoint.as_ref().map_or(0, |c| c.checkpoint.size);
         let (covered, pending): (Vec<u64>, Vec<u64>) = offsets.into_iter().partition(|&o| o < size);
-        let origin = match &checkpoint {
-            Some(c) => c.checkpoint.origin.clone(),
-            None => tenant_origin(
-                &host_of(&tenant_base(client, tenant).await.map_err(db)?),
-                &row.name,
-            ),
-        };
+        // The recorded origin (01 §4.2; 0006 A29), which the checkpoint, if any, carries.
+        let origin = origin_of(client, row, "").await.map_err(db)?;
         let (nodes, paths) = if covered.is_empty() {
             (Vec::new(), Vec::new())
         } else {

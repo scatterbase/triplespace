@@ -197,6 +197,11 @@ fn info(
         integrity: graph.integrity.unwrap_or(Integrity::Logged),
         export: graph.export,
         hash: scatter_log::registry::HASH_SHA256.into(),
+        // Fixed here, under the host the partition is created under, and never derived
+        // again (01 §4.2; 0006 A29).
+        origin: Some(scatter_log_postgres::partition::origin_under(
+            iri_base, tenant, name,
+        )),
     }
 }
 
