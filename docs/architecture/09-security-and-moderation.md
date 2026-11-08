@@ -420,7 +420,7 @@ The payload is `scatter:v0/acl` either way (§4.3); the intent, the right that s
 
 ### 5.4 Flow: derived output inherits the visibility of its inputs
 
-*Sources: [0056](../decisions/0056-security-model.md) §6.*
+*Sources: [0056](../decisions/0056-security-model.md) §6; [0103](../decisions/0103-export-transfer-and-backup.md) §2.*
 
 Anything computed from more than one target can carry data from one into another: transclusion, `#invoke` and `mw.title.getContent`, `#property` and `mw.wikibase`, table rows, a thread listed on a board, a followed redirect, TemplateData and TemplateStyles, a search document, a feed row, a diff, a notification. Two rules close every such path.
 
@@ -434,7 +434,7 @@ Anything computed from more than one target can carry data from one into another
 
 **Notifications.** A mention, a `talk` message or a `watch` change on a target the addressed account may not read addresses nobody: no "you were mentioned on a page you cannot see". A notification already delivered whose target becomes restricted is removed from the inbox by the purge of [03](03-storage-caches-and-search.md) §9.6, as a hidden one is. A watch on a target that becomes restricted stays in `private` and produces nothing until the account may read it again.
 
-**Exports.** Public dumps, bundles under the default export policies and the update stream carry the ∅ form only; a confidential target is as absent from them as a suppressed one ([02](02-graphs-rdf-and-query.md) §4.4). The operator's full bundle and a tenant move carry everything. Outbound federation publishes activities for targets with empty visibility only; an inbound reply to a restricted thread is evaluated on the thread's home with the `federated` surrogate's groups, which a tenant's ACL must name for it to pass.
+**Exports.** Public dumps, bundles under the default export policies and the update stream carry the ∅ form only; a confidential target is as absent from them as a suppressed one ([02](02-graphs-rdf-and-query.md) §4.4). A backup carries everything, and a transfer everything of its tenant's but its `private` partitions as records ([01](01-log-and-records.md) §8; [0103](../decisions/0103-export-transfer-and-backup.md) §2). Outbound federation publishes activities for targets with empty visibility only; an inbound reply to a restricted thread is evaluated on the thread's home with the `federated` surrogate's groups, which a tenant's ACL must name for it to pass.
 
 **Edit filters** see the whole change, as they must (§7.2); a hit's row in the filter log is shown to principals that may read the target, and a private filter's details stay with `abusefilter-view-private`. **Jobs** keep the rule for rejects files: the actor and `ts-viewrejects`.
 
@@ -573,13 +573,13 @@ A suppressed part adds MediaWiki's `suppressed` flag for those who may see that 
 
 ### 6.5 Visibility of the moderation records themselves
 
-*Sources: [0023](../decisions/0023-moderation.md) §7.*
+*Sources: [0023](../decisions/0023-moderation.md) §7; [0103](../decisions/0103-export-transfer-and-backup.md) §4.*
 
 Moderation is public in the way MediaWiki's logs are, with one exception:
 
 - **Protection, deletion, revision-hiding and patrol events are visible to everyone.** That a page was deleted, and by whom and why, is public; the content is not. This is the rule for erasures (§6.6), applied uniformly. A confidential restriction is the exception to this exception: its events are restricted with their target (§5.3).
 - **A record whose group holds `viewsuppressed` is visible only to that group.** Its log event is `suppress/*`, and to everyone else the affected fields are simply hidden, with no event saying so. This is MediaWiki's private suppression log.
-- **The `log` partition's export policy is internal**, so none of these records enters a public dump; a full dump made by the instance for itself carries them, and it is the instance's to protect.
+- **The `log` partition's export policy is internal**, so none of these records enters an export, the full dump included, which carries log events only through the metadata graph and in their visible form ([02](02-graphs-rdf-and-query.md) §4.1); transfers and backups carry them, and they are the operators' to protect ([0103](../decisions/0103-export-transfer-and-backup.md) §4).
 - **The downstream stream** carries the public events, so a consumer learns that a revision's comment was hidden and can redact its copy, as this instance follows upstream ([01](01-log-and-records.md) §5.4). It never carries a `suppress/*` event or the content behind one.
 
 ### 6.6 Erasure visibility

@@ -195,6 +195,11 @@ vocabulary! {
         DATE_MODIFIED = "dateModified";
         NAME = "name";
         DESCRIPTION = "description";
+        /// A sitelink's page (wikibase-compat.md §5.2).
+        ARTICLE = "Article";
+        IN_LANGUAGE = "inLanguage";
+        IS_PART_OF = "isPartOf";
+        SOFTWARE_VERSION = "softwareVersion";
     }
 }
 
@@ -228,6 +233,24 @@ vocabulary! {
         NOVALUE = "novalue";
         BADGE = "badge";
         WIKI_GROUP = "wikiGroup";
+        // The rest of RDF format 1.0.0 as emitted (wikibase-compat.md §4–5).
+        DUMP = "Dump";
+        DIRECT_CLAIM_NORMALIZED = "directClaimNormalized";
+        STATEMENT_VALUE_NORMALIZED = "statementValueNormalized";
+        QUALIFIER_VALUE_NORMALIZED = "qualifierValueNormalized";
+        REFERENCE_VALUE_NORMALIZED = "referenceValueNormalized";
+        TIME_VALUE_PROPERTY = "timeValue";
+        TIME_PRECISION = "timePrecision";
+        TIME_TIMEZONE = "timeTimezone";
+        TIME_CALENDAR_MODEL = "timeCalendarModel";
+        QUANTITY_AMOUNT = "quantityAmount";
+        QUANTITY_UPPER_BOUND = "quantityUpperBound";
+        QUANTITY_LOWER_BOUND = "quantityLowerBound";
+        QUANTITY_UNIT = "quantityUnit";
+        GEO_LATITUDE = "geoLatitude";
+        GEO_LONGITUDE = "geoLongitude";
+        GEO_PRECISION = "geoPrecision";
+        GEO_GLOBE = "geoGlobe";
     }
 }
 
@@ -249,6 +272,16 @@ vocabulary! {
     /// OWL.
     owl, "http://www.w3.org/2002/07/owl#", "owl" {
         SAME_AS = "sameAs";
+        ONTOLOGY = "Ontology";
+        IMPORTS = "imports";
+        CLASS = "Class";
+        OBJECT_PROPERTY = "ObjectProperty";
+        DATATYPE_PROPERTY = "DatatypeProperty";
+        RESTRICTION = "Restriction";
+        COMPLEMENT_OF = "complementOf";
+        ON_PROPERTY = "onProperty";
+        SOME_VALUES_FROM = "someValuesFrom";
+        THING = "Thing";
     }
 }
 
@@ -261,6 +294,33 @@ vocabulary! {
         NOTATION = "notation";
         /// The scheme a notation belongs to (0048 §5).
         IN_SCHEME = "inScheme";
+    }
+}
+
+vocabulary! {
+    /// Creative Commons rights expression, for the dump header's licence.
+    cc, "http://creativecommons.org/ns#", "cc" {
+        LICENSE = "license";
+    }
+}
+
+vocabulary! {
+    /// GeoSPARQL, for coordinates as WKT.
+    geo, "http://www.opengis.net/ont/geosparql#", "geo" {
+        WKT_LITERAL = "wktLiteral";
+    }
+}
+
+vocabulary! {
+    /// XML Schema datatypes, as Wikibase's RDF types its literals.
+    xsd, "http://www.w3.org/2001/XMLSchema#", "xsd" {
+        DATE_TIME = "dateTime";
+        DECIMAL = "decimal";
+        DOUBLE = "double";
+        INTEGER = "integer";
+        /// Not an XML Schema type: WikibaseEDTF's datatype, which sits in the XSD
+        /// namespace (wikibase-compat.md §6.4).
+        EDTF = "edtf";
     }
 }
 
@@ -294,6 +354,9 @@ pub fn prefix_for(ns: &str) -> Option<&'static str> {
         (rdfs::NS, rdfs::PREFIX),
         (owl::NS, owl::PREFIX),
         (skos::NS, skos::PREFIX),
+        (cc::NS, cc::PREFIX),
+        (geo::NS, geo::PREFIX),
+        (xsd::NS, xsd::PREFIX),
     ]
     .into_iter()
     .find(|(n, _)| *n == ns)

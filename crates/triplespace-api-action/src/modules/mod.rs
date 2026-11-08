@@ -5,6 +5,7 @@ pub mod backlinks;
 pub mod block;
 pub mod changes;
 pub mod compare;
+pub mod dumps;
 pub mod editpage;
 pub mod entities;
 pub mod entitydata;

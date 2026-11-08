@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-06 (A26)
+- **Updated:** 2026-11-07 (A27)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md)
 
@@ -83,7 +83,7 @@ Three terms are used precisely below:
 
 ### 9. Verification and export
 
-*Changed by A3, A6, A10, A11, A17, A19, A24.*
+*Changed by A3, A6, A10, A11, A17, A19, A24, A27.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §8.*
 
@@ -395,3 +395,14 @@ Replaced text ([01](../architecture/01-log-and-records.md) §4.1, as it stood):
 - **Source:** Direct: Claude, while building the CBOR depth limit, 2026-11-06; unconfirmed
 - **Change:** extends §2
 - **Summary:** Arrays and maps may nest at most 128 deep. The codec recurses once per level with nothing else to bound it, and fuzzing found that a release build on a 2 MiB thread stack, tokio's default for a worker, aborts the whole process at a few thousand levels, about 3 KB of nested empty-array heads or 200 KB of nested one-pair maps; records reach the decoder from imports and the ingest API, so that was a remote denial of service. An item that opens an array or map inside 128 containers is rejected at the level that crosses the limit, by the encoder and the decoder alike, so no stored record exceeds it and the bound is part of the format rather than a site setting. 128 is serde_json's recursion limit, so JSON that reaches the codec through its parser already meets it; Wikibase's deepest structure is about ten levels. Three calls were made while building and are for James to confirm: that a bound exists at all, its value, and that it is a fixed format constant instead of a waivable setting. Folded at [01](../architecture/01-log-and-records.md) §3.1.
+
+### A27. Bundles have a scope: export, transfer or backup
+
+- **Date:** 2026-11-07
+- **Source:** [0103](0103-export-transfer-and-backup.md) §1
+- **Change:** amends §9
+- **Summary:** A bundle followed each graph's export policy by default, and a bundle that moved a tenant carried its extracts too, which left a move unable to carry the tenant's `internal` partitions. A bundle now has one of three scopes: an export, which publishes the visible form of what the export policies allow; a transfer, which hands one tenant to another operator, sealed, with every present part; and a backup, the operator's own copy of everything. Chapter text: [01](../architecture/01-log-and-records.md) §8.
+
+Replaced text ([01](../architecture/01-log-and-records.md) §8, as it stood):
+
+> Default exports follow each graph's export policy ([0005](../decisions/0005-crate-organization.md) §4.1). Bundles also take `--blobs include|list|omit` ([0039](../decisions/0039-files-and-media.md) §14). A bundle that moves a tenant carries its extracts as well ([0018](../decisions/0018-tenants.md) §10).

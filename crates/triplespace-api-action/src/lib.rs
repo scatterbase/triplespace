@@ -134,6 +134,10 @@ pub fn router_with(app: App, extra: Router<App>) -> Router {
             get(modules::entitydata::special_entity_data),
         )
         .route("/entity/{id}", get(modules::entitydata::concept_uri))
+        .route("/dumps/", get(modules::dumps::list))
+        .route("/dumps/local/", get(modules::dumps::list_local))
+        .route("/dumps/local/{name}/{file}", get(modules::dumps::get_local))
+        .route("/dumps/{name}/{file}", get(modules::dumps::get))
         .route("/healthz", get(|| async { "ok" }))
         .merge(extra)
         .layer(axum::middleware::from_fn_with_state(

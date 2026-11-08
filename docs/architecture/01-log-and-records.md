@@ -481,7 +481,7 @@ Scatterbase's prior-use acknowledgments are the same check applied to each term 
 
 ## 8. Verification and export
 
-*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §9; [0015](../decisions/0015-record-format-and-partition-registry.md) §1; [0058](../decisions/0058-packed-record-storage.md) §1; [0081](../decisions/0081-recovery-keys-and-continuations.md) §8.*
+*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §9; [0015](../decisions/0015-record-format-and-partition-registry.md) §1; [0058](../decisions/0058-packed-record-storage.md) §1; [0081](../decisions/0081-recovery-keys-and-continuations.md) §8; [0103](../decisions/0103-export-transfer-and-backup.md) §1.*
 
 **An export bundle** holds, for each exported partition:
 
@@ -490,7 +490,13 @@ Scatterbase's prior-use acknowledgments are the same check applied to each term 
 - the configuration records that register and rotate keys, and the `graph:` record that names the partition, its hash function, `k` and its policies (§1.2);
 - for each exported partition that holds client-signed records, the `scatter:v0/key` records of the `actors` partition for every actor whose signatures appear (§2.4).
 
-It needs nothing else to verify. Bundles are written in the logical form (§2.7), whichever backend is live. Default exports follow each graph's export policy ([0005](../decisions/0005-crate-organization.md) §4.1). Bundles also take `--blobs include|list|omit` ([0039](../decisions/0039-files-and-media.md) §14). A bundle that moves a tenant carries its extracts as well ([0018](../decisions/0018-tenants.md) §10).
+It needs nothing else to verify. Bundles are written in the logical form (§2.7), whichever backend is live. **A bundle has a scope**, which decides what it holds ([0103](../decisions/0103-export-transfer-and-backup.md) §1):
+
+- an **export** publishes: a public bundle, a dump, the update stream, outbound federation. It holds only what the export policies of [02](02-graphs-rdf-and-query.md) §1.1 allow, in its visible form: every part an anonymous reader may not read, hidden, suppressed, confidential or restricted, is carried as its commitment, as an erased part is, so every proof still verifies ([09](09-security-and-moderation.md) §5.4);
+- a **transfer** hands one tenant from one operator to another ([0018](../decisions/0018-tenants.md) §10; [08](08-tenants-and-instances.md) §6.2): every partition of the tenant but its `private` ones, every present part in full, with the move's extracts, sealed whole to the receiving instance;
+- a **backup** is the operator's own copy of its instance, from which it may also be rehosted ([08](08-tenants-and-instances.md) §6.7): every partition, `private` ones included, held under the custody rules of [20](20-web-tier.md) §5.3.
+
+Bundles also take `--blobs include|list|omit` ([0039](../decisions/0039-files-and-media.md) §14); a transfer takes `include`.
 
 **`verify` checks three levels:**
 

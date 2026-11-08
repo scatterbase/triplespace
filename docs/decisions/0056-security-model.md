@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-11-03 (A28)
+- **Updated:** 2026-11-07 (A29)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0051](0051-page-redirects.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0045](0045-table-content-model.md), [0046](0046-primary-tenant.md), [0047](0047-special-pages.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -65,6 +65,8 @@ James's direction, from the design discussion of 2026-10-01:
 *Current text: [09](../architecture/09-security-and-moderation.md) §5.3.*
 
 ### 6. Flow: derived output inherits the visibility of its inputs (amends 0042 §3; extends 0043 §5; extends 0051 §2; amends 0028 §5)
+
+*Changed by A29.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §5.4, §7.8.*
 
@@ -504,3 +506,14 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §4.5, as it 
 - **Source:** Direct: James, confirmed 2026-11-03; Claude's call while fixing Special:ProtectedPages' Add a page for items, 2026-11-03
 - **Change:** extends §13
 - **Summary:** A set's members are page and entity IDs (09 §4.7). `Special:ProtectedPages` adds a member by title, looks it up with `prop=info` and sends `{kind: "page", id}`; for an item that is the entity's page ID, which no document page holds, so the API answered `ts-no-target` and the site, which read a `404` from a save as an unreadable answer, said so. The set routes now read `kind: "page"` with an entity's page ID as that entity, as `pageids=` already does (18 §2.3), and record the entity's ID, so a member is added, found already held, and removed by either ID; and the site's client reads a `404` from a save as a refusal the form shows. The chapter text is 09 §4.7.
+
+### A29. A backup carries everything; a transfer all of its tenant but `private`
+
+- **Date:** 2026-11-07
+- **Source:** [0103](0103-export-transfer-and-backup.md) §2
+- **Change:** amends §6
+- **Summary:** The operator's "full bundle" is a backup and carries everything; a tenant move is a transfer and carries everything of its tenant's but its `private` partitions as records. Chapter text: [09](../architecture/09-security-and-moderation.md) §5.4.
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §5.4, as it stood):
+
+> The operator's full bundle and a tenant move carry everything.

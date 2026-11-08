@@ -159,6 +159,16 @@ pub(crate) fn float_to_string(out: &mut String, f: f64) {
     gcvt(out, f, Some(14), 'E');
 }
 
+/// PHP's `(string)$float` under the default `precision = 14`: what Wikibase's RDF writes
+/// for coordinates and their precision (wikibase-compat.md §5.5), and what a globe
+/// coordinate's value hash is taken over.
+#[must_use]
+pub fn float_string(f: f64) -> String {
+    let mut s = String::new();
+    float_to_string(&mut s, f);
+    s
+}
+
 /// PHP's `php_gcvt()`. `ndigit` is the number of significant digits to round to, or
 /// `None` for the shortest digits that round-trip (`serialize_precision = -1`), which
 /// switches to exponential form past 17 digits. Exponential form is `d.ddde±X` with at

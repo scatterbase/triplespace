@@ -18,7 +18,7 @@ Triplespace mirrors what a provider publishes, and nothing more.
 
 ### 1.2 Log graphs
 
-*Sources: [0011](../decisions/0011-logs.md) §2.*
+*Sources: [0011](../decisions/0011-logs.md) §2; [0103](../decisions/0103-export-transfer-and-backup.md) §5.*
 
 Log events that have no other home are written to log graphs. These are source graphs, like the actor graphs of [07](07-actors-and-accounts.md) §1.6; they are rows of the graph catalogue in [02](02-graphs-rdf-and-query.md) §1.2.
 
@@ -32,7 +32,7 @@ Log events that have no other home are written to log graphs. These are source g
 
 **The integrity policies follow the existing pattern.** The local log is instance data, so it is `logged`, like the local graph. A provider log is `hashed`, like the provider's mirror ([01](01-log-and-records.md) §4); its completeness against upstream cannot be proved.
 
-**Both are internal only.** Log events reach RDF only in the metadata graph ([02](02-graphs-rdf-and-query.md) §5.2), which the Wikibase-compatible dump never contains; a full dump, the instance's own export, carries it ([0013](../decisions/0013-postgres-storage.md) §8). The API serves them (§3.2).
+**Both are internal only.** Log events reach RDF only in the metadata graph ([02](02-graphs-rdf-and-query.md) §5.2), which the Wikibase-compatible dump never contains; the full dump, an export, carries it in its visible form ([0013](../decisions/0013-postgres-storage.md) §8; [0103](../decisions/0103-export-transfer-and-backup.md) §5). The API serves them (§3.2).
 
 The instance log is the instance partition of [08](08-tenants-and-instances.md) §7.4, written to by [0011](../decisions/0011-logs.md) §6.1 and §6.3, [0025](../decisions/0025-oauth-server.md) §5 and [0039](../decisions/0039-files-and-media.md) §10 and §16.
 

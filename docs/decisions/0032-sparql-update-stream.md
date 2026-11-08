@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-09 (A11)
+- **Updated:** 2026-11-07 (A14)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0020](0020-change-feeds.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [Wikibase contract](../api/wikibase-compat.md)
@@ -21,7 +21,7 @@ Three choices James made in review shape the rest: the stream is **selectable pe
 
 ### 1. The stream is the dump, kept current (extends 0001 §2 and 0013 §8)
 
-*Changed by A2, A8, A11.*
+*Changed by A2, A8, A11, A12.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §6.1.*
 
@@ -57,7 +57,7 @@ Three choices James made in review shape the rest: the stream is **selectable pe
 
 ### 7. Blank nodes are skolemized (extends 0013 §8)
 
-*Changed by A2, A10.*
+*Changed by A2, A10, A13, A14.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §4.3.*
 
@@ -233,3 +233,32 @@ Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §4.3, as it sto
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §1
 - **Summary:** A dump is taken from a replica under `pg_export_snapshot()`, with parallel workers sharing the one snapshot, so that every file of a dump describes one instant and the primary is not read; the stream a consumer follows from that dump is served from a replica too, since its single sequencer (A9) makes insert order commit order. The rest of the row — the embedded query backend is the small profile's and is refused above a configured triple count, the Wikidata profile requires `query.backend = remote`, `term_prefix` is kept as schema and not read by the large profile — is logged in [0059](0059-query-service.md), [0013](0013-postgres-storage.md) and [0033](0033-backend-stack.md). Nothing of §1's chapter text is contradicted; the dump rule is stated in [02](../architecture/02-graphs-rdf-and-query.md) §4.1. (REVIEW G49)
+
+### A12. A dump reads the primary where there is no replica
+
+- **Date:** 2026-11-07
+- **Source:** Direct: James, design discussion of 2026-11-07
+- **Change:** amends §1
+- **Summary:** A11 took every dump from a replica so that the primary is never read. Single-node installs, Librarybase's among them, have none. Asked, James chose that `triplespace dump` reads the replica the operator names (`--replica`, `TRIPLESPACE_REPLICA_URL`) and otherwise the primary, under the same exported `REPEATABLE READ` snapshot either way, so a dump describes one instant wherever it is read and only the load's placement differs. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §4.1.
+
+Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §4.1, as it stood):
+
+> **A dump is taken from a replica under `pg_export_snapshot()`**, with parallel workers sharing the one snapshot, so that every file of a dump describes one instant and the primary is not read.
+
+### A13. The skolem hash is specified with the dumps
+
+- **Date:** 2026-11-07
+- **Source:** Direct: James, design discussion of 2026-11-07
+- **Change:** amends §7
+- **Summary:** §7 said the hash function and the preimage's byte layout were fixed in wikibase-compat.md, and they were not. Asked whether to leave the skolem form for the update stream or specify it with the dumps, James chose to specify it now and write the skolemized form beside the plain one: SHA-256 over the inputs §7 names, as lowercase hex, under `https://scatter.red/genid/`, the layout and a test vector in [wikibase-compat.md](../api/wikibase-compat.md) §5.7. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §4.3.
+
+Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §4.3, as it stood):
+
+> the **index** is the snak's position within its role on the statement; a reference snak hashes the **reference hash** in place of the index, so that identical references share a node as they share a `ref:` IRI. The hash function and the byte layout of the preimage are fixed in [wikibase-compat.md](../api/wikibase-compat.md).
+
+### A14. The skolem preimage: property IRIs, per-property indexes, references without the UUID
+
+- **Date:** 2026-11-07
+- **Source:** Direct: Claude, while building the skolemized dumps (SCA-301), 2026-11-07; unconfirmed
+- **Change:** extends §7
+- **Summary:** Five calls made writing the layout A13 asked for. (1) The property enters as its concept IRI, not its ID, so two instances that prefix one upstream property differently (a registry provider and a tenant source of the same Wikibase) agree. (2) The index is the snak's position among its property's snaks in the role, not among all the role's snaks, so adding a qualifier of another property does not rename an existing node. (3) A reference snak hashes the reference hash in place of the statement UUID, not of the index: with the UUID in it, two statements citing one reference would give its unknown value two nodes while sharing its `ref:` node, and a store fed both would hold a reference with two unknown values. (4) The UUID is upper-cased, as Wikibase writes it, since statement IDs compare without case. (5) The property's `owl:complementOf` restriction, Wikibase's other blank node, is skolemized from `novalue|{property IRI}`. The plain form labels each blank node with the same hash, so the two forms map one to one; a dump's two files show it. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §4.3; [wikibase-compat.md](../api/wikibase-compat.md) §5.7.

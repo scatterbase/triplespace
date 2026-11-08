@@ -40,6 +40,7 @@ scatter-talk-import.workspace = true
 scatter-threads.workspace = true
 triplespace-db.workspace = true
 triplespace-projections.workspace = true
+triplespace-rdf.workspace = true
 triplespace-api-ingest.workspace = true
 triplespace-accounts.workspace = true
 triplespace-notify.workspace = true

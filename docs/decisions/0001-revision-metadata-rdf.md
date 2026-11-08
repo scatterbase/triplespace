@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-24
-- **Updated:** 2026-10-09 (A18)
+- **Updated:** 2026-11-07 (A23)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md)
 - **Uses:** [0000](0000-init.md), [MediaWiki API contract](../api/mediawiki-compat.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -43,13 +43,13 @@ Under [0000](0000-init.md), the append-only log is the source of truth and RDF i
 
 ### 2. Two named graphs: main and metadata
 
-*Changed by A1, A2, A6, A11.*
+*Changed by A1, A2, A6, A11, A23.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.2, §1.5.*
 
 ### 3. The standard Wikibase output is unchanged
 
-*Changed by A11, A12.*
+*Changed by A11, A12, A19, A20, A21, A22.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §4.2.*
 
@@ -265,3 +265,46 @@ Replaced text (§6):
 - **Source:** [0082](0082-source-form-and-the-shared-view.md) §4
 - **Change:** extends §1
 - **Summary:** In the resolved view a cluster's fused statements are emitted under every member's concept IRI, with `owl:sameAs` between the members and the redirect-form `owl:sameAs` from each non-canonical member to the canonical one, so a query that reaches `wd:Q5` through a value and asks for its label or statements succeeds without rewriting; the duplication is bounded by the cluster's size, never by what references it. Each member's document node still carries `schema:about` pointing at the current canonical concept IRI. The dump and the stream carry the same, in source form ([0082](0082-source-form-and-the-shared-view.md) §1). The chapter folds this at [02](../architecture/02-graphs-rdf-and-query.md) §2.1 and §5, whose provenance is §1 here; 0082's table named §2, and was corrected. (REVIEW G6)
+
+### A19. EDTF values are written as their raw literal only, for now
+
+- **Date:** 2026-11-07
+- **Source:** Direct: James, design discussion of 2026-11-07
+- **Change:** extends §3
+- **Summary:** WikibaseEDTF writes each `edtf` value as an `xsd:edtf` literal and also as the `xsd:dateTime` values and `wikibase:TimeValue` nodes it derives, with the defects [wikibase-compat.md](../api/wikibase-compat.md) §6.4 lists: negative years one off, UTC offsets not applied, `19XX` read as 1900, intervals dropped. The contract's §7 left copying them to a decision. Asked, James chose to write the raw literal only, with `wikibase:propertyType wikibase:Edtf`, and to add the derived dates once it is decided whether to copy the defects or to correct them. Until then Triplespace's output differs from a Wikibase running the extension by those derived triples alone. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §4.2.
+
+### A20. `Special:EntityData` serves `.ttl` and `.nt` in the dump flavor
+
+- **Date:** 2026-11-07
+- **Source:** Direct: Claude, while building `scatter-wikibase-rdf` (SCA-301), 2026-11-07; unconfirmed
+- **Change:** extends §3
+- **Summary:** `Special:EntityData/{id}.ttl` and `.nt` serve the entity's triples as `dumpRdf.php`'s full flavor writes them, rendered from the same document the `.json` form serves, so they answer for the same reader, resolve the same aliases and are missing in the same cases; other extensions (`.rdf`, `.jsonld`, `.n3`) answer 406. Wikibase's own default RDF flavor also writes stubs for the entities and properties a statement mentions (their labels and predicate declarations); those are left out, and `?flavor=` is not read. The concept URI `/entity/{id}` chooses the extension of its 303 by `Accept` (JSON, Turtle or N-Triples), with `Vary: Accept`. IRIs are written under the tenant's registered base, not the development-mode base a request may see. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §4.2.
+
+### A21. `Special:EntityData` takes Wikibase's flavors, `full` by default
+
+- **Date:** 2026-11-07
+- **Source:** Direct: James, design discussion of 2026-11-07
+- **Change:** amends §3
+- **Summary:** A20 served the `dump` flavor for every request and ignored `flavor=`. Shown Wikibase's code (`EntityDataSerializationService::getFlavor`, `RdfBuilder`, the stub builders), James chose to serve its flavors as it does: `simple`, `long`, `dump` and `full`, by its `RdfProducer` flags, with `full` for an absent or empty `flavor=`, which adds after the entity a stub for every property a written snak uses and every entity a value names; an unknown flavor is a 400 naming the four; `.json` ignores the parameter. Wikibase's flags also put `cc:license` and `schema:softwareVersion` on the document node under every flavor, which `dumpRdf.php` leaves to its header; both are written. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §4.2.
+
+Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §4.2, as it stood):
+
+> **`Special:EntityData` serves the entity's RDF** as `.ttl` and `.nt`: the triples of the dump flavor, rendered from the document `.json` serves, without the stubs for mentioned entities that Wikibase's default flavor adds. The concept URI `/entity/{id}` redirects to the form `Accept` prefers ([0001](../decisions/0001-revision-metadata-rdf.md) A20). `scatter-wikibase-rdf` renders both, and will render the dumps of §4.1.
+
+### A22. Stubs are read as `.json` reads them, in the reader's label languages
+
+- **Date:** 2026-11-07
+- **Source:** Direct: Claude, while building `Special:EntityData`'s `full` flavor (SCA-301), 2026-11-07; unconfirmed
+- **Change:** extends §3
+- **Summary:** Three calls made building A21. (1) Each mentioned ID is read through the same path as `Special:EntityData/{id}.json`, one read per mention, so a stub honours read restrictions, aliases (written as `owl:sameAs` to the target, then the target's stub, as Wikibase's `addEntityRedirect` does) and deletion; a batched read would be faster for an entity that mentions hundreds of others and can replace it without changing the output. (2) Wikibase writes stubs in the request's language fallback chain (`getFetchLanguageCodes`); Triplespace has no fallback chains, so stubs use the reader's `label-languages` preference, else `uselang` or their `language`, then English. (3) A stub's type triple is written for items and properties only, as the entity's own is; lexemes, MediaInfo and the keyed types get labels and descriptions only, until their node types are written (0066 §6, 0065, 0048 §5). Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §4.2.
+
+### A23. The metadata graph is exportable, in the full dump only
+
+- **Date:** 2026-11-07
+- **Source:** [0103](0103-export-transfer-and-backup.md) §5
+- **Change:** amends §2
+- **Summary:** The metadata graph was kept out of external stores to keep the external contract simple, not for secrecy. Its export policy is now `public`: the full dump, an export served at `{base}/dumps/`, carries it in its visible form, naming surrogates by IRI only; the Wikibase-compatible dump still never does, by its own definition. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §1.5.
+
+Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §1.5, as it stood):
+
+> a full dump is the instance's own export and carries both ([0013](../decisions/0013-postgres-storage.md) §8).

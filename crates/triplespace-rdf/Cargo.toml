@@ -1,0 +1,31 @@
+[package]
+name = "triplespace-rdf"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Dumps: the resolved view and the local graph as N-Triples, N-Quads and canonical JSON, in plain and skolemized forms, from one exported snapshot"
+publish = false
+
+[dependencies]
+triplespace-projections.workspace = true
+scatter-wikibase-rdf.workspace = true
+scatter-wikibase-model.workspace = true
+scatter-providers.workspace = true
+scatter-normalize.workspace = true
+scatter-actors.workspace = true
+oxrdf.workspace = true
+flate2.workspace = true
+sha2.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+thiserror.workspace = true
+tokio-postgres.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+
+[lints]
+workspace = true

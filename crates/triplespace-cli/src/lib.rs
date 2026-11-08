@@ -10,6 +10,7 @@ pub mod adopt_talk;
 pub mod bootstrap;
 pub mod challenge;
 pub mod common;
+pub mod dump;
 pub mod env_file;
 pub mod follow;
 pub mod forwarder;

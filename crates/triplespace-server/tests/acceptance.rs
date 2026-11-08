@@ -331,6 +331,10 @@ async fn a_bot_logs_in_reads_and_edits() {
         },
     )
     .unwrap();
+    // `dumps.dir` (0013 A78): empty until step 7c writes a dump into it.
+    let dumps = std::env::temp_dir().join(format!("tsaccept-dumps-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dumps);
+    app.set_dumps_dir(dumps.clone());
     let mut c = Client {
         router: router_with(app, triplespace_api_rest::routes()),
         cookie: None,
@@ -680,6 +684,240 @@ async fn a_bot_logs_in_reads_and_edits() {
         resp.headers()[header::LOCATION],
         "/wiki/Special:EntityData/Q6.json"
     );
+
+    // 7a. The RDF forms (0001 §3; 02 §4.2): Wikibase's triples for Q6 under the tenant's
+    // base, as Turtle and N-Triples, and the concept URI choosing one by `Accept`.
+    let fetch = |uri: &'static str, accept: Option<&'static str>| {
+        let router = c.router.clone();
+        async move {
+            let mut req = Request::builder().uri(uri).header(header::HOST, HOST);
+            if let Some(a) = accept {
+                req = req.header(header::ACCEPT, a);
+            }
+            let resp = router
+                .oneshot(req.body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            let status = resp.status();
+            let headers = resp.headers().clone();
+            let body = resp.into_body().collect().await.unwrap().to_bytes();
+            (status, headers, String::from_utf8(body.to_vec()).unwrap())
+        }
+    };
+    let (status, headers, ttl) = fetch("/wiki/Special:EntityData/Q6.ttl", None).await;
+    assert_eq!(status, StatusCode::OK, "{ttl}");
+    assert_eq!(headers[header::CONTENT_TYPE], "text/turtle; charset=utf-8");
+    assert!(
+        ttl.contains("@prefix wikibase: <http://wikiba.se/ontology#> ."),
+        "{ttl}"
+    );
+    assert!(ttl.contains("wikibase:Item"), "{ttl}");
+    assert!(ttl.contains("\"Six\"@fr"), "{ttl}");
+    let (status, headers, nt) = fetch("/wiki/Special:EntityData/Q6.nt", None).await;
+    assert_eq!(status, StatusCode::OK, "{nt}");
+    assert_eq!(
+        headers[header::CONTENT_TYPE],
+        "application/n-triples; charset=utf-8"
+    );
+    assert!(
+        nt.lines()
+            .any(|l| l
+                .contains("/entity/Q6> <http://www.w3.org/2004/02/skos/core#altLabel> \"VI\"@en")),
+        "{nt}"
+    );
+    let (status, headers, _) =
+        fetch("/entity/Q6", Some("text/turtle, application/json;q=0.5")).await;
+    assert_eq!(status, StatusCode::SEE_OTHER);
+    assert_eq!(headers[header::LOCATION], "/wiki/Special:EntityData/Q6.ttl");
+    let (status, _, _) = fetch("/wiki/Special:EntityData/Q6.rdf", None).await;
+    assert_eq!(status, StatusCode::NOT_ACCEPTABLE);
+    // The default flavor is `full` (0001 A21): the version information on the document
+    // node, and a stub for each property and entity the statements mention. The Domain has
+    // a local P12 statement and a mirrored XDP8 one whose value is another Domain; XDP8's
+    // predicates are its upstream's (0002 A42).
+    assert!(ttl.contains("cc:license"), "{ttl}");
+    let (status, _, full) = fetch("/wiki/Special:EntityData/domain:wikipedia.org.nt", None).await;
+    assert_eq!(status, StatusCode::OK, "{full}");
+    // A key-mapped provider's statement carries the keyed entity's ID, so its upstream
+    // item is not known from it, and it is named under the tenant's base (0002 A44).
+    assert!(
+        full.contains(
+            "/entity/statement/domain:wikipedia.org-00000000-0000-0000-0000-0000000000B2>"
+        ),
+        "{full}"
+    );
+    assert!(
+        full.contains("/entity/P12> <http://www.w3.org/2000/01/rdf-schema#label> \"note\"@en"),
+        "the P12 stub: {full}"
+    );
+    assert!(
+        full.contains(
+            "<https://internetdomains.wiki/prop/direct/P8> <https://scatter.red/domain/example.org>"
+        ),
+        "the mirrored statement on upstream's predicate: {full}"
+    );
+    assert!(
+        full.contains("<https://internetdomains.wiki/entity/P8> <http://wikiba.se/ontology#directClaim> <https://internetdomains.wiki/prop/direct/P8>"),
+        "the XDP8 stub: {full}"
+    );
+    let (status, _, dump) = fetch(
+        "/wiki/Special:EntityData/domain:wikipedia.org.nt?flavor=dump",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{dump}");
+    assert!(dump.contains("creativecommons.org/ns#license"), "{dump}");
+    assert!(!dump.contains("\"note\"@en"), "no stubs under dump: {dump}");
+    let (status, _, simple) = fetch("/wiki/Special:EntityData/Q6.nt?flavor=simple", None).await;
+    assert_eq!(status, StatusCode::OK, "{simple}");
+    assert!(!simple.contains("/entity/statement/"), "{simple}");
+    let (status, _, body) = fetch("/wiki/Special:EntityData/Q6.ttl?flavor=nonsense", None).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(body.contains("simple|dump|long|full"), "{body}");
+    let (status, _, _) = fetch("/wiki/Special:EntityData/Q6.json?flavor=nonsense", None).await;
+    assert_eq!(status, StatusCode::OK, ".json ignores flavor=");
+
+    // 7c. The dumps (0013 §8, A33; 02 §4.1; 17 §1.1): `triplespace dump` writes the
+    // resolved view and the local graph from one snapshot, plain and skolemized, and the
+    // server lists and serves them under `{base}/dumps/`.
+    let (status, _, body) = fetch("/dumps/", None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        serde_json::from_str::<Value>(&body).unwrap()["dumps"],
+        json!([])
+    );
+    triplespace_cli::dump::run(triplespace_cli::dump::Dump {
+        database: database.clone(),
+        replica: None,
+        tenant: TENANT.into(),
+        dir: dumps.clone(),
+        keep: Some(2),
+    })
+    .await
+    .unwrap();
+    let (status, _, body) = fetch("/dumps/", None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let index: Value = serde_json::from_str(&body).unwrap();
+    let latest = &index["dumps"][0];
+    assert_eq!(latest["tenant"], TENANT);
+    assert_eq!(latest["cursor"], Value::Null, "no update stream yet");
+    assert!(latest["entities"].as_u64().unwrap() > 0, "{latest}");
+    assert!(latest["local_entities"].as_u64().unwrap() > 0, "{latest}");
+    let files: Vec<&str> = latest["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        files,
+        [
+            "wikibase.nt.gz",
+            "wikibase-skolem.nt.gz",
+            "local.nq.gz",
+            "local-skolem.nq.gz",
+            "local.json.gz"
+        ]
+    );
+    let name = latest["name"].as_str().unwrap().to_string();
+    let gunzip = |bytes: &[u8]| {
+        use std::io::Read as _;
+        let mut out = String::new();
+        flate2::read::GzDecoder::new(bytes)
+            .read_to_string(&mut out)
+            .unwrap();
+        out
+    };
+    let download = |uri: String| {
+        let router = c.router.clone();
+        async move {
+            let req = Request::builder()
+                .uri(uri)
+                .header(header::HOST, HOST)
+                .body(Body::empty())
+                .unwrap();
+            let resp = router.oneshot(req).await.unwrap();
+            let status = resp.status();
+            let headers = resp.headers().clone();
+            (
+                status,
+                headers,
+                resp.into_body()
+                    .collect()
+                    .await
+                    .unwrap()
+                    .to_bytes()
+                    .to_vec(),
+            )
+        }
+    };
+    let (status, headers, gz) = download(format!("/dumps/{name}/wikibase.nt.gz")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(headers[header::CONTENT_TYPE], "application/gzip");
+    assert_eq!(
+        headers[header::ETAG].to_str().unwrap(),
+        format!("\"{}\"", latest["files"][0]["sha256"].as_str().unwrap())
+    );
+    let nt = gunzip(&gz);
+    assert!(
+        nt.starts_with("# Triplespace dump of https://librarybase.org/"),
+        "{nt}"
+    );
+    assert!(nt.contains(
+        "<http://wikiba.se/ontology#Dump> <http://schema.org/softwareVersion> \"1.0.0\""
+    ));
+    assert!(
+        nt.contains(&format!(
+            "<https://{HOST}/entity/Q6> <http://www.w3.org/2004/02/skos/core#altLabel> \"VI\"@en ."
+        )),
+        "{nt}"
+    );
+    assert!(
+        nt.contains("<https://scatter.red/domain/wikipedia.org> <https://internetdomains.wiki/prop/direct/P8> <https://scatter.red/domain/example.org> ."),
+        "the mirrored statement, on upstream's predicate"
+    );
+    let (_, _, gz) = download(format!("/dumps/{name}/wikibase-skolem.nt.gz")).await;
+    let skolem = gunzip(&gz);
+    assert!(
+        !skolem
+            .lines()
+            .any(|l| !l.starts_with('#') && l.contains(" _:")),
+        "no blank nodes"
+    );
+    assert_eq!(
+        nt.lines().count(),
+        skolem.lines().count(),
+        "the two forms map one to one"
+    );
+    let (_, _, gz) = download(format!("/dumps/local/{name}/local.json.gz")).await;
+    let local = gunzip(&gz);
+    let q6: Value = local
+        .lines()
+        .map(|l| serde_json::from_str::<Value>(l).unwrap())
+        .find(|l| l["id"] == "Q6")
+        .expect("Q6's local state");
+    assert!(
+        q6["offset"].as_u64().is_some() && q6["partition"].as_u64().is_some(),
+        "{q6}"
+    );
+    assert_eq!(q6["entity"]["labels"]["fr"]["value"], "Six");
+    let (_, _, gz) = download(format!("/dumps/local/{name}/local.nq.gz")).await;
+    assert!(gunzip(&gz).contains(&format!("<https://{HOST}/graph/local> .")));
+    let (status, _, _) = download(format!("/dumps/local/{name}/wikibase.nt.gz")).await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "the local listing serves the local dump only"
+    );
+    let (status, _, body) = download("/dumps/latest/manifest.json".into()).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        serde_json::from_slice::<Value>(&body).unwrap()["name"],
+        name.as_str()
+    );
+    let (status, _, _) = download("/dumps/../manifest.json".into()).await;
+    assert_ne!(status, StatusCode::OK);
+    let _ = std::fs::remove_dir_all(&dumps);
 
     // 7b. The feeds (0020 §1–2, §5): the bot's edits are recent changes and its
     // contributions, the adoption and the mirror sync are jobs, and the REST feed

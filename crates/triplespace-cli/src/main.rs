@@ -12,7 +12,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use triplespace_cli::{
-    accounts, adopt, challenge, env_file, follow, forwarder, instance, logins, oauth_client,
+    accounts, adopt, challenge, dump, env_file, follow, forwarder, instance, logins, oauth_client,
     rights, settings, source, status, sync, tenant,
 };
 
@@ -92,6 +92,8 @@ enum Command {
         #[command(subcommand)]
         command: rights::AclCommand,
     },
+    /// Write a tenant's dumps: the resolved view and the local graph (02 §4.1).
+    Dump(dump::Dump),
     /// Partitions, heads and projection lags, and any migration not yet applied.
     Status(status::Target),
     /// Apply the migrations this binary carries that the database has not applied.
@@ -162,6 +164,7 @@ async fn run() -> Result<()> {
         Command::Member { command } => rights::run_member(command).await,
         Command::Group { command } => rights::run_group(command).await,
         Command::Acl { command } => rights::run_acl(command).await,
+        Command::Dump(args) => dump::run(args).await,
         Command::Status(args) => status::status(args).await,
         Command::Migrate(args) => status::migrate(args).await,
         Command::Logins { command } => logins::run(command).await,

@@ -179,7 +179,7 @@ defined_in = "0002 §3"
 name = "metadata"
 kind = "projection"
 scope = "tenant"
-export = "internal"          # carried only by the full dump (0013 §8)
+export = "public"            # in the full dump only, never the Wikibase-compatible dump (0013 §8; 0103 §5)
 description = "Revision nodes, actors, log events and provenance (0001 §2, 0007 §8, 0011 §8)."
 defined_in = "0001 §2"
 
