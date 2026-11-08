@@ -153,6 +153,13 @@ pub struct GraphStanding {
     /// The page of that upstream revision, where the API gives one.
     #[serde(default)]
     pub upstream_url: Option<String>,
+    /// The provider's own ID of the item the graph's record was mapped from, for a
+    /// key-mapped provider's graph on a keyed entity (05 §4.2; 0002 A44).
+    #[serde(default)]
+    pub upstream_id: Option<String>,
+    /// That item's concept IRI, where the API gives one.
+    #[serde(default)]
+    pub upstream_iri: Option<String>,
     /// The job that wrote it.
     #[serde(default)]
     pub job: Option<u64>,

@@ -338,7 +338,7 @@ The hash function is fixed for a partition when the partition is created, and is
 
 ### 4.2 Checkpoints
 
-*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §6; [0081](../decisions/0081-recovery-keys-and-continuations.md) §5, §6.*
+*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §6, A33; [0081](../decisions/0081-recovery-keys-and-continuations.md) §5, §6.*
 
 **Format.** Checkpoints use the [C2SP tlog-checkpoint](https://c2sp.org/tlog-checkpoint) format, signed as a [C2SP signed note](https://c2sp.org/signed-note):
 
@@ -356,7 +356,7 @@ The hash function is fixed for a partition when the partition is created, and is
 
 Records appended after the latest checkpoint are durable but not yet signed. A `hashed` partition has no checkpoints: a job that ends there records the manifest of the last sealed segment and an unsigned head offset, and the records of the open segment are uncommitted until the segment is sealed and its manifest signed (§1.2).
 
-**Who signs.** Checkpoints and segment manifests are signed by the projection worker, under an advisory lock per partition, and it is the only process that holds the instance key; an API replica or a bulk job appends and never signs. The signing worker reads the persisted tree (§4.1), so a checkpoint covers only complete subtrees that every appender has closed. **Until that worker signs on a cadence**, whose N and T are still open (0006 Q4), `triplespace checkpoint` signs: the head of every `logged` partition that has grown since its latest checkpoint and the manifest of every full segment of a `hashed` one, with the instance key, which it refuses unless the key is the chain's current one, each partition under the worker's advisory lock, `hashtextextended('checkpoint:{partition}', 0)`. An operator runs it by hand, by cron, and before an export ([0006](../decisions/0006-log-integrity-and-erasure.md) A28). **A partition's origin is fixed by its first checkpoint or manifest** and reused for every later one; the first is derived from the tenant's current host, or the farm's ([0006](../decisions/0006-log-integrity-and-erasure.md) A29).
+**Who signs.** Checkpoints and segment manifests are signed by the projection worker, under an advisory lock per partition, and it is the only process that holds the instance key; an API replica or a bulk job appends and never signs. The signing worker reads the persisted tree (§4.1), so a checkpoint covers only complete subtrees that every appender has closed. **Until that worker signs on a cadence**, whose N and T are still open (0006 Q4), `triplespace checkpoint` signs: the head of every `logged` partition that has grown since its latest checkpoint and the manifest of every full segment of a `hashed` one, with the instance key, which it refuses unless the key is the chain's current one, each partition under the worker's advisory lock, `hashtextextended('checkpoint:{partition}', 0)`. An operator runs it by hand, by cron, and before an export ([0006](../decisions/0006-log-integrity-and-erasure.md) A28). **A partition's origin is recorded when the partition is created**, in its registry row, derived from the tenant's base at that time, or the farm's, and every checkpoint and manifest is signed under it, so a tenant aliased later still signs under the host its log began at; a row created before the column existed takes its first checkpoint's or manifest's origin, then the current host ([0006](../decisions/0006-log-integrity-and-erasure.md) A29, A33).
 
 Checkpoints are stored beside their partition. They are not log records, since a checkpoint cannot be a leaf of the tree it signs. Every checkpoint is kept, so consistency between any two of them can be proved. A segment manifest is keyed `(partition, segment)`, one per sealed segment and never re-signed: it carries no list of manifests it replaces and no sealing time in its key, since compaction leaves a sealed segment's tree unchanged (§6).
 
@@ -498,7 +498,7 @@ It needs nothing else to verify. Bundles are written in the logical form (§2.7)
 
 ### 8.2 Scopes
 
-*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §9.2; [0103](../decisions/0103-export-transfer-and-backup.md) §1.*
+*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §9.2, A32; [0103](../decisions/0103-export-transfer-and-backup.md) §1.*
 
 **A bundle has a scope**, which decides what it holds ([0103](../decisions/0103-export-transfer-and-backup.md) §1):
 
@@ -508,7 +508,7 @@ It needs nothing else to verify. Bundles are written in the logical form (§2.7)
 
 Bundles also take `--blobs include|list|omit` ([0039](../decisions/0039-files-and-media.md) §14); a transfer takes `include`.
 
-**What is built.** `triplespace export --scope backup --out {dir}` writes every partition, or with `--tenant` one tenant's, verbatim from one `REPEATABLE READ` snapshot, with every checkpoint and manifest and the instance's `key:` records; file bytes are not included until the blob store exists. `--scope export --tenant {slug}` writes the visible form of the tenant's `public` partitions, deciding each record from its activity row as the feeds decide a row ([0006](../decisions/0006-log-integrity-and-erasure.md) A31); a tenant an anonymous reader may not read has no export, and the transfer scope is refused until built ([0006](../decisions/0006-log-integrity-and-erasure.md) A28, A29).
+**What is built.** `triplespace export --scope backup --out {dir}` writes every partition, or with `--tenant` one tenant's, verbatim from one `REPEATABLE READ` snapshot, with every checkpoint and manifest and the instance's `key:` records; file bytes are not included until the blob store exists. `--scope export --tenant {slug}` writes the visible form of the tenant's `public` partitions, deciding each record from its activity row by the one statement of the row rules the feed's query and the export reader share, the SQL, which a database test runs both ways over the same rows ([0006](../decisions/0006-log-integrity-and-erasure.md) A31, A32); a tenant an anonymous reader may not read has no export, and the transfer scope is refused until built ([0006](../decisions/0006-log-integrity-and-erasure.md) A28, A29).
 
 ### 8.3 `verify`
 

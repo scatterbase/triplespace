@@ -328,11 +328,12 @@ A document page's history lists its records in the `pages` partition, from `view
 
 ### 3.4 History rows
 
-*Sources: [0010](../decisions/0010-site-ui.md) §5.2; [0023](../decisions/0023-moderation.md) §9; [0040](../decisions/0040-instance-prerogatives.md) §7.*
+*Sources: [0010](../decisions/0010-site-ui.md) §5.2; [0023](../decisions/0023-moderation.md) §9; [0040](../decisions/0040-instance-prerogatives.md) §7; [0008](../decisions/0008-namespaces-and-document-pages.md) A50.*
 
 | Row | Shown as |
 |---|---|
 | Local edit | One row: time, Local chip, parsed summary, tags, size change, and actor. It links to its diff. |
+| Imported or adopted revision | The row of a local edit with an **Imported** chip in place of Local, whose tooltip names the upstream revision, its time and the job that wrote it, and "Job n" after the summary, named and linked once `Special:Jobs/{n}` exists; a diff's header carries the same chip ([0008](../decisions/0008-namespaces-and-document-pages.md) A50). |
 | Mirror sync | One row per observed state: time, provider chip, "Synced from Wikidata", the upstream revision, the job, and a one-line account of what changed. It links to its diff. |
 | Upstream edit | Folded inside the sync that brought it in (§3.6), with the upstream actor linked to their upstream IRI ([0007](../decisions/0007-actor-identity.md) §2). |
 | Erased record | A gap row showing only its time and source: "An edit was erased." Its reason class is shown to holders of `ts-viewerasures` ([0016](../decisions/0016-permissions-and-access-control.md) §6). |

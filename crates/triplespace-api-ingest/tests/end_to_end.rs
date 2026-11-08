@@ -166,6 +166,7 @@ async fn seed(client: Client) -> Client {
                 integrity: Integrity::Logged,
                 export: Export::Public,
                 hash: "sha-256".into(),
+                origin: None,
             },
         )
         .await
@@ -948,6 +949,7 @@ async fn a_tenant_declares_and_loads_an_entity_source() {
             integrity: Integrity::Logged,
             export: Export::Public,
             hash: "sha-256".into(),
+            origin: None,
         },
     )
     .await

@@ -739,12 +739,25 @@ async fn a_bot_logs_in_reads_and_edits() {
     assert!(ttl.contains("cc:license"), "{ttl}");
     let (status, _, full) = fetch("/wiki/Special:EntityData/domain:wikipedia.org.nt", None).await;
     assert_eq!(status, StatusCode::OK, "{full}");
-    // A key-mapped provider's statement carries the keyed entity's ID, so its upstream
-    // item is not known from it, and it is named under the tenant's base (0002 A44).
+    // A key-mapped provider's statement carries the keyed entity's ID, and the mirror's
+    // record names the item it was mapped from (Q11), so the statement is named as the
+    // provider names it, not under the tenant's base (0002 A44).
     assert!(
         full.contains(
+            "<https://internetdomains.wiki/entity/statement/Q11-00000000-0000-0000-0000-0000000000B2>"
+        ),
+        "{full}"
+    );
+    // The tenant's own P12 statement on the Domain stays under the tenant's base; the
+    // mirrored one is not there twice.
+    assert!(
+        !full.contains(
             "/entity/statement/domain:wikipedia.org-00000000-0000-0000-0000-0000000000B2>"
         ),
+        "{full}"
+    );
+    assert!(
+        full.contains("<https://librarybase.org/entity/statement/domain:wikipedia.org-"),
         "{full}"
     );
     assert!(
@@ -1869,6 +1882,13 @@ async fn what_the_site_reads(router: &Router, database: &str) {
     );
     assert_eq!(mirror["history"], "latest");
     assert!(mirror.get("job").is_some(), "the sync job: {mirror}");
+    // The record names the item the provider mapped onto the key (05 §4.2; 0002 A44).
+    assert_eq!(mirror["upstream_id"], "Q11", "{mirror}");
+    assert_eq!(
+        mirror["upstream_iri"], "https://internetdomains.wiki/entity/Q11",
+        "{mirror}"
+    );
+    assert!(p["graphs"][0].get("upstream_id").is_none(), "{p}");
     // One statement each; a tie goes to the earlier graph, local first.
     assert_eq!(p["dominant"], "local");
     assert!(

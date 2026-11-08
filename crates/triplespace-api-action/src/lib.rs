@@ -71,6 +71,7 @@ pub const API_VERSION: u32 = 6;
 pub use response::ApiError;
 
 use axum::Router;
+use axum::extract::DefaultBodyLimit;
 use percent_encoding::{AsciiSet, NON_ALPHANUMERIC};
 
 /// The characters a `/wiki/{title}` segment keeps, as MediaWiki's `wfUrlencode` does.
@@ -115,6 +116,10 @@ pub fn html_escape(text: &str) -> String {
 }
 use axum::routing::get;
 
+/// The most a request body to `api.php` may be: the ceiling of `import.max_upload`
+/// (0047 A36), which bounds every tenant's setting; a module reads the tenant's value.
+pub const BODY_LIMIT: usize = 1024 * 1024 * 1024;
+
 /// The router: `api.php` at both MediaWiki paths, the entity routes, and a health check.
 pub fn router(app: App) -> Router {
     router_with(app, Router::new())
@@ -127,8 +132,18 @@ pub fn router(app: App) -> Router {
 /// `into_make_service_with_connect_info::<SocketAddr>()` for the peer address to be known.
 pub fn router_with(app: App, extra: Router<App>) -> Router {
     Router::new()
-        .route("/api.php", get(api::handle).post(api::handle))
-        .route("/w/api.php", get(api::handle).post(api::handle))
+        .route(
+            "/api.php",
+            get(api::handle)
+                .post(api::handle)
+                .layer(DefaultBodyLimit::max(BODY_LIMIT)),
+        )
+        .route(
+            "/w/api.php",
+            get(api::handle)
+                .post(api::handle)
+                .layer(DefaultBodyLimit::max(BODY_LIMIT)),
+        )
         .route(
             "/wiki/Special:EntityData/{file}",
             get(modules::entitydata::special_entity_data),

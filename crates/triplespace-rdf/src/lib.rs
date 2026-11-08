@@ -31,7 +31,6 @@ pub mod bundle;
 pub mod records;
 pub mod xml;
 
-use std::collections::BTreeSet;
 use std::fs::{self, File};
 use std::io::{self, BufWriter, Write};
 use std::path::{Path, PathBuf};
@@ -557,7 +556,7 @@ impl Walk<'_> {
             modified: Some(iso8601(current.modified)),
             ..PageInfo::default()
         };
-        let upstream: BTreeSet<_> = current.upstream_statements(req.registry);
+        let upstream = current.upstream_statements(req.registry);
         let mut triples = Vec::new();
         Renderer::new(&self.iris, &self.hasher, Produce::DUMP_FILE)
             .with_upstream(&upstream)
@@ -629,7 +628,7 @@ async fn write_bundle(
     }
     let store = PgLog::new(tx);
     let checkpoints = PgCheckpoints::new(tx);
-    let origin = bundle::origin_of(tx, &checkpoints, &row, "")
+    let origin = bundle::origin_of(tx, &row, "")
         .await
         .map_err(DumpError::Database)?;
     let ids = [scatter_log_postgres::ids::partition_to_db(row.partition)];

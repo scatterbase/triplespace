@@ -50,7 +50,7 @@ pub mod version;
 pub mod watch;
 
 pub use account::{LoginResult, WithCookies};
-pub use activity::{ActivityPage, ActivityQuery, ActivityRow};
+pub use activity::{ActivityPage, ActivityQuery, ActivityRow, UpstreamRef};
 pub use api::{
     CacheInfo, ChipColours, Fetched, MessageQuery, MessageRow, NamespaceRow, ProviderInfo,
     ProviderType, SiteInfo, UserInfo,

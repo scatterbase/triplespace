@@ -313,6 +313,14 @@ fn side_fields(out: &mut Map<String, Value>, prefix: &str, rev: &Rev, props: &[S
     if want("timestamp") {
         out.insert(key("timestamp"), json!(iso8601(row.time)));
     }
+    // An adopted or imported revision's upstream revision, and the job that wrote it
+    // (0008 A50), for the diff's header.
+    if let Some(up) = row.params.as_ref().and_then(|p| p.get("source")) {
+        out.insert(key("upstream"), up.clone());
+    }
+    if let Some(j) = row.job {
+        out.insert(key("job"), json!(j));
+    }
     if want("user") {
         if row.visibility & visibility::USER != 0 || row.actor.hidden {
             flag(out, key("userhidden"));

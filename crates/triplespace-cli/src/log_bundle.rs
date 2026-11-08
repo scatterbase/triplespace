@@ -22,10 +22,12 @@
 //!   erasures and client signatures), and exits non-zero on any problem. Level 3, which
 //!   rebuilds the projections, needs a database and is not built.
 //!
-//! **Origins.** A partition's origin line is fixed when its first checkpoint is signed and
-//! reused for every later one, as an `alias` must not change it (01 §4.2): the first is
-//! derived from the tenant's current host, or the farm's for an instance partition
-//! (0006 A29).
+//! **Origins.** A partition's origin line is fixed when the partition is created, under
+//! the tenant's host then, or the farm's for an instance partition, and recorded on its
+//! registry row, from which every checkpoint, manifest and bundle reads it
+//! ([`origin_of`]), as an `alias` must not change it (01 §4.2; 0006 A29). Only a
+//! partition created before the row recorded it is signed under its first checkpoint's
+//! origin, or, before any, under the current host.
 
 use std::path::PathBuf;
 
@@ -108,7 +110,7 @@ pub async fn checkpoint(args: &Checkpoint) -> Result<Signed> {
         if head.size == 0 {
             continue;
         }
-        let origin = origin_of(&tx, &checkpoints, &row, &farm_host)
+        let origin = origin_of(&tx, &row, &farm_host)
             .await
             .map_err(anyhow::Error::msg)?;
         if row.integrity == "hashed" {
@@ -228,7 +230,7 @@ pub async fn export(args: &Export) -> Result<Vec<BundlePartition>> {
     for row in rows {
         partitions.push(BundlePartition {
             partition: row.partition,
-            origin: origin_of(&tx, &checkpoints, &row, &farm_host)
+            origin: origin_of(&tx, &row, &farm_host)
                 .await
                 .map_err(anyhow::Error::msg)?,
             name: row.name,

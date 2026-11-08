@@ -118,6 +118,17 @@ pub struct RecordRef {
     pub offset: u64,
 }
 
+/// The upstream revision an adopted or imported revision came from (0008 A50).
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+pub struct UpstreamRef {
+    /// The source's revision ID.
+    #[serde(default)]
+    pub revid: u64,
+    /// The source's timestamp, as it wrote it.
+    #[serde(default)]
+    pub time: String,
+}
+
 /// One activity row (16 §3.1).
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
 pub struct ActivityRow {
@@ -144,6 +155,10 @@ pub struct ActivityRow {
     /// The job.
     #[serde(default)]
     pub job: Option<u64>,
+    /// For an adopted or imported revision, the upstream revision it came from
+    /// (0008 A50).
+    #[serde(default)]
+    pub upstream: Option<UpstreamRef>,
     /// The summary.
     #[serde(default)]
     pub summary: Summary,

@@ -44,6 +44,11 @@
 	color: var( --color-inverted, #fff );
 }
 
+.ts-chip--imported {
+	background-color: var( --background-color-progressive-subtle, #eaf3ff );
+	color: var( --color-progressive, #36c );
+}
+
 .ts-chip--log {
 	border-color: var( --border-color-base, #a2a9b1 );
 	border-radius: var( --border-radius-base, 4px );

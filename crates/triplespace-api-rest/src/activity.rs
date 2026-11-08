@@ -490,6 +490,7 @@ mod tests {
             "operator",
             "requested_by",
             "job",
+            "upstream",
             "summary",
             "comment",
             "tags",

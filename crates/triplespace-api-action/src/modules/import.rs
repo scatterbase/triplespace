@@ -24,7 +24,7 @@ use scatter_ingest::write::Attestation;
 use scatter_mediawiki_xml::{DumpPage, XmlDump};
 use scatter_wikibase_model::sites::SiteRegistry;
 use serde_json::{Value, json};
-use triplespace_api_ingest::import::{census, import_pages};
+use triplespace_api_ingest::import::{census, ensure_accounts, import_pages, issuer_for};
 use triplespace_api_ingest::talk_import::{self, Authors, TalkContext};
 
 use crate::api::Ctx;
@@ -32,8 +32,9 @@ use crate::edit::now_micros;
 use crate::pages::Site;
 use crate::response::{ApiError, ApiResponse};
 
-/// The most an upload or a fetched export may be, in bytes.
-pub const MAX_BYTES: usize = 64 * 1024 * 1024;
+/// The registry default of `import.max_upload`, 100 MB (0047 A36): the most an upload
+/// or a fetched export may be, in bytes, where the tenant's setting is unreadable.
+pub const DEFAULT_MAX_UPLOAD: u64 = 100 * 1024 * 1024;
 
 /// The URL of a wiki's `Special:Export` of a title, through its site alias: the alias's
 /// article path with `Special:Export/{title}`, and MediaWiki's `history` and `templates`
@@ -61,7 +62,7 @@ pub fn export_url(
 }
 
 /// Fetches another wiki's export of a title.
-async fn fetch(ctx: &Ctx, url: &str) -> Result<Vec<u8>, ApiError> {
+async fn fetch(ctx: &Ctx, url: &str, max_bytes: usize) -> Result<Vec<u8>, ApiError> {
     let client = reqwest::Client::builder()
         .user_agent(&ctx.app.config().generator)
         .timeout(std::time::Duration::from_mins(2))
@@ -88,10 +89,10 @@ async fn fetch(ctx: &Ctx, url: &str) -> Result<Vec<u8>, ApiError> {
             format!("The export could not be read from {url}: {e}"),
         )
     })?;
-    if bytes.len() > MAX_BYTES {
+    if bytes.len() > max_bytes {
         return Err(ApiError::new(
             "import-too-large",
-            format!("The export is larger than {MAX_BYTES} bytes."),
+            format!("The export is larger than {max_bytes} bytes (import.max_upload)."),
         ));
     }
     Ok(bytes.to_vec())
@@ -136,13 +137,26 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         }
     }
 
-    // The source.
-    let (bytes, source, prefix) = if let Some(xml) = ctx.params.file("xml") {
+    // The wiki's upload limit (0047 A36).
+    let (settings, _) =
+        triplespace_accounts::settings::load(ctx.db(), Some(&ctx.tenant.slug)).await?;
+    let max_bytes = usize::try_from(
+        settings
+            .value("import.max_upload")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(DEFAULT_MAX_UPLOAD),
+    )
+    .unwrap_or(usize::MAX);
+
+    // The source, and the registered issuer it is, if any (0008 A50): a fetched page's
+    // by its alias and host; an upload's only where `interwikiprefix` names an issuer's
+    // code outright, since the file itself is not to be trusted with real accounts.
+    let (bytes, source, prefix, issuer) = if let Some(xml) = ctx.params.file("xml") {
         ctx.caller.require("importupload")?;
-        if xml.len() > MAX_BYTES {
+        if xml.len() > max_bytes {
             return Err(ApiError::new(
                 "import-too-large",
-                format!("The file is larger than {MAX_BYTES} bytes."),
+                format!("The file is larger than {max_bytes} bytes (import.max_upload)."),
             ));
         }
         let prefix = ctx
@@ -152,7 +166,15 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             .unwrap_or("imported")
             .trim()
             .to_string();
-        (xml.to_vec(), "upload".to_string(), prefix)
+        let issuer = scatter_actors::issuer::IssuerRegistry::default_registry()
+            .by_code(&prefix)
+            .filter(|i| {
+                !i.template
+                    && !i.builtin
+                    && i.actor_model == scatter_actors::issuer::ActorModel::Numeric
+            })
+            .map(|i| i.code.clone());
+        (xml.to_vec(), "upload".to_string(), prefix, issuer)
     } else if let Some(alias) = ctx.params.get("interwikisource") {
         let alias = alias.trim().to_string();
         let title = ctx.params.required("interwikipage")?.trim().to_string();
@@ -166,7 +188,13 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             ));
         };
         let url = export_url(site, &title, history, templates);
-        (fetch(ctx, &url).await?, alias.clone(), alias)
+        let issuer = issuer_for(&alias, Some(&site.host));
+        (
+            fetch(ctx, &url, max_bytes).await?,
+            alias.clone(),
+            alias,
+            issuer,
+        )
     } else {
         return Err(ApiError::new(
             "import-nosource",
@@ -199,7 +227,7 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     // The job (10 §6 steps 1–2).
     let accounts = talk_import::accounts_of(pages.iter());
     let authors = Authors::Imported {
-        issuer: None,
+        issuer: issuer.as_deref(),
         accounts: &accounts,
         prefix: &prefix,
     };
@@ -208,6 +236,19 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     let store = ctx.app.store();
     let pipeline = ctx.app.pipeline();
     let now = now_micros();
+    if let Some(issuer) = &issuer {
+        ensure_accounts(
+            store,
+            pipeline,
+            &ctx.tenant.slug,
+            issuer,
+            &accounts,
+            &attestation,
+            now,
+        )
+        .await
+        .map_err(ApiError::internal)?;
+    }
     let (outcome, read) = import_pages(
         store,
         pipeline,
@@ -268,6 +309,7 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         "job".into(),
         json!({
             "id": outcome.job_id,
+            "issuer": issuer,
             "counts": outcome.counts,
             "talk": talk,
             "entities": read.entities,

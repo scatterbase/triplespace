@@ -16,7 +16,7 @@ use scatter_ingest::import::Import as ImportJob;
 use scatter_ingest::import::census::Census;
 use scatter_ingest::write::Attestation;
 use scatter_mediawiki_xml::DumpPage;
-use triplespace_api_ingest::import::{census, import_pages};
+use triplespace_api_ingest::import::{census, ensure_accounts, import_pages, issuer_for};
 use triplespace_api_ingest::talk_import::{self, Authors, TalkContext};
 
 use crate::common::{connect, farm_of, now, store};
@@ -180,13 +180,40 @@ pub async fn run(args: Import) -> Result<()> {
 
     // Pass 2: the job.
     let accounts = talk_import::accounts_of(all.iter());
+    // The registered issuer the source is (0008 A50): named outright, or resolved from
+    // `--source` as a site alias or provider slug.
+    let issuer = match &args.issuer {
+        Some(code) => Some(issuer_for(code, None).with_context(|| {
+            format!("`{code}` is not a registered issuer with numeric accounts (issuers.toml)")
+        })?),
+        None => issuer_for(&args.source, None),
+    };
+    if let Some(i) = &issuer {
+        eprintln!("the source is the registered issuer `{i}`: its accounts keep their IDs");
+    }
     let authors = Authors::Imported {
-        issuer: args.issuer.as_deref(),
+        issuer: issuer.as_deref(),
         accounts: &accounts,
         prefix: &args.source,
     };
     let (store, pipeline) = store(&args.database, &farm)?;
     let t = now();
+    if let Some(i) = &issuer {
+        let n = ensure_accounts(
+            &store,
+            &pipeline,
+            &args.tenant,
+            i,
+            &accounts,
+            &Attestation::by(&actor),
+            t,
+        )
+        .await
+        .context("accounts")?;
+        if n > 0 {
+            println!("  accounts   {n} of `{i}` recorded");
+        }
+    }
     let job = ImportJob {
         source: args.source.clone(),
         version: args

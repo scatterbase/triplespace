@@ -30,7 +30,7 @@
 //! census refuses them (`census`), since an entity's identifier is assigned by the load
 //! path that creates it, never copied from a file (0008 A48).
 //!
-//! implements 0008 §9.1 (A49)
+//! implements 0008 §9.1 (A50)
 //! implements 0008 §9.4 (A49)
 
 pub mod census;

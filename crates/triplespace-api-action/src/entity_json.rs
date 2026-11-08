@@ -71,12 +71,14 @@ pub fn served(current: &Current) -> (Entity, PageInfo) {
     (entity, page)
 }
 
-/// The statements of the resolved view named as their upstream names them (0002 A43).
+/// The statements of the resolved view named as their upstream names them (0002 A43),
+/// each with the entity its upstream names it after (0002 A44).
 #[must_use]
 pub fn upstream_statements(
     current: &Current,
     registry: &Registry,
-) -> std::collections::BTreeSet<scatter_wikibase_model::StatementId> {
+) -> std::collections::BTreeMap<scatter_wikibase_model::StatementId, scatter_providers::UpstreamRef>
+{
     current.upstream_statements(registry)
 }
 
@@ -189,6 +191,7 @@ mod tests {
                     statement(fused_local, "both"),
                     statement(only_local, "ours"),
                 ]),
+                upstream_id: None,
             },
             Contribution {
                 graph: "mirror/wikidata".into(),
@@ -197,6 +200,7 @@ mod tests {
                     statement(fused_mirror, "both"),
                     statement(corrected, "ranked here"),
                 ]),
+                upstream_id: None,
             },
         ];
         let corrections: BTreeMap<StatementId, Correction> = BTreeMap::from([(
@@ -213,11 +217,72 @@ mod tests {
             local_offset: None,
             local_revid: None,
         };
-        let upstream: Vec<String> = upstream_statements(&current, Registry::default_registry())
-            .iter()
-            .map(|s| s.as_str().to_string())
-            .collect();
-        assert_eq!(upstream, vec![only_mirror.to_string()]);
+        let upstream = upstream_statements(&current, Registry::default_registry());
+        let named: Vec<&str> = upstream.keys().map(StatementId::as_str).collect();
+        assert_eq!(named, vec![only_mirror]);
+        // Named after its own subject, Wikidata's Q42.
+        assert_eq!(
+            upstream.values().next().unwrap(),
+            &scatter_providers::UpstreamRef::of(
+                &Registry::default_registry()
+                    .parse_foreign_id("WDQ42")
+                    .unwrap()
+            )
+        );
+    }
+
+    /// A key-mapped provider's statement is stored under the keyed subject, so its upstream
+    /// is the item the graph's record was mapped from (0002 A44); a keyed subject no item
+    /// was mapped onto has no upstream to name it by and is left out.
+    #[test]
+    fn key_mapped_statements_are_named_after_the_item_mapped_onto_the_subject() {
+        use scatter_providers::UpstreamRef;
+        use scatter_wikibase_model::StatementId;
+        use scatter_wikibase_resolve::{Contribution, resolve};
+        use std::collections::BTreeMap;
+
+        let mapped = "domain:wikipedia.org$00000000-0000-0000-0000-0000000000B2";
+        let bare = "domain:example.net$00000000-0000-0000-0000-0000000000C1";
+        let keyed = |id: &str, guid: &str| {
+            Entity::from_value(json!({"type": "domain", "id": id, "claims": {"XDP8": [
+                {"mainsnak": {"snaktype": "value", "property": "XDP8", "datatype": "string",
+                    "datavalue": {"value": "x", "type": "string"}},
+                "type": "statement", "rank": "normal", "id": guid}]}}))
+            .unwrap()
+            .entity
+        };
+        let current = |contributions: Vec<Contribution>| Current {
+            resolved: resolve(&contributions, &BTreeMap::new()).unwrap(),
+            contributions,
+            corrections: BTreeMap::new(),
+            page_id: 1,
+            lastrevid: None,
+            modified: 0,
+            local_offset: None,
+            local_revid: None,
+        };
+        let registry = Registry::default_registry();
+        let upstream = upstream_statements(
+            &current(vec![Contribution {
+                graph: "mirror/internetdomains".into(),
+                entity: keyed("domain:wikipedia.org", mapped),
+                upstream_id: Some("Q11".into()),
+            }]),
+            registry,
+        );
+        assert_eq!(
+            upstream.get(&StatementId::parse(mapped).unwrap()),
+            Some(&UpstreamRef::mapped(registry.by_code("XD").unwrap(), "Q11").unwrap())
+        );
+        let none = upstream_statements(
+            &current(vec![Contribution {
+                graph: "mirror/internetdomains".into(),
+                entity: keyed("domain:example.net", bare),
+                upstream_id: None,
+            }]),
+            registry,
+        );
+        assert!(none.is_empty(), "{none:?}");
     }
 
     #[test]

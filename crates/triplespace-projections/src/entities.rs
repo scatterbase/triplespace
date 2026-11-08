@@ -215,14 +215,16 @@ impl EntityProjection {
         Ok(local)
     }
 
-    /// The state a mirror's cursor names. `current` is a record the caller holds, the one
-    /// being applied: when the cursor names it, it is used as it is rather than read back
-    /// and checked again.
+    /// The state a mirror's cursor names, with its record's header and, for a key-mapped
+    /// provider's state under a keyed subject, the provider's own ID of the item it was
+    /// mapped from (05 §4.2). `current` is a record the caller holds, the one being
+    /// applied: when the cursor names it, it is used as it is rather than read back and
+    /// checked again.
     pub(crate) async fn mirror<C: Partitions>(
         client: &C,
         source: &Source,
         current: Option<&Record>,
-    ) -> Result<Option<(Entity, Header)>, String> {
+    ) -> Result<Option<(Entity, Header, Option<String>)>, String> {
         let Some(partition) = partition_of(client, &source.tenant, &source.graph).await? else {
             return Err(format!("graph `{}` has no partition", source.graph));
         };
@@ -242,9 +244,15 @@ impl EntityProjection {
             &read
         };
         match operation(record)?.as_deref() {
-            Some(Operation::Put { entity, .. }) => {
-                Ok(Some((entity.clone(), record.header().clone())))
-            }
+            Some(Operation::Put {
+                entity,
+                upstream_id,
+                ..
+            }) => Ok(Some((
+                entity.clone(),
+                record.header().clone(),
+                upstream_id.clone(),
+            ))),
             _ => Ok(None),
         }
     }
@@ -303,6 +311,7 @@ impl EntityProjection {
             contributions.push(Contribution {
                 graph: "local".to_string(),
                 entity: e.clone(),
+                upstream_id: None,
             });
         }
         let mut mirror_states = 0usize;
@@ -310,12 +319,13 @@ impl EntityProjection {
             .iter()
             .filter(|s| s.graph.starts_with("mirror/") || s.graph.starts_with("source/"))
         {
-            if let Some((entity, header)) = Self::mirror(cx, s, current).await? {
+            if let Some((entity, header, upstream_id)) = Self::mirror(cx, s, current).await? {
                 headers.push(header);
                 mirror_states += 1;
                 contributions.push(Contribution {
                     graph: s.graph.clone(),
                     entity,
+                    upstream_id,
                 });
             }
         }
@@ -649,9 +659,11 @@ impl RowCore {
     /// The rows of an entity that is its graph's one contribution, resolved as
     /// [`EntityProjection::resolve_subject`] resolves such an entity: no corrections.
     fn of(graph: &str, entity: &Entity) -> Result<Self, String> {
+        // An unkeyed subject only ([`Self::ahead`]), so no item was mapped onto it.
         let contributions = [Contribution {
             graph: graph.to_string(),
             entity: entity.clone(),
+            upstream_id: None,
         }];
         let resolved =
             resolve(&contributions, &BTreeMap::new()).ok_or("one contribution resolves")?;

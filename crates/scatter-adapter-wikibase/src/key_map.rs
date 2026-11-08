@@ -698,6 +698,7 @@ impl Adapter for KeyMappedAdapter {
 mod tests {
     use super::*;
     use scatter_providers::Registry;
+    use scatter_wikibase_model::id::StatementId;
     use scatter_wikibase_model::value::DataType;
     use serde_json::json;
 
@@ -783,6 +784,43 @@ mod tests {
 
     fn adapter(index: Index) -> KeyMappedAdapter {
         KeyMappedAdapter::new(WikibaseAdapter::new(XD).unwrap(), xd_rules(), index)
+    }
+
+    /// A mapped item's state keeps the item's ID beside it (05 §4.2), and its statements
+    /// keep their upstream UUIDs under the keyed subject, so each statement's node upstream,
+    /// `…/statement/Q9-{UUID}`, follows from the two (0002 A44).
+    #[test]
+    fn a_mapped_state_names_the_item_its_statements_came_from() {
+        let rules = xd_rules();
+        let mut index = Index::default();
+        for v in dump() {
+            let _ = index.observe(&parsed(&v).entity, &rules);
+        }
+        index.finish();
+        let adapter = adapter(index);
+        let q9 = dump().into_iter().find(|v| v["id"] == "Q9").unwrap();
+        let Outcome::State {
+            entity,
+            upstream_id,
+            ..
+        } = adapter.sync_item(parsed(&q9)).unwrap()
+        else {
+            panic!("Q9 maps")
+        };
+        assert_eq!(entity.id.as_str(), "domain:example.org");
+        assert_eq!(upstream_id.as_deref(), Some("Q9"));
+        let ids: Vec<StatementId> = entity
+            .all_statements()
+            .map(|s| s.id.clone().unwrap())
+            .collect();
+        assert_eq!(
+            ids.iter().map(StatementId::as_str).collect::<Vec<_>>(),
+            ["domain:example.org$00000000-0000-0000-0000-000000000002"]
+        );
+        assert_eq!(
+            format!("{}-{}", upstream_id.unwrap(), ids[0].uuid()),
+            "Q9-00000000-0000-0000-0000-000000000002"
+        );
     }
 
     #[test]

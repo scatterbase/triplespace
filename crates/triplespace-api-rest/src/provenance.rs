@@ -138,23 +138,22 @@ fn upstream_urls(registry: &Registry, standing: &Standing) -> Vec<Option<String>
         .collect()
 }
 
-/// The response body. `urls` are [`upstream_urls`].
+/// The response body. `urls` are [`upstream_urls`]; `registry` names the item a
+/// key-mapped provider's graph mapped onto a keyed subject.
 fn body(
     id: &EntityId,
     current: Option<&Current>,
     standing: &Standing,
     minted: &Value,
     urls: &[Option<String>],
+    registry: &Registry,
 ) -> Value {
     let mut graphs = Vec::new();
     let mut dominant: Option<(String, usize)> = None;
     for (i, g) in standing.graphs.iter().enumerate() {
-        let statements = current.map_or(0, |c| {
-            c.contributions
-                .iter()
-                .find(|k| k.graph == g.graph)
-                .map_or(0, |k| k.entity.all_statements().count())
-        });
+        let contribution =
+            current.and_then(|c| c.contributions.iter().find(|k| k.graph == g.graph));
+        let statements = contribution.map_or(0, |k| k.entity.all_statements().count());
         if statements > dominant.as_ref().map_or(0, |d| d.1) {
             dominant = Some((g.graph.clone(), statements));
         }
@@ -168,6 +167,21 @@ fn body(
         }
         if let Some(Some(u)) = urls.get(i) {
             row["upstream_url"] = json!(u);
+        }
+        // A key-mapped provider's record under a keyed subject names the item it was
+        // mapped from (05 §4.2), which the entity page lists among the identifiers and
+        // RDF names the graph's statements after (0002 A44).
+        if let Some(item) = contribution.and_then(|k| k.upstream_id.as_deref()) {
+            row["upstream_id"] = json!(item);
+            let iri = registry
+                .providers()
+                .iter()
+                .find(|p| p.mirror_graph() == g.graph)
+                .and_then(|p| scatter_providers::UpstreamRef::mapped(p, item))
+                .and_then(|u| u.concept_iri(registry));
+            if let Some(iri) = iri {
+                row["upstream_iri"] = json!(iri);
+            }
         }
         if let Some(j) = g.job_id {
             row["job"] = json!(j);
@@ -276,7 +290,7 @@ pub async fn handle(
         .await
         .unwrap_or_else(|_| app.registry());
     let urls = upstream_urls(registry, &standing);
-    let body = body(&id, current.as_ref(), &standing, &minted, &urls).to_string();
+    let body = body(&id, current.as_ref(), &standing, &minted, &urls, registry).to_string();
     let class = Class::Public.permitted(&method, credentialed, false, false);
     http_cache::respond(
         &headers,
@@ -311,6 +325,7 @@ mod tests {
             &Standing::default(),
             &json!({"kind": "keyed", "type": "domain"}),
             &[],
+            Registry::default_registry(),
         );
         for key in required {
             assert!(b.get(key).is_some(), "the body lacks `{key}`: {b}");

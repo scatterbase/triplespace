@@ -97,7 +97,9 @@ pub fn removed(chain: &[Acl], at: Timestamp) -> bool {
 /// private tenant has one), so a list filters by it with one array parameter instead of
 /// evaluating a chain per row. Moderation restrictions are not here: a deleted page is
 /// already left out by `view.page.deleted` for everyone, and a hidden revision part by
-/// `view.activity.visibility`.
+/// `view.activity.visibility`. What this means for an activity row is stated once, as
+/// SQL, in [`crate::feed::visible_targets`]: the feeds and an export bundle's reader both
+/// run it (0006 A31).
 ///
 /// Not yet covered: `statement` and `property` targets, which nothing writes yet.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -209,66 +211,6 @@ impl Hidden {
             .filter(|(_, ns)| self.namespaces.contains(ns))
             .map(|(t, _)| (*t).to_string())
             .collect()
-    }
-}
-
-/// What an activity row is about, for [`Hidden::hides_activity`]: the row's target, the
-/// record a revision-deletion event names (`params.of`), the namespaces of the pages
-/// either is, and the name of the partition the row's record is in.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
-pub struct ActivityTarget {
-    /// `target_kind` ([`crate::common::target_kind`]).
-    pub kind: Option<i16>,
-    /// `target_id`.
-    pub id: Option<String>,
-    /// `params.of.kind`, for a row whose target is a record.
-    pub of_kind: Option<i16>,
-    /// `params.of.id`.
-    pub of_id: Option<String>,
-    /// The namespace of the page the row targets, where it targets a page.
-    pub page_ns: Option<i32>,
-    /// The namespace of the page `params.of` names, where it names one.
-    pub of_page_ns: Option<i32>,
-    /// The name of the row's partition (`local`, `mirror/wikidata`, …).
-    pub partition_name: String,
-}
-
-impl Hidden {
-    /// Whether an activity row is absent for the principal: the rules the feed query
-    /// applies in SQL (`feed::build`), for a caller that decides row by row, as an
-    /// export bundle does (0103 §1; 0006 A31). A page's row is hidden with the page or its
-    /// namespace, an entity's with the entity, its namespace or the graph holding it, a
-    /// revision-deletion event with the record it names, a namespace or set ACL's event
-    /// with the target, and every row of a restricted graph's partition.
-    #[must_use]
-    pub fn hides_activity(&self, row: &ActivityTarget) -> bool {
-        use crate::common::target_kind::{ENTITY, PAGE, RECORD};
-        if self.tenant || self.graphs.contains(&row.partition_name) {
-            return true;
-        }
-        let page_id = |id: &Option<String>| id.as_deref().and_then(|s| s.parse::<u64>().ok());
-        let on_page = |kind: Option<i16>, id: &Option<String>, ns: Option<i32>| {
-            kind == Some(PAGE)
-                && (self.all_pages
-                    || page_id(id).is_some_and(|p| self.pages.contains(&p))
-                    || ns.is_some_and(|n| self.namespaces.contains(&n)))
-        };
-        let on_entity = |kind: Option<i16>, id: &Option<String>| {
-            kind == Some(ENTITY)
-                && id
-                    .as_deref()
-                    .is_some_and(|e| self.entity(e, Some(&row.partition_name)))
-        };
-        if on_page(row.kind, &row.id, row.page_ns) || on_entity(row.kind, &row.id) {
-            return true;
-        }
-        if row.kind == Some(RECORD)
-            && (on_page(row.of_kind, &row.of_id, row.of_page_ns)
-                || on_entity(row.of_kind, &row.of_id))
-        {
-            return true;
-        }
-        row.kind.is_none() && row.id.as_ref().is_some_and(|k| self.acl_keys.contains(k))
     }
 }
 
@@ -1066,62 +1008,4 @@ pub async fn record_acls<C: PgClient>(
             _ => None,
         })
         .collect())
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::common::target_kind::{ENTITY, PAGE, RECORD};
-
-    fn row(kind: i16, id: &str) -> ActivityTarget {
-        ActivityTarget {
-            kind: Some(kind),
-            id: Some(id.into()),
-            partition_name: "local".into(),
-            ..ActivityTarget::default()
-        }
-    }
-
-    /// The row rules of the feed query, row by row (0006 A31).
-    #[test]
-    fn hides_activity_as_the_feed_does() {
-        let mut h = Hidden::default();
-        h.entities.insert("Q5".into());
-        h.pages.insert(42);
-        h.namespaces.insert(4);
-        h.acl_keys.insert("acl:namespace:4".into());
-        h.graphs.insert("mirror/wikidata".into());
-        assert!(h.hides_activity(&row(ENTITY, "Q5")));
-        assert!(!h.hides_activity(&row(ENTITY, "Q6")));
-        assert!(h.hides_activity(&row(PAGE, "42")));
-        let mut in_ns = row(PAGE, "7");
-        in_ns.page_ns = Some(4);
-        assert!(h.hides_activity(&in_ns));
-        assert!(!h.hides_activity(&row(PAGE, "7")));
-        // A revision-deletion event follows the record it names.
-        let mut rd = row(RECORD, "local/9");
-        rd.of_kind = Some(ENTITY);
-        rd.of_id = Some("Q5".into());
-        assert!(h.hides_activity(&rd));
-        rd.of_id = Some("Q6".into());
-        assert!(!h.hides_activity(&rd));
-        // A namespace ACL's own event.
-        let acl = ActivityTarget {
-            kind: None,
-            id: Some("acl:namespace:4".into()),
-            partition_name: "config".into(),
-            ..ActivityTarget::default()
-        };
-        assert!(h.hides_activity(&acl));
-        // Every row of a restricted graph's partition.
-        let mut mirrored = row(ENTITY, "WDQ1");
-        mirrored.partition_name = "mirror/wikidata".into();
-        assert!(h.hides_activity(&mirrored));
-        // A private tenant hides everything.
-        let private = Hidden {
-            tenant: true,
-            ..Hidden::default()
-        };
-        assert!(private.hides_activity(&row(ENTITY, "Q6")));
-    }
 }

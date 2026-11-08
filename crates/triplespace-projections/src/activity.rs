@@ -364,7 +364,14 @@ async fn page_columns(cx: &PgCx, record: &Record) -> Result<Columns, String> {
             }
             (Some(("move", "move")), Some(params))
         }
-        _ => (None, None),
+        // An adopted or imported revision keeps the upstream revision it came from, for
+        // the history's chip (0008 A50).
+        _ => (
+            None,
+            op.source().map(
+                |s| serde_json::json!({"source": {"revid": s.source_revid, "time": s.source_time}}),
+            ),
+        ),
     };
     Ok(Columns {
         kind: "edit",

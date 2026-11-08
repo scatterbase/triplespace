@@ -6032,6 +6032,15 @@
               "mirror/wikidata"
             ]
           },
+          "upstream_id": {
+            "type": "string",
+            "description": "For a key-mapped provider's graph, the upstream item the keyed entity was mapped from (0002 A45)."
+          },
+          "upstream_iri": {
+            "type": "string",
+            "format": "uri",
+            "description": "That item's concept IRI on the provider."
+          },
           "statements": {
             "type": "integer",
             "description": "How many statements the graph asserts."
@@ -6826,6 +6835,14 @@
           },
           "job": {
             "type": "integer"
+          },
+          "upstream": {
+            "type": "object",
+            "description": "For an adopted or imported revision, the upstream revision it came from (0008 A50).",
+            "properties": {
+              "revid": { "type": "integer", "description": "The source wiki's revision ID." },
+              "time": { "type": "string", "description": "The source wiki's timestamp, as it wrote it." }
+            }
           },
           "summary": {
             "type": "object",

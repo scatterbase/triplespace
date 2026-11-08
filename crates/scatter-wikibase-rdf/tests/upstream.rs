@@ -3,9 +3,10 @@
 //! under the provider's base, hashed over the IDs as the provider writes them, so that each
 //! node is the one the provider's own RDF has. Every other statement is the instance's.
 
-use std::collections::BTreeSet;
+use std::collections::BTreeMap;
 
 use oxrdf::Triple;
+use scatter_providers::{Registry, UpstreamRef};
 use scatter_wikibase_model::{Entity, Hasher, StatementId};
 use scatter_wikibase_rdf::{Flavor, IriScheme, Namespaces, Renderer};
 
@@ -53,7 +54,12 @@ fn mirrored_statements_keep_upstream_nodes() {
     .entity;
     let iris = IriScheme::with_default_registries(Namespaces::triplespace("https://example.org"));
     let hasher = Hasher::local();
-    let upstream: BTreeSet<StatementId> = [StatementId::parse(UPSTREAM).unwrap()].into();
+    let registry = Registry::default_registry();
+    let upstream: BTreeMap<StatementId, UpstreamRef> = [(
+        StatementId::parse(UPSTREAM).unwrap(),
+        UpstreamRef::of(&registry.parse_foreign_id("WDQ42").unwrap()),
+    )]
+    .into();
     let triples = Renderer::new(&iris, &hasher, Flavor::Dump.produce())
         .with_upstream(&upstream)
         .entity(&entity, None);
@@ -105,4 +111,66 @@ fn mirrored_statements_keep_upstream_nodes() {
     );
     // Upstream's predicates for both: the property is Wikidata's either way.
     assert!(objects(&triples, concept, "/prop/P31").len() == 2);
+}
+
+/// A key-mapped provider's statement is stored under the keyed entity's ID with the
+/// upstream statement's UUID; given the item that was mapped onto the entity, it is named
+/// as the provider names it, statement node and reference node alike (05 §1.5; 0002 A44).
+#[test]
+fn key_mapped_statements_keep_the_items_upstream_nodes() {
+    const MAPPED: &str = "domain:wikipedia.org$00000000-0000-0000-0000-0000000000B2";
+    const UNMAPPED: &str = "domain:example.net$00000000-0000-0000-0000-0000000000C1";
+    let keyed = |id: &str, guid: &str| {
+        Entity::from_value(serde_json::json!({
+            "type": "domain", "id": id,
+            "claims": {"XDP31": [statement(guid, "XDP3", "XDQ7", "XD")]},
+        }))
+        .unwrap()
+        .entity
+    };
+    let iris = IriScheme::with_default_registries(Namespaces::triplespace("https://example.org"));
+    let hasher = Hasher::local();
+    let registry = Registry::default_registry();
+    let xd = registry.by_code("XD").unwrap();
+    // The statement of `domain:wikipedia.org` came from the provider's Q11; the entity's
+    // ID says nothing of that, so the caller says it.
+    let upstream: BTreeMap<StatementId, UpstreamRef> = [(
+        StatementId::parse(MAPPED).unwrap(),
+        UpstreamRef::mapped(xd, "Q11").unwrap(),
+    )]
+    .into();
+    let renderer = Renderer::new(&iris, &hasher, Flavor::Dump.produce()).with_upstream(&upstream);
+
+    let triples = renderer.entity(&keyed("domain:wikipedia.org", MAPPED), None);
+    let concept = "https://scatter.red/domain/wikipedia.org";
+    let xd_statement =
+        "https://internetdomains.wiki/entity/statement/Q11-00000000-0000-0000-0000-0000000000B2";
+    assert_eq!(
+        objects(&triples, concept, "/prop/P31"),
+        vec![xd_statement],
+        "the statement node the provider's own RDF has"
+    );
+    let reference = objects(&triples, xd_statement, "#wasDerivedFrom");
+    assert!(
+        reference[0].starts_with("https://internetdomains.wiki/reference/"),
+        "{reference:?}"
+    );
+    let value = objects(&triples, xd_statement, "/prop/qualifier/value/P580");
+    assert!(
+        value[0].starts_with("https://internetdomains.wiki/value/"),
+        "{value:?}"
+    );
+
+    // A keyed entity's statement the caller gives no item for is the instance's.
+    let triples = renderer.entity(&keyed("domain:example.net", UNMAPPED), None);
+    assert_eq!(
+        objects(
+            &triples,
+            "https://scatter.red/domain/example.net",
+            "/prop/P31"
+        ),
+        vec![
+            "https://example.org/entity/statement/domain:example.net-00000000-0000-0000-0000-0000000000C1"
+        ]
+    );
 }

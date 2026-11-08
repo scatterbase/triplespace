@@ -43,10 +43,16 @@ pub struct Migration {
 }
 
 /// The `log` schema's migrations, in order.
-pub const MIGRATIONS: &[Migration] = &[Migration {
-    name: "0001_log",
-    sql: include_str!("../migrations/0001_log.sql"),
-}];
+pub const MIGRATIONS: &[Migration] = &[
+    Migration {
+        name: "0001_log",
+        sql: include_str!("../migrations/0001_log.sql"),
+    },
+    Migration {
+        name: "0002_partition_origin",
+        sql: include_str!("../migrations/0002_partition_origin.sql"),
+    },
+];
 
 /// Applies every migration, in order. Each is idempotent, so this can run at every start.
 pub async fn migrate<C: tokio_postgres::GenericClient>(

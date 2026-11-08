@@ -234,6 +234,10 @@ pub struct DiffSide {
     pub comment: Option<String>,
     /// The size in bytes.
     pub size: u64,
+    /// For an adopted or imported revision, the upstream revision it came from.
+    pub upstream: Option<crate::activity::UpstreamRef>,
+    /// The job that wrote it, if one did.
+    pub job: Option<u64>,
 }
 
 /// A diff between two revisions of a document page (`action=compare`).
@@ -295,6 +299,17 @@ fn diff_side(c: &Value, prefix: &str) -> Option<DiffSide> {
         user: c[key("user")].as_str().map(str::to_string),
         comment: c[key("comment")].as_str().map(str::to_string),
         size: c[key("size")].as_u64().unwrap_or(0),
+        upstream: c[key("upstream")]
+            .as_object()
+            .map(|u| crate::activity::UpstreamRef {
+                revid: u.get("revid").and_then(Value::as_u64).unwrap_or(0),
+                time: u
+                    .get("time")
+                    .and_then(Value::as_str)
+                    .unwrap_or_default()
+                    .to_string(),
+            }),
+        job: c[key("job")].as_u64(),
     })
 }
 

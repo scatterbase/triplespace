@@ -36,6 +36,12 @@ pub struct Contribution {
     /// The state the graph asserts. For a local graph that only adds to a foreign
     /// subject this is the partial state the adds built.
     pub entity: Entity,
+    /// The provider's own ID of the item this state was mapped from, for a key-mapped
+    /// provider's state under a keyed subject (05 §4.2: the `put`'s `upstream_id`);
+    /// `None` for a state under the subject's own ID. Every statement of the state is
+    /// the item's, so the statements of the resolved view this graph asserts are named
+    /// after it where RDF names them as upstream does (0002 A44).
+    pub upstream_id: Option<String>,
 }
 
 /// A local correction of one statement (0002 §7).
@@ -294,10 +300,12 @@ mod tests {
             Contribution {
                 graph: "local".into(),
                 entity: local(),
+                upstream_id: None,
             },
             Contribution {
                 graph: "mirror/internetdomains".into(),
                 entity: mirror(),
+                upstream_id: None,
             },
         ];
         let r = resolve(&contributions, &BTreeMap::new()).unwrap();
@@ -332,6 +340,7 @@ mod tests {
             &[Contribution {
                 graph: "mirror/internetdomains".into(),
                 entity: m.clone(),
+                upstream_id: None,
             }],
             &BTreeMap::new(),
         )
@@ -353,6 +362,7 @@ mod tests {
             &[Contribution {
                 graph: "mirror/x".into(),
                 entity: mirror(),
+                upstream_id: None,
             }],
             &corrections,
         )
@@ -365,10 +375,12 @@ mod tests {
             Contribution {
                 graph: "local".into(),
                 entity: local(),
+                upstream_id: None,
             },
             Contribution {
                 graph: "mirror/x".into(),
                 entity: mirror(),
+                upstream_id: None,
             },
         ];
         let r = resolve(&both, &corrections).unwrap();

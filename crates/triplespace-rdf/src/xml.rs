@@ -143,7 +143,6 @@ struct PagePlan {
     head: DumpPage,
     kind: Kind,
     model: String,
-    format: String,
     revisions: Vec<RevisionPlan>,
 }
 
@@ -486,7 +485,6 @@ pub async fn plan<C: PgClient + GenericClient>(
                     revisions: Vec::new(),
                 },
                 kind: Kind::Page,
-                format: format_of(&model),
                 model,
                 revisions: Vec::new(),
             },
@@ -522,7 +520,6 @@ pub async fn plan<C: PgClient + GenericClient>(
                 },
                 kind: Kind::Entity(id),
                 model: model.to_string(),
-                format: format_of(model),
                 revisions: Vec::new(),
             },
         );
@@ -624,12 +621,27 @@ pub async fn write<C: PgClient, W: Write>(
     }
     for page in &plan.pages {
         w.open_page(&page.head).map_err(io)?;
+        // A page's revisions carry the model each had (0047 A37): the `create`'s, then
+        // each `edit`'s change, walked in order; the page's current model where the
+        // records that set it are withheld. An entity's is its type's.
+        let mut model = page.model.clone();
         for r in &page.revisions {
             let slot = log::read(client, r.partition, r.offset).await.map_err(db)?;
             let (text_hidden, comment_hidden, user_hidden) =
                 match redact(slot, r.withhold.as_ref()).map_err(db)? {
                     Shown::Leaf(_) => continue,
                     Shown::Record { record, .. } => {
+                        if matches!(page.kind, Kind::Page)
+                            && let Ok(Some(v)) = record.body().content().value()
+                            && let Ok(j) = v.to_json()
+                            && let Ok(op) = scatter_pages::PageOp::from_json(j)
+                        {
+                            match op {
+                                scatter_pages::PageOp::Create { model: m, .. }
+                                | scatter_pages::PageOp::Edit { model: Some(m), .. } => model = m,
+                                _ => {}
+                            }
+                        }
                         let parts = record.body().parts();
                         let erased =
                             |i: usize| parts.get(i).is_none_or(scatter_log::body::Part::is_erased);
@@ -662,8 +674,8 @@ pub async fn write<C: PgClient, W: Write>(
                     r.comment.clone()
                 },
                 origin: Some(r.revid),
-                model: Some(page.model.clone()),
-                format: Some(page.format.clone()),
+                model: Some(model.clone()),
+                format: Some(format_of(&model)),
                 text: text.unwrap_or_default(),
                 sha1: None,
                 slots: Vec::new(),

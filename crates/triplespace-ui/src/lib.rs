@@ -56,6 +56,7 @@ pub mod theme;
 pub mod watch;
 
 use axum::Router;
+use axum::extract::DefaultBodyLimit;
 use axum::routing::get;
 use triplespace_client::Client;
 
@@ -150,17 +151,33 @@ pub fn router_with_build(client: Client, version_json: &str) -> Router {
     router_for(Site::new(client).with_build(version_json))
 }
 
+/// The most a posted form may be: `Special:Import`'s upload, bounded by the wiki's
+/// `import.max_upload`, whose ceiling this is (0047 A36).
+pub const BODY_LIMIT: usize = 1024 * 1024 * 1024;
+
 /// The router over a site configured by hand: the skins directory and the build.
 pub fn router_for(site: Site) -> Router {
     Router::new()
         .route("/", get(pages::root))
         .route("/wiki/", get(pages::root))
-        .route("/wiki/{*title}", get(pages::wiki).post(pages::wiki_post))
+        .route(
+            "/wiki/{*title}",
+            get(pages::wiki)
+                .post(pages::wiki_post)
+                .layer(DefaultBodyLimit::max(BODY_LIMIT)),
+        )
         .route(
             "/w/index.php",
-            get(pages::index_php).post(pages::index_post),
+            get(pages::index_php)
+                .post(pages::index_post)
+                .layer(DefaultBodyLimit::max(BODY_LIMIT)),
         )
-        .route("/index.php", get(pages::index_php).post(pages::index_post))
+        .route(
+            "/index.php",
+            get(pages::index_php)
+                .post(pages::index_post)
+                .layer(DefaultBodyLimit::max(BODY_LIMIT)),
+        )
         .route("/ui/assets/{*path}", get(pages::asset))
         .route("/ui/skins/{skin}/{hash}/{*path}", get(pages::skin_asset))
         .route("/ui/theme/{file}", get(pages::theme_css))

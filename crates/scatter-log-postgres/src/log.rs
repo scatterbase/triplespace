@@ -132,8 +132,8 @@ pub async fn create_partition<C: PgClient>(
     }
     client
         .execute(
-            "INSERT INTO log.partition (partition, tenant, name, graph_iri, history, integrity, export, segment_k, hash)
-             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)",
+            "INSERT INTO log.partition (partition, tenant, name, graph_iri, history, integrity, export, segment_k, hash, origin)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)",
             &[
                 &p,
                 &info.tenant,
@@ -144,6 +144,7 @@ pub async fn create_partition<C: PgClient>(
                 &export_str(info.export),
                 &i16::from(segments.exponent()),
                 &info.hash,
+                &info.origin,
             ],
         )
         .await

@@ -28,6 +28,7 @@ use scatter_log_postgres::ids::{from_db, partition_to_db};
 use serde_json::Value;
 use tokio_postgres::types::ToSql;
 
+pub use crate::acl_read::Hidden;
 pub use crate::common::target_kind;
 
 /// The most rows one page may hold.
@@ -378,7 +379,148 @@ impl Viewer {
     }
 }
 
-type Param = Box<dyn ToSql + Sync + Send>;
+/// One parameter of a built query.
+pub type Param = Box<dyn ToSql + Sync + Send>;
+
+/// The SQL that keeps, of the `view.activity` rows `a`, those whose target no
+/// confidential restriction hides from a viewer (0056 §5; 09 §5.3): the one statement of
+/// the row rules, which every feed applies in its `WHERE` and an export bundle's reader
+/// selects per row, so that a row absent from recent changes is absent from the bundle
+/// too (0006 A31; 0103 §1). A page's row is hidden with the page or its namespace, an
+/// entity's with the entity, its namespace (by its type) or the graph holding it, a
+/// revision-deletion event with the record it names (`params.of`), a namespace or set
+/// ACL's event with the target, and every row of a restricted graph's partition.
+///
+/// `None` when nothing is hidden. Otherwise a boolean expression over `a` alone, the
+/// page's namespace and the entity's type looked up, with its parameters appended to
+/// `params` and numbered after them. A row no rule matches is kept, whatever is null in
+/// it: an event with no target kind is hidden only by its ACL key.
+#[must_use]
+pub fn visible_targets(hidden: &Hidden, params: &mut Vec<Param>) -> Option<String> {
+    if hidden.tenant {
+        return Some("false".into());
+    }
+    if hidden.is_empty() {
+        return None;
+    }
+    let page = target_kind::PAGE;
+    let record = target_kind::RECORD;
+    let entity = target_kind::ENTITY;
+    let of_kind = "a.params->'of'->>'kind'";
+    let of_id = "a.params->'of'->>'id'";
+    // A page of one of the namespaces `$n` names, by an ID expression.
+    let page_in = |id: &str, n: &str| {
+        format!(
+            "EXISTS (SELECT 1 FROM view.page x WHERE x.tenant = a.tenant
+                     AND x.page_id = CASE WHEN {id} ~ '^[0-9]+$' THEN ({id})::bigint END
+                     AND x.ns = ANY({n}))"
+        )
+    };
+    // An entity of one of the types `$n` names, by an ID expression.
+    let entity_of = |id: &str, n: &str| {
+        format!(
+            "EXISTS (SELECT 1 FROM view.entity x WHERE x.tenant IN (a.tenant, '')
+                     AND x.id = {id} AND x.type = ANY({n}))"
+        )
+    };
+    let mut rules: Vec<String> = Vec::new();
+    if hidden.all_pages {
+        rules.push(format!(
+            "a.target_kind = {page} OR (a.target_kind = {record} AND {of_kind} = '{page}')"
+        ));
+    } else {
+        if !hidden.pages.is_empty() {
+            let ids: Vec<String> = hidden.pages.iter().map(u64::to_string).collect();
+            let n = param(params, Box::new(ids));
+            rules.push(format!(
+                "(a.target_kind = {page} AND a.target_id = ANY({n}))
+                 OR (a.target_kind = {record} AND {of_kind} = '{page}' AND {of_id} = ANY({n}))"
+            ));
+        }
+        if !hidden.namespaces.is_empty() {
+            let n = param(params, Box::new(hidden.namespace_list()));
+            rules.push(format!(
+                "(a.target_kind = {page} AND {})
+                 OR (a.target_kind = {record} AND {of_kind} = '{page}' AND {})",
+                page_in("a.target_id", &n),
+                page_in(of_id, &n)
+            ));
+        }
+    }
+    if !hidden.acl_keys.is_empty() {
+        let keys: Vec<String> = hidden.acl_keys.iter().cloned().collect();
+        let n = param(params, Box::new(keys));
+        rules.push(format!("a.target_kind IS NULL AND a.target_id = ANY({n})"));
+    }
+    if !hidden.entities.is_empty() {
+        let n = param(params, Box::new(hidden.entity_ids()));
+        rules.push(format!(
+            "(a.target_kind = {entity} AND a.target_id = ANY({n}))
+             OR (a.target_kind = {record} AND {of_kind} = '{entity}' AND {of_id} = ANY({n}))"
+        ));
+    }
+    let types = hidden.entity_types();
+    if !types.is_empty() {
+        let n = param(params, Box::new(types));
+        rules.push(format!(
+            "(a.target_kind = {entity} AND {})
+             OR (a.target_kind = {record} AND {of_kind} = '{entity}' AND {})",
+            entity_of("a.target_id", &n),
+            entity_of(of_id, &n)
+        ));
+    }
+    if !hidden.graphs.is_empty() {
+        let graphs: Vec<String> = hidden.graphs.iter().cloned().collect();
+        let n = param(params, Box::new(graphs));
+        rules.push(format!(
+            "EXISTS (SELECT 1 FROM log.partition lp WHERE lp.partition = a.partition
+                     AND lp.name = ANY({n}))"
+        ));
+    }
+    // A null in a rule (no target kind, no `of`) is "not matched", never "hidden".
+    let hidden_by: Vec<String> = rules
+        .iter()
+        .map(|r| format!("coalesce(({r}), false)"))
+        .collect();
+    Some(format!("NOT ({})", hidden_by.join("\n OR ")))
+}
+
+/// Appends a parameter to a built query and names it (`$n`).
+fn param(params: &mut Vec<Param>, p: Param) -> String {
+    params.push(p);
+    format!("${}", params.len())
+}
+
+/// The SQL that keeps, of the rows `a`, the suppression events the viewer may see: a
+/// suppression's event is for the group it names, as MediaWiki's suppression log is for
+/// oversighters (09 §6.5); for a retirement, the group of the ACL it retired. Any other
+/// row is kept. A boolean expression over `a` alone, with its one parameter appended to
+/// `params`; null for a suppression that names no group, which a `WHERE` drops and a
+/// reader must `coalesce`.
+#[must_use]
+pub fn visible_suppressions(viewer: &Viewer, params: &mut Vec<Param>) -> String {
+    let named = "coalesce(a.params->'restrictions'->'read'->>'group', a.params->'previous'->'read'->>'group')";
+    if viewer.every {
+        // Every group but the excluded ones not also named.
+        let excluded: Vec<String> = viewer
+            .excluded
+            .iter()
+            .filter(|g| !viewer.groups.contains(g))
+            .cloned()
+            .collect();
+        params.push(Box::new(excluded));
+        format!(
+            "(a.log_type IS DISTINCT FROM 'suppress' OR {named} <> ALL(${}))",
+            params.len()
+        )
+    } else {
+        params.push(Box::new(viewer.groups.clone()));
+        format!(
+            "(a.log_type IS DISTINCT FROM 'suppress' OR {named} = ANY(${}))",
+            params.len()
+        )
+    }
+}
 
 fn micros(t: SystemTime) -> u64 {
     t.duration_since(UNIX_EPOCH)
@@ -569,115 +711,12 @@ fn build(tenant: &str, feed: &Feed, viewer: &Viewer) -> Built {
     if let Some(u) = f.until {
         push(&mut sql, "a.time <= $n", Box::new(time_of(u)));
     }
-    // A suppression's event is for the group it names, as MediaWiki's suppression log is
-    // for oversighters (09 §6.5); for a retirement, the group of the ACL it retired.
-    let named = "coalesce(a.params->'restrictions'->'read'->>'group', a.params->'previous'->'read'->>'group')";
-    if viewer.every {
-        // Every group but the excluded ones not also named.
-        let excluded: Vec<String> = viewer
-            .excluded
-            .iter()
-            .filter(|g| !viewer.groups.contains(g))
-            .cloned()
-            .collect();
-        push(
-            &mut sql,
-            &format!("(a.log_type IS DISTINCT FROM 'suppress' OR {named} <> ALL($n))"),
-            Box::new(excluded),
-        );
-    } else {
-        push(
-            &mut sql,
-            &format!("(a.log_type IS DISTINCT FROM 'suppress' OR {named} = ANY($n))"),
-            Box::new(viewer.groups.clone()),
-        );
-    }
-    // Rows on a target a confidential restriction hides are absent (0056 §5; 09 §5.3).
-    let h = &viewer.hidden;
-    let page = target_kind::PAGE;
-    let record = target_kind::RECORD;
-    if h.tenant {
-        sql.push_str(" AND false");
-    } else if h.all_pages {
-        // A revision-deletion event names its record; `params.of` is the record's page.
-        push(
-            &mut sql,
-            &format!(
-                "a.target_kind IS DISTINCT FROM $n
-                 AND NOT (a.target_kind = {record} AND a.params->'of'->>'kind' = '{page}')"
-            ),
-            Box::new(page),
-        );
-    } else {
-        if !h.pages.is_empty() {
-            let ids: Vec<String> = h.pages.iter().map(u64::to_string).collect();
-            push(
-                &mut sql,
-                &format!(
-                    "NOT ((a.target_kind = {page} AND a.target_id = ANY($n))
-                      OR (a.target_kind = {record} AND a.params->'of'->>'kind' = '{page}'
-                          AND a.params->'of'->>'id' = ANY($n)))"
-                ),
-                Box::new(ids),
-            );
-        }
-        if !h.acl_keys.is_empty() {
-            push(
-                &mut sql,
-                "NOT (a.target_kind IS NULL AND a.target_id = ANY($n))",
-                Box::new(h.acl_keys.iter().cloned().collect::<Vec<String>>()),
-            );
-        }
-        if !h.namespaces.is_empty() {
-            push(
-                &mut sql,
-                &format!(
-                    "NOT ((a.target_kind = {page} AND p.ns = ANY($n))
-                      OR (a.target_kind = {record} AND a.params->'of'->>'kind' = '{page}'
-                          AND EXISTS (SELECT 1 FROM view.page op WHERE op.tenant = a.tenant
-                            AND op.page_id = CASE WHEN a.params->'of'->>'id' ~ '^[0-9]+$'
-                                                  THEN (a.params->'of'->>'id')::bigint END
-                            AND op.ns = ANY($n))))"
-                ),
-                Box::new(h.namespace_list()),
-            );
-        }
-        // Entities: those hidden themselves or through a set, and those of a hidden
-        // entity namespace (by type); a revision-deletion names the entity in `of`.
-        let entity = target_kind::ENTITY;
-        if !h.entities.is_empty() {
-            push(
-                &mut sql,
-                &format!(
-                    "NOT ((a.target_kind = {entity} AND a.target_id = ANY($n))
-                      OR (a.target_kind = {record} AND a.params->'of'->>'kind' = '{entity}'
-                          AND a.params->'of'->>'id' = ANY($n)))"
-                ),
-                Box::new(h.entity_ids()),
-            );
-        }
-        let types = h.entity_types();
-        if !types.is_empty() {
-            push(
-                &mut sql,
-                &format!(
-                    "NOT ((a.target_kind = {entity} AND e.type = ANY($n))
-                      OR (a.target_kind = {record} AND a.params->'of'->>'kind' = '{entity}'
-                          AND EXISTS (SELECT 1 FROM view.entity oe WHERE oe.tenant IN (a.tenant, '')
-                            AND oe.id = a.params->'of'->>'id' AND oe.type = ANY($n))))"
-                ),
-                Box::new(types),
-            );
-        }
-        if !h.graphs.is_empty() {
-            // Rows of a restricted graph's partition (a mirror's records) are absent.
-            push(
-                &mut sql,
-                "NOT EXISTS (SELECT 1 FROM log.partition lp WHERE lp.partition = a.partition
-                             AND lp.name = ANY($n))",
-                Box::new(h.graphs.iter().cloned().collect::<Vec<String>>()),
-            );
-        }
+    // What the viewer may see of the rows (0006 A31): the suppression events of its
+    // groups, and no row on a target a confidential restriction hides from it.
+    let suppressions = visible_suppressions(viewer, &mut params);
+    let _ = write!(sql, " AND {suppressions}");
+    if let Some(targets) = visible_targets(&viewer.hidden, &mut params) {
+        let _ = write!(sql, " AND {targets}");
     }
     if let Some(c) = feed.cursor {
         let cmp = match feed.direction {
@@ -1056,20 +1095,67 @@ mod tests {
         let b = build("librarybase", &feed, &viewer);
         assert!(
             b.sql
-                .contains("NOT ((a.target_kind = 2 AND a.target_id = ANY($4))"),
+                .contains("(a.target_kind = 2 AND a.target_id = ANY($4))"),
             "{}",
             b.sql
         );
-        assert!(
-            b.sql
-                .contains("NOT ((a.target_kind = 2 AND p.ns = ANY($5))"),
-            "{}",
-            b.sql
-        );
+        assert!(b.sql.contains("AND x.ns = ANY($5))"), "{}", b.sql);
         assert_eq!(b.params.len(), none.params.len() + 2);
         viewer.hidden.tenant = true;
         let b = build("librarybase", &feed, &viewer);
         assert!(b.sql.contains(" AND false"));
         assert_eq!(b.params.len(), none.params.len());
+    }
+
+    /// The one statement of the row rules (0006 A31): nothing when nothing is hidden,
+    /// `false` for a private tenant, and otherwise every rule that applies, each null-safe,
+    /// with its parameters numbered after the caller's.
+    #[test]
+    fn visible_targets_states_each_rule_once() {
+        let mut params: Vec<Param> = vec![Box::new("x")];
+        assert_eq!(visible_targets(&Hidden::default(), &mut params), None);
+        let private = Hidden {
+            tenant: true,
+            ..Hidden::default()
+        };
+        assert_eq!(
+            visible_targets(&private, &mut params).as_deref(),
+            Some("false")
+        );
+        assert_eq!(params.len(), 1);
+        let mut h = Hidden {
+            all_pages: true,
+            ..Hidden::default()
+        };
+        h.entities.insert("Q5".into());
+        h.acl_keys.insert("acl:set:8".into());
+        h.graphs.insert("mirror/wikidata".into());
+        h.namespaces.insert(122);
+        let sql = visible_targets(&h, &mut params).unwrap();
+        assert_eq!(params.len(), 5, "keys, entities, types and graphs: {sql}");
+        assert!(sql.starts_with("NOT (coalesce(("), "{sql}");
+        assert!(
+            sql.contains(
+                "a.target_kind = 2 OR (a.target_kind = 5 AND a.params->'of'->>'kind' = '2')"
+            ),
+            "all pages hidden: {sql}"
+        );
+        assert!(
+            !sql.contains("x.ns = ANY"),
+            "no page rule under all_pages: {sql}"
+        );
+        assert!(
+            sql.contains("a.target_kind IS NULL AND a.target_id = ANY($2)"),
+            "{sql}"
+        );
+        assert!(
+            sql.contains("a.target_kind = 1 AND a.target_id = ANY($3)"),
+            "{sql}"
+        );
+        assert!(
+            sql.contains("x.type = ANY($4)"),
+            "an entity namespace, by type: {sql}"
+        );
+        assert!(sql.contains("lp.name = ANY($5)"), "{sql}");
     }
 }

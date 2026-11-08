@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-24
-- **Updated:** 2026-11-07 (A44)
+- **Updated:** 2026-11-08 (A45)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md)
 - **Uses:** [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -45,7 +45,7 @@ Four scenarios were used to test the design:
 
 ### 4. IRIs for foreign entities
 
-*Changed by A2, A7, A8, A18, A28, A35, A37, A38, A39, A40, A41, A42, A43, A44.*
+*Changed by A2, A7, A8, A18, A28, A35, A37, A38, A39, A40, A41, A42, A43, A44, A45.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §1.5, §8.1, §8.2, §8.3, §8.4, §8.5.*
 
@@ -143,6 +143,7 @@ Four scenarios were used to test the design:
 - **Q9. Wire formats beyond NDJSON.** For example, a binary or columnar format for maximum throughput.
 - **Q10.** ~~**IRIs for upstream revisions and actors.** Candidates are provider-derived IRIs, such as `https://www.wikidata.org/w/index.php?oldid=N` for a Wikidata revision. This makes 0001 Q3 about actors from foreign sources concrete.~~ *Settled by [0007](0007-actor-identity.md) §2 (`Special:Redirect/user/{id}`) and [0015](0015-record-format-and-partition-registry.md) §4 (`Special:Redirect/revision/{revid}`), both on the provider's wiki.*
 - **Q11. Eager forks.** Whether to support freezing a copy of an entity now, as an operation distinct from `retain`.
+- **Q13. Key-mapped references and keyword IRIs.** A reference whose snak the key-mapped adapter rewrote to a keyed value (`domain:example.org` for upstream's `Q9`) hashes as stored, so its node differs from the provider's; naming it as upstream does needs the key map at render time (A45). The items a key-mapped provider merged into an owner (`upstream_aliases`) are not listed on the Identifiers tab, only the owner. And OpenAlex's `K` type has both `upstream_prefix = "keywords/"` and an IRI template ending in `keywords/{upstream_id}`, which doubles the prefix if ever applied; harmless today.
 - **Q12. Reserving `Y*` provider codes.** Whether `Y*` blocks are reserved for tenant-scoped foreign graphs, and how the reservation is recorded. (From the working notes, 0099 §5.)
 
 ## Amendment log
@@ -581,7 +582,7 @@ Replaced text (05 §8.3, as it stood):
 ### A41. A foreign property's predicates come from its concept IRI
 
 - **Date:** 2026-11-07
-- **Source:** Direct: Claude, while building `scatter-wikibase-rdf` (SCA-301), 2026-11-07; unconfirmed
+- **Source:** Direct: Claude, while building `scatter-wikibase-rdf` (SCA-301), 2026-11-07; confirmed by James, 2026-11-08
 - **Change:** extends §4
 - **Summary:** §4 gave Wikidata's predicates as the example of upstream IRIs kept, and the provider registry records a concept IRI template but no predicate base. The renderer derives one: where a foreign property's concept IRI is `{upstream base}entity/{upstream ID}`, as every Wikibase's is, its predicates are `{upstream base}prop/direct/{upstream ID}` and the rest of Wikibase's family; a foreign property whose template has any other shape, which no registered provider has today, has its predicates under the instance's base by its prefixed ID (`{base}prop/direct/XXP1`). A registry field for the predicate base was the alternative, needless while every provider of properties is a Wikibase. Chapter text: [05](../architecture/05-providers-and-ingest.md) §1.5.
 
@@ -614,6 +615,17 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §1.5, as it sto
 ### A44. Statements fused from two mirrors, and key-mapped statements
 
 - **Date:** 2026-11-07
-- **Source:** Direct: Claude, while building upstream statement nodes (SCA-301), 2026-11-07; unconfirmed
+- **Source:** Direct: Claude, while building upstream statement nodes (SCA-301), 2026-11-07; confirmed by James, 2026-11-08
 - **Change:** extends §4
 - **Summary:** Two cases A43 leaves open. (1) A statement two mirrors both assert (Wikidata and Librarybase, say) takes the first member's ID in provider order, as the resolver already gives it, and is named under that provider's base; its references, combined from both, are named and hashed under the same provider, so a reference only the second mirror carries gets a node the first does not have. Naming each reference by the mirror that carries it would be exact and needs the resolver to keep per-reference provenance. (2) A key-mapped provider's statement is stored with the keyed entity's ID (`domain:wikipedia.org$…`), not the upstream item's (`XDQ11$…`), so its upstream statement IRI (`https://internetdomains.wiki/entity/statement/Q11-…`) cannot be derived from it; it is named under the instance's base. Naming it upstream's way needs the adapter to keep the upstream item ID beside the statement, or a lookup of the item the keyed entity was mapped from (05 §4.1). Chapter text: [05](../architecture/05-providers-and-ingest.md) §1.5.
+
+### A45. A key-mapped statement keeps its upstream item, and is named after it
+
+- **Date:** 2026-11-08
+- **Source:** Direct: James, review of A44 on 2026-11-08
+- **Change:** amends §4
+- **Summary:** A44 (2) named a key-mapped provider's statements under the instance's base, since a statement ID carries the keyed entity's ID and not the upstream item's. James overturned it: the upstream item is kept and the statement named after it, and the item is listed among the entity's identifiers. The item was already in the record: a key-mapped `put` carries `upstream_id`, the owner item, beside the keyed state (05 §4.2), and every statement of a keyed entity from one provider's record is that item's, so nothing was added to the statement model and no canonical encoding changed. What was missing was the carry-through: the resolved view keeps each contribution's upstream item; the renderer names a key-mapped statement's statement, reference and value nodes under the provider's base as A43 names a `WDQ…` statement's, with the item from the first member's graph where two graphs assert it (A44 case 1); the provenance route reports `upstream_id` and `upstream_iri` for such a graph; and the entity page's Identifiers tab lists the upstream item, linked, before the identifier statements. The limits are Q13. Chapter text: 05 §1.5; 18 §3.2 (`GraphState`); 19 §2.
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §1.5, as it stood):
+
+> A statement fused from two mirrors is named by the first in provider order; a key-mapped provider's statement, whose ID carries the keyed entity's ID rather than the upstream item's, is named under the instance's base ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) A44).

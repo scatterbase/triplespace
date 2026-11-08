@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-11-08 (A36)
+- **Updated:** 2026-11-08 (A38)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0029](0029-resolver-namespaces.md), [0031](0031-property-constraints.md), [0042](0042-template-expansion-and-parsoid.md), [0046](0046-primary-tenant.md)
 - **Uses:** [0019](0019-discussions.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md)
@@ -115,7 +115,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 #### 8.1 Special:Export
 
-*Changed by A32, A33, A34, A35.*
+*Changed by A32, A33, A34, A35, A37.*
 
 *Current text: [21](../architecture/21-special-pages.md) §4.2.*
 
@@ -125,7 +125,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 #### 8.3 Special:Import
 
-*Changed by A36.*
+*Changed by A36, A38.*
 
 *Current text: [21](../architecture/21-special-pages.md) §4.3.*
 
@@ -182,6 +182,7 @@ James's direction, from the design discussion of 2026-09-30:
 - **Q5. Mute.** Whether `Special:Mute` and user-level muting of notifications ([0021](0021-notifications.md)) and email should exist at all.
 - **Q6. Reports over mirror graphs.** Which batch reports over a mirror are worth offering by default, for example mirrored properties without a local constraint, and whether their snapshots should be shared across tenants that mirror the same provider.
 - **Q7. Thresholds.** The defaults are placeholders: `nuke.confirm_threshold` (500) and the `reports` `batch_limit` (1,000). *The export thresholds, `export.sync_revisions` (5,000) and `export.max_history` (1,000), were kept by A34.*
+- **Q8. Attestation signatures in the `records` export.** `verify --records` checks checkpoints, proofs, headers and erasures but not the client signatures inside attestations, since the document carries no actor key records (A31). Carrying each signing actor's key records, or a `keys` section of them, with which key was current at each record's time, would let the verifier check them as `triplespace verify` does at level 2 with a key lookup; about a day's work, and one small record per signing actor. James, 2026-11-08: worth looking into as an optional enhancement.
 
 ## References
 
@@ -557,7 +558,7 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.5, as i
 ### A31. The `records` export as built
 
 - **Date:** 2026-11-08
-- **Source:** Direct: Claude, while building the `records` export (SCA-302), 2026-11-08; unconfirmed
+- **Source:** Direct: Claude, while building the `records` export (SCA-302), 2026-11-08; confirmed by James, 2026-11-08
 - **Change:** extends §8
 - **Summary:** Calls made building A30. (1) It is served by `POST /export` in the REST API with a JSON body (`format`, `pages` as a list or one title per line, `history`) and the media type `application/vnd.triplespace.records+cbor`; `Special:Export`, the XML format (`501 not-built`) and export jobs wait for SCA-300 and the job runner, so a selection over `export.sync_revisions` records is refused with `413 export-too-large`, and the `export` rate class is not applied yet. (2) The document's fields are `format` (`triplespace-records`), `version` (1), `created`, `keys`, `missing` and `partitions`, each partition with `partition`, `name`, `origin`, `checkpoint`, `nodes`, `records` (`offset`, `record` or `leaf`, `withheld`, `path`) and `pending`; it lives in `scatter-integrity::records` with its verifier, and the builder beside the bundle code in `triplespace-rdf`. (3) A title in an entity namespace names that local entity; `history` is off by default, as `Special:Export`'s `curonly` is on, is honoured only where `export.history` is, and is capped by `export.max_history` per page and `export.max_entity_history` per entity. (4) Records are shown as the export scope shows them to the caller, decided as the record route decides ([0012](0012-api-requirements.md) A85), so a revision-deleted part is withheld from every caller; a page or entity whose records would all be leaves alone, or which has none, is listed in `missing` with what was asked, as an absent one is, and the leaves are not carried. (5) `triplespace verify --records` checks each checkpoint against the key chain in the file, each leaf by its proof, each header against its partition and offset, and each withheld part as erased; it does not check the signatures inside attestations, since the actor key records they need are not carried. Chapter text: [21](../architecture/21-special-pages.md) §4.2.
 
@@ -585,13 +586,31 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.5, as i
 ### A35. The MediaWiki XML export as built
 
 - **Date:** 2026-11-08
-- **Source:** Direct: Claude, while building the MediaWiki XML export (SCA-300), 2026-11-08; unconfirmed
+- **Source:** Direct: Claude, while building the MediaWiki XML export (SCA-300), 2026-11-08; confirmed by James, 2026-11-08
 - **Change:** extends §8.1
 - **Summary:** Calls made building the XML format of §8.1 (A32–A34; 0005 A119). (1) `POST /export` takes `format: xml` with the `records` body of A31 and, for the XML, `categories` (`addcat`) and `namespaces` (`addns`, refused with `403 export-namespaces-off` where `export.from_namespaces` is off), each adding up to MediaWiki's `$wgExportPagelistLimit`, 5,000 pages, and `templates`; it streams `application/xml` once the selection is planned, so a `413` comes before any byte, and says what it left out in `x-export-missing` and what it has to say in `x-export-notice`, the `templates` notice also written into the document as an XML comment after `<siteinfo>`. (2) A revision's text, comment or attestation that the export scope withholds, or that is erased, is written as revision-deleted content; a record withheld whole is left out, and a target with none left is missing, as `records` lists it. (3) Every revision of a page is written with the page's current content model, since the page record carries no model of its own at each revision; `<origin>` is the revision's own ID; `<sha1>` is computed over the text. (4) Local entities are written from `view.entity_revision` on the request path, as `records` reads them, there being no export job yet; their titles and models follow the entity type (`Item`, `Property`, `Lexeme`, and the keyed types' namespaces); a local redirect's text is Wikibase's `{"entity", "redirect"}`. (5) Mirrored pages wait for the `pages/{repo}` partition and `view.foreign_page`, neither projected yet; files and threads are out of scope. (6) `action=query&export` writes the page set's current revisions, as MediaWiki does; `exportnowrap` sends the document as `text/xml`; `exportschema` is accepted, 0.11 always written and 0.10 warned about. For `addcat` the form needs `list=categorymembers`, built with `cmtitle` and `cmlimit` only (0038 §13). (7) `Special:Export` reads the tenant's `export.from_namespaces` and `export.history` from `meta=siteinfo`'s `triplespace.export`, and is offered under the `export` capability; it adds a category's or a namespace's pages through the API and, without `wpDownload`, shows the file rather than saving it; `records` is its second format. (8) `scatter-mediawiki-xml`'s reader keeps `<siteinfo>` and reads the further slots of a 0.11 dump; its writer computes MediaWiki's base-36 SHA-1, so the crate depends on `sha1`, and `triplespace-rdf` reads content-model formats from `scatter-pages` (0005 A120). Chapter text: 21 §4.2.
 
 ### A36. `Special:Import` and `action=import` as built
 
 - **Date:** 2026-11-08
-- **Source:** Direct: Claude, while building the MediaWiki XML import (SCA-303), 2026-11-08; unconfirmed
+- **Source:** Direct: Claude, while building the MediaWiki XML import (SCA-303), 2026-11-08; confirmed by James, 2026-11-08
 - **Change:** extends §8.3
 - **Summary:** Calls made building §8.3 over the import job ([0008](0008-namespaces-and-document-pages.md) A49). (1) `Special:Import` is offered under the `import` capability and restricted to the `import` right; it posts `multipart/form-data`, the first time for the census, which it shows with a confirmation, and the second time to import, showing the job's report with the job named, since `Special:Jobs/{id}` is not built. (2) The site keeps nothing between requests, so an uploaded file rides along the confirmation as a hidden base64 field when it is at most 2 MB and is asked for again otherwise; a page of another wiki is fetched again on confirmation. (3) `action=import` is MediaWiki's module: `xml` as a multipart upload (`importupload`), `interwikisource` a site alias of `sites.toml` with `interwikipage`, `fullhistory` and `templates` passed to that wiki's `Special:Export` at its article path, `interwikiprefix`, `summary` and `tags`; Triplespace adds `census`, which answers the census and writes nothing, and the response's `job` (the ID, the counts, the talk conversion, what was left out, the rejects) beside MediaWiki's `import` list, whose entries also say whether the page was created and how many revisions it already held. (4) An upload or a fetched export is at most 64 MB, and the server's request body limit, 2 MB by default, bounds an upload through the API until it is raised. (5) The Action API reads a `multipart/form-data` body for every module, its text fields as body parameters. Chapter text: 21 §4.3.
+
+### A37. The XML export writes the model each revision had
+
+- **Date:** 2026-11-08
+- **Source:** Direct: James, review of A35 on 2026-11-08
+- **Change:** amends §8.1
+- **Summary:** A35 (3) wrote every revision of a page with the page's current content model, since a page record carries no model of its own at each revision. James chose correctness: the exporter walks the page's records as it writes them, the `create`'s model and then each `edit`'s change, so a revision carries the model it had, and the `<format>` follows; where the records that set the model are withheld, the page's current model stands. A page's model changes rarely, and the records are read for the text anyway, so the walk costs nothing more. Chapter text: 21 §4.2.
+
+Replaced text ([21](../architecture/21-special-pages.md) §4.2, as it stood):
+
+> - **Pages.** Each page record is a `<revision>`, with its content model and format ([0041](../decisions/0041-content-models.md)): the page's current model for every revision, since a page record carries no model of its own at each revision; `<origin>` is the revision's own ID and `<sha1>` is computed over the text ([0047](../decisions/0047-special-pages.md) A35).
+
+### A38. `import.max_upload`
+
+- **Date:** 2026-11-08
+- **Source:** Direct: James, review of A36 on 2026-11-08
+- **Change:** extends §8.3
+- **Summary:** The size an import may be is a setting, `import.max_upload` (tenant-bound, 100 MB by default, MediaWiki's `$wgMaxUploadSize`), applied to an upload and to a fetched export alike and reported in `meta=siteinfo` as `triplespace.import`; the server's request body limit on `api.php` and on the site's forms is its ceiling, 1 GB, which bounds every tenant's value. `Special:Import` names the limit under its file field, and carries a file of up to 8 MB along the confirmation as a hidden field, asking for a larger one again, since a base64 copy of a large file in a form would be worse than a second choice. Chapter text: 21 §4.3; 23 (`settings.toml`).

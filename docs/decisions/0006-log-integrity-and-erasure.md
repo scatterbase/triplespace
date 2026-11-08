@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-07 (A31)
+- **Updated:** 2026-11-08 (A33)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md)
 
@@ -65,7 +65,7 @@ Three terms are used precisely below:
 
 ### 6. Checkpoints and keys
 
-*Changed by A3, A6, A8, A12, A19, A22, A24, A25, A28, A29.*
+*Changed by A3, A6, A8, A12, A19, A22, A24, A25, A28, A29, A33.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §4.2, §4.3.*
 
@@ -83,7 +83,7 @@ Three terms are used precisely below:
 
 ### 9. Verification and export
 
-*Changed by A3, A6, A10, A11, A17, A19, A24, A27, A28, A29, A30, A31.*
+*Changed by A3, A6, A10, A11, A17, A19, A24, A27, A28, A29, A30, A31, A32.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §8.*
 
@@ -437,7 +437,7 @@ Replaced text ([01](../architecture/01-log-and-records.md) §8, as it stood):
 ### A29. Origins fixed by the first checkpoint; what the commands check
 
 - **Date:** 2026-11-07
-- **Source:** Direct: Claude, while building `triplespace checkpoint`, `export` and `verify` (SCA-302), 2026-11-07; unconfirmed
+- **Source:** Direct: Claude, while building `triplespace checkpoint`, `export` and `verify` (SCA-302), 2026-11-07; confirmed by James, 2026-11-08
 - **Change:** extends §6, §9
 - **Summary:** Calls made building A28. (1) Nothing recorded a partition's origin line, which must not change with an alias (01 §4.2): a partition's origin is taken from its first checkpoint or manifest and reused; the first is derived from the tenant's current host, or the farm's for an instance partition, so a tenant aliased before its first checkpoint would sign under its new host. Recording the origin at partition creation would be exact. (2) The signer takes `pg_advisory_xact_lock(hashtextextended('checkpoint:{partition}', 0))` per partition, the lock the worker is to take, and refuses a key file that is not the chain's current key, or a missing one, rather than generate a key as the other commands do. (3) A `logged` partition is signed when its head has passed its latest checkpoint; a `hashed` one gets a manifest for each full segment that has none, and no checkpoint. (4) `export --scope backup` takes every partition, or one tenant's with `--tenant`, `private` ones included, in one `REPEATABLE READ` snapshot, with the instance `config`'s `key:` records; file bytes wait for the blob store. (5) `verify` defaults to level 2, passes no actor keys (client signatures unchecked) and no part names beyond the three core parts, prints a line per partition, and exits non-zero on any problem; a body changed in the bundle already fails as the bundle is opened. Chapter text: [01](../architecture/01-log-and-records.md) §4.2, §8.
 
@@ -451,6 +451,24 @@ Replaced text ([01](../architecture/01-log-and-records.md) §8, as it stood):
 ### A31. How the export scope decides each record
 
 - **Date:** 2026-11-07
-- **Source:** Direct: Claude, while building `export --scope export` (SCA-302), 2026-11-07; unconfirmed
+- **Source:** Direct: Claude, while building `export --scope export` (SCA-302), 2026-11-07; confirmed by James, 2026-11-08
 - **Change:** extends §9
 - **Summary:** Calls made building A30 and [0103](0103-export-transfer-and-backup.md) A1. (1) The export scope is one tenant's (`--tenant` required) and covers its `public` partitions, leaving out any whose graph a restriction hides. (2) Each record is decided from its activity row, row by row with the rules the feed query applies in SQL, written once more as `Hidden::hides_activity` in `triplespace-projections` and tested against the same cases: a row on a target a confidential restriction hides is written as its leaf alone; a suppression event is withheld whole unless the reader is in the group it names; a row whose entity or page the reader may not read by its chain (deleted, or under a moderation restriction) has every part withheld, its header kept; otherwise the content, comment or attestation part is withheld as the row's visibility bits say, and the attestation of a hidden actor. The two copies of the feed's rules can drift; one shared implementation would remove that. (3) A record with no activity row is exported as it is: configuration records and records the activity projection does not cover. (4) `view.activity.read_groups` is written by nothing yet, so read restrictions are found through the chains instead. Chapter text: [01](../architecture/01-log-and-records.md) §8.
+
+### A32. One statement of the row rules, for the feed and the export reader
+
+- **Date:** 2026-11-08
+- **Source:** Direct: James, review of A31 on 2026-11-08
+- **Change:** extends §9
+- **Summary:** A31 (2) wrote the feed's row rules a second time in Rust for the export scope, and said the two copies could drift. James chose one implementation. The SQL is it: the rules that hide a row by its target, a page's or a namespace's restriction, an entity's, its type's or its graph's, an ACL event's key, a revision-deletion event's record, and a suppression event's group (09 §6.5), are one statement over the activity row alone, which the feed appends to its `WHERE` and the export reader selects as boolean columns for each row it decides; one database test runs the pinned cases both ways and asserts they agree. Unifying them found three places the copies had drifted, now settled by the one text: a row with no target kind (an ACL or protection event) was dropped by the feed whenever anything was hidden, since its `NULL` fell through `NOT (…)`, and is kept, as the Rust copy kept it; a hidden `pages` graph switched off the entity, type, graph and ACL-key rules in the feed, and now replaces only the page and namespace rules; and a hidden entity namespace was found by the entity's type in the feed and by its ID's prefix in Rust, and the type lookup stands. A Rust rule table generating both the SQL and a row evaluator was the alternative, rejected because the rules need lookups the row does not carry, so each rule would still be two hand-written halves. Chapter text: 01 §8.2; 09 §6.5.
+
+### A33. A partition's origin is recorded at creation
+
+- **Date:** 2026-11-08
+- **Source:** Direct: James, review of A29 on 2026-11-08
+- **Change:** amends §6
+- **Summary:** A29 (1) fixed a partition's origin line by its first checkpoint or manifest, derived from the tenant's host at that time, so a tenant aliased before its first checkpoint would sign under its new host, against 01 §4.2. James chose the exact fix: the origin is recorded when the partition is created, as a column of its registry row (`log.partition.origin`), derived from the same base the graph IRI is built from, by the one function the signer also uses for a row with none; every signer and bundle writer reads it from there, and only a row without one falls back to its first checkpoint, then to the current host. Two migrations backfill existing rows: the log schema's from the first checkpoint's or manifest's origin line, and the instance's from each tenant's current base in the registry, the best that can be done; a database migrated before its registry projection is current keeps the row empty and is derived at first signing. A field in the `graph:` config record was the alternative, rejected because it would have changed a hashed record's shape for something only the signer reads. Chapter text: 01 §4.2; 03 §2.1 (`log.partition`).
+
+Replaced text ([01](../architecture/01-log-and-records.md) §4.2, as it stood):
+
+> **A partition's origin is fixed by its first checkpoint or manifest** and reused for every later one; the first is derived from the tenant's current host, or the farm's ([0006](../decisions/0006-log-integrity-and-erasure.md) A29).

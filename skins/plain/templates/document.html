@@ -39,7 +39,7 @@
 
 {#- One side of a page diff's header. -#}
 {%- macro side(s, rel) -%}
-<div class="ts-page-diff__revision"><strong><a href="{{ s.revision.href }}">{{ s.revision.label }}</a></strong></div>
+<div class="ts-page-diff__revision"><strong><a href="{{ s.revision.href }}">{{ s.revision.label }}</a></strong>{% if s.origin %} <span class="{{ s.origin.classes }}"{% if s.origin.title %} title="{{ s.origin.title }}"{% endif %}>{{ s.origin.text }}</span>{% endif %}{% if s.job %} <span class="ts-change__job">{{ s.job }}</span>{% endif %}</div>
 {%- if s.user %}<div class="ts-page-diff__user"><a href="{{ s.user.href }}">{{ s.user.label }}</a></div>{% else %}<div class="ts-page-diff__user ts-change__hidden">{{ s.hidden_user }}</div>{% endif -%}
 {%- if s.comment is none %}<div class="ts-page-diff__comment ts-change__hidden">{{ s.hidden_comment }}</div>{% elif s.comment %}<div class="ts-page-diff__comment">({{ s.comment }})</div>{% endif -%}
 {%- if s.nav %}<div class="ts-page-diff__nav"><a href="{{ s.nav.href }}" rel="{{ rel }}">{{ s.nav.label }}</a></div>{% endif -%}

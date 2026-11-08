@@ -10,7 +10,7 @@
 //! in the reader's label languages; any other value is a 400, as in Wikibase. `.json`
 //! ignores `flavor=` (0001 A21).
 
-use std::collections::{BTreeSet, HashSet, VecDeque};
+use std::collections::{BTreeMap, HashSet, VecDeque};
 
 use axum::extract::{Extension, Path, Query, State};
 use axum::http::{HeaderMap, Method, StatusCode, header};
@@ -205,7 +205,7 @@ async fn rdf(
             let upstream = crate::entity_json::upstream_statements(current, registry);
             (entity, Some(page), upstream)
         }
-        None => (parsed.entity, parsed.page, BTreeSet::new()),
+        None => (parsed.entity, parsed.page, BTreeMap::new()),
     };
     let iris = IriScheme::new(
         Namespaces::triplespace(&ctx.tenant.base),
