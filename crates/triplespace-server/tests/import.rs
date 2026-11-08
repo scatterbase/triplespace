@@ -243,6 +243,7 @@ async fn librarybase_pages_are_imported_with_history_authors_and_talk() {
             version: Some("part".into()),
             history: true,
             summary: None,
+            job_id: None,
         },
         &authors,
         ten,
@@ -491,6 +492,7 @@ async fn librarybase_pages_are_imported_with_history_authors_and_talk() {
             version: None,
             history: true,
             summary: None,
+            job_id: None,
         },
         &authors,
         exported.clone(),
@@ -1112,8 +1114,8 @@ async fn special_import_shows_the_census_then_imports() {
         history.body
     );
     assert!(
-        history.body.contains("class=\"ts-change__job\">Job "),
-        "{}",
+        history.body.contains("class=\"ts-change__job\" href=\"/wiki/Special:Jobs/"),
+        "the job is linked to its page (0104 §9): {}",
         history.body
     );
     let diff = owner.get("/wiki/Project:Home?diff=cur").await;
@@ -1264,6 +1266,7 @@ async fn an_export_walks_a_pages_model_changes() {
             version: None,
             history: true,
             summary: None,
+            job_id: None,
         },
         &authors,
         vec![page],

@@ -56,7 +56,9 @@ use scatter_log::record::Record;
 use scatter_projection::{Applied, Backend, BoxFuture, Projection, Step};
 use triplespace_projections::PgCx;
 use triplespace_projections::actors::payload;
-use triplespace_projections::common::{attested, content, target_kind, tenant_of, to_jsonb};
+use triplespace_projections::common::{
+    PAYLOAD_LOGEVENT, attested, content, target_kind, tenant_of, to_jsonb,
+};
 use triplespace_projections::threads::{self, Addressed};
 
 fn sql(e: &tokio_postgres::Error) -> String {
@@ -342,6 +344,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AddressingProjection {
             || header.payload_type == scatter_threads_payload::THREAD
             || header.payload_type == scatter_threads_payload::PAGE
             || header.payload_type == payload::ACL
+            || header.payload_type == PAYLOAD_LOGEVENT
     }
 
     fn apply<'a>(
@@ -358,6 +361,9 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AddressingProjection {
             }
             if h.payload_type == payload::ACL {
                 return purge(cx, &tenant, record).await;
+            }
+            if h.payload_type == PAYLOAD_LOGEVENT {
+                return job_done(cx, &tenant, record).await;
             }
             let performer = attested(record).actor;
             // A subsidiary's action is its operator's own (16 §5.2).
@@ -459,6 +465,73 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AddressingProjection {
             Ok(())
         })
     }
+}
+
+/// A job's end addresses the account that ran it, or its operator (16 §5.2, reason
+/// `job`; 0024 §6; 0104 §4): a `job/finish`, `job/fail`, `job/revert` or
+/// `job/interrupt` event is delivered to the inbox of the job's actor, the one exception
+/// to nobody being told of their own action, since the job ran without them. Any other
+/// log event addresses nobody here.
+async fn job_done(cx: &PgCx, tenant: &str, record: &Record) -> Result<Applied, String> {
+    let Some(event) = content(record)? else {
+        return Ok(Applied::rows(0));
+    };
+    if !event.get("type").is_some_and(|t| t.text_eq("job")) {
+        return Ok(Applied::rows(0));
+    }
+    let action = event
+        .get("action")
+        .and_then(scatter_log::cbor::Value::as_text)
+        .unwrap_or_default();
+    if !matches!(action, "finish" | "fail" | "revert" | "interrupt") {
+        return Ok(Applied::rows(0));
+    }
+    let Some(job_id) = event
+        .get("target")
+        .and_then(|t| t.get("id"))
+        .and_then(scatter_log::cbor::Value::as_u64)
+    else {
+        return Ok(Applied::rows(0));
+    };
+    let h = record.header();
+    // The job's actor is its start record's: the row in `view.job` is the authority, since
+    // an end record the next load writes about a dead job is attested by that load.
+    let actor: Option<String> = cx
+        .conn()
+        .query_opt(
+            "SELECT actor_key FROM view.job WHERE tenant = $1 AND job_id = $2",
+            &[&tenant, &i64::try_from(job_id).unwrap_or(i64::MAX)],
+        )
+        .await
+        .map_err(|e| sql(&e))?
+        .map(|r| r.get(0))
+        .or_else(|| attested(record).actor);
+    let Some(actor) = actor else {
+        return Ok(Applied::rows(0));
+    };
+    let Some(to) = inbox_of(cx, tenant, &actor).await? else {
+        return Ok(Applied::rows(0));
+    };
+    let published = i64::try_from(h.appended_at).unwrap_or(i64::MAX);
+    let rows = cx
+        .conn()
+        .execute(
+            "INSERT INTO private.inbox
+               (actor_key, partition, \"offset\", reason, target_kind, target_id, published)
+             VALUES ($1, $2, $3, 'job', $4, $5, to_timestamp($6::bigint::double precision / 1e6))
+             ON CONFLICT (actor_key, partition, \"offset\", reason) DO NOTHING",
+            &[
+                &to,
+                &partition_db(h.partition),
+                &i64::try_from(h.offset).unwrap_or(i64::MAX),
+                &target_kind::JOB,
+                &job_id.to_string(),
+                &published,
+            ],
+        )
+        .await
+        .map_err(|e| sql(&e))?;
+    Ok(Applied::rows(usize::try_from(rows).unwrap_or(0)))
 }
 
 /// The payload type of thread records, as `scatter-threads` names it.

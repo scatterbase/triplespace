@@ -13,19 +13,20 @@
 //! tenant's own IDs, merging onto titles that exist by timestamp (0008 A48), refusing
 //! entity pages, then converts its talk pages to threads (0090 §10). `summary` is the
 //! job's reason. `namespace` and `rootpage` are accepted and warned about: the file's
-//! titles are kept.
+//! titles are kept. A file of up to `import.sync_pages` pages is imported on the request
+//! path; a larger one is queued for the runner (0104 §4), and the response names the job
+//! it will run as, `queued`, whose page is `Special:Jobs/{id}`.
 //!
 //! **The response** is MediaWiki's: `import`, one entry per page with its namespace,
-//! title and the revisions imported; beside it Triplespace's `job` (the ID, the counts,
-//! the talk conversion, what was left out and why) and, when asked for, `census`.
+//! title and the revisions imported; beside it Triplespace's `job` (the ID, its status,
+//! the counts, the talk conversion, what was left out and why, and its page) and, when
+//! asked for, `census`.
 
-use scatter_ingest::import::Import;
-use scatter_ingest::write::Attestation;
 use scatter_mediawiki_xml::{DumpPage, XmlDump};
 use scatter_wikibase_model::sites::SiteRegistry;
 use serde_json::{Value, json};
-use triplespace_api_ingest::import::{census, ensure_accounts, import_pages, issuer_for};
-use triplespace_api_ingest::talk_import::{self, Authors, TalkContext};
+use triplespace_api_ingest::import::{ImportRequest, census, issuer_for, run_request};
+use triplespace_api_ingest::jobs;
 
 use crate::api::Ctx;
 use crate::edit::now_micros;
@@ -35,6 +36,10 @@ use crate::response::{ApiError, ApiResponse};
 /// The registry default of `import.max_upload`, 100 MB (0047 A36): the most an upload
 /// or a fetched export may be, in bytes, where the tenant's setting is unreadable.
 pub const DEFAULT_MAX_UPLOAD: u64 = 100 * 1024 * 1024;
+
+/// The registry default of `import.sync_pages` (0104 §4): an import of up to this many
+/// pages runs on the request path; a larger one is queued for the runner.
+pub const DEFAULT_SYNC_PAGES: u64 = 100;
 
 /// The URL of a wiki's `Special:Export` of a title, through its site alias: the alias's
 /// article path with `Special:Export/{title}`, and MediaWiki's `history` and `templates`
@@ -224,68 +229,64 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         ));
     }
 
-    // The job (10 §6 steps 1–2).
-    let accounts = talk_import::accounts_of(pages.iter());
-    let authors = Authors::Imported {
-        issuer: issuer.as_deref(),
-        accounts: &accounts,
-        prefix: &prefix,
+    // The job (10 §6 steps 1–3): on the request path up to `import.sync_pages` pages,
+    // else queued for the runner, which answers with the job's ID (0104 §4).
+    let request = ImportRequest {
+        source: source.clone(),
+        version: None,
+        prefix,
+        issuer: issuer.clone(),
+        summary,
+        tags: ctx.params.list("tags"),
+        skip_talk: false,
     };
-    let mut attestation = Attestation::by(&actor);
-    attestation.tags = ctx.params.list("tags");
-    let store = ctx.app.store();
-    let pipeline = ctx.app.pipeline();
-    let now = now_micros();
-    if let Some(issuer) = &issuer {
-        ensure_accounts(
-            store,
-            pipeline,
-            &ctx.tenant.slug,
-            issuer,
-            &accounts,
-            &attestation,
-            now,
+    let sync_pages = settings
+        .value("import.sync_pages")
+        .and_then(|v| v.as_u64())
+        .unwrap_or(DEFAULT_SYNC_PAGES);
+    if c.imported + c.talk > sync_pages {
+        let id = jobs::submit(
+            ctx.app.store(),
+            &jobs::Submission {
+                tenant: ctx.tenant.slug.clone(),
+                kind: jobs::Kind::Import,
+                params: serde_json::to_value(&request).map_err(ApiError::internal)?,
+                payload: Some(bytes),
+                actor: actor.clone(),
+            },
         )
         .await
         .map_err(ApiError::internal)?;
+        response.body.insert("import".into(), json!([]));
+        response.body.insert(
+            "job".into(),
+            json!({
+                "id": id,
+                "status": "queued",
+                "issuer": issuer,
+                "pages": c.imported + c.talk,
+                "page": format!("Special:Jobs/{id}"),
+            }),
+        );
+        return Ok(response);
     }
-    let (outcome, read) = import_pages(
+    let store = ctx.app.store();
+    let pipeline = ctx.app.pipeline();
+    let report = run_request(
         store,
         pipeline,
+        ctx.db(),
         &ctx.tenant.slug,
-        attestation,
-        Import {
-            source: source.clone(),
-            version: None,
-            history: !c.current_only,
-            summary: summary.clone(),
-        },
-        &authors,
-        pages.iter().cloned(),
-        now,
-    )
-    .await
-    .map_err(ApiError::internal)?;
-
-    // The talk pages (10 §6; 0090 §10).
-    let talk_site = scatter_talk::Site::english();
-    let talk_ctx = TalkContext {
-        tenant: &ctx.tenant.slug,
-        source: &source,
-        authors,
-        actor: &actor,
-        job: Some(outcome.job_id),
-        site: &talk_site,
-    };
-    let talk = talk_import::convert_all(
-        store,
-        pipeline,
-        &talk_ctx,
-        pages.into_iter().filter(talk_import::is_talk_page),
+        &actor,
+        &request,
+        None,
+        pages,
         now_micros(),
+        &mut |_| {},
     )
     .await
     .map_err(ApiError::internal)?;
+    let (outcome, read, talk) = (report.outcome, report.read, report.talk);
 
     let imported: Vec<Value> = outcome
         .pages
@@ -309,12 +310,14 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         "job".into(),
         json!({
             "id": outcome.job_id,
+            "status": "finished",
             "issuer": issuer,
             "counts": outcome.counts,
             "talk": talk,
             "entities": read.entities,
             "left_out": read.left_out,
             "rejects": outcome.rejects.iter().map(|r| json!({"line": r.line, "reason": r.reason})).collect::<Vec<_>>(),
+            "page": format!("Special:Jobs/{}", outcome.job_id),
         }),
     );
     Ok(response)

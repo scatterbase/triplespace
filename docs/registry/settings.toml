@@ -415,6 +415,29 @@ meaning = "The largest file `action=import` and `Special:Import` take, in bytes"
 source = "[0047](../decisions/0047-special-pages.md) §8.3"
 
 [[setting]]
+key = "import.sync_pages"
+scope = "tenant"
+bound = "tenant"
+group = "exchange"
+type = "integer"
+default = 100
+default_text = "100 pages"
+by_rule = true
+meaning = "An import of up to this many pages runs on the request path; a larger one is queued for the runner and answered with its job ID ([16](16-logs-feeds-and-notifications.md) §2.2)"
+source = "[0104](../decisions/0104-batches-and-the-job-runner.md) §4"
+
+[[setting]]
+key = "jobs.paused"
+scope = "instance"
+bound = "instance"
+group = "exchange"
+type = "boolean"
+default = false
+default_text = "off"
+meaning = "Whether the job runner is paused: queued jobs wait, and a running one finishes ([16](16-logs-feeds-and-notifications.md) §2.2); `triplespace job pause` and `resume` set it"
+source = "[0104](../decisions/0104-batches-and-the-job-runner.md) §4"
+
+[[setting]]
 key = "federation.accept_fep8b32"
 scope = "tenant"
 bound = "tenant"

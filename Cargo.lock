@@ -4113,6 +4113,7 @@ dependencies = [
  "scatter-projection",
  "scatter-providers",
  "scatter-threads",
+ "scatter-wikibase-changeset",
  "serde_json",
  "tokio",
  "tokio-postgres",

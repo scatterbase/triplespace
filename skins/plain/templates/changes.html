@@ -15,7 +15,7 @@
 {%- macro target(t) -%}
 {%- if t.kind == "account" %}{{ account(t.account) }}
 {%- elif t.kind == "id" %}<span class="ts-mono">{{ t.id }}</span>
-{%- elif t.kind == "job" %}<span class="ts-change__part ts-change__target">{{ t.text }}</span>
+{%- elif t.kind == "job" %}<span class="ts-change__part"><a href="{{ t.href }}" class="ts-change__target">{{ t.text }}</a></span>
 {%- elif t.kind == "labelled" %}<span class="ts-change__part"><a href="{{ t.href }}" class="ts-change__target"><span{% if t.lang %} lang="{{ t.lang }}" dir="auto"{% endif %}>{{ t.label }}</span></a></span><span class="ts-change__part ts-change__id ts-mono">{{ t.id }}</span>
 {%- else %}<span class="ts-change__part"><a href="{{ t.href }}" class="ts-change__target">{{ t.text }}</a></span>{% endif -%}
 {%- endmacro -%}
@@ -42,7 +42,7 @@
 {%- set t = r.target -%}
 {%- if t.kind == "account" %}{{ account(t.account) }}
 {%- elif t.kind == "id" %}<span class="ts-mono">{{ t.id }}</span>
-{%- elif t.kind == "job" %}<span class="ts-change__part ts-change__target">{{ t.text }}</span>
+{%- elif t.kind == "job" %}<span class="ts-change__part"><a href="{{ t.href }}" class="ts-change__target">{{ t.text }}</a></span>
 {%- elif t.kind == "labelled" %}<span class="ts-change__part"><a href="{{ t.href }}" class="ts-change__target"><span{% if t.lang %} lang="{{ t.lang }}" dir="auto"{% endif %}>{{ t.label }}</span></a></span><span class="ts-change__part ts-change__id ts-mono">{{ t.id }}</span>
 {%- else %}<span class="ts-change__part"><a href="{{ t.href }}" class="ts-change__target">{{ t.text }}</a></span>{% endif -%}
 {%- endif -%}
@@ -54,7 +54,7 @@
 {%- if s.hidden %}<span class="ts-change__summary"><span class="ts-change__hidden">{{ s.hidden }}</span></span>
 {%- elif s.auto or s.moved or s.comment %}<span class="ts-change__summary">{% if s.auto %}<span class="ts-change__auto">{{ s.auto }}</span>{% endif %}{% if s.moved %} <span class="ts-change__auto">{{ s.moved }}</span>{% endif %}{% if s.comment %}{% if s.auto or s.moved %} {% endif %}<span class="ts-change__comment">{{ s.comment }}</span>{% endif %}</span>{% endif -%}
 {%- if r.tags %}<span class="ts-change__tags">{% for t in r.tags %}<span class="ts-change__tag">{{ t }}</span>{% endfor %}</span>{% endif -%}
-{%- if r.job %} <span class="ts-change__job">{{ r.job }}</span>{% endif -%}
+{%- if r.job %} <a class="ts-change__job" href="{{ r.job.href }}">{{ r.job.text }}</a>{% endif -%}
 </td></tr>
 {%- endif -%}
 {%- endmacro -%}

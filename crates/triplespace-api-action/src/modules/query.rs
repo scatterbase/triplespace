@@ -947,6 +947,7 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                 // What `Special:Import` takes (0047 A36): `import.max_upload`.
                 t["import"] = json!({
                     "max_upload": settings.value("import.max_upload").and_then(|v| v.as_u64()).unwrap_or(super::import::DEFAULT_MAX_UPLOAD),
+                    "sync_pages": settings.value("import.sync_pages").and_then(|v| v.as_u64()).unwrap_or(super::import::DEFAULT_SYNC_PAGES),
                 });
                 if ctx.app.config().mode == Mode::Development {
                     t["insecure"] = json!(true);

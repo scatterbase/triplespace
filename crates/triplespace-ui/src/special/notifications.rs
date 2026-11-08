@@ -131,7 +131,23 @@ fn sentence(m: &Messages, n: &Notification) -> Vec<Part> {
         text: t.split_once(':').map_or(t, |(_, n)| n).to_string(),
         class: None,
     });
+    // A job's end (16 §5.2): the job, linked to its page, and how it ended, which the
+    // event's parameters say (counts for a finish, `error` for a failure, `by` for an
+    // interruption).
+    let job = n
+        .title
+        .as_deref()
+        .and_then(|t| t.strip_prefix("Special:Jobs/"))
+        .map(|id| Part::Link {
+            href: format!("/wiki/Special:Jobs/{id}"),
+            text: m.with("ts-changes-job", &[id]),
+            class: None,
+        });
     let key = match n.reason.as_str() {
+        "job" if n.params.get("error").is_some() => "ts-notif-job-failed",
+        "job" if n.params.get("by").is_some() => "ts-notif-job-interrupted",
+        "job" if n.params.get("counts").is_some() => "ts-notif-job-finished",
+        "job" => "ts-notif-job-reverted",
         "talk" => "ts-notif-talk",
         "reply" => "ts-notif-reply",
         "mention" => "ts-notif-mention",
@@ -151,6 +167,7 @@ fn sentence(m: &Messages, n: &Notification) -> Vec<Part> {
         class: None,
     });
     let second = match n.reason.as_str() {
+        "job" => job,
         "group-join" => account,
         "watch" if n.subject.is_none() => page,
         _ => thread,

@@ -34,6 +34,7 @@ pub mod export;
 pub mod forward;
 pub mod import;
 pub mod issuers;
+pub mod jobs;
 pub mod notifications;
 pub mod pages;
 pub mod register;
@@ -62,6 +63,7 @@ pub use export::{ExportAsk, Exported};
 pub use forward::Incoming;
 pub use import::ImportAsk;
 pub use issuers::{AccountInfo, LoginIssuer, Pending};
+pub use jobs::{JobActor, JobInfo, JobReject};
 pub use notifications::{Counts, Item as Notification, Listing as NotificationPage};
 pub use pages::{
     About, Backlinks, DiffAsk, DiffEnd, DiffSide, EditForm, Lookup, PageCategory, PageDiff,

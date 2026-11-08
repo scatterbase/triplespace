@@ -108,6 +108,23 @@ impl Job {
         attestation: Attestation,
         now: u64,
     ) -> Result<Self, IngestError> {
+        let id = store.next_id(cx, "", &Sequence::Job).await?;
+        Self::start_as(store, pipeline, cx, tenant, id, header, attestation, now).await
+    }
+
+    /// Appends the start record under a job ID minted earlier: the runner's, minted at
+    /// submission so that the job has an ID while it waits (0104 §4).
+    #[allow(clippy::too_many_arguments)]
+    pub async fn start_as<S: IngestStore>(
+        store: &S,
+        pipeline: &Pipeline<S>,
+        cx: &mut S::Cx,
+        tenant: &str,
+        id: u64,
+        header: JobHeader,
+        attestation: Attestation,
+        now: u64,
+    ) -> Result<Self, IngestError> {
         let log_partition =
             store
                 .partition(cx, tenant, "log")
@@ -116,7 +133,6 @@ impl Job {
                     tenant: tenant.to_string(),
                     graph: "log".to_string(),
                 })?;
-        let id = store.next_id(cx, "", &Sequence::Job).await?;
         let mut params = serde_json::Map::new();
         params.insert("source".into(), header.source.clone().into());
         if let Some(v) = header.source_version() {
@@ -312,5 +328,54 @@ impl Job {
     #[must_use]
     pub fn record_attestation(&self) -> Attestation {
         self.attestation.with_job(Some(self.id))
+    }
+
+    /// A handle on a job that is not this process's, for writing an event under its key:
+    /// the runner's `job/interrupt` and `job/fail` about a job another runner started
+    /// (0104 §4). Nothing is appended by this alone.
+    pub async fn handle<S: IngestStore>(
+        store: &S,
+        cx: &mut S::Cx,
+        tenant: &str,
+        id: u64,
+        attestation: Attestation,
+    ) -> Result<Self, IngestError> {
+        let log_partition =
+            store
+                .partition(cx, tenant, "log")
+                .await?
+                .ok_or_else(|| IngestError::NoPartition {
+                    tenant: tenant.to_string(),
+                    graph: "log".to_string(),
+                })?;
+        Ok(Self {
+            id,
+            tenant: tenant.to_string(),
+            log_partition,
+            header: JobHeader::local(""),
+            attestation,
+            start_offset: 0,
+            hash_mismatches: BTreeMap::new(),
+            rejects: Vec::new(),
+            rejected_total: 0,
+        })
+    }
+
+    /// Appends a `job/interrupt` record under this job's key, naming `by`, the job that
+    /// noticed it had died (0011 A36; 0104 §4).
+    pub async fn interrupt<S: IngestStore>(
+        &self,
+        store: &S,
+        pipeline: &Pipeline<S>,
+        cx: &mut S::Cx,
+        by: u64,
+        now: u64,
+    ) -> Result<u64, IngestError> {
+        let draft = self
+            .event(store, cx, "interrupt", serde_json::json!({"by": by}), now)
+            .await?;
+        let (record, _) =
+            append_projected(store, pipeline, cx, self.log_partition, draft, Budget::NONE).await?;
+        Ok(record.header().offset)
     }
 }

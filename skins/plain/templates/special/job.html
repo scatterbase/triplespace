@@ -1,0 +1,16 @@
+{#- Special:Jobs/{id} (0010 §9; 0104 §9; 19 §3.10): one job's page: the identity line,
+    the header, the counts, the rejects, and where it came from. -#}
+{%- import "codex.html" as codex -%}
+<div class="ts-job">
+<p class="ts-job__identity">{{ codex.chip(chip) }} <strong>{{ name }}</strong> · <span class="ts-job-status ts-job-status--{{ status_class }}">{{ status }}</span></p>
+{%- if notice %}<p class="ts-job__notice ts-job__notice--{{ status_class }}">{{ notice }}</p>{% endif %}
+<dl class="ts-job__facts">{% for f in header %}<dt>{{ f.label }}</dt><dd>{% if f.href %}<a href="{{ f.href }}">{{ f.value }}</a>{% elif f.mono %}<code>{{ f.value }}</code>{% else %}{{ f.value }}{% endif %}</dd>{% endfor %}</dl>
+{%- if counts %}<h2>{{ counts_heading }}</h2>
+<dl class="ts-job__facts ts-job__counts">{% for f in counts %}<dt>{{ f.label }}</dt><dd>{{ f.value }}</dd>{% endfor %}</dl>{% endif %}
+{%- if rejects %}<h2>{{ rejects_heading }}</h2>
+<table class="cdx-table__table ts-job__rejects"><thead><tr>{% for c in reject_columns %}<th scope="col">{{ c }}</th>{% endfor %}</tr></thead><tbody>
+{%- for r in rejects %}<tr><td>{{ r.line }}</td><td><code>{{ r.key }}</code></td><td>{{ r.reason }}</td></tr>{% endfor %}</tbody></table>{% endif %}
+{%- if origin %}<h2>{{ origin_heading }}</h2>
+<dl class="ts-job__facts ts-job__origin">{% for f in origin %}<dt>{{ f.label }}</dt><dd>{% if f.mono %}<code>{{ f.value }}</code>{% else %}{{ f.value }}{% endif %}</dd>{% endfor %}</dl>{% endif %}
+<p class="ts-job__links"><a href="{{ changes.href }}">{{ changes.text }}</a> · <a href="{{ list.href }}">{{ list.text }}</a></p>
+</div>

@@ -22,6 +22,7 @@ use crate::frame::Page;
 use crate::i18n::Messages;
 use crate::moderation::GateModel;
 use crate::pages::{self, Context, Params, Peer};
+use crate::special::changes::JobLink;
 use crate::special::controls::{CheckRow, ControlModel, FieldRow};
 
 const TITLE: &str = "Special:Import";
@@ -106,6 +107,8 @@ pub struct DoneModel {
     pub title: String,
     /// What the job did, one line each.
     pub lines: Vec<String>,
+    /// The job's page (0104 §9).
+    pub job: Option<JobLink>,
     /// The pages' heading.
     pub pages_title: String,
     /// Each page: its title and what it got.
@@ -473,11 +476,22 @@ fn census_model(cx: &Context, m: &Messages, typed: &Typed, c: &Value) -> CensusM
     }
 }
 
-/// The job's report.
+/// The job's report, or where a queued job's page is (0104 §4).
 fn done_model(m: &Messages, v: &Value) -> DoneModel {
     let job = &v["job"];
     let counts = &job["counts"];
     let n = |o: &Value, k: &str| o[k].as_u64().unwrap_or(0).to_string();
+    if job["status"].as_str() == Some("queued") {
+        return DoneModel {
+            title: m.get("ts-import-queued-title"),
+            lines: vec![m.with("ts-import-queued", &[&n(job, "pages"), &n(job, "id")])],
+            job: Some(JobLink::to(m, job["id"].as_u64().unwrap_or(0))),
+            pages_title: m.get("ts-import-done-pages"),
+            pages: Vec::new(),
+            rejects_note: None,
+            rejects: Vec::new(),
+        };
+    }
     let mut lines = vec![m.with(
         "ts-import-done",
         &[
@@ -513,7 +527,6 @@ fn done_model(m: &Messages, v: &Value) -> DoneModel {
     if !left_out.is_empty() {
         lines.push(m.with("ts-import-done-left-out", &[&left_out.join("; ")]));
     }
-    lines.push(m.with("ts-import-done-jobs-note", &[&n(job, "id")]));
     let pages: Vec<(String, String)> = v["import"]
         .as_array()
         .into_iter()
@@ -537,6 +550,7 @@ fn done_model(m: &Messages, v: &Value) -> DoneModel {
     DoneModel {
         title: m.get("ts-import-done-title"),
         lines,
+        job: job["id"].as_u64().map(|id| JobLink::to(m, id)),
         pages_title: m.get("ts-import-done-pages"),
         pages,
         rejects_note: (!rejects.is_empty()).then(|| m.get("ts-import-done-rejects")),

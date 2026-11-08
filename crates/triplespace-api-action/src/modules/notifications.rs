@@ -372,6 +372,18 @@ fn item_json(
                 v["revid"] = json!(r);
             }
         }
+        // A job: its page (0104 §9).
+        Some(target_kind::JOB) => {
+            if let Some(id) = &i.target_id {
+                v["title"] = json!({
+                    "full": format!("Special:Jobs/{id}"),
+                    "namespace": "Special",
+                    "namespace-key": -1,
+                    "text": format!("Jobs/{id}"),
+                });
+                v["ts-job"] = json!(id.parse::<u64>().unwrap_or(0));
+            }
+        }
         _ => {}
     }
     v["agent"] = match agent.as_deref() {

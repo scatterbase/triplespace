@@ -9,7 +9,7 @@
 {%- if c.missing_note %}<p>{{ c.missing_note }}</p><ul class="ts-import__titles">{% for t in c.missing %}<li>{{ t }}</li>{% endfor %}</ul>{% endif %}
 {%- if c.unregistered_note %}<p>{{ c.unregistered_note }}</p><ul class="ts-import__titles">{% for t in c.unregistered %}<li><code>{{ t }}</code></li>{% endfor %}</ul>{% endif %}
 <form class="ts-import__confirm" method="post" enctype="multipart/form-data" action="{{ action }}">{% for h in c.hidden %}<input type="hidden" name="{{ h[0] }}" value="{{ h[1] }}">{% endfor %}<p>{{ c.confirm_note }}</p>{% if c.reselect %}{{ forms.field(c.reselect) }}{% endif %}<div class="ts-protect__actions">{{ codex.button(c.submit) }}<a href="{{ c.cancel }}" class="ts-protect__cancel">{{ c.cancel_label }}</a></div></form>
-{%- elif done %}{% set d = done %}<h2>{{ d.title }}</h2><ul class="ts-import__done">{% for l in d.lines %}<li>{{ l }}</li>{% endfor %}</ul>
+{%- elif done %}{% set d = done %}<h2>{{ d.title }}</h2><ul class="ts-import__done">{% for l in d.lines %}<li>{{ l }}</li>{% endfor %}{% if d.job %}<li><a href="{{ d.job.href }}">{{ d.job.text }}</a></li>{% endif %}</ul>
 {%- if d.rejects_note %}<p>{{ d.rejects_note }}</p><ul class="ts-import__rejects">{% for r in d.rejects %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
 {%- if d.pages %}<h3>{{ d.pages_title }}</h3><ul class="ts-import__pages">{% for p in d.pages %}<li><a href="/wiki/{{ p[0] | replace(" ", "_") }}">{{ p[0] }}</a>: {{ p[1] }}</li>{% endfor %}</ul>{% endif %}
 {%- else %}<p>{{ intro }}</p>

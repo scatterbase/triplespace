@@ -222,6 +222,7 @@ pub async fn run(args: Import) -> Result<()> {
             .map(|f| f.to_string_lossy().into_owned()),
         history: !c.current_only,
         summary: None,
+        job_id: None,
     };
     let (outcome, read) = import_pages(
         &store,

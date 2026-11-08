@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-08
+- **Updated:** 2026-11-08 (A1)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0016](0016-permissions-and-access-control.md), [0083](0083-write-path-in-three-tiers.md)
 - **Uses:** [0007](0007-actor-identity.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0047](0047-special-pages.md)
@@ -37,7 +38,9 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 4. The runner (extends 0083 §5)
 
-*Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §2.2.*
+*Changed by A1.*
+
+*Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §2.2; [21](../architecture/21-special-pages.md) §4.3.*
 
 ### 5. Permissions (extends 0016 §2)
 
@@ -52,6 +55,8 @@ James's direction, from the design discussion of 2026-11-08:
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §2.3.*
 
 ### 8. Storage (extends 0013 §5.6)
+
+*Changed by A1.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.12.*
 
@@ -88,3 +93,12 @@ James's direction, from the design discussion of 2026-11-08:
 
 - [Wikidata:Edit groups](https://www.wikidata.org/wiki/Wikidata:Edit_groups)
 - [0002](0002-source-graphs-and-mass-ingest.md) §8.3, §8.5; [0011](0011-logs.md) §6.3; [0010](0010-site-ui.md) §9; [0083](0083-write-path-in-three-tiers.md) §5
+
+## Amendment log
+
+### A1. Calls made while building the runner
+
+- **Date:** 2026-11-08
+- **Source:** Direct: Claude, while building the job runner (SCA-172), 2026-11-08; unconfirmed
+- **Change:** extends §4 and §8
+- **Summary:** The line between the request path and a job for an import is a tenant setting, `import.sync_pages`, 100 pages by default, beside `export.sync_revisions`; the runner is paused by an instance setting, `jobs.paused`, which `triplespace job pause` and `resume` set. The queue row carries the upload (`payload`), the job's actor, a `heartbeat` the runner refreshes, the running job's `progress` and a `cancel` flag beside the columns §8 named; a claim whose heartbeat is two minutes stale is a dead run, which the next claim marks `job/interrupt`, naming as `by` the new job ID the work runs again under at once, since the jobs here are idempotent; a job that fails on its input gets its `job/fail` record and its row is deleted, not retried. The runner carries `import` in this phase: the follower, sync and adoption jobs still run where the command line runs them, which coverage shows against §4. A job's end is delivered to its actor's inbox, or its operator's, as 16 §5.2 lists under `job`, the one notification an account gets of its own action. Chapter text: [16](../architecture/16-logs-feeds-and-notifications.md) §2.2; [03](../architecture/03-storage-caches-and-search.md) §4.12; [23](../architecture/23-configuration-and-registry.md) (`settings.toml`).

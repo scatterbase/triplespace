@@ -56,6 +56,11 @@ struct Args {
     /// while another runs the workers.
     #[arg(long, env = "TRIPLESPACE_WORKERS", default_value_t = 2)]
     workers: usize,
+    /// Job runner tasks over `ops.job_queue` (0104 §4; 16 §2.2): each runs one queued job
+    /// at a time, one running job per partition between them. `0` runs none, for a
+    /// process that only serves while another runs the jobs.
+    #[arg(long, env = "TRIPLESPACE_JOB_RUNNERS", default_value_t = 1)]
+    job_runners: usize,
     /// The auth host, `server.auth_base` (0089 §1): where a person authenticates to the
     /// instance; required once the instance has a second tenant.
     #[arg(long, env = "TRIPLESPACE_AUTH_BASE")]
@@ -415,6 +420,19 @@ async fn run() -> Result<()> {
         tokio::spawn(deliver(app.clone(), args.database.clone(), transport));
     }
     background(&app, args.workers).await;
+    // The job runner (0104 §4): background tasks claiming `ops.job_queue`, each with a
+    // store of its own, since a job's units of work are its own transactions.
+    for n in 0..args.job_runners {
+        let (store, pipeline) = triplespace_cli::common::store(&args.database, &app.config().farm)
+            .context("job runner")?;
+        tokio::spawn(triplespace_api_ingest::jobs::run_forever(
+            store,
+            pipeline,
+            format!("runner {n}"),
+            WORKER_IDLE,
+            triplespace_cli::common::now,
+        ));
+    }
     if let Some(admin) = &args.admin_listen {
         let admin_router =
             axum::Router::new().route("/healthz", axum::routing::get(|| async { "ok" }));
