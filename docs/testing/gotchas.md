@@ -112,6 +112,10 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
   only), so a run script's own attempt fails and its later `pg_stat_statements_reset()` with it.
   Create it as `postgres` (`sudo -u postgres psql -d <db> -c 'CREATE EXTENSION
   pg_stat_statements'`) right after `createdb`.
+- A monitoring loop that reads `/proc/stat` with `read -r _ u n s i w _` overwrites any `n`
+  it has already set: a sweep of 2026-11-08 logged every load at "141 entities" for 2¾ hours
+  (the CPU's nice time) while the loads ran normally. Give such variables names nothing else
+  uses, and check a monitor's first lines against the database before leaving it running.
 
 ## The device bridge and James's checkout
 

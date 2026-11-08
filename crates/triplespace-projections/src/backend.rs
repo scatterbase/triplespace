@@ -98,7 +98,7 @@ impl Partitions for PgCx {
                 &[&partition_to_db(partition)],
             )
             .await
-            .map_err(|e| e.to_string())?
+            .map_err(|e| crate::common::describe(&e))?
             .ok_or_else(|| format!("partition {partition} is not registered"))?;
         let info = PartitionInfo {
             tenant: row.get::<_, Option<String>>(0).unwrap_or_default(),
@@ -127,7 +127,7 @@ impl Partitions for PgCx {
                 &[&owner, &name],
             )
             .await
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| crate::common::describe(&e))?;
         let Some(row) = row else {
             return Ok(None);
         };
@@ -155,6 +155,12 @@ fn backend(e: impl std::fmt::Display) -> ProjectionError {
     ProjectionError::Backend(e.to_string())
 }
 
+/// A Postgres error, with the server's message rather than the driver's "db error".
+#[allow(clippy::needless_pass_by_value)]
+fn pg(e: tokio_postgres::Error) -> ProjectionError {
+    ProjectionError::Backend(crate::common::describe(&e))
+}
+
 impl PgBackend {
     /// Over a pool.
     #[must_use]
@@ -174,7 +180,7 @@ impl Backend for PgBackend {
 
     async fn begin(&self) -> Result<PgCx, ProjectionError> {
         let conn = self.pool.get().await.map_err(backend)?;
-        conn.batch_execute("BEGIN").await.map_err(backend)?;
+        conn.batch_execute("BEGIN").await.map_err(pg)?;
         Ok(PgCx {
             conn,
             positions: BTreeMap::new(),
@@ -194,13 +200,13 @@ impl Backend for PgBackend {
                 .collect();
             projection_state::set_applied_many(&cx, &rows)
                 .await
-                .map_err(backend)?;
+                .map_err(pg)?;
         }
-        cx.conn.batch_execute("COMMIT").await.map_err(backend)
+        cx.conn.batch_execute("COMMIT").await.map_err(pg)
     }
 
     async fn rollback(&self, cx: PgCx) -> Result<(), ProjectionError> {
-        cx.conn.batch_execute("ROLLBACK").await.map_err(backend)
+        cx.conn.batch_execute("ROLLBACK").await.map_err(pg)
     }
 
     async fn applied(
@@ -218,7 +224,7 @@ impl Backend for PgBackend {
         }
         projection_state::applied(&*cx, projection, partition)
             .await
-            .map_err(backend)
+            .map_err(pg)
     }
 
     async fn set_applied(
@@ -247,7 +253,7 @@ impl Backend for PgBackend {
                 ],
             )
             .await
-            .map_err(backend)?;
+            .map_err(pg)?;
         }
         Ok(())
     }
@@ -266,7 +272,7 @@ impl Backend for PgBackend {
                 &[&consumer, &i32::try_from(max_attempts).unwrap_or(i32::MAX)],
             )
             .await
-            .map_err(backend)?;
+            .map_err(pg)?;
         Ok(rows.iter().map(|r| r.get(0)).collect())
     }
 
@@ -282,7 +288,7 @@ impl Backend for PgBackend {
                 &[&consumer, &tenant],
             )
             .await
-            .map_err(backend)?;
+            .map_err(pg)?;
         Ok(row.get(0))
     }
 
@@ -309,7 +315,7 @@ impl Backend for PgBackend {
                 ],
             )
             .await
-            .map_err(backend)?;
+            .map_err(pg)?;
         rows.iter()
             .map(|r| {
                 Ok(Queued {
@@ -334,7 +340,7 @@ impl Backend for PgBackend {
             &[&ids],
         )
         .await
-        .map_err(backend)?;
+        .map_err(pg)?;
         Ok(())
     }
 
@@ -348,7 +354,7 @@ impl Backend for PgBackend {
             &[&ids, &error],
         )
         .await
-        .map_err(backend)?;
+        .map_err(pg)?;
         Ok(())
     }
 
@@ -368,7 +374,7 @@ impl Backend for PgBackend {
                 &[&i32::try_from(max_attempts).unwrap_or(i32::MAX)],
             )
             .await
-            .map_err(backend)?;
+            .map_err(pg)?;
         Ok(rows
             .iter()
             .map(|r| QueueLag {

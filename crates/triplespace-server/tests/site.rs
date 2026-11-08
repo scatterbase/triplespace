@@ -155,6 +155,7 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
         batch: 200,
         rejects: None,
         no_bootstrap: false,
+        writers: sync::WRITERS,
     })
     .await
     .expect("sync");

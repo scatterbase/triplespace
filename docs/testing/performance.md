@@ -595,3 +595,31 @@ by their index keys before inserting, to make the index writes less random.
 Keep `ts_full` (712 GB) until the follower has been run against it from the dump's date
 (`triplespace follow --provider wikidata --from 2026-10-27T11:54:55Z`, where the load ended):
 that is the next measurement this database makes possible.
+
+**Several blocks at once (2026-11-07/08).** The first of the steps above, measured. Applying a
+block's writes on a second connection gains nothing by itself: the append locks the
+partition's row, and the next block waits on it. So the load writes several blocks at once,
+each in a transaction of its own, and commits them in dump order (0013 A82, A83): the
+coordinator gives each block its page IDs, offsets and tree nodes, the frontier kept in
+memory, and a block moves the partition's next offset, and commits, only after the block
+before it has. Prototyped first and measured on the same VM and dump as the whole-dump load:
+
+- **To 40M entities with 4 writers: 4 h 00 min, against 5 h 07 min** for the whole-dump load's
+  first 40M (1.28×). By stretch, 2,897/s against 2,517/s up to 10M, 2,974 against 2,541 to
+  20M, 3,086 against 2,271 to 30M and 2,304 against 1,645 to 40M: the gain grows once the
+  database outgrows memory. Killed at 40,051,000 entities, the database held exactly that many
+  records, at offsets 0 to 40,050,999, as many leaves, and every projection at the same
+  position. The whole-dump load was an older build (`a726543`), so this compares builds as well
+  as writers; the sweep below does not.
+- **A sweep, 40 minutes each from empty, one build:** 4.81M entities with 1 writer, 5.96M with
+  2 (1.24×), **7.15M with 4 (1.49×)** and 6.57M with 8 (1.37×). With 2 writers and more, the 14
+  threads preparing records ran at 93–98% each through dense stretches, the coordinator's own
+  thread at 20–39% of a core, and I/O wait at 0–2%; Postgres's connections, sampled every 2 s,
+  were waiting for the client's next statement (`Client:ClientRead`) in about 5% of samples
+  with 1 writer, 25% with 2, 50% with 4 and 75% with 8. Preparing the records is now the limit,
+  so more writers only add connections: 4 is the default.
+
+`pg_stat_statements` over several connections at once adds up to more execution time than the
+wall time, so its totals no longer say what share of a load waits on Postgres; per-thread CPU
+and wait-event samples do. What would shorten the next run is the preparation's CPU per
+record, not more writers.

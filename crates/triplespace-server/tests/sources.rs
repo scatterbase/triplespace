@@ -192,6 +192,7 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
         batch: 50,
         rejects: None,
         no_bootstrap: false,
+        writers: sync::WRITERS,
     })
     .await
     .expect("sync into the source");

@@ -45,6 +45,12 @@ fn store(e: impl std::fmt::Display) -> IngestError {
     IngestError::Store(e.to_string())
 }
 
+/// A Postgres error, with the server's message rather than the driver's "db error".
+#[allow(clippy::needless_pass_by_value)]
+fn db(e: tokio_postgres::Error) -> IngestError {
+    IngestError::Store(scatter_log_postgres::describe(&e))
+}
+
 fn sequence(s: &Sequence) -> sequences::Sequence {
     match s {
         Sequence::Revision => sequences::Sequence::Revision,
@@ -96,7 +102,7 @@ impl PgIngest {
                 &[&property.as_str(), &tenant],
             )
             .await
-            .map_err(store)?;
+            .map_err(db)?;
         let Some(row) = row else {
             return Ok(None);
         };
@@ -114,7 +120,7 @@ impl PgIngest {
                 &[&property.as_str(), &owner],
             )
             .await
-            .map_err(store)?;
+            .map_err(db)?;
         let Some(source) = source else {
             return Ok(None);
         };
@@ -261,7 +267,7 @@ impl IngestStore for PgIngest {
         client
             .batch_execute(&format!("SET lock_timeout = {timeout}"))
             .await
-            .map_err(store)?;
+            .map_err(db)?;
         let key = format!("ts-load\u{1f}{tenant}\u{1f}{source}\u{1f}{graph}");
         match client
             .execute("SELECT pg_advisory_lock(hashtextextended($1, 0))", &[&key])
@@ -274,12 +280,12 @@ impl IngestStore for PgIngest {
                     graph: graph.to_string(),
                 });
             }
-            Err(e) => return Err(store(e)),
+            Err(e) => return Err(db(e)),
         }
         client
             .batch_execute("SET lock_timeout = 0")
             .await
-            .map_err(store)?;
+            .map_err(db)?;
         Ok(PgLoadLock { _client: client })
     }
 
@@ -318,13 +324,13 @@ impl IngestStore for PgIngest {
                 &[],
             )
             .await
-            .map_err(store)?;
+            .map_err(db)?;
         let Some(tables) = row.get::<_, Option<String>>(0) else {
             return Ok(());
         };
         cx.batch_execute(&format!("ANALYZE {tables}"))
             .await
-            .map_err(store)
+            .map_err(db)
     }
 
     /// `synchronous_commit` for this transaction only (`SET LOCAL`), so that a pooled
@@ -336,7 +342,7 @@ impl IngestStore for PgIngest {
             "SET LOCAL synchronous_commit = off"
         })
         .await
-        .map_err(store)
+        .map_err(db)
     }
 
     async fn partition_size(&self, cx: &mut PgCx, partition: u64) -> Result<u64, IngestError> {
@@ -351,6 +357,30 @@ impl IngestStore for PgIngest {
     ) -> Result<Vec<Record>, IngestError> {
         let (conn, frontiers) = cx.for_append();
         Ok(log::append_many(conn, partition, drafts, frontiers).await?)
+    }
+
+    fn concurrent_blocks(&self) -> bool {
+        true
+    }
+
+    async fn write_sealed(
+        &self,
+        cx: &mut PgCx,
+        partition: u64,
+        records: &[Record],
+        nodes: &[(u32, u64, scatter_log::hash::Hash)],
+    ) -> Result<(), IngestError> {
+        Ok(log::write_sealed(cx, partition, records, nodes).await?)
+    }
+
+    async fn advance_partition(
+        &self,
+        cx: &mut PgCx,
+        partition: u64,
+        start: u64,
+        end: u64,
+    ) -> Result<(), IngestError> {
+        Ok(log::advance_next_offset(cx, partition, start, end).await?)
     }
 
     async fn read(
@@ -377,7 +407,7 @@ impl IngestStore for PgIngest {
                 &[&partition_to_db(partition), &key],
             )
             .await
-            .map_err(store)?;
+            .map_err(db)?;
         let max: Option<i64> = row.get(0);
         max.map(from_db).transpose().map_err(store)
     }
@@ -393,7 +423,7 @@ impl IngestStore for PgIngest {
                 &[&partition_to_db(partition), &key],
             )
             .await
-            .map_err(store)?;
+            .map_err(db)?;
         match row {
             Some(r) => Ok(Some((
                 from_db(r.get(0))?,
@@ -417,7 +447,7 @@ impl IngestStore for PgIngest {
                 &[&key, &tenant],
             )
             .await
-            .map_err(store)?;
+            .map_err(db)?;
         row.map(|r| from_db(r.get(0)).map_err(IngestError::from))
             .transpose()
     }
@@ -485,7 +515,7 @@ impl IngestStore for PgIngest {
                 &[&owner, &entity_id.as_str(), &graph],
             )
             .await
-            .map_err(store)?;
+            .map_err(db)?;
         row.map(|r| cursor_from(&r, 0)).transpose()
     }
 
@@ -512,7 +542,7 @@ impl IngestStore for PgIngest {
                 &[&owner, &ids, &graph],
             )
             .await
-            .map_err(store)?;
+            .map_err(db)?;
         rows.iter()
             .map(|r| {
                 Ok((
@@ -551,7 +581,7 @@ impl IngestStore for PgIngest {
                 &[&partition_to_db(partition), &keys],
             )
             .await
-            .map_err(store)?;
+            .map_err(db)?;
         rows.iter()
             .map(|r| Ok((r.get::<_, String>(0), from_db(r.get(1)).map_err(store)?)))
             .collect()
@@ -576,7 +606,7 @@ impl IngestStore for PgIngest {
                 &[&keys, &tenant],
             )
             .await
-            .map_err(store)?;
+            .map_err(db)?;
         rows.iter()
             .map(|r| {
                 Ok((
@@ -604,7 +634,7 @@ impl IngestStore for PgIngest {
                 &[&owner, &graph],
             )
             .await
-            .map_err(store)?;
+            .map_err(db)?;
         rows.iter()
             .map(|r| EntityId::parse(r.get(0)).map_err(store))
             .collect()
@@ -625,7 +655,7 @@ impl IngestStore for PgIngest {
                 &[&provider],
             )
             .await
-            .map_err(store)?;
+            .map_err(db)?;
         rows.iter()
             .map(|r| Ok((r.get(0), EntityId::parse(r.get(1)).map_err(store)?)))
             .collect()
@@ -654,7 +684,7 @@ impl IngestStore for PgIngest {
                             &[&tenant, &property.as_str(), &k.as_str()],
                         )
                         .await
-                        .map_err(store)?;
+                        .map_err(db)?;
                     if let Some(r) = row {
                         return Ok(Some(EntityId::parse(r.get(0)).map_err(store)?));
                     }
@@ -667,7 +697,7 @@ impl IngestStore for PgIngest {
                         &[&id.as_str(), &tenant],
                     )
                     .await
-                    .map_err(store)?;
+                    .map_err(db)?;
                 Ok(row.map(|_| id.clone()))
             }
         }
@@ -684,7 +714,7 @@ impl IngestStore for PgIngest {
                 &[&keyed_type, &key],
             )
             .await
-            .map_err(store)?;
+            .map_err(db)?;
         row.map(|r| u64::try_from(r.get::<_, i64>(0)).map_err(store))
             .transpose()
     }
@@ -712,7 +742,7 @@ impl IngestStore for PgIngest {
                 &[&partition_to_db(partition)],
             )
             .await
-            .map_err(store)?;
+            .map_err(db)?;
         Ok(row.get(0))
     }
 
@@ -731,7 +761,7 @@ impl IngestStore for PgIngest {
                 &[&tenant, &kind, &raw],
             )
             .await
-            .map_err(store)?;
+            .map_err(db)?;
         Ok(row.map(|r| r.get(0)))
     }
 
@@ -746,7 +776,7 @@ impl IngestStore for PgIngest {
                 &[&tenant],
             )
             .await
-            .map_err(store)?;
+            .map_err(db)?;
         Ok(rows.iter().map(|r| r.get(0)).collect())
     }
 
@@ -765,7 +795,7 @@ impl IngestStore for PgIngest {
                 &[&tenant, &source, &graph],
             )
             .await
-            .map_err(store)?;
+            .map_err(db)?;
         Ok(rows
             .iter()
             .map(|r| r.get::<_, i64>(0).cast_unsigned())
