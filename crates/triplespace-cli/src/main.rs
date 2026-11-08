@@ -12,8 +12,8 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use triplespace_cli::{
-    accounts, adopt, challenge, dump, env_file, follow, forwarder, instance, log_bundle, logins,
-    oauth_client, rights, settings, source, status, sync, tenant,
+    accounts, adopt, challenge, dump, env_file, follow, forwarder, import_pages, instance,
+    log_bundle, logins, oauth_client, rights, settings, source, status, sync, tenant,
 };
 
 /// Triplespace: a Wikibase as an append-only log.
@@ -38,6 +38,8 @@ enum Command {
     },
     /// Adopt a frozen Wikibase from its XML dump into a tenant (0035).
     Adopt(adopt::Adopt),
+    /// Import pages from any wiki's MediaWiki XML export into a tenant (0008 §9).
+    Import(import_pages::Import),
     /// Sync a provider's dump into its mirror (0002 §8.4).
     Sync(sync::Sync),
     /// Follow a provider's wiki by its recent changes (0092 §1).
@@ -154,6 +156,7 @@ async fn run() -> Result<()> {
         } => forwarder::run(command).await,
         Command::Tenant { command } => tenant::run(command).await,
         Command::Adopt(args) => adopt::run(args).await,
+        Command::Import(args) => import_pages::run(args).await,
         Command::Sync(args) => sync::run(args).await,
         Command::Follow(args) => follow::run(args).await,
         Command::UpstreamLogin { command } => follow::run_login(command).await,

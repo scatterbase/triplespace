@@ -18,6 +18,9 @@ pub enum Mode {
     Snapshot,
     /// An adoption job (0035): `adopt` operations only.
     Adopt,
+    /// A general import of pages from a MediaWiki XML export (0008 §9): page records
+    /// only, under the tenant's own IDs.
+    Import,
 }
 
 /// Which partition a job writes.

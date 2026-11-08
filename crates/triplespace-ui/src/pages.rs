@@ -18,7 +18,7 @@ use std::net::SocketAddr;
 
 use axum::Extension;
 use axum::body::Body;
-use axum::extract::{ConnectInfo, Form, Path, Query, Request, State};
+use axum::extract::{ConnectInfo, Path, Query, Request, State};
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::middleware::Next;
 use axum::response::{IntoResponse, Response};
@@ -698,6 +698,9 @@ pub struct Params {
     pub map: BTreeMap<String, String>,
     /// Every pair, in order.
     pub pairs: Vec<(String, String)>,
+    /// The files a `multipart/form-data` body carried, by field name, each with its
+    /// file name.
+    pub files: BTreeMap<String, (String, Vec<u8>)>,
 }
 
 impl Params {
@@ -707,7 +710,60 @@ impl Params {
         Self {
             map: pairs.iter().cloned().collect(),
             pairs,
+            files: BTreeMap::new(),
         }
+    }
+
+    /// A posted body: `application/x-www-form-urlencoded`, or `multipart/form-data` with
+    /// its text fields as parameters and its files kept by field name.
+    async fn posted(headers: &HeaderMap, body: axum::body::Bytes) -> Result<Self, Response> {
+        use axum::extract::{FromRequest as _, Multipart};
+        let content_type = headers
+            .get(header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default()
+            .to_string();
+        if !content_type.starts_with("multipart/form-data") {
+            let pairs: Vec<(String, String)> = url::form_urlencoded::parse(&body)
+                .map(|(k, v)| (k.into_owned(), v.into_owned()))
+                .collect();
+            return Ok(Self::new(pairs));
+        }
+        let bad = |e: String| {
+            (
+                StatusCode::BAD_REQUEST,
+                format!("the form could not be read: {e}"),
+            )
+                .into_response()
+        };
+        let request = Request::builder()
+            .header(header::CONTENT_TYPE, &content_type)
+            .body(Body::from(body))
+            .map_err(|e| bad(e.to_string()))?;
+        let mut multipart = Multipart::from_request(request, &())
+            .await
+            .map_err(|e| bad(e.body_text()))?;
+        let mut params = Self::default();
+        while let Some(field) = multipart
+            .next_field()
+            .await
+            .map_err(|e| bad(e.body_text()))?
+        {
+            let Some(name) = field.name().map(str::to_string) else {
+                continue;
+            };
+            if let Some(file_name) = field.file_name().map(str::to_string) {
+                let bytes = field.bytes().await.map_err(|e| bad(e.body_text()))?;
+                if !bytes.is_empty() {
+                    params.files.insert(name, (file_name, bytes.to_vec()));
+                }
+            } else {
+                let text = field.text().await.map_err(|e| bad(e.body_text()))?;
+                params.map.insert(name.clone(), text.clone());
+                params.pairs.push((name, text));
+            }
+        }
+        Ok(params)
     }
 
     /// Every value of a name, in order.
@@ -906,9 +962,12 @@ pub async fn wiki_post(
     Query(query): Query<BTreeMap<String, String>>,
     headers: HeaderMap,
     peer: Peer,
-    Form(form): Form<Vec<(String, String)>>,
+    body: axum::body::Bytes,
 ) -> Response {
-    let form = Params::new(form);
+    let form = match Params::posted(&headers, body).await {
+        Ok(f) => f,
+        Err(r) => return r,
+    };
     dispatch_post(&site, &headers, peer, &display_title(&title), &query, &form).await
 }
 
@@ -918,9 +977,12 @@ pub async fn index_post(
     Query(query): Query<BTreeMap<String, String>>,
     headers: HeaderMap,
     peer: Peer,
-    Form(form): Form<Vec<(String, String)>>,
+    body: axum::body::Bytes,
 ) -> Response {
-    let form = Params::new(form);
+    let form = match Params::posted(&headers, body).await {
+        Ok(f) => f,
+        Err(r) => return r,
+    };
     let title = display_title(
         query
             .get("title")

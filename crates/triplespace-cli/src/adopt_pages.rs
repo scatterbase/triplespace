@@ -1,6 +1,8 @@
-//! The document pages of an adopted wiki (0035 A13; 0008 §9, A38; 10 §6): every page the
+//! The document pages of an adopted wiki (0035 A13; 0008 §9, A38; 10 §6.3): every page the
 //! tenant's namespaces accept comes in the adoption job, revision by revision, into the
-//! tenant's `pages` partition under its source page ID and revision IDs.
+//! tenant's `pages` partition under its source page ID and revision IDs. With the talk
+//! conversion that follows the job (`triplespace_api_ingest::talk_import`), this
+//! implements 0008 §9.3.
 //!
 //! A page is accepted when its namespace holds pages and allows its content model, with
 //! the registry's own namespaces: Project, User, Template and the main namespace (0008

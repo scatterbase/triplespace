@@ -1,0 +1,22 @@
+{#- Special:Import (0047 §8.3; 21 §4.3): the form, with a file to upload or another wiki's
+    page, the options and the reason; then the census of the file with its confirmation;
+    then the job's report. -#}
+{%- import "codex.html" as codex -%}
+{%- import "forms.html" as forms -%}
+<div class="ts-import">{% for n in notices %}{{ codex.message(n) }}{% endfor %}
+{%- if census %}{% set c = census %}<h2>{{ c.title }}</h2><ul class="ts-import__census">{% for l in c.lines %}<li>{{ l }}</li>{% endfor %}</ul>
+{%- if c.existing_note %}<p>{{ c.existing_note }}</p><ul class="ts-import__titles">{% for t in c.existing %}<li>{{ t }}</li>{% endfor %}</ul>{% endif %}
+{%- if c.missing_note %}<p>{{ c.missing_note }}</p><ul class="ts-import__titles">{% for t in c.missing %}<li>{{ t }}</li>{% endfor %}</ul>{% endif %}
+{%- if c.unregistered_note %}<p>{{ c.unregistered_note }}</p><ul class="ts-import__titles">{% for t in c.unregistered %}<li><code>{{ t }}</code></li>{% endfor %}</ul>{% endif %}
+<form class="ts-import__confirm" method="post" enctype="multipart/form-data" action="{{ action }}">{% for h in c.hidden %}<input type="hidden" name="{{ h[0] }}" value="{{ h[1] }}">{% endfor %}<p>{{ c.confirm_note }}</p>{% if c.reselect %}{{ forms.field(c.reselect) }}{% endif %}<div class="ts-protect__actions">{{ codex.button(c.submit) }}<a href="{{ c.cancel }}" class="ts-protect__cancel">{{ c.cancel_label }}</a></div></form>
+{%- elif done %}{% set d = done %}<h2>{{ d.title }}</h2><ul class="ts-import__done">{% for l in d.lines %}<li>{{ l }}</li>{% endfor %}</ul>
+{%- if d.rejects_note %}<p>{{ d.rejects_note }}</p><ul class="ts-import__rejects">{% for r in d.rejects %}<li>{{ r }}</li>{% endfor %}</ul>{% endif %}
+{%- if d.pages %}<h3>{{ d.pages_title }}</h3><ul class="ts-import__pages">{% for p in d.pages %}<li><a href="/wiki/{{ p[0] | replace(" ", "_") }}">{{ p[0] }}</a>: {{ p[1] }}</li>{% endfor %}</ul>{% endif %}
+{%- else %}<p>{{ intro }}</p>
+<form class="ts-import__form" method="post" enctype="multipart/form-data" action="{{ action }}"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="wpStep" value="census">
+<fieldset class="ts-import__source"><legend>{{ upload_legend }}</legend>{{ forms.field(upload) }}{{ forms.field(prefix) }}</fieldset>
+<fieldset class="ts-import__source"><legend>{{ interwiki_legend }}</legend>{{ forms.field(interwiki) }}{{ forms.field(frompage) }}</fieldset>
+{%- for o in options %}{{ forms.check(o) }}{% endfor %}
+{{ forms.field(summary) }}
+<div class="ts-protect__actions">{{ codex.button(submit) }}</div></form>
+{%- endif %}</div>

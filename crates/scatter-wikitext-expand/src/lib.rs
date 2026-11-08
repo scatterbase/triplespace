@@ -15,6 +15,9 @@
 //! - the newline MediaWiki puts before an expansion that starts a list, a table or a
 //!   definition, so the line markup still starts a line.
 //!
+//! [`census`] scans a text for what it calls, with each call's registry status, for the
+//! template census an import runs first (0042 §5; 10 §6).
+//!
 //! Everything else is left as written, for the renderer to show as a chip: calls with
 //! arguments, variables and parser functions (recognised from
 //! `docs/registry/wikitext-functions.toml`), `subst:`, `msg:` and the other modifiers.
@@ -26,6 +29,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod census;
 mod pst;
 mod registry;
 

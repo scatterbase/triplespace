@@ -59,6 +59,8 @@ pub enum Feature {
     Reports,
     /// `Special:Export` (`POST /export`; 0047 §8.1).
     Export,
+    /// `Special:Import` (`action=import`; 0047 §8.3).
+    Import,
 }
 
 impl Feature {
@@ -88,6 +90,7 @@ impl Feature {
             Self::Watchlist => "watchlist",
             Self::Reports => "reports",
             Self::Export => "export",
+            Self::Import => "import",
         }
     }
 }
@@ -115,6 +118,7 @@ pub const BUILT: &[Feature] = &[
     Feature::Watchlist,
     Feature::Reports,
     Feature::Export,
+    Feature::Import,
 ];
 
 /// What the site offers on one request.

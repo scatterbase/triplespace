@@ -182,7 +182,7 @@ rustls = { version = "0.23", default-features = false, features = ["std", "tls12
 rustls-platform-verifier = "0.7"
 tokio-postgres-rustls = { version = "0.14", features = ["aws-lc-rs"] }
 # The HTTP server (0033 §3): axum on hyper, tower middleware
-axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "query", "form", "json", "matched-path"] }
+axum = { version = "0.8", default-features = false, features = ["http1", "tokio", "query", "form", "json", "matched-path", "multipart"] }
 tower = "0.5"
 insta = "1"
 # Property tests of the canonical encodings, the Merkle proofs and the normalizers

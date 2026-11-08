@@ -83,6 +83,45 @@ fn misdirected(host: Option<&str>) -> Response {
         .into_response()
 }
 
+/// Reads a `multipart/form-data` body into the parameters.
+async fn multipart_into(
+    params: &mut Params,
+    content_type: &str,
+    body: Bytes,
+) -> Result<(), ApiError> {
+    use axum::extract::{FromRequest as _, Multipart};
+    let request = axum::http::Request::builder()
+        .header(header::CONTENT_TYPE, content_type)
+        .body(axum::body::Body::from(body))
+        .map_err(|e| ApiError::new("badupload", e.to_string()))?;
+    let mut multipart = Multipart::from_request(request, &())
+        .await
+        .map_err(|e| ApiError::new("badupload", e.body_text()))?;
+    while let Some(field) = multipart
+        .next_field()
+        .await
+        .map_err(|e| ApiError::new("badupload", e.body_text()))?
+    {
+        let Some(name) = field.name().map(str::to_string) else {
+            continue;
+        };
+        if field.file_name().is_some() {
+            let bytes = field
+                .bytes()
+                .await
+                .map_err(|e| ApiError::new("badupload", e.body_text()))?;
+            params.add_part(&name, None, Some(bytes.to_vec()));
+        } else {
+            let text = field
+                .text()
+                .await
+                .map_err(|e| ApiError::new("badupload", e.body_text()))?;
+            params.add_part(&name, Some(text), None);
+        }
+    }
+    Ok(())
+}
+
 /// The `api.php` handler.
 pub async fn handle(
     State(app): State<App>,
@@ -102,17 +141,25 @@ pub async fn handle(
         Err(e) => return ApiResponse::err(ApiError::internal(e)).into_response(),
     };
     let posted = method == Method::POST;
-    let form = posted
-        && headers
-            .get(header::CONTENT_TYPE)
-            .and_then(|v| v.to_str().ok())
-            .is_some_and(|ct| ct.starts_with("application/x-www-form-urlencoded"));
+    let content_type = headers
+        .get(header::CONTENT_TYPE)
+        .and_then(|v| v.to_str().ok())
+        .unwrap_or_default()
+        .to_string();
+    let form = posted && content_type.starts_with("application/x-www-form-urlencoded");
     let body_text = if form {
         Some(String::from_utf8_lossy(&body).into_owned())
     } else {
         None
     };
-    let params = Params::parse(query.as_deref(), body_text.as_deref(), posted);
+    let mut params = Params::parse(query.as_deref(), body_text.as_deref(), posted);
+    if posted && content_type.starts_with("multipart/form-data") {
+        // A multipart body (`action=import`'s `xml` upload): its text fields are body
+        // parameters, its files kept by field name.
+        if let Err(e) = multipart_into(&mut params, &content_type, body).await {
+            return ApiResponse::err(e).into_response();
+        }
+    }
     let caller = match Caller::resolve(&**client, &tenant.slug, &headers).await {
         Ok(c) => c,
         Err(e) => return ApiResponse::err(e).into_response(),
@@ -210,6 +257,7 @@ async fn dispatch(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         "compare" => modules::compare::run(ctx).await,
         "edit" => modules::editpage::run(ctx).await,
         "move" => modules::movepage::run(ctx).await,
+        "import" => modules::import::run(ctx).await,
         "delete" => modules::moderation::delete(ctx).await,
         "undelete" => modules::moderation::undelete(ctx).await,
         "protect" => modules::moderation::protect(ctx).await,
@@ -225,7 +273,7 @@ async fn dispatch(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         "paraminfo" => modules::query::paraminfo(ctx),
         "help" => Ok(ApiResponse::ok(serde_json::json!({"help": {
             "mime": "text/plain",
-            "help": "Triplespace Action API. Modules: query (meta=siteinfo|tokens|userinfo|authmanagerinfo|notifications; prop=revisions|info|templates; list=recentchanges|usercontribs|logevents|allpages), parse, compare, edit, delete, undelete, protect, revisiondelete, userrights, renameuser, block, unblock, echomarkread, echomarkseen, login, clientlogin, createaccount, linkaccount, unlinkaccount, logout, options, wbgetentities, wbsearchentities, wbeditentity, wbcreateclaim, wbsetclaim, wbremoveclaims, wbsetlabel, wbsetdescription, wbsetaliases, wbsetqualifier, wbremovequalifiers, wbsetreference, wbremovereferences."
+            "help": "Triplespace Action API. Modules: query (meta=siteinfo|tokens|userinfo|authmanagerinfo|notifications; prop=revisions|info|templates; list=recentchanges|usercontribs|logevents|allpages), parse, compare, edit, move, import, delete, undelete, protect, revisiondelete, userrights, renameuser, block, unblock, echomarkread, echomarkseen, login, clientlogin, createaccount, linkaccount, unlinkaccount, logout, options, wbgetentities, wbsearchentities, wbeditentity, wbcreateclaim, wbsetclaim, wbremoveclaims, wbsetlabel, wbsetdescription, wbsetaliases, wbsetqualifier, wbremovequalifiers, wbsetreference, wbremovereferences."
         }}))),
         other => Err(ApiError::new(
             "badvalue",

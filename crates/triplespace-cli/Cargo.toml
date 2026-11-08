@@ -37,6 +37,7 @@ scatter-pages.workspace = true
 scatter-titles.workspace = true
 scatter-talk.workspace = true
 scatter-talk-import.workspace = true
+scatter-mediawiki-xml.workspace = true
 scatter-threads.workspace = true
 triplespace-db.workspace = true
 triplespace-projections.workspace = true

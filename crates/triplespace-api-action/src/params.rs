@@ -14,6 +14,9 @@ pub struct Params {
     pub posted: bool,
     /// Whether the body carried the token (a token in the query string is `mustpostparams`).
     in_body: std::collections::BTreeSet<String>,
+    /// The files a `multipart/form-data` body carried, by field name (`xml` for
+    /// `action=import`).
+    files: BTreeMap<String, Vec<u8>>,
 }
 
 impl Params {
@@ -36,6 +39,24 @@ impl Params {
             }
         }
         p
+    }
+
+    /// Adds a field a `multipart/form-data` body carried: a text field as a body
+    /// parameter, a file under its field name.
+    pub fn add_part(&mut self, name: &str, text: Option<String>, file: Option<Vec<u8>>) {
+        if let Some(f) = file {
+            self.files.insert(name.to_string(), f);
+        }
+        if let Some(t) = text {
+            self.in_body.insert(name.to_string());
+            self.map.insert(name.to_string(), t);
+        }
+    }
+
+    /// A file a multipart body carried.
+    #[must_use]
+    pub fn file(&self, name: &str) -> Option<&[u8]> {
+        self.files.get(name).map(Vec::as_slice)
     }
 
     /// The same parameters with every `{from}{rest}` also readable as `{to}{rest}`: how

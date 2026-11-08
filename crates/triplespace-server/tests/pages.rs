@@ -1,4 +1,4 @@
-//! Document pages end to end: Librarybase's wikitext pages, adopted with their history from
+//! Document pages end to end (0008 §9.3): Librarybase's wikitext pages, adopted with their history from
 //! its own export (`docs/samples/librarybase/dump/librarybase-wikitext.xml.gz`, 39 pages, 147 revisions),
 //! projected, and served through the Action API. Needs `TRIPLESPACE_TEST_DATABASE_URL`;
 //! vacuous without it.

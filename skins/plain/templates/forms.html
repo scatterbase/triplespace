@@ -35,6 +35,8 @@
 <select class="cdx-select"{{ id(c) }} name="{{ c.name }}"{{ described(c) }}>{% for o in c.options %}<option value="{{ o.value }}"{% if o.selected %} selected{% endif %}>{{ o.label }}</option>{% endfor %}</select>
 {%- elif c.kind == "input" -%}
 <div class="cdx-text-input"><input class="cdx-text-input__input" type="{{ c.input_type }}"{% if c.input_type == "number" %} step="1"{% endif %}{% if c.inputmode %} inputmode="{{ c.inputmode }}"{% endif %}{{ id(c) }} name="{{ c.name }}" value="{{ c.value }}"{% if c.required %} required{% endif %}{{ described(c) }}></div>
+{%- elif c.kind == "file" -%}
+<div class="cdx-text-input"><input class="cdx-text-input__input" type="file"{{ id(c) }} name="{{ c.name }}"{% if c.accept %} accept="{{ c.accept }}"{% endif %}{{ described(c) }}></div>
 {%- elif c.kind == "text-area" -%}
 <div class="cdx-text-area"><textarea class="cdx-text-area__textarea"{{ id(c) }} name="{{ c.name }}" rows="{{ c.rows }}"{% if c.no_spellcheck %} spellcheck="false"{% endif %}{{ described(c) }}>{{ c.value }}</textarea></div>
 {%- else -%}

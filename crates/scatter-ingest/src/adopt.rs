@@ -796,7 +796,7 @@ impl Resume {
 /// The surrogate `actor:{n}` for a raw value, minted with its actor record in the
 /// tenant's `actors` partition the first time the tenant sees it (0007 §5, A27).
 #[allow(clippy::too_many_arguments)]
-async fn surrogate<S: IngestStore>(
+pub async fn surrogate<S: IngestStore>(
     store: &S,
     pipeline: &Pipeline<S>,
     cx: &mut S::Cx,
