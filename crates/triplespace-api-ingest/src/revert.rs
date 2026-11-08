@@ -416,8 +416,7 @@ async fn inverse_of<C: GenericClient + PgClient>(
             let current = revision_state::graph_state(client, tenant, &key, "local")
                 .await
                 .map_err(store_err)?
-                .map(|(s, _, _)| s)
-                .unwrap_or_else(LocalState::new);
+                .map_or_else(LocalState::new, |(s, _, _)| s);
             let id = EntityId::parse(&key).map_err(|e| store_err(e.to_string()))?;
             let as_entity = |s: &LocalState, other: Option<&Entity>| -> Option<Entity> {
                 s.entity
@@ -458,7 +457,7 @@ async fn inverse_of<C: GenericClient + PgClient>(
                         latest_offset,
                     ))
                 }
-                _ => Ok(Inverse::Skip("no inverse for this page record yet".into())),
+                PageOp::Move { .. } => Ok(Inverse::Skip("no inverse for a move yet".into())),
             }
         }
         _ => Ok(Inverse::Skip(format!(

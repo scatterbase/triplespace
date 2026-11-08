@@ -88,6 +88,7 @@ pub struct Attached {
 /// # Errors
 ///
 /// [`BatchError::Rejected`] for a rejected batch; the store's.
+#[allow(clippy::too_many_arguments)]
 pub async fn attach(
     store: &PgIngest,
     pipeline: &Pipeline<PgIngest>,

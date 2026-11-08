@@ -102,6 +102,7 @@ pub async fn current(cx: &PgCx, tenant: &str, target: &Target) -> Result<Option<
 /// # Errors
 ///
 /// An [`AclWriteError`]; the caller rolls back.
+#[allow(clippy::too_many_lines)]
 pub async fn write(
     store: &PgIngest,
     pipeline: &Pipeline<PgIngest>,
