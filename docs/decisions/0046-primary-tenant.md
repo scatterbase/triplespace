@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-17 (A8)
+- **Updated:** 2026-11-08 (A9)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0028](0028-tenancy-policy.md), [0040](0040-instance-prerogatives.md)
 - **Uses:** [0010](0010-site-ui.md), [0039](0039-files-and-media.md), [0047](0047-special-pages.md)
@@ -48,6 +48,8 @@ James's direction, from the design discussion of 2026-09-30: the role is **trans
 *Current text: [08](../architecture/08-tenants-and-instances.md) §7.3.*
 
 ### 4. Instance records live in instance partitions (amends 0011 §6.3 and 0025 §5)
+
+*Changed by A9.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §1.4; [08](../architecture/08-tenants-and-instances.md) §7.4.*
 
@@ -99,7 +101,7 @@ James's direction, from the design discussion of 2026-09-30: the role is **trans
 ## Open questions
 
 - **Q1. Instance groups separate from the primary tenant's groups.** Whether instance rights should be granted by instance-scope group records rather than by the primary tenant's own groups, so that a community wiki can be primary without its bureaucrats approving consumers. Global groups already do this on farms with farm identity; the question is for farms without it.
-- **Q2. Public dumps of the instance `log`.** Its job records and consumer events are public; its takedown and expunge records are not. Whether to give the instance `log` an export policy per payload type, or keep the whole partition `internal` and serve the public records only through the API.
+- **Q2.** ~~**Public dumps of the instance `log`.** Its job records and consumer events are public; its takedown and expunge records are not. Whether to give the instance `log` an export policy per payload type, or keep the whole partition `internal` and serve the public records only through the API.~~ *Settled by A9: the whole partition stays `internal`; its public records are served through the API and the feeds only.*
 - **Q3. Two owners for a transfer.** Whether offering the role should, like expunge ([0040](0040-instance-prerogatives.md) Q1), need two members of `owner`.
 - **Q4. Offer expiry default.** Seven days is a placeholder.
 
@@ -191,3 +193,10 @@ Replaced text (§5, in [08](../architecture/08-tenants-and-instances.md) §7.5):
 Replaced text ([19](../architecture/19-site-ui.md) §6.11, as it stood):
 
 > An `owner` of the offered tenant sees **Accept** there and on their own tenant's `Special:Tenancy` ([0046](0046-primary-tenant.md) §9).
+
+### A9. The instance `log` stays `internal` as a whole
+
+- **Date:** 2026-11-08
+- **Source:** Direct: James, design discussion of 2026-11-08
+- **Change:** extends §4
+- **Summary:** Settles Q2. Asked whether the instance `log` should be published, its job records and consumer events being public and its takedown and expunge records not, James chose to keep the whole partition `internal`, with no export policy per payload type and no public dump of it; its public records reach readers through the API and the feeds alone, as 01 §1.4 and 09 §6.5 say. To be revisited with federation (0022) if a consumer needs them from a dump. Chapter text: 01 §1.4.

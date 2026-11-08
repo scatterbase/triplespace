@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-26 (A8)
+- **Updated:** 2026-11-08 (A9)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0022](0022-federation.md), [0033](0033-backend-stack.md), [0039](0039-files-and-media.md), [0042](0042-template-expansion-and-parsoid.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0040](0040-instance-prerogatives.md), [0047](0047-special-pages.md), [0051](0051-page-redirects.md), [0052](0052-page-repositories-and-title-inheritance.md), [0054](0054-forking-a-mirrored-page.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -47,7 +47,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 5. Mirror mode: the `pages/{repo}` partition (extends 0015 §3 and §5; uses 0002 §2, §5, 0006 §4)
 
-*Changed by A1, A6, A7.*
+*Changed by A1, A6, A7, A9.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §1.6, §2.5, §2.6, §5.4.*
 
@@ -109,7 +109,7 @@ James's direction, from the design discussion of 2026-10-01:
 - **Q1. Enterprise as the default for Wikimedia wikis.** Whether an instance with Enterprise credentials should prefer `enterprise` for every Wikimedia repository automatically, given its one-call bundle and its Realtime stream.
 - **Q2. Mirroring categories' members.** `mirror.set = all` holds every page of a category; whether `view.page_category` should then include mirrored members for the listing tenants ([0052](0052-page-repositories-and-title-inheritance.md) Q3).
 - **Q3. Interlanguage links.** A bundle carries the repository's language links; whether the frame should show them as sitelinks of the paired item, as upstream's are, or as links out.
-- **Q4. `full` history for a mirror.** The partition allows it; whether any tenant wants every rendering of every mirrored page kept, and what `Special:Export` should write for it.
+- **Q4. `full` history for a mirror.** The partition allows it; whether any tenant wants every rendering of every mirrored page kept. *What `Special:Export` writes for it was settled by A9: the latest revision only.*
 - **Q5. Pre-rendering the frame.** Whether the rewritten HTML could be served from the HTTP cache with the frame rendered client-side, for mirrors whose read traffic dwarfs everything else.
 - **Q6. Non-Parsoid repositories.** How far section editing and fork-over-HTML should degrade for a repository whose HTML comes from the legacy parser, or whether such repositories should be served from wikitext through the expander instead.
 
@@ -231,3 +231,10 @@ Replaced text (03 §4.12, as it stood):
 > CREATE TABLE ops.repo_cursor (                   -- the event-stream position per repository (0053 §6)
 >   repo text PRIMARY KEY, last_event_id text, last_event_time timestamptz, lag_seconds integer
 > );
+
+### A9. `Special:Export` writes a mirrored page's latest revision only
+
+- **Date:** 2026-11-08
+- **Source:** Direct: James, design discussion of 2026-11-08
+- **Change:** extends §5
+- **Summary:** Asked what `Special:Export` writes for a mirror kept with `full` history (Q4), James chose the latest revision only, whatever history the partition keeps; the rest of Q4, whether any tenant wants every rendering kept, stays open. Chapter text: 13 §2.6.

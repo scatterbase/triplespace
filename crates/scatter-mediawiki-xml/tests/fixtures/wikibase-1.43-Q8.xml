@@ -1,0 +1,52 @@
+<mediawiki xmlns="http://www.mediawiki.org/xml/export-0.11/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mediawiki.org/xml/export-0.11/ http://www.mediawiki.org/xml/export-0.11.xsd" version="0.11" xml:lang="en">
+  <siteinfo>
+    <sitename>Triplespace Ref</sitename>
+    <dbname>my_wiki</dbname>
+    <base>http://localhost:8080/index.php/Main_Page</base>
+    <generator>MediaWiki 1.43.9</generator>
+    <case>first-letter</case>
+    <namespaces>
+      <namespace key="-2" case="first-letter">Media</namespace>
+      <namespace key="-1" case="first-letter">Special</namespace>
+      <namespace key="0" case="first-letter" />
+      <namespace key="1" case="first-letter">Talk</namespace>
+      <namespace key="2" case="first-letter">User</namespace>
+      <namespace key="3" case="first-letter">User talk</namespace>
+      <namespace key="4" case="first-letter">Triplespace Ref</namespace>
+      <namespace key="5" case="first-letter">Triplespace Ref talk</namespace>
+      <namespace key="6" case="first-letter">File</namespace>
+      <namespace key="7" case="first-letter">File talk</namespace>
+      <namespace key="8" case="first-letter">MediaWiki</namespace>
+      <namespace key="9" case="first-letter">MediaWiki talk</namespace>
+      <namespace key="10" case="first-letter">Template</namespace>
+      <namespace key="11" case="first-letter">Template talk</namespace>
+      <namespace key="12" case="first-letter">Help</namespace>
+      <namespace key="13" case="first-letter">Help talk</namespace>
+      <namespace key="14" case="first-letter">Category</namespace>
+      <namespace key="15" case="first-letter">Category talk</namespace>
+      <namespace key="120" case="first-letter">Item</namespace>
+      <namespace key="121" case="first-letter">Item talk</namespace>
+      <namespace key="122" case="first-letter">Property</namespace>
+      <namespace key="123" case="first-letter">Property talk</namespace>
+    </namespaces>
+  </siteinfo>
+  <page>
+    <title>Item:Q8</title>
+    <ns>120</ns>
+    <id>20</id>
+    <revision>
+      <id>26</id>
+      <timestamp>2026-09-25T01:07:15Z</timestamp>
+      <contributor>
+        <username>Admin</username>
+        <id>1</id>
+      </contributor>
+      <comment>/* wbeditentity-create-item:0| */</comment>
+      <origin>26</origin>
+      <model>wikibase-item</model>
+      <format>application/json</format>
+      <text bytes="7803" sha1="fj2fia0su1trusvob70x6h1dbajcpt2" xml:space="preserve">{"aliases":{"en":[{"language":"en","value":"DNA"}]},"claims":{"P1":[{"id":"Q8$C13E7A23-11E7-4C91-A799-3D1806B65444","mainsnak":{"datatype":"string","datavalue":{"type":"string","value":"Douglas Noël Adams"},"hash":"7c8cb8226a0845691900e67b6b69d41e6e2baf44","property":"P1","snaktype":"value"},"qualifiers":{"P4":[{"datatype":"time","datavalue":{"type":"time","value":{"after":0,"before":0,"calendarmodel":"http://www.wikidata.org/entity/Q1985727","precision":11,"time":"+1952-03-11T00:00:00Z","timezone":0}},"hash":"0f5efecf52db4e0a0e5d435600299c6592d92143","property":"P4","snaktype":"value"}]},"qualifiers-order":["P4"],"rank":"preferred","references":[{"hash":"eaf0a11b92f297234266b31f9331c3ebcfe09c1e","snaks":{"P4":[{"datatype":"time","datavalue":{"type":"time","value":{"after":0,"before":0,"calendarmodel":"http://www.wikidata.org/entity/Q1985727","precision":11,"time":"+1952-03-11T00:00:00Z","timezone":0}},"hash":"0f5efecf52db4e0a0e5d435600299c6592d92143","property":"P4","snaktype":"value"}],"P8":[{"datatype":"url","datavalue":{"type":"string","value":"https://example.org/source"},"hash":"8431a820c81c3daf0b98bcafd51cf09b834f5e4d","property":"P8","snaktype":"value"}]},"snaks-order":["P8","P4"]}],"type":"statement"},{"id":"Q8$83C9AED4-5D15-4C27-A289-506A732D3101","mainsnak":{"datatype":"string","datavalue":{"type":"string","value":"D. N. Adams"},"hash":"95776b6b6e9d5fc8274fd3029bda079b338a581d","property":"P1","snaktype":"value"},"rank":"deprecated","type":"statement"}],"P13":[{"id":"Q8$A8C2D6D3-55A9-44B1-B8F0-E75F0B37C8B2","mainsnak":{"datatype":"edtf","datavalue":{"type":"string","value":"1952-03-11"},"hash":"0b557e6980c68bf75db8432d5dfaf8866bb5a14c","property":"P13","snaktype":"value"},"rank":"normal","type":"statement"},{"id":"Q8$B122C1BC-5D64-4902-AB36-AD175D8E29EE","mainsnak":{"datatype":"edtf","datavalue":{"type":"string","value":"1985-04-12T23:20:30Z"},"hash":"a9f337dd44132b34e34065644a94cf860e1e58f7","property":"P13","snaktype":"value"},"rank":"normal","type":"statement"},{"id":"Q8$0E3D6A32-6807-4A21-93EB-CC925DDA33A2","mainsnak":{"datatype":"edtf","datavalue":{"type":"string","value":"1985-04-12T23:20:30+04:00"},"hash":"e9d46ea37eaf5ac9ce400c37e26c3e8f4bb0dde4","property":"P13","snaktype":"value"},"rank":"normal","type":"statement"},{"id":"Q8$4AA2A24C-CC31-48F2-B8BE-5177352DCEE5","mainsnak":{"datatype":"edtf","datavalue":{"type":"string","value":"2004-06~"},"hash":"296fafc5d26bc40f076813dcdd57a162654d1702","property":"P13","snaktype":"value"},"rank":"normal","type":"statement"},{"id":"Q8$6B2E9562-7E09-4816-969B-95DE98BF43E3","mainsnak":{"datatype":"edtf","datavalue":{"type":"string","value":"1964/2008"},"hash":"91f030e1f096427dcc5d3f278d5ac8f79a34ead3","property":"P13","snaktype":"value"},"rank":"normal","type":"statement"},{"id":"Q8$5F5C351A-24B3-421C-8603-11D405BA2E59","mainsnak":{"datatype":"edtf","datavalue":{"type":"string","value":"[1667,1668,1670..1672]"},"hash":"ec1506b77b06c1835936670491f5e83be2a0c771","property":"P13","snaktype":"value"},"rank":"normal","type":"statement"},{"id":"Q8$A303B50C-7481-4FE6-BDAC-D11CF9688AA8","mainsnak":{"datatype":"edtf","datavalue":{"type":"string","value":"2001-21"},"hash":"609a768e44e41ced74c7568ef56024e77059ee7a","property":"P13","snaktype":"value"},"rank":"normal","type":"statement"},{"id":"Q8$1C93AF61-71DC-4B16-9A98-D5D38516BE76","mainsnak":{"datatype":"edtf","datavalue":{"type":"string","value":"19XX"},"hash":"ccaf4f8c7f71fbcf54b15bfd2d3ec8f9d61d627b","property":"P13","snaktype":"value"},"rank":"normal","type":"statement"},{"id":"Q8$0F421EAC-6342-4208-BB13-96E7821B550A","mainsnak":{"datatype":"edtf","datavalue":{"type":"string","value":"1984?-06-02"},"hash":"3eca79fe8f920469c652204af3a72586f1fb30b5","property":"P13","snaktype":"value"},"rank":"normal","type":"statement"}],"P2":[{"id":"Q8$8276AFFB-450C-4646-BF0B-CEEBE3835EA3","mainsnak":{"datatype":"wikibase-item","datavalue":{"type":"wikibase-entityid","value":{"entity-type":"item","id":"Q3","numeric-id":3}},"hash":"1fa75381e3bd9253ba0ef08d92830adf043d7717","property":"P2","snaktype":"value"},"rank":"normal","type":"statement"},{"id":"Q8$1003D6A3-C163-4E53-9334-A89C1866BFB8","mainsnak":{"datatype":"wikibase-item","hash":"64baea7b9db49c64f5daf05ddf5162faa28d5e86","property":"P2","snaktype":"novalue"},"rank":"normal","type":"statement"}],"P3":[{"id":"Q8$9304920D-369C-416E-BB9F-79CDBD7904D8","mainsnak":{"datatype":"wikibase-property","datavalue":{"type":"wikibase-entityid","value":{"entity-type":"property","id":"P1","numeric-id":1}},"hash":"22f505fa0e2d552ae299590695c934f86ac558c1","property":"P3","snaktype":"value"},"rank":"normal","type":"statement"}],"P4":[{"id":"Q8$B6DF0432-1A81-43C4-8EAD-F68642A547BF","mainsnak":{"datatype":"time","datavalue":{"type":"time","value":{"after":0,"before":0,"calendarmodel":"http://www.wikidata.org/entity/Q1985727","precision":11,"time":"+1952-03-11T00:00:00Z","timezone":0}},"hash":"0f5efecf52db4e0a0e5d435600299c6592d92143","property":"P4","snaktype":"value"},"rank":"normal","type":"statement"},{"id":"Q8$637F67EA-9626-47D7-B1EF-A913258450DE","mainsnak":{"datatype":"time","datavalue":{"type":"time","value":{"after":0,"before":0,"calendarmodel":"http://www.wikidata.org/entity/Q1985786","precision":9,"time":"+1500-00-00T00:00:00Z","timezone":0}},"hash":"4aac8131acef59854ef9ce03bf0d31007c1436e8","property":"P4","snaktype":"value"},"rank":"normal","type":"statement"},{"id":"Q8$1D2AD30E-661B-4261-8031-D87FFD783EAE","mainsnak":{"datatype":"time","hash":"ede91cc55952400386a2401405bb09e446b1867b","property":"P4","snaktype":"somevalue"},"rank":"normal","type":"statement"}],"P5":[{"id":"Q8$254B0E6E-A1D4-41EB-8A7C-94DEBF913758","mainsnak":{"datatype":"quantity","datavalue":{"type":"quantity","value":{"amount":"+1.96","lowerBound":"+1.95","unit":"http://localhost:8080/entity/Q3","upperBound":"+1.97"}},"hash":"dd13838cd81427acf966967f7f078d9ab4c8f7e8","property":"P5","snaktype":"value"},"rank":"normal","type":"statement"},{"id":"Q8$E0E86D20-DDC4-4922-B811-04C4F3A6EC1B","mainsnak":{"datatype":"quantity","datavalue":{"type":"quantity","value":{"amount":"+42","unit":"1"}},"hash":"f892be15dc1fbc23afb2c14586dc956333687437","property":"P5","snaktype":"value"},"rank":"normal","type":"statement"}],"P6":[{"id":"Q8$0B486371-73D2-4BBC-BAA5-6E1EC2CD8A09","mainsnak":{"datatype":"globe-coordinate","datavalue":{"type":"globecoordinate","value":{"altitude":null,"globe":"http://www.wikidata.org/entity/Q2","latitude":51.5,"longitude":-0.1275,"precision":0.0001}},"hash":"3336a2afcf77f3f544e6f616b7dbaf832a97f337","property":"P6","snaktype":"value"},"rank":"normal","type":"statement"}],"P7":[{"id":"Q8$DE87B377-3A7A-438E-AD7E-9CFDDFFD18DC","mainsnak":{"datatype":"monolingualtext","datavalue":{"type":"monolingualtext","value":{"language":"en","text":"Douglas Adams"}},"hash":"98950efc6df412a3b2c331a5ae19757e8df4da56","property":"P7","snaktype":"value"},"rank":"normal","type":"statement"}],"P8":[{"id":"Q8$8C0DF4A9-864F-4B30-A460-B543B17AA580","mainsnak":{"datatype":"url","datavalue":{"type":"string","value":"https://douglasadams.com/"},"hash":"da69b59b34ae3e88967400ae2f1c43ed816dc472","property":"P8","snaktype":"value"},"rank":"normal","type":"statement"}],"P9":[{"id":"Q8$7F4D913D-2B05-4B21-B980-5F3AE0AE99D8","mainsnak":{"datatype":"external-id","datavalue":{"type":"string","value":"n80076765"},"hash":"9b95a97cda8182e4c73ae62ee3bed59fed82f469","property":"P9","snaktype":"value"},"rank":"normal","type":"statement"}]},"descriptions":{"en":{"language":"en","value":"English author and humorist"}},"id":"Q8","labels":{"de":{"language":"de","value":"Douglas Adams"},"en":{"language":"en","value":"Douglas Adams (test)"}},"sitelinks":{"testwiki":{"badges":["Q2"],"site":"testwiki","title":"Douglas Adams","url":"http://127.0.0.1:8080/index.php/Douglas_Adams"}},"type":"item"}</text>
+      <sha1>fj2fia0su1trusvob70x6h1dbajcpt2</sha1>
+    </revision>
+  </page>
+</mediawiki>

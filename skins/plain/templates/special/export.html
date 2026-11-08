@@ -1,0 +1,12 @@
+{#- Special:Export (0047 §8.1; 21 §4.2): MediaWiki's form. A category and a namespace to
+    add pages from, the titles, the options, the two formats, and Export. -#}
+{%- import "codex.html" as codex -%}
+{%- import "forms.html" as forms -%}
+<div class="ts-export">{% for n in notices %}{{ codex.message(n) }}{% endfor %}<p>{{ intro }}</p>
+<form class="ts-export__form" method="post" action="{{ action }}">
+<div class="ts-export__add">{{ forms.field(category.field) }}<button type="submit" name="{{ category.name }}" value="1" class="{{ category.button.classes }}">{{ category.button.label }}</button></div>
+{%- if namespace %}<div class="ts-export__add">{{ forms.field(namespace.field) }}<button type="submit" name="{{ namespace.name }}" value="1" class="{{ namespace.button.classes }}">{{ namespace.button.label }}</button></div>{% endif %}
+{{ forms.field(pages) }}
+{%- for o in options %}{{ forms.check(o) }}{% endfor %}
+<fieldset class="ts-export__formats"><legend>{{ formats_legend }}</legend>{% for f in formats %}{{ forms.control(f) }}{% endfor %}</fieldset>
+<div class="ts-protect__actions">{{ codex.button(submit) }}</div></form></div>

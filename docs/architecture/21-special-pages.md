@@ -358,24 +358,25 @@ The REST routes `GET /nuke/preview` and `POST /nuke`, and the revert `POST /jobs
 **`Special:Export` keeps MediaWiki's form and parameters:**
 
 - a list of titles;
-- `addcat` with a category, and, where the `site` setting `export.from_namespaces` is on (MediaWiki's `$wgExportFromNamespaces`), `addns` with a namespace;
+- `addcat` with a category, and, where the `site` setting `export.from_namespaces` is on (MediaWiki's `$wgExportFromNamespaces`), `addns` with a namespace; each adds up to MediaWiki's page-list limit, 5,000 pages ([0047](../decisions/0047-special-pages.md) A35);
 - `curonly` or full history;
 - `templates`;
-- `wpDownload`.
+- `wpDownload`; without it the file is shown rather than saved.
 
-`action=query&export` and `exportnowrap` give the same output.
+The form reads what the wiki allows (`export.from_namespaces`, `export.history`) from `meta=siteinfo`'s `triplespace.export`, and is offered under the `export` capability. `action=query&export` and `exportnowrap` give the same output: the page set's current revisions, as MediaWiki exports them, `exportnowrap` sending the document bare as `text/xml`; `exportschema` is accepted, 0.11 always written ([0047](../decisions/0047-special-pages.md) A35). `addcat` lists the category through `list=categorymembers`.
 
 **The default format is MediaWiki XML**, export schema version 0.11, which carries content models and slots.
 
-- **Pages.** Each page record is a `<revision>`, with its content model and format ([0041](../decisions/0041-content-models.md)).
-  - A part hidden from the viewer is written as MediaWiki writes revision-deleted content (`<text deleted="deleted"/>`, and likewise `comment` and `contributor`). An erased part is written the same way.
+- **Pages.** Each page record is a `<revision>`, with its content model and format ([0041](../decisions/0041-content-models.md)): the page's current model for every revision, since a page record carries no model of its own at each revision; `<origin>` is the revision's own ID and `<sha1>` is computed over the text ([0047](../decisions/0047-special-pages.md) A35).
+  - A part hidden from the viewer is written as MediaWiki writes revision-deleted content (`<text deleted="deleted"/>`, and likewise `comment` and `contributor`). An erased part is written the same way. What is hidden is decided as the `records` format decides it (§4.4): a record withheld whole is left out, and a page or entity with nothing left is reported missing, as one that does not exist is ([0047](../decisions/0047-special-pages.md) A35).
   - Full history is governed by `export.history` (default on) and `export.max_history` (revisions per page, default 1,000), MediaWiki's `$wgExportAllowHistory` and `$wgExportMaxHistory`.
-- **Templates and modules.** With `templates`, the pages that `view.transclusion` lists for the selection ([0042](../decisions/0042-template-expansion-and-parsoid.md) §10) are added.
-- **Local entities** are exported as Wikibase exports entity pages. The model is `wikibase-item` or `wikibase-property`. Each revision is one local change set, and its text is the canonical JSON of the entity's **local-graph** state at that revision ([wikibase-compat.md](../api/wikibase-compat.md)), read by the export job as one row of `view.entity_revision` per revision ([18](18-api.md) §1.3) and folded into the XML there, never on the request path. The revisions exported per entity are capped by a separate limit, lower than `export.max_history` for pages, since each entity revision is a whole state rather than a text. A MediaWiki Wikibase with free IDs can import them, which is the reverse of adoption ([0035](../decisions/0035-adopting-a-wikibase.md); [05](05-providers-and-ingest.md)).
+- **Templates and modules.** With `templates`, the pages that `view.transclusion` lists for the selection ([0042](../decisions/0042-template-expansion-and-parsoid.md) §10) are added. Until `view.transclusion` is built, the parameter is accepted and the response says that no templates were added, rather than refusing or guessing ([0047](../decisions/0047-special-pages.md) A33).
+- **Local entities** are exported as Wikibase exports entity pages. The model is `wikibase-item` or `wikibase-property` (a lexeme's or a keyed type's otherwise, with its namespace). Each revision is one local change set, and its text is the canonical JSON of the entity's **local-graph** state at that revision ([wikibase-compat.md](../api/wikibase-compat.md)), read by the export job as one row of `view.entity_revision` per revision ([18](18-api.md) §1.3) and folded into the XML there, never on the request path; until the job exists, the streaming export reads the rows on the request path, as `records` does ([0047](../decisions/0047-special-pages.md) A35). A local redirect's text is Wikibase's `{"entity", "redirect"}`. The revisions exported per entity are capped by a separate limit, lower than `export.max_history` for pages, since each entity revision is a whole state rather than a text. A MediaWiki Wikibase with free IDs can import them, which is the reverse of adoption ([0035](../decisions/0035-adopting-a-wikibase.md); [05](05-providers-and-ingest.md)).
 - **Foreign entities are not exported.** Their content is upstream's. `Special:EntityData` serves their resolved view.
+- **Mirrored pages** are written as their latest revision, marked foreign ([13](13-mirrored-pages.md) §2.6), once the `pages/{repo}` partition is projected; it is not yet, so none is written ([0047](../decisions/0047-special-pages.md) A35).
 - **Files.** With `files`, file versions are added as `<upload>` elements with their contents, which 0039 §14's import accepts ([12](12-files-and-media.md)). The total is capped by `export.max_bytes`. Over the cap, URLs are written in place of contents.
 - **Not in the XML:**
-  - page statements ([0038](../decisions/0038-page-metadata-and-categories.md) §1), which no Wikibase slot carries;
+  - page statements ([0038](../decisions/0038-page-metadata-and-categories.md) §1), which no Wikibase slot carries and which the XML never carries as a slot of its own: they travel in `records` only (§4.4; [0047](../decisions/0047-special-pages.md) A32);
   - threads and composite talk pages. They are left out by default, and with `threads` they are written with their own content models, which a MediaWiki importer refuses.
 
 The `export.*` settings are tenant `site` settings, by the rule for a dotted key named without a scope ([23](23-configuration-and-registry.md)).
@@ -384,21 +385,22 @@ The `records` format of §4.4 is the second format the page offers.
 
 **Size.**
 
-- An export up to `export.sync_revisions` (default 5,000 revisions) streams.
+- An export up to `export.sync_revisions` (default 5,000 revisions) streams. The defaults, 5,000 here and 1,000 for `export.max_history`, stand, as tenant settings a tenant raises ([0047](../decisions/0047-special-pages.md) A34).
 - A larger one becomes an `ops` export job, as [0027](../decisions/0027-preferences-and-portability.md) §3's data bundle does. The page then links to it when it is ready.
 - Exports count in a rate class of their own, `export` ([0024](../decisions/0024-subsidiary-accounts.md) §5; [07](07-actors-and-accounts.md) §6.2), default 30 / 300 per hour for `user` / `bot`.
 - Export needs only `read`, and every response is redacted per viewer ([0012](../decisions/0012-api-requirements.md) §8).
 
-`POST /export` and `GET /export/{id}` are in [18](18-api.md).
+`POST /export` and `GET /export/{id}` are in [18](18-api.md). `POST /export` takes the XML's selection as it takes the `records` one (§4.4), with `categories`, `namespaces` (refused where `export.from_namespaces` is off) and `templates` besides; it plans the selection before the first byte, so a refusal comes as a status, then streams `application/xml`, naming in `x-export-missing` how many titles it left out and in `x-export-notice` what it has to say, the `templates` notice written into the document too, as an XML comment after `<siteinfo>` ([0047](../decisions/0047-special-pages.md) A35). The writer and reader are `scatter-mediawiki-xml` ([22](22-crates-and-stack.md) §2.1), the assembly `triplespace-rdf`'s.
 
 ### 4.3 Special:Import
 
-*Sources: [0047](../decisions/0047-special-pages.md) §8.3.*
+*Sources: [0047](../decisions/0047-special-pages.md) §8.3; [0008](../decisions/0008-namespaces-and-document-pages.md) §9.*
 
 **`Special:Import` is the form for [0008](../decisions/0008-namespaces-and-document-pages.md) §9's import job** ([10](10-pages-and-content-models.md)).
 
 - **Upload an XML file** (`importupload`), or **import from another wiki** named by site alias ([0026](../decisions/0026-sitelinks.md) §2) in place of MediaWiki's interwiki sources (`import`).
 - It runs the template census first, shows its report, and on confirmation starts the job and goes to `Special:Jobs/{id}`.
+- A title that already exists takes the file's revisions into its history as MediaWiki does, and an entity page in the file is refused by the census unless the source is the adopted wiki ([10](10-pages-and-content-models.md) §6; [0008](../decisions/0008-namespaces-and-document-pages.md) §9, A48).
 - It accepts MediaWiki XML only. Data moves between instances by a tenant move ([0018](../decisions/0018-tenants.md) §10) or verified sync ([0022](../decisions/0022-federation.md)), not by importing `records`.
 
 ### 4.4 The `records` export

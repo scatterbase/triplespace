@@ -29,6 +29,7 @@
 
 pub mod bundle;
 pub mod records;
+pub mod xml;
 
 use std::collections::BTreeSet;
 use std::fs::{self, File};

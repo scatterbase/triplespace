@@ -17,7 +17,7 @@
 //!   a page renders again without an instance: the parity harness of the skin migration
 //!   (0097 §16).
 //!
-//! [`api`], [`entity`], [`search`], [`account`], [`create`], [`version`], [`activity`], [`revisions`], [`pages`], [`settings`], [`rights`], [`notifications`], [`reports`] and [`watch`] have the typed calls the site makes, each returning the value with the
+//! [`api`], [`entity`], [`search`], [`account`], [`create`], [`version`], [`activity`], [`revisions`], [`pages`], [`settings`], [`rights`], [`notifications`], [`reports`], [`watch`] and [`export`] have the typed calls the site makes, each returning the value with the
 //! [`api::CacheInfo`] a page needs to compose its own caching (0057 §6).
 //!
 //! This crate reaches no store and depends on no API crate (0005 §3 rule 10).
@@ -30,6 +30,7 @@ pub mod api;
 pub mod create;
 pub mod email;
 pub mod entity;
+pub mod export;
 pub mod forward;
 pub mod issuers;
 pub mod notifications;
@@ -56,6 +57,7 @@ pub use api::{
 pub use create::{Created, TermEdit};
 pub use email::{EmailAddress, EmailInfo, EmailOutcome};
 pub use entity::{Entities, Provenance};
+pub use export::{ExportAsk, Exported};
 pub use forward::Incoming;
 pub use issuers::{AccountInfo, LoginIssuer, Pending};
 pub use notifications::{Counts, Item as Notification, Listing as NotificationPage};

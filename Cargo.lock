@@ -2758,7 +2758,7 @@ version = "0.0.1"
 dependencies = [
  "bzip2",
  "flate2",
- "quick-xml",
+ "scatter-mediawiki-xml",
  "scatter-normalize",
  "scatter-providers",
  "scatter-wikibase-changeset",
@@ -2861,6 +2861,18 @@ dependencies = [
  "serde_json",
  "thiserror",
  "url",
+]
+
+[[package]]
+name = "scatter-mediawiki-xml"
+version = "0.0.1"
+dependencies = [
+ "bzip2",
+ "flate2",
+ "quick-xml",
+ "serde_json",
+ "sha1",
+ "thiserror",
 ]
 
 [[package]]
@@ -3871,7 +3883,9 @@ dependencies = [
  "scatter-wikibase-resolve",
  "serde",
  "serde_json",
+ "tokio",
  "tokio-postgres",
+ "tokio-util",
  "toml",
  "triplespace-accounts",
  "triplespace-api-action",
@@ -4009,7 +4023,9 @@ dependencies = [
  "scatter-integrity",
  "scatter-log",
  "scatter-log-postgres",
+ "scatter-mediawiki-xml",
  "scatter-normalize",
+ "scatter-pages",
  "scatter-providers",
  "scatter-wikibase-model",
  "scatter-wikibase-rdf",
@@ -4041,6 +4057,7 @@ dependencies = [
  "scatter-log",
  "scatter-log-postgres",
  "scatter-mail",
+ "scatter-mediawiki-xml",
  "scatter-projection",
  "scatter-providers",
  "scatter-threads",

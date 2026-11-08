@@ -136,6 +136,20 @@ pub struct SiteInfo {
     /// The wiki's skins (`triplespace.skins`; 0097 §8): its default and the ones it
     /// offers; `None` from an API that reports none, which leaves both to the site.
     pub skins: SkinsInfo,
+    /// What `Special:Export` offers (`triplespace.export`; 0047 §8.1).
+    pub export: ExportInfo,
+}
+
+/// What `triplespace.export` reports: the tenant's `export.from_namespaces` and
+/// `export.history`.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Deserialize)]
+pub struct ExportInfo {
+    /// Whether `addns` is offered.
+    #[serde(default)]
+    pub from_namespaces: bool,
+    /// Whether full history is offered.
+    #[serde(default)]
+    pub history: bool,
 }
 
 /// What `triplespace.skins` reports (0097 §8).
@@ -501,6 +515,14 @@ impl Client {
                 section(&ts["skins"], "triplespace.skins")?
             } else {
                 SkinsInfo::default()
+            },
+            export: if ts["export"].is_object() {
+                section(&ts["export"], "triplespace.export")?
+            } else {
+                ExportInfo {
+                    from_namespaces: false,
+                    history: true,
+                }
             },
         };
         Ok(Fetched { value, cache })

@@ -126,7 +126,7 @@ mod tests {
 </mediawiki>"#;
 
     fn entities() -> Vec<Entity> {
-        Entities::Xml(XmlDump::new(DUMP.as_bytes()))
+        Entities::Xml(Box::new(XmlDump::new(DUMP.as_bytes())))
             .map(|p| p.unwrap().entity)
             .collect()
     }

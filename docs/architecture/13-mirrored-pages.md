@@ -247,7 +247,7 @@ Two parts for the two forms, so that a takedown can erase the rendering and keep
 
 **Reads** come from `view.foreign_page` ([03](03-storage-caches-and-search.md) §4.12), which the partition projects; the HTML part is served into the frame exactly as a proxied bundle is, through the same `fp:` cache key. A tenant reading a repository in `mirror` mode never fetches from the repository itself; a page outside the set under `on-demand` is fetched once, by the sync job, and is thereafter a record.
 
-**Export.** `pages/{repo}` is public, so `Special:Export` ([0047](../decisions/0047-special-pages.md) §8, in [21](21-special-pages.md)) can write its pages in MediaWiki XML, latest revision each, marked as foreign; the `records` format carries them with proofs, which is something a copy of Wikipedia has never had.
+**Export.** `pages/{repo}` is public, so `Special:Export` ([0047](../decisions/0047-special-pages.md) §8, in [21](21-special-pages.md)) can write its pages in MediaWiki XML, the latest revision of each whatever history the partition keeps ([0053](../decisions/0053-mirrored-pages.md) A9), marked as foreign; the `records` format carries them with proofs, which is something a copy of Wikipedia has never had.
 
 ### 2.7 Following the repository: events and invalidation
 

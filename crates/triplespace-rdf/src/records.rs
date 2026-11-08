@@ -51,6 +51,9 @@ pub enum BuildError {
     /// The database failed.
     #[error("{0}")]
     Database(String),
+    /// Writing the document failed.
+    #[error("writing the export: {0}")]
+    Io(String),
 }
 
 fn db(e: impl std::fmt::Display) -> BuildError {

@@ -77,7 +77,7 @@ Two kinds of record go to the instance `log` accordingly:
 - **Mirror sync job records** ([0011](../decisions/0011-logs.md) §6.3) are appended to the **instance `log`**, keyed by job ID, as the records of jobs that write instance acts are ([0040](../decisions/0040-instance-prerogatives.md) §4). A mirror sync is an instance action. Tenant bulk jobs stay in the tenant's `log`.
 - **OAuth consumer events** (`oauth/propose`, `oauth/update`, `oauth/approve`, `oauth/reject`, `oauth/disable`; [0025](../decisions/0025-oauth-server.md) §5) are appended to the **instance `log`**, not the primary tenant's `log` or `log/{farm}`.
 
-The instance `log` stays `internal` ([0039](../decisions/0039-files-and-media.md) §10). Its public records (job records, consumer events, the public reasons of authority records) are served at the farm base by the same projections as a tenant's log: `Special:Log`, `list=logevents` and the job pages ([0010](../decisions/0010-site-ui.md) §9). The primary tenant itself, the farm slug and the transfer are in [08](08-tenants-and-instances.md).
+The instance `log` stays `internal` as a whole ([0039](../decisions/0039-files-and-media.md) §10): no export policy per payload type, and no public dump of it ([0046](../decisions/0046-primary-tenant.md) A9). Its public records (job records, consumer events, the public reasons of authority records) are served at the farm base by the same projections as a tenant's log: `Special:Log`, `list=logevents` and the job pages ([0010](../decisions/0010-site-ui.md) §9). The primary tenant itself, the farm slug and the transfer are in [08](08-tenants-and-instances.md).
 
 ## 2. Records
 

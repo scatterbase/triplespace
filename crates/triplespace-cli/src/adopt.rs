@@ -14,7 +14,7 @@ use scatter_actors::key::ActorKey;
 use scatter_adapter_wikibase::adoption::{
     AdoptedRevision, ENTITY_MODELS, Survey, adopt_history, adopt_page,
 };
-use scatter_adapter_wikibase::xml_dump::XmlDump;
+use scatter_adapter_wikibase::xml_dump;
 use scatter_ingest::adopt::{Adopted, AdoptedItem, Adoption, Floors, run_adoption};
 use scatter_ingest::write::Attestation;
 use scatter_providers::Registry;
@@ -106,7 +106,7 @@ pub async fn run(args: Adopt) -> Result<()> {
     // Pass 1: the survey.
     eprintln!("surveying {}", args.dump.display());
     let mut survey = Survey::default();
-    for page in XmlDump::open(&args.dump).context("open dump")? {
+    for page in xml_dump::open(&args.dump).context("open dump")? {
         let page = page.context("read dump")?;
         survey.observe(&page);
         if survey.pages % 50_000 == 0 {
@@ -255,7 +255,7 @@ pub async fn run(args: Adopt) -> Result<()> {
     let mut talk_pages = 0u64;
     let tenant = issuer.clone();
     let current_only = args.current_only;
-    let revisions = XmlDump::open(&args.dump)
+    let revisions = xml_dump::open(&args.dump)
         .context("open dump")?
         .flat_map(|page| {
             let page = match page {
@@ -413,7 +413,7 @@ pub async fn run(args: Adopt) -> Result<()> {
             job: Some(outcome.job_id),
             site: &site,
         };
-        let pages = XmlDump::open(&args.dump)
+        let pages = xml_dump::open(&args.dump)
             .context("open dump")?
             .filter_map(Result::ok)
             .filter(crate::adopt_talk::is_talk_page);
