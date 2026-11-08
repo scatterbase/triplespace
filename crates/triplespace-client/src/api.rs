@@ -138,6 +138,29 @@ pub struct SiteInfo {
     pub skins: SkinsInfo,
     /// What `Special:Export` offers (`triplespace.export`; 0047 §8.1).
     pub export: ExportInfo,
+    /// `triplespace.import`: what `Special:Import` takes (0047 A36).
+    pub import: ImportInfo,
+}
+
+/// What `triplespace.import` reports: the tenant's `import.max_upload`.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Deserialize)]
+pub struct ImportInfo {
+    /// The largest file an import takes, in bytes.
+    #[serde(default = "default_max_upload")]
+    pub max_upload: u64,
+}
+
+/// The registry default of `import.max_upload`, 100 MB.
+fn default_max_upload() -> u64 {
+    100 * 1024 * 1024
+}
+
+impl Default for ImportInfo {
+    fn default() -> Self {
+        Self {
+            max_upload: default_max_upload(),
+        }
+    }
 }
 
 /// What `triplespace.export` reports: the tenant's `export.from_namespaces` and
@@ -523,6 +546,11 @@ impl Client {
                     from_namespaces: false,
                     history: true,
                 }
+            },
+            import: if ts["import"].is_object() {
+                section(&ts["import"], "triplespace.import")?
+            } else {
+                ImportInfo::default()
             },
         };
         Ok(Fetched { value, cache })

@@ -90,6 +90,7 @@ Under [0000](0000-init.md), the append-only log is the source of truth and RDF i
 - **Q4. How far to parse edit summaries.** Wikibase's summary keys and argument layouts form an unversioned convention. [0012](0012-api-requirements.md) §3 fixes the parsed shape (operation, arguments, automatic text, user comment) and [0015](0015-record-format-and-partition-registry.md) §1 makes the parsed form a projection of the comment part; which keys are recognised remains open.
 - **Q5.** ~~**What a "revision" is for data that never passed through MediaWiki.** This covers bulk ingest and foreign entities. The candidate is the log record or offset, with PAV import provenance.~~ *Settled by [0002](0002-source-graphs-and-mass-ingest.md) §8.3 (the entity's change within a job, with thin revision nodes pointing at the job) and [0015](0015-record-format-and-partition-registry.md) §4 (an observed or backfilled upstream revision is `Special:Redirect/revision/{revid}` on the provider; a state with no upstream revision ID is the record IRI `{base}/record/{partition}/{offset}`).*
 - **Q6. Per-triple change sets in RDF.** Whether change sets should also be projected into RDF, following the Wikidata History Query Service model of per-revision additions and deletions graphs, or stay in the log only.
+- **Q7. Batched stub reads.** `Special:EntityData`'s full flavor reads each mentioned entity through the `.json` path, one read per mention (A22), so an entity that mentions hundreds of others does hundreds of reads. A batched read, honouring the same restrictions, aliases and deletions, would replace it without changing the output. James, 2026-11-08: worth looking into.
 
 ## References
 
@@ -276,7 +277,7 @@ Replaced text (§6):
 ### A20. `Special:EntityData` serves `.ttl` and `.nt` in the dump flavor
 
 - **Date:** 2026-11-07
-- **Source:** Direct: Claude, while building `scatter-wikibase-rdf` (SCA-301), 2026-11-07; unconfirmed
+- **Source:** Direct: Claude, while building `scatter-wikibase-rdf` (SCA-301), 2026-11-07; confirmed by James, 2026-11-08
 - **Change:** extends §3
 - **Summary:** `Special:EntityData/{id}.ttl` and `.nt` serve the entity's triples as `dumpRdf.php`'s full flavor writes them, rendered from the same document the `.json` form serves, so they answer for the same reader, resolve the same aliases and are missing in the same cases; other extensions (`.rdf`, `.jsonld`, `.n3`) answer 406. Wikibase's own default RDF flavor also writes stubs for the entities and properties a statement mentions (their labels and predicate declarations); those are left out, and `?flavor=` is not read. The concept URI `/entity/{id}` chooses the extension of its 303 by `Accept` (JSON, Turtle or N-Triples), with `Vary: Accept`. IRIs are written under the tenant's registered base, not the development-mode base a request may see. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §4.2.
 
@@ -294,7 +295,7 @@ Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §4.2, as it sto
 ### A22. Stubs are read as `.json` reads them, in the reader's label languages
 
 - **Date:** 2026-11-07
-- **Source:** Direct: Claude, while building `Special:EntityData`'s `full` flavor (SCA-301), 2026-11-07; unconfirmed
+- **Source:** Direct: Claude, while building `Special:EntityData`'s `full` flavor (SCA-301), 2026-11-07; confirmed by James, 2026-11-08
 - **Change:** extends §3
 - **Summary:** Three calls made building A21. (1) Each mentioned ID is read through the same path as `Special:EntityData/{id}.json`, one read per mention, so a stub honours read restrictions, aliases (written as `owl:sameAs` to the target, then the target's stub, as Wikibase's `addEntityRedirect` does) and deletion; a batched read would be faster for an entity that mentions hundreds of others and can replace it without changing the output. (2) Wikibase writes stubs in the request's language fallback chain (`getFetchLanguageCodes`); Triplespace has no fallback chains, so stubs use the reader's `label-languages` preference, else `uselang` or their `language`, then English. (3) A stub's type triple is written for items and properties only, as the entity's own is; lexemes, MediaInfo and the keyed types get labels and descriptions only, until their node types are written (0066 §6, 0065, 0048 §5). Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §4.2.
 

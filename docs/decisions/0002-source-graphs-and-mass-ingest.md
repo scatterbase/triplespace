@@ -614,6 +614,6 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §1.5, as it sto
 ### A44. Statements fused from two mirrors, and key-mapped statements
 
 - **Date:** 2026-11-07
-- **Source:** Direct: Claude, while building upstream statement nodes (SCA-301), 2026-11-07; unconfirmed
+- **Source:** Direct: Claude, while building upstream statement nodes (SCA-301), 2026-11-07; confirmed by James, 2026-11-08
 - **Change:** extends §4
 - **Summary:** Two cases A43 leaves open. (1) A statement two mirrors both assert (Wikidata and Librarybase, say) takes the first member's ID in provider order, as the resolver already gives it, and is named under that provider's base; its references, combined from both, are named and hashed under the same provider, so a reference only the second mirror carries gets a node the first does not have. Naming each reference by the mirror that carries it would be exact and needs the resolver to keep per-reference provenance. (2) A key-mapped provider's statement is stored with the keyed entity's ID (`domain:wikipedia.org$…`), not the upstream item's (`XDQ11$…`), so its upstream statement IRI (`https://internetdomains.wiki/entity/statement/Q11-…`) cannot be derived from it; it is named under the instance's base. Naming it upstream's way needs the adapter to keep the upstream item ID beside the statement, or a lookup of the item the keyed entity was mapped from (05 §4.1). Chapter text: [05](../architecture/05-providers-and-ingest.md) §1.5.

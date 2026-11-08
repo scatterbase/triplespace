@@ -944,6 +944,10 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                     "from_namespaces": settings.value("export.from_namespaces").and_then(|v| v.as_bool()).unwrap_or(false),
                     "history": settings.value("export.history").and_then(|v| v.as_bool()).unwrap_or(true),
                 });
+                // What `Special:Import` takes (0047 A36): `import.max_upload`.
+                t["import"] = json!({
+                    "max_upload": settings.value("import.max_upload").and_then(|v| v.as_u64()).unwrap_or(super::import::DEFAULT_MAX_UPLOAD),
+                });
                 if ctx.app.config().mode == Mode::Development {
                     t["insecure"] = json!(true);
                 }

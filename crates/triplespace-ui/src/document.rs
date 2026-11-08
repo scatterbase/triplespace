@@ -54,8 +54,8 @@ use triplespace_client::{
 
 use crate::Site;
 use crate::codex::{
-    Action as ButtonAction, Button, ButtonModel, Field, FieldModel, Message, MessageKind,
-    MessageModel, Weight,
+    Action as ButtonAction, Button, ButtonModel, ChipModel, Field, FieldModel, Message,
+    MessageKind, MessageModel, Weight,
 };
 use crate::diffview::{self, View};
 use crate::entity::history;
@@ -367,6 +367,10 @@ pub struct NewPage {
 pub struct Side {
     /// The revision, linked, as "Revision as of …".
     pub revision: Choice,
+    /// The chip of an adopted or imported revision (0008 A50), and the job named.
+    pub origin: Option<ChipModel>,
+    /// "Job n" for an adopted or imported revision; not linked until `Special:Jobs` exists.
+    pub job: Option<String>,
     /// Who, linked; `None` where hidden.
     pub user: Option<Choice>,
     /// What the page says of a hidden user.
@@ -1312,6 +1316,14 @@ fn side_model(m: &Messages, side: &DiffSide, latest: bool, nav: Option<Choice>) 
             format!("/wiki/{}?oldid={}", title_url(&side.title), side.revid),
             m.with(key, &[&when(m, &side.timestamp)]),
         ),
+        origin: side
+            .upstream
+            .as_ref()
+            .map(|up| special::changes::imported_chip(m, up, side.job)),
+        job: side
+            .job
+            .filter(|_| side.upstream.is_some())
+            .map(|j| m.with("ts-changes-job", &[&j.to_string()])),
         user: side.user.as_ref().map(|u| {
             choice(
                 format!("/wiki/Special:Contributions/{}", title_url(u)),
@@ -1740,6 +1752,8 @@ mod tests {
             user: user.map(str::to_string),
             comment: Some("<b>sum</b>".into()),
             size: 3,
+            upstream: None,
+            job: None,
         };
         let d = PageDiff {
             from: Some(side(7, Some("Harej"))),

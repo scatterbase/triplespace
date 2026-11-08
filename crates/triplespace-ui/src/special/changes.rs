@@ -29,7 +29,7 @@ use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
 use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
 use serde::Serialize;
-use triplespace_client::activity::{ActivityPage, ActivityQuery, ActivityRow};
+use triplespace_client::activity::{ActivityPage, ActivityQuery, ActivityRow, UpstreamRef};
 use triplespace_client::{ClientError, SiteInfo};
 
 use crate::Site;
@@ -481,6 +481,9 @@ pub struct RowModel {
     pub tags: Vec<String>,
     /// The history's compare cell, where the list has the column (0010 §5.6).
     pub pick: Option<Pick>,
+    /// The job that wrote an adopted or imported revision, named (0008 A50): "Job n",
+    /// not linked until `Special:Jobs/{n}` exists.
+    pub job: Option<String>,
 }
 
 /// A history row's compare cell: the radio buttons that choose its revision as the older
@@ -583,8 +586,34 @@ fn origin_chip(m: &Messages, site: &SiteInfo, row: &ActivityRow) -> ChipModel {
         },
         "job" => Chip::new(ChipKind::Job, &m.get("ts-changes-chip-job")).model(),
         "log" => Chip::new(ChipKind::Log, &m.get("ts-changes-chip-log")).model(),
-        _ => Chip::new(ChipKind::Local, &m.get("ts-changes-chip-local")).model(),
+        // An adopted or imported revision (0008 A50): the chip names the upstream
+        // revision and the job in its tooltip.
+        _ => match &row.upstream {
+            Some(up) => imported_chip(m, up, row.job),
+            None => Chip::new(ChipKind::Local, &m.get("ts-changes-chip-local")).model(),
+        },
     }
+}
+
+/// The chip of an adopted or imported revision (0008 A50).
+pub(crate) fn imported_chip(m: &Messages, up: &UpstreamRef, job: Option<u64>) -> ChipModel {
+    let text = m.get("ts-changes-chip-imported");
+    let title = match job {
+        Some(j) => m.with(
+            "ts-changes-chip-imported-job-title",
+            &[&up.revid.to_string(), &up.time, &j.to_string()],
+        ),
+        None => m.with(
+            "ts-changes-chip-imported-title",
+            &[&up.revid.to_string(), &up.time],
+        ),
+    };
+    Chip {
+        kind: ChipKind::Imported,
+        text: &text,
+        title: Some(&title),
+    }
+    .model()
 }
 
 /// The instance's own actor key, `instance:{farm code}`, which the site shows as the
@@ -892,6 +921,7 @@ fn row_model(m: &Messages, site: &SiteInfo, row: &ActivityRow, here: Option<u64>
             },
             tags: Vec::new(),
             pick: None,
+            job: None,
         };
     }
     let mut flags = Vec::new();
@@ -923,6 +953,10 @@ fn row_model(m: &Messages, site: &SiteInfo, row: &ActivityRow, here: Option<u64>
         erased: None,
         flags,
         target,
+        job: row
+            .job
+            .filter(|_| row.kind == "edit" && row.upstream.is_some())
+            .map(|j| m.with("ts-changes-job", &[&j.to_string()])),
         size: size_model(row),
         actor: actor_model(m, site, row),
         summary: summary_model(m, row, here),

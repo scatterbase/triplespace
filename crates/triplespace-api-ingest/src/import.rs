@@ -36,6 +36,94 @@ use triplespace_projections::pages::{PageRecord, shown_time};
 use crate::PgIngest;
 use crate::talk_import::Authors;
 
+/// The registered issuer a source wiki is (0008 A50): a registered, non-template issuer
+/// with numeric actors whose code is `source`, whose providers include `source` (a site
+/// alias doubles as a provider slug, `enwiki`), or, given the source's host, whose users
+/// API or actor IRIs are at that host. `None` for a wiki the registry does not know, whose
+/// authors become `imported` surrogates.
+#[must_use]
+pub fn issuer_for(source: &str, host: Option<&str>) -> Option<String> {
+    use scatter_actors::issuer::{ActorModel, Issuer, IssuerRegistry};
+    let usable = |i: &Issuer| !i.template && !i.builtin && i.actor_model == ActorModel::Numeric;
+    let reg = IssuerRegistry::default_registry();
+    if let Some(i) = reg.by_code(source).filter(|i| usable(i)) {
+        return Some(i.code.clone());
+    }
+    if let Some(i) = reg
+        .issuers()
+        .iter()
+        .find(|i| usable(i) && i.providers.iter().any(|p| p == source))
+    {
+        return Some(i.code.clone());
+    }
+    let host = host?;
+    let host_of = |url: &str| -> Option<String> {
+        let rest = url.split("://").nth(1)?;
+        Some(rest.split('/').next()?.to_ascii_lowercase())
+    };
+    reg.issuers()
+        .iter()
+        .find(|i| {
+            usable(i)
+                && [i.users_api.as_deref(), i.iri.as_deref()]
+                    .into_iter()
+                    .flatten()
+                    .any(|u| host_of(u).as_deref() == Some(&host.to_ascii_lowercase()))
+        })
+        .map(|i| i.code.clone())
+}
+
+/// Writes an actor record for each of a registered issuer's accounts the file names, where
+/// the tenant has none yet (0008 A50), so that the history shows their names: `{issuer}:{id}`
+/// with the name the file gives, as adoption records the adopted wiki's accounts (0035 §5).
+pub async fn ensure_accounts(
+    store: &PgIngest,
+    pipeline: &Pipeline<PgIngest>,
+    tenant: &str,
+    issuer: &str,
+    accounts: &BTreeMap<String, u64>,
+    attestation: &Attestation,
+    now: u64,
+) -> Result<u64, IngestError> {
+    use scatter_actors::actor::ActorRecord;
+    use scatter_actors::key::ActorKey;
+    use scatter_ingest::store::Sequence;
+    use scatter_ingest::write::append_projected;
+    use scatter_projection::{Backend as _, Budget};
+    let mut cx = store.begin().await?;
+    let Some(actors) = store.partition(&mut cx, tenant, "actors").await? else {
+        store.rollback(cx).await?;
+        return Ok(0);
+    };
+    let mut written = 0u64;
+    for (name, id) in accounts {
+        let key = ActorKey::numeric(issuer, *id).to_string();
+        if store.latest_for_key(&mut cx, actors, &key).await?.is_some() {
+            continue;
+        }
+        let content = serde_json::to_value(ActorRecord::registered(name))
+            .map_err(|e| IngestError::Store(e.to_string()))?;
+        let draft = scatter_log::store::Draft {
+            appended_at: now,
+            payload_type: triplespace_projections::actors::payload::ACTOR.into(),
+            key: Some(key),
+            revid: None,
+            logid: Some(store.next_id(&mut cx, tenant, &Sequence::Log).await?),
+            page_id: None,
+            body: scatter_log::body::Body::core(
+                &scatter_log::cbor::Value::from_json(&content),
+                &scatter_log::cbor::Value::Null,
+                &attestation.to_value(),
+            )
+            .map_err(|e| IngestError::Store(e.to_string()))?,
+        };
+        append_projected(store, pipeline, &mut cx, actors, draft, Budget::NONE).await?;
+        written += 1;
+    }
+    store.commit(cx).await?;
+    Ok(written)
+}
+
 /// The content models of entity pages, which only adoption brings (0008 A48).
 pub const ENTITY_MODELS: &[&str] = &["wikibase-item", "wikibase-property", "wikibase-lexeme"];
 

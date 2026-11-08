@@ -485,7 +485,7 @@ fn revision_row(
     }
     // Triplespace's additions, as on `list=recentchanges`.
     let extra = mw_row(ctx, row, props, "revisions");
-    for key in ["source", "job", "operator"] {
+    for key in ["source", "job", "operator", "upstream"] {
         if let Some(v) = extra.get(key) {
             m.insert(key.into(), v.clone());
         }

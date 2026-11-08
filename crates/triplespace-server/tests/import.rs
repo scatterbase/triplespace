@@ -24,7 +24,7 @@ use triplespace_accounts::Secret;
 use triplespace_api_action::{App, Config as ServerConfig, Mode, router_with};
 use triplespace_api_ingest::import::{census, classify, import_pages};
 use triplespace_api_ingest::talk_import::{self, Authors};
-use triplespace_cli::{import_pages as import_cmd, instance, tenant};
+use triplespace_cli::{import_pages as import_cmd, instance, settings, tenant};
 
 const DB: &str = "tsimport_test";
 const TENANT: &str = "wiki";
@@ -218,9 +218,11 @@ async fn librarybase_pages_are_imported_with_history_authors_and_talk() {
     // second run finds them present and writes nothing twice (0008 A48).
     let farm = triplespace_cli::common::farm_at(&database).await.unwrap();
     let (store, pipeline) = triplespace_cli::common::store(&database, &farm).unwrap();
+    // `librarybase` is a registered issuer (issuers.toml), so the file's accounts keep
+    // their numeric IDs (0008 A50): the partial import names it as the command will.
     let accounts = talk_import::accounts_of(dump.iter());
     let authors = Authors::Imported {
-        issuer: None,
+        issuer: Some("librarybase"),
         accounts: &accounts,
         prefix: "librarybase",
     };
@@ -264,9 +266,11 @@ async fn librarybase_pages_are_imported_with_history_authors_and_talk() {
     for (ns, _) in pages.keys() {
         *by_ns.entry(*ns).or_default() += 1;
     }
+    // Harej's registered account gives his talk page a page of its own (ns 3), as
+    // adoption does; the three users the file never names as accounts are surrogates.
     assert_eq!(
         by_ns.into_iter().collect::<Vec<_>>(),
-        [(2, 4), (4, 27), (10, 2), (214, 4)]
+        [(2, 4), (3, 1), (4, 27), (10, 2), (214, 4)]
     );
     assert_eq!(pages[&(4, "Home".into())], 18);
     assert_eq!(
@@ -290,8 +294,9 @@ async fn librarybase_pages_are_imported_with_history_authors_and_talk() {
     assert_ne!(home[0].get::<_, i64>(0), 489);
     assert!(home[0].get::<_, i64>(0) < 100);
 
-    // Each revision keeps its original timestamp, and its author is an `imported`
-    // surrogate named `librarybase>Name` (0007 §5), the same actor for the same name.
+    // Each revision keeps its original timestamp and names the upstream revision it came
+    // from (0008 A50), and its author is the registered issuer's account, `librarybase:N`
+    // (0007 §5), with the name the file gives.
     let dump_home = dump.iter().find(|p| p.title == "Project:Home").unwrap();
     let latest = dump_home.latest().unwrap();
     let router = router(&database, &key_file).await;
@@ -310,6 +315,12 @@ async fn librarybase_pages_are_imported_with_history_authors_and_talk() {
     );
     let oldest = dump_home.revisions.iter().min_by_key(|r| r.id).unwrap();
     assert_eq!(revisions[17]["timestamp"], oldest.timestamp);
+    assert_eq!(
+        revisions[0]["upstream"]["revid"], latest.id,
+        "{}",
+        revisions[0]
+    );
+    assert_eq!(revisions[0]["upstream"]["time"], latest.timestamp);
     let actors = query(
         &database,
         "SELECT DISTINCT a.actor_key, x.kind, x.raw FROM view.activity a
@@ -318,36 +329,29 @@ async fn librarybase_pages_are_imported_with_history_authors_and_talk() {
          ORDER BY a.actor_key",
     )
     .await;
-    let kinds: Vec<(String, String)> = actors
+    let keys: Vec<(String, String)> = actors
         .iter()
-        .map(|r| (r.get::<_, String>(1), r.get::<_, String>(2)))
+        .map(|r| (r.get::<_, String>(0), r.get::<_, String>(1)))
         .collect();
     assert!(
-        kinds
-            .iter()
-            .all(|(k, raw)| k == "imported" && raw.starts_with("librarybase>")),
-        "{kinds:?}"
+        keys.iter()
+            .all(|(key, kind)| key.starts_with("librarybase:") && kind == "registered"),
+        "{keys:?}"
     );
-    assert!(
-        kinds.iter().any(|(_, raw)| raw == "librarybase>Harej"),
-        "{kinds:?}"
-    );
+    let harej = "librarybase:3".to_string();
+    assert!(keys.iter().any(|(key, _)| *key == harej), "{keys:?}");
     assert_eq!(
-        actors
-            .iter()
-            .filter(|r| r.get::<_, String>(2) == "librarybase>Harej")
-            .count(),
-        1,
-        "one surrogate per name"
+        query(
+            &database,
+            "SELECT name FROM view.actor WHERE tenant = 'wiki' AND actor_key = 'librarybase:3'"
+        )
+        .await[0]
+            .get::<_, String>(0),
+        "Harej"
     );
 
-    // Harej's talk page became a thread on his surrogate's talk page (0090 §10), with
-    // his post attributed to the same surrogate.
-    let harej: String = actors
-        .iter()
-        .find(|r| r.get::<_, String>(2) == "librarybase>Harej")
-        .map(|r| r.get(0))
-        .unwrap();
+    // Harej's talk page became a thread on his talk page (0090 §10), with his post
+    // attributed to his account.
     let threads = query(
         &database,
         &format!(
@@ -530,8 +534,8 @@ async fn librarybase_pages_are_imported_with_history_authors_and_talk() {
         again[0]["slots"]["main"]["content"].as_str().unwrap(),
         latest.text
     );
-    // The attributions chain, as MediaWiki's do: the first tenant's surrogate name under
-    // the second's prefix.
+    // `wiki` is no registered issuer, so the second tenant's authors are surrogates
+    // under its prefix, as MediaWiki names them.
     let chained = query(
         &database,
         "SELECT DISTINCT x.raw FROM view.activity a
@@ -542,7 +546,7 @@ async fn librarybase_pages_are_imported_with_history_authors_and_talk() {
     assert!(
         chained
             .iter()
-            .any(|r| r.get::<_, String>(0) == "wiki>librarybase>Harej"),
+            .any(|r| r.get::<_, String>(0) == "wiki>Harej"),
         "{:?}",
         chained
             .iter()
@@ -671,6 +675,7 @@ fn dump_xml() -> Vec<u8> {
 /// imported and the talk pages converted, and the response lists what each page got.
 /// Anyone without `import` is refused.
 #[tokio::test]
+#[allow(clippy::too_many_lines)]
 async fn action_import_takes_an_upload_and_shows_the_census_first() {
     let Some((database, key_file)) = setup("tsimport_api_test").await else {
         eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
@@ -758,13 +763,26 @@ async fn action_import_takes_an_upload_and_shows_the_census_first() {
     assert_eq!(job.len(), 1);
     assert_eq!(job[0].get::<_, String>(0), "import");
     assert_eq!(job[0].get::<_, String>(1), "finished");
+    // `interwikiprefix` naming a registered issuer's code gives its accounts their IDs
+    // (0008 A50); any other prefix gives surrogates.
+    assert_eq!(done["job"]["issuer"], "librarybase", "{done}");
     let attributed = query(
         &database,
-        "SELECT DISTINCT x.raw FROM view.activity a JOIN view.actor x ON x.tenant = a.tenant AND x.actor_key = a.actor_key
-         WHERE a.tenant = 'wiki' AND a.target_kind = 2 AND a.revid IS NOT NULL AND x.raw LIKE 'librarybase>%'",
+        "SELECT DISTINCT a.actor_key FROM view.activity a
+         WHERE a.tenant = 'wiki' AND a.target_kind = 2 AND a.revid IS NOT NULL",
     )
     .await;
     assert!(!attributed.is_empty());
+    assert!(
+        attributed
+            .iter()
+            .all(|r| r.get::<_, String>(0).starts_with("librarybase:")),
+        "{:?}",
+        attributed
+            .iter()
+            .map(|r| r.get::<_, String>(0))
+            .collect::<Vec<_>>()
+    );
 
     // Again: present, nothing written.
     let again = owner
@@ -776,6 +794,39 @@ async fn action_import_takes_an_upload_and_shows_the_census_first() {
     assert_eq!(again["job"]["counts"]["revisions"], 0, "{again}");
     assert_eq!(again["job"]["counts"]["present"], 140);
     assert_eq!(again["job"]["talk"]["present"], 4);
+
+    // The upload limit is the wiki's `import.max_upload` (0047 A36): 100 MB by default,
+    // reported in `meta=siteinfo`, and an upload over it is refused.
+    let si = owner
+        .get("action=query&meta=siteinfo&siprop=triplespace")
+        .await;
+    assert_eq!(
+        si["query"]["triplespace"]["import"]["max_upload"],
+        104_857_600
+    );
+    settings::run(settings::Settings::Set(settings::Set {
+        at: settings::Where {
+            database: database.clone(),
+            tenant: Some(TENANT.into()),
+            instance: false,
+        },
+        key: "import.max_upload".into(),
+        value: "1000".into(),
+        default: false,
+        lock: false,
+        tenancy: false,
+        summary: None,
+    }))
+    .await
+    .expect("set import.max_upload");
+    let si = owner
+        .get("action=query&meta=siteinfo&siprop=triplespace")
+        .await;
+    assert_eq!(si["query"]["triplespace"]["import"]["max_upload"], 1000);
+    let refused = owner
+        .import(&[("token", &csrf), ("census", "1")], Some(&xml))
+        .await;
+    assert_eq!(refused["error"]["code"], "import-too-large", "{refused}");
 }
 
 /// A browser on the site: one session cookie, posting forms or multipart bodies.
@@ -1041,10 +1092,33 @@ async fn special_import_shows_the_census_then_imports() {
         .await,
         33
     );
-    // The imported page renders through the site with its content.
+    // The imported page renders through the site with its content; its history rows and
+    // the diff's header carry the imported chip, naming the upstream revision and the job
+    // (0008 A50).
     let home = owner.get("/wiki/Project:Home").await;
     assert_eq!(home.status, StatusCode::OK, "{}", home.body);
     assert!(home.body.contains("Cool Wikibase Network"), "{}", home.body);
+    let history = owner.get("/wiki/Project:Home?action=history").await;
+    assert_eq!(history.status, StatusCode::OK, "{}", history.body);
+    assert!(
+        history.body.contains("ts-chip--imported"),
+        "{}",
+        history.body
+    );
+    assert!(
+        history.body.contains("title=\"Imported from revision ")
+            && history.body.contains(" by job "),
+        "{}",
+        history.body
+    );
+    assert!(
+        history.body.contains("class=\"ts-change__job\">Job "),
+        "{}",
+        history.body
+    );
+    let diff = owner.get("/wiki/Project:Home?diff=cur").await;
+    assert_eq!(diff.status, StatusCode::OK, "{}", diff.body);
+    assert!(diff.body.contains("ts-chip--imported"), "{}", diff.body);
     // `Special:SpecialPages` lists it.
     let index = owner.get("/wiki/Special:SpecialPages").await;
     assert!(index.body.contains("Special:Import"), "{}", index.body);
@@ -1102,14 +1176,16 @@ async fn wikipedia_talk_pages_are_attributed_from_their_history() {
         0
     );
 
-    // Harej's talk page with its 4,677 revisions: threads on his surrogate, posts by
-    // surrogates named from the history's revisions.
+    // Harej's talk page with its 4,677 revisions: `enwiki` is a registered issuer, so
+    // the threads sit on his `enwiki:N` account's talk page, and each post is attributed
+    // from the history's revisions to an `enwiki:N` account, or to a surrogate where a
+    // signature names someone the file does not (0008 A50).
     import_cmd::run(args("history.xml.bz2"))
         .await
         .expect("import history");
     let harej = query(
         &database,
-        "SELECT actor_key FROM view.actor WHERE tenant = 'wiki' AND kind = 'imported' AND raw = 'enwiki>Harej'",
+        "SELECT actor_key FROM view.actor WHERE tenant = 'wiki' AND kind = 'registered' AND name = 'Harej' AND actor_key LIKE 'enwiki:%'",
     )
     .await;
     assert_eq!(harej.len(), 1);
@@ -1122,14 +1198,100 @@ async fn wikipedia_talk_pages_are_attributed_from_their_history() {
     assert!(threads > 1, "{threads}");
     let signers = query(
         &database,
-        "SELECT DISTINCT x.raw FROM view.post p JOIN view.actor x ON x.tenant = p.tenant AND x.actor_key = p.actor
-         WHERE p.tenant = 'wiki' AND x.kind = 'imported'",
+        "SELECT DISTINCT actor FROM view.post WHERE tenant = 'wiki'",
     )
     .await;
     assert!(signers.len() > 1, "{}", signers.len());
+    // The accounts the file names; a post nobody can be credited for is the job's.
     assert!(
         signers
             .iter()
-            .all(|r| r.get::<_, String>(0).starts_with("enwiki>"))
+            .filter(|r| r.get::<_, String>(0).starts_with("enwiki:"))
+            .count()
+            > 1,
+        "{:?}",
+        signers
+            .iter()
+            .map(|r| r.get::<_, String>(0))
+            .collect::<Vec<_>>()
+    );
+}
+
+/// The XML export writes the model each revision had (0047 A37): a page imported as
+/// wikitext and then edited to markdown exports with `wikitext` on its first revision and
+/// `markdown` on its second, and imports back the same.
+#[tokio::test]
+async fn an_export_walks_a_pages_model_changes() {
+    let Some((database, key_file)) = setup("tsimport_model_test").await else {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    };
+    let revision = |id: u64, model: &str, text: &str| scatter_mediawiki_xml::Revision {
+        id,
+        parent_id: (id > 1).then(|| id - 1),
+        timestamp: format!("2026-01-0{id}T00:00:00Z"),
+        user: Some((7, "Jane".into())),
+        model: Some(model.into()),
+        text: text.into(),
+        comment: Some(format!("edit {id}")),
+        ..scatter_mediawiki_xml::Revision::default()
+    };
+    let page = DumpPage {
+        title: "Project:Notes".into(),
+        ns: 4,
+        id: 1,
+        redirect: None,
+        revisions: vec![
+            revision(1, "wikitext", "== Notes =="),
+            revision(2, "markdown", "## Notes"),
+        ],
+    };
+    let farm = triplespace_cli::common::farm_at(&database).await.unwrap();
+    let (store, pipeline) = triplespace_cli::common::store(&database, &farm).unwrap();
+    let accounts = talk_import::accounts_of(std::iter::once(&page));
+    let authors = Authors::Imported {
+        issuer: None,
+        accounts: &accounts,
+        prefix: "notes",
+    };
+    let (out, _) = import_pages(
+        &store,
+        &pipeline,
+        TENANT,
+        Attestation::by("local:1"),
+        ImportJob {
+            source: "notes".into(),
+            version: None,
+            history: true,
+            summary: None,
+        },
+        &authors,
+        vec![page],
+        triplespace_cli::common::now(),
+    )
+    .await
+    .unwrap();
+    assert_eq!((out.counts.created, out.counts.revisions), (1, 2));
+    let router = router(&database, &key_file).await;
+    let (status, xml) = export_from(
+        &router,
+        HOST,
+        serde_json::json!({"format": "xml", "pages": ["Project:Notes"], "history": true}),
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&xml));
+    let exported: Vec<DumpPage> = XmlDump::new(xml.as_slice()).map(|p| p.unwrap()).collect();
+    assert_eq!(exported.len(), 1);
+    let models: Vec<(Option<String>, Option<String>)> = exported[0]
+        .revisions
+        .iter()
+        .map(|r| (r.model.clone(), r.format.clone()))
+        .collect();
+    assert_eq!(
+        models,
+        [
+            (Some("wikitext".into()), Some("text/x-wiki".into())),
+            (Some("markdown".into()), Some("text/markdown".into())),
+        ]
     );
 }

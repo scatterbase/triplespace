@@ -364,6 +364,12 @@ pub fn mw_row(ctx: &Ctx, row: &Row, props: &[String], module: &str) -> Value {
     {
         m.insert("job".into(), json!(j));
     }
+    // An adopted or imported revision's upstream revision and time (0008 A50).
+    if row.kind == "edit"
+        && let Some(up) = row.params.as_ref().and_then(|p| p.get("source"))
+    {
+        m.insert("upstream".into(), up.clone());
+    }
     if wants(props, "operator")
         && let Some(o) = &row.operator
     {
@@ -469,6 +475,12 @@ pub fn ts_row(tenant: &Tenant, row: &Row) -> Value {
     }
     if let Some(j) = row.job {
         m.insert("job".into(), json!(j));
+    }
+    // An adopted or imported revision's upstream revision and time (0008 A50).
+    if row.kind == "edit"
+        && let Some(up) = row.params.as_ref().and_then(|p| p.get("source"))
+    {
+        m.insert("upstream".into(), up.clone());
     }
     if hidden_comment {
         m.insert("summary".into(), json!({"hidden": true}));

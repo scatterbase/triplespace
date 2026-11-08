@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-08 (A49)
+- **Updated:** 2026-11-08 (A50)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -76,7 +76,7 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 
 #### 9.1 The job
 
-*Changed by A49.*
+*Changed by A49, A50.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §6.1.*
 
@@ -102,13 +102,13 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 
 #### 9.6 Talk pages
 
-*Changed by A49.*
+*Changed by A49, A50.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §6.6.*
 
 #### 9.7 The forms
 
-*Changed by A49.*
+*Changed by A49, A50.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §6.7.*
 
@@ -709,6 +709,17 @@ Replaced text ([10](../architecture/10-pages-and-content-models.md) §1.4, as it
 ### A49. The import job as built
 
 - **Date:** 2026-11-08
-- **Source:** Direct: Claude, while building the MediaWiki XML import (SCA-303), 2026-11-08; unconfirmed
+- **Source:** Direct: Claude, while building the MediaWiki XML import (SCA-303), 2026-11-08; confirmed by James, 2026-11-08
 - **Change:** extends §9, §9.1, §9.2, §9.4, §9.6, §9.7
 - **Summary:** Calls made building §9 (A48; [0005](0005-crate-organization.md) A119, A121; [0047](0047-special-pages.md) A36). (1) §9 is split into §9.1–§9.7, so that each part can be claimed on its own; the split changes no text. (2) No job runner exists ([0083](0083-write-path-in-three-tiers.md) §5), so `action=import` runs the job on the request path, as `POST /export` streams on it (0047 A35), and `Special:Import` shows the job's report in place of `Special:Jobs/{id}`; the job's `start` and `finish` records are written as any job's, with mode `import`. (3) The newest revision by timestamp becomes current in an append-only log by a restoring edit: when the file's revisions all go behind the revision the page already had as current, the job appends that revision again under its own attestation with a fixed summary; a held revision is compared by its shown time and MediaWiki's SHA-1 of its text. (4) An imported revision's shown time is its `source_time`, as an adopted one's is: `shown_time` no longer requires the record's revision ID to equal the source's, which only adoption keeps. (5) An imported author's prefix is `imported` for an upload, or `interwikiprefix` where given, and the site alias for a page fetched from another wiki; a surrogate's raw value is `{prefix}>{name}`, chaining as MediaWiki's do (`wiki>librarybase>Name` after a round trip). Which registered issuer a source is comes from the surface (`triplespace import --issuer`); `action=import` passes none, so every named author of an upload is a surrogate. (6) The census is a pure function in `scatter-ingest` with the scan of a text injected, `scatter-wikitext-expand`'s `census` over its registry, since the ingester depends on no wikitext crate; it classes the file's pages as the surface's reader does, scans the latest revision of each page the job imports or converts, tells a current-revision export apart (one revision per page while revisions name parents), and the surface fills in which titles already exist. (7) The reader classes pages by the adoption job's acceptance rules (A41, A43; [0095](0095-the-interface-namespace.md) A1): the MediaWiki namespace's messages as Interface pages, other models there ignored, reserved namespaces deferred; the first revision of a page is a `create` under the page's current title and each later one an `edit`, with the model when it changed. (8) The talk conversion of [0090](0090-converting-talk-pages-comment-by-comment.md) §10 moves from `triplespace-cli` to `triplespace-api-ingest`, shared by adoption, the command and the API (0005 A121); for an import a user talk page's home is its user's surrogate, and a subject page in any namespace is found by its local title, where the adoption code looked for a prefixed title and found none outside the main namespace. (9) The flattening bot of §9.1 step 3, files (§9.5) and a board for a project-wide discussion page (§9.6) are not built; `namespace` and `rootpage` are accepted and warned about. Chapter text: 10 §6.1–§6.7; 21 §4.3.
+
+### A50. The import reviewed: the issuer rule, the imported chip, times in UTC
+
+- **Date:** 2026-11-08
+- **Source:** Direct: James, review of A49 on 2026-11-08
+- **Change:** amends §9.1; extends §9.6, §9.7
+- **Summary:** James confirmed A49, with (2) understood as temporary until the job runner exists, and decided three things. (1) **Which issuer a source is.** A page fetched from another wiki by site alias resolves a registered issuer by the alias, as an issuer's code or one of its providers' slugs, or by the alias's host, which the registry names in an issuer's users API or actor IRIs; an uploaded file resolves one only where `interwikiprefix` names an issuer's code outright, since the file itself is not to be trusted with real accounts, which is why MediaWiki keeps uploads under `prefix>Name`; `triplespace import` resolves `--issuer`, else `--source`, the same way. A registered issuer's accounts keep their numeric keys, and the file's named accounts get actor records with their names where the tenant has none, as adoption records the adopted wiki's accounts (0035 §5); a name the file does not list as an account, and every author of an unregistered source, stays an `imported` surrogate, chaining as before. (2) **An imported or adopted revision is marked as such.** The activity projection keeps the source revision ID and time of a page record that has them, the APIs serve them as `upstream` on activity, revision and diff rows, and the history row and the diff's header carry an **Imported** chip in place of Local, naming the upstream revision and the job in its tooltip, with the job named beside it and linked once `Special:Jobs/{n}` exists; rows projected before this show it after `triplespace rebuild`. (3) **Times are UTC.** A revision's shown source time is kept on the condition that exports write every timestamp in UTC, which the exporter does with `Z`, and that an import reads any offset a file writes into UTC, which the parser does. Chapter text: 10 §6.1, §6.6; 19 §3.4.
+
+Replaced text ([10](../architecture/10-pages-and-content-models.md) §6.1, as it stood):
+
+> The surface names the registered issuer the source is, if any, whose accounts keep their numeric keys; every other named author is an `imported` surrogate whose raw value is `{prefix}>{name}`, the prefix being `imported` for an uploaded file (MediaWiki's `interwikiprefix`) and the site alias for a page fetched from another wiki, so that names chain across wikis as MediaWiki's do; an IP is an `anonymous` surrogate, and a hidden author stays hidden.

@@ -241,6 +241,6 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.2, as i
 ### A13. The `/.well-known/tlog/` routes as built
 
 - **Date:** 2026-11-07
-- **Source:** Direct: Claude, while building the record and proof routes (SCA-302), 2026-11-07; unconfirmed
+- **Source:** Direct: Claude, while building the record and proof routes (SCA-302), 2026-11-07; confirmed by James, 2026-11-08
 - **Change:** extends §1
 - **Summary:** Calls made building the checkpoint, manifest, consistency and key-chain routes of §1. (1) A partition is named by its name on the tenant, as its origin line has it, so a name may hold `/`; the path is read from its end (`…/checkpoint`, `…/checkpoint/{size}`, `…/segment/{n}`, `…/consistency`). Only a partition published to the caller is served, as on the record routes ([0012](0012-api-requirements.md) A85). (2) `GET /.well-known/tlog/keys` serves the instance's `key:` records, the chain that signs every checkpoint, as a CBOR sequence (RFC 8742) of canonical records; the tenant's `recovery-key`, `continuation` and `continuation-cancel` records ([0081](0081-recovery-keys-and-continuations.md) §9) are not written by anything yet, and join the sequence when they are. (3) A consistency proof is served between any two tree sizes up to the head, not only between stored checkpoints, on a `logged` partition; a `hashed` partition has segment manifests and nothing else here. (4) Proofs are computed from the stored interior nodes of `log.merkle_node`. Chapter text: [17](../architecture/17-federation-and-publication.md) §1.1.

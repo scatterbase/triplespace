@@ -403,6 +403,18 @@ meaning = "An export up to this size streams"
 source = "[0047](../decisions/0047-special-pages.md) §8"
 
 [[setting]]
+key = "import.max_upload"
+scope = "tenant"
+bound = "tenant"
+group = "exchange"
+type = "integer"
+default = 104857600
+default_text = "100 MB"
+by_rule = true
+meaning = "The largest file `action=import` and `Special:Import` take, in bytes"
+source = "[0047](../decisions/0047-special-pages.md) §8.3"
+
+[[setting]]
 key = "federation.accept_fep8b32"
 scope = "tenant"
 bound = "tenant"

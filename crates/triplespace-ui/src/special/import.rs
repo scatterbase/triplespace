@@ -6,8 +6,8 @@
 //! is named, not linked. The site reaches the instance through the client only (22 §1.2
 //! rule 6); the file rides along the confirmation as a hidden field when it is small
 //! enough, and is asked for again otherwise, since the site keeps nothing between requests.
-//! implements 0047 §8.3 (A36)
-//! implements 0008 §9.7 (A49)
+//! implements 0047 §8.3 (A38)
+//! implements 0008 §9.7 (A50)
 
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
@@ -26,8 +26,9 @@ use crate::special::controls::{CheckRow, ControlModel, FieldRow};
 
 const TITLE: &str = "Special:Import";
 
-/// The most a file may be to ride along the confirmation as a hidden field.
-const MAX_CARRIED: usize = 2 * 1024 * 1024;
+/// The most a file may be to ride along the confirmation as a hidden field; a larger one,
+/// up to the wiki's `import.max_upload`, is asked for again on confirmation (0047 A36).
+const MAX_CARRIED: usize = 8 * 1024 * 1024;
 
 /// `Special:Import` as Plain's `special/import.html` draws it: the form, or the census
 /// with its confirmation, or the report.
@@ -283,7 +284,10 @@ fn draw(
                 accept: Some(".xml,application/xml,text/xml".into()),
                 described_by: Some("ts-import-file-help".into()),
             },
-            help: Some(m.get("ts-import-file-help")),
+            help: Some(m.with(
+                "ts-import-file-help",
+                &[&(cx.site.import.max_upload / (1024 * 1024)).to_string()],
+            )),
             help_id: Some("ts-import-file-help".into()),
         },
         prefix: text("ts-import-prefix", "interwikiprefix", &typed.prefix),

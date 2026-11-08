@@ -241,6 +241,8 @@ pub enum ChipKind {
     Namespace,
     /// An import job.
     Job,
+    /// A revision adopted or imported from another wiki (0008 A50).
+    Imported,
     /// A log action.
     Log,
     /// A local correction of a mirrored value.
@@ -310,6 +312,7 @@ impl<'a> Chip<'a> {
                 format!("ts-chip ts-chip--provider ts-chip--p-{code}")
             }
             ChipKind::Local => "ts-chip ts-chip--local".into(),
+            ChipKind::Imported => "ts-chip ts-chip--imported".into(),
             ChipKind::Namespace => "ts-chip ts-chip--namespace".into(),
             ChipKind::Job => "ts-chip ts-chip--job".into(),
             ChipKind::Log => "ts-chip ts-chip--log".into(),

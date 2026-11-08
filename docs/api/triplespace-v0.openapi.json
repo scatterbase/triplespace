@@ -6827,6 +6827,14 @@
           "job": {
             "type": "integer"
           },
+          "upstream": {
+            "type": "object",
+            "description": "For an adopted or imported revision, the upstream revision it came from (0008 A50).",
+            "properties": {
+              "revid": { "type": "integer", "description": "The source wiki's revision ID." },
+              "time": { "type": "string", "description": "The source wiki's timestamp, as it wrote it." }
+            }
+          },
           "summary": {
             "type": "object",
             "description": "The parsed summary (ADR 0001 §6), or `{hidden: true}`.",
