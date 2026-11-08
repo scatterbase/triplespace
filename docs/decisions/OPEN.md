@@ -15,6 +15,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0005 A115](0005-crate-organization.md#a115-scatter-wikibase-rdf-depends-on-scatter-normalize-oxttl-and-md-5) | 2026-11-07 | `scatter-wikibase-rdf` depends on `scatter-normalize`, `oxttl` and `md-5` |
 | [0005 A116](0005-crate-organization.md#a116-triplespace-rdf-is-built-what-it-the-api-and-the-cli-depend-on) | 2026-11-07 | `triplespace-rdf` is built; what it, the API and the CLI depend on |
 | [0006 A26](0006-log-integrity-and-erasure.md#a26-a-nesting-depth-limit-for-canonical-cbor) | 2026-11-06 | A nesting-depth limit for canonical CBOR |
+| [0006 A29](0006-log-integrity-and-erasure.md#a29-origins-fixed-by-the-first-checkpoint-what-the-commands-check) | 2026-11-07 | Origins fixed by the first checkpoint; what the commands check |
 | [0010 A47](0010-site-ui.md#a47-the-acl-site-ui-the-calls-made-building-it) | 2026-10-30 | The ACL site UI: the calls made building it |
 | [0010 A49](0010-site-ui.md#a49-the-compare-form-and-the-diff-views-the-calls-made-building-them) | 2026-11-04 | The compare form and the diff views: the calls made building them |
 | [0010 A50](0010-site-ui.md#a50-a-document-pages-tabs-its-about-panel-and-its-format-selector-the-calls-made-building-them) | 2026-11-05 | A document page's tabs, its About panel and its Format selector: the calls made building them |
