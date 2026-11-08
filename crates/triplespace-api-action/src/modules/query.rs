@@ -2,7 +2,9 @@
 //! `meta=userinfo`, `meta=wikibase`; `list=recentchanges`, `list=usercontribs` and
 //! `list=logevents` ([`super::changes`]). Other `meta`, `prop` and `list` values are
 //! warned about and ignored, as MediaWiki does with an unknown parameter value in a
-//! module it does serve.
+//! module it does serve. `export` writes the current revisions of the page set as
+//! `Special:Export` writes them, and `exportnowrap` sends that XML as the whole
+//! response ([`super::export`]; 0047 §8.1).
 
 use scatter_providers::Registry;
 use scatter_wikibase_model::value::DataType;
@@ -109,11 +111,17 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             "users" => super::userrights::users(ctx, &mut query).await?,
             "blocks" => super::block::list(ctx, &mut query).await?,
             "querypage" => super::querypage::querypage(ctx, &mut query, &mut body).await?,
+            "categorymembers" => {
+                super::export::categorymembers(ctx, &mut query, &mut body).await?;
+            }
             other => response.warn(
                 "query",
                 &format!("Unrecognized value for parameter \"list\": {other}."),
             ),
         }
+    }
+    if ctx.params.flag("export") {
+        super::export::export(ctx, &mut query, &mut response).await?;
     }
     if ctx.formatversion == 2 {
         body.insert("batchcomplete".into(), json!(true));
@@ -892,7 +900,7 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                     "tenant": slug,
                     "farm": ctx.app.config().farm.slug,
                     "search": "postgres",
-                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "createaccount", "bearer", "version", "recentchanges", "activity", "history", "revisions", "diff", "options", "preferences", "settings", "pages", "parse", "edit", "move", "protect", "userrights", "renameuser", "block", "delete", "notifications", "watchlist", "reports"],
+                    "capabilities": ["wbgetentities", "wbsearchentities", "wbeditentity", "statements", "terms", "login", "clientlogin", "createaccount", "bearer", "version", "recentchanges", "activity", "history", "revisions", "diff", "options", "preferences", "settings", "pages", "parse", "edit", "move", "protect", "userrights", "renameuser", "block", "delete", "notifications", "watchlist", "reports", "export"],
                     "providers": Registry::default_registry().providers().iter().map(|p| p.slug.clone()).collect::<Vec<_>>(),
                     "rate_limits": [],
                     "grants": scatter_actors::grant::GrantRegistry::default_registry().grants().iter().map(|g| g.name.clone()).collect::<Vec<_>>(),
@@ -930,6 +938,12 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                     skins["available"] = json!(available);
                 }
                 t["skins"] = skins;
+                // What `Special:Export` offers (0047 §8.1): `addns` where
+                // `export.from_namespaces` is on, history where `export.history` is.
+                t["export"] = json!({
+                    "from_namespaces": settings.value("export.from_namespaces").and_then(|v| v.as_bool()).unwrap_or(false),
+                    "history": settings.value("export.history").and_then(|v| v.as_bool()).unwrap_or(true),
+                });
                 if ctx.app.config().mode == Mode::Development {
                     t["insecure"] = json!(true);
                 }
@@ -1117,6 +1131,7 @@ const QUERY_MODULES: &[(&str, &[&str])] = &[
             "watchlist",
             "watchlistraw",
             "querypage",
+            "categorymembers",
         ],
     ),
 ];

@@ -69,6 +69,19 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
   equivalence diff vacuously. Check `adopt`'s stderr and the row counts before trusting
   `REBUILD-IDENTICAL`.
 
+## The Librarybase samples
+
+- `docs/samples/librarybase/dump/librarybase-wikitext.xml.gz` (MediaWiki 1.39, 2023) and
+  `librarybase-sample.xml.gz` (the rebuilt wiki, 2026) are dumps of two builds of the wiki and
+  share revision IDs (both hold revision 4) and user IDs under different names (user 3 is
+  `Harej` in one, `Librarybase` in the other). They cannot be adopted into one tenant: the
+  second `adopt` fails on `activity_revid`, or refuses the accounts (0035 §5). A test that
+  needs both pages and entities uses two scratch databases, as `triplespace-server/tests/pages.rs`'s
+  XML export tests do (2026-11-08).
+- `tools/mw_import_check.sh` needs a container daemon: on the Mac the `docker` CLI is
+  installed but Docker Desktop is not running by default (`docker info` fails), and the script
+  then exits 3 without running. Start Docker Desktop first.
+
 ## Wikidata dumps
 
 - `latest-all.json.*` is not in ID order: it is written in shards by page ID and opens Q31, Q8,

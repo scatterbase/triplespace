@@ -33,6 +33,8 @@ scatter-providers.workspace = true
 axum.workspace = true
 serde_json.workspace = true
 tokio-postgres.workspace = true
+tokio = { workspace = true, features = ["sync", "rt", "io-util"] }
+tokio-util = { workspace = true, features = ["io"] }
 toml.workspace = true
 url.workspace = true
 percent-encoding.workspace = true

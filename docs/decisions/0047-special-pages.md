@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-11-08 (A34)
+- **Updated:** 2026-11-08 (A35)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0029](0029-resolver-namespaces.md), [0031](0031-property-constraints.md), [0042](0042-template-expansion-and-parsoid.md), [0046](0046-primary-tenant.md)
 - **Uses:** [0019](0019-discussions.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md)
@@ -115,7 +115,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 #### 8.1 Special:Export
 
-*Changed by A32, A33, A34.*
+*Changed by A32, A33, A34, A35.*
 
 *Current text: [21](../architecture/21-special-pages.md) §4.2.*
 
@@ -579,3 +579,10 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.5, as i
 - **Source:** Direct: James, design discussion of 2026-11-08
 - **Change:** extends §8.1
 - **Summary:** Of Q7's placeholders, James kept `export.sync_revisions` (5,000) and `export.max_history` (1,000) as the defaults, both tenant settings a tenant raises; Q7 keeps `nuke.confirm_threshold` and the `reports` `batch_limit`. Chapter text: 21 §4.2.
+
+### A35. The MediaWiki XML export as built
+
+- **Date:** 2026-11-08
+- **Source:** Direct: Claude, while building the MediaWiki XML export (SCA-300), 2026-11-08; unconfirmed
+- **Change:** extends §8.1
+- **Summary:** Calls made building the XML format of §8.1 (A32–A34; 0005 A119). (1) `POST /export` takes `format: xml` with the `records` body of A31 and, for the XML, `categories` (`addcat`) and `namespaces` (`addns`, refused with `403 export-namespaces-off` where `export.from_namespaces` is off), each adding up to MediaWiki's `$wgExportPagelistLimit`, 5,000 pages, and `templates`; it streams `application/xml` once the selection is planned, so a `413` comes before any byte, and says what it left out in `x-export-missing` and what it has to say in `x-export-notice`, the `templates` notice also written into the document as an XML comment after `<siteinfo>`. (2) A revision's text, comment or attestation that the export scope withholds, or that is erased, is written as revision-deleted content; a record withheld whole is left out, and a target with none left is missing, as `records` lists it. (3) Every revision of a page is written with the page's current content model, since the page record carries no model of its own at each revision; `<origin>` is the revision's own ID; `<sha1>` is computed over the text. (4) Local entities are written from `view.entity_revision` on the request path, as `records` reads them, there being no export job yet; their titles and models follow the entity type (`Item`, `Property`, `Lexeme`, and the keyed types' namespaces); a local redirect's text is Wikibase's `{"entity", "redirect"}`. (5) Mirrored pages wait for the `pages/{repo}` partition and `view.foreign_page`, neither projected yet; files and threads are out of scope. (6) `action=query&export` writes the page set's current revisions, as MediaWiki does; `exportnowrap` sends the document as `text/xml`; `exportschema` is accepted, 0.11 always written and 0.10 warned about. For `addcat` the form needs `list=categorymembers`, built with `cmtitle` and `cmlimit` only (0038 §13). (7) `Special:Export` reads the tenant's `export.from_namespaces` and `export.history` from `meta=siteinfo`'s `triplespace.export`, and is offered under the `export` capability; it adds a category's or a namespace's pages through the API and, without `wpDownload`, shows the file rather than saving it; `records` is its second format. (8) `scatter-mediawiki-xml`'s reader keeps `<siteinfo>` and reads the further slots of a 0.11 dump; its writer computes MediaWiki's base-36 SHA-1, so the crate depends on `sha1`, and `triplespace-rdf` reads content-model formats from `scatter-pages` (0005 A120). Chapter text: 21 §4.2.

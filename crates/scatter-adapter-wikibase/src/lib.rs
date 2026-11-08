@@ -6,7 +6,8 @@
 //! - [`xml_dump`]: a MediaWiki XML dump (`dumpBackup.php`, Special:Export), streamed page
 //!   by page with each page's revisions: the complete input for an adoption, since it
 //!   carries the page ID, the revision ID and timestamp, the contributor and the entity
-//!   JSON together.
+//!   JSON together. The reader is `scatter-mediawiki-xml`'s (0005 A119); the module
+//!   opens the file.
 //! - [`adoption`]: a dump's pages as adopted entities in home form (0035 §3), with the
 //!   [`adoption::Survey`] that derives the sequence floors and the accounts from a pass
 //!   over the dump.

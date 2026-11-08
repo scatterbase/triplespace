@@ -153,11 +153,18 @@ pub async fn handle(
         response.set_cookie.is_some(),
         response.error.is_some(),
     );
+    let (content_type, body) = match response.raw.take() {
+        Some((ct, body)) if response.error.is_none() => (ct, body),
+        _ => (
+            "application/json; charset=utf-8",
+            response.to_value().to_string(),
+        ),
+    };
     let mut r = http_cache::respond(
         &headers,
         StatusCode::OK,
-        "application/json; charset=utf-8",
-        response.to_value().to_string(),
+        content_type,
+        body,
         class,
         &ctx.cache_tags,
     );

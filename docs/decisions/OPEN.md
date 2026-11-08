@@ -15,6 +15,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0005 A115](0005-crate-organization.md#a115-scatter-wikibase-rdf-depends-on-scatter-normalize-oxttl-and-md-5) | 2026-11-07 | `scatter-wikibase-rdf` depends on `scatter-normalize`, `oxttl` and `md-5` |
 | [0005 A116](0005-crate-organization.md#a116-triplespace-rdf-is-built-what-it-the-api-and-the-cli-depend-on) | 2026-11-07 | `triplespace-rdf` is built; what it, the API and the CLI depend on |
 | [0005 A118](0005-crate-organization.md#a118-triplespace-rdf-writes-bundles-too) | 2026-11-07 | `triplespace-rdf` writes bundles too |
+| [0005 A120](0005-crate-organization.md#a120-two-edges-for-the-xml-export) | 2026-11-08 | Two edges for the XML export |
 | [0006 A26](0006-log-integrity-and-erasure.md#a26-a-nesting-depth-limit-for-canonical-cbor) | 2026-11-06 | A nesting-depth limit for canonical CBOR |
 | [0006 A29](0006-log-integrity-and-erasure.md#a29-origins-fixed-by-the-first-checkpoint-what-the-commands-check) | 2026-11-07 | Origins fixed by the first checkpoint; what the commands check |
 | [0006 A31](0006-log-integrity-and-erasure.md#a31-how-the-export-scope-decides-each-record) | 2026-11-07 | How the export scope decides each record |
@@ -47,6 +48,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0042 A22](0042-template-expansion-and-parsoid.md#a22-which-template-drew-a-block) | 2026-11-04 | Which template drew a block |
 | [0047 A29](0047-special-pages.md#a29-pagerandom-is-derived-from-the-page) | 2026-11-02 | `page_random` is derived from the page |
 | [0047 A31](0047-special-pages.md#a31-the-records-export-as-built) | 2026-11-08 | The `records` export as built |
+| [0047 A35](0047-special-pages.md#a35-the-mediawiki-xml-export-as-built) | 2026-11-08 | The MediaWiki XML export as built |
 | [0051 A8](0051-page-redirects.md#a8-actionmove-the-calls-made-building-it) | 2026-10-30 | `action=move`: the calls made building it |
 | [0056 A27](0056-security-model.md#a27-entities-the-live-attack-and-tiers-78-the-calls-made-building-them) | 2026-10-30 | Entities, the live attack and tiers 7–8: the calls made building them |
 | [0066 A3](0066-lexemes.md#a3-the-part-suffix-belongs-to-the-lexeme-entity-type-not-to-a-grammar) | 2026-11-04 | The part suffix belongs to the lexeme entity type, not to a grammar |

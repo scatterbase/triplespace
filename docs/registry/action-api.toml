@@ -170,7 +170,7 @@ sources = "[0042](../decisions/0042-template-expansion-and-parsoid.md) §14; [00
 kind = "action"
 modules = []
 display = "`action=query&export`"
-changes = "Export"
+changes = "The page set's current revisions as `Special:Export` writes them, schema 0.11; `exportnowrap` sends the document as `text/xml`; `exportschema` is accepted, 0.11 always written ([0047](../decisions/0047-special-pages.md) A35)"
 sources = "[0047](../decisions/0047-special-pages.md) §11"
 
 [[module]]
@@ -399,7 +399,7 @@ sources = "[0016](../decisions/0016-permissions-and-access-control.md) §7"
 [[module]]
 kind = "query"
 modules = ["list=categorymembers", "generator=categorymembers"]
-changes = "`cmtype` and `cmsort`"
+changes = "`cmtype` and `cmsort`. Built so far: `cmtitle` and `cmlimit`, the members by sort key, for `Special:Export`'s `addcat` ([0047](../decisions/0047-special-pages.md) A35)"
 sources = "[0038](../decisions/0038-page-metadata-and-categories.md) §13"
 
 [[module]]
