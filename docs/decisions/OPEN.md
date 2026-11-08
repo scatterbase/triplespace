@@ -64,6 +64,7 @@ Every unstruck question in every ADR (24 §8), with its first sentence. Settle o
 | [0002 Q9](0002-source-graphs-and-mass-ingest.md) | Wire formats beyond NDJSON | For example, a binary or columnar format for maximum throughput. |
 | [0002 Q11](0002-source-graphs-and-mass-ingest.md) | Eager forks | Whether to support freezing a copy of an entity now, as an operation distinct from `retain`. |
 | [0002 Q12](0002-source-graphs-and-mass-ingest.md) |  | Reserving `Y*` provider codes.** Whether `Y*` blocks are reserved for tenant-scoped foreign graphs, and how the reservation is recorded. |
+| [0002 Q13](0002-source-graphs-and-mass-ingest.md) | Key-mapped references and keyword IRIs | A reference whose snak the key-mapped adapter rewrote to a keyed value (`domain:example.org` for upstream's `Q9`) hashes as stored, so its node differs from the provider's; naming it as upstream does needs the key map at… |
 | [0003 Q4](0003-statement-ui.md) | Several preferred values in Series and Timeline | It is not settled whether the headline shows all of them or only the most recent. |
 | [0003 Q5](0003-statement-ui.md) | Mixed units in one column, | such as km² and mi². |
 | [0003 Q6](0003-statement-ui.md) | Overlapping intervals in Timeline, | such as co-holders of an office or disputed periods. |

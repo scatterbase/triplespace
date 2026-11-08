@@ -6032,6 +6032,15 @@
               "mirror/wikidata"
             ]
           },
+          "upstream_id": {
+            "type": "string",
+            "description": "For a key-mapped provider's graph, the upstream item the keyed entity was mapped from (0002 A45)."
+          },
+          "upstream_iri": {
+            "type": "string",
+            "format": "uri",
+            "description": "That item's concept IRI on the provider."
+          },
           "statements": {
             "type": "integer",
             "description": "How many statements the graph asserts."
