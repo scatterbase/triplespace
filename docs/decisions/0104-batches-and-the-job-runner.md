@@ -2,9 +2,9 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-08
-- **Updated:** 2026-11-08 (A2)
+- **Updated:** 2026-11-08 (A3)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0016](0016-permissions-and-access-control.md), [0083](0083-write-path-in-three-tiers.md)
+- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0016](0016-permissions-and-access-control.md), [0047](0047-special-pages.md), [0083](0083-write-path-in-three-tiers.md)
 - **Uses:** [0007](0007-actor-identity.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0047](0047-special-pages.md)
 
 ## Context
@@ -74,6 +74,12 @@ James's direction, from the design discussion of 2026-11-08:
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
+### 11. Creating items from a table (extends 0002 §8.5 and 0047 §5)
+
+*Changed by A3.*
+
+*Current text: [05](../architecture/05-providers-and-ingest.md) §3.5; [21](../architecture/21-special-pages.md) §6.6.*
+
 ## Alternatives considered
 
 - **A change tag `batch:{hash}` instead of a job.** Tags already exist, the feed filters by them and a filter could match one; but a batch also wants a page, a state and a revert, which are a job's, and a second mechanism beside jobs would be a parallel concept where one suffices.
@@ -115,3 +121,10 @@ James's direction, from the design discussion of 2026-11-08:
 - **Source:** Direct: Claude, while building the batches (0104 §1–§3), 2026-11-08; unconfirmed
 - **Change:** extends §1, §3, §6 and §8
 - **Summary:** (1) `batch=` is taken by the entity write modules, `action=edit`, `action=move` and `action=delete`, and by the thread create and post routes as a `batch` field; the response carries the job as `batch`. The other writes (uploads, ACLs, settings, watches) do not take it yet, which coverage shows against §6. (2) The batch's job is opened in the write's own transaction, with `batch`, the hash, and `operator` in its parameters, source `batch` and graph `local` whatever it writes; `view.job` gains a `batch` column with an index for the write that looks the hash up. (3) A revert runs under the runner as the kind `revert`, so `POST /jobs/{id}/revert` answers with the queued revert job, and the records skipped are listed on that job's page, not in the response as §6 had it from 0012 §5; a running job is rejected or closed before it is reverted, and a rejection may queue the revert in the same call. (4) The inverses built: an entity record's state before it restored by the diff that interactive edits use, moved into `triplespace-api-ingest`; the deletion of an entity or page the job created; a page revision's previous text as an edit. A move, a deletion and a thread post are listed as having no inverse yet (Q1), as is a page's content-model change. A revert's `job/revert` on the reverted job names the revert as `reverted_by` and how many records were skipped. (5) A rejection notifies the job's owner as the `job` reason does its end. Chapter text: [16](../architecture/16-logs-feeds-and-notifications.md) §2.2; [05](../architecture/05-providers-and-ingest.md) §3.3; [03](../architecture/03-storage-caches-and-search.md) §4.1; [18](../architecture/18-api.md) §3.2 (`routes.toml`).
+
+### A3. Calls made while building `Special:CreateEntities`
+
+- **Date:** 2026-11-08
+- **Source:** Direct: Claude, while building the table-based creation of items (SCA-277, SCA-281), 2026-11-08; unconfirmed
+- **Change:** extends §11
+- **Summary:** The table's columns are named by header convention rather than a mapping step: `label`, `description`, `aliases` with a language after a colon, else the wiki's; a property by ID. A cell is parsed in the plain forms the form takes (a number, a year or date, `text@lang`, `lat, lon`), shared with `Special:NewItem`, since `wbparsevalue` is not built. The rows are created as interactive writes under a keyed batch, one `wbeditentity` each, not as a queued `stream` job, so the report can name each row's ID at once; at most 500 rows a run. Match keys, references between rows, updating existing items and other entity types are left for the queued path. Chapter text: [21](../architecture/21-special-pages.md) §6.6; [05](../architecture/05-providers-and-ingest.md) §3.5.

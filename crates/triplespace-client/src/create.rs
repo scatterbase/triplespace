@@ -33,22 +33,40 @@ impl Client {
         data: &Value,
         token: &str,
     ) -> Result<Created, ClientError> {
+        self.create_entity_in(incoming, kind, data, token, None)
+            .await
+            .map(|(c, _)| c)
+    }
+
+    /// [`Self::create_entity`] with a batch value (0104 §1): the answer names the batch's
+    /// job beside the entity.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::create_entity`]; `ts-batch-rejected` for a rejected batch.
+    pub async fn create_entity_in(
+        &self,
+        incoming: &Incoming,
+        kind: &str,
+        data: &Value,
+        token: &str,
+        batch: Option<&str>,
+    ) -> Result<(Created, Option<u64>), ClientError> {
         let data = data.to_string();
-        let r = self
-            .post_form(
-                incoming,
-                "/w/api.php",
-                &[
-                    ("action", "wbeditentity"),
-                    ("format", "json"),
-                    ("formatversion", "2"),
-                    ("new", kind),
-                    ("data", &data),
-                    ("token", token),
-                ],
-            )
-            .await?;
-        created(&check(&r)?)
+        let mut form = vec![
+            ("action", "wbeditentity"),
+            ("format", "json"),
+            ("formatversion", "2"),
+            ("new", kind),
+            ("data", &data),
+            ("token", token),
+        ];
+        if let Some(b) = batch {
+            form.push(("batch", b));
+        }
+        let r = self.post_form(incoming, "/w/api.php", &form).await?;
+        let v = check(&r)?;
+        Ok((created(&v)?, v["batch"].as_u64()))
     }
 
     /// `meta=userinfo&uiprop=rights`: the viewer's rights, for a page that needs one the

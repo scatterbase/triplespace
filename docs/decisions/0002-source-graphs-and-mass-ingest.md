@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-24
-- **Updated:** 2026-11-08 (A46)
+- **Updated:** 2026-11-08 (A47)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md)
 - **Uses:** [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -97,7 +97,7 @@ Four scenarios were used to test the design:
 
 #### 8.5 Local bulk creation
 
-*Changed by A12, A15, A19, A32.*
+*Changed by A12, A15, A19, A32, A47.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.5.*
 
@@ -640,3 +640,10 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §1.5, as it sto
 Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.3, as it stood):
 
 > - **A whole job can be reverted.** For a local-graph job, reverting appends the inverse change sets. For a mirror job, reverting means syncing again.
+
+### A47. A table of new items
+
+- **Date:** 2026-11-08
+- **Source:** [0104](0104-batches-and-the-job-runner.md) §11
+- **Change:** extends §8.5
+- **Summary:** `Special:CreateEntities` is the editor's form of local bulk creation: a pasted or uploaded table, a column per term or property and a row per item, every row checked before anything is written, created as one keyed batch of interactive `create`s. Chapter text: [05](../architecture/05-providers-and-ingest.md) §3.5; [21](../architecture/21-special-pages.md) §6.6.

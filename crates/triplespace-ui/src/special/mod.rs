@@ -55,6 +55,7 @@ pub mod block;
 pub mod changes;
 pub mod compare;
 pub mod controls;
+pub mod create_entities;
 pub mod export;
 pub mod external;
 pub mod import;
@@ -77,6 +78,7 @@ pub mod set_terms;
 pub mod settings;
 pub mod undelete;
 pub mod userrights;
+pub mod values;
 pub mod version;
 pub mod watchlist;
 pub mod whatlinkshere;
@@ -172,6 +174,7 @@ pub async fn serve(
         "MovePage" => Some(movepage::serve(site, headers, peer, title, params).await),
         "Export" => Some(export::serve(site, headers, peer, title, params).await),
         "Import" => Some(import::serve(site, headers, peer, params).await),
+        "CreateEntities" => Some(create_entities::serve(site, headers, peer, params).await),
         "Jobs" => Some(jobs::serve(site, headers, peer, title, params).await),
         "Notifications" => Some(notifications::serve(site, headers, peer, params).await),
         "Watchlist" => Some(watchlist::serve(site, headers, peer, params).await),
@@ -235,6 +238,7 @@ pub async fn post(
         "MovePage" => Some(movepage::post(site, headers, peer, title, params).await),
         "Export" => Some(export::post(site, headers, peer, query, params).await),
         "Import" => Some(import::post(site, headers, peer, query, params).await),
+        "CreateEntities" => Some(create_entities::post(site, headers, peer, query, params).await),
         "Jobs" => Some(jobs::post(site, headers, peer, title, query, params).await),
         "Notifications" => Some(notifications::post(site, headers, peer, params).await),
         "Watchlist" => Some(watchlist::post(site, headers, peer, params).await),
