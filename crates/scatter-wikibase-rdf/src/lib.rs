@@ -27,8 +27,10 @@
 //!   skolemized form and the triple-set diff (0032 §9), the schema.org profile (0076 §2–3),
 //!   and the fused cluster body (0082 §7).
 //! - [`Renderer::with_upstream`] names the statements given to it as their upstream
-//!   names them (05 §1.5; 0002 A43); which statements qualify is the caller's to say, from
-//!   the resolver's provenance. A dump needs that provenance per entity too (step 3).
+//!   names them (05 §1.5; 0002 A43), each after the entity its upstream names it by, which
+//!   for a key-mapped provider's statement is the item mapped onto its keyed subject
+//!   (0002 A44); which statements qualify is the caller's to say, from the resolver's
+//!   provenance. A dump needs that provenance per entity too (step 3).
 //!
 //! About 0001 §3 (02 §4.2): built for entities, in both flavors; the page subjects of
 //! 02 §5.4 and the skolemized form of 02 §4.3 are not.

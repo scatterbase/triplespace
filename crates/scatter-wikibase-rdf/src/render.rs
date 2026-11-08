@@ -7,7 +7,7 @@
 //! statements, the terms, and last the reference and value nodes. Order is not part of the
 //! contract; the set of triples is.
 
-use std::collections::{BTreeSet, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 use oxrdf::{BlankNode, Literal, NamedNode, NamedNodeRef, NamedOrBlankNode, Term, Triple};
 use scatter_vocab::{cc, geo, owl, prov, rdf, rdfs, schema, skos, wikibase, xsd};
@@ -16,6 +16,8 @@ use scatter_wikibase_model::{
     SiteRegistry, Sitelink, Snak, SnakKind, Statement, StatementId, php_float_string,
 };
 use sha2::{Digest as _, Sha256};
+
+use scatter_providers::UpstreamRef;
 
 use crate::iri::{Family, IriScheme, PropertyIris, rawurlencode, wf_urlencode};
 use crate::time::xsd_date_time;
@@ -201,7 +203,7 @@ pub struct Renderer<'a> {
     produce: Produce,
     sites: &'a (dyn Sites + Sync),
     datatypes: DatatypeLookup<'a>,
-    upstream: Option<&'a BTreeSet<StatementId>>,
+    upstream: Option<&'a BTreeMap<StatementId, UpstreamRef>>,
     skolem: bool,
 }
 
@@ -246,14 +248,19 @@ impl<'a> Renderer<'a> {
     }
 
     /// Names the statements in `upstream` as their upstream names them: the statement node
-    /// under the provider's concept base, and its reference and value nodes under the
-    /// provider's base, hashed over the IDs as the provider writes them, so that each node
-    /// is the one the provider's own RDF has (05 §1.5; 0002 A43). Which statements qualify
-    /// is the caller's: those whose every member is a mirror's and that no local correction
-    /// touches. A statement whose ID is not a Wikibase-shaped provider's is named under the
-    /// instance's base all the same.
+    /// under the provider's concept base, after the entity each is given with (the
+    /// subject of its ID, or for a key-mapped provider's statement stored under a keyed
+    /// subject the item that was mapped onto it, 0002 A44), and its reference and value
+    /// nodes under the provider's base, hashed over the IDs as the provider writes them,
+    /// so that each node is the one the provider's own RDF has (05 §1.5; 0002 A43). Which
+    /// statements qualify is the caller's: those whose every member is a mirror's and that
+    /// no local correction touches. A statement whose upstream is not a Wikibase-shaped
+    /// provider in the registry is named under the instance's base all the same. A value
+    /// the adapter rewrote to a keyed ID (`domain:example.org` for the provider's `Q9`)
+    /// hashes as stored, so a reference that holds one gets a node the provider's RDF does
+    /// not have.
     #[must_use]
-    pub fn with_upstream(mut self, upstream: &'a BTreeSet<StatementId>) -> Self {
+    pub fn with_upstream(mut self, upstream: &'a BTreeMap<StatementId, UpstreamRef>) -> Self {
         self.upstream = Some(upstream);
         self
     }
@@ -712,8 +719,8 @@ impl<'a> Renderer<'a> {
         };
         let upstream = self
             .upstream
-            .filter(|u| u.contains(id))
-            .and_then(|_| self.iris.upstream_nodes(id));
+            .and_then(|u| u.get(id))
+            .and_then(|u| self.iris.upstream_nodes(u, id));
         let (node, names) = match upstream {
             Some(u) => (
                 u.statement,

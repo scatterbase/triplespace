@@ -1,0 +1,39 @@
+---
+source: crates/triplespace-ui/tests/entity.rs
+expression: main_of(&html)
+---
+<main class="ts-page" id="content">
+	<p class="ts-page__identity">
+<span class="ts-chip ts-chip--namespace">Domain</span> <span class="ts-mono" dir="ltr">wikipedia.org</span> <span>Named by its key, minted by no one</span>
+</p>
+	<h1 class="ts-page__title">Wikipedia</h1>
+	<div class="ts-terms" data-region="terms">
+<p class="ts-terms__description">the free encyclopedia</p>
+</div>
+	<nav class="ts-tabs" aria-label="Page">
+		<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org">Statements</a>
+		<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org?tab=identifiers" aria-current="page">Identifiers</a>
+		<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org?tab=labels">Labels in other languages</a>
+		<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org?action=history">History</a>
+		<a class="ts-tabs__link" href="/wiki/Special:WhatLinksHere/Domain:wikipedia.org">Links here</a>
+		<a class="ts-tabs__link" href="/wiki/Domain_talk:wikipedia.org">Discussion</a>
+	</nav>
+	<div class="ts-page__body">
+		<div class="ts-identifiers" data-region="identifiers">
+<section class="ts-group ts-group--single ts-identifiers__upstream" data-shape="single">
+<div class="ts-group__property">
+<span class="ts-chip ts-chip--provider ts-chip--p-xd">XD</span> Internet Domains Wikibase</div>
+<div class="ts-group__body">
+<div class="ts-statement ts-statement--headline">
+<div class="ts-statement__value">
+<span class="ts-statement__main">
+<a href="https://internetdomains.wiki/entity/Q11" class="external" rel="noopener" dir="ltr">
+<span class="ts-mono">Q11</span> ↗</a>
+</span>
+</div>
+</div>
+</div>
+</section>
+</div>
+	</div>
+</main>

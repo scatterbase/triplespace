@@ -10,6 +10,8 @@
             "job": 2,
             "statements": 1,
             "synced_at": "2026-10-04T05:36:04Z",
+            "upstream_id": "Q11",
+            "upstream_iri": "https://internetdomains.wiki/entity/Q11",
             "upstream_version": "56"
         }
     ],

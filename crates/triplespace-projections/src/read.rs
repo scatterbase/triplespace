@@ -61,18 +61,37 @@ impl Current {
     /// names as the upstream names them (05 §1.5; 0002 A43): every member asserted by a
     /// mirror or entity source graph, and no local correction on any member. A statement the
     /// local graph or a derived graph asserts, or whose rank or membership a correction
-    /// changes, is the instance's.
+    /// changes, is the instance's. Each is given with the entity its upstream names it
+    /// after: the subject of its ID, as a foreign ID, or, for a key-mapped provider's
+    /// statement under a keyed subject, the item the graph's state was mapped from, which
+    /// the contribution carries (0002 A44). A statement fused from two mirrors is the
+    /// first member's, in provider order. One whose upstream the registry cannot name (a
+    /// keyed subject no item was mapped onto, a source entity) is left out: it is named
+    /// under the instance's base.
     #[must_use]
     pub fn upstream_statements(
         &self,
         registry: &scatter_providers::Registry,
-    ) -> std::collections::BTreeSet<StatementId> {
+    ) -> BTreeMap<StatementId, scatter_providers::UpstreamRef> {
         let mirrors: std::collections::HashSet<String> = registry
             .providers()
             .iter()
             .chain(registry.sources())
             .map(scatter_providers::Provider::mirror_graph)
             .collect();
+        let mapped_from = |graph: &str| -> Option<scatter_providers::UpstreamRef> {
+            let item = self
+                .contributions
+                .iter()
+                .find(|c| c.graph == graph)?
+                .upstream_id
+                .as_deref()?;
+            let provider = registry
+                .providers()
+                .iter()
+                .find(|p| p.mirror_graph() == graph)?;
+            scatter_providers::UpstreamRef::mapped(provider, item)
+        };
         self.resolved
             .entity
             .all_statements()
@@ -85,7 +104,19 @@ impl Current {
                         .iter()
                         .any(|m| self.corrections.contains_key(m))
             })
-            .filter_map(|(s, _)| s.id.clone())
+            .filter_map(|(s, prov)| {
+                let id = s.id.clone()?;
+                let subject = id.entity_id()?;
+                let upstream = match subject.form() {
+                    scatter_wikibase_model::id::IdForm::Foreign => registry
+                        .parse_foreign_id(subject.as_str())
+                        .ok()
+                        .map(|f| scatter_providers::UpstreamRef::of(&f))?,
+                    scatter_wikibase_model::id::IdForm::Keyed => mapped_from(&prov.graphs[0])?,
+                    scatter_wikibase_model::id::IdForm::Local => return None,
+                };
+                Some((id, upstream))
+            })
             .collect()
     }
 }
@@ -188,17 +219,21 @@ pub async fn current<C: Partitions>(
         contributions.push(Contribution {
             graph: "local".to_string(),
             entity: e.clone(),
+            upstream_id: None,
         });
     }
     for s in sources
         .iter()
         .filter(|s| s.graph.starts_with("mirror/") || s.graph.starts_with("source/"))
     {
-        if let Some((entity, header)) = EntityProjection::mirror(client, s, None).await? {
+        if let Some((entity, header, upstream_id)) =
+            EntityProjection::mirror(client, s, None).await?
+        {
             headers.push(header);
             contributions.push(Contribution {
                 graph: s.graph.clone(),
                 entity,
+                upstream_id,
             });
         }
     }

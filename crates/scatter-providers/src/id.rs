@@ -82,6 +82,65 @@ impl fmt::Display for ForeignId<'_> {
     }
 }
 
+/// An entity as its provider names it: the provider's two-letter code and the provider's
+/// own ID, `WD` + `Q42` for `WDQ42`. It is the one form every mirrored entity has: a
+/// key-mapped item (05 §4.1) has no prefixed ID, since it is written under a keyed ID with
+/// the provider's item ID beside it (`XD` + `Q11` for the item mapped onto
+/// `domain:wikipedia.org`), and the nodes upstream names after that item, its statement
+/// nodes among them, are named from this (05 §1.5; 0002 A44).
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct UpstreamRef {
+    /// The provider's two-letter code, uppercase.
+    pub provider: String,
+    /// The one-letter code of the entity's type within the provider, uppercase.
+    pub type_code: char,
+    /// The provider's own ID, `Q42`.
+    pub id: String,
+}
+
+impl UpstreamRef {
+    /// The provider's name for a prefixed ID: `WDQ42` → `WD`, `Q`, `Q42`.
+    #[must_use]
+    pub fn of(foreign: &ForeignId<'_>) -> Self {
+        Self {
+            provider: foreign.provider().code.clone(),
+            type_code: foreign.entity_type().code,
+            id: foreign.upstream_id(),
+        }
+    }
+
+    /// The provider's name for an entity it wrote under a keyed ID (05 §4.2: the `put`'s
+    /// `upstream_id`), typed by the upstream prefix the ID starts with, which tells a
+    /// Wikibase's types apart; `None` when no type of the provider matches.
+    #[must_use]
+    pub fn mapped(provider: &Provider, upstream_id: &str) -> Option<Self> {
+        let entity_type = provider.type_of_upstream(upstream_id)?;
+        Some(Self {
+            provider: provider.code.clone(),
+            type_code: entity_type.code,
+            id: upstream_id.to_string(),
+        })
+    }
+
+    /// The provider and the type in `registry`; `None` when the registry has neither. A
+    /// key-mapped type is found like any other.
+    #[must_use]
+    pub fn resolve<'r>(&self, registry: &'r Registry) -> Option<(&'r Provider, &'r EntityType)> {
+        let provider = registry.by_code(&self.provider)?;
+        let entity_type = provider.entity_type(self.type_code)?;
+        Some((provider, entity_type))
+    }
+
+    /// The canonical concept IRI, from the type's template (0002 §4): what the provider's
+    /// own RDF names the entity, whether or not the instance ever writes it as a subject.
+    #[must_use]
+    pub fn concept_iri(&self, registry: &Registry) -> Option<String> {
+        self.resolve(registry)
+            .map(|(_, t)| t.iri_for(&self.id))
+            .filter(|iri| NamedNode::new(iri).is_ok())
+    }
+}
+
 /// Why a string is not a foreign ID of a registered provider.
 #[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 #[non_exhaustive]
@@ -494,5 +553,38 @@ mod tests {
             assert_eq!(back, id);
             assert_eq!(back.to_string(), s);
         }
+    }
+
+    /// A provider's name for an entity (0002 A44): from a prefixed ID, and from the item
+    /// ID a key-mapped `put` keeps beside a keyed subject, which has no prefixed form
+    /// when its type is key-mapped.
+    #[test]
+    fn upstream_refs() {
+        let r = reg();
+        let wd = UpstreamRef::of(&r.parse_foreign_id("WDQ42").unwrap());
+        assert_eq!(
+            wd,
+            UpstreamRef {
+                provider: "WD".into(),
+                type_code: 'Q',
+                id: "Q42".into()
+            }
+        );
+        assert_eq!(
+            wd.concept_iri(r).as_deref(),
+            Some("http://www.wikidata.org/entity/Q42")
+        );
+        let xd = UpstreamRef::mapped(r.by_code("XD").unwrap(), "Q11").unwrap();
+        assert_eq!(xd.type_code, 'Q');
+        assert_eq!(
+            xd.concept_iri(r).as_deref(),
+            Some("https://internetdomains.wiki/entity/Q11")
+        );
+        // A key-mapped type, which no prefixed ID names, is found by its upstream prefix.
+        let oa = r.by_code("OA").unwrap();
+        let keyword = UpstreamRef::mapped(oa, "keywords/machine-learning").unwrap();
+        assert_eq!(keyword.type_code, 'K');
+        assert!(r.parse_foreign_id("OAKmachine-learning").is_err());
+        assert!(UpstreamRef::mapped(oa, "nothing").is_none());
     }
 }

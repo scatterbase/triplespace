@@ -25,7 +25,7 @@ mod revid;
 mod source;
 
 pub use grammar::IdGrammar;
-pub use id::{ForeignId, IdError};
+pub use id::{ForeignId, IdError, UpstreamRef};
 pub use registry::{Chip, Deletion, EntityType, Provider, Registry, RegistryError, Trust};
 pub use revid::{RevidError, provider_revid, split_revid};
 pub use source::{

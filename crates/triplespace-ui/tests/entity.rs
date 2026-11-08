@@ -80,6 +80,12 @@ async fn a_property_a_domain_and_a_foreign_item() {
     for (uri, name) in [
         ("/wiki/Property:P3", "property"),
         ("/wiki/Domain:wikipedia.org", "domain"),
+        // The Identifiers tab of a Domain lists the item the key-mapped provider mapped
+        // onto it, by its upstream ID, linked upstream (0002 A44).
+        (
+            "/wiki/Domain:wikipedia.org?tab=identifiers",
+            "domain_identifiers",
+        ),
         ("/wiki/Item:WDQ65", "foreign_item"),
         ("/wiki/Item:WDQ65?tab=sitelinks", "foreign_item_sitelinks"),
     ] {

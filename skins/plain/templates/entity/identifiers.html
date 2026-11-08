@@ -1,2 +1,5 @@
 {%- import "entity.html" as entity -%}
-<div class="ts-identifiers" data-region="identifiers">{{ entity.groups(tab) }}</div>
+{%- import "codex.html" as codex -%}
+<div class="ts-identifiers" data-region="identifiers">
+{%- for u in tab.upstream %}<section class="ts-group ts-group--single ts-identifiers__upstream" data-shape="single"><div class="ts-group__property">{{ codex.chip(u.chip) }} {{ u.name }}</div><div class="ts-group__body"><div class="ts-statement ts-statement--headline"><div class="ts-statement__value"><span class="ts-statement__main">{% if u.href %}<a href="{{ u.href }}" class="external" rel="noopener" dir="ltr"><span class="ts-mono">{{ u.id }}</span> ↗</a>{% else %}<span class="ts-mono" dir="ltr">{{ u.id }}</span>{% endif %}</span></div></div></div></section>{% endfor -%}
+{{ entity.groups(tab) }}</div>

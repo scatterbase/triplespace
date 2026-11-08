@@ -8,7 +8,7 @@ use std::fmt::Write as _;
 
 use oxrdf::NamedNode;
 use scatter_normalize::KeyedRegistry;
-use scatter_providers::Registry as ProviderRegistry;
+use scatter_providers::{Registry as ProviderRegistry, UpstreamRef};
 use scatter_wikibase_model::{EntityId, IdForm, StatementId};
 
 /// The bases an instance writes its own nodes under.
@@ -301,27 +301,30 @@ impl<'r> IriScheme<'r> {
 
     /// Where a mirrored statement's nodes are named when it says exactly what its upstream
     /// says (05 §1.5; 0002 A43): its statement node as its upstream names it,
-    /// `{concept base}statement/{upstream ID}-{UUID}`, and its reference and value nodes
-    /// under the upstream's base. `None` for a statement whose ID is not a foreign
-    /// entity's of a Wikibase-shaped provider, which is named under the instance's base.
+    /// `{concept base}statement/{upstream ID}-{UUID}`, after the entity `upstream` names
+    /// (the subject of the statement's ID, or for a key-mapped provider's statement the
+    /// item mapped onto the keyed subject, 0002 A44), and its reference and value nodes
+    /// under the upstream's base. `None` when `upstream` is not an entity of a
+    /// Wikibase-shaped provider in the registry: the statement is then named under the
+    /// instance's base.
     #[must_use]
-    pub fn upstream_nodes(&self, id: &StatementId) -> Option<UpstreamNodes> {
-        let entity = id.entity_id()?;
-        if entity.form() != IdForm::Foreign {
-            return None;
-        }
-        let f = self.providers.parse_foreign_id(entity.as_str()).ok()?;
-        let Some((concept_base, "")) = f.entity_type().iri.split_once("{upstream_id}") else {
+    pub fn upstream_nodes(
+        &self,
+        upstream: &UpstreamRef,
+        id: &StatementId,
+    ) -> Option<UpstreamNodes> {
+        let (provider, entity_type) = upstream.resolve(self.providers)?;
+        let Some((concept_base, "")) = entity_type.iri.split_once("{upstream_id}") else {
             return None;
         };
         Some(UpstreamNodes {
             statement: NamedNode::new_unchecked(format!(
                 "{concept_base}statement/{}-{}",
-                escape_iri(&f.upstream_id()),
+                escape_iri(&upstream.id),
                 escape_iri(id.uuid())
             )),
             base: predicate_base(concept_base),
-            provider: f.provider().code.clone(),
+            provider: provider.code.clone(),
         })
     }
 
@@ -543,15 +546,33 @@ mod tests {
     fn upstream_statement_nodes() {
         let s = scheme();
         let id = StatementId::parse("WDQ42$F078E5B3-F9A8-480E-B7AC-D97778CBBEF9").unwrap();
-        let u = s.upstream_nodes(&id).unwrap();
+        let wd = UpstreamRef::of(&s.providers.parse_foreign_id("WDQ42").unwrap());
+        let u = s.upstream_nodes(&wd, &id).unwrap();
         assert_eq!(
             u.statement.as_str(),
             "http://www.wikidata.org/entity/statement/Q42-F078E5B3-F9A8-480E-B7AC-D97778CBBEF9"
         );
         assert_eq!(u.base, "http://www.wikidata.org/");
         assert_eq!(u.provider, "WD");
-        let local = StatementId::parse("Q5$F078E5B3-F9A8-480E-B7AC-D97778CBBEF9").unwrap();
-        assert!(s.upstream_nodes(&local).is_none());
+        // A key-mapped provider's statement is stored under the keyed subject with the
+        // item's UUID; named after the item it was mapped from (0002 A44).
+        let keyed = StatementId::parse("domain:wikipedia.org$F078E5B3-F9A8-480E-B7AC-D97778CBBEF9")
+            .unwrap();
+        let xd = UpstreamRef::mapped(s.providers.by_code("XD").unwrap(), "Q11").unwrap();
+        let u = s.upstream_nodes(&xd, &keyed).unwrap();
+        assert_eq!(
+            u.statement.as_str(),
+            "https://internetdomains.wiki/entity/statement/Q11-F078E5B3-F9A8-480E-B7AC-D97778CBBEF9"
+        );
+        assert_eq!(u.base, "https://internetdomains.wiki/");
+        assert_eq!(u.provider, "XD");
+        // A provider the registry does not know names nothing.
+        let unknown = UpstreamRef {
+            provider: "ZZ".into(),
+            type_code: 'Q',
+            id: "Q1".into(),
+        };
+        assert!(s.upstream_nodes(&unknown, &id).is_none());
     }
 
     #[test]

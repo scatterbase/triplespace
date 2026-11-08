@@ -592,6 +592,9 @@ pub struct StatementsTab {
 /// The Identifiers tab.
 #[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct IdentifiersTab {
+    /// The items key-mapped providers mapped onto a keyed entity, by their upstream IDs
+    /// (05 §4.2; 0002 A44), before the identifier statements.
+    pub upstream: Vec<UpstreamIdentifier>,
     /// The groups.
     pub groups: Vec<GroupModel>,
     /// What an empty tab says.
@@ -600,6 +603,20 @@ pub struct IdentifiersTab {
     pub add: Option<String>,
     /// The endnotes, where anything is cited.
     pub endnotes: Option<EndnotesModel>,
+}
+
+/// One item a key-mapped provider mapped onto the entity (05 §4.1): the provider's own
+/// ID of it, which is an alias of the entity's key, linked to the item upstream.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct UpstreamIdentifier {
+    /// The provider's chip.
+    pub chip: ChipModel,
+    /// The provider's name.
+    pub name: String,
+    /// The provider's own ID of the item, `Q11`.
+    pub id: String,
+    /// The item upstream, where the API gives its IRI.
+    pub href: Option<String>,
 }
 
 /// The `terms` region.
@@ -1782,12 +1799,42 @@ impl Render<'_> {
     #[must_use]
     pub fn identifiers_model(&self) -> IdentifiersTab {
         let groups = self.groups_model(true);
+        let upstream = self.upstream_identifiers_model();
         IdentifiersTab {
-            empty: groups.is_empty().then(|| self.m.get("ts-identifiers-none")),
+            empty: (groups.is_empty() && upstream.is_empty())
+                .then(|| self.m.get("ts-identifiers-none")),
+            upstream,
             groups,
             add: self.add_statement_text(),
             endnotes: self.endnotes_model(),
         }
+    }
+
+    /// The items key-mapped providers mapped onto a keyed entity (05 §4.2), one per
+    /// mirror graph whose record names the item it was mapped from (0002 A44).
+    fn upstream_identifiers_model(&self) -> Vec<UpstreamIdentifier> {
+        let Some(p) = self.provenance else {
+            return Vec::new();
+        };
+        p.graphs
+            .iter()
+            .filter_map(|g| {
+                let id = g.upstream_id.clone()?;
+                let slug = g.graph.strip_prefix("mirror/")?;
+                let name = self
+                    .site
+                    .providers
+                    .iter()
+                    .find(|x| x.slug == slug)
+                    .map_or_else(|| slug.to_string(), |x| x.name.clone());
+                Some(UpstreamIdentifier {
+                    chip: self.graph_chip_model(&g.graph),
+                    name,
+                    id,
+                    href: g.upstream_iri.clone().filter(|u| linkable(u)),
+                })
+            })
+            .collect()
     }
 
     /// The `terms` region.
