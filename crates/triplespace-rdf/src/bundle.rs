@@ -11,7 +11,7 @@ use scatter_integrity::keys::KeyChain;
 use scatter_log::body::{ATTESTATION, COMMENT, CONTENT};
 use scatter_log::header::CONFIG_PARTITION;
 use scatter_log::record::Record;
-use scatter_log::store::{LogStore, Slot};
+use scatter_log::store::Slot;
 use scatter_log_postgres::PgClient;
 use tokio_postgres::GenericClient;
 use triplespace_projections::acl_read::{self, ActivityTarget};
@@ -122,25 +122,42 @@ pub async fn origin_of<C: GenericClient, S: CheckpointStore>(
     })
 }
 
-/// The `key:` records of the instance `config` partition, in order.
-pub async fn key_records<S: LogStore>(store: &S) -> Result<Vec<Record>, String> {
-    let head = store
-        .head(CONFIG_PARTITION)
-        .await
-        .map_err(|e| e.to_string())?;
+/// The `key:` records of the instance `config` partition, in order, read through any
+/// connection.
+pub async fn key_records<C: PgClient>(client: &C) -> Result<Vec<Record>, String> {
+    const PAGE: usize = 1000;
     let mut out = Vec::new();
-    for offset in 0..head.size {
-        if let Some(r) = store
-            .read(CONFIG_PARTITION, offset)
+    let mut from = 0;
+    loop {
+        let page = scatter_log_postgres::log::scan(client, CONFIG_PARTITION, from, PAGE)
             .await
-            .map_err(|e| e.to_string())?
-            .record()
-            && KeyChain::is_key_record(r)
-        {
-            out.push(r.clone());
+            .map_err(|e| e.to_string())?;
+        let Some((last, _)) = page.last() else {
+            break;
+        };
+        from = last + 1;
+        let done = page.len() < PAGE;
+        out.extend(
+            page.into_iter()
+                .map(|(_, r)| r)
+                .filter(KeyChain::is_key_record),
+        );
+        if done {
+            break;
         }
     }
     Ok(out)
+}
+
+/// Which offsets [`Reader::decide`] looks at.
+#[derive(Debug, Clone)]
+pub enum Offsets<'a> {
+    /// Every offset of the partitions.
+    All,
+    /// A range of them.
+    Range(std::ops::Range<u64>),
+    /// These offsets, in any of the partitions.
+    At(&'a [u64]),
 }
 
 /// What a reader may read on one tenant: what an export scope keeps of each record.
@@ -189,7 +206,7 @@ impl Reader {
     }
 
     /// What to withhold of each record of the partitions `ids` that has an activity row,
-    /// all of them or those at `offsets`.
+    /// of those `offsets` names.
     ///
     /// # Errors
     ///
@@ -200,11 +217,14 @@ impl Reader {
         tx: &C,
         tenant: &str,
         ids: &[i64],
-        offsets: Option<std::ops::Range<u64>>,
+        offsets: Offsets<'_>,
     ) -> Result<std::collections::BTreeMap<(u64, u64), Withhold>, String> {
         let bound = |n: u64| i64::try_from(n).unwrap_or(i64::MAX);
-        let from: Option<i64> = offsets.as_ref().map(|r| bound(r.start));
-        let to: Option<i64> = offsets.as_ref().map(|r| bound(r.end));
+        let (from, to, at): (Option<i64>, Option<i64>, Option<Vec<i64>>) = match offsets {
+            Offsets::All => (None, None, None),
+            Offsets::Range(r) => (Some(bound(r.start)), Some(bound(r.end)), None),
+            Offsets::At(list) => (None, None, Some(list.iter().map(|&o| bound(o)).collect())),
+        };
         let rows = tx
             .query(
                 "SELECT a.partition, a.\"offset\", a.target_kind, a.target_id,
@@ -221,8 +241,9 @@ impl Reader {
                                             THEN (a.params->'of'->>'id')::bigint END
                  WHERE a.tenant = $1 AND a.partition = ANY($2)
                    AND ($3::bigint IS NULL OR a.\"offset\" >= $3)
-                   AND ($4::bigint IS NULL OR a.\"offset\" < $4)",
-                &[&tenant, &ids, &from, &to],
+                   AND ($4::bigint IS NULL OR a.\"offset\" < $4)
+                   AND ($5::bigint[] IS NULL OR a.\"offset\" = ANY($5))",
+                &[&tenant, &ids, &from, &to, &at],
             )
             .await
             .map_err(|e| format!("reading view.activity: {e}"))?;
@@ -364,20 +385,7 @@ pub async fn published<C: GenericClient>(
         .filter(|r| r.export == "public" && !reader.viewer.hidden.graphs.contains(&r.name)))
 }
 
-/// One offset as an export shows it (01 §8; 0103 A1).
-#[derive(Debug, Clone)]
-pub enum Shown {
-    /// Only the leaf: a compacted record, or one of a target a confidential restriction
-    /// hides, which reads the same.
-    Leaf(scatter_log::hash::Hash),
-    /// The record, with the parts the reader may not read reduced to their commitments.
-    Record {
-        /// The record, those parts erased.
-        record: Record,
-        /// The parts withheld, apart from those erased in the log.
-        withheld: Vec<usize>,
-    },
-}
+pub use scatter_integrity::records::Shown;
 
 /// What an export shows of `slot` under `withhold`, as [`scatter_integrity::bundle`]
 /// writes it.

@@ -23,7 +23,7 @@ use axum::http::{HeaderMap, Method, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use base64::Engine as _;
 use base64::engine::general_purpose::STANDARD as B64;
-use scatter_log_postgres::{PgLog, checkpoints, log, merkle};
+use scatter_log_postgres::{checkpoints, log, merkle};
 use serde_json::json;
 use triplespace_rdf::bundle::{PartitionRef, Reader, key_records, published};
 
@@ -99,7 +99,7 @@ pub async fn handle(
     let Some(asked) = ask(&rest) else {
         return not_found("no such log resource");
     };
-    let mut client = match app.pool().get().await {
+    let client = match app.pool().get().await {
         Ok(c) => c,
         Err(e) => return internal(&e),
     };
@@ -124,11 +124,7 @@ pub async fn handle(
     };
     let name = match asked {
         Ask::Keys => {
-            let tx = match client.build_transaction().read_only(true).start().await {
-                Ok(t) => t,
-                Err(e) => return internal(&e),
-            };
-            let keys = match key_records(&PgLog::new(&*tx)).await {
+            let keys = match key_records(&**client).await {
                 Ok(k) => k,
                 Err(e) => return internal(&e),
             };

@@ -1008,6 +1008,61 @@ async fn protect_delete_undelete_and_hide() {
         );
     }
     let _ = std::fs::remove_dir_all(&bundle);
+
+    // A `records` export shows them the same way (21 §4.2): the libel revision's content
+    // is withheld and still proved, and the confidential page is missing, as an absent
+    // one is.
+    triplespace_cli::log_bundle::checkpoint(&triplespace_cli::log_bundle::Checkpoint {
+        database: database.clone(),
+        key_file: std::env::temp_dir()
+            .join(format!("tsmoderation-{}-main", std::process::id()))
+            .join("triplespace.key"),
+        tenant: None,
+    })
+    .await
+    .unwrap();
+    let body = json!({
+        "format": "records",
+        "pages": ["Project:Scope", "Project:Secret"],
+        "history": true,
+    })
+    .to_string();
+    let mut req = Request::builder()
+        .method("POST")
+        .uri("/w/rest.php/triplespace/v0/export")
+        .header(header::HOST, HOST)
+        .header(header::CONTENT_TYPE, "application/json")
+        .body(Body::from(body))
+        .unwrap();
+    req.extensions_mut()
+        .insert(ConnectInfo(SocketAddr::from(([203, 0, 113, 9], 50000))));
+    let resp = anon.router.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let bytes = resp.into_body().collect().await.unwrap().to_bytes();
+    let file =
+        std::env::temp_dir().join(format!("tsmoderation-records-{}.cbor", std::process::id()));
+    std::fs::write(&file, &bytes).unwrap();
+    let (export, reports) = triplespace_cli::log_bundle::verify_records(&file).unwrap();
+    let _ = std::fs::remove_file(&file);
+    assert_eq!(export.missing, ["Project:Secret"]);
+    for r in &reports {
+        assert!(r.is_clean(), "{:?}", r.problems);
+    }
+    assert!(
+        reports.iter().map(|r| r.withheld).sum::<u64>() >= 1,
+        "{reports:?}"
+    );
+    let libel_entry = export
+        .partitions
+        .iter()
+        .filter(|p| p.partition == lp)
+        .flat_map(|p| &p.entries)
+        .find(|e| e.offset == lo)
+        .expect("the libel revision is exported");
+    assert!(matches!(
+        &libel_entry.shown,
+        scatter_integrity::records::Shown::Record { withheld, .. } if withheld.contains(&scatter_log::body::CONTENT)
+    ));
 }
 
 /// Confidentiality holds against administrators outside the group (0056 A18; 09 §4.5,

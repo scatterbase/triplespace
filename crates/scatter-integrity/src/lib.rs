@@ -8,7 +8,8 @@
 //! - [`keys`]: the key chain of a `config` partition;
 //! - [`checkpoints`]: where checkpoints and manifests are kept, and how they are made;
 //! - [`mod@verify`]: levels 1 and 2 of 0006 §9 over a store and its checkpoints;
-//! - [`bundle`]: export bundles, written from any store and verified on their own.
+//! - [`bundle`]: export bundles, written from any store and verified on their own;
+//! - [`records`]: the `records` export, a selection of records with their proofs.
 
 pub mod attest;
 pub mod bundle;
@@ -17,6 +18,7 @@ pub mod checkpoints;
 pub mod keys;
 pub mod note;
 pub mod proof;
+pub mod records;
 pub mod verify;
 
 pub use attest::{

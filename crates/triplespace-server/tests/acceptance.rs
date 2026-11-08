@@ -980,6 +980,7 @@ async fn a_bot_logs_in_reads_and_edits() {
     let reports = triplespace_cli::log_bundle::verify(&triplespace_cli::log_bundle::Verify {
         bundle: fetched.clone(),
         level: triplespace_cli::log_bundle::VerifyLevel::Bodies,
+        records: false,
     })
     .await
     .unwrap();
@@ -1027,6 +1028,7 @@ async fn a_bot_logs_in_reads_and_edits() {
     let check = Verify {
         bundle: bundle.clone(),
         level: VerifyLevel::Bodies,
+        records: false,
     };
     let reports = log_bundle::verify(&check).await.unwrap();
     for (p, r) in &reports {

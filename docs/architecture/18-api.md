@@ -384,7 +384,7 @@ Every route under `rest.php/triplespace/v0`, sorted by path. The catalogue is [`
 | `GET /entity/{id}/sitelinks/{host}`, `PUT /entity/{id}/sitelinks/{host}`, `DELETE /entity/{id}/sitelinks/{host}` | One sitelink by host |  | [0026](../decisions/0026-sitelinks.md) §7 |
 | `POST /entity/{id}/undo/{partition}/{offset}` | Appends the inverse change set. The base is required |  | [0012](../decisions/0012-api-requirements.md) §5 |
 | `GET /entity/{id}/upstream?from=&to=` | Upstream edits fetched live ([05](05-providers-and-ingest.md)) |  | [0012](../decisions/0012-api-requirements.md) §5 |
-| `POST /export`, `GET /export/{id}` | Streams an export, or starts an export job and returns its ID; an export job's state and, when ready, its download |  | [0047](../decisions/0047-special-pages.md) §11 |
+| `POST /export`, `GET /export/{id}` | Streams an export, or starts an export job and returns its ID; an export job's state and, when ready, its download | ✓ | [0047](../decisions/0047-special-pages.md) §11 |
 | `POST /expunge` | Farm base, operator rights. Takes down and expunges in one request |  | [0039](../decisions/0039-files-and-media.md) §17 |
 | `GET /extraction/{source}` | The source's configuration, page count, queue length, last run, conflicts and orphan count |  | [0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §13 |
 | `GET /extraction/{source}/orphans` | Orphans ([13](13-mirrored-pages.md)) |  | [0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §13 |
