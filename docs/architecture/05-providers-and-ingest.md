@@ -275,7 +275,7 @@ The operations that write identity links (`same-as`, `different-from`, `equivale
 
 ### 3.3 Import jobs
 
-*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.3.*
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.3; [0104](../decisions/0104-batches-and-the-job-runner.md) §1, §3.*
 
 Every ingest run is recorded as a **job** in the log: a job record keyed by a job ID the instance mints, with further records under the same key for its finish, failure or revert ([0011](../decisions/0011-logs.md) §6.3; [16](16-logs-feeds-and-notifications.md)). The job record holds:
 
@@ -288,7 +288,8 @@ Every entity change in the run points to its job. A revision, for data that neve
 
 - **Observed states get thin revisions.** When a state arrives without upstream revision metadata, its revision node carries little more than `prov:wasGeneratedBy` pointing at the job, which is a `prov:Activity`, plus the upstream revision ID where there is one. The details are stored once, on the job. Full revision nodes for every entity in a Wikidata import would add on the order of a billion metadata triples.
 - **Upstream revisions get full revision nodes.** When upstream history is backfilled (§1.3), each upstream revision becomes a revision node carrying the provider's own metadata, in the vocabulary [0001](../decisions/0001-revision-metadata-rdf.md) defines: timestamp, actor, parsed summary, tags and flags. The node describes the upstream revision itself. The job that brought it in is recorded separately, with `pav:retrievedFrom` and `pav:importedOn`. When a backfill covers a revision that was already observed, it enriches that revision's existing node instead of creating a second one. Each is recorded as an upstream revision record, identified by its upstream revision ID; content a backfill brings is a `put` carrying that ID ([0015](../decisions/0015-record-format-and-partition-registry.md) §4; [01](01-log-and-records.md)).
-- **A whole job can be reverted.** For a local-graph job, reverting appends the inverse change sets. For a mirror job, reverting means syncing again.
+- **A whole job can be reverted, record by record** ([0104](../decisions/0104-batches-and-the-job-runner.md) §3). For a local-graph job, a batch or an import, the revert is a job of its own, mode `revert`, naming the job it reverts, run by the holder of `ts-revertjob` who asked for it and attributed to them: for each record the job wrote, in reverse order, the inverse operation, a `remove` for an `add`, the previous value for an `override`, a `redirect` back or a deletion for a `create`, the previous text as an `edit` for a page revision, each carrying the revert job's ID in its attestation. A record someone has changed since, whose key has a newer record not written by the job, is skipped and listed on the revert's page for review, as [0010](../decisions/0010-site-ui.md) §9 asks; what has no inverse (a post in a thread, 0104 Q1) is listed too. Reverting the same job again writes nothing. For a mirror job, reverting means syncing again.
+- **A batch is a job the submitter keys** by a value hashed with the tenant and the operator, opened by the first write that names it ([16](16-logs-feeds-and-notifications.md) §2.2).
 
 ### 3.4 Adapters and foreign imports
 

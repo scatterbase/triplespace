@@ -143,6 +143,9 @@ pub struct Import {
     pub history: bool,
     /// The reason the submitter gave, for the job's record.
     pub summary: Option<String>,
+    /// The job ID the runner minted at submission (0104 §4), under which the start record
+    /// is written; `None` mints one at the start.
+    pub job_id: Option<u64>,
 }
 
 /// A job's counts by outcome.
@@ -254,7 +257,22 @@ pub async fn run_import<S: IngestStore, H: ImportHost<S>>(
             .params
             .insert("summary".into(), summary.clone().into());
     }
-    let mut job = Job::start(store, pipeline, &mut cx, tenant, header, attestation, now).await?;
+    let mut job = match import.job_id {
+        Some(id) => {
+            Job::start_as(
+                store,
+                pipeline,
+                &mut cx,
+                tenant,
+                id,
+                header,
+                attestation,
+                now,
+            )
+            .await?
+        }
+        None => Job::start(store, pipeline, &mut cx, tenant, header, attestation, now).await?,
+    };
     store.commit(cx).await?;
 
     let job_attestation = job.record_attestation();

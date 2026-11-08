@@ -652,3 +652,165 @@ mod tests {
         assert_eq!(u.tags["ref"], Status::Implemented);
     }
 }
+
+/// An import as a surface asks for it (10 §6): what `action=import`, `Special:Import`,
+/// `triplespace import` and the runner all hand to [`run_request`]. The pages travel
+/// beside it.
+#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+pub struct ImportRequest {
+    /// Where the file came from: `upload`, a site alias, or a URL.
+    pub source: String,
+    /// The file's identity: its name, or the export's `<base>`.
+    #[serde(default)]
+    pub version: Option<String>,
+    /// The imported authors' prefix (`interwikiprefix`).
+    pub prefix: String,
+    /// The registered issuer the source is, if any (0008 A50).
+    #[serde(default)]
+    pub issuer: Option<String>,
+    /// The job's reason.
+    #[serde(default)]
+    pub summary: Option<String>,
+    /// The change tags.
+    #[serde(default)]
+    pub tags: Vec<String>,
+    /// Whether to leave the talk pages unconverted.
+    #[serde(default)]
+    pub skip_talk: bool,
+}
+
+/// What an import came to: the census it ran under, the job's outcome, what the reader
+/// left out, and the talk conversion.
+#[derive(Debug, Clone)]
+pub struct ImportReport {
+    /// The census.
+    pub census: Census,
+    /// The job.
+    pub outcome: ImportOutcome,
+    /// What the reader took and left.
+    pub read: Read,
+    /// The talk pages converted (0090 §10).
+    pub talk: crate::talk_import::TalkCounts,
+}
+
+/// A stage of an import, for a running job's progress (0010 §9).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Stage {
+    /// The census.
+    Census,
+    /// The accounts and the pages.
+    Pages,
+    /// The talk pages.
+    Talk,
+}
+
+impl Stage {
+    /// The stage's name, as the job's progress records it.
+    #[must_use]
+    pub fn name(self) -> &'static str {
+        match self {
+            Self::Census => "census",
+            Self::Pages => "pages",
+            Self::Talk => "talk",
+        }
+    }
+}
+
+/// Runs an import as a whole (10 §6 steps 1–3): the census, the registered issuer's
+/// accounts, the pages under `job_id` where the runner minted one, and the talk pages.
+/// `progress` is told each stage as it begins. Nothing is written when the census finds
+/// nothing to import, and the error says so.
+///
+/// # Errors
+///
+/// The store's; a `Store` error when the file holds nothing to import.
+#[allow(clippy::too_many_arguments)]
+pub async fn run_request<C: PgClient>(
+    store: &PgIngest,
+    pipeline: &Pipeline<PgIngest>,
+    db: &C,
+    tenant: &str,
+    actor: &str,
+    request: &ImportRequest,
+    job_id: Option<u64>,
+    pages: Vec<DumpPage>,
+    now: u64,
+    progress: &mut (dyn FnMut(Stage) + Send),
+) -> Result<ImportReport, IngestError> {
+    progress(Stage::Census);
+    let c = census(db, tenant, pages.iter())
+        .await
+        .map_err(|e| IngestError::Store(e.to_string()))?;
+    if c.imported == 0 && c.talk == 0 {
+        return Err(IngestError::Store(
+            "the file holds no page this wiki can import".into(),
+        ));
+    }
+    progress(Stage::Pages);
+    let accounts = crate::talk_import::accounts_of(pages.iter());
+    let authors = Authors::Imported {
+        issuer: request.issuer.as_deref(),
+        accounts: &accounts,
+        prefix: &request.prefix,
+    };
+    let mut attestation = Attestation::by(actor);
+    attestation.tags.clone_from(&request.tags);
+    if let Some(issuer) = &request.issuer {
+        ensure_accounts(
+            store,
+            pipeline,
+            tenant,
+            issuer,
+            &accounts,
+            &attestation,
+            now,
+        )
+        .await?;
+    }
+    let (outcome, read) = import_pages(
+        store,
+        pipeline,
+        tenant,
+        attestation,
+        Import {
+            source: request.source.clone(),
+            version: request.version.clone(),
+            history: !c.current_only,
+            summary: request.summary.clone(),
+            job_id,
+        },
+        &authors,
+        pages.iter().cloned(),
+        now,
+    )
+    .await?;
+    let talk = if request.skip_talk || c.talk == 0 {
+        crate::talk_import::TalkCounts::default()
+    } else {
+        progress(Stage::Talk);
+        let site = scatter_talk::Site::english();
+        let ctx = crate::talk_import::TalkContext {
+            tenant,
+            source: &request.source,
+            authors,
+            actor,
+            job: Some(outcome.job_id),
+            site: &site,
+        };
+        crate::talk_import::convert_all(
+            store,
+            pipeline,
+            &ctx,
+            pages.into_iter().filter(crate::talk_import::is_talk_page),
+            now,
+        )
+        .await
+        .map_err(|e| IngestError::Store(e.to_string()))?
+    };
+    Ok(ImportReport {
+        census: c,
+        outcome,
+        read,
+        talk,
+    })
+}

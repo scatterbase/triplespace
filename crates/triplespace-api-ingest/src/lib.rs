@@ -16,7 +16,8 @@
 //! a request; [`threads`] the one writer of thread records (0019 §1–§4), shared by the
 //! thread API and the import jobs; [`import`] the import of a MediaWiki XML export
 //! (0008 §9) and [`talk_import`] the talk-page conversion after an adoption or an import
-//! (0090 §10), shared by `triplespace-cli` and `action=import`.
+//! (0090 §10), shared by `triplespace-cli` and `action=import`; [`jobs`] the job queue
+//! and the runner (0104 §4), which `triplespace-server` runs and the surfaces submit to.
 
 #![forbid(unsafe_code)]
 
@@ -26,6 +27,7 @@ pub mod blocks;
 pub mod follow;
 pub mod groups;
 pub mod import;
+pub mod jobs;
 pub mod membership;
 pub mod settings;
 pub mod sources;

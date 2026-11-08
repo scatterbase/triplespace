@@ -410,13 +410,13 @@ sources = "[0056](../decisions/0056-security-model.md) §13"
 
 [[route]]
 routes = ["GET /jobs"]
-purpose = "Filters: status, graph and actor. Mirror syncs are instance jobs, listed at the farm base; bulk jobs are the tenant's"
-sources = "[0012](../decisions/0012-api-requirements.md) §5"
+purpose = "Filters: status, graph and actor; `status=queued` lists what waits for the runner, in order. Mirror syncs are instance jobs, listed at the farm base; bulk jobs and batches are the tenant's"
+sources = "[0012](../decisions/0012-api-requirements.md) §5; [0104](../decisions/0104-batches-and-the-job-runner.md) §6"
 
 [[route]]
 routes = ["GET /jobs/{id}"]
-purpose = "The job record and status: counts by outcome, the hash-mismatch count by value type ([0006](../decisions/0006-log-integrity-and-erasure.md) A9), source and adapter versions, and checkpoint. While running: progress and projection lag. For `snapshot` jobs: the sweep count and its threshold"
-sources = "[0012](../decisions/0012-api-requirements.md) §5"
+purpose = "The job record and status: counts by outcome, the hash-mismatch count by value type ([0006](../decisions/0006-log-integrity-and-erasure.md) A9), source and adapter versions, and checkpoint. While running: progress and projection lag. For `snapshot` jobs: the sweep count and its threshold. A queued job's place in the queue; a batch's hash and operator, never its value; a rejected job's reason and the revert it started"
+sources = "[0012](../decisions/0012-api-requirements.md) §5; [0104](../decisions/0104-batches-and-the-job-runner.md) §6"
 
 [[route]]
 routes = ["GET /jobs/{id}/changes?outcome="]
@@ -440,8 +440,13 @@ sources = "[0012](../decisions/0012-api-requirements.md) §5"
 
 [[route]]
 routes = ["POST /jobs/{id}/revert"]
-purpose = "Starts the inverse job. The response lists the entities edited since the job, whose later edits are kept. Reverting a Nuke is this route"
-sources = "[0012](../decisions/0012-api-requirements.md) §5; [0047](../decisions/0047-special-pages.md) §11"
+purpose = "Starts the inverse job, mode `revert`, which appends the inverse of each record the job wrote, attributed to the caller, and answers with its ID. The response lists the records edited since the job, whose later edits are kept. Reverting a Nuke is this route. Needs `ts-revertjob`"
+sources = "[0012](../decisions/0012-api-requirements.md) §5; [0047](../decisions/0047-special-pages.md) §11; [0104](../decisions/0104-batches-and-the-job-runner.md) §3, §6"
+
+[[route]]
+routes = ["POST /jobs/{id}/reject", "POST /jobs/{id}/close"]
+purpose = "Rejects a batch or a running job with a reason, after which writes naming the batch are refused with `ts-batch-rejected`, and with `revert` starts the revert in the same call; closes a keyed batch. The first needs `ts-revertjob`, the second the batch's submitter"
+sources = "[0104](../decisions/0104-batches-and-the-job-runner.md) §2, §3, §6"
 
 [[route]]
 routes = ["GET /jsonld/by-url"]

@@ -69,6 +69,7 @@ mod entity_route;
 pub mod export;
 pub mod groups;
 pub mod history;
+pub mod jobs;
 pub mod provenance;
 pub mod purges;
 pub mod record;
@@ -142,6 +143,8 @@ pub const PATHS: &[&str] = &[
     "/record/{partition}/{offset}/proof",
     "/record/proofs",
     "/export",
+    "/jobs",
+    "/jobs/{id}",
 ];
 
 /// The REST routes, to be merged into the server's router.
@@ -234,7 +237,9 @@ pub fn routes() -> Router<App> {
             .route(&format!("{base}{}", PATHS[50]), get(record::checkpoint))
             .route(&format!("{base}{}", PATHS[51]), get(record::proof))
             .route(&format!("{base}{}", PATHS[52]), get(record::proofs))
-            .route(&format!("{base}{}", PATHS[53]), post(export::post));
+            .route(&format!("{base}{}", PATHS[53]), post(export::post))
+            .route(&format!("{base}{}", PATHS[54]), get(jobs::list))
+            .route(&format!("{base}{}", PATHS[55]), get(jobs::get));
     }
     r
 }

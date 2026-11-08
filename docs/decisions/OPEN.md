@@ -52,6 +52,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0100 A3](0100-email-addresses-and-verification-codes.md#a3-addresses-keyed-by-the-login) | 2026-11-06 | Addresses keyed by the login |
 | [0102 A1](0102-strict-names-from-the-provider.md#a1-the-username-kept-on-the-identity-every-registry-prefix-reserved-a-held-derived-name) | 2026-11-07 | The username kept on the identity; every registry prefix reserved; a held derived name |
 | [0102 A2](0102-strict-names-from-the-provider.md#a2-a-rename-by-hand-the-tombstone-that-yields) | 2026-11-07 | A rename by hand; the tombstone that yields |
+| [0104 A1](0104-batches-and-the-job-runner.md#a1-calls-made-while-building-the-runner) | 2026-11-08 | Calls made while building the runner |
 
 ## Open questions
 
@@ -443,6 +444,9 @@ Every unstruck question in every ADR (24 §8), with its first sentence. Settle o
 | [0102 Q2](0102-strict-names-from-the-provider.md) | Farm accounts | What a farm account (08 §3.5) is named under strict names: the same derived name is the natural answer, and the farm name registry then holds one name per login. |
 | [0102 Q3](0102-strict-names-from-the-provider.md) | A provider's username grammar | Wikimedia's follows MediaWiki's, which the local grammar matches; a later provider (0088 Q1) may allow what the local grammar forbids, and would need a mapping or a refusal. |
 | [0102 Q4](0102-strict-names-from-the-provider.md) | The stale window | Whether an instance may ask the provider's users API for the current name on a schedule, so that renames land before the next login, at the cost of a request per account. |
+| [0104 Q1](0104-batches-and-the-job-runner.md) | Reverting page and thread records | A page revision reverts by restoring the previous text as an edit; a post in a thread has no inverse but hiding its text, as Nuke does (0047 §7). |
+| [0104 Q2](0104-batches-and-the-job-runner.md) | Idle batches | A keyed batch stays open until its submitter closes it or it is rejected. |
+| [0104 Q3](0104-batches-and-the-job-runner.md) | The queue beyond one process | The runner claims queued jobs with the database's row locks, so several server processes could share the queue; nothing partitions the work between them yet, and a job that one process started is finished by that process… |
 
 ## Pending registry allocations
 

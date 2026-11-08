@@ -72,6 +72,13 @@ sources = "[0021](../decisions/0021-notifications.md) §7"
 
 [[module]]
 kind = "action"
+modules = ["action=edit", "action=move", "action=delete", "action=import", "action=upload"]
+display = "`batch=` on every write"
+changes = "A batch value on any write, these and every Wikibase write module ([16](16-logs-feeds-and-notifications.md) §2.2): the first write naming a value the operator has not used opens a keyed job, later ones join it, and the response carries the job ID as `batch`; a write naming a rejected batch is refused with `ts-batch-rejected`. The REST writes take the same as a `batch` field"
+sources = "[0104](../decisions/0104-batches-and-the-job-runner.md) §1, §2, §6"
+
+[[module]]
+kind = "action"
 modules = ["action=edit"]
 changes = "Text models only; any other model, a `Thread:` or talk title included, is refused with MediaWiki's own `no-direct-editing` (`apierror-no-direct-editing`), so that a bot learns at once that these pages are not text. A `contentmodel` the namespace does not allow is refused as MediaWiki refuses one its handler cannot use on the title. On a `Board` title it edits the definition (`contentmodel=triplespace-board`); a table, scope, sprint or query definition is edited as any text model's, and an invalid table definition is refused as MediaWiki refuses content its handler rejects, with the failing schema path in the message (the exact code is pinned by a contract test against MediaWiki 1.43's `json` model); the pre-save transform applies. Saving a page whose text begins with a redirect line makes it a redirect; `redirect=no` is implied on the title. On a foreign primary it starts a fork: `tsfork`, `tsforkrevid`; `ts-fork-required`; the response carries `fork: {pageid, create_revid, job}`. `tsmerge={upstream revid}` carries the `merge` field, so bots that pull can say so. On a followed talk title: `ts-upstream-talk`, which names the routes"
 sources = "[0012](../decisions/0012-api-requirements.md) §4; [0019](../decisions/0019-discussions.md) §9; [0041](../decisions/0041-content-models.md) §8; [0045](../decisions/0045-table-content-model.md) §9; [0049](../decisions/0049-boards.md) §11; [0051](../decisions/0051-page-redirects.md) §7; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6; [0054](../decisions/0054-forking-a-mirrored-page.md) §11; [0060](../decisions/0060-scopes.md) §8; [0061](../decisions/0061-sprints-and-tasks.md) §10; [0063](../decisions/0063-query-namespace.md) §7; [0068](../decisions/0068-merging-with-upstream.md) §6; [0069](../decisions/0069-synchronized-talk-pages.md) §9"

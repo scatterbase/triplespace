@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-08 (A83)
+- **Updated:** 2026-11-08 (A84)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -105,7 +105,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 #### 5.6 Tables added by later ADRs
 
-*Changed by A2, A3, A6, A7, A8, A9, A10, A11, A13, A14, A16, A17, A19, A21, A22, A23, A24, A25, A26, A30, A33, A34, A35, A36, A37, A38, A39, A41, A42, A43, A50, A52, A53.*
+*Changed by A2, A3, A6, A7, A8, A9, A10, A11, A13, A14, A16, A17, A19, A21, A22, A23, A24, A25, A26, A30, A33, A34, A35, A36, A37, A38, A39, A41, A42, A43, A50, A52, A53, A84.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §5.*
 
@@ -1091,3 +1091,9 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.8, as it sto
 - **Source:** Direct: Claude, while building bootstrap mode's concurrent blocks, 2026-11-08; unconfirmed
 - **Change:** extends §9
 - **Summary:** Calls made building A82. (1) A block waits for every earlier block to commit before its transaction starts when it holds a record other than a `put`, names a subject twice, or names a subject a block still in flight names. A block's projections read what earlier blocks wrote about its subjects, which they cannot see before those commit; and a later block that reached a row first would hold it while the earlier block, inside the database, waited on it, and it, in the client, on the earlier block, a deadlock Postgres cannot see. A JSON dump of new subjects meets none of these, so the rule costs nothing on the common case; the race it avoids was not reproduced, and a test checks the rule itself. (2) A block that fails stops the load: every block after it rolls back rather than commit, so no transaction is left open and nothing past the failure commits; the rerun continues through the ordinary sync as before (A70). (3) Page IDs are reserved for each block in a short transaction of the coordinator's, committed at once, so that the blocks need not wait on one another for the sequence; the IDs a rolled-back block reserved are not reused, a gap like any sequence's. (4) The job's start commits on its own before the first block, rather than with it. (5) A store says whether it can run several units of work at once (`IngestStore::concurrent_blocks`, with `write_sealed` and `advance_partition`); the in-memory store cannot, and writes one block at a time whatever `--writers` asks. (6) The command's connection pool is the writers and four more. The blocks in flight are driven on the coordinator's own task, polled between the items it takes, so no runtime or new dependency is named.
+### A84. The job queue
+
+- **Date:** 2026-11-08
+- **Source:** [0104](0104-batches-and-the-job-runner.md) §8
+- **Change:** extends §5.6
+- **Summary:** `ops.job_queue`, a submitted job waiting for the runner, keyed by the job ID minted at submission, claimed under `SELECT … FOR UPDATE SKIP LOCKED` by one runner task per partition, and deleted when the job's finish or fail record is written. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §4.12.

@@ -5850,6 +5850,120 @@
           }
         }
       }
+    },
+    "/jobs": {
+      "get": {
+        "operationId": "listJobs",
+        "summary": "The tenant's jobs",
+        "description": "Running and recent jobs (ADR 0012 §5; 0104 §6; architecture 16 §2.2): what waits for the runner and runs under it, oldest first, then the job records, newest first. `status=` narrows the list; `status=queued` is the queue in order.",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "schema": {
+              "type": "string",
+              "enum": [
+                "queued",
+                "running",
+                "finished",
+                "failed",
+                "interrupted",
+                "reverted"
+              ]
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "schema": {
+              "type": "integer",
+              "maximum": 200
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The jobs.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "jobs"
+                  ],
+                  "properties": {
+                    "jobs": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Job"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` without the `read` right.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/jobs/{id}": {
+      "get": {
+        "operationId": "getJob",
+        "summary": "One job",
+        "description": "A job's record and status (ADR 0012 §5; 0104 §6; 0010 §9): counts by outcome, source and adapter versions, the first rejects; a queued job's place in the queue; a running job's progress.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The job.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Job"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` without the `read` right.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`job-not-found`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -6840,8 +6954,14 @@
             "type": "object",
             "description": "For an adopted or imported revision, the upstream revision it came from (0008 A50).",
             "properties": {
-              "revid": { "type": "integer", "description": "The source wiki's revision ID." },
-              "time": { "type": "string", "description": "The source wiki's timestamp, as it wrote it." }
+              "revid": {
+                "type": "integer",
+                "description": "The source wiki's revision ID."
+              },
+              "time": {
+                "type": "string",
+                "description": "The source wiki's timestamp, as it wrote it."
+              }
             }
           },
           "summary": {
@@ -8935,6 +9055,156 @@
           "oldest_seconds": {
             "type": "integer",
             "description": "How long the oldest waiting item has waited."
+          }
+        }
+      },
+      "Job": {
+        "type": "object",
+        "description": "A job (ADR 0011 §6.3; 0104 §4): its record from `view.job`, and, while it waits for or runs under the runner, its queue row.",
+        "required": [
+          "id",
+          "status",
+          "actor",
+          "links"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "The job ID, minted by the instance."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "finished",
+              "failed",
+              "interrupted",
+              "reverted",
+              "rejected",
+              "closed"
+            ]
+          },
+          "mode": {
+            "type": "string",
+            "nullable": true,
+            "description": "The job's mode (`import`, `upsert`, `batch`, `revert`, …)."
+          },
+          "kind": {
+            "type": "string",
+            "description": "A queued job's kind."
+          },
+          "source": {
+            "type": "string",
+            "nullable": true
+          },
+          "version": {
+            "type": "string",
+            "nullable": true
+          },
+          "adapter": {
+            "type": "string",
+            "nullable": true
+          },
+          "graph": {
+            "type": "string"
+          },
+          "params": {
+            "type": "object",
+            "description": "The job's parameters, without any payload."
+          },
+          "actor": {
+            "type": "object",
+            "properties": {
+              "key": {
+                "type": "string"
+              },
+              "name": {
+                "type": "string",
+                "nullable": true
+              }
+            }
+          },
+          "requested_by": {
+            "type": "string",
+            "nullable": true
+          },
+          "submitted": {
+            "type": "string",
+            "description": "ISO 8601; a queued job."
+          },
+          "started": {
+            "type": "string",
+            "description": "ISO 8601; once the start record is written."
+          },
+          "finished": {
+            "type": "string",
+            "nullable": true
+          },
+          "counts": {
+            "type": "object",
+            "description": "A finished job's counts by outcome, with `hash_mismatches` by value type."
+          },
+          "checkpoint_size": {
+            "type": "integer"
+          },
+          "sweep": {
+            "type": "object",
+            "properties": {
+              "count": {
+                "type": "integer"
+              },
+              "threshold": {
+                "type": "integer"
+              }
+            }
+          },
+          "error": {
+            "type": "string",
+            "description": "A failed job's error."
+          },
+          "interrupted_by": {
+            "type": "integer",
+            "description": "The job that found an interrupted job dead."
+          },
+          "position": {
+            "type": "integer",
+            "description": "A queued job's place in the queue, 1-based."
+          },
+          "progress": {
+            "type": "object",
+            "description": "A running job's progress, as the runner records it (`stage`, `pages`)."
+          },
+          "attempts": {
+            "type": "integer",
+            "description": "How many times a runner has claimed a queued job."
+          },
+          "rejects": {
+            "type": "array",
+            "description": "On `GET /jobs/{id}`: the first rejects.",
+            "items": {
+              "type": "object",
+              "properties": {
+                "line": {
+                  "type": "integer"
+                },
+                "match": {
+                  "nullable": true
+                },
+                "reason": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "links": {
+            "type": "object",
+            "properties": {
+              "page": {
+                "type": "string",
+                "description": "The job's page, `/wiki/Special:Jobs/{id}`."
+              }
+            }
           }
         }
       }

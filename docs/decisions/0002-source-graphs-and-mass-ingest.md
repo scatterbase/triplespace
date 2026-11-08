@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-24
-- **Updated:** 2026-11-08 (A45)
+- **Updated:** 2026-11-08 (A46)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md)
 - **Uses:** [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -85,7 +85,7 @@ Four scenarios were used to test the design:
 
 #### 8.3 Import jobs
 
-*Changed by A3, A6, A9, A27.*
+*Changed by A3, A6, A9, A27, A46.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.3.*
 
@@ -629,3 +629,14 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §1.5, as it sto
 Replaced text ([05](../architecture/05-providers-and-ingest.md) §1.5, as it stood):
 
 > A statement fused from two mirrors is named by the first in provider order; a key-mapped provider's statement, whose ID carries the keyed entity's ID rather than the upstream item's, is named under the instance's base ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) A44).
+
+### A46. A job is reverted record by record, and a batch is a job the submitter keys
+
+- **Date:** 2026-11-08
+- **Source:** [0104](0104-batches-and-the-job-runner.md) §1, §3
+- **Change:** amends §8.3
+- **Summary:** Reverting a job no longer appends one inverse change set: it is a job of its own, mode `revert`, that appends the inverse of each record the job wrote, in reverse order, attributed to the reverter, skipping and listing any record changed since; and a batch, a job opened by the first write naming a value hashed with the tenant and the operator, is one more kind of local job. Chapter text: [05](../architecture/05-providers-and-ingest.md) §3.3; [16](../architecture/16-logs-feeds-and-notifications.md) §2.2.
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.3, as it stood):
+
+> - **A whole job can be reverted.** For a local-graph job, reverting appends the inverse change sets. For a mirror job, reverting means syncing again.

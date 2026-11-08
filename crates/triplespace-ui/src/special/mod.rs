@@ -60,6 +60,7 @@ pub mod external;
 pub mod import;
 pub mod index;
 pub mod info;
+pub mod jobs;
 pub mod login;
 pub mod movepage;
 pub mod new_entity;
@@ -171,6 +172,7 @@ pub async fn serve(
         "MovePage" => Some(movepage::serve(site, headers, peer, title, params).await),
         "Export" => Some(export::serve(site, headers, peer, title, params).await),
         "Import" => Some(import::serve(site, headers, peer, params).await),
+        "Jobs" => Some(jobs::serve(site, headers, peer, title, params).await),
         "Notifications" => Some(notifications::serve(site, headers, peer, params).await),
         "Watchlist" => Some(watchlist::serve(site, headers, peer, params).await),
         "EditWatchlist" => Some(watchlist::edit(site, headers, peer, params).await),

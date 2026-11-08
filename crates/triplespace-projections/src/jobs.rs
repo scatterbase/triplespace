@@ -1,7 +1,8 @@
 //! `view.job` and `view.job_reject` (step 2; 0011 §6.3; 0013 §5.5) from the `job` log
 //! events of payloads.md §5: `start` opens the row, `finish`, `fail`, `revert` and
 //! `interrupt` (0011 A36) close it. A job's rejects travel on its finish record as `params.rejects`, the first N for
-//! the job page (0010 §9).
+//! the job page (0010 §9); an import's own counts, as `params.import`, are kept under
+//! `counts.import`.
 
 use scatter_log::cbor::Value;
 use scatter_log::header::Header;
@@ -103,6 +104,10 @@ async fn close(cx: &PgCx, ev: &Event<'_>, action: &str) -> Result<u64, String> {
                 .map_or_else(|| serde_json::json!({}), to_jsonb);
             if let (Some(m), Some(obj)) = (params.get("hash_mismatches"), c.as_object_mut()) {
                 obj.insert("hash_mismatches".into(), to_jsonb(m));
+            }
+            // An import's own counts (0008 §9): revisions written, present, restored.
+            if let (Some(i), Some(obj)) = (params.get("import"), c.as_object_mut()) {
+                obj.insert("import".into(), to_jsonb(i));
             }
             c
         }

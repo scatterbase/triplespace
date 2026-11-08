@@ -12,7 +12,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use triplespace_cli::{
-    accounts, adopt, challenge, dump, env_file, follow, forwarder, import_pages, instance,
+    accounts, adopt, challenge, dump, env_file, follow, forwarder, import_pages, instance, job,
     log_bundle, logins, oauth_client, rights, settings, source, status, sync, tenant,
 };
 
@@ -40,6 +40,11 @@ enum Command {
     Adopt(adopt::Adopt),
     /// Import pages from any wiki's MediaWiki XML export into a tenant (0008 §9).
     Import(import_pages::Import),
+    /// The job queue: list, start, cancel, pause and resume (0104 §4).
+    Job {
+        #[command(subcommand)]
+        command: job::JobCommand,
+    },
     /// Sync a provider's dump into its mirror (0002 §8.4).
     Sync(sync::Sync),
     /// Follow a provider's wiki by its recent changes (0092 §1).
@@ -157,6 +162,7 @@ async fn run() -> Result<()> {
         Command::Tenant { command } => tenant::run(command).await,
         Command::Adopt(args) => adopt::run(args).await,
         Command::Import(args) => import_pages::run(args).await,
+        Command::Job { command } => job::run(command).await,
         Command::Sync(args) => sync::run(args).await,
         Command::Follow(args) => follow::run(args).await,
         Command::UpstreamLogin { command } => follow::run_login(command).await,

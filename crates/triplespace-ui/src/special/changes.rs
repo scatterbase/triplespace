@@ -374,9 +374,11 @@ pub enum TargetModel {
         /// The ID.
         id: String,
     },
-    /// A job, named and not linked.
+    /// A job, linked to its page (0104 §9).
     Job {
-        /// "job n".
+        /// The job's page.
+        href: String,
+        /// "Job n".
         text: String,
     },
     /// A title with its label.
@@ -481,9 +483,29 @@ pub struct RowModel {
     pub tags: Vec<String>,
     /// The history's compare cell, where the list has the column (0010 §5.6).
     pub pick: Option<Pick>,
-    /// The job that wrote an adopted or imported revision, named (0008 A50): "Job n",
-    /// not linked until `Special:Jobs/{n}` exists.
-    pub job: Option<String>,
+    /// The job that wrote an adopted or imported revision (0008 A50): "Job n", linked to
+    /// its page.
+    pub job: Option<JobLink>,
+}
+
+/// "Job n", linked to `Special:Jobs/{n}` (0104 §9).
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct JobLink {
+    /// The job's page.
+    pub href: String,
+    /// "Job n".
+    pub text: String,
+}
+
+impl JobLink {
+    /// The link to a job.
+    #[must_use]
+    pub fn to(m: &Messages, job: u64) -> Self {
+        Self {
+            href: crate::special::jobs::href(job),
+            text: m.with("ts-changes-job", &[&job.to_string()]),
+        }
+    }
 }
 
 /// A history row's compare cell: the radio buttons that choose its revision as the older
@@ -698,9 +720,9 @@ fn target_model(
     let Some(title) = &t.title else {
         return Some(TargetModel::Id { id: t.id.clone() });
     };
-    // A job's page (`Special:Jobs/{n}`) is not built yet: the job is named, not linked.
     if let Some(n) = title.strip_prefix("Special:Jobs/") {
         return Some(TargetModel::Job {
+            href: format!("/wiki/{}", title_url(title)),
             text: m.with("ts-changes-job", &[n]),
         });
     }
@@ -940,6 +962,7 @@ fn row_model(m: &Messages, site: &SiteInfo, row: &ActivityRow, here: Option<u64>
     }
     let target = target_model(m, site, row, here.is_some()).or_else(|| {
         row.job.map(|j| TargetModel::Job {
+            href: crate::special::jobs::href(j),
             text: m.with("ts-changes-job", &[&j.to_string()]),
         })
     });
@@ -956,7 +979,7 @@ fn row_model(m: &Messages, site: &SiteInfo, row: &ActivityRow, here: Option<u64>
         job: row
             .job
             .filter(|_| row.kind == "edit" && row.upstream.is_some())
-            .map(|j| m.with("ts-changes-job", &[&j.to_string()])),
+            .map(|j| JobLink::to(m, j)),
         size: size_model(row),
         actor: actor_model(m, site, row),
         summary: summary_model(m, row, here),

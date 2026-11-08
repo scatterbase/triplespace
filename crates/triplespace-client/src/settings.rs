@@ -16,7 +16,7 @@ use crate::api::{CacheInfo, Fetched};
 use crate::transport::{ApiRequest, ApiResponse};
 use crate::{Client, ClientError, Incoming, forward};
 
-const BASE: &str = "/w/rest.php/triplespace/v0";
+pub(crate) const BASE: &str = "/w/rest.php/triplespace/v0";
 
 /// A tab of a settings or preferences page.
 #[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
@@ -252,7 +252,10 @@ fn refused(status: StatusCode, body: &[u8]) -> ClientError {
     }
 }
 
-fn read<T: serde::de::DeserializeOwned>(r: &ApiResponse, what: &str) -> Result<T, ClientError> {
+pub(crate) fn read<T: serde::de::DeserializeOwned>(
+    r: &ApiResponse,
+    what: &str,
+) -> Result<T, ClientError> {
     if r.status != StatusCode::OK {
         return Err(refused(r.status, &r.body));
     }

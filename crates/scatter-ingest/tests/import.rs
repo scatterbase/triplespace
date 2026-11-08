@@ -144,6 +144,7 @@ fn import() -> Import {
         version: Some("pages.xml".into()),
         history: true,
         summary: None,
+        job_id: None,
     }
 }
 

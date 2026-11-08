@@ -1,0 +1,6 @@
+{#- Special:Jobs (0010 §9; 0104 §9; 19 §3.10): the running and recent jobs, one row each,
+    linked to their pages. -#}
+<p>{{ intro }}</p>
+{%- if nothing %}<p class="ts-empty">{{ nothing }}</p>
+{%- else %}<table class="cdx-table__table ts-jobs"><thead><tr>{% for c in columns %}<th scope="col">{{ c }}</th>{% endfor %}</tr></thead><tbody>
+{%- for j in rows %}<tr class="ts-jobs__row ts-jobs__row--{{ j.status_class }}"><td><a href="{{ j.job.href }}">{{ j.job.text }}</a></td><td><span class="ts-job-status ts-job-status--{{ j.status_class }}">{{ j.status }}</span>{% if j.note %} <span class="ts-jobs__note">{{ j.note }}</span>{% endif %}</td><td><code>{{ j.mode }}</code></td><td>{{ j.source }}</td><td><a href="{{ j.actor.href }}">{{ j.actor.text }}</a></td><td>{{ j.started }}</td><td>{{ j.finished }}</td></tr>{% endfor %}</tbody></table>{% endif -%}

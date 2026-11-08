@@ -38,6 +38,7 @@ scatter-providers.workspace = true
 scatter-normalize.workspace = true
 getrandom.workspace = true
 triplespace-upstream.workspace = true
+tokio = { workspace = true, features = ["rt", "time", "sync", "macros"] }
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

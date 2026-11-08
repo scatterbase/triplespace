@@ -369,8 +369,8 @@ pub struct Side {
     pub revision: Choice,
     /// The chip of an adopted or imported revision (0008 A50), and the job named.
     pub origin: Option<ChipModel>,
-    /// "Job n" for an adopted or imported revision; not linked until `Special:Jobs` exists.
-    pub job: Option<String>,
+    /// "Job n" for an adopted or imported revision, linked to its page.
+    pub job: Option<special::changes::JobLink>,
     /// Who, linked; `None` where hidden.
     pub user: Option<Choice>,
     /// What the page says of a hidden user.
@@ -1323,7 +1323,7 @@ fn side_model(m: &Messages, side: &DiffSide, latest: bool, nav: Option<Choice>) 
         job: side
             .job
             .filter(|_| side.upstream.is_some())
-            .map(|j| m.with("ts-changes-job", &[&j.to_string()])),
+            .map(|j| special::changes::JobLink::to(m, j)),
         user: side.user.as_ref().map(|u| {
             choice(
                 format!("/wiki/Special:Contributions/{}", title_url(u)),

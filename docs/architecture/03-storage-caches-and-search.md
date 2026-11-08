@@ -942,7 +942,7 @@ CREATE TABLE ops.tenant_epoch (            -- the stream epoch per tenant
 
 ### 4.12 Page repositories, mirrored pages, forks, shallow mirrors and derivations
 
-*Sources: [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §8; [0053](../decisions/0053-mirrored-pages.md) §8; [0054](../decisions/0054-forking-a-mirrored-page.md) §10; [0070](../decisions/0070-shallow-entity-mirroring.md) §10; [0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §12; [0092](../decisions/0092-following-recent-changes.md) §3.*
+*Sources: [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §8; [0053](../decisions/0053-mirrored-pages.md) §8; [0054](../decisions/0054-forking-a-mirrored-page.md) §10; [0070](../decisions/0070-shallow-entity-mirroring.md) §10; [0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §12; [0092](../decisions/0092-following-recent-changes.md) §3.; [0104](../decisions/0104-batches-and-the-job-runner.md) §8.*
 
 ```sql
 CREATE TABLE view.foreign_title (            -- the title index of a repository (0052 §2–3; filled by 0053 §3)
@@ -1014,6 +1014,7 @@ CREATE INDEX fork_repo_page ON view.fork (repo, upstream_page_id);
 **Shallow mirroring** ([0070](../decisions/0070-shallow-entity-mirroring.md) §10):
 
 - `ops.entity_fetch (tenant, provider, entity_id, reason, enqueued, attempts)` with reasons `read`, `linked`, `closure`, `event`, `sweep`, `manual`; a unique key on `(tenant, provider, entity_id)` so a busy entity is fetched once. `tenant` is `''` for a registry provider; for a tenant's entity source it is the tenant, and `provider` is the source's name ([0078](../decisions/0078-entity-sources.md) §4).
+- `ops.job_queue (tenant, job_id, partition, kind, params, payload, actor_key, submitted, claimed_by, claimed_at, heartbeat, attempts, progress, cancel)` ([0104](../decisions/0104-batches-and-the-job-runner.md) §8): a submitted job waiting for the runner, keyed by the job ID minted at submission; `kind` names the job (`import`, `export`, `dump`, `revert`, `sync`, `adopt`, `follow`), `params` what it needs and `payload` an uploaded file where the kind takes one; a row is claimed under `SELECT … FOR UPDATE SKIP LOCKED` by one runner task per partition, which refreshes `heartbeat` and writes `progress` while it runs, and deleted when the job's finish or fail record is written; a claimed row whose heartbeat has gone stale was a runner that died, and the next claim marks the dead run interrupted and runs the job again under a new ID, `attempts` counting the claims.
 - `ops.repo_cursor` holds a row of kind `provider` per provider's follower and, under the tenant, of kind `source` per entity source's, whether it follows an event stream or polls recent changes ([0092](../decisions/0092-following-recent-changes.md) §3).
 - The set itself is `view.entity_source` rows for the provider (`tenant = ''`); no new table.
 
