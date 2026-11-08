@@ -1,6 +1,8 @@
 //! The record and proof routes (0012 §5; 17 §1.1): one record of a published partition,
 //! the checkpoint that first covers it, its inclusion proof, and the proofs of a range of
-//! records against one checkpoint with their shared nodes sent once.
+//! records against one checkpoint with their shared nodes sent once. With them a third
+//! party checks that a record is in the log against any checkpoint that covers it
+//! without holding the log, which implements 0006 §9.4 (01 §8.4).
 //!
 //! - `GET /record/{partition}/{offset}`: the record as JSON, its header decoded, each
 //!   part with its leaf and, when present, its value, the canonical CBOR in `record` and

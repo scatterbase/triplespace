@@ -7,7 +7,7 @@
 //! - [`attest`]: client signatures and instance attestations in the attestation part;
 //! - [`keys`]: the key chain of a `config` partition;
 //! - [`checkpoints`]: where checkpoints and manifests are kept, and how they are made;
-//! - [`mod@verify`]: levels 1 and 2 of 0006 §9 over a store and its checkpoints;
+//! - [`mod@verify`]: levels 1 and 2 of 0006 §9.3 over a store and its checkpoints;
 //! - [`bundle`]: export bundles, written from any store and verified on their own;
 //! - [`records`]: the `records` export, a selection of records with their proofs.
 

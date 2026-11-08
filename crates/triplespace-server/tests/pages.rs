@@ -1502,9 +1502,11 @@ async fn pages_on_the_site(site: Router, project: &str) {
     assert!(stale.body.contains(">\nFive</textarea>"));
 }
 
-/// A `records` export of Librarybase pages verifies on its own (21 §4.2; 0006 §9): signed,
-/// exported over `POST /export` with history, and checked with `triplespace verify
-/// --records` holding only the file.
+/// A `records` export of Librarybase pages verifies on its own (21 §4.4; 0047 §8.2;
+/// 0006 §9.4): signed, exported over `POST /export` with history, checked with
+/// `triplespace verify --records` holding only the file, and again as a third party
+/// checks it, against the key chain published at `/.well-known/tlog/keys` (`--keys`),
+/// which refuses a file whose keys it does not hold.
 #[tokio::test]
 async fn a_records_export_of_librarybase_pages_verifies() {
     let Some((database, key_file)) = setup("tspages_records_test").await else {
@@ -1554,7 +1556,30 @@ async fn a_records_export_of_librarybase_pages_verifies() {
     );
     let file = std::env::temp_dir().join(format!("tspages-records-{}.cbor", std::process::id()));
     std::fs::write(&file, &bytes).unwrap();
-    let (read, reports) = triplespace_cli::log_bundle::verify_records(&file).unwrap();
+    let (read, reports) = triplespace_cli::log_bundle::verify_records(&file, None).unwrap();
+    // A third party holds the published key chain, not the file's word for it.
+    let req = Request::builder()
+        .uri("/.well-known/tlog/keys")
+        .header(header::HOST, HOST)
+        .body(Body::empty())
+        .unwrap();
+    let resp = api.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let published = resp.into_body().collect().await.unwrap().to_bytes();
+    let keys = std::env::temp_dir().join(format!("tspages-keys-{}.seq", std::process::id()));
+    std::fs::write(&keys, &published).unwrap();
+    let (_, with_published) =
+        triplespace_cli::log_bundle::verify_records(&file, Some(&keys)).unwrap();
+    assert_eq!(with_published, reports);
+    std::fs::write(&keys, b"").unwrap();
+    let refused = triplespace_cli::log_bundle::verify_records(&file, Some(&keys));
+    assert!(
+        refused
+            .err()
+            .is_some_and(|e| e.to_string().contains("does not hold")),
+        "a key chain that lacks the file's keys refuses it"
+    );
+    let _ = std::fs::remove_file(&keys);
     let _ = std::fs::remove_file(&file);
     assert_eq!(read.missing, ["No such page"]);
     assert_eq!(reports.len(), 1, "only the `pages` partition: {reports:?}");
@@ -1580,7 +1605,7 @@ async fn a_records_export_of_librarybase_pages_verifies() {
 fn records_in(bytes: &[u8]) -> u64 {
     let file = std::env::temp_dir().join(format!("tspages-current-{}.cbor", std::process::id()));
     std::fs::write(&file, bytes).unwrap();
-    let (_, reports) = triplespace_cli::log_bundle::verify_records(&file).unwrap();
+    let (_, reports) = triplespace_cli::log_bundle::verify_records(&file, None).unwrap();
     let _ = std::fs::remove_file(&file);
     assert!(
         reports

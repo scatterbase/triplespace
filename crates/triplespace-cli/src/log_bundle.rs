@@ -1,4 +1,4 @@
-//! The log's own copies (0006 §6, §9; 01 §4.2, §8; 0103 §1): `triplespace checkpoint` signs
+//! The log's own copies (0006 §6, §9.1, §9.2, §9.3; 01 §4.2, §8; 0103 §1): `triplespace checkpoint` signs
 //! every partition's head, `triplespace export` writes a bundle, and `triplespace verify`
 //! checks one.
 //!
@@ -191,6 +191,7 @@ pub async fn export(args: &Export) -> Result<Vec<BundlePartition>> {
         (Scope::Backup, t) => ("backup", t.clone()),
         (Scope::Export, Some(t)) => ("export", Some(t.clone())),
         (Scope::Export, None) => bail!("the export scope is one tenant's: name it with --tenant"),
+        // The transfer scope (0103 §3; 0006 §9.2) is not built yet.
         (Scope::Transfer, _) => bail!("the transfer scope (0103 §3) is not built yet"),
     };
     let mut client = connect(&args.database).await?;
@@ -301,20 +302,28 @@ pub struct Verify {
     /// How deep to go, for a bundle.
     #[arg(long, value_enum, default_value = "bodies")]
     pub level: VerifyLevel,
-    /// The path is a `records` export (21 §4.2), not a bundle.
+    /// The path is a `records` export (21 §4.4), not a bundle.
     #[arg(long)]
     pub records: bool,
+    /// With `--records`: check the export against this key chain rather than the one it
+    /// carries: a CBOR sequence of `key:` records, as `/.well-known/tlog/keys` serves it
+    /// or a bundle's `keys.seg` holds it.
+    #[arg(long, requires = "records")]
+    pub keys: Option<PathBuf>,
 }
 
-/// Verifies a `records` export (21 §4.2; 0006 §9): its checkpoints against the key chain
-/// it carries, and each record against its checkpoint, one report per partition.
+/// Verifies a `records` export (21 §4.4; 0047 §8.2; 0006 §9.4): its checkpoints against
+/// the key chain it carries, or against the one in `keys`, a CBOR sequence of `key:`
+/// records fetched apart from it, and each record against its checkpoint, one report per
+/// partition.
 ///
 /// # Errors
 ///
 /// A file that cannot be read or is not a `records` export, or a key chain that does not
-/// verify.
+/// verify, or one in `keys` that does not hold the file's keys.
 pub fn verify_records(
     path: &std::path::Path,
+    keys: Option<&std::path::Path>,
 ) -> Result<(
     scatter_integrity::records::RecordsExport,
     Vec<scatter_integrity::records::PartitionReport>,
@@ -322,13 +331,38 @@ pub fn verify_records(
     let bytes = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
     let export = scatter_integrity::records::RecordsExport::decode(&bytes)
         .with_context(|| format!("reading {}", path.display()))?;
-    let reports = scatter_integrity::records::verify(&export)
-        .map_err(|e| anyhow::anyhow!("the key chain: {e}"))?;
+    let reports = match keys {
+        None => scatter_integrity::records::verify(&export),
+        Some(keys) => {
+            let chain = scatter_integrity::keys::KeyChain::from_records(&key_sequence(keys)?)
+                .map_err(|e| anyhow::anyhow!("{}: {e}", keys.display()))?;
+            scatter_integrity::records::verify_with(&export, &chain)
+        }
+    }
+    .map_err(|e| anyhow::anyhow!("the key chain: {e}"))?;
     Ok((export, reports))
 }
 
-fn run_verify_records(path: &std::path::Path) -> Result<()> {
-    let (export, reports) = verify_records(path)?;
+/// Reads a CBOR sequence (RFC 8742) of canonical records, as `/.well-known/tlog/keys`
+/// serves the key chain and a bundle's `keys.seg` holds it.
+fn key_sequence(path: &std::path::Path) -> Result<Vec<scatter_log::record::Record>> {
+    let bytes = std::fs::read(path).with_context(|| format!("reading {}", path.display()))?;
+    let mut out = Vec::new();
+    let mut left = bytes.as_slice();
+    while !left.is_empty() {
+        let (value, used) = scatter_log::cbor::decode_prefix(left)
+            .with_context(|| format!("reading {}", path.display()))?;
+        out.push(
+            scatter_log::record::Record::from_value(&value)
+                .with_context(|| format!("reading {}", path.display()))?,
+        );
+        left = &left[used..];
+    }
+    Ok(out)
+}
+
+fn run_verify_records(path: &std::path::Path, keys: Option<&std::path::Path>) -> Result<()> {
+    let (export, reports) = verify_records(path, keys)?;
     let mut problems = 0;
     for r in &reports {
         println!(
@@ -393,7 +427,7 @@ pub async fn verify(
 /// As [`verify`], or any problem found.
 pub async fn run_verify(args: Verify) -> Result<()> {
     if args.records {
-        return run_verify_records(&args.bundle);
+        return run_verify_records(&args.bundle, args.keys.as_deref());
     }
     let results = verify(&args).await?;
     let mut problems = 0;

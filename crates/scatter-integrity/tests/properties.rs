@@ -1,4 +1,4 @@
-//! Property tests of the Merkle proofs (22 §4.9; 0033 §15; 0006 §5, §9): over random
+//! Property tests of the Merkle proofs (22 §4.9; 0033 §15; 0006 §5, §9.4): over random
 //! logs, every inclusion proof verifies at its index and nowhere else, and every
 //! consistency proof between two sizes verifies against the two roots.
 

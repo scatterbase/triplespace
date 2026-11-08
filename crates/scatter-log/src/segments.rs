@@ -1,5 +1,5 @@
 //! The `segments` file backend (0013 §1; 0005 §4.2): one directory per partition, one
-//! file per segment, and the format export bundles use (0006 §9).
+//! file per segment, and the format export bundles use (0006 §9.1).
 //!
 //! ```text
 //! {root}/

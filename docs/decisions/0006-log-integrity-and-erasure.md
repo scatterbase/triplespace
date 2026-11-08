@@ -87,6 +87,26 @@ Three terms are used precisely below:
 
 *Current text: [01](../architecture/01-log-and-records.md) §8.*
 
+#### 9.1 What a bundle holds
+
+*Current text: [01](../architecture/01-log-and-records.md) §8.1.*
+
+#### 9.2 Scopes
+
+*Current text: [01](../architecture/01-log-and-records.md) §8.2.*
+
+#### 9.3 `verify`
+
+*Current text: [01](../architecture/01-log-and-records.md) §8.3.*
+
+#### 9.4 Inclusion proofs
+
+*Current text: [01](../architecture/01-log-and-records.md) §8.4.*
+
+#### 9.5 The authority extract
+
+*Current text: [01](../architecture/01-log-and-records.md) §8.5.*
+
 ### 10. Crates
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*

@@ -1,4 +1,4 @@
-//! `verify` (0006 §9), levels 1 and 2, over a `LogStore` and its checkpoints.
+//! `verify` (0006 §9.3), levels 1 and 2, over a `LogStore` and its checkpoints.
 //!
 //! **Level 1, structure:** gapless offsets whose headers name their partition and
 //! offset; the tree head over every leaf; the root at every checkpoint, each

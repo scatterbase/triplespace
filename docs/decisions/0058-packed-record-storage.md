@@ -38,7 +38,7 @@ James's direction, from the design discussion of 2026-10-04:
 
 ### 1. Stored form and logical form (uses 0015 §1; amends 0005 §3; amends 0013 Consequences)
 
-*Current text: [01](../architecture/01-log-and-records.md) §2.7, §8; [03](../architecture/03-storage-caches-and-search.md) §3.1.*
+*Current text: [01](../architecture/01-log-and-records.md) §2.7, §8.1; [03](../architecture/03-storage-caches-and-search.md) §3.1.*
 
 ### 2. The `log` schema (amends 0013 §2)
 

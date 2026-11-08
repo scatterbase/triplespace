@@ -353,7 +353,7 @@ The REST routes `GET /nuke/preview` and `POST /nuke`, and the revert `POST /jobs
 
 ### 4.2 Special:Export
 
-*Sources: [0047](../decisions/0047-special-pages.md) §8.*
+*Sources: [0047](../decisions/0047-special-pages.md) §8.1.*
 
 **`Special:Export` keeps MediaWiki's form and parameters:**
 
@@ -380,16 +380,7 @@ The REST routes `GET /nuke/preview` and `POST /nuke`, and the revert `POST /jobs
 
 The `export.*` settings are tenant `site` settings, by the rule for a dotted key named without a scope ([23](23-configuration-and-registry.md)).
 
-**A second format, `records`, is verifiable.**
-
-- It contains the selected pages' and local entities' records from `pages` and `local`, each with an inclusion proof against the latest checkpoint. It also carries that checkpoint and the key-chain records needed to check it ([0006](../decisions/0006-log-integrity-and-erasure.md) §9; [01](01-log-and-records.md)).
-- A part withheld from the viewer appears as its commitment only, as an erased part does, so every proof still verifies.
-- `log`-partition records are left out, because the `log` partition is internal (0023 §7).
-- A selected record newer than its partition's latest checkpoint is left out and listed as pending, since checkpoints are signed by the instance's signer and not on request; the reader then knows what the export lacks and why ([0047](../decisions/0047-special-pages.md) A30).
-- It is one canonical-CBOR document, selected as the XML export is: titles, with or without history (A30).
-- `triplespace-cli verify --records` checks such an export. A third party can then confirm that an export is exactly what the wiki holds, which no MediaWiki export can show.
-
-**What is built of `records`** ([0047](../decisions/0047-special-pages.md) A31). `POST /export` with a JSON body `{"format": "records", "pages": [...], "history": bool}` streams it as `application/vnd.triplespace.records+cbor`; a title in an entity namespace names that local entity. The document holds the instance's `key:` records, a `missing` list, and per partition its origin, its latest checkpoint as the signed note, every proof node once, the records (each the record with its withheld parts erased and listed, or the leaf alone for a target a confidential restriction hides) with their paths as positions in the nodes, and the pending offsets. `history` is off by default, as `curonly` is on, is honoured only where `export.history` is, and is capped by `export.max_history` per page and `export.max_entity_history` per entity. A page or entity the viewer may not know of is listed in `missing`, as one that does not exist is. Over `export.sync_revisions` records the request is refused (`413`) until export jobs exist. `triplespace verify --records {file}` checks every checkpoint against the key chain the file carries and every record by its proof, its header against its offset, and every withheld part as erased; it does not check the signatures inside attestations, whose actor keys the file does not carry. `Special:Export`, the XML format, the `export` rate class and export jobs are not built.
+The `records` format of §4.4 is the second format the page offers.
 
 **Size.**
 
@@ -402,13 +393,28 @@ The `export.*` settings are tenant `site` settings, by the rule for a dotted key
 
 ### 4.3 Special:Import
 
-*Sources: [0047](../decisions/0047-special-pages.md) §8.*
+*Sources: [0047](../decisions/0047-special-pages.md) §8.3.*
 
 **`Special:Import` is the form for [0008](../decisions/0008-namespaces-and-document-pages.md) §9's import job** ([10](10-pages-and-content-models.md)).
 
 - **Upload an XML file** (`importupload`), or **import from another wiki** named by site alias ([0026](../decisions/0026-sitelinks.md) §2) in place of MediaWiki's interwiki sources (`import`).
 - It runs the template census first, shows its report, and on confirmation starts the job and goes to `Special:Jobs/{id}`.
 - It accepts MediaWiki XML only. Data moves between instances by a tenant move ([0018](../decisions/0018-tenants.md) §10) or verified sync ([0022](../decisions/0022-federation.md)), not by importing `records`.
+
+### 4.4 The `records` export
+
+*Sources: [0047](../decisions/0047-special-pages.md) §8.2.*
+
+**The `records` format is verifiable.**
+
+- It contains the selected pages' and local entities' records from `pages` and `local`, each with an inclusion proof against the latest checkpoint. It also carries that checkpoint and the key-chain records needed to check it ([0006](../decisions/0006-log-integrity-and-erasure.md) §9; [01](01-log-and-records.md)).
+- A part withheld from the viewer appears as its commitment only, as an erased part does, so every proof still verifies.
+- `log`-partition records are left out, because the `log` partition is internal (0023 §7).
+- A selected record newer than its partition's latest checkpoint is left out and listed as pending, since checkpoints are signed by the instance's signer and not on request; the reader then knows what the export lacks and why ([0047](../decisions/0047-special-pages.md) A30).
+- It is one canonical-CBOR document, selected as the XML export is: titles, with or without history ([0047](../decisions/0047-special-pages.md) A30).
+- `triplespace-cli verify --records` checks such an export. A third party can then confirm that an export is exactly what the wiki holds, which no MediaWiki export can show.
+
+**What is built of `records`** ([0047](../decisions/0047-special-pages.md) A31). `POST /export` with a JSON body `{"format": "records", "pages": [...], "history": bool}` streams it as `application/vnd.triplespace.records+cbor`; a title in an entity namespace names that local entity. The document holds the instance's `key:` records, a `missing` list, and per partition its origin, its latest checkpoint as the signed note, every proof node once, the records (each the record with its withheld parts erased and listed, or the leaf alone for a target a confidential restriction hides) with their paths as positions in the nodes, and the pending offsets. `history` is off by default, as `curonly` is on, is honoured only where `export.history` is, and is capped by `export.max_history` per page and `export.max_entity_history` per entity. A page or entity the viewer may not know of is listed in `missing`, as one that does not exist is. Over `export.sync_revisions` records the request is refused (`413`) until export jobs exist. `triplespace verify --records {file}` checks every checkpoint against the key chain the file carries and every record by its proof, its header against its offset, and every withheld part as erased; it does not check the signatures inside attestations, whose actor keys the file does not carry. `Special:Export`, the XML format, the `export` rate class and export jobs are not built (§4.2). `triplespace verify --records --keys {file}` checks the export against a key chain fetched apart from it, from `/.well-known/tlog/keys` or a bundle's `keys.seg`, and refuses a file whose own key records are not in that chain, so that a third party trusts the published chain rather than the file.
 
 ## 5. Special:Version
 

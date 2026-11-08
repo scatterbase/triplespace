@@ -1,4 +1,4 @@
-//! Bundles of the log for publication and backup (0006 §9; 0103 §1): what both
+//! Bundles of the log for publication and backup (0006 §9.1, §9.2; 0103 §1): what both
 //! `triplespace export` and the dump's public bundle need. The partitions and their
 //! origins, the instance's `key:` records, and [`Reader`], which decides what an export
 //! leaves out of each record for a reader (0006 A30, A31).

@@ -111,7 +111,19 @@ James's direction, from the design discussion of 2026-09-30:
 
 *Changed by A20, A30, A31.*
 
-*Current text: [21](../architecture/21-special-pages.md) §4.2, §4.3.*
+*Current text: [21](../architecture/21-special-pages.md) §4.*
+
+#### 8.1 Special:Export
+
+*Current text: [21](../architecture/21-special-pages.md) §4.2.*
+
+#### 8.2 The `records` export
+
+*Current text: [21](../architecture/21-special-pages.md) §4.4.*
+
+#### 8.3 Special:Import
+
+*Current text: [21](../architecture/21-special-pages.md) §4.3.*
 
 ### 9. Other pages (extends 0010 §2, §3 and §12)
 

@@ -1,4 +1,4 @@
-//! Export bundles (0006 §9): a directory that holds, for each exported partition, its
+//! Export bundles (0006 §9.1): a directory that holds, for each exported partition, its
 //! segments with headers and bodies, every checkpoint and segment manifest, and the
 //! configuration records that register and rotate keys. It needs nothing else to verify.
 //!
@@ -17,7 +17,7 @@
 //! builds one from any `LogStore` by restoring every slot, and `Bundle::verify` runs
 //! [`verify()`](crate::verify::verify) over every partition in it.
 //!
-//! **Scopes** (0103 §1). A backup restores every slot as it is. An export withholds what
+//! **Scopes** (0103 §1; 0006 §9.2). A backup restores every slot as it is. An export withholds what
 //! its reader may not read, as [`export_scoped`] is told: a part is left out as an erased
 //! part is, its leaf kept so that every proof still verifies, and a whole record is
 //! written as its leaf alone, as a compacted one is. Each is listed in `withheld.cbor`, so
