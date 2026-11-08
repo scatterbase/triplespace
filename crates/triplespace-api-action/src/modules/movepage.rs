@@ -401,6 +401,13 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     let store = ctx.app.store();
     let pipeline = ctx.app.pipeline();
     let mut cx = store.begin().await?;
+    let batch = match crate::batch::join(ctx, &mut cx).await {
+        Ok(b) => b,
+        Err(e) => {
+            let _ = store.rollback(cx).await;
+            return Err(e);
+        }
+    };
     let mut moved: Vec<Value> = Vec::new();
     let mut first_redirect: Option<u64> = None;
     let mut redirect_count = 0;
@@ -427,6 +434,7 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
                     suppress_group: suppress_group.clone(),
                     reserve: None,
                     enclosing,
+                    job: batch,
                 },
                 now,
             )
@@ -450,6 +458,7 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         };
         let mut attestation = Attestation::by(&actor);
         attestation.tags = ctx.params.list("tags");
+        attestation.job = batch;
         let mut request = Request::new(&tenant, attestation, now);
         request.comment = Some(reason.clone()).filter(|r| !r.is_empty());
         request.base_offset = step.page.latest_offset;
@@ -494,7 +503,7 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
                 minor: false,
                 source: None,
             };
-            let attestation = Attestation::by(&actor);
+            let attestation = Attestation::by(&actor).with_job(batch);
             let mut request = Request::new(&tenant, attestation, now);
             request.comment = Some(format!("{old_prefixed} moved to {new_prefixed}"));
             let raw = RawRecord {

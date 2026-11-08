@@ -440,7 +440,7 @@ sources = "[0012](../decisions/0012-api-requirements.md) §5"
 
 [[route]]
 routes = ["POST /jobs/{id}/revert"]
-purpose = "Starts the inverse job, mode `revert`, which appends the inverse of each record the job wrote, attributed to the caller, and answers with its ID. The response lists the records edited since the job, whose later edits are kept. Reverting a Nuke is this route. Needs `ts-revertjob`"
+purpose = "Queues the inverse job, mode `revert`, which the runner carries: it appends the inverse of each record the job wrote, attributed to the caller, and answers with the revert job's ID; the records edited since the job, whose later edits are kept, are listed on the revert job's page once it has run. Reverting a Nuke is this route. Needs `ts-revertjob`"
 sources = "[0012](../decisions/0012-api-requirements.md) §5; [0047](../decisions/0047-special-pages.md) §11; [0104](../decisions/0104-batches-and-the-job-runner.md) §3, §6"
 
 [[route]]

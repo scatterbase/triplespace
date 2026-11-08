@@ -55,7 +55,8 @@ test( 'the New menu creates an item, with prefilled statements', async ( { page,
 	await page.goto( '/wiki/Special:NewItem?statement=P7:0000%200004%201234%205678&statement=P2:Q2&statement=P4:1952' );
 	await expect( page.getByLabel( 'ISNI (P7): 0000 0004 1234 5678' ) ).toBeChecked();
 	await expect( page.getByLabel( 'instance of (P2): Q2' ) ).toBeChecked();
-	await expect( page.getByText( 'values of type Point in time cannot be filled in here yet' ) ).toBeVisible();
+	// A time is typed from a year, a month or a day (0104 §11).
+	await expect( page.getByLabel( 'inception (P4): 1952' ) ).toBeChecked();
 	expect( await axe( browser, page ) ).toEqual( [] );
 
 	await page.getByLabel( 'Label', { exact: true } ).fill( 'Created in e2e' );
@@ -68,8 +69,11 @@ test( 'the New menu creates an item, with prefilled statements', async ( { page,
 	await expect( page.getByRole( 'heading', { level: 1 } ) ).toHaveText( 'Created in e2e' );
 	await expect( page.locator( '[data-region="terms"]' ) ).toContainText( 'an item made by the form' );
 	await expect( page.locator( '[data-region="terms"]' ) ).toContainText( 'e2e item · form item' );
-	// The unticked statement was left out; the identifier is on its tab.
-	await expect( page.locator( '#content' ) ).toContainText( 'No statements yet.' );
+	// The unticked statement was left out, the typed time is a statement, and the
+	// identifier is on its tab.
+	await expect( page.locator( '#content' ) ).not.toContainText( 'instance of' );
+	await expect( page.locator( '#content' ) ).toContainText( 'inception' );
+	await expect( page.locator( '#content' ) ).toContainText( '1952' );
 	await page.goto( `${ page.url() }?tab=identifiers` );
 	await expect( page.locator( '#content' ) ).toContainText( '0000 0004 1234 5678' );
 } );

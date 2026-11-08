@@ -14,6 +14,7 @@ scatter-wikitext-expand.workspace = true
 scatter-ingest.workspace = true
 scatter-projection.workspace = true
 scatter-log.workspace = true
+sha2.workspace = true
 scatter-log-postgres.workspace = true
 triplespace-db.workspace = true
 triplespace-projections.workspace = true

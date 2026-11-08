@@ -72,6 +72,7 @@ async fn context(app: App, origin: Origin, headers: &HeaderMap) -> Result<Ctx, R
         cache_class: crate::http_cache::Class::Public,
         cache_tags: Vec::new(),
         accept_language: None,
+        batch: std::sync::atomic::AtomicU64::new(0),
     })
 }
 

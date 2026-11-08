@@ -147,6 +147,7 @@ fn sentence(m: &Messages, n: &Notification) -> Vec<Part> {
         "job" if n.params.get("error").is_some() => "ts-notif-job-failed",
         "job" if n.params.get("by").is_some() => "ts-notif-job-interrupted",
         "job" if n.params.get("counts").is_some() => "ts-notif-job-finished",
+        "job" if n.params.get("reason").is_some() => "ts-notif-job-rejected",
         "job" => "ts-notif-job-reverted",
         "talk" => "ts-notif-talk",
         "reply" => "ts-notif-reply",

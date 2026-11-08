@@ -52,6 +52,7 @@ fn job_json(r: &tokio_postgres::Row) -> Value {
     let mode: Option<String> = r.get(7);
     let graph: String = r.get(8);
     let params: Value = r.get(9);
+    let params = params.clone();
     let status: String = r.get(10);
     let started: std::time::SystemTime = r.get(11);
     let finished: Option<std::time::SystemTime> = r.get(12);
@@ -98,7 +99,31 @@ fn job_json(r: &tokio_postgres::Row) -> Value {
                 .cloned()
                 .unwrap_or(Value::Null);
         }
+        "rejected" => {
+            v["reason"] = counts
+                .as_ref()
+                .and_then(|c| c.get("reason"))
+                .cloned()
+                .unwrap_or(Value::Null);
+            v["revert"] = counts
+                .as_ref()
+                .and_then(|c| c.get("revert"))
+                .cloned()
+                .unwrap_or(Value::Null);
+        }
+        "reverted" => {
+            v["reverted_by"] = counts
+                .as_ref()
+                .and_then(|c| c.get("reverted_by"))
+                .cloned()
+                .unwrap_or(Value::Null);
+        }
         _ => {}
+    }
+    // A batch's hash and operator, never its value (0104 §1).
+    if let Some(b) = params.get("batch") {
+        v["batch"] = b.clone();
+        v["operator"] = params.get("operator").cloned().unwrap_or(Value::Null);
     }
     v
 }
@@ -331,4 +356,332 @@ pub async fn get(
     };
     v["rejects"] = Value::Array(rejects);
     ok(&headers, &v)
+}
+
+// ---------------------------------------------------------------------------------------
+// The actions (0104 §2, §3, §6): reject, revert, close.
+// implements 0104 §5
+// implements 0104 §7
+// ---------------------------------------------------------------------------------------
+
+use axum::body::Bytes;
+use scatter_ingest::job::Job;
+use scatter_ingest::write::Attestation;
+use scatter_projection::Backend as _;
+use triplespace_api_action::edit::now_micros;
+use triplespace_api_ingest::jobs::{self, Kind, Submission};
+
+/// A job's row, as the actions need it.
+struct JobRow {
+    status: String,
+    mode: Option<String>,
+    actor: String,
+    operator: Option<String>,
+}
+
+async fn job_row<C: GenericClient>(
+    client: &C,
+    tenant: &str,
+    id: u64,
+) -> Result<Option<JobRow>, tokio_postgres::Error> {
+    let row = client
+        .query_opt(
+            "SELECT status, mode, actor_key, params->>'operator' FROM view.job WHERE tenant = $1 AND job_id = $2",
+            &[&tenant, &i64::try_from(id).unwrap_or(i64::MAX)],
+        )
+        .await?;
+    Ok(row.map(|r| JobRow {
+        status: r.get(0),
+        mode: r.get(1),
+        actor: r.get(2),
+        operator: r.get(3),
+    }))
+}
+
+/// A job ID from the path, or the `job-not-found` answer.
+fn parse_id(id: &str) -> Result<u64, Box<Response>> {
+    id.parse::<u64>().map_err(|_| {
+        Box::new(error(
+            StatusCode::NOT_FOUND,
+            "job-not-found",
+            format!("`{id}` is not a job ID"),
+        ))
+    })
+}
+
+/// The job's row, or the answer for a job that is not there.
+async fn find_job<C: GenericClient>(
+    client: &C,
+    tenant: &str,
+    job_id: u64,
+) -> Result<JobRow, Box<Response>> {
+    match job_row(client, tenant, job_id).await {
+        Ok(Some(r)) => Ok(r),
+        Ok(None) => Err(Box::new(error(
+            StatusCode::NOT_FOUND,
+            "job-not-found",
+            format!("no job {job_id} on this wiki"),
+        ))),
+        Err(e) => Err(Box::new(internal(&e))),
+    }
+}
+
+/// Queues a revert of `reverts` as `actor`; the revert job's ID.
+async fn queue_revert(
+    app: &App,
+    tenant: &str,
+    actor: &str,
+    reverts: u64,
+    reason: Option<&str>,
+) -> Result<u64, Box<Response>> {
+    let mut params = json!({"reverts": reverts});
+    if let Some(r) = reason.filter(|r| !r.is_empty()) {
+        params["reason"] = json!(r);
+    }
+    jobs::submit(
+        app.store(),
+        &Submission {
+            tenant: tenant.to_string(),
+            kind: Kind::Revert,
+            params,
+            payload: None,
+            actor: actor.to_string(),
+        },
+    )
+    .await
+    .map_err(|e| Box::new(internal(&e)))
+}
+
+/// `POST /jobs/{id}/reject`: `{reason, revert?}`; needs `ts-revertjob`.
+pub async fn reject(
+    State(app): State<App>,
+    Extension(origin): Extension<Origin>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    body: Bytes,
+) -> Response {
+    let ctx = match crate::acl::context(&app, origin, &headers).await {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
+    let object = match crate::acl::write_body(&app, &ctx, &headers, &body) {
+        Ok(o) => o,
+        Err(r) => return r,
+    };
+    if ctx.caller.require("ts-revertjob").is_err() {
+        return error(
+            StatusCode::FORBIDDEN,
+            "permissiondenied",
+            "rejecting a job needs the \"ts-revertjob\" right",
+        );
+    }
+    let Some(actor) = ctx.caller.identity.actor_key.clone() else {
+        return error(StatusCode::FORBIDDEN, "notloggedin", "an account is needed");
+    };
+    let job_id = match parse_id(&id) {
+        Ok(j) => j,
+        Err(r) => return *r,
+    };
+    let reason = object
+        .get("reason")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .unwrap_or_default()
+        .to_string();
+    if reason.is_empty() {
+        return error(
+            StatusCode::BAD_REQUEST,
+            "ts-reason-required",
+            "a reason is required",
+        );
+    }
+    let revert = object
+        .get("revert")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let tenant = ctx.tenant.slug.clone();
+    let row = match find_job(ctx.db(), &tenant, job_id).await {
+        Ok(r) => r,
+        Err(r) => return *r,
+    };
+    if row.status != "running" {
+        return error(
+            StatusCode::CONFLICT,
+            "job-not-running",
+            format!(
+                "job {job_id} is {}; only a running job is rejected",
+                row.status
+            ),
+        );
+    }
+    let revert_job = if revert {
+        match queue_revert(&app, &tenant, &actor, job_id, Some(&reason)).await {
+            Ok(j) => Some(j),
+            Err(r) => return *r,
+        }
+    } else {
+        None
+    };
+    let store = app.store();
+    let mut cx = match store.begin().await {
+        Ok(cx) => cx,
+        Err(e) => return internal(&e),
+    };
+    let written = async {
+        let handle = Job::handle(store, &mut cx, &tenant, job_id, Attestation::by(&actor)).await?;
+        handle
+            .reject_job(
+                store,
+                app.pipeline(),
+                &mut cx,
+                &reason,
+                revert_job,
+                now_micros(),
+            )
+            .await
+    }
+    .await;
+    if let Err(e) = written {
+        let _ = store.rollback(cx).await;
+        return internal(&e);
+    }
+    if let Err(e) = store.commit(cx).await {
+        return internal(&e);
+    }
+    let mut v = json!({"id": job_id, "status": "rejected", "reason": reason});
+    if let Some(r) = revert_job {
+        v["revert"] = json!(r);
+    }
+    ok(&headers, &v)
+}
+
+/// `POST /jobs/{id}/revert`: `{reason?}`; needs `ts-revertjob`. The revert runs under
+/// the runner (0104 §4): the answer names the revert job, queued.
+pub async fn revert(
+    State(app): State<App>,
+    Extension(origin): Extension<Origin>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    body: Bytes,
+) -> Response {
+    let ctx = match crate::acl::context(&app, origin, &headers).await {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
+    let object = match crate::acl::write_body(&app, &ctx, &headers, &body) {
+        Ok(o) => o,
+        Err(r) => return r,
+    };
+    if ctx.caller.require("ts-revertjob").is_err() {
+        return error(
+            StatusCode::FORBIDDEN,
+            "permissiondenied",
+            "reverting a job needs the \"ts-revertjob\" right",
+        );
+    }
+    let Some(actor) = ctx.caller.identity.actor_key.clone() else {
+        return error(StatusCode::FORBIDDEN, "notloggedin", "an account is needed");
+    };
+    let job_id = match parse_id(&id) {
+        Ok(j) => j,
+        Err(r) => return *r,
+    };
+    let tenant = ctx.tenant.slug.clone();
+    let row = match find_job(ctx.db(), &tenant, job_id).await {
+        Ok(r) => r,
+        Err(r) => return *r,
+    };
+    if row.status == "running" {
+        return error(
+            StatusCode::CONFLICT,
+            "job-running",
+            format!("job {job_id} is running; reject or close it first"),
+        );
+    }
+    let reason = object
+        .get("reason")
+        .and_then(Value::as_str)
+        .map(str::trim)
+        .filter(|r| !r.is_empty());
+    match queue_revert(&app, &tenant, &actor, job_id, reason).await {
+        Ok(r) => ok(
+            &headers,
+            &json!({"job": r, "status": "queued", "reverts": job_id, "links": {"page": format!("/wiki/Special:Jobs/{r}")}}),
+        ),
+        Err(r) => *r,
+    }
+}
+
+/// `POST /jobs/{id}/close`: the batch's submitter, their operator, or a holder of
+/// `ts-revertjob` ends a running batch.
+pub async fn close(
+    State(app): State<App>,
+    Extension(origin): Extension<Origin>,
+    headers: HeaderMap,
+    Path(id): Path<String>,
+    body: Bytes,
+) -> Response {
+    let ctx = match crate::acl::context(&app, origin, &headers).await {
+        Ok(c) => c,
+        Err(r) => return r,
+    };
+    if let Err(r) = crate::acl::write_body(&app, &ctx, &headers, &body) {
+        return r;
+    }
+    let Some(actor) = ctx.caller.identity.actor_key.clone() else {
+        return error(StatusCode::FORBIDDEN, "notloggedin", "an account is needed");
+    };
+    let job_id = match parse_id(&id) {
+        Ok(j) => j,
+        Err(r) => return *r,
+    };
+    let tenant = ctx.tenant.slug.clone();
+    let row = match find_job(ctx.db(), &tenant, job_id).await {
+        Ok(r) => r,
+        Err(r) => return *r,
+    };
+    if row.mode.as_deref() != Some("batch") {
+        return error(
+            StatusCode::CONFLICT,
+            "job-not-batch",
+            format!("job {job_id} is not a batch; only a batch is closed"),
+        );
+    }
+    if row.status != "running" {
+        return error(
+            StatusCode::CONFLICT,
+            "job-not-running",
+            format!("job {job_id} is {}", row.status),
+        );
+    }
+    let own = row.actor == actor
+        || row.operator.as_deref() == Some(actor.as_str())
+        || ctx.caller.require("ts-revertjob").is_ok();
+    if !own {
+        return error(
+            StatusCode::FORBIDDEN,
+            "permissiondenied",
+            "only the batch's submitter, their operator or a holder of \"ts-revertjob\" closes it",
+        );
+    }
+    let store = app.store();
+    let mut cx = match store.begin().await {
+        Ok(cx) => cx,
+        Err(e) => return internal(&e),
+    };
+    let written = async {
+        let handle = Job::handle(store, &mut cx, &tenant, job_id, Attestation::by(&actor)).await?;
+        handle
+            .close(store, app.pipeline(), &mut cx, now_micros())
+            .await
+    }
+    .await;
+    if let Err(e) = written {
+        let _ = store.rollback(cx).await;
+        return internal(&e);
+    }
+    if let Err(e) = store.commit(cx).await {
+        return internal(&e);
+    }
+    ok(&headers, &json!({"id": job_id, "status": "closed"}))
 }

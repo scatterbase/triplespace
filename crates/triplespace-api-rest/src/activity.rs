@@ -289,6 +289,7 @@ pub(crate) async fn serve(
         cache_class: Class::Public,
         cache_tags: Vec::new(),
         accept_language: None,
+        batch: std::sync::atomic::AtomicU64::new(0),
     };
     // The caller's watch set (16 §4.3).
     let mut holding = None;

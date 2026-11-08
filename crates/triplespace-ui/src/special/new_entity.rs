@@ -7,9 +7,9 @@
 //!   parameter wins over the subpage, as in Wikibase.
 //! - **`statement={property}:{value}`**, repeatable, is Triplespace's: each is shown as a
 //!   ticked box and added with the new entity (0029 §3's "Create an item with this DOI").
-//!   A value is taken as its data type's value only where that needs no parsing (string
-//!   types and entity IDs); a time, quantity, coordinate or monolingual text waits for
-//!   `wbparsevalue`, and is listed as left out.
+//!   A value is parsed as its data type's value ([`crate::special::values`]): strings and
+//!   entity IDs as written, a quantity, a time, a coordinate or monolingual text in the
+//!   plain forms that module takes; anything else is listed as left out.
 //! - **The write** is one `wbeditentity` with `new=`, through the same handler as the API
 //!   (0034 §1.5), so permissions, filters and rate limits are the API's. Success is a `303`
 //!   to the new entity's page (post, redirect, get); a refusal shows the form again with
@@ -19,8 +19,6 @@
 
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
-use scatter_wikibase_model::id::EntityId;
-use scatter_wikibase_model::value::{DataType, ValueType};
 use serde_json::{Map, Value, json};
 use triplespace_client::{CacheInfo, ClientError, Incoming, SiteInfo};
 
@@ -204,42 +202,7 @@ struct Prefill {
     statement: Result<Value, String>,
 }
 
-/// The entity type an ID's form implies, where it is an ID and implies one.
-fn implied_type(id: &str) -> Option<String> {
-    EntityId::parse(id)
-        .ok()?
-        .implied_entity_type()
-        .map(str::to_string)
-}
-
-/// The `datavalue` for `value` of a property of type `datatype`, or why there is none.
-fn datavalue(m: &Messages, datatype: &str, value: &str, raw: &str) -> Result<Value, String> {
-    let dt = DataType::parse(datatype);
-    match dt.value_type() {
-        Some(ValueType::String) => Ok(json!({"type": "string", "value": value})),
-        Some(ValueType::EntityId) => {
-            let want = dt.entity_type().unwrap_or("item");
-            // A keyed type's value may be given without its prefix: `example.org` for
-            // `domain:example.org` (0009 §2).
-            let keyed = matches!(want, "domain" | "keyword" | "notation")
-                .then(|| format!("{want}:{value}"));
-            let id = std::iter::once(value)
-                .chain(keyed.as_deref())
-                .find(|c| implied_type(c).as_deref() == Some(want))
-                .ok_or_else(|| {
-                    m.with(
-                        "ts-new-statement-bad-value",
-                        &[value, &datatype_name(m, datatype)],
-                    )
-                })?;
-            Ok(json!({"type": "wikibase-entityid", "value": {"entity-type": want, "id": id}}))
-        }
-        _ => Err(m.with(
-            "ts-new-statement-unsupported",
-            &[&datatype_name(m, datatype), raw],
-        )),
-    }
-}
+use crate::special::values::{datavalue, implied_type};
 
 /// Reads the `statement=` parameters, with each property's label and data type from the
 /// API.
@@ -775,8 +738,13 @@ mod tests {
             datavalue(&m, "wikibase-domain", "example.org", "P4:example.org").unwrap()["value"]["id"],
             json!("domain:example.org")
         );
-        let why = datavalue(&m, "time", "1952", "P3:1952").unwrap_err();
-        assert!(why.contains("Point in time"), "{why}");
+        // A time parses in its plain form now (0104 §11); what has no plain form is named.
+        assert_eq!(
+            datavalue(&m, "time", "1952", "P3:1952").unwrap()["value"]["precision"],
+            json!(9)
+        );
+        let why = datavalue(&m, "some-future-type", "x", "P3:x").unwrap_err();
+        assert!(why.contains("P3:x"), "{why}");
     }
 
     #[test]

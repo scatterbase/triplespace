@@ -920,6 +920,16 @@ requires = "query.enabled"
 adr = "0059 §6"
 
 # Writes a triplespace-sprint subpage under a project page (0061 §9).
+# Many items from one table, under a batch (0104 §11).
+[[page]]
+name = "CreateEntities"
+origin = "triplespace"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+restricted = "createpage"
+adr = "0104 §11"
+
 [[page]]
 name = "CreateSprint"
 origin = "triplespace"

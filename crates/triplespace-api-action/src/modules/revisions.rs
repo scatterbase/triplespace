@@ -288,6 +288,7 @@ pub async fn deleted(
         cache_class: crate::http_cache::Class::Private,
         cache_tags: Vec::new(),
         accept_language: ctx.accept_language.clone(),
+        batch: std::sync::atomic::AtomicU64::new(0),
     };
     revisions_of(&ctx, query, body, response, &pages, "deletedrevisions").await
 }

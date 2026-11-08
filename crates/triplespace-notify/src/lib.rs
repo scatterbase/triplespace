@@ -468,8 +468,8 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AddressingProjection {
 }
 
 /// A job's end addresses the account that ran it, or its operator (16 §5.2, reason
-/// `job`; 0024 §6; 0104 §4): a `job/finish`, `job/fail`, `job/revert` or
-/// `job/interrupt` event is delivered to the inbox of the job's actor, the one exception
+/// `job`; 0024 §6; 0104 §4): a `job/finish`, `job/fail`, `job/revert`, `job/interrupt`
+/// or `job/reject` event is delivered to the inbox of the job's actor, the one exception
 /// to nobody being told of their own action, since the job ran without them. Any other
 /// log event addresses nobody here.
 async fn job_done(cx: &PgCx, tenant: &str, record: &Record) -> Result<Applied, String> {
@@ -483,7 +483,10 @@ async fn job_done(cx: &PgCx, tenant: &str, record: &Record) -> Result<Applied, S
         .get("action")
         .and_then(scatter_log::cbor::Value::as_text)
         .unwrap_or_default();
-    if !matches!(action, "finish" | "fail" | "revert" | "interrupt") {
+    if !matches!(
+        action,
+        "finish" | "fail" | "revert" | "interrupt" | "reject"
+    ) {
         return Ok(Applied::rows(0));
     }
     let Some(job_id) = event

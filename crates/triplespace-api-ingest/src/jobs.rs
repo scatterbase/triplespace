@@ -14,8 +14,9 @@
 //! (an import skips what it wrote, 0008 §9). **Finishing** deletes the row; the job's
 //! finish or fail record is the job's own.
 //!
-//! Each kind of job is a function of the row ([`Kind`]); this phase carries `import`.
-//! The follower, sync and adoption jobs still run where the command line runs them.
+//! Each kind of job is a function of the row ([`Kind`]); this phase carries `import` and
+//! `revert` (0104 §3). The follower, sync and adoption jobs still run where the command
+//! line runs them.
 //!
 //! implements 0104 §8 (A1)
 
@@ -45,6 +46,8 @@ pub enum Kind {
     /// A MediaWiki XML import (0008 §9): the file in `payload`, an [`ImportRequest`] in
     /// `params`.
     Import,
+    /// A revert of another job (0104 §3): `reverts`, the job, and `reason` in `params`.
+    Revert,
 }
 
 impl Kind {
@@ -53,6 +56,7 @@ impl Kind {
     pub fn name(self) -> &'static str {
         match self {
             Self::Import => "import",
+            Self::Revert => "revert",
         }
     }
 
@@ -61,6 +65,7 @@ impl Kind {
     pub fn parse(name: &str) -> Option<Self> {
         match name {
             "import" => Some(Self::Import),
+            "revert" => Some(Self::Revert),
             _ => None,
         }
     }
@@ -566,6 +571,34 @@ async fn run_kind(
             drop(progress);
             let _ = reporter.await;
             result.map(|_| ())
+        }
+        Kind::Revert => {
+            let reverts = claimed
+                .params
+                .get("reverts")
+                .and_then(serde_json::Value::as_u64)
+                .ok_or_else(|| store_err("a revert job names the job it reverts"))?;
+            let reason = claimed
+                .params
+                .get("reason")
+                .and_then(serde_json::Value::as_str)
+                .map(str::to_string);
+            let pool = store.backend().pool().clone();
+            let client = pool.get().await.map_err(store_err)?;
+            crate::revert::run_revert(
+                store,
+                pipeline,
+                &**client,
+                &claimed.tenant,
+                &claimed.actor,
+                reverts,
+                Some(claimed.job_id),
+                reason.as_deref(),
+                scatter_providers::Registry::default_registry(),
+                now,
+            )
+            .await
+            .map(|_| ())
         }
     }
 }

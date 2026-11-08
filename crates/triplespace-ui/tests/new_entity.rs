@@ -269,14 +269,13 @@ async fn the_form_with_its_prefills() {
         !a.body.contains("name=\"datatype\""),
         "an item has no data type"
     );
-    // Two can be added; three cannot, each saying why.
+    // Three can be added, the year parsed as a time (0104 §11); two cannot, each saying
+    // why.
     assert!(a.body.contains("value=\"P5:10.1000/182\" checked"));
     assert!(a.body.contains("DOI (P5): 10.1000/182"));
     assert!(a.body.contains("instance of (P7): Q2"));
-    assert!(
-        a.body
-            .contains("values of type Point in time cannot be filled in here yet")
-    );
+    assert!(a.body.contains("value=\"P6:1952\" checked"), "{}", a.body);
+    assert!(a.body.contains("inception (P6): 1952"), "{}", a.body);
     assert!(a.body.contains("there is no property P99"));
     // Either renderer's spelling of a quotation mark (19 §5.10).
     assert!(spelled(&a.body).contains("&quot;nonsense&quot; is left out"));

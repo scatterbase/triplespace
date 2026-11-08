@@ -29,6 +29,10 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
   `America/Los_Angeles`). Everything after that check in the test is not run. A session
   option in the test URL does not reach it, since the test rebuilds the URL for its scratch
   database; `ALTER ROLE <you> SET timezone = 'UTC'` on the test server makes it pass.
+- A test that `ORDER BY`s text and asserts the order depends on the server's collation: the
+  sandbox's Postgres (`C`) puts `Portland` before `city`, CI's Postgres 18 service container
+  (`en_US.UTF-8`) puts `city` first (2026-11-08, `create_entities`). Sort in Rust, or order
+  by a key that is not text.
 
 ## The cloud sandbox
 
@@ -44,6 +48,9 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
 - Its Playwright browsers (build 1243, `/opt/pw-browsers`) are the ones `@playwright/test` 1.63.0
   expects, which is the version `ui/package.json` pins, so `ui/e2e` runs there as it is. They
   cannot be downloaded: if the pin moves past 1.63, the sandbox's browsers no longer match.
+  `ui/node_modules` is not in the tree: `npm ci` (about 500 MB) first, then `npm run build`,
+  then the three binaries, which embed `ui/dist`. One spec runs as
+  `ui/e2e/run.sh --trace off e2e/<name>.spec.js`.
 - `pkill -f triplespace-server` from a sandbox shell kills the calling shell too (its command line
   contains the name); match on the binary path (`pkill -f "^/home/.*/triplespace-server"`), and
   start a test server and query it within one call, since background processes die when the call

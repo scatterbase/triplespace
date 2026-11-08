@@ -145,6 +145,9 @@ pub const PATHS: &[&str] = &[
     "/export",
     "/jobs",
     "/jobs/{id}",
+    "/jobs/{id}/reject",
+    "/jobs/{id}/revert",
+    "/jobs/{id}/close",
 ];
 
 /// The REST routes, to be merged into the server's router.
@@ -239,7 +242,10 @@ pub fn routes() -> Router<App> {
             .route(&format!("{base}{}", PATHS[52]), get(record::proofs))
             .route(&format!("{base}{}", PATHS[53]), post(export::post))
             .route(&format!("{base}{}", PATHS[54]), get(jobs::list))
-            .route(&format!("{base}{}", PATHS[55]), get(jobs::get));
+            .route(&format!("{base}{}", PATHS[55]), get(jobs::get))
+            .route(&format!("{base}{}", PATHS[56]), post(jobs::reject))
+            .route(&format!("{base}{}", PATHS[57]), post(jobs::revert))
+            .route(&format!("{base}{}", PATHS[58]), post(jobs::close));
     }
     r
 }

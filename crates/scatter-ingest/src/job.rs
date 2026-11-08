@@ -361,6 +361,72 @@ impl Job {
         })
     }
 
+    /// Appends a `job/reject` record under this job's key (0104 §2): a holder of
+    /// `ts-revertjob` rejected the batch, or the running job, for `reason`, and started
+    /// the revert `revert` where they asked for one. Writes naming a rejected batch are
+    /// refused from then on.
+    pub async fn reject_job<S: IngestStore>(
+        &self,
+        store: &S,
+        pipeline: &Pipeline<S>,
+        cx: &mut S::Cx,
+        reason: &str,
+        revert: Option<u64>,
+        now: u64,
+    ) -> Result<u64, IngestError> {
+        let mut params = serde_json::json!({"reason": reason});
+        if let Some(r) = revert {
+            params["revert"] = serde_json::json!(r);
+        }
+        let draft = self.event(store, cx, "reject", params, now).await?;
+        let (record, _) =
+            append_projected(store, pipeline, cx, self.log_partition, draft, Budget::NONE).await?;
+        Ok(record.header().offset)
+    }
+
+    /// Appends a `job/close` record under this job's key (0104 §1): the batch's submitter
+    /// ended it; a later write naming its value opens a new one.
+    pub async fn close<S: IngestStore>(
+        &self,
+        store: &S,
+        pipeline: &Pipeline<S>,
+        cx: &mut S::Cx,
+        now: u64,
+    ) -> Result<u64, IngestError> {
+        let draft = self
+            .event(store, cx, "close", serde_json::json!({}), now)
+            .await?;
+        let (record, _) =
+            append_projected(store, pipeline, cx, self.log_partition, draft, Budget::NONE).await?;
+        Ok(record.header().offset)
+    }
+
+    /// Appends a `job/revert` record under this job's key (0104 §3): the revert job
+    /// `reverted_by` wrote the inverse of its records, `skipped` of them left as they
+    /// were because something changed them since.
+    pub async fn reverted<S: IngestStore>(
+        &self,
+        store: &S,
+        pipeline: &Pipeline<S>,
+        cx: &mut S::Cx,
+        reverted_by: u64,
+        skipped: u64,
+        now: u64,
+    ) -> Result<u64, IngestError> {
+        let draft = self
+            .event(
+                store,
+                cx,
+                "revert",
+                serde_json::json!({"reverted_by": reverted_by, "skipped": skipped}),
+                now,
+            )
+            .await?;
+        let (record, _) =
+            append_projected(store, pipeline, cx, self.log_partition, draft, Budget::NONE).await?;
+        Ok(record.header().offset)
+    }
+
     /// Appends a `job/interrupt` record under this job's key, naming `by`, the job that
     /// noticed it had died (0011 A36; 0104 §4).
     pub async fn interrupt<S: IngestStore>(

@@ -23,12 +23,15 @@
 
 pub mod accounts;
 pub mod acl;
+pub mod batch;
 pub mod blocks;
+pub mod diff;
 pub mod follow;
 pub mod groups;
 pub mod import;
 pub mod jobs;
 pub mod membership;
+pub mod revert;
 pub mod settings;
 pub mod sources;
 pub mod store;

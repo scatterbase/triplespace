@@ -1,0 +1,20 @@
+{#- Special:CreateEntities (0104 §11; 21 §6.6): many items from one table. The form, the
+    preview with its confirmation, or the report. -#}
+{%- import "codex.html" as codex -%}
+{%- import "forms.html" as forms -%}
+<div class="ts-createentities">
+{%- if gate %}{{ codex.message(gate.notice) }}{% if gate.login %}<p><a href="{{ gate.login.href }}">{{ gate.login.label }}</a></p>{% endif -%}
+{%- elif report %}{% set r = report %}<h2>{{ r.title }}</h2><p>{{ r.summary }}{% if r.job %} <a href="{{ r.job[0] }}">{{ r.job[1] }}</a>{% endif %}</p>
+<table class="cdx-table__table ts-createentities__report"><thead><tr>{% for h in r.headings %}<th scope="col">{{ h }}</th>{% endfor %}</tr></thead><tbody>
+{%- for row in r.rows %}<tr><td>{{ row.line }}</td><td>{{ row.shown }}</td><td>{% if row.created %}<a href="{{ row.created[0] }}">{{ row.created[1] }}</a>{% else %}<span class="ts-createentities__error">{{ row.error }}</span>{% endif %}</td></tr>{% endfor %}</tbody></table>
+<p><a href="{{ r.again[0] }}">{{ r.again[1] }}</a></p>
+{%- else %}{% for n in notices %}{{ codex.message(n) }}{% endfor %}
+{%- if preview %}{% set p = preview %}<h2>{{ p.title }}</h2><ul class="ts-createentities__columns">{% for c in p.columns %}<li>{{ c }}</li>{% endfor %}</ul><p>{{ p.summary }}</p>
+<table class="cdx-table__table ts-createentities__preview"><thead><tr>{% for h in p.headings %}<th scope="col">{{ h }}</th>{% endfor %}</tr></thead><tbody>
+{%- for row in p.rows %}<tr class="{% if row.errors %}ts-createentities__row--invalid{% else %}ts-createentities__row--valid{% endif %}"><td>{{ row.line }}</td><td>{{ row.shown }}</td><td>{{ row.summary }}</td><td>{% if row.errors %}<ul>{% for e in row.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}</td></tr>{% endfor %}</tbody></table>
+<form class="ts-createentities__confirm" method="post" action="{{ action }}">{% for h in p.hidden %}<input type="hidden" name="{{ h[0] }}" value="{{ h[1] }}">{% endfor %}<p>{{ p.confirm_note }}</p><div class="ts-protect__actions">{% if p.submit %}{{ codex.button(p.submit) }}{% endif %}<a href="{{ p.cancel }}" class="ts-protect__cancel">{{ p.cancel_label }}</a></div></form>
+{%- else %}<p>{{ intro }}</p>
+<form class="ts-createentities__form" method="post" enctype="multipart/form-data" action="{{ action }}"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="wpStep" value="preview">
+{{ forms.field(rows) }}{{ forms.field(file) }}{{ forms.field(shared) }}{{ forms.field(batch) }}
+<div class="ts-protect__actions">{{ codex.button(submit) }}</div></form>
+{%- endif %}{% endif %}</div>

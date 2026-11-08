@@ -1,6 +1,8 @@
 //! `view.job` and `view.job_reject` (step 2; 0011 §6.3; 0013 §5.5) from the `job` log
-//! events of payloads.md §5: `start` opens the row, `finish`, `fail`, `revert` and
-//! `interrupt` (0011 A36) close it. A job's rejects travel on its finish record as `params.rejects`, the first N for
+//! events of payloads.md §5: `start` opens the row, `finish`, `fail`, `revert`,
+//! `interrupt` (0011 A36), `reject` and `close` (0104 §1, §2) close it. A batch's start
+//! carries the hash of its value as `batch`, kept in its own column so that a write
+//! naming the hash finds the open batch (0104 §1). A job's rejects travel on its finish record as `params.rejects`, the first N for
 //! the job page (0010 §9); an import's own counts, as `params.import`, are kept under
 //! `counts.import`.
 
@@ -54,15 +56,17 @@ async fn start(cx: &PgCx, ev: &Event<'_>, record: &Record) -> Result<u64, String
     let args = params
         .get("args")
         .map_or_else(|| serde_json::json!({}), to_jsonb);
+    let batch = params.get("args").and_then(|a| text(a, "batch"));
     cx.execute(
                 "INSERT INTO view.job (tenant, job_id, actor_key, requested_by, source, source_version, adapter_version,
-                                       mode, graph, params, status, started, start_offset)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'running', $11, $12)
+                                       mode, graph, params, status, started, start_offset, batch)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'running', $11, $12, $13)
                  ON CONFLICT (tenant, job_id) DO UPDATE SET
                    actor_key = EXCLUDED.actor_key, requested_by = EXCLUDED.requested_by, source = EXCLUDED.source,
                    source_version = EXCLUDED.source_version, adapter_version = EXCLUDED.adapter_version,
                    mode = EXCLUDED.mode, graph = EXCLUDED.graph, params = EXCLUDED.params,
-                   started = EXCLUDED.started, start_offset = EXCLUDED.start_offset",
+                   started = EXCLUDED.started, start_offset = EXCLUDED.start_offset, batch = EXCLUDED.batch,
+                   status = 'running', finished = NULL, counts = NULL, finish_offset = NULL",
                 &[
                     &tenant,
                     &job_id,
@@ -76,6 +80,7 @@ async fn start(cx: &PgCx, ev: &Event<'_>, record: &Record) -> Result<u64, String
                     &args,
                     &time,
                     &offset,
+                    &batch,
                 ],
             )
             .await
@@ -95,6 +100,8 @@ async fn close(cx: &PgCx, ev: &Event<'_>, action: &str) -> Result<u64, String> {
         "finish" => "finished",
         "fail" => "failed",
         "interrupt" => "interrupted",
+        "reject" => "rejected",
+        "close" => "closed",
         _ => "reverted",
     };
     let counts = match action {
@@ -105,9 +112,12 @@ async fn close(cx: &PgCx, ev: &Event<'_>, action: &str) -> Result<u64, String> {
             if let (Some(m), Some(obj)) = (params.get("hash_mismatches"), c.as_object_mut()) {
                 obj.insert("hash_mismatches".into(), to_jsonb(m));
             }
-            // An import's own counts (0008 §9): revisions written, present, restored.
-            if let (Some(i), Some(obj)) = (params.get("import"), c.as_object_mut()) {
-                obj.insert("import".into(), to_jsonb(i));
+            // An import's own counts (0008 §9): revisions written, present, restored; a
+            // revert's: the job reverted, how many records, and what was skipped (0104 §3).
+            for key in ["import", "reverts", "reverted", "skipped"] {
+                if let (Some(v), Some(obj)) = (params.get(key), c.as_object_mut()) {
+                    obj.insert(key.into(), to_jsonb(v));
+                }
             }
             c
         }
@@ -232,7 +242,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for JobProjection {
                     )
                     .await?
                 }
-                "finish" | "fail" | "revert" | "interrupt" => {
+                "finish" | "fail" | "revert" | "interrupt" | "reject" | "close" => {
                     close(
                         cx,
                         &Event {
