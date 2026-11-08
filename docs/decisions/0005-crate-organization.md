@@ -1200,14 +1200,14 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §3.3, as it stood):
 ### A115. `scatter-wikibase-rdf` depends on `scatter-normalize`, `oxttl` and `md-5`
 
 - **Date:** 2026-11-07
-- **Source:** Direct: Claude, while building `scatter-wikibase-rdf` (SCA-301), 2026-11-07; unconfirmed
+- **Source:** Direct: Claude, while building `scatter-wikibase-rdf` (SCA-301), 2026-11-07; confirmed by James, 2026-11-08
 - **Change:** extends §2
 - **Summary:** The crate's row named only `scatter-wikibase-model`, `scatter-vocab` and `scatter-providers`. Building it took three more: `scatter-normalize`, whose keyed-type registry turns a keyed ID into its concept IRI (`https://scatter.red/domain/{key}`, [04](../architecture/04-entities-and-identifiers.md) §3.5), as the provider registry does a foreign one; `oxttl`, which [02](../architecture/02-graphs-rdf-and-query.md) §4.1 already names for writing N-Triples and Turtle without a store ([0033](0033-backend-stack.md) §8), added to the workspace at 0.2 to match `oxrdf` 0.3; and `md-5`, for naming blank nodes. All three are pure and build for wasm32. `oxrdf`, which the crate's terms are, is listed too. `triplespace-api-action` uses the crate for `Special:EntityData`'s RDF forms under its `lower` rule, with no change to its row.
 
 ### A116. `triplespace-rdf` is built; what it, the API and the CLI depend on
 
 - **Date:** 2026-11-07
-- **Source:** Direct: Claude, while building the dumps (SCA-301), 2026-11-07; unconfirmed
+- **Source:** Direct: Claude, while building the dumps (SCA-301), 2026-11-07; confirmed by James, 2026-11-08
 - **Change:** extends §2
 - **Summary:** `triplespace-rdf` is built as the dump writer and depends on `triplespace-projections` (the composed read of each entity and the ACL chain), `scatter-actors` (the read decision), `scatter-wikibase-model`, `scatter-providers`, `scatter-normalize`, `oxrdf`, `flate2`, `sha2` and `tokio-postgres`, beside the edges its row already named; `scatter-mwlog` and `scatter-quadstore` stay named for the metadata graph and the local quad store. `scatter-wikibase-rdf` names its blank nodes by SHA-256 ([0032](0032-sparql-update-stream.md) A13) and drops `md-5` for `sha2`. Three helpers move from `triplespace-api-action` into `triplespace-projections::read` so that `Special:EntityData` and the dumps share them: which statements are named as their upstream names them, keyed entities' derived terms, and ISO dates. `triplespace-api-action` uses `triplespace-rdf` to list dumps and `tokio-util`, already in the lockfile, to stream them; the CLI uses it for `triplespace dump`. All are within the rows' `lower` rules.
 
@@ -1225,7 +1225,7 @@ Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §1.1, as it sto
 ### A118. `triplespace-rdf` writes bundles too
 
 - **Date:** 2026-11-07
-- **Source:** Direct: Claude, while building the public bundle (SCA-302), 2026-11-07; unconfirmed
+- **Source:** Direct: Claude, while building the public bundle (SCA-302), 2026-11-07; confirmed by James, 2026-11-08
 - **Change:** extends §2
 - **Summary:** `triplespace-rdf` gains a `bundle` module, the partitions, origins, `key:` records and export-scope reader that `triplespace export` and the dump's public bundle share, and so depends on `scatter-integrity`, `scatter-log` and `scatter-log-postgres`; the reader takes the reader's permissions as a value, so the crate needs no `triplespace-accounts`. [0013](0013-postgres-storage.md) A81 says why the dump writes the bundle.
 
@@ -1239,13 +1239,13 @@ Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §1.1, as it sto
 ### A120. Two edges for the XML export
 
 - **Date:** 2026-11-08
-- **Source:** Direct: Claude, while building the MediaWiki XML export (SCA-300), 2026-11-08; unconfirmed
+- **Source:** Direct: Claude, while building the MediaWiki XML export (SCA-300), 2026-11-08; confirmed by James, 2026-11-08
 - **Change:** extends §2
 - **Summary:** `triplespace-rdf` depends on `scatter-pages`, for the content-model registry's formats the XML's `<format>` elements carry; `scatter-mediawiki-xml` depends on `sha1`, for MediaWiki's base-36 SHA-1 of a revision's text. Chapter text: 22 §2.1 (`crates.toml`).
 
 ### A121. The import's homes and edges
 
 - **Date:** 2026-11-08
-- **Source:** Direct: Claude, while building the MediaWiki XML import (SCA-303), 2026-11-08; unconfirmed
+- **Source:** Direct: Claude, while building the MediaWiki XML import (SCA-303), 2026-11-08; confirmed by James, 2026-11-08
 - **Change:** extends §2
 - **Summary:** The talk-page conversion of [0090](0090-converting-talk-pages-comment-by-comment.md) §10 runs in `triplespace-api-ingest` (`talk_import`), not `triplespace-cli` as A107 placed it: still above the ingester (22 §1.2 rule 1), and now shared by `triplespace adopt`, `triplespace import` and `action=import`. `triplespace-api-ingest` also holds the import's reader (a dump page as what the job takes, classed by the adoption rules), the Postgres title index the merge reads, and the census wired to `scatter-wikitext-expand`'s scanner (`import`). `scatter-ingest` takes `scatter-mediawiki-xml` in Cargo for the census's page type, the edge A119 named; `scatter-wikitext-expand` gains the census scan over its registry, no new edge. `triplespace-api-action` depends on `reqwest`, to fetch another wiki's export, and on `scatter-talk` and `scatter-mediawiki-xml`; `triplespace-ui` on `base64`, for the file carried along a confirmation; axum's `multipart` feature serves both. Chapter text: [22](../architecture/22-crates-and-stack.md) §2.1 (`crates.toml`).

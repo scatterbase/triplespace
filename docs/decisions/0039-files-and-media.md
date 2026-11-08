@@ -349,6 +349,6 @@ Replaced text ([12](../architecture/12-files-and-media.md) §4.1, as it stood):
 ### A15. Staging keys, commit retries and reserved scope names
 
 - **Date:** 2026-11-07
-- **Source:** Direct: Claude, while building `scatter-blob`'s filesystem backend (SCA-299), 2026-11-07; unconfirmed
+- **Source:** Direct: Claude, while building `scatter-blob`'s filesystem backend (SCA-299), 2026-11-07; confirmed by James, 2026-11-08
 - **Change:** extends §3, §4
 - **Summary:** Three calls the crate needed that §3 and §4 did not make. A streamed write whose caller names no stash key is staged under a store-generated `stash/tmp-{pid}-{nanos}-{n}` key, left for the orphan sweep on a crash. A commit (copy-if-absent, then stash deletion) retried after its stash object is gone succeeds when the `sha256/` address holds an object and is not-found only when neither exists, so the two steps need no transaction. Scope names beginning with `_` are reserved for the instance's own scopes, so `_instance` can never collide with a tenant slug. Also: the `fs` backend creates a missing root directory and removes a shard directory emptied by a deletion. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §8 and [12](../architecture/12-files-and-media.md) §2.
