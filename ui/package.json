@@ -113,23 +113,23 @@
 		"@wikimedia/codex": "2.7.0",
 		"@wikimedia/codex-design-tokens": "2.7.0",
 		"@wikimedia/codex-icons": "2.7.0",
-		"vue": "3.5.43"
+		"vue": "3.5.45"
 	},
 	"devDependencies": {
 		"@axe-core/playwright": "4.14.0",
-		"@playwright/test": "1.63.0",
-		"@vitejs/plugin-vue": "6.0.9",
+		"@playwright/test": "1.65.0",
+		"@vitejs/plugin-vue": "6.0.10",
 		"@vue/test-utils": "2.5.1",
 		"eslint": "8.57.1",
 		"eslint-config-wikimedia": "0.32.6",
 		"grunt-banana-checker": "0.13.0",
 		"happy-dom": "21.0.4",
-		"smol-toml": "1.9.0",
-		"stylelint-config-wikimedia": "0.19.4",
+		"smol-toml": "1.9.1",
+		"stylelint-config-wikimedia": "0.20.0",
 		"typescript": "5.9.3",
 		"vite": "8.3.6",
-		"vitest": "5.0.3",
-		"vue-tsc": "3.3.12"
+		"vitest": "5.1.0",
+		"vue-tsc": "3.3.14"
 	},
 	"overrides": {
 		"minimatch@>=7.0.0 <11.0.1": "^11.0.1"
