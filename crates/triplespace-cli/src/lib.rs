@@ -19,6 +19,7 @@ pub mod job;
 pub mod log_bundle;
 pub mod logins;
 pub mod oauth_client;
+pub mod probe;
 pub mod rights;
 pub mod settings;
 pub mod source;

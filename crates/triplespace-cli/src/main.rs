@@ -22,6 +22,11 @@ use triplespace_cli::{
 struct Cli {
     #[command(subcommand)]
     command: Command,
+    /// Report what this run uses from the catalogues (permissions, settings, log events) to
+    /// this file, one `{kind} {name}` line each, for `tools/probe_report.py` (0107 §1). For
+    /// test runs; off unless set.
+    #[arg(long, global = true, env = "TRIPLESPACE_PROBE")]
+    probe: Option<std::path::PathBuf>,
 }
 
 #[derive(Debug, Subcommand)]
@@ -152,7 +157,11 @@ fn main() -> Result<()> {
 
 #[tokio::main]
 async fn run() -> Result<()> {
-    match Cli::parse().command {
+    let cli = Cli::parse();
+    if let Some(path) = &cli.probe {
+        triplespace_cli::probe::start(path)?;
+    }
+    match cli.command {
         Command::Instance {
             command: InstanceCommand::Create(args),
         } => instance::run(args).await,

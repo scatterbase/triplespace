@@ -145,16 +145,16 @@ jobs:
       - name: Browser
         working-directory: ui
         run: npx playwright install --with-deps chromium
-      # The API server reports every permission it checks (0105 §2, A1); the web replicas
-      # check none, since they reach the instance only through its API.
+      # The CLI and the API server report what they use from the catalogues (0107 §1); the web
+      # replicas use none directly, since they reach the instance only through its API.
       - name: Suite
         working-directory: ui
         env:
-          TRIPLESPACE_PROBE_PERMISSIONS: ${{ runner.temp }}/permissions-checked.txt
+          TRIPLESPACE_PROBE: ${{ runner.temp }}/probe.txt
         run: npm run e2e
-      - name: Permissions checked
+      - name: Catalogues checked
         if: always()
-        run: python3 tools/permission_report.py --strict "$RUNNER_TEMP/permissions-checked.txt"
+        run: python3 tools/probe_report.py --strict "$RUNNER_TEMP/probe.txt"
 
   clients:
     name: Client compatibility (WikibaseIntegrator, Pywikibot, WikidataIntegrator)
@@ -193,24 +193,24 @@ jobs:
         run: pip install -r tools/requirements-compat.txt
       # A database loaded from the Librarybase sample fixture, the API, a bot key, and the
       # three checks; any failing check fails the job, WikidataIntegrator included.
-      # Both servers report every permission they check to one file (0105 §2), which the last
-      # step compares with the catalogue.
+      # The CLI and both servers report what they use from the catalogues to one file (0107 §1),
+      # which the last step compares with them.
       - name: Checks
         env:
-          TRIPLESPACE_PROBE_PERMISSIONS: ${{ runner.temp }}/permissions-checked.txt
+          TRIPLESPACE_PROBE: ${{ runner.temp }}/probe.txt
         run: tools/client_compat.sh
       # The permission model's attack battery against a second fresh server (09 §4–§5): every
       # leak, escalation or false denial is a finding, and any finding fails the job.
       - name: Permission model
         env:
-          TRIPLESPACE_PROBE_PERMISSIONS: ${{ runner.temp }}/permissions-checked.txt
+          TRIPLESPACE_PROBE: ${{ runner.temp }}/probe.txt
         run: tools/acl_check.sh
-      # The permissions the two servers checked, against permissions.toml and groups.toml
-      # (0105 §2, A1; 09 §2.2), on the job's summary page: an unlisted permission, or no check
-      # observed at all, fails the job.
-      - name: Permissions checked
+      # The permissions, settings and log events the runs used, against permissions.toml,
+      # groups.toml, settings.toml and log-events.toml (0107; 24 §11), on the job's summary page:
+      # anything unlisted, or nothing observed at all, fails the job.
+      - name: Catalogues checked
         if: always()
-        run: python3 tools/permission_report.py --strict "$RUNNER_TEMP/permissions-checked.txt"
+        run: python3 tools/probe_report.py --strict "$RUNNER_TEMP/probe.txt"
 
   deny:
     name: Licences and advisories

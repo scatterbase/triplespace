@@ -116,46 +116,11 @@ struct Args {
         default_value = "broadcast"
     )]
     mail_postmark_notification_stream: String,
-    /// Report every permission the server checks (0105 §2): each name, once, appended as a
-    /// line to this file, for `tools/permission_report.py` to compare with the catalogue.
+    /// Report what the server uses from the catalogues (permissions, settings, log events)
+    /// to this file, one `{kind} {name}` line each, for `tools/probe_report.py` (0107 §1).
     /// For test runs; off unless set.
-    #[arg(long, env = "TRIPLESPACE_PROBE_PERMISSIONS")]
-    probe_permissions: Option<PathBuf>,
-}
-
-/// The file the permission checks are reported to, and the names already written (0105 §2).
-static PROBE: std::sync::OnceLock<
-    std::sync::Mutex<(std::fs::File, std::collections::HashSet<String>)>,
-> = std::sync::OnceLock::new();
-
-/// Appends each permission name the first time it is checked (0105 §2). Several servers may
-/// share the file (the client checks and the attack battery each start one), so a name can
-/// appear more than once in it; the report reads it as a set.
-fn probe_permission(permission: &str) {
-    use std::io::Write;
-    let Some(probe) = PROBE.get() else { return };
-    let Ok(mut probe) = probe.lock() else { return };
-    let (file, seen) = &mut *probe;
-    if seen.insert(permission.to_owned()) {
-        let _ = writeln!(file, "{permission}");
-        let _ = file.flush();
-    }
-}
-
-/// Starts reporting permission checks to the file: implements 0105 §2 (A1).
-fn start_permission_probe(path: &std::path::Path) -> Result<()> {
-    let file = std::fs::OpenOptions::new()
-        .create(true)
-        .append(true)
-        .open(path)
-        .with_context(|| format!("--probe-permissions {}", path.display()))?;
-    let _ = PROBE.set(std::sync::Mutex::new((
-        file,
-        std::collections::HashSet::new(),
-    )));
-    scatter_actors::observe_permission_checks(probe_permission);
-    eprintln!("reporting permission checks to {}", path.display());
-    Ok(())
+    #[arg(long, env = "TRIPLESPACE_PROBE")]
+    probe: Option<PathBuf>,
 }
 
 /// The mail transport the settings choose (0100 §5; 16 §5.7), and what the handlers are
@@ -399,8 +364,9 @@ fn main() -> Result<()> {
 #[tokio::main]
 async fn run() -> Result<()> {
     let args = Args::parse();
-    if let Some(path) = &args.probe_permissions {
-        start_permission_probe(path)?;
+    if let Some(path) = &args.probe {
+        triplespace_cli::probe::start(path)?;
+        eprintln!("probe: reporting to {}", path.display());
     }
     let embedded = match args.ui.as_str() {
         "embedded" => true,
@@ -569,26 +535,4 @@ async fn auth_base(
         None => {}
     }
     Ok(auth_base)
-}
-
-#[cfg(test)]
-mod tests {
-    // 0105 §2: with the probe on, each checked permission is appended to the file once.
-    #[test]
-    fn the_probe_reports_each_checked_permission_once() {
-        let path = std::env::temp_dir().join(format!("ts-probe-{}.txt", std::process::id()));
-        let _ = std::fs::remove_file(&path);
-        super::start_permission_probe(&path).unwrap();
-        let e = scatter_actors::Effective::default();
-        assert!(!e.holds("edit"));
-        assert!(!e.holds("edit"));
-        assert!(!e.holds_somewhere("ts-runjob"));
-        let lines: Vec<String> = std::fs::read_to_string(&path)
-            .unwrap()
-            .lines()
-            .map(str::to_owned)
-            .collect();
-        let _ = std::fs::remove_file(&path);
-        assert_eq!(lines, ["edit", "ts-runjob"]);
-    }
 }

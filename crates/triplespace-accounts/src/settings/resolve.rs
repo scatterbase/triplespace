@@ -11,6 +11,7 @@
 //! one tenant, which [`super::store`] reads in two queries.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::OnceLock;
 
 use serde::Serialize;
 use serde_json::{Value, json};
@@ -133,6 +134,17 @@ pub struct Resolved {
     pub locked: bool,
 }
 
+/// The observer of setting reads a process may install (0107 §2): called with every key
+/// [`Snapshot::resolve`] is asked for, known or not.
+static OBSERVER: OnceLock<fn(&str)> = OnceLock::new();
+
+/// Installs the observer of setting reads, once per process (implements 0107 §2): the binaries set it
+/// when asked to probe, so that the keys the code reads can be compared with `settings.toml`.
+/// False if one was already installed. Nothing is observed until one is.
+pub fn observe_setting_reads(observer: fn(&str)) -> bool {
+    OBSERVER.set(observer).is_ok()
+}
+
 impl Snapshot {
     /// The registry in force.
     #[must_use]
@@ -208,6 +220,10 @@ impl Snapshot {
     /// Resolves one setting; `None` for a key the registry does not know.
     #[must_use]
     pub fn resolve(&self, key: &str) -> Option<Resolved> {
+        // A read by key, which `resolve_all`'s walk over the registry is not (0107 §2).
+        if let Some(observe) = OBSERVER.get() {
+            observe(key);
+        }
         let def = self.registry().get(key)?;
         Some(match def.scope {
             Scope::Tenant => self.resolve_tenant(def),
@@ -466,6 +482,27 @@ mod tests {
 
     fn tenancy(s: &mut Snapshot, switch: &str, v: Value) {
         s.tenancy.insert(switch.into(), Row::of(v, 1));
+    }
+
+    // 0107 §2: a read by key reports the key, known or not; listing every setting does not.
+    #[test]
+    fn reads_by_key_are_observed() {
+        use std::sync::Mutex;
+        static SEEN: Mutex<Vec<String>> = Mutex::new(Vec::new());
+        fn record(k: &str) {
+            SEEN.lock().unwrap().push(k.to_owned());
+        }
+        observe_setting_reads(record);
+        let s = snap();
+        let _ = s.value("site.language");
+        assert!(s.resolve("site.no-such-key").is_none());
+        let before = SEEN.lock().unwrap().len();
+        let _ = s.resolve_all(Scope::Tenant);
+        let seen = SEEN.lock().unwrap();
+        assert_eq!(seen.len(), before, "resolve_all observed a read");
+        for k in ["site.language", "site.no-such-key"] {
+            assert!(seen.iter().any(|s| s == k), "{k} was not observed");
+        }
     }
 
     #[test]

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-09
-- **Updated:** 2026-11-09 (A1)
+- **Updated:** 2026-11-09 (A2)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0016](0016-permissions-and-access-control.md), [0098](0098-pointers-from-birth.md)
 - **Uses:** [0056](0056-security-model.md), [0099](0099-status-from-the-code.md)
@@ -25,11 +25,13 @@ James's direction, from the design discussion of 2026-11-09:
 
 ### 1. A catalogue the code acts on is checked against the running code (extends 0098 §5)
 
+*Changed by A2.*
+
 *Current text: [24](../architecture/24-documentation.md) §11.*
 
 ### 2. The server reports the permissions it checks (extends 0016 §2)
 
-*Changed by A1.*
+*Changed by A1, A2.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.2.*
 
@@ -53,7 +55,7 @@ James's direction, from the design discussion of 2026-11-09:
 ## Open questions
 
 - **Q1.** ~~**When the report becomes a failure.** Proposed: once a CI run on `main` reports no unlisted permission, the report step gains `--strict`, by a change James approves. Whether the first strict runs should allow a short list of known exceptions instead.~~ *Settled by A1: strict now, with no list of exceptions.*
-- **Q2. Settings and log events.** The same mechanism fits both: the server reports each setting it reads and each log event it emits, compared with `settings.toml` and `log-events.toml`. Whether they come in one ADR or one each.
+- **Q2.** ~~**Settings and log events.** The same mechanism fits both: the server reports each setting it reads and each log event it emits, compared with `settings.toml` and `log-events.toml`. Whether they come in one ADR or one each.~~ *Settled by [0107](0107-settings-and-log-events-checked-against-the-running-code.md) §2, §3: one ADR for both, with one probe for every catalogue.*
 - **Q3.** ~~**The end-to-end tests.** The Playwright suite (`ui/e2e`) starts a server too and exercises the site's pages, which the client checks and the battery do not; probing it as well would observe more permissions.~~ *Settled by A1: the end-to-end job probes its API server and runs the strict report too.*
 
 ## References
@@ -73,3 +75,17 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §2.2, as it 
 
 > CI runs the client checks and the attack battery with it on, and `tools/permission_report.py` compares the names with this catalogue and with the `[permissions]` lists of `groups.toml`, on the job's summary page: a name in neither is unlisted, and fails nothing yet.
 
+### A2. One probe for every catalogue
+
+- **Date:** 2026-11-09
+- **Source:** [0107](0107-settings-and-log-events-checked-against-the-running-code.md) §1
+- **Change:** amends §1, §2
+- **Summary:** The probe is one for every catalogue the code acts on: `--probe FILE` (`TRIPLESPACE_PROBE`) in both binaries replaces `triplespace-server --probe-permissions`, each line is `{kind} {name}` (`permission`, `setting`, `log-event`), and `tools/probe_report.py` replaces `tools/permission_report.py`, checking permissions, settings and log events strictly. Settles Q2: settings and log events in one ADR, 0107. Chapter text: [24](../architecture/24-documentation.md) §11; [09](../architecture/09-security-and-moderation.md) §2.2; [22](../architecture/22-crates-and-stack.md) §4.9.
+
+Replaced text ([24](../architecture/24-documentation.md) §11, as it stood):
+
+> The code, asked to, reports each name it uses as it runs (a permission it checks; later a setting it reads, a log event it emits), and a script compares that set with the registry file. … The permissions are the first ([09](../architecture/09-security-and-moderation.md) §2.2).
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §2.2, as it stood):
+
+> `triplespace-server --probe-permissions FILE` (`TRIPLESPACE_PROBE_PERMISSIONS`) installs one that appends each permission name to the file the first time it is checked; without it nothing is recorded. CI runs the client checks, the attack battery and the end-to-end suite with it on, and `tools/permission_report.py --strict` compares the names with this catalogue and with the `[permissions]` lists of `groups.toml`, on each job's summary page: a name missing from either is unlisted and fails the job, as does a run that observed no check at all ([0105](0105-catalogues-checked-against-the-running-code.md) A1).

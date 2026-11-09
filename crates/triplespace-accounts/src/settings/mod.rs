@@ -18,5 +18,5 @@ pub mod value;
 
 pub use plan::{Patch, Plan, Refusal, Rights, Target, plan};
 pub use registry::{Bound, Scope, SettingDef, SettingType, SettingsRegistry};
-pub use resolve::{Origin, Resolved, Row, Snapshot, TenantRows};
+pub use resolve::{Origin, Resolved, Row, Snapshot, TenantRows, observe_setting_reads};
 pub use store::{Partitions, load};

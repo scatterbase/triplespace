@@ -35,7 +35,7 @@ pub mod tenants;
 pub mod threads;
 pub mod watched;
 
-pub use activity::ActivityProjection;
+pub use activity::{ActivityProjection, observe_log_events};
 pub use actors::Farm;
 pub use backend::{PgBackend, PgCx};
 pub use entities::EntityProjection;
