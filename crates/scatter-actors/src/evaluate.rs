@@ -14,6 +14,7 @@
 //! and a rebuild evaluate the same way.
 
 use std::collections::{BTreeMap, BTreeSet};
+use std::sync::OnceLock;
 
 use crate::acl::Target;
 use crate::actor::{ActorKind, ActorStatus};
@@ -70,6 +71,23 @@ impl Principal {
     }
 }
 
+/// The observer of permission checks a process may install (0105 §2): called with the name
+/// of every permission an [`Effective`] is asked about, whether or not it is held.
+static OBSERVER: OnceLock<fn(&str)> = OnceLock::new();
+
+/// Installs the observer of permission checks (0105 §2), once per process: the server sets it
+/// when asked to report the permissions it checks, so that they can be compared with the
+/// catalogue. False if one was already installed. Nothing is observed until one is.
+pub fn observe_permission_checks(observer: fn(&str)) -> bool {
+    OBSERVER.set(observer).is_ok()
+}
+
+fn observed(permission: &str) {
+    if let Some(observe) = OBSERVER.get() {
+        observe(permission);
+    }
+}
+
 /// The result of evaluation.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Effective {
@@ -113,6 +131,7 @@ impl Effective {
     /// Whether the permission is held everywhere (MediaWiki's `rights`).
     #[must_use]
     pub fn holds(&self, permission: &str) -> bool {
+        observed(permission);
         self.permissions.contains(permission)
     }
 
@@ -133,6 +152,7 @@ impl Effective {
     /// a target is worth making.
     #[must_use]
     pub fn holds_somewhere(&self, permission: &str) -> bool {
+        // `holds` reports the check (0105 §2).
         self.holds(permission) || self.scoped.contains_key(permission)
     }
 
@@ -140,7 +160,8 @@ impl Effective {
     /// the target's enclosures.
     #[must_use]
     pub fn needs_scope(&self, permission: &str) -> bool {
-        !self.holds(permission) && self.scoped.contains_key(permission)
+        observed(permission);
+        !self.permissions.contains(permission) && self.scoped.contains_key(permission)
     }
 
     /// Whether the actor is in the group: what every ACL test but `read` asks, the
@@ -388,6 +409,32 @@ pub fn autopatrolled(p: &Principal, groups: &GroupRegistry, grants: &GrantRegist
 
 #[cfg(test)]
 mod tests {
+    // 0105 §2: every way of asking about a permission reports its name to the observer.
+    #[test]
+    fn every_check_is_observed() {
+        use std::sync::Mutex;
+        static SEEN: Mutex<Vec<String>> = Mutex::new(Vec::new());
+        fn record(p: &str) {
+            SEEN.lock().unwrap().push(p.to_owned());
+        }
+        // Another test in this process may have installed it first; it is the same function.
+        observe_permission_checks(record);
+        let e = Effective::default();
+        assert!(!e.holds("probe-holds"));
+        assert!(!e.holds_on("probe-holds-on", &[]));
+        assert!(!e.holds_somewhere("probe-somewhere"));
+        assert!(!e.needs_scope("probe-scope"));
+        let seen = SEEN.lock().unwrap();
+        for p in [
+            "probe-holds",
+            "probe-holds-on",
+            "probe-somewhere",
+            "probe-scope",
+        ] {
+            assert!(seen.iter().any(|s| s == p), "{p} was not observed");
+        }
+    }
+
     use super::*;
 
     fn regs() -> (&'static GroupRegistry, &'static GrantRegistry) {

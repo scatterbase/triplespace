@@ -36,13 +36,13 @@ ed25519-dalek.workspace = true
 axum.workspace = true
 clap.workspace = true
 anyhow.workspace = true
+scatter-actors.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "net", "time", "sync"] }
 
 [dev-dependencies]
 scatter-mediawiki-xml.workspace = true
 base64.workspace = true
 scatter-challenge.workspace = true
-scatter-actors.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "io-util"] }
 scatter-projection.workspace = true
 scatter-ingest.workspace = true

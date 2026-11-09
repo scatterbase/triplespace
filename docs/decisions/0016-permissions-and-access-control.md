@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-08 (A43)
+- **Updated:** 2026-11-09 (A44)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -29,7 +29,7 @@ The two agree on the shape: users, groups, memberships, named permissions, and r
 
 ### 2. Permissions
 
-*Changed by A2, A3, A4, A5, A6, A7, A8, A10, A13, A14, A15, A16, A19, A20, A21, A24, A25, A27, A32, A33, A34, A39, A41, A43.*
+*Changed by A2, A3, A4, A5, A6, A7, A8, A10, A13, A14, A15, A16, A19, A20, A21, A24, A25, A27, A32, A33, A34, A39, A41, A43, A44.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.1, §2.2, §2.3.*
 
@@ -547,3 +547,10 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §2.2, the le
 - **Source:** [0104](0104-batches-and-the-job-runner.md) §5
 - **Change:** extends §2
 - **Summary:** `ts-revertjob` also rejects a batch or a running job, after which writes naming the batch are refused, and the revert it allows is record by record. Who holds it is unchanged. Chapter text: [09](../architecture/09-security-and-moderation.md) §2.2 (`permissions.toml`).
+
+### A44. The server reports the permissions it checks
+
+- **Date:** 2026-11-09
+- **Source:** [0105](0105-catalogues-checked-against-the-running-code.md) §2
+- **Change:** extends §2
+- **Summary:** Every check of whether an actor holds a permission reports its name to an observer the process may install; `triplespace-server --probe-permissions FILE` installs one that appends each name once, and CI compares the names with the catalogue and `groups.toml` (`tools/permission_report.py`), as a report until it is made strict. Chapter text: [09](../architecture/09-security-and-moderation.md) §2.2.
