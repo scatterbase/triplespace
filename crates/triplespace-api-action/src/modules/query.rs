@@ -65,7 +65,19 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         ctx.cache_class = crate::http_cache::Class::Stable;
     }
     // A generator's pages are the page set the props below read (`run_generator`).
-    if let Some(g) = ctx.params.get("generator").map(str::to_owned) {
+    // A generator this API does not serve is warned about and ignored, as the module's other
+    // unknown values are: Pywikibot's `Page.save` sends `generator=templates`, and answered
+    // without the generated pages it still saves.
+    let generator = ctx.params.get("generator").map(str::to_owned);
+    if let Some(g) = &generator
+        && !GENERATORS.iter().any(|(n, _)| n == g)
+    {
+        response.warn(
+            "query",
+            &format!("Unrecognized value for parameter \"generator\": {g}."),
+        );
+    }
+    if let Some(g) = generator.filter(|g| GENERATORS.iter().any(|(n, _)| n == g)) {
         let Some(saved) = run_generator(ctx, &g, &mut body, &mut response).await? else {
             return Ok(finish(ctx, query, body, response));
         };
