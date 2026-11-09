@@ -1110,11 +1110,9 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "899def5c37c4fd7b2664648c28120ecec138e4d395b459e5ca34f9cce2dd77fd"
 dependencies = [
  "cfg-if",
- "js-sys",
  "libc",
  "r-efi 5.3.0",
  "wasip2",
- "wasm-bindgen",
 ]
 
 [[package]]
@@ -2772,7 +2770,7 @@ name = "scatter-actors"
 version = "0.0.1"
 dependencies = [
  "ed25519-dalek",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "oxrdf",
  "serde",
  "serde_json",
@@ -2863,7 +2861,7 @@ dependencies = [
 name = "scatter-log"
 version = "0.0.1"
 dependencies = [
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "minicbor",
  "oxrdf",
  "pollster",
@@ -2918,7 +2916,7 @@ dependencies = [
 name = "scatter-normalize"
 version = "0.0.1"
 dependencies = [
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "icu_casemap",
  "idna",
  "oxrdf",
@@ -2955,7 +2953,7 @@ dependencies = [
 name = "scatter-providers"
 version = "0.0.1"
 dependencies = [
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "oxrdf",
  "serde",
  "thiserror",
@@ -3011,7 +3009,7 @@ dependencies = [
 name = "scatter-vocab"
 version = "0.0.1"
 dependencies = [
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "oxrdf",
 ]
 
@@ -3032,7 +3030,7 @@ dependencies = [
 name = "scatter-wikibase-model"
 version = "0.0.1"
 dependencies = [
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "indexmap",
  "md-5 0.10.6",
  "scatter-normalize",
@@ -3049,7 +3047,7 @@ dependencies = [
 name = "scatter-wikibase-rdf"
 version = "0.0.1"
 dependencies = [
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "oxrdf",
  "oxttl",
  "scatter-normalize",
@@ -3074,7 +3072,7 @@ name = "scatter-wikibase-shape"
 version = "0.0.1"
 dependencies = [
  "flate2",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "scatter-wikibase-model",
  "serde_json",
 ]
@@ -3814,7 +3812,7 @@ dependencies = [
  "base64 0.22.1",
  "chacha20poly1305",
  "deadpool-postgres",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "hmac 0.12.1",
  "idna",
  "reqwest",
@@ -3883,7 +3881,7 @@ version = "0.0.1"
 dependencies = [
  "deadpool-postgres",
  "ed25519-dalek",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "scatter-actors",
  "scatter-adapter-mediawiki",
  "scatter-adapter-wikibase",
@@ -3956,7 +3954,7 @@ dependencies = [
  "clap",
  "dotenvy",
  "ed25519-dalek",
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "mimalloc",
  "scatter-actors",
  "scatter-adapter-mediawiki",
@@ -4026,7 +4024,7 @@ dependencies = [
 name = "triplespace-notify"
 version = "0.0.1"
 dependencies = [
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "scatter-log",
  "scatter-mail",
  "scatter-projection",
