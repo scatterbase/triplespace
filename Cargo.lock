@@ -3084,7 +3084,7 @@ name = "scatter-wikitext"
 version = "0.0.1"
 dependencies = [
  "ammonia",
- "html5ever 0.39.0",
+ "html5ever 0.40.1",
  "markup5ever_rcdom",
  "parse-wiki-text-2",
  "scatter-wikitext-expand",
@@ -4138,7 +4138,7 @@ version = "0.0.1"
 dependencies = [
  "axum",
  "base64 0.22.1",
- "html5ever 0.39.0",
+ "html5ever 0.40.1",
  "http-body-util",
  "icu_locale_core",
  "icu_plurals",
