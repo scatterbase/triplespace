@@ -20,7 +20,9 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
   is dropped when the test's thread ends, whether it passed or panicked. A `cleanup()` call at
   the end of the test is skipped by a failing assert, which left about a hundred scratch
   databases behind before 2026-11-06. `scatter-log-postgres`, which cannot depend on
-  `triplespace-db`, has its own copy in `tests/postgres.rs`.
+  `triplespace-db`, has its own copy in `tests/postgres.rs`. A test drops only the databases it
+  created: dropping every scratch database of the process `WITH (FORCE)` terminated sibling
+  tests' connections (`57P01`), found by real-dumps stage 1 and fixed in #60.
 
 - `triplespace-server --test pages` `librarybase_pages_are_adopted_with_their_history` fails on a
   Postgres whose `timezone` is not UTC (Postgres.app and Homebrew default to the machine's zone):

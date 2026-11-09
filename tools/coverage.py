@@ -9,6 +9,8 @@
   coverage.py --status        the computed status of every ADR, as JSON (check_adrs.py reads it)
   coverage.py --check         exit 1 on a malformed claim (see below); check.sh runs this
   coverage.py --stale         citations of sections that do not exist (renumbered, typos, stubs)
+  coverage.py --crates        the src claims of each workspace crate, as JSON (architecture/crates.py reads it)
+  coverage.py --blocks        check the status tables in docs/ (below); --write rewrites their last column
 
 Two kinds of citation, both in comments, read from crates/, xtask/, ui/src, ui/e2e and tools/:
 
@@ -37,6 +39,15 @@ An ADR's status follows (24 §2.2): Accepted when every top-level section is don
 proposed amendment (A44, …) when every one is done or amended; Proposed otherwise. Trailer
 sections (Crates, API, UI, Storage, …, 24 §10.3) and superseded stubs are left out: a trailer's
 subject is claimed under its home section, and the catalogues' own Built columns show the rest.
+
+A status table is how a document other than an ADR says what it relies on without keeping, by
+hand, whether it is built: a Markdown table between `<!-- coverage.py: status -->` and
+`<!-- /coverage.py -->`, anywhere under docs/ but docs/samples. Its rows are written by hand, and
+each row's first cell names one thing: an ADR or chapter section (`0013 §9`, `01 §8.3`), an
+Action API module (`action=wbsetsitelink`, `list=search`, from the paraminfo lists the catalogue
+reads) or a crate (`crate scatter-log`). Its last cell is written by `--blocks --write` from the
+code and never edited by hand; a stale one fails `--blocks`, which check.sh runs. A chapter
+section's status combines those of the ADR sections its Sources line names.
 
 `adr.py code NNNN §N` prints the same citing lines.
 """
@@ -509,6 +520,129 @@ def lines_for(docs, rolled, cites, ch_sources, doc, sec):
         print(f"  {tag:5} {c.rel}:{c.line}{via}  {c.text[:120]}")
 
 
+
+# --- what the code says, for generated views (24 §15) ------------------------------------------
+
+def crate_claims(cites):
+    """{crate: ["0013 §7 (A41)", …]}: the src claims each workspace crate makes, sorted, for the
+    crate map's As built paragraphs (architecture/crates.py)."""
+    out = collections.defaultdict(set)
+    for c in cites:
+        if c.claim and c.kind == "src" and c.rel.startswith("crates" + os.sep):
+            s = f"{c.doc} §{c.sec}" + (f" rule {c.rule}" if c.rule else "") + (f" (A{c.entry})" if c.entry else "")
+            out[c.crate].add(s)
+    key = lambda s: [int(x) if x.isdigit() else x for x in re.split(r"[ §.()A]+", s) if x]
+    return {k: sorted(v, key=key) for k, v in sorted(out.items())}
+
+
+# A status table, in any Markdown file under docs/ (24 §15): its rows are written by hand, each
+# naming in its first cell what something relies on; its last cell is written from the code.
+BLOCK_BEGIN, BLOCK_END = "<!-- coverage.py: status -->", "<!-- /coverage.py -->"
+BLOCK_SKIP = {"samples"}
+STATUS_WORDS = {"done": "done", "amended": "done, amended since ({})", "untested": "claimed, untested",
+                "partial": "partial: {}", "not": "not built (the code says)", "none": "nothing cites it"}
+
+
+def block_files():
+    base = os.path.join(ROOT, "docs")
+    for dp, dn, fn in os.walk(base):
+        dn[:] = sorted(d for d in dn if d not in BLOCK_SKIP)
+        for f in sorted(fn):
+            if f.endswith(".md"):
+                yield os.path.join(dp, f)
+
+
+def _module_code():
+    sys.path.insert(0, ARCH)
+    try:
+        saved, sys.argv = sys.argv, [sys.argv[0]]
+        import catalogues
+    finally:
+        sys.argv = saved
+        sys.path.pop(0)
+    return catalogues
+
+
+def ref_status(ref, docs, rolled, ch_sources, ctx):
+    """The last cell for one reference, or (None, error)."""
+    ref = re.sub(r"[`*]", "", re.sub(r"\[([^\]]*)\]\([^)]*\)", r"\1", ref)).strip()
+    m = re.fullmatch(rf"(\d{{2}}|\d{{4}}) §({SEC})", ref)
+    if m:
+        doc, sec = m.groups()
+        if len(doc) == 4:
+            if doc not in docs or sec not in docs[doc]["sections"]:
+                return None, f"`{ref}` is not an ADR section"
+            pairs = [(doc, sec)]
+        else:
+            if (doc, sec) not in ch_sources:
+                return None, f"`{ref}` is not a chapter section"
+            pairs = sorted(p for p in ch_sources[(doc, sec)] if p[0] in docs and p[1] in docs[p[0]]["sections"])
+            if not pairs:
+                return None, f"`{ref}` names no ADR section in its Sources line"
+        found = [section_status(docs, rolled, a, s) for a, s in pairs]
+        kinds = {k for k, _ in found}
+        if len(kinds) == 1:
+            k = kinds.pop()
+            details = sorted({d for _, d in found if d})
+            return STATUS_WORDS[k].format("; ".join(details) or "cited, no claim"), None
+        if kinds & {"done", "amended", "untested", "partial"}:
+            return "partial: " + ", ".join(f"{a} §{s} {k}" for (a, s), (k, _) in zip(pairs, found)), None
+        return (STATUS_WORDS["not"] if "not" in kinds else STATUS_WORDS["none"]), None
+    m = re.fullmatch(r"(action|meta|prop|list|generator)=([a-z]+)", ref)
+    if m:
+        if "modules" not in ctx:
+            cat = _module_code()
+            ctx["modules"] = (cat, cat.code_modules())
+        cat, code = ctx["modules"]
+        name = m.group(2) if m.group(1) == "action" else ref
+        return ("served" if cat.module_built(name, code) else "not served"), None
+    m = re.fullmatch(r"crate ([a-z0-9-]+)", ref)
+    if m:
+        there = os.path.exists(os.path.join(ROOT, "crates", m.group(1), "Cargo.toml"))
+        return ("in the workspace" if there else "not a crate yet"), None
+    return None, f"`{ref}`: name an ADR or chapter section (`0013 §9`, `01 §8.3`), an Action API module (`action=wbsetsitelink`, `list=search`) or a crate (`crate scatter-log`)"
+
+
+def blocks(docs, rolled, ch_sources, write):
+    """Check (or rewrite) the last column of every status table under docs/."""
+    problems, ctx, n = [], {}, 0
+    for path in block_files():
+        text = read(path)
+        if BLOCK_BEGIN not in text:
+            continue
+        rel = os.path.relpath(path, ROOT)
+        out, inside, changed = [], False, False
+        for i, line in enumerate(text.split("\n")):
+            if line.strip() == BLOCK_BEGIN:
+                inside, row = True, 0
+            elif line.strip() == BLOCK_END:
+                inside = False
+            elif inside and line.startswith("|"):
+                row += 1
+                cells = line.strip().strip("|").split("|")
+                if row > 2:          # past the header and its rule
+                    n += 1
+                    status, err = ref_status(cells[0], docs, rolled, ch_sources, ctx)
+                    if err:
+                        problems.append(f"{rel}:{i + 1}: {err}")
+                    else:
+                        new = "| " + " | ".join(c.strip() for c in cells[:-1]) + f" | {status} |"
+                        if new != line:
+                            changed = True
+                            line = new
+            out.append(line)
+        if inside:
+            problems.append(f"{rel}: a status table has no `{BLOCK_END}`")
+        if changed:
+            if write:
+                with open(path, "w", encoding="utf-8") as f:
+                    f.write("\n".join(out))
+                print(f"wrote the status tables in {rel}")
+            else:
+                problems.append(f"{rel}: a status table is stale: run `python3 tools/coverage.py --blocks --write`")
+    return problems, n
+
+
 def main(argv):
     docs = adr_docs()
     ch_sources = chapter_sources()
@@ -533,6 +667,17 @@ def main(argv):
         if probs:
             sys.exit(1)
         print(f"ok: {sum(1 for c in cites if c.claim)} implements claims, all well formed")
+        return
+    if "--crates" in argv:
+        print(json.dumps(crate_claims(cites), indent=1, ensure_ascii=False))
+        return
+    if "--blocks" in argv:
+        probs, n = blocks(docs, rolled, ch_sources, "--write" in argv)
+        for p in probs:
+            print("   -", p)
+        if probs:
+            sys.exit(1)
+        print(f"ok: {n} rows of status tables, all current")
         return
     if "--status" in argv:
         print(json.dumps(status_json(docs, rolled), indent=1))

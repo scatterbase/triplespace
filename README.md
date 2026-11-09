@@ -223,6 +223,17 @@ docs/check.sh
 (cd ui && npm run lint && npm test)
 ```
 
+Run `docs/check.sh --write` after a code change as well as a documentation one: some generated
+files are written from the code (which crates exist, each crate's first `//!` paragraph, the
+`implements` claims of `docs/architecture/24-documentation.md` §15), and CI fails while they are
+stale. Commit what it regenerates with the change.
+
+**Conflicts in generated files fix themselves.** When `main` moves and your pull request's
+generated files conflict with it (`INDEX.md`, `OPEN.md`, `CRATES.md`, the generated tables in the
+chapters), a workflow merges `main` into your branch, regenerates them and pushes the merge, so
+pull before you push again. A conflict in anything else is left for you. Locally, run
+`python3 tools/resolve_generated.py` while a merge or rebase is stopped on such a conflict.
+
 Say in the pull request which checks you ran and which you could not. In a fresh Linux sandbox,
 `eval "$(tools/dev_env.sh)"` starts Postgres and sets the test database URL.
 
@@ -236,8 +247,10 @@ If you use an agent:
 - **Have it flag the calls it made.** An assumption or design choice made while building goes
   into the owning ADR's Amendment log marked `unconfirmed`, so it shows up in
   `docs/decisions/OPEN.md` for review, never buried in a commit message or a note.
-- **Never hand-edit generated files** (`INDEX.md`, `OPEN.md`, the generated tables in the
-  chapters); regenerate them with `docs/check.sh --write`, including to resolve merge conflicts.
+- **Never hand-edit generated files** (`INDEX.md`, `OPEN.md`, `CRATES.md`, the generated tables
+  in the chapters, the last column of a status table); regenerate them with `docs/check.sh
+  --write`, after code changes as well as documentation ones, and resolve conflicts in them with
+  `tools/resolve_generated.py`.
 - **Test against real data and real clients** where it can: the Librarybase samples and
   `tools/client_compat.sh`, not only unit tests.
 - **Disclose it.** Say in the pull request that an agent wrote or helped write the change. You

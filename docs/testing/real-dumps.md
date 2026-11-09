@@ -9,41 +9,37 @@
   baseline is now a **full-history** adoption ([0035](../decisions/0035-adopting-a-wikibase.md)
   A12), so the dump is `--full` and `lastrevid` and each page's history must equal the source's;
   the 2026-10-06 run was a current-state adoption, the shape `adopt --current-only` keeps.
+  Revised 2026-11-09: what the code can do is a status table written from the code (below), not
+  a list kept by hand.
 - **Where to run:** a Linux VM (Debian) or a Mac, from the repo checkout, with a local Postgres.
   Work files go in `~/ts-test/`. Commands assume Linux; macOS differences are noted.
 
 ## What the code can and cannot do today
 
-Read this before stage 1, because one of these points changes the stage 1 commands.
+The stages rely on what the table names. Its rows are written by hand; its last column is written
+from the code by `python3 tools/coverage.py --blocks --write` (24 §15: the code's `implements`
+claims and citations, and the modules `action=paraminfo` serves) and never edited by hand. *Partial*
+means the code works on the section without claiming it complete: `tools/coverage.py 0013 §9`
+shows where. Add a row when a stage comes to rely on something new; what was fixed along the way
+is in the results log and in git.
 
-1. **The set of providers is fixed when the instance is created.** `instance create --provider …`
-   opens the mirror partitions, and no command adds one later. If an instance should ever sync
-   Wikidata, pass `--provider wikidata` to `instance create` as well as `--provider internetdomains`.
-   The stage 1 commands below do that.
-2. **`triplespace sync` reads every Wikibase provider** since
-   [0091](../decisions/0091-one-wikibase-adapter.md): it dispatches on the provider's `adapter`
-   field, and `scatter-adapter-wikibase` reads Wikidata, Librarybase and internetdomains alike, with
-   the key-map rules of the registry entry. Until 0091 it worked for `internetdomains` only.
-3. **`sync` streams the dump** (since 2026-11-04): `prepare_wikibase` hands `run_sync` an
-   iterator that reads one entity at a time, so memory no longer grows with the dump. A first
-   pass, when the provider has key maps or the dump is XML, still holds the key index and the
-   property types; the job keeps the set of IDs it has seen in every mode (`seen` in
-   `scatter-ingest`'s `sync.rs`, which the snapshot sweep reads, along with the mirror's entity
-   list), which grows with the number of IDs, not with the entities. Until then `sync` collected every
-   `SyncItem` into a `Vec` first, which was impossible for `latest-all.json.gz` (about 122M
-   entities). 0013 §9 bootstrap mode (COPY, deferred indexes) is not built, so the full Wikidata
-   sync is still blocked on write speed; stage 3 measures what is needed and stops at a slice.
-4. **Known Milestone 1 gaps these tests will hit:** the snapshot sweep tombstones a Domain that is no
-   longer in the dump, where 0009 §9 wants an empty `put`; `wbsetsitelink`, `wbgetclaims` and
-   `wbmergeitems` are not served; `verify` is not written.
-5. **Found by stage 1 and fixed:**
-   - The stored JSON in an XML dump has no `datatype` on snaks, so adopted snaks were untyped and
-     `view.identifier` stayed empty (`3d84c87`; [`performance.md`](performance.md) §2).
-   - The Postgres-backed test files dropped every scratch database the process had created, with
-     `FORCE`, at the end of each test: a race that terminated sibling tests' connections (`57P01`).
-     Each test now drops only its own (#60).
-   - Pywikibot and WikidataIntegrator needed server fixes, recorded in
-     [`../clients.md`](../clients.md).
+<!-- coverage.py: status -->
+| Needs | For | Code says |
+|---|---|---|
+| `0091 §1` | `triplespace sync` reads every Wikibase provider with one adapter (stages 1–3) | partial: cited as about only |
+| `0091 §4` | syncing a Wikibase dump, JSON or XML (stages 2–3) | partial: cited as about only |
+| `0009 §9` | key-mapped providers; a Domain gone from the dump gets an empty `put`, not a tombstone, at the snapshot sweep (stage 2.5) | partial: cited as about only |
+| `0013 §9` | bootstrap mode (block `COPY`, deferred indexes), without which a full Wikidata sync is bound by write speed (stage 3) | partial: cited as about only |
+| `01 §8.3` | `verify`, checking an adopted or synced instance's log (no stage runs it yet) | partial: cited as about only |
+| `action=wbsetsitelink` | Milestone 1's clients (stage 1.4) | not served |
+| `action=wbgetclaims` | Milestone 1's clients (stage 1.4) | not served |
+| `action=wbmergeitems` | Milestone 1's clients (stage 1.4) | not served |
+<!-- /coverage.py -->
+
+**Pass every provider the instance may ever sync to `instance create`.** `instance create
+--provider …` opens the mirror partitions, and no command adds one later: an instance that may
+sync Wikidata needs `--provider wikidata` as well as `--provider internetdomains`. The stage 1
+commands below do that.
 
 ## Stage 0: build, preflight and a rehearsal adoption
 
