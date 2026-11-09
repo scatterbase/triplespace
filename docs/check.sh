@@ -46,6 +46,7 @@ run "Crate map (24 §11)"           "$PY" architecture/crates.py ${WRITE:+--writ
 run "Catalogues (24 §11)"          "$PY" architecture/catalogues.py ${WRITE:+--write} .
 run "Implementation claims (24 §15)" "$PY" ../tools/coverage.py --check
 run "Status tables (24 §15)"       "$PY" ../tools/coverage.py --blocks ${WRITE:+--write}
+run "Documentation site (0109)"    "$PY" ../tools/docs_site_check.py
 run "Log test vectors (payloads.md §1–2)" "$PY" api/vectors/check.py
 
 if [ -n "$failed" ]; then

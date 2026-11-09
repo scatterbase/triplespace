@@ -187,6 +187,10 @@ Chapter [18](docs/architecture/18-api.md) and the `--help` of each binary have t
 
 ## Where things are
 
+The documentation is also published, with search, at
+[triplespace.readthedocs.io](https://triplespace.readthedocs.io/), including a page per
+chapter of what the code has built of it.
+
 | Path | Holds |
 |---|---|
 | `docs/architecture/` | **What holds now**, by subject. Start with [00](docs/architecture/00-overview.md), then [22](docs/architecture/22-crates-and-stack.md) for the crate map. |
