@@ -546,7 +546,8 @@ async fn registration_and_challenges() {
         "a decided request is closed"
     );
 
-    // A holder of confirmaccount and skipcaptcha creates for another person at once.
+    // A holder of confirmaccount and skipcaptcha creates for another person at once, with no
+    // challenge (0087 §7).
     let r = owner.create("Frank", "frank-password-1", "").await;
     assert_eq!(r["createaccount"]["status"], "PASS", "{r}");
     let mut frank = Client::new(&router, [192, 0, 2, 52]);

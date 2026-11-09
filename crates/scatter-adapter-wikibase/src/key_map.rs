@@ -535,7 +535,9 @@ pub struct KeyMappedAdapter {
 }
 
 impl KeyMappedAdapter {
-    /// Over a provider's adapter, its rules and a settled index.
+    /// Over a provider's adapter, its rules and a settled index: what a mapped item becomes
+    /// comes from its rule's keyed type, its normalizer, entity type and data type
+    /// (implements 0091 §3).
     #[must_use]
     pub fn new(inner: WikibaseAdapter, rules: KeyRules, index: Index) -> Self {
         let data_types = rules
@@ -1203,6 +1205,7 @@ adapter = "scatter-adapter-wikibase"
         );
     }
 
+    // 0091 §3: the keyed type supplies the entity type and the data type.
     #[test]
     fn a_mapped_item_takes_its_keyed_types_entity_type_and_data_type() {
         let registry = class_registry(CLASS_RULES);
@@ -1275,6 +1278,7 @@ adapter = "scatter-adapter-wikibase"
         assert_eq!(id.as_str(), "notation:osm:highway");
     }
 
+    // 0091 §3: a type or scheme the build does not know is a configuration error.
     #[test]
     fn a_bad_key_map_is_a_configuration_error() {
         let err = |extra: &str| {

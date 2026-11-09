@@ -27,7 +27,7 @@ is in the results log and in git.
 | Needs | For | Code says |
 |---|---|---|
 | `0091 §1` | `triplespace sync` reads every Wikibase provider with one adapter (stages 1–3) | partial: cited as about only |
-| `0091 §4` | syncing a Wikibase dump, JSON or XML (stages 2–3) | partial: cited as about only |
+| `0091 §4` | syncing a Wikibase dump, JSON or XML (stages 2–3) | done |
 | `0009 §9` | key-mapped providers; a Domain gone from the dump gets an empty `put`, not a tombstone, at the snapshot sweep (stage 2.5) | partial: cited as about only |
 | `0013 §9` | bootstrap mode (block `COPY`, deferred indexes), without which a full Wikidata sync is bound by write speed (stage 3) | partial: cited as about only |
 | `01 §8.3` | `verify`, checking an adopted or synced instance's log (no stage runs it yet) | partial: cited as about only |

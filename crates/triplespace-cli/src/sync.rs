@@ -208,7 +208,7 @@ impl Iterator for SyncItems {
 
 /// Reads a Wikibase provider's dump through `scatter-adapter-wikibase` with the provider's
 /// key-map rules: two passes when the rules or the format need them, one otherwise
-/// (0091 §4). The first pass runs here; the second runs as the items are taken.
+/// (implements 0091 §4). The first pass runs here; the second runs as the items are taken.
 pub fn prepare_wikibase(
     provider: &Provider,
     registry: &'static Registry,
