@@ -1,0 +1,57 @@
+# Keeps pull requests free of conflicts in generated files (AGENTS.md, "Generated files"): when
+# main moves, or a pull request is pushed, tools/update_generated.sh merges main into each open
+# pull request's branch if, and only if, the merge conflicts only in generated files or leaves them
+# stale, regenerates them with docs/check.sh --write, and pushes the merge. A conflict in anything
+# else is left for the author. Pull requests from forks are skipped: their branches cannot be
+# pushed to.
+#
+# A push made with the default GITHUB_TOKEN does not start other workflows, so CI would not run on
+# the merge it pushes. Set the repository secret GENERATED_FILES_TOKEN (a fine-grained token or a
+# GitHub App token with contents: write on this repository) and the push starts CI as any push does.
+name: Generated files
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    types: [opened, reopened, synchronize]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: generated-files-${{ github.head_ref || github.ref }}
+
+jobs:
+  update:
+    name: Regenerate generated files on pull requests
+    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          token: ${{ secrets.GENERATED_FILES_TOKEN || github.token }}
+      - name: Identify the committer
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+      - name: Update the pull request's branch
+        if: github.event_name == 'pull_request'
+        env:
+          HEAD_REF: ${{ github.head_ref }}
+          BASE_REF: ${{ github.base_ref }}
+        run: tools/update_generated.sh "$HEAD_REF" "$BASE_REF"
+      - name: Update every open pull request against main
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh pr list --base main --state open --limit 200 \
+            --json headRefName,isCrossRepository \
+            --jq '.[] | select(.isCrossRepository | not) | .headRefName' |
+          while read -r branch; do
+            tools/update_generated.sh "$branch" main || echo "::warning::$branch: update failed"
+          done

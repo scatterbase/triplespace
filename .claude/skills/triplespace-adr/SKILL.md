@@ -154,13 +154,17 @@ Finishing a section is part of the change that finishes it (24 §15): add `imple
 in a comment at the completing src code (the entry is the last one in the section's provenance
 line; none if it has no provenance line; `§N.M` or `§N rule K` for a part) and make sure a test
 cites the section (`// 0013 §7` in the test is enough). Then `docs/check.sh --write` recomputes
-the ADR's Status and `INDEX.md`. When a change implements a log entry on an Accepted ADR, move
+the ADR's Status and `INDEX.md`, the crate map's *As built* paragraphs in `CRATES.md` (which list
+each crate's claims and its first `//!` paragraph) and its *Built* column, and the last column of
+every status table (`coverage.py --blocks`); commit what it rewrites with the code. Run it after
+any code change that adds a crate, a claim or a crate's first `//!` paragraph, or CI's
+documentation check fails. When a change implements a log entry on an Accepted ADR, move
 the claim's entry ID. `tools/coverage.py --todo` lists what is still not done.
 
 ## Validating
 
 ```sh
-docs/check.sh --write    # regenerate INDEX.md and chapter 23's settings tables, then check all
+docs/check.sh --write    # regenerate every generated file (INDEX.md, OPEN.md, CRATES.md, the chapter tables, status tables), then check all
 docs/check.sh            # check only (what CI runs); exits non-zero on any failure
 ```
 
@@ -182,7 +186,16 @@ A merge or rebase conflict in a generated file (`INDEX.md`, `OPEN.md`, `CRATES.m
 table in chapters 09, 16, 18, 22 or 23) is resolved the same way: take either side
 (`git checkout --theirs -- <file>`), run `docs/check.sh --write`, and `git add` the result; in a
 rebase, at each commit that stops on it. Hand-merging conflict markers in these files is never right,
-even when it looks trivial.
+even when it looks trivial. `python3 tools/resolve_generated.py` does all three at once, and refuses,
+naming the files, when a conflict touches a source (a registry file, an ADR, a chapter's own text,
+code): resolve those by hand and run it again. On a pull request you seldom need to: the
+`generated-files.yml` workflow merges `main` into the branch and regenerates whenever the only
+conflicts are in generated files, so pull before pushing again.
+
+**A status table** is how a document outside the ADRs says what it relies on (24 §15): a Markdown
+table between `<!-- coverage.py: status -->` and `<!-- /coverage.py -->`, whose rows you write
+(first cell: `0013 §9`, `01 §8.3`, `action=wbsetsitelink` or `crate scatter-log`) and whose last
+cell `coverage.py --blocks --write` writes. Use one instead of a hand-kept list of what works.
 
 ## Bulk edits
 
