@@ -30,7 +30,7 @@ jobs:
       matrix:
         target: [wikitext, markdown, cbor_record]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@nightly
         with:
           components: rust-src
@@ -44,7 +44,7 @@ jobs:
         run: fuzz/run.sh ${{ matrix.target }} ${{ github.event.inputs.seconds || '600' }}
       - name: Upload crash artifacts
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: fuzz-${{ matrix.target }}-${{ github.run_id }}
           path: fuzz/artifacts/${{ matrix.target }}
