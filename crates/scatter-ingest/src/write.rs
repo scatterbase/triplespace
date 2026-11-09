@@ -443,13 +443,12 @@ fn draft_of<S: IngestStore>(
         logid: None,
         page_id: Some(page_id),
         body: Body::core(
-            &Value::from_json(&content),
+            &Value::from_json_owned(content),
             &comment,
             &request.attestation.to_value(),
         )
         .map_err(|e| e.to_string())?,
     };
-    drop(content);
     store.encoded(&draft.body, op);
     Ok(draft)
 }

@@ -188,6 +188,23 @@ impl Value {
         }
     }
 
+    /// [`Self::from_json`], taking the JSON value: its strings move rather than copy.
+    #[must_use]
+    pub fn from_json_owned(v: serde_json::Value) -> Self {
+        match v {
+            serde_json::Value::String(s) => Self::Text(s),
+            serde_json::Value::Array(a) => {
+                Self::Array(a.into_iter().map(Self::from_json_owned).collect())
+            }
+            serde_json::Value::Object(o) => Self::map(
+                o.into_iter()
+                    .map(|(k, v)| (Self::Text(k), Self::from_json_owned(v)))
+                    .collect(),
+            ),
+            scalar => Self::from_json(&scalar),
+        }
+    }
+
     /// To JSON, structurally; fails on what JSON cannot carry.
     pub fn to_json(&self) -> Result<serde_json::Value, CborError> {
         Ok(match self {
@@ -271,13 +288,8 @@ impl fmt::Display for Value {
 /// The canonical encoding of a value. A value nested past [`MAX_DEPTH`] is refused
 /// (0006 §2) at the level that crosses the limit, before anything below it is visited.
 pub fn encode(value: &Value) -> Result<Vec<u8>, CborError> {
-    encode_at(value, 0)
-}
-
-/// The canonical encoding of a value that sits inside `depth` containers.
-fn encode_at(value: &Value, depth: usize) -> Result<Vec<u8>, CborError> {
     let mut out = Vec::new();
-    write(value, &mut out, depth)?;
+    write(value, &mut out, 0)?;
     Ok(out)
 }
 
@@ -338,18 +350,27 @@ fn write(value: &Value, out: &mut Vec<u8>, depth: usize) -> Result<(), CborError
             if depth >= MAX_DEPTH {
                 return Err(CborError::TooDeep(MAX_DEPTH));
             }
-            let mut pairs: Vec<(Vec<u8>, Vec<u8>)> = m
-                .iter()
-                .map(|(k, v)| Ok((encode_at(k, depth + 1)?, encode_at(v, depth + 1)?)))
-                .collect::<Result<_, CborError>>()?;
-            pairs.sort_by(|a, b| a.0.cmp(&b.0));
-            if pairs.windows(2).any(|w| w[0].0 == w[1].0) {
+            // The keys are encoded apart, into one buffer, to be sorted by their bytes; the
+            // values are then written in that order straight into `out`, rather than each
+            // into a buffer of its own that every enclosing map would copy again.
+            let mut keys = Vec::new();
+            let mut order: Vec<(usize, usize, &Value)> = Vec::with_capacity(m.len());
+            for (k, v) in m {
+                let start = keys.len();
+                write(k, &mut keys, depth + 1)?;
+                order.push((start, keys.len(), v));
+            }
+            order.sort_by(|a, b| keys[a.0..a.1].cmp(&keys[b.0..b.1]));
+            if order
+                .windows(2)
+                .any(|w| keys[w[0].0..w[0].1] == keys[w[1].0..w[1].1])
+            {
                 return Err(CborError::DuplicateKey);
             }
-            head(out, 5, pairs.len() as u64);
-            for (k, v) in pairs {
-                out.extend_from_slice(&k);
-                out.extend_from_slice(&v);
+            head(out, 5, order.len() as u64);
+            for (start, end, v) in order {
+                out.extend_from_slice(&keys[start..end]);
+                write(v, out, depth + 1)?;
             }
         }
     }
@@ -531,6 +552,81 @@ mod tests {
     use super::*;
 
     use crate::hash::hex;
+
+    /// The encoder as it was before maps wrote their values in place: every key and value
+    /// encoded apart, the pairs sorted by key bytes and copied out.
+    fn encode_by_pairs(value: &Value) -> Vec<u8> {
+        let mut out = Vec::new();
+        match value {
+            Value::Array(a) => {
+                head(&mut out, 4, a.len() as u64);
+                for v in a {
+                    out.extend(encode_by_pairs(v));
+                }
+            }
+            Value::Map(m) => {
+                let mut pairs: Vec<(Vec<u8>, Vec<u8>)> = m
+                    .iter()
+                    .map(|(k, v)| (encode_by_pairs(k), encode_by_pairs(v)))
+                    .collect();
+                pairs.sort_by(|a, b| a.0.cmp(&b.0));
+                head(&mut out, 5, pairs.len() as u64);
+                for (k, v) in pairs {
+                    out.extend(k);
+                    out.extend(v);
+                }
+            }
+            leaf => write(leaf, &mut out, 0).unwrap(),
+        }
+        out
+    }
+
+    #[test]
+    fn maps_encode_as_sorted_pairs_do() {
+        let text = |s: &str| Value::Text(s.to_string());
+        // Built with `Value::Map`, not `Value::map`: given out of order, with keys of
+        // several types, nested maps among the keys and the values.
+        let inner = Value::Map(vec![
+            (text("b"), Value::Int(-3)),
+            (Value::Int(10), Value::Float(1.5)),
+            (text("aa"), Value::Array(vec![Value::Null, text("é")])),
+            (Value::Bytes(vec![1, 2]), Value::Bool(true)),
+            (
+                text("a"),
+                Value::Map(vec![(text("z"), text("y")), (text("x"), Value::Int(300))]),
+            ),
+        ]);
+        let value = Value::Map(vec![
+            (text("labels"), inner.clone()),
+            (
+                Value::Int(-1),
+                Value::Array(vec![inner.clone(), inner.clone()]),
+            ),
+            (text("id"), text("Q42")),
+            (inner.clone(), Value::Int(1 << 40)),
+            (Value::Array(vec![text("k")]), Value::Map(vec![])),
+            (text("claims"), Value::Map(vec![(text("P31"), inner)])),
+        ]);
+        assert_eq!(encode(&value).unwrap(), encode_by_pairs(&value));
+    }
+
+    #[test]
+    fn from_json_owned_is_from_json() {
+        let j = serde_json::json!({
+            "id": "Q42", "n": [1, -2, 1.5, 18_446_744_073_709_551_615_u64, null, true],
+            "labels": {"en": {"language": "en", "value": "é\u{0}"}}, "": {}
+        });
+        assert_eq!(Value::from_json_owned(j.clone()), Value::from_json(&j));
+    }
+
+    #[test]
+    fn a_duplicate_key_is_refused_wherever_it_is() {
+        let text = |s: &str| Value::Text(s.to_string());
+        let dup = Value::Map(vec![(text("a"), Value::Int(1)), (text("a"), Value::Int(2))]);
+        assert_eq!(encode(&dup), Err(CborError::DuplicateKey));
+        let nested = Value::Map(vec![(text("x"), Value::Array(vec![dup]))]);
+        assert_eq!(encode(&nested), Err(CborError::DuplicateKey));
+    }
 
     #[test]
     #[allow(clippy::too_many_lines)]

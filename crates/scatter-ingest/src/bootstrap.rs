@@ -82,8 +82,10 @@ pub struct Prepare {
 /// the graph, the record's body and the operation it carries, a projection can compute
 /// ahead, off the coordinator, what it would otherwise compute from the record when its
 /// block is applied. The records are appended as prepared, so the content bytes it sees
-/// are the record's.
-pub type Warm = std::sync::Arc<dyn Fn(&str, &Body, Operation) + Send + Sync>;
+/// are the record's. For a `put`, the last argument is its entity's canonical JSON, which
+/// the preparation builds for the operation's size, so that the hook need not build it
+/// again.
+pub type Warm = std::sync::Arc<dyn Fn(&str, &Body, Operation, Option<&str>) + Send + Sync>;
 
 impl std::fmt::Debug for Prepare {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -144,7 +146,8 @@ impl Prepare {
                 let mismatches = self.hasher.reconcile(&mut entity);
                 upstream_aliases.sort();
                 upstream_aliases.dedup();
-                let size = entity.to_canonical_json().len() as u64;
+                let json = entity.to_canonical_json();
+                let size = json.len() as u64;
                 let changes = Changes::between(None, &entity);
                 let id = entity.id.clone();
                 let revid = upstream.revid;
@@ -161,7 +164,7 @@ impl Prepare {
                     upstream_id,
                     upstream_aliases,
                 };
-                let (draft, commitment) = self.draft(&id, revid, op)?;
+                let (draft, commitment) = self.draft(&id, revid, op, Some(&json))?;
                 Ok(Prepared::Record {
                     draft,
                     commitment,
@@ -176,7 +179,7 @@ impl Prepare {
                     to,
                     upstream: Some(upstream),
                 };
-                let (draft, commitment) = self.draft(&from, revid, op)?;
+                let (draft, commitment) = self.draft(&from, revid, op, None)?;
                 Ok(Prepared::Record {
                     draft,
                     commitment,
@@ -204,6 +207,7 @@ impl Prepare {
         subject: &EntityId,
         upstream_revid: Option<u64>,
         op: Operation,
+        json: Option<&str>,
     ) -> Result<(Draft, Hash), IngestError> {
         if subject.form() == IdForm::Keyed {
             return Err(IngestError::Adapter(format!(
@@ -218,12 +222,15 @@ impl Prepare {
             })
             .transpose()?;
         let content = serde_json::to_value(&op).map_err(|e| e.to_string())?;
-        let body = Body::core(&Value::from_json(&content), &Value::Null, &self.attestation)
-            .map_err(|e| e.to_string())?;
-        drop(content);
+        let body = Body::core(
+            &Value::from_json_owned(content),
+            &Value::Null,
+            &self.attestation,
+        )
+        .map_err(|e| e.to_string())?;
         let commitment = body.commitment();
         if let Some(warm) = &self.warm {
-            warm(&self.graph, &body, op);
+            warm(&self.graph, &body, op, json);
         }
         Ok((
             Draft {

@@ -13,7 +13,7 @@
 //! as stored and an absent one recomputed by the [`Hasher`] given, which knows whether
 //! the data is the tenant's own or mirrored from a provider.
 
-use std::fmt::Write as _;
+use std::io::Write as _;
 
 use serde_json::Value;
 
@@ -140,9 +140,9 @@ pub fn from_wbgetentities(text: &str) -> Result<Vec<ParsedEntity>, JsonError> {
 /// Serializes a JSON value canonically (module docs).
 #[must_use]
 pub fn canonical(value: &Value) -> String {
-    let mut out = String::new();
+    let mut out = Vec::new();
     write_canonical(value, &mut out);
-    out
+    String::from_utf8(out).expect("serde_json writes UTF-8")
 }
 
 /// The CBOR core-deterministic order of two text-string keys: by encoded bytes, which is
@@ -154,41 +154,47 @@ pub fn key_order(a: &str, b: &str) -> std::cmp::Ordering {
         .then_with(|| a.as_bytes().cmp(b.as_bytes()))
 }
 
-fn write_canonical(value: &Value, out: &mut String) {
+/// Writes `value` canonically into `out`. Strings and keys are escaped by `serde_json`
+/// straight into the buffer, rather than each into a string of its own that is then
+/// copied: the same bytes, with an allocation per string fewer.
+fn write_canonical(value: &Value, out: &mut Vec<u8>) {
     match value {
-        Value::Null => out.push_str("null"),
-        Value::Bool(b) => out.push_str(if *b { "true" } else { "false" }),
+        Value::Null => out.extend_from_slice(b"null"),
+        Value::Bool(b) => out.extend_from_slice(if *b { b"true" } else { b"false" }),
         Value::Number(n) => {
             let _ = write!(out, "{n}");
         }
-        Value::String(s) => {
-            out.push_str(&serde_json::to_string(s).expect("a string serializes"));
-        }
+        Value::String(s) => write_str(s, out),
         Value::Array(items) => {
-            out.push('[');
+            out.push(b'[');
             for (i, item) in items.iter().enumerate() {
                 if i > 0 {
-                    out.push(',');
+                    out.push(b',');
                 }
                 write_canonical(item, out);
             }
-            out.push(']');
+            out.push(b']');
         }
         Value::Object(map) => {
             let mut keys: Vec<&String> = map.keys().collect();
             keys.sort_by(|a, b| key_order(a, b));
-            out.push('{');
+            out.push(b'{');
             for (i, k) in keys.iter().enumerate() {
                 if i > 0 {
-                    out.push(',');
+                    out.push(b',');
                 }
-                out.push_str(&serde_json::to_string(k).expect("a string serializes"));
-                out.push(':');
+                write_str(k, out);
+                out.push(b':');
                 write_canonical(&map[*k], out);
             }
-            out.push('}');
+            out.push(b'}');
         }
     }
+}
+
+/// A JSON string as `serde_json` escapes it.
+fn write_str(s: &str, out: &mut Vec<u8>) {
+    serde_json::to_writer(&mut *out, s).expect("a string serializes into memory");
 }
 
 #[cfg(test)]
@@ -204,6 +210,18 @@ mod tests {
             // Two-byte keys first, bytewise within a length: `P1` (0x50…) before `id` (0x69…).
             r#"{"P1":3,"P2":2,"id":"Q1","P10":1,"claims":{},"labels":{}}"#
         );
+    }
+
+    #[test]
+    fn strings_escape_as_serde_json_escapes_them() {
+        let text = "a\"b\\c\u{0}\u{8}\t\n\u{b}\u{c}\r\u{1f}\u{7f}é𝄞/<>";
+        let value = json!({ text: [text, "", 1.5, -0.0, null, true] });
+        let expected = format!(
+            "{{{}:[{},\"\",1.5,-0.0,null,true]}}",
+            serde_json::to_string(text).unwrap(),
+            serde_json::to_string(text).unwrap()
+        );
+        assert_eq!(canonical(&value), expected);
     }
 
     #[test]
