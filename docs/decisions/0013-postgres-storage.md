@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-08 (A84)
+- **Updated:** 2026-11-09 (A85)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -129,7 +129,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 9. Bootstrap mode (extends 0002 §8.6; uses 0006 §5)
 
-*Changed by A31, A53, A70, A71, A72, A73, A74, A82, A83.*
+*Changed by A31, A53, A70, A71, A72, A73, A74, A82, A83, A85.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.8.*
 
@@ -1097,3 +1097,14 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.8, as it sto
 - **Source:** [0104](0104-batches-and-the-job-runner.md) §8
 - **Change:** extends §5.6
 - **Summary:** `ops.job_queue`, a submitted job waiting for the runner, keyed by the job ID minted at submission, claimed under `SELECT … FOR UPDATE SKIP LOCKED` by one runner task per partition, and deleted when the job's finish or fail record is written. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §4.12.
+
+### A85. A bootstrap load leaves signing to the checkpoint command
+
+- **Date:** 2026-11-09
+- **Source:** Direct: James, design discussion of 2026-11-09
+- **Change:** amends §9
+- **Summary:** A bootstrap load does not sign its checkpoints: they are signed as every partition's are, by `triplespace checkpoint`, until 0006 Q4 settles the cadence a worker signs on. The step is deferred, not dropped. Chapter text: [05](../architecture/05-providers-and-ingest.md) §3.8.
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.8, as it stood):
+
+> 5. Checkpoints are signed and the partition goes live.

@@ -26,7 +26,7 @@ is in the results log and in git.
 <!-- coverage.py: status -->
 | Needs | For | Code says |
 |---|---|---|
-| `0091 §1` | `triplespace sync` reads every Wikibase provider with one adapter (stages 1–3) | partial: cited as about only |
+| `0091 §1` | `triplespace sync` reads every Wikibase provider with one adapter (stages 1–3) | done |
 | `0091 §4` | syncing a Wikibase dump, JSON or XML (stages 2–3) | done |
 | `0009 §9` | key-mapped providers; a Domain gone from the dump gets an empty `put`, not a tombstone, at the snapshot sweep (stage 2.5) | partial: cited as about only |
 | `0013 §9` | bootstrap mode (block `COPY`, deferred indexes), without which a full Wikidata sync is bound by write speed (stage 3) | partial: cited as about only |
@@ -501,7 +501,17 @@ From 3.1 and 3.2, project the full sync's wall time, database size and log size.
 
 ## Results log
 
-One row per run.
+One row per run, written by the run: wrap its command in `tools/results_row.py`, which runs
+it, measures the wall time, peak RSS and database size, reads the counts from the command's
+summary, and appends the row with the date and commit, a failed run included:
+
+```sh
+python3 tools/results_row.py --run "3.2 WD 1M slice" --input wd-1m.json.gz --note "…" \
+    -- triplespace sync --tenant librarybase --provider wikidata --dump wd-1m.json.gz
+```
+
+`--rebuild yes|no` fills *Rebuild identical?*, which only a rebuild and a diff can tell. Rows
+before 2026-11-09 were typed by hand.
 
 | Run | Input (sha256, entities) | Wall | Peak RSS | DB size after | Created / adopted | Rejected | Unreadable | Rebuild identical? | Notes |
 |---|---|---|---|---|---|---|---|---|---|

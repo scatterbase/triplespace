@@ -453,6 +453,26 @@ async fn api(database: &str, key_file: &std::path::Path) {
         "{rest}"
     );
 
+    // As a generator (compat §5.4): the same pages become the page set, with `prop=info`
+    // fields, and the continuation comes back as `gapcontinue`.
+    let generated = c
+        .get("action=query&generator=allpages&gapnamespace=4&gaplimit=5&prop=info")
+        .await;
+    let pages = generated["query"]["pages"].as_array().unwrap();
+    assert_eq!(pages.len(), 5, "{generated}");
+    assert!(
+        pages
+            .iter()
+            .any(|p| p["title"] == format!("{project}:About")),
+        "{generated}"
+    );
+    assert!(
+        pages.iter().all(|p| p["contentmodel"].is_string()),
+        "{generated}"
+    );
+    assert_eq!(generated["continue"]["gapcontinue"], next, "{generated}");
+    assert!(generated["query"].get("allpages").is_none(), "{generated}");
+
     // prefixsearch finds pages by a case-insensitive title prefix (0010 §3; 0052 §6): in
     // the main namespace by default, in every page namespace for `*`, and in the
     // namespace the text names, with continuation; the exact title leads.

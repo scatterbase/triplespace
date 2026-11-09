@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-09 (A88)
+- **Updated:** 2026-11-09 (A89)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -71,7 +71,7 @@ This ADR sets the rules for filling both gaps, and lists what the UI needs from 
 
 ### 5. REST routes under `rest.php/triplespace/v0`
 
-*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33, A37, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A50, A51, A52, A53, A54, A55, A56, A59, A60, A61, A62, A64, A70, A71, A72, A75, A76, A77, A78, A79, A80, A84, A85, A86, A87, A88.*
+*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33, A37, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A50, A51, A52, A53, A54, A55, A56, A59, A60, A61, A62, A64, A70, A71, A72, A75, A76, A77, A78, A79, A80, A84, A85, A86, A87, A88, A89.*
 
 *Current text: [17](../architecture/17-federation-and-publication.md) §1.1; [18](../architecture/18-api.md) §1.2, §3.1, §3.2, §3.3, §4.*
 
@@ -985,3 +985,14 @@ Replaced text ([18](../architecture/18-api.md) §2.3, as it stood):
 Replaced text ([18](../architecture/18-api.md) §3.2, as it stood):
 
 > a tick means the contract serves the route today, and the generator fails if the contract serves a route the catalogue lacks.
+
+### A89. A route served through a more general one is built
+
+- **Date:** 2026-11-09
+- **Source:** Direct: Claude, while building the route catalogue's Built column, 2026-11-09; unconfirmed
+- **Change:** amends §5
+- **Summary:** A catalogue route is served when the contract serves it or a more general route whose parameter takes its literal segment: `GET /acl/set/{id}` is served by `GET /acl/{kind}/{id}`, which the router routes it to and which reads `set` as a target kind. The three set-ACL routes had read as unbuilt. Chapter text: [18](../architecture/18-api.md) §3.2.
+
+Replaced text ([18](../architecture/18-api.md) §3.2, as it stood):
+
+> a tick means the contract serves every route the row names today ([0012](../decisions/0012-api-requirements.md) A88), and

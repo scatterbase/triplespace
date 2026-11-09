@@ -237,7 +237,7 @@ sources = "[0010](../decisions/0010-site-ui.md) §10; [0102](../decisions/0102-s
 
 [[module]]
 kind = "action"
-modules = ["action=watch", "action=unwatch"]
+modules = ["action=watch"]
 changes = "`action=watch` with `titles` or `pageids`, `unwatch`, `expiry`, and Triplespace's `tsnotify`, which sets or clears *notify me* and is kept when not given; a `watch` token ([0020](../decisions/0020-change-feeds.md) A18)"
 sources = "[0020](../decisions/0020-change-feeds.md) §5"
 

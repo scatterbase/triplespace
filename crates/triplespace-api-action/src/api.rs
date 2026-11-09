@@ -312,6 +312,6 @@ action_modules! { ctx, action;
     "wbgetentities", false => modules::entities::wbgetentities(ctx).await;
     "wbsearchentities", false => modules::search::wbsearchentities(ctx).await;
     "wbeditentity" | "wbcreateclaim" | "wbsetclaim" | "wbremoveclaims" | "wbsetlabel"
-        | "wbsetdescription" | "wbsetaliases" | "wbsetqualifier" | "wbremovequalifiers"
+        | "wbsetdescription" | "wbsetaliases" | "wbsetclaimvalue" | "wbsetqualifier" | "wbremovequalifiers"
         | "wbsetreference" | "wbremovereferences", true => modules::write::run(ctx, action).await;
 }

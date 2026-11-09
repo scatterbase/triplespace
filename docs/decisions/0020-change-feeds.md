@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-05 (A19)
+- **Updated:** 2026-11-09 (A20)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0022](0022-federation.md)
@@ -43,7 +43,7 @@ One constraint is fixed by James: **whether a user is watching something is priv
 
 ### 5. API (extends 0012 §4 and §5)
 
-*Changed by A2, A6, A18.*
+*Changed by A2, A6, A18, A20.*
 
 *Current text: [18](../architecture/18-api.md) §2.3, §3.1, §3.2.*
 
@@ -283,3 +283,13 @@ Replaced text ([18](../architecture/18-api.md) §2.3, §2.4, §3.2, as it stood)
 - **Change:** extends §1
 - **Summary:** Per MediaWiki, a deleted page does not appear in recent changes. The everything, actor and watched sets (recent changes, contributions, watchlists) leave out the `edit`, `sync` and `erased` rows of a page, thread or local entity that is deleted now, for every viewer, the deletion group included; its log events, the deletion's among them, stay. One-target and talk-page histories keep the rows, for `prop=deletedrevisions` and the deletion group. The test is made at read time, so an undeletion brings the rows back. Found as a bug: an adopted page, deleted, still showed in recent changes.
 
+### A20. There is no `action=unwatch`
+
+- **Date:** 2026-11-09
+- **Source:** Direct: Claude, while checking the module catalogue against the code, 2026-11-09; unconfirmed
+- **Change:** corrects §5
+- **Summary:** The module catalogue named `action=unwatch` beside `action=watch`; MediaWiki has no such module (mediawiki-compat.md lists `watch` alone), and unwatching is `action=watch` with `unwatch`, which is served. The row now names `action=watch` only. Chapter text: [18](../architecture/18-api.md) §2.3 (`action-api.toml`).
+
+Replaced text ([18](../architecture/18-api.md) §2.3, `action-api.toml`, as it stood):
+
+> `action=watch`, `action=unwatch`

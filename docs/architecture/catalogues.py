@@ -66,6 +66,14 @@ def norm_path(p):
     return re.sub(r"\{[^}]*\}", "{}", p)
 
 
+def serves(op_path, path):
+    """Whether a served path serves a catalogue path: the same, or more general, a parameter
+    of the served path taking a literal segment of the catalogue's (`/acl/{}/{}` serves
+    `/acl/set/{}`, as the router routes it), never the reverse (0012 A89)."""
+    a, b = op_path.split("/"), path.split("/")
+    return len(a) == len(b) and all(x == y or x == "{}" for x, y in zip(a, b))
+
+
 def parse_route(r):
     m = re.match(r"^(?:(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)\s+)?(.+)$", r.strip())
     if not m:
@@ -93,9 +101,13 @@ def routes(write_errs):
                 continue
             served = False
             for m, p in ops:
-                if p == path and (method is None or method == m):
+                if method is not None and method != m:
+                    continue
+                if p == path:
                     served = True
                     covered.add((m, p))
+                elif serves(p, path):
+                    served = True
             built = built and served
         if not r.get("sources"):
             write_errs.append(f"routes.toml: {names[0]} has no sources")
