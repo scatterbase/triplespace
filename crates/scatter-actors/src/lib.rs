@@ -90,7 +90,7 @@ pub use signing::{
     zbase32,
 };
 pub use surrogate::{ActorSurrogates, InMemoryActorSurrogates};
-pub use tenancy::{Preset, TenancyError, TenancyPolicy, TenancyRegistry};
+pub use tenancy::{Preset, TenancyError, TenancyPolicy, TenancyRegistry, observe_policy_reads};
 pub use time::Timestamp;
 
 /// The default issuer registry, `docs/registry/issuers.toml`, embedded at build time.

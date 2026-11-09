@@ -243,7 +243,7 @@ async fn external_required_unmet(client: &tokio_postgres::Client) -> Result<(), 
 /// `ts-strict-names-unmet`): `login.external_required` off, a login with more than one
 /// external identity, or an account whose name is not, or is not known to be, the one
 /// its identity's username derives. Runs after the writes, in their unit of work, so it
-/// sees what the save would leave. This implements 0102 §5 (A1) with
+/// sees what the save would leave. This implements 0102 §5 (A2) with
 /// `accounts::strict_readiness`.
 async fn strict_names_unmet(client: &tokio_postgres::Client) -> Result<(), SaveError> {
     if !triplespace_accounts::logins::strict_names(client)

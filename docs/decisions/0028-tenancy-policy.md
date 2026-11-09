@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-10-18 (A23)
+- **Updated:** 2026-11-09 (A24)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0023](0023-moderation.md)
 - **Uses:** [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0027](0027-preferences-and-portability.md)
@@ -25,7 +25,7 @@ MediaWiki's answer to the second is CentralAuth: one global account, local accou
 
 ### 1. The tenancy policy is instance configuration, with three presets
 
-*Changed by A3, A6, A9, A13, A18, A19.*
+*Changed by A3, A6, A9, A13, A18, A19, A24.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §5.1.*
 
@@ -378,3 +378,10 @@ Replaced text ([08](../architecture/08-tenants-and-instances.md) §3.6, as it st
 Replaced text ([08](../architecture/08-tenants-and-instances.md) §3.6, as it stood):
 
 > Signing up to the farm itself is not challenged, since the farm has no passwords and its accounts edit nothing.
+
+### A24. Tenancy-switch reads are checked against the switch table
+
+- **Date:** 2026-11-09
+- **Source:** [0108](0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) §2
+- **Change:** extends §1
+- **Summary:** Every read of a switch goes through the settings snapshot's `switch` or the policy's `get`, which report it to the probe; CI fails a run that read a name which is neither a switch `tenancy.toml` lists nor the ceiling of a `bound = "ceiling"` setting. The `tenancy:locked` list is not a switch. Chapter text: [08](../architecture/08-tenants-and-instances.md) §5.1.

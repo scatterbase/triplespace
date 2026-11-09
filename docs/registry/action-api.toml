@@ -1,8 +1,9 @@
-# Every Action API module Triplespace adds or changes (chapter 18 §2.3), in three tables: `action=`
-# modules, `action=query` submodules, and the Wikibase and WikibaseLexeme modules. Edit this file,
-# then `python3 architecture/catalogues.py --write` from docs/ regenerates the tables. The Built
-# column is derived from the module lists `action=paraminfo` serves (ACTION_MODULES and
-# QUERY_MODULES in crates/triplespace-api-action/src/modules/query.rs).
+# Every Action API module the API serves or an ADR names (chapter 18 §2.3; 0108 §1.1), in three
+# tables: `action=` modules, `action=query` submodules, and the Wikibase and WikibaseLexeme
+# modules. Edit this file, then `python3 architecture/catalogues.py --write` from docs/
+# regenerates the tables. The Built column is derived from the module lists `action=paraminfo`
+# serves: the `action_modules!` table in crates/triplespace-api-action/src/api.rs, which also
+# generates the dispatch, and QUERY_MODULES in crates/triplespace-api-action/src/modules/query.rs.
 
 # kind     action | query | wikibase: which table the row is in
 # modules  the module names the row covers, as the table spells them (`action=edit`, `list=blocks`, `wbeditentity`)
@@ -239,6 +240,18 @@ kind = "action"
 modules = ["action=watch", "action=unwatch"]
 changes = "`action=watch` with `titles` or `pageids`, `unwatch`, `expiry`, and Triplespace's `tsnotify`, which sets or clears *notify me* and is kept when not given; a `watch` token ([0020](../decisions/0020-change-feeds.md) A18)"
 sources = "[0020](../decisions/0020-change-feeds.md) §5"
+
+[[module]]
+kind = "action"
+modules = ["action=help"]
+changes = "As in MediaWiki: the module list"
+sources = "[0012](../decisions/0012-api-requirements.md) §1; [0108](../decisions/0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) §1"
+
+[[module]]
+kind = "action"
+modules = ["action=query"]
+changes = "As in MediaWiki: runs the `meta`, `prop`, `list` and `generator` submodules below"
+sources = "[0012](../decisions/0012-api-requirements.md) §1; [0108](../decisions/0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) §1"
 
 [[module]]
 kind = "query"
@@ -517,6 +530,24 @@ modules = []
 display = "`titles=`, `pageids=`, `redirects`"
 changes = "`redirects` resolves the page set through redirects, one hop, and reports each in the `redirects` array with `from`, `to` and `tofragment`, as MediaWiki does. The page set resolves through the stack and through foreign redirects; a ranged `pageid` resolves to the repository page it names"
 sources = "[0051](../decisions/0051-page-redirects.md) §7; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6"
+
+[[module]]
+kind = "query"
+modules = ["meta=siteinfo"]
+changes = "As in MediaWiki, with what later ADRs add to its `siprop` values (`siprop=triplespace`)"
+sources = "[0012](../decisions/0012-api-requirements.md) §1; [0108](../decisions/0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) §1"
+
+[[module]]
+kind = "query"
+modules = ["meta=tokens"]
+changes = "As in MediaWiki"
+sources = "[0012](../decisions/0012-api-requirements.md) §1; [0108](../decisions/0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) §1"
+
+[[module]]
+kind = "query"
+modules = ["meta=wikibase"]
+changes = "As in Wikibase"
+sources = "[0012](../decisions/0012-api-requirements.md) §1; [0108](../decisions/0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) §1"
 
 [[module]]
 kind = "wikibase"

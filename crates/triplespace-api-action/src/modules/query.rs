@@ -7,6 +7,11 @@
 //! response ([`super::export`]; 0047 §8.1).
 
 use scatter_providers::Registry;
+
+// The action modules, as `action=paraminfo` describes them, are declared with their dispatch in
+// `crate::api`. Every `wb*` write module is one entry (`write::run` dispatches on the name), so
+// a client that validates against paraminfo, as Pywikibot does, sees each of them.
+use crate::api::ACTION_MODULES;
 use scatter_wikibase_model::value::DataType;
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
@@ -21,6 +26,7 @@ use crate::response::{ApiError, ApiResponse};
 /// Runs `action=query`.
 #[allow(clippy::too_many_lines, reason = "one arm per submodule")]
 pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
+    report_submodules(&ctx.params);
     let mut query = Map::new();
     let mut body = Map::new();
     let mut response = ApiResponse::default();
@@ -1057,50 +1063,67 @@ async fn tenant_is_private(ctx: &Ctx) -> Result<bool, ApiError> {
 }
 
 /// `action=paraminfo`: enough for a client to see which modules exist.
-/// The action modules, as `action=paraminfo` describes them. Every `wb*` write module
-/// is one entry here (`write::run` dispatches on the name), so a client that validates
-/// against paraminfo, as Pywikibot does, sees each of them.
-const ACTION_MODULES: &[(&str, bool)] = &[
-    // (name, must be POSTed)
-    ("query", false),
-    ("paraminfo", false),
-    ("help", false),
-    ("login", true),
-    ("clientlogin", true),
-    ("createaccount", true),
-    ("logout", true),
-    ("options", true),
-    ("parse", false),
-    ("compare", false),
-    ("edit", true),
-    ("move", true),
-    ("import", true),
-    ("delete", true),
-    ("undelete", true),
-    ("protect", true),
-    ("revisiondelete", true),
-    ("userrights", true),
-    ("renameuser", true),
-    ("block", true),
-    ("unblock", true),
-    ("echomarkread", true),
-    ("echomarkseen", true),
-    ("watch", true),
-    ("setnotificationtimestamp", true),
-    ("wbgetentities", false),
-    ("wbsearchentities", false),
-    ("wbeditentity", true),
-    ("wbcreateclaim", true),
-    ("wbsetclaim", true),
-    ("wbremoveclaims", true),
-    ("wbsetlabel", true),
-    ("wbsetdescription", true),
-    ("wbsetaliases", true),
-    ("wbsetqualifier", true),
-    ("wbremovequalifiers", true),
-    ("wbsetreference", true),
-    ("wbremovereferences", true),
-];
+/// The help text: every module, from the same tables paraminfo reads.
+pub(crate) fn help_text() -> String {
+    let query: Vec<String> = QUERY_MODULES
+        .iter()
+        .map(|(kind, names)| format!("{kind}={}", names.join("|")))
+        .collect();
+    let actions: Vec<&str> = ACTION_MODULES
+        .iter()
+        .map(|(n, _)| *n)
+        .filter(|n| *n != "query")
+        .collect();
+    format!(
+        "Triplespace Action API. Modules: query ({}), {}.",
+        query.join("; "),
+        actions.join(", ")
+    )
+}
+
+/// The observer of the modules the API serves a process may install (0108 §1): called with
+/// `action={name}` for an `action=` module and `{kind}={name}` for a query submodule, as
+/// `action-api.toml` spells them, each time one is asked for and served.
+static OBSERVER: std::sync::OnceLock<fn(&str)> = std::sync::OnceLock::new();
+
+/// Installs the observer of the modules served, once per process (implements 0108 §1.1):
+/// the server sets it when asked to probe, so that the modules a run used can be compared
+/// with `action-api.toml`. False if one was already installed.
+pub fn observe_modules(observer: fn(&str)) -> bool {
+    OBSERVER.set(observer).is_ok()
+}
+
+/// Reports an `action=` module the request names, if the API serves it (0108 §1).
+pub(crate) fn report_action(name: &str) {
+    if let Some(observe) = OBSERVER.get()
+        && ACTION_MODULES.iter().any(|(n, _)| *n == name)
+    {
+        observe(&format!("action={name}"));
+    }
+}
+
+/// Reports the query submodules a request names that the API serves (0108 §1).
+fn report_submodules(params: &crate::params::Params) {
+    let Some(observe) = OBSERVER.get() else {
+        return;
+    };
+    for (kind, names) in QUERY_MODULES {
+        let asked: Vec<String> = if *kind == "generator" {
+            params
+                .get("generator")
+                .map(str::to_owned)
+                .into_iter()
+                .collect()
+        } else {
+            params.list(kind)
+        };
+        for n in asked {
+            if names.contains(&n.as_str()) {
+                observe(&format!("{kind}={n}"));
+            }
+        }
+    }
+}
 
 /// `action=query`'s submodules by kind: `(kind, names)`.
 const QUERY_MODULES: &[(&str, &[&str])] = &[
@@ -2058,5 +2081,42 @@ mod paraminfo_tests {
         let search = by_path(&more, "wbsearchentities");
         let langs = param(&search, "language");
         assert!(langs["type"].as_array().unwrap().contains(&json!("en")));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // One table declares each `action=` module with its dispatch (api.rs), so paraminfo lists
+    // every module dispatched: `linkaccount` and `unlinkaccount` were dispatched and missing.
+    // The help text is built from the same tables.
+    #[test]
+    fn paraminfo_and_help_list_every_module() {
+        for name in ["linkaccount", "unlinkaccount", "wbremovereferences", "help"] {
+            assert!(ACTION_MODULES.iter().any(|(n, _)| *n == name), "{name}");
+        }
+        let help = help_text();
+        for (name, _) in ACTION_MODULES.iter().filter(|(n, _)| *n != "query") {
+            assert!(help.contains(name), "{name} is missing from the help text");
+        }
+        assert!(help.contains("list=recentchanges|"), "{help}");
+    }
+
+    // 0108 §1.1: a served `action=` module is reported in action-api.toml's spelling; a name
+    // the API does not serve is not.
+    #[test]
+    fn served_modules_are_observed() {
+        use std::sync::Mutex;
+        static SEEN: Mutex<Vec<String>> = Mutex::new(Vec::new());
+        fn record(m: &str) {
+            SEEN.lock().unwrap().push(m.to_owned());
+        }
+        observe_modules(record);
+        report_action("query");
+        report_action("nonesuch");
+        let seen = SEEN.lock().unwrap();
+        assert!(seen.iter().any(|m| m == "action=query"));
+        assert!(!seen.iter().any(|m| m.contains("nonesuch")));
     }
 }

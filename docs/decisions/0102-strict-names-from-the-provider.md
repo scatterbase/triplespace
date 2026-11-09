@@ -1,6 +1,6 @@
 # 0102. Strict names: the provider's username is the account's name
 
-- **Status:** Accepted with proposed amendment (A2)
+- **Status:** Accepted
 - **Date:** 2026-11-06
 - **Updated:** 2026-11-07 (A2)
 - **Author:** James Hare / Claude Fable

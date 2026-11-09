@@ -787,7 +787,7 @@ impl StrictReadiness {
     }
 }
 
-/// Reads what enacting strict names waits on (0102 §5). This implements 0102 §5 (A1) with
+/// Reads what enacting strict names waits on (0102 §5). This implements 0102 §5 (A2) with
 /// the refusal in `settings::save` and `logins check`.
 ///
 /// # Errors

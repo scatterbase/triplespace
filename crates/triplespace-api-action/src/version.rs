@@ -187,9 +187,16 @@ pub async fn setting(
     Ok(set_value(&snap, key))
 }
 
-/// A setting's value from a snapshot where something set it (see [`setting`]).
+/// A setting's value from a snapshot where something set it (see [`setting`]). A key the
+/// settings registry does not know is a tenancy switch, as `search.farm_wide` among the
+/// feature switches of 0077 §11 is (0028 §9): its value is the instance's `tenancy:{switch}`
+/// record, where one is set. Found by the probe (0107 §2): resolving it as a setting answered
+/// nothing, so the switch always read as its default.
 #[must_use]
 pub fn set_value(snap: &triplespace_accounts::settings::Snapshot, key: &str) -> Option<Value> {
+    if snap.registry().get(key).is_none() {
+        return snap.switch(key).map(|r| r.value.clone());
+    }
     snap.resolve(key)
         .filter(|r| r.origin != triplespace_accounts::settings::Origin::Registry)
         .and_then(|r| r.value)
@@ -235,6 +242,28 @@ pub async fn refresh(app: &crate::App) {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // 0077 §11, 0028 §9, 0107 §2: a feature switch that is a tenancy switch reads the
+    // instance's `tenancy:` record, not a setting the registry does not have.
+    #[test]
+    fn a_tenancy_switch_reads_its_record() {
+        use triplespace_accounts::settings::{Row, Snapshot};
+        let mut snap = Snapshot::default();
+        assert_eq!(set_value(&snap, "search.farm_wide"), None);
+        snap.tenancy.insert(
+            "search.farm_wide".into(),
+            Row::of(serde_json::json!("everyone"), 3),
+        );
+        assert_eq!(
+            set_value(&snap, "search.farm_wide"),
+            Some(serde_json::json!("everyone"))
+        );
+        assert_eq!(
+            set_value(&snap, "site.language"),
+            None,
+            "only the registry default"
+        );
+    }
 
     #[test]
     fn a_stub_without_a_manifest() {

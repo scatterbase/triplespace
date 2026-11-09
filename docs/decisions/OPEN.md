@@ -449,7 +449,7 @@ Every unstruck question in every ADR (24 §8), with its first sentence. Settle o
 | [0104 Q1](0104-batches-and-the-job-runner.md) | Reverting page and thread records | A page revision reverts by restoring the previous text as an edit; a post in a thread has no inverse but hiding its text, as Nuke does (0047 §7). |
 | [0104 Q2](0104-batches-and-the-job-runner.md) | Idle batches | A keyed batch stays open until its submitter closes it or it is rejected. |
 | [0104 Q3](0104-batches-and-the-job-runner.md) | The queue beyond one process | The runner claims queued jobs with the database's row locks, so several server processes could share the queue; nothing partitions the work between them yet, and a job that one process started is finished by that process… |
-| [0105 Q2](0105-catalogues-checked-against-the-running-code.md) | Settings and log events | The same mechanism fits both: the server reports each setting it reads and each log event it emits, compared with `settings.toml` and `log-events.toml`. |
+| [0108 Q1](0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) | Routes outside the REST API | The site's routes (`triplespace-web routes`), `/.well-known` and the auth base have no catalogue checked against the running code. |
 
 ## Pending registry allocations
 

@@ -145,7 +145,8 @@ impl Policy {
         })
     }
 
-    /// Whether a trigger stands in front of an act for this caller.
+    /// Whether a trigger stands in front of an act for this caller: never for a holder of
+    /// `skipcaptcha`; the instance's own acts never reach a trigger (implements 0087 §7).
     #[must_use]
     pub fn guards(&self, ctx: &Ctx, trigger: Trigger) -> bool {
         self.triggers.contains(&trigger) && !ctx.caller.effective.holds("skipcaptcha")

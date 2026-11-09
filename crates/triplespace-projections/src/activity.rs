@@ -19,6 +19,24 @@
 //! operations that are also log events carry their log type and action and the record's
 //! log ID on the same row (16 §6.1), which `list=logevents` reads beside the `log` rows.
 
+/// The observer of log events a process may install (0107 §3): called with `type/action` for
+/// every log event the activity projection writes.
+static OBSERVER: std::sync::OnceLock<fn(&str)> = std::sync::OnceLock::new();
+
+/// Installs the observer of log events, once per process (implements 0107 §3): the binaries set it when
+/// asked to probe, so that the events the code writes can be compared with `log-events.toml`.
+/// False if one was already installed. Nothing is observed until one is.
+pub fn observe_log_events(observer: fn(&str)) -> bool {
+    OBSERVER.set(observer).is_ok()
+}
+
+/// Reports a row's log event, if it is one, to the observer (0107 §3).
+fn report_log_event(log_type: Option<&str>, log_action: Option<&str>) {
+    if let (Some(observe), Some(t), Some(a)) = (OBSERVER.get(), log_type, log_action) {
+        observe(&format!("{t}/{a}"));
+    }
+}
+
 use scatter_log::cbor::Value;
 use scatter_log::header::{CONFIG_PARTITION, Header};
 use scatter_log::record::Record;
@@ -1147,6 +1165,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
                         .await?,
                 );
             }
+            report_log_event(columns.log_type.as_deref(), columns.log_action.as_deref());
             let attested = attested(record);
             let as_i64 = |n: Option<u64>| {
                 n.map(i64::try_from)
@@ -1224,6 +1243,20 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
 mod tests {
     use super::*;
     use serde_json::json;
+
+    // 0107 §3: a row with a log type and action reports `type/action`; an edit row does not.
+    #[test]
+    fn log_events_are_observed() {
+        use std::sync::Mutex;
+        static SEEN: Mutex<Vec<String>> = Mutex::new(Vec::new());
+        fn record(e: &str) {
+            SEEN.lock().unwrap().push(e.to_owned());
+        }
+        observe_log_events(record);
+        report_log_event(Some("block"), Some("reblock"));
+        report_log_event(None, None);
+        assert_eq!(SEEN.lock().unwrap().as_slice(), ["block/reblock"]);
+    }
 
     #[test]
     fn summaries() {

@@ -84,16 +84,19 @@ def routes(write_errs):
         if not names:
             write_errs.append("routes.toml: an entry has no routes")
             continue
-        built = False
+        # A row is built when every route it names is served (0012 A88).
+        built = bool(names)
         for n in names:
             method, path = parse_route(n)
             if path is None:
                 write_errs.append(f"routes.toml: cannot read route {n!r}")
                 continue
+            served = False
             for m, p in ops:
                 if p == path and (method is None or method == m):
-                    built = True
+                    served = True
                     covered.add((m, p))
+            built = built and served
         if not r.get("sources"):
             write_errs.append(f"routes.toml: {names[0]} has no sources")
         out.append(f"| {cell(r.get('display') or codes(names))} | {cell(r.get('purpose'))} | {'✓' if built else ''} | {cell(r.get('sources'))} |")
@@ -167,16 +170,21 @@ def log_events(write_errs):
 # ---------------------------------------------------------------- Action API modules
 
 def code_modules():
-    """The modules `action=paraminfo` serves, read from the constants in query.rs:
-    {"action": {...}, "meta": {...}, "prop": {...}, "list": {...}}."""
-    path = os.path.join(os.path.dirname(os.path.abspath(ROOT)), "crates", "triplespace-api-action", "src", "modules", "query.rs")
+    """The modules `action=paraminfo` serves: the `action=` modules from the `action_modules!`
+    table in api.rs, which generates both `ACTION_MODULES` and the dispatch, and the query
+    submodules from `QUERY_MODULES` in query.rs: {"action": {...}, "meta": {...}, "prop": {...},
+    "list": {...}}."""
+    crate = os.path.join(os.path.dirname(os.path.abspath(ROOT)), "crates", "triplespace-api-action", "src")
+    api, query = os.path.join(crate, "api.rs"), os.path.join(crate, "modules", "query.rs")
     out = {"action": set(), "meta": set(), "prop": set(), "list": set(), "generator": set()}
-    if not os.path.exists(path):
+    if not (os.path.exists(api) and os.path.exists(query)):
         return None
-    src = open(path, encoding="utf-8").read()
-    m = re.search(r"const ACTION_MODULES: &\[\(&str, bool\)\] = &\[(.*?)\];", src, re.S)
+    src = open(api, encoding="utf-8").read()
+    m = re.search(r"^action_modules! \{ \w+, \w+;(.*?)^\}", src, re.S | re.M)
     if m:
-        out["action"] = set(re.findall(r'\("([a-z]+)",', m.group(1)))
+        for names, _post in re.findall(r'((?:"[a-z]+"\s*\|\s*)*"[a-z]+")\s*,\s*(true|false)\s*=>', m.group(1)):
+            out["action"] |= set(re.findall(r'"([a-z]+)"', names))
+    src = open(query, encoding="utf-8").read()
     m = re.search(r"const QUERY_MODULES: &\[\(&str, &\[&str\]\)\] = &\[(.*?)\n\];", src, re.S)
     if m:
         for kind, body in re.findall(r'\(\s*"(meta|prop|list|generator)",\s*&\[(.*?)\]', m.group(1), re.S):
@@ -206,7 +214,8 @@ def action_api(kind):
                 continue
             if not r.get("sources"):
                 write_errs.append(f"action-api.toml: {(mods or [r.get('display')])[0]} has no sources")
-            built = any(module_built(m, code) for m in mods)
+            # A row is built when every module it names is served (0012 A88).
+            built = bool(mods) and all(module_built(m, code) for m in mods)
             out.append(f"| {cell(r.get('display') or codes(mods))} | {cell(r.get('changes'))} | {'✓' if built else ''} | {cell(r.get('sources'))} |")
         if kind == "action" and code is not None and "--notes" in sys.argv:
             listed = {m for r in data.get("module", []) for m in r.get("modules", [])}

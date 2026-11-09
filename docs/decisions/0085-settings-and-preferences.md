@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-17
-- **Updated:** 2026-10-30 (A2)
+- **Updated:** 2026-11-09 (A3)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0027](0027-preferences-and-portability.md), [0028](0028-tenancy-policy.md), [0034](0034-frontend-stack.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0046](0046-primary-tenant.md), [0047](0047-special-pages.md), [0056](0056-security-model.md), [0057](0057-web-tier.md), [0067](0067-proposals.md)
 - **Uses:** [0014](0014-caches-and-search.md)
@@ -41,6 +41,8 @@ James's direction, from the design discussion of 2026-10-17:
 ## Decision
 
 ### 1. Two registries of record (amends 0015 §3 and §5; amends 0027 §1)
+
+*Changed by A3.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.4; [07](../architecture/07-actors-and-accounts.md) §8.1; [23](../architecture/23-configuration-and-registry.md) §1.3, §2.2, §3.1, §3.2, §3.3, §3.7, §4.1, §6.*
 
@@ -144,3 +146,10 @@ James's direction, from the design discussion of 2026-10-17:
   - Site-asset writes are refused. `site.name` validation has gaps. CSRF only for cookie sessions.
   - `PATCH` body `{set, reset, reset_all, token}`. `action=options` warns and skips bad keys. Interface languages are `["en"]`. Identity tenancy switches need `owner`.
   - `entities.term_languages` exists twice at instance level (a pre-existing conflict). The generated settings labels may need editing.
+
+### A3. Setting reads are checked against the registry
+
+- **Date:** 2026-11-09
+- **Source:** [0107](0107-settings-and-log-events-checked-against-the-running-code.md) §2
+- **Change:** extends §1
+- **Summary:** Every read of a setting by key goes through `Snapshot::resolve`, which reports the key to the probe; CI fails a run that read a key `settings.toml` does not register. Listing every setting reports nothing. Chapter text: [23](../architecture/23-configuration-and-registry.md) §3.1.

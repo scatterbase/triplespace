@@ -69,6 +69,7 @@ pub use app::{App, Config, MailSettings, Mode};
 ///   `login` in `siprop=triplespace`; `action=linkaccount` and `action=unlinkaccount`;
 ///   `createpreservestate` (0088).
 pub const API_VERSION: u32 = 6;
+pub use modules::query::observe_modules;
 pub use response::ApiError;
 
 use axum::Router;
