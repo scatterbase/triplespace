@@ -250,9 +250,10 @@ jobs:
   adr-preview:
     # A new ADR's text lives in the chapters (24 §3.2), so its pull request shows chapter hunks
     # and a skeleton. This posts the ADR assembled with its chapter text as one comment, updated
-    # on every push, so a reviewer reads one document (0098 Q3).
+    # on every push, so a reviewer reads one document (0098 Q3). Not on Dependabot's pull
+    # requests, which add no ADR and whose runs cannot comment (a read-only token).
     name: ADR preview
-    if: github.event_name == 'pull_request'
+    if: github.event_name == 'pull_request' && github.event.pull_request.user.login != 'dependabot[bot]'
     runs-on: ubuntu-latest
     permissions:
       pull-requests: write

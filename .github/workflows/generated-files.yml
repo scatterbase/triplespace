@@ -4,7 +4,9 @@
 # them stale, regenerates them with docs/check.sh --write, and pushes the branch with
 # --force-with-lease, so that a push the author made meanwhile is never overwritten. A conflict in
 # anything else is left for the author. Pull requests from forks are skipped: their branches cannot
-# be pushed to.
+# be pushed to. So are Dependabot's (.github/dependabot.yml): their runs get a read-only token, a
+# dependency bump touches no generated file, and Dependabot stops rebasing a branch once anyone
+# else pushes to it.
 #
 # A push made with the default GITHUB_TOKEN does not start other workflows, so CI would not run on
 # the branch it pushes. Set the repository secret GENERATED_FILES_TOKEN (a fine-grained token or a
@@ -28,7 +30,10 @@ concurrency:
 jobs:
   update:
     name: Regenerate generated files on pull requests
-    if: github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository
+    if: >-
+      github.event_name != 'pull_request' ||
+      (github.event.pull_request.head.repo.full_name == github.repository &&
+       github.event.pull_request.user.login != 'dependabot[bot]')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -52,7 +57,7 @@ jobs:
         run: |
           gh pr list --base main --state open --limit 200 \
             --json headRefName,isCrossRepository \
-            --jq '.[] | select(.isCrossRepository | not) | .headRefName' |
+            --jq '.[] | select(.isCrossRepository | not) | .headRefName | select(startswith("dependabot/") | not)' |
           while read -r branch; do
             tools/update_generated.sh "$branch" main || echo "::warning::$branch: update failed"
           done

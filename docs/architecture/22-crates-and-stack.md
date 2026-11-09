@@ -214,11 +214,12 @@ Shared crates carry the `scatter-` prefix. Crates that only Triplespace uses car
 
 ### 3.4 Repository and supply chain
 
-*Sources: [0005](../decisions/0005-crate-organization.md) §6; [0033](../decisions/0033-backend-stack.md) §16; [0097](../decisions/0097-versioning-and-skins.md) §3.*
+*Sources: [0005](../decisions/0005-crate-organization.md) §6; [0033](../decisions/0033-backend-stack.md) §16, A28; [0097](../decisions/0097-versioning-and-skins.md) §3.*
 
 Every crate lives in one Cargo workspace in the Triplespace repository, under `crates/`. Scatterbase takes Git dependencies pinned to a commit. The `scatter-*` crates move to their own repository when Scatterbase first depends on them. **Each `scatter-*` crate has its own version**, whose contract is its public Rust API under the Cargo SemVer rules, checked by `cargo-semver-checks` against its last published version once it has one; the other crates are `publish = false` and carry the product's version from `[workspace.package]` (§3.5; [0097](../decisions/0097-versioning-and-skins.md) §3).
 
 - `cargo-deny` checks licences (the allowlist of §3.3), bans (no duplicate crypto providers, no `openssl-sys`), advisories and sources.
+- **Dependabot keeps dependency versions current** (`.github/dependabot.yml`; [0033](../decisions/0033-backend-stack.md) A28). It opens pull requests for the Cargo workspace, the npm packages of `ui/`, the documentation site's Python packages and the workflows' actions weekly, and for the fuzz workspace and the client libraries of `tools/client_compat.sh` monthly. Minor and patch releases are grouped into one pull request per ecosystem; a major release gets its own; each client library gets its own, since its client-compatibility run in CI is the verdict on the bump. Each pull request passes the same CI as any other, `cargo-deny` included; the generated-files workflow and the ADR preview leave Dependabot's pull requests alone. The Rust toolchain is not updated this way: it moves deliberately (§4.2).
 - `parse-wiki-text-2`'s manifest names only a licence file; a clarify entry records it as MIT-0 ([0033](../decisions/0033-backend-stack.md) A22).
 - `aws-lc-sys` is required at 0.39 or later. Earlier versions included code under the OpenSSL licence, which is incompatible with GPLv3. For the same reason, if `ring` replaces it (§4.4), `ring` must be 0.17.9 or later.
 - The repository root carries the GPLv3 text in `LICENSE`; `docs/LICENSE` carries CC0-1.0.
