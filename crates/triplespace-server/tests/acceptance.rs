@@ -602,7 +602,7 @@ async fn a_bot_logs_in_reads_and_edits() {
     assert_eq!(valued["success"], 1, "{valued}");
     assert_eq!(valued["claim"]["mainsnak"]["datavalue"]["value"], "seven");
     assert_eq!(valued["claim"]["rank"], "preferred", "{valued}");
-    let (_, none) = c
+    let (_, no_claim) = c
         .call(
             "POST",
             "action=wbsetclaimvalue&format=json",
@@ -614,7 +614,10 @@ async fn a_bot_logs_in_reads_and_edits() {
             )),
         )
         .await;
-    assert!(none["error"]["code"].is_string(), "no such claim: {none}");
+    assert!(
+        no_claim["error"]["code"].is_string(),
+        "no such claim: {no_claim}"
+    );
     let removed = c
         .post(
             "action=wbremoveclaims&format=json",
