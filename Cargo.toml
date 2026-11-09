@@ -114,7 +114,7 @@ icu_casemap = "2"
 icu_plurals = "2"
 icu_locale_core = "2"
 # Only on wasm targets, with the `wasm_js` feature (see .cargo/config.toml)
-getrandom = "0.3"
+getrandom = "0.4"
 
 # Ordered maps for JSON objects whose order is data (qualifiers-order, snaks-order)
 indexmap = { version = "2", features = ["serde"] }
@@ -126,7 +126,7 @@ md-5 = "0.10"
 # The binaries' process allocator (0033 §2, A24).
 mimalloc = { version = "0.1.52", default-features = false }
 # Statement keys (0004 §8), signing-key IDs (0015 §1) and, later, the log's SHA-256 (0006 §2)
-sha2 = "0.10"
+sha2 = "0.11"
 # Password hashing (0033 §6: Argon2id) and keyed token derivation for sessions (0024 §4)
 argon2 = "0.5"
 hmac = "0.12"
@@ -149,7 +149,7 @@ serde_json = { version = "1", features = ["float_roundtrip"] }
 # only. ammonia 4.2.4 or later: earlier releases have open advisories.
 ammonia = "4.2.4"
 # CommonMark for markdown pages and posts (0033 §9.2), without its CLI and highlighting.
-comrak = { version = "0.43", default-features = false }
+comrak = { version = "0.59", default-features = false }
 html5ever = "0.39"
 markup5ever_rcdom = "0.39"
 toml = "1"
@@ -195,7 +195,7 @@ reqwest = { version = "0.13", default-features = false, features = ["rustls", "h
 lettre = { version = "0.11.23", default-features = false, features = ["smtp-transport", "builder", "tokio1", "tokio1-rustls", "aws-lc-rs", "rustls-platform-verifier"] }
 # Sealing secrets at rest (0088 §3): XChaCha20-Poly1305
 chacha20poly1305 = "0.11"
-similar = { version = "2.7", default-features = false, features = ["text"] }
+similar = { version = "3.2", default-features = false, features = ["text"] }
 # Skins (0097 §8): templates parsed when a skin is loaded, rendered with autoescape on, with
 # no access to files, the network or the environment; manifests carry semantic versions.
 minijinja = { version = "3", features = ["serde"] }
