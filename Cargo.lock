@@ -2776,7 +2776,7 @@ dependencies = [
  "oxrdf",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "thiserror",
  "toml",
 ]
@@ -2814,7 +2814,7 @@ dependencies = [
  "futures",
  "object_store",
  "sha1",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "tempfile",
  "thiserror",
  "tokio",
@@ -2827,7 +2827,7 @@ dependencies = [
  "base64 0.22.1",
  "hmac 0.12.1",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
 ]
 
 [[package]]
@@ -2855,7 +2855,7 @@ dependencies = [
  "pollster",
  "proptest",
  "scatter-log",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "thiserror",
 ]
 
@@ -2870,7 +2870,7 @@ dependencies = [
  "proptest",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "thiserror",
  "toml",
 ]
@@ -2985,7 +2985,7 @@ dependencies = [
  "scatter-talk",
  "scatter-threads",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
 ]
 
 [[package]]
@@ -3040,7 +3040,7 @@ dependencies = [
  "serde",
  "serde_json",
  "sha1",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "thiserror",
  "toml",
 ]
@@ -3057,7 +3057,7 @@ dependencies = [
  "scatter-vocab",
  "scatter-wikibase-model",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
 ]
 
 [[package]]
@@ -3823,7 +3823,7 @@ dependencies = [
  "scatter-log",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "thiserror",
  "tokio",
  "tokio-postgres",
@@ -3862,7 +3862,7 @@ dependencies = [
  "scatter-wikitext-expand",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "thiserror",
  "tokio",
  "tokio-postgres",
@@ -3904,7 +3904,7 @@ dependencies = [
  "scatter-wikitext-expand",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "thiserror",
  "tokio",
  "tokio-postgres",
@@ -3999,7 +3999,7 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "thiserror",
  "tokio",
  "tower",
@@ -4015,7 +4015,7 @@ dependencies = [
  "rustls-platform-verifier",
  "scatter-log",
  "scatter-log-postgres",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "thiserror",
  "tokio",
  "tokio-postgres",
@@ -4084,7 +4084,7 @@ dependencies = [
  "scatter-wikibase-rdf",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "thiserror",
  "tokio",
  "tokio-postgres",
@@ -4154,7 +4154,7 @@ dependencies = [
  "semver",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "tokio",
  "toml",
  "tower",
@@ -4680,7 +4680,7 @@ dependencies = [
  "anyhow",
  "serde",
  "serde_json",
- "sha2 0.10.9",
+ "sha2 0.11.0",
  "toml",
 ]
 
