@@ -43,7 +43,7 @@ jobs:
     env:
       TRIPLESPACE_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.95.0
@@ -62,7 +62,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       # The toolchain, components and targets come from rust-toolchain.toml.
       - uses: dtolnay/rust-toolchain@master
         with:
@@ -95,8 +95,8 @@ jobs:
       run:
         working-directory: ui
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -126,8 +126,8 @@ jobs:
     env:
       TRIPLESPACE_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version: 22
           cache: npm
@@ -174,7 +174,7 @@ jobs:
     env:
       TRIPLESPACE_TEST_DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: 1.95.0
@@ -182,7 +182,7 @@ jobs:
       # No ui/dist: the server runs with its site off, and triplespace-ui builds without it.
       - name: Binaries
         run: cargo build -p triplespace-cli -p triplespace-server
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -216,7 +216,7 @@ jobs:
     name: Licences and advisories
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           command: check
@@ -226,7 +226,7 @@ jobs:
     name: ADR cross-references
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Documentation checks (ADRs and chapters 24 §12, settings 0085 §1, crate map 24 §11, log vectors)
         run: docs/check.sh
 
@@ -236,8 +236,8 @@ jobs:
     name: Documentation site
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
@@ -257,7 +257,7 @@ jobs:
     permissions:
       pull-requests: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - name: Assemble every ADR this pull request adds
@@ -282,7 +282,7 @@ jobs:
           echo "added=$(echo $added | wc -w)" >> "$GITHUB_OUTPUT"
       - name: Post or update the comment
         if: steps.assemble.outputs.added != '0'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           script: |
             const fs = require('fs');
