@@ -390,8 +390,9 @@ triplespace sync --provider internetdomains --dump internetdomains-20261006.json
 
 Then check:
 - The local statement added in 2.4 survives the upstream update to the same Domain.
-- If the deleted item was a mapped Domain, it is tombstoned. That is the known gap (0009 §9 wants an
-  empty `put`); record the behaviour, since the fix will be tested against it.
+- If the deleted item was a mapped Domain, record what the sweep did to it: 0009 §9 wants an empty
+  `put`, not a tombstone. Whether the code claims that yet is the `0009 §9` row of the status table
+  above; the fix will be tested against what you record.
 - `--threshold 0` with one deletion fails the job rather than sweeping.
 - Rebuild equivalence passes.
 

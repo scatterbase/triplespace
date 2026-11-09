@@ -189,8 +189,9 @@ rebase, at each commit that stops on it. Hand-merging conflict markers in these 
 even when it looks trivial. `python3 tools/resolve_generated.py` does all three at once, and refuses,
 naming the files, when a conflict touches a source (a registry file, an ADR, a chapter's own text,
 code): resolve those by hand and run it again. On a pull request you seldom need to: the
-`generated-files.yml` workflow merges `main` into the branch and regenerates whenever the only
-conflicts are in generated files, so pull before pushing again.
+`generated-files.yml` workflow rebases the branch onto `main` and regenerates whenever the only
+conflicts are in generated files, and force-pushes it with a lease: run `git pull --rebase` before
+pushing again.
 
 **A status table** is how a document outside the ADRs says what it relies on (24 §15): a Markdown
 table between `<!-- coverage.py: status -->` and `<!-- /coverage.py -->`, whose rows you write
