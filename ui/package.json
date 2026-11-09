@@ -120,7 +120,7 @@
 		"@playwright/test": "1.63.0",
 		"@vitejs/plugin-vue": "6.0.9",
 		"@vue/test-utils": "2.5.1",
-		"eslint": "8.57.1",
+		"eslint": "10.14.0",
 		"eslint-config-wikimedia": "0.32.6",
 		"grunt-banana-checker": "0.13.0",
 		"happy-dom": "21.0.4",
