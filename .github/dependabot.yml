@@ -1,0 +1,65 @@
+# Dependabot version updates: a weekly pull request per ecosystem, minor and patch releases
+# grouped into one, majors on their own, so a breaking release is reviewed by itself. CI runs on
+# each as on any pull request (cargo-deny, the client-compatibility check, the e2e suite).
+#
+# Left out on purpose: the Rust toolchain, which moves deliberately in its own commit with
+# `rust-version` (rust-toolchain.toml; 22 §4.2). Security updates for known advisories are a
+# repository setting (Settings → Code security → Dependabot security updates), not this file.
+version: 2
+
+updates:
+  - package-ecosystem: cargo
+    directory: /
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      cargo:
+        update-types: [minor, patch]
+
+  # The fuzz targets' own workspace (fuzz/Cargo.toml), run nightly, never on a pull request.
+  - package-ecosystem: cargo
+    directory: /fuzz
+    schedule:
+      interval: monthly
+    groups:
+      fuzz:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /ui
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    groups:
+      ui:
+        update-types: [minor, patch]
+
+  # The documentation site's build (docs/requirements.txt).
+  - package-ecosystem: pip
+    directory: /docs
+    schedule:
+      interval: weekly
+    groups:
+      docs-site:
+        patterns: ["*"]
+
+  # The client libraries tools/client_compat.sh exercises. They are pinned so that a client
+  # release cannot change CI's verdict on its own; a Dependabot pull request is the deliberate
+  # bump, and its client-compatibility run is the verdict. One client per pull request.
+  - package-ecosystem: pip
+    directory: /tools
+    schedule:
+      interval: monthly
+    ignore:
+      # wikidataintegrator 0.9.30 imports pkg_resources, which setuptools 80 removed.
+      - dependency-name: setuptools
+        versions: [">=80"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        update-types: [minor, patch]
