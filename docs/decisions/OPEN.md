@@ -14,6 +14,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0010 A50](0010-site-ui.md#a50-a-document-pages-tabs-its-about-panel-and-its-format-selector-the-calls-made-building-them) | 2026-11-05 | A document page's tabs, its About panel and its Format selector: the calls made building them |
 | [0010 A53](0010-site-ui.md#a53-name-tombstones-and-renameuser-the-calls-made-building-them) | 2026-11-07 | Name tombstones and `renameuser`: the calls made building them |
 | [0011 A38](0011-logs.md#a38-a-followers-batch-waits-for-the-load-lock-a-dump-load-waits-a-minute) | 2026-11-06 | A follower's batch waits for the load lock; a dump load waits a minute |
+| [0012 A89](0012-api-requirements.md#a89-a-route-served-through-a-more-general-one-is-built) | 2026-11-09 | A route served through a more general one is built |
 | [0013 A70](0013-postgres-storage.md#a70-how-a-load-enters-bootstrap-mode) | 2026-11-05 | How a load enters bootstrap mode |
 | [0013 A71](0013-postgres-storage.md#a71-bootstrap-projections-run-per-block-during-the-load) | 2026-11-05 | Bootstrap projections run per block, during the load |
 | [0013 A73](0013-postgres-storage.md#a73-a-bootstrap-load-refreshes-the-planners-statistics-as-its-tables-double) | 2026-11-05 | A bootstrap load refreshes the planner's statistics as its tables double |
@@ -24,6 +25,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0016 A42](0016-permissions-and-access-control.md#a42-delegated-administration-the-calls-made-while-drafting-and-building-tier-4) | 2026-10-30 | Delegated administration: the calls made while drafting and building tier 4 |
 | [0018 A33](0018-tenants.md#a33-multi-tenant-round-1-the-assumptions-the-implementation-made) | 2026-10-30 | Multi-tenant round 1: the assumptions the implementation made |
 | [0019 A31](0019-discussions.md#a31-a-threads-actions-from-the-page-the-calls-made-building-them) | 2026-11-05 | A thread's actions from the page: the calls made building them |
+| [0020 A20](0020-change-feeds.md#a20-there-is-no-actionunwatch) | 2026-11-09 | There is no `action=unwatch` |
 | [0021 A23](0021-notifications.md#a23-accountability-the-calls-made-building-tier-5) | 2026-10-30 | Accountability: the calls made building tier 5 |
 | [0023 A17](0023-moderation.md#a17-partial-undelete-and-hidden-events-the-calls-made-building-them) | 2026-10-30 | Partial undelete and hidden events: the calls made building them |
 | [0026 A8](0026-sitelinks.md#a8-a-stray-does-not-gain-an-escape-from-a-decoded-digit) | 2026-11-06 | A stray `%` does not gain an escape from a decoded digit |
@@ -449,7 +451,6 @@ Every unstruck question in every ADR (24 §8), with its first sentence. Settle o
 | [0104 Q1](0104-batches-and-the-job-runner.md) | Reverting page and thread records | A page revision reverts by restoring the previous text as an edit; a post in a thread has no inverse but hiding its text, as Nuke does (0047 §7). |
 | [0104 Q2](0104-batches-and-the-job-runner.md) | Idle batches | A keyed batch stays open until its submitter closes it or it is rejected. |
 | [0104 Q3](0104-batches-and-the-job-runner.md) | The queue beyond one process | The runner claims queued jobs with the database's row locks, so several server processes could share the queue; nothing partitions the work between them yet, and a job that one process started is finished by that process… |
-| [0108 Q1](0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) | Routes outside the REST API | The site's routes (`triplespace-web routes`), `/.well-known` and the auth base have no catalogue checked against the running code. |
 
 ## Pending registry allocations
 

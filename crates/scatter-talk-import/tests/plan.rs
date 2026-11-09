@@ -67,6 +67,7 @@ fn run(text: &str) -> Vec<PlannedThread> {
         page: "Talk:X".into(),
         revision: Some(7),
         archive: None,
+        revision_time: None,
     };
     plan(&conv, "Talk:X", &source)
 }
@@ -225,6 +226,7 @@ fn every_fixture_page_plans_threads_that_replay() {
             page: title.clone(),
             revision: Some(*revid),
             archive: None,
+            revision_time: None,
         };
         let posts: usize = conv.threads.iter().map(|t| t.posts.len()).sum();
         let plans = plan(&conv, title, &source);
@@ -248,4 +250,31 @@ fn every_fixture_page_plans_threads_that_replay() {
         pages.len()
     );
     assert!(threads > 150 && closed >= 11 && collapses >= 6);
+}
+
+// 13 §5.13 (0090 §8): a thread's title date is its earliest signature timestamp, or the
+// converted revision's time where no signature has one; never an unsigned post's time.
+#[test]
+fn the_title_date_is_the_earliest_signature_or_the_revision() {
+    use scatter_talk::Stamp;
+    let text = "== Signed ==\nAn unsigned remark.\n\nA reply. [[User:Ann|Ann]] 12:00, 4 March 2019 (UTC)\n\n== Unsigned ==\nNobody signed this.\n";
+    let conv = convert(
+        text,
+        Markup::embedded(),
+        &Site::english(),
+        &Options::default(),
+    );
+    let revision_time = Stamp::from_civil(2024, 1, 2, 3, 4);
+    let source = Source {
+        repository: Some("enwiki".into()),
+        page: "Talk:X".into(),
+        revision: Some(7),
+        archive: None,
+        revision_time,
+    };
+    let plans = plan(&conv, "Talk:X", &source);
+    let signed = plans.iter().find(|t| t.subject == "Signed").unwrap();
+    assert_eq!(signed.date, Stamp::from_civil(2019, 3, 4, 12, 0));
+    let unsigned = plans.iter().find(|t| t.subject == "Unsigned").unwrap();
+    assert_eq!(unsigned.date, revision_time);
 }

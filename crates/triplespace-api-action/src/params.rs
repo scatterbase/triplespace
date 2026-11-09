@@ -72,6 +72,22 @@ impl Params {
         p
     }
 
+    /// The same parameters with `name` set to `value`, or removed when `value` is `None`: how
+    /// a generator hands `action=query` the page set it produced.
+    #[must_use]
+    pub fn with(&self, name: &str, value: Option<String>) -> Self {
+        let mut p = self.clone();
+        match value {
+            Some(v) => {
+                p.map.insert(name.to_owned(), v);
+            }
+            None => {
+                p.map.remove(name);
+            }
+        }
+        p
+    }
+
     /// A parameter's value.
     #[must_use]
     pub fn get(&self, name: &str) -> Option<&str> {

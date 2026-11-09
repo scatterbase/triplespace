@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-04 (A15)
+- **Updated:** 2026-11-09 (A16)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0029](0029-resolver-namespaces.md), [0033](0033-backend-stack.md)
@@ -30,6 +30,8 @@ The backend stack is in 0033.
 *Current text: [19](../architecture/19-site-ui.md) §1.2, §5.2.*
 
 ### 3. Statement groups (uses 0003 §3)
+
+*Changed by A16.*
 
 *Current text: [19](../architecture/19-site-ui.md) §4.9.*
 
@@ -316,3 +318,14 @@ Replaced text (§9):
   - Messages handed to a script read `(key: $1, $2)`, one `$n` up to the highest the English message names, for the script to fill as it fills any message.
   - `qqx` is the page's `lang` and is written left to right; a term (label, description) is looked up along `qqx`'s chain, which ends at `mul` and English, so content shows as in English.
   - `{{int:key}}` in page text is not affected: a page renders once for every reader in the wiki's language (0042 A21), so `qqx` reaches only the site's own messages.
+
+### A16. No sparklines
+
+- **Date:** 2026-11-09
+- **Source:** Direct: James, design discussion of 2026-11-09
+- **Change:** amends §3
+- **Summary:** Sparklines are dropped: no statement-group layout (19 §4.3) defines one, and nothing draws them. Charts and timeline strips stay SVG drawn in Rust. Chapter text: [19](../architecture/19-site-ui.md) §4.9.
+
+Replaced text ([19](../architecture/19-site-ui.md) §4.9, as it stood):
+
+> - Charts, sparklines and timeline strips are **SVG generated in Rust** from the same view model the classifier produces.

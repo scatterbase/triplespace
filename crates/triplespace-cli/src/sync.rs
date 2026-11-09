@@ -370,6 +370,8 @@ pub async fn run(args: Sync) -> Result<()> {
     let client = connect(&args.database).await?;
     let (registry, provider, tenant) = target(&client, &args).await?;
     let slug = provider.slug.as_str();
+    // Every Wikibase provider is read by the one adapter, chosen by the registry entry's
+    // `adapter`; a provider whose upstream is not a Wikibase names its own (implements 0091 §1).
     match provider.adapter.as_deref() {
         Some(scatter_adapter_wikibase::NAME) => {}
         Some(other) => bail!("`{slug}` is read by `{other}`, which this build does not include"),

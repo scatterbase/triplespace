@@ -46,7 +46,7 @@ James's direction, from the design discussion of 2026-11-09: **yes** to both of 
 
 ## Open questions
 
-- **Q1. Routes outside the REST API.** The site's routes (`triplespace-web routes`), `/.well-known` and the auth base have no catalogue checked against the running code. Whether to give them one.
+- **Q1.** ~~**Routes outside the REST API.** The site's routes (`triplespace-web routes`), `/.well-known` and the auth base have no catalogue checked against the running code. Whether to give them one.~~ *Settled by James in the design discussion of 2026-11-09: yes. The site's routes, `/.well-known` and the auth base get a catalogue checked against the running code, as the REST routes are (§1.2); its file and columns, and how the server reports those routes to the probe, are left to the change that builds it.*
 
 ## References
 

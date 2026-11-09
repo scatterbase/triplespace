@@ -27,7 +27,8 @@ pub struct AddedBy {
     pub actor: String,
 }
 
-/// Where an imported thread or post came from: `imported_from` (0054 §5, 0069 §12, 0090 §8).
+/// Where an imported thread or post came from: `imported_from` (0054 §5, 0069 §12), with
+/// exactly the keys of 14 §1.5 and no other (implements 0090 §8 (A1)).
 ///
 /// On `create`, the page fields name the thread's source; on every imported post, `create`
 /// included, the comment fields describe the comment. Every field is optional, since each

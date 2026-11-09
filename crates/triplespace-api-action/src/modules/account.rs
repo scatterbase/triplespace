@@ -194,8 +194,10 @@ pub fn address(ctx: &Ctx) -> String {
     challenge::address_key(ctx.origin.client.or(ctx.origin.peer))
 }
 
-/// A fresh challenge for an act: for `createaccount`, at the difficulty the caller's
-/// address has earned (0087 §4); otherwise at the base.
+/// A fresh challenge for an act, of any trigger, at the difficulty the caller's address has
+/// earned: the base plus one for each account created from it in the last 24 hours, up to
+/// the maximum (07 §2.6). The string carries the tenant's slug (0087 A8): this
+/// implements 0087 §3 (A8).
 ///
 /// # Errors
 ///
@@ -206,18 +208,14 @@ pub async fn fresh(
     trigger: Trigger,
 ) -> Result<Challenge, ApiError> {
     let binding = binding(ctx).await?;
-    let bits = if trigger == Trigger::CreateAccount {
-        challenge::difficulty(
-            ctx.db(),
-            &ctx.tenant.slug,
-            &address(ctx),
-            policy.bits,
-            policy.max_bits,
-        )
-        .await?
-    } else {
-        policy.bits
-    };
+    let bits = challenge::difficulty(
+        ctx.db(),
+        &ctx.tenant.slug,
+        &address(ctx),
+        policy.bits,
+        policy.max_bits,
+    )
+    .await?;
     Ok(challenge::issue(
         ctx.app.secret(),
         &binding,

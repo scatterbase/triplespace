@@ -299,6 +299,7 @@ pub async fn convert_page(
         page: page.title.clone(),
         revision: Some(current.id),
         archive: None,
+        revision_time: stamp_of(&current.timestamp),
     };
     let planned = plan(&conv, &page.title, &source);
     let (mut threads, mut posts) = (0u64, 0u64);

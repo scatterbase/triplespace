@@ -587,6 +587,37 @@ async fn a_bot_logs_in_reads_and_edits() {
         "replaced, not duplicated: {}",
         r["entities"]["Q6"]["claims"]
     );
+    // `wbsetclaimvalue` changes only the main snak's value: the rank stays preferred.
+    let valued = c
+        .post(
+            "action=wbsetclaimvalue&format=json",
+            &format!(
+                "claim={}&snaktype=value&value={}&token={}",
+                enc("Q6$11111111-1111-1111-1111-111111111111"),
+                enc("\"seven\""),
+                enc(&csrf)
+            ),
+        )
+        .await;
+    assert_eq!(valued["success"], 1, "{valued}");
+    assert_eq!(valued["claim"]["mainsnak"]["datavalue"]["value"], "seven");
+    assert_eq!(valued["claim"]["rank"], "preferred", "{valued}");
+    let (_, no_claim) = c
+        .call(
+            "POST",
+            "action=wbsetclaimvalue&format=json",
+            Some(&format!(
+                "claim={}&snaktype=value&value={}&token={}",
+                enc("Q6$22222222-2222-2222-2222-222222222222"),
+                enc("\"x\""),
+                enc(&csrf)
+            )),
+        )
+        .await;
+    assert!(
+        no_claim["error"]["code"].is_string(),
+        "no such claim: {no_claim}"
+    );
     let removed = c
         .post(
             "action=wbremoveclaims&format=json",

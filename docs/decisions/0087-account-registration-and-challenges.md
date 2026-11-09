@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-17
-- **Updated:** 2026-11-06 (A7)
+- **Updated:** 2026-11-09 (A8)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0047](0047-special-pages.md), [0057](0057-web-tier.md)
 - **Uses:** [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0034](0034-frontend-stack.md), [0035](0035-adopting-a-wikibase.md), [0056](0056-security-model.md), [0085](0085-settings-and-preferences.md)
@@ -39,7 +39,7 @@ James's direction, from the design discussion of 2026-10-17:
 
 ### 3. The proof of work (extends 0013 §4; extends 0014 §4)
 
-*Changed by A1, A6.*
+*Changed by A1, A6, A8.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §5, §12.3; [07](../architecture/07-actors-and-accounts.md) §2.6.*
 
@@ -218,3 +218,14 @@ New text:
 - **Source:** [0102](0102-strict-names-from-the-provider.md) §1
 - **Change:** extends §5
 - **Summary:** Under strict names `Special:CreateAccount` on the first visit shows the derived name in place of the name field and says the name follows the account held with the provider ([19](../architecture/19-site-ui.md) §2.3).
+
+### A8. The challenge carries the tenant's slug
+
+- **Date:** 2026-11-09
+- **Source:** Direct: James, design discussion of 2026-11-09
+- **Change:** amends §3
+- **Summary:** The challenge string carries the tenant's slug, as the code does, not its issuer code: James confirmed the first call of A6 (its second, the difficulty, stays open). Chapter text: [07](../architecture/07-actors-and-accounts.md) §2.6.
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.6, as it stood):
+
+> A challenge is the string `1.{tenant code}.{trigger}.{bits}.{expires}.{salt}.{mac}`: the format version, the tenant's issuer code, the trigger,

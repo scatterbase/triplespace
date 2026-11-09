@@ -195,6 +195,7 @@ async fn wd_group(q: &str, p: &str) -> String {
     html
 }
 
+// 0034 §3: the group is drawn on the server, its chart as SVG.
 #[tokio::test]
 async fn los_angeles_population_is_a_series_with_a_chart_and_a_table() {
     let html = wd_group("Q65", "P1082").await;

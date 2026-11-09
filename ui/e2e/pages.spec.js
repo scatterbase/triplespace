@@ -1,4 +1,4 @@
-// Every page kind of Phase 1 with JavaScript off (ADR 0034 §1.1), checked by axe (§10),
+// Every page kind of Phase 1 with JavaScript off (ADR 0034 §1.1), checked by axe (0034 §10),
 // through an edge that alternates two web replicas, so a page that needs one replica's
 // memory fails here.
 import { test, expect } from '@playwright/test';

@@ -673,6 +673,7 @@ async fn a_converted_talk_page_is_written_through_the_same_path() {
         page: "User talk:Editor".into(),
         revision: Some(41),
         archive: None,
+        revision_time: None,
     };
     let home = Target::Actor("librarybase:7".into());
     for planned in scatter_talk_import::plan(&conv, "User talk:Editor", &source) {

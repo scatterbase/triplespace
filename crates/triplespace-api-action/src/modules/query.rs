@@ -64,25 +64,34 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     {
         ctx.cache_class = crate::http_cache::Class::Stable;
     }
-    // `prop=revisions` lists its pages first, so `prop=info` adds its fields to them.
-    let mut props = ctx.params.list("prop");
-    props.sort_by_key(|p| p != "revisions");
-    for p in props {
-        match p.as_str() {
-            "revisions" => {
-                super::revisions::run(ctx, &mut query, &mut body, &mut response).await?;
-            }
-            "deletedrevisions" => {
-                super::revisions::deleted(ctx, &mut query, &mut body, &mut response).await?;
-            }
-            "info" => super::info::info(ctx, &mut query).await?,
-            "templates" => super::info::templates(ctx, &mut query).await?,
-            other => response.warn(
-                "query",
-                &format!("Unrecognized value for parameter \"prop\": {other}."),
-            ),
-        }
+    // A generator's pages are the page set the props below read (`run_generator`).
+    // A generator this API does not serve is warned about and ignored, as the module's other
+    // unknown values are: Pywikibot's `Page.save` sends `generator=templates`, and answered
+    // without the generated pages it still saves.
+    let generator = ctx.params.get("generator").map(str::to_owned);
+    if let Some(g) = &generator
+        && !GENERATORS.iter().any(|(n, _)| n == g)
+    {
+        response.warn(
+            "query",
+            &format!("Unrecognized value for parameter \"generator\": {g}."),
+        );
     }
+    if let Some(g) = generator.filter(|g| GENERATORS.iter().any(|(n, _)| n == g)) {
+        let Some(saved) = run_generator(ctx, &g, &mut body, &mut response).await? else {
+            return Ok(finish(ctx, query, body, response));
+        };
+        let props = ctx.params.list("prop");
+        if props.is_empty() {
+            super::info::info(ctx, &mut query).await?;
+        }
+        let result = run_props(ctx, props, &mut query, &mut body, &mut response).await;
+        ctx.params = saved;
+        result?;
+        return Ok(finish(ctx, query, body, response));
+    }
+    let props = ctx.params.list("prop");
+    run_props(ctx, props, &mut query, &mut body, &mut response).await?;
     for l in ctx.params.list("list") {
         match l.as_str() {
             "recentchanges" => {
@@ -129,6 +138,16 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     if ctx.params.flag("export") {
         super::export::export(ctx, &mut query, &mut response).await?;
     }
+    Ok(finish(ctx, query, body, response))
+}
+
+/// The response's last fields: `batchcomplete` and the `query` object.
+fn finish(
+    ctx: &Ctx,
+    query: Map<String, Value>,
+    mut body: Map<String, Value>,
+    mut response: ApiResponse,
+) -> ApiResponse {
     if ctx.formatversion == 2 {
         body.insert("batchcomplete".into(), json!(true));
     } else {
@@ -138,7 +157,96 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         body.insert("query".into(), Value::Object(query));
     }
     response.body = body;
-    Ok(response)
+    response
+}
+
+/// The `prop` modules over the page set.
+async fn run_props(
+    ctx: &mut Ctx,
+    mut props: Vec<String>,
+    query: &mut Map<String, Value>,
+    body: &mut Map<String, Value>,
+    response: &mut ApiResponse,
+) -> Result<(), ApiError> {
+    // `prop=revisions` lists its pages first, so `prop=info` adds its fields to them.
+    props.sort_by_key(|p| p != "revisions");
+    for p in props {
+        match p.as_str() {
+            "revisions" => super::revisions::run(ctx, query, body, response).await?,
+            "deletedrevisions" => super::revisions::deleted(ctx, query, body, response).await?,
+            "info" => super::info::info(ctx, query).await?,
+            "templates" => super::info::templates(ctx, query).await?,
+            other => response.warn(
+                "query",
+                &format!("Unrecognized value for parameter \"prop\": {other}."),
+            ),
+        }
+    }
+    Ok(())
+}
+
+/// `generator=X` (compat §5.4): runs list X with its `g`-prefixed parameters (`gaplimit` is
+/// its `aplimit`) and makes the pages it lists the page set, as `titles`, for the `prop`
+/// modules that follow; its continuation comes back `g`-prefixed (`gapcontinue`). Returns
+/// the request's own parameters, to restore once the props have run, or `None` when the
+/// list named no page.
+async fn run_generator(
+    ctx: &mut Ctx,
+    name: &str,
+    body: &mut Map<String, Value>,
+    response: &mut ApiResponse,
+) -> Result<Option<crate::params::Params>, ApiError> {
+    let Some((_, prefix)) = GENERATORS.iter().find(|(n, _)| *n == name) else {
+        return Err(ApiError::bad_value("generator", name));
+    };
+    let saved = ctx.params.clone();
+    ctx.params = saved.with_prefix_as(&format!("g{prefix}"), prefix);
+    let mut listed = Map::new();
+    let mut listed_body = Map::new();
+    let run = match name {
+        "allpages" => super::info::allpages(ctx, &mut listed, &mut listed_body, response).await,
+        "categorymembers" => {
+            super::export::categorymembers(ctx, &mut listed, &mut listed_body).await
+        }
+        _ => super::querypage::querypage(ctx, &mut listed, &mut listed_body).await,
+    };
+    if let Err(e) = run {
+        ctx.params = saved;
+        return Err(e);
+    }
+    if let Some(Value::Object(c)) = listed_body.remove("continue") {
+        let renamed: Map<String, Value> = c
+            .into_iter()
+            .map(|(k, v)| {
+                if k.starts_with(prefix) {
+                    (format!("g{k}"), v)
+                } else {
+                    (k, v)
+                }
+            })
+            .collect();
+        body.insert("continue".into(), Value::Object(renamed));
+    }
+    let rows = if name == "querypage" {
+        listed.get("querypage").and_then(|q| q.get("results"))
+    } else {
+        listed.get(name)
+    };
+    let titles: Vec<String> = rows
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|r| r.get("title").and_then(Value::as_str).map(str::to_owned))
+        .collect();
+    if titles.is_empty() {
+        ctx.params = saved;
+        return Ok(None);
+    }
+    ctx.params = saved
+        .with("titles", Some(titles.join("|")))
+        .with("pageids", None)
+        .with("revids", None);
+    Ok(Some(saved))
 }
 
 /// `meta=tokens`: a token per requested type for the caller's session or key. A caller
@@ -1126,6 +1234,14 @@ fn report_submodules(params: &crate::params::Params) {
 }
 
 /// `action=query`'s submodules by kind: `(kind, names)`.
+/// The lists usable as `generator=`, with their parameter prefix: `gaplimit` is the
+/// generator's `aplimit`.
+const GENERATORS: &[(&str, &str)] = &[
+    ("allpages", "ap"),
+    ("categorymembers", "cm"),
+    ("querypage", "qp"),
+];
+
 const QUERY_MODULES: &[(&str, &[&str])] = &[
     (
         "meta",
@@ -1163,6 +1279,8 @@ const QUERY_MODULES: &[(&str, &[&str])] = &[
             "categorymembers",
         ],
     ),
+    // A generator is a list whose pages become the page set (`run_generator`).
+    ("generator", &["allpages", "categorymembers", "querypage"]),
 ];
 
 fn paraminfo_module(name: &str, path: &str, prefix: &str, parameters: &[Value]) -> Value {
@@ -1927,15 +2045,22 @@ pub fn paraminfo_modules(requested: &[String]) -> Vec<Value> {
                 )
             }
             "query" => {
-                let mut params: Vec<Value> = QUERY_MODULES
+                let params: Vec<Value> = QUERY_MODULES
                     .iter()
                     .enumerate()
-                    .map(|(i, (kind, names))| submodule_parameter(i, kind, names, Some("query")))
+                    .map(|(i, (kind, names))| {
+                        let mut p = submodule_parameter(i, kind, names, Some("query"));
+                        // `generator` takes one value: a page set comes from one list.
+                        if *kind == "generator"
+                            && let Value::Object(m) = &mut p
+                        {
+                            for k in ["multi", "limit", "lowlimit", "highlimit"] {
+                                m.remove(k);
+                            }
+                        }
+                        p
+                    })
                     .collect();
-                // Generators are submodules usable as a page set; none yet.
-                let mut generator = parameter(params.len(), "generator", json!([]));
-                generator.insert("submodules".into(), json!({}));
-                params.push(Value::Object(generator));
                 paraminfo_module("query", "query", "", &params)
             }
             other => {
@@ -2091,6 +2216,26 @@ mod tests {
     // One table declares each `action=` module with its dispatch (api.rs), so paraminfo lists
     // every module dispatched: `linkaccount` and `unlinkaccount` were dispatched and missing.
     // The help text is built from the same tables.
+    // The generators paraminfo lists are the ones `run_generator` knows, each also a list.
+    #[test]
+    fn every_generator_is_known_and_a_list() {
+        let listed = QUERY_MODULES
+            .iter()
+            .find(|(k, _)| *k == "generator")
+            .unwrap()
+            .1;
+        let lists = QUERY_MODULES.iter().find(|(k, _)| *k == "list").unwrap().1;
+        assert_eq!(
+            listed,
+            GENERATORS
+                .iter()
+                .map(|(n, _)| *n)
+                .collect::<Vec<_>>()
+                .as_slice()
+        );
+        assert!(listed.iter().all(|g| lists.contains(g)));
+    }
+
     #[test]
     fn paraminfo_and_help_list_every_module() {
         for name in ["linkaccount", "unlinkaccount", "wbremovereferences", "help"] {

@@ -54,6 +54,9 @@ pub struct Source {
     pub revision: Option<u64>,
     /// The archive subpage, when the page converted is one.
     pub archive: Option<String>,
+    /// The converted revision's time: a thread's title date where no signature in it has
+    /// one (13 §5.13).
+    pub revision_time: Option<Stamp>,
 }
 
 /// What a planned thread was made from.
@@ -99,7 +102,8 @@ pub struct PlannedThread {
     pub origin: Origin,
     /// Its subject, normalized as a thread subject.
     pub subject: String,
-    /// The earliest time among its records: the title date, when there is one (0054 §5).
+    /// The title date (13 §5.13): the earliest signature timestamp in the thread, or the
+    /// converted revision's time when no signature has one.
     pub date: Option<Stamp>,
     /// Its records, in the order they are appended; the first is the `create`.
     pub records: Vec<PlannedRecord>,
@@ -223,7 +227,14 @@ fn plan_thread(thread: &Thread, title: &str, source: &Source) -> PlannedThread {
     PlannedThread {
         origin,
         subject: subject(&subject_text),
-        date: records.iter().filter_map(|r| r.time).min(),
+        // The earliest signature, not the earliest record: an unsigned post's time is when
+        // a revision added it, which says nothing of when the discussion began (13 §5.13).
+        date: thread
+            .posts
+            .iter()
+            .filter_map(|p| p.signature.as_ref().and_then(|s| s.when))
+            .min()
+            .or(source.revision_time),
         records,
     }
 }

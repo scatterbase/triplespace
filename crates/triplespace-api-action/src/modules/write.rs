@@ -253,6 +253,7 @@ pub async fn run(ctx: &mut Ctx, action: &str) -> Result<ApiResponse, ApiError> {
         "wbsetlabel" => set_term(ctx, &meta, "labels").await,
         "wbsetdescription" => set_term(ctx, &meta, "descriptions").await,
         "wbsetaliases" => wbsetaliases(ctx, &meta).await,
+        "wbsetclaimvalue" => wbsetclaimvalue(ctx, &meta).await,
         "wbsetqualifier" => wbsetqualifier(ctx, &meta).await,
         "wbremovequalifiers" => wbremovequalifiers(ctx, &meta).await,
         "wbsetreference" => wbsetreference(ctx, &meta).await,
@@ -845,6 +846,39 @@ async fn wbsetqualifier(ctx: &Ctx, meta: &EditMeta) -> Result<ApiResponse, ApiEr
         .entry(snak.property.clone())
         .or_default()
         .push(snak);
+    let (lastrevid, now) = save(ctx, &subject, &after, meta).await?;
+    let mut extra = Map::new();
+    extra.insert(
+        "claim".into(),
+        now.as_ref().map_or(Value::Null, |c| {
+            statement_value(ctx, &c.resolved.entity, &guid)
+        }),
+    );
+    Ok(pageinfo_response(lastrevid, extra))
+}
+
+/// `wbsetclaimvalue`: the main snak of a statement, named by `claim`, takes `snaktype` and
+/// `value`; its property, rank, qualifiers and references are kept (mediawiki-compat.md,
+/// `wbsetclaimvalue`).
+async fn wbsetclaimvalue(ctx: &Ctx, meta: &EditMeta) -> Result<ApiResponse, ApiError> {
+    let (guid, id) = guid_entity(ctx.params.required("claim")?)?;
+    let subject = existing(ctx, id).await?;
+    let mut after = subject.base.clone();
+    let property = statement_mut(&mut after, &guid)
+        .ok_or_else(|| no_such_claim(guid.as_str()))?
+        .mainsnak
+        .property
+        .to_string();
+    let snak = snak_from_params(
+        ctx,
+        ctx.params.required("snaktype")?,
+        &property,
+        ctx.params.get("value"),
+    )
+    .await?;
+    statement_mut(&mut after, &guid)
+        .ok_or_else(|| no_such_claim(guid.as_str()))?
+        .mainsnak = snak;
     let (lastrevid, now) = save(ctx, &subject, &after, meta).await?;
     let mut extra = Map::new();
     extra.insert(
