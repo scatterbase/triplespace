@@ -658,7 +658,8 @@ pub(crate) struct RowCore {
 impl RowCore {
     /// The rows of an entity that is its graph's one contribution, resolved as
     /// [`EntityProjection::resolve_subject`] resolves such an entity: no corrections.
-    fn of(graph: &str, entity: &Entity) -> Result<Self, String> {
+    /// `given` is the entity's canonical JSON, when the caller has already built it.
+    fn of(graph: &str, entity: &Entity, given: Option<&str>) -> Result<Self, String> {
         // An unkeyed subject only ([`Self::ahead`]), so no item was mapped onto it.
         let contributions = [Contribution {
             graph: graph.to_string(),
@@ -668,7 +669,14 @@ impl RowCore {
         let resolved =
             resolve(&contributions, &BTreeMap::new()).ok_or("one contribution resolves")?;
         let json = resolved.canonical_json();
-        let (kind, blob) = if resolved.equals_given(&json, &contributions[0].entity) {
+        let same = match given {
+            Some(given) => {
+                debug_assert_eq!(given, entity.to_canonical_json());
+                json == given
+            }
+            None => resolved.equals_given(&json, &contributions[0].entity),
+        };
+        let (kind, blob) = if same {
             ("source", None)
         } else {
             ("materialized", Some(json.as_bytes().to_vec()))
@@ -693,12 +701,12 @@ impl RowCore {
     /// The rows [`EntityProjection::apply_block`] may write for `op` in `graph`, computed
     /// ahead: for a mirror's `put` of an unkeyed subject, whether or not the block later
     /// finds the subject held elsewhere (it then resolves it the full way).
-    pub(crate) fn ahead(graph: &str, op: &Operation) -> Option<Self> {
+    pub(crate) fn ahead(graph: &str, op: &Operation, json: Option<&str>) -> Option<Self> {
         match op {
             Operation::Put { id, entity, .. }
                 if graph.starts_with("mirror/") && id.form() != IdForm::Keyed =>
             {
-                Self::of(graph, entity).ok()
+                Self::of(graph, entity, json).ok()
             }
             _ => None,
         }
@@ -722,7 +730,7 @@ fn shared_rows(
             .ok_or_else(|| format!("no record for `{id}` carries a page ID (0013 §6)"))?;
         let core = match core {
             Some(core) => core,
-            None => Arc::new(RowCore::of(graph, entity)?),
+            None => Arc::new(RowCore::of(graph, entity, None)?),
         };
         Ok(SharedRows {
             id: id.as_str().to_string(),

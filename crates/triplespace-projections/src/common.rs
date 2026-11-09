@@ -265,9 +265,9 @@ pub(crate) fn warmed_rows(record: &Record, graph: &str) -> Option<Arc<crate::ent
 /// the entity's shared rows (`entities::RowCore`), so that the coordinator applying
 /// the block decodes and computes none of it. An operation encodes to one canonical form
 /// and decodes back to itself, which the equivalence of a bootstrap load with the ordinary
-/// sync tests.
-pub fn warm(graph: &str, body: &scatter_log::body::Body, op: Operation) {
-    let rows = crate::entities::RowCore::ahead(graph, &op).map(Arc::new);
+/// sync tests. `json` is a `put`'s entity's canonical JSON, when the caller has it.
+pub fn warm(graph: &str, body: &scatter_log::body::Body, op: Operation, json: Option<&str>) {
+    let rows = crate::entities::RowCore::ahead(graph, &op, json).map(Arc::new);
     keep_encoded(body, op, rows);
 }
 
@@ -349,17 +349,24 @@ pub use scatter_projection::par_map;
 /// Keeps decoded operations, forgetting the oldest when the cache is full: a block's
 /// operations are read by the projections over that block, then not again, and those
 /// [`warm`] keeps are kept in the order their blocks come.
+///
+/// What it forgets is dropped after the lock is released: the last reference to an
+/// operation frees its whole entity, which for a large item is long enough work that the
+/// preparing threads and the coordinator, all filing or reading here, queued behind it.
 fn remember(decoded: Vec<(Vec<u8>, Entry)>) {
-    with_decoded(|d| {
+    let forgotten = with_decoded(|d| {
+        let mut forgotten = Vec::new();
         for (bytes, entry) in decoded {
-            d.insert(bytes, entry);
+            forgotten.extend(d.insert(bytes, entry));
         }
         while d.len > DECODED_MAX || d.bytes > DECODED_MAX_BYTES {
-            if !d.evict_oldest() {
+            if !d.evict_oldest(&mut forgotten) {
                 break;
             }
         }
+        forgotten
     });
+    drop(forgotten);
 }
 
 /// How many decoded operations are kept, and how many content bytes they may come from: a
@@ -401,34 +408,41 @@ impl Decoded {
     }
 
     /// Keeps `entry` for `bytes`, replacing what was kept for them: an entry from [`warm`]
-    /// carries rows a decoded one lacks.
-    fn insert(&mut self, bytes: Vec<u8>, entry: Entry) {
+    /// carries rows a decoded one lacks. Returns what it did not keep, for the caller to
+    /// drop outside the lock.
+    fn insert(&mut self, bytes: Vec<u8>, entry: Entry) -> Option<(Vec<u8>, Entry)> {
         let fp = fingerprint(&bytes);
         let seq = self.next;
         self.next += 1;
         let bucket = self.ops.entry(fp).or_default();
         if let Some(slot) = bucket.iter_mut().find(|(b, _, _)| *b == bytes) {
-            if entry.rows.is_some() || slot.2.rows.is_none() {
-                slot.2 = entry;
-            }
-            return;
+            let unkept = if entry.rows.is_some() || slot.2.rows.is_none() {
+                std::mem::replace(&mut slot.2, entry)
+            } else {
+                entry
+            };
+            return Some((bytes, unkept));
         }
         self.len += 1;
         self.bytes += bytes.len();
         bucket.push((bytes, seq, entry));
         self.order.push_back((fp, seq));
+        None
     }
 
-    /// Forgets the oldest entry; `false` when there is none.
-    fn evict_oldest(&mut self) -> bool {
+    /// Forgets the oldest entry, pushing it onto `forgotten` for the caller to drop
+    /// outside the lock (nothing is pushed when its slot was already gone). False when
+    /// there was nothing to forget.
+    fn evict_oldest(&mut self, forgotten: &mut Vec<(Vec<u8>, Entry)>) -> bool {
         let Some((fp, seq)) = self.order.pop_front() else {
             return false;
         };
         if let Some(bucket) = self.ops.get_mut(&fp) {
             if let Some(i) = bucket.iter().position(|(_, s, _)| *s == seq) {
-                let (bytes, _, _) = bucket.swap_remove(i);
+                let (bytes, _, entry) = bucket.swap_remove(i);
                 self.len -= 1;
                 self.bytes -= bytes.len();
+                forgotten.push((bytes, entry));
             }
             if bucket.is_empty() {
                 self.ops.remove(&fp);
@@ -680,16 +694,27 @@ mod tests {
             b
         };
         assert_eq!(fingerprint(&same_shape(1)), fingerprint(&same_shape(2)));
-        d.insert(same_shape(1), entry());
-        d.insert(same_shape(2), entry());
-        d.insert(vec![3; 10], entry());
-        d.insert(vec![3; 10], entry());
+        assert!(d.insert(same_shape(1), entry()).is_none());
+        assert!(d.insert(same_shape(2), entry()).is_none());
+        assert!(d.insert(vec![3; 10], entry()).is_none());
+        let unkept = d.insert(vec![3; 10], entry());
+        assert_eq!(
+            unkept.map(|(b, _)| b),
+            Some(vec![3; 10]),
+            "handed back to drop"
+        );
         assert_eq!((d.len, d.bytes), (3, 410), "an equal insert replaces");
         assert!(d.get(&same_shape(1)).is_some() && d.get(&same_shape(2)).is_some());
-        assert!(d.evict_oldest());
-        assert!(d.get(&same_shape(1)).is_none(), "the oldest goes first");
+        let mut gone = Vec::new();
+        assert!(d.evict_oldest(&mut gone));
+        let gone: Vec<_> = gone.into_iter().map(|(b, _)| b).collect();
+        assert_eq!(gone, [same_shape(1)], "the oldest goes first, handed back");
+        assert!(d.get(&same_shape(1)).is_none());
         assert!(d.get(&same_shape(2)).is_some() && d.get(&[3; 10]).is_some());
-        assert!(d.evict_oldest() && d.evict_oldest() && !d.evict_oldest());
+        let mut rest = Vec::new();
+        assert!(d.evict_oldest(&mut rest) && d.evict_oldest(&mut rest));
+        assert!(!d.evict_oldest(&mut rest));
+        assert_eq!(rest.len(), 2);
         assert_eq!((d.len, d.bytes), (0, 0));
     }
 

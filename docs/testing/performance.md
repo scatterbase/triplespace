@@ -623,3 +623,44 @@ before it has. Prototyped first and measured on the same VM and dump as the whol
 wall time, so its totals no longer say what share of a load waits on Postgres; per-thread CPU
 and wait-event samples do. What would shorten the next run is the preparation's CPU per
 record, not more writers.
+
+**Preparing a record with less CPU (2026-11-08/09).** callgrind per thread over the first
+2,000 items of a dense stretch, a bootstrap load: the preparing threads spent 28.4G
+instructions in `Prepare::item`. Of that, `draft` was 23.9G and, within it, the projections'
+warm-up 11.5G; the entity's canonical JSON 8.2G, built three times per record (once for the
+size, once for the projections' check against the given JSON, once for their rows); SHA-256
+5.8G (this VM's CPU has no SHA extensions, so `sha2` runs in software); converting the body to
+CBOR values 3.5G; parsing the dump's line 2.3G; the Wikidata adapter 1.8G. Changed, each with
+the same bytes out:
+
+- the canonical JSON is built once and handed to the warm-up, which compares against it instead
+  of building it again (a debug assertion checks they agree);
+- canonical JSON writes into one buffer, escaping each string straight into it rather than
+  through a `String` per key and value;
+- CBOR maps encode their keys into one shared buffer and their values straight into the output,
+  not each pair into its own; `Value::from_json_owned` moves strings out of the JSON value
+  instead of cloning them;
+- the shared cache of decoded records drops what it forgets after releasing its lock. Stack
+  samples past 7M entities had 8 of 14 preparing threads and the coordinator waiting on that
+  lock while one thread freed an evicted entity under it.
+
+`Prepare::item` fell to 22.7G on the dense 2,000 (−20%) and from 29.2G to 23.6G on the mixed
+2,000. On `mem-dense-60k`, three runs of each, alternating, 4 writers, fresh databases: **user
+CPU 722 s → 594 s (−18%), wall 70.6 s → 61.0 s (−14%)**. The 20k slice loaded by both builds
+gives the same records, Merkle nodes, body lengths, projection positions and view rows, and a
+rebuild of the new load's views is identical.
+
+40-minute sweeps over the whole dump, 4 writers, do not resolve a gain of this size: `main`
+reached 10.24M one evening and 7.32M at 01:00 the next night, on the same build and machine,
+and the new build 10.95M, 10.77M (with stack samples and a build running alongside it) and
+9.99M. The same-evening pair is 10.24M against 10.95M (+7%). Use alternating short runs, or
+CPU counts, to compare builds here; a sweep needs repeats on both sides.
+
+Still in the preparation, measured but not changed: SHA-256 in software (the `sha2` crate's
+`asm` feature would add a dependency, rule 7; production CPUs with SHA extensions make it moot),
+building CBOR values from JSON rather than serializing straight to CBOR (one encoding per
+hashed type, rule 4, would need a careful argument), `Changes::between` and resolving the
+entity, parsing (about 7%) and the adapter (about 6%). In the sweeps' samples, threads named
+`tokio-rt-worker` running at 60–90% while the runtime's own workers were parked: on Linux a
+thread left unnamed keeps its creator's name, so those were unnamed threads started from a
+runtime worker. Name them before reading per-thread figures from a load.

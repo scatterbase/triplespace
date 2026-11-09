@@ -1684,7 +1684,7 @@ fn a_bootstrap_load_warms_with_what_it_appends() {
         type Warmed = Vec<(String, Vec<u8>, Operation)>;
         let warmed: std::sync::Arc<std::sync::Mutex<Warmed>> = std::sync::Arc::default();
         let seen = std::sync::Arc::clone(&warmed);
-        let warm: scatter_ingest::Warm = std::sync::Arc::new(move |graph, body, op| {
+        let warm: scatter_ingest::Warm = std::sync::Arc::new(move |graph, body, op, _| {
             seen.lock().unwrap().push((
                 graph.to_string(),
                 body.content().bytes().unwrap().to_vec(),
