@@ -20,6 +20,12 @@ QuickStatements). James Hare (Scatter LLC) owns it; he decides, and agents draft
 | `xtask/` | `cargo xtask deps` (dependency graph vs. `docs/registry/crates.toml`), `wasm`, `manifest`, `skin-parity` (the skin migration's harness: `crates/triplespace-ui/tests/parity.rs` over `tests/corpus/`, with its report). | |
 | `ui/`, `i18n/` | The site front end (Codex, Vite) and interface messages. | |
 
+**The site.** `docs/` is published at https://triplespace.readthedocs.io/ (MkDocs with Material,
+built by Read the Docs; 24 §16). Pages it derives from other sources (the navigation, the home
+page, *As built* per chapter, the REST reference) are generated at build time by
+`tools/docs_site.py` and never committed: do not add copies of them to `docs/`. CI builds it
+with `mkdocs build --strict`, so a broken link in `docs/` fails.
+
 **Looking things up:** `tools/adr.py` answers the common questions in one call:
 - `show 0013 §7` prints an ADR section, following its pointer to the chapter text; `show 0098 --full` prints a whole ADR assembled with its chapter text (what CI posts on a pull request that adds an ADR).
 - `where <phrase>` lists the chapter sections, ADRs and registry files that cover a subject.
@@ -106,6 +112,7 @@ tools/acl_check.sh                      # the permission model's attack battery,
 
 docs/check.sh                           # every doc checker; exits non-zero on any failure
 docs/check.sh --write                   # regenerate every generated file, then check; after code changes too
+mkdocs build --strict                   # the documentation site (pip install -r docs/requirements.txt)
 ```
 
 In a fresh Linux sandbox, run `eval "$(tools/dev_env.sh)"` first. It starts Postgres, exports

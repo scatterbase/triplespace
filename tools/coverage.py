@@ -23,8 +23,9 @@ Two kinds of citation, both in comments, read from crates/, xtask/, ui/src, ui/e
            that a later change (A44) shows the claim as stale rather than silently wrong. A claim
            on a chapter section (`implements 03 §6.1`) claims every ADR section its Sources name.
 
-Each citation is classed by where it is: src (library and binary code, migrations), test
-(tests/, `#[cfg(test)]`, ui/e2e, tools/), or not (the sentence says the thing is not built yet:
+Each citation is classed by where it is: src (library and binary code, migrations, and a script
+under tools/ that says near its top it is "Product code (24 §15)"), test (tests/,
+`#[cfg(test)]`, ui/e2e, the rest of tools/), or not (the sentence says the thing is not built yet:
 "not yet built", "deferred", "TODO", …; never counted as evidence).
 
 A section's status, from its own citations and its subsections':
@@ -193,11 +194,27 @@ def code_files():
                         yield rel, p
 
 
+PRODUCT = "Product code (24 §15)"
+
+
 def file_kind(rel):
     parts = rel.split(os.sep)
+    if parts[0] == "tools" and product_script(rel):
+        # A tool that is part of the product, not a check of it (0099 A3).
+        return "src"
     if "tests" in parts or "e2e" in parts or parts[0] == "tools" or rel.endswith(("_test.rs", ".test.ts", ".test.js", ".spec.ts")):
         return "test"
     return "src"
+
+
+def product_script(rel):
+    """Whether a script under tools/ declares itself product code in its first 30 lines."""
+    try:
+        with open(os.path.join(ROOT, rel), encoding="utf-8") as fh:
+            head = "".join(next(fh, "") for _ in range(30))
+    except (OSError, UnicodeDecodeError):
+        return False
+    return PRODUCT in head
 
 
 def crate_of(rel):

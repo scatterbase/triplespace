@@ -230,6 +230,23 @@ jobs:
       - name: Documentation checks (ADRs and chapters 24 §12, settings 0085 §1, crate map 24 §11, log vectors)
         run: docs/check.sh
 
+  site:
+    # The documentation site builds as Read the Docs builds it (0109 §1; 24 §16), strictly, so
+    # a broken link or a generator that fails cannot merge.
+    name: Documentation site
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: docs/requirements.txt
+      - name: Build
+        run: |
+          pip install -r docs/requirements.txt
+          mkdocs build --strict
+
   adr-preview:
     # A new ADR's text lives in the chapters (24 §3.2), so its pull request shows chapter hunks
     # and a skeleton. This posts the ADR assembled with its chapter text as one comment, updated

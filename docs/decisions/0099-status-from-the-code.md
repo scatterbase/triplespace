@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-30
-- **Updated:** 2026-11-09 (A2)
+- **Updated:** 2026-11-09 (A3)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0050](0050-adr-format.md)
 - **Uses:** [0098](0098-pointers-from-birth.md)
@@ -27,6 +27,8 @@ James's direction, 2026-10-30, after the catalogue moves:
 ## Decision
 
 ### 1. The code claims what it implements (amends 0050 §11)
+
+*Changed by A3.*
 
 *Current text: [24](../architecture/24-documentation.md) §9, §15.*
 
@@ -103,3 +105,14 @@ Replaced text ([24](../architecture/24-documentation.md) §13, as it stood):
 - **Source:** Direct: Claude, while building the crate map's as-built view and the status tables James asked for in discussion of 2026-11-09; confirmed by James, 2026-11-09
 - **Change:** extends §2, §5
 - **Summary:** The status is written from the code outside the ADRs too. The crate map's generated views show what the code says beside the design: the table in [22](../architecture/22-crates-and-stack.md) §2.1 gains a *Built* column (whether each crate is in the workspace), and each entry of `CRATES.md` ends with an *As built* paragraph, the first paragraph of the crate's `//!` docs and the sections its src claims, from the new `coverage.py --crates`. The `contents` field of `crates.toml` is unchanged: it is the current text of the ADRs' Crates trailers, so it stays the design. A document that relies on parts of the design names them in a status table, whose last column `coverage.py --blocks --write` writes from the code and `check.sh` checks; `docs/testing/real-dumps.md`'s hand-kept list of what the code can and cannot do, a remnant of the working notes §5 retired, which had gone stale (it called 0013 §9 bootstrap mode and `verify` unbuilt), is the first replaced. The fold is in [24](../architecture/24-documentation.md) §15 and [22](../architecture/22-crates-and-stack.md) §2.1.
+
+### A3. Product scripts under tools/ are source
+
+- **Date:** 2026-11-09
+- **Source:** Direct: James, design discussion of 2026-11-09
+- **Change:** extends §1
+- **Summary:** A script under `tools/` that is part of the product rather than a check of it says so near its top, "Product code (24 §15)", and `coverage.py` reads it as src, so it can carry an `implements` claim; every other script there is still a test. The documentation site's hooks (`tools/docs_site.py`, 0109) are the first. Settles 0109 Q2. Chapter text: [24](../architecture/24-documentation.md) §15.
+
+Replaced text ([24](../architecture/24-documentation.md) §15, as it stood):
+
+> It is written once, at the code that completes the section, in src (library or binary code, a migration) and never in a test.
