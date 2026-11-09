@@ -145,7 +145,29 @@ pub fn observe_setting_reads(observer: fn(&str)) -> bool {
     OBSERVER.set(observer).is_ok()
 }
 
+/// The observer of tenancy-switch reads a process may install (0108 §2): called with every
+/// switch [`Snapshot::switch`] is asked for.
+static SWITCH_OBSERVER: OnceLock<fn(&str)> = OnceLock::new();
+
+/// Installs the observer of tenancy-switch reads, once per process (implements 0108 §2):
+/// the binaries set it when asked to probe, so that the switches the code reads can be
+/// compared with `tenancy.toml`. False if one was already installed.
+pub fn observe_switch_reads(observer: fn(&str)) -> bool {
+    SWITCH_OBSERVER.set(observer).is_ok()
+}
+
 impl Snapshot {
+    /// The instance's record of a tenancy switch, `tenancy:{switch}`, where one is set: every
+    /// read of a switch's value goes through here, and is reported to the probe (0108 §2).
+    /// The `tenancy:locked` list is not a switch, and is read apart.
+    #[must_use]
+    pub fn switch(&self, switch: &str) -> Option<&Row> {
+        if let Some(observe) = SWITCH_OBSERVER.get() {
+            observe(switch);
+        }
+        self.tenancy.get(switch)
+    }
+
     /// The registry in force.
     #[must_use]
     pub fn registry(&self) -> &SettingsRegistry {
@@ -157,8 +179,7 @@ impl Snapshot {
     /// The `config.template` mode: `none`, `defaults` or `locks`; `none` when unset.
     #[must_use]
     pub fn template_mode(&self) -> &str {
-        self.tenancy
-            .get(CONFIG_TEMPLATE)
+        self.switch(CONFIG_TEMPLATE)
             .and_then(|r| r.value.as_str())
             .unwrap_or("none")
     }
@@ -214,7 +235,7 @@ impl Snapshot {
     #[must_use]
     pub fn ceiling(&self, def: &SettingDef) -> Option<&Value> {
         let switch = def.ceiling_switch()?;
-        self.tenancy.get(switch).map(|r| &r.value)
+        self.switch(switch).map(|r| &r.value)
     }
 
     /// Resolves one setting; `None` for a key the registry does not know.
@@ -375,7 +396,7 @@ impl Snapshot {
     /// Caps a value: `Some((capped value, ceiling))` when the ceiling changed it.
     fn cap(&self, def: &SettingDef, v: &Value) -> Option<(Value, Value)> {
         let switch = def.ceiling_switch()?;
-        let ceiling = self.tenancy.get(switch)?.value.clone();
+        let ceiling = self.switch(switch)?.value.clone();
         if switch == WIKITEXT_CEILING {
             // 23 §3.4: `expansion` < `lua`; `wikitext.lua` needs `lua`. Expansion itself is
             // part of wikitext and has no setting to cap (0042 A19); a `subset` ceiling
@@ -482,6 +503,23 @@ mod tests {
 
     fn tenancy(s: &mut Snapshot, switch: &str, v: Value) {
         s.tenancy.insert(switch.into(), Row::of(v, 1));
+    }
+
+    // 0108 §2: a switch read through `switch` is reported; the `locked` list is not a switch.
+    #[test]
+    fn switch_reads_are_observed() {
+        use std::sync::Mutex;
+        static SEEN: Mutex<Vec<String>> = Mutex::new(Vec::new());
+        fn record(k: &str) {
+            SEEN.lock().unwrap().push(k.to_owned());
+        }
+        observe_switch_reads(record);
+        let s = snap();
+        assert_eq!(s.template_mode(), "none");
+        let _ = s.locked_keys();
+        let seen = SEEN.lock().unwrap();
+        assert!(seen.iter().any(|k| k == CONFIG_TEMPLATE));
+        assert!(!seen.iter().any(|k| k == LOCKED));
     }
 
     // 0107 §2: a read by key reports the key, known or not; listing every setting does not.

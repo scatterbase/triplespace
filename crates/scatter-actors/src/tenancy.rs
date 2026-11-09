@@ -343,10 +343,23 @@ pub struct TenancyPolicy {
     pub switches: BTreeMap<String, String>,
 }
 
+/// The observer of tenancy-switch reads a process may install (0108 §2): called with every
+/// switch a [`TenancyPolicy`] is asked for.
+static OBSERVER: std::sync::OnceLock<fn(&str)> = std::sync::OnceLock::new();
+
+/// Installs the observer of tenancy-switch reads on a policy, once per process (0108 §2).
+/// False if one was already installed.
+pub fn observe_policy_reads(observer: fn(&str)) -> bool {
+    OBSERVER.set(observer).is_ok()
+}
+
 impl TenancyPolicy {
-    /// A switch's value.
+    /// A switch's value, reported to the probe (0108 §2).
     #[must_use]
     pub fn get(&self, switch: &str) -> Option<&str> {
+        if let Some(observe) = OBSERVER.get() {
+            observe(switch);
+        }
         self.switches.get(switch).map(String::as_str)
     }
 
@@ -406,6 +419,19 @@ impl TenancyPolicy {
 
 #[cfg(test)]
 mod tests {
+    // 0108 §2: asking a policy for a switch reports the switch.
+    #[test]
+    fn policy_reads_are_observed() {
+        use std::sync::Mutex;
+        static SEEN: Mutex<Vec<String>> = Mutex::new(Vec::new());
+        fn record(k: &str) {
+            SEEN.lock().unwrap().push(k.to_owned());
+        }
+        observe_policy_reads(record);
+        let _ = TenancyPolicy::default().global_groups();
+        assert!(SEEN.lock().unwrap().iter().any(|k| k == "groups.global"));
+    }
+
     use super::*;
 
     #[test]

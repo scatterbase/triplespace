@@ -241,6 +241,18 @@ changes = "`action=watch` with `titles` or `pageids`, `unwatch`, `expiry`, and T
 sources = "[0020](../decisions/0020-change-feeds.md) §5"
 
 [[module]]
+kind = "action"
+modules = ["action=help"]
+changes = "As in MediaWiki: the module list"
+sources = "[0012](../decisions/0012-api-requirements.md) §1; [0108](../decisions/0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) §1"
+
+[[module]]
+kind = "action"
+modules = ["action=query"]
+changes = "As in MediaWiki: runs the `meta`, `prop`, `list` and `generator` submodules below"
+sources = "[0012](../decisions/0012-api-requirements.md) §1; [0108](../decisions/0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) §1"
+
+[[module]]
 kind = "query"
 modules = ["meta=allmessages"]
 changes = "The wiki's Interface pages over the site's shipped messages, each `customised` where overridden, else `missing`; `ammessages`, `amlang`, `amcustomised`, `amprefix`, `amfilter`, `amfrom`, `amto`, `amargs`, `amnocontent`, `amincludelocal`, and `amprop=default` for each message's shipped text (`default`, or `defaultmissing`) ([0095](../decisions/0095-the-interface-namespace.md) §8)"
@@ -517,6 +529,24 @@ modules = []
 display = "`titles=`, `pageids=`, `redirects`"
 changes = "`redirects` resolves the page set through redirects, one hop, and reports each in the `redirects` array with `from`, `to` and `tofragment`, as MediaWiki does. The page set resolves through the stack and through foreign redirects; a ranged `pageid` resolves to the repository page it names"
 sources = "[0051](../decisions/0051-page-redirects.md) §7; [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6"
+
+[[module]]
+kind = "query"
+modules = ["meta=siteinfo"]
+changes = "As in MediaWiki, with what later ADRs add to its `siprop` values (`siprop=triplespace`)"
+sources = "[0012](../decisions/0012-api-requirements.md) §1; [0108](../decisions/0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) §1"
+
+[[module]]
+kind = "query"
+modules = ["meta=tokens"]
+changes = "As in MediaWiki"
+sources = "[0012](../decisions/0012-api-requirements.md) §1; [0108](../decisions/0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) §1"
+
+[[module]]
+kind = "query"
+modules = ["meta=wikibase"]
+changes = "As in Wikibase"
+sources = "[0012](../decisions/0012-api-requirements.md) §1; [0108](../decisions/0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) §1"
 
 [[module]]
 kind = "wikibase"

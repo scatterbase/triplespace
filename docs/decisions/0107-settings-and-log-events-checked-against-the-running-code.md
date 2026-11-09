@@ -2,6 +2,7 @@
 
 - **Status:** Accepted
 - **Date:** 2026-11-09
+- **Updated:** 2026-11-09 (A1)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0011](0011-logs.md), [0033](0033-backend-stack.md), [0085](0085-settings-and-preferences.md), [0105](0105-catalogues-checked-against-the-running-code.md)
 - **Uses:** [0099](0099-status-from-the-code.md)
@@ -24,6 +25,8 @@ James's direction, from the design discussion of 2026-11-09:
 ## Decision
 
 ### 1. One probe for the catalogues the code acts on (amends 0105 §1, §2; extends 0033 §15)
+
+*Changed by A1.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.2; [22](../architecture/22-crates-and-stack.md) §4.9; [24](../architecture/24-documentation.md) §11.*
 
@@ -49,9 +52,26 @@ James's direction, from the design discussion of 2026-11-09:
 
 ## Open questions
 
-- **Q1. Routes and modules.** The route and Action API catalogues already derive a *Built* column from the OpenAPI contract and the paraminfo lists. Whether the probe should also report the routes and modules a run served, which would make "built" mean "answered in a test run" rather than "declared".
-- **Q2. Tenancy switches.** The bug the first run found was a tenancy switch read as a setting. Whether the probe should also report the tenancy switches a run reads, compared with `tenancy.toml`.
+- **Q1.** ~~**Routes and modules.** The route and Action API catalogues already derive a *Built* column from the OpenAPI contract and the paraminfo lists. Whether the probe should also report the routes and modules a run served, which would make "built" mean "answered in a test run" rather than "declared".~~ *Settled by [0108](0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) §1: yes; the server reports the routes and modules it serves, and the module catalogue lists every module served.*
+- **Q2.** ~~**Tenancy switches.** The bug the first run found was a tenancy switch read as a setting. Whether the probe should also report the tenancy switches a run reads, compared with `tenancy.toml`.~~ *Settled by [0108](0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) §2: yes; tenancy-switch reads are reported and checked against `tenancy.toml`.*
 
 ## References
 
 - [0105](0105-catalogues-checked-against-the-running-code.md) §1–2, A1, Q2; [0099](0099-status-from-the-code.md) §2
+
+## Amendment log
+
+### A1. The probe reports tenancy switches, routes and modules too
+
+- **Date:** 2026-11-09
+- **Source:** [0108](0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) §1, §2
+- **Change:** amends §1
+- **Summary:** The probe gains three kinds of line: `tenancy` for a tenancy switch read, and, from the server, `module` and `route` for an Action API module or a REST route served. Settles Q1 and Q2. Chapter text: [22](../architecture/22-crates-and-stack.md) §4.9; [24](../architecture/24-documentation.md) §11.
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §4.9, as it stood):
+
+> `log-event block/block` for a log event the activity projection wrote ([16](../architecture/16-logs-feeds-and-notifications.md) §2.3). Without it nothing is recorded.
+
+Replaced text ([24](../architecture/24-documentation.md) §11, as it stood):
+
+> (a permission it checks, a setting it reads, a log event it writes) … Permissions, settings and log events are checked so, strictly ([09](../architecture/09-security-and-moderation.md) §2.2; [23](../architecture/23-configuration-and-registry.md) §3.1; [16](../architecture/16-logs-feeds-and-notifications.md) §2.3; [0107](0107-settings-and-log-events-checked-against-the-running-code.md) §1).

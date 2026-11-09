@@ -195,7 +195,7 @@ pub async fn setting(
 #[must_use]
 pub fn set_value(snap: &triplespace_accounts::settings::Snapshot, key: &str) -> Option<Value> {
     if snap.registry().get(key).is_none() {
-        return snap.tenancy.get(key).map(|r| r.value.clone());
+        return snap.switch(key).map(|r| r.value.clone());
     }
     snap.resolve(key)
         .filter(|r| r.origin != triplespace_accounts::settings::Origin::Registry)

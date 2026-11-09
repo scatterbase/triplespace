@@ -253,6 +253,7 @@ async fn dispatch(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         }
     }
     let action = ctx.params.get("action").unwrap_or("help").to_string();
+    modules::query::report_action(&action);
     match action.as_str() {
         "query" => modules::query::run(ctx).await,
         "login" => modules::login::login(ctx).await,

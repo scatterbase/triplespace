@@ -9,7 +9,12 @@
 //! - `setting site.name`: a setting read by key (0107 §2;
 //!   `triplespace_accounts::settings::observe_setting_reads`);
 //! - `log-event block/block`: a log event the activity projection wrote (0107 §3;
-//!   `triplespace_projections::observe_log_events`).
+//!   `triplespace_projections::observe_log_events`);
+//! - `tenancy groups.global`: a tenancy switch read (0108 §2;
+//!   `triplespace_accounts::settings::observe_switch_reads`, `scatter_actors::observe_policy_reads`);
+//! - `module action=edit` and `route GET /account`: an Action API module or a REST route the
+//!   server served (0108 §1). The server installs those two observers itself, with [`module`]
+//!   and [`route`], since this library does not depend on the API crates.
 //!
 //! Several processes may append to one file (a test run starts the CLI and servers), so a
 //! line can appear more than once; the report reads the file as a set.
@@ -48,8 +53,23 @@ fn log_event(event: &str) {
     report("log-event", event);
 }
 
-/// Starts the probe: opens the file for appending and installs the three observers;
-/// implements 0107 §1 and implements 0105 §2 (A2). Calling it again in the same process
+fn switch(name: &str) {
+    report("tenancy", name);
+}
+
+/// Reports an Action API module served, as `action-api.toml` spells it (0108 §1).
+pub fn module(name: &str) {
+    report("module", name);
+}
+
+/// Reports a REST route served, as `routes.toml` spells it (0108 §1).
+pub fn route(name: &str) {
+    report("route", name);
+}
+
+/// Starts the probe: opens the file for appending and installs the observers of every kind
+/// but the API's (see [`module`] and [`route`]);
+/// implements 0107 §1 (A1) and implements 0105 §2 (A2). Calling it again in the same process
 /// changes nothing.
 ///
 /// # Errors
@@ -65,12 +85,14 @@ pub fn start(path: &Path) -> Result<()> {
     scatter_actors::observe_permission_checks(permission);
     triplespace_accounts::settings::observe_setting_reads(setting);
     triplespace_projections::observe_log_events(log_event);
+    triplespace_accounts::settings::observe_switch_reads(switch);
+    scatter_actors::observe_policy_reads(switch);
     Ok(())
 }
 
 #[cfg(test)]
 mod tests {
-    // 0107 §1: each kind of use is written once, as `{kind} {name}`.
+    // 0107 §1, 0108 §2: each kind of use is written once, as `{kind} {name}`.
     #[test]
     fn the_probe_writes_each_use_once() {
         let path = std::env::temp_dir().join(format!("ts-probe-{}.txt", std::process::id()));
@@ -93,6 +115,8 @@ mod tests {
             [
                 "permission edit",
                 "setting site.language",
+                // Resolving a tenant setting reads the `config.template` switch (0108 §2).
+                "tenancy config.template",
                 "log-event block/block"
             ]
         );

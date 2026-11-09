@@ -21,6 +21,7 @@ use crate::response::{ApiError, ApiResponse};
 /// Runs `action=query`.
 #[allow(clippy::too_many_lines, reason = "one arm per submodule")]
 pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
+    report_submodules(&ctx.params);
     let mut query = Map::new();
     let mut body = Map::new();
     let mut response = ApiResponse::default();
@@ -1102,6 +1103,50 @@ const ACTION_MODULES: &[(&str, bool)] = &[
     ("wbremovereferences", true),
 ];
 
+/// The observer of the modules the API serves a process may install (0108 §1): called with
+/// `action={name}` for an `action=` module and `{kind}={name}` for a query submodule, as
+/// `action-api.toml` spells them, each time one is asked for and served.
+static OBSERVER: std::sync::OnceLock<fn(&str)> = std::sync::OnceLock::new();
+
+/// Installs the observer of the modules served, once per process (implements 0108 §1.1):
+/// the server sets it when asked to probe, so that the modules a run used can be compared
+/// with `action-api.toml`. False if one was already installed.
+pub fn observe_modules(observer: fn(&str)) -> bool {
+    OBSERVER.set(observer).is_ok()
+}
+
+/// Reports an `action=` module the request names, if the API serves it (0108 §1).
+pub(crate) fn report_action(name: &str) {
+    if let Some(observe) = OBSERVER.get()
+        && ACTION_MODULES.iter().any(|(n, _)| *n == name)
+    {
+        observe(&format!("action={name}"));
+    }
+}
+
+/// Reports the query submodules a request names that the API serves (0108 §1).
+fn report_submodules(params: &crate::params::Params) {
+    let Some(observe) = OBSERVER.get() else {
+        return;
+    };
+    for (kind, names) in QUERY_MODULES {
+        let asked: Vec<String> = if *kind == "generator" {
+            params
+                .get("generator")
+                .map(str::to_owned)
+                .into_iter()
+                .collect()
+        } else {
+            params.list(kind)
+        };
+        for n in asked {
+            if names.contains(&n.as_str()) {
+                observe(&format!("{kind}={n}"));
+            }
+        }
+    }
+}
+
 /// `action=query`'s submodules by kind: `(kind, names)`.
 const QUERY_MODULES: &[(&str, &[&str])] = &[
     (
@@ -2058,5 +2103,27 @@ mod paraminfo_tests {
         let search = by_path(&more, "wbsearchentities");
         let langs = param(&search, "language");
         assert!(langs["type"].as_array().unwrap().contains(&json!("en")));
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // 0108 §1.1: a served `action=` module is reported in action-api.toml's spelling; a name
+    // the API does not serve is not.
+    #[test]
+    fn served_modules_are_observed() {
+        use std::sync::Mutex;
+        static SEEN: Mutex<Vec<String>> = Mutex::new(Vec::new());
+        fn record(m: &str) {
+            SEEN.lock().unwrap().push(m.to_owned());
+        }
+        observe_modules(record);
+        report_action("query");
+        report_action("nonesuch");
+        let seen = SEEN.lock().unwrap();
+        assert!(seen.iter().any(|m| m == "action=query"));
+        assert!(!seen.iter().any(|m| m.contains("nonesuch")));
     }
 }

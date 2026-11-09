@@ -198,7 +198,7 @@ A provider tenant on another instance, or one that has moved away (§6), is read
 
 ### 5.1 The policy is instance configuration, with three presets
 
-*Sources: [0028](../decisions/0028-tenancy-policy.md) §1; [0056](../decisions/0056-security-model.md) §11; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5.*
+*Sources: [0028](../decisions/0028-tenancy-policy.md) §1; [0056](../decisions/0056-security-model.md) §11; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5; [0108](../decisions/0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) §2.*
 
 The **tenancy policy** is a set of switches, each a `config` record of kind `tenancy` in the instance `config` partition ([0015](../decisions/0015-record-format-and-partition-registry.md) §3), keyed `tenancy:{switch}`. Three **presets** ship in `docs/registry/tenancy.toml` and are what `triplespace-cli instance create --tenancy {preset}` writes; every switch can then be changed on its own with `ts-config` at the farm base, except the identity switches, which need `owner` because they are hard to reverse (§3.6). A single-tenant instance is the `isolated` preset and never notices any of this. Under every preset the shared rows of `view` are computed under the instance's policy record (§2.5): a tenant on a farm may narrow what it sees of the shared providers and never reorders them, and `ts-instance-policy` is the refusal whichever preset is in force.
 
@@ -225,6 +225,8 @@ The **tenancy policy** is a set of switches, each a `config` record of kind `ten
 Every switch that says "farm actor" or "global" requires `identity.farm_issuer` to be at least `optional`; the registry rejects a preset or a record that does not satisfy that. `meta=siteinfo&siprop=triplespace` reports the preset and the switches, so a client and the UI know what exists.
 
 The identity switches are §3.5–3.7, the provider switches §4.2, `config.template` §5.3, `security.restrictions` §5.2, the discussion and notification switches §10.1–10.2; `groups.global`, `blocks.global` and `filters.global` are in [09](09-security-and-moderation.md), `feeds.farm_wide` and `search.farm_wide` ([0028](../decisions/0028-tenancy-policy.md) §9) in [16](16-logs-feeds-and-notifications.md) and [03](03-storage-caches-and-search.md) §11.4, `wikitext.ceiling` in [11](11-rendering-templates-and-modules.md).
+
+**The code is checked against the switch table** ([0108](../decisions/0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) §2; [24](24-documentation.md) §11). Every read of a switch goes through the settings snapshot's `switch` or the policy's `get`, which report it to the probe as a `tenancy` line ([22](22-crates-and-stack.md) §4.9); CI fails a run that read a name which is neither a switch `tenancy.toml` lists nor the ceiling of a `bound = "ceiling"` setting, which is a tenancy record keyed by the setting ([23](23-configuration-and-registry.md) §3.1), or that read a switch as a setting. The `tenancy:locked` list is not a switch and is not reported.
 
 ### 5.2 `security.restrictions`, and global groups in ACLs
 

@@ -353,6 +353,16 @@ async fn background(app: &triplespace_api_action::App, workers: usize) {
     }
 }
 
+/// Starts the probe (0107 §1), with the API's observers of the modules and routes served,
+/// which the CLI library cannot install (0108 §1).
+fn start_probe(path: &std::path::Path) -> Result<()> {
+    triplespace_cli::probe::start(path)?;
+    triplespace_api_action::observe_modules(triplespace_cli::probe::module);
+    triplespace_api_rest::observe_routes(triplespace_cli::probe::route);
+    eprintln!("probe: reporting to {}", path.display());
+    Ok(())
+}
+
 fn main() -> Result<()> {
     // Before the runtime starts: the `.env` file is read into the environment (23 §5.1).
     if let Some(path) = triplespace_cli::env_file::load()? {
@@ -365,8 +375,7 @@ fn main() -> Result<()> {
 async fn run() -> Result<()> {
     let args = Args::parse();
     if let Some(path) = &args.probe {
-        triplespace_cli::probe::start(path)?;
-        eprintln!("probe: reporting to {}", path.display());
+        start_probe(path)?;
     }
     let embedded = match args.ui.as_str() {
         "embedded" => true,

@@ -81,6 +81,9 @@ pub mod version;
 pub mod watchlist;
 
 use axum::Router;
+use axum::extract::{MatchedPath, Request};
+use axum::middleware::{self, Next};
+use axum::response::Response;
 use axum::routing::{delete, get, post, put};
 use triplespace_api_action::App;
 
@@ -247,11 +250,53 @@ pub fn routes() -> Router<App> {
             .route(&format!("{base}{}", PATHS[57]), post(jobs::revert))
             .route(&format!("{base}{}", PATHS[58]), post(jobs::close));
     }
-    r
+    r.route_layer(middleware::from_fn(report_route))
+}
+
+/// The observer of the routes served a process may install (0108 §1): called with
+/// `{METHOD} {path}`, the path relative to the base as `routes.toml` spells it, for every
+/// request a route matched.
+static OBSERVER: std::sync::OnceLock<fn(&str)> = std::sync::OnceLock::new();
+
+/// Installs the observer of the routes served, once per process (implements 0108 §1.2):
+/// the server sets it when asked to probe, so that the routes a run used can be compared
+/// with `routes.toml`. False if one was already installed.
+pub fn observe_routes(observer: fn(&str)) -> bool {
+    OBSERVER.set(observer).is_ok()
+}
+
+/// The route a request matched, as `routes.toml` spells it: `GET /account`.
+fn route_name(method: &str, matched: &str) -> String {
+    let path = BASES
+        .iter()
+        .find_map(|b| matched.strip_prefix(b))
+        .unwrap_or(matched);
+    format!("{method} {path}")
+}
+
+async fn report_route(req: Request, next: Next) -> Response {
+    if let (Some(observe), Some(matched)) = (OBSERVER.get(), req.extensions().get::<MatchedPath>())
+    {
+        observe(&route_name(req.method().as_str(), matched.as_str()));
+    }
+    next.run(req).await
 }
 
 #[cfg(test)]
 mod tests {
+    // 0108 §1.2: a matched route is named relative to either base, in routes.toml's spelling.
+    #[test]
+    fn routes_are_named_as_the_catalogue_names_them() {
+        assert_eq!(
+            super::route_name("GET", "/w/rest.php/triplespace/v0/account"),
+            "GET /account"
+        );
+        assert_eq!(
+            super::route_name("POST", "/rest.php/triplespace/v0/jobs/{id}/close"),
+            "POST /jobs/{id}/close"
+        );
+    }
+
     #[test]
     fn every_route_is_in_the_contract() {
         let doc: serde_json::Value = serde_json::from_str(include_str!(

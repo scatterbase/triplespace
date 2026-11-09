@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-08 (A86)
+- **Updated:** 2026-11-09 (A87)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -65,13 +65,13 @@ This ADR sets the rules for filling both gaps, and lists what the UI needs from 
 
 ### 4. Action API changes
 
-*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36, A37, A38, A55, A64, A65, A66, A72, A73, A74, A75, A76, A77, A78, A79, A81, A86.*
+*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36, A37, A38, A55, A64, A65, A66, A72, A73, A74, A75, A76, A77, A78, A79, A81, A86, A87.*
 
 *Current text: [18](../architecture/18-api.md) §1.5, §2.1, §2.2, §2.3, §2.4, §3.4, §5.1.*
 
 ### 5. REST routes under `rest.php/triplespace/v0`
 
-*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33, A37, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A50, A51, A52, A53, A54, A55, A56, A59, A60, A61, A62, A64, A70, A71, A72, A75, A76, A77, A78, A79, A80, A84, A85, A86.*
+*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33, A37, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A50, A51, A52, A53, A54, A55, A56, A59, A60, A61, A62, A64, A70, A71, A72, A75, A76, A77, A78, A79, A80, A84, A85, A86, A87.*
 
 *Current text: [17](../architecture/17-federation-and-publication.md) §1.1; [18](../architecture/18-api.md) §1.2, §3.1, §3.2, §3.3, §4.*
 
@@ -959,3 +959,14 @@ Replaced text ([18](../architecture/18-api.md) §2.3, the lead, as it stood):
 - **Source:** [0104](0104-batches-and-the-job-runner.md) §6
 - **Change:** extends §4 and §5
 - **Summary:** Every write module of the Action API, and every REST write, takes a batch value, `batch=`; the response carries the job's ID, and a write naming a rejected batch is refused with `ts-batch-rejected`. REST gains `POST /jobs/{id}/reject` and `/close` beside `/revert`, which now answers with the revert job's ID; `GET /jobs` lists the queue and `GET /jobs/{id}` a batch's hash and operator. Chapter text: [18](../architecture/18-api.md) §2.3 (`action-api.toml`), §3.2 (`routes.toml`).
+
+### A87. Every module served is catalogued; routes and modules are checked against the running code
+
+- **Date:** 2026-11-09
+- **Source:** [0108](0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) §1
+- **Change:** amends §4; extends §5
+- **Summary:** The module catalogue lists every module the Action API serves as well as every module an ADR names, unchanged ones included (`action=help`, `action=query`, `meta=siteinfo`, `meta=tokens` and `meta=wikibase` gained rows). The server reports each module it serves and each REST route it matches to the probe, and CI fails a run that was served one its catalogue lacks. Chapter text: [18](../architecture/18-api.md) §2.3, §3.2.
+
+Replaced text ([18](../architecture/18-api.md) §2.3, as it stood):
+
+> Every module Triplespace adds or changes, with the parameters, values and output fields it adds.
