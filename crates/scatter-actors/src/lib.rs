@@ -65,7 +65,8 @@ pub use autoconfirm::AutoconfirmThreshold;
 pub use enclosure::{Enclosure, chain};
 pub use evaluate::{
     Credential, Delegation, Effective, INSTANCE_RIGHTS, MembershipRefusal, Principal,
-    autopatrolled, evaluate, groups_of, instance_rights, may_change_membership, owner_may_leave,
+    autopatrolled, evaluate, groups_of, instance_rights, may_change_membership,
+    observe_permission_checks, owner_may_leave,
 };
 pub use grant::{Grant, GrantRegistry, GrantRegistryError};
 pub use group::{

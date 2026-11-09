@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-30
-- **Updated:** 2026-10-30 (A3)
+- **Updated:** 2026-11-09 (A4)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0050](0050-adr-format.md)
 - **Uses:** [0005](0005-crate-organization.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0016](0016-permissions-and-access-control.md), [0085](0085-settings-and-preferences.md)
@@ -49,7 +49,7 @@ James's direction, 2026-10-30, on the review:
 
 ### 5. Catalogues are registry data (extends 0050 §6; uses 0005 §2–3, 0011 §6, 0012 §4, §5, 0016 §2)
 
-*Changed by A1, A3.*
+*Changed by A1, A3, A4.*
 
 *Current text: [24](../architecture/24-documentation.md) §11.*
 
@@ -123,3 +123,10 @@ Replaced text ([24](../architecture/24-documentation.md) §11, as it stood):
 Replaced text ([24](../architecture/24-documentation.md) §11, as it stood after A2):
 
 > **A catalogue is registry data, not prose.** A table whose rows are entries rather than argument — the crate map (22 §2.1, `crates.toml`), the REST routes (18 §3.2, `routes.toml`, checked against the OpenAPI contract), the permission catalogue (09 §2.2, `permissions.toml` with `groups.toml`), the log-event catalogue (16 §2.3, `log-events.toml`), and still to move, the Action API modules (18 §2) and the `view` schema (03 §4) — belongs in a registry file with a generated chapter table, so that the chapter stays readable and the code can read the same file. Each move is a `consolidates` entry in the ADRs whose sections the table cites: no decision changes. Until a catalogue has moved, its chapter table is the authority. The order: the crate map first (`registry/crates.toml`; `cargo xtask deps` reads the file rather than the chapter table), then the permission and log-event catalogues as registry files; the REST route table is generated from the OpenAPI file in `../api/` rather than a new registry file; the `view` schema stays in prose until it has a reader, since the migrations are already its source.
+
+### A4. Catalogues are checked against the running code
+
+- **Date:** 2026-11-09
+- **Source:** [0105](0105-catalogues-checked-against-the-running-code.md) §1
+- **Change:** extends §5
+- **Summary:** A catalogue the code acts on is also checked against the running code, both ways: the code reports the names it uses, and a script names those the file lacks (unlisted) and the entries no run used (not observed). Such a check starts as a report and becomes a CI failure once a run reports nothing unlisted. Permissions are first. Chapter text: [24](../architecture/24-documentation.md) §11.

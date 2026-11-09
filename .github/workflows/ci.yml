@@ -186,12 +186,24 @@ jobs:
         run: pip install -r tools/requirements-compat.txt
       # A database loaded from the Librarybase sample fixture, the API, a bot key, and the
       # three checks; any failing check fails the job, WikidataIntegrator included.
+      # Both servers report every permission they check to one file (0105 §2), which the last
+      # step compares with the catalogue.
       - name: Checks
+        env:
+          TRIPLESPACE_PROBE_PERMISSIONS: ${{ runner.temp }}/permissions-checked.txt
         run: tools/client_compat.sh
       # The permission model's attack battery against a second fresh server (09 §4–§5): every
       # leak, escalation or false denial is a finding, and any finding fails the job.
       - name: Permission model
+        env:
+          TRIPLESPACE_PROBE_PERMISSIONS: ${{ runner.temp }}/permissions-checked.txt
         run: tools/acl_check.sh
+      # The permissions the two servers checked, against permissions.toml and groups.toml
+      # (0105 §1–2; 09 §2.2). A report for now, on the job's summary page; `--strict` makes an
+      # unlisted permission fail the job once the report is clean (0105 Q1).
+      - name: Permissions checked
+        if: always()
+        run: python3 tools/permission_report.py "$RUNNER_TEMP/permissions-checked.txt"
 
   deny:
     name: Licences and advisories
