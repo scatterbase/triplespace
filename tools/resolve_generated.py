@@ -4,6 +4,9 @@
 
   python3 tools/resolve_generated.py          resolve, regenerate, check, and stage the result
   python3 tools/resolve_generated.py --dry    say what it would do, change nothing
+  python3 tools/resolve_generated.py --no-check   regenerate and stage without requiring the checks
+                                                  to pass: for a rebase's intermediate commits,
+                                                  which were never checked (update_generated.sh)
 
 Run it while a `git merge` or `git rebase` has stopped on conflicts (in a rebase, at each stop,
 then `git rebase --continue`). It resolves two kinds of conflicted file and refuses any other:
@@ -31,6 +34,7 @@ import sys
 # The repository in the current directory, not this file's: update_generated.sh runs a copy.
 ROOT = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True).stdout.strip() or os.getcwd()
 DRY = "--dry" in sys.argv[1:]
+NO_CHECK = "--no-check" in sys.argv[1:]
 BEGIN = re.compile(r"^<!-- [\w.-]+\.py: .* -->$")
 END = re.compile(r"^<!-- /[\w.-]+\.py -->$")
 
@@ -133,14 +137,14 @@ def main():
     check = os.path.join(ROOT, "docs", "check.sh")
     for args in ([check, "--write"], [check]):
         r = subprocess.run(args, cwd=ROOT, capture_output=True, text=True)
-        if r.returncode != 0:
+        if r.returncode != 0 and not NO_CHECK:
             print(r.stdout[-4000:], r.stderr[-2000:], sep="\n")
             sys.exit(f"resolve_generated: `{' '.join(os.path.relpath(a, ROOT) for a in args)}` failed; nothing staged")
     regenerated = changed() - before
     stage = sorted({f for f, _ in plan} | regenerated)
     if stage:
         git("add", "--", *stage)
-    print(f"resolve_generated: staged {len(stage)} file(s); the documentation checks pass")
+    print(f"resolve_generated: staged {len(stage)} file(s)" + ("" if NO_CHECK else "; the documentation checks pass"))
 
 
 if __name__ == "__main__":

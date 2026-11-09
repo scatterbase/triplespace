@@ -64,10 +64,11 @@ chapter's hand-written text around a generated table, resolve the text by hand a
 collapse their diffs. `tools/resolve_generated.py`, run while the merge or rebase is stopped, does
 all of this: it resolves a conflict that lies wholly in generated files or inside generated
 blocks, regenerates, checks and stages, and refuses (naming the files) when a conflict touches a
-source. On pull requests it runs by itself: `.github/workflows/generated-files.yml` merges `main`
-into an open pull request's branch whenever `main` moves and the merge conflicts only in generated
-files or leaves them stale, and pushes the regenerated merge (`tools/update_generated.sh`); any
-other conflict is left for the author.
+source. On pull requests it runs by itself: `.github/workflows/generated-files.yml` rebases an open
+pull request's branch onto `main` whenever `main` moves and the rebase conflicts only in generated
+files or leaves them stale, regenerates, and pushes the branch with `--force-with-lease`
+(`tools/update_generated.sh`); any other conflict is left for the author. **After it rewrites your
+branch, `git pull --rebase` before you push again**; a plain push is refused.
 
 **Secrets.** `owner.pw` and `triplespace.key` at the root are local, gitignored secrets. Do not
 read, print, copy or commit them.
@@ -121,7 +122,9 @@ toolchain instead of the pinned one), rather than calling the work verified. Wit
   his review.
 - If a non-`main` branch is checked out, work on it. Otherwise make a named feature branch.
 - Keep history linear: rebase onto `main` when other work merges; no stacked or orphaned
-  branches; avoid force-pushes.
+  branches; avoid force-pushes, except `--force-with-lease` of a rebased pull-request branch. The
+  generated-files workflow rebases pull-request branches the same way when only generated files
+  stand in the way; `git pull --rebase` picks up what it pushed.
 - Flag assumptions and open choices explicitly for James to confirm. Do not settle them silently.
   A call you have to make while building goes into the owning ADR's Amendment log in the same
   change, folded into the chapter, with Source `Direct: Claude, while building <what>, <date>;

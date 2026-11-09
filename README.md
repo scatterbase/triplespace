@@ -230,8 +230,9 @@ stale. Commit what it regenerates with the change.
 
 **Conflicts in generated files fix themselves.** When `main` moves and your pull request's
 generated files conflict with it (`INDEX.md`, `OPEN.md`, `CRATES.md`, the generated tables in the
-chapters), a workflow merges `main` into your branch, regenerates them and pushes the merge, so
-pull before you push again. A conflict in anything else is left for you. Locally, run
+chapters), a workflow rebases your branch onto `main`, regenerates them and pushes the rebased
+branch (with `--force-with-lease`, so it never overwrites a push of yours), so run `git pull
+--rebase` before you push again. A conflict in anything else is left for you. Locally, run
 `python3 tools/resolve_generated.py` while a merge or rebase is stopped on such a conflict.
 
 Say in the pull request which checks you ran and which you could not. In a fresh Linux sandbox,

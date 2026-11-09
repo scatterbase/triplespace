@@ -4,18 +4,21 @@
 #
 #   tools/update_generated.sh BRANCH [BASE]      BASE defaults to main
 #
-# Merges origin/BASE into origin/BRANCH in the current checkout and pushes the result only if it
-# was needed and is clean:
-#   - the merge conflicts only in generated files: tools/resolve_generated.py resolves them by
-#     regenerating, and the merge commit is pushed;
-#   - the merge is clean but leaves generated files stale (both sides added claims, ADR entries or
-#     catalogue rows): they are regenerated into the merge commit, which is pushed;
-#   - the branch already contains BASE and its own generated files are stale: one commit
-#     regenerating them is pushed;
-#   - otherwise (the merge is clean and current, or a conflict touches a source) nothing is
-#     pushed; a conflict in a source is left for the author, and the run says which files.
-# Never rebases or force-pushes: the push is a fast-forward of BRANCH, and fails harmlessly if
-# the author pushed in the meantime. Leaves the checkout on BRANCH.
+# Rebases origin/BRANCH onto origin/BASE in the current checkout, and pushes only if that was
+# needed and comes out clean:
+#   - the rebase stops on conflicts only in generated files: at each stop
+#     tools/resolve_generated.py takes either side and regenerates from that commit's sources;
+#   - the rebase is clean but the result's generated files are stale (both sides added claims, ADR
+#     entries or catalogue rows);
+#   - the branch already contains BASE and its own generated files are stale.
+# In every case the tip's generated files are then regenerated, as one commit "Regenerate
+# generated files" if anything changed, and the documentation checks must pass. Otherwise
+# (BRANCH rebases cleanly and its generated files stay current, a conflict touches a source, or
+# the checks fail for another reason) nothing is pushed, and the run says why.
+#
+# A rebased branch is pushed with --force-with-lease against the commit fetched here, so a push
+# the author made meanwhile is never overwritten: the push is refused and the next run tries
+# again. The author's local copy then needs `git pull --rebase`. Leaves the checkout on BRANCH.
 set -eu
 branch=$1
 base=${2:-main}
@@ -33,48 +36,65 @@ cd "$(git rev-parse --show-toplevel)"
 git fetch --no-tags -q origin "$base" "$branch"
 git checkout -q -B "$branch" "origin/$branch"
 start=$(git rev-parse HEAD)
-msg="Merge $base into $branch: generated files regenerated (tools/update_generated.sh)"
 
-if git merge --no-ff --no-edit -q -m "$msg" "origin/$base" >/dev/null 2>&1; then
-    conflicted=
-else
+rebasing() {
+    [ -d "$(git rev-parse --git-path rebase-merge)" ] || [ -d "$(git rev-parse --git-path rebase-apply)" ]
+}
+give_up() {   # level, message: put the branch back as fetched and stop without pushing
+    if rebasing; then git rebase --abort; fi
+    git reset -q --hard "$start"
+    echo "::$1::$branch: $2"
+    exit 0
+}
+
+conflicted=
+if ! GIT_EDITOR=true git rebase -q "origin/$base" >/dev/null 2>&1; then
     conflicted=1
-    if [ -z "$(git diff --name-only --diff-filter=U)" ]; then
-        git merge --abort 2>/dev/null || true
-        echo "::warning::$branch: git could not merge $base (not a conflict); left for the author"
-        exit 0
-    fi
-    if ! python3 "$resolve"; then
-        git merge --abort
-        echo "::notice::$branch: the merge with $base conflicts outside generated files; left for the author"
-        exit 0
-    fi
-    git commit -q --no-edit -m "$msg"
+    stops=0
+    while rebasing; do
+        stops=$((stops + 1))
+        [ "$stops" -le 500 ] || give_up warning "the rebase onto $base stopped too often; left for the author"
+        if [ -z "$(git diff --name-only --diff-filter=U)" ]; then
+            if git diff --cached --quiet; then
+                # The commit became empty once its generated files were regenerated: drop it.
+                GIT_EDITOR=true git rebase --skip >/dev/null 2>&1 || true
+                continue
+            fi
+            give_up warning "the rebase onto $base stopped for a reason other than a conflict; left for the author"
+        fi
+        # Each stop is one of BRANCH's own commits, never checked on its own: regenerate without
+        # requiring the checks to pass; the tip is checked below.
+        python3 "$resolve" --no-check ||
+            give_up notice "rebasing onto $base conflicts outside generated files; left for the author"
+        GIT_EDITOR=true git rebase --continue >/dev/null 2>&1 || true
+    done
 fi
 
-if [ -z "$conflicted" ]; then
-    if docs/check.sh >/dev/null 2>&1; then
-        git reset -q --hard "$start"
-        echo "$branch: nothing to do (merges cleanly with $base and its generated files are current)"
-        exit 0
-    fi
-    docs/check.sh --write >/dev/null 2>&1 || true
-    if ! docs/check.sh >/dev/null 2>&1; then
-        git reset -q --hard "$start"
-        echo "::warning::$branch: the documentation checks fail for a reason regenerating does not fix; left for the author"
-        exit 0
-    fi
-    git add -u -- docs
-    if [ "$(git rev-parse HEAD)" = "$start" ]; then
-        # BRANCH already contained BASE: no merge commit, so the regeneration is its own commit.
-        git commit -q -m "Regenerate generated files (tools/update_generated.sh)"
-    else
-        git commit -q --amend --no-edit
-    fi
+if [ -z "$conflicted" ] && docs/check.sh >/dev/null 2>&1; then
+    git reset -q --hard "$start"
+    echo "$branch: nothing to do (rebases cleanly onto $base and its generated files are current)"
+    exit 0
+fi
+docs/check.sh --write >/dev/null 2>&1 || true
+docs/check.sh >/dev/null 2>&1 ||
+    give_up warning "the documentation checks fail for a reason regenerating does not fix; left for the author"
+git add -u -- docs
+if ! git diff --cached --quiet; then
+    git commit -q -m "Regenerate generated files (tools/update_generated.sh)"
+fi
+if [ "$(git rev-parse HEAD)" = "$start" ]; then
+    echo "$branch: nothing to push"
+    exit 0
 fi
 
-if git push -q origin "HEAD:refs/heads/$branch"; then
-    echo "$branch: pushed $(git rev-parse --short HEAD)"
+if git merge-base --is-ancestor "$start" HEAD; then
+    lease=
+else
+    lease="--force-with-lease=refs/heads/$branch:$start"
+fi
+# shellcheck disable=SC2086
+if git push -q $lease origin "HEAD:refs/heads/$branch"; then
+    echo "$branch: pushed $(git rev-parse --short HEAD)${lease:+ (rebased onto $base)}"
 else
     echo "::warning::$branch: push refused (the branch moved meanwhile?); the next run will try again"
 fi

@@ -1,12 +1,13 @@
 # Keeps pull requests free of conflicts in generated files (AGENTS.md, "Generated files"): when
-# main moves, or a pull request is pushed, tools/update_generated.sh merges main into each open
-# pull request's branch if, and only if, the merge conflicts only in generated files or leaves them
-# stale, regenerates them with docs/check.sh --write, and pushes the merge. A conflict in anything
-# else is left for the author. Pull requests from forks are skipped: their branches cannot be
-# pushed to.
+# main moves, or a pull request is pushed, tools/update_generated.sh rebases each open pull
+# request's branch onto main if, and only if, the rebase conflicts only in generated files or leaves
+# them stale, regenerates them with docs/check.sh --write, and pushes the branch with
+# --force-with-lease, so that a push the author made meanwhile is never overwritten. A conflict in
+# anything else is left for the author. Pull requests from forks are skipped: their branches cannot
+# be pushed to.
 #
 # A push made with the default GITHUB_TOKEN does not start other workflows, so CI would not run on
-# the merge it pushes. Set the repository secret GENERATED_FILES_TOKEN (a fine-grained token or a
+# the branch it pushes. Set the repository secret GENERATED_FILES_TOKEN (a fine-grained token or a
 # GitHub App token with contents: write on this repository) and the push starts CI as any push does.
 name: Generated files
 
