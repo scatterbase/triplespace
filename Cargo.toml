@@ -137,7 +137,7 @@ minicbor = { version = "2", default-features = false, features = ["std", "half"]
 # Instance and client signatures (0033 §6; 0006 §6; 0024 §4)
 ed25519-dalek = { version = "2", default-features = false, features = ["std", "zeroize"] }
 # C2SP signed notes and checkpoints carry hashes and signatures in base64 (0006 §6)
-base64 = "0.22"
+base64 = "0.23"
 
 # Registry files and configuration (0033 §12)
 serde = { version = "1", features = ["derive"] }
