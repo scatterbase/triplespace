@@ -145,9 +145,16 @@ jobs:
       - name: Browser
         working-directory: ui
         run: npx playwright install --with-deps chromium
+      # The API server reports every permission it checks (0105 §2, A1); the web replicas
+      # check none, since they reach the instance only through its API.
       - name: Suite
         working-directory: ui
+        env:
+          TRIPLESPACE_PROBE_PERMISSIONS: ${{ runner.temp }}/permissions-checked.txt
         run: npm run e2e
+      - name: Permissions checked
+        if: always()
+        run: python3 tools/permission_report.py --strict "$RUNNER_TEMP/permissions-checked.txt"
 
   clients:
     name: Client compatibility (WikibaseIntegrator, Pywikibot, WikidataIntegrator)
@@ -199,11 +206,11 @@ jobs:
           TRIPLESPACE_PROBE_PERMISSIONS: ${{ runner.temp }}/permissions-checked.txt
         run: tools/acl_check.sh
       # The permissions the two servers checked, against permissions.toml and groups.toml
-      # (0105 §1–2; 09 §2.2). A report for now, on the job's summary page; `--strict` makes an
-      # unlisted permission fail the job once the report is clean (0105 Q1).
+      # (0105 §2, A1; 09 §2.2), on the job's summary page: an unlisted permission, or no check
+      # observed at all, fails the job.
       - name: Permissions checked
         if: always()
-        run: python3 tools/permission_report.py "$RUNNER_TEMP/permissions-checked.txt"
+        run: python3 tools/permission_report.py --strict "$RUNNER_TEMP/permissions-checked.txt"
 
   deny:
     name: Licences and advisories
