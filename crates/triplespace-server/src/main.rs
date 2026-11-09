@@ -142,7 +142,7 @@ fn probe_permission(permission: &str) {
     }
 }
 
-/// Starts reporting permission checks to the file: implements 0105 §2.
+/// Starts reporting permission checks to the file: implements 0105 §2 (A1).
 fn start_permission_probe(path: &std::path::Path) -> Result<()> {
     let file = std::fs::OpenOptions::new()
         .create(true)

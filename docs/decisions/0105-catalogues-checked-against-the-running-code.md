@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-09
+- **Updated:** 2026-11-09 (A1)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0016](0016-permissions-and-access-control.md), [0098](0098-pointers-from-birth.md)
 - **Uses:** [0056](0056-security-model.md), [0099](0099-status-from-the-code.md)
@@ -28,6 +29,8 @@ James's direction, from the design discussion of 2026-11-09:
 
 ### 2. The server reports the permissions it checks (extends 0016 §2)
 
+*Changed by A1.*
+
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.2.*
 
 ### 3. Crates (extends 0005 §2)
@@ -41,17 +44,32 @@ James's direction, from the design discussion of 2026-11-09:
 
 ## Consequences
 
-- **An undocumented or misspelt permission check shows on every CI run** of the client checks and the attack battery, on the job's summary page, and fails the job once the report is made strict.
+- ~~**An undocumented or misspelt permission check shows on every CI run** of the client checks and the attack battery, on the job's summary page, and fails the job once the report is made strict.~~ *Strict from A1, and the end-to-end suite probes too.*
+- **An undocumented or misspelt permission check fails CI** in the client-compatibility and end-to-end jobs, and the report on each job's summary page names it (A1).
 - **"Not observed" is not "not built".** A run sees only the paths its tests take, so the report's second list mixes permissions that are not built with permissions no test exercises; it is a prompt for tests as much as for code.
 - **Checks that read a group's permission list are not observed.** Delegation (`userrights`, `ts-config` on a group) and the instance-key rule (`ts-keys`) look at a group's own permissions, not an actor's effective ones, and do not pass through `Effective`.
 - **The site's checks of `meta=userinfo` rights are not observed**: `triplespace-ui` reads the names the API returns, and the server checked those names when it answered.
 
 ## Open questions
 
-- **Q1. When the report becomes a failure.** Proposed: once a CI run on `main` reports no unlisted permission, the report step gains `--strict`, by a change James approves. Whether the first strict runs should allow a short list of known exceptions instead.
+- **Q1.** ~~**When the report becomes a failure.** Proposed: once a CI run on `main` reports no unlisted permission, the report step gains `--strict`, by a change James approves. Whether the first strict runs should allow a short list of known exceptions instead.~~ *Settled by A1: strict now, with no list of exceptions.*
 - **Q2. Settings and log events.** The same mechanism fits both: the server reports each setting it reads and each log event it emits, compared with `settings.toml` and `log-events.toml`. Whether they come in one ADR or one each.
-- **Q3. The end-to-end tests.** The Playwright suite (`ui/e2e`) starts a server too and exercises the site's pages, which the client checks and the battery do not; probing it as well would observe more permissions.
+- **Q3.** ~~**The end-to-end tests.** The Playwright suite (`ui/e2e`) starts a server too and exercises the site's pages, which the client checks and the battery do not; probing it as well would observe more permissions.~~ *Settled by A1: the end-to-end job probes its API server and runs the strict report too.*
 
 ## References
 
 - [0099](0099-status-from-the-code.md) §2; [0056](0056-security-model.md) §16; [0098](0098-pointers-from-birth.md) §5
+
+## Amendment log
+
+### A1. Strict, and the end-to-end suite probes too
+
+- **Date:** 2026-11-09
+- **Source:** Direct: James, design discussion of 2026-11-09
+- **Change:** amends §2
+- **Summary:** The permission report is strict from now: an unlisted permission, or a run that observed no check, fails the job, with no list of exceptions (settles Q1). The end-to-end job runs its API server with the probe on and the strict report after the Playwright suite (settles Q3), so the site's pages add to what is observed.
+
+Replaced text ([09](../architecture/09-security-and-moderation.md) §2.2, as it stood):
+
+> CI runs the client checks and the attack battery with it on, and `tools/permission_report.py` compares the names with this catalogue and with the `[permissions]` lists of `groups.toml`, on the job's summary page: a name in neither is unlisted, and fails nothing yet.
+
