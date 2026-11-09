@@ -254,45 +254,64 @@ async fn dispatch(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     }
     let action = ctx.params.get("action").unwrap_or("help").to_string();
     modules::query::report_action(&action);
-    match action.as_str() {
-        "query" => modules::query::run(ctx).await,
-        "login" => modules::login::login(ctx).await,
-        "clientlogin" => modules::login::clientlogin(ctx).await,
-        "createaccount" => modules::account::createaccount(ctx).await,
-        "linkaccount" => modules::issuers::linkaccount(ctx).await,
-        "unlinkaccount" => modules::issuers::unlinkaccount(ctx).await,
-        "logout" => modules::login::logout(ctx).await,
-        "options" => modules::options::run(ctx).await,
-        "wbgetentities" => modules::entities::wbgetentities(ctx).await,
-        "wbsearchentities" => modules::search::wbsearchentities(ctx).await,
-        "wbeditentity" | "wbcreateclaim" | "wbsetclaim" | "wbremoveclaims" | "wbsetlabel"
+    run_action(ctx, &action).await
+}
+
+/// Declares every `action=` module once: its name, whether it must be POSTed, and what runs
+/// it. [`ACTION_MODULES`], which `action=paraminfo` and the help text read, and the dispatch
+/// in [`run_action`] are both generated from the one table, so a module cannot be dispatched
+/// without being advertised, or advertised without being dispatched.
+macro_rules! action_modules {
+    ($ctx:ident, $action:ident; $( $($name:literal)|+ , $post:literal => $run:expr ;)+) => {
+        /// The `action=` modules, as `action=paraminfo` lists them: `(name, must be POSTed)`.
+        pub(crate) const ACTION_MODULES: &[(&str, bool)] = &[$($(($name, $post),)+)+];
+
+        async fn run_action($ctx: &mut Ctx, $action: &str) -> Result<ApiResponse, ApiError> {
+            match $action {
+                $($($name)|+ => $run,)+
+                other => Err(ApiError::new(
+                    "badvalue",
+                    format!("Unrecognized value for parameter \"action\": {other}."),
+                )),
+            }
+        }
+    };
+}
+
+action_modules! { ctx, action;
+    "query", false => modules::query::run(ctx).await;
+    "paraminfo", false => modules::query::paraminfo(ctx);
+    "help", false => Ok(ApiResponse::ok(serde_json::json!({"help": {
+        "mime": "text/plain",
+        "help": modules::query::help_text(),
+    }})));
+    "login", true => modules::login::login(ctx).await;
+    "clientlogin", true => modules::login::clientlogin(ctx).await;
+    "createaccount", true => modules::account::createaccount(ctx).await;
+    "linkaccount", true => modules::issuers::linkaccount(ctx).await;
+    "unlinkaccount", true => modules::issuers::unlinkaccount(ctx).await;
+    "logout", true => modules::login::logout(ctx).await;
+    "options", true => modules::options::run(ctx).await;
+    "parse", false => modules::parse::run(ctx).await;
+    "compare", false => modules::compare::run(ctx).await;
+    "edit", true => modules::editpage::run(ctx).await;
+    "move", true => modules::movepage::run(ctx).await;
+    "import", true => modules::import::run(ctx).await;
+    "delete", true => modules::moderation::delete(ctx).await;
+    "undelete", true => modules::moderation::undelete(ctx).await;
+    "protect", true => modules::moderation::protect(ctx).await;
+    "revisiondelete", true => modules::moderation::revisiondelete(ctx).await;
+    "userrights", true => modules::userrights::run(ctx).await;
+    "renameuser", true => modules::renameuser::run(ctx).await;
+    "block", true => modules::block::block(ctx).await;
+    "unblock", true => modules::block::unblock(ctx).await;
+    "echomarkread", true => modules::notifications::markread(ctx).await;
+    "echomarkseen", true => modules::notifications::markseen(ctx).await;
+    "watch", true => modules::watch::run(ctx).await;
+    "setnotificationtimestamp", true => modules::watch::setnotificationtimestamp(ctx).await;
+    "wbgetentities", false => modules::entities::wbgetentities(ctx).await;
+    "wbsearchentities", false => modules::search::wbsearchentities(ctx).await;
+    "wbeditentity" | "wbcreateclaim" | "wbsetclaim" | "wbremoveclaims" | "wbsetlabel"
         | "wbsetdescription" | "wbsetaliases" | "wbsetqualifier" | "wbremovequalifiers"
-        | "wbsetreference" | "wbremovereferences" => modules::write::run(ctx, &action).await,
-        "parse" => modules::parse::run(ctx).await,
-        "compare" => modules::compare::run(ctx).await,
-        "edit" => modules::editpage::run(ctx).await,
-        "move" => modules::movepage::run(ctx).await,
-        "import" => modules::import::run(ctx).await,
-        "delete" => modules::moderation::delete(ctx).await,
-        "undelete" => modules::moderation::undelete(ctx).await,
-        "protect" => modules::moderation::protect(ctx).await,
-        "revisiondelete" => modules::moderation::revisiondelete(ctx).await,
-        "userrights" => modules::userrights::run(ctx).await,
-        "renameuser" => modules::renameuser::run(ctx).await,
-        "block" => modules::block::block(ctx).await,
-        "unblock" => modules::block::unblock(ctx).await,
-        "echomarkread" => modules::notifications::markread(ctx).await,
-        "echomarkseen" => modules::notifications::markseen(ctx).await,
-        "watch" => modules::watch::run(ctx).await,
-        "setnotificationtimestamp" => modules::watch::setnotificationtimestamp(ctx).await,
-        "paraminfo" => modules::query::paraminfo(ctx),
-        "help" => Ok(ApiResponse::ok(serde_json::json!({"help": {
-            "mime": "text/plain",
-            "help": "Triplespace Action API. Modules: query (meta=siteinfo|tokens|userinfo|authmanagerinfo|notifications; prop=revisions|info|templates; list=recentchanges|usercontribs|logevents|allpages), parse, compare, edit, move, import, delete, undelete, protect, revisiondelete, userrights, renameuser, block, unblock, echomarkread, echomarkseen, login, clientlogin, createaccount, linkaccount, unlinkaccount, logout, options, wbgetentities, wbsearchentities, wbeditentity, wbcreateclaim, wbsetclaim, wbremoveclaims, wbsetlabel, wbsetdescription, wbsetaliases, wbsetqualifier, wbremovequalifiers, wbsetreference, wbremovereferences."
-        }}))),
-        other => Err(ApiError::new(
-            "badvalue",
-            format!("Unrecognized value for parameter \"action\": {other}."),
-        )),
-    }
+        | "wbsetreference" | "wbremovereferences", true => modules::write::run(ctx, action).await;
 }

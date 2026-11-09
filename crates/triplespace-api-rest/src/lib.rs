@@ -84,173 +84,107 @@ use axum::Router;
 use axum::extract::{MatchedPath, Request};
 use axum::middleware::{self, Next};
 use axum::response::Response;
-use axum::routing::{delete, get, post, put};
+use axum::routing::{delete, get, patch, post, put};
 use triplespace_api_action::App;
 
 /// The base paths the REST API answers at.
 pub const BASES: [&str; 2] = ["/w/rest.php/triplespace/v0", "/rest.php/triplespace/v0"];
 
-/// The paths served, relative to a base; each is a path of the OpenAPI document.
-pub const PATHS: &[&str] = &[
-    "/entity/{id}/provenance",
-    "/version",
-    "/version/licenses/{id}",
-    "/activity",
-    "/entity/{id}/history",
-    "/entity/{id}/changes/{partition}/{offset}",
-    "/entity/{id}/compare",
-    "/settings/schema",
-    "/settings",
-    "/account/preferences",
-    "/account/preferences/{key}",
-    "/account/requests",
-    "/account/requests/{id}/approve",
-    "/account/requests/{id}/reject",
-    "/auth/{issuer}/start",
-    "/auth/{issuer}/callback",
-    "/auth/pending",
-    "/account",
-    "/tenancy",
-    "/thread",
-    "/thread/{id}",
-    "/thread/{id}/post",
-    "/thread/{id}/post/{revid}",
-    "/thread/{id}/rename",
-    "/thread/{id}/move",
-    "/thread/{id}/attach",
-    "/thread/{id}/detach",
-    "/thread/{id}/pin",
-    "/thread/{id}/unpin",
-    "/page/{id}/threads",
-    "/page/{id}/history",
-    "/acl/{kind}/{id}",
-    "/acl/tenant/{slug}",
-    "/acl/set",
-    "/acl/set/{id}/members",
-    "/acl/set/{id}/members/{kind}/{member}",
-    "/group/{name}",
-    "/acl/empty-groups",
-    "/purges",
-    "/watchlist",
-    "/watchlist/seen",
-    "/watchlist/{kind}/{id}",
-    "/reports",
-    "/reports/{name}",
-    "/auth/email",
-    "/auth/email/verify",
-    "/auth/email/primary",
-    "/auth/email/remove",
-    "/mail/postmark",
-    "/record/{partition}/{offset}",
-    "/record/{partition}/{offset}/checkpoint",
-    "/record/{partition}/{offset}/proof",
-    "/record/proofs",
-    "/export",
-    "/jobs",
-    "/jobs/{id}",
-    "/jobs/{id}/reject",
-    "/jobs/{id}/revert",
-    "/jobs/{id}/close",
-];
+/// Declares every REST operation once, `method "path" => handler`, the path relative to a
+/// base and as the OpenAPI document spells it. [`OPERATIONS`], which the contract test reads,
+/// and the router [`routes`] builds are both generated from the one table, so a route cannot be
+/// served without being listed, or listed without being served (0012 §5; 18 §3.2).
+macro_rules! rest_operations {
+    ($( $method:ident $path:literal => $handler:path ;)+) => {
+        /// Every operation served, `(METHOD, path)`, the path relative to a base.
+        pub const OPERATIONS: &[(&str, &str)] = &[$((rest_operations!(@upper $method), $path),)+];
 
-/// The REST routes, to be merged into the server's router.
-pub fn routes() -> Router<App> {
-    let mut r = Router::new();
-    for base in BASES {
-        r = r
-            .route(&format!("{base}{}", PATHS[0]), get(provenance::handle))
-            .route(&format!("{base}{}", PATHS[1]), get(version::handle))
-            .route(&format!("{base}{}", PATHS[2]), get(version::license))
-            .route(&format!("{base}{}", PATHS[3]), get(activity::handle))
-            .route(&format!("{base}{}", PATHS[4]), get(history::handle))
-            .route(&format!("{base}{}", PATHS[5]), get(diff::change))
-            .route(&format!("{base}{}", PATHS[6]), get(diff::compare))
-            .route(&format!("{base}{}", PATHS[7]), get(settings::schema))
-            .route(
-                &format!("{base}{}", PATHS[8]),
-                get(settings::get).patch(settings::patch),
-            )
-            .route(
-                &format!("{base}{}", PATHS[9]),
-                get(account::get).patch(account::patch),
-            )
-            .route(&format!("{base}{}", PATHS[10]), delete(account::delete))
-            .route(&format!("{base}{}", PATHS[11]), get(account_requests::list))
-            .route(
-                &format!("{base}{}", PATHS[12]),
-                post(account_requests::approve),
-            )
-            .route(
-                &format!("{base}{}", PATHS[13]),
-                post(account_requests::reject),
-            )
-            .route(&format!("{base}{}", PATHS[14]), post(auth::start))
-            .route(&format!("{base}{}", PATHS[15]), get(auth::callback))
-            .route(&format!("{base}{}", PATHS[16]), get(auth::pending))
-            .route(&format!("{base}{}", PATHS[17]), get(auth::account))
-            .route(&format!("{base}{}", PATHS[18]), get(tenancy::handle))
-            .route(&format!("{base}{}", PATHS[19]), post(threads::create))
-            .route(&format!("{base}{}", PATHS[20]), get(threads::get))
-            .route(&format!("{base}{}", PATHS[21]), post(threads::post))
-            .route(&format!("{base}{}", PATHS[22]), put(threads::edit))
-            .route(&format!("{base}{}", PATHS[23]), post(threads::rename))
-            .route(&format!("{base}{}", PATHS[24]), post(threads::move_to))
-            .route(&format!("{base}{}", PATHS[25]), post(threads::attach))
-            .route(&format!("{base}{}", PATHS[26]), post(threads::detach))
-            .route(&format!("{base}{}", PATHS[27]), post(threads::pin))
-            .route(&format!("{base}{}", PATHS[28]), post(threads::unpin))
-            .route(&format!("{base}{}", PATHS[29]), get(threads::list))
-            .route(&format!("{base}{}", PATHS[30]), get(threads::history))
-            .route(
-                &format!("{base}{}", PATHS[31]),
-                get(acl::get).put(acl::put).delete(acl::delete),
-            )
-            .route(
-                &format!("{base}{}", PATHS[32]),
-                get(acl::get_tenant)
-                    .put(acl::put_tenant)
-                    .delete(acl::delete_tenant),
-            )
-            .route(&format!("{base}{}", PATHS[33]), post(acl::create_set))
-            .route(&format!("{base}{}", PATHS[34]), post(acl::add_member))
-            .route(&format!("{base}{}", PATHS[35]), delete(acl::remove_member))
-            .route(
-                &format!("{base}{}", PATHS[36]),
-                get(groups::get).put(groups::put).delete(groups::delete),
-            )
-            .route(&format!("{base}{}", PATHS[37]), get(acl::empty_groups))
-            .route(&format!("{base}{}", PATHS[38]), get(purges::list))
-            .route(&format!("{base}{}", PATHS[39]), get(watchlist::list))
-            .route(&format!("{base}{}", PATHS[40]), post(watchlist::seen))
-            .route(
-                &format!("{base}{}", PATHS[41]),
-                put(watchlist::put).delete(watchlist::delete),
-            )
-            .route(&format!("{base}{}", PATHS[42]), get(reports::list))
-            .route(&format!("{base}{}", PATHS[43]), get(reports::get))
-            .route(
-                &format!("{base}{}", PATHS[44]),
-                get(email::list).post(email::add),
-            )
-            .route(&format!("{base}{}", PATHS[45]), post(email::verify))
-            .route(&format!("{base}{}", PATHS[46]), post(email::primary))
-            .route(&format!("{base}{}", PATHS[47]), post(email::remove))
-            .route(
-                &format!("{base}{}", PATHS[48]),
-                post(email::postmark_webhook),
-            )
-            .route(&format!("{base}{}", PATHS[49]), get(record::get))
-            .route(&format!("{base}{}", PATHS[50]), get(record::checkpoint))
-            .route(&format!("{base}{}", PATHS[51]), get(record::proof))
-            .route(&format!("{base}{}", PATHS[52]), get(record::proofs))
-            .route(&format!("{base}{}", PATHS[53]), post(export::post))
-            .route(&format!("{base}{}", PATHS[54]), get(jobs::list))
-            .route(&format!("{base}{}", PATHS[55]), get(jobs::get))
-            .route(&format!("{base}{}", PATHS[56]), post(jobs::reject))
-            .route(&format!("{base}{}", PATHS[57]), post(jobs::revert))
-            .route(&format!("{base}{}", PATHS[58]), post(jobs::close));
-    }
-    r.route_layer(middleware::from_fn(report_route))
+        /// The REST routes, to be merged into the server's router.
+        pub fn routes() -> Router<App> {
+            let mut r = Router::new();
+            for base in BASES {
+                $( r = r.route(&format!("{base}{}", $path), $method($handler)); )+
+            }
+            r.route_layer(middleware::from_fn(report_route))
+        }
+    };
+    (@upper get) => { "GET" };
+    (@upper post) => { "POST" };
+    (@upper put) => { "PUT" };
+    (@upper patch) => { "PATCH" };
+    (@upper delete) => { "DELETE" };
+}
+
+rest_operations! {
+    get "/entity/{id}/provenance" => provenance::handle;
+    get "/version" => version::handle;
+    get "/version/licenses/{id}" => version::license;
+    get "/activity" => activity::handle;
+    get "/entity/{id}/history" => history::handle;
+    get "/entity/{id}/changes/{partition}/{offset}" => diff::change;
+    get "/entity/{id}/compare" => diff::compare;
+    get "/settings/schema" => settings::schema;
+    get "/settings" => settings::get;
+    patch "/settings" => settings::patch;
+    get "/account/preferences" => account::get;
+    patch "/account/preferences" => account::patch;
+    delete "/account/preferences/{key}" => account::delete;
+    get "/account/requests" => account_requests::list;
+    post "/account/requests/{id}/approve" => account_requests::approve;
+    post "/account/requests/{id}/reject" => account_requests::reject;
+    post "/auth/{issuer}/start" => auth::start;
+    get "/auth/{issuer}/callback" => auth::callback;
+    get "/auth/pending" => auth::pending;
+    get "/account" => auth::account;
+    get "/tenancy" => tenancy::handle;
+    post "/thread" => threads::create;
+    get "/thread/{id}" => threads::get;
+    post "/thread/{id}/post" => threads::post;
+    put "/thread/{id}/post/{revid}" => threads::edit;
+    post "/thread/{id}/rename" => threads::rename;
+    post "/thread/{id}/move" => threads::move_to;
+    post "/thread/{id}/attach" => threads::attach;
+    post "/thread/{id}/detach" => threads::detach;
+    post "/thread/{id}/pin" => threads::pin;
+    post "/thread/{id}/unpin" => threads::unpin;
+    get "/page/{id}/threads" => threads::list;
+    get "/page/{id}/history" => threads::history;
+    get "/acl/{kind}/{id}" => acl::get;
+    put "/acl/{kind}/{id}" => acl::put;
+    delete "/acl/{kind}/{id}" => acl::delete;
+    get "/acl/tenant/{slug}" => acl::get_tenant;
+    put "/acl/tenant/{slug}" => acl::put_tenant;
+    delete "/acl/tenant/{slug}" => acl::delete_tenant;
+    post "/acl/set" => acl::create_set;
+    post "/acl/set/{id}/members" => acl::add_member;
+    delete "/acl/set/{id}/members/{kind}/{member}" => acl::remove_member;
+    get "/group/{name}" => groups::get;
+    put "/group/{name}" => groups::put;
+    delete "/group/{name}" => groups::delete;
+    get "/acl/empty-groups" => acl::empty_groups;
+    get "/purges" => purges::list;
+    get "/watchlist" => watchlist::list;
+    post "/watchlist/seen" => watchlist::seen;
+    put "/watchlist/{kind}/{id}" => watchlist::put;
+    delete "/watchlist/{kind}/{id}" => watchlist::delete;
+    get "/reports" => reports::list;
+    get "/reports/{name}" => reports::get;
+    get "/auth/email" => email::list;
+    post "/auth/email" => email::add;
+    post "/auth/email/verify" => email::verify;
+    post "/auth/email/primary" => email::primary;
+    post "/auth/email/remove" => email::remove;
+    post "/mail/postmark" => email::postmark_webhook;
+    get "/record/{partition}/{offset}" => record::get;
+    get "/record/{partition}/{offset}/checkpoint" => record::checkpoint;
+    get "/record/{partition}/{offset}/proof" => record::proof;
+    get "/record/proofs" => record::proofs;
+    post "/export" => export::post;
+    get "/jobs" => jobs::list;
+    get "/jobs/{id}" => jobs::get;
+    post "/jobs/{id}/reject" => jobs::reject;
+    post "/jobs/{id}/revert" => jobs::revert;
+    post "/jobs/{id}/close" => jobs::close;
 }
 
 /// The observer of the routes served a process may install (0108 §1): called with
@@ -299,21 +233,38 @@ mod tests {
 
     #[test]
     fn every_route_is_in_the_contract() {
+        // Operations, not only paths: a method the router serves and the contract lacks, or
+        // the reverse, fails here (0012 §5; 18 §3.2).
         let doc: serde_json::Value = serde_json::from_str(include_str!(
             "../../../docs/api/triplespace-v0.openapi.json"
         ))
         .unwrap();
-        let paths = doc["paths"].as_object().unwrap();
-        for route in super::PATHS {
-            assert!(
-                paths.contains_key(*route),
-                "{route} is not in the OpenAPI document"
-            );
+        let mut contract = std::collections::BTreeSet::new();
+        for (path, item) in doc["paths"].as_object().unwrap() {
+            for method in item.as_object().unwrap().keys() {
+                if ["get", "post", "put", "patch", "delete"].contains(&method.as_str()) {
+                    contract.insert((method.to_uppercase(), path.clone()));
+                }
+            }
         }
+        let served: std::collections::BTreeSet<(String, String)> = super::OPERATIONS
+            .iter()
+            .map(|(m, p)| ((*m).to_owned(), (*p).to_owned()))
+            .collect();
         assert_eq!(
-            paths.len(),
-            super::PATHS.len(),
-            "a path in the contract that no route serves"
+            served.len(),
+            super::OPERATIONS.len(),
+            "an operation declared twice"
+        );
+        let unlisted: Vec<_> = served.difference(&contract).collect();
+        let unserved: Vec<_> = contract.difference(&served).collect();
+        assert!(
+            unlisted.is_empty(),
+            "served but not in the OpenAPI document: {unlisted:?}"
+        );
+        assert!(
+            unserved.is_empty(),
+            "in the OpenAPI document but not served: {unserved:?}"
         );
     }
 }

@@ -7,6 +7,11 @@
 //! response ([`super::export`]; 0047 §8.1).
 
 use scatter_providers::Registry;
+
+// The action modules, as `action=paraminfo` describes them, are declared with their dispatch in
+// `crate::api`. Every `wb*` write module is one entry (`write::run` dispatches on the name), so
+// a client that validates against paraminfo, as Pywikibot does, sees each of them.
+use crate::api::ACTION_MODULES;
 use scatter_wikibase_model::value::DataType;
 use serde::Deserialize;
 use serde_json::{Map, Value, json};
@@ -1058,50 +1063,23 @@ async fn tenant_is_private(ctx: &Ctx) -> Result<bool, ApiError> {
 }
 
 /// `action=paraminfo`: enough for a client to see which modules exist.
-/// The action modules, as `action=paraminfo` describes them. Every `wb*` write module
-/// is one entry here (`write::run` dispatches on the name), so a client that validates
-/// against paraminfo, as Pywikibot does, sees each of them.
-const ACTION_MODULES: &[(&str, bool)] = &[
-    // (name, must be POSTed)
-    ("query", false),
-    ("paraminfo", false),
-    ("help", false),
-    ("login", true),
-    ("clientlogin", true),
-    ("createaccount", true),
-    ("logout", true),
-    ("options", true),
-    ("parse", false),
-    ("compare", false),
-    ("edit", true),
-    ("move", true),
-    ("import", true),
-    ("delete", true),
-    ("undelete", true),
-    ("protect", true),
-    ("revisiondelete", true),
-    ("userrights", true),
-    ("renameuser", true),
-    ("block", true),
-    ("unblock", true),
-    ("echomarkread", true),
-    ("echomarkseen", true),
-    ("watch", true),
-    ("setnotificationtimestamp", true),
-    ("wbgetentities", false),
-    ("wbsearchentities", false),
-    ("wbeditentity", true),
-    ("wbcreateclaim", true),
-    ("wbsetclaim", true),
-    ("wbremoveclaims", true),
-    ("wbsetlabel", true),
-    ("wbsetdescription", true),
-    ("wbsetaliases", true),
-    ("wbsetqualifier", true),
-    ("wbremovequalifiers", true),
-    ("wbsetreference", true),
-    ("wbremovereferences", true),
-];
+/// The help text: every module, from the same tables paraminfo reads.
+pub(crate) fn help_text() -> String {
+    let query: Vec<String> = QUERY_MODULES
+        .iter()
+        .map(|(kind, names)| format!("{kind}={}", names.join("|")))
+        .collect();
+    let actions: Vec<&str> = ACTION_MODULES
+        .iter()
+        .map(|(n, _)| *n)
+        .filter(|n| *n != "query")
+        .collect();
+    format!(
+        "Triplespace Action API. Modules: query ({}), {}.",
+        query.join("; "),
+        actions.join(", ")
+    )
+}
 
 /// The observer of the modules the API serves a process may install (0108 §1): called with
 /// `action={name}` for an `action=` module and `{kind}={name}` for a query submodule, as
@@ -2109,6 +2087,21 @@ mod paraminfo_tests {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // One table declares each `action=` module with its dispatch (api.rs), so paraminfo lists
+    // every module dispatched: `linkaccount` and `unlinkaccount` were dispatched and missing.
+    // The help text is built from the same tables.
+    #[test]
+    fn paraminfo_and_help_list_every_module() {
+        for name in ["linkaccount", "unlinkaccount", "wbremovereferences", "help"] {
+            assert!(ACTION_MODULES.iter().any(|(n, _)| *n == name), "{name}");
+        }
+        let help = help_text();
+        for (name, _) in ACTION_MODULES.iter().filter(|(n, _)| *n != "query") {
+            assert!(help.contains(name), "{name} is missing from the help text");
+        }
+        assert!(help.contains("list=recentchanges|"), "{help}");
+    }
 
     // 0108 §1.1: a served `action=` module is reported in action-api.toml's spelling; a name
     // the API does not serve is not.

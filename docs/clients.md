@@ -35,8 +35,12 @@ as well as by the CI job.
   modules it asks about: `main` with `action` as a submodule-typed parameter; `query` with
   `prop`, `list` and `meta` as submodule parameters carrying `limit`, and a `generator`
   parameter; `query+tokens` with `type`; `wbsearchentities` with `language` as a list of the
-  term languages. Triplespace generates these from its own module tables (`ACTION_MODULES`,
-  `QUERY_MODULES`), so paraminfo and dispatch cannot disagree.
+  term languages. Triplespace generates these from its own module tables. The `action=`
+  modules are declared once, with what runs each, in the `action_modules!` table of
+  `triplespace-api-action`'s `api.rs`, which generates both `ACTION_MODULES` and the dispatch,
+  so paraminfo and dispatch cannot disagree; `action=linkaccount` and `action=unlinkaccount`
+  were dispatched but missing from paraminfo until that table existed (2026-11-09). The query
+  submodules are `QUERY_MODULES`, whose names the submodule dispatch in `query.rs` matches.
 - **`meta=wikibase`.** Pywikibot's data repository discovery needs
   `repo.url.{base,scriptpath,articlepath}`; without it `site.data_repository()` is `None` and
   nothing Wikibase works.

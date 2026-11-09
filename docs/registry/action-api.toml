@@ -1,8 +1,9 @@
-# Every Action API module Triplespace adds or changes (chapter 18 §2.3), in three tables: `action=`
-# modules, `action=query` submodules, and the Wikibase and WikibaseLexeme modules. Edit this file,
-# then `python3 architecture/catalogues.py --write` from docs/ regenerates the tables. The Built
-# column is derived from the module lists `action=paraminfo` serves (ACTION_MODULES and
-# QUERY_MODULES in crates/triplespace-api-action/src/modules/query.rs).
+# Every Action API module the API serves or an ADR names (chapter 18 §2.3; 0108 §1.1), in three
+# tables: `action=` modules, `action=query` submodules, and the Wikibase and WikibaseLexeme
+# modules. Edit this file, then `python3 architecture/catalogues.py --write` from docs/
+# regenerates the tables. The Built column is derived from the module lists `action=paraminfo`
+# serves: the `action_modules!` table in crates/triplespace-api-action/src/api.rs, which also
+# generates the dispatch, and QUERY_MODULES in crates/triplespace-api-action/src/modules/query.rs.
 
 # kind     action | query | wikibase: which table the row is in
 # modules  the module names the row covers, as the table spells them (`action=edit`, `list=blocks`, `wbeditentity`)
