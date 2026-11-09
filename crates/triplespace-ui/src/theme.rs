@@ -827,7 +827,8 @@ impl Theme {
         [light, dark, light_more, dark_more]
     }
 
-    /// The pairs that fail their floors in any variant of a palette, as served.
+    /// The pairs that fail their floors in any variant of a palette, as served: the contrast
+    /// floors of 0034 §10, which axe checks on every page (implements 0034 §10 (A7)).
     #[must_use]
     pub fn contrast_problems(&self, name: &str) -> Vec<String> {
         let Some(p) = self.palette(name) else {

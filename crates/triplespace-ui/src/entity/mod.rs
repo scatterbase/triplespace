@@ -16,7 +16,8 @@
 //! the whole tab would; the editor swaps in the whole tab after a save, so that a new
 //! reference renumbers every group after it.
 //!
-//! Each statement group takes the shape `scatter-wikibase-shape` gives it (0003 §3):
+//! Each statement group takes the shape `scatter-wikibase-shape` gives it (0003 §3), drawn
+//! only on the server, its charts and timelines as SVG (implements 0034 §3 (A16)):
 //! Single, Timeline, Series, Table (or a numbered list, or a Matrix), Chips or List, with
 //! best values leading, other and deprecated values folded, shared qualifiers stated once
 //! and references as endnotes, each numbered once for the tab (§4–5). `shapes` draws them; `chart` draws the

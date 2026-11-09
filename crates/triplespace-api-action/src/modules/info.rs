@@ -367,7 +367,9 @@ pub async fn templates(ctx: &Ctx, query: &mut Map<String, Value>) -> Result<(), 
             Some(doc) if doc.model == "wikitext" => {
                 match crate::pages::latest_text(ctx.db(), tenant, doc).await? {
                     Some(text) => {
-                        crate::pages::expand(ctx.db(), tenant, &site, &hidden, &text)
+                        let container =
+                            crate::pages::page_visibility(ctx.db(), tenant, doc.page_id).await?;
+                        crate::pages::expand(ctx.db(), tenant, &site, &hidden, &container, &text)
                             .await?
                             .1
                     }

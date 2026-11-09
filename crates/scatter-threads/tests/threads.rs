@@ -246,6 +246,7 @@ fn an_original_post_has_the_tenants_markup() {
 
 #[test]
 fn only_imports_write_headings_and_imported_from() {
+    // 0090 §8: `imported_from` and `heading` are an import's alone.
     let mut t = thread(0);
     let heading = with(post(None), |op| {
         if let ThreadOp::Post { heading, .. } = op {

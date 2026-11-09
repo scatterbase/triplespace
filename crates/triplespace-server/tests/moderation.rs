@@ -630,10 +630,16 @@ async fn protect_delete_undelete_and_hide() {
     let html = p["parse"]["text"].as_str().unwrap();
     assert!(!html.contains("Hush."), "{html}");
     assert!(html.contains("redlink=1"), "{html}");
+    // And for a member of the group too: an include may not widen (0056 §6, Rule 2). The
+    // public page is rendered once for everyone who reads it, so the restricted page it
+    // transcludes behaves as if it did not exist, for every viewer.
     let p = c.api("action=parse&page=Project:Index&prop=text").await;
     let html = p["parse"]["text"].as_str().unwrap();
-    assert!(html.contains("Hush."), "{html}");
-    assert!(!html.contains("redlink=1"), "{html}");
+    assert!(
+        !html.contains("Hush."),
+        "a member sees the include widen: {html}"
+    );
+    assert!(html.contains("redlink=1"), "{html}");
 
     // A confidential `namespace` or `tenant` restriction hides every page under it, even
     // from the owner when the group is the suppression group, which `owner` does not

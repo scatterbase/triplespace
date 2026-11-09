@@ -670,7 +670,7 @@ The constraint marker sits in the value cell and follows the rule that nothing i
 
 - The layouts of §4.3 (table, matrix, chart, timeline, chips, "Same for all N", footnoted shared references) are rendered **only on the server**.
 - Tables use Codex's CSS-only Table.
-- Charts, sparklines and timeline strips are **SVG generated in Rust** from the same view model the classifier produces. They cache like any other markup and need no JavaScript. No client charting library is used for these.
+- Charts and timeline strips are **SVG generated in Rust** from the same view model the classifier produces ([0034](../decisions/0034-frontend-stack.md) A16). They cache like any other markup and need no JavaScript. No client charting library is used for these.
 - The shape classifier lives in a pure, wasm-capable crate, so an editor can predict the layout a change will produce (§5.4).
 
 ## 5. The frontend stack

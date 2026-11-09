@@ -507,14 +507,64 @@ pub struct Transclusion {
     pub exists: bool,
 }
 
+/// The visibility of a page, from its chain, for the include rule of 0056 §6 (Rule 2).
+///
+/// # Errors
+///
+/// If the chain cannot be read.
+pub async fn page_visibility(
+    db: &Client,
+    tenant: &str,
+    page_id: u64,
+) -> Result<scatter_actors::acl::Visibility, ApiError> {
+    let chain = triplespace_projections::acl_read::page_chain(db, tenant, page_id)
+        .await
+        .map_err(ApiError::internal)?;
+    let at = scatter_actors::Timestamp(crate::edit::now_micros());
+    Ok(scatter_actors::acl::visibility(&chain, at))
+}
+
+/// The visibility of what is being rendered under a title, for the include rule of 0056 §6
+/// (Rule 2): the page that holds the title, whoever is asking, or the title's own chain
+/// when no page holds it yet (a preview of a new page).
+///
+/// # Errors
+///
+/// If a chain cannot be read.
+pub async fn container_visibility(
+    db: &Client,
+    tenant: &str,
+    title: &Title,
+) -> Result<scatter_actors::acl::Visibility, ApiError> {
+    if let Some(p) = by_title(db, tenant, &Hidden::NONE, title.namespace, &title.text).await? {
+        return page_visibility(db, tenant, p.page_id).await;
+    }
+    let chain = triplespace_projections::acl_read::title_chain(
+        db,
+        tenant,
+        title.namespace,
+        &title.text,
+        None,
+    )
+    .await
+    .map_err(ApiError::internal)?;
+    let at = scatter_actors::Timestamp(crate::edit::now_micros());
+    Ok(scatter_actors::acl::visibility(&chain, at))
+}
+
 /// Expands text for viewing the page that holds it, reading the pages it transcludes, and
-/// says which pages those were, and where the page's own calls put their output. A page
-/// hidden from the viewer transcludes as missing (09 §5.3).
+/// says which pages those were, and where the page's own calls put their output.
+///
+/// A page transcludes as missing when the viewer may not read it (09 §5.3), and, for every
+/// viewer, when it is more restricted than the page being rendered, `container`: an include
+/// may not widen, since the rendered page is one for everyone who reads it (0056 §6,
+/// Rule 2, for page transclusion; entities, Lua, tables and stylesheets are not built yet).
 pub async fn expand(
     db: &Client,
     tenant: &str,
     site: &Site,
     hidden: &Hidden,
+    container: &scatter_actors::acl::Visibility,
     text: &str,
 ) -> Result<(Expansion, Vec<Transclusion>), ApiError> {
     let mut host = Host {
@@ -544,8 +594,15 @@ pub async fn expand(
             // A page of a namespace that holds no pages here transcludes as missing.
             let text = if site.holds_pages(ns) || ns == scatter_titles::TEMPLATE {
                 match by_title(db, tenant, hidden, ns, &title).await? {
-                    Some(p) => latest_text(db, tenant, &p).await?,
-                    None => None,
+                    Some(p)
+                        if scatter_actors::may_include(
+                            container,
+                            &page_visibility(db, tenant, p.page_id).await?,
+                        ) =>
+                    {
+                        latest_text(db, tenant, &p).await?
+                    }
+                    _ => None,
                 }
             } else {
                 None
@@ -726,9 +783,18 @@ pub async fn render(
     page: &Title,
     templates: bool,
 ) -> Result<Render, ApiError> {
-    let (expansion, transcluded) = expand(db, tenant, site, hidden, text).await?;
+    // What `page` itself may be read by: an include may not widen it (0056 §6, Rule 2).
+    let container = container_visibility(db, tenant, page).await?;
+    let (expansion, transcluded) = expand(db, tenant, site, hidden, &container, text).await?;
     let text = expansion.text;
-    let links = Links::read(db, tenant, site, hidden, &text, page).await?;
+    let mut links = Links::read(db, tenant, site, hidden, &text, page).await?;
+    // A page that transcluded as missing links red for every viewer, the one excluded by
+    // the include rule included: a member of its group would otherwise see it exist (0056
+    // §6, Rule 2: "a red link from `{{:B}}`").
+    for t in transcluded.iter().filter(|t| !t.exists) {
+        // A page the resolver does not hold is missing.
+        links.pages.remove(&(t.ns, t.title.clone()));
+    }
     let marks: Vec<scatter_wikitext::Mark> = if templates {
         expansion
             .calls
