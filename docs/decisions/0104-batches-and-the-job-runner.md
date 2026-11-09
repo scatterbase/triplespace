@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-08
-- **Updated:** 2026-11-08 (A3)
+- **Updated:** 2026-11-08 (A4)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0016](0016-permissions-and-access-control.md), [0047](0047-special-pages.md), [0083](0083-write-path-in-three-tiers.md)
 - **Uses:** [0007](0007-actor-identity.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0047](0047-special-pages.md)
@@ -76,7 +76,7 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 11. Creating items from a table (extends 0002 §8.5 and 0047 §5)
 
-*Changed by A3.*
+*Changed by A3, A4.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.5; [21](../architecture/21-special-pages.md) §6.6.*
 
@@ -128,3 +128,20 @@ James's direction, from the design discussion of 2026-11-08:
 - **Source:** Direct: Claude, while building the table-based creation of items (SCA-277, SCA-281), 2026-11-08; unconfirmed
 - **Change:** extends §11
 - **Summary:** The table's columns are named by header convention rather than a mapping step: `label`, `description`, `aliases` with a language after a colon, else the wiki's; a property by ID. A cell is parsed in the plain forms the form takes (a number, a year or date, `text@lang`, `lat, lon`), shared with `Special:NewItem`, since `wbparsevalue` is not built. The rows are created as interactive writes under a keyed batch, one `wbeditentity` each, not as a queued `stream` job, so the report can name each row's ID at once; at most 500 rows a run. Match keys, references between rows, updating existing items and other entity types are left for the queued path. Chapter text: [21](../architecture/21-special-pages.md) §6.6; [05](../architecture/05-providers-and-ingest.md) §3.5.
+
+### A4. A grid, drafts, matches, references between rows and new properties
+
+- **Date:** 2026-11-08
+- **Source:** [0106](0106-create-entities-grid-and-drafts.md) §1, §2, §4, §5, §7, §8, §10
+- **Change:** amends §11
+- **Summary:** `Special:CreateEntities` keeps the pasted table as its canonical form and gains a grid over it, a mapping step for uploaded files, and drafts kept as Table pages with staged rows. The table's text conventions add `id`, `new:` property columns, `P…/ref:` reference columns, `row:n` references between rows, `|`-separated values, and a reference on every statement that may read a column. A row that matches an existing item by a match key or by label and description adds to it; properties a table declares are created first, by holders of `property-create` only; rows are written in the order their references require; a statement's own reference replaces the default. Of what §11 left out, match keys, references between rows, updating (matched) items and properties are taken; qualifiers and Lua column transforms are not.
+
+Replaced text ([21](../architecture/21-special-pages.md) §6.6, as it stood):
+
+> - **Preview first.** Nothing is written until the rows have been checked: the properties are looked up in one call, each cell parsed against its property's data type, and each row shown with what it holds and its problems; a row with no term at all, a cell that is not a value of its type, or a property that does not exist marks the row, which is left out. At most 500 rows a run; a larger table is split.
+
+> - **Not taken yet** ([0104](../decisions/0104-batches-and-the-job-runner.md) §11): match keys, so every row creates (a re-run creates again); references from one row to an item another row creates; updating existing items; properties and other entity types. A table larger than a run allows waits on the queued batch of [05](../architecture/05-providers-and-ingest.md) §3.5.
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.5, as it stood):
+
+> - **A table of new items** ([0104](../decisions/0104-batches-and-the-job-runner.md) §11; [21](../architecture/21-special-pages.md) §6.6) is the editor's form of bulk creation: `Special:CreateEntities` reads a pasted or uploaded table, a column per term or property and a row per item, checks every row before anything is written, and creates the rows as one keyed batch ([16](../architecture/16-logs-feeds-and-notifications.md) §2.2), one interactive `create` each, so that the run is one job with its revert.
