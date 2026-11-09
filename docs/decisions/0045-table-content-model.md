@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-09 (A7)
+- **Updated:** 2026-11-08 (A8)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0034](0034-frontend-stack.md), [0041](0041-content-models.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0044](0044-tenant-relative-ids.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -24,6 +24,8 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 1. A table is a page that names entities and properties
 
+*Changed by A8.*
+
 *Current text: [15](../architecture/15-structured-pages.md) §2.1.*
 
 ### 2. The `Table` namespace (extends 0008 §2)
@@ -36,7 +38,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 4. The definition
 
-*Changed by A3, A5, A6.*
+*Changed by A3, A5, A6, A8.*
 
 *Current text: [15](../architecture/15-structured-pages.md) §2.3.*
 
@@ -49,6 +51,8 @@ James's direction, from the design discussion of 2026-09-30:
 *Current text: [15](../architecture/15-structured-pages.md) §2.5.*
 
 ### 7. Adding and removing rows
+
+*Changed by A8.*
 
 *Current text: [15](../architecture/15-structured-pages.md) §2.6.*
 
@@ -172,3 +176,14 @@ Replaced text (§4, the `rows` row):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§13
 - **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [15](../architecture/15-structured-pages.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A8. Drafts: staged rows
+
+- **Date:** 2026-11-08
+- **Source:** [0106](0106-create-entities-grid-and-drafts.md) §9
+- **Change:** amends §1; extends §4 and §7
+- **Summary:** A table can hold staged rows, items not yet written with their values, under a new `staged` key allowed with `ids` rows, together with declared properties, `new` and `reference` columns, and default-reference snaks that read a column. This is how `Special:CreateEntities` keeps a draft and a saved column mapping. Staged rows are the one exception to a table storing no values; importing them turns each written row into an ID in `rows.ids`.
+
+Replaced text ([15](../architecture/15-structured-pages.md) §2.1, as it stood):
+
+> **A table is a page in the `Table` namespace (§2.2) whose content is a definition** (§2.3): which entities are its rows and which fields of those entities are its columns. **It stores no values.**

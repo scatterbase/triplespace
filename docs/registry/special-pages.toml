@@ -928,7 +928,7 @@ status = "served"
 scope = "tenant"
 group = "wikibaserepo"
 restricted = "createpage"
-adr = "0104 §11"
+adr = "0104 §11, 0106"
 
 [[page]]
 name = "CreateSprint"

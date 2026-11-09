@@ -143,13 +143,13 @@ Not yet: whether scoped threads announce and notify is open ([0049](../decisions
 
 ## 2. Tables
 
-*Sources: [0045](../decisions/0045-table-content-model.md) §1, §2, §3, §4, §5, §6, §7; [0060](../decisions/0060-scopes.md) §6; [0065](../decisions/0065-mediainfo-captions-and-commons.md) §3.*
+*Sources: [0045](../decisions/0045-table-content-model.md) §1, §2, §3, §4, §5, §6, §7; [0060](../decisions/0060-scopes.md) §6; [0065](../decisions/0065-mediainfo-captions-and-commons.md) §3; [0106](../decisions/0106-create-entities-grid-and-drafts.md) §9.*
 
 ### 2.1 A table is a page that names entities and properties
 
-*Sources: [0045](../decisions/0045-table-content-model.md) §1.*
+*Sources: [0045](../decisions/0045-table-content-model.md) §1; [0106](../decisions/0106-create-entities-grid-and-drafts.md) §9.*
 
-**A table is a page in the `Table` namespace (§2.2) whose content is a definition** (§2.3): which entities are its rows and which fields of those entities are its columns. **It stores no values.** Every cell is read from the row entity's resolved view ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §3, [0004](../decisions/0004-identity-clusters-and-equivalence.md) §4) when the table is shown, and every cell edit is a change set on that entity (§2.5).
+**A table is a page in the `Table` namespace (§2.2) whose content is a definition** (§2.3): which entities are its rows and which fields of those entities are its columns. **It stores no values**, except a draft's staged rows, which are not entities yet ([0106](../decisions/0106-create-entities-grid-and-drafts.md) §9; §2.7). Every cell is read from the row entity's resolved view ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §3, [0004](../decisions/0004-identity-clusters-and-equivalence.md) §4) when the table is shown, and every cell edit is a change set on that entity (§2.5).
 
 So a table has two kinds of change and two histories:
 
@@ -179,7 +179,7 @@ Nothing is copied, so a table can never disagree with its entities, and an edit 
 
 ### 2.3 The definition
 
-*Sources: [0045](../decisions/0045-table-content-model.md) §4; [0060](../decisions/0060-scopes.md) §6; [0065](../decisions/0065-mediainfo-captions-and-commons.md) §3.*
+*Sources: [0045](../decisions/0045-table-content-model.md) §4; [0060](../decisions/0060-scopes.md) §6; [0065](../decisions/0065-mediainfo-captions-and-commons.md) §3; [0106](../decisions/0106-create-entities-grid-and-drafts.md) §9.*
 
 ```json
 {
@@ -215,6 +215,7 @@ Nothing is copied, so a table can never disagree with its entities, and an edit 
 | `rows` | Yes | The scope: an object holding exactly one scope kind. **`ids`**: a list of entity IDs in any form the tenant accepts (local, foreign, another tenant's, keyed). Also every kind of §1.3 and **`scope`**, naming a scope page (§1.5); a page-subject scope gives rows that are pages, whose statement columns read page statements. A scope larger than `tables.max_rows` is shown to that many rows with the scope's notice. `M`, `WDM`, `L` and lexeme part IDs are accepted as rows; term columns show captions ([12](12-files-and-media.md)) and the lexeme term fields `lemma:{lang}`, `representation:{lang}`, `gloss:{lang}` ([0066](../decisions/0066-lexemes.md) §9; [04](04-entities-and-identifiers.md) §5.1) |
 | `columns` | Yes | An ordered list of one or more columns (below) |
 | `default_reference` | No | One reference in Wikibase's canonical JSON, without its hash. New statements written from the grid carry it unless the editor unchecks it (§2.5) |
+| `staged` | No | Rows not yet written, with their values: a draft (§2.7). Allowed only when `rows` is `ids` |
 | `sort` | No | The default order: a list of column positions (zero-based) and `ascending` or `descending`. Without it, rows appear in the order listed. A viewer can re-sort without saving |
 
 **Columns.** Each column has a `field`, the keys that field needs, and an optional `title` that overrides the header:
@@ -281,11 +282,43 @@ Cell edits made with the Wikibase modules directly are ordinary entity edits: a 
 
 ### 2.6 Adding and removing rows
 
-*Sources: [0045](../decisions/0045-table-content-model.md) §7; [0060](../decisions/0060-scopes.md) §6.*
+*Sources: [0045](../decisions/0045-table-content-model.md) §7; [0060](../decisions/0060-scopes.md) §6; [0106](../decisions/0106-create-entities-grid-and-drafts.md) §9.*
 
 **Rows are part of the definition.** Adding existing entities, by typing IDs, picking them with a lookup, or pasting a column of IDs, is a definition edit. Removing a row is a definition edit, and never touches the entity. The grid collects row additions and removals and saves them as **one page revision** per save, with the page's base revision; a conflicting definition edit is merged line by line, which the one-ID-per-line serialization (§2.2) makes reliable.
 
 **A new row can create a new entity.** That is two writes in two partitions: the entity's `create`, carrying the row's cells as its first change set, in `local`; then the definition edit adding its ID, in `pages`. They are **not atomic**: [0011](../decisions/0011-logs.md) §6.1 does not make writes atomic across partitions, and tables do not start. If the second write fails, the entity exists and is not in the table; the grid says so and offers to add it again, and the creation's summary and tag name the table, so the entity can be found. For any `rows` that is not `ids` the second write does not arise: an entity created with the right statements appears by itself (§1.5).
+
+**Importing a draft's staged rows** (§2.7) adds their IDs in the same way: each run's written rows become IDs in `rows.ids` in one definition edit, after the entities are written, and the same failure leaves them outside the table with the import's report naming them ([0106](../decisions/0106-create-entities-grid-and-drafts.md) §9).
+
+### 2.7 Drafts: a table with staged rows
+
+*Sources: [0106](../decisions/0106-create-entities-grid-and-drafts.md) §9, A1, A2, A3.*
+
+**A table can hold staged rows**: items not yet written, with their values. A draft of `Special:CreateEntities` ([21](21-special-pages.md) §6.6) is such a table, and so is a saved column mapping, which has columns and no staged rows ([21](21-special-pages.md) §6.8). A draft that only stages edits is transient, and `Special:CreateEntities` creates it as `Table:Drafts/{user}/{name}`, under the creator's name ([0106](../decisions/0106-create-entities-grid-and-drafts.md) A1). A draft meant to persist as a table is given a title and moved, with its history, to `Table:{title}`, a permanent page like any other table ([0106](../decisions/0106-create-entities-grid-and-drafts.md) A2). The prefix is a convention, so a draft moved elsewhere in `Table` is still a draft until its staged rows are imported. The definition carries them under `staged`:
+
+```json
+"staged": {
+  "shared": [ "P31:Q13442814" ],
+  "properties": [ { "label": "Publisher", "datatype": "wikibase-item" } ],
+  "rows": [
+    { "n": 1, "cells": [ "Smith family papers", "", "", "row:2" ] },
+    { "n": 2, "cells": [ "Smith & Co.", "publisher", "", "" ], "id": "Q123" },
+    { "n": 3, "cells": [ "", "", "", "" ], "skip": true }
+  ]
+}
+```
+
+| Key | Meaning |
+|---|---|
+| `shared` | The statements on every item, one `P:value` string each, in the text form of [21](21-special-pages.md) §6.6 |
+| `properties` | Properties declared by the table and not yet created: a label in the wiki's language and, once confirmed, a data type. A `statements` column names one by position as `"new": 0` instead of `property` |
+| `rows` | One object per staged row: `n`, its number in the table, which `row:n` references name; `cells`, one string per column in the text form; `id` for a row matched to an existing item; `skip`; and `refused`, the reason an import gave |
+
+Two column kinds serve drafts. A `statements` column may carry `"new"` as above, and a `reference` column, with `property` and `of` (the position of a `statements` column), holds a reference of that column's statements' own. A `default_reference` snak may name a column, as `"column": 4`, in place of a `datavalue`.
+
+**Staged rows are the one place a table stores values.** A staged row is not an entity: its cells are shown as entered, marked staged, below the ID rows; they are in no entity's history, view or search, and they are not resolved. Pre-save transform writes **one staged row per line**, as it writes one row ID per line (§2.2), so a draft diffs and merges row by row. Staged rows count toward `tables.max_rows`. Editing a draft is editing its page: anyone who may edit the page may change it, its history is the page's, and protecting the page protects the draft. Viewed as a page, a draft shows its staged rows with a link to continue in `Special:CreateEntities`.
+
+**Importing empties it.** Each row written by an import is removed from `staged` and its ID appended to `rows.ids` (§2.6); a refused row stays staged with `refused` set. After a complete import the draft is an ordinary table of the batch's items, with the batch's reference as its `default_reference`. **It stays, as the interface for further edits to those items on the terms it set up** ([0106](../decisions/0106-create-entities-grid-and-drafts.md) A3): its columns, its default reference on new statements (§2.5), and its statements on every item, kept in `staged.shared`, which a row added later as a new entity (§2.6) carries. This holds for a transient draft as for a kept table; nothing deletes either when the import finishes. An administrator may delete it like any page, and deleting it touches no entity, since a table holds no values once its rows are imported.
 
 ## 3. Sprints, tasks and claims
 

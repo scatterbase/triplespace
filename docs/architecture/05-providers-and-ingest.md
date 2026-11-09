@@ -317,7 +317,7 @@ Every entity change in the run points to its job. A revision, for data that neve
 
 ### 3.5 Local bulk creation
 
-*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.5; [0104](../decisions/0104-batches-and-the-job-runner.md) §11.*
+*Sources: [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.5; [0104](../decisions/0104-batches-and-the-job-runner.md) §11; [0106](../decisions/0106-create-entities-grid-and-drafts.md) §5, §8.*
 
 - **Temporary refs.** New entities in a batch are named with handles such as `$w1`, and claims in the same batch can refer to those handles. The server allocates the real IDs and returns the mapping.
 - **Match keys.** A `create-or-add` carries a match key, for example `"match": {"P356": "10.1234/x"}`. If an entity with that identifier exists, the operation becomes an `add` to it; otherwise it creates one. This makes re-runs idempotent. It requires a uniqueness index on designated identifier properties. A match key may also be a foreign entity ID. `create` itself takes no match key and always mints: a job that must not touch existing entities says `create`, and one that may says `create-or-add`. The log records what happened, not only what was asked: a matched `create-or-add` is appended as an `add` keyed by the matched entity, carrying `match` and `via: "create-or-add"`; an unmatched one as a `create` with the same two fields.
@@ -327,7 +327,7 @@ Every entity change in the run points to its job. A revision, for data that neve
 - **Atomicity:**
   - An `atomic` batch is all-or-nothing, because temporary refs point across the batch.
   - A `stream` job applies each entity independently and writes rejected records to a rejects file, in one transaction per block rather than per entity (§3.10). An operation an edit filter disallows goes there too, with the filter named as the reason (§3.6).
-- **A table of new items** ([0104](../decisions/0104-batches-and-the-job-runner.md) §11; [21](21-special-pages.md) §6.6) is the editor's form of bulk creation: `Special:CreateEntities` reads a pasted or uploaded table, a column per term or property and a row per item, checks every row before anything is written, and creates the rows as one keyed batch ([16](16-logs-feeds-and-notifications.md) §2.2), one interactive `create` each, so that the run is one job with its revert. A table too large for one run waits on the same rows as a queued `stream` job under the batch.
+- **A table of new items** ([0104](../decisions/0104-batches-and-the-job-runner.md) §11; [0106](../decisions/0106-create-entities-grid-and-drafts.md) §5, §8; [21](21-special-pages.md) §6.6) is the editor's form of bulk creation: `Special:CreateEntities` reads a pasted or uploaded table, a column per term or property and a row per item, checks every row before anything is written, and writes the rows as one keyed batch ([16](16-logs-feeds-and-notifications.md) §2.2), so that the run is one job with its revert. Each row is one interactive `create`, or an `add` to the existing item it matches by a match key or by label and description; properties the table declares are created first, and the rows follow in an order in which each row's references to other rows (`row:n`, the table's temporary refs) point at rows already written. A table too large for one run waits on the same rows as a queued `stream` job under the batch.
 
 ### 3.6 Edit filters on bulk jobs
 
