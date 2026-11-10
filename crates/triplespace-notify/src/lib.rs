@@ -40,9 +40,10 @@
 //! it. Restrictions that reach a thread through its talk page, its namespace or the tenant
 //! are checked when the inbox is read ([`inbox`]'s caller), not purged.
 //!
-//! **Nobody is notified of their own action**, nor of their subsidiary's. The preference matrix
-//! (`notifications.{reason}.{channel}`) and channels other than the web inbox are not
-//! built yet: every reason is delivered to the inbox.
+//! **Nobody is notified of their own action**, nor of their subsidiary's. **The preference
+//! matrix decides the rest** ([`matrix`]; 16 §5.3): a reason whose `web` cell the recipient
+//! has turned off (`notifications.{reason}.web`) is not delivered to its inbox. Channels
+//! other than the web inbox are not built yet.
 //!
 //! [`inbox`] reads and marks an account's inbox for the Echo-shaped modules.
 
@@ -50,6 +51,7 @@
 
 pub mod inbox;
 pub mod mail;
+pub mod matrix;
 
 use scatter_log::header::Header;
 use scatter_log::record::Record;
@@ -422,33 +424,8 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AddressingProjection {
             } else {
                 Self::deliveries(cx, &tenant, record).await?
             };
-            let mut rows = 0u64;
-            for d in deliveries {
-                if performer.as_deref() == Some(d.recipient.as_str())
-                    || performer_inbox.as_deref() == Some(d.recipient.as_str())
-                {
-                    continue;
-                }
-                rows += cx
-                    .conn()
-                    .execute(
-                        "INSERT INTO private.inbox
-                           (actor_key, partition, \"offset\", reason, target_kind, target_id, published)
-                         VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7::bigint::double precision / 1e6))
-                         ON CONFLICT (actor_key, partition, \"offset\", reason) DO NOTHING",
-                        &[
-                            &d.recipient,
-                            &part,
-                            &offset,
-                            &d.reason,
-                            &d.target_kind,
-                            &d.target_id,
-                            &published,
-                        ],
-                    )
-                    .await
-                    .map_err(|e| sql(&e))?;
-            }
+            let skip = [performer, performer_inbox];
+            let rows = deliver(cx, &tenant, deliveries, &skip, (part, offset), published).await?;
             Ok(Applied::rows(usize::try_from(rows).unwrap_or(0)))
         })
     }
@@ -465,6 +442,57 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AddressingProjection {
             Ok(())
         })
     }
+}
+
+/// Writes the inbox rows of one record's deliveries, and says how many: none for an
+/// account in `skip` (the performer, or the operator the performer acts for), and none
+/// where the recipient's `web` cell for the reason is off (16 §5.3).
+async fn deliver(
+    cx: &PgCx,
+    tenant: &str,
+    deliveries: Vec<Delivery<'_>>,
+    skip: &[Option<String>],
+    (part, offset): (i64, i64),
+    published: i64,
+) -> Result<u64, String> {
+    let mut rows = 0u64;
+    // The tenant's matrix, read once and only where someone is addressed.
+    let mut matrix = None;
+    for d in deliveries {
+        if skip.iter().flatten().any(|s| *s == d.recipient) {
+            continue;
+        }
+        let m = match &matrix {
+            Some(m) => m,
+            None => matrix.insert(matrix::Matrix::load(cx.conn(), tenant).await?),
+        };
+        if !m
+            .wants(cx.conn(), &d.recipient, d.reason, matrix::WEB)
+            .await?
+        {
+            continue;
+        }
+        rows += cx
+            .conn()
+            .execute(
+                "INSERT INTO private.inbox
+                   (actor_key, partition, \"offset\", reason, target_kind, target_id, published)
+                 VALUES ($1, $2, $3, $4, $5, $6, to_timestamp($7::bigint::double precision / 1e6))
+                 ON CONFLICT (actor_key, partition, \"offset\", reason) DO NOTHING",
+                &[
+                    &d.recipient,
+                    &part,
+                    &offset,
+                    &d.reason,
+                    &d.target_kind,
+                    &d.target_id,
+                    &published,
+                ],
+            )
+            .await
+            .map_err(|e| sql(&e))?;
+    }
+    Ok(rows)
 }
 
 /// A job's end addresses the account that ran it, or its operator (16 §5.2, reason
@@ -515,6 +543,13 @@ async fn job_done(cx: &PgCx, tenant: &str, record: &Record) -> Result<Applied, S
     let Some(to) = inbox_of(cx, tenant, &actor).await? else {
         return Ok(Applied::rows(0));
     };
+    if !matrix::Matrix::load(cx.conn(), tenant)
+        .await?
+        .wants(cx.conn(), &to, "job", matrix::WEB)
+        .await?
+    {
+        return Ok(Applied::rows(0));
+    }
     let published = i64::try_from(h.appended_at).unwrap_or(i64::MAX);
     let rows = cx
         .conn()

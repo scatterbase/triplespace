@@ -1042,6 +1042,12 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                 t["thread"] = json!({
                     "markup": setting("thread.markup").unwrap_or_else(|| "markdown".into()),
                 });
+                // Where site assets are served from, where the wiki names another origin
+                // than its own: the site's Content Security Policy admits its fonts and
+                // images (0086 §5; 09 §1.4).
+                if let Some(base) = setting("media.base_url") {
+                    t["media"] = json!({ "base_url": base });
+                }
                 // The wiki's skins (0097 §8): its default, and the ones it offers where it
                 // has narrowed them; the site holds the skins themselves.
                 let mut skins = json!({ "default": setting("skins.default") });

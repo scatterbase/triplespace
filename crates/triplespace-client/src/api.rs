@@ -124,6 +124,9 @@ pub struct SiteInfo {
     /// The markup of new posts, `markdown` or `wikitext` (`triplespace.thread.markup`;
     /// 14 §1.6).
     pub thread_markup: String,
+    /// `media.base_url`, where the wiki has set it (`triplespace.media.base_url`): the
+    /// origin its site assets are served from (0086 §5).
+    pub media_base: Option<String>,
     /// The tenant's issuer code, which its accounts' actor keys carry
     /// (`triplespace.issuer`; 0079 §7).
     pub issuer: String,
@@ -528,6 +531,7 @@ impl Client {
                 .as_str()
                 .unwrap_or("markdown")
                 .to_string(),
+            media_base: ts["media"]["base_url"].as_str().map(str::to_string),
             issuer: ts["issuer"].as_str().unwrap_or_default().to_string(),
             farm_code: ts["farm_code"].as_str().unwrap_or_default().to_string(),
             interface: section(

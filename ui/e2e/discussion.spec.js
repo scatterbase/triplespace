@@ -125,6 +125,36 @@ async function action( page, name ) {
 	await page.locator( 'details.ts-tabs__more' ).getByRole( 'link', { name } ).click();
 }
 
+test( 'a thread answers action=render with its posts, and region=post/{id} with one', async ( { page } ) => {
+	// ADR 0034 §5; chapter 20 §3.2: fragments on the page's own URL, without the frame.
+	await page.goto( '/wiki/Item_talk:Q5' );
+	const href = await page.locator( '.ts-thread__subject a' ).first().getAttribute( 'href' );
+	await page.goto( href );
+	const ids = await page.locator( '.ts-post' ).evaluateAll( ( posts ) => posts.map( ( p ) => p.id ) );
+	expect( ids.length ).toBeGreaterThan( 1 );
+	const whole = await page.request.get( `${ href }?action=render` );
+	expect( whole.status() ).toBe( 200 );
+	const body = await whole.text();
+	expect( body ).not.toContain( '<html' );
+	for ( const id of ids ) {
+		expect( body ).toContain( `id="${ id }"` );
+	}
+	const one = await page.request.get( `${ href }?action=render&region=${ ids[ 1 ].replace( '-', '/' ) }` );
+	expect( one.status() ).toBe( 200 );
+	const post = await one.text();
+	expect( post ).toContain( `id="${ ids[ 1 ] }"` );
+	expect( post ).not.toContain( `id="${ ids[ 0 ] }"` );
+	// A post the thread does not have, and a region no thread has, are unknown regions.
+	for ( const region of [ 'post/1', 'terms' ] ) {
+		const bad = await page.request.get( `${ href }?action=render&region=${ region }` );
+		expect( bad.status() ).toBe( 400 );
+		expect( ( await bad.json() ).error.code ).toBe( 'badregion' );
+	}
+	// A build other than the page's is refused, so the component reloads.
+	const skew = await page.request.get( `${ href }?action=render`, { headers: { 'X-Triplespace-UI-Build': 'another' } } );
+	expect( skew.status() ).toBe( 409 );
+} );
+
 test( 'a thread is pinned, listed on another page, moved, renamed, closed and reopened from the page', async ( { page } ) => {
 	await logIn( page, 'Item talk:Q6' );
 	await page.goto( '/wiki/Item_talk:Q6?action=addtopic' );

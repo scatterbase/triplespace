@@ -69,6 +69,20 @@
 	font-weight: bold;
 }
 
+.ts-notifications__reasons {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var( --spacing-50, 0.5rem );
+	margin: 0;
+}
+
+.ts-notifications__reason {
+	display: inline-flex;
+	align-items: center;
+	gap: var( --spacing-50, 0.5rem );
+}
+
 .ts-notifications__list {
 	margin: 0;
 	padding: 0;

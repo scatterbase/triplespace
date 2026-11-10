@@ -1,6 +1,7 @@
 //! `Special:Notifications` (0021 §6; 19 §6.2): the viewer's inbox as a page, newest first,
 //! fifty to a page, everything or the unread only, with **Mark as read** on each unread
-//! item and **Mark all as read** above them. Opening it is looking: the bell's mark goes
+//! item and **Mark all as read** above them; a menu narrows the list to one kind of
+//! notification (`reason=`). Opening it is looking: the bell's mark goes
 //! (`echomarkseen`). Each item says who did what where, and links to it: a thread's post,
 //! or the user page an item about an account names.
 //!
@@ -27,6 +28,19 @@ const TITLE: &str = "Special:Notifications";
 
 /// How many items a page shows.
 const PER_PAGE: u32 = 50;
+
+/// The kinds of notification the list can be narrowed to (16 §5.2), each named by the
+/// message `ts-notif-reason-{reason}`, as the preference matrix names them.
+pub(crate) const REASONS: [&str; 8] = [
+    "talk",
+    "reply",
+    "mention",
+    "thread-status",
+    "watch",
+    "rights",
+    "group-join",
+    "job",
+];
 
 // ---------------------------------------------------------------------------------------
 // The view models (19 §5.10): what `special/notifications.html` draws.
@@ -65,8 +79,24 @@ pub struct MarkForm {
     pub value: String,
     /// Whether to come back to the unread view.
     pub unread: bool,
+    /// The kind of notification to come back to, where the list is narrowed to one.
+    pub reason: Option<String>,
     /// The button.
     pub label: String,
+}
+
+/// The menu that narrows the list to one kind of notification: a form that works by
+/// `GET`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct ReasonForm {
+    /// The menu's label.
+    pub label: String,
+    /// Whether the unread view is kept.
+    pub unread: bool,
+    /// Every kind first, then each kind.
+    pub options: Vec<crate::special::controls::OptionModel>,
+    /// The button.
+    pub apply: String,
 }
 
 /// One item.
@@ -93,6 +123,8 @@ pub struct Item {
 pub struct NotificationsPage {
     /// The filters: all, unread.
     pub filters: Switch,
+    /// The kinds of notification.
+    pub reasons: ReasonForm,
     /// **Mark all as read**, when any is unread.
     pub markall: Option<MarkForm>,
     /// What the page says when it has no items.
@@ -202,7 +234,13 @@ fn sentence(m: &Messages, n: &Notification) -> Vec<Part> {
     parts
 }
 
-fn mark_form(token: &str, id: Option<i64>, label: &str, unread_only: bool) -> MarkForm {
+fn mark_form(
+    token: &str,
+    id: Option<i64>,
+    label: &str,
+    unread_only: bool,
+    reason: Option<&str>,
+) -> MarkForm {
     let (name, value) = match id {
         Some(i) => ("markread", i.to_string()),
         None => ("markall", "1".to_string()),
@@ -213,8 +251,34 @@ fn mark_form(token: &str, id: Option<i64>, label: &str, unread_only: bool) -> Ma
         name: name.to_string(),
         value,
         unread: unread_only,
+        reason: reason.map(str::to_string),
         label: label.to_string(),
     }
+}
+
+/// The page's address with the view it shows: the unread only, one kind, a later page.
+fn href(unread_only: bool, reason: Option<&str>, from: Option<&str>) -> String {
+    let mut q = Vec::new();
+    if let Some(f) = from {
+        q.push(format!("from={}", url_q(f)));
+    }
+    if unread_only {
+        q.push("unread=1".to_string());
+    }
+    if let Some(r) = reason {
+        q.push(format!("reason={r}"));
+    }
+    if q.is_empty() {
+        format!("/wiki/{TITLE}")
+    } else {
+        format!("/wiki/{TITLE}?{}", q.join("&"))
+    }
+}
+
+/// The kind the query names, where it is one the list can be narrowed to.
+fn reason_of(q: &std::collections::BTreeMap<String, String>) -> Option<&'static str> {
+    let asked = q.get("reason")?;
+    REASONS.iter().find(|r| *r == asked).copied()
 }
 
 /// `GET Special:Notifications`.
@@ -249,10 +313,11 @@ pub async fn serve(site: &Site, headers: &HeaderMap, peer: Peer, params: &Params
         });
     }
     let unread_only = params.map.get("unread").is_some_and(|v| v == "1");
+    let reason = reason_of(&params.map);
     let from = params.map.get("from").map(String::as_str);
     let listing = match site
         .client()
-        .notifications(&incoming, unread_only, PER_PAGE, from)
+        .notifications(&incoming, unread_only, reason, PER_PAGE, from)
         .await
     {
         Ok(l) => l,
@@ -281,28 +346,53 @@ pub async fn serve(site: &Site, headers: &HeaderMap, peer: Peer, params: &Params
                 label: m.get("ts-notifications-filter"),
                 items: vec![
                     Choice {
-                        href: format!("/wiki/{TITLE}"),
+                        href: href(false, reason, None),
                         label: m.get("ts-notifications-all"),
                         current: !unread_only,
                     },
                     Choice {
-                        href: format!("/wiki/{TITLE}?unread=1"),
+                        href: href(true, reason, None),
                         label: m.get("ts-notifications-unread"),
                         current: unread_only,
                     },
                 ],
             },
-            markall: items
-                .iter()
-                .any(|n| !n.read)
-                .then(|| mark_form(&tok, None, &m.get("ts-notifications-markall"), unread_only)),
+            reasons: ReasonForm {
+                label: m.get("ts-notifications-reason"),
+                unread: unread_only,
+                options: std::iter::once(crate::special::controls::OptionModel {
+                    value: String::new(),
+                    label: m.get("ts-notifications-reason-all"),
+                    selected: reason.is_none(),
+                })
+                .chain(
+                    REASONS
+                        .iter()
+                        .map(|r| crate::special::controls::OptionModel {
+                            value: (*r).to_string(),
+                            label: m.get(&format!("ts-notif-reason-{r}")),
+                            selected: reason == Some(*r),
+                        }),
+                )
+                .collect(),
+                apply: m.get("ts-notifications-reason-apply"),
+            },
+            markall: items.iter().any(|n| !n.read).then(|| {
+                mark_form(
+                    &tok,
+                    None,
+                    &m.get("ts-notifications-markall"),
+                    unread_only,
+                    reason,
+                )
+            }),
             empty: items.is_empty().then(|| {
                 Message::block(
                     MessageKind::Notice,
-                    &m.get(if unread_only {
-                        "ts-notifications-none-unread"
-                    } else {
-                        "ts-notifications-empty"
+                    &m.get(match (reason, unread_only) {
+                        (Some(_), _) => "ts-notifications-none-reason",
+                        (None, true) => "ts-notifications-none-unread",
+                        (None, false) => "ts-notifications-empty",
                     }),
                 )
                 .model()
@@ -326,16 +416,13 @@ pub async fn serve(site: &Site, headers: &HeaderMap, peer: Peer, params: &Params
                             Some(n.id),
                             &m.get("ts-notifications-markread"),
                             unread_only,
+                            reason,
                         )
                     }),
                 })
                 .collect(),
             older: listing.value.next.as_ref().map(|next| Choice {
-                href: format!(
-                    "/wiki/{TITLE}?from={}{}",
-                    url_q(next),
-                    if unread_only { "&unread=1" } else { "" }
-                ),
+                href: href(unread_only, reason, Some(next)),
                 label: m.get("ts-notifications-older"),
                 current: false,
             }),
@@ -378,11 +465,11 @@ pub async fn post(site: &Site, headers: &HeaderMap, peer: Peer, params: &Params)
         .await
     {
         Ok(Saved::Ok(_)) => {
-            let back = if form.get("unread").is_some_and(|v| v == "1") {
-                format!("/wiki/{TITLE}?unread=1")
-            } else {
-                format!("/wiki/{TITLE}")
-            };
+            let back = href(
+                form.get("unread").is_some_and(|v| v == "1"),
+                reason_of(form),
+                None,
+            );
             pages::see_other(&back, &[])
         }
         Ok(Saved::Refused(r)) => {

@@ -1,0 +1,5 @@
+{#- A thread's posts without the frame (20 §3.2): what `action=render` answers on a thread,
+    and with `region=post/{id}` the one post. The same macro draws them on the thread's
+    page, so the two cannot drift. -#}
+{%- import "discussion.html" as discussion -%}
+{{ discussion.posts(posts) }}

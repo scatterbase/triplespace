@@ -108,6 +108,10 @@ async fn body(
         if def.browser {
             row["browser"] = Value::Bool(true);
         }
+        // A cell of the notification matrix (16 §5.3) says which.
+        if let Some((reason, channel)) = triplespace_notify::matrix::cell(key) {
+            row["cell"] = json!({"reason": reason, "channel": channel});
+        }
         out.insert(key.clone(), row);
     }
     let groups: Vec<Value> = registry

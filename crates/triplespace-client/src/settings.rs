@@ -217,6 +217,18 @@ pub struct Pref {
     /// Whether a reader who is not logged in may keep it in the browser.
     #[serde(default)]
     pub browser: bool,
+    /// For a cell of the notification matrix (16 §5.3): its reason and channel.
+    #[serde(default)]
+    pub cell: Option<Cell>,
+}
+
+/// A cell of the notification matrix: a reason on a channel.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+pub struct Cell {
+    /// The reason: `talk`, `mention`, …
+    pub reason: String,
+    /// The channel: `web`, …
+    pub channel: String,
 }
 
 /// `GET /account/preferences`.

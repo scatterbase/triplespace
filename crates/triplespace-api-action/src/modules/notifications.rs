@@ -13,6 +13,8 @@
 //!   alert. An item about a page has its `title` and the `revid` of the record; one about a
 //!   thread also `ts-thread`, the thread's subject and the talk page it is on.
 //!   `notgroupbysection` gives each section its own list and counts, as Echo does.
+//!   `nottsreasons` narrows the list and the count to the reasons it names (`talk`,
+//!   `mention`, …), where the sections are not grouped.
 //!
 //!   **What the reader may no longer see is left out** (16 §5.2; 0021 A20): an item about a
 //!   thread they may not read now, whose talk page is hidden from them (a confidential
@@ -452,6 +454,30 @@ async fn list_of(
     Ok(out)
 }
 
+/// The reasons `nottsreasons` names (16 §5.2), within the sections asked for: empty where
+/// the parameter is absent, and a name that matches nothing where every reason it names
+/// lies outside those sections.
+fn named_reasons(ctx: &Ctx, sections: &[String]) -> Result<Vec<&'static str>, ApiError> {
+    let asked = ctx.params.list("nottsreasons");
+    let both = sections.len() > 1;
+    let mut named = Vec::new();
+    for a in &asked {
+        let Some(r) = triplespace_notify::matrix::REASONS
+            .iter()
+            .find(|r| **r == a.as_str())
+        else {
+            return Err(ApiError::bad_value("nottsreasons", a));
+        };
+        if both || (sections[0] == "message") == MESSAGES.contains(r) {
+            named.push(*r);
+        }
+    }
+    if !asked.is_empty() && named.is_empty() {
+        named.push("");
+    }
+    Ok(named)
+}
+
 /// `meta=notifications`.
 pub async fn meta(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), ApiError> {
     let me = caller(ctx)?;
@@ -480,7 +506,10 @@ pub async fn meta(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
         sections = vec!["alert".into(), "message".into()];
     }
     let both = sections.len() > 1;
-    let reasons = if both {
+    let named = named_reasons(ctx, &sections)?;
+    let reasons = if !named.is_empty() {
+        Reasons::Only(&named)
+    } else if both {
         Reasons::All
     } else {
         reasons_of(&sections[0])

@@ -68,6 +68,39 @@ fn catalogue(lang: &str) -> Option<Catalogue> {
         .clone()
 }
 
+/// The language of a request's `Accept-Language` that the interface has messages for
+/// (0034 §9; 0085 §2.2): the header's languages in order of preference, `q=0` and `*`
+/// dropped and ties kept in header order, each tried as written and then by its primary
+/// subtag (`de-AT` as `de`). `None` where the interface has messages for none of them,
+/// and the wiki's own language applies.
+#[must_use]
+pub fn negotiate(header: &str) -> Option<String> {
+    let mut items: Vec<(f32, usize, String)> = header
+        .split(',')
+        .enumerate()
+        .filter_map(|(i, part)| {
+            let mut bits = part.split(';');
+            let tag = valid_code(bits.next()?.trim())?;
+            let q = bits
+                .find_map(|b| {
+                    b.trim()
+                        .strip_prefix("q=")
+                        .and_then(|q| q.trim().parse::<f32>().ok())
+                })
+                .unwrap_or(1.0);
+            (q > 0.0).then_some((q, i, tag))
+        })
+        .collect();
+    items.sort_by(|a, b| b.0.total_cmp(&a.0).then(a.1.cmp(&b.1)));
+    items.into_iter().find_map(|(_, _, tag)| {
+        if catalogue(&tag).is_some() {
+            return Some(tag);
+        }
+        let primary = tag.split('-').next()?.to_string();
+        catalogue(&primary).is_some().then_some(primary)
+    })
+}
+
 /// Languages written right to left (MediaWiki's `$rtl` languages, by their base code).
 const RTL: &[&str] = &[
     "ar", "arc", "arq", "ary", "arz", "azb", "bcc", "bgn", "bqi", "ckb", "dv", "fa", "glk", "he",
@@ -499,6 +532,27 @@ mod tests {
             expand("{{PLURAL:2|one|two}} and {{GENDER:x|he|she|they}}", "en"),
             "two and they"
         );
+    }
+
+    #[test]
+    // 0034 §9; 19 §5.6: a reader who is not logged in is served in a language their
+    // browser asks for that the interface has messages for.
+    fn accept_language_is_matched_against_the_messages() {
+        assert_eq!(negotiate("en"), Some("en".into()));
+        assert_eq!(
+            negotiate("en-GB,en;q=0.8"),
+            Some("en".into()),
+            "by primary subtag"
+        );
+        assert_eq!(
+            negotiate("de-AT, fr;q=0.9, en;q=0.2"),
+            Some("en".into()),
+            "the first the interface has messages for"
+        );
+        assert_eq!(negotiate("de, fr"), None, "none: the wiki's own applies");
+        assert_eq!(negotiate("en;q=0, de"), None, "q=0 is a refusal");
+        assert_eq!(negotiate("*, <x>"), None);
+        assert_eq!(negotiate(""), None);
     }
 
     #[test]
