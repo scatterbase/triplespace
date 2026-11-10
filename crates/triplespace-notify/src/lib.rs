@@ -23,6 +23,13 @@
 //!   for the first of those reasons that applies, in that order. Imported threads and posts
 //!   address nobody.
 //!
+//! - **`mention`** in a document page (16 §5.2): a revision of a wikitext or Markdown page
+//!   that links to an account's user page where the text before it did not
+//!   ([`triplespace_projections::pages::mentioned`]); an adopted or imported revision
+//!   addresses nobody.
+//! - **`rename`**: an actor record changed a registered account's name; the account is
+//!   addressed, unless it renamed itself.
+//!
 //! - **`watch`** (0021 A21): a change reaches a target an account watches with `notify`
 //!   (`private.watch`, read through [`triplespace_accounts::watch::notified`]): a new
 //!   thread or post reaches the thread and the subject of every page it is attached to; any
@@ -346,6 +353,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AddressingProjection {
             || header.payload_type == scatter_threads_payload::THREAD
             || header.payload_type == scatter_threads_payload::PAGE
             || header.payload_type == payload::ACL
+            || header.payload_type == payload::ACTOR
             || header.payload_type == PAYLOAD_LOGEVENT
     }
 
@@ -412,7 +420,23 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AddressingProjection {
                 let reached =
                     triplespace_projections::watched::reached_by_page(cx.conn(), &tenant, page)
                         .await?;
+                // The accounts the revision newly mentions (16 §5.2), then the page's
+                // watchers, who are not addressed twice.
                 let mut found = Vec::new();
+                let names = triplespace_projections::pages::mentioned(cx, &tenant, record).await?;
+                for key in by_name(cx, &tenant, &names).await? {
+                    let Some(to) = local_inbox(cx, &tenant, &key).await? else {
+                        continue;
+                    };
+                    if !found.iter().any(|d: &Delivery<'_>| d.recipient == to) {
+                        found.push(Delivery {
+                            recipient: to,
+                            reason: "mention",
+                            target_kind: target_kind::PAGE,
+                            target_id: page.to_string(),
+                        });
+                    }
+                }
                 watchers(cx, &tenant, &reached, page, &mut found).await?;
                 let mut out = Vec::new();
                 for d in found {
@@ -421,6 +445,8 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AddressingProjection {
                     }
                 }
                 out
+            } else if h.payload_type == payload::ACTOR {
+                renamed(cx, &tenant, record).await?
             } else {
                 Self::deliveries(cx, &tenant, record).await?
             };
@@ -442,6 +468,48 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for AddressingProjection {
             Ok(())
         })
     }
+}
+
+/// An actor record that changed a registered account's name addresses the account
+/// (16 §5.2, reason `rename`): the activity projection has written its row as
+/// `renameuser/renameuser` where the record is one, and nothing else an actor record
+/// does addresses anybody. A person who renames their own account is not told of it, as
+/// of any act of their own.
+async fn renamed(
+    cx: &PgCx,
+    tenant: &str,
+    record: &Record,
+) -> Result<Vec<Delivery<'static>>, String> {
+    let h = record.header();
+    let Some(account) = h.key.clone() else {
+        return Ok(Vec::new());
+    };
+    let is_rename = cx
+        .conn()
+        .query_opt(
+            "SELECT 1 FROM view.activity WHERE partition = $1 AND \"offset\" = $2
+               AND log_type = 'renameuser' AND log_action = 'renameuser'",
+            &[
+                &partition_db(h.partition),
+                &i64::try_from(h.offset).unwrap_or(i64::MAX),
+            ],
+        )
+        .await
+        .map_err(|e| sql(&e))?
+        .is_some();
+    if !is_rename {
+        return Ok(Vec::new());
+    }
+    Ok(inbox_of(cx, tenant, &account)
+        .await?
+        .map(|to| Delivery {
+            recipient: to,
+            reason: "rename",
+            target_kind: target_kind::ACTOR,
+            target_id: account,
+        })
+        .into_iter()
+        .collect())
 }
 
 /// Writes the inbox rows of one record's deliveries, and says how many: none for an

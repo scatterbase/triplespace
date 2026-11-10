@@ -116,6 +116,10 @@
 	text-decoration: underline;
 }
 
+.ts-notif__more {
+	color: var( --color-subtle, #54595d );
+}
+
 .ts-notif__meta {
 	margin: 0;
 	color: var( --color-subtle, #54595d );

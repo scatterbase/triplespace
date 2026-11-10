@@ -1501,6 +1501,80 @@ async fn the_preference_matrix() {
     assert_eq!(bad["error"]["code"], "badvalue", "{bad}");
 }
 
+/// Mentions in document pages, and renames (16 §5.2; 0021 A28): a page revision that links
+/// to an account's user page where the text before it did not addresses the account, once;
+/// and an account another account renames is told of it.
+#[tokio::test]
+async fn page_mentions_and_renames() {
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let (mut alice, at, _) = signed_in("pagemention").await;
+    let mut bob = account(&alice.router, "Bob", "bob-secret-1234").await;
+    let mut carol = account(&alice.router, "Carol", "carol-secret-1234").await;
+    let bt = bob.csrf().await;
+    let mentions = |got: &[(String, String)]| -> Vec<String> {
+        got.iter()
+            .filter(|(r, _)| r == "mention")
+            .map(|(_, title)| title.clone())
+            .collect()
+    };
+
+    // Bob writes a page that links to Carol's user page, and to his own.
+    let edit = |text: &str| {
+        format!(
+            "action=edit&title=Project:Roster&text={}&token={}",
+            enc(text),
+            enc(&bt)
+        )
+    };
+    let r = bob
+        .api_post(&edit("Ask [[User:Carol]] or [[User:Bob|me]]."))
+        .await;
+    assert_eq!(r["edit"]["result"], "Success", "{r}");
+    assert_eq!(
+        mentions(&reasons(&mut carol).await).len(),
+        1,
+        "a link to a user page is a mention"
+    );
+    assert!(
+        mentions(&reasons(&mut bob).await).is_empty(),
+        "nobody is told of their own edit"
+    );
+    // The next revision keeps the link and adds one to Alice: Carol is not told again.
+    let r = bob
+        .api_post(&edit(
+            "Ask [[User:Carol]], [[User:Alice]] or [[User:Bob|me]].",
+        ))
+        .await;
+    assert_eq!(r["edit"]["result"], "Success", "{r}");
+    assert_eq!(mentions(&reasons(&mut carol).await).len(), 1);
+    assert_eq!(mentions(&reasons(&mut alice).await).len(), 1);
+
+    // Alice renames Carol: Carol is told, Alice is not.
+    let r = alice
+        .api_post(&format!(
+            "action=renameuser&user=Carol&newuser=Caroline&reason=asked&token={}",
+            enc(&at)
+        ))
+        .await;
+    assert_eq!(r["renameuser"]["to"], "Caroline", "{r}");
+    let got = reasons(&mut carol).await;
+    assert_eq!(
+        got.iter().filter(|(r, _)| r == "rename").count(),
+        1,
+        "{got:?}"
+    );
+    assert!(reasons(&mut alice).await.iter().all(|(r, _)| r != "rename"));
+    let n = carol
+        .api("action=query&meta=notifications&notprop=list&nottsreasons=rename")
+        .await;
+    let item = &n["query"]["notifications"]["list"][0];
+    assert_eq!(item["type"], "ts-rename", "{item}");
+    assert_eq!(item["agent"]["name"], "Alice", "{item}");
+}
+
 /// Thread notifications (0019 §8; 16 §5.2; 0021 A20): `talk` on a user talk page, `reply`,
 /// `mention` (and an edit's new mentions only), `thread-status`, one notification per
 /// account per record, nothing of one's own acts, and what the reader may no longer see
