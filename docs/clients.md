@@ -11,8 +11,8 @@ server loaded from the Librarybase sample fixture, with the client versions pinn
 
 | Client | Version checked | Login | Read | Search | Edit with `baserevid` | New entity above the floor | Check |
 |---|---|---|---|---|---|---|---|
-| [WikibaseIntegrator](https://github.com/LeMyst/WikibaseIntegrator) | 0.12.15 | bot password | ✓ | ✓ | ✓ (stale → `editconflict`) | ✓ item and property | `tools/api_check.py --wbi-login` |
-| [Pywikibot](https://www.mediawiki.org/wiki/Manual:Pywikibot) | 11.8.0 | bot password | ✓ | ✓ | ✓ (stale → `editconflict`) | ✓ item | `tools/pwb_check.py` |
+| [WikibaseIntegrator](https://github.com/LeMyst/WikibaseIntegrator) | 0.14.2 | bot password | ✓ | ✓ | ✓ (stale → `editconflict`) | ✓ item and property | `tools/api_check.py --wbi-login` |
+| [Pywikibot](https://www.mediawiki.org/wiki/Manual:Pywikibot) | 11.10.0 | bot password | ✓ | ✓ | ✓ (stale → `editconflict`) | ✓ item | `tools/pwb_check.py` |
 | [WikidataIntegrator](https://github.com/SuLab/WikidataIntegrator) | 0.9.30 | bot password | ✓ | ✓ | `delete_statement` ✓; `write()` sends none (see below) | ✓ item | `tools/wdi_check.py` |
 
 "Bot password" is the credential `triplespace subsidiary key` issues (0024 §4): `lgname` is

@@ -16,6 +16,11 @@ updates:
     groups:
       cargo:
         update-types: [minor, patch]
+    ignore:
+      # The workspace names getrandom to turn on `wasm_js` for the copy oxrdf's rand pulls in
+      # (Cargo.toml); a newer major is a second copy and the wasm32 build fails.
+      - dependency-name: getrandom
+        update-types: ["version-update:semver-major"]
 
   # The fuzz targets' own workspace (fuzz/Cargo.toml), run nightly, never on a pull request.
   - package-ecosystem: cargo
@@ -34,6 +39,14 @@ updates:
     groups:
       ui:
         update-types: [minor, patch]
+    ignore:
+      # eslint-config-wikimedia 0.32 is an eslintrc config with a peer of eslint ^8.57;
+      # ESLint 9 and later read only flat config.
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
+      # vue-tsc 3.3 (@volar/typescript) needs typescript <7: TypeScript 7 has no lib/tsc.
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
 
   # The documentation site's build (docs/requirements.txt).
   - package-ecosystem: pip

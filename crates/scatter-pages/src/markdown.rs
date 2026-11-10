@@ -28,7 +28,7 @@ fn options() -> Options<'static> {
     // `[[Title|text]]`: the title before the pipe, as MediaWiki writes it.
     o.extension.wikilinks_title_after_pipe = true;
     // Raw HTML reaches the sanitizer, which decides what stays.
-    o.render.unsafe_ = true;
+    o.render.r#unsafe = true;
     o
 }
 

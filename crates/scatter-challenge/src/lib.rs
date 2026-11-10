@@ -21,7 +21,7 @@ use std::fmt;
 
 use base64::Engine as _;
 use base64::engine::general_purpose::URL_SAFE_NO_PAD;
-use hmac::{Hmac, Mac as _};
+use hmac::{Hmac, KeyInit as _, Mac as _};
 use sha2::{Digest as _, Sha256};
 
 /// The format version this crate writes and reads.

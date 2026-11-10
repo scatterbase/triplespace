@@ -249,11 +249,11 @@ impl Lines {
                 }
             }
             NodeData::Element { name, attrs, .. } => {
-                let local = name.local.as_ref();
+                let local: &str = &name.local;
                 let class = attrs
                     .borrow()
                     .iter()
-                    .find(|a| a.name.local.as_ref() == "class")
+                    .find(|a| &*a.name.local == "class")
                     .map(|a| a.value.to_string())
                     .unwrap_or_default();
                 if skipped(local, &class) {
