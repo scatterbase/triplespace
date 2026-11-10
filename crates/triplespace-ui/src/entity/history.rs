@@ -72,7 +72,7 @@ pub struct Filter {
     pub from: Option<String>,
     /// To the end of this day.
     pub to: Option<String>,
-    /// What changed: one of [`CHANGED`]'s names.
+    /// What changed: `labels`, `descriptions`, `aliases`, `sitelinks` or `statements`.
     pub changed: Option<String>,
     /// The language, site or property of what changed.
     pub key: Option<String>,
