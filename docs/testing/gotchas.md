@@ -48,8 +48,10 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
   rustfmt and clippy may differ from CI's, and there is no wasm32 target, so `cargo xtask wasm`
   cannot run there. Say so when reporting.
 - Its Playwright browsers (build 1243, `/opt/pw-browsers`) are the ones `@playwright/test` 1.63.0
-  expects, which is the version `ui/package.json` pins, so `ui/e2e` runs there as it is. They
-  cannot be downloaded: if the pin moves past 1.63, the sandbox's browsers no longer match.
+  expects, and no other build can be downloaded. When `ui/package.json` pins a later release,
+  name the browser it has: `E2E_CHROMIUM=/opt/pw-browsers/chromium_headless_shell-1243/chrome-headless-shell-linux64/chrome-headless-shell`
+  (`ui/playwright.config.js` launches it instead). The whole suite passed that way under 1.65.0
+  (2026-11-10); CI, which installs the matching build, is the verdict on a Playwright bump.
   `ui/node_modules` is not in the tree: `npm ci` (about 500 MB) first, then `npm run build`,
   then the three binaries, which embed `ui/dist`. One spec runs as
   `ui/e2e/run.sh --trace off e2e/<name>.spec.js`.
