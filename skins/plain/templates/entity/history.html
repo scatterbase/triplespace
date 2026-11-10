@@ -3,7 +3,9 @@
     form where two of them can be compared, 0010 §5.6), and the pager. -#}
 {%- import "nav.html" as shared -%}
 {%- import "changes.html" as changes -%}
+{%- import "forms.html" as forms -%}
 <div class="ts-history">
+<details class="ts-history__filter"{% if filter.open %} open{% endif %}><summary>{{ filter.label }}</summary><form class="ts-changes-form" action="/w/index.php" method="get" aria-label="{{ filter.label }}"><input type="hidden" name="title" value="{{ filter.title }}"><input type="hidden" name="action" value="history">{% if filter.source %}<input type="hidden" name="source" value="{{ filter.source }}">{% endif %}{% for i in filter.items %}{{ forms.item(i) }}{% endfor %} <button class="cdx-button cdx-button--action-progressive cdx-button--weight-primary" type="submit">{{ filter.apply }}</button>{% if filter.clear %} <a class="ts-history__filter-clear" href="{{ filter.clear.href }}">{{ filter.clear.label }}</a>{% endif %}</form></details>
 {%- if switch %}{{ shared.switch(switch, "ts-history__switch") }}{% endif -%}
 {%- if note %}<aside class="ts-history__note"><p>{{ note }}</p></aside>{% endif -%}
 {%- if empty %}<p class="ts-empty">{{ empty }}</p>{% else %}{% if list %}{% if compare %}<form class="ts-history__compare" action="/w/index.php" method="get"><input type="hidden" name="title" value="{{ compare.title }}"><div class="ts-history__compare-actions"><button class="cdx-button" type="submit">{{ compare.button }}</button></div>{{ changes.list(list) }}</form>{% else %}{{ changes.list(list) }}{% endif %}{% endif %}{% if pager %}{{ shared.pager(pager) }}{% endif %}{% endif -%}

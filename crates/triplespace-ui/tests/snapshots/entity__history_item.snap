@@ -1,6 +1,5 @@
 ---
 source: crates/triplespace-ui/tests/entity.rs
-assertion_line: 492
 expression: main
 ---
 <main class="ts-page" id="content">
@@ -24,6 +23,63 @@ expression: main
 	</nav>
 	<div class="ts-page__body">
 		<div class="ts-history">
+<details class="ts-history__filter">
+<summary>Filter this history</summary>
+<form class="ts-changes-form" action="/w/index.php" method="get" aria-label="Filter this history">
+<input type="hidden" name="title" value="Item:Q6">
+<input type="hidden" name="action" value="history">
+<label class="ts-form-field">
+<span>User</span> <div class="cdx-text-input">
+<input class="cdx-text-input__input" type="text" name="user" value="">
+</div>
+</label>
+<label class="ts-form-field">
+<span>Tag</span> <div class="cdx-text-input">
+<input class="cdx-text-input__input" type="text" name="tagfilter" value="">
+</div>
+</label>
+<label class="ts-form-field">
+<span>From</span> <div class="cdx-text-input">
+<input class="cdx-text-input__input" type="date" name="from" value="">
+</div>
+</label>
+<label class="ts-form-field">
+<span>To</span> <div class="cdx-text-input">
+<input class="cdx-text-input__input" type="date" name="to" value="">
+</div>
+</label>
+<label class="ts-form-field">
+<span>What changed</span> <select class="cdx-select" name="changed">
+<option value="" selected>Anything</option>
+<option value="labels">Labels</option>
+<option value="descriptions">Descriptions</option>
+<option value="aliases">Aliases</option>
+<option value="sitelinks">Sitelinks</option>
+<option value="statements">Statements</option>
+</select>
+</label>
+<label class="ts-form-field">
+<span>Language, site or property</span> <div class="cdx-text-input">
+<input class="cdx-text-input__input" type="text" name="changedkey" value="">
+</div>
+</label>
+<fieldset class="ts-form-group">
+<legend>Hide</legend>
+<label class="cdx-checkbox cdx-checkbox--inline">
+<input class="cdx-checkbox__input" type="checkbox" name="hidebots" value="1">
+<span class="cdx-checkbox__icon">
+</span>
+<span class="cdx-checkbox__label">Bot edits</span>
+</label>
+<label class="cdx-checkbox cdx-checkbox--inline">
+<input class="cdx-checkbox__input" type="checkbox" name="hideminor" value="1">
+<span class="cdx-checkbox__icon">
+</span>
+<span class="cdx-checkbox__label">Minor edits</span>
+</label>
+</fieldset> <button class="cdx-button cdx-button--action-progressive cdx-button--weight-primary" type="submit">Show history</button>
+</form>
+</details>
 <form class="ts-history__compare" action="/w/index.php" method="get">
 <input type="hidden" name="title" value="Item:Q6">
 <div class="ts-history__compare-actions">
@@ -40,12 +96,13 @@ expression: main
 <th scope="col" class="ts-change__head ts-change__head--target">Page</th>
 <th scope="col" class="ts-change__head ts-change__head--size">Size</th>
 <th scope="col" class="ts-change__head ts-change__head--user">User</th>
+<th scope="col" class="ts-change__head ts-change__head--action">Action</th>
 <th scope="col" class="ts-change__head ts-change__head--summary">Summary</th>
 </tr>
 </thead>
 <tbody>
 <tr class="ts-changes__dayrow">
-<th scope="rowgroup" colspan="8" class="ts-changes__day">2 October 2026</th>
+<th scope="rowgroup" colspan="9" class="ts-changes__day">2 October 2026</th>
 </tr>
 <tr class="ts-change ts-change--edit">
 <td class="ts-change__cell ts-change__cell--compare">
@@ -77,16 +134,16 @@ expression: main
 <a href="/wiki/Special:Contributions/Alice_bot" class="ts-change__actor">Alice bot</a>
 </span>
 </td>
-<td class="ts-change__cell ts-change__cell--summary">
-<span class="ts-change__summary">
+<td class="ts-change__cell ts-change__cell--action">
 <span class="ts-change__auto">add: aliases:en</span>
-</span>
+</td>
+<td class="ts-change__cell ts-change__cell--summary">
 </td>
 </tr>
 </tbody>
 <tbody>
 <tr class="ts-changes__dayrow">
-<th scope="rowgroup" colspan="8" class="ts-changes__day">1 October 2026</th>
+<th scope="rowgroup" colspan="9" class="ts-changes__day">1 October 2026</th>
 </tr>
 <tr class="ts-change ts-change--edit">
 <td class="ts-change__cell ts-change__cell--compare">
@@ -121,10 +178,10 @@ expression: main
 <a href="/wiki/Special:Contributions/Alice" class="ts-change__actor">Alice</a>
 </span>
 </td>
-<td class="ts-change__cell ts-change__cell--summary">
-<span class="ts-change__summary">
+<td class="ts-change__cell ts-change__cell--action">
 <span class="ts-change__auto">adopt</span>
-</span>
+</td>
+<td class="ts-change__cell ts-change__cell--summary">
 <span class="ts-change__tags">
 <span class="ts-change__tag">job:8</span>
 <span class="ts-change__tag">adopt</span>

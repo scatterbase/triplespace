@@ -28,10 +28,15 @@ use crate::features::Feature;
 use crate::frame::{Page, Tab, title_url};
 use crate::i18n::Messages;
 use crate::pages::{self, Context, Params, Peer};
-use crate::special::controls::{self, Control, Kind, ResetModel, SettingRow};
+use crate::special::controls::{
+    self, Control, ControlModel, Kind, OptionModel, ResetModel, SettingRow,
+};
 use crate::theme::Theme;
 
 const TITLE: &str = "Special:Preferences";
+
+/// The key of the reader's skin.
+const SKIN_KEY: &str = "ui.skin";
 
 // ---------------------------------------------------------------------------------------
 // The view model (19 §5.10): what `special/preferences.html` draws.
@@ -120,6 +125,48 @@ fn sheet_pref(
     Some((p, options))
 }
 
+/// The skin is chosen from the skins the wiki lets readers choose (0097 §8), where there
+/// is more than one: a select whose empty choice is the wiki's own.
+fn skin_pref(
+    m: &Messages,
+    skins: &[String],
+    key: &str,
+    p: &Pref,
+) -> Option<(Pref, Vec<(String, String)>)> {
+    if key != SKIN_KEY || skins.len() < 2 {
+        return None;
+    }
+    let mut options = vec![(String::new(), m.get("ts-preferences-skin-default"))];
+    options.extend(skins.iter().map(|s| (s.clone(), s.clone())));
+    let mut p = p.clone();
+    p.ty = "choice".into();
+    p.choices = skins.to_vec();
+    if p.value
+        .as_ref()
+        .and_then(Value::as_str)
+        .is_some_and(|v| !skins.iter().any(|c| c == v))
+    {
+        p.value = None;
+    }
+    Some((p, options))
+}
+
+/// The skins a reader of this wiki may choose, by name: the loaded ones, less those the
+/// wiki's `skins.available` leaves out.
+fn offered_skins(site: &Site, cx: &Context) -> Vec<String> {
+    site.skins()
+        .loaded()
+        .map(|s| s.manifest().name.clone())
+        .filter(|n| {
+            cx.site
+                .skins
+                .available
+                .as_ref()
+                .is_none_or(|a| a.iter().any(|x| x == n))
+        })
+        .collect()
+}
+
 /// How a preference type is edited.
 fn kind_of(ty: &str) -> Kind {
     match ty {
@@ -148,9 +195,119 @@ struct Returned<'a> {
     errors: BTreeMap<String, Vec<String>>,
 }
 
+/// The periods `feeds.period` offers, as ISO 8601 durations, and the rows a page
+/// `rc.limit` offers: what the feeds' own forms offer.
+const PERIODS: [(&str, &str); 6] = [
+    ("P1D", "1"),
+    ("P3D", "3"),
+    ("P7D", "7"),
+    ("P14D", "14"),
+    ("P30D", "30"),
+    ("P90D", "90"),
+];
+const LIMITS: [&str; 4] = ["50", "100", "250", "500"];
+
+/// How many choices are few enough to show at once, as radio buttons.
+const FEW: usize = 5;
+
+/// A control in the form that suits its key best (19 §2.6): the Appearance menu's icon
+/// buttons for the keys it draws so; radio buttons for a choice of a few that always
+/// has a value; a select of the usual values for a period or a page length, with the
+/// reader's own value kept where it is none of them. Each posts what the plain control
+/// would, so the form reads back the same.
+fn shaped(m: &Messages, key: &str, p: &Pref, control: ControlModel, label: &str) -> ControlModel {
+    match control {
+        ControlModel::Select {
+            id,
+            name,
+            options,
+            described_by,
+        } => {
+            let id = id.unwrap_or_default();
+            let current = options
+                .iter()
+                .find(|o| o.selected)
+                .map_or("", |o| o.value.as_str());
+            if let Some(options) = crate::appearance::icon_options(m, key, current) {
+                return ControlModel::Icons {
+                    id,
+                    name,
+                    label: label.to_string(),
+                    options,
+                    described_by,
+                };
+            }
+            // A choice that may have no value keeps its select, whose first option says so.
+            if options.len() <= FEW && options.iter().all(|o| !o.value.is_empty()) {
+                return ControlModel::Radios {
+                    id,
+                    name,
+                    label: label.to_string(),
+                    options,
+                    described_by,
+                };
+            }
+            ControlModel::Select {
+                id: Some(id),
+                name,
+                options,
+                described_by,
+            }
+        }
+        ControlModel::Input {
+            id,
+            name,
+            value,
+            described_by,
+            ..
+        } if key == "feeds.period" || key == "rc.limit" => {
+            let mut options: Vec<OptionModel> = if p.ty == "duration" {
+                PERIODS
+                    .iter()
+                    .map(|(v, days)| OptionModel {
+                        value: (*v).to_string(),
+                        label: m.with("ts-changes-days-n", &[days]),
+                        selected: *v == value,
+                    })
+                    .collect()
+            } else {
+                LIMITS
+                    .iter()
+                    .map(|v| OptionModel {
+                        value: (*v).to_string(),
+                        label: (*v).to_string(),
+                        selected: *v == value,
+                    })
+                    .collect()
+            };
+            if !value.is_empty() && !options.iter().any(|o| o.selected) {
+                options.push(OptionModel {
+                    value: value.clone(),
+                    label: value,
+                    selected: true,
+                });
+            }
+            ControlModel::Select {
+                id,
+                name,
+                options,
+                described_by,
+            }
+        }
+        other => other,
+    }
+}
+
 /// One preference's row, as a model.
-fn row_model(m: &Messages, theme: &Theme, key: &str, p: &Pref, back: &Returned<'_>) -> SettingRow {
-    let sheet = sheet_pref(m, theme, key, p);
+fn row_model(
+    m: &Messages,
+    theme: &Theme,
+    skins: &[String],
+    key: &str,
+    p: &Pref,
+    back: &Returned<'_>,
+) -> SettingRow {
+    let sheet = sheet_pref(m, theme, key, p).or_else(|| skin_pref(m, skins, key, p));
     let p = sheet.as_ref().map_or(p, |(p, _)| p);
     let kind = kind_of(&p.ty);
     let id = format!("ts-p-{key}");
@@ -198,11 +355,17 @@ fn row_model(m: &Messages, theme: &Theme, key: &str, p: &Pref, back: &Returned<'
         choice_label: Some(&choice_label),
     }
     .model();
+    let control = shaped(m, key, p, control, &label_text);
+    let grouped = matches!(
+        control,
+        ControlModel::Radios { .. } | ControlModel::Icons { .. }
+    );
     SettingRow {
         row_id: format!("pref-{key}"),
         key: key.to_string(),
         label: label_text.clone(),
-        label_for: Some(id.clone()),
+        // A group of buttons is named by the row's label itself.
+        label_for: (!grouped).then(|| id.clone()),
         chips: Vec::new(),
         help_id: Some(help_id.clone()),
         help: has_help.then(|| m.get(&help_key)),
@@ -232,6 +395,7 @@ fn row_model(m: &Messages, theme: &Theme, key: &str, p: &Pref, back: &Returned<'
 fn body_model(
     m: &Messages,
     theme: &Theme,
+    skins: &[String],
     prefs: &Preferences,
     token: &str,
     back: &Returned<'_>,
@@ -276,7 +440,7 @@ fn body_model(
             keys: names.join(" "),
             rows: keys
                 .iter()
-                .map(|(k, p)| row_model(m, theme, k, p, back))
+                .map(|(k, p)| row_model(m, theme, skins, k, p, back))
                 .collect(),
             save: Button {
                 label: &m.get("ts-preferences-save"),
@@ -370,6 +534,7 @@ async fn render(
     let model = body_model(
         &cx.m,
         &cx.theme,
+        &offered_skins(site, cx),
         &prefs.value,
         &token.value.value,
         back,
@@ -446,8 +611,8 @@ fn patch_of(
         let Some(p) = prefs.preferences.get(key) else {
             continue;
         };
-        // The palette's and type set's empty choice is the wiki's own: it resets.
-        if crate::appearance::SHEET_KEYS.iter().any(|(k, _)| *k == key)
+        // The palette's, type set's and skin's empty choice is the wiki's own: it resets.
+        if (key == SKIN_KEY || crate::appearance::SHEET_KEYS.iter().any(|(k, _)| *k == key))
             && f.get(&format!("v.{key}")).is_some_and(String::is_empty)
         {
             if p.own {
@@ -689,21 +854,28 @@ mod tests {
             label: "ts-pref-rc-limit".into(),
             ..Pref::default()
         };
-        let r = row_model(&m, &theme, "rc.limit", &p, &Returned::default());
+        let r = row_model(&m, &theme, &[], "rc.limit", &p, &Returned::default());
         assert_eq!(
             (r.row_id.as_str(), r.label_for.as_deref()),
             ("pref-rc.limit", Some("ts-p-rc.limit"))
         );
         assert!(r.reset.is_none() && r.errors.is_empty());
-        assert!(
-            matches!(&r.control, Some(controls::ControlModel::Input { value, .. }) if value == "50")
-        );
+        // A page length is a select of the usual ones.
+        let selected = |r: &SettingRow| match &r.control {
+            Some(ControlModel::Select { options, .. }) => options
+                .iter()
+                .filter(|o| o.selected)
+                .map(|o| o.value.clone())
+                .collect::<Vec<_>>(),
+            other => panic!("{other:?}"),
+        };
+        assert_eq!(selected(&r), ["50"]);
         let own = Pref {
             own: true,
             ..p.clone()
         };
         assert_eq!(
-            row_model(&m, &theme, "rc.limit", &own, &Returned::default())
+            row_model(&m, &theme, &[], "rc.limit", &own, &Returned::default())
                 .reset
                 .unwrap()
                 .value,
@@ -716,11 +888,92 @@ mod tests {
             form: Some(&sent),
             errors: BTreeMap::from([("rc.limit".to_string(), vec!["not a number".to_string()])]),
         };
-        let r = row_model(&m, &theme, "rc.limit", &p, &back);
+        let r = row_model(&m, &theme, &[], "rc.limit", &p, &back);
         assert_eq!(r.errors.len(), 1);
-        assert!(
-            matches!(&r.control, Some(controls::ControlModel::Input { value, .. }) if value == "twenty")
+        // What the reader sent comes back chosen, though it is none of the usual ones.
+        assert_eq!(selected(&r), ["twenty"]);
+    }
+
+    /// 19 §2.6: a control takes the form that suits its key. The Appearance menu's icon
+    /// keys are icon buttons; a choice of a few that always has a value is radio
+    /// buttons, named by the row's label; one that may have none keeps its select; a
+    /// period is a select of the usual periods.
+    #[test]
+    fn a_control_suits_its_key() {
+        let m = Messages::for_language("en");
+        let theme = Theme::shipped();
+        let choice = |key: &str, choices: &[&str], value: Option<&str>| {
+            let p = Pref {
+                value: value.map(|v| json!(v)),
+                ty: "choice".into(),
+                choices: choices.iter().map(|c| (*c).to_string()).collect(),
+                group: "appearance".into(),
+                label: format!("ts-pref-{}", key.replace('.', "-")),
+                ..Pref::default()
+            };
+            row_model(&m, &theme, &[], key, &p, &Returned::default())
+        };
+        let r = choice("ui.mode", &["auto", "light", "dark"], Some("dark"));
+        assert!(r.label_for.is_none());
+        match r.control {
+            Some(ControlModel::Icons {
+                name,
+                label,
+                options,
+                ..
+            }) => {
+                assert_eq!(
+                    (name.as_str(), label.as_str()),
+                    ("v.ui.mode", "Colour mode")
+                );
+                assert_eq!(options.len(), 3);
+                assert!(options[2].checked && options[2].icon_html.starts_with("<svg"));
+            }
+            other => panic!("{other:?}"),
+        }
+        let r = choice(
+            "notifications.email-digest",
+            &["immediate", "daily", "weekly"],
+            Some("daily"),
         );
+        match r.control {
+            Some(ControlModel::Radios { options, .. }) => {
+                assert_eq!(options.len(), 3);
+                assert!(options[1].selected && !options[0].selected);
+            }
+            other => panic!("{other:?}"),
+        }
+        let r = choice("threads.destination", &["here", "upstream"], None);
+        assert!(matches!(r.control, Some(ControlModel::Select { .. })));
+        let period = Pref {
+            value: Some(json!("P7D")),
+            ty: "duration".into(),
+            group: "history".into(),
+            label: "ts-pref-feeds-period".into(),
+            ..Pref::default()
+        };
+        match row_model(
+            &m,
+            &theme,
+            &[],
+            "feeds.period",
+            &period,
+            &Returned::default(),
+        )
+        .control
+        {
+            Some(ControlModel::Select { options, .. }) => {
+                assert_eq!(options.len(), 6);
+                assert_eq!(
+                    options
+                        .iter()
+                        .find(|o| o.selected)
+                        .map(|o| o.label.as_str()),
+                    Some("7 days")
+                );
+            }
+            other => panic!("{other:?}"),
+        }
     }
 
     #[test]

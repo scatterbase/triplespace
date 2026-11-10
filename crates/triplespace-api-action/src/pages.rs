@@ -623,7 +623,9 @@ pub async fn expand(
 pub struct Links {
     config: Arc<Config>,
     base: String,
-    pages: HashMap<(i32, String), bool>,
+    /// The pages that exist, each with where it redirects to, as a prefixed title,
+    /// when it is a redirect whose target is known.
+    pages: HashMap<(i32, String), (bool, Option<String>)>,
     entities: HashSet<String>,
     labels: HashMap<String, String>,
 }
@@ -643,13 +645,15 @@ impl Resolver for Links {
             return PageInfo {
                 exists: self.entities.contains(&id),
                 redirect: false,
+                redirect_to: None,
                 label: self.labels.get(&id).cloned(),
             };
         }
         match self.pages.get(&(t.namespace, t.text.clone())) {
-            Some(redirect) => PageInfo {
+            Some((redirect, to)) => PageInfo {
                 exists: true,
                 redirect: *redirect,
+                redirect_to: to.clone(),
                 label: None,
             },
             None => PageInfo::default(),
@@ -710,8 +714,9 @@ impl Links {
         if !titles.is_empty() {
             for r in db
                 .query(
-                    "SELECT p.ns, p.title, p.is_redirect, p.page_id FROM view.page p
+                    "SELECT p.ns, p.title, p.is_redirect, p.page_id, r.target_ns, r.target_title FROM view.page p
                      JOIN unnest($2::int[], $3::text[]) AS w(ns, title) ON p.ns = w.ns AND p.title = w.title
+                     LEFT JOIN view.redirect r ON r.tenant = p.tenant AND r.page_id = p.page_id
                      WHERE p.tenant = $1 AND NOT p.deleted AND p.latest_offset IS NOT NULL",
                     &[&tenant, &nss, &titles],
                 )
@@ -721,7 +726,15 @@ impl Links {
                 if hidden.page(ns, u64::try_from(r.get::<_, i64>(3)).unwrap_or(0)) {
                     continue;
                 }
-                pages.insert((ns, r.get::<_, String>(1)), r.get::<_, bool>(2));
+                // Where a redirect goes, for its links' `title` (19 §5.10).
+                let to = match (
+                    r.get::<_, Option<i32>>(4),
+                    r.get::<_, Option<String>>(5),
+                ) {
+                    (Some(tns), Some(title)) => Some(site.prefixed(tns, &title)),
+                    _ => None,
+                };
+                pages.insert((ns, r.get::<_, String>(1)), (r.get::<_, bool>(2), to));
             }
         }
         let mut entities = HashSet::new();

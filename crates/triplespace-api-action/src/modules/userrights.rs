@@ -156,6 +156,10 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             return Err(refused(e));
         }
     };
+    // Nothing to add, and the groups to remove were not held (16 §2.3: no event).
+    if out.added.is_empty() && out.removed.is_empty() {
+        ctx.unchanged("The user holds none of the groups to remove, and none was added.");
+    }
     Ok(ApiResponse::ok(json!({"userrights": {
         "user": name,
         "userid": crate::activity::user_id(Some(&key)),

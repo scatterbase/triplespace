@@ -62,7 +62,7 @@
 			</details>
 			<script type="application/json" id="ts-appearance-data">{{ appearance_data|safe }}</script>
 			{%- if bell %}
-			<a class="ts-bell{% if bell.unseen %} ts-bell--unseen{% endif %}" href="/wiki/Special:Notifications" aria-label="{{ bell.label }}" title="{{ bell.label }}"><svg class="ts-bell__icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M16 7a5.38 5.38 0 0 0-4.46-4.85C11.6 1.46 11.53 0 10 0S8.4 1.46 8.46 2.15A5.38 5.38 0 0 0 4 7v6l-2 2v1h16v-1l-2-2zm-6 13a3 3 0 0 0 3-3H7a3 3 0 0 0 3 3"/></svg>{% if bell.count %}<span class="ts-bell__count" aria-hidden="true">{{ bell.count }}</span>{% endif %}</a>
+			<span class="ts-menu ts-bell-menu"><a class="ts-bell{% if bell.unseen %} ts-bell--unseen{% endif %}" href="/wiki/Special:Notifications" aria-label="{{ bell.label }}" title="{{ bell.label }}" data-panel-label="{{ msg("ts-notifications-title") }}" data-all="{{ msg("ts-bell-all") }}" data-loading="{{ msg("ts-bell-loading") }}"><svg class="ts-bell__icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M16 7a5.38 5.38 0 0 0-4.46-4.85C11.6 1.46 11.53 0 10 0S8.4 1.46 8.46 2.15A5.38 5.38 0 0 0 4 7v6l-2 2v1h16v-1l-2-2zm-6 13a3 3 0 0 0 3-3H7a3 3 0 0 0 3 3"/></svg>{% if bell.count %}<span class="ts-bell__count" aria-hidden="true">{{ bell.count }}</span>{% endif %}</a></span>
 			{%- endif %}
 			{%- if account %}
 			{%- if not account.items %}

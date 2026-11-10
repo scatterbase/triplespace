@@ -432,7 +432,7 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
     }
     let diff = get(&web, &diff_href, None).await;
     assert!(diff.body.contains("About this edit"), "{}", diff.body);
-    assert!(diff.body.contains("ts-diff__table"), "{}", diff.body);
+    assert!(diff.body.contains("ts-wbdiff"), "{}", diff.body);
     let old = get(&web, &diff_href.replace("?diff=", "?oldid="), None).await;
     assert!(old.body.contains("This is revision "), "{}", old.body);
     assert!(old.body.contains("Current version"));

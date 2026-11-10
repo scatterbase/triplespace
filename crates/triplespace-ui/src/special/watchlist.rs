@@ -215,7 +215,12 @@ pub async fn serve(site: &Site, headers: &HeaderMap, peer: Peer, params: &Params
                 label: m.get("ts-watchlist-markseen"),
             }),
             empty: rows.is_empty().then(|| m.get("ts-watchlist-none")),
-            list: list_model(m, &cx.site, rows),
+            list: list_model(
+                m,
+                &cx.site,
+                rows,
+                crate::special::changes::RowActions::of(&cx),
+            ),
             older: page.value.next.as_ref().map(|next| {
                 let q: String = url::form_urlencoded::byte_serialize(next.as_bytes()).collect();
                 choice(

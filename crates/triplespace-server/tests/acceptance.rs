@@ -548,6 +548,62 @@ async fn a_bot_logs_in_reads_and_edits() {
     );
     assert_eq!(wp["labels"]["en"]["value"], "Wikipedia");
 
+    // 0002 §8.5 (A48): the same statement again merges onto the one there, so nothing is
+    // written; the answer is that statement, the revision it already had, and a warning.
+    let before_repeat = created["pageinfo"]["lastrevid"].clone();
+    let repeated = c
+        .post(
+            "action=wbcreateclaim&format=json",
+            &format!(
+                "entity={}&property=P12&snaktype=value&value={}&token={}",
+                enc("domain:wikipedia.org"),
+                enc("\"an assertion of ours\""),
+                enc(&csrf)
+            ),
+        )
+        .await;
+    assert_eq!(repeated["success"], 1, "{repeated}");
+    assert_eq!(repeated["claim"]["id"], guid.as_str(), "{repeated}");
+    assert_eq!(
+        repeated["pageinfo"]["lastrevid"], before_repeat,
+        "{repeated}"
+    );
+    let warning = repeated["warnings"]["wbcreateclaim"].to_string();
+    assert!(
+        warning.contains("already has this statement") && warning.contains(&guid),
+        "{repeated}"
+    );
+    let r = c
+        .get("action=wbgetentities&ids=domain:wikipedia.org&format=json")
+        .await;
+    assert_eq!(
+        r["entities"]["domain:wikipedia.org"]["claims"]["P12"]
+            .as_array()
+            .map(Vec::len),
+        Some(1),
+        "no second statement"
+    );
+    // 18 §1.5 (0012 A90): any Wikibase write that leaves the entity as it is warns the
+    // same way, and writes nothing.
+    let same = c
+        .post(
+            "action=wbsetlabel&format=json",
+            &format!("id=Q6&language=fr&value=Six&token={}", enc(&csrf)),
+        )
+        .await;
+    assert_eq!(same["success"], 1, "{same}");
+    assert_eq!(same["entity"]["lastrevid"], second_revid, "{same}");
+    assert!(
+        same["warnings"]["wbsetlabel"]
+            .to_string()
+            .contains("already as this edit would leave it. Nothing was written."),
+        "{same}"
+    );
+    assert!(
+        created.get("warnings").is_none(),
+        "a new statement has no warning"
+    );
+
     // A stale base revision is an edit conflict (0006 §8).
     let (_, conflict) = c
         .call(

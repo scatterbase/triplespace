@@ -229,8 +229,12 @@ pub struct ActivityQuery {
     pub tag: Option<String>,
     /// A log type (`delete`, `protect`, `rights`, `block`, …), for `Special:Log`.
     pub log_type: Option<String>,
+    /// Parts an entity edit touched (`labels`, `labels:en`, `claims:P31`).
+    pub changed: Vec<String>,
     /// From this time, ISO 8601.
     pub since: Option<String>,
+    /// Up to this time, ISO 8601.
+    pub until: Option<String>,
     /// Newest first unless set.
     pub newer_first: bool,
     /// Rows per page.
@@ -251,13 +255,12 @@ impl ActivityQuery {
         )
     }
 
-    /// The path and query of `GET /entity/{id}/history`; `target` and `actor` are not
-    /// sent, since the path names the target.
+    /// The path and query of `GET /entity/{id}/history`; `target` is not sent, since the
+    /// path names it, and `actor` narrows the history to one actor's rows.
     #[must_use]
     pub fn history_path(&self, id: &str) -> String {
         let q = Self {
             target: None,
-            actor: None,
             ..self.clone()
         };
         format!(
@@ -273,7 +276,6 @@ impl ActivityQuery {
     pub fn page_history_path(&self, page_id: u64) -> String {
         let q = Self {
             target: None,
-            actor: None,
             ..self.clone()
         };
         format!(
@@ -318,8 +320,14 @@ impl ActivityQuery {
         if let Some(t) = &self.log_type {
             push("log_type", t);
         }
+        if !self.changed.is_empty() {
+            push("changed", &self.changed.join("|"));
+        }
         if let Some(s) = &self.since {
             push("since", s);
+        }
+        if let Some(u) = &self.until {
+            push("until", u);
         }
         if self.newer_first {
             push("dir", "newer");
@@ -460,6 +468,19 @@ mod tests {
             h.history_path("domain:wikipedia.org"),
             "/w/rest.php/triplespace/v0/entity/domain:wikipedia.org/history?source=local&limit=20",
             "the target is the path, not a parameter"
+        );
+        // A history's filters (0010 A56): the actor narrows it, with what changed and
+        // the days.
+        let f = ActivityQuery {
+            actor: Some("Alice".into()),
+            changed: vec!["labels:en".into(), "claims".into()],
+            since: Some("2026-11-01T00:00:00Z".into()),
+            until: Some("2026-11-02T23:59:59Z".into()),
+            ..ActivityQuery::default()
+        };
+        assert_eq!(
+            f.page_history_path(7),
+            "/w/rest.php/triplespace/v0/page/7/history?actor=Alice&changed=labels:en%7Cclaims&since=2026-11-01T00:00:00Z&until=2026-11-02T23:59:59Z"
         );
     }
 

@@ -58,11 +58,12 @@ test( 'a refused preference comes back with the reader\'s text and why; a good o
 	await expect( page.locator( '#statements .cdx-message--success' ) ).toHaveCount( 0 );
 	// Saved: the section says so, and the row offers Reset.
 	await page.goto( '/wiki/Special:Preferences' );
-	await page.locator( '[id="ts-p-rc.limit"]' ).fill( '20' );
+	// A page length is a select of the usual ones (19 §2.6).
+	await page.locator( '[id="ts-p-rc.limit"]' ).selectOption( '100' );
 	await page.locator( '#history' ).getByRole( 'button', { name: 'Save', exact: true } ).click();
 	await expect( page.locator( '#history .cdx-message--success' ) )
 		.toContainText( 'Your preferences have been saved.' );
-	await expect( page.locator( '[id="ts-p-rc.limit"]' ) ).toHaveValue( '20' );
+	await expect( page.locator( '[id="ts-p-rc.limit"]' ) ).toHaveValue( '100' );
 	const reset = page.locator( '[id="pref-rc.limit"] .ts-setting__reset' );
 	await expect( reset ).toBeVisible();
 	// Reset: the value returns to the default, and the row no longer offers Reset.
@@ -70,4 +71,30 @@ test( 'a refused preference comes back with the reader\'s text and why; a good o
 	await expect( page.locator( '#history .cdx-message--success' ) ).toBeVisible();
 	await expect( page.locator( '[id="ts-p-rc.limit"]' ) ).toHaveValue( '50' );
 	await expect( page.locator( '[id="pref-rc.limit"] .ts-setting__reset' ) ).toHaveCount( 0 );
+} );
+
+test( 'with JavaScript the preference tabs are panes, and a few choices are buttons', async ( { browser } ) => {
+	// 19 §2.6: one group in view at a time; the address names the pane.
+	const context = await browser.newContext( { javaScriptEnabled: true } );
+	const page = await context.newPage();
+	await logIn( page, 'Special:Preferences' );
+	await expect( page.locator( '#interface' ) ).toBeVisible();
+	await expect( page.locator( '#appearance' ) ).toBeHidden();
+	await page.locator( '.ts-tabs' ).getByRole( 'link', { name: 'Appearance' } ).click();
+	await expect( page ).toHaveURL( /#appearance$/ );
+	await expect( page.locator( '#appearance' ) ).toBeVisible();
+	await expect( page.locator( '#interface' ) ).toBeHidden();
+	await expect( page.locator( '#restore' ) ).toBeVisible();
+	// Colour mode is the Appearance menu's icon buttons; a small choice is radio buttons.
+	const mode = page.getByRole( 'radiogroup', { name: 'Colour mode' } );
+	await expect( mode.getByRole( 'radio' ) ).toHaveCount( 3 );
+	await mode.getByText( 'Dark', { exact: true } ).click();
+	await page.locator( '#appearance' ).getByRole( 'button', { name: 'Save', exact: true } ).click();
+	// The pane a save answered is the one in view.
+	await expect( page.locator( '#appearance .cdx-message--success' ) ).toBeVisible();
+	await expect( page.locator( '#interface' ) ).toBeHidden();
+	await expect( page.getByRole( 'radiogroup', { name: 'Colour mode' } ).getByRole( 'radio', { checked: true } ) ).toHaveValue( 'dark' );
+	await page.locator( '[id="pref-ui.mode"] .ts-setting__reset' ).click();
+	await expect( page.getByRole( 'radiogroup', { name: 'Colour mode' } ).getByRole( 'radio', { checked: true } ) ).toHaveValue( 'auto' );
+	await context.close();
 } );

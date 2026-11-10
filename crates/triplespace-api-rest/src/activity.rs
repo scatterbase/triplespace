@@ -16,6 +16,8 @@
 //! - `syncs=on|off` — the sync switch of 16 §4.2, a shorthand on `kind`.
 //! - `namespace={n}` — entity namespaces, several with `|`.
 //! - `tag`, `job`, `exclude_actor`, `log_type`, `log_action`.
+//! - `changed=labels|labels:en|claims:P31|…` — entity edits that touched one of these
+//!   parts, optionally by language, site or property; several with `|` (16 §4.1).
 //! - `show=bot|!bot|minor|!minor|new|!new|patrolled|!patrolled`.
 //! - `since`, `until` — ISO 8601 or MediaWiki timestamps.
 //! - `dir=older|newer` — `older` (newest first) by default.
@@ -167,6 +169,14 @@ pub(crate) async fn feed_of(
     if let Some(t) = q.get("tag") {
         feed.filters.tag = Some(t.clone());
     }
+    if let Some(c) = q.get("changed") {
+        for s in c.split('|').filter(|s| !s.is_empty()) {
+            match feed::Changed::parse(s) {
+                Some(part) => feed.filters.changed.push(part),
+                None => return Err(bad("changed", s)),
+            }
+        }
+    }
     if let Some(j) = q.get("job") {
         feed.filters.job = Some(j.parse().map_err(|_| bad("job", j))?);
     }
@@ -290,6 +300,7 @@ pub(crate) async fn serve(
         cache_tags: Vec::new(),
         accept_language: None,
         batch: std::sync::atomic::AtomicU64::new(0),
+        unchanged: std::sync::Mutex::new(None),
     };
     // The caller's watch set (16 §4.3).
     let mut holding = None;
@@ -451,6 +462,7 @@ mod tests {
             "syncs",
             "namespace",
             "tag",
+            "changed",
             "job",
             "exclude_actor",
             "log_type",

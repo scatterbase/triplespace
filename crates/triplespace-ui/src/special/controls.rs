@@ -191,6 +191,34 @@ pub enum ControlModel {
         /// The element describing it.
         described_by: Option<String>,
     },
+    /// A few choices of which one is chosen, all in view: a group of radio buttons,
+    /// named by the row's label.
+    Radios {
+        /// The group's ID.
+        id: String,
+        /// The field's name.
+        name: String,
+        /// The group's accessible name: the row's label.
+        label: String,
+        /// The choices, the current one selected.
+        options: Vec<OptionModel>,
+        /// The element describing it.
+        described_by: Option<String>,
+    },
+    /// Choices drawn as icon buttons of which one is chosen (the Appearance menu's
+    /// groups, 19 §2.7): radio buttons, each named and titled by its label.
+    Icons {
+        /// The group's ID.
+        id: String,
+        /// The field's name.
+        name: String,
+        /// The group's accessible name: the row's label.
+        label: String,
+        /// The choices.
+        options: Vec<crate::appearance::IconOption>,
+        /// The element describing it.
+        described_by: Option<String>,
+    },
     /// A one-line input: `number` or `text`.
     Input {
         /// The element ID, where the page refers to it.
@@ -440,6 +468,8 @@ impl FormItem {
             ControlModel::Checkbox { name, .. }
             | ControlModel::Radio { name, .. }
             | ControlModel::Select { name, .. }
+            | ControlModel::Radios { name, .. }
+            | ControlModel::Icons { name, .. }
             | ControlModel::Input { name, .. }
             | ControlModel::File { name, .. }
             | ControlModel::TextArea { name, .. } => Some(name),

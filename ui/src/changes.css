@@ -223,6 +223,17 @@
 	font-style: italic;
 }
 
+/* An automatic comment (a section, or what Wikibase said the edit did) reads apart from
+   the editor's own words, as MediaWiki's does. */
+.ts-change__autocomment,
+.ts-change__autocomment a {
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-change__comment a {
+	text-decoration: underline;
+}
+
 .ts-change__comment {
 	color: var( --color-base, #202122 );
 }
@@ -320,6 +331,7 @@
 	font-weight: bold;
 }
 
+/* A sync's summary table. */
 .ts-diff__table {
 	width: 100%;
 	border-collapse: collapse;
@@ -339,39 +351,102 @@
 	background-color: var( --background-color-neutral-subtle, #f8f9fa );
 }
 
-.ts-diff__key,
-.ts-diff__mark {
+.ts-diff__key {
 	width: 8rem;
 	font-weight: normal;
 }
 
-.ts-diff__table--statements .ts-diff__mark {
-	width: 6rem;
+/* An entity's diff as Wikibase draws one (0010 §6): two columns, the older state on the
+   left and the newer on the right, each with a narrow column for its − or + marker, as
+   a page's diff has. A change is told apart by its marker, a border and a background,
+   never by colour alone. */
+.ts-wbdiff {
+	width: 100%;
+	border-collapse: separate;
+	border-spacing: var( --spacing-25, 0.25rem ) 2px;
+	table-layout: fixed;
 }
 
-/* A changed cell is told apart by a border mark and a background, not colour alone. */
-.ts-diff__cell--added {
-	border-inline-start: 4px solid var( --color-success, #177860 );
-	background-color: var( --background-color-success-subtle, #dff2eb );
+.ts-wbdiff__col-marker {
+	width: 2ch;
 }
 
-.ts-diff__cell--removed {
-	border-inline-start: 4px solid var( --color-destructive, #bf3c2c );
-	background-color: var( --background-color-destructive-subtle, #ffe9e5 );
-	text-decoration: line-through;
+.ts-wbdiff__col-content {
+	width: 50%;
 }
 
-.ts-diff__cell--changed {
-	border-inline-start: 4px solid var( --color-warning, #edab00 );
+.ts-wbdiff__title {
+	padding-block-end: var( --spacing-50, 0.5rem );
+	font-weight: normal;
+	text-align: center;
+	vertical-align: top;
+}
+
+.ts-wbdiff__lineno {
+	padding-block-start: var( --spacing-75, 0.75rem );
+	font-weight: bold;
+	overflow-wrap: anywhere;
+}
+
+.ts-wbdiff__key {
+	font-weight: normal;
+}
+
+.ts-wbdiff__marker {
+	font-weight: bold;
+	text-align: end;
+	vertical-align: top;
+}
+
+.ts-wbdiff__marker::before {
+	content: attr( data-marker );
+}
+
+.ts-wbdiff .ts-diff__cell {
+	padding: var( --spacing-25, 0.25rem ) var( --spacing-50, 0.5rem );
+	border: 1px solid var( --border-color-muted, #dadde3 );
+	border-inline-start-width: 4px;
+	border-radius: var( --border-radius-base, 2px );
+	vertical-align: top;
+	overflow-wrap: anywhere;
+}
+
+.ts-wbdiff .ts-diff__cell--added {
+	border-color: var( --border-color-progressive--focus, #36c );
+}
+
+.ts-wbdiff .ts-diff__cell--removed {
+	border-color: var( --border-color-warning, #ab7f2a );
+}
+
+.ts-wbdiff .ts-diff__cell--same {
+	background-color: var( --background-color-neutral-subtle, #f8f9fa );
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-wbdiff .ts-diff__cell--empty {
+	border: 0;
+}
+
+.ts-wbdiff__change {
+	padding: 0 2px;
+	border-radius: var( --border-radius-base, 2px );
+	font-weight: bold;
+	text-decoration: none;
+}
+
+ins.ts-wbdiff__change {
+	background-color: var( --background-color-progressive-subtle, #eaf3ff );
+}
+
+del.ts-wbdiff__change {
 	background-color: var( --background-color-warning-subtle, #fdf2d5 );
 }
 
-.ts-diff__cell--empty {
-	background-color: var( --background-color-neutral-subtle, #f8f9fa );
-}
-
-.ts-diff__row--unchanged .ts-diff__mark {
+.ts-wbdiff__notice {
+	padding: var( --spacing-100, 1rem );
 	color: var( --color-subtle, #54595d );
+	text-align: center;
 }
 
 .ts-diff__statement .ts-qualifiers,
@@ -435,4 +510,52 @@
 
 .ts-history__compare-actions {
 	margin-block-end: var( --spacing-50, 0.5rem );
+}
+
+/* A row's menu (19 §3.4): a disclosure whose links open in the row, so that the table's
+   scroll box never clips them. */
+.ts-change__cell--menu {
+	width: 1%;
+	text-align: end;
+	white-space: nowrap;
+}
+
+.ts-change__menu > summary {
+	list-style: none;
+}
+
+.ts-change__menu > summary::-webkit-details-marker {
+	display: none;
+}
+
+.ts-change__menu-items {
+	margin: var( --spacing-25, 0.25rem ) 0 0;
+	padding: 0;
+	list-style: none;
+	text-align: start;
+}
+
+/* The action is a short field; a long one wraps. */
+.ts-change__cell--action {
+	max-width: 16rem;
+	overflow-wrap: break-word;
+}
+
+/* A history's filter panel (19 §3.3): a disclosure above the rows, open while a filter
+   is on. */
+.ts-history__filter {
+	margin-block-end: var( --spacing-75, 0.75rem );
+}
+
+.ts-history__filter > summary {
+	color: var( --color-progressive, #36c );
+	cursor: pointer;
+}
+
+.ts-history__filter > .ts-changes-form {
+	margin-block-start: var( --spacing-50, 0.5rem );
+}
+
+.ts-history__filter-clear {
+	margin-inline-start: var( --spacing-75, 0.75rem );
 }

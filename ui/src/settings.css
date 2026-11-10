@@ -197,6 +197,32 @@
 	fill: currentcolor;
 }
 
+/* On Special:Preferences the same groups name each choice beside its icon, and a choice
+   of a few is a row of radio buttons. */
+
+.ts-choice-group__options--row {
+	display: inline-flex;
+	flex-wrap: wrap;
+}
+
+.ts-choice-group__option--named {
+	flex: 0 1 auto;
+	gap: var( --spacing-35, 0.375rem );
+	padding: var( --spacing-25, 0.25rem ) var( --spacing-75, 0.75rem );
+}
+
+.ts-radios {
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: var( --spacing-25, 0.25rem ) var( --spacing-100, 1rem );
+}
+
+/* With JavaScript the tabs are panes: one group in view at a time (pref-tabs.js). */
+
+.ts-preferences--panes .ts-settings__section[ hidden ] {
+	display: none;
+}
+
 .ts-appearance__nojs {
 	margin: 0;
 	font-size: var( --font-size-small, 0.875rem );

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-24
-- **Updated:** 2026-11-08 (A47)
+- **Updated:** 2026-11-09 (A48)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md)
 - **Uses:** [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -97,7 +97,7 @@ Four scenarios were used to test the design:
 
 #### 8.5 Local bulk creation
 
-*Changed by A12, A15, A19, A32, A47.*
+*Changed by A12, A15, A19, A32, A47, A48.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.5.*
 
@@ -647,3 +647,10 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.3, as it sto
 - **Source:** [0104](0104-batches-and-the-job-runner.md) §11
 - **Change:** extends §8.5
 - **Summary:** `Special:CreateEntities` is the editor's form of local bulk creation: a pasted or uploaded table, a column per term or property and a row per item, every row checked before anything is written, created as one keyed batch of interactive `create`s. Chapter text: [05](../architecture/05-providers-and-ingest.md) §3.5; [21](../architecture/21-special-pages.md) §6.6.
+
+### A48. An edit that only repeats a statement writes nothing
+
+- **Date:** 2026-11-09
+- **Source:** Direct: Claude, while fixing an empty revision written by `wbcreateclaim`, 2026-11-09; unconfirmed
+- **Change:** extends §8.5
+- **Summary:** `wbcreateclaim` with a value the entity already had appended an `add` that merged onto the existing statement: a record and a revision that changed nothing, an activity row whose diff was empty, and `"claim": null` in the answer. The difference between two states of an entity, which every interactive entity edit is written from, now leaves out a new statement that the `add` would merge onto one the local graph holds and the edit keeps, where it brings no reference that one lacks; an edit with nothing else in it appends nothing, as an edit with no difference already did. `wbcreateclaim` then answers with the existing statement under its own GUID and the current `lastrevid`, still with `success: 1`, and with a warning in MediaWiki's `warnings` block, under `wbcreateclaim`, that the entity already has the statement, naming its GUID (James, design discussion of 2026-11-09: a warning rather than an error or a flag). A statement only a mirror asserts is still added to the local graph, and one that brings a new reference is still written, the reference merged on. Wikibase would have made a second, duplicate statement; merging is this section's rule. Chapter text: [05](../architecture/05-providers-and-ingest.md) §3.5.

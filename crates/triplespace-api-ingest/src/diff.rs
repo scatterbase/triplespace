@@ -5,13 +5,19 @@
 //! or changes is not the tenant's to retract, so it is suppressed with an `override`
 //! (0004 §8), and a changed one re-added under a fresh local GUID. Terms, aliases and
 //! sitelinks are added and removed by language and site.
+//!
+//! A new statement that an `add` would merge onto one the local graph already holds
+//! (0002 §8.5: the same main snak and qualifiers), bringing no reference it lacks, is no
+//! difference: nothing is written for it, so an edit that only repeats a statement
+//! appends no record and makes no revision.
 
 use std::collections::{BTreeMap, BTreeSet};
 
 use scatter_wikibase_changeset::{Operation, SitelinkPatch};
 use scatter_wikibase_model::entity::Entity;
 use scatter_wikibase_model::hash::Hasher;
-use scatter_wikibase_model::id::StatementId;
+use scatter_wikibase_model::id::{EntityId, StatementId};
+use scatter_wikibase_model::key::{Identity, statement_key};
 use scatter_wikibase_model::statement::Statement;
 
 /// The statement with this GUID in an entity.
@@ -29,6 +35,33 @@ fn same_statement(a: &Statement, b: &Statement) -> bool {
             .iter()
             .zip(&b.references)
             .all(|(x, y)| h.reference(x) == h.reference(y))
+}
+
+/// Whether adding `new` under `property` would change nothing: the local graph already
+/// asserts an identical statement (0002 §8.5), which the edit keeps, and every reference
+/// of `new` is on it already, so the `add` would merge it away.
+fn merges_away(
+    was: &Entity,
+    is_local: &dyn Fn(&StatementId) -> bool,
+    after: &Entity,
+    property: &EntityId,
+    new: &Statement,
+) -> bool {
+    let h = Hasher::local();
+    let key = statement_key(new, &Identity);
+    was.statements.get(property).is_some_and(|group| {
+        group.iter().any(|old| {
+            old.id
+                .as_ref()
+                .is_some_and(|g| is_local(g) && by_guid(after, g).is_some())
+                && statement_key(old, &Identity) == key
+                && new.references.iter().all(|r| {
+                    old.references
+                        .iter()
+                        .any(|o| h.reference(o) == h.reference(r))
+                })
+        })
+    })
 }
 
 /// The operations that take a state whose local statements are `local` to `after`; for a
@@ -76,12 +109,14 @@ pub fn diff(
                             fresh.id = None;
                             add_claims.entry(property.clone()).or_default().push(fresh);
                         }
+                        None if merges_away(was, is_local, after, property, s) => {}
                         None => add_claims
                             .entry(property.clone())
                             .or_default()
                             .push(s.clone()),
                     }
                 }
+                None if merges_away(was, is_local, after, property, s) => {}
                 None => add_claims
                     .entry(property.clone())
                     .or_default()
@@ -212,4 +247,104 @@ pub fn diff(
         });
     }
     ops
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use scatter_wikibase_model::entity::EntityType;
+    use serde_json::json;
+
+    fn statement(id: Option<&str>, value: &str, reference: Option<&str>) -> Statement {
+        let mut v = json!({
+            "mainsnak": {
+                "snaktype": "value", "property": "P2", "datatype": "wikibase-item",
+                "datavalue": {"type": "wikibase-entityid", "value": {"entity-type": "item", "id": value}},
+            },
+            "type": "statement", "rank": "normal",
+        });
+        if let Some(id) = id {
+            v["id"] = json!(id);
+        }
+        if let Some(url) = reference {
+            v["references"] = json!([{"snaks": {"P11": [{
+                "snaktype": "value", "property": "P11", "datatype": "url",
+                "datavalue": {"type": "string", "value": url},
+            }]}, "snaks-order": ["P11"]}]);
+        }
+        serde_json::from_value(v).unwrap()
+    }
+
+    fn entity(statements: Vec<Statement>) -> Entity {
+        let mut e = Entity::new(EntityId::parse("Q6").unwrap(), EntityType::Item);
+        let p2 = EntityId::parse("P2").unwrap();
+        e.statements.insert(p2, statements);
+        e
+    }
+
+    const OLD: &str = "Q6$00000003-0000-0000-0000-000000000000";
+    const NEW: &str = "Q6$3A6B906B-1E1E-5B43-B369-B881E41CA9ED";
+
+    fn claims_added(ops: &[Operation]) -> usize {
+        ops.iter()
+            .map(|op| match op {
+                Operation::Add { claims, .. } => claims.values().map(Vec::len).sum(),
+                _ => 0,
+            })
+            .sum()
+    }
+
+    // 0002 §8.5: an identical statement merges onto the one there, so repeating a
+    // statement the local graph holds is no difference and writes nothing.
+    #[test]
+    fn a_repeated_statement_is_no_difference() {
+        let was = entity(vec![statement(Some(OLD), "Q1", None)]);
+        let local = [StatementId::parse(OLD).unwrap()];
+        let again = entity(vec![
+            statement(Some(OLD), "Q1", None),
+            statement(Some(NEW), "Q1", None),
+        ]);
+        assert!(operations_from(&was, &local, &again).is_empty());
+        // Without a GUID of its own, the same.
+        let bare = entity(vec![
+            statement(Some(OLD), "Q1", None),
+            statement(None, "Q1", None),
+        ]);
+        assert!(operations_from(&was, &local, &bare).is_empty());
+    }
+
+    #[test]
+    fn a_statement_that_brings_something_is_added() {
+        let was = entity(vec![statement(Some(OLD), "Q1", None)]);
+        let local = [StatementId::parse(OLD).unwrap()];
+        // Another value.
+        let other = entity(vec![
+            statement(Some(OLD), "Q1", None),
+            statement(Some(NEW), "Q2", None),
+        ]);
+        assert_eq!(claims_added(&operations_from(&was, &local, &other)), 1);
+        // The same value with a reference the one there lacks: the add merges it on.
+        let cited = entity(vec![
+            statement(Some(OLD), "Q1", None),
+            statement(Some(NEW), "Q1", Some("https://example.org/")),
+        ]);
+        assert_eq!(claims_added(&operations_from(&was, &local, &cited)), 1);
+        // The same value where only a mirror asserts it: the local graph gains it.
+        assert_eq!(
+            claims_added(&operations_from(
+                &was,
+                &[],
+                &entity(vec![
+                    statement(Some(OLD), "Q1", None),
+                    statement(Some(NEW), "Q1", None),
+                ])
+            )),
+            1
+        );
+        // The one there is dropped in the same edit: the new one replaces it.
+        let replaced = entity(vec![statement(Some(NEW), "Q1", None)]);
+        let ops = operations_from(&was, &local, &replaced);
+        assert_eq!(claims_added(&ops), 1);
+        assert!(matches!(&ops[0], Operation::Remove { statements, .. } if statements.len() == 1));
+    }
 }

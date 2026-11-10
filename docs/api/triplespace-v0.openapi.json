@@ -341,6 +341,15 @@
             }
           },
           {
+            "name": "changed",
+            "in": "query",
+            "required": false,
+            "description": "Only entity edits whose change set touched one of these parts, several with `|`: `labels`, `descriptions`, `aliases`, `sitelinks`, `claims`, `statements`, `references` or `qualifiers`, each optionally with a key after a colon: a language (`labels:en`), a site (`sitelinks:enwiki`) or a property (`claims:P31`). A row that records no parts (a page edit, a log event, a sync) matches none (chapter 16 §4.1).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "job",
             "in": "query",
             "required": false,

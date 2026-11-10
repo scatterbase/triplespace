@@ -45,6 +45,10 @@ pub struct Ctx {
     pub accept_language: Option<String>,
     /// The batch the write joined (0104 §1), which the response reports; 0 for none.
     pub batch: std::sync::atomic::AtomicU64,
+    /// Why the action wrote nothing, where it would normally have written and what it
+    /// asked for was already so (18 §1.5): the response warns with it under the
+    /// action's name ([`Ctx::unchanged`]).
+    pub unchanged: std::sync::Mutex<Option<String>>,
 }
 
 impl Ctx {
@@ -69,6 +73,32 @@ impl Ctx {
     /// Adds a warning under a module name.
     pub fn warn(&mut self, module: &str, text: impl Into<String>) {
         self.warnings.push((module.to_string(), text.into()));
+    }
+
+    /// Notes that the action changed nothing and wrote nothing, and why: what it asked
+    /// for was already so. The response still succeeds, as an idempotent request should,
+    /// and carries the reason as a warning under the action's name, so that a client
+    /// that expected a new revision or log entry can tell there is none. A later, more
+    /// exact reason replaces an earlier one.
+    pub fn unchanged(&self, why: impl Into<String>) {
+        *self
+            .unchanged
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner) = Some(why.into());
+    }
+}
+
+/// Adds the warning of an action that wrote nothing ([`Ctx::unchanged`]) to its answer,
+/// under the action's name. An answer that is an error says why itself.
+fn with_unchanged(ctx: &Ctx, response: &mut ApiResponse) {
+    let why = ctx
+        .unchanged
+        .lock()
+        .unwrap_or_else(std::sync::PoisonError::into_inner)
+        .take();
+    if let (Some(why), None) = (why, &response.error) {
+        let action = ctx.params.get("action").unwrap_or("help").to_string();
+        response.warn(&action, &format!("{why} Nothing was written."));
     }
 }
 
@@ -197,12 +227,14 @@ pub async fn handle(
             .and_then(|v| v.to_str().ok())
             .map(str::to_owned),
         batch: std::sync::atomic::AtomicU64::new(0),
+        unchanged: std::sync::Mutex::new(None),
     };
     let mut response = match dispatch(&mut ctx).await {
         Ok(r) => r,
         Err(e) => ApiResponse::err(e),
     };
     response.warnings.append(&mut ctx.warnings);
+    with_unchanged(&ctx, &mut response);
     with_batch(&ctx, &mut response);
     if response.set_cookie.is_none() {
         response.set_cookie = ctx.set_cookie.take();

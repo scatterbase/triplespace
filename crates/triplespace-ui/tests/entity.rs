@@ -562,11 +562,20 @@ async fn the_diff_page_draws_a_change_as_statements() {
     assert!(main.contains("aria-current=\"page\">History</a>"));
     assert!(main.contains("Revision 907"));
     assert!(main.contains("rank and a value"));
-    // Terms as keyed lists, with the marks.
+    // Two columns, as Wikibase draws a diff (0010 §6): each term headed by what it is on
+    // both sides, what came marked + on the right.
+    assert!(main.contains("<table class=\"ts-wbdiff\">"), "{main}");
     assert!(
-        main.contains("ts-diff__cell--added\">\n<span lang=\"fr\" dir=\"auto\">Six</span>"),
+        main.contains("Labels / <span class=\"ts-wbdiff__key\">fr</span>"),
         "{main}"
     );
+    assert!(
+        main.contains(
+            "<td class=\"ts-diff__cell ts-diff__cell--added\">\n<ins class=\"ts-wbdiff__change\" lang=\"fr\" dir=\"auto\">Six</ins>"
+        ),
+        "{main}"
+    );
+    assert!(main.contains("Property / "), "{main}");
     assert!(main.contains("eine gerade Zahl"));
     assert!(main.contains("6 | half dozen | VI"));
     assert!(main.contains(">enwiki<"));

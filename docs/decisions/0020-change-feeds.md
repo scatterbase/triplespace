@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-09 (A20)
+- **Updated:** 2026-11-09 (A21)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0022](0022-federation.md)
@@ -19,7 +19,7 @@ One constraint is fixed by James: **whether a user is watching something is priv
 
 ### 1. A feed is activity rows filtered by a target set
 
-*Changed by A3, A15, A19.*
+*Changed by A3, A15, A19, A21.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.1.*
 
@@ -293,3 +293,10 @@ Replaced text ([18](../architecture/18-api.md) §2.3, §2.4, §3.2, as it stood)
 Replaced text ([18](../architecture/18-api.md) §2.3, `action-api.toml`, as it stood):
 
 > `action=watch`, `action=unwatch`
+
+### A21. A feed filters by what an entity edit changed
+
+- **Date:** 2026-11-09
+- **Source:** Direct: James, design discussion of 2026-11-09
+- **Change:** extends §1
+- **Summary:** `GET /activity` and the history routes take `changed`: the parts a local change set touched, `labels`, `descriptions`, `aliases`, `sitelinks`, `claims`, `statements`, `references` or `qualifiers`, each optionally with a language, site or property after a colon, several with `|` as alternatives. It is matched against the row's stored summary arguments, so a row that records none matches nothing, and a removed statement, recorded by its ID, is not found by property. James approved the parameter as an API change made for the history's filter panel ([0010](0010-site-ui.md) A56). The feed's tag filter, already served, is named in the chapter. Chapter text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.1.

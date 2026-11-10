@@ -3,25 +3,14 @@
 {%- import "codex.html" as codex -%}
 {%- import "entity.html" as entity -%}
 {%- import "nav.html" as shared -%}
+{%- import "changes.html" as changes -%}
 
 {#- A revision's line in the header: time, actor, comment. -#}
 {%- macro revision_line(l) -%}
 {%- if l.revision %}<a href="{{ l.revision.href }}">{{ l.revision.label }}</a> {% endif -%}
 <time datetime="{{ l.datetime }}">{{ l.time }}</time>
 {%- if l.actor %} · <a href="{{ l.actor.href }}">{{ l.actor.label }}</a>{% endif -%}
-{%- if l.comment %} · <span class="ts-change__comment">{{ l.comment }}</span>{% endif -%}
-{%- endmacro -%}
-
-{#- One side of a keyed list. -#}
-{%- macro cell(value, lang, class) -%}
-{%- if value is not none %}<td class="ts-diff__cell ts-diff__cell--{{ class }}"><span{% if lang %} lang="{{ lang }}" dir="auto"{% endif %}>{{ value }}</span></td>{% else %}<td class="ts-diff__cell ts-diff__cell--empty"></td>{% endif -%}
-{%- endmacro -%}
-
-{#- A keyed list's table: terms or sitelinks, before and after. -#}
-{%- macro keyed_table(t) -%}
-<section class="ts-diff__section"><h3 class="ts-diff__heading">{{ t.heading }}</h3><table class="ts-diff__table"><thead><tr><th>{{ msg("ts-diff-key") }}</th><th>{{ msg("ts-diff-before") }}</th><th>{{ msg("ts-diff-after") }}</th></tr></thead><tbody>
-{%- for r in t.rows %}<tr><th scope="row" class="ts-diff__key">{{ r.key }}</th>{{ cell(r.before, r.lang, r.before_class) }}{{ cell(r.after, r.lang, r.after_class) }}</tr>{% endfor -%}
-</tbody></table></section>
+{%- if l.comment %} · <span class="ts-change__comment">{{ changes.comment(l.comment) }}</span>{% endif -%}
 {%- endmacro -%}
 
 {#- A statement as the diff draws it: the value, qualifiers and references. -#}
@@ -35,16 +24,48 @@
 </div>
 {%- endmacro -%}
 
-{#- One side of a statement's row. -#}
-{%- macro side(s, class) -%}
-{%- if s is not none %}<td class="ts-diff__cell ts-diff__cell--{{ class }}">{{ statement(s) }}</td>{% else %}<td class="ts-diff__cell ts-diff__cell--empty"></td>{% endif -%}
+{#- The two-column table (0010 §6, as Wikibase draws an entity's diff): the older state
+    on the left and the newer on the right. Each part that changed is headed on both
+    sides by what it is ("Labels / fr", "Property / population"); what went is marked −
+    on the left, what came + on the right, and a side with nothing is empty. An
+    unchanged statement of a changed property is context, on both sides, unmarked. -#}
+
+{#- The heading of a part, on both sides. -#}
+{%- macro lineno() -%}
+<tr class="ts-wbdiff__part"><td colspan="2" class="ts-wbdiff__lineno">{{ caller() }}</td><td colspan="2" class="ts-wbdiff__lineno">{{ caller() }}</td></tr>
+{%- endmacro -%}
+
+{#- The older side of a term or sitelink: marked − unless it is context. -#}
+{%- macro old_term(value, lang, class) -%}
+{%- if value is none %}<td colspan="2" class="ts-diff__cell ts-diff__cell--empty"></td>
+{%- elif class == "same" %}<td class="ts-wbdiff__marker"></td><td class="ts-diff__cell ts-diff__cell--same"><span{% if lang %} lang="{{ lang }}" dir="auto"{% endif %}>{{ value }}</span></td>
+{%- else %}<td class="ts-wbdiff__marker" data-marker="−"></td><td class="ts-diff__cell ts-diff__cell--removed"><del class="ts-wbdiff__change"{% if lang %} lang="{{ lang }}" dir="auto"{% endif %}>{{ value }}</del></td>{% endif -%}
+{%- endmacro -%}
+
+{#- The newer side: marked +. -#}
+{%- macro new_term(value, lang, class) -%}
+{%- if value is none %}<td colspan="2" class="ts-diff__cell ts-diff__cell--empty"></td>
+{%- elif class == "same" %}<td class="ts-wbdiff__marker"></td><td class="ts-diff__cell ts-diff__cell--same"><span{% if lang %} lang="{{ lang }}" dir="auto"{% endif %}>{{ value }}</span></td>
+{%- else %}<td class="ts-wbdiff__marker" data-marker="+"></td><td class="ts-diff__cell ts-diff__cell--added"><ins class="ts-wbdiff__change"{% if lang %} lang="{{ lang }}" dir="auto"{% endif %}>{{ value }}</ins></td>{% endif -%}
+{%- endmacro -%}
+
+{#- A keyed list's rows: terms or sitelinks. -#}
+{%- macro keyed_rows(t) -%}
+{%- for r in t.rows %}{% call lineno() %}{{ t.heading }} / <span class="ts-wbdiff__key">{{ r.key }}</span>{% endcall %}<tr class="ts-diff__row">{{ old_term(r.before, r.lang, r.before_class) }}{{ new_term(r.after, r.lang, r.after_class) }}</tr>{% endfor -%}
+{%- endmacro -%}
+
+{#- One side of a statement's row: `removed` on the left and `added` on the right carry
+    the marker; a changed statement shows both sides marked; context has none. -#}
+{%- macro side(s, class, marker, mark) -%}
+{%- if s is none %}<td colspan="2" class="ts-diff__cell ts-diff__cell--empty"></td>
+{%- elif class == "same" or class == "unchanged" %}<td class="ts-wbdiff__marker"></td><td class="ts-diff__cell ts-diff__cell--same"><span class="ts-visually-hidden">{{ mark }}: </span>{{ statement(s) }}</td>
+{%- else %}<td class="ts-wbdiff__marker" data-marker="{{ marker }}"></td><td class="ts-diff__cell ts-diff__cell--{% if marker == "+" %}added{% else %}removed{% endif %}"><span class="ts-visually-hidden">{{ mark }}: </span>{{ statement(s) }}</td>{% endif -%}
 {%- endmacro -%}
 
 {#- A property's statements. -#}
-{%- macro claims(g) -%}
-<section class="ts-diff__section"><h3 class="ts-diff__heading">{{ entity.link(g.property) }}</h3><table class="ts-diff__table ts-diff__table--statements"><thead><tr><th>{{ msg("ts-diff-change") }}</th><th>{{ msg("ts-diff-before") }}</th><th>{{ msg("ts-diff-after") }}</th></tr></thead><tbody>
-{%- for r in g.rows %}<tr class="ts-diff__row ts-diff__row--{{ r.class }}"><th scope="row" class="ts-diff__mark">{{ r.mark }}</th>{{ side(r.before, r.before_class) }}{{ side(r.after, r.after_class) }}</tr>{% endfor -%}
-</tbody></table></section>
+{%- macro claim_rows(g) -%}
+{% call lineno() %}{{ msg("ts-diff-part-property") }} / {{ entity.link(g.property) }}{% endcall %}
+{%- for r in g.rows %}<tr class="ts-diff__row ts-diff__row--{{ r.class }}">{{ side(r.before, r.before_class, "−", r.mark) }}{{ side(r.after, r.after_class, "+", r.mark) }}</tr>{% endfor -%}
 {%- endmacro -%}
 
 {#- A sync's summary of what changed, per property, language and site. -#}
@@ -66,14 +87,19 @@
 {%- endmacro -%}
 
 <div class="ts-diff" data-ts-diffnav>
-{%- if head %}<p class="ts-diff__head">{{ revision_line(head) }}</p>{% endif -%}
-{%- if nav %}<p class="ts-diff__nav"><a href="{{ nav.previous.href }}" rel="prev">{{ nav.previous.label }}</a> · <a href="{{ nav.compare.href }}">{{ nav.compare.label }}</a></p>{% endif -%}
-{%- if revisions %}<table class="ts-diff__revisions"><tr><th>{{ msg("ts-diff-before") }}</th><td>{{ revision_line(revisions.before) }}</td></tr><tr><th>{{ msg("ts-diff-after") }}</th><td>{{ revision_line(revisions.after) }}</td></tr></table>{% endif -%}
+{%- set table = main.kind == "diff" -%}
+{%- if head and not table %}<p class="ts-diff__head">{{ revision_line(head) }}</p>{% endif -%}
+{%- if nav and not table %}<p class="ts-diff__nav"><a href="{{ nav.previous.href }}" rel="prev">{{ nav.previous.label }}</a> · <a href="{{ nav.compare.href }}">{{ nav.compare.label }}</a></p>{% endif -%}
+{%- if revisions and not table %}<table class="ts-diff__revisions"><tr><th>{{ msg("ts-diff-before") }}</th><td>{{ revision_line(revisions.before) }}</td></tr><tr><th>{{ msg("ts-diff-after") }}</th><td>{{ revision_line(revisions.after) }}</td></tr></table>{% endif -%}
 {%- if switch %}{{ shared.switch(switch, "ts-diff__views") }}{% endif -%}
 {%- if permalink %}<div class="ts-page-diff__permalink"><label for="ts-diff-permalink">{{ permalink.label }}</label> <div class="cdx-text-input"><input class="cdx-text-input__input" id="ts-diff-permalink" type="text" readonly dir="ltr" value="{{ permalink.text }}"></div></div>{% endif -%}
 <div class="ts-diff__body"><div class="ts-diff__main">
 {%- if main.kind == "changeset" %}<pre class="ts-diff__changeset" dir="ltr">{{ main.json }}</pre>
 {%- elif main.kind == "sync" %}<p class="ts-diff__sync">{{ main.line }}</p>{% if main.rows %}{{ summary(main.rows) }}{% else %}<p class="ts-empty">{{ main.none }}</p>{% endif %}
-{%- elif main.kind == "diff" %}{% if main.nothing %}<p class="ts-empty">{{ main.nothing }}</p>{% endif %}{% for t in main.tables %}{{ keyed_table(t) }}{% endfor %}{% for g in main.claims %}{{ claims(g) }}{% endfor %}
+{%- elif main.kind == "diff" -%}
+<table class="ts-wbdiff"><colgroup><col class="ts-wbdiff__col-marker"><col class="ts-wbdiff__col-content"><col class="ts-wbdiff__col-marker"><col class="ts-wbdiff__col-content"></colgroup><thead><tr><th scope="col" colspan="2" class="ts-wbdiff__title"><span class="ts-visually-hidden">{{ msg("ts-diff-before") }}: </span>{% if revisions %}{{ revision_line(revisions.before) }}{% elif nav %}<a href="{{ nav.previous.href }}" rel="prev">{{ nav.previous.label }}</a><br><a href="{{ nav.compare.href }}">{{ nav.compare.label }}</a>{% endif %}</th><th scope="col" colspan="2" class="ts-wbdiff__title"><span class="ts-visually-hidden">{{ msg("ts-diff-after") }}: </span>{% if revisions %}{{ revision_line(revisions.after) }}{% elif head %}{{ revision_line(head) }}{% endif %}</th></tr></thead><tbody>
+{%- if main.nothing %}<tr><td colspan="4" class="ts-wbdiff__notice">{{ main.nothing }}</td></tr>{% endif -%}
+{%- for t in main.tables %}{{ keyed_rows(t) }}{% endfor %}{% for g in main.claims %}{{ claim_rows(g) }}{% endfor -%}
+</tbody></table>
 {%- endif -%}
 </div>{% if about %}{{ about_panel(about) }}{% endif %}</div></div>

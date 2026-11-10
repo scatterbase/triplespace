@@ -424,12 +424,13 @@ pub enum ActorModel {
 pub struct SummaryModel {
     /// What the row says of a hidden summary; the rest is empty then.
     pub hidden: Option<String>,
-    /// The automatic part.
+    /// The action, in its own column beside the summary: a record's operation and its
+    /// arguments, a log event's type and action, a thread record in words.
     pub auto: Option<String>,
     /// Where a move went.
     pub moved: Option<String>,
-    /// The user's comment.
-    pub comment: Option<String>,
+    /// The user's comment, parsed as MediaWiki parses one ([`crate::comment`]).
+    pub comment: Vec<crate::comment::Part>,
 }
 
 /// A flag: new, minor, bot.
@@ -486,6 +487,19 @@ pub struct RowModel {
     /// The job that wrote an adopted or imported revision (0008 A50): "Job n", linked to
     /// its page.
     pub job: Option<JobLink>,
+    /// The row's menu, where the viewer may act on its actor or its target.
+    pub menu: Option<RowMenu>,
+    /// Whether the list has the menu's column, so that the row has its cell.
+    pub menu_cell: bool,
+}
+
+/// A row's menu: its accessible name and its links.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct RowMenu {
+    /// The button's accessible name.
+    pub label: String,
+    /// The links.
+    pub items: Vec<Choice>,
 }
 
 /// "Job n", linked to `Special:Jobs/{n}` (0104 §9).
@@ -816,7 +830,7 @@ fn summary_model(m: &Messages, row: &ActivityRow, here: Option<u64>) -> SummaryM
         hidden: None,
         auto: None,
         moved: None,
-        comment: None,
+        comment: Vec::new(),
     };
     if row.summary.hidden {
         out.hidden = Some(m.get("ts-changes-hidden-comment"));
@@ -851,7 +865,17 @@ fn summary_model(m: &Messages, row: &ActivityRow, here: Option<u64>) -> SummaryM
             ))
         })
         .map(|(from, to)| m.with("ts-changes-moved-to", &[from, to]));
-    out.comment = row.comment.clone().filter(|c| !c.is_empty());
+    // An automatic comment in a page's summary names one of its sections.
+    let page = row
+        .target
+        .as_ref()
+        .filter(|t| t.kind == "page")
+        .and_then(|t| t.title.as_deref());
+    out.comment = row
+        .comment
+        .as_deref()
+        .map(|c| crate::comment::parts(m, c, page))
+        .unwrap_or_default();
     out
 }
 
@@ -910,17 +934,101 @@ fn diff_href(row: &ActivityRow) -> Option<String> {
 
 /// The columns of the changes table, by the message that heads each. Every row has a
 /// cell in each, empty where the row has nothing for it, so the fields line up.
-const COLUMNS: [(&str, &str); 7] = [
+const COLUMNS: [(&str, &str); 8] = [
     ("ts-changes-col-time", "time"),
     ("ts-changes-col-origin", "origin"),
     ("ts-changes-col-flags", "flags"),
     ("ts-changes-col-target", "target"),
     ("ts-changes-col-size", "size"),
     ("ts-changes-col-user", "user"),
+    ("ts-changes-col-action", "action"),
     ("ts-changes-col-summary", "summary"),
 ];
 
-fn row_model(m: &Messages, site: &SiteInfo, row: &ActivityRow, here: Option<u64>) -> RowModel {
+/// What a row's menu may offer the viewer (19 §3.4): each a moderation page the viewer's
+/// rights open and the wiki serves.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct RowActions {
+    /// `Special:Block`, for a holder of `block`.
+    pub block: bool,
+    /// The Protect form, for a holder of `protect`.
+    pub protect: bool,
+    /// The Delete form, for a holder of `delete`.
+    pub delete: bool,
+}
+
+impl RowActions {
+    /// What the page's viewer may be offered.
+    #[must_use]
+    pub fn of(cx: &Context) -> Self {
+        let tabs = cx.moderation_tabs();
+        Self {
+            block: cx.holds("block") && cx.features.has(Feature::Block),
+            protect: tabs.protect,
+            delete: tabs.delete,
+        }
+    }
+
+    fn any(self) -> bool {
+        self.block || self.protect || self.delete
+    }
+}
+
+/// A row's menu (19 §3.4): links to the moderation pages with the row's actor and target
+/// filled in, for those whose rights open them. Empty where the row has nothing to act
+/// on: a hidden or nameless actor, the instance's own key, a target without a title.
+fn menu_model(m: &Messages, row: &ActivityRow, actions: RowActions) -> Option<RowMenu> {
+    let mut items = Vec::new();
+    let actor = row
+        .actor
+        .name
+        .as_deref()
+        .filter(|_| !row.actor.hidden && row.actor.kind.as_deref() != Some("instance"));
+    if let (true, Some(name)) = (actions.block, actor) {
+        items.push(Choice {
+            href: format!("/wiki/Special:Block/{}", title_url(name)),
+            label: m.with("ts-changes-menu-block", &[name]),
+            current: false,
+        });
+    }
+    // A page or an entity: what has a title to protect or delete. A thread is moderated
+    // from its own page.
+    let title = row
+        .target
+        .as_ref()
+        .filter(|t| t.kind == "page" || t.kind == "entity")
+        .and_then(|t| t.title.as_deref())
+        .filter(|_| !is_thread_row(row));
+    if let Some(title) = title {
+        let base = format!("/wiki/{}", title_url(title));
+        if actions.protect {
+            items.push(Choice {
+                href: format!("{base}?action=protect"),
+                label: m.with("ts-changes-menu-protect", &[title]),
+                current: false,
+            });
+        }
+        if actions.delete {
+            items.push(Choice {
+                href: format!("{base}?action=delete"),
+                label: m.with("ts-changes-menu-delete", &[title]),
+                current: false,
+            });
+        }
+    }
+    (!items.is_empty()).then(|| RowMenu {
+        label: m.get("ts-changes-menu"),
+        items,
+    })
+}
+
+fn row_model(
+    m: &Messages,
+    site: &SiteInfo,
+    row: &ActivityRow,
+    here: Option<u64>,
+    actions: RowActions,
+) -> RowModel {
     let origin = origin_chip(m, site, row);
     if row.kind == "erased" {
         return RowModel {
@@ -930,7 +1038,10 @@ fn row_model(m: &Messages, site: &SiteInfo, row: &ActivityRow, here: Option<u64>
             time: clock(&row.time).to_string(),
             diff: diff_href(row),
             origin,
-            erased: Some((COLUMNS.len() - 2, m.get("ts-changes-erased"))),
+            erased: Some((
+                COLUMNS.len() - 2 + usize::from(actions.any()),
+                m.get("ts-changes-erased"),
+            )),
             flags: Vec::new(),
             target: None,
             size: None,
@@ -939,11 +1050,13 @@ fn row_model(m: &Messages, site: &SiteInfo, row: &ActivityRow, here: Option<u64>
                 hidden: None,
                 auto: None,
                 moved: None,
-                comment: None,
+                comment: Vec::new(),
             },
             tags: Vec::new(),
             pick: None,
             job: None,
+            menu: None,
+            menu_cell: actions.any(),
         };
     }
     let mut flags = Vec::new();
@@ -985,12 +1098,19 @@ fn row_model(m: &Messages, site: &SiteInfo, row: &ActivityRow, here: Option<u64>
         summary: summary_model(m, row, here),
         tags: row.tags.iter().filter(|t| *t != "bot").cloned().collect(),
         pick: None,
+        menu: menu_model(m, row, actions),
+        menu_cell: actions.any(),
     }
 }
 
 /// The rows, grouped by day.
-pub(crate) fn list_model(m: &Messages, site: &SiteInfo, rows: &[ActivityRow]) -> Option<ListModel> {
-    list_model_here(m, site, rows, None)
+pub(crate) fn list_model(
+    m: &Messages,
+    site: &SiteInfo,
+    rows: &[ActivityRow],
+    actions: RowActions,
+) -> Option<ListModel> {
+    list_model_here(m, site, rows, None, actions)
 }
 
 /// The rows as one table, a row group per day headed by its date, as the history of the
@@ -1001,6 +1121,7 @@ pub(crate) fn list_model_here(
     site: &SiteInfo,
     rows: &[ActivityRow],
     here: Option<u64>,
+    actions: RowActions,
 ) -> Option<ListModel> {
     if rows.is_empty() {
         return None;
@@ -1017,13 +1138,18 @@ pub(crate) fn list_model_here(
             day = Some(d);
         }
         if let Some(last) = days.last_mut() {
-            last.rows.push(row_model(m, site, row, here));
+            last.rows.push(row_model(m, site, row, here, actions));
         }
     }
     Some(ListModel {
         columns: COLUMNS
             .iter()
             .map(|(msg, col)| (*col, m.get(msg)))
+            .chain(
+                actions
+                    .any()
+                    .then(|| ("menu", m.get("ts-changes-col-menu"))),
+            )
             .collect(),
         days,
     })
@@ -1279,7 +1405,9 @@ async fn serve_page(
                 .as_deref()
                 .map(|e| Message::block(MessageKind::Error, e).model()),
             empty,
-            list: page.as_ref().and_then(|p| list_model(m, &cx.site, &p.rows)),
+            list: page
+                .as_ref()
+                .and_then(|p| list_model(m, &cx.site, &p.rows, RowActions::of(&cx))),
             pager: page
                 .as_ref()
                 .filter(|p| !p.rows.is_empty())
@@ -1357,6 +1485,90 @@ pub async fn contributions(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // 19 §3.4; 0010 A55: a row's menu links to the moderation pages with its actor and
+    // target filled in, each for a holder of its right; the action has its own column,
+    // and the summary is parsed as MediaWiki parses a comment.
+    #[test]
+    fn a_row_has_a_menu_an_action_and_a_parsed_summary() {
+        let m = Messages::for_language("en");
+        let row: ActivityRow = serde_json::from_value(serde_json::json!({
+            "kind": "edit", "time": "2026-11-09T10:00:00Z", "source": "pages",
+            "record": {"partition": 1, "offset": 2}, "revid": 9,
+            "target": {"kind": "page", "id": "4", "ns": 4, "title": "Project:Home"},
+            "actor": {"key": "local:8", "name": "Mallory", "kind": "registered"},
+            "summary": {"op": "move"},
+            "comment": "/* News */ see [[Help:Moving|help]]",
+        }))
+        .unwrap();
+        let all = RowActions {
+            block: true,
+            protect: true,
+            delete: true,
+        };
+        let r = row_model(&m, &SiteInfo::default(), &row, None, all);
+        let items: Vec<(String, String)> = r
+            .menu
+            .expect("a menu")
+            .items
+            .into_iter()
+            .map(|c| (c.label, c.href))
+            .collect();
+        assert_eq!(
+            items,
+            [
+                (
+                    "Block Mallory".to_string(),
+                    "/wiki/Special:Block/Mallory".to_string()
+                ),
+                (
+                    "Protect Project:Home".to_string(),
+                    "/wiki/Project:Home?action=protect".to_string()
+                ),
+                (
+                    "Delete Project:Home".to_string(),
+                    "/wiki/Project:Home?action=delete".to_string()
+                ),
+            ]
+        );
+        assert!(r.menu_cell);
+        assert_eq!(r.summary.auto.as_deref(), Some("move"));
+        assert_eq!(
+            r.summary.comment,
+            vec![
+                crate::comment::Part::Auto {
+                    text: "\u{2192}News".into(),
+                    href: Some("/wiki/Project:Home#News".into()),
+                    more: true,
+                },
+                crate::comment::Part::Text {
+                    text: "see ".into()
+                },
+                crate::comment::Part::Link {
+                    href: "/wiki/Help:Moving".into(),
+                    text: "help".into(),
+                },
+            ]
+        );
+        // Only what the viewer's rights open; nothing for a viewer with none, and the
+        // list then has no menu column.
+        let only_delete = RowActions {
+            delete: true,
+            ..RowActions::default()
+        };
+        let r = row_model(&m, &SiteInfo::default(), &row, None, only_delete);
+        assert_eq!(r.menu.unwrap().items.len(), 1);
+        let r = row_model(&m, &SiteInfo::default(), &row, None, RowActions::default());
+        assert!(r.menu.is_none() && !r.menu_cell);
+        let list = list_model(&m, &SiteInfo::default(), std::slice::from_ref(&row), all).unwrap();
+        assert_eq!(list.columns.last().map(|c| c.0), Some("menu"));
+        assert_eq!(list.columns[list.columns.len() - 3].0, "action");
+        // A hidden actor is not offered for blocking.
+        let mut hidden = row.clone();
+        hidden.actor.hidden = true;
+        let r = row_model(&m, &SiteInfo::default(), &hidden, None, all);
+        assert_eq!(r.menu.unwrap().items.len(), 2);
+    }
 
     fn params(pairs: &[(&str, &str)]) -> Params {
         Params::new(
@@ -1524,10 +1736,13 @@ mod tests {
             diff_href(&post).as_deref(),
             Some("/wiki/Thread:2026-10-25/Why_is_P31_wrong_here%3F#post-930")
         );
-        let shown = |here| match row_model(&m, &SiteInfo::default(), &post, here).target {
-            Some(TargetModel::Titled { text, .. }) => text,
-            other => panic!("{other:?}"),
-        };
+        let shown =
+            |here| match row_model(&m, &SiteInfo::default(), &post, here, RowActions::default())
+                .target
+            {
+                Some(TargetModel::Titled { text, .. }) => text,
+                other => panic!("{other:?}"),
+            };
         assert_eq!(shown(Some(7)), "Why is P31 wrong here?");
         assert_eq!(shown(None), "Thread:2026-10-25/Why is P31 wrong here?");
     }
@@ -1558,7 +1773,15 @@ mod tests {
             farm_code: "gpu".into(),
             ..SiteInfo::default()
         };
-        let target = |m: &Messages, row: &ActivityRow| match row_model(m, &site, row, None).target {
+        let target = |m: &Messages, row: &ActivityRow| match row_model(
+            m,
+            &site,
+            row,
+            None,
+            RowActions::default(),
+        )
+        .target
+        {
             Some(TargetModel::Account { account }) => account,
             other => panic!("{other:?}"),
         };
@@ -1579,7 +1802,15 @@ mod tests {
             "not its user page"
         );
         assert_eq!(key, &None, "no key for this wiki's account");
-        let actor = |m: &Messages, row: &ActivityRow| match row_model(m, &site, row, None).actor {
+        let actor = |m: &Messages, row: &ActivityRow| match row_model(
+            m,
+            &site,
+            row,
+            None,
+            RowActions::default(),
+        )
+        .actor
+        {
             ActorModel::Account { account } => account,
             other => panic!("{other:?}"),
         };
@@ -1624,7 +1855,7 @@ mod tests {
             "summary": {},
         }))
         .unwrap();
-        let t = row_model(&m, &SiteInfo::default(), &row, None).target;
+        let t = row_model(&m, &SiteInfo::default(), &row, None, RowActions::default()).target;
         let Some(TargetModel::Labelled { id, label, .. }) = t else {
             panic!("{t:?}");
         };

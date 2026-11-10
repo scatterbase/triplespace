@@ -182,6 +182,8 @@ impl TenantNames {
             .collect();
         ConfigSource {
             namespaces,
+            // The site's links carry the marks of 19 §5.10.
+            link_marks: true,
             ..ConfigSource::default()
         }
     }

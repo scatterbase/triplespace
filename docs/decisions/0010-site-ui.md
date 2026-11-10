@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-08 (A54)
+- **Updated:** 2026-11-09 (A57)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -60,7 +60,7 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 
 ### 5. History
 
-*Changed by A38.*
+*Changed by A38, A56.*
 
 *Current text: [19](../architecture/19-site-ui.md) §3.3.*
 
@@ -72,7 +72,7 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 
 #### 5.2 Rows
 
-*Changed by A3, A5, A13, A24.*
+*Changed by A3, A5, A13, A24, A55.*
 
 *Current text: [19](../architecture/19-site-ui.md) §3.4.*
 
@@ -102,7 +102,7 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 
 ### 6. Diffs
 
-*Changed by A48, A49.*
+*Changed by A48, A49, A57.*
 
 *Current text: [19](../architecture/19-site-ui.md) §3.8.*
 
@@ -726,3 +726,24 @@ Replaced text ([19](../architecture/19-site-ui.md) §2.3, as it stood):
 Replaced text ([19](../architecture/19-site-ui.md) §3.10, as it stood):
 
 > - **Revert this job…** (local jobs) appends the inverse change sets as a new job ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.3). Where someone has edited an affected entity since, that later edit is kept, and those entities are listed first for review.
+
+### A55. Feed rows: the action's own column, summaries parsed as MediaWiki's, and a row menu
+
+- **Date:** 2026-11-09
+- **Source:** Direct: James, tickets SCA-203 and SCA-232, and design discussion of 2026-11-09 (the menu's addresses); the rest Claude, while building them, 2026-11-09; unconfirmed
+- **Change:** extends §5.2
+- **Summary:** James asked that a row's log variant have its own column beside the summary, that `/* … */` read apart from the rest as MediaWiki's does, and that wikitext in a summary be parsed as far as MediaWiki parses it (SCA-203); and that each row have a menu of moderation links with its target and actor filled in (SCA-232). He confirmed that **Protect** and **Delete** use the addresses the page's own menu uses, `?action=protect` and `?action=delete`, not `Special:Protect/{page}`. Calls made in the building: the column is headed *Action* and holds the operation with its arguments, a log event's type and action, or a thread record in words; an automatic comment on a page links to the section it names; Wikibase's automatic comments, which adopted revisions keep, are said in words from `ts-summary-*` messages and shown as written where there is none; only wiki links are parsed, without a lookup, so a link to a missing page is not marked; a diff's header draws its summary the same way; the menu is a disclosure in a last column drawn only for a viewer who holds `block`, `protect` or `delete`, opening in the row; thanks and rollback are left out until they exist. Chapter text: [19](../architecture/19-site-ui.md) §3.4.
+
+### A56. A history has the feeds' filter panel
+
+- **Date:** 2026-11-09
+- **Source:** Direct: James, ticket SCA-227, and design discussion of 2026-11-09 (the `changed` parameter); the rest Claude, while building it, 2026-11-09; unconfirmed
+- **Change:** extends §5
+- **Summary:** A page's or an entity's history gets the filter panel recent changes has: by user, by tag, between two dates, without bot edits, without minor edits; and an entity's by what changed, with a language, site or property ([0020](0020-change-feeds.md) A21). Calls made in the building: the panel is a disclosure, open while a filter is on; the parameters are `user`, `tagfilter`, `from`, `to`, `hidebots`, `hideminor`, `changed` and `changedkey`; *Statements* stands for the parts `claims`, `statements`, `references` and `qualifiers`. Not built: hiding reverted edits, which needs a reverted change tag that nothing writes yet; combining consecutive edits by one actor; and telling a page's text edits from its statement edits. Chapter text: [19](../architecture/19-site-ui.md) §3.3.
+
+### A57. An entity's diff is two columns, as Wikibase draws one
+
+- **Date:** 2026-11-09
+- **Source:** Direct: James, ticket SCA-195 ("Make entity diffing look more like Wikidata's"); the layout Claude, while building it, 2026-11-09; unconfirmed
+- **Change:** extends §6
+- **Summary:** The diff of an entity is drawn as one table of two columns, older left and newer right, each part headed on both sides ("Labels / fr", "Property / population"), with − and + markers, in place of a section per part with *Key*, *Before* and *After* columns. Calls made in the building: a changed statement is shown whole on both sides, not broken into rank, qualifier and reference rows as Wikibase breaks it; unchanged statements of a changed property stay as context, as §6 has it; the revisions head the columns, and for one change the left heads with the links to the previous revision; the colours are the page diff's. The change-set and sync views are as they were. Chapter text: [19](../architecture/19-site-ui.md) §3.8.

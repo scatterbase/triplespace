@@ -77,6 +77,7 @@ impl Resolver for Fixture {
             // Special pages always exist.
             exists: t.namespace == -1 || self.exists.get(&key).copied().unwrap_or(false),
             redirect: self.redirects.contains(&key),
+            redirect_to: None,
             label: self.labels.get(&key).cloned(),
         }
     }

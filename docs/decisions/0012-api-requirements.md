@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-09 (A89)
+- **Updated:** 2026-11-09 (A90)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -65,7 +65,7 @@ This ADR sets the rules for filling both gaps, and lists what the UI needs from 
 
 ### 4. Action API changes
 
-*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36, A37, A38, A55, A64, A65, A66, A72, A73, A74, A75, A76, A77, A78, A79, A81, A86, A87, A88.*
+*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36, A37, A38, A55, A64, A65, A66, A72, A73, A74, A75, A76, A77, A78, A79, A81, A86, A87, A88, A90.*
 
 *Current text: [18](../architecture/18-api.md) §1.5, §2.1, §2.2, §2.3, §2.4, §3.4, §5.1.*
 
@@ -996,3 +996,10 @@ Replaced text ([18](../architecture/18-api.md) §3.2, as it stood):
 Replaced text ([18](../architecture/18-api.md) §3.2, as it stood):
 
 > a tick means the contract serves every route the row names today ([0012](../decisions/0012-api-requirements.md) A88), and
+
+### A90. An action that changes nothing warns
+
+- **Date:** 2026-11-09
+- **Source:** Direct: James, design discussion of 2026-11-09 ("The warning should apply anywhere an action results in a no op where it normally wouldn't"); which modules that is Claude, while building it, 2026-11-09; unconfirmed
+- **Change:** extends §4
+- **Summary:** An Action API module that would normally append a record, and writes nothing because what it was asked for is already so, succeeds with a warning under its own name in the `warnings` block, giving the reason and "Nothing was written." Calls made in the building: the modules are the twelve Wikibase write modules (an edit that leaves the entity as it is, [0002](0002-source-graphs-and-mass-ingest.md) A48 included), `action=edit` (beside `nochange`), `action=protect`, `action=revisiondelete` and `action=userrights`; a module that already refuses the case as MediaWiki does keeps its error; `action=watch`, `action=options`, `action=echomarkread`, `action=echomarkseen` and `action=setnotificationtimestamp`, whose effect is private state and idempotent by nature, do not warn; re-protecting a page with the settings it has, and adding a group a user already holds, still write their records and so are not no-ops. The REST routes are unchanged. Chapter text: [18](../architecture/18-api.md) §1.5.

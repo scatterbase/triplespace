@@ -149,6 +149,70 @@ pub struct Filters {
     pub since: Option<u64>,
     /// Rows at or before this time, µs since the epoch.
     pub until: Option<u64>,
+    /// Only rows whose change touched one of these parts (16 §4.1): a local change
+    /// set's labels, descriptions, aliases, sitelinks or statements, each optionally
+    /// by its key (a language, a site, a property). A row that records no parts,
+    /// such as a page edit or a log event, matches none.
+    pub changed: Vec<Changed>,
+}
+
+/// The parts of an entity a change set's summary names (`claims:P31 labels:en,fr`), as
+/// the activity projection writes them.
+pub const CHANGED_PARTS: [&str; 8] = [
+    "claims",
+    "statements",
+    "labels",
+    "descriptions",
+    "aliases",
+    "sitelinks",
+    "references",
+    "qualifiers",
+];
+
+/// A part a change touched, and optionally its key: `labels`, `labels:en`, `claims:P31`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Changed {
+    /// One of [`CHANGED_PARTS`].
+    pub part: String,
+    /// The language, site or property.
+    pub key: Option<String>,
+}
+
+impl Changed {
+    /// From `part` or `part:key`; `None` for an unknown part or a key that is not a
+    /// code or an ID.
+    #[must_use]
+    pub fn parse(s: &str) -> Option<Self> {
+        let (part, key) = match s.split_once(':') {
+            Some((p, k)) => (p, Some(k)),
+            None => (s, None),
+        };
+        if !CHANGED_PARTS.contains(&part) {
+            return None;
+        }
+        let ok = |k: &str| {
+            !k.is_empty()
+                && k.chars()
+                    .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+        };
+        match key {
+            Some(k) if !ok(k) => None,
+            _ => Some(Self {
+                part: part.to_string(),
+                key: key.map(str::to_string),
+            }),
+        }
+    }
+
+    /// The regular expression that finds the part, and the key among its
+    /// comma-separated keys, in a summary's arguments. The key holds no
+    /// metacharacter ([`Self::parse`]).
+    fn pattern(&self) -> String {
+        match &self.key {
+            Some(k) => format!("(^| ){}:([^ ]*,)?{k}(,| |$)", self.part),
+            None => format!("(^| ){}:", self.part),
+        }
+    }
 }
 
 /// Where a page starts: the sort key of the last row returned, exclusive.
@@ -662,6 +726,15 @@ fn build(tenant: &str, feed: &Feed, viewer: &Viewer) -> Built {
     if let Some(t) = &f.tag {
         push(&mut sql, "$n = ANY(a.tags)", Box::new(t.clone()));
     }
+    if !f.changed.is_empty() {
+        let pattern = f
+            .changed
+            .iter()
+            .map(Changed::pattern)
+            .collect::<Vec<_>>()
+            .join("|");
+        push(&mut sql, "a.summary_args ~ $n", Box::new(pattern));
+    }
     if let Some(j) = f.job {
         push(
             &mut sql,
@@ -1016,6 +1089,34 @@ pub fn iso8601(micros: u64) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // 16 §4.1; 0020 A21: `changed` names a part of a change set's summary, optionally
+    // by key, and finds it among the summary's parts and their comma-separated keys.
+    #[test]
+    fn changed_parts_parse_and_match() {
+        assert_eq!(
+            Changed::parse("labels"),
+            Some(Changed {
+                part: "labels".into(),
+                key: None
+            })
+        );
+        assert_eq!(
+            Changed::parse("claims:P31").unwrap().key.as_deref(),
+            Some("P31")
+        );
+        assert_eq!(Changed::parse("everything"), None);
+        assert_eq!(Changed::parse("labels:"), None);
+        assert_eq!(Changed::parse("labels:en|.*"), None, "a key is a code");
+        assert_eq!(
+            Changed::parse("labels:en").unwrap().pattern(),
+            "(^| )labels:([^ ]*,)?en(,| |$)"
+        );
+        assert_eq!(
+            Changed::parse("sitelinks").unwrap().pattern(),
+            "(^| )sitelinks:"
+        );
+    }
 
     #[test]
     fn cursors_round_trip() {

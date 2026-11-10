@@ -475,6 +475,24 @@ async fn protect_delete_undelete_and_hide() {
         ))
         .await;
     assert!(r.get("error").is_none(), "{r}");
+    assert!(
+        r.get("warnings").is_none(),
+        "an edit that changes the page: {r}"
+    );
+    // 18 §1.5 (0012 A90): lifting protection from a page that has none writes nothing,
+    // and says so.
+    let r = c
+        .api_post(&format!(
+            "action=protect&title=Project:Scope&protections=edit%3Dall&token={t}"
+        ))
+        .await;
+    assert!(r.get("error").is_none(), "{r}");
+    assert!(
+        r["warnings"]["protect"]
+            .to_string()
+            .contains("Nothing was written."),
+        "{r}"
+    );
 
     // Create-protection reserves the title under a page ID; a create takes it once the
     // creator is admitted (Alice is in `owner`, not `bot`).

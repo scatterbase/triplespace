@@ -654,19 +654,45 @@ async fn wbcreateclaim(ctx: &Ctx, meta: &EditMeta) -> Result<ApiResponse, ApiErr
         &hasher(ctx, &subject.id),
     ));
     let guid = statement.id.clone().expect("set above");
+    // The statement the entity already has that says the same (0002 §8.5: the same main
+    // snak and qualifiers), if any: the new one merges onto it.
+    let key = |s: &Statement| {
+        scatter_wikibase_model::key::statement_key(s, &scatter_wikibase_model::key::Identity)
+    };
+    let wanted = key(&statement);
+    let existing = subject
+        .base
+        .statements
+        .get(&property)
+        .into_iter()
+        .flatten()
+        .find(|s| key(s) == wanted)
+        .and_then(|s| s.id.clone());
+    let revid_before = subject.before.as_ref().and_then(|c| c.lastrevid);
     after
         .statements
         .entry(property)
         .or_default()
         .push(statement);
     let (lastrevid, now) = save(ctx, &subject, &after, meta).await?;
+    // Where it merged and nothing was written, the claim is the one that was there,
+    // under its own GUID, and the response warns that it was, naming it in place of
+    // the write path's general reason. (A statement only a mirror
+    // asserted is written to the local graph, and is the new claim.)
+    let repeated = existing.filter(|_| lastrevid == revid_before);
+    let shown = repeated.as_ref().unwrap_or(&guid);
     let mut extra = Map::new();
     extra.insert(
         "claim".into(),
         now.as_ref().map_or(Value::Null, |c| {
-            statement_value(ctx, &c.resolved.entity, &guid)
+            statement_value(ctx, &c.resolved.entity, shown)
         }),
     );
+    if let Some(existing) = repeated {
+        ctx.unchanged(format!(
+            "The entity already has this statement, as {existing}."
+        ));
+    }
     Ok(pageinfo_response(lastrevid, extra))
 }
 
