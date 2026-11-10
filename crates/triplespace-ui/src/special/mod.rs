@@ -174,7 +174,7 @@ pub async fn serve(
         "MovePage" => Some(movepage::serve(site, headers, peer, title, params).await),
         "Export" => Some(export::serve(site, headers, peer, title, params).await),
         "Import" => Some(import::serve(site, headers, peer, params).await),
-        "CreateEntities" => Some(create_entities::serve(site, headers, peer, params).await),
+        "CreateEntities" => Some(create_entities::serve(site, headers, peer, title, params).await),
         "Jobs" => Some(jobs::serve(site, headers, peer, title, params).await),
         "Notifications" => Some(notifications::serve(site, headers, peer, params).await),
         "Watchlist" => Some(watchlist::serve(site, headers, peer, params).await),

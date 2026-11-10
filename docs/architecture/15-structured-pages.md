@@ -162,7 +162,7 @@ Nothing is copied, so a table can never disagree with its entities, and an edit 
 
 ### 2.2 Namespace and content model
 
-*Sources: [0045](../decisions/0045-table-content-model.md) §2, §3.*
+*Sources: [0045](../decisions/0045-table-content-model.md) §2, §3, A9.*
 
 `Table` is namespace 218, kind `pages`, with `Table talk` at 219; the allowed models are `triplespace-table` and `wikitext`, the default `triplespace-table`, and `wikitext` for titles ending `/doc`. The rows are in [10](10-pages-and-content-models.md) §1.4. The `/doc` rule follows Module's ([0043](../decisions/0043-lua-modules.md) §2): `Table:Journals/doc` is the table's documentation, and is shown above the grid. Both models are text models, so the namespace satisfies [0041](../decisions/0041-content-models.md) §4's one-source rule, and `changecontentmodel` may move a page between them as it may in Module. Titles normalize first-letter, as in Project; subpages are on. 218–219 was the last free pair in 210–219 ([10](10-pages-and-content-models.md) §1.3); the mediawiki.org registration of 210–229 is updated to include them.
 
@@ -170,7 +170,7 @@ Nothing is copied, so a table can never disagree with its entities, and an edit 
 
 | Operation (0041 §5) | For `triplespace-table` |
 |---|---|
-| Validate | Against the definition schema (§2.3). Content that fails is refused, as 0008 §5 refuses invalid `json` |
+| Validate | Against the definition schema (§2.3). Content that fails is refused, as 0008 §5 refuses invalid `json`: `action=edit` answers `ts-invalid-table`, naming each problem with its place in the definition (0045 A9) |
 | Pre-save transform | The definition is canonicalized: IDs to their stored form ([0044](../decisions/0044-tenant-relative-ids.md) §1: tenant-relative input is never stored), keys in schema order, two-space indentation, **one row ID per line**. As MediaWiki's JSON content model pretty-prints on save, so that diffs and three-way merges work line by line |
 | Serialize | The canonical JSON |
 | Plain text for search | Title, `description`, and the column headers in the content language |
@@ -292,7 +292,7 @@ Cell edits made with the Wikibase modules directly are ordinary entity edits: a 
 
 ### 2.7 Drafts: a table with staged rows
 
-*Sources: [0106](../decisions/0106-create-entities-grid-and-drafts.md) §9, A1, A2, A3.*
+*Sources: [0106](../decisions/0106-create-entities-grid-and-drafts.md) §9, A1, A2, A3, A5.*
 
 **A table can hold staged rows**: items not yet written, with their values. A draft of `Special:CreateEntities` ([21](21-special-pages.md) §6.6) is such a table, and so is a saved column mapping, which has columns and no staged rows ([21](21-special-pages.md) §6.8). A draft that only stages edits is transient, and `Special:CreateEntities` creates it as `Table:Drafts/{user}/{name}`, under the creator's name ([0106](../decisions/0106-create-entities-grid-and-drafts.md) A1). A draft meant to persist as a table is given a title and moved, with its history, to `Table:{title}`, a permanent page like any other table ([0106](../decisions/0106-create-entities-grid-and-drafts.md) A2). The prefix is a convention, so a draft moved elsewhere in `Table` is still a draft until its staged rows are imported. The definition carries them under `staged`:
 
@@ -312,9 +312,9 @@ Cell edits made with the Wikibase modules directly are ordinary entity edits: a 
 |---|---|
 | `shared` | The statements on every item, one `P:value` string each, in the text form of [21](21-special-pages.md) §6.6 |
 | `properties` | Properties declared by the table and not yet created: a label in the wiki's language and, once confirmed, a data type. A `statements` column names one by position as `"new": 0` instead of `property` |
-| `rows` | One object per staged row: `n`, its number in the table, which `row:n` references name; `cells`, one string per column in the text form; `id` for a row matched to an existing item; `skip`; and `refused`, the reason an import gave |
+| `rows` | One object per staged row: `n`, its number in the table, which `row:n` references name; `cells`, one string per column in the text form; `id` for a row matched to an existing item; `skip`; `create`, for a row that creates an item whatever it matches (0106 A5); and `refused`, the reason an import gave |
 
-Two column kinds serve drafts. A `statements` column may carry `"new"` as above, and a `reference` column, with `property` and `of` (the position of a `statements` column), holds a reference of that column's statements' own. A `default_reference` snak may name a column, as `"column": 4`, in place of a `datavalue`.
+Two column kinds serve drafts. A `statements` column may carry `"new"` as above, and a `reference` column, with `property` and `of` (the position of a `statements` column), holds a reference of that column's statements' own. A `reference` column without `of` holds a value the default reference reads (0106 A5): a `default_reference` snak may name a column, as `"column": 4`, in place of a `datavalue`, and the column it names is of this kind, its `title` the header the table's text gives it. In the text (21 §6.6) a staged row's `id`, `skip` and `create` are its `id` cell, and `row:n` counts the staged rows in order, so the text of a draft numbers them from 1 whatever their `n`. A column of the text that nothing reads is not kept in a draft. When a row is written, a staged cell that named it with `row:n` names its item instead.
 
 **Staged rows are the one place a table stores values.** A staged row is not an entity: its cells are shown as entered, marked staged, below the ID rows; they are in no entity's history, view or search, and they are not resolved. Pre-save transform writes **one staged row per line**, as it writes one row ID per line (§2.2), so a draft diffs and merges row by row. Staged rows count toward `tables.max_rows`. Editing a draft is editing its page: anyone who may edit the page may change it, its history is the page's, and protecting the page protects the draft. Viewed as a page, a draft shows its staged rows with a link to continue in `Special:CreateEntities`.
 

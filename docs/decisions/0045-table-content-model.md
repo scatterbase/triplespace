@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-11-08 (A8)
+- **Updated:** 2026-11-10 (A9)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0034](0034-frontend-stack.md), [0041](0041-content-models.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0044](0044-tenant-relative-ids.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -33,6 +33,8 @@ James's direction, from the design discussion of 2026-09-30:
 *Current text: [15](../architecture/15-structured-pages.md) §2.2.*
 
 ### 3. The `triplespace-table` content model (extends 0041 §3)
+
+*Changed by A9.*
 
 *Current text: [15](../architecture/15-structured-pages.md) §2.2.*
 
@@ -187,3 +189,10 @@ Replaced text (§4, the `rows` row):
 Replaced text ([15](../architecture/15-structured-pages.md) §2.1, as it stood):
 
 > **A table is a page in the `Table` namespace (§2.2) whose content is a definition** (§2.3): which entities are its rows and which fields of those entities are its columns. **It stores no values.**
+
+### A9. The error for a definition that is not valid
+
+- **Date:** 2026-11-10
+- **Source:** Direct: James, 2026-11-10 (asked for a code resembling the closest existing error; the name is Claude's, chosen while building SCA-307)
+- **Change:** extends §3
+- **Summary:** `action=edit` refuses a `triplespace-table` text that fails validation with the code `ts-invalid-table`, its info naming each problem with its place in the definition (`rows.ids[1]: …`). The name follows `ts-invalid-group`, `ts-invalid-setting` and `ts-invalid-preference`, the codes the API already gives for content that fails its own schema.

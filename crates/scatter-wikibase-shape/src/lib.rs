@@ -11,9 +11,8 @@
 //!   columns and Matrix view, hoisted qualifiers and footnotes.
 //! - [`Roles`]: which properties are `time-point`, `time-start` and the other roles.
 //! - [`order`]: how values compare, for row order and the time axis.
-//!
-//! The `triplespace-table` content model (0045) will join this crate when the pages stack
-//! is built.
+//! - [`table`]: the `triplespace-table` content model's definition (0045 §3, §4; 0106 §9):
+//!   validation and the canonical text.
 //!
 //! This crate is pure (0005 §3 rule 2) and builds for `wasm32-unknown-unknown` (rule 7).
 
@@ -22,6 +21,7 @@
 mod classify;
 pub mod order;
 mod roles;
+pub mod table;
 
 pub use classify::{Footnotes, Group, Shape, Thresholds, classify, same_reference};
 pub use roles::{Role, Roles};

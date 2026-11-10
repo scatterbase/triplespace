@@ -1,0 +1,11 @@
+{#- A Table page as its grid (0045 §5; 0106 §9; 15 §2.4, §2.7): the listed rows read from
+    their entities, then a draft's staged rows as entered. -#}
+<div class="ts-table">
+{%- if description %}<p class="ts-table__description">{{ description }}</p>{% endif %}
+{%- if empty %}<p class="ts-table__empty">{{ empty }}</p>{% endif %}
+{%- if rows %}<table class="cdx-table__table ts-table__grid"><thead><tr><th scope="col">{{ id_heading }}</th>{% for h in headings %}<th scope="col">{{ h.label }}{% if h.sub %} <span class="ts-table__sub">{{ h.sub }}</span>{% endif %}</th>{% endfor %}</tr></thead><tbody>
+{%- for row in rows %}<tr{% if row.state %} class="ts-table__row--missing"{% endif %}><th scope="row"><a href="{{ row.href }}">{{ row.id }}</a></th>{% if row.state %}<td colspan="{{ headings | length }}"><span class="ts-table__state">{{ row.state }}</span></td>{% else %}{% for c in row.cells %}<td>{% if c.href %}<a href="{{ c.href }}">{{ c.text }}</a>{% elif c.fallback %}<i lang="{{ c.fallback }}">{{ c.text }}</i> <span class="ts-table__sub">{{ c.fallback }}</span>{% else %}{{ c.text }}{% endif %}{% if c.more %} <span class="ts-table__more">{{ c.more }}</span>{% endif %}</td>{% endfor %}{% endif %}</tr>{% endfor %}</tbody></table>{% endif %}
+{%- if staged %}<h2>{{ staged.heading }}</h2><p>{{ staged.note }} <a href="{{ staged.resume[0] }}">{{ staged.resume[1] }}</a></p>
+<table class="cdx-table__table ts-table__grid ts-table__grid--staged"><thead><tr><th scope="col">{{ staged.n_heading }}</th>{% for h in headings %}<th scope="col">{{ h.label }}{% if h.sub %} <span class="ts-table__sub">{{ h.sub }}</span>{% endif %}</th>{% endfor %}</tr></thead><tbody>
+{%- for row in staged.rows %}<tr class="ts-table__row--staged"><th scope="row">{{ row.n }} <span class="ts-table__state">{{ row.state }}</span></th>{% for c in row.cells %}<td>{{ c }}</td>{% endfor %}</tr>{% endfor %}</tbody></table>{% endif %}
+</div>

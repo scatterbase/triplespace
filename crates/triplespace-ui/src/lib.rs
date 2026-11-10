@@ -53,6 +53,7 @@ pub mod parity;
 pub mod routes;
 pub mod skin;
 pub mod special;
+pub mod tablepage;
 pub mod theme;
 pub mod watch;
 

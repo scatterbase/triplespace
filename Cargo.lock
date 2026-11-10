@@ -3796,6 +3796,7 @@ dependencies = [
  "scatter-wikibase-model",
  "scatter-wikibase-rdf",
  "scatter-wikibase-resolve",
+ "scatter-wikibase-shape",
  "scatter-wikitext",
  "scatter-wikitext-expand",
  "serde",

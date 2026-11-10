@@ -29,6 +29,7 @@ scatter-projection.workspace = true
 scatter-wikibase-changeset.workspace = true
 scatter-wikibase-model.workspace = true
 scatter-wikibase-rdf.workspace = true
+scatter-wikibase-shape.workspace = true
 scatter-wikibase-resolve.workspace = true
 triplespace-accounts.workspace = true
 triplespace-notify.workspace = true

@@ -82,6 +82,57 @@ pub fn datavalue(m: &Messages, datatype: &str, value: &str, raw: &str) -> Result
     }
 }
 
+/// A `datavalue` in the plain form [`datavalue`] reads (19 §3.1), where it has one: what
+/// a table's text and a Table page's cells show. `None` for a value with no plain form
+/// (a time finer than a day or coarser than a year, a quantity with bounds or a unit).
+#[must_use]
+#[allow(clippy::many_single_char_names)]
+pub fn plain(dv: &Value) -> Option<String> {
+    let v = &dv["value"];
+    match dv["type"].as_str()? {
+        "string" => v.as_str().map(str::to_string),
+        "wikibase-entityid" => v["id"].as_str().map(str::to_string),
+        "quantity" => {
+            if v["unit"].as_str().is_some_and(|u| u != "1")
+                || v.get("upperBound").is_some_and(|b| !b.is_null())
+            {
+                return None;
+            }
+            let amount = v["amount"].as_str()?;
+            Some(amount.strip_prefix('+').unwrap_or(amount).to_string())
+        }
+        "time" => {
+            let t = v["time"].as_str()?;
+            let (sign, rest) = match t.strip_prefix('-') {
+                Some(r) => ("-", r),
+                None => ("", t.strip_prefix('+').unwrap_or(t)),
+            };
+            let date = rest.split('T').next()?;
+            let mut parts = date.split('-');
+            let (y, m, d) = (parts.next()?, parts.next()?, parts.next()?);
+            let y = y.trim_start_matches('0');
+            let y = if y.is_empty() { "0" } else { y };
+            match v["precision"].as_u64()? {
+                9 => Some(format!("{sign}{y}")),
+                10 => Some(format!("{sign}{y}-{m}")),
+                11 => Some(format!("{sign}{y}-{m}-{d}")),
+                _ => None,
+            }
+        }
+        "monolingualtext" => Some(format!(
+            "{}@{}",
+            v["text"].as_str()?,
+            v["language"].as_str()?
+        )),
+        "globecoordinate" => Some(format!(
+            "{}, {}",
+            v["latitude"].as_f64()?,
+            v["longitude"].as_f64()?
+        )),
+        _ => None,
+    }
+}
+
 /// A quantity's `amount`: a decimal number with its sign made explicit.
 fn quantity(value: &str) -> Option<String> {
     let v = value.trim().replace(',', "");
@@ -146,6 +197,34 @@ fn coordinate(value: &str) -> Option<(f64, f64)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // 0106 §1: what the text can say reads back as it was written.
+    #[test]
+    fn plain_forms_read_back() {
+        let m = Messages::for_language("en");
+        for (dt, text) in [
+            ("string", "a|b"),
+            ("url", "https://example.org/a"),
+            ("wikibase-item", "Q5"),
+            ("quantity", "12"),
+            ("quantity", "-3.5"),
+            ("time", "1969"),
+            ("time", "1969-07"),
+            ("time", "1969-07-20"),
+            ("time", "-44"),
+            ("monolingualtext", "Hallo@de"),
+            ("globe-coordinate", "45.5, -122.6"),
+        ] {
+            let dv = datavalue(&m, dt, text, text).unwrap();
+            assert_eq!(plain(&dv).as_deref(), Some(text), "{dt}");
+        }
+        assert_eq!(
+            plain(
+                &json!({"type": "time", "value": {"time": "+1969-00-00T00:00:00Z", "precision": 7}})
+            ),
+            None
+        );
+    }
 
     #[test]
     fn typed_values_parse() {

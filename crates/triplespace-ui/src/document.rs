@@ -553,7 +553,15 @@ async fn read(
         Err(e) => return pages::api_failed(&cx, headers, &e),
     };
     cx.inputs.push(parsed.cache);
-    let parsed = parsed.value;
+    let mut parsed = parsed.value;
+    // A table's current revision is drawn as its grid (15 §2.2); an old one, as any
+    // revision of a text model, as its text.
+    if oldid.is_none()
+        && parsed.title.starts_with("Table:")
+        && let Some(html) = crate::tablepage::grid(site, &mut cx, incoming, &parsed.title).await
+    {
+        parsed.html = html;
+    }
     if render {
         return pages::fragment(&cx, headers, StatusCode::OK, || content_html(&cx, &parsed));
     }

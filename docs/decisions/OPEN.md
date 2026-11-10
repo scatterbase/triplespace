@@ -71,6 +71,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0104 A1](0104-batches-and-the-job-runner.md#a1-calls-made-while-building-the-runner) | 2026-11-08 | Calls made while building the runner |
 | [0104 A2](0104-batches-and-the-job-runner.md#a2-calls-made-while-building-the-batches) | 2026-11-08 | Calls made while building the batches |
 | [0104 A3](0104-batches-and-the-job-runner.md#a3-calls-made-while-building-specialcreateentities) | 2026-11-08 | Calls made while building `Special:CreateEntities` |
+| [0106 A5](0106-create-entities-grid-and-drafts.md#a5-what-a-draft-needed-to-hold-the-tables-text-found-while-building) | 2026-11-10 | What a draft needed to hold the table's text, found while building |
 
 ## Open questions
 

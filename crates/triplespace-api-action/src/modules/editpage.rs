@@ -243,6 +243,9 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     if model == "wikitext" {
         text = pst(ctx, &site, &text);
     }
+    if model == scatter_wikibase_shape::table::MODEL {
+        text = table_text(ctx, &tenant, &text).await?;
+    }
 
     // Create or edit.
     let minor = ctx.params.flag("minor") && !ctx.params.flag("notminor");
@@ -431,4 +434,40 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     }
     ctx.cache_tags.push(format!("p:{}", h.page_id.unwrap_or(0)));
     Ok(ApiResponse::ok(json!({"edit": Value::Object(edit)})))
+}
+
+/// A table's definition as it is stored (0045 §3; 15 §2.2): validated against the schema
+/// and the tenant's limits, then written canonically, one row ID per line. A definition
+/// that fails is refused with `ts-invalid-table`, every problem named with its place
+/// (0045 A9).
+async fn table_text(ctx: &Ctx, tenant: &str, text: &str) -> Result<String, ApiError> {
+    use scatter_wikibase_shape::table::{Definition, Limits};
+    let mut limits = Limits::default();
+    for (key, slot) in [
+        ("tables.max_rows", &mut limits.max_rows),
+        ("tables.max_columns", &mut limits.max_columns),
+    ] {
+        if let Some(n) = crate::version::setting(ctx.db(), tenant, key)
+            .await
+            .map_err(ApiError::internal)?
+            .and_then(|v| v.as_u64())
+            .and_then(|n| usize::try_from(n).ok())
+        {
+            *slot = n;
+        }
+    }
+    match Definition::parse(text, limits) {
+        Ok(d) => Ok(d.canonical()),
+        Err(problems) => Err(ApiError::new(
+            "ts-invalid-table",
+            format!(
+                "The table's definition is not valid: {}",
+                problems
+                    .iter()
+                    .map(ToString::to_string)
+                    .collect::<Vec<_>>()
+                    .join("; ")
+            ),
+        )),
+    }
 }
