@@ -30,6 +30,10 @@ updates:
     groups:
       fuzz:
         patterns: ["*"]
+    ignore:
+      # As for the workspace above: the fuzz workspace takes getrandom from the root manifest.
+      - dependency-name: getrandom
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: npm
     directory: /ui
