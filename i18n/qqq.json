@@ -1007,6 +1007,7 @@
 	"ts-preferences": "Link to Special:Preferences in the account menu.\n{{Identical|Preferences}}",
 	"ts-preferences-title": "Title of Special:Preferences.\n{{Identical|Preferences}}",
 	"ts-preferences-save": "Button that saves one section of Special:Preferences.\n{{Identical|Save}}",
+	"ts-preferences-skin-default": "First option of the Skin select on Special:Preferences: no skin of the reader's own, so the wiki's default skin applies.",
 	"ts-preferences-saved": "Notice in a section of Special:Preferences after it was saved.",
 	"ts-preferences-appearance-note": "Note at the head of the Appearance section of Special:Preferences.",
 	"ts-preferences-restore-intro": "Text beside the Restore all defaults button of Special:Preferences.",

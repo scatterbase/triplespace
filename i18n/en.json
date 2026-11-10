@@ -1007,6 +1007,7 @@
 	"ts-preferences": "Preferences",
 	"ts-preferences-title": "Preferences",
 	"ts-preferences-save": "Save",
+	"ts-preferences-skin-default": "The wiki's skin",
 	"ts-preferences-saved": "Your preferences have been saved.",
 	"ts-preferences-appearance-note": "These are also in the Appearance menu at the top of every page.",
 	"ts-preferences-restore-intro": "Return every preference to the wiki's default.",

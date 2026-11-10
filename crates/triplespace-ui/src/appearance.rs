@@ -286,6 +286,27 @@ pub struct AppearancePanel {
     pub apply: Option<String>,
 }
 
+/// The icon buttons of one of the keys the panel draws as icons, `current` checked;
+/// `None` for any other key. `Special:Preferences` draws the same keys the same way.
+#[must_use]
+pub fn icon_options(m: &Messages, key: &str, current: &str) -> Option<Vec<IconOption>> {
+    let (key, choices, _) = KEYS
+        .iter()
+        .find(|(k, _, _)| *k == key && ICON_KEYS.contains(k))?;
+    let label_key = format!("ts-pref-{}", key.replace('.', "-"));
+    Some(
+        choices
+            .iter()
+            .map(|c| IconOption {
+                value: (*c).to_string(),
+                label: m.get(&format!("{label_key}-{c}")),
+                checked: current == *c,
+                icon_html: icon(key, c),
+            })
+            .collect(),
+    )
+}
+
 fn select_model(
     m: &Messages,
     key: &str,
@@ -325,15 +346,7 @@ pub fn panel_model(
                 id: format!("ts-appearance-{}", key.replace('.', "-")),
                 key: (*key).to_string(),
                 legend: m.get(&label_key),
-                options: choices
-                    .iter()
-                    .map(|c| IconOption {
-                        value: (*c).to_string(),
-                        label: m.get(&format!("{label_key}-{c}")),
-                        checked: current == *c,
-                        icon_html: icon(key, c),
-                    })
-                    .collect(),
+                options: icon_options(m, key, current).unwrap_or_default(),
             });
             continue;
         }

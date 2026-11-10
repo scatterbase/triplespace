@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-17
-- **Updated:** 2026-11-09 (A3)
+- **Updated:** 2026-11-09 (A4)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0027](0027-preferences-and-portability.md), [0028](0028-tenancy-policy.md), [0034](0034-frontend-stack.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0046](0046-primary-tenant.md), [0047](0047-special-pages.md), [0056](0056-security-model.md), [0057](0057-web-tier.md), [0067](0067-proposals.md)
 - **Uses:** [0014](0014-caches-and-search.md)
@@ -73,6 +73,8 @@ James's direction, from the design discussion of 2026-10-17:
 *Current text: [09](../architecture/09-security-and-moderation.md) §4.5, §4.7; [18](../architecture/18-api.md) §1.2; [19](../architecture/19-site-ui.md) §2.8, §6.3, §6.11; [21](../architecture/21-special-pages.md) §1.3, §8.*
 
 ### 5. Preferences and the account page (amends 0010 §11; amends 0027 §7; amends 0021 §6; amends 0047 §2; amends 0067 §6)
+
+*Changed by A4.*
 
 *Current text: [17](../architecture/17-federation-and-publication.md) §3.2; [19](../architecture/19-site-ui.md) §2.4, §2.6; [21](../architecture/21-special-pages.md) §1.2, §8.*
 
@@ -153,3 +155,10 @@ James's direction, from the design discussion of 2026-10-17:
 - **Source:** [0107](0107-settings-and-log-events-checked-against-the-running-code.md) §2
 - **Change:** extends §1
 - **Summary:** Every read of a setting by key goes through `Snapshot::resolve`, which reports the key to the probe; CI fails a run that read a key `settings.toml` does not register. Listing every setting reports nothing. Chapter text: [23](../architecture/23-configuration-and-registry.md) §3.1.
+
+### A4. Preferences: controls that suit their keys, and tabs as panes
+
+- **Date:** 2026-11-09
+- **Source:** Direct: James, ticket SCA-276; which control each key takes Claude, while building it, 2026-11-09; unconfirmed
+- **Change:** extends §5
+- **Summary:** James asked that with JavaScript the tabs of `Special:Preferences` be separate panes, and that a preference be a drop-down, radio buttons or, best, a graphical selector where possible (SCA-276). Calls made in the building: colour mode, contrast and text size are the Appearance menu's icon buttons with each choice named; a choice of up to five values that always has a value is radio buttons, and one that may have none keeps its select; `feeds.period` and `rc.limit` are selects of the feeds' own values, keeping a value that is none of them; `ui.skin` is a select of the skins the wiki offers, its empty choice resetting the key; the languages, the time zone and the JSON keys stay as they were, there being no list of languages or zones to offer; the pane in view is the one the address names, else the one a save answered, else the first. Chapter text: [19](../architecture/19-site-ui.md) §2.6.
