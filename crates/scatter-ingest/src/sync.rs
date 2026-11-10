@@ -371,7 +371,9 @@ impl BlockUnit {
                     mismatches.push(m);
                 }
                 Decided::Other(SyncItem::Deleted { id, upstream }) => {
-                    if cursors.contains_key(&id) {
+                    if cursors.contains_key(&id)
+                        && !claimed_already(store, cx, partition, &id, &upstream).await?
+                    {
                         ops.push(Operation::Tombstone { id, upstream });
                     } else {
                         counts.unchanged += 1;
@@ -379,7 +381,9 @@ impl BlockUnit {
                 }
                 Decided::Other(SyncItem::Redirected { from, to, upstream }) => {
                     // Rare enough in a dump to look up one at a time.
-                    if already_redirected(store, cx, partition, &from, &to).await? {
+                    if already_redirected(store, cx, partition, &from, &to).await?
+                        || claimed_already(store, cx, partition, &from, &upstream).await?
+                    {
                         counts.unchanged += 1;
                     } else {
                         ops.push(Operation::Redirect {
@@ -512,6 +516,31 @@ async fn clearing<S: IngestStore>(
         upstream_id: None,
         upstream_aliases: Vec::new(),
     }))
+}
+
+/// Whether a deletion or a redirect names a revision the subject's records already
+/// claim (0092 A5). A follower reads an entity's current state, which can be newer than
+/// the row that sent it there: a put already written at the row's revision, then the
+/// entity redirected or deleted. The redirect or deletion is not that revision's; its own
+/// row (the redirecting edit, the deletion's log row) is still to come and writes it, so
+/// nothing is written now. No record claims a revision twice.
+async fn claimed_already<S: IngestStore>(
+    store: &S,
+    cx: &mut S::Cx,
+    partition: u64,
+    id: &EntityId,
+    upstream: &Upstream,
+) -> Result<bool, IngestError> {
+    let Some(revid) = upstream.revid else {
+        return Ok(false);
+    };
+    let Some(key) = key_of(store, cx, id).await? else {
+        return Ok(false);
+    };
+    Ok(store
+        .highest_revid(cx, partition, &key)
+        .await?
+        .is_some_and(|global| split_revid(global).1 >= revid))
 }
 
 /// Whether the newest record under `from` is already this redirect.
@@ -891,7 +920,9 @@ pub async fn run_sync_in<S: IngestStore>(
                     if let Some(present) = foreign_present.as_mut() {
                         present.remove(&id);
                     }
-                    if clears(provider, &id) {
+                    if claimed_already(store, &mut cx, partition, &id, &upstream).await? {
+                        counts.unchanged += 1;
+                    } else if clears(provider, &id) {
                         match clearing(
                             store,
                             &mut cx,
@@ -924,7 +955,9 @@ pub async fn run_sync_in<S: IngestStore>(
                     if let Some(present) = foreign_present.as_mut() {
                         present.remove(&from);
                     }
-                    if already_redirected(store, &mut cx, partition, &from, &to).await? {
+                    if already_redirected(store, &mut cx, partition, &from, &to).await?
+                        || claimed_already(store, &mut cx, partition, &from, &upstream).await?
+                    {
                         counts.unchanged += 1;
                     } else {
                         ops.push(Operation::Redirect {

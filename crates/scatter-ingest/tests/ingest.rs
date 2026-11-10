@@ -1495,6 +1495,84 @@ fn an_undeleted_entity_comes_back_without_claiming_its_revision_twice() {
     });
 }
 
+/// A follower reads current states, so a redirect or a deletion can be found on a row
+/// whose revision a `put` already claims (0092 A5): nothing is written for it then, and
+/// the row of its own revision writes it later. One item at a time and in blocks alike.
+#[test]
+fn a_redirect_or_deletion_at_a_claimed_revision_waits_for_its_own() {
+    pollster::block_on(async {
+        for batch in [1, 100] {
+            let (store, pipeline) = setup();
+            let actor = Attestation::by("instance:scatter");
+            let sync = |items: Vec<SyncItem>| {
+                run_sync(
+                    &store,
+                    &pipeline,
+                    sync_header(Mode::Upsert),
+                    actor.clone(),
+                    items,
+                    100,
+                    registry(),
+                    NOW,
+                    batch,
+                )
+            };
+            let id = |s: &str| EntityId::parse(s).unwrap();
+            let at = |r: u64| Upstream::revision(r, Some("2026-11-07T05:06:45Z"));
+            sync(vec![
+                xd_state("XDQ7", "Seven", 70),
+                xd_state("XDQ9", "Nine", 90),
+            ])
+            .await
+            .unwrap();
+            let before = store.records(MIRROR_XD).len();
+            let out = sync(vec![
+                SyncItem::Redirected {
+                    from: id("XDQ7"),
+                    to: id("XDQ8"),
+                    upstream: at(70),
+                },
+                SyncItem::Deleted {
+                    id: id("XDQ9"),
+                    upstream: at(90),
+                },
+            ])
+            .await
+            .unwrap();
+            assert_eq!(out.counts.unchanged, 2, "batch {batch}: {out:?}");
+            assert_eq!(store.records(MIRROR_XD).len(), before, "batch {batch}");
+            // Their own rows, at their own revisions.
+            let out = sync(vec![
+                SyncItem::Redirected {
+                    from: id("XDQ7"),
+                    to: id("XDQ8"),
+                    upstream: at(71),
+                },
+                SyncItem::Deleted {
+                    id: id("XDQ9"),
+                    upstream: Upstream::default(),
+                },
+            ])
+            .await
+            .unwrap();
+            assert_eq!(
+                (out.counts.other, out.counts.tombstoned),
+                (1, 1),
+                "batch {batch}: {out:?}"
+            );
+            let revids: Vec<u64> = store
+                .records(MIRROR_XD)
+                .iter()
+                .filter_map(|r| r.header().revid)
+                .collect();
+            let mut unique = revids.clone();
+            unique.sort_unstable();
+            unique.dedup();
+            assert_eq!(unique.len(), revids.len(), "batch {batch}: {revids:?}");
+        }
+    });
+}
+
 // --- bootstrap mode ----------------------------------------------------------------------
 
 /// The items of the bootstrap equivalence test: two states (one with an upstream hash the

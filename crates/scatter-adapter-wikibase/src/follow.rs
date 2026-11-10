@@ -113,6 +113,15 @@ pub enum Fetched {
     },
     /// The entity does not exist.
     Missing(EntityId),
+    /// The entity's state will not parse: an entity type the model does not read yet (a
+    /// lexeme), or a malformed state. The follower rejects it and moves on, as a dump sync
+    /// counts an unreadable line (0092 A3).
+    Unreadable {
+        /// The requested ID.
+        id: EntityId,
+        /// Why it will not parse.
+        reason: String,
+    },
 }
 
 /// Reads a `wbgetentities` response (0092 §2): one [`Fetched`] per entity it answers for,
@@ -120,7 +129,8 @@ pub enum Fetched {
 ///
 /// # Errors
 ///
-/// When the body is not a `wbgetentities` response, or an entity in it will not parse.
+/// When the body is not a `wbgetentities` response. An entity in it that will not parse is
+/// [`Fetched::Unreadable`], not an error.
 pub fn read_entities(body: &str) -> Result<BTreeMap<String, Fetched>, FollowError> {
     #[derive(Deserialize)]
     struct Resp {
@@ -149,9 +159,14 @@ pub fn read_entities(body: &str) -> Result<BTreeMap<String, Fetched>, FollowErro
             out.insert(key, Fetched::Redirect { from: id, to });
             continue;
         }
-        let parsed =
-            Entity::from_json(&v.to_string()).map_err(|e| FollowError(format!("`{key}`: {e}")))?;
-        out.insert(key, Fetched::State(Box::new(parsed)));
+        let fetched = match Entity::from_json(&v.to_string()) {
+            Ok(parsed) => Fetched::State(Box::new(parsed)),
+            Err(e) => Fetched::Unreadable {
+                id,
+                reason: e.to_string(),
+            },
+        };
+        out.insert(key, fetched);
     }
     Ok(out)
 }
@@ -206,5 +221,24 @@ mod tests {
             Fetched::Missing(EntityId::parse("Q5095").unwrap())
         );
         assert!(read_entities(r#"{"error":{"code":"x"}}"#).is_err());
+    }
+
+    #[test]
+    fn a_state_that_will_not_parse_is_unreadable_not_an_error() {
+        let body = r#"{"entities":{
+          "Q8":{"type":"item","id":"Q8","labels":{},"claims":{}},
+          "L7":{"type":"lexeme","id":"L7","lemmas":{},"forms":[],"senses":[]}}}"#;
+        let got = read_entities(body).unwrap();
+        assert!(matches!(got["Q8"], Fetched::State(_)));
+        match &got["L7"] {
+            Fetched::Unreadable { id, reason } => {
+                assert_eq!(id.as_str(), "L7");
+                assert!(
+                    reason.contains("forms") || reason.contains("lemmas"),
+                    "{reason}"
+                );
+            }
+            other => panic!("{other:?}"),
+        }
     }
 }

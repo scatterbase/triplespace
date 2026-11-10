@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-26
-- **Updated:** 2026-10-30 (A2)
+- **Updated:** 2026-11-09 (A5)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0053](0053-mirrored-pages.md), [0070](0070-shallow-entity-mirroring.md), [0078](0078-entity-sources.md)
 - **Uses:** [0011](0011-logs.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0027](0027-preferences-and-portability.md), [0040](0040-instance-prerogatives.md), [0067](0067-proposals.md), [0085](0085-settings-and-preferences.md), [0088](0088-external-identity-providers.md), [0091](0091-one-wikibase-adapter.md)
@@ -47,6 +47,8 @@ James's direction, from the design discussion of 2026-10-26:
 
 ### 2. A row says only that a title changed (extends 0070 §3)
 
+*Changed by A3, A5.*
+
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.7.*
 
 ### 3. The follower's position (amends 0053 §8; amends 0070 §10)
@@ -60,6 +62,8 @@ James's direction, from the design discussion of 2026-10-26:
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.9, §6.4.*
 
 ### 5. From the load to the follower (extends 0070 §7)
+
+*Changed by A4.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.9.*
 
@@ -132,3 +136,32 @@ Replaced text (§3):
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
 - **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [05](../architecture/05-providers-and-ingest.md), [13](../architecture/13-mirrored-pages.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.
+
+### A3. A state that will not parse is rejected, and the follower goes on
+
+- **Date:** 2026-11-09
+- **Source:** Direct: Claude, while running the follower on the whole-dump mirror, 2026-11-09; unconfirmed
+- **Change:** extends §2
+- **Summary:** The follower reads every entity namespace (§1), and Wikidata's include `Lexeme`, whose states the entity model does not read yet ([0066](0066-lexemes.md)). One such state stopped the whole run, so a state that will not parse is now written as a rejection on the follow job, its reason the parse error, and the batch goes on, as a dump sync counts a line it cannot read. Until lexemes are read, each lexeme edit costs a fetch and a rejection. Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.7.
+
+### A4. A load moves the follower's start only forward
+
+- **Date:** 2026-11-09
+- **Source:** Direct: James, review of the follower's run on the whole-dump mirror, 2026-11-09
+- **Change:** amends §5
+- **Summary:** A sync of two entities into the whole-dump mirror recorded their newest `modified`, three months before the dump's, as where the load ended, and so would have started the follower behind the wiki's recent changes. A load now records its end only when it is later than the end already recorded, and only then resets the follower's position; otherwise `sync` says the position is kept. Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.9.
+
+Replaced text (§5, in 05 §5.9):
+
+> It records where it ends: an XML dump's newest revision timestamp, a JSON dump's newest `modified`, or the time a crawl began. The follower starts there, less `follow.tail`, and the version cursor skips what the load already wrote.
+
+### A5. A redirect or deletion at a revision already claimed waits for its own row
+
+- **Date:** 2026-11-09
+- **Source:** Direct: James, review of the follower's run on the whole-dump mirror, 2026-11-09
+- **Change:** amends §2
+- **Summary:** The follower reads an entity's current state, which can be newer than the row that sent it there. On the whole-dump mirror it wrote `Q141934632`'s state at revision 2565763758 from the item's creation row; the item was redirected afterwards, and when the follower reached the row for 2565763758 it read the redirect and wrote it at that revision, which the `put` already claimed, and `view.activity`'s unique revision stopped the run. A redirect or deletion whose revision the subject's records already claim is now written as nothing, counted unchanged: its own row (the redirecting edit, the deletion's log row) is still ahead of the follower and writes it, and the sweep catches what a lost row would miss. No record claims a revision twice, as for a `put` already. Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.7.
+
+Replaced text (§2, in 05 §5.7):
+
+> The job reads the entity's current state and writes what the state says, as a fetch does (§5.5): a `put` when its `lastrevid` is newer than the cursor, a `redirect` for an upstream redirect, a `tombstone` when an entity in the set is missing, nothing otherwise ([0092](../decisions/0092-following-recent-changes.md) §2).

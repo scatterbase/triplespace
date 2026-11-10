@@ -664,3 +664,24 @@ entity, parsing (about 7%) and the adapter (about 6%). In the sweeps' samples, t
 `tokio-rt-worker` running at 60–90% while the runtime's own workers were parked: on Linux a
 thread left unnamed keeps its creator's name, so those were unnamed threads started from a
 runtime worker. Name them before reading per-thread figures from a load.
+
+**Following from the whole-dump mirror (2026-11-09/10).** `follow --provider wikidata --once
+--anonymous` on the whole-dump database (§6 row in `real-dumps.md`), from the dump's end at
+2026-10-27 11:54:55: anonymous, so 50 entities per `wbgetentities` request, one request at a
+time. Two runs, at `bd52604` plus 0092 A3–A5:
+
+- 18h38m, 257 h of Wikidata's edits (10-27 11:42 to 11-07 05:05), +2,307,745 records, about
+  14× Wikidata's edit rate. It stopped on a redirect that borrowed a revision a put already held
+  (0092 A5). Client CPU 17,785 s (27% of a core), peak RSS 1.74 GB.
+- Resumed with the fix: 8h58m, the remaining 74 h to the present (lag 0.0 h at the end), 1,680,972
+  change rows in 3,361 batches: 24,556 created, 869,708 updated, 266,213 unchanged, 26,886
+  rejected, 256 tombstoned, 1,422 redirected; +895,945 records, about 8× the edit rate. Client
+  CPU 7,115 s (22% of a core), peak RSS 1.21 GB.
+
+The database grew 663 → 686 GB (about 7 KB per record). The limit is the serial fetch, not the
+client or Postgres: the client stays near a quarter of a core, and the waits are reading pages
+and, later, WAL writes (`LWLock:WALWrite`, `IO:WalSync`, iowait 8–13%). A bot login's
+`apihighlimits` (500 per request) or parallel requests within Wikimedia's limits would raise it.
+The first run's rejections were all lexemes, whose forms and senses the adapter does not read yet (0092 A3); each
+batch is its own job, about 8,000 over the two runs. Before running a newer build against an
+older benchmark database, run `triplespace migrate`.

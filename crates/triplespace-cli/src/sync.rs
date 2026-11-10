@@ -426,12 +426,17 @@ pub async fn run(args: Sync) -> Result<()> {
         } else {
             KIND_SOURCE
         };
-        record_load(&client, &tenant, kind, slug, latest)
+        let moved = record_load(&client, &tenant, kind, slug, latest)
             .await
             .context("record where the load ended")?;
         println!(
-            "  loaded to  {}",
-            scatter_adapter_mediawiki::recentchanges::iso(latest)
+            "  loaded to  {}{}",
+            scatter_adapter_mediawiki::recentchanges::iso(latest),
+            if moved {
+                ""
+            } else {
+                " (no later than the end recorded: the follower's position is kept)"
+            }
         );
     }
     println!("sync job {} finished", outcome.job_id);
