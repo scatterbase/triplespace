@@ -95,7 +95,7 @@ Reading, logging in and out, creating an account, the account pages, page source
 
 | Request | Returns |
 |---|---|
-| `action=render` on a document page or thread | The rendered body, as MediaWiki returns it |
+| `action=render` on a document page or thread | The rendered body, as MediaWiki returns it; a thread's is its posts in tree order, as its page draws them, without the header that says where it lives and its status ([0034](../decisions/0034-frontend-stack.md) A17) |
 | `action=render` on an entity | The content of the Statements tab, without the frame |
 | `region=terms` | The term box |
 | `region=statements/{P}` | One statement group in its layout ([0003](../decisions/0003-statement-ui.md) §3) |
@@ -105,7 +105,7 @@ Reading, logging in and out, creating an account, the account pages, page source
 
 - **A region is part of its page.** Full pages are assembled from the region functions, and a region exists for `action=render` only once the page draws it, so the two cannot drift.
 - **The region names are a contract; their markup is not.** The names in the table are documented with the site's URLs and kept until a log entry in [0057](../decisions/0057-web-tier.md) retires one. The HTML inside a region changes with the site, as the HTML of MediaWiki's `action=render` does.
-- **Errors.** An unknown region is `400` with a MediaWiki-shaped error body. A region with no content yet (a property the entity does not use) is `200` with the empty group's markup, so a component can add the first value. A missing or confidential target answers exactly as its page would ([0056](../decisions/0056-security-model.md) §5).
+- **Errors.** An unknown region is `400` with a MediaWiki-shaped error body, and so is a post the thread does not have. A region with no content yet (a property the entity does not use) is `200` with the empty group's markup, so a component can add the first value. A missing or confidential target answers exactly as its page would ([0056](../decisions/0056-security-model.md) §5).
 - **Caching** follows [03](03-storage-caches-and-search.md) §10.3: a region carries the same `ETag`, `Cache-Tag` and redaction as its page ([0014](../decisions/0014-caches-and-search.md) §3), so purging the page purges its regions. The tags are two-tiered: a composed page carries exact tags for its subjects (the entity or page, and a talk page's threads) and for every page in its render manifest, and nothing else; the entities whose labels it drew are not tagged, since a large item draws labels from thousands of them and tag headers are capped by every CDN and proxy. Label staleness is bounded by the page's `s-maxage` instead, as MediaWiki bounds its label cache, and the tag list has a stated cap.
 - **Links are full URLs,** as MediaWiki's `action=render` makes them.
 - **Build skew.** A component sends `X-Triplespace-UI-Build`, the build ID of the page it lives in. A web tier on another build answers `409` with no body, and the component reloads the page rather than swap in markup its loaded styles and scripts do not match; the build ID includes the skin that drew the page and its version, so a change of skin or a skin upgrade is build skew too ([0097](../decisions/0097-versioning-and-skins.md) §15); the write has already gone through the API, so the reload shows it. A request without the header, as from any third party, is always served.

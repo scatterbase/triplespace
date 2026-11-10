@@ -54,6 +54,43 @@ pub const CSP: &str = "default-src 'self'; script-src 'self'; style-src 'self'; 
     img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'self'; \
     frame-ancestors 'self'; form-action 'self'";
 
+/// The policy of a page of a wiki whose site assets are served from another origin
+/// (0034 §11; 0086 §5; 09 §1.4): [`CSP`] with that origin among the sources of images and
+/// fonts, and of nothing else. `None` where `media.base_url` is unset, is the site's own
+/// origin, or is no `http` or `https` URL, and [`CSP`] stands.
+#[must_use]
+pub fn csp_with_media(media_base: Option<&str>, own_host: Option<&str>) -> Option<String> {
+    let url = url::Url::parse(media_base?).ok()?;
+    if !matches!(url.scheme(), "http" | "https") {
+        return None;
+    }
+    // The serialization of an origin holds a scheme, a host and a port: nothing that
+    // could end the directive or the header.
+    let origin = url.origin().ascii_serialization();
+    let host = origin.split_once("://").map_or("", |(_, h)| h);
+    if own_host.is_some_and(|own| own.eq_ignore_ascii_case(host)) {
+        return None;
+    }
+    Some(
+        CSP.replace(
+            "img-src 'self' data:",
+            &format!("img-src 'self' data: {origin}"),
+        )
+        .replace("font-src 'self'", &format!("font-src 'self' {origin}")),
+    )
+}
+
+/// Sets a page's own policy where the wiki's media origin widens it; the middleware
+/// leaves a policy a response already carries.
+fn media_policy(cx: &Context, headers: &HeaderMap, r: &mut Response) {
+    let own = headers.get(header::HOST).and_then(|v| v.to_str().ok());
+    if let Some(csp) = csp_with_media(cx.site.media_base.as_deref(), own)
+        && let Ok(v) = HeaderValue::from_str(&csp)
+    {
+        r.headers_mut().insert(header::CONTENT_SECURITY_POLICY, v);
+    }
+}
+
 /// Adds the security headers to every response.
 pub async fn security_headers(request: Request, next: Next) -> Response {
     let mut r = next.run(request).await;
@@ -272,8 +309,9 @@ pub async fn context(
         None => None,
     };
     let notifications = counts.filter(|_| user.is_some()).map(|c| c.value);
-    // `uselang`, then a signed-in reader's own interface language (0085 §2.2), then the
-    // site's.
+    // `uselang`, then a signed-in reader's own interface language, then the request's
+    // `Accept-Language` matched against the languages the interface has messages for,
+    // then the site's (0034 §9; 0085 §2.2).
     let lang = query
         .get("uselang")
         .and_then(|l| i18n::valid_code(l))
@@ -283,6 +321,13 @@ pub async fn context(
                 .and_then(|p: &serde_json::Map<String, serde_json::Value>| p.get("language"))
                 .and_then(serde_json::Value::as_str)
                 .and_then(i18n::valid_code)
+        })
+        .or_else(|| {
+            incoming
+                .headers
+                .get(header::ACCEPT_LANGUAGE)
+                .and_then(|v| v.to_str().ok())
+                .and_then(i18n::negotiate)
         })
         .unwrap_or_else(|| si.value.lang.clone());
     let m =
@@ -529,6 +574,7 @@ pub fn respond(
         HeaderValue::from_static("text/html; charset=utf-8"),
     );
     caching(r.headers_mut(), etag.as_deref(), &cx.inputs);
+    media_policy(cx, headers, &mut r);
     r
 }
 
@@ -577,6 +623,7 @@ pub fn fragment(
         HeaderValue::from_static("text/html; charset=utf-8"),
     );
     caching(r.headers_mut(), etag.as_deref(), &cx.inputs);
+    media_policy(cx, headers, &mut r);
     r
 }
 
@@ -1202,6 +1249,29 @@ mod tests {
 
     #[test]
     fn the_policy_allows_style_attributes_only() {
+        // 0034 §11; 09 §1.4: another origin for site assets joins the sources of images
+        // and fonts only; the wiki's own origin, or no URL, leaves the policy as it is.
+        let media = csp_with_media(
+            Some("https://media.example.org/lb/"),
+            Some("lb.example.org"),
+        )
+        .unwrap();
+        assert!(media.contains("img-src 'self' data: https://media.example.org;"));
+        assert!(media.contains("font-src 'self' https://media.example.org;"));
+        assert!(media.contains("script-src 'self';") && media.contains("style-src 'self';"));
+        assert_eq!(media.matches("media.example.org").count(), 2);
+        assert_eq!(csp_with_media(None, Some("lb.example.org")), None);
+        assert_eq!(
+            csp_with_media(Some("https://LB.example.org/media"), Some("lb.example.org")),
+            None
+        );
+        assert_eq!(csp_with_media(Some("/media"), None), None);
+        assert_eq!(csp_with_media(Some("javascript:alert(1)"), None), None);
+        assert_eq!(
+            csp_with_media(Some("https://m.example.org:8443/x; script-src *"), None).as_deref(),
+            csp_with_media(Some("https://m.example.org:8443"), None).as_deref(),
+            "only the origin is taken"
+        );
         assert!(CSP.contains("style-src 'self';"));
         assert!(CSP.contains("style-src-attr 'unsafe-inline';"));
         assert!(!CSP.contains("script-src 'self' 'unsafe-inline'"));

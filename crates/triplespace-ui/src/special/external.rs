@@ -118,6 +118,20 @@ pub fn csp_for(issuers: &[LoginIssuer]) -> Option<String> {
 #[must_use]
 pub fn allow_issuer_forms(cx: &Context, mut r: Response) -> Response {
     if let Some(csp) = csp_for(&cx.site.login_issuers)
+        // The page's policy may already admit the wiki's media origin: keep that.
+        .map(|csp| {
+            let had = r
+                .headers()
+                .get(axum::http::header::CONTENT_SECURITY_POLICY)
+                .and_then(|v| v.to_str().ok());
+            match (had, csp.split_once("form-action ")) {
+                (Some(had), Some((_, forms))) => match had.split_once("form-action ") {
+                    Some((before, _)) => format!("{before}form-action {forms}"),
+                    None => csp,
+                },
+                _ => csp,
+            }
+        })
         && let Ok(v) = axum::http::HeaderValue::from_str(&csp)
     {
         r.headers_mut()

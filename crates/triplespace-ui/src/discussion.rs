@@ -754,7 +754,7 @@ pub async fn serve(
     let action = params.map.get("action").map(String::as_str);
     if !matches!(
         action,
-        None | Some("view" | "addtopic" | "history" | "thread")
+        None | Some("view" | "addtopic" | "history" | "thread" | "render")
     ) || params.map.contains_key("diff")
         || params.map.contains_key("oldid")
         || !may_be_discussion(title)
@@ -780,6 +780,16 @@ pub async fn serve(
         return match kind_of(ns) {
             Some(Kind::Thread) => {
                 Ok(actions::form(site, cx, headers, incoming, info.value, params).await)
+            }
+            _ => Err(cx),
+        };
+    }
+    // `action=render` on a thread is its posts without the frame (20 §3.2); a talk page's
+    // is its document's.
+    if action == Some("render") {
+        return match kind_of(ns) {
+            Some(Kind::Thread) => {
+                Ok(thread_fragment(site, cx, headers, incoming, info.value, params).await)
             }
             _ => Err(cx),
         };
@@ -1154,6 +1164,76 @@ async fn thread(
         }
     });
     pages::with_cookies(r, &cookies)
+}
+
+/// What `discussion/posts.html` draws: a thread's posts, or one of them.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+struct PostsFragment {
+    posts: Vec<PostItem>,
+}
+
+/// `action=render` on a thread (0034 §5; 20 §3.2): its posts as the thread's page draws
+/// them, without the frame; with `region=post/{id}`, the one post. A thread that is
+/// missing, or that the viewer may not read, answers as its page does; a post the thread
+/// does not have is an unknown region.
+// `region=row/{id}`, the other region of 0034 §5 not yet served, waits for Table pages.
+async fn thread_fragment(
+    site: &Site,
+    mut cx: Context,
+    headers: &HeaderMap,
+    incoming: &Incoming,
+    info: Lookup<PageInfo>,
+    params: &Params,
+) -> Response {
+    if headers
+        .get("x-triplespace-ui-build")
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(|b| b != crate::assets::build_id())
+    {
+        return pages::build_skew();
+    }
+    let Lookup::Found(page) = info else {
+        let title = match info {
+            Lookup::Missing { title, .. } => title,
+            _ => String::new(),
+        };
+        return pages::no_page(&cx, headers, title);
+    };
+    let t = match site.client().thread(incoming, page.page_id).await {
+        Ok(t) => {
+            cx.inputs.push(t.cache);
+            t.value
+        }
+        Err(ClientError::Api { .. }) => return pages::no_page(&cx, headers, page.title),
+        Err(e) => return pages::api_failed(&cx, headers, &e),
+    };
+    let title = t.title.clone();
+    let reply = |p: &PostView| {
+        cx.user
+            .as_ref()
+            .map(|_| format!("{}?replyto={}#reply", thread_href(&title), p.id))
+    };
+    let posts = match params.map.get("region").map(String::as_str) {
+        None => posts_model(&cx.m, &t, &reply),
+        Some(region) => {
+            let post = region
+                .strip_prefix("post/")
+                .and_then(|id| id.parse::<u64>().ok())
+                .and_then(|id| t.posts.iter().find(|p| p.id == id));
+            let Some(p) = post else {
+                return pages::unknown_region(region);
+            };
+            let parent = p
+                .in_reply_to
+                .and_then(|r| t.posts.iter().find(|q| q.id == r))
+                .and_then(|q| q.author.as_deref());
+            vec![PostItem::Post {
+                post: post_model(&cx.m, p, &t, parent, reply(p)),
+            }]
+        }
+    };
+    let html = cx.draw("discussion/posts.html", PostsFragment { posts });
+    pages::fragment(&cx, headers, StatusCode::OK, move || html)
 }
 
 /// The message a refusal shows.
