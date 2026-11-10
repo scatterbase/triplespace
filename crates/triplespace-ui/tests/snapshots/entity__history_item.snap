@@ -23,6 +23,63 @@ expression: main
 	</nav>
 	<div class="ts-page__body">
 		<div class="ts-history">
+<details class="ts-history__filter">
+<summary>Filter this history</summary>
+<form class="ts-changes-form" action="/w/index.php" method="get" aria-label="Filter this history">
+<input type="hidden" name="title" value="Item:Q6">
+<input type="hidden" name="action" value="history">
+<label class="ts-form-field">
+<span>User</span> <div class="cdx-text-input">
+<input class="cdx-text-input__input" type="text" name="user" value="">
+</div>
+</label>
+<label class="ts-form-field">
+<span>Tag</span> <div class="cdx-text-input">
+<input class="cdx-text-input__input" type="text" name="tagfilter" value="">
+</div>
+</label>
+<label class="ts-form-field">
+<span>From</span> <div class="cdx-text-input">
+<input class="cdx-text-input__input" type="date" name="from" value="">
+</div>
+</label>
+<label class="ts-form-field">
+<span>To</span> <div class="cdx-text-input">
+<input class="cdx-text-input__input" type="date" name="to" value="">
+</div>
+</label>
+<label class="ts-form-field">
+<span>What changed</span> <select class="cdx-select" name="changed">
+<option value="" selected>Anything</option>
+<option value="labels">Labels</option>
+<option value="descriptions">Descriptions</option>
+<option value="aliases">Aliases</option>
+<option value="sitelinks">Sitelinks</option>
+<option value="statements">Statements</option>
+</select>
+</label>
+<label class="ts-form-field">
+<span>Language, site or property</span> <div class="cdx-text-input">
+<input class="cdx-text-input__input" type="text" name="changedkey" value="">
+</div>
+</label>
+<fieldset class="ts-form-group">
+<legend>Hide</legend>
+<label class="cdx-checkbox cdx-checkbox--inline">
+<input class="cdx-checkbox__input" type="checkbox" name="hidebots" value="1">
+<span class="cdx-checkbox__icon">
+</span>
+<span class="cdx-checkbox__label">Bot edits</span>
+</label>
+<label class="cdx-checkbox cdx-checkbox--inline">
+<input class="cdx-checkbox__input" type="checkbox" name="hideminor" value="1">
+<span class="cdx-checkbox__icon">
+</span>
+<span class="cdx-checkbox__label">Minor edits</span>
+</label>
+</fieldset> <button class="cdx-button cdx-button--action-progressive cdx-button--weight-primary" type="submit">Show history</button>
+</form>
+</details>
 <form class="ts-history__compare" action="/w/index.php" method="get">
 <input type="hidden" name="title" value="Item:Q6">
 <div class="ts-history__compare-actions">

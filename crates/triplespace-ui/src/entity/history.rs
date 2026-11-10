@@ -50,6 +50,142 @@ pub struct Ask {
     pub limit: u32,
     /// The feed's cursor.
     pub cursor: Option<String>,
+    /// The filters of the panel (19 §3.3).
+    pub filter: Filter,
+}
+
+/// A history's filters, the ones recent changes and the watchlist have (19 §3.3): one
+/// actor's rows, without bot or minor edits, with a tag, between two days; and for an
+/// entity, the edits that touched a part of it, optionally by language, site or
+/// property (16 §4.1).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Filter {
+    /// Only this user's rows.
+    pub user: Option<String>,
+    /// Without bot edits.
+    pub hide_bots: bool,
+    /// Without minor edits.
+    pub hide_minor: bool,
+    /// Only rows with this tag.
+    pub tag: Option<String>,
+    /// From this day, `YYYY-MM-DD`.
+    pub from: Option<String>,
+    /// To the end of this day.
+    pub to: Option<String>,
+    /// What changed: one of [`CHANGED`]'s names.
+    pub changed: Option<String>,
+    /// The language, site or property of what changed.
+    pub key: Option<String>,
+}
+
+/// What an entity's history can be narrowed to, by the name the form sends: the parts
+/// of a change set's summary each stands for (16 §4.1), and its message.
+const CHANGED: [(&str, &[&str], &str); 5] = [
+    ("labels", &["labels"], "ts-history-changed-labels"),
+    (
+        "descriptions",
+        &["descriptions"],
+        "ts-history-changed-descriptions",
+    ),
+    ("aliases", &["aliases"], "ts-history-changed-aliases"),
+    ("sitelinks", &["sitelinks"], "ts-history-changed-sitelinks"),
+    (
+        "statements",
+        &["claims", "statements", "references", "qualifiers"],
+        "ts-history-changed-statements",
+    ),
+];
+
+/// A day as the date field sends it.
+fn day(s: &str) -> Option<String> {
+    let b = s.as_bytes();
+    (b.len() == 10
+        && b.iter().enumerate().all(|(i, c)| match i {
+            4 | 7 => *c == b'-',
+            _ => c.is_ascii_digit(),
+        }))
+    .then(|| s.to_string())
+}
+
+impl Filter {
+    fn of(q: &BTreeMap<String, String>) -> Self {
+        let text = |k: &str| {
+            q.get(k)
+                .map(|v| v.replace('_', " ").trim().to_string())
+                .filter(|v| !v.is_empty())
+        };
+        let code = |k: &str| {
+            q.get(k).map(|v| v.trim().to_string()).filter(|v| {
+                !v.is_empty()
+                    && v.chars()
+                        .all(|c| c.is_ascii_alphanumeric() || c == '-' || c == '_')
+            })
+        };
+        Self {
+            user: text("user"),
+            hide_bots: q.get("hidebots").is_some_and(|v| v == "1"),
+            hide_minor: q.get("hideminor").is_some_and(|v| v == "1"),
+            tag: q
+                .get("tagfilter")
+                .map(|v| v.trim().to_string())
+                .filter(|v| !v.is_empty()),
+            from: q.get("from").and_then(|d| day(d.trim())),
+            to: q.get("to").and_then(|d| day(d.trim())),
+            changed: q
+                .get("changed")
+                .filter(|c| CHANGED.iter().any(|(n, _, _)| n == c))
+                .cloned(),
+            key: code("changedkey"),
+        }
+    }
+
+    /// Whether anything is narrowed.
+    fn any(&self) -> bool {
+        *self != Self::default()
+    }
+
+    /// The filters as the address carries them.
+    fn pairs(&self) -> Vec<(&'static str, String)> {
+        let mut v = Vec::new();
+        let mut push = |k: &'static str, o: &Option<String>| {
+            if let Some(x) = o {
+                v.push((k, x.clone()));
+            }
+        };
+        push("user", &self.user);
+        push("tagfilter", &self.tag);
+        push("from", &self.from);
+        push("to", &self.to);
+        push("changed", &self.changed);
+        push("changedkey", &self.key);
+        if self.hide_bots {
+            v.push(("hidebots", "1".into()));
+        }
+        if self.hide_minor {
+            v.push(("hideminor", "1".into()));
+        }
+        v
+    }
+
+    /// The `changed` values the feed takes: each part the choice stands for, with the key.
+    fn parts(&self) -> Vec<String> {
+        let Some((_, parts, _)) = self
+            .changed
+            .as_ref()
+            .and_then(|c| CHANGED.iter().find(|(n, _, _)| n == c))
+        else {
+            return Vec::new();
+        };
+        parts
+            .iter()
+            // A removed statement is recorded by its ID, not its property.
+            .filter(|p| !(self.key.is_some() && **p == "statements"))
+            .map(|p| match &self.key {
+                Some(k) => format!("{p}:{k}"),
+                None => (*p).to_string(),
+            })
+            .collect()
+    }
 }
 
 impl Ask {
@@ -70,6 +206,7 @@ impl Ask {
                 .and_then(|l| l.parse::<u32>().ok())
                 .map_or(DEFAULT_LIMIT, |l| l.clamp(1, MAX_LIMIT)),
             cursor: query.get("continue").cloned().filter(|c| !c.is_empty()),
+            filter: Filter::of(query),
         }
     }
 
@@ -81,6 +218,19 @@ impl Ask {
             limit: self.limit,
             cursor: self.cursor.clone(),
             lang: lang.to_string(),
+            actor: self.filter.user.clone(),
+            show: [
+                self.filter.hide_bots.then_some("!bot"),
+                self.filter.hide_minor.then_some("!minor"),
+            ]
+            .into_iter()
+            .flatten()
+            .map(str::to_string)
+            .collect(),
+            tag: self.filter.tag.clone(),
+            changed: self.filter.parts(),
+            since: self.filter.from.as_ref().map(|d| format!("{d}T00:00:00Z")),
+            until: self.filter.to.as_ref().map(|d| format!("{d}T23:59:59Z")),
             ..ActivityQuery::default()
         }
     }
@@ -93,6 +243,13 @@ impl Ask {
         }
         if self.limit != DEFAULT_LIMIT {
             let _ = write!(s, "&limit={}", self.limit);
+        }
+        for (k, v) in self.filter.pairs() {
+            let _ = write!(
+                s,
+                "&{k}={}",
+                percent_encoding::utf8_percent_encode(&v, percent_encoding::NON_ALPHANUMERIC)
+            );
         }
         if let Some(c) = cursor {
             let _ = write!(
@@ -173,6 +330,125 @@ pub struct HistoryModel {
     pub pager: Option<Pager>,
     /// The compare form, when two of the rows can be compared (19 §3.7).
     pub compare: Option<CompareForm>,
+    /// The filter panel (19 §3.3).
+    pub filter: FilterForm,
+}
+
+/// The filter panel of a history: a disclosure, open while a filter is on, holding a form
+/// that works by `GET`.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct FilterForm {
+    /// The disclosure's summary.
+    pub label: String,
+    /// Whether a filter is on.
+    pub open: bool,
+    /// The page's title, for `title=`.
+    pub title: String,
+    /// The source in force, kept across the form.
+    pub source: Option<String>,
+    /// The fields.
+    pub items: Vec<changes::FormItem>,
+    /// The button.
+    pub apply: String,
+    /// The way back to the whole history, while a filter is on.
+    pub clear: Option<Choice>,
+}
+
+/// A date field.
+fn date_item(label: String, name: &str, value: Option<&str>) -> changes::FormItem {
+    changes::FormItem::Field {
+        label,
+        control: crate::special::controls::ControlModel::Input {
+            id: None,
+            name: name.to_string(),
+            input_type: "date".into(),
+            value: value.unwrap_or_default().to_string(),
+            required: false,
+            inputmode: None,
+            described_by: None,
+        },
+    }
+}
+
+/// The panel. `entity` adds what an entity's change sets record: what changed, and its
+/// language, site or property.
+fn filter_model(m: &Messages, title: &str, ask: &Ask, entity: bool) -> FilterForm {
+    use changes::FormItem;
+    let f = &ask.filter;
+    let mut items = vec![
+        FormItem::text(
+            m.get("ts-history-filter-user"),
+            "user",
+            f.user.as_deref().unwrap_or(""),
+        ),
+        FormItem::text(
+            m.get("ts-history-filter-tag"),
+            "tagfilter",
+            f.tag.as_deref().unwrap_or(""),
+        ),
+        date_item(m.get("ts-history-filter-from"), "from", f.from.as_deref()),
+        date_item(m.get("ts-history-filter-to"), "to", f.to.as_deref()),
+    ];
+    if entity {
+        let mut options = vec![(
+            String::new(),
+            m.get("ts-history-changed-any"),
+            f.changed.is_none(),
+        )];
+        options.extend(CHANGED.iter().map(|(name, _, msg)| {
+            (
+                (*name).to_string(),
+                m.get(msg),
+                f.changed.as_deref() == Some(*name),
+            )
+        }));
+        items.push(FormItem::select(
+            m.get("ts-history-filter-changed"),
+            "changed",
+            options,
+        ));
+        items.push(FormItem::text(
+            m.get("ts-history-filter-key"),
+            "changedkey",
+            f.key.as_deref().unwrap_or(""),
+        ));
+    }
+    items.push(FormItem::group(
+        m.get("ts-history-filter-hide"),
+        vec![
+            FormItem::check(
+                "hidebots",
+                "1",
+                f.hide_bots,
+                m.get("ts-history-filter-bots"),
+            ),
+            FormItem::check(
+                "hideminor",
+                "1",
+                f.hide_minor,
+                m.get("ts-history-filter-minor"),
+            ),
+        ],
+    ));
+    FilterForm {
+        label: m.get("ts-history-filter"),
+        open: f.any(),
+        title: title.to_string(),
+        source: ask.source.clone(),
+        items,
+        apply: m.get("ts-history-filter-apply"),
+        clear: f.any().then(|| Choice {
+            href: Ask {
+                source: ask.source.clone(),
+                limit: ask.limit,
+                cursor: None,
+                filter: Filter::default(),
+            }
+            .href(title, None),
+            label: m.get("ts-history-filter-clear"),
+            current: false,
+        }),
+    }
 }
 
 /// The form around a history's rows that compares the two revisions chosen with its
@@ -248,6 +524,7 @@ fn switch_model(
             source: source.map(str::to_string),
             limit: ask.limit,
             cursor: None,
+            filter: ask.filter.clone(),
         }
         .href(title, None),
         label,
@@ -337,7 +614,14 @@ fn model(
         note: switch
             .then(|| latest_only_model(m, site, provenance))
             .flatten(),
-        empty: page.rows.is_empty().then(|| m.get("ts-history-none")),
+        empty: page.rows.is_empty().then(|| {
+            m.get(if ask.filter.any() {
+                "ts-history-none-filtered"
+            } else {
+                "ts-history-none"
+            })
+        }),
+        filter: filter_model(m, title, ask, provenance.is_some()),
         list,
         pager: if page.rows.is_empty() {
             None
@@ -404,6 +688,73 @@ mod tests {
         );
         q.insert("source".into(), "<x>".into());
         assert_eq!(Ask::of(&q).source, None, "a source is a graph name");
+    }
+
+    // 19 §3.3; 0010 A56: a history's filters are read from the address, kept in its
+    // links, and sent to the feed.
+    #[test]
+    fn the_filters_reach_the_feed_and_stay_in_the_address() {
+        let q: BTreeMap<String, String> = [
+            ("user", "Alice_Bot"),
+            ("tagfilter", "job:3"),
+            ("from", "2026-11-01"),
+            ("to", "not a day"),
+            ("hidebots", "1"),
+            ("changed", "statements"),
+            ("changedkey", "P31"),
+        ]
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+        let a = Ask::of(&q);
+        assert_eq!(a.filter.user.as_deref(), Some("Alice Bot"));
+        assert_eq!(a.filter.to, None, "a day is YYYY-MM-DD");
+        let feed = a.query("en");
+        assert_eq!(feed.actor.as_deref(), Some("Alice Bot"));
+        assert_eq!(feed.show, ["!bot"]);
+        assert_eq!(feed.tag.as_deref(), Some("job:3"));
+        assert_eq!(feed.since.as_deref(), Some("2026-11-01T00:00:00Z"));
+        assert_eq!(feed.until, None);
+        // A removed statement is recorded by its ID, so a property leaves that part out.
+        assert_eq!(
+            feed.changed,
+            ["claims:P31", "references:P31", "qualifiers:P31"]
+        );
+        assert_eq!(
+            a.href("Item:Q6", None),
+            "/wiki/Item:Q6?action=history&user=Alice%20Bot&tagfilter=job%3A3&from=2026%2D11%2D01&changed=statements&changedkey=P31&hidebots=1"
+        );
+        // An unknown part and a key that is not a code are dropped.
+        let mut q = BTreeMap::new();
+        q.insert("changed".to_string(), "everything".to_string());
+        q.insert("changedkey".to_string(), "a b|c".to_string());
+        let a = Ask::of(&q);
+        assert!(!a.filter.any());
+        assert!(a.query("en").changed.is_empty());
+        // The panel: open while a filter is on, with the way back; an entity's has what
+        // changed.
+        let m = Messages::for_language("en");
+        let on = Ask::of(
+            &[("hideminor".to_string(), "1".to_string())]
+                .into_iter()
+                .collect(),
+        );
+        let f = filter_model(&m, "Item:Q6", &on, true);
+        assert!(f.open);
+        assert_eq!(
+            f.clear.as_ref().map(|c| c.href.as_str()),
+            Some("/wiki/Item:Q6?action=history")
+        );
+        let names = |f: &FilterForm| -> Vec<String> {
+            f.items
+                .iter()
+                .filter_map(|i| i.name().map(str::to_string))
+                .collect()
+        };
+        assert!(names(&f).contains(&"changed".to_string()));
+        let page = filter_model(&m, "Project:Home", &Ask::of(&BTreeMap::new()), false);
+        assert!(!page.open && page.clear.is_none());
+        assert!(!names(&page).contains(&"changed".to_string()));
     }
 
     #[test]

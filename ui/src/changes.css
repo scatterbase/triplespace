@@ -476,3 +476,22 @@
 	max-width: 16rem;
 	overflow-wrap: break-word;
 }
+
+/* A history's filter panel (19 §3.3): a disclosure above the rows, open while a filter
+   is on. */
+.ts-history__filter {
+	margin-block-end: var( --spacing-75, 0.75rem );
+}
+
+.ts-history__filter > summary {
+	color: var( --color-progressive, #36c );
+	cursor: pointer;
+}
+
+.ts-history__filter > .ts-changes-form {
+	margin-block-start: var( --spacing-50, 0.5rem );
+}
+
+.ts-history__filter-clear {
+	margin-inline-start: var( --spacing-75, 0.75rem );
+}

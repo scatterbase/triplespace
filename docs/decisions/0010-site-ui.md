@@ -60,7 +60,7 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 
 ### 5. History
 
-*Changed by A38.*
+*Changed by A38, A56.*
 
 *Current text: [19](../architecture/19-site-ui.md) §3.3.*
 
@@ -733,3 +733,10 @@ Replaced text ([19](../architecture/19-site-ui.md) §3.10, as it stood):
 - **Source:** Direct: James, tickets SCA-203 and SCA-232, and design discussion of 2026-11-09 (the menu's addresses); the rest Claude, while building them, 2026-11-09; unconfirmed
 - **Change:** extends §5.2
 - **Summary:** James asked that a row's log variant have its own column beside the summary, that `/* … */` read apart from the rest as MediaWiki's does, and that wikitext in a summary be parsed as far as MediaWiki parses it (SCA-203); and that each row have a menu of moderation links with its target and actor filled in (SCA-232). He confirmed that **Protect** and **Delete** use the addresses the page's own menu uses, `?action=protect` and `?action=delete`, not `Special:Protect/{page}`. Calls made in the building: the column is headed *Action* and holds the operation with its arguments, a log event's type and action, or a thread record in words; an automatic comment on a page links to the section it names; Wikibase's automatic comments, which adopted revisions keep, are said in words from `ts-summary-*` messages and shown as written where there is none; only wiki links are parsed, without a lookup, so a link to a missing page is not marked; a diff's header draws its summary the same way; the menu is a disclosure in a last column drawn only for a viewer who holds `block`, `protect` or `delete`, opening in the row; thanks and rollback are left out until they exist. Chapter text: [19](../architecture/19-site-ui.md) §3.4.
+
+### A56. A history has the feeds' filter panel
+
+- **Date:** 2026-11-09
+- **Source:** Direct: James, ticket SCA-227, and design discussion of 2026-11-09 (the `changed` parameter); the rest Claude, while building it, 2026-11-09; unconfirmed
+- **Change:** extends §5
+- **Summary:** A page's or an entity's history gets the filter panel recent changes has: by user, by tag, between two dates, without bot edits, without minor edits; and an entity's by what changed, with a language, site or property ([0020](0020-change-feeds.md) A21). Calls made in the building: the panel is a disclosure, open while a filter is on; the parameters are `user`, `tagfilter`, `from`, `to`, `hidebots`, `hideminor`, `changed` and `changedkey`; *Statements* stands for the parts `claims`, `statements`, `references` and `qualifiers`. Not built: hiding reverted edits, which needs a reverted change tag that nothing writes yet; combining consecutive edits by one actor; and telling a page's text edits from its statement edits. Chapter text: [19](../architecture/19-site-ui.md) §3.3.

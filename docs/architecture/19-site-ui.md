@@ -328,6 +328,8 @@ It covers records in every source partition:
 
 A document page's history lists its records in the `pages` partition, from `view.activity`. A file page's interleaves uploads with text and statement revisions, each row labelled by kind ([0039](../decisions/0039-files-and-media.md) §18).
 
+**A history has the feeds' filter panel** ([0010](../decisions/0010-site-ui.md) A56): a disclosure above the rows, open while a filter is on, holding a form that works without JavaScript. It narrows the history to one user's rows, to rows carrying a tag, to the days between two dates, and leaves out bot edits and minor edits, as recent changes and the watchlist can. An entity's history can also be narrowed by **what changed**: labels, descriptions, aliases, sitelinks or statements, and within those a language, a site or a property ([16](16-logs-feeds-and-notifications.md) §4.1). The filters are in the address (`user`, `tagfilter`, `from`, `to`, `hidebots`, `hideminor`, `changed`, `changedkey`), are kept by the source switch and the pager, and **Show the whole history** drops them.
+
 ### 3.4 History rows
 
 *Sources: [0010](../decisions/0010-site-ui.md) §5.2; [0023](../decisions/0023-moderation.md) §9; [0040](../decisions/0040-instance-prerogatives.md) §7; [0008](../decisions/0008-namespaces-and-document-pages.md) A50.*
