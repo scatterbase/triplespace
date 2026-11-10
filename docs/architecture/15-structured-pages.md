@@ -252,7 +252,7 @@ Nothing is copied, so a table can never disagree with its entities, and an edit 
 
 ### 2.5 Editing cells: one row, one change set
 
-*Sources: [0045](../decisions/0045-table-content-model.md) §6.*
+*Sources: [0045](../decisions/0045-table-content-model.md) §6, A10.*
 
 **Each row is saved on its own.** Edits accumulate in the grid by row; saving submits each changed row as **one change set on that row's entity**, an ordinary interactive edit with read-your-writes ([0013](../decisions/0013-postgres-storage.md) §7; [03](03-storage-caches-and-search.md) §6.2) and the row's own base revision. Rows are submitted in order, and each succeeds or fails alone. There is no `atomic` batch and no job.
 
@@ -266,7 +266,7 @@ Nothing is copied, so a table can never disagree with its entities, and an edit 
 | A mirrored value changed or cleared | A local `override` or `add`, leaving the mirrored statement untouched: [0003](../decisions/0003-statement-ui.md) §8's "Correct a mirrored value" |
 | A term or sitelink changed or cleared | The term or sitelink operation, under the term rights ([0016](../decisions/0016-permissions-and-access-control.md) §2) |
 
-**A cell with several best values is not edited inline.** The editor opens the statement group in the popover and edits there, with 0003 §8's table editing. A grid cell cannot say which of several values a typed value replaces.
+**A cell is edited inline when it holds a term, or no best value or one with a plain form** (19 §3.1; 0045 A10), on a row that is a local entity; its text is that plain form. **A cell with several best values is not edited inline.** The editor opens the statement group in the popover and edits there, with 0003 §8's table editing. A grid cell cannot say which of several values a typed value replaces.
 
 **Attribution.** Each change set carries the actor, an automatic summary naming the table ("Edited via [[Table:Journals]]") followed by the editor's own summary if given, and the change tag **`table:{page id}`** in its attestation part, a tag of the same kind as `job:{id}` ([0030](../decisions/0030-edit-filters.md) §5; [09](09-security-and-moderation.md) §7.6). Edits made through a table can then be found by filter, feed or tag.
 
@@ -282,7 +282,7 @@ Cell edits made with the Wikibase modules directly are ordinary entity edits: a 
 
 ### 2.6 Adding and removing rows
 
-*Sources: [0045](../decisions/0045-table-content-model.md) §7; [0060](../decisions/0060-scopes.md) §6; [0106](../decisions/0106-create-entities-grid-and-drafts.md) §9.*
+*Sources: [0045](../decisions/0045-table-content-model.md) §7, A10; [0060](../decisions/0060-scopes.md) §6; [0106](../decisions/0106-create-entities-grid-and-drafts.md) §9.*
 
 **Rows are part of the definition.** Adding existing entities, by typing IDs, picking them with a lookup, or pasting a column of IDs, is a definition edit. Removing a row is a definition edit, and never touches the entity. The grid collects row additions and removals and saves them as **one page revision** per save, with the page's base revision; a conflicting definition edit is merged line by line, which the one-ID-per-line serialization (§2.2) makes reliable.
 

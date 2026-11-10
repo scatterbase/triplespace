@@ -36,9 +36,14 @@
 //! records the run in it: each written row becomes a listed row, a refused row stays
 //! staged with its reason.
 //!
+//! **With JavaScript** the table is edited as a grid over the same text, and a chosen file
+//! is mapped onto it first (0106 §1, §6, §7; `ui/src/grid`). The page gives the grid a
+//! data block to start from, and answers the check as JSON (`wpFormat=json`) so that the
+//! grid can show each row's status; everything else is this form.
+//!
 //! Not here yet: matching by a match-key identifier (0106 §5), which waits on the API
-//! serving the lookup; the grid and the mapping step (0106 §1, §6, §7); moving a draft
-//! to a title of its own (0106 A2); runs past [`MAX_ROWS`].
+//! serving the lookup; moving a draft to a title of its own (0106 A2); runs past
+//! [`MAX_ROWS`].
 //!
 //! implements 0106 §2 (A4)
 //! implements 0106 §8 (A4)
@@ -124,6 +129,8 @@ pub struct CreateEntitiesPage {
     pub draft_name: Option<FieldRow>,
     /// The draft the table is kept in: its page, its title, and the field that carries it.
     pub draft: Option<DraftModel>,
+    /// What the grid starts from (0034 §4; 21 §6.7): a JSON block, HTML.
+    pub sheet_data_html: String,
     /// **Check the rows**.
     pub submit: ButtonModel,
     /// **Save as a draft**, or **Save the draft**.
@@ -152,6 +159,10 @@ pub struct PreviewModel {
     pub title: String,
     /// What the columns were read as, one line each.
     pub columns: Vec<String>,
+    /// Each column as the grid needs it.
+    pub kinds: Vec<ColumnInfo>,
+    /// The labels of the items the cells name, by ID, for the grid's chips.
+    pub labels: BTreeMap<String, String>,
     /// How many rows will be created, added to and left out.
     pub summary: String,
     /// The column headings of the preview table.
@@ -168,6 +179,18 @@ pub struct PreviewModel {
     pub cancel: String,
     /// Its label.
     pub cancel_label: String,
+}
+
+/// A column as the grid needs it (21 §6.7): what it holds and, for a property, its label
+/// and data type, which decide how its cells are edited.
+#[derive(Debug, Clone, Serialize)]
+pub struct ColumnInfo {
+    /// `id`, `label`, `description`, `aliases`, `property`, `new`, `reference`, `plain`.
+    pub kind: &'static str,
+    /// A property's label.
+    pub label: Option<String>,
+    /// A property's data type, or a new property's.
+    pub datatype: Option<String>,
 }
 
 /// One row of the preview.
@@ -243,6 +266,10 @@ pub struct Typed {
     pub step: String,
     /// Whether **Save as a draft** was pressed.
     pub save: bool,
+    /// Whether the check is answered as JSON, for the grid (`wpFormat=json`).
+    pub json: bool,
+    /// Whether the viewer may create properties, which the grid offers as a column.
+    pub can_new: bool,
     /// The title of the draft the table is kept in.
     pub draft: String,
     /// The name a new draft is to get.
@@ -273,6 +300,8 @@ impl Typed {
             token: get("token"),
             step: get("wpStep"),
             save: params.map.contains_key("wpSave"),
+            json: params.map.get("wpFormat").is_some_and(|f| f == "json"),
+            can_new: false,
             draft: get("draft").trim().to_string(),
             draft_name: get("draftname").trim().to_string(),
             carried,
@@ -363,6 +392,20 @@ fn form_model(cx: &Context, typed: &Typed) -> CreateEntitiesPage {
             href: format!("/wiki/{}", title_url(&typed.draft)),
             title: typed.draft.clone(),
         }),
+        sheet_data_html: {
+            let data = serde_json::json!({
+                "page": "create",
+                "lang": cx.site.lang,
+                "dir": m.dir(),
+                "canCreateProperty": typed.can_new,
+                "datatypes": offered(&cx.site),
+                "messages": m.with_prefix("ts-sheet-"),
+            });
+            format!(
+                "<script type=\"application/json\" id=\"ts-sheet-data\">{}</script>",
+                data.to_string().replace("</", "<\\/")
+            )
+        },
         submit: Button {
             label: &m.get("ts-createentities-preview"),
             kind: "submit",
@@ -497,6 +540,7 @@ pub async fn serve(
     cx.inputs.push(token.value.cache.clone());
     let mut typed = Typed {
         token: token.value.value,
+        can_new: may_create_properties(site, &incoming).await,
         ..Typed::default()
     };
     let mut notices = Vec::new();
@@ -741,7 +785,8 @@ pub async fn post(
         Ok(cx) => cx,
         Err(r) => return r,
     };
-    let typed = Typed::of(params);
+    let mut typed = Typed::of(params);
+    typed.can_new = may_create_properties(site, &incoming).await;
     if typed.save {
         let summary = cx.m.get("ts-createentities-draft-summary");
         return match store(site, &mut cx, &incoming, &typed, &summary).await {
@@ -760,6 +805,15 @@ pub async fn post(
         return create(site, &mut cx, headers, &incoming, typed).await;
     }
     preview(site, &mut cx, headers, &incoming, typed).await
+}
+
+/// Whether the viewer holds `property-create` (0106 §4), which decides whether the grid
+/// offers a new property as a column. The check and the API enforce it either way.
+async fn may_create_properties(site: &Site, incoming: &Incoming) -> bool {
+    site.client()
+        .rights(incoming)
+        .await
+        .is_ok_and(|r| r.iter().any(|x| x == "property-create"))
 }
 
 fn error(text: &str) -> MessageModel {
@@ -822,14 +876,14 @@ async fn preview(
     let m = &cx.m;
     if rows.len() < 2 {
         model.notices.push(error(&m.get("ts-createentities-empty")));
-        return page(cx, headers, StatusCode::OK, &model);
+        return answer(cx, headers, &typed, &model);
     }
     if rows.len() - 1 > MAX_ROWS {
         model.notices.push(error(&m.with(
             "ts-createentities-too-many",
             &[&(rows.len() - 1).to_string(), &MAX_ROWS.to_string()],
         )));
-        return page(cx, headers, StatusCode::OK, &model);
+        return answer(cx, headers, &typed, &model);
     }
     let lang = cx.site.lang.clone();
     let mut notices = Vec::new();
@@ -955,6 +1009,68 @@ async fn preview(
         });
     }
 
+    let kinds: Vec<ColumnInfo> = read
+        .columns
+        .iter()
+        .map(|c| {
+            let (kind, property) = match c {
+                Column::Id => ("id", None),
+                Column::Label(_) => ("label", None),
+                Column::Description(_) => ("description", None),
+                Column::Aliases(_) => ("aliases", None),
+                Column::Property(p) => ("property", Some(p.as_str())),
+                Column::New { .. } => ("new", None),
+                Column::Reference { property, .. } => ("reference", Some(property.as_str())),
+                Column::Plain(_) => ("plain", None),
+            };
+            ColumnInfo {
+                kind,
+                label: property
+                    .and_then(|p| lookup.label(p))
+                    .map(|(l, _)| l.to_string()),
+                datatype: match c {
+                    Column::New { label, .. } => read
+                        .declared(label)
+                        .and_then(|i| read.new[i].datatype.clone()),
+                    _ => property
+                        .and_then(|p| lookup.datatype(p))
+                        .map(str::to_string),
+                },
+            }
+        })
+        .collect();
+    // The labels of the items the cells of item columns name, for the grid's chips.
+    let mut named: Vec<String> = Vec::new();
+    for (at, k) in kinds.iter().enumerate() {
+        if k.datatype.as_deref() == Some("wikibase-item") || k.kind == "id" {
+            for r in &read.rows {
+                for v in table::split_values(r.get(at).map_or("", String::as_str)) {
+                    if crate::special::values::implied_type(&v).as_deref() == Some("item") {
+                        named.push(v.to_ascii_uppercase());
+                    }
+                }
+            }
+        }
+    }
+    named.sort();
+    named.dedup();
+    let mut labels: BTreeMap<String, String> = BTreeMap::new();
+    if typed.json && !named.is_empty() {
+        let languages = cx.m.term_chain().join("|");
+        if let Ok(f) = site
+            .client()
+            .entities(incoming, &named, "labels", &languages)
+            .await
+        {
+            let found = Lookup::from_entities(&f.value.found, &cx.m.term_chain());
+            for id in &named {
+                if let Some((l, _)) = found.label(id) {
+                    labels.insert(id.clone(), l.to_string());
+                }
+            }
+        }
+    }
+
     let mut plans = plan::plan(m, &read, &lookup);
 
     // A row whose label and description are an existing item's adds to it (0106 §5).
@@ -1073,6 +1189,8 @@ async fn preview(
     model.preview = Some(PreviewModel {
         title: m.get("ts-createentities-preview-title"),
         columns: column_notes,
+        kinds,
+        labels,
         summary: m.with(
             "ts-createentities-preview-summary",
             &[
@@ -1127,7 +1245,48 @@ async fn preview(
         cancel: format!("/wiki/{TITLE}"),
         cancel_label: m.get("ts-import-cancel"),
     });
-    page(cx, headers, StatusCode::OK, &model)
+    answer(cx, headers, &typed, &model)
+}
+
+/// The check's answer: the page, or for the grid (`wpFormat=json`; 21 §6.7) the same
+/// findings as JSON: the notices, each row's status and problems, what the columns
+/// hold, and the table's text as the check wrote it back.
+fn answer(
+    cx: &Context,
+    headers: &HeaderMap,
+    typed: &Typed,
+    model: &CreateEntitiesPage,
+) -> Response {
+    if !typed.json {
+        return page(cx, headers, StatusCode::OK, model);
+    }
+    let p = model.preview.as_ref();
+    let body = serde_json::json!({
+        "notices": model
+            .notices
+            .iter()
+            .map(|n| serde_json::json!({
+                "error": n.classes.contains("--error"),
+                "text": n.text,
+            }))
+            .collect::<Vec<_>>(),
+        "text": typed.rows,
+        "summary": p.map(|p| p.summary.clone()),
+        "confirm": p.and_then(|p| p.submit.as_ref()).map(|b| b.label.clone()),
+        "columns": p.map(|p| p.kinds.clone()),
+        "labels": p.map(|p| p.labels.clone()),
+        "rows": p.map(|p| p.rows.clone()),
+    });
+    let mut r = Response::new(axum::body::Body::from(body.to_string()));
+    r.headers_mut().insert(
+        axum::http::header::CONTENT_TYPE,
+        axum::http::HeaderValue::from_static("application/json; charset=utf-8"),
+    );
+    r.headers_mut().insert(
+        axum::http::header::CACHE_CONTROL,
+        axum::http::HeaderValue::from_static("no-store"),
+    );
+    r
 }
 
 /// What the API said, in the page's words, and whether the run stops there.

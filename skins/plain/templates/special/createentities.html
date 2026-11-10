@@ -20,5 +20,6 @@
 <form class="ts-createentities__form" method="post" enctype="multipart/form-data" action="{{ action }}"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="wpStep" value="preview">
 {%- if draft %}<input type="hidden" name="draft" value="{{ draft.title }}"><p class="ts-createentities__draft">{{ draft.text }} <a href="{{ draft.href }}">{{ draft.title }}</a></p>{% endif %}
 {{ forms.field(rows) }}{{ forms.field(file) }}{{ forms.field(shared) }}{{ forms.field(reference) }}{{ forms.field(batch) }}{% if draft_name %}{{ forms.field(draft_name) }}{% endif %}
+{{ sheet_data_html|safe }}
 <div class="ts-protect__actions">{{ codex.button(submit) }}<button type="{{ save.kind }}" class="{{ save.classes }}" name="wpSave" value="1">{{ save.label }}</button></div></form>
 {%- endif %}</div>

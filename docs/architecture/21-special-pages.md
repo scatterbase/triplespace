@@ -674,9 +674,9 @@ Many items from one table, as a spreadsheet holds it: a column for each label, d
 
 ### 6.7 The grid
 
-*Sources: [0106](../decisions/0106-create-entities-grid-and-drafts.md) §1, §3, §6, A1.*
+*Sources: [0106](../decisions/0106-create-entities-grid-and-drafts.md) §1, §3, §6, A1, A6.*
 
-With JavaScript, `Special:CreateManyEntities` edits the table as a grid with one row per item, over the same text (§6.6).
+With JavaScript, `Special:CreateManyEntities` edits the table as a grid with one row per item, over the same text (§6.6). The grid writes each change into the form's text box and posts nothing of its own, so checking, saving a draft and importing are the form's with or without it; to show the rows' statuses it asks the page for its check as JSON (`wpFormat=json`), when the editor asks (0106 A6).
 
 - **Above the grid**, the statements on every item are edited in the statement UI's group shape ([0003](../decisions/0003-statement-ui.md)) and shown as locked columns at the grid's right edge, which a row can unlock to override. The reference on every statement is one reference block, edited with the shared-reference component, whose values can name a column. A statement cell's reference chip opens that statement's own reference, which replaces the default (§6.6).
 - **Columns.** First the row status, then label, description and aliases in the interface language, aliases as one cell holding a list. **+ Add column** adds a term in another language (columns of one language grouped under one header), an existing property chosen with the entity selector (the header shows its label and data type), or, for a holder of `property-create`, a new property given by its label, whose proposed data type is confirmed in the header.
@@ -687,9 +687,9 @@ With JavaScript, `Special:CreateManyEntities` edits the table as a grid with one
 
 ### 6.8 Upload and column mapping
 
-*Sources: [0106](../decisions/0106-create-entities-grid-and-drafts.md) §7.*
+*Sources: [0106](../decisions/0106-create-entities-grid-and-drafts.md) §7, A6.*
 
-With JavaScript, an uploaded file goes through a mapping step before the grid. A CSV, TSV or XLSX file (its first sheet), a JSON Lines file, or QuickStatements V1 limited to `CREATE` and `LAST` lines with term and statement commands, is read and each source column shown with its header and a sample of its values. Each is mapped to a term and language, an existing property, a new property (with `property-create`), a value the reference on every statement reads, `id`, or *ignore*. Mappings are suggested where they are evident: a header that is a property's ID or label, a header in the text conventions of §6.6, or values matching one identifier property's pattern. The result lands in the grid as a new draft.
+With JavaScript, an uploaded file goes through a mapping step before the grid. A CSV, TSV or XLSX file (its first sheet), a JSON Lines file, or QuickStatements V1 limited to `CREATE` and `LAST` lines with term and statement commands, is read and each source column shown with its header and a sample of its values. Each is mapped to a term and language, an existing property, a new property (with `property-create`), a value the reference on every statement reads, `id`, or *ignore*. Mappings are suggested where they are evident: a header that is a property's ID or label, a header in the text conventions of §6.6, or values matching one identifier property's pattern. The result lands in the grid as a new draft. The file is read in the browser and is not uploaded (0106 A6).
 
 **A mapping is saved as a draft with its columns and no rows.** Opening such a draft with a file of the same shape skips the mapping step, which serves anyone importing the same export each month. Without JavaScript an uploaded file is read by the header conventions of §6.6, with no mapping step.
 

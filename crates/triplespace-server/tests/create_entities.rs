@@ -802,6 +802,22 @@ async fn a_table_is_validated_drawn_and_kept_as_a_draft() {
         "{}",
         page.body
     );
+    // For a viewer who may edit, the page carries what the grid's editor starts from
+    // (0045 §6): the row's revision, and its one best value as a cell to edit.
+    assert!(page.body.contains("id=\"ts-sheet-data\""), "{}", page.body);
+    assert!(page.body.contains("\"page\":\"table\""), "{}", page.body);
+    assert!(
+        page.body.contains(&format!("\"text\":\"{journal}\"")),
+        "{}",
+        page.body
+    );
+    assert!(page.body.contains("\"guid\":\""), "{}", page.body);
+    let mut reader = Browser {
+        router: site.clone(),
+        cookie: None,
+    };
+    let read = reader.get("/wiki/Table:Journals").await;
+    assert!(read.body.contains("ts-table__grid") && !read.body.contains("ts-sheet-data"));
 
     // A table being prepared is saved as a draft under the editor's name.
     let form = owner.get("/wiki/Special:CreateManyEntities").await;
@@ -886,6 +902,30 @@ async fn a_table_is_validated_drawn_and_kept_as_a_draft() {
             ],
         )
         .await;
+    // The same check, as the grid asks for it (21 §6.7): each row's status as JSON.
+    let checked = owner
+        .post_form(
+            "/wiki/Special:CreateManyEntities",
+            &[
+                ("token", &token),
+                ("wpStep", "preview"),
+                ("wpFormat", "json"),
+                ("rows", &rows),
+                ("shared", ""),
+                ("reference", &reference),
+                ("batch", "journals"),
+                ("draft", draft),
+            ],
+        )
+        .await;
+    let checked: Value = serde_json::from_str(&checked.body).expect("the check as JSON");
+    assert_eq!(checked["confirm"], "Create 1 item, add to 1, skip 1");
+    assert_eq!(checked["rows"][0]["kind"], "new");
+    assert_eq!(checked["rows"][1]["kind"], "matches");
+    assert_eq!(checked["rows"][2]["kind"], "invalid");
+    assert_eq!(checked["columns"][3]["datatype"], "wikibase-item");
+    assert_eq!(checked["columns"][3]["label"], "instance of");
+    assert_eq!(checked["labels"][&journal], "journal");
     let html = &preview.body;
     assert!(html.contains("Create 1 item, add to 1, skip 1"), "{html}");
     let plans = Browser::field(html, "wpPlans");

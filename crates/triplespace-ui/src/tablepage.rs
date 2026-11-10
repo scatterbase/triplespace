@@ -9,9 +9,12 @@
 //! language, or the reader's fallback with its language. A row whose entity is missing
 //! is its ID and that state.
 //!
+//! A viewer who may edit also gets the data the grid's editor starts from (0045 §6, §7;
+//! `ui/src/grid`): each row's cells in the form they are edited in, and which of them
+//! the grid edits.
+//!
 //! Not drawn yet: the statement group in a popover, constraint markers and correction
-//! chips, the duplicate mark of a cluster member, thumbnails, the default order, and the
-//! editing of cells and rows (0045 §6, §7).
+//! chips, the duplicate mark of a cluster member, thumbnails and the default order.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -105,7 +108,7 @@ pub struct StagedRowModel {
     pub cells: Vec<String>,
 }
 
-/// The best values of a property: the preferred statements if any, else the normal ones;
+/// The best statements of a property: the preferred ones if any, else the normal ones;
 /// and how many deprecated ones there are.
 fn best(entity: &Value, property: &str) -> (Vec<Value>, usize) {
     let all: Vec<&Value> = entity["claims"][property]
@@ -115,7 +118,7 @@ fn best(entity: &Value, property: &str) -> (Vec<Value>, usize) {
     let rank = |r: &str| -> Vec<Value> {
         all.iter()
             .filter(|s| s["rank"].as_str().unwrap_or("normal") == r)
-            .map(|s| s["mainsnak"].clone())
+            .map(|s| (*s).clone())
             .collect()
     };
     let preferred = rank("preferred");
@@ -295,7 +298,7 @@ pub fn model(
                         let (values, deprecated) = best(entity, p.as_str());
                         match values.first() {
                             Some(first) => {
-                                let mut cell = value_cell(m, first, labels);
+                                let mut cell = value_cell(m, &first["mainsnak"], labels);
                                 if values.len() > 1 {
                                     cell.more = Some(format!("+{}", values.len() - 1));
                                 }
@@ -410,7 +413,7 @@ pub async fn grid(
             .entities(
                 incoming,
                 &ids,
-                "labels|descriptions|aliases|claims|sitelinks",
+                "info|labels|descriptions|aliases|claims|sitelinks",
                 &languages,
             )
             .await
@@ -422,7 +425,7 @@ pub async fn grid(
     let mut wanted = properties.clone();
     for e in entities.values() {
         for p in &properties {
-            if let Some(id) = best(e, p).0.first().and_then(named) {
+            if let Some(id) = best(e, p).0.first().and_then(|s| named(&s["mainsnak"])) {
                 wanted.insert(id.to_string());
             }
         }
@@ -439,10 +442,188 @@ pub async fn grid(
         cx.inputs.push(f.cache);
         Lookup::from_entities(&f.value.found, &chain)
     };
-    Some(cx.draw(
+    let mut html = cx.draw(
         "document/table.html",
         model(&cx.m, &source.title, &def, &entities, &labels),
-    ))
+    );
+    // A viewer who may edit gets what the grid's editor starts from (0045 §6, §7).
+    if cx.user.is_some() && cx.features.has(crate::features::Feature::Edit) {
+        html.push_str(&sheet_data(cx, &source, &def, &entities, &labels));
+    }
+    Some(html)
+}
+
+/// Whether a cell of a data type can be edited as plain text (19 §3.1).
+fn plainly_edited(datatype: &str) -> bool {
+    use scatter_wikibase_model::value::{DataType, ValueType};
+    let dt = DataType::parse(datatype);
+    match dt.value_type() {
+        Some(
+            ValueType::String
+            | ValueType::Quantity
+            | ValueType::Time
+            | ValueType::MonolingualText
+            | ValueType::GlobeCoordinate,
+        ) => true,
+        Some(ValueType::EntityId) => matches!(dt.entity_type(), Some("item" | "property")),
+        _ => false,
+    }
+}
+
+/// The data the grid's editor starts from (0034 §4; 0045 §6, §7): the definition, and each
+/// row's cells in the form they are edited in, with the one best statement's ID where a
+/// cell shows one. A cell is edited in the grid when its row is a local entity and it
+/// holds a term, or at most one best value of a type with a plain form; a cell of several
+/// best values is edited on the entity's page (15 §2.5).
+#[allow(clippy::too_many_lines)]
+fn sheet_data(
+    cx: &Context,
+    source: &triplespace_client::Source,
+    def: &Definition,
+    entities: &BTreeMap<String, Value>,
+    labels: &Lookup,
+) -> String {
+    use scatter_wikibase_model::IdForm;
+    let m = &cx.m;
+    let drawn = model(m, &source.title, def, entities, labels);
+    let columns: Vec<Value> = def
+        .columns
+        .iter()
+        .zip(&drawn.headings)
+        .map(|(c, h)| {
+            let mut col = serde_json::json!({
+                "kind": "other",
+                "label": h.label,
+                "sub": h.sub.clone().unwrap_or_default(),
+            });
+            match &c.field {
+                Field::Label(l) | Field::Description(l) | Field::Aliases(l) => {
+                    col["kind"] = match &c.field {
+                        Field::Label(_) => "label",
+                        Field::Description(_) => "description",
+                        _ => "aliases",
+                    }
+                    .into();
+                    col["language"] = l.as_str().into();
+                }
+                Field::Statements(Property::Id(p)) => {
+                    col["kind"] = "statements".into();
+                    col["property"] = p.as_str().into();
+                    col["datatype"] = labels.datatype(p.as_str()).unwrap_or_default().into();
+                }
+                _ => {}
+            }
+            col
+        })
+        .collect();
+    let rows: Vec<Value> = def
+        .rows
+        .iter()
+        .zip(&drawn.rows)
+        .map(|(id, shown)| {
+            let entity = entities.get(id.as_str());
+            let local = id.form() == IdForm::Local;
+            let cells: Vec<Value> = def
+                .columns
+                .iter()
+                .enumerate()
+                .map(|(at, c)| {
+                    let seen = shown.cells.get(at).cloned().unwrap_or_default();
+                    let fixed = |text: String| {
+                        serde_json::json!({"text": text, "note": seen.more.clone().unwrap_or_default(), "editable": false})
+                    };
+                    let Some(entity) = entity else {
+                        return fixed(String::new());
+                    };
+                    match &c.field {
+                        Field::Label(l) | Field::Description(l) => {
+                            let key = if matches!(c.field, Field::Label(_)) {
+                                "labels"
+                            } else {
+                                "descriptions"
+                            };
+                            let own = entity[key][l.as_str()]["value"].as_str();
+                            serde_json::json!({
+                                "text": own.unwrap_or_default(),
+                                // A fallback is shown beside the empty cell, and editing
+                                // writes the column's language (15 §2.4).
+                                "note": if own.is_none() && !seen.text.is_empty() {
+                                    format!("{} ({})", seen.text, seen.fallback.clone().unwrap_or_default())
+                                } else {
+                                    String::new()
+                                },
+                                "editable": local,
+                            })
+                        }
+                        Field::Aliases(l) => {
+                            let list: Vec<String> = entity["aliases"][l.as_str()]
+                                .as_array()
+                                .map(|a| {
+                                    a.iter()
+                                        .filter_map(|x| x["value"].as_str())
+                                        .map(|v| v.replace('|', "\\|"))
+                                        .collect()
+                                })
+                                .unwrap_or_default();
+                            serde_json::json!({"text": list.join("|"), "note": "", "editable": local})
+                        }
+                        Field::Statements(Property::Id(p)) => {
+                            let (values, _) = best(entity, p.as_str());
+                            let typed = labels.datatype(p.as_str()).is_some_and(plainly_edited);
+                            match values.as_slice() {
+                                [] => serde_json::json!({
+                                    "text": "",
+                                    "note": seen.more.clone().unwrap_or_default(),
+                                    "editable": local && typed,
+                                }),
+                                [one] => {
+                                    let text = (one["mainsnak"]["snaktype"] == "value")
+                                        .then(|| plain(&one["mainsnak"]["datavalue"]))
+                                        .flatten();
+                                    match (text, one["id"].as_str()) {
+                                        (Some(text), Some(guid)) if local && typed => serde_json::json!({
+                                            // An item is edited by its ID and shown with its label.
+                                            "note": if seen.href.is_some() { seen.text.clone() } else { String::new() },
+                                            "text": text,
+                                            "editable": true,
+                                            "guid": guid,
+                                        }),
+                                        _ => fixed(seen.text.clone()),
+                                    }
+                                }
+                                _ => fixed(seen.text.clone()),
+                            }
+                        }
+                        _ => fixed(seen.text.clone()),
+                    }
+                })
+                .collect();
+            serde_json::json!({
+                "id": id.as_str(),
+                "href": shown.href,
+                "lastrevid": entity.and_then(|e| e["lastrevid"].as_u64()).unwrap_or(0),
+                "missing": entity.is_none(),
+                "cells": cells,
+            })
+        })
+        .collect();
+    let data = serde_json::json!({
+        "page": "table",
+        "lang": cx.site.lang,
+        "dir": m.dir(),
+        "messages": m.with_prefix("ts-sheet-"),
+        "title": source.title,
+        "pageId": source.page_id,
+        "revid": source.revid,
+        "definition": source.text,
+        "hasReference": def.default_reference.is_some(),
+        "columns": columns,
+        "rows": rows,
+    });
+    format!(
+        "<script type=\"application/json\" id=\"ts-sheet-data\">{}</script>",
+        data.to_string().replace("</", "<\\/")
+    )
 }
 
 #[cfg(test)]

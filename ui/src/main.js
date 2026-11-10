@@ -4,7 +4,8 @@
 // (ADR 0087 §5), a diff page's arrow keys (ADR 0010 §6), the bell's panel
 // (ADR 0021 A20) and the panes of Special:Preferences (19 §2.6), and loads the editing
 // components only on a page that has something the viewer may edit (the server writes an
-// edit data block there), so a reader downloads none of Vue.
+// edit data block there), so a reader downloads none of Vue. The grid of
+// Special:CreateManyEntities and of a Table page (ADR 0106 §1; 0045 §6) loads the same way.
 import { initAppearance } from './appearance/menu.js';
 import { initBell } from './bell/bell.js';
 import { initChallenges } from './challenge/form.js';
@@ -19,4 +20,7 @@ initBell( document, window );
 initPrefTabs( document, window );
 if ( document.getElementById( 'ts-edit-data' ) ) {
 	import( './edit/index.ts' );
+}
+if ( document.getElementById( 'ts-sheet-data' ) ) {
+	import( './grid/index.ts' );
 }

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-08
-- **Updated:** 2026-11-10 (A5)
+- **Updated:** 2026-11-10 (A6)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0045](0045-table-content-model.md), [0104](0104-batches-and-the-job-runner.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0043](0043-lua-modules.md), [0064](0064-entityschema-and-validation.md), [0073](0073-lines-links-and-url-patterns.md)
@@ -27,7 +27,7 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 1. The grid is an enhancement over the table's text (amends 0104 §11)
 
-*Changed by A2.*
+*Changed by A2, A6.*
 
 *Current text: [21](../architecture/21-special-pages.md) §6.6, §6.7.*
 
@@ -55,11 +55,13 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 6. Row status and cells by data type (uses 0003 §9 and 0073)
 
-*Changed by A1.*
+*Changed by A1, A6.*
 
 *Current text: [21](../architecture/21-special-pages.md) §6.7.*
 
 ### 7. Upload and column mapping (extends 0104 §11)
+
+*Changed by A6.*
 
 *Current text: [21](../architecture/21-special-pages.md) §6.8.*
 
@@ -143,3 +145,10 @@ James's direction, from the design discussion of 2026-11-08:
 - **Source:** Direct: Claude, while building drafts for `Special:CreateEntities` (SCA-307), 2026-11-10; unconfirmed
 - **Change:** extends §9
 - **Summary:** Four things the definition needed so that a draft holds everything the table's text says. (1) A `reference` column without `of` holds a value the default reference reads through a snak's `"column"`: §9 let a snak name a column but gave no column kind for a plain column such as `source url`, and extending `reference` avoids a new kind. Its `title` is the header the text gives it. (2) A staged row may carry `"create": true`, the definition's form of the `id` cell's `new` (A4). (3) A column of the text that nothing reads is not kept when a draft is saved, since the definition has no column for it and the import ignores it. (4) When a row is written, a staged cell that named it with `row:n` is rewritten to name its item, so that the rows left staged still resolve; and the text of a draft numbers its staged rows from 1 in order, whatever their `n`.
+
+### A6. How the grid and the mapping step are built, found while building
+
+- **Date:** 2026-11-10
+- **Source:** Direct: Claude, while building the grid and the mapping step (SCA-329, SCA-330), 2026-11-10; unconfirmed
+- **Change:** extends §1, §6 and §7
+- **Summary:** (1) The grid writes every change into the form's text box and posts nothing itself: checking, saving a draft and importing stay the form's. To show each row's status it asks the page for its own check as JSON, `wpFormat=json` on the form's post, which answers the notices, each row's status and problems, each column's kind, label and data type, the labels of the items the cells name, and the text as the check wrote it back. Statuses are refreshed when the editor asks, not on every keystroke, because the check searches for matches row by row. (2) The statements on every item and the reference on every statement stay text boxes beside the grid; a column the reference reads is added from **Add column**, which also writes the reference's line. (3) An item cell is looked up from a search above the grid for the cell that has the focus, and shows its items' labels beneath it. (4) A chosen file is read in the browser and never uploaded: CSV, TSV, JSON Lines, QuickStatements `CREATE` and `LAST` lines, and the first sheet of an XLSX file, read without a library. (5) A saved mapping applies when a draft is open with columns and no rows and the file has as many columns as the draft, the `id` column apart.

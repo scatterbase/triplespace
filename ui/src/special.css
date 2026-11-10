@@ -42,3 +42,159 @@
 	max-width: 24rem;
 	margin-block-end: var( --spacing-100, 1rem );
 }
+
+/* The grid of Special:CreateManyEntities and of a Table page's editor (ADR 0106 §6;
+   0045 §6): text cells in a table, a leading cell with the row's status. */
+.ts-sheet {
+	overflow-x: auto;
+	margin: 0.75rem 0;
+}
+
+.ts-sheet__table th,
+.ts-sheet__table td {
+	padding: 0.25rem 0.375rem;
+	vertical-align: top;
+}
+
+.ts-sheet__sub,
+.ts-sheet__note,
+.ts-table__sub {
+	display: block;
+	color: var( --color-subtle );
+	font-size: 0.8125rem;
+	font-weight: normal;
+}
+
+.ts-sheet__input {
+	box-sizing: border-box;
+	width: 100%;
+	min-width: 7rem;
+	padding: 0.25rem 0.375rem;
+	border: 1px solid var( --border-color-subtle );
+	border-radius: 2px;
+	background: var( --background-color-base );
+	color: var( --color-base );
+	font: inherit;
+}
+
+.ts-sheet__input:focus {
+	border-color: var( --border-color-progressive--focus );
+	outline: 1px solid var( --border-color-progressive--focus );
+}
+
+.ts-sheet__cell--changed .ts-sheet__input {
+	border-color: var( --border-color-progressive );
+	background: var( --background-color-progressive-subtle );
+}
+
+.ts-sheet__cell--readonly {
+	color: var( --color-subtle );
+}
+
+.ts-sheet__lead {
+	white-space: nowrap;
+	font-weight: normal;
+}
+
+.ts-sheet__status,
+.ts-table__state {
+	margin-inline-start: 0.375rem;
+	padding: 0 0.375rem;
+	border: 1px solid var( --border-color-subtle );
+	border-radius: 1rem;
+	font-size: 0.8125rem;
+}
+
+.ts-sheet__status--invalid,
+.ts-sheet__status--ambiguous,
+.ts-sheet__status--conflict {
+	border-color: var( --border-color-error );
+	color: var( --color-error );
+}
+
+.ts-sheet__status--matches {
+	border-color: var( --border-color-progressive );
+	color: var( --color-progressive );
+}
+
+.ts-sheet__problems {
+	margin: 0.25rem 0 0;
+	padding-inline-start: 1rem;
+	max-width: 22rem;
+	color: var( --color-error );
+	font-size: 0.8125rem;
+	white-space: normal;
+}
+
+.ts-sheet__menu,
+.ts-sheet__remove {
+	margin-inline-start: 0.25rem;
+	padding: 0 0.375rem;
+	border: 0;
+	border-radius: 2px;
+	background: transparent;
+	color: var( --color-subtle );
+	font: inherit;
+	cursor: pointer;
+}
+
+.ts-sheet__menu:hover,
+.ts-sheet__remove:hover,
+.ts-sheet__menu:focus,
+.ts-sheet__remove:focus {
+	background: var( --background-color-interactive );
+	color: var( --color-base );
+}
+
+.ts-sheet__bar,
+.ts-sheet__panel,
+.ts-sheet__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	align-items: center;
+	margin: 0.5rem 0;
+}
+
+.ts-sheet__panel {
+	padding: 0.5rem;
+	border: 1px solid var( --border-color-subtle );
+	border-radius: 2px;
+	background: var( --background-color-neutral-subtle );
+}
+
+.ts-sheet__bar [ aria-pressed='true' ] {
+	background: var( --background-color-progressive-subtle );
+	border-color: var( --border-color-progressive );
+}
+
+.ts-sheet__summary {
+	font-weight: bold;
+}
+
+.ts-sheet__summary--stale {
+	color: var( --color-subtle );
+	font-weight: normal;
+}
+
+.ts-sheet__notice--error {
+	color: var( --color-error );
+}
+
+.ts-sheet-map__short {
+	width: 5rem;
+}
+
+.ts-sheet-map__sample {
+	max-width: 24rem;
+	color: var( --color-subtle );
+}
+
+.ts-table__edit {
+	margin: 0.5rem 0;
+}
+
+.ts-table__more {
+	color: var( --color-subtle );
+	font-size: 0.8125rem;
+}
