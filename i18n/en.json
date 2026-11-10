@@ -1545,6 +1545,8 @@
 	"ts-sheet-replace-with": "Replace with",
 	"ts-sheet-replace": "Replace in column",
 	"ts-sheet-find-item": "Find an item for $1, row $2",
+	"ts-sheet-status": "Status",
+	"ts-sheet-find-unit": "Find a unit for $1, row $2",
 	"ts-sheet-row-named": "row $1 · $2",
 	"ts-sheet-new": "new property",
 	"ts-sheet-plain": "not imported",

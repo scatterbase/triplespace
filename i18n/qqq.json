@@ -1545,6 +1545,8 @@
 	"ts-sheet-replace-with": "Grid: the replacement text.",
 	"ts-sheet-replace": "Grid: button replacing the found text throughout the column.",
 	"ts-sheet-find-item": "Grid: label of the item search for the selected cell. $1 is the column heading, $2 the row number.",
+	"ts-sheet-status": "Grid: heading of the status column.",
+	"ts-sheet-find-unit": "Grid: label of the unit search for the selected quantity cell. $1 is the column heading, $2 the row number or entity ID.",
 	"ts-sheet-row-named": "Grid: shown under a cell that points at another row. $1 is that row's number, $2 its label.",
 	"ts-sheet-new": "Grid: beneath the heading of a column declaring a new property.",
 	"ts-sheet-plain": "Grid: beneath the heading of a column that is not a term or property.",

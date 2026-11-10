@@ -1,7 +1,8 @@
 //! A typed cell from text (19 §3.1; 0104 §11): the `datavalue` a property of a given data
 //! type gets from what a person typed into a form, as `Special:NewItem`'s `statement=`
 //! and `Special:CreateManyEntities`'s cells take it. Strings and IDs are taken as written; a
-//! quantity is a number (`12`, `-3.5`); a time is a year, a month or a day (`1969`,
+//! quantity is a number (`12`, `-3.5`), followed by its unit's item ID where it has one
+//! (`12 Q11573`; 0106 A7); a time is a year, a month or a day (`1969`,
 //! `1969-07`, `1969-07-20`, a leading `-` for BCE), at that precision in the proleptic
 //! Gregorian calendar; monolingual text is `text@lang`; a coordinate is `lat, lon` in
 //! decimal degrees on Earth. Anything else waits for `wbparsevalue`, and is refused with
@@ -26,6 +27,19 @@ pub fn implied_type(id: &str) -> Option<String> {
 /// The `datavalue` for `value` of a property of type `datatype`, or why there is none,
 /// as a message. `raw` is how the person wrote the whole statement, for the message.
 pub fn datavalue(m: &Messages, datatype: &str, value: &str, raw: &str) -> Result<Value, String> {
+    datavalue_in(m, datatype, value, raw, "")
+}
+
+/// [`datavalue`], where a quantity may name its unit (0106 A7): `concept_base` is the
+/// base of the site's concept IRIs, which a unit's item ID is written under. With no
+/// base, a quantity with a unit is refused.
+pub fn datavalue_in(
+    m: &Messages,
+    datatype: &str,
+    value: &str,
+    raw: &str,
+    concept_base: &str,
+) -> Result<Value, String> {
     let dt = DataType::parse(datatype);
     let bad = || {
         m.with(
@@ -48,8 +62,18 @@ pub fn datavalue(m: &Messages, datatype: &str, value: &str, raw: &str) -> Result
             Ok(json!({"type": "wikibase-entityid", "value": {"entity-type": want, "id": id}}))
         }
         Some(ValueType::Quantity) => {
-            let amount = quantity(value).ok_or_else(bad)?;
-            Ok(json!({"type": "quantity", "value": {"amount": amount, "unit": "1"}}))
+            let mut parts = value.split_whitespace();
+            let amount = parts.next().and_then(quantity).ok_or_else(bad)?;
+            let unit = match (parts.next(), parts.next()) {
+                (None, _) => "1".to_string(),
+                (Some(id), None)
+                    if !concept_base.is_empty() && implied_type(id).as_deref() == Some("item") =>
+                {
+                    format!("{concept_base}{}", id.to_ascii_uppercase())
+                }
+                _ => return Err(bad()),
+            };
+            Ok(json!({"type": "quantity", "value": {"amount": amount, "unit": unit}}))
         }
         Some(ValueType::Time) => {
             let (time, precision) = time(value).ok_or_else(bad)?;
@@ -84,7 +108,8 @@ pub fn datavalue(m: &Messages, datatype: &str, value: &str, raw: &str) -> Result
 
 /// A `datavalue` in the plain form [`datavalue`] reads (19 §3.1), where it has one: what
 /// a table's text and a Table page's cells show. `None` for a value with no plain form
-/// (a time finer than a day or coarser than a year, a quantity with bounds or a unit).
+/// (a time finer than a day or coarser than a year, a quantity with bounds). A quantity's
+/// unit is written after it as its item ID.
 #[must_use]
 #[allow(clippy::many_single_char_names)]
 pub fn plain(dv: &Value) -> Option<String> {
@@ -93,13 +118,18 @@ pub fn plain(dv: &Value) -> Option<String> {
         "string" => v.as_str().map(str::to_string),
         "wikibase-entityid" => v["id"].as_str().map(str::to_string),
         "quantity" => {
-            if v["unit"].as_str().is_some_and(|u| u != "1")
-                || v.get("upperBound").is_some_and(|b| !b.is_null())
+            if v.get("upperBound").is_some_and(|b| !b.is_null())
+                || v.get("lowerBound").is_some_and(|b| !b.is_null())
             {
                 return None;
             }
             let amount = v["amount"].as_str()?;
-            Some(amount.strip_prefix('+').unwrap_or(amount).to_string())
+            let amount = amount.strip_prefix('+').unwrap_or(amount);
+            match unit_id(dv) {
+                Some(unit) => Some(format!("{amount} {unit}")),
+                None if v["unit"].as_str().is_none_or(|u| u == "1") => Some(amount.to_string()),
+                None => None,
+            }
         }
         "time" => {
             let t = v["time"].as_str()?;
@@ -131,6 +161,14 @@ pub fn plain(dv: &Value) -> Option<String> {
         )),
         _ => None,
     }
+}
+
+/// The item a quantity's unit names: the last part of its IRI, where that is an item ID.
+#[must_use]
+pub fn unit_id(dv: &Value) -> Option<String> {
+    let unit = dv["value"]["unit"].as_str().filter(|u| *u != "1")?;
+    let id = unit.rsplit('/').next()?;
+    (implied_type(id).as_deref() == Some("item")).then(|| id.to_string())
 }
 
 /// A quantity's `amount`: a decimal number with its sign made explicit.
@@ -197,6 +235,21 @@ fn coordinate(value: &str) -> Option<(f64, f64)> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // 0106 A7: a quantity's unit follows it, as its item ID under the site's base.
+    #[test]
+    fn a_quantity_names_its_unit() {
+        let m = Messages::for_language("en");
+        let base = "https://wiki.example/entity/";
+        let dv = datavalue_in(&m, "quantity", "12 q11573", "x", base).unwrap();
+        assert_eq!(dv["value"]["unit"], "https://wiki.example/entity/Q11573");
+        assert_eq!(plain(&dv).as_deref(), Some("12 Q11573"));
+        assert!(datavalue_in(&m, "quantity", "12 metres", "x", base).is_err());
+        assert!(datavalue(&m, "quantity", "12 Q11573", "x").is_err());
+        let bounded =
+            json!({"type": "quantity", "value": {"amount": "+1", "unit": "1", "upperBound": "+2"}});
+        assert_eq!(plain(&bounded), None);
+    }
 
     // 0106 §1: what the text can say reads back as it was written.
     #[test]

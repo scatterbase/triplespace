@@ -399,6 +399,7 @@ fn form_model(cx: &Context, typed: &Typed) -> CreateEntitiesPage {
                 "dir": m.dir(),
                 "canCreateProperty": typed.can_new,
                 "datatypes": offered(&cx.site),
+                "conceptBase": cx.site.concept_base,
                 "messages": m.with_prefix("ts-sheet-"),
             });
             format!(
@@ -687,7 +688,8 @@ async fn store(
         return Ok(Err(notices));
     }
     let lang = cx.site.lang.clone();
-    let read = Read::of(&rows[0], &rows[1..], shared, reference, &lang);
+    let mut read = Read::of(&rows[0], &rows[1..], shared, reference, &lang);
+    read.concept_base.clone_from(&cx.site.concept_base);
     let lookup = lookup_of(site, cx, incoming, &read).await?;
     let (title, base) = if typed.draft.is_empty() {
         let name = if typed.draft_name.is_empty() {
@@ -902,6 +904,7 @@ async fn preview(
     let shared = lines(&typed.shared);
     let reference = lines(&typed.reference);
     let mut read = Read::of(&rows[0], &rows[1..], shared, reference, &lang);
+    read.concept_base.clone_from(&cx.site.concept_base);
 
     // New properties (0106 §4): the right to create them, and a confirmed data type each.
     if !read.new.is_empty() {
@@ -1042,11 +1045,19 @@ async fn preview(
     // The labels of the items the cells of item columns name, for the grid's chips.
     let mut named: Vec<String> = Vec::new();
     for (at, k) in kinds.iter().enumerate() {
-        if k.datatype.as_deref() == Some("wikibase-item") || k.kind == "id" {
+        let items = k.datatype.as_deref() == Some("wikibase-item") || k.kind == "id";
+        let units = k.datatype.as_deref() == Some("quantity");
+        if items || units {
             for r in &read.rows {
                 for v in table::split_values(r.get(at).map_or("", String::as_str)) {
-                    if crate::special::values::implied_type(&v).as_deref() == Some("item") {
-                        named.push(v.to_ascii_uppercase());
+                    // An item cell's value, or the unit after a quantity's amount.
+                    let id = if units {
+                        v.split_whitespace().nth(1).unwrap_or_default()
+                    } else {
+                        v.as_str()
+                    };
+                    if crate::special::values::implied_type(id).as_deref() == Some("item") {
+                        named.push(id.to_ascii_uppercase());
                     }
                 }
             }

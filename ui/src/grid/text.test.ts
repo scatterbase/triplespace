@@ -74,6 +74,16 @@ describe( 'plain values', () => {
 		expect( dataValueOf( 'time', 'March 1952' ) ).toBeNull();
 		expect( dataValueOf( 'globe-coordinate', '95, 0' ) ).toBeNull();
 		expect( dataValueOf( 'string', '  ' ) ).toBeNull();
-		expect( plainOf( { type: 'quantity', value: { amount: '+1', unit: 'http://x/Q5' } } ) ).toBeNull();
+		expect( plainOf( { type: 'quantity', value: { amount: '+1', unit: '1', upperBound: '+2' } } ) ).toBeNull();
+	} );
+
+	// 0106 A7: a quantity's unit follows it, as its item ID under the site's base.
+	it( 'write a quantity\'s unit after it', () => {
+		const base = 'https://wiki.example/entity/';
+		const dv = dataValueOf( 'quantity', '12 q11573', base );
+		expect( dv ).toEqual( { type: 'quantity', value: { amount: '+12', unit: `${ base }Q11573` } } );
+		expect( plainOf( dv ?? undefined ) ).toBe( '12 Q11573' );
+		expect( dataValueOf( 'quantity', '12 metres', base ) ).toBeNull();
+		expect( dataValueOf( 'quantity', '12 Q5' ) ).toBeNull();
 	} );
 } );

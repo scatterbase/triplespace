@@ -148,21 +148,19 @@
 						{{ t( 'ts-sheet-remove-column' ) }}
 					</CdxButton>
 				</form>
-				<div v-if="lookupFor" class="ts-sheet__panel">
-					<span>{{ t( 'ts-sheet-find-item', lookupFor.heading, lookupFor.lead ) }}</span>
-					<EntityLookup
-						:key="`${ lookupFor.r }-${ lookupFor.c }`"
-						:api="api"
-						:lang="data.lang"
-						type="item"
-						:label="t( 'ts-sheet-find-item', lookupFor.heading, lookupFor.lead )"
-						@pick="picked"
-					/>
-				</div>
+				<CellLookup
+					v-if="lookupFor"
+					:api="api"
+					:lang="data.lang"
+					:label="lookupFor.label"
+					:at="`${ lookupFor.r }-${ lookupFor.c }`"
+					@pick="picked"
+				/>
 				<SheetGrid
 					:headers="headers"
 					:rows="shown"
 					:lead-heading="t( 'ts-sheet-row' )"
+					:status-heading="t( 'ts-sheet-status' )"
 					:cell-label="( h, lead ) => t( 'ts-sheet-cell', h, lead )"
 					:menu-label="( h ) => t( 'ts-sheet-column-menu', h )"
 					:remove-label="( lead ) => t( 'ts-sheet-remove-row', lead )"
@@ -203,6 +201,7 @@ import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
 import { CdxButton, CdxMessage } from '@wikimedia/codex';
 import EntityLookup from '../edit/EntityLookup.vue';
 import type { Api } from '../edit/api';
+import CellLookup from './CellLookup.vue';
 import MapColumns from './MapColumns.vue';
 import SheetGrid from './SheetGrid.vue';
 import type { SheetHeader, SheetRow } from './sheet';
@@ -311,6 +310,12 @@ const headers = computed<SheetHeader[]>( () => columns.value.map( ( c, i ) => {
 function noteOf( cell: string, c: number ): string {
 	const info = result.value?.columns?.[ c ];
 	const kind = columns.value[ c ].kind;
+	if ( cell !== '' && info?.datatype === 'quantity' ) {
+		// A quantity's unit, by its label.
+		return splitValues( cell )
+			.map( ( v ) => result.value?.labels?.[ ( v.split( /\s+/ )[ 1 ] ?? '' ).toUpperCase() ] ?? '' )
+			.filter( ( x ) => x !== '' ).join( '; ' );
+	}
 	if ( !( kind === 'id' || info?.datatype === 'wikibase-item' ) || cell === '' ) {
 		return '';
 	}
@@ -449,18 +454,24 @@ function focused( key: string, c: number ): void {
 	active.value = { r: Number( key ), c };
 }
 
-// The cell an item can be looked up for: the active one, in a column of items.
+// The cell a search stands beside: the focused one, in a column of items or of
+// quantities, whose units are items.
 const lookupFor = computed( () => {
 	const a = active.value;
 	if ( !a || !table.value[ a.r ] ) {
 		return null;
 	}
 	const kind = columns.value[ a.c ]?.kind;
-	const datatype = result.value?.columns?.[ a.c ]?.datatype;
+	const datatype = result.value?.columns?.[ a.c ]?.datatype ?? columns.value[ a.c ]?.datatype;
+	const heading = headers.value[ a.c ].label;
+	if ( datatype === 'quantity' ) {
+		const label = t( 'ts-sheet-find-unit', heading, String( a.r ) );
+		return { ...a, unit: true, several: false, label };
+	}
 	if ( kind !== 'id' && datatype !== 'wikibase-item' ) {
 		return null;
 	}
-	return { r: a.r, c: a.c, heading: headers.value[ a.c ].label, lead: String( a.r ), several: kind !== 'id' };
+	return { ...a, unit: false, several: kind !== 'id', label: t( 'ts-sheet-find-item', heading, String( a.r ) ) };
 } );
 
 function picked( id: string ): void {
@@ -468,9 +479,17 @@ function picked( id: string ): void {
 	if ( !at || id === '' ) {
 		return;
 	}
-	const have = splitValues( table.value[ at.r ][ at.c ] ).filter( ( v ) => /^[A-Za-z]{0,3}Q\d+$/.test( v ) || rowRef( v ) !== null );
-	// A cell of unresolved text is replaced; one of IDs gains another.
-	table.value[ at.r ][ at.c ] = at.several && have.length ? joinValues( [ ...have, id ] ) : id;
+	const cell = table.value[ at.r ][ at.c ];
+	if ( at.unit ) {
+		// The unit follows the amount the cell holds.
+		const amount = cell.trim().split( /\s+/ )[ 0 ] ?? '';
+		table.value[ at.r ][ at.c ] = `${ amount } ${ id }`.trim();
+	} else {
+		const have = splitValues( cell ).filter( ( v ) => /^[A-Za-z]{0,3}Q\d+$/.test( v ) || rowRef( v ) !== null );
+		// A cell of unresolved text is replaced; one of IDs gains another.
+		const more = at.several && have.length;
+		table.value[ at.r ][ at.c ] = more ? joinValues( [ ...have, id ] ) : id;
+	}
 	sync();
 }
 

@@ -28,7 +28,7 @@ use crate::entity::{Lookup, entity_href};
 use crate::frame::title_url;
 use crate::i18n::Messages;
 use crate::pages::Context;
-use crate::special::values::{implied_type, plain};
+use crate::special::values::{implied_type, plain, unit_id};
 
 /// The grid.
 #[derive(Debug, Clone, Serialize)]
@@ -160,16 +160,24 @@ fn value_cell(m: &Messages, snak: &Value, labels: &Lookup) -> CellModel {
                 ..CellModel::default()
             },
             None => CellModel {
-                text: plain(&snak["datavalue"]).unwrap_or_else(|| {
-                    // A value with no plain form: its text where it has one.
-                    let v = &snak["datavalue"]["value"];
-                    v["text"]
-                        .as_str()
-                        .or_else(|| v["amount"].as_str())
-                        .or_else(|| v["time"].as_str())
-                        .unwrap_or_default()
-                        .to_string()
-                }),
+                // A quantity is shown with its unit's label, where the unit is an item.
+                text: unit_id(&snak["datavalue"])
+                    .and_then(|unit| {
+                        let amount = snak["datavalue"]["value"]["amount"].as_str()?;
+                        let name = labels.label(&unit).map_or(unit.as_str(), |(l, _)| l);
+                        Some(format!("{} {name}", amount.trim_start_matches('+')))
+                    })
+                    .or_else(|| plain(&snak["datavalue"]))
+                    .unwrap_or_else(|| {
+                        // A value with no plain form: its text where it has one.
+                        let v = &snak["datavalue"]["value"];
+                        v["text"]
+                            .as_str()
+                            .or_else(|| v["amount"].as_str())
+                            .or_else(|| v["time"].as_str())
+                            .unwrap_or_default()
+                            .to_string()
+                    }),
                 ..CellModel::default()
             },
         },
@@ -425,8 +433,13 @@ pub async fn grid(
     let mut wanted = properties.clone();
     for e in entities.values() {
         for p in &properties {
-            if let Some(id) = best(e, p).0.first().and_then(|s| named(&s["mainsnak"])) {
-                wanted.insert(id.to_string());
+            if let Some(first) = best(e, p).0.first() {
+                if let Some(id) = named(&first["mainsnak"]) {
+                    wanted.insert(id.to_string());
+                }
+                if let Some(unit) = unit_id(&first["mainsnak"]["datavalue"]) {
+                    wanted.insert(unit);
+                }
             }
         }
     }
@@ -583,7 +596,8 @@ fn sheet_data(
                                     match (text, one["id"].as_str()) {
                                         (Some(text), Some(guid)) if local && typed => serde_json::json!({
                                             // An item is edited by its ID and shown with its label.
-                                            "note": if seen.href.is_some() { seen.text.clone() } else { String::new() },
+                                            // An item, or a quantity with a unit, is shown as the page shows it.
+                                            "note": if seen.href.is_some() || unit_id(&one["mainsnak"]["datavalue"]).is_some() { seen.text.clone() } else { String::new() },
                                             "text": text,
                                             "editable": true,
                                             "guid": guid,
@@ -609,6 +623,7 @@ fn sheet_data(
         .collect();
     let data = serde_json::json!({
         "page": "table",
+        "conceptBase": cx.site.concept_base,
         "lang": cx.site.lang,
         "dir": m.dir(),
         "messages": m.with_prefix("ts-sheet-"),

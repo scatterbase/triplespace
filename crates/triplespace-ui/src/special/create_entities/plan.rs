@@ -12,7 +12,7 @@ use serde_json::{Map, Value, json};
 use super::table::{Column, IdCell, Line, id_cell, row_ref, split_values};
 use crate::entity::Lookup;
 use crate::i18n::Messages;
-use crate::special::values::{datavalue, implied_type};
+use crate::special::values::{datavalue, datavalue_in, implied_type};
 
 /// A property a statement names: one that exists, or one the table declares.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -177,6 +177,9 @@ pub struct Read {
     pub reference: Vec<Line>,
     /// The properties the table declares, one per label, in column order.
     pub new: Vec<Declared>,
+    /// The base of the site's concept IRIs, which a quantity's unit is written under;
+    /// empty where the caller has none.
+    pub concept_base: String,
 }
 
 impl Read {
@@ -212,6 +215,7 @@ impl Read {
             shared,
             reference,
             new,
+            concept_base: String::new(),
         }
     }
 
@@ -310,7 +314,7 @@ pub fn plan(m: &Messages, read: &Read, lookup: &Lookup) -> Vec<Plan> {
         {
             return Ok(Val::Row(n));
         }
-        datavalue(m, &dt, value, raw).map(Val::Data)
+        datavalue_in(m, &dt, value, raw, &read.concept_base).map(Val::Data)
     };
     let snaks_of = |property: &str, cell: &str, errors: &mut Vec<String>| -> Vec<Snak> {
         let mut out = Vec::new();

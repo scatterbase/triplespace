@@ -1,9 +1,18 @@
 <template>
 	<form class="ts-sheet-table" @submit.prevent="save">
+		<CellLookup
+			v-if="lookupFor"
+			:api="api"
+			:lang="data.lang"
+			:label="lookupFor.label"
+			:at="`${ lookupFor.key }-${ lookupFor.c }`"
+			@pick="picked"
+		/>
 		<SheetGrid
 			:headers="headers"
 			:rows="sheetRows"
 			:lead-heading="t( 'ts-sheet-entity' )"
+			:status-heading="anyStatus ? t( 'ts-sheet-status' ) : undefined"
 			:cell-label="( h, lead ) => t( 'ts-sheet-cell', h, lead )"
 			:menu-label="( h ) => h"
 			:remove-label="( lead ) => t( 'ts-sheet-remove-row', lead )"
@@ -11,6 +20,7 @@
 			@paste="paste"
 			@fill="fill"
 			@remove="remove"
+			@focus="( key, c ) => { active = { key, c }; }"
 		/>
 		<div class="ts-sheet__panel">
 			<label>
@@ -80,6 +90,7 @@ import { computed, ref } from 'vue';
 import { CdxButton, CdxMessage } from '@wikimedia/codex';
 import { ApiError } from '../edit/api';
 import type { Api } from '../edit/api';
+import CellLookup from './CellLookup.vue';
 import SheetGrid from './SheetGrid.vue';
 import type { SheetHeader, SheetRow } from './sheet';
 import { msg } from './data';
@@ -156,12 +167,44 @@ const sheetRows = computed<SheetRow[]>( () => rows.value.map( ( r ) => ( {
 	notes: r.before ? r.before.cells.map( ( c, i ) => ( changedCell( r, i ) ? '' : c.note ) ) : undefined
 } ) ) );
 
+const anyStatus = computed( () => sheetRows.value.some( ( r ) => r.status ) );
 const changedAny = ( r: Editing ): boolean => r.cells.some( ( _, c ) => changedCell( r, c ) );
 const dirty = computed( () => removed.value.length > 0 ||
 	rows.value.some( ( r ) => !r.saved && ( !r.before || changedAny( r ) ) ) );
 const anySaved = computed( () => rows.value.some( ( r ) => r.saved ) );
 
 const at = ( key: string ): Editing | undefined => rows.value.find( ( r ) => r.key === key );
+
+// The cell a search stands beside: the focused one, where it holds an item or a
+// quantity, whose unit is an item.
+const active = ref<{ key: string; c: number } | null>( null );
+const lookupFor = computed( () => {
+	const a = active.value;
+	const row = a ? at( a.key ) : undefined;
+	const col = a ? props.data.columns[ a.c ] : undefined;
+	if ( !a || !row || !col || col.kind !== 'statements' ) {
+		return null;
+	}
+	const lead = row.id || t( 'ts-sheet-new-item' );
+	if ( col.datatype === 'wikibase-item' ) {
+		return { ...a, unit: false, label: t( 'ts-sheet-find-item', col.label, lead ) };
+	}
+	if ( col.datatype === 'quantity' ) {
+		return { ...a, unit: true, label: t( 'ts-sheet-find-unit', col.label, lead ) };
+	}
+	return null;
+} );
+
+function picked( id: string ): void {
+	const a = lookupFor.value;
+	const row = a ? at( a.key ) : undefined;
+	if ( !a || !row || id === '' ) {
+		return;
+	}
+	const amount = row.cells[ a.c ].trim().split( /\s+/ )[ 0 ] ?? '';
+	row.cells[ a.c ] = a.unit ? `${ amount } ${ id }`.trim() : id;
+	row.saved = false;
+}
 
 function edit( key: string, c: number, value: string ): void {
 	const r = at( key );
@@ -285,7 +328,8 @@ async function save(): Promise<void> {
 				r.before,
 				r.cells,
 				touchesStatement ? await claimsOf( r.id ) : {},
-				carried
+				carried,
+				props.data.conceptBase
 			);
 			if ( isProblem( data ) ) {
 				throw new Error( t( 'ts-sheet-bad-value', data.text, props.data.columns[ data.column ].label ) );

@@ -10,6 +10,8 @@ interface Common {
 	lang: string;
 	/** The interface's writing direction. */
 	dir: string;
+	/** The base of the site's concept IRIs, which a quantity's unit is written under. */
+	conceptBase: string;
 	/** The `ts-sheet-*` messages, unexpanded. */
 	messages: Record<string, string>;
 }

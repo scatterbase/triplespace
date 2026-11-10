@@ -1,7 +1,8 @@
 /**
  * A cell's text as a `datavalue`, in the plain forms of 19 §3.1, as
  * `special/values.rs` reads them on the server: strings and IDs as written, a quantity
- * as a number, a time as a year, month or day, monolingual text as `text@lang`, a
+ * as a number with its unit's item ID after it where it has one (`12 Q11573`), a time as
+ * a year, month or day, monolingual text as `text@lang`, a
  * coordinate as `lat, lon`. And back, for a cell that shows a value to be edited.
  */
 
@@ -18,9 +19,10 @@ export interface DataValue {
  *
  * @param datatype The property's data type
  * @param text The cell's text
+ * @param conceptBase The base of the site's concept IRIs, which a unit is written under
  * @return The data value, or null when the text is not one of that type
  */
-export function dataValueOf( datatype: string, text: string ): DataValue | null {
+export function dataValueOf( datatype: string, text: string, conceptBase = '' ): DataValue | null {
 	const v = text.trim();
 	if ( v === '' ) {
 		return null;
@@ -37,12 +39,20 @@ export function dataValueOf( datatype: string, text: string ): DataValue | null 
 			return { type: 'wikibase-entityid', value: { 'entity-type': type, id: v.toUpperCase() } };
 		}
 		case 'quantity': {
-			const n = v.replace( /,/g, '' );
-			if ( !/^[+-]?\d+(\.\d+)?$/.test( n ) ) {
+			const parts = v.split( /\s+/ );
+			const n = parts[ 0 ].replace( /,/g, '' );
+			if ( !/^[+-]?\d+(\.\d+)?$/.test( n ) || parts.length > 2 ) {
 				return null;
 			}
+			let unit = '1';
+			if ( parts.length === 2 ) {
+				if ( conceptBase === '' || !/^[A-Za-z]{0,3}Q\d+$/i.test( parts[ 1 ] ) ) {
+					return null;
+				}
+				unit = `${ conceptBase }${ parts[ 1 ].toUpperCase() }`;
+			}
 			const amount = /^[+-]/.test( n ) ? n : `+${ n }`;
-			return { type: 'quantity', value: { amount, unit: '1' } };
+			return { type: 'quantity', value: { amount, unit } };
 		}
 		case 'time': {
 			const t = parseTime( v );
@@ -100,10 +110,15 @@ export function plainOf( dv: DataValue | undefined ): string | null {
 		case 'wikibase-entityid':
 			return typeof v.id === 'string' ? v.id : null;
 		case 'quantity': {
-			if ( ( v.unit !== undefined && v.unit !== '1' ) || v.upperBound !== undefined || v.lowerBound !== undefined ) {
+			if ( v.upperBound !== undefined || v.lowerBound !== undefined ) {
 				return null;
 			}
-			return String( v.amount ?? '' ).replace( /^\+/, '' );
+			const amount = String( v.amount ?? '' ).replace( /^\+/, '' );
+			if ( v.unit === undefined || v.unit === '1' ) {
+				return amount;
+			}
+			const unit = String( v.unit ).split( '/' ).pop() ?? '';
+			return /^[A-Z]{0,3}Q\d+$/.test( unit ) ? `${ amount } ${ unit }` : null;
 		}
 		case 'time': {
 			const precision = Number( v.precision );

@@ -36,6 +36,7 @@ export interface CellProblem {
  * @param after The cells as edited, one per column
  * @param claims The row entity's statements as they stand, by property
  * @param reference The reference a new statement carries, or null
+ * @param conceptBase The base of the site's concept IRIs, for a quantity's unit
  * @return The data, null when nothing changed, or the cell that is not a value of its type
  */
 export function rowEdit(
@@ -44,6 +45,7 @@ export function rowEdit(
 	after: string[],
 	claims: Record<string, Claim[]>,
 	reference: Record<string, unknown> | null,
+	conceptBase = '',
 ): Record<string, unknown> | CellProblem | null {
 	const data: Record<string, unknown> = {};
 	const labels: Record<string, unknown> = {};
@@ -72,7 +74,7 @@ export function rowEdit(
 				}
 				continue;
 			}
-			const datavalue = dataValueOf( col.datatype ?? '', text );
+			const datavalue = dataValueOf( col.datatype ?? '', text, conceptBase );
 			if ( !datavalue ) {
 				return { column: c, text };
 			}

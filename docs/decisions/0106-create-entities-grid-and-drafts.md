@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-08
-- **Updated:** 2026-11-10 (A6)
+- **Updated:** 2026-11-10 (A7)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0045](0045-table-content-model.md), [0104](0104-batches-and-the-job-runner.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0043](0043-lua-modules.md), [0064](0064-entityschema-and-validation.md), [0073](0073-lines-links-and-url-patterns.md)
@@ -33,7 +33,7 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 2. The text names ids, new properties, references and other rows (amends 0104 §11)
 
-*Changed by A1, A4.*
+*Changed by A1, A4, A7.*
 
 *Current text: [21](../architecture/21-special-pages.md) §6.6.*
 
@@ -55,7 +55,7 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 6. Row status and cells by data type (uses 0003 §9 and 0073)
 
-*Changed by A1, A6.*
+*Changed by A1, A6, A7.*
 
 *Current text: [21](../architecture/21-special-pages.md) §6.7.*
 
@@ -152,3 +152,10 @@ James's direction, from the design discussion of 2026-11-08:
 - **Source:** Direct: Claude, while building the grid and the mapping step (SCA-329, SCA-330), 2026-11-10; unconfirmed
 - **Change:** extends §1, §6 and §7
 - **Summary:** (1) The grid writes every change into the form's text box and posts nothing itself: checking, saving a draft and importing stay the form's. To show each row's status it asks the page for its own check as JSON, `wpFormat=json` on the form's post, which answers the notices, each row's status and problems, each column's kind, label and data type, the labels of the items the cells name, and the text as the check wrote it back. Statuses are refreshed when the editor asks, not on every keystroke, because the check searches for matches row by row. (2) The statements on every item and the reference on every statement stay text boxes beside the grid; a column the reference reads is added from **Add column**, which also writes the reference's line. (3) An item cell is looked up from a search above the grid for the cell that has the focus, and shows its items' labels beneath it. (4) A chosen file is read in the browser and never uploaded: CSV, TSV, JSON Lines, QuickStatements `CREATE` and `LAST` lines, and the first sheet of an XLSX file, read without a library. (5) A saved mapping applies when a draft is open with columns and no rows and the file has as many columns as the draft, the `id` column apart.
+
+### A7. A quantity's unit in the text, found while building
+
+- **Date:** 2026-11-10
+- **Source:** Direct: Claude, while building the unit picker James asked for (SCA-329), 2026-11-10; unconfirmed
+- **Change:** extends §2 and §6
+- **Summary:** §6 gave quantities a unit picker, and the text had no form for a unit. A quantity is written as its amount, a space and its unit's item ID, `12 Q11573`; without a unit it is the number alone, as before. The unit is stored under the site's concept base, as the statement editor stores it. The picker is a search beside the grid for the focused quantity cell, on `Special:CreateManyEntities` and in a Table page's editor, and writes the ID after the amount; the cell shows the unit's label beneath it, and a Table page shows `12 page`. A quantity with bounds still has no plain form and is edited on the entity's page.

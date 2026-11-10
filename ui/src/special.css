@@ -44,16 +44,80 @@
 }
 
 /* The grid of Special:CreateManyEntities and of a Table page's editor (ADR 0106 §6;
-   0045 §6): text cells in a table, a leading cell with the row's status. */
+   0045 §6), ruled as a spreadsheet is: a header row and a leading header column on a
+   tinted ground, cells edited where they stand, the focused cell ringed. A Table page's
+   drawn table is ruled the same way, so reading and editing look alike. */
 .ts-sheet {
 	overflow-x: auto;
+	max-height: 70vh;
 	margin: 0.75rem 0;
+	border: 1px solid var( --border-color-base );
+	background: var( --background-color-base );
+}
+
+.ts-sheet__table,
+.ts-table__grid {
+	width: 100%;
+	border-collapse: separate;
+	border-spacing: 0;
+	font-size: 0.9375rem;
 }
 
 .ts-sheet__table th,
-.ts-sheet__table td {
-	padding: 0.25rem 0.375rem;
+.ts-sheet__table td,
+.ts-table__grid th,
+.ts-table__grid td {
+	padding: 0;
+	border-right: 1px solid var( --border-color-subtle );
+	border-bottom: 1px solid var( --border-color-subtle );
+	text-align: start;
 	vertical-align: top;
+}
+
+.ts-table__grid {
+	border-top: 1px solid var( --border-color-base );
+	border-left: 1px solid var( --border-color-base );
+}
+
+.ts-table__grid th,
+.ts-table__grid td {
+	padding: 0.3125rem 0.5rem;
+}
+
+.ts-sheet__table thead th,
+.ts-table__grid thead th {
+	position: sticky;
+	top: 0;
+	z-index: 2;
+	padding: 0.3125rem 0.5rem;
+	border-bottom-color: var( --border-color-base );
+	background: var( --background-color-neutral );
+	font-weight: bold;
+	white-space: nowrap;
+}
+
+.ts-sheet__table .ts-sheet__lead,
+.ts-sheet__table .ts-sheet__corner,
+.ts-table__grid tbody th {
+	position: sticky;
+	left: 0;
+	z-index: 1;
+	padding: 0.3125rem 0.5rem;
+	border-right-color: var( --border-color-base );
+	background: var( --background-color-neutral );
+	color: var( --color-subtle );
+	font-weight: normal;
+	white-space: nowrap;
+}
+
+.ts-sheet__table .ts-sheet__corner {
+	z-index: 3;
+}
+
+.ts-sheet__heading--active,
+.ts-sheet__row--active .ts-sheet__lead {
+	background: var( --background-color-progressive-subtle );
+	color: var( --color-base );
 }
 
 .ts-sheet__sub,
@@ -61,44 +125,62 @@
 .ts-table__sub {
 	display: block;
 	color: var( --color-subtle );
-	font-size: 0.8125rem;
+	font-size: 0.75rem;
 	font-weight: normal;
 }
 
+.ts-sheet__note {
+	padding: 0 0.5rem 0.1875rem;
+}
+
+.ts-sheet__cell {
+	min-width: 8rem;
+	background: var( --background-color-base );
+}
+
 .ts-sheet__input {
+	display: block;
 	box-sizing: border-box;
 	width: 100%;
-	min-width: 7rem;
-	padding: 0.25rem 0.375rem;
-	border: 1px solid var( --border-color-subtle );
-	border-radius: 2px;
-	background: var( --background-color-base );
+	margin: 0;
+	padding: 0.3125rem 0.5rem;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
 	color: var( --color-base );
 	font: inherit;
 }
 
 .ts-sheet__input:focus {
-	border-color: var( --border-color-progressive--focus );
-	outline: 1px solid var( --border-color-progressive--focus );
+	outline: 2px solid var( --border-color-progressive--focus );
+	outline-offset: -2px;
 }
 
-.ts-sheet__cell--changed .ts-sheet__input {
-	border-color: var( --border-color-progressive );
+.ts-sheet__fixed {
+	display: block;
+	padding: 0.3125rem 0.5rem;
+}
+
+.ts-sheet__cell--changed {
 	background: var( --background-color-progressive-subtle );
 }
 
 .ts-sheet__cell--readonly {
+	background: var( --background-color-neutral-subtle );
 	color: var( --color-subtle );
 }
 
-.ts-sheet__lead {
+.ts-sheet__status-cell {
+	padding: 0.25rem 0.5rem;
 	white-space: nowrap;
-	font-weight: normal;
+}
+
+.ts-sheet__table .ts-sheet__status-cell {
+	padding: 0.25rem 0.5rem;
 }
 
 .ts-sheet__status,
 .ts-table__state {
-	margin-inline-start: 0.375rem;
 	padding: 0 0.375rem;
 	border: 1px solid var( --border-color-subtle );
 	border-radius: 1rem;
@@ -117,24 +199,33 @@
 	color: var( --color-progressive );
 }
 
+.ts-sheet__row--invalid .ts-sheet__lead,
+.ts-sheet__row--ambiguous .ts-sheet__lead,
+.ts-sheet__row--conflict .ts-sheet__lead {
+	box-shadow: inset 3px 0 0 var( --border-color-error );
+}
+
+.ts-sheet__problem-row td {
+	background: var( --background-color-error-subtle );
+}
+
 .ts-sheet__problems {
-	margin: 0.25rem 0 0;
-	padding-inline-start: 1rem;
-	max-width: 22rem;
+	margin: 0;
+	padding: 0.1875rem 0.5rem 0.1875rem 1.5rem;
 	color: var( --color-error );
 	font-size: 0.8125rem;
-	white-space: normal;
 }
 
 .ts-sheet__menu,
 .ts-sheet__remove {
 	margin-inline-start: 0.25rem;
-	padding: 0 0.375rem;
+	padding: 0 0.3125rem;
 	border: 0;
 	border-radius: 2px;
 	background: transparent;
 	color: var( --color-subtle );
 	font: inherit;
+	line-height: 1.2;
 	cursor: pointer;
 }
 
@@ -164,8 +255,8 @@
 }
 
 .ts-sheet__bar [ aria-pressed='true' ] {
-	background: var( --background-color-progressive-subtle );
 	border-color: var( --border-color-progressive );
+	background: var( --background-color-progressive-subtle );
 }
 
 .ts-sheet__summary {
@@ -197,4 +288,9 @@
 .ts-table__more {
 	color: var( --color-subtle );
 	font-size: 0.8125rem;
+}
+
+.ts-table__row--staged td,
+.ts-table__row--missing td {
+	background: var( --background-color-neutral-subtle );
 }

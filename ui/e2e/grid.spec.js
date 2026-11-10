@@ -86,7 +86,7 @@ test.describe( 'with JavaScript', () => {
 		await expect( grid.getByRole( 'columnheader', { name: /instance of/ } ) ).toBeVisible();
 		await expect( grid.locator( '.ts-sheet__note' ).first() ).not.toHaveText( '' );
 		await grid.getByLabel( 'Only rows with problems' ).check();
-		await expect( grid.locator( 'tbody tr' ) ).toHaveCount( 1 );
+		await expect( grid.locator( '.ts-sheet__row' ) ).toHaveCount( 1 );
 		await grid.getByLabel( 'Only rows with problems' ).uncheck();
 		expect( await axe( page, '.ts-sheet-create' ) ).toEqual( [] );
 
@@ -140,6 +140,17 @@ test.describe( 'with JavaScript', () => {
 			data: JSON.stringify( { labels: { en: { language: 'en', value: 'Table row one' } } } )
 		} );
 		const id = made.entity.id;
+		// A quantity property and an item to be its unit.
+		const pages = ( await write( page, {
+			action: 'wbeditentity',
+			new: 'property',
+			data: JSON.stringify( { labels: { en: { language: 'en', value: 'number of pages' } }, datatype: 'quantity' } )
+		} ) ).entity.id;
+		const unit = ( await write( page, {
+			action: 'wbeditentity',
+			new: 'item',
+			data: JSON.stringify( { labels: { en: { language: 'en', value: 'page (unit)' } } } )
+		} ) ).entity.id;
 		const saved = await write( page, {
 			action: 'edit',
 			title: 'Table:E2E grid',
@@ -149,7 +160,8 @@ test.describe( 'with JavaScript', () => {
 				columns: [
 					{ field: 'label', language: 'en' },
 					{ field: 'description', language: 'en' },
-					{ field: 'statements', property: 'P2' }
+					{ field: 'statements', property: 'P2' },
+					{ field: 'statements', property: pages }
 				]
 			} )
 		} );
@@ -160,6 +172,12 @@ test.describe( 'with JavaScript', () => {
 		const editor = page.locator( '.ts-sheet-table' );
 		await expect( page.getByLabel( `Label, row ${ id }` ) ).toHaveValue( 'Table row one' );
 		expect( await axe( page, '.ts-sheet-table' ) ).toEqual( [] );
+
+		// A quantity's unit is picked by search, and written after the amount as its ID.
+		await page.getByLabel( `number of pages, row ${ id }`, { exact: true } ).fill( '320' );
+		await editor.getByRole( 'combobox', { name: `Find a unit for number of pages, row ${ id }` } ).fill( 'page' );
+		await page.getByRole( 'option', { name: /^page/ } ).first().click();
+		await expect( page.getByLabel( `number of pages, row ${ id }`, { exact: true } ) ).toHaveValue( `320 ${ unit }` );
 
 		// Two cells of the row, and a new item beneath it.
 		await page.getByLabel( `Description, row ${ id }` ).fill( 'edited in the table' );
@@ -185,6 +203,10 @@ test.describe( 'with JavaScript', () => {
 		const e = ( await entity.json() ).entities[ id ];
 		expect( e.descriptions.en.value ).toBe( 'edited in the table' );
 		expect( e.claims.P2[ 0 ].mainsnak.datavalue.value.id ).toBe( 'Q2' );
+		expect( e.claims[ pages ][ 0 ].mainsnak.datavalue.value ).toMatchObject( { amount: '+320' } );
+		expect( e.claims[ pages ][ 0 ].mainsnak.datavalue.value.unit.endsWith( `/${ unit }` ) ).toBe( true );
+		// Read again, the cell shows the amount with its unit's label.
+		await expect( page.locator( '.ts-table__grid' ) ).toContainText( '320 page (unit)' );
 
 		// The one value changed keeps its statement; a row removed leaves its entity.
 		const guid = e.claims.P2[ 0 ].id;
