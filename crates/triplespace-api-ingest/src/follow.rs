@@ -99,7 +99,10 @@ pub async fn position<C: GenericClient>(
 }
 
 /// Records where a load ended (0092 §5), for the follower to continue from. A load
-/// after a follower has run resets the follower's position to the load's end.
+/// after a follower has run resets the follower's position to the load's end. A load
+/// that ends no later than the end already recorded changes nothing (0092 A4): a sync of
+/// a few entities, or of an older dump, must not move the follower back. Returns whether
+/// it moved the end.
 ///
 /// # Errors
 ///
@@ -110,20 +113,22 @@ pub async fn record_load<C: GenericClient>(
     kind: &str,
     name: &str,
     loaded_to: u64,
-) -> Result<(), IngestError> {
+) -> Result<bool, IngestError> {
     let t = i64::try_from(loaded_to).unwrap_or(i64::MAX);
-    client
+    let moved = client
         .execute(
             "INSERT INTO ops.repo_cursor (tenant, kind, name, loaded_to, handed_over)
              VALUES ($1, $2, $3, to_timestamp($4::bigint), false)
              ON CONFLICT (tenant, kind, name) DO UPDATE
              SET loaded_to = EXCLUDED.loaded_to, handed_over = false, rc_time = NULL,
-                 rc_continue = NULL, rc_seen = NULL, rc_retry = NULL, updated = now()",
+                 rc_continue = NULL, rc_seen = NULL, rc_retry = NULL, updated = now()
+             WHERE ops.repo_cursor.loaded_to IS NULL
+                OR EXCLUDED.loaded_to > ops.repo_cursor.loaded_to",
             &[&tenant, &kind, &name, &t],
         )
         .await
         .map_err(|e| IngestError::Store(e.to_string()))?;
-    Ok(())
+    Ok(moved > 0)
 }
 
 /// A registry provider's follower over its wiki, or a tenant's entity source's (0078 §4):
@@ -338,7 +343,7 @@ impl<'a, C: GenericClient> ProviderFollower<'a, C> {
                     .adapter
                     .index_mut()
                     .observe_redirect(from.as_str(), to.as_str()),
-                Fetched::Missing(_) => {}
+                Fetched::Missing(_) | Fetched::Unreadable { .. } => {}
             }
         }
         self.adapter.index_mut().finish();
@@ -418,6 +423,10 @@ impl<'a, C: GenericClient> ProviderFollower<'a, C> {
                     }),
                 }
             }
+            Fetched::Unreadable { id, reason } => items.push(SyncItem::Rejected {
+                upstream_id: id.as_str().to_string(),
+                reason,
+            }),
             Fetched::Missing(id) => match self.adapter.rewrite_id(id.as_str()) {
                 Ok(local) => items.push(SyncItem::Deleted {
                     id: local,
