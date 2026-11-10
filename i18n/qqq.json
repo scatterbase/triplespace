@@ -577,6 +577,7 @@
 	"ts-diff-descriptions": "Section heading of a diff.\n{{Identical|Description}}",
 	"ts-diff-aliases": "Section heading of a diff.\n{{Identical|Alias}}",
 	"ts-diff-sitelinks": "Section heading of a diff.\n{{Identical|Sitelink}}",
+	"ts-diff-part-property": "Heading of a property's statements in an entity's diff, followed by a slash and the property's label, as in \"Property / population\". Compare {{msg-ts|ts-diff-labels}}, which heads a label's row the same way.",
 	"ts-diff-nothing": "Shown when a revision's diff is empty.",
 	"ts-diff-missing": "Shown when `diff=` or `oldid=` names a revision the entity does not have.",
 	"ts-diff-revision": "Link to a revision in a diff's header. Parameters:\n* $1 - the revision ID",

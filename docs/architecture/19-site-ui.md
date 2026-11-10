@@ -413,6 +413,8 @@ Two narrower histories exist:
 - Terms and sitelinks are diffed as keyed lists.
 - A document page gets a line diff of its source, as in MediaWiki.
 
+**An entity's diff is two columns, as Wikibase draws one** ([0010](../decisions/0010-site-ui.md) A57): the older state on the left and the newer on the right, each headed by its revision (for one change, the left heads with the links to the previous revision and to the comparison with it). Every part that changed is headed on both sides by what it is, "Labels / fr" or "Property / population"; what went is marked − on the left and what came + on the right, so that a changed value shows both, and a side with nothing is empty. An unchanged statement of a changed property stays as context on both sides, unmarked. A change is told apart by its marker, a border and a background, never by colour alone.
+
 **Alternative views.** A switch offers JSON (a diff of the canonical JSON) and Change set (the record's operations as stored).
 
 **A document page's views** ([0010](../decisions/0010-site-ui.md) A48, A49) are a switch, `view=`:

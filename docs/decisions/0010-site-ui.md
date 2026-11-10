@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-08 (A54)
+- **Updated:** 2026-11-09 (A57)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -102,7 +102,7 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 
 ### 6. Diffs
 
-*Changed by A48, A49.*
+*Changed by A48, A49, A57.*
 
 *Current text: [19](../architecture/19-site-ui.md) §3.8.*
 
@@ -740,3 +740,10 @@ Replaced text ([19](../architecture/19-site-ui.md) §3.10, as it stood):
 - **Source:** Direct: James, ticket SCA-227, and design discussion of 2026-11-09 (the `changed` parameter); the rest Claude, while building it, 2026-11-09; unconfirmed
 - **Change:** extends §5
 - **Summary:** A page's or an entity's history gets the filter panel recent changes has: by user, by tag, between two dates, without bot edits, without minor edits; and an entity's by what changed, with a language, site or property ([0020](0020-change-feeds.md) A21). Calls made in the building: the panel is a disclosure, open while a filter is on; the parameters are `user`, `tagfilter`, `from`, `to`, `hidebots`, `hideminor`, `changed` and `changedkey`; *Statements* stands for the parts `claims`, `statements`, `references` and `qualifiers`. Not built: hiding reverted edits, which needs a reverted change tag that nothing writes yet; combining consecutive edits by one actor; and telling a page's text edits from its statement edits. Chapter text: [19](../architecture/19-site-ui.md) §3.3.
+
+### A57. An entity's diff is two columns, as Wikibase draws one
+
+- **Date:** 2026-11-09
+- **Source:** Direct: James, ticket SCA-195 ("Make entity diffing look more like Wikidata's"); the layout Claude, while building it, 2026-11-09; unconfirmed
+- **Change:** extends §6
+- **Summary:** The diff of an entity is drawn as one table of two columns, older left and newer right, each part headed on both sides ("Labels / fr", "Property / population"), with − and + markers, in place of a section per part with *Key*, *Before* and *After* columns. Calls made in the building: a changed statement is shown whole on both sides, not broken into rank, qualifier and reference rows as Wikibase breaks it; unchanged statements of a changed property stay as context, as §6 has it; the revisions head the columns, and for one change the left heads with the links to the previous revision; the colours are the page diff's. The change-set and sync views are as they were. Chapter text: [19](../architecture/19-site-ui.md) §3.8.

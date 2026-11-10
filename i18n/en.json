@@ -577,6 +577,7 @@
 	"ts-diff-descriptions": "Descriptions",
 	"ts-diff-aliases": "Aliases",
 	"ts-diff-sitelinks": "Sitelinks",
+	"ts-diff-part-property": "Property",
 	"ts-diff-nothing": "This revision changed nothing in the entity.",
 	"ts-diff-missing": "There is no such revision of this entity.",
 	"ts-diff-revision": "Revision $1",

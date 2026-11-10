@@ -1,6 +1,5 @@
 ---
 source: crates/triplespace-ui/tests/entity.rs
-assertion_line: 549
 expression: main
 ---
 <main class="ts-page" id="content">
@@ -24,12 +23,6 @@ expression: main
 	</nav>
 	<div class="ts-page__body">
 		<div class="ts-diff" data-ts-diffnav>
-<p class="ts-diff__head">
-<a href="/wiki/Item:Q6?oldid=907">Revision 907</a> <time datetime="2026-10-02T14:05:11Z">2026-10-02 14:05:11</time> · <a href="/wiki/Special:Contributions/librarybase:10">librarybase:10</a> · <span class="ts-change__comment">rank and a value</span>
-</p>
-<p class="ts-diff__nav">
-<a href="/wiki/Item:Q6?diff=906" rel="prev">← Previous revision</a> · <a href="/wiki/Item:Q6?oldid=906&amp;diff=907">Compare with the previous revision</a>
-</p>
 <nav class="ts-search-filter ts-diff__views" aria-label="Views of this change">
 <ul>
 <li>
@@ -47,119 +40,115 @@ expression: main
 </div>
 <div class="ts-diff__body">
 <div class="ts-diff__main">
-<section class="ts-diff__section">
-<h3 class="ts-diff__heading">Labels</h3>
-<table class="ts-diff__table">
+<table class="ts-wbdiff">
+<colgroup>
+<col class="ts-wbdiff__col-marker">
+<col class="ts-wbdiff__col-content">
+<col class="ts-wbdiff__col-marker">
+<col class="ts-wbdiff__col-content">
+</colgroup>
 <thead>
 <tr>
-<th>Key</th>
-<th>Before</th>
-<th>After</th>
+<th scope="col" colspan="2" class="ts-wbdiff__title">
+<span class="ts-visually-hidden">Before: </span>
+<a href="/wiki/Item:Q6?diff=906" rel="prev">← Previous revision</a>
+<br>
+<a href="/wiki/Item:Q6?oldid=906&amp;diff=907">Compare with the previous revision</a>
+</th>
+<th scope="col" colspan="2" class="ts-wbdiff__title">
+<span class="ts-visually-hidden">After: </span>
+<a href="/wiki/Item:Q6?oldid=907">Revision 907</a> <time datetime="2026-10-02T14:05:11Z">2026-10-02 14:05:11</time> · <a href="/wiki/Special:Contributions/librarybase:10">librarybase:10</a> · <span class="ts-change__comment">rank and a value</span>
+</th>
 </tr>
 </thead>
 <tbody>
-<tr>
-<th scope="row" class="ts-diff__key">fr</th>
-<td class="ts-diff__cell ts-diff__cell--empty">
+<tr class="ts-wbdiff__part">
+<td colspan="2" class="ts-wbdiff__lineno">Labels / <span class="ts-wbdiff__key">fr</span>
+</td>
+<td colspan="2" class="ts-wbdiff__lineno">Labels / <span class="ts-wbdiff__key">fr</span>
+</td>
+</tr>
+<tr class="ts-diff__row">
+<td colspan="2" class="ts-diff__cell ts-diff__cell--empty">
+</td>
+<td class="ts-wbdiff__marker" data-marker="+">
 </td>
 <td class="ts-diff__cell ts-diff__cell--added">
-<span lang="fr" dir="auto">Six</span>
+<ins class="ts-wbdiff__change" lang="fr" dir="auto">Six</ins>
 </td>
 </tr>
-</tbody>
-</table>
-</section>
-<section class="ts-diff__section">
-<h3 class="ts-diff__heading">Descriptions</h3>
-<table class="ts-diff__table">
-<thead>
-<tr>
-<th>Key</th>
-<th>Before</th>
-<th>After</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<th scope="row" class="ts-diff__key">de</th>
-<td class="ts-diff__cell ts-diff__cell--changed">
-<span lang="de" dir="auto">eine Zahl</span>
+<tr class="ts-wbdiff__part">
+<td colspan="2" class="ts-wbdiff__lineno">Descriptions / <span class="ts-wbdiff__key">de</span>
 </td>
-<td class="ts-diff__cell ts-diff__cell--changed">
-<span lang="de" dir="auto">eine gerade Zahl</span>
+<td colspan="2" class="ts-wbdiff__lineno">Descriptions / <span class="ts-wbdiff__key">de</span>
 </td>
 </tr>
-</tbody>
-</table>
-</section>
-<section class="ts-diff__section">
-<h3 class="ts-diff__heading">Aliases</h3>
-<table class="ts-diff__table">
-<thead>
-<tr>
-<th>Key</th>
-<th>Before</th>
-<th>After</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<th scope="row" class="ts-diff__key">en</th>
-<td class="ts-diff__cell ts-diff__cell--changed">
-<span>6 | half dozen</span>
+<tr class="ts-diff__row">
+<td class="ts-wbdiff__marker" data-marker="−">
 </td>
-<td class="ts-diff__cell ts-diff__cell--changed">
-<span>6 | half dozen | VI</span>
+<td class="ts-diff__cell ts-diff__cell--removed">
+<del class="ts-wbdiff__change" lang="de" dir="auto">eine Zahl</del>
 </td>
-</tr>
-</tbody>
-</table>
-</section>
-<section class="ts-diff__section">
-<h3 class="ts-diff__heading">Sitelinks</h3>
-<table class="ts-diff__table">
-<thead>
-<tr>
-<th>Key</th>
-<th>Before</th>
-<th>After</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<th scope="row" class="ts-diff__key">enwiki</th>
-<td class="ts-diff__cell ts-diff__cell--empty">
+<td class="ts-wbdiff__marker" data-marker="+">
 </td>
 <td class="ts-diff__cell ts-diff__cell--added">
-<span>Six</span>
+<ins class="ts-wbdiff__change" lang="de" dir="auto">eine gerade Zahl</ins>
 </td>
 </tr>
-</tbody>
-</table>
-</section>
-<section class="ts-diff__section">
-<h3 class="ts-diff__heading">
-<a href="/wiki/Property:P2" title="P2">instance of</a>
-</h3>
-<table class="ts-diff__table ts-diff__table--statements">
-<thead>
-<tr>
-<th>Change</th>
-<th>Before</th>
-<th>After</th>
+<tr class="ts-wbdiff__part">
+<td colspan="2" class="ts-wbdiff__lineno">Aliases / <span class="ts-wbdiff__key">en</span>
+</td>
+<td colspan="2" class="ts-wbdiff__lineno">Aliases / <span class="ts-wbdiff__key">en</span>
+</td>
 </tr>
-</thead>
-<tbody>
+<tr class="ts-diff__row">
+<td class="ts-wbdiff__marker" data-marker="−">
+</td>
+<td class="ts-diff__cell ts-diff__cell--removed">
+<del class="ts-wbdiff__change">6 | half dozen</del>
+</td>
+<td class="ts-wbdiff__marker" data-marker="+">
+</td>
+<td class="ts-diff__cell ts-diff__cell--added">
+<ins class="ts-wbdiff__change">6 | half dozen | VI</ins>
+</td>
+</tr>
+<tr class="ts-wbdiff__part">
+<td colspan="2" class="ts-wbdiff__lineno">Sitelinks / <span class="ts-wbdiff__key">enwiki</span>
+</td>
+<td colspan="2" class="ts-wbdiff__lineno">Sitelinks / <span class="ts-wbdiff__key">enwiki</span>
+</td>
+</tr>
+<tr class="ts-diff__row">
+<td colspan="2" class="ts-diff__cell ts-diff__cell--empty">
+</td>
+<td class="ts-wbdiff__marker" data-marker="+">
+</td>
+<td class="ts-diff__cell ts-diff__cell--added">
+<ins class="ts-wbdiff__change">Six</ins>
+</td>
+</tr>
+<tr class="ts-wbdiff__part">
+<td colspan="2" class="ts-wbdiff__lineno">Property / <a href="/wiki/Property:P2" title="P2">instance of</a>
+</td>
+<td colspan="2" class="ts-wbdiff__lineno">Property / <a href="/wiki/Property:P2" title="P2">instance of</a>
+</td>
+</tr>
 <tr class="ts-diff__row ts-diff__row--changed">
-<th scope="row" class="ts-diff__mark">Changed</th>
-<td class="ts-diff__cell ts-diff__cell--changed">
+<td class="ts-wbdiff__marker" data-marker="−">
+</td>
+<td class="ts-diff__cell ts-diff__cell--removed">
+<span class="ts-visually-hidden">Changed: </span>
 <div class="ts-diff__statement">
 <div class="ts-statement__main">
 <a href="/wiki/Item:Q2" title="Q2">number</a>
 </div>
 </div>
 </td>
-<td class="ts-diff__cell ts-diff__cell--changed">
+<td class="ts-wbdiff__marker" data-marker="+">
+</td>
+<td class="ts-diff__cell ts-diff__cell--added">
+<span class="ts-visually-hidden">Changed: </span>
 <div class="ts-diff__statement">
 <div class="ts-statement__main">
 <a href="/wiki/Item:Q2" title="Q2">number</a> <span class="ts-chip ts-chip--rank">Preferred rank</span>
@@ -167,25 +156,17 @@ expression: main
 </div>
 </td>
 </tr>
-</tbody>
-</table>
-</section>
-<section class="ts-diff__section">
-<h3 class="ts-diff__heading">
-<a href="/wiki/Property:P3" title="P3">population</a>
-</h3>
-<table class="ts-diff__table ts-diff__table--statements">
-<thead>
-<tr>
-<th>Change</th>
-<th>Before</th>
-<th>After</th>
+<tr class="ts-wbdiff__part">
+<td colspan="2" class="ts-wbdiff__lineno">Property / <a href="/wiki/Property:P3" title="P3">population</a>
+</td>
+<td colspan="2" class="ts-wbdiff__lineno">Property / <a href="/wiki/Property:P3" title="P3">population</a>
+</td>
 </tr>
-</thead>
-<tbody>
 <tr class="ts-diff__row ts-diff__row--unchanged">
-<th scope="row" class="ts-diff__mark">Unchanged</th>
+<td class="ts-wbdiff__marker">
+</td>
 <td class="ts-diff__cell ts-diff__cell--same">
+<span class="ts-visually-hidden">Unchanged: </span>
 <div class="ts-diff__statement">
 <div class="ts-statement__main">
 <span class="ts-number">3,898,747</span>±10 <span class="ts-unit">
@@ -235,7 +216,10 @@ expression: main
 </details>
 </div>
 </td>
+<td class="ts-wbdiff__marker">
+</td>
 <td class="ts-diff__cell ts-diff__cell--same">
+<span class="ts-visually-hidden">Unchanged: </span>
 <div class="ts-diff__statement">
 <div class="ts-statement__main">
 <span class="ts-number">3,898,747</span>±10 <span class="ts-unit">
@@ -287,10 +271,12 @@ expression: main
 </td>
 </tr>
 <tr class="ts-diff__row ts-diff__row--added">
-<th scope="row" class="ts-diff__mark">Added</th>
-<td class="ts-diff__cell ts-diff__cell--empty">
+<td colspan="2" class="ts-diff__cell ts-diff__cell--empty">
+</td>
+<td class="ts-wbdiff__marker" data-marker="+">
 </td>
 <td class="ts-diff__cell ts-diff__cell--added">
+<span class="ts-visually-hidden">Added: </span>
 <div class="ts-diff__statement">
 <div class="ts-statement__main">
 <span class="ts-number">3,898,747</span>±10 <span class="ts-unit">
@@ -343,7 +329,6 @@ expression: main
 </tr>
 </tbody>
 </table>
-</section>
 </div>
 <aside class="ts-diff__about">
 <h3>About this edit</h3>
