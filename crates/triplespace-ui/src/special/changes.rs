@@ -424,12 +424,13 @@ pub enum ActorModel {
 pub struct SummaryModel {
     /// What the row says of a hidden summary; the rest is empty then.
     pub hidden: Option<String>,
-    /// The automatic part.
+    /// The action, in its own column beside the summary: a record's operation and its
+    /// arguments, a log event's type and action, a thread record in words.
     pub auto: Option<String>,
     /// Where a move went.
     pub moved: Option<String>,
-    /// The user's comment.
-    pub comment: Option<String>,
+    /// The user's comment, parsed as MediaWiki parses one ([`crate::comment`]).
+    pub comment: Vec<crate::comment::Part>,
 }
 
 /// A flag: new, minor, bot.
@@ -816,7 +817,7 @@ fn summary_model(m: &Messages, row: &ActivityRow, here: Option<u64>) -> SummaryM
         hidden: None,
         auto: None,
         moved: None,
-        comment: None,
+        comment: Vec::new(),
     };
     if row.summary.hidden {
         out.hidden = Some(m.get("ts-changes-hidden-comment"));
@@ -851,7 +852,17 @@ fn summary_model(m: &Messages, row: &ActivityRow, here: Option<u64>) -> SummaryM
             ))
         })
         .map(|(from, to)| m.with("ts-changes-moved-to", &[from, to]));
-    out.comment = row.comment.clone().filter(|c| !c.is_empty());
+    // An automatic comment in a page's summary names one of its sections.
+    let page = row
+        .target
+        .as_ref()
+        .filter(|t| t.kind == "page")
+        .and_then(|t| t.title.as_deref());
+    out.comment = row
+        .comment
+        .as_deref()
+        .map(|c| crate::comment::parts(m, c, page))
+        .unwrap_or_default();
     out
 }
 
@@ -910,13 +921,14 @@ fn diff_href(row: &ActivityRow) -> Option<String> {
 
 /// The columns of the changes table, by the message that heads each. Every row has a
 /// cell in each, empty where the row has nothing for it, so the fields line up.
-const COLUMNS: [(&str, &str); 7] = [
+const COLUMNS: [(&str, &str); 8] = [
     ("ts-changes-col-time", "time"),
     ("ts-changes-col-origin", "origin"),
     ("ts-changes-col-flags", "flags"),
     ("ts-changes-col-target", "target"),
     ("ts-changes-col-size", "size"),
     ("ts-changes-col-user", "user"),
+    ("ts-changes-col-action", "action"),
     ("ts-changes-col-summary", "summary"),
 ];
 
@@ -939,7 +951,7 @@ fn row_model(m: &Messages, site: &SiteInfo, row: &ActivityRow, here: Option<u64>
                 hidden: None,
                 auto: None,
                 moved: None,
-                comment: None,
+                comment: Vec::new(),
             },
             tags: Vec::new(),
             pick: None,

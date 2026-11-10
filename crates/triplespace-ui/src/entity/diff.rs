@@ -100,8 +100,8 @@ pub struct RevisionLine {
     pub time: String,
     /// The actor's contributions, when known.
     pub actor: Option<Choice>,
-    /// The comment, when there is one.
-    pub comment: Option<String>,
+    /// The comment, when there is one, in its parts ([`crate::comment`]).
+    pub comment: Vec<crate::comment::Part>,
 }
 
 /// A keyed list's row: a term or a sitelink before and after.
@@ -347,7 +347,11 @@ fn revision_line_model(m: &Messages, facts: &RevisionFacts, title: &str) -> Revi
                 a.clone(),
             )
         }),
-        comment: facts.comment.clone().filter(|c| !c.is_empty()),
+        comment: facts
+            .comment
+            .as_deref()
+            .map(|c| crate::comment::parts(m, c, None))
+            .unwrap_or_default(),
     }
 }
 

@@ -223,6 +223,17 @@
 	font-style: italic;
 }
 
+/* An automatic comment (a section, or what Wikibase said the edit did) reads apart from
+   the editor's own words, as MediaWiki's does. */
+.ts-change__autocomment,
+.ts-change__autocomment a {
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-change__comment a {
+	text-decoration: underline;
+}
+
 .ts-change__comment {
 	color: var( --color-base, #202122 );
 }
@@ -435,4 +446,10 @@
 
 .ts-history__compare-actions {
 	margin-block-end: var( --spacing-50, 0.5rem );
+}
+
+/* The action is a short field; a long one wraps. */
+.ts-change__cell--action {
+	max-width: 16rem;
+	overflow-wrap: break-word;
 }

@@ -72,7 +72,7 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 
 #### 5.2 Rows
 
-*Changed by A3, A5, A13, A24.*
+*Changed by A3, A5, A13, A24, A55.*
 
 *Current text: [19](../architecture/19-site-ui.md) §3.4.*
 
@@ -726,3 +726,10 @@ Replaced text ([19](../architecture/19-site-ui.md) §2.3, as it stood):
 Replaced text ([19](../architecture/19-site-ui.md) §3.10, as it stood):
 
 > - **Revert this job…** (local jobs) appends the inverse change sets as a new job ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.3). Where someone has edited an affected entity since, that later edit is kept, and those entities are listed first for review.
+
+### A55. Feed rows: the action's own column, summaries parsed as MediaWiki's, and a row menu
+
+- **Date:** 2026-11-09
+- **Source:** Direct: James, tickets SCA-203 and SCA-232, and design discussion of 2026-11-09 (the menu's addresses); the rest Claude, while building them, 2026-11-09; unconfirmed
+- **Change:** extends §5.2
+- **Summary:** James asked that a row's log variant have its own column beside the summary, that `/* … */` read apart from the rest as MediaWiki's does, and that wikitext in a summary be parsed as far as MediaWiki parses it (SCA-203); and that each row have a menu of moderation links with its target and actor filled in (SCA-232). He confirmed that **Protect** and **Delete** use the addresses the page's own menu uses, `?action=protect` and `?action=delete`, not `Special:Protect/{page}`. Calls made in the building: the column is headed *Action* and holds the operation with its arguments, a log event's type and action, or a thread record in words; an automatic comment on a page links to the section it names; Wikibase's automatic comments, which adopted revisions keep, are said in words from `ts-summary-*` messages and shown as written where there is none; only wiki links are parsed, without a lookup, so a link to a missing page is not marked; a diff's header draws its summary the same way; the menu is a disclosure in a last column drawn only for a viewer who holds `block`, `protect` or `delete`, opening in the row; thanks and rollback are left out until they exist. Chapter text: [19](../architecture/19-site-ui.md) §3.4.

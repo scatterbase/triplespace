@@ -3,13 +3,14 @@
 {%- import "codex.html" as codex -%}
 {%- import "entity.html" as entity -%}
 {%- import "nav.html" as shared -%}
+{%- import "changes.html" as changes -%}
 
 {#- A revision's line in the header: time, actor, comment. -#}
 {%- macro revision_line(l) -%}
 {%- if l.revision %}<a href="{{ l.revision.href }}">{{ l.revision.label }}</a> {% endif -%}
 <time datetime="{{ l.datetime }}">{{ l.time }}</time>
 {%- if l.actor %} · <a href="{{ l.actor.href }}">{{ l.actor.label }}</a>{% endif -%}
-{%- if l.comment %} · <span class="ts-change__comment">{{ l.comment }}</span>{% endif -%}
+{%- if l.comment %} · <span class="ts-change__comment">{{ changes.comment(l.comment) }}</span>{% endif -%}
 {%- endmacro -%}
 
 {#- One side of a keyed list. -#}

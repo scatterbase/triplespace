@@ -20,13 +20,18 @@
 {%- else %}<span class="ts-change__part"><a href="{{ t.href }}" class="ts-change__target">{{ t.text }}</a></span>{% endif -%}
 {%- endmacro -%}
 
+{#- A summary's parts (`triplespace_ui::comment`): automatic comments apart, wiki links
+    as links. A diff's header draws its summary with this. -#}
+{%- macro comment(parts) -%}
+{% for p in parts %}{% if p.kind == "auto" %}<span class="ts-change__autocomment">{% if p.href %}<a href="{{ p.href }}">{{ p.text }}</a>{% else %}{{ p.text }}{% endif %}{% if p.more %}:{% endif %}</span>{% if p.more %} {% endif %}{% elif p.kind == "link" %}<a href="{{ p.href }}">{{ p.text }}</a>{% else %}{{ p.text }}{% endif %}{% endfor %}
+{%- endmacro -%}
+
 {#- A row's summary. -#}
 {%- macro summary(s) -%}
 {%- if s.hidden %}<span class="ts-change__hidden">{{ s.hidden }}</span>
 {%- else -%}
-{%- if s.auto %}<span class="ts-change__auto">{{ s.auto }}</span>{% endif -%}
-{%- if s.moved %} <span class="ts-change__auto">{{ s.moved }}</span>{% endif -%}
-{%- if s.comment %}{% if s.auto or s.moved %} {% endif %}<span class="ts-change__comment">{{ s.comment }}</span>{% endif -%}
+{%- if s.moved %}<span class="ts-change__auto">{{ s.moved }}</span>{% endif -%}
+{%- if s.comment %}{% if s.moved %} {% endif %}<span class="ts-change__comment">{% for p in s.comment %}{% if p.kind == "auto" %}<span class="ts-change__autocomment">{% if p.href %}<a href="{{ p.href }}">{{ p.text }}</a>{% else %}{{ p.text }}{% endif %}{% if p.more %}:{% endif %}</span>{% if p.more %} {% endif %}{% elif p.kind == "link" %}<a href="{{ p.href }}">{{ p.text }}</a>{% else %}{{ p.text }}{% endif %}{% endfor %}</span>{% endif -%}
 {%- endif -%}
 {%- endmacro -%}
 
@@ -49,10 +54,11 @@
 </td>
 <td class="ts-change__cell ts-change__cell--size">{% if r.size %}<span class="ts-change__delta{% if r.size.class %} ts-change__delta--{{ r.size.class }}{% endif %}" dir="ltr">{{ r.size.text }}</span>{% endif %}</td>
 <td class="ts-change__cell ts-change__cell--user">{% if r.actor.kind == "hidden" %}<span class="ts-change__part ts-change__hidden">{{ r.actor.text }}</span>{% elif r.actor.kind == "account" %}{% set a = r.actor.account %}{% if a.kind == "operator" %}<span class="ts-change__part"><span class="{{ a.badge.classes }}"{% if a.badge.title %} title="{{ a.badge.title }}"{% endif %}>{{ a.badge.text }}</span></span>{% else %}<span class="ts-change__part"{% if a.title %} title="{{ a.title }}"{% endif %}><a href="{{ a.href }}" class="ts-change__actor">{{ a.shown }}</a></span>{% if a.key %}<span class="ts-change__part ts-change__id ts-mono">{{ a.key }}</span>{% endif %}{% endif %}{% endif %}</td>
-<td class="ts-change__cell ts-change__cell--summary">
 {%- set s = r.summary -%}
+<td class="ts-change__cell ts-change__cell--action">{% if s.auto %}<span class="ts-change__auto">{{ s.auto }}</span>{% endif %}</td>
+<td class="ts-change__cell ts-change__cell--summary">
 {%- if s.hidden %}<span class="ts-change__summary"><span class="ts-change__hidden">{{ s.hidden }}</span></span>
-{%- elif s.auto or s.moved or s.comment %}<span class="ts-change__summary">{% if s.auto %}<span class="ts-change__auto">{{ s.auto }}</span>{% endif %}{% if s.moved %} <span class="ts-change__auto">{{ s.moved }}</span>{% endif %}{% if s.comment %}{% if s.auto or s.moved %} {% endif %}<span class="ts-change__comment">{{ s.comment }}</span>{% endif %}</span>{% endif -%}
+{%- elif s.moved or s.comment %}<span class="ts-change__summary">{% if s.moved %}<span class="ts-change__auto">{{ s.moved }}</span>{% endif %}{% if s.comment %}{% if s.moved %} {% endif %}<span class="ts-change__comment">{% for p in s.comment %}{% if p.kind == "auto" %}<span class="ts-change__autocomment">{% if p.href %}<a href="{{ p.href }}">{{ p.text }}</a>{% else %}{{ p.text }}{% endif %}{% if p.more %}:{% endif %}</span>{% if p.more %} {% endif %}{% elif p.kind == "link" %}<a href="{{ p.href }}">{{ p.text }}</a>{% else %}{{ p.text }}{% endif %}{% endfor %}</span>{% endif %}</span>{% endif -%}
 {%- if r.tags %}<span class="ts-change__tags">{% for t in r.tags %}<span class="ts-change__tag">{{ t }}</span>{% endfor %}</span>{% endif -%}
 {%- if r.job %} <a class="ts-change__job" href="{{ r.job.href }}">{{ r.job.text }}</a>{% endif -%}
 </td></tr>

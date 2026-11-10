@@ -377,6 +377,8 @@ pub struct Side {
     pub hidden_user: String,
     /// The summary; `None` where hidden; empty where there is none.
     pub comment: Option<String>,
+    /// The summary's parts, as a feed row draws them ([`crate::comment`]).
+    pub summary: Vec<crate::comment::Part>,
     /// What the page says of a hidden summary.
     pub hidden_comment: String,
     /// The way to the next diff along.
@@ -1332,6 +1334,11 @@ fn side_model(m: &Messages, side: &DiffSide, latest: bool, nav: Option<Choice>) 
         }),
         hidden_user: m.get("ts-changes-hidden-user"),
         comment: side.comment.clone(),
+        summary: side
+            .comment
+            .as_deref()
+            .map(|c| crate::comment::parts(m, c, Some(&side.title)))
+            .unwrap_or_default(),
         hidden_comment: m.get("ts-changes-hidden-comment"),
         nav,
     }

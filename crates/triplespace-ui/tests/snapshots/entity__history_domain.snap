@@ -1,6 +1,5 @@
 ---
 source: crates/triplespace-ui/tests/entity.rs
-assertion_line: 505
 expression: main
 ---
 <main class="ts-page" id="content">
@@ -34,12 +33,13 @@ expression: main
 <th scope="col" class="ts-change__head ts-change__head--target">Page</th>
 <th scope="col" class="ts-change__head ts-change__head--size">Size</th>
 <th scope="col" class="ts-change__head ts-change__head--user">User</th>
+<th scope="col" class="ts-change__head ts-change__head--action">Action</th>
 <th scope="col" class="ts-change__head ts-change__head--summary">Summary</th>
 </tr>
 </thead>
 <tbody>
 <tr class="ts-changes__dayrow">
-<th scope="rowgroup" colspan="7" class="ts-changes__day">2 October 2026</th>
+<th scope="rowgroup" colspan="8" class="ts-changes__day">2 October 2026</th>
 </tr>
 <tr class="ts-change ts-change--sync">
 <td class="ts-change__cell ts-change__cell--time">
@@ -66,10 +66,10 @@ expression: main
 <a href="/wiki/Special:Contributions/Alice" class="ts-change__actor">Alice</a>
 </span>
 </td>
-<td class="ts-change__cell ts-change__cell--summary">
-<span class="ts-change__summary">
+<td class="ts-change__cell ts-change__cell--action">
 <span class="ts-change__auto">Synced from internetdomains</span>
-</span>
+</td>
+<td class="ts-change__cell ts-change__cell--summary">
 <span class="ts-change__tags">
 <span class="ts-change__tag">bulk</span>
 </span>

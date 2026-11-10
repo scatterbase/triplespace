@@ -36,6 +36,7 @@
 pub mod appearance;
 pub mod assets;
 pub mod codex;
+pub mod comment;
 pub mod diffview;
 pub mod discussion;
 pub mod document;
