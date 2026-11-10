@@ -27,7 +27,9 @@ Writes are permanent on the tenant; --no-write skips them.
 """
 
 import argparse
+import atexit
 import os
+import shutil
 import sys
 import tempfile
 import time
@@ -78,14 +80,17 @@ def main():
     protocol = u.scheme or "http"
 
     # Pywikibot configuration, in-process.
+    # The directory holds the bot password and is removed when the run ends.
     tmp = tempfile.mkdtemp(prefix="pwb_check_")
+    atexit.register(shutil.rmtree, tmp, ignore_errors=True)
     family_path = os.path.join(tmp, "triplespace_family.py")
     with open(family_path, "w", encoding="utf-8") as f:
         f.write(FAMILY.format(code=a.tenant, host=host, protocol=protocol))
     pw_path = os.path.join(tmp, "passwords.py")
-    with open(pw_path, "w", encoding="utf-8") as f:
+    # Owner-only from creation, never readable by others in between.
+    fd = os.open(pw_path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
         f.write(f"({user!r}, BotPassword({label!r}, {secret!r}))\n")
-    os.chmod(pw_path, 0o600)
 
     import pywikibot
     from pywikibot import config
