@@ -1,6 +1,6 @@
 //! A draft (0106 §9; 15 §2.7): the table being prepared, kept as a Table page whose
 //! definition holds the rows not yet written. This module turns the table's text into
-//! that definition and back, so that `Special:CreateEntities/{table title}` edits the
+//! that definition and back, so that `Special:CreateManyEntities/{table title}` edits the
 //! same thing the page stores, and records an import in it: each written row leaves
 //! `staged` for `rows.ids`, and a refused row stays with its reason.
 //!

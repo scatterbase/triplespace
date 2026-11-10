@@ -1,7 +1,7 @@
 //! A Table page drawn as its grid (0045 §5; 0106 §9; 15 §2.4, §2.7): a row for each
 //! entity the definition lists, read from the entity as the API serves it, a cell for
 //! each column, and below them a draft's staged rows as they were entered, marked staged,
-//! with the way back to `Special:CreateEntities`.
+//! with the way back to `Special:CreateManyEntities`.
 //!
 //! A statement cell shows the property's best values, the preferred ones if any and else
 //! the normal ones: the first, and how many more. Deprecated values are never shown, only
@@ -86,7 +86,7 @@ pub struct StagedModel {
     pub heading: String,
     /// What staged rows are.
     pub note: String,
-    /// `Special:CreateEntities/{title}`, and its label.
+    /// `Special:CreateManyEntities/{title}`, and its label.
     pub resume: (String, String),
     /// The heading of the row-number column.
     pub n_heading: String,
@@ -335,7 +335,7 @@ pub fn model(
         heading: m.with("ts-table-staged-heading", &[&staged.rows.len().to_string()]),
         note: m.get("ts-table-staged-note"),
         resume: (
-            format!("/wiki/Special:CreateEntities/{}", title_url(title)),
+            format!("/wiki/Special:CreateManyEntities/{}", title_url(title)),
             m.get("ts-table-staged-resume"),
         ),
         n_heading: m.get("ts-createentities-col-line"),
@@ -506,7 +506,7 @@ mod tests {
         assert!(staged.rows[1].state.contains("no"));
         assert_eq!(
             staged.resume.0,
-            "/wiki/Special:CreateEntities/Table:Drafts/A/x"
+            "/wiki/Special:CreateManyEntities/Table:Drafts/A/x"
         );
     }
 }

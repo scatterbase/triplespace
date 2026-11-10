@@ -70,7 +70,7 @@ impl Client {
     }
 
     /// `action=wbeditentity&id={id}` with `data`, under a batch value where one is given
-    /// (0104 §1; 0106 §5): what a row of `Special:CreateEntities` adds to the item it
+    /// (0104 §1; 0106 §5): what a row of `Special:CreateManyEntities` adds to the item it
     /// matches. The answer is the batch's job.
     ///
     /// # Errors

@@ -1,5 +1,5 @@
 //! The table's text (0106 §1, §2; 21 §6.6): the canonical form of what
-//! `Special:CreateEntities` imports. This module reads the text and writes it back, so that
+//! `Special:CreateManyEntities` imports. This module reads the text and writes it back, so that
 //! the preview can fill in what it found (a matched row's `id`, a proposed data type) and
 //! anything that edits a table, the grid included, passes through the same form.
 //!
@@ -106,7 +106,7 @@ pub fn column(header: &str, default_lang: &str) -> Column {
     }
 }
 
-/// Writes a column as its header: what [`column`] reads back as the same column.
+/// Writes a column as its header: what [`column()`] reads back as the same column.
 #[must_use]
 pub fn header(column: &Column, default_lang: &str) -> String {
     let term = |name: &str, lang: &str| {

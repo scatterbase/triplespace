@@ -1,4 +1,4 @@
-//! `Special:CreateEntities` (0104 §11; 21 §6.6): a table pasted or uploaded, its rows
+//! `Special:CreateManyEntities` (0104 §11; 21 §6.6): a table pasted or uploaded, its rows
 //! checked against the properties' data types in a preview, then created as one batch,
 //! each row's new ID reported; the batch's job on `Special:Jobs`. And what the table's
 //! text names beyond new items (0106 §2, §4, §5, §8): the item a row adds to, properties
@@ -278,7 +278,7 @@ async fn a_table_becomes_items_under_one_batch() {
         router: site.clone(),
         cookie: None,
     };
-    let asked = reader.get("/wiki/Special:CreateEntities").await;
+    let asked = reader.get("/wiki/Special:CreateManyEntities").await;
     assert_eq!(asked.status, StatusCode::OK);
     assert!(asked.body.contains("Log in to create"), "{}", asked.body);
     let mut owner = Browser {
@@ -286,8 +286,11 @@ async fn a_table_becomes_items_under_one_batch() {
         cookie: None,
     };
     owner.login("Owner", "owner-secret-1234").await;
-    let form = owner.get("/wiki/Special:CreateEntities").await;
+    let form = owner.get("/wiki/Special:CreateManyEntities").await;
     assert_eq!(form.status, StatusCode::OK, "{}", form.body);
+    // The page's earlier name is sent on to it (0104 A5).
+    let moved = owner.get("/wiki/Special:CreateEntities/Table:X").await;
+    assert_eq!(moved.status, StatusCode::MOVED_PERMANENTLY);
     assert!(form.body.contains("name=\"rows\""), "{}", form.body);
     assert!(form.body.contains("type=\"file\"") && form.body.contains("name=\"file\""));
     let token = Browser::field(&form.body, "token");
@@ -344,7 +347,7 @@ async fn a_table_becomes_items_under_one_batch() {
     );
     let preview = owner
         .post_multipart(
-            "/wiki/Special:CreateEntities",
+            "/wiki/Special:CreateManyEntities",
             &[
                 ("token", &token),
                 ("wpStep", "preview"),
@@ -377,7 +380,7 @@ async fn a_table_becomes_items_under_one_batch() {
     // The creation: two items, one batch job, the report naming each ID.
     let report = owner
         .post_form(
-            "/wiki/Special:CreateEntities",
+            "/wiki/Special:CreateManyEntities",
             &[
                 ("token", &token),
                 ("wpStep", "create"),
@@ -475,7 +478,7 @@ async fn the_text_names_ids_new_properties_references_and_rows() {
         cookie: None,
     };
     owner.login("Owner", "owner-secret-1234").await;
-    let form = owner.get("/wiki/Special:CreateEntities").await;
+    let form = owner.get("/wiki/Special:CreateManyEntities").await;
     assert!(form.body.contains("name=\"reference\""), "{}", form.body);
     let token = Browser::field(&form.body, "token");
     let csrf =
@@ -546,7 +549,9 @@ async fn the_text_names_ids_new_properties_references_and_rows() {
         };
         async move {
             let f: Vec<(&str, &str)> = f.iter().map(|(k, v)| (*k, v.as_str())).collect();
-            browser.post_form("/wiki/Special:CreateEntities", &f).await
+            browser
+                .post_form("/wiki/Special:CreateManyEntities", &f)
+                .await
         }
     };
     let first = post(fields(&table)).await;
@@ -590,7 +595,7 @@ async fn the_text_names_ids_new_properties_references_and_rows() {
 
     let report = owner
         .post_form(
-            "/wiki/Special:CreateEntities",
+            "/wiki/Special:CreateManyEntities",
             &[
                 ("token", &token),
                 ("wpStep", "create"),
@@ -668,7 +673,7 @@ async fn the_text_names_ids_new_properties_references_and_rows() {
     let plans = Browser::field(&again.body, "wpPlans");
     let report = owner
         .post_form(
-            "/wiki/Special:CreateEntities",
+            "/wiki/Special:CreateManyEntities",
             &[
                 ("token", &token),
                 ("wpStep", "create"),
@@ -799,7 +804,7 @@ async fn a_table_is_validated_drawn_and_kept_as_a_draft() {
     );
 
     // A table being prepared is saved as a draft under the editor's name.
-    let form = owner.get("/wiki/Special:CreateEntities").await;
+    let form = owner.get("/wiki/Special:CreateManyEntities").await;
     let token = Browser::field(&form.body, "token");
     let table = format!(
         "label,description,{p_kind},source,notes\n\
@@ -810,7 +815,7 @@ async fn a_table_is_validated_drawn_and_kept_as_a_draft() {
     let reference = format!("{p_url}:{{source}}");
     let saved = owner
         .post_form(
-            "/wiki/Special:CreateEntities",
+            "/wiki/Special:CreateManyEntities",
             &[
                 ("token", &token),
                 ("wpStep", "preview"),
@@ -829,14 +834,15 @@ async fn a_table_is_validated_drawn_and_kept_as_a_draft() {
     let page = owner.get(&format!("/wiki/{draft}")).await;
     assert!(page.body.contains("3 staged rows"), "{}", page.body);
     assert!(
-        page.body
-            .contains(&format!("href=\"/wiki/Special:CreateEntities/{draft}\"")),
+        page.body.contains(&format!(
+            "href=\"/wiki/Special:CreateManyEntities/{draft}\""
+        )),
         "{}",
         page.body
     );
     // Opened again, the form holds the table as text, without the column nothing reads.
     let opened = owner
-        .get(&format!("/wiki/Special:CreateEntities/{draft}"))
+        .get(&format!("/wiki/Special:CreateManyEntities/{draft}"))
         .await;
     assert_eq!(opened.status, StatusCode::OK, "{}", opened.body);
     assert!(
@@ -868,7 +874,7 @@ async fn a_table_is_validated_drawn_and_kept_as_a_draft() {
     );
     let preview = owner
         .post_form(
-            "/wiki/Special:CreateEntities",
+            "/wiki/Special:CreateManyEntities",
             &[
                 ("token", &token),
                 ("wpStep", "preview"),
@@ -885,7 +891,7 @@ async fn a_table_is_validated_drawn_and_kept_as_a_draft() {
     let plans = Browser::field(html, "wpPlans");
     let report = owner
         .post_form(
-            "/wiki/Special:CreateEntities",
+            "/wiki/Special:CreateManyEntities",
             &[
                 ("token", &token),
                 ("wpStep", "create"),

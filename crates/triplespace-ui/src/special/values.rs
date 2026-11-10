@@ -1,6 +1,6 @@
 //! A typed cell from text (19 §3.1; 0104 §11): the `datavalue` a property of a given data
 //! type gets from what a person typed into a form, as `Special:NewItem`'s `statement=`
-//! and `Special:CreateEntities`'s cells take it. Strings and IDs are taken as written; a
+//! and `Special:CreateManyEntities`'s cells take it. Strings and IDs are taken as written; a
 //! quantity is a number (`12`, `-3.5`); a time is a year, a month or a day (`1969`,
 //! `1969-07`, `1969-07-20`, a leading `-` for BCE), at that precision in the proleptic
 //! Gregorian calendar; monolingual text is `text@lang`; a coordinate is `lat, lon` in

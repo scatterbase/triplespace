@@ -920,9 +920,10 @@ requires = "query.enabled"
 adr = "0059 §6"
 
 # Writes a triplespace-sprint subpage under a project page (0061 §9).
-# Many items from one table, under a batch (0104 §11).
+# Many items from one table, under a batch (0104 §11). Named CreateEntities until 0104 A5.
 [[page]]
-name = "CreateEntities"
+name = "CreateManyEntities"
+aliases = ["CreateEntities"]
 origin = "triplespace"
 status = "served"
 scope = "tenant"

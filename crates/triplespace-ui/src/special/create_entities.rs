@@ -1,4 +1,4 @@
-//! `Special:CreateEntities` (0104 §11; 0106; 21 §6.6; 05 §3.5): many items from one table,
+//! `Special:CreateManyEntities` (0104 §11; 0106; 21 §6.6; 05 §3.5): many items from one table,
 //! as a spreadsheet holds them: a column per term or property, a row per item, and
 //! statements every row shares, with the reference every statement carries. The table is
 //! pasted, tab- or comma-separated, or uploaded as a CSV or TSV file. **Its text is the
@@ -32,7 +32,7 @@
 //!
 //! **Drafts** (0106 §9; [`draft`]). The table can be saved as a draft, a Table page under
 //! the viewer's name whose definition holds the rows not yet written, and opened again
-//! as `Special:CreateEntities/{table title}`. Importing from a draft saves it first, then
+//! as `Special:CreateManyEntities/{table title}`. Importing from a draft saves it first, then
 //! records the run in it: each written row becomes a listed row, a refused row stays
 //! staged with its reason.
 //!
@@ -70,7 +70,7 @@ use crate::pages::{self, Context, Params, Peer};
 use crate::special::controls::{ControlModel, FieldRow};
 use crate::special::new_entity::{datatype_name, offered};
 
-const TITLE: &str = "Special:CreateEntities";
+const TITLE: &str = "Special:CreateManyEntities";
 
 /// The most rows one run creates.
 pub const MAX_ROWS: usize = 500;
@@ -476,7 +476,7 @@ fn page(
     })
 }
 
-/// `GET Special:CreateEntities`, or `Special:CreateEntities/{table title}` for a draft
+/// `GET Special:CreateManyEntities`, or `Special:CreateManyEntities/{table title}` for a draft
 /// (0106 §9): the form, holding the draft's staged rows as the table's text.
 pub async fn serve(
     site: &Site,
@@ -728,7 +728,7 @@ async fn save(
     })
 }
 
-/// `POST Special:CreateEntities`: the preview, or the creation.
+/// `POST Special:CreateManyEntities`: the preview, or the creation.
 pub async fn post(
     site: &Site,
     headers: &HeaderMap,

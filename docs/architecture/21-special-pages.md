@@ -601,7 +601,7 @@ These are served with MediaWiki's or Wikibase's meaning and parameters. The note
 | `Query` | A SPARQL editor and result table over `/sparql`, with the tenant's prefix set, labels resolved, a shareable `?query=` URL and a "Try with scope" button ([0059](../decisions/0059-query-service.md) §6; [02](02-graphs-rdf-and-query.md)). Origin `triplespace`; listed while `query.enabled` is on; group `wikibaserepo`. On a private tenant it is served to the principals that satisfy the tenant's ACL, from the tenant's own store, since a private tenant keeps its query service and lacks only the anonymous endpoint, the update stream and the dumps ([18](18-api.md) §6) |
 | `CreateSprint` | The form that writes a `triplespace-sprint` subpage under a project page, with its scope, rules, window and an optional board (§6.2). Origin `triplespace`; restricted to `createpage`; group `pagetools` |
 | `CreateWorkspace` | The wizard that gives a project page a scope and a kit's pages: name, scope through the builder, kit with a preview, then the creates in dependency order as one job (§6.3). Origin `triplespace`; restricted to `createpage`; group `pagetools` |
-| `CreateEntities` | Many items from one table, pasted or uploaded, each row one `wbeditentity` under a batch after a preview checks the rows (§6.6). Origin `triplespace`; restricted to `createpage`; group `wikibaserepo` |
+| `CreateManyEntities` | Many items from one table, pasted or uploaded, each row one `wbeditentity` under a batch after a preview checks the rows (§6.6). Origin `triplespace`; restricted to `createpage`; group `wikibaserepo` |
 | `NewEntitySchema`, `EntitySchemaText`, `SetEntitySchemaLabelDescriptionAliases` | EntitySchema's pages, with its parameters: create a schema, serve its ShExC as `text/shex`, set its terms (§6.4). Origin `EntitySchema` |
 | `CheckEntitySchema` | A schema and a subject; shows the result-shape map (§6.4). Origin `triplespace`; rate class `query` |
 | `NewLexeme`, `MergeLexemes` | WikibaseLexeme's pages: create a lexeme from lemma, language and category; merge two lexemes as `same-as` plus conversion (§6.5). Origin `WikibaseLexeme` |
@@ -648,13 +648,13 @@ The EntitySchema pages moved from `reserved` to `served`: `NewEntitySchema` (lab
 
 The WikibaseLexeme pages moved from `reserved` to `served`: `NewLexeme` (lemma, language, category; appends the first record) and `MergeLexemes` ([0066](../decisions/0066-lexemes.md) §4; [04](04-entities-and-identifiers.md) §5.1). The entity suggester, `Special:Search`, `Special:EntityPage` and `Special:EntityData` take lexeme and part IDs. The lexeme page's layout is in [19](19-site-ui.md).
 
-### 6.6 `Special:CreateEntities`
+### 6.6 `Special:CreateManyEntities`
 
-*Sources: [0104](../decisions/0104-batches-and-the-job-runner.md) §11; [0106](../decisions/0106-create-entities-grid-and-drafts.md) §1, §2, §4, §5, §8, §10, A1, A2, A4.*
+*Sources: [0104](../decisions/0104-batches-and-the-job-runner.md) §11, A5; [0106](../decisions/0106-create-entities-grid-and-drafts.md) §1, §2, §4, §5, §8, §10, A1, A2, A4.*
 
-Many items from one table, as a spreadsheet holds it: a column for each label, description, alias list or property, a row for each item, and statements every row shares. Restricted to `createpage`, origin `triplespace`, listed under `wikibaserepo`.
+Many items from one table, as a spreadsheet holds it: a column for each label, description, alias list or property, a row for each item, and statements every row shares. Restricted to `createpage`, origin `triplespace`, listed under `wikibaserepo`. The page was `CreateEntities` until 0104 A5, and that name still reaches it.
 
-**The text is the canonical form** ([0106](../decisions/0106-create-entities-grid-and-drafts.md) §1). Without JavaScript the page takes the table as text, as described here; with it, the same table is edited as a grid (§6.7), and an uploaded file is mapped into it first (§6.8). The grid reads the text and writes it, a toggle shows either, and anything the grid can express the text can express, so the two paths do the same thing and a table can be passed between people as text. A table being prepared is kept as a **draft**, a Table page holding staged rows ([15](15-structured-pages.md) §2.7), and opened as `Special:CreateEntities/{table title}`. A draft that only stages edits is created as `Table:Drafts/{user}/{name}` under its creator's name ([0106](../decisions/0106-create-entities-grid-and-drafts.md) A1). **To keep the table**, the editor gives it a title, before or after import, and the draft becomes the permanent page `Table:{title}`, moved with its history ([0106](../decisions/0106-create-entities-grid-and-drafts.md) A2); after import it is an ordinary table of the batch's items.
+**The text is the canonical form** ([0106](../decisions/0106-create-entities-grid-and-drafts.md) §1). Without JavaScript the page takes the table as text, as described here; with it, the same table is edited as a grid (§6.7), and an uploaded file is mapped into it first (§6.8). The grid reads the text and writes it, a toggle shows either, and anything the grid can express the text can express, so the two paths do the same thing and a table can be passed between people as text. A table being prepared is kept as a **draft**, a Table page holding staged rows ([15](15-structured-pages.md) §2.7), and opened as `Special:CreateManyEntities/{table title}`. A draft that only stages edits is created as `Table:Drafts/{user}/{name}` under its creator's name ([0106](../decisions/0106-create-entities-grid-and-drafts.md) A1). **To keep the table**, the editor gives it a title, before or after import, and the draft becomes the permanent page `Table:{title}`, moved with its history ([0106](../decisions/0106-create-entities-grid-and-drafts.md) A2); after import it is an ordinary table of the batch's items.
 
 - **The table** is pasted, tab- or comma-separated with double-quoted cells as a spreadsheet writes them, or uploaded as a CSV or TSV file. Its first row names the columns ([0106](../decisions/0106-create-entities-grid-and-drafts.md) §2):
   - `label`, `description` or `aliases` (`|`-separated), each with a language after a colon (`label:de`) or in the wiki's language without one.
@@ -676,7 +676,7 @@ Many items from one table, as a spreadsheet holds it: a column for each label, d
 
 *Sources: [0106](../decisions/0106-create-entities-grid-and-drafts.md) §1, §3, §6, A1.*
 
-With JavaScript, `Special:CreateEntities` edits the table as a grid with one row per item, over the same text (§6.6).
+With JavaScript, `Special:CreateManyEntities` edits the table as a grid with one row per item, over the same text (§6.6).
 
 - **Above the grid**, the statements on every item are edited in the statement UI's group shape ([0003](../decisions/0003-statement-ui.md)) and shown as locked columns at the grid's right edge, which a row can unlock to override. The reference on every statement is one reference block, edited with the shared-reference component, whose values can name a column. A statement cell's reference chip opens that statement's own reference, which replaces the default (§6.6).
 - **Columns.** First the row status, then label, description and aliases in the interface language, aliases as one cell holding a list. **+ Add column** adds a term in another language (columns of one language grouped under one header), an existing property chosen with the entity selector (the header shows its label and data type), or, for a holder of `property-create`, a new property given by its label, whose proposed data type is confirmed in the header.
@@ -751,7 +751,7 @@ Every `Special:` name that [0047](../decisions/0047-special-pages.md) §1–§10
 | `Contributions` |  | `Contribs` | `mediawiki` | served | `both` | `users` |  |  | 0010 §8, 0018 §8, 0040 §7 | §1.3 |
 | `Corrections` |  |  | `triplespace` | served | `tenant` | `identity` |  | `index`: view.correction (state); graphs local | 0002 §7, 0047 §6 | §2.4 |
 | `CreateAccount` |  | `RequestAccount` | `mediawiki` | served | `tenant` | `login` |  |  | 0010 §10, 0087 §6 | — |
-| `CreateEntities` |  |  | `triplespace` | served | `tenant` | `wikibaserepo` | restricted `createpage` |  | 0104 §11 | §6.6 |
+| `CreateManyEntities` |  | `CreateEntities` | `triplespace` | served | `tenant` | `wikibaserepo` | restricted `createpage` |  | 0104 §11, A5 | §6.6 |
 | `CreateSprint` |  |  | `triplespace` | served | `tenant` | `pagetools` | restricted `createpage` |  | 0061 §9 | §6.2 |
 | `CreateWorkspace` |  |  | `triplespace` | served | `tenant` | `pagetools` | restricted `createpage` |  | 0062 §7 | §6.3 |
 | `DeadendPages` | `Deadendpages` |  | `mediawiki` | served | `tenant` | `maintenance` |  | `projection`: view.page_link; graphs local | 0047 §4.4 | §2.4 |
