@@ -8,13 +8,19 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 
 | Entry | Date | Title |
 |---|---|---|
+| [0002 A48](0002-source-graphs-and-mass-ingest.md#a48-an-edit-that-only-repeats-a-statement-writes-nothing) | 2026-11-09 | An edit that only repeats a statement writes nothing |
 | [0006 A26](0006-log-integrity-and-erasure.md#a26-a-nesting-depth-limit-for-canonical-cbor) | 2026-11-06 | A nesting-depth limit for canonical CBOR |
+| [0008 A51](0008-namespaces-and-document-pages.md#a51-link-marks-repeated-links-and-a-redirects-target-in-its-title) | 2026-11-09 | Link marks: repeated links, and a redirect's target in its title |
 | [0010 A47](0010-site-ui.md#a47-the-acl-site-ui-the-calls-made-building-it) | 2026-10-30 | The ACL site UI: the calls made building it |
 | [0010 A49](0010-site-ui.md#a49-the-compare-form-and-the-diff-views-the-calls-made-building-them) | 2026-11-04 | The compare form and the diff views: the calls made building them |
 | [0010 A50](0010-site-ui.md#a50-a-document-pages-tabs-its-about-panel-and-its-format-selector-the-calls-made-building-them) | 2026-11-05 | A document page's tabs, its About panel and its Format selector: the calls made building them |
 | [0010 A53](0010-site-ui.md#a53-name-tombstones-and-renameuser-the-calls-made-building-them) | 2026-11-07 | Name tombstones and `renameuser`: the calls made building them |
+| [0010 A55](0010-site-ui.md#a55-feed-rows-the-actions-own-column-summaries-parsed-as-mediawikis-and-a-row-menu) | 2026-11-09 | Feed rows: the action's own column, summaries parsed as MediaWiki's, and a row menu |
+| [0010 A56](0010-site-ui.md#a56-a-history-has-the-feeds-filter-panel) | 2026-11-09 | A history has the feeds' filter panel |
+| [0010 A57](0010-site-ui.md#a57-an-entitys-diff-is-two-columns-as-wikibase-draws-one) | 2026-11-09 | An entity's diff is two columns, as Wikibase draws one |
 | [0011 A38](0011-logs.md#a38-a-followers-batch-waits-for-the-load-lock-a-dump-load-waits-a-minute) | 2026-11-06 | A follower's batch waits for the load lock; a dump load waits a minute |
 | [0012 A89](0012-api-requirements.md#a89-a-route-served-through-a-more-general-one-is-built) | 2026-11-09 | A route served through a more general one is built |
+| [0012 A90](0012-api-requirements.md#a90-an-action-that-changes-nothing-warns) | 2026-11-09 | An action that changes nothing warns |
 | [0013 A70](0013-postgres-storage.md#a70-how-a-load-enters-bootstrap-mode) | 2026-11-05 | How a load enters bootstrap mode |
 | [0013 A71](0013-postgres-storage.md#a71-bootstrap-projections-run-per-block-during-the-load) | 2026-11-05 | Bootstrap projections run per block, during the load |
 | [0013 A73](0013-postgres-storage.md#a73-a-bootstrap-load-refreshes-the-planners-statistics-as-its-tables-double) | 2026-11-05 | A bootstrap load refreshes the planner's statistics as its tables double |
@@ -27,6 +33,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0019 A31](0019-discussions.md#a31-a-threads-actions-from-the-page-the-calls-made-building-them) | 2026-11-05 | A thread's actions from the page: the calls made building them |
 | [0020 A20](0020-change-feeds.md#a20-there-is-no-actionunwatch) | 2026-11-09 | There is no `action=unwatch` |
 | [0021 A23](0021-notifications.md#a23-accountability-the-calls-made-building-tier-5) | 2026-10-30 | Accountability: the calls made building tier 5 |
+| [0021 A26](0021-notifications.md#a26-the-bell-opens-a-panel) | 2026-11-09 | The bell opens a panel |
 | [0023 A17](0023-moderation.md#a17-partial-undelete-and-hidden-events-the-calls-made-building-them) | 2026-10-30 | Partial undelete and hidden events: the calls made building them |
 | [0026 A8](0026-sitelinks.md#a8-a-stray-does-not-gain-an-escape-from-a-decoded-digit) | 2026-11-06 | A stray `%` does not gain an escape from a decoded digit |
 | [0029 A11](0029-resolver-namespaces.md#a11-a-doi-is-percent-decoded-only-when-written-as-a-uri) | 2026-11-06 | A DOI is percent-decoded only when written as a URI |
@@ -41,6 +48,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0077 A6](0077-special-version.md#a6-licensing-loose-ends-from-building-specialversion) | 2026-10-30 | Licensing: loose ends from building Special:Version |
 | [0082 A2](0082-source-form-and-the-shared-view.md#a2-the-instances-content-languages) | 2026-11-04 | The instance's content languages |
 | [0085 A2](0085-settings-and-preferences.md#a2-settings-the-calls-made-building-the-backend-slice) | 2026-10-30 | Settings: the calls made building the backend slice |
+| [0085 A4](0085-settings-and-preferences.md#a4-preferences-controls-that-suit-their-keys-and-tabs-as-panes) | 2026-11-09 | Preferences: controls that suit their keys, and tabs as panes |
 | [0086 A9](0086-theming.md#a9-theming-loose-ends-from-building-it) | 2026-10-30 | Theming: loose ends from building it |
 | [0086 A10](0086-theming.md#a10-gruvbox-nord-and-catppuccin-with-type-sets-made-for-them) | 2026-11-01 | Gruvbox, Nord and Catppuccin, with type sets made for them |
 | [0086 A11](0086-theming.md#a11-greenbar-and-cyanotype-original-palettes-with-type-sets-made-for-them) | 2026-11-01 | Greenbar and Cyanotype, original palettes with type sets made for them |
