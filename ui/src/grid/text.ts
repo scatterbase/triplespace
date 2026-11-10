@@ -213,7 +213,8 @@ export function textOf( rows: string[][], tabbed: boolean ): string {
 }
 
 /**
- * The values of a cell that may hold several: `|`-separated, `\|` a literal bar.
+ * The values of a cell that may hold several: `|`-separated, `\|` a literal bar and
+ * `\\` a literal backslash.
  *
  * @param cell The cell
  * @return The values, trimmed, the empty ones dropped
@@ -222,8 +223,9 @@ export function splitValues( cell: string ): string[] {
 	const out: string[] = [];
 	let cur = '';
 	for ( let i = 0; i < cell.length; i++ ) {
-		if ( cell[ i ] === '\\' && cell[ i + 1 ] === '|' ) {
-			cur += '|';
+		if ( cell[ i ] === '\\' && ( cell[ i + 1 ] === '|' || cell[ i + 1 ] === '\\' ) ) {
+			// An escaped bar or backslash is itself; any other backslash is as written.
+			cur += cell[ i + 1 ];
 			i++;
 		} else if ( cell[ i ] === '|' ) {
 			out.push( cur );
@@ -243,7 +245,7 @@ export function splitValues( cell: string ): string[] {
  * @return The cell
  */
 export function joinValues( values: string[] ): string {
-	return values.map( ( v ) => v.replace( /\|/g, '\\|' ) ).join( '|' );
+	return values.map( ( v ) => v.replace( /[\\|]/g, '\\$&' ) ).join( '|' );
 }
 
 /**

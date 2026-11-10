@@ -75,6 +75,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0106 A5](0106-create-entities-grid-and-drafts.md#a5-what-a-draft-needed-to-hold-the-tables-text-found-while-building) | 2026-11-10 | What a draft needed to hold the table's text, found while building |
 | [0106 A6](0106-create-entities-grid-and-drafts.md#a6-how-the-grid-and-the-mapping-step-are-built-found-while-building) | 2026-11-10 | How the grid and the mapping step are built, found while building |
 | [0106 A7](0106-create-entities-grid-and-drafts.md#a7-a-quantitys-unit-in-the-text-found-while-building) | 2026-11-10 | A quantity's unit in the text, found while building |
+| [0106 A8](0106-create-entities-grid-and-drafts.md#a8-a-literal-backslash-in-a-cell-of-several-values) | 2026-11-10 | A literal backslash in a cell of several values |
 
 ## Open questions
 

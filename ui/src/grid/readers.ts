@@ -57,13 +57,14 @@ function linesOf( text: string ): string[] {
 }
 
 /**
- * Writes a value as one of several in a cell: a literal bar escaped (`join_values`).
+ * Writes a value as one of several in a cell: a literal bar and a literal backslash
+ * escaped (`join_values`).
  *
  * @param value The value
  * @return The value, to be joined with `|`
  */
 function escapeBar( value: string ): string {
-	return value.replace( /\|/g, '\\|' );
+	return value.replace( /[\\|]/g, '\\$&' );
 }
 
 /**

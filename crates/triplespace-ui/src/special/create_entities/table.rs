@@ -4,7 +4,8 @@
 //! anything that edits a table, the grid included, passes through the same form.
 //!
 //! - The table: tab- or comma-separated, the first row naming the columns ([`Column`]).
-//! - A cell of several values: `|`-separated, `\|` for a literal bar ([`split_values`]).
+//! - A cell of several values: `|`-separated, `\|` for a literal bar and `\\` for a
+//!   literal backslash ([`split_values`]).
 //! - The `id` cell ([`IdCell`]): an item ID to add to, empty to let the preview decide,
 //!   `new` to create whatever matches, `skip` to leave the row out.
 //! - The statements on every item, and the reference on every statement, one
@@ -226,8 +227,8 @@ pub fn text_of(rows: &[Vec<String>], tabbed: bool) -> String {
     out
 }
 
-/// The values of a cell that may hold several: `|`-separated, `\|` a literal bar. Empty
-/// values are dropped.
+/// The values of a cell that may hold several: `|`-separated, `\|` a literal bar and
+/// `\\` a literal backslash. Empty values are dropped.
 #[must_use]
 pub fn split_values(cell: &str) -> Vec<String> {
     let mut out = Vec::new();
@@ -235,9 +236,9 @@ pub fn split_values(cell: &str) -> Vec<String> {
     let mut chars = cell.chars().peekable();
     while let Some(c) = chars.next() {
         match c {
-            '\\' if chars.peek() == Some(&'|') => {
-                chars.next();
-                cur.push('|');
+            // An escaped bar or backslash is itself; any other backslash is as written.
+            '\\' if matches!(chars.peek(), Some('|' | '\\')) => {
+                cur.extend(chars.next());
             }
             '|' => out.push(std::mem::take(&mut cur)),
             _ => cur.push(c),
@@ -255,7 +256,7 @@ pub fn split_values(cell: &str) -> Vec<String> {
 pub fn join_values(values: &[String]) -> String {
     values
         .iter()
-        .map(|v| v.replace('|', "\\|"))
+        .map(|v| v.replace('\\', "\\\\").replace('|', "\\|"))
         .collect::<Vec<_>>()
         .join("|")
 }
@@ -464,6 +465,16 @@ mod tests {
         assert_eq!(split_values(""), Vec::<String>::new());
         let values = vec!["a|b".to_string(), "c".to_string()];
         assert_eq!(split_values(&join_values(&values)), values);
+        // 0106 A8: a backslash is escaped too, so one before a bar is not read as its escape.
+        let values = vec![
+            "ends\\".to_string(),
+            "C:\\dir".to_string(),
+            "x\\|y".to_string(),
+        ];
+        assert_eq!(join_values(&values), "ends\\\\|C:\\\\dir|x\\\\\\|y");
+        assert_eq!(split_values(&join_values(&values)), values);
+        // Written by hand, a backslash before anything else stands for itself.
+        assert_eq!(split_values("C:\\dir|\\alpha"), vec!["C:\\dir", "\\alpha"]);
     }
 
     #[test]

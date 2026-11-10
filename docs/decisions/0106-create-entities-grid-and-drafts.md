@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-08
-- **Updated:** 2026-11-10 (A7)
+- **Updated:** 2026-11-10 (A8)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0045](0045-table-content-model.md), [0104](0104-batches-and-the-job-runner.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0043](0043-lua-modules.md), [0064](0064-entityschema-and-validation.md), [0073](0073-lines-links-and-url-patterns.md)
@@ -33,7 +33,7 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 2. The text names ids, new properties, references and other rows (amends 0104 §11)
 
-*Changed by A1, A4, A7.*
+*Changed by A1, A4, A7, A8.*
 
 *Current text: [21](../architecture/21-special-pages.md) §6.6.*
 
@@ -159,3 +159,10 @@ James's direction, from the design discussion of 2026-11-08:
 - **Source:** Direct: Claude, while building the unit picker James asked for (SCA-329), 2026-11-10; unconfirmed
 - **Change:** extends §2 and §6
 - **Summary:** §6 gave quantities a unit picker, and the text had no form for a unit. A quantity is written as its amount, a space and its unit's item ID, `12 Q11573`; without a unit it is the number alone, as before. The unit is stored under the site's concept base, as the statement editor stores it. The picker is a search beside the grid for the focused quantity cell, on `Special:CreateManyEntities` and in a Table page's editor, and writes the ID after the amount; the cell shows the unit's label beneath it, and a Table page shows `12 page`. A quantity with bounds still has no plain form and is edited on the entity's page.
+
+### A8. A literal backslash in a cell of several values
+
+- **Date:** 2026-11-10
+- **Source:** Direct: Claude, while fixing a code-scanning finding on PR #198, 2026-11-10; unconfirmed
+- **Change:** extends §2
+- **Summary:** In a cell that may hold several values, `\\` is a literal backslash, beside `\|` for a literal bar; a backslash before any other character stands for itself, so `C:\dir` is read as written. Without it a value ending in a backslash could not be written before another value: its backslash and the separator read as an escaped bar, and the two values became one. What writes such cells (the preview, a draft, the grid, the file readers) escapes both characters. A value typed by hand with two backslashes in a row, such as a UNC path or a line break in LaTeX, now reads as one and must be written with four.

@@ -650,7 +650,7 @@ The WikibaseLexeme pages moved from `reserved` to `served`: `NewLexeme` (lemma, 
 
 ### 6.6 `Special:CreateManyEntities`
 
-*Sources: [0104](../decisions/0104-batches-and-the-job-runner.md) §11, A5; [0106](../decisions/0106-create-entities-grid-and-drafts.md) §1, §2, §4, §5, §8, §10, A1, A2, A4, A7.*
+*Sources: [0104](../decisions/0104-batches-and-the-job-runner.md) §11, A5; [0106](../decisions/0106-create-entities-grid-and-drafts.md) §1, §2, §4, §5, §8, §10, A1, A2, A4, A7, A8.*
 
 Many items from one table, as a spreadsheet holds it: a column for each label, description, alias list or property, a row for each item, and statements every row shares. Restricted to `createpage`, origin `triplespace`, listed under `wikibaserepo`. The page was `CreateEntities` until 0104 A5, and that name still reaches it.
 
@@ -658,7 +658,7 @@ Many items from one table, as a spreadsheet holds it: a column for each label, d
 
 - **The table** is pasted, tab- or comma-separated with double-quoted cells as a spreadsheet writes them, or uploaded as a CSV or TSV file. Its first row names the columns ([0106](../decisions/0106-create-entities-grid-and-drafts.md) §2):
   - `label`, `description` or `aliases` (`|`-separated), each with a language after a colon (`label:de`) or in the wiki's language without one.
-  - A property ID (`P31`), whose cells are read as that property's values in the plain forms of [19](19-site-ui.md) §3.1 (strings and IDs as written; a quantity as a number, followed by its unit's item ID where it has one, as `12 Q11573` (0106 A7); a time as a year, month or day; monolingual text as `text@lang`; a coordinate as `lat, lon`). Several values in one cell are `|`-separated, as aliases are, with `\|` for a literal bar.
+  - A property ID (`P31`), whose cells are read as that property's values in the plain forms of [19](19-site-ui.md) §3.1 (strings and IDs as written; a quantity as a number, followed by its unit's item ID where it has one, as `12 Q11573` (0106 A7); a time as a year, month or day; monolingual text as `text@lang`; a coordinate as `lat, lon`). Several values in one cell are `|`-separated, as aliases are, with `\|` for a literal bar and `\\` for a literal backslash; a backslash before anything else stands for itself (0106 A8).
   - `id`: the row adds to that existing item instead of creating one. The preview fills it in for a row that matches. The cell also takes `new`, which creates an item whatever the row matches, and `skip`, which leaves the row out (0106 A4).
   - `new:{label}` or `new:{label}@{datatype}`: a property that does not exist yet, named by its label in the wiki's language ([0106](../decisions/0106-create-entities-grid-and-drafts.md) §4). Without a datatype the preview proposes one from the column's values, in three cases only: all times, all item IDs, or all matching one identifier property's pattern ([0106](../decisions/0106-create-entities-grid-and-drafts.md) A1). Otherwise the data type is chosen by hand. Either way it must be confirmed before import. Without JavaScript the preview writes a proposed type into the header and starts nothing; checking the rows again with the header as written confirms it (0106 A4).
   - `{property}/ref:{property}`, such as `P577/ref:P854`: a value of a reference for that row's statements of the first property.

@@ -47,6 +47,11 @@ describe( 'the table\'s text', () => {
 		expect( splitValues( 'a| b |' ) ).toEqual( [ 'a', 'b' ] );
 		expect( splitValues( 'a\\|b|c' ) ).toEqual( [ 'a|b', 'c' ] );
 		expect( splitValues( joinValues( [ 'a|b', 'c' ] ) ) ).toEqual( [ 'a|b', 'c' ] );
+		// 0106 A8: a backslash is escaped too, so one before a bar is not read as its escape.
+		const values = [ 'ends\\', 'C:\\dir', 'x\\|y' ];
+		expect( joinValues( values ) ).toBe( 'ends\\\\|C:\\\\dir|x\\\\\\|y' );
+		expect( splitValues( joinValues( values ) ) ).toEqual( values );
+		expect( splitValues( 'C:\\dir|\\alpha' ) ).toEqual( [ 'C:\\dir', '\\alpha' ] );
 		expect( rowRef( 'row:14' ) ).toBe( 14 );
 		expect( rowRef( 'row:0' ) ).toBeNull();
 		expect( rowRef( 'Q5' ) ).toBeNull();

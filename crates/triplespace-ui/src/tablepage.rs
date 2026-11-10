@@ -574,11 +574,12 @@ fn sheet_data(
                                 .map(|a| {
                                     a.iter()
                                         .filter_map(|x| x["value"].as_str())
-                                        .map(|v| v.replace('|', "\\|"))
+                                        .map(str::to_string)
                                         .collect()
                                 })
                                 .unwrap_or_default();
-                            serde_json::json!({"text": list.join("|"), "note": "", "editable": local})
+                            let text = crate::special::create_entities::table::join_values(&list);
+                            serde_json::json!({"text": text, "note": "", "editable": local})
                         }
                         Field::Statements(Property::Id(p)) => {
                             let (values, _) = best(entity, p.as_str());
