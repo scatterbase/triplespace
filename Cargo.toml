@@ -116,7 +116,7 @@ icu_locale_core = "2"
 # Only on wasm targets, with the `wasm_js` feature (see .cargo/config.toml). The release
 # oxrdf's rand uses (rand 0.9 → getrandom 0.3): the feature has to land on that copy, so
 # this moves when oxrdf does (.github/dependabot.yml ignores its majors).
-getrandom = "0.3"
+getrandom = "0.4"
 
 # Ordered maps for JSON objects whose order is data (qualifiers-order, snaks-order)
 indexmap = { version = "2", features = ["serde"] }

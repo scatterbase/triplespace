@@ -689,7 +689,7 @@ checksum = "6b1e7f9a428571be2dc5bc0505c13fb6bf936822b894ec87abf8a08a4e51742d"
 name = "scatter-log"
 version = "0.0.1"
 dependencies = [
- "getrandom 0.3.4",
+ "getrandom 0.4.3",
  "minicbor",
  "oxrdf",
  "serde",
