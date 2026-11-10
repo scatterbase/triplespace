@@ -720,13 +720,13 @@ Vue 3 with Codex's Vue components, written in TypeScript, mounted into placehold
 | Component | Codex parts | Region |
 |---|---|---|
 | Statement value editor, rank menu | Lookup, Combobox, Menu, Dialog, TextInput | one value or one statement |
-| Term editor (labels, descriptions, aliases) | TextInput, ChipInput | the term box |
+| Term editor (labels, descriptions, aliases) | TextInput, ChipInput; until Codex's ChipInput passes the accessibility checks of §5.7, the aliases are a text area, one a line ([0034](../decisions/0034-frontend-stack.md) A18) | the term box |
 | Source editor with live preview (§3.2) | CodeMirror 6 (§5.5), Tabs | the edit view |
 | Search box with "Go to" suggestions (§2.1) | TypeaheadSearch | the global header |
 | Notifications bell and inbox (§6.2) | Popover, Menu | the account area |
 | Live updates switch ([16](16-logs-feeds-and-notifications.md)) | ToggleSwitch | feed pages |
 | Recent changes filters | Checkbox, Lookup, MultiselectLookup | the filter panel |
-| Job progress (§3.10) | ProgressBar | `Special:Jobs/{id}` |
+| Job progress (§3.10) | ProgressBar, indeterminate on a running job's page, since a job reports what it has done and not how much is left ([0034](../decisions/0034-frontend-stack.md) A18) | `Special:Jobs/{id}` |
 | User, group and consumer pickers on special pages | Lookup | the form field |
 
 Statement editing requires JavaScript, as on Wikidata. Reading, page source editing through a plain form, and the account pages work without it. A **table grid editor** (Codex Table, Lookup, TextInput; the statement value editor for cells) sits over the server-rendered grid of a `Table` page; reading a table needs no JavaScript (§6.7).

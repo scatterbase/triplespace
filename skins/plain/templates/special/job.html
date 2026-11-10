@@ -4,6 +4,7 @@
 <div class="ts-job">
 <p class="ts-job__identity">{{ codex.chip(chip) }} <strong>{{ name }}</strong> · <span class="ts-job-status ts-job-status--{{ status_class }}">{{ status }}</span></p>
 {%- if notice %}<p class="ts-job__notice ts-job__notice--{{ status_class }}">{{ notice }}</p>{% endif %}
+{%- if progress %}<div class="ts-job__progress">{{ codex.progress(progress) }}</div>{% endif %}
 <dl class="ts-job__facts">{% for f in header %}<dt>{{ f.label }}</dt><dd>{% if f.href %}<a href="{{ f.href }}">{{ f.value }}</a>{% elif f.mono %}<code>{{ f.value }}</code>{% else %}{{ f.value }}{% endif %}</dd>{% endfor %}</dl>
 {%- if counts %}<h2>{{ counts_heading }}</h2>
 <dl class="ts-job__facts ts-job__counts">{% for f in counts %}<dt>{{ f.label }}</dt><dd>{{ f.value }}</dd>{% endfor %}</dl>{% endif %}
