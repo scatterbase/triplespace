@@ -14,13 +14,14 @@ use triplespace_accounts::preferences::{Defaults, PreferenceRegistry, Request, r
 
 /// The reasons the addressing projection delivers (16 §5.2), in the order the matrix
 /// lists them.
-pub const REASONS: [&str; 8] = [
+pub const REASONS: [&str; 9] = [
     "talk",
     "reply",
     "mention",
     "thread-status",
     "watch",
     "rights",
+    "rename",
     "group-join",
     "job",
 ];

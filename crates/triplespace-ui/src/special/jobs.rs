@@ -254,6 +254,9 @@ pub struct JobPage {
     /// A failed job's error, an interrupted job's note, a queued job's place or a running
     /// job's progress, as a message.
     pub notice: Option<String>,
+    /// A running job's progress bar (0034 §4): Codex's, indeterminate, since a job says
+    /// what it has done and not how much is left; named by the progress the notice says.
+    pub progress: Option<crate::codex::ProgressModel>,
     /// The header's facts.
     pub header: Vec<Fact>,
     /// The counts heading.
@@ -562,6 +565,13 @@ pub fn job_model(m: &Messages, info: &JobInfo, viewer: &Viewer) -> JobPage {
         name: m.with("ts-changes-job", &[&info.id.to_string()]),
         status: status_text(m, &info.status),
         status_class: info.status.clone(),
+        progress: (info.status == "running").then(|| {
+            crate::codex::ProgressBar {
+                label: notice.as_deref().unwrap_or(&m.get("ts-job-status-running")),
+                inline: true,
+            }
+            .model()
+        }),
         notice,
         header,
         counts_heading: m.get("ts-job-counts"),
@@ -865,6 +875,25 @@ mod tests {
             )
             .unwrap();
         assert!(html.contains("the file is not an export"), "{html}");
+        assert!(
+            !html.contains("cdx-progress-bar"),
+            "only a running job has one"
+        );
+        // 0034 §4: a running job has Codex's progress bar, named by what it is doing.
+        let html = plain
+            .render(
+                "special/job.html",
+                &m,
+                job_model(&m, &job("running"), &Viewer::default()),
+            )
+            .unwrap();
+        assert!(
+            html.contains(
+                "class=\"cdx-progress-bar cdx-progress-bar--inline\" role=\"progressbar\""
+            ),
+            "{html}"
+        );
+        assert!(html.contains("aria-label=\""), "{html}");
     }
 
     /// The actions depend on who looks (0104 §9): a holder of `ts-revertjob` rejects a

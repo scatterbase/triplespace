@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-10 (A27)
+- **Updated:** 2026-11-10 (A28)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0028](0028-tenancy-policy.md)
@@ -23,7 +23,7 @@ Echo is the precedent. It has notification *types* (mention, edit-user-talk, rev
 
 ### 2. Addressing rules (amends 0020 §3)
 
-*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A17, A18, A19, A20, A21, A23, A25.*
+*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A17, A18, A19, A20, A21, A23, A25, A28.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.2.*
 
@@ -47,7 +47,7 @@ Echo is the precedent. It has notification *types* (mention, edit-user-talk, rev
 
 ### 6. UI (extends 0010 §2 and §11)
 
-*Changed by A16, A20, A21, A22, A24, A26, A27.*
+*Changed by A16, A20, A21, A22, A24, A26, A27, A28.*
 
 *Current text: [19](../architecture/19-site-ui.md) §1.2, §2.4, §2.6, §6.2.*
 
@@ -400,3 +400,10 @@ Replaced text ([19](../architecture/19-site-ui.md) §6.2, as it stood):
 - **Source:** Direct: Claude, while building the preference matrix and the inbox's reason filter (SCA-250), 2026-11-10; unconfirmed
 - **Change:** extends §3, §6, §7
 - **Summary:** The addressing projection reads the matrix, as §3 has it: a reason whose `web` cell the recipient has turned off is not delivered to its inbox. Calls made in the building: the cell is read when the record is addressed, so turning a reason back on does not bring back what was not delivered, and a rebuild of the inbox follows the cells as they stand then; an inbox row is written only for the web channel, so when email is built a reason off on the web and on for email will need a row the inbox page does not show; the matrix lists the eight reasons that are delivered (`talk`, `reply`, `mention`, `thread-status`, `watch`, `rights`, `group-join`, `job`) and the channels that deliver, the web alone, so `notifications.talk.email` stays a row of its own until email is a channel; `GET /account/preferences` and `meta=userinfo&uiprop=options` serve every cell resolved, the REST route marking each with `cell: {reason, channel}`; the Notifications tab draws them as a table saved with the tab, without a **Reset** per cell; `meta=notifications` takes `nottsreasons`, a list of reasons that narrows the list and the count within the sections asked for, and refuses a name that is not a reason; `Special:Notifications` offers it as a menu, `reason=`. Chapter text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.3; [19](../architecture/19-site-ui.md) §2.6, §6.2; [18](../architecture/18-api.md) §2.3 (`action-api.toml`).
+
+### A28. Mentions in document pages, the `rename` reason, and bundling
+
+- **Date:** 2026-11-10
+- **Source:** Direct: Claude, while building three of the notification items left on SCA-250, 2026-11-10; unconfirmed
+- **Change:** extends §2, §6
+- **Summary:** Three parts of §2 are built, with these calls. (1) A document page's revision mentions the accounts whose user pages it links to and the text before it did not: wikitext and Markdown pages only, links as written with templates unexpanded, at most Echo's fifty, an adopted or imported revision addressing nobody, a minor edit mentioning as any other does, and the page's watchers addressed after, so that nobody is told twice of one revision. (2) `rename` addresses the account an actor record renames, read from the `renameuser/renameuser` row the activity projection writes, and joins the preference matrix. (3) Bundling on the inbox page and in the bell's panel: rows next to each other in the list with the same reason about the same page or thread, within a day of the newest; the bundle is unread while any row is, and **Mark as read** marks every unread row of it; the API's lists are not bundled. Not built: mentions through expanded templates; removing inbox rows on erasure, since no write path erases a record yet and every read already leaves erased records out; entity `watch` notifications, which wait on the mirror-sync decision of A21. Chapter text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.2.

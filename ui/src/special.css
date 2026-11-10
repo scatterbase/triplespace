@@ -36,3 +36,9 @@
 .ts-report__state {
 	color: var( --color-subtle, #54595d );
 }
+
+/* A running job's progress bar (Codex's, indeterminate), under what it says it is doing. */
+.ts-job__progress {
+	max-width: 24rem;
+	margin-block-end: var( --spacing-100, 1rem );
+}

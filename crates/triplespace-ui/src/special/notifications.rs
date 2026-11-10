@@ -1,7 +1,12 @@
 //! `Special:Notifications` (0021 §6; 19 §6.2): the viewer's inbox as a page, newest first,
 //! fifty to a page, everything or the unread only, with **Mark as read** on each unread
 //! item and **Mark all as read** above them; a menu narrows the list to one kind of
-//! notification (`reason=`). Opening it is looking: the bell's mark goes
+//! notification (`reason=`).
+//!
+//! **Notifications alike are bundled** (16 §5.2): rows next to each other in the list with
+//! the same reason about the same page or thread, within a day of the newest of them, are
+//! one item that says how many more there are, and its **Mark as read** marks them all.
+//! The rows stay separate: the bell still counts each. Opening it is looking: the bell's mark goes
 //! (`echomarkseen`). Each item says who did what where, and links to it: a thread's post,
 //! or the user page an item about an account names.
 //!
@@ -31,13 +36,14 @@ const PER_PAGE: u32 = 50;
 
 /// The kinds of notification the list can be narrowed to (16 §5.2), each named by the
 /// message `ts-notif-reason-{reason}`, as the preference matrix names them.
-pub(crate) const REASONS: [&str; 8] = [
+pub(crate) const REASONS: [&str; 9] = [
     "talk",
     "reply",
     "mention",
     "thread-status",
     "watch",
     "rights",
+    "rename",
     "group-join",
     "job",
 ];
@@ -116,6 +122,8 @@ pub struct Item {
     pub talk: Option<Choice>,
     /// **Mark as read**, for an unread item.
     pub mark: Option<MarkForm>,
+    /// "and n more like this", where the item stands for a bundle.
+    pub more: Option<String>,
 }
 
 /// `Special:Notifications`.
@@ -186,6 +194,7 @@ fn sentence(m: &Messages, n: &Notification) -> Vec<Part> {
         "mention" => "ts-notif-mention",
         "thread-status" => "ts-notif-thread-status",
         "rights" => "ts-notif-rights",
+        "rename" => "ts-notif-rename",
         "group-join" => "ts-notif-group-join",
         "watch" if n.subject.is_some() => "ts-notif-watch-thread",
         "watch" => "ts-notif-watch",
@@ -236,13 +245,19 @@ fn sentence(m: &Messages, n: &Notification) -> Vec<Part> {
 
 fn mark_form(
     token: &str,
-    id: Option<i64>,
+    ids: Option<&[i64]>,
     label: &str,
     unread_only: bool,
     reason: Option<&str>,
 ) -> MarkForm {
-    let (name, value) = match id {
-        Some(i) => ("markread", i.to_string()),
+    let (name, value) = match ids {
+        Some(ids) => (
+            "markread",
+            ids.iter()
+                .map(ToString::to_string)
+                .collect::<Vec<_>>()
+                .join(","),
+        ),
         None => ("markall", "1".to_string()),
     };
     MarkForm {
@@ -254,6 +269,51 @@ fn mark_form(
         reason: reason.map(str::to_string),
         label: label.to_string(),
     }
+}
+
+/// How long after its newest row a bundle still takes an older one: a day.
+const BUNDLE_WINDOW: i64 = 24 * 60 * 60;
+
+/// Seconds since the epoch of an ISO 8601 time in UTC (`2026-11-10T01:11:00Z`); `None`
+/// for anything else.
+fn epoch(iso: &str) -> Option<i64> {
+    if iso.len() < 19 {
+        return None;
+    }
+    let field = |from: usize, to: usize| iso.get(from..to)?.parse::<i64>().ok();
+    let (year, month, day) = (field(0, 4)?, field(5, 7)?, field(8, 10)?);
+    let seconds = field(11, 13)? * 3600 + field(14, 16)? * 60 + field(17, 19)?;
+    // Days from the civil date (Howard Hinnant's algorithm).
+    let year = if month <= 2 { year - 1 } else { year };
+    let era = year.div_euclid(400);
+    let year_of_era = year.rem_euclid(400);
+    let day_of_year = (153 * (month + if month > 2 { -3 } else { 9 }) + 2) / 5 + day - 1;
+    let day_of_era = year_of_era * 365 + year_of_era / 4 - year_of_era / 100 + day_of_year;
+    Some((era * 146_097 + day_of_era - 719_468) * 86_400 + seconds)
+}
+
+/// The list as bundles (16 §5.2): each a run of rows next to each other with the same
+/// reason about the same page or thread, the newest first, none more than
+/// [`BUNDLE_WINDOW`] older than it. A row about no page is a bundle of its own.
+fn bundles(items: &[Notification]) -> Vec<Vec<&Notification>> {
+    let mut out: Vec<Vec<&Notification>> = Vec::new();
+    for n in items {
+        let joins = out.last().is_some_and(|b| {
+            let first = b[0];
+            n.title.is_some()
+                && first.reason == n.reason
+                && first.title == n.title
+                && match (epoch(&first.timestamp), epoch(&n.timestamp)) {
+                    (Some(a), Some(b)) => (a - b).abs() <= BUNDLE_WINDOW,
+                    _ => false,
+                }
+        });
+        match out.last_mut() {
+            Some(b) if joins => b.push(n),
+            _ => out.push(vec![n]),
+        }
+    }
+    out
 }
 
 /// The page's address with the view it shows: the unread only, one kind, a later page.
@@ -397,28 +457,38 @@ pub async fn serve(site: &Site, headers: &HeaderMap, peer: Peer, params: &Params
                 )
                 .model()
             }),
-            items: items
+            items: bundles(items)
                 .iter()
-                .map(|n| Item {
-                    reason: n.reason.clone(),
-                    unread: !n.read,
-                    sentence: sentence(m, n),
-                    datetime: n.timestamp.clone(),
-                    time: format!("{}, {}", clock(&n.timestamp), date(m, &n.timestamp)),
-                    talk: n.talk.as_deref().map(|t| Choice {
-                        href: format!("/wiki/{}", title_url(t)),
-                        label: t.to_string(),
-                        current: false,
-                    }),
-                    mark: (!n.read).then(|| {
-                        mark_form(
-                            &tok,
-                            Some(n.id),
-                            &m.get("ts-notifications-markread"),
-                            unread_only,
-                            reason,
-                        )
-                    }),
+                .map(|bundle| {
+                    // The newest row speaks for the bundle; what is unread in it is
+                    // marked together.
+                    let n = bundle[0];
+                    let unread: Vec<i64> =
+                        bundle.iter().filter(|x| !x.read).map(|x| x.id).collect();
+                    Item {
+                        reason: n.reason.clone(),
+                        unread: !unread.is_empty(),
+                        sentence: sentence(m, n),
+                        datetime: n.timestamp.clone(),
+                        time: format!("{}, {}", clock(&n.timestamp), date(m, &n.timestamp)),
+                        talk: n.talk.as_deref().map(|t| Choice {
+                            href: format!("/wiki/{}", title_url(t)),
+                            label: t.to_string(),
+                            current: false,
+                        }),
+                        mark: (!unread.is_empty()).then(|| {
+                            mark_form(
+                                &tok,
+                                Some(&unread),
+                                &m.get("ts-notifications-markread"),
+                                unread_only,
+                                reason,
+                            )
+                        }),
+                        more: (bundle.len() > 1).then(|| {
+                            m.with("ts-notifications-more", &[&(bundle.len() - 1).to_string()])
+                        }),
+                    }
                 })
                 .collect(),
             older: listing.value.next.as_ref().map(|next| Choice {
@@ -454,8 +524,11 @@ pub async fn post(site: &Site, headers: &HeaderMap, peer: Peer, params: &Params)
     }
     let form = &params.map;
     let token = form.get("wpEditToken").map_or("", String::as_str);
-    let one = form.get("markread").and_then(|i| i.parse::<i64>().ok());
-    let ids = one.map(|i| vec![i]);
+    // One ID, or a bundle's, separated by commas.
+    let ids: Option<Vec<i64>> = form
+        .get("markread")
+        .map(|v| v.split(',').filter_map(|i| i.trim().parse().ok()).collect())
+        .filter(|ids: &Vec<i64>| !ids.is_empty());
     if ids.is_none() && !form.contains_key("markall") {
         return pages::see_other(&format!("/wiki/{TITLE}"), &[]);
     }
@@ -486,5 +559,49 @@ pub async fn post(site: &Site, headers: &HeaderMap, peer: Peer, params: &Params)
             })
         }
         Err(e) => pages::api_failed(&cx, headers, &e),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    // 16 §5.2: bundling is presentational. Rows next to each other with the same reason
+    // about the same page, within a day of the newest, are one item; the rows stay.
+    #[test]
+    fn rows_alike_are_bundled() {
+        let row = |id: i64, reason: &str, title: Option<&str>, time: &str| Notification {
+            id,
+            reason: reason.into(),
+            title: title.map(str::to_string),
+            timestamp: time.into(),
+            ..Notification::default()
+        };
+        let items = [
+            row(9, "reply", Some("Thread:A"), "2026-11-10T12:00:00Z"),
+            row(8, "reply", Some("Thread:A"), "2026-11-10T09:00:00Z"),
+            row(7, "reply", Some("Thread:A"), "2026-11-09T12:00:00Z"),
+            // More than a day older than the newest of the bundle: a new one.
+            row(6, "reply", Some("Thread:A"), "2026-11-09T11:59:59Z"),
+            row(5, "mention", Some("Thread:A"), "2026-11-09T11:00:00Z"),
+            row(4, "reply", Some("Thread:B"), "2026-11-09T10:00:00Z"),
+            // About no page: never bundled.
+            row(3, "job", None, "2026-11-09T09:00:00Z"),
+            row(2, "job", None, "2026-11-09T08:00:00Z"),
+        ];
+        let ids: Vec<Vec<i64>> = bundles(&items)
+            .iter()
+            .map(|b| b.iter().map(|n| n.id).collect())
+            .collect();
+        assert_eq!(
+            ids,
+            [vec![9, 8, 7], vec![6], vec![5], vec![4], vec![3], vec![2]]
+        );
+        assert_eq!(epoch("1970-01-02T00:00:01Z"), Some(86_401));
+        assert_eq!(epoch("2026-11-10T00:00:00Z"), Some(1_794_268_800));
+        assert_eq!(epoch("yesterday"), None);
+        // A bundle's Mark as read carries every unread ID.
+        let f = mark_form("t", Some(&[9, 7]), "Mark as read", false, None);
+        assert_eq!((f.name.as_str(), f.value.as_str()), ("markread", "9,7"));
     }
 }

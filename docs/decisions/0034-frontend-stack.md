@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-10 (A17)
+- **Updated:** 2026-11-10 (A18)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0029](0029-resolver-namespaces.md), [0033](0033-backend-stack.md)
@@ -37,7 +37,7 @@ The backend stack is in 0033.
 
 ### 4. Interactive components
 
-*Changed by A3.*
+*Changed by A3, A18.*
 
 *Current text: [19](../architecture/19-site-ui.md) §3.10, §5.3.*
 
@@ -336,3 +336,10 @@ Replaced text ([19](../architecture/19-site-ui.md) §4.9, as it stood):
 - **Source:** Direct: Claude, while building three of the gaps the implementation-claims audit found (SCA-312), 2026-11-10; unconfirmed
 - **Change:** extends §5, §9, §11
 - **Summary:** Three parts of this ADR are built as written, with these calls. (1) §5: a thread answers `action=render` with its posts in tree order and `region=post/{id}` with the one post, drawn by the macro its page uses; the header that says where the thread lives and its status is not part of either; a post the thread does not have is an unknown region; a talk page's `action=render` stays its document's; `region=row/{id}` waits for Table pages. (2) §9: the site matches `Accept-Language` itself for a reader who is not logged in, against the languages the interface has messages for, each tried as written and then by its primary subtag; a signed-in reader's language already came negotiated from the API. (3) §11: `meta=siteinfo` reports `media.base_url` as `triplespace.media.base_url` only where the wiki has set it, and the site adds its origin to `img-src` and `font-src` where it is not the wiki's own, on the pages it draws in the frame and on fragments; the origin alone is taken, so nothing a setting holds can add a directive. Not built: the page bundle and bulk labels routes of §1, which the API does not serve yet. Chapter text: [20](../architecture/20-web-tier.md) §3.2; [19](../architecture/19-site-ui.md) §5.6; [09](../architecture/09-security-and-moderation.md) §1.4.
+
+### A18. The job progress bar is built; alias chips wait on Codex
+
+- **Date:** 2026-11-10
+- **Source:** Direct: Claude, while building two of the Codex components SCA-312 lists, 2026-11-10; unconfirmed
+- **Change:** extends §4
+- **Summary:** A running job's page shows Codex's ProgressBar, indeterminate and inline, named by the progress the page says, since a job reports the stage and the pages done and no total. Not built: **Sync again** and **Run again** beside it, which need jobs that can be queued again ([0104](0104-batches-and-the-job-runner.md) §4). The term editor's aliases stay a text area, one alias a line: Codex 2.7.0's ChipInput was built in and taken out again, because its chip list is a `listbox` with no accessible name and, while it holds no chip, no option, which fails axe's `aria-input-field-name` and `aria-required-children` and so the accessibility bar of §10; neither can be set from outside the component. It can return when a Codex release passes, or if James accepts the two findings as an exception. Chapter text: [19](../architecture/19-site-ui.md) §5.3.

@@ -525,6 +525,66 @@ pub async fn interface_pages<C: PgClient>(
         .collect())
 }
 
+/// The user names a page record's text mentions that the page's text before it did not
+/// (16 §5.2): links to a user page itself, as [`crate::threads::mentions`] reads them, in
+/// a page whose model is wikitext or Markdown. Empty for a record with no text, for a
+/// revision adopted or imported from elsewhere, which addresses nobody as an imported
+/// post does, and for a page of any other model.
+pub async fn mentioned(cx: &PgCx, tenant: &str, record: &Record) -> Result<Vec<String>, String> {
+    let h = record.header();
+    let (Some(page_id), Ok(rec)) = (h.page_id, PageRecord::read(record)) else {
+        return Ok(Vec::new());
+    };
+    let (Some(op), Some(text)) = (rec.op, rec.text) else {
+        return Ok(Vec::new());
+    };
+    if op.source().is_some() {
+        return Ok(Vec::new());
+    }
+    let id = i64::try_from(page_id).unwrap_or(i64::MAX);
+    let Some(row) = cx
+        .conn()
+        .query_opt(
+            "SELECT ns, title, content_model FROM view.page WHERE tenant = $1 AND page_id = $2",
+            &[&tenant, &id],
+        )
+        .await
+        .map_err(|e| sql(&e))?
+    else {
+        return Ok(Vec::new());
+    };
+    let media = match row.get::<_, String>(2).as_str() {
+        "wikitext" => scatter_threads::WIKITEXT,
+        "markdown" => scatter_threads::MARKDOWN,
+        _ => return Ok(Vec::new()),
+    };
+    let before: Option<String> = cx
+        .conn()
+        .query_opt(
+            "SELECT state FROM view.entity_revision
+             WHERE tenant = $1 AND entity_id = $2 AND \"offset\" < $3
+             ORDER BY \"offset\" DESC LIMIT 1",
+            &[
+                &tenant,
+                &id.to_string(),
+                &i64::try_from(h.offset).unwrap_or(i64::MAX),
+            ],
+        )
+        .await
+        .map_err(|e| sql(&e))?
+        .map(|r| String::from_utf8_lossy(&r.get::<_, Vec<u8>>(0)).into_owned());
+    let names = TenantNames::load(cx.conn(), tenant).await?;
+    let config = names.config();
+    let page = scatter_wikitext::Title::new(row.get(0), &row.get::<_, String>(1));
+    let had = before
+        .map(|t| crate::threads::mentions(&t, media, &config, &page))
+        .unwrap_or_default();
+    Ok(crate::threads::mentions(&text, media, &config, &page)
+        .into_iter()
+        .filter(|m| !had.contains(m))
+        .collect())
+}
+
 /// The text of a page after a revision.
 pub async fn text_at<C: PgClient>(
     client: &C,
