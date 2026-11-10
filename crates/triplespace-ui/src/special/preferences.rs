@@ -61,8 +61,120 @@ pub struct PrefSection {
     pub keys: String,
     /// The rows.
     pub rows: Vec<SettingRow>,
+    /// The notification matrix, on the tab that has its cells (19 §2.6).
+    pub matrix: Option<MatrixModel>,
     /// **Save**.
     pub save: ButtonModel,
+}
+
+/// The notification matrix (16 §5.3; 19 §2.6): a table of reasons by channels, each
+/// cell a checkbox that is a preference of its own, saved with the tab.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct MatrixModel {
+    /// The table's caption.
+    pub caption: String,
+    /// What the table is for.
+    pub help: String,
+    /// The first column's heading.
+    pub reason_heading: String,
+    /// The channels' headings.
+    pub channels: Vec<String>,
+    /// A row per reason.
+    pub rows: Vec<MatrixRow>,
+}
+
+/// One reason's row.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct MatrixRow {
+    /// The reason, in words.
+    pub label: String,
+    /// A cell per channel; `None` where the reason has no cell for it.
+    pub cells: Vec<Option<controls::ControlModel>>,
+}
+
+/// The matrix of a tab's cells: the reasons in the inbox menu's order, the channels as
+/// the API lists them.
+/// `None` where the tab has none.
+fn matrix_model(
+    m: &Messages,
+    cells: &[(&String, &Pref)],
+    group: &str,
+    back: &Returned<'_>,
+) -> Option<MatrixModel> {
+    let mut reasons: Vec<&str> = Vec::new();
+    let mut channels: Vec<&str> = Vec::new();
+    for (_, p) in cells {
+        let c = p.cell.as_ref()?;
+        if !reasons.contains(&c.reason.as_str()) {
+            reasons.push(&c.reason);
+        }
+        if !channels.contains(&c.channel.as_str()) {
+            channels.push(&c.channel);
+        }
+    }
+    if reasons.is_empty() {
+        return None;
+    }
+    // The kinds in the order the inbox's menu lists them; one it does not know, last.
+    let known = crate::special::notifications::REASONS;
+    reasons.sort_by_key(|r| known.iter().position(|k| k == r).unwrap_or(known.len()));
+    let word = |prefix: &str, id: &str| {
+        let key = format!("{prefix}{id}");
+        if m.has(&key) {
+            m.get(&key)
+        } else {
+            id.to_string()
+        }
+    };
+    let rows = reasons
+        .iter()
+        .map(|reason| {
+            let label = word("ts-notif-reason-", reason);
+            MatrixRow {
+                cells: channels
+                    .iter()
+                    .map(|channel| {
+                        let (key, p) = cells.iter().find(|(_, p)| {
+                            p.cell
+                                .as_ref()
+                                .is_some_and(|c| c.reason == *reason && c.channel == *channel)
+                        })?;
+                        let name = format!("v.{key}");
+                        // What the reader sent, where the form came back refused.
+                        let checked = match (back.section == group, back.form) {
+                            (true, Some(f)) => f.map.contains_key(&name),
+                            _ => p.value == Some(Value::Bool(true)),
+                        };
+                        Some(controls::ControlModel::Checkbox {
+                            id: Some(format!("ts-p-{key}")),
+                            name,
+                            value: "1".into(),
+                            checked,
+                            // Named for a screen reader by its row and its column.
+                            label: Some(m.with(
+                                "ts-preferences-matrix-cell",
+                                &[&label, &word("ts-notif-channel-", channel)],
+                            )),
+                            note: None,
+                            disabled: false,
+                            described_by: None,
+                        })
+                    })
+                    .collect(),
+                label,
+            }
+        })
+        .collect();
+    Some(MatrixModel {
+        caption: m.get("ts-preferences-matrix"),
+        help: m.get("ts-preferences-matrix-help"),
+        reason_heading: m.get("ts-preferences-matrix-reason"),
+        channels: channels
+            .iter()
+            .map(|c| word("ts-notif-channel-", c))
+            .collect(),
+        rows,
+    })
 }
 
 /// **Restore all defaults**.
@@ -420,6 +532,8 @@ fn body_model(
             continue;
         }
         let names: Vec<&str> = keys.iter().map(|(k, _)| k.as_str()).collect();
+        // The matrix's cells are drawn as a table, not as rows of their own.
+        let (cells, keys): (Vec<_>, Vec<_>) = keys.into_iter().partition(|(_, p)| p.cell.is_some());
         sections.push(PrefSection {
             id: g.id.clone(),
             title: if m.has(&g.label) {
@@ -442,6 +556,7 @@ fn body_model(
                 .iter()
                 .map(|(k, p)| row_model(m, theme, skins, k, p, back))
                 .collect(),
+            matrix: matrix_model(m, &cells, &g.id, back),
             save: Button {
                 label: &m.get("ts-preferences-save"),
                 kind: "submit",
@@ -974,6 +1089,84 @@ mod tests {
             }
             other => panic!("{other:?}"),
         }
+    }
+
+    /// 19 §2.6; 16 §5.3: the notification matrix is a table of the tab's cells, a row a
+    /// reason and a column a channel, each a checkbox named as its preference; the cells
+    /// are saved with the tab and are not rows of their own.
+    #[test]
+    fn the_matrix_is_a_table_of_cells() {
+        use triplespace_client::settings::{Cell, Group};
+        let m = Messages::for_language("en");
+        let cell = |reason: &str, on: bool| {
+            (
+                format!("notifications.{reason}.web"),
+                Pref {
+                    value: Some(json!(on)),
+                    ty: "boolean".into(),
+                    group: "notifications".into(),
+                    cell: Some(Cell {
+                        reason: reason.into(),
+                        channel: "web".into(),
+                    }),
+                    ..Pref::default()
+                },
+            )
+        };
+        let digest = (
+            "notifications.email-digest".to_string(),
+            Pref {
+                value: Some(json!("daily")),
+                ty: "choice".into(),
+                choices: vec!["immediate".into(), "daily".into(), "weekly".into()],
+                group: "notifications".into(),
+                label: "ts-pref-notifications-email-digest".into(),
+                ..Pref::default()
+            },
+        );
+        let prefs = Preferences {
+            groups: vec![Group {
+                id: "notifications".into(),
+                label: "ts-prefs-group-notifications".into(),
+            }],
+            preferences: [cell("talk", true), cell("mention", false), digest]
+                .into_iter()
+                .collect(),
+        };
+        let page = body_model(
+            &m,
+            &Theme::shipped(),
+            &[],
+            &prefs,
+            "tok",
+            &Returned::default(),
+            None,
+        );
+        let sec = &page.sections[0];
+        // The cells are in the form's keys, and only the digest is a row.
+        assert!(sec.keys.contains("notifications.mention.web"));
+        assert_eq!(sec.rows.len(), 1);
+        let matrix = sec.matrix.as_ref().expect("a matrix");
+        assert_eq!(matrix.channels, ["On this site"]);
+        let rows: Vec<(&str, bool)> = matrix
+            .rows
+            .iter()
+            .map(|r| match &r.cells[0] {
+                Some(ControlModel::Checkbox { checked, name, .. }) => {
+                    assert!(name.starts_with("v.notifications."));
+                    (r.label.as_str(), *checked)
+                }
+                other => panic!("{other:?}"),
+            })
+            .collect();
+        assert_eq!(
+            rows,
+            [
+                ("Messages on my talk page", true),
+                ("Mentions of me", false)
+            ],
+            "in the order the inbox's own menu lists the kinds"
+        );
     }
 
     #[test]

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-09 (A26)
+- **Updated:** 2026-11-10 (A27)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0028](0028-tenancy-policy.md)
@@ -29,7 +29,7 @@ Echo is the precedent. It has notification *types* (mention, edit-user-talk, rev
 
 ### 3. The inbox is private state (extends 0007 §8, 0013 §4)
 
-*Changed by A4.*
+*Changed by A4, A27.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.3.*
 
@@ -47,13 +47,13 @@ Echo is the precedent. It has notification *types* (mention, edit-user-talk, rev
 
 ### 6. UI (extends 0010 §2 and §11)
 
-*Changed by A16, A20, A21, A22, A24, A26.*
+*Changed by A16, A20, A21, A22, A24, A26, A27.*
 
 *Current text: [19](../architecture/19-site-ui.md) §1.2, §2.4, §2.6, §6.2.*
 
 ### 7. API (extends 0012 §4 and §5)
 
-*Changed by A5, A20, A24.*
+*Changed by A5, A20, A24, A27.*
 
 *Current text: [18](../architecture/18-api.md) §2.3, §3.2.*
 
@@ -393,3 +393,10 @@ Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §5.2, t
 Replaced text ([19](../architecture/19-site-ui.md) §6.2, as it stood):
 
 > A panel over the page needs JavaScript and waits for it; without it the bell is the link ([0021](../decisions/0021-notifications.md) A20).
+
+### A27. The preference matrix is honoured on the web, and the inbox filters by reason
+
+- **Date:** 2026-11-10
+- **Source:** Direct: Claude, while building the preference matrix and the inbox's reason filter (SCA-250), 2026-11-10; unconfirmed
+- **Change:** extends §3, §6, §7
+- **Summary:** The addressing projection reads the matrix, as §3 has it: a reason whose `web` cell the recipient has turned off is not delivered to its inbox. Calls made in the building: the cell is read when the record is addressed, so turning a reason back on does not bring back what was not delivered, and a rebuild of the inbox follows the cells as they stand then; an inbox row is written only for the web channel, so when email is built a reason off on the web and on for email will need a row the inbox page does not show; the matrix lists the eight reasons that are delivered (`talk`, `reply`, `mention`, `thread-status`, `watch`, `rights`, `group-join`, `job`) and the channels that deliver, the web alone, so `notifications.talk.email` stays a row of its own until email is a channel; `GET /account/preferences` and `meta=userinfo&uiprop=options` serve every cell resolved, the REST route marking each with `cell: {reason, channel}`; the Notifications tab draws them as a table saved with the tab, without a **Reset** per cell; `meta=notifications` takes `nottsreasons`, a list of reasons that narrows the list and the count within the sections asked for, and refuses a name that is not a reason; `Special:Notifications` offers it as a menu, `reason=`. Chapter text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.3; [19](../architecture/19-site-ui.md) §2.6, §6.2; [18](../architecture/18-api.md) §2.3 (`action-api.toml`).

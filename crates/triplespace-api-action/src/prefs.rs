@@ -46,8 +46,18 @@ pub async fn resolve(
         accept_language,
         interface_languages: INTERFACE_LANGUAGES,
     };
-    let values =
-        preferences::resolve_all(PreferenceRegistry::embedded(), &own, &request, &defaults);
+    let registry = PreferenceRegistry::embedded();
+    let mut values = preferences::resolve_all(registry, &own, &request, &defaults);
+    // The notification matrix (16 §5.3): every cell, resolved, though its keys are
+    // registered as patterns and an account may hold none of them.
+    for key in triplespace_notify::matrix::keys() {
+        if !values.contains_key(&key)
+            && let Some(def) = registry.lookup(&key)
+        {
+            let r = preferences::resolve(def, &key, own.get(&key), &request, &defaults);
+            values.insert(key, r);
+        }
+    }
     Ok(Resolved { values, own })
 }
 

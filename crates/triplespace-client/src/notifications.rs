@@ -143,6 +143,7 @@ impl Client {
         &self,
         incoming: &Incoming,
         unread_only: bool,
+        reason: Option<&str>,
         limit: u32,
         from: Option<&str>,
     ) -> Result<Fetched<Listing>, ClientError> {
@@ -151,6 +152,10 @@ impl Client {
         );
         if unread_only {
             path.push_str("&notfilter=!read");
+        }
+        if let Some(r) = reason {
+            path.push_str("&nottsreasons=");
+            path.push_str(&q(r));
         }
         if let Some(c) = from {
             path.push_str("&notcontinue=");

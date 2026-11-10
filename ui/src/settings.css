@@ -233,3 +233,38 @@
 .client-js .ts-appearance__form--account:not( .ts-appearance__form--unsaved ) .ts-appearance__apply {
 	display: none;
 }
+
+/* The notification matrix (19 §2.6): reasons down, channels across, a checkbox a cell. */
+
+.ts-matrix {
+	margin-block-end: var( --spacing-100, 1rem );
+	border-collapse: collapse;
+}
+
+.ts-matrix__caption {
+	padding-block-end: var( --spacing-50, 0.5rem );
+	font-weight: var( --font-weight-bold, 700 );
+	text-align: start;
+}
+
+.ts-matrix__help {
+	display: block;
+	color: var( --color-subtle, #54595d );
+	font-weight: normal;
+}
+
+.ts-matrix th,
+.ts-matrix td {
+	padding: var( --spacing-35, 0.375rem ) var( --spacing-75, 0.75rem );
+	border-block-end: 1px solid var( --border-color-muted, #dadde3 );
+	text-align: start;
+}
+
+.ts-matrix tbody th {
+	font-weight: normal;
+}
+
+.ts-matrix .ts-matrix__channel,
+.ts-matrix .ts-matrix__cell {
+	text-align: center;
+}

@@ -1392,6 +1392,115 @@ fn note(
     (reason.into(), section.into(), subject.into(), agent.into())
 }
 
+/// The preference matrix (0021 §3, A27; 16 §5.3): a reason whose `web` cell an account has
+/// turned off is not delivered to its inbox; the cells are preferences, served resolved
+/// and marked as cells; and `nottsreasons` narrows the inbox to the reasons it names.
+#[tokio::test]
+async fn the_preference_matrix() {
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let (mut alice, _, _) = signed_in("matrix").await;
+    let mut bob = account(&alice.router, "Bob", "bob-secret-1234").await;
+    let mut carol = account(&alice.router, "Carol", "carol-secret-1234").await;
+    let bt = bob.csrf().await;
+    let ct = carol.csrf().await;
+
+    // Carol turns mentions off on the web; every other cell stays on.
+    let r = carol
+        .api_post(&format!(
+            "action=options&change=notifications.mention.web%3D0&token={}",
+            enc(&ct)
+        ))
+        .await;
+    assert_eq!(r["options"], "success", "{r}");
+    let prefs = carol.rest("GET", "/account/preferences", None).await;
+    assert_eq!(prefs.status, StatusCode::OK, "{}", prefs.body);
+    let cell = &prefs.body["preferences"]["notifications.mention.web"];
+    assert_eq!(cell["value"], false, "{cell}");
+    assert_eq!(cell["own"], true, "{cell}");
+    assert_eq!(cell["cell"], json!({"reason": "mention", "channel": "web"}));
+    let talk = &prefs.body["preferences"]["notifications.talk.web"];
+    assert_eq!(talk["value"], true, "a cell nobody set is on: {talk}");
+    assert_eq!(talk["own"], false);
+    assert!(
+        prefs.body["preferences"]["notifications.talk.email"]["cell"].is_null(),
+        "email is not a channel that delivers yet"
+    );
+
+    // Bob writes on Alice's talk page and mentions Carol: Alice is told, Carol is not.
+    let post = |text: &str| {
+        json!({
+            "subject": text,
+            "target": {"kind": "actor", "name": "Alice"},
+            "text": format!("{text} [[User:Carol]]"),
+            "token": bt,
+        })
+    };
+    let r = bob.rest("POST", "/thread", Some(post("First"))).await;
+    assert_eq!(r.status, StatusCode::CREATED, "{}", r.body);
+    assert_eq!(
+        reasons(&mut alice)
+            .await
+            .iter()
+            .filter(|(r, _)| r == "talk")
+            .count(),
+        1
+    );
+    assert!(
+        reasons(&mut carol)
+            .await
+            .iter()
+            .all(|(r, _)| r != "mention"),
+        "a reason turned off is not delivered"
+    );
+
+    // Back on, the next mention arrives; the one that was not delivered stays undelivered.
+    let r = carol
+        .api_post(&format!(
+            "action=options&change=notifications.mention.web&token={}",
+            enc(&ct)
+        ))
+        .await;
+    assert_eq!(r["options"], "success", "{r}");
+    let r = bob.rest("POST", "/thread", Some(post("Second"))).await;
+    assert_eq!(r.status, StatusCode::CREATED, "{}", r.body);
+    let got = reasons(&mut carol).await;
+    assert_eq!(
+        got.iter().filter(|(r, _)| r == "mention").count(),
+        1,
+        "{got:?}"
+    );
+
+    // `nottsreasons` narrows the inbox to the reasons it names.
+    let list = |v: &Value| -> Vec<String> {
+        v["query"]["notifications"]["list"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|i| i["ts-reason"].as_str().unwrap().to_string())
+            .collect()
+    };
+    let only_talk = alice
+        .api("action=query&meta=notifications&notprop=list&notlimit=50&nottsreasons=talk")
+        .await;
+    assert_eq!(list(&only_talk), ["talk", "talk"], "{only_talk}");
+    let none = alice
+        .api("action=query&meta=notifications&notprop=list&notlimit=50&nottsreasons=mention")
+        .await;
+    assert!(list(&none).is_empty(), "{none}");
+    // Within a section: `talk` is a message, so it is no alert.
+    let alerts = alice
+        .api("action=query&meta=notifications&notprop=list&notsections=alert&nottsreasons=talk")
+        .await;
+    assert!(list(&alerts).is_empty(), "{alerts}");
+    let bad = alice
+        .api("action=query&meta=notifications&nottsreasons=nonsense")
+        .await;
+    assert_eq!(bad["error"]["code"], "badvalue", "{bad}");
+}
+
 /// Thread notifications (0019 §8; 16 §5.2; 0021 A20): `talk` on a user talk page, `reply`,
 /// `mention` (and an edit's new mentions only), `thread-status`, one notification per
 /// account per record, nothing of one's own acts, and what the reader may no longer see

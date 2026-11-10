@@ -274,7 +274,7 @@ sources = "[0028](../decisions/0028-tenancy-policy.md) §11"
 [[module]]
 kind = "query"
 modules = ["meta=notifications"]
-changes = "In Echo's shape: `notprop=list|count|seenTime`, `notfilter=read|!read`, `notsections`, `notgroupbysection`, `notlimit` and continuation, returning Echo's model format. `talk` is a message and every other reason an alert, as in Echo; an item about a thread carries `title`, the record's `revid` and `ts-thread`, its subject and talk page; an item the reader may no longer see is left out of the list and the counts, which count to 100 ([0021](../decisions/0021-notifications.md) A20). `notwikis` has its real meaning under `notifications.cross_tenant = home` and is otherwise ignored"
+changes = "In Echo's shape: `notprop=list|count|seenTime`, `notfilter=read|!read`, `notsections`, `notgroupbysection`, `notlimit` and continuation, returning Echo's model format; `nottsreasons` narrows the list and the count to the reasons it names ([0021](../decisions/0021-notifications.md) A27). `talk` is a message and every other reason an alert, as in Echo; an item about a thread carries `title`, the record's `revid` and `ts-thread`, its subject and talk page; an item the reader may no longer see is left out of the list and the counts, which count to 100 ([0021](../decisions/0021-notifications.md) A20). `notwikis` has its real meaning under `notifications.cross_tenant = home` and is otherwise ignored"
 sources = "[0021](../decisions/0021-notifications.md) §7; [0028](../decisions/0028-tenancy-policy.md) §11"
 
 [[module]]
