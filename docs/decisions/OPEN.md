@@ -35,6 +35,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0021 A23](0021-notifications.md#a23-accountability-the-calls-made-building-tier-5) | 2026-10-30 | Accountability: the calls made building tier 5 |
 | [0021 A26](0021-notifications.md#a26-the-bell-opens-a-panel) | 2026-11-09 | The bell opens a panel |
 | [0021 A27](0021-notifications.md#a27-the-preference-matrix-is-honoured-on-the-web-and-the-inbox-filters-by-reason) | 2026-11-10 | The preference matrix is honoured on the web, and the inbox filters by reason |
+| [0021 A28](0021-notifications.md#a28-mentions-in-document-pages-the-rename-reason-and-bundling) | 2026-11-10 | Mentions in document pages, the `rename` reason, and bundling |
 | [0023 A17](0023-moderation.md#a17-partial-undelete-and-hidden-events-the-calls-made-building-them) | 2026-10-30 | Partial undelete and hidden events: the calls made building them |
 | [0026 A8](0026-sitelinks.md#a8-a-stray-does-not-gain-an-escape-from-a-decoded-digit) | 2026-11-06 | A stray `%` does not gain an escape from a decoded digit |
 | [0029 A11](0029-resolver-namespaces.md#a11-a-doi-is-percent-decoded-only-when-written-as-a-uri) | 2026-11-06 | A DOI is percent-decoded only when written as a URI |
@@ -42,6 +43,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0033 A28](0033-backend-stack.md#a28-dependabot-keeps-dependency-versions-current) | 2026-11-09 | Dependabot keeps dependency versions current |
 | [0034 A15](0034-frontend-stack.md#a15-uselangqqx-shows-message-keys) | 2026-11-04 | `uselang=qqx` shows message keys |
 | [0034 A17](0034-frontend-stack.md#a17-thread-fragments-the-browsers-language-and-the-media-origin-the-calls-made-building-them) | 2026-11-10 | Thread fragments, the browser's language, and the media origin: the calls made building them |
+| [0034 A18](0034-frontend-stack.md#a18-the-job-progress-bar-is-built-alias-chips-wait-on-codex) | 2026-11-10 | The job progress bar is built; alias chips wait on Codex |
 | [0042 A22](0042-template-expansion-and-parsoid.md#a22-which-template-drew-a-block) | 2026-11-04 | Which template drew a block |
 | [0047 A29](0047-special-pages.md#a29-pagerandom-is-derived-from-the-page) | 2026-11-02 | `page_random` is derived from the page |
 | [0051 A8](0051-page-redirects.md#a8-actionmove-the-calls-made-building-it) | 2026-10-30 | `action=move`: the calls made building it |
