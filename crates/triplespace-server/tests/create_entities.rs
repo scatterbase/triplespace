@@ -1,9 +1,11 @@
-//! `Special:CreateEntities` (0104 §11; 21 §6.6): a table pasted or uploaded, its rows
+//! `Special:CreateManyEntities` (0104 §11; 21 §6.6): a table pasted or uploaded, its rows
 //! checked against the properties' data types in a preview, then created as one batch,
-//! each row's new ID reported; the batch's job on `Special:Jobs`. Needs
-//! `TRIPLESPACE_TEST_DATABASE_URL`; vacuous without it.
+//! each row's new ID reported; the batch's job on `Special:Jobs`. And what the table's
+//! text names beyond new items (0106 §2, §4, §5, §8): the item a row adds to, properties
+//! to create first, other rows, and references. Needs `TRIPLESPACE_TEST_DATABASE_URL`;
+//! vacuous without it.
 //!
-//! 0104 §11
+//! 0104 §11; 0106 §2; 0106 §8
 
 use std::path::PathBuf;
 
@@ -276,7 +278,7 @@ async fn a_table_becomes_items_under_one_batch() {
         router: site.clone(),
         cookie: None,
     };
-    let asked = reader.get("/wiki/Special:CreateEntities").await;
+    let asked = reader.get("/wiki/Special:CreateManyEntities").await;
     assert_eq!(asked.status, StatusCode::OK);
     assert!(asked.body.contains("Log in to create"), "{}", asked.body);
     let mut owner = Browser {
@@ -284,8 +286,11 @@ async fn a_table_becomes_items_under_one_batch() {
         cookie: None,
     };
     owner.login("Owner", "owner-secret-1234").await;
-    let form = owner.get("/wiki/Special:CreateEntities").await;
+    let form = owner.get("/wiki/Special:CreateManyEntities").await;
     assert_eq!(form.status, StatusCode::OK, "{}", form.body);
+    // The page's earlier name is sent on to it (0104 A5).
+    let moved = owner.get("/wiki/Special:CreateEntities/Table:X").await;
+    assert_eq!(moved.status, StatusCode::MOVED_PERMANENTLY);
     assert!(form.body.contains("name=\"rows\""), "{}", form.body);
     assert!(form.body.contains("type=\"file\"") && form.body.contains("name=\"file\""));
     let token = Browser::field(&form.body, "token");
@@ -342,7 +347,7 @@ async fn a_table_becomes_items_under_one_batch() {
     );
     let preview = owner
         .post_multipart(
-            "/wiki/Special:CreateEntities",
+            "/wiki/Special:CreateManyEntities",
             &[
                 ("token", &token),
                 ("wpStep", "preview"),
@@ -356,7 +361,7 @@ async fn a_table_becomes_items_under_one_batch() {
     assert_eq!(preview.status, StatusCode::OK, "{}", preview.body);
     let html = &preview.body;
     assert!(
-        html.contains("2 rows will be created and 1 cannot be"),
+        html.contains("2 items will be created, 0 added to and 1 row left out"),
         "{html}"
     );
     assert!(html.contains("population"), "{html}");
@@ -375,7 +380,7 @@ async fn a_table_becomes_items_under_one_batch() {
     // The creation: two items, one batch job, the report naming each ID.
     let report = owner
         .post_form(
-            "/wiki/Special:CreateEntities",
+            "/wiki/Special:CreateManyEntities",
             &[
                 ("token", &token),
                 ("wpStep", "create"),
@@ -386,7 +391,10 @@ async fn a_table_becomes_items_under_one_batch() {
         .await;
     assert_eq!(report.status, StatusCode::OK, "{}", report.body);
     let html = &report.body;
-    assert!(html.contains("2 items created, 0 not."), "{html}");
+    assert!(
+        html.contains("2 items created, 0 added to, 0 not written."),
+        "{html}"
+    );
     assert!(html.contains("The run is job "), "{html}");
     let rows = query(
         &database,
@@ -439,4 +447,556 @@ async fn a_table_becomes_items_under_one_batch() {
         e["claims"][&p_kind][0]["mainsnak"]["datavalue"]["value"]["id"],
         city
     );
+}
+
+/// Creates an entity through the API and returns its ID.
+async fn make(owner: &mut Browser, csrf: &str, kind: &str, data: &str) -> String {
+    let r = owner
+        .post_api(
+            "action=wbeditentity",
+            &format!("new={kind}&data={}&token={}", enc(data), enc(csrf)),
+        )
+        .await;
+    r["entity"]["id"]
+        .as_str()
+        .unwrap_or_else(|| panic!("no entity: {r}"))
+        .to_string()
+}
+
+// 0106 §2, §4, §5, §8: the text names the item a row adds to, a property to create first,
+// another row, and a statement's own reference; the preview fills in what it finds.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn the_text_names_ids_new_properties_references_and_rows() {
+    let Some((database, key_file)) = setup("tscreateentities_text_test").await else {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    };
+    let site = site(&database, &key_file).await;
+    let mut owner = Browser {
+        router: site.clone(),
+        cookie: None,
+    };
+    owner.login("Owner", "owner-secret-1234").await;
+    let form = owner.get("/wiki/Special:CreateManyEntities").await;
+    assert!(form.body.contains("name=\"reference\""), "{}", form.body);
+    let token = Browser::field(&form.body, "token");
+    let csrf =
+        owner.api("action=query&meta=tokens&type=csrf").await["query"]["tokens"]["csrftoken"]
+            .as_str()
+            .unwrap()
+            .to_string();
+    let prop = |label: &str, dt: &str| {
+        format!(r#"{{"labels":{{"en":{{"language":"en","value":"{label}"}}}},"datatype":"{dt}"}}"#)
+    };
+    let p_kind = make(
+        &mut owner,
+        &csrf,
+        "property",
+        &prop("instance of", "wikibase-item"),
+    )
+    .await;
+    let p_date = make(&mut owner, &csrf, "property", &prop("published", "time")).await;
+    let p_url = make(&mut owner, &csrf, "property", &prop("reference URL", "url")).await;
+    let p_pub = make(
+        &mut owner,
+        &csrf,
+        "property",
+        &prop("publisher", "wikibase-item"),
+    )
+    .await;
+    let paper = make(
+        &mut owner,
+        &csrf,
+        "item",
+        r#"{"labels":{"en":{"language":"en","value":"paper"}}}"#,
+    )
+    .await;
+    let acme = make(
+        &mut owner,
+        &csrf,
+        "item",
+        r#"{"labels":{"en":{"language":"en","value":"Acme Press"}},"descriptions":{"en":{"language":"en","value":"a publisher"}}}"#,
+    )
+    .await;
+
+    // Row 1 names row 2, which is Acme Press as it stands; row 3 gives the item another
+    // label; row 4 names a row that will not be written. A new property has no data type.
+    let table = format!(
+        "label,description,{p_date},{p_date}/ref:{p_url},{p_pub},new:Founded,source\n\
+         Paper A,a paper,1969,https://example.org/own,row:2,,https://example.org/a\n\
+         Acme Press,a publisher,,,,1901,https://example.org/b\n\
+         Paper B,another paper,1970,,row:4,,\n\
+         ,,,,,,\n"
+    );
+    let shared = format!("{p_kind}:{paper}");
+    let reference = format!("{p_url}:{{source}}");
+    let fields = |rows: &str| {
+        vec![
+            ("token", token.clone()),
+            ("wpStep", "preview".to_string()),
+            ("rows", rows.to_string()),
+            ("shared", shared.clone()),
+            ("reference", reference.clone()),
+            ("batch", "papers".to_string()),
+        ]
+    };
+    let (router, cookie) = (owner.router.clone(), owner.cookie.clone());
+    let post = |f: Vec<(&'static str, String)>| {
+        let mut browser = Browser {
+            router: router.clone(),
+            cookie: cookie.clone(),
+        };
+        async move {
+            let f: Vec<(&str, &str)> = f.iter().map(|(k, v)| (*k, v.as_str())).collect();
+            browser
+                .post_form("/wiki/Special:CreateManyEntities", &f)
+                .await
+        }
+    };
+    let first = post(fields(&table)).await;
+    assert_eq!(first.status, StatusCode::OK, "{}", first.body);
+    let html = &first.body;
+    // The data type is proposed and written into the header, the match into `id`; nothing
+    // can be confirmed until the rows are checked again.
+    assert!(html.contains("new:Founded@time"), "{html}");
+    assert!(html.contains(&format!("matches {acme}")), "{html}");
+    assert!(
+        html.contains(&format!("{acme},Acme Press,a publisher")),
+        "{html}"
+    );
+    assert!(
+        html.contains("which is not a row that will be written"),
+        "{html}"
+    );
+    assert!(
+        !html.contains(">Create 1 item, add to 1, skip 1<"),
+        "{html}"
+    );
+
+    // Checked again as the preview wrote it, with a term that differs on a third item.
+    let table = format!(
+        "id,label,description,{p_date},{p_date}/ref:{p_url},{p_pub},new:Founded@time,source\n\
+         ,Paper A,a paper,1969,https://example.org/own,row:2,,https://example.org/a\n\
+         {acme},Acme Press,a publisher,,,,1901,https://example.org/b\n\
+         {paper},Papers,,,,,,\n\
+         skip,Paper C,skipped,,,,,\n"
+    );
+    let second = post(fields(&table)).await;
+    let html = &second.body;
+    assert!(
+        html.contains("1 item will be created, 1 added to and 2 rows left out"),
+        "{html}"
+    );
+    assert!(html.contains("term conflict (1)"), "{html}");
+    assert!(html.contains("skipped"), "{html}");
+    assert!(html.contains("Create 1 item, add to 1, skip 2"), "{html}");
+    let plans = Browser::field(html, "wpPlans");
+
+    let report = owner
+        .post_form(
+            "/wiki/Special:CreateManyEntities",
+            &[
+                ("token", &token),
+                ("wpStep", "create"),
+                ("batch", "papers"),
+                ("wpPlans", &plans),
+            ],
+        )
+        .await;
+    let html = &report.body;
+    assert!(
+        html.contains("1 item created, 1 added to, 0 not written."),
+        "{html}"
+    );
+    assert!(html.contains("Property “Founded” created as "), "{html}");
+    let jobs = query(
+        &database,
+        "SELECT job_id FROM view.job WHERE tenant = 'wiki' AND mode = 'batch'",
+    )
+    .await;
+    assert_eq!(jobs.len(), 1, "the property and both rows are one job");
+
+    // The new property, and the publisher with what the row added under its reference.
+    let founded = owner
+        .api("action=wbsearchentities&search=Founded&language=en&type=property")
+        .await;
+    let founded = founded["search"][0]["id"]
+        .as_str()
+        .expect("Founded")
+        .to_string();
+    let e = owner
+        .api(&format!("action=wbgetentities&ids={acme}|{founded}"))
+        .await;
+    assert_eq!(e["entities"][&founded]["datatype"], "time");
+    let a = &e["entities"][&acme];
+    assert_eq!(
+        a["claims"][&founded][0]["mainsnak"]["datavalue"]["value"]["time"],
+        "+1901-00-00T00:00:00Z"
+    );
+    assert_eq!(
+        a["claims"][&p_kind][0]["references"][0]["snaks"][&p_url][0]["datavalue"]["value"],
+        "https://example.org/b"
+    );
+    // The paper names the publisher's item; its date carries its own reference only.
+    let found = owner
+        .api("action=wbsearchentities&search=Paper%20A&language=en&type=item")
+        .await;
+    let id = found["search"][0]["id"]
+        .as_str()
+        .expect("Paper A")
+        .to_string();
+    let e = owner.api(&format!("action=wbgetentities&ids={id}")).await;
+    let e = &e["entities"][&id];
+    assert_eq!(
+        e["claims"][&p_pub][0]["mainsnak"]["datavalue"]["value"]["id"],
+        acme
+    );
+    let refs = e["claims"][&p_date][0]["references"].as_array().unwrap();
+    assert_eq!(refs.len(), 1);
+    assert_eq!(
+        refs[0]["snaks"][&p_url][0]["datavalue"]["value"],
+        "https://example.org/own"
+    );
+    assert_eq!(
+        e["claims"][&p_kind][0]["references"][0]["snaks"][&p_url][0]["datavalue"]["value"],
+        "https://example.org/a"
+    );
+
+    // Run again, the paper matches itself and nothing is left to add.
+    let again = post(fields(&table)).await;
+    assert!(
+        again.body.contains("0 items will be created, 2 added to"),
+        "{}",
+        again.body
+    );
+    let plans = Browser::field(&again.body, "wpPlans");
+    let report = owner
+        .post_form(
+            "/wiki/Special:CreateManyEntities",
+            &[
+                ("token", &token),
+                ("wpStep", "create"),
+                ("batch", "papers again"),
+                ("wpPlans", &plans),
+            ],
+        )
+        .await;
+    assert!(
+        report
+            .body
+            .contains("already holds everything the row gives"),
+        "{}",
+        report.body
+    );
+}
+
+// 0045 §3, §5; 0106 §9: a Table page's definition is held to its schema when saved and
+// stored canonically; the page is drawn as its grid; a table being prepared is kept as a
+// draft whose staged rows an import turns into listed rows.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn a_table_is_validated_drawn_and_kept_as_a_draft() {
+    let Some((database, key_file)) = setup("tscreateentities_draft_test").await else {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    };
+    let site = site(&database, &key_file).await;
+    let mut owner = Browser {
+        router: site.clone(),
+        cookie: None,
+    };
+    owner.login("Owner", "owner-secret-1234").await;
+    let csrf =
+        owner.api("action=query&meta=tokens&type=csrf").await["query"]["tokens"]["csrftoken"]
+            .as_str()
+            .unwrap()
+            .to_string();
+    let p_kind = make(
+        &mut owner,
+        &csrf,
+        "property",
+        r#"{"labels":{"en":{"language":"en","value":"instance of"}},"datatype":"wikibase-item"}"#,
+    )
+    .await;
+    let p_url = make(
+        &mut owner,
+        &csrf,
+        "property",
+        r#"{"labels":{"en":{"language":"en","value":"reference URL"}},"datatype":"url"}"#,
+    )
+    .await;
+    let journal = make(
+        &mut owner,
+        &csrf,
+        "item",
+        r#"{"labels":{"en":{"language":"en","value":"journal"}}}"#,
+    )
+    .await;
+    let nature = make(
+        &mut owner,
+        &csrf,
+        "item",
+        &format!(
+            r#"{{"labels":{{"en":{{"language":"en","value":"Nature"}}}},"claims":[{{"mainsnak":{{"snaktype":"value","property":"{p_kind}","datavalue":{{"type":"wikibase-entityid","value":{{"entity-type":"item","id":"{journal}"}}}}}},"type":"statement","rank":"normal"}}]}}"#
+        ),
+    )
+    .await;
+
+    // A definition that is not one is refused, each problem with its place.
+    let edit = |text: String| {
+        format!(
+            "title=Table:Journals&text={}&token={}",
+            enc(&text),
+            enc(&csrf)
+        )
+    };
+    let refused = owner
+        .post_api(
+            "action=edit",
+            &edit(r#"{"version": 1, "rows": {"ids": ["5"]}, "columns": []}"#.to_string()),
+        )
+        .await;
+    assert_eq!(refused["error"]["code"], "ts-invalid-table", "{refused}");
+    let info = refused["error"]["info"].as_str().unwrap_or_default();
+    assert!(
+        info.contains("rows.ids[0]") && info.contains("columns"),
+        "{info}"
+    );
+    // One that is, is stored canonically: tenant-relative IDs in their stored form, one
+    // row to a line.
+    let saved = owner
+        .post_api(
+            "action=edit",
+            &edit(format!(
+                r#"{{"columns": [{{"language": "en", "field": "label"}}, {{"field": "statements", "property": "{p_kind}"}}], "rows": {{"ids": ["qqq{}", "Q999"]}}, "version": 1}}"#,
+                &nature[1..]
+            )),
+        )
+        .await;
+    assert_eq!(saved["edit"]["result"], "Success", "{saved}");
+    let stored = owner
+        .api("action=query&prop=revisions&titles=Table:Journals&rvprop=content&rvslots=main")
+        .await;
+    let stored = stored["query"]["pages"][0]["revisions"][0]["slots"]["main"]["content"]
+        .as_str()
+        .unwrap_or_default()
+        .to_string();
+    assert!(
+        stored.contains(&format!(
+            "    \"ids\": [\n      \"{nature}\",\n      \"Q999\"\n    ]"
+        )),
+        "{stored}"
+    );
+
+    // The page is its grid: the entity's label, its best value by its label, and a row
+    // for the entity that is not there.
+    let page = owner.get("/wiki/Table:Journals").await;
+    assert_eq!(page.status, StatusCode::OK, "{}", page.body);
+    assert!(page.body.contains("ts-table__grid"), "{}", page.body);
+    assert!(page.body.contains(">Nature<"), "{}", page.body);
+    assert!(page.body.contains(">journal</a>"), "{}", page.body);
+    assert!(page.body.contains("instance of"), "{}", page.body);
+    assert!(
+        page.body.contains("There is no such entity."),
+        "{}",
+        page.body
+    );
+    // For a viewer who may edit, the page carries what the grid's editor starts from
+    // (0045 §6): the row's revision, and its one best value as a cell to edit.
+    assert!(page.body.contains("id=\"ts-sheet-data\""), "{}", page.body);
+    assert!(page.body.contains("\"page\":\"table\""), "{}", page.body);
+    assert!(
+        page.body.contains(&format!("\"text\":\"{journal}\"")),
+        "{}",
+        page.body
+    );
+    assert!(page.body.contains("\"guid\":\""), "{}", page.body);
+    let mut reader = Browser {
+        router: site.clone(),
+        cookie: None,
+    };
+    let read = reader.get("/wiki/Table:Journals").await;
+    assert!(read.body.contains("ts-table__grid") && !read.body.contains("ts-sheet-data"));
+
+    // A table being prepared is saved as a draft under the editor's name.
+    let form = owner.get("/wiki/Special:CreateManyEntities").await;
+    let token = Browser::field(&form.body, "token");
+    let table = format!(
+        "label,description,{p_kind},source,notes\n\
+         Science,a journal,{journal},https://example.org/s,x\n\
+         Nature,,row:1,https://example.org/n,\n\
+         ,,nonsense,,\n"
+    );
+    let reference = format!("{p_url}:{{source}}");
+    let saved = owner
+        .post_form(
+            "/wiki/Special:CreateManyEntities",
+            &[
+                ("token", &token),
+                ("wpStep", "preview"),
+                ("wpSave", "1"),
+                ("rows", &table),
+                ("shared", ""),
+                ("reference", &reference),
+                ("batch", ""),
+                ("draftname", "journals"),
+            ],
+        )
+        .await;
+    assert_eq!(saved.status, StatusCode::SEE_OTHER, "{}", saved.body);
+    let draft = "Table:Drafts/Owner/journals";
+    // The draft's page shows its staged rows, and the way back.
+    let page = owner.get(&format!("/wiki/{draft}")).await;
+    assert!(page.body.contains("3 staged rows"), "{}", page.body);
+    assert!(
+        page.body.contains(&format!(
+            "href=\"/wiki/Special:CreateManyEntities/{draft}\""
+        )),
+        "{}",
+        page.body
+    );
+    // Opened again, the form holds the table as text, without the column nothing reads.
+    let opened = owner
+        .get(&format!("/wiki/Special:CreateManyEntities/{draft}"))
+        .await;
+    assert_eq!(opened.status, StatusCode::OK, "{}", opened.body);
+    assert!(
+        opened
+            .body
+            .contains(&format!("id,label,description,{p_kind},source\n")),
+        "{}",
+        opened.body
+    );
+    assert!(
+        opened.body.contains(",Nature,,row:1,https://example.org/n"),
+        "{}",
+        opened.body
+    );
+    assert!(
+        opened.body.contains(&format!("{p_url}:{{source}}")),
+        "{}",
+        opened.body
+    );
+    assert_eq!(Browser::field(&opened.body, "draft"), draft);
+
+    // Checked and imported from the draft: the first row is created, the second matched
+    // by hand to the existing item, the third cannot be written and stays staged.
+    let rows = format!(
+        "id,label,description,{p_kind},source\n\
+         ,Science,a journal,{journal},https://example.org/s\n\
+         {nature},Nature,,row:1,https://example.org/n\n\
+         ,Third,,nonsense,\n"
+    );
+    let preview = owner
+        .post_form(
+            "/wiki/Special:CreateManyEntities",
+            &[
+                ("token", &token),
+                ("wpStep", "preview"),
+                ("rows", &rows),
+                ("shared", ""),
+                ("reference", &reference),
+                ("batch", "journals"),
+                ("draft", draft),
+            ],
+        )
+        .await;
+    // The same check, as the grid asks for it (21 §6.7): each row's status as JSON.
+    let checked = owner
+        .post_form(
+            "/wiki/Special:CreateManyEntities",
+            &[
+                ("token", &token),
+                ("wpStep", "preview"),
+                ("wpFormat", "json"),
+                ("rows", &rows),
+                ("shared", ""),
+                ("reference", &reference),
+                ("batch", "journals"),
+                ("draft", draft),
+            ],
+        )
+        .await;
+    let checked: Value = serde_json::from_str(&checked.body).expect("the check as JSON");
+    assert_eq!(checked["confirm"], "Create 1 item, add to 1, skip 1");
+    assert_eq!(checked["rows"][0]["kind"], "new");
+    assert_eq!(checked["rows"][1]["kind"], "matches");
+    assert_eq!(checked["rows"][2]["kind"], "invalid");
+    assert_eq!(checked["columns"][3]["datatype"], "wikibase-item");
+    assert_eq!(checked["columns"][3]["label"], "instance of");
+    assert_eq!(checked["labels"][&journal], "journal");
+    let html = &preview.body;
+    assert!(html.contains("Create 1 item, add to 1, skip 1"), "{html}");
+    let plans = Browser::field(html, "wpPlans");
+    let report = owner
+        .post_form(
+            "/wiki/Special:CreateManyEntities",
+            &[
+                ("token", &token),
+                ("wpStep", "create"),
+                ("batch", "journals"),
+                ("wpPlans", &plans),
+                ("draft", draft),
+                ("rows", &rows),
+                ("shared", ""),
+                ("reference", &reference),
+            ],
+        )
+        .await;
+    let html = &report.body;
+    assert!(
+        html.contains("1 item created, 1 added to, 0 not written."),
+        "{html}"
+    );
+    assert!(
+        html.contains("1 row is still staged in the table"),
+        "{html}"
+    );
+
+    // The draft now lists the two items and keeps the row that was not written.
+    let stored = owner
+        .api(&format!(
+            "action=query&prop=revisions&titles={draft}&rvprop=content&rvslots=main"
+        ))
+        .await;
+    let stored: Value = serde_json::from_str(
+        stored["query"]["pages"][0]["revisions"][0]["slots"]["main"]["content"]
+            .as_str()
+            .unwrap_or_default(),
+    )
+    .expect("the draft is JSON");
+    let ids = stored["rows"]["ids"].as_array().expect("ids");
+    assert_eq!(ids.len(), 2, "{stored}");
+    assert!(ids.contains(&Value::String(nature.clone())), "{stored}");
+    let staged = stored["staged"]["rows"].as_array().expect("staged rows");
+    assert_eq!(staged.len(), 1, "{stored}");
+    assert_eq!(staged[0]["cells"][0], "Third");
+    // Nature's statement names the item the first row became.
+    let science = ids
+        .iter()
+        .filter_map(Value::as_str)
+        .find(|id| *id != nature)
+        .unwrap()
+        .to_string();
+    let e = owner
+        .api(&format!("action=wbgetentities&ids={nature}"))
+        .await;
+    let kinds = e["entities"][&nature]["claims"][&p_kind]
+        .as_array()
+        .unwrap();
+    assert!(
+        kinds
+            .iter()
+            .any(|c| c["mainsnak"]["datavalue"]["value"]["id"] == science.as_str()),
+        "{kinds:?}"
+    );
+    // And the page draws both as rows, with the row left staged below them.
+    let page = owner.get(&format!("/wiki/{draft}")).await;
+    assert!(
+        page.body.contains(">Science<") && page.body.contains(">Nature<"),
+        "{}",
+        page.body
+    );
+    assert!(page.body.contains("1 staged row"), "{}", page.body);
 }

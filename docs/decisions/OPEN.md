@@ -46,6 +46,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0034 A17](0034-frontend-stack.md#a17-thread-fragments-the-browsers-language-and-the-media-origin-the-calls-made-building-them) | 2026-11-10 | Thread fragments, the browser's language, and the media origin: the calls made building them |
 | [0034 A18](0034-frontend-stack.md#a18-the-job-progress-bar-is-built-alias-chips-wait-on-codex) | 2026-11-10 | The job progress bar is built; alias chips wait on Codex |
 | [0042 A22](0042-template-expansion-and-parsoid.md#a22-which-template-drew-a-block) | 2026-11-04 | Which template drew a block |
+| [0045 A10](0045-table-content-model.md#a10-what-the-grid-edits-in-place-found-while-building) | 2026-11-10 | What the grid edits in place, found while building |
 | [0047 A29](0047-special-pages.md#a29-pagerandom-is-derived-from-the-page) | 2026-11-02 | `page_random` is derived from the page |
 | [0051 A8](0051-page-redirects.md#a8-actionmove-the-calls-made-building-it) | 2026-10-30 | `action=move`: the calls made building it |
 | [0056 A27](0056-security-model.md#a27-entities-the-live-attack-and-tiers-78-the-calls-made-building-them) | 2026-10-30 | Entities, the live attack and tiers 7–8: the calls made building them |
@@ -72,6 +73,10 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0104 A1](0104-batches-and-the-job-runner.md#a1-calls-made-while-building-the-runner) | 2026-11-08 | Calls made while building the runner |
 | [0104 A2](0104-batches-and-the-job-runner.md#a2-calls-made-while-building-the-batches) | 2026-11-08 | Calls made while building the batches |
 | [0104 A3](0104-batches-and-the-job-runner.md#a3-calls-made-while-building-specialcreateentities) | 2026-11-08 | Calls made while building `Special:CreateEntities` |
+| [0106 A5](0106-create-entities-grid-and-drafts.md#a5-what-a-draft-needed-to-hold-the-tables-text-found-while-building) | 2026-11-10 | What a draft needed to hold the table's text, found while building |
+| [0106 A6](0106-create-entities-grid-and-drafts.md#a6-how-the-grid-and-the-mapping-step-are-built-found-while-building) | 2026-11-10 | How the grid and the mapping step are built, found while building |
+| [0106 A7](0106-create-entities-grid-and-drafts.md#a7-a-quantitys-unit-in-the-text-found-while-building) | 2026-11-10 | A quantity's unit in the text, found while building |
+| [0106 A8](0106-create-entities-grid-and-drafts.md#a8-a-literal-backslash-in-a-cell-of-several-values) | 2026-11-10 | A literal backslash in a cell of several values |
 
 ## Open questions
 

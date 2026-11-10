@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-08
-- **Updated:** 2026-11-08 (A4)
+- **Updated:** 2026-11-10 (A5)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0016](0016-permissions-and-access-control.md), [0047](0047-special-pages.md), [0083](0083-write-path-in-three-tiers.md)
 - **Uses:** [0007](0007-actor-identity.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0047](0047-special-pages.md)
@@ -76,7 +76,7 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 11. Creating items from a table (extends 0002 §8.5 and 0047 §5)
 
-*Changed by A3, A4.*
+*Changed by A3, A4, A5.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.5; [21](../architecture/21-special-pages.md) §6.6.*
 
@@ -145,3 +145,14 @@ Replaced text ([21](../architecture/21-special-pages.md) §6.6, as it stood):
 Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.5, as it stood):
 
 > - **A table of new items** ([0104](../decisions/0104-batches-and-the-job-runner.md) §11; [21](../architecture/21-special-pages.md) §6.6) is the editor's form of bulk creation: `Special:CreateEntities` reads a pasted or uploaded table, a column per term or property and a row per item, checks every row before anything is written, and creates the rows as one keyed batch ([16](../architecture/16-logs-feeds-and-notifications.md) §2.2), one interactive `create` each, so that the run is one job with its revert.
+
+### A5. The page is named `Special:CreateManyEntities`
+
+- **Date:** 2026-11-10
+- **Source:** Direct: James, 2026-11-10 (review of SCA-307)
+- **Change:** amends §11
+- **Summary:** The page that creates items from a table is `Special:CreateManyEntities`, which says what it is for beside `Special:NewItem`. `CreateEntities` stays in the special-page registry as an alias: a GET of it is sent on to the new name with its subpage, so links and drafts' addresses written before the change still work. Earlier ADR text and log entries keep the name they were written with.
+
+Replaced text ([21](../architecture/21-special-pages.md) §6.6, as it stood):
+
+> ### 6.6 `Special:CreateEntities`

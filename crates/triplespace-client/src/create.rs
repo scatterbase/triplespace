@@ -69,6 +69,38 @@ impl Client {
         Ok((created(&v)?, v["batch"].as_u64()))
     }
 
+    /// `action=wbeditentity&id={id}` with `data`, under a batch value where one is given
+    /// (0104 §1; 0106 §5): what a row of `Special:CreateManyEntities` adds to the item it
+    /// matches. The answer is the batch's job.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::create_entity`]; `ts-batch-rejected` for a rejected batch.
+    pub async fn edit_entity_in(
+        &self,
+        incoming: &Incoming,
+        id: &str,
+        data: &Value,
+        token: &str,
+        batch: Option<&str>,
+    ) -> Result<Option<u64>, ClientError> {
+        let data = data.to_string();
+        let mut form = vec![
+            ("action", "wbeditentity"),
+            ("format", "json"),
+            ("formatversion", "2"),
+            ("id", id),
+            ("data", &data),
+            ("token", token),
+        ];
+        if let Some(b) = batch {
+            form.push(("batch", b));
+        }
+        let r = self.post_form(incoming, "/w/api.php", &form).await?;
+        let v = check(&r)?;
+        Ok(v["batch"].as_u64())
+    }
+
     /// `meta=userinfo&uiprop=rights`: the viewer's rights, for a page that needs one the
     /// frame does not ask about (`property-create`).
     ///

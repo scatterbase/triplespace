@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-08
-- **Updated:** 2026-11-08 (A3)
+- **Updated:** 2026-11-10 (A8)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0045](0045-table-content-model.md), [0104](0104-batches-and-the-job-runner.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0043](0043-lua-modules.md), [0064](0064-entityschema-and-validation.md), [0073](0073-lines-links-and-url-patterns.md)
@@ -27,13 +27,13 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 1. The grid is an enhancement over the table's text (amends 0104 §11)
 
-*Changed by A2.*
+*Changed by A2, A6.*
 
 *Current text: [21](../architecture/21-special-pages.md) §6.6, §6.7.*
 
 ### 2. The text names ids, new properties, references and other rows (amends 0104 §11)
 
-*Changed by A1.*
+*Changed by A1, A4, A7, A8.*
 
 *Current text: [21](../architecture/21-special-pages.md) §6.6.*
 
@@ -43,33 +43,37 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 4. New properties from a column, for holders of `property-create` (amends 0104 §11)
 
-*Changed by A1.*
+*Changed by A1, A4.*
 
 *Current text: [21](../architecture/21-special-pages.md) §6.6.*
 
 ### 5. A row that matches an existing item adds to it (amends 0104 §11; uses 0002 §8.5)
 
-*Changed by A1.*
+*Changed by A1, A4.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.5; [21](../architecture/21-special-pages.md) §6.6.*
 
 ### 6. Row status and cells by data type (uses 0003 §9 and 0073)
 
-*Changed by A1.*
+*Changed by A1, A6, A7.*
 
 *Current text: [21](../architecture/21-special-pages.md) §6.7.*
 
 ### 7. Upload and column mapping (extends 0104 §11)
 
+*Changed by A6.*
+
 *Current text: [21](../architecture/21-special-pages.md) §6.8.*
 
 ### 8. One batch; a statement's own reference replaces the default (amends 0104 §11)
+
+*Changed by A4.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.5; [21](../architecture/21-special-pages.md) §6.6.*
 
 ### 9. Drafts are tables with staged rows (amends 0045 §1; extends 0045 §4 and §7)
 
-*Changed by A1, A2, A3.*
+*Changed by A1, A2, A3, A5.*
 
 *Current text: [15](../architecture/15-structured-pages.md) §2.1, §2.3, §2.6, §2.7.*
 
@@ -127,3 +131,38 @@ James's direction, from the design discussion of 2026-11-08:
 - **Source:** Direct: James, design discussion of 2026-11-08
 - **Change:** extends §9
 - **Summary:** Once a draft is finalized it remains, as a view or interface for making further edits to its items according to the parameters set up on the page: its columns, its default reference, and its statements on every item, which a row added later as a new entity carries. This applies to transient drafts as well as kept tables. Wiki administrators may delete one if they want; that destroys none of the underlying data. Q4 is settled.
+
+### A4. The text's forms for creating, skipping and replacing, found while building
+
+- **Date:** 2026-11-10
+- **Source:** Direct: Claude, while building the table's text for `Special:CreateEntities` (SCA-307), 2026-11-10; confirmed by James, 2026-11-10
+- **Change:** extends §2, §4, §5 and §8
+- **Summary:** Four forms the text needed and the decision did not give. (1) The `id` cell takes `new`, which creates an item whatever the row matches, and `skip`, which leaves the row out, beside an item ID or nothing: §5 let an ambiguous row be "told to create" and any matched row be skipped, and both choices must hold in the text. (2) `!` before a label or description means "replace the item's term" only on a row that adds to an item; on a row that creates one it is part of the term, so a label that begins with `!` can be written. (3) A `{property}/ref:{property}` cell on a row with no statement of the first property is a problem of the row, since the reference would otherwise be dropped without a word. (4) Without JavaScript, the preview writes a proposed data type into the `new:` header and starts nothing; checking the rows again with the header as written is the confirmation §4 requires.
+
+### A5. What a draft needed to hold the table's text, found while building
+
+- **Date:** 2026-11-10
+- **Source:** Direct: Claude, while building drafts for `Special:CreateEntities` (SCA-307), 2026-11-10; unconfirmed
+- **Change:** extends §9
+- **Summary:** Four things the definition needed so that a draft holds everything the table's text says. (1) A `reference` column without `of` holds a value the default reference reads through a snak's `"column"`: §9 let a snak name a column but gave no column kind for a plain column such as `source url`, and extending `reference` avoids a new kind. Its `title` is the header the text gives it. (2) A staged row may carry `"create": true`, the definition's form of the `id` cell's `new` (A4). (3) A column of the text that nothing reads is not kept when a draft is saved, since the definition has no column for it and the import ignores it. (4) When a row is written, a staged cell that named it with `row:n` is rewritten to name its item, so that the rows left staged still resolve; and the text of a draft numbers its staged rows from 1 in order, whatever their `n`.
+
+### A6. How the grid and the mapping step are built, found while building
+
+- **Date:** 2026-11-10
+- **Source:** Direct: Claude, while building the grid and the mapping step (SCA-329, SCA-330), 2026-11-10; unconfirmed
+- **Change:** extends §1, §6 and §7
+- **Summary:** (1) The grid writes every change into the form's text box and posts nothing itself: checking, saving a draft and importing stay the form's. To show each row's status it asks the page for its own check as JSON, `wpFormat=json` on the form's post, which answers the notices, each row's status and problems, each column's kind, label and data type, the labels of the items the cells name, and the text as the check wrote it back. Statuses are refreshed when the editor asks, not on every keystroke, because the check searches for matches row by row. (2) The statements on every item and the reference on every statement stay text boxes beside the grid; a column the reference reads is added from **Add column**, which also writes the reference's line. (3) An item cell is looked up from a search above the grid for the cell that has the focus, and shows its items' labels beneath it. (4) A chosen file is read in the browser and never uploaded: CSV, TSV, JSON Lines, QuickStatements `CREATE` and `LAST` lines, and the first sheet of an XLSX file, read without a library. (5) A saved mapping applies when a draft is open with columns and no rows and the file has as many columns as the draft, the `id` column apart.
+
+### A7. A quantity's unit in the text, found while building
+
+- **Date:** 2026-11-10
+- **Source:** Direct: Claude, while building the unit picker James asked for (SCA-329), 2026-11-10; unconfirmed
+- **Change:** extends §2 and §6
+- **Summary:** §6 gave quantities a unit picker, and the text had no form for a unit. A quantity is written as its amount, a space and its unit's item ID, `12 Q11573`; without a unit it is the number alone, as before. The unit is stored under the site's concept base, as the statement editor stores it. The picker is a search beside the grid for the focused quantity cell, on `Special:CreateManyEntities` and in a Table page's editor, and writes the ID after the amount; the cell shows the unit's label beneath it, and a Table page shows `12 page`. A quantity with bounds still has no plain form and is edited on the entity's page.
+
+### A8. A literal backslash in a cell of several values
+
+- **Date:** 2026-11-10
+- **Source:** Direct: Claude, while fixing a code-scanning finding on PR #198, 2026-11-10; unconfirmed
+- **Change:** extends §2
+- **Summary:** In a cell that may hold several values, `\\` is a literal backslash, beside `\|` for a literal bar; a backslash before any other character stands for itself, so `C:\dir` is read as written. Without it a value ending in a backslash could not be written before another value: its backslash and the separator read as an escaped bar, and the two values became one. What writes such cells (the preview, a draft, the grid, the file readers) escapes both characters. A value typed by hand with two backslashes in a row, such as a UNC path or a line break in LaTeX, now reads as one and must be written with four.

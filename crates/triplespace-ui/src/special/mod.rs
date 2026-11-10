@@ -174,7 +174,27 @@ pub async fn serve(
         "MovePage" => Some(movepage::serve(site, headers, peer, title, params).await),
         "Export" => Some(export::serve(site, headers, peer, title, params).await),
         "Import" => Some(import::serve(site, headers, peer, params).await),
-        "CreateEntities" => Some(create_entities::serve(site, headers, peer, params).await),
+        "CreateManyEntities" => {
+            Some(create_entities::serve(site, headers, peer, title, params).await)
+        }
+        // The page's name until 0104 A5: a GET is sent on to the name it has now, with
+        // its subpage (0047 §2).
+        "CreateEntities" => {
+            use axum::response::IntoResponse as _;
+            let rest = title.split_once('/').map_or("", |(_, r)| r);
+            let mut to = "/wiki/Special:CreateManyEntities".to_string();
+            if !rest.is_empty() {
+                to.push('/');
+                to.push_str(&crate::frame::title_url(rest));
+            }
+            Some(
+                (
+                    axum::http::StatusCode::MOVED_PERMANENTLY,
+                    [(axum::http::header::LOCATION, to)],
+                )
+                    .into_response(),
+            )
+        }
         "Jobs" => Some(jobs::serve(site, headers, peer, title, params).await),
         "Notifications" => Some(notifications::serve(site, headers, peer, params).await),
         "Watchlist" => Some(watchlist::serve(site, headers, peer, params).await),
@@ -238,7 +258,9 @@ pub async fn post(
         "MovePage" => Some(movepage::post(site, headers, peer, title, params).await),
         "Export" => Some(export::post(site, headers, peer, query, params).await),
         "Import" => Some(import::post(site, headers, peer, query, params).await),
-        "CreateEntities" => Some(create_entities::post(site, headers, peer, query, params).await),
+        "CreateManyEntities" | "CreateEntities" => {
+            Some(create_entities::post(site, headers, peer, query, params).await)
+        }
         "Jobs" => Some(jobs::post(site, headers, peer, title, query, params).await),
         "Notifications" => Some(notifications::post(site, headers, peer, params).await),
         "Watchlist" => Some(watchlist::post(site, headers, peer, params).await),
