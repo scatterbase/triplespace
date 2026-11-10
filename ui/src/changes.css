@@ -448,6 +448,29 @@
 	margin-block-end: var( --spacing-50, 0.5rem );
 }
 
+/* A row's menu (19 §3.4): a disclosure whose links open in the row, so that the table's
+   scroll box never clips them. */
+.ts-change__cell--menu {
+	width: 1%;
+	text-align: end;
+	white-space: nowrap;
+}
+
+.ts-change__menu > summary {
+	list-style: none;
+}
+
+.ts-change__menu > summary::-webkit-details-marker {
+	display: none;
+}
+
+.ts-change__menu-items {
+	margin: var( --spacing-25, 0.25rem ) 0 0;
+	padding: 0;
+	list-style: none;
+	text-align: start;
+}
+
 /* The action is a short field; a long one wraps. */
 .ts-change__cell--action {
 	max-width: 16rem;

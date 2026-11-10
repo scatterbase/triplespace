@@ -316,7 +316,13 @@ fn model(
 ) -> HistoryModel {
     let (m, site) = (&cx.m, &cx.site);
     let graphs = contributing(provenance);
-    let mut list = crate::special::changes::list_model_here(m, site, &page.rows, here);
+    let mut list = crate::special::changes::list_model_here(
+        m,
+        site,
+        &page.rows,
+        here,
+        crate::special::changes::RowActions::of(cx),
+    );
     // A discussion's history has no diffs to compare (16 §6.1).
     let compare = if switch {
         list.as_mut()

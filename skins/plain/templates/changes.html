@@ -61,7 +61,7 @@
 {%- elif s.moved or s.comment %}<span class="ts-change__summary">{% if s.moved %}<span class="ts-change__auto">{{ s.moved }}</span>{% endif %}{% if s.comment %}{% if s.moved %} {% endif %}<span class="ts-change__comment">{% for p in s.comment %}{% if p.kind == "auto" %}<span class="ts-change__autocomment">{% if p.href %}<a href="{{ p.href }}">{{ p.text }}</a>{% else %}{{ p.text }}{% endif %}{% if p.more %}:{% endif %}</span>{% if p.more %} {% endif %}{% elif p.kind == "link" %}<a href="{{ p.href }}">{{ p.text }}</a>{% else %}{{ p.text }}{% endif %}{% endfor %}</span>{% endif %}</span>{% endif -%}
 {%- if r.tags %}<span class="ts-change__tags">{% for t in r.tags %}<span class="ts-change__tag">{{ t }}</span>{% endfor %}</span>{% endif -%}
 {%- if r.job %} <a class="ts-change__job" href="{{ r.job.href }}">{{ r.job.text }}</a>{% endif -%}
-</td></tr>
+</td>{% if r.menu_cell %}<td class="ts-change__cell ts-change__cell--menu">{% if r.menu %}<details class="ts-change__menu"><summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet cdx-button--size-small cdx-button--icon-only" aria-label="{{ r.menu.label }}" title="{{ r.menu.label }}"><svg class="ts-header__icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="3" cy="10" r="2"/><circle cx="10" cy="10" r="2"/><circle cx="17" cy="10" r="2"/></svg></summary><ul class="ts-change__menu-items">{% for i in r.menu.items %}<li><a href="{{ i.href }}">{{ i.label }}</a></li>{% endfor %}</ul></details>{% endif %}</td>{% endif %}</tr>
 {%- endif -%}
 {%- endmacro -%}
 
