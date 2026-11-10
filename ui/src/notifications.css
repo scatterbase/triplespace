@@ -207,3 +207,45 @@
 .ts-editwatchlist a {
 	text-decoration: underline;
 }
+
+/* The bell's panel (0021 A20): the inbox's list over the page, with JavaScript. */
+.ts-bell__panel {
+	width: min( 26rem, calc( 100vw - 2rem ) );
+	max-height: min( 32rem, calc( 100vh - 6rem ) );
+	padding: 0;
+	overflow-y: auto;
+	box-shadow: var( --box-shadow-drop-medium, 0 2px 2px 0 rgba( 0, 0, 0, 0.2 ) );
+}
+
+.ts-bell__panel[ hidden ] {
+	display: none;
+}
+
+.ts-bell__status {
+	margin: 0;
+	padding: var( --spacing-75, 0.75rem );
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-bell__body .ts-notifications__bar {
+	margin: 0;
+	padding: var( --spacing-50, 0.5rem ) var( --spacing-75, 0.75rem );
+}
+
+.ts-bell__body .ts-notifications__more {
+	display: none;
+}
+
+.ts-bell__body .cdx-message {
+	margin: var( --spacing-75, 0.75rem );
+}
+
+.ts-bell__foot {
+	position: sticky;
+	bottom: 0;
+	margin: 0;
+	padding: var( --spacing-50, 0.5rem ) var( --spacing-75, 0.75rem );
+	border-block-start: 1px solid var( --border-color-subtle, #c8ccd1 );
+	background-color: var( --background-color-base, #fff );
+	text-align: center;
+}

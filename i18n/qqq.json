@@ -1614,6 +1614,8 @@
 	"ts-changes-thread-unpin": "History row: a thread unpinned.",
 	"ts-bell": "Accessible name of the notifications bell in the header, when nothing is unread.",
 	"ts-bell-unread": "Accessible name of the notifications bell when something is unread. $1 is the count, or \"99+\".",
+	"ts-bell-all": "Link at the foot of the panel the notifications bell opens, to Special:Notifications.",
+	"ts-bell-loading": "Shown in the panel the notifications bell opens while the notifications are fetched.",
 	"ts-orange-bar": "The banner shown while a message on the viewer's talk page is unread. $1 is a link whose text is {{msg-triplespace|ts-orange-bar-link}}.",
 	"ts-orange-bar-link": "Text of the link to the viewer's own talk page in {{msg-triplespace|ts-orange-bar}}.",
 	"ts-notifications-title": "Title of Special:Notifications.",

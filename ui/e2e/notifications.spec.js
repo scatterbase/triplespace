@@ -2,7 +2,8 @@
 // user talk page; Alice, with JavaScript off, sees the orange bar and the bell's count,
 // finds one notification on Special:Notifications (a talk message, though it also
 // mentions her), loses the bell's mark by looking and the orange bar by reading her talk
-// page, and marks everything read. Then axe on Special:Notifications.
+// page; with JavaScript on, the bell opens the inbox as a panel, where she marks
+// everything read. Then axe on Special:Notifications.
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
@@ -74,6 +75,42 @@ test( 'Alice sees the orange bar and the bell, and reads her messages', async ( 
 	await expect( page ).toHaveURL( /\/wiki\/Thread:.*#post-\d+$/ );
 
 	await page.goto( '/wiki/Special:Notifications' );
+	// The rest is left unread for the bell's panel, below.
+} );
+
+test( 'with JavaScript the bell opens the inbox as a panel', async ( { browser } ) => {
+	// ADR 0021 A26: the panel is the inbox's list over the page; marking read works in
+	// place; Escape closes it.
+	const context = await browser.newContext( { javaScriptEnabled: true } );
+	const page = await context.newPage();
+	await logIn( page, 'Special:RecentChanges' );
+	const bell = page.locator( 'a.ts-bell' );
+	await expect( bell ).toHaveAttribute( 'aria-expanded', 'false' );
+	await bell.click();
+	const panel = page.locator( '#ts-bell-panel' );
+	await expect( panel ).toBeVisible();
+	await expect( page ).toHaveURL( /\/wiki\/Special:RecentChanges$/ );
+	await expect( bell ).toHaveAttribute( 'aria-expanded', 'true' );
+	await expect( panel.locator( '.ts-notif' ).filter( { hasText: 'A word, Alice' } ) ).toHaveCount( 1 );
+	await expect( panel.getByRole( 'link', { name: 'All notifications' } ) ).toHaveAttribute( 'href', '/wiki/Special:Notifications' );
+	const results = await new AxeBuilder( { page } )
+		.withTags( [ 'wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa' ] )
+		.analyze();
+	expect( results.violations.map( ( v ) => `${ v.id }: ${ v.nodes.map( ( n ) => n.target ).join( ', ' ) }` ) ).toEqual( [] );
+	const markAll = panel.getByRole( 'button', { name: 'Mark all as read' } );
+	if ( await markAll.count() ) {
+		await markAll.click();
+	}
+	await expect( panel.locator( '.ts-notif--unread' ) ).toHaveCount( 0 );
+	await expect( page ).toHaveURL( /\/wiki\/Special:RecentChanges$/ );
+	await expect( page.locator( '.ts-bell__count' ) ).toHaveCount( 0 );
+	await page.keyboard.press( 'Escape' );
+	await expect( panel ).toBeHidden();
+	await context.close();
+} );
+
+test( 'everything read, the bell has no count', async ( { page } ) => {
+	await logIn( page, 'Special:Notifications' );
 	const markAll = page.getByRole( 'button', { name: 'Mark all as read' } );
 	if ( await markAll.count() ) {
 		await markAll.click();

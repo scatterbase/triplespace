@@ -1614,6 +1614,8 @@
 	"ts-changes-thread-unpin": "unpinned the thread",
 	"ts-bell": "Notifications",
 	"ts-bell-unread": "Notifications, $1 unread",
+	"ts-bell-all": "All notifications",
+	"ts-bell-loading": "Loading notifications…",
 	"ts-orange-bar": "You have a new message on $1.",
 	"ts-orange-bar-link": "your talk page",
 	"ts-notifications-title": "Notifications",

@@ -5,6 +5,7 @@
 // components only on a page that has something the viewer may edit (the server writes an
 // edit data block there), so a reader downloads none of Vue.
 import { initAppearance } from './appearance/menu.js';
+import { initBell } from './bell/bell.js';
 import { initChallenges } from './challenge/form.js';
 import { initDiffNav } from './diffnav/diffnav.js';
 
@@ -12,6 +13,7 @@ document.documentElement.classList.replace( 'client-nojs', 'client-js' );
 initAppearance( document, window );
 initChallenges( document );
 initDiffNav( document, window );
+initBell( document, window );
 if ( document.getElementById( 'ts-edit-data' ) ) {
 	import( './edit/index.ts' );
 }
