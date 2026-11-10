@@ -73,6 +73,7 @@ async fn context(app: App, origin: Origin, headers: &HeaderMap) -> Result<Ctx, R
         cache_tags: Vec::new(),
         accept_language: None,
         batch: std::sync::atomic::AtomicU64::new(0),
+        unchanged: std::sync::Mutex::new(None),
     })
 }
 

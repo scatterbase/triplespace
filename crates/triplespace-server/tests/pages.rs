@@ -636,6 +636,13 @@ async fn api(database: &str, key_file: &std::path::Path) {
         )
         .await;
     assert_eq!(same["edit"]["nochange"], true, "{same}");
+    // 18 §1.5 (0012 A90): an action that changes nothing warns.
+    assert!(
+        same["warnings"]["edit"]
+            .to_string()
+            .contains("The page already has this text. Nothing was written."),
+        "{same}"
+    );
     // The Interface namespace (0095 §1): MediaWiki's number and canonical name, shown as
     // Interface; `MediaWiki:` titles reach it. Its pages override messages and name IDs,
     // which siteinfo reports (§5).

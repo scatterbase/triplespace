@@ -1042,6 +1042,7 @@ pub async fn protect(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     let acl = (!acl.restrictions.is_empty()).then_some(acl);
     if acl.is_none() && existing.is_none() {
         // Nothing was protected and nothing is: there is nothing to write.
+        ctx.unchanged("The page was not protected, and the request protects nothing.");
         return Ok(ApiResponse::ok(json!({"protect": {
             "title": title,
             "reason": reason,
@@ -1199,6 +1200,8 @@ pub async fn revisiondelete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         .map(|s| s.parse().map_err(|_| ApiError::bad_value("ids", s)))
         .collect::<Result<_, _>>()?;
     let mut items = Vec::new();
+    // Whether any item's visibility was written.
+    let mut wrote = false;
     for revid in ids {
         let found = if logging {
             record_of_event(ctx, revid).await?
@@ -1257,6 +1260,7 @@ pub async fn revisiondelete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             continue;
         }
         save(ctx, target, acl, &reason, &suppress_group, None).await?;
+        wrote = true;
         let mut item = json!({"id": revid, "status": "Success"});
         for (flag, p) in [
             ("texthidden", content_part),
@@ -1271,6 +1275,10 @@ pub async fn revisiondelete(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             item["suppressed"] = Value::Bool(true);
         }
         items.push(item);
+    }
+    // Every item found had nothing hidden and was asked to show: nothing to write.
+    if !wrote && items.iter().any(|i| i["status"] == "Success") {
+        ctx.unchanged("Nothing of these was hidden, and the request hides nothing.");
     }
     Ok(ApiResponse::ok(json!({"revisiondelete": {
         "status": "Success",

@@ -132,6 +132,8 @@ pub async fn commit(
     before: Option<&Current>,
 ) -> Result<Saved, ApiError> {
     if ops.is_empty() {
+        // The entity is already as the edit asks (18 §1.5).
+        ctx.unchanged("The entity is already as this edit would leave it.");
         return Ok(Saved {
             lastrevid: before.and_then(|c| c.lastrevid),
             records: 0,

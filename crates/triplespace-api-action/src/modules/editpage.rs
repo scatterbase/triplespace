@@ -262,6 +262,7 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             edit.insert("title".into(), json!(prefixed));
             edit.insert("contentmodel".into(), json!(model));
             edit.insert("nochange".into(), flag());
+            ctx.unchanged("The page already has this text.");
             if let Some(actor) = ctx.caller.identity.actor_key.clone()
                 && let Some(target) = crate::watching::target_of_page(ctx, page.page_id).await?
                 && crate::watching::after_write(ctx, &actor, &target, crate::watching::Auto::Edit)
