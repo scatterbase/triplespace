@@ -5,7 +5,7 @@
 //! key it was issued to. An anonymous request's CSRF token is the constant `+\`.
 
 use base64::Engine as _;
-use hmac::{Hmac, Mac as _};
+use hmac::{Hmac, KeyInit as _, Mac as _};
 use sha2::Sha256;
 
 /// What an anonymous session uses for a CSRF token.

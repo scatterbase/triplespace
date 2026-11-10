@@ -20,6 +20,10 @@ impl Resolver for Fixture {
         PageInfo {
             exists: t.text.len().is_multiple_of(2),
             redirect: t.text.starts_with('R'),
+            redirect_to: t
+                .text
+                .starts_with('R')
+                .then(|| format!("Target of {}", t.text)),
             label: (t.namespace == 120).then(|| format!("label of {}", t.text)),
         }
     }

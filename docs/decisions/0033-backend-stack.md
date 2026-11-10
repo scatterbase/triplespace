@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-09 (A28)
+- **Updated:** 2026-11-10 (A30)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0034](0034-frontend-stack.md)
@@ -122,7 +122,7 @@ This ADR records the rest. The frontend is in 0034.
 
 ### 16. Licensing and supply chain
 
-*Changed by A1, A13, A22, A28.*
+*Changed by A1, A13, A22, A28, A29, A30.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §3.3, §3.4, §7.1.*
 
@@ -438,3 +438,21 @@ Replaced text ([13](../architecture/13-mirrored-pages.md) §3.5, as it stood):
 - **Source:** Direct: Claude, while building the Dependabot configuration, 2026-11-09; unconfirmed
 - **Change:** extends §16
 - **Summary:** James asked for Dependabot to keep dependency versions up to date and for the policy to be recorded here; the choices below are Claude's, for him to confirm. `.github/dependabot.yml` opens version-update pull requests weekly for the Cargo workspace, `ui/`'s npm packages, `docs/requirements.txt` and the workflows' actions, and monthly for the fuzz workspace and `tools/requirements-compat.txt`. Minor and patch releases are grouped per ecosystem and majors come alone, so a breaking release is reviewed by itself. The client libraries are included one per pull request: their pin keeps a client release from changing CI's verdict on its own, and merging the pull request after its client-compatibility run is the deliberate bump (recording it in the test plan's log stays manual); `setuptools` stays below 80 for WikidataIntegrator. The Rust toolchain is excluded, since it moves in its own commit (§2). The generated-files workflow and the ADR preview skip Dependabot's pull requests, whose runs get a read-only token. Security updates are a repository setting, outside this file. Chapter text: [22](../architecture/22-crates-and-stack.md) §3.4.
+
+### A29. bzip2-1.0.6 is accepted, for `libbz2-rs-sys`
+
+- **Date:** 2026-11-10
+- **Source:** Direct: James, design discussion of 2026-11-10
+- **Change:** amends §16
+- **Summary:** bzip2-1.0.6 joins the accepted licences. It is the licence of bzip2 and libbzip2: a permissive BSD-style text that asks for the copyright notice to be kept, the origin not to be misrepresented, altered versions to be marked, and the author's name not to be used to endorse what is derived; it has no copyleft and no advertising clause. `bzip2` 0.6 reads the dumps (§10) through `libbz2-rs-sys`, a Rust port that declares this licence, where `bzip2` 0.5 used `bzip2-sys`, which bundles the C library under the same terms while declaring MIT or Apache-2.0: the code was already linked under this licence, and `cargo-deny` now sees it. The occasion was Dependabot's pull request for `bzip2` 0.6, which `cargo-deny` rejected. The chapter text is [22](../architecture/22-crates-and-stack.md) §3.3.
+
+Replaced text ([22](../architecture/22-crates-and-stack.md) §3.3, as it stood):
+
+> - **Accepted.** Every third-party crate linked into `triplespace` carries one of these licences: MIT, MIT-0 (the vendored `parse-wiki-text-2`), Apache-2.0, BSD-2-Clause, BSD-3-Clause, ISC, Zlib, Unicode-3.0, MPL-2.0, BlueOak-1.0.0 (`minicbor`), CDLA-Permissive-2.0 (root-certificate data in `webpki-roots`), LGPL, GPL-2.0-or-later or GPL-3.0.
+
+### A30. Dependabot ignores a major release that cannot be taken yet
+
+- **Date:** 2026-11-10
+- **Source:** Direct: Claude, while building the first week's Dependabot updates, 2026-11-10; unconfirmed
+- **Change:** extends §16
+- **Summary:** Three of the first week's pull requests could not be merged for a reason outside the repository, and Dependabot would reopen each weekly. `.github/dependabot.yml` now ignores the major releases of `getrandom` (the workspace names it only to turn on `wasm_js` for the copy `oxrdf`'s `rand` 0.9 pulls in, which is `getrandom` 0.3; 0.4 is a second copy without the feature and the wasm32 build of the rule-7 crates fails), `eslint` (`eslint-config-wikimedia` 0.32 is an eslintrc configuration with a peer of ESLint ^8.57, and ESLint 9 and later read only flat configuration) and `typescript` (`vue-tsc` 3.3 needs TypeScript below 7, which has no `lib/tsc`). Each entry carries its reason in the file and is removed when the reason goes. `@playwright/test` was held at 1.63.0 in the same change without an ignore entry: the cloud sandbox has only the browser build that release expects and cannot download another ([gotchas](../testing/gotchas.md)); whether to ignore it, or to take it and lose the sandbox's e2e run, is James's to choose. The chapter text is [22](../architecture/22-crates-and-stack.md) §3.4.
