@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-08 (A50)
+- **Updated:** 2026-11-09 (A51)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -64,7 +64,7 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 
 ### 8. The wikitext subset
 
-*Changed by A3, A9, A10, A12, A21, A22, A39.*
+*Changed by A3, A9, A10, A12, A21, A22, A39, A51.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §5.1, §5.2, §5.3.*
 
@@ -723,3 +723,10 @@ Replaced text ([10](../architecture/10-pages-and-content-models.md) §1.4, as it
 Replaced text ([10](../architecture/10-pages-and-content-models.md) §6.1, as it stood):
 
 > The surface names the registered issuer the source is, if any, whose accounts keep their numeric keys; every other named author is an `imported` surrogate whose raw value is `{prefix}>{name}`, the prefix being `imported` for an uploaded file (MediaWiki's `interwikiprefix`) and the site alias for a page fetched from another wiki, so that names chain across wikis as MediaWiki's do; an IP is an `anonymous` surrogate, and a hidden author stays hidden.
+
+### A51. Link marks: repeated links, and a redirect's target in its title
+
+- **Date:** 2026-11-09
+- **Source:** Direct: James, ticket SCA-226; how they are switched and written Claude, while building them, 2026-11-09; unconfirmed
+- **Change:** extends §8
+- **Summary:** Internal links gain two marks as CSS hooks, unstyled by Plain: `ts-repeat` on the second and later links to one page within a rendering, and a redirect's target in the link's `title`. Calls made in the building: the marks are an option of the renderer's configuration (`link_marks`), off by default so that `scatter-wikitext`'s output stays MediaWiki's and its goldens hold, and on for the site; fragments do not make a link a different target; the title reads "Old name → New name", the target read from `view.redirect`. Not built: `ts-discussed`, which needs thread status in the links projection, and the assessment class, which needs the view model's assessment field (SCA-222). Chapter text: [10](../architecture/10-pages-and-content-models.md) §5.2.

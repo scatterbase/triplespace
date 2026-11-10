@@ -129,6 +129,8 @@ pub(crate) struct Lowerer<'s, 'c> {
     plan: QuotePlan,
     skip_apostrophes: usize,
     in_link: bool,
+    /// The local targets the page has linked to so far, for `ts-repeat`.
+    linked: std::collections::HashSet<Title>,
     autonumber: usize,
     anchors: HashMap<String, usize>,
     pub(crate) toc_here: bool,
@@ -154,6 +156,7 @@ impl<'s, 'c> Lowerer<'s, 'c> {
             plan: QuotePlan::default(),
             skip_apostrophes: 0,
             in_link: false,
+            linked: std::collections::HashSet::new(),
             autonumber: 0,
             anchors: HashMap::new(),
             toc_here: false,
@@ -1015,6 +1018,17 @@ impl<'s, 'c> Lowerer<'s, 'c> {
             }
         } else {
             let info = self.res.info(&title.without_fragment());
+            // The marks MediaWiki's links do not carry (19 §5.10), where the site asks
+            // for them: a second or later link to the same page is `ts-repeat`.
+            let marks = self.cfg.source.link_marks;
+            let repeat = marks && !self.linked.insert(title.without_fragment());
+            let class = |own: Option<&str>| {
+                let mut c: Vec<&str> = own.into_iter().collect();
+                if repeat {
+                    c.push("ts-repeat");
+                }
+                (!c.is_empty()).then(|| ("class".to_string(), c.join(" ")))
+            };
             if info.exists {
                 let mut href = self.res.url(&title.without_fragment());
                 if let Some(f) = &title.fragment {
@@ -1022,16 +1036,18 @@ impl<'s, 'c> Lowerer<'s, 'c> {
                     href.push_str(&escape_id(f));
                 }
                 attrs.push(("href".into(), href));
-                if info.redirect {
-                    attrs.push(("class".into(), "mw-redirect".into()));
+                attrs.extend(class(info.redirect.then_some("mw-redirect")));
+                // A redirect's link says where it goes.
+                match info.redirect_to.filter(|_| marks && info.redirect) {
+                    Some(to) => attrs.push(("title".into(), format!("{prefixed} \u{2192} {to}"))),
+                    None => attrs.push(("title".into(), prefixed)),
                 }
-                attrs.push(("title".into(), prefixed));
             } else {
                 attrs.push((
                     "href".into(),
                     self.res.missing_url(&title.without_fragment()),
                 ));
-                attrs.push(("class".into(), "new".into()));
+                attrs.extend(class(Some("new")));
                 let tip = self
                     .cfg
                     .messages()

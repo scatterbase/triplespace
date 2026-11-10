@@ -65,6 +65,9 @@ pub struct PageInfo {
     pub exists: bool,
     /// Whether it is a redirect: its links carry `mw-redirect`.
     pub redirect: bool,
+    /// Where a redirect goes, as a prefixed title, where the resolver knows: with
+    /// [`crate::ConfigSource::link_marks`] its links say so in their `title`.
+    pub redirect_to: Option<String>,
     /// The text a link without its own text shows instead of the title: an entity's
     /// label, as Wikibase renders it outside the entity namespaces.
     pub label: Option<String>,

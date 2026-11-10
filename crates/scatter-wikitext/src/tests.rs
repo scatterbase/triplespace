@@ -11,6 +11,10 @@ impl Resolver for Fixture {
         PageInfo {
             exists: !t.text.starts_with("Missing"),
             redirect: t.text.starts_with("Redirect"),
+            redirect_to: t
+                .text
+                .starts_with("Redirect")
+                .then(|| "Target page".to_string()),
             label: (t.namespace == 120).then(|| format!("label of {}", t.text)),
         }
     }
@@ -62,6 +66,51 @@ fn apostrophes() {
     assert_eq!(r("''unclosed"), "<p><i>unclosed</i></p>");
     assert_eq!(r("l'''amour'' x"), "<p>l'<i>amour</i> x</p>");
     assert_eq!(r("''''x''''"), "<p>'<b>x'</b></p>");
+}
+
+/// 19 §5.10: where the site asks for link marks, a second or later link to a page is
+/// `ts-repeat`, beside the class it has, and a redirect's link says where it goes.
+/// Without them the output is MediaWiki's ([`links`]).
+#[test]
+fn link_marks() {
+    let c = Config::new(ConfigSource {
+        link_marks: true,
+        ..ConfigSource::default()
+    });
+    let page = Title::new(4, "Test");
+    let html = render(
+        "[[A]] [[A|again]] [[A#Part]] [[B]] [[Missing]] [[Missing]] [[Redirect x]] [[Redirect x]]",
+        &c,
+        &Fixture,
+        &page,
+    )
+    .html;
+    assert!(
+        html.contains("<a href=\"/wiki/A\" title=\"A\">A</a>"),
+        "{html}"
+    );
+    assert!(
+        html.contains("<a href=\"/wiki/A\" class=\"ts-repeat\" title=\"A\">again</a>"),
+        "{html}"
+    );
+    assert!(
+        html.contains("<a href=\"/wiki/A#Part\" class=\"ts-repeat\""),
+        "{html}"
+    );
+    assert!(
+        html.contains("<a href=\"/wiki/B\" title=\"B\">B</a>"),
+        "{html}"
+    );
+    assert_eq!(html.matches("class=\"new\"").count(), 1, "{html}");
+    assert_eq!(html.matches("class=\"new ts-repeat\"").count(), 1, "{html}");
+    assert!(
+        html.contains("class=\"mw-redirect\" title=\"Redirect x \u{2192} Target page\""),
+        "{html}"
+    );
+    assert!(
+        html.contains("class=\"mw-redirect ts-repeat\" title=\"Redirect x \u{2192} Target page\""),
+        "{html}"
+    );
 }
 
 #[test]

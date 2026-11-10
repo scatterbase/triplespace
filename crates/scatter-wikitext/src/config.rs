@@ -125,6 +125,10 @@ pub struct ConfigSource {
     pub link_trail: String,
     /// Interface text.
     pub messages: Messages,
+    /// Whether internal links carry the marks MediaWiki's do not (19 §5.10): `ts-repeat`
+    /// on the second and later links to one target within a page, and a redirect's
+    /// target in its `title`. Off by default, so that the output is MediaWiki's.
+    pub link_marks: bool,
 }
 
 impl Default for ConfigSource {
@@ -252,6 +256,7 @@ impl Default for ConfigSource {
             redirect_words: vec!["REDIRECT".into()],
             link_trail: "abcdefghijklmnopqrstuvwxyz".into(),
             messages: Messages::default(),
+            link_marks: false,
         }
     }
 }
