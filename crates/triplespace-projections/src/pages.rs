@@ -283,7 +283,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for PageProjection {
     }
 
     /// The records in order; each run of consecutive revisions of one page as one
-    /// ([`apply_run`]; 0013 A94). Pages are not applied together, nor out of order: a
+    /// (`apply_run`; 0013 A94). Pages are not applied together, nor out of order: a
     /// page's record reaches other pages' rows (the redirects that name its title).
     fn apply_many<'a>(
         &'a self,

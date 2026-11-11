@@ -1164,7 +1164,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
     /// the job per block rather than one per record (0013 §9). A change set's row is made
     /// from the record alone, and a page revision's from the record, the log before it
     /// and the page's earlier rows here, so a block of those is applied a key at a time,
-    /// the keys together ([`crate::common::by_key`]; 0013 A93); any other block record
+    /// the keys together (`common::by_key`; 0013 A93); any other block record
     /// by record.
     fn apply_many<'a>(
         &'a self,

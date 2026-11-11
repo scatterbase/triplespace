@@ -385,8 +385,8 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for RevisionStateProjection {
     }
 
     /// A block's states are read in one statement, folded in memory and written in one
-    /// statement a table ([`apply_block`]; 0013 A95); a block that names a revision ID
-    /// twice is applied a key at a time ([`crate::common::by_key`]; A93).
+    /// statement a table (`apply_block`; 0013 A95); a block that names a revision ID
+    /// twice is applied a key at a time (`common::by_key`; A93).
     fn apply_many<'a>(
         &'a self,
         cx: &'a mut PgCx,

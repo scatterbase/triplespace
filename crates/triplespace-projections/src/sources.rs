@@ -311,7 +311,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for EntitySourceProjection {
 
     /// A block that removes no cursor is one multi-row upsert of the cursor each entity
     /// is left with, its last record's (0013 §9, A95); a block with a `tombstone` or an
-    /// upstream `redirect` is applied a key at a time ([`crate::common::by_key`]).
+    /// upstream `redirect` is applied a key at a time (`common::by_key`).
     #[allow(clippy::too_many_lines)]
     fn apply_many<'a>(
         &'a self,
