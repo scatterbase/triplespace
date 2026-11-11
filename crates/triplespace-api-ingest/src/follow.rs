@@ -441,8 +441,40 @@ impl<'a, C: GenericClient> ProviderFollower<'a, C> {
     }
 }
 
+/// Where a follower stands after a batch, as [`ChangeSource::save`] stores it.
+#[derive(Debug, Clone)]
+pub struct Saved {
+    time: u64,
+    cont: Option<serde_json::Value>,
+    seen: serde_json::Value,
+    retry: serde_json::Value,
+    late: u64,
+    stale: u64,
+}
+
+impl<C: GenericClient + Sync> ProviderFollower<'_, C> {
+    /// The position as it stands now.
+    fn saved(&self) -> Saved {
+        Saved {
+            time: self.poller.time,
+            cont: self.poller.cont.as_ref().map(|c| serde_json::json!(c)),
+            seen: serde_json::json!(self.poller.seen()),
+            retry: serde_json::json!(
+                self.retry
+                    .iter()
+                    .map(|(id, revid)| (id.as_str(), *revid))
+                    .collect::<Vec<_>>()
+            ),
+            late: self.late,
+            stale: self.stale,
+        }
+    }
+}
+
 impl<C: GenericClient + Sync> ChangeSource for ProviderFollower<'_, C> {
-    async fn next(&mut self) -> Result<ChangeBatch, IngestError> {
+    type Position = Saved;
+
+    async fn next(&mut self) -> Result<(ChangeBatch, Saved), IngestError> {
         let now = (self.now)();
         let upstream = |e: &dyn std::fmt::Display| IngestError::Store(format!("upstream: {e}"));
         let query = self.poller.query(now, true);
@@ -479,29 +511,23 @@ impl<C: GenericClient + Sync> ChangeSource for ProviderFollower<'_, C> {
         let (items, stale) = self.states(ids).await?;
         self.late += late;
         self.stale += stale;
-        Ok(ChangeBatch {
+        let batch = ChangeBatch {
             items,
             rows,
             late,
             stale,
             caught_up: self.at_head,
-        })
+        };
+        Ok((batch, self.saved()))
     }
 
-    async fn save(&mut self) -> Result<(), IngestError> {
+    async fn save(&mut self, at: Saved) -> Result<(), IngestError> {
         let now = (self.now)();
-        let time = i64::try_from(self.poller.time).unwrap_or(i64::MAX);
-        let cont = self.poller.cont.as_ref().map(|c| serde_json::json!(c));
-        let seen = serde_json::json!(self.poller.seen());
-        let retry = serde_json::json!(
-            self.retry
-                .iter()
-                .map(|(id, revid)| (id.as_str(), *revid))
-                .collect::<Vec<_>>()
-        );
-        let lag = i32::try_from(now.saturating_sub(self.poller.time)).unwrap_or(i32::MAX);
-        let late = i64::try_from(self.late).unwrap_or(i64::MAX);
-        let stale = i64::try_from(self.stale).unwrap_or(i64::MAX);
+        let time = i64::try_from(at.time).unwrap_or(i64::MAX);
+        let (cont, seen, retry) = (at.cont, at.seen, at.retry);
+        let lag = i32::try_from(now.saturating_sub(at.time)).unwrap_or(i32::MAX);
+        let late = i64::try_from(at.late).unwrap_or(i64::MAX);
+        let stale = i64::try_from(at.stale).unwrap_or(i64::MAX);
         self.client
             .execute(
                 "INSERT INTO ops.repo_cursor (tenant, kind, name, rc_time, rc_continue, rc_seen,

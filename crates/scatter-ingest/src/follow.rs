@@ -11,7 +11,9 @@
 //! One run is one job, with the job's counts summed over its batches, so that
 //! `follow --once` and a server's loop are the same code with a different stop.
 
-use std::future::Future;
+use std::future::{Future, poll_fn};
+use std::pin::pin;
+use std::task::Poll;
 
 use scatter_projection::Pipeline;
 use scatter_providers::Registry;
@@ -40,14 +42,22 @@ pub struct ChangeBatch {
 }
 
 /// Where changes come from, and where the position goes (0092 §1, §3).
+///
+/// A batch carries the position it leaves, so that the loop can read the next batch while
+/// this one is written and still save each position only after its own batch.
 pub trait ChangeSource {
-    /// The next batch. An empty batch with `caught_up` set means "nothing new".
-    fn next(&mut self) -> impl Future<Output = Result<ChangeBatch, IngestError>> + Send;
+    /// Where the source stands after a batch, as `save` stores it.
+    type Position: Send;
 
-    /// Saves the position the last batch left: called after that batch's records are
-    /// committed, never before, so that a crash between the two replays rather than
-    /// skips (0092 §3).
-    fn save(&mut self) -> impl Future<Output = Result<(), IngestError>> + Send;
+    /// The next batch, with the position it leaves. An empty batch with `caught_up` set
+    /// means "nothing new".
+    fn next(
+        &mut self,
+    ) -> impl Future<Output = Result<(ChangeBatch, Self::Position), IngestError>> + Send;
+
+    /// Saves a position a batch left: called after that batch's records are committed,
+    /// never before, so that a crash between the two replays rather than skips (0092 §3).
+    fn save(&mut self, at: Self::Position) -> impl Future<Output = Result<(), IngestError>> + Send;
 }
 
 /// What a run did.
@@ -72,6 +82,9 @@ pub struct FollowOutcome {
 ///
 /// Each batch is a complete sync in `upsert` mode (0092 §2), so its records, counts and
 /// rejects are the sync's; the position is saved once the batch's job has finished.
+/// While a batch is written, the next one is read: the wait on the upstream overlaps the
+/// writing, batches are still written one at a time and in order, and each position is
+/// saved after its own batch's job, so a crash replays at most the batch read ahead.
 /// `tenant` is `""` for a registry provider's mirror and the tenant for its entity source
 /// `slug` (0078 §4), with `registry` the tenant's table of names.
 #[allow(clippy::too_many_arguments)]
@@ -88,13 +101,19 @@ pub async fn run_follow<S: IngestStore, C: ChangeSource>(
     once: bool,
 ) -> Result<FollowOutcome, IngestError> {
     let mut out = FollowOutcome::default();
+    let mut ahead = source.next().await?;
     loop {
-        let b = source.next().await?;
+        let (b, at) = ahead;
         out.batches += 1;
         out.rows += b.rows;
         out.late += b.late;
         out.stale += b.stale;
-        if !b.items.is_empty() {
+        let last = b.caught_up && once;
+        // Boxed: with the read ahead beside it, the pair would make a large future.
+        let write = Box::pin(async {
+            if b.items.is_empty() {
+                return Ok(None);
+            }
             let version = format!("follow-{}", now());
             let mut header = if tenant.is_empty() {
                 JobHeader::mirror(slug, &version, Mode::Upsert)
@@ -104,7 +123,7 @@ pub async fn run_follow<S: IngestStore, C: ChangeSource>(
             header
                 .params
                 .insert("follow".into(), serde_json::Value::Bool(true));
-            let o = run_sync_in(
+            run_sync_in(
                 store,
                 pipeline,
                 tenant,
@@ -116,7 +135,16 @@ pub async fn run_follow<S: IngestStore, C: ChangeSource>(
                 now(),
                 batch,
             )
-            .await?;
+            .await
+            .map(Some)
+        });
+        let (written, next) = if last {
+            (write.await, None)
+        } else {
+            let (written, next) = both(write, source.next()).await;
+            (written, Some(next))
+        };
+        if let Some(o) = written? {
             out.job_id = o.job_id;
             out.counts.created += o.counts.created;
             out.counts.merged += o.counts.merged;
@@ -126,9 +154,37 @@ pub async fn run_follow<S: IngestStore, C: ChangeSource>(
             out.counts.cleared += o.counts.cleared;
             out.counts.other += o.counts.other;
         }
-        source.save().await?;
-        if b.caught_up && once {
-            return Ok(out);
+        source.save(at).await?;
+        match next {
+            None => return Ok(out),
+            Some(next) => ahead = next?,
         }
     }
+}
+
+/// Runs two futures together on the calling task and returns both outputs, with `std`
+/// alone rather than a new dependency (22 §1.2 rule 7).
+async fn both<A: Future, B: Future>(a: A, b: B) -> (A::Output, B::Output) {
+    let mut a = pin!(a);
+    let mut b = pin!(b);
+    let mut ra = None;
+    let mut rb = None;
+    poll_fn(|cx| {
+        if ra.is_none()
+            && let Poll::Ready(v) = a.as_mut().poll(cx)
+        {
+            ra = Some(v);
+        }
+        if rb.is_none()
+            && let Poll::Ready(v) = b.as_mut().poll(cx)
+        {
+            rb = Some(v);
+        }
+        if ra.is_some() && rb.is_some() {
+            Poll::Ready((ra.take().unwrap(), rb.take().unwrap()))
+        } else {
+            Poll::Pending
+        }
+    })
+    .await
 }
