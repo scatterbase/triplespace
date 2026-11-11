@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-09 (A85)
+- **Updated:** 2026-11-11 (A86)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -117,7 +117,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 7. Projections, synchrony and read-your-writes
 
-*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28, A33, A44, A53, A63, A75, A76, A77.*
+*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28, A33, A44, A53, A63, A75, A76, A77, A86.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §5, §6.1, §6.2, §6.3.*
 
@@ -1108,3 +1108,10 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.8, as it sto
 Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.8, as it stood):
 
 > 5. Checkpoints are signed and the partition goes live.
+
+### A86. A snapshot sweep writes its operations in blocks
+
+- **Date:** 2026-11-11
+- **Source:** Direct: Claude, while building the snapshot sweep's block write, 2026-11-11; unconfirmed (James asked for the sweep to be moved to the block path)
+- **Change:** extends §7
+- **Summary:** The snapshot sweep's operations (the tombstones and clearing `put`s for what the job did not see) are written in blocks, by the block write of A76 (`write_block`: one lookup of page IDs, `append_many`, `apply_inline_many`), rather than one at a time. The calls made: (1) the operations are taken in the order the sweep lists them, and each run of up to `batch` consecutive operations a block can take (a subject that is its own key, named once) is one block; an operation no block takes (a keyed entity's clearing `put`, whose key is its surrogate) is written by itself in its place, as is a run of one, so the records, offsets, page IDs and revision IDs are those of writing one at a time (rather than writing the block-shaped operations first, which would reorder the records). (2) The sweep stays in the one unit of work that finishes the job, as before: it is all written or none of it, and `batch` sizes its blocks, not its commits. (3) Deciding the sweep is unchanged: a clearing `put` of a `deletion = clear` provider still reads its subject's cursor and previous record one subject at a time; only the writing is in blocks. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §6.

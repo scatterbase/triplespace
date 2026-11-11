@@ -714,6 +714,106 @@ async fn adoption_batch_sync_and_edit_end_to_end() {
 }
 
 /// One revision of a history adoption (0035 A12).
+/// A snapshot sweep writes its operations in blocks (0013 A86), and over Postgres, where
+/// a block is a binary `COPY` and its projections run over the block, it writes what one
+/// operation at a time writes (`batch` 1): the same keys at the same offsets with the same
+/// revision IDs, page IDs and body sizes (a body's hashes are salted, so its leaf differs
+/// from one database to the next), and the same entity rows. The keyed Domain's clearing `put`, which no
+/// block takes, is written by itself between the tombstones' blocks.
+#[tokio::test]
+async fn a_sweep_in_blocks_writes_what_one_operation_at_a_time_writes() {
+    if skipped() {
+        return;
+    }
+    let mut runs = Vec::new();
+    for batch in [1usize, 3, 100] {
+        let (client, backend) = fresh().await;
+        let client = seed(client).await;
+        let store = PgIngest::new(backend);
+        let p = pipeline();
+        let registry = Registry::default_registry();
+        let log_store = PgLog::new(client);
+        p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
+            .await
+            .unwrap();
+        let client = log_store.into_inner();
+        let state = |n: u64| SyncItem::State {
+            entity: Box::new(entity(item(&format!("XDQ{n}"), "An item", &json!({})))),
+            upstream: Upstream::revision(10 + n, None),
+            upstream_id: None,
+            upstream_aliases: Vec::new(),
+        };
+        let domain = entity(json!({"type": "domain", "id": "domain:example.org",
+            "labels": {"en": {"language": "en", "value": "example.org"}}}));
+        let mut items: Vec<SyncItem> = (1..=6).map(state).collect();
+        items.push(SyncItem::State {
+            entity: Box::new(domain),
+            upstream: Upstream::revision(30, None),
+            upstream_id: Some("Q9".into()),
+            upstream_aliases: Vec::new(),
+        });
+        run_sync(
+            &store,
+            &p,
+            JobHeader::mirror("internetdomains", "2026-10-01", Mode::Upsert),
+            Attestation::by("instance:scatter"),
+            items,
+            100,
+            registry,
+            NOW,
+            100,
+        )
+        .await
+        .unwrap();
+        // The snapshot sees XDQ1 alone: five tombstones and the Domain's clearing.
+        let out = run_sync(
+            &store,
+            &p,
+            JobHeader::mirror("internetdomains", "2026-10-02", Mode::Snapshot),
+            Attestation::by("instance:scatter"),
+            vec![state(1)],
+            100,
+            registry,
+            NOW + 10,
+            batch,
+        )
+        .await
+        .unwrap();
+        assert_eq!(out.swept, 6, "batch {batch}");
+        assert_eq!(
+            (out.counts.tombstoned, out.counts.cleared),
+            (5, 1),
+            "batch {batch}"
+        );
+        let records = rows(
+            &client,
+            "SELECT lpad(\"offset\"::text, 6, '0') || '|' || key || '|' || coalesce(revid::text, '-')
+                    || '|' || coalesce(page_id::text, '-') || '|' || octet_length(body)::text
+             FROM log.record WHERE partition = 12306",
+        )
+        .await;
+        let entities = rows(
+            &client,
+            "SELECT id || '|' || resolved_kind || '|' || page_id::text FROM view.entity WHERE tenant = ''",
+        )
+        .await;
+        runs.push((batch, records, entities));
+    }
+    let (_, records_one, entities_one) = &runs[0];
+    assert_eq!(
+        records_one.len(),
+        13,
+        "seven puts, five tombstones, one clearing"
+    );
+    for (batch, records, entities) in &runs[1..] {
+        assert_eq!(records, records_one, "batch {batch}: the same records");
+        assert_eq!(
+            entities, entities_one,
+            "batch {batch}: the same entity rows"
+        );
+    }
+}
+
 fn revision(id: &str, revid: u64, parent: Option<u64>, time: &str, author: Author) -> Adopted {
     Adopted {
         id: EntityId::parse(id).unwrap(),

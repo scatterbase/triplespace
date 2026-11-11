@@ -453,6 +453,21 @@ fn draft_of<S: IngestStore>(
     Ok(draft)
 }
 
+/// Whether an entity is its own header key, as a block's subjects are ([`write_block`]):
+/// any entity but a keyed one, whose key is its surrogate (0009 §7); a source's entity
+/// is in the colon shape but is a foreign entity (0078 §2), and its own key.
+fn is_own_key(id: &EntityId, registry: &Registry) -> bool {
+    id.form() != IdForm::Keyed || registry.parse_foreign_id(id.as_str()).is_ok()
+}
+
+/// Whether an operation can be one of a block's ([`write_block`]): a record shape whose
+/// subject is an entity that is its own key.
+#[must_use]
+pub fn is_block_operation(op: &Operation, registry: &Registry) -> bool {
+    op.is_record_shape()
+        && matches!(op.subject(), Some(Subject::Entity(id)) if is_own_key(&id, registry))
+}
+
 /// Writes a sync unit's operations to a mirror or source graph as one block (0013 A76):
 /// what [`write_to`] writes for each, in order, with the lookups made once for the block,
 /// the records appended together ([`IngestStore::append_many`]) and the synchronous
@@ -497,9 +512,7 @@ pub async fn write_block<S: IngestStore>(
             )));
         }
         match op.subject() {
-            Some(Subject::Entity(id))
-                if id.form() != IdForm::Keyed || registry.parse_foreign_id(id.as_str()).is_ok() =>
-            {
+            Some(Subject::Entity(id)) if is_own_key(&id, registry) => {
                 keys.push(id.as_str().to_string());
                 subjects.push(Subject::Entity(id));
             }

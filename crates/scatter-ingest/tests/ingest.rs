@@ -1717,6 +1717,78 @@ fn a_sync_in_blocks_writes_what_one_item_at_a_time_writes() {
     });
 }
 
+/// A snapshot sweep writes its operations in blocks (0013 A86) and what it writes is what
+/// writing them one at a time writes (`batch` 1): the same records, field by field, the
+/// same counts and the same job record. The tombstones go in blocks of `batch`; the keyed
+/// entity's clearing `put`, which no block takes, is written by itself, in its place.
+#[test]
+fn a_sweep_in_blocks_writes_what_one_operation_at_a_time_writes() {
+    pollster::block_on(async {
+        let run = |batch: usize| async move {
+            let (store, pipeline) = setup();
+            let actor = Attestation::by("instance:scatter");
+            let mut domain = entity(json!({"type": "domain", "id": "domain:example.org",
+                "labels": {"en": {"language": "en", "value": "example.org"}}}));
+            domain.id = EntityId::parse("domain:example.org").unwrap();
+            let mut items: Vec<SyncItem> = (1..=6)
+                .map(|n| xd_state(&format!("XDQ{n}"), "An item", 10 + n))
+                .collect();
+            items.push(SyncItem::State {
+                entity: Box::new(domain),
+                upstream: Upstream::revision(30, None),
+                upstream_id: Some("Q9".into()),
+                upstream_aliases: Vec::new(),
+            });
+            run_sync(
+                &store,
+                &pipeline,
+                sync_header(Mode::Upsert),
+                actor.clone(),
+                items,
+                100,
+                registry(),
+                NOW,
+                batch,
+            )
+            .await
+            .unwrap();
+            // The snapshot sees XDQ1 alone: five tombstones and the domain's clearing.
+            let outcome = run_sync(
+                &store,
+                &pipeline,
+                sync_header(Mode::Snapshot),
+                actor,
+                vec![xd_state("XDQ1", "An item", 11)],
+                100,
+                registry(),
+                NOW + 10,
+                batch,
+            )
+            .await
+            .unwrap();
+            let records: Vec<_> = store.records(MIRROR_XD).iter().map(comparable).collect();
+            let jobs: Vec<_> = store
+                .records(INSTANCE_LOG)
+                .iter()
+                .filter(|r| r.header().payload_type == "scatter:v0/logevent")
+                .map(params_of)
+                .collect();
+            (outcome.swept, outcome.counts, records, jobs)
+        };
+        let (swept_one, counts_one, records_one, jobs_one) = run(1).await;
+        assert_eq!(swept_one, 6);
+        assert_eq!((counts_one.tombstoned, counts_one.cleared), (5, 1));
+        // Blocks of three and two, and one block of five.
+        for batch in [3, 100] {
+            let (swept, counts, records, jobs) = run(batch).await;
+            assert_eq!(swept, swept_one, "batch {batch}: the same number swept");
+            assert_eq!(counts, counts_one, "batch {batch}: the same counts");
+            assert_eq!(records, records_one, "batch {batch}: the same records");
+            assert_eq!(jobs, jobs_one, "batch {batch}: the same job records");
+        }
+    });
+}
+
 /// The ordinary write path hands the projections each change-set record's operation with
 /// the body it was encoded into (`IngestStore::encoded`; 0013 A74): the record appended
 /// carries those content bytes, and decoding it gives that operation, so what a store
