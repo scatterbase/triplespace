@@ -110,6 +110,12 @@ fn pipeline() -> Pipeline<PgIngest> {
 
 /// Genesis, the tenant's registry entry, the partitions and the sequences.
 async fn seed(client: Client) -> Client {
+    seed_with(client, History::Full).await
+}
+
+/// [`seed`], with the mirror partition's history policy: `latest` for a mirror that
+/// compaction thins (0013 §3).
+async fn seed_with(client: Client, mirror: History) -> Client {
     let key = SigningKey::from_bytes(&[29; 32]);
     let mut store = PgLog::new(client);
     Genesis {
@@ -165,7 +171,11 @@ async fn seed(client: Client) -> Client {
                 tenant: tenant.map(str::to_owned),
                 name: name.into(),
                 graph_iri: format!("https://scatter.example/graph/{name}"),
-                history: History::Full,
+                history: if partition == MIRROR {
+                    mirror
+                } else {
+                    History::Full
+                },
                 integrity: Integrity::Logged,
                 export: Export::Public,
                 hash: "sha-256".into(),
@@ -1661,6 +1671,138 @@ async fn a_mixed_unit_leaves_what_one_item_at_a_time_leaves() {
     assert!(outcomes_one[2].1 > 0, "the snapshot sweeps");
     for (batch, outcomes, records, views) in &runs[1..] {
         assert_eq!(outcomes, outcomes_one, "batch {batch}: the same counts");
+        assert_eq!(records, records_one, "batch {batch}: the same records");
+        for (table, rows_one) in views_one {
+            assert_eq!(
+                &views[table], rows_one,
+                "batch {batch}: the same rows in view.{table}"
+            );
+        }
+    }
+}
+
+/// A sync over a mirror that compaction has thinned (0013 A96) takes its units in blocks
+/// and single items (A76, A92) and leaves what it leaves one item to a unit (`batch` 1):
+/// the same records, counts and rows in every `view` table. A block reads the record at
+/// each entity's cursor and the highest revision its key has claimed, both of which
+/// compaction keeps; here the mirror is compacted whole after every pass from the second
+/// on, and the passes after change states, delete an entity, and bring entities back at
+/// revisions their keys claimed before they were deleted.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn a_sync_after_compaction_leaves_what_one_item_at_a_time_leaves() {
+    if skipped() {
+        return;
+    }
+    let state = |id: &str, label: &str, revid: u64| SyncItem::State {
+        entity: Box::new(entity(item(id, label, &json!({})))),
+        upstream: Upstream::revision(revid, Some("2026-10-01T00:00:00Z")),
+        upstream_id: None,
+        upstream_aliases: Vec::new(),
+    };
+    let mut passes = mixed_passes();
+    // XDQ4 was deleted in the second pass and XDQ3 swept by the third: both come back at
+    // revisions their keys have claimed.
+    passes.push((
+        Mode::Upsert,
+        vec![
+            state("XDQ1", "One, after compaction", 60),
+            state("XDQ4", "Four, back", 14),
+            state("XDQ3", "Three, back", 33),
+            state("XDQ10", "Ten, changed", 50),
+            state("XDQ30", "Thirty", 61),
+            SyncItem::Deleted {
+                id: EntityId::parse("XDQ12").unwrap(),
+                upstream: Upstream::revision(62, None),
+            },
+            state("XDQ31", "Thirty-one", 63),
+            state("XDQ7", "Seven, once more", 64),
+            state("XDQ32", "Thirty-two", 65),
+        ],
+    ));
+    passes.push((
+        Mode::Upsert,
+        vec![
+            state("XDQ12", "Twelve, back", 41),
+            state("XDQ1", "One, again", 66),
+            state("XDQ30", "Thirty", 61),
+            state("XDQ31", "Thirty-one, changed", 67),
+            state("XDQ33", "Thirty-three", 68),
+            state("XDQ34", "Thirty-four", 69),
+        ],
+    ));
+    let mut runs = Vec::new();
+    for batch in [1usize, 6, 100] {
+        let (client, backend) = fresh().await;
+        let client = seed_with(client, History::Latest).await;
+        let store = PgIngest::new(backend);
+        let p = pipeline();
+        let registry = Registry::default_registry();
+        let log_store = PgLog::new(client);
+        p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
+            .await
+            .unwrap();
+        let client = log_store.into_inner();
+        let mut outcomes = Vec::new();
+        let mut removed = Vec::new();
+        for (i, (mode, items)) in passes.clone().into_iter().enumerate() {
+            let out = run_sync(
+                &store,
+                &p,
+                JobHeader::mirror("internetdomains", &format!("2026-10-0{}", i + 1), mode),
+                Attestation::by("instance:scatter"),
+                items,
+                100,
+                registry,
+                NOW + 10 * i as u64,
+                batch,
+            )
+            .await
+            .unwrap();
+            outcomes.push((out.counts, out.swept));
+            if i >= 1 {
+                let (_, size) = scatter_ingest::compact::mirror_of(&store, "internetdomains")
+                    .await
+                    .unwrap()
+                    .expect("the mirror exists");
+                removed.push(
+                    scatter_ingest::compact::compact(&store, MIRROR, 0, size, 10_000, |_, _| {})
+                        .await
+                        .unwrap(),
+                );
+            }
+        }
+        let records = rows(
+            &client,
+            "SELECT lpad(\"offset\"::text, 6, '0') || '|' || coalesce(key, '-')
+                    || '|' || coalesce(revid::text, '-') || '|' || coalesce(page_id::text, '-')
+                    || '|' || octet_length(body)::text
+             FROM log.record WHERE partition = 12306",
+        )
+        .await;
+        runs.push((batch, outcomes, removed, records, views(&client).await));
+    }
+    let (_, outcomes_one, removed_one, records_one, views_one) = &runs[0];
+    assert!(
+        removed_one.iter().all(|n| *n > 0),
+        "every compaction removed records: {removed_one:?}"
+    );
+    // No record left claims a revision another claims (0092 §2).
+    let mut claimed: Vec<&str> = records_one
+        .iter()
+        .filter_map(|r| r.split('|').nth(2))
+        .filter(|revid| *revid != "-")
+        .collect();
+    let before = claimed.len();
+    claimed.sort_unstable();
+    claimed.dedup();
+    assert_eq!(claimed.len(), before, "a revision is claimed once");
+    for (batch, outcomes, removed, records, views) in &runs[1..] {
+        assert_eq!(outcomes, outcomes_one, "batch {batch}: the same counts");
+        assert_eq!(
+            removed, removed_one,
+            "batch {batch}: the same records compacted"
+        );
         assert_eq!(records, records_one, "batch {batch}: the same records");
         for (table, rows_one) in views_one {
             assert_eq!(
