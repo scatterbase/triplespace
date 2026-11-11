@@ -2129,6 +2129,142 @@ fn a_block_writes_what_one_record_at_a_time_writes() {
     });
 }
 
+/// The passes of the mixed-unit test over a key-mapped provider: items a block takes
+/// among items it does not (states mapped onto keys, a state whose upstream item owned a
+/// key, a keyed deletion, a subject named twice), a mapping that moves, and a snapshot.
+fn mixed_passes() -> Vec<(Mode, Vec<SyncItem>)> {
+    let xd = |id: &str| EntityId::parse(id).unwrap();
+    let deleted = |id: &str, revid: u64| SyncItem::Deleted {
+        id: xd(id),
+        upstream: Upstream::revision(revid, None),
+    };
+    let redirect = |from: &str, to: &str, revid: u64| SyncItem::Redirected {
+        from: xd(from),
+        to: xd(to),
+        upstream: Upstream::revision(revid, Some("2026-10-01T00:00:00Z")),
+    };
+    let rejected = |id: &str| SyncItem::Rejected {
+        upstream_id: id.into(),
+        reason: "not a valid domain key".into(),
+    };
+    vec![
+        (
+            Mode::Upsert,
+            vec![
+                xd_state("XDQ1", "One", 10),
+                xd_state("XDQ2", "Two", 11),
+                domain_state("a.example", "Q9", &[], "A", 12),
+                xd_state("XDQ3", "Three", 13),
+                xd_state("XDQ4", "Four", 14),
+                xd_state("XDQ5", "Five", 15),
+                xd_state("XDQ6", "Six", 16),
+                domain_state("d.example", "Q20", &[], "D", 17),
+                xd_state("XDQ7", "Seven", 18),
+                redirect("XDQ8", "XDQ7", 19),
+                deleted("XDQ99", 20),
+                rejected("Q30"),
+            ],
+        ),
+        (
+            Mode::Upsert,
+            vec![
+                xd_state("XDQ1", "One, changed", 30),
+                xd_state("XDQ2", "Two", 11),
+                // Q9's key moves; Q5 becomes mapped, with Q6 merged into it: XDQ5 and
+                // XDQ6, which a block wrote, are retired.
+                domain_state("b.example", "Q9", &[], "B", 31),
+                domain_state("c.example", "Q5", &["Q6"], "C", 32),
+                xd_state("XDQ3", "Three, changed", 33),
+                deleted("XDQ4", 34),
+                // Q20 no longer owns a key: it comes as the foreign item it is.
+                xd_state("XDQ20", "Twenty", 35),
+                xd_state("XDQ7", "Seven, changed", 36),
+                rejected("Q31"),
+                // The same subject again in the unit.
+                xd_state("XDQ7", "Seven, changed again", 37),
+                redirect("XDQ8", "XDQ7", 19),
+                xd_state("XDQ10", "Ten", 38),
+                xd_state("XDQ11", "Eleven", 39),
+                SyncItem::Deleted {
+                    id: EntityId::parse("domain:d.example").unwrap(),
+                    upstream: Upstream::revision(40, None),
+                },
+                xd_state("XDQ12", "Twelve", 41),
+            ],
+        ),
+        (
+            Mode::Snapshot,
+            vec![
+                xd_state("XDQ1", "One, changed", 30),
+                domain_state("b.example", "Q9", &[], "B", 31),
+                xd_state("XDQ10", "Ten, changed", 50),
+                xd_state("XDQ12", "Twelve", 41),
+            ],
+        ),
+    ]
+}
+
+/// A unit's items that a block takes are written in blocks where they come among items
+/// it does not (0013 A92), for a provider that maps keys too, and what the sync writes
+/// is what it writes one item to a unit (`batch` 1, every item by itself): the same
+/// records, field by field, the same owners of keys, counts and job records.
+#[test]
+fn a_mixed_unit_writes_what_one_item_at_a_time_writes() {
+    pollster::block_on(async {
+        let run = |batch: usize| async move {
+            let (store, pipeline) = setup();
+            let actor = Attestation::by("instance:scatter");
+            let mut outcomes = Vec::new();
+            for (i, (mode, items)) in mixed_passes().into_iter().enumerate() {
+                let outcome = run_sync(
+                    &store,
+                    &pipeline,
+                    sync_header(mode),
+                    actor.clone(),
+                    items,
+                    100,
+                    registry(),
+                    NOW + 10 * i as u64,
+                    batch,
+                )
+                .await
+                .unwrap();
+                outcomes.push((outcome.counts, outcome.swept));
+            }
+            let records: Vec<_> = store.records(MIRROR_XD).iter().map(comparable).collect();
+            let jobs: Vec<_> = store
+                .records(INSTANCE_LOG)
+                .iter()
+                .filter(|r| r.header().payload_type == "scatter:v0/logevent")
+                .map(params_of)
+                .collect();
+            (outcomes, records, jobs, owners(&store))
+        };
+        let one = run(1).await;
+        let (counts, swept) = &one.0[1];
+        assert_eq!(
+            (
+                counts.created,
+                counts.merged,
+                counts.cleared,
+                counts.tombstoned
+            ),
+            (6, 4, 2, 3),
+            "the second pass: b, c, XDQ20, XDQ10, XDQ11 and XDQ12 created; XDQ1, XDQ3 and \
+             XDQ7 twice merged; a.example and d.example cleared; XDQ5, XDQ6 and XDQ4 tombstoned"
+        );
+        assert_eq!(*swept, 0);
+        assert!(one.0[2].1 > 0, "the snapshot sweeps");
+        for batch in [3, 6, 100] {
+            let blocks = run(batch).await;
+            assert_eq!(blocks.0, one.0, "batch {batch}: the same counts");
+            assert_eq!(blocks.1, one.1, "batch {batch}: the same records");
+            assert_eq!(blocks.2, one.2, "batch {batch}: the same job records");
+            assert_eq!(blocks.3, one.3, "batch {batch}: the same owners of keys");
+        }
+    });
+}
+
 /// The ordinary write path hands the projections each change-set record's operation with
 /// the body it was encoded into (`IngestStore::encoded`; 0013 A74): the record appended
 /// carries those content bytes, and decoding it gives that operation, so what a store

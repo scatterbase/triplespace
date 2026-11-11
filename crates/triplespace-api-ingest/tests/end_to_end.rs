@@ -1395,6 +1395,164 @@ async fn an_import_writes_each_page_as_a_block() {
     );
 }
 
+/// The passes of the mixed-unit test over a key-mapped provider: items a block takes
+/// among items it does not (states mapped onto keys, a state whose upstream item owned a
+/// key, a keyed deletion, a subject named twice), a mapping that moves, and a snapshot.
+fn mixed_passes() -> Vec<(Mode, Vec<SyncItem>)> {
+    let xd = |id: &str| EntityId::parse(id).unwrap();
+    let state = |id: &str, label: &str, revid: u64| SyncItem::State {
+        entity: Box::new(entity(item(id, label, &json!({})))),
+        upstream: Upstream::revision(revid, Some("2026-10-01T00:00:00Z")),
+        upstream_id: None,
+        upstream_aliases: Vec::new(),
+    };
+    let domain = |key: &str, owner: &str, aliases: &[&str], label: &str, revid: u64| {
+        let mut d = entity(json!({"type": "domain", "id": format!("domain:{key}"),
+            "labels": {"en": {"language": "en", "value": label}}}));
+        d.id = EntityId::parse(&format!("domain:{key}")).unwrap();
+        SyncItem::State {
+            entity: Box::new(d),
+            upstream: Upstream::revision(revid, Some("2026-10-01T00:00:00Z")),
+            upstream_id: Some(owner.into()),
+            upstream_aliases: aliases.iter().map(|a| (*a).to_string()).collect(),
+        }
+    };
+    let deleted = |id: &str, revid: u64| SyncItem::Deleted {
+        id: xd(id),
+        upstream: Upstream::revision(revid, None),
+    };
+    let redirect = |from: &str, to: &str, revid: u64| SyncItem::Redirected {
+        from: xd(from),
+        to: xd(to),
+        upstream: Upstream::revision(revid, Some("2026-10-01T00:00:00Z")),
+    };
+    let rejected = |id: &str| SyncItem::Rejected {
+        upstream_id: id.into(),
+        reason: "not a valid domain key".into(),
+    };
+    vec![
+        (
+            Mode::Upsert,
+            vec![
+                state("XDQ1", "One", 10),
+                state("XDQ2", "Two", 11),
+                domain("a.example", "Q9", &[], "A", 12),
+                state("XDQ3", "Three", 13),
+                state("XDQ4", "Four", 14),
+                state("XDQ5", "Five", 15),
+                state("XDQ6", "Six", 16),
+                domain("d.example", "Q20", &[], "D", 17),
+                state("XDQ7", "Seven", 18),
+                redirect("XDQ8", "XDQ7", 19),
+                deleted("XDQ99", 20),
+                rejected("Q30"),
+            ],
+        ),
+        (
+            Mode::Upsert,
+            vec![
+                state("XDQ1", "One, changed", 30),
+                state("XDQ2", "Two", 11),
+                domain("b.example", "Q9", &[], "B", 31),
+                domain("c.example", "Q5", &["Q6"], "C", 32),
+                state("XDQ3", "Three, changed", 33),
+                deleted("XDQ4", 34),
+                state("XDQ20", "Twenty", 35),
+                state("XDQ7", "Seven, changed", 36),
+                rejected("Q31"),
+                state("XDQ7", "Seven, changed again", 37),
+                redirect("XDQ8", "XDQ7", 19),
+                state("XDQ10", "Ten", 38),
+                state("XDQ11", "Eleven", 39),
+                deleted("domain:d.example", 40),
+                state("XDQ12", "Twelve", 41),
+            ],
+        ),
+        (
+            Mode::Snapshot,
+            vec![
+                state("XDQ1", "One, changed", 30),
+                domain("b.example", "Q9", &[], "B", 31),
+                state("XDQ10", "Ten, changed", 50),
+                state("XDQ12", "Twelve", 41),
+            ],
+        ),
+    ]
+}
+
+/// A unit's items that a block takes are written in blocks where they come among items
+/// it does not (0013 A92), for a provider that maps keys too, and over Postgres, with the
+/// real projections, the sync leaves what it leaves one item to a unit (`batch` 1, every
+/// item by itself): the same records, counts and rows in every `view` table.
+#[tokio::test]
+async fn a_mixed_unit_leaves_what_one_item_at_a_time_leaves() {
+    if skipped() {
+        return;
+    }
+    let mut runs = Vec::new();
+    for batch in [1usize, 6, 100] {
+        let (client, backend) = fresh().await;
+        let client = seed(client).await;
+        let store = PgIngest::new(backend);
+        let p = pipeline();
+        let registry = Registry::default_registry();
+        let log_store = PgLog::new(client);
+        p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
+            .await
+            .unwrap();
+        let client = log_store.into_inner();
+        let mut outcomes = Vec::new();
+        for (i, (mode, items)) in mixed_passes().into_iter().enumerate() {
+            let out = run_sync(
+                &store,
+                &p,
+                JobHeader::mirror("internetdomains", &format!("2026-10-0{}", i + 1), mode),
+                Attestation::by("instance:scatter"),
+                items,
+                100,
+                registry,
+                NOW + 10 * i as u64,
+                batch,
+            )
+            .await
+            .unwrap();
+            outcomes.push((out.counts, out.swept));
+        }
+        let records = rows(
+            &client,
+            "SELECT partition::text || '|' || lpad(\"offset\"::text, 6, '0') || '|' || coalesce(key, '-')
+                    || '|' || coalesce(revid::text, '-') || '|' || coalesce(page_id::text, '-')
+                    || '|' || octet_length(body)::text
+             FROM log.record WHERE partition IN (12305, 12306)",
+        )
+        .await;
+        runs.push((batch, outcomes, records, views(&client).await));
+    }
+    let (_, outcomes_one, records_one, views_one) = &runs[0];
+    let second = &outcomes_one[1].0;
+    assert_eq!(
+        (
+            second.created,
+            second.merged,
+            second.cleared,
+            second.tombstoned
+        ),
+        (6, 4, 2, 3),
+        "the second pass, as in memory"
+    );
+    assert!(outcomes_one[2].1 > 0, "the snapshot sweeps");
+    for (batch, outcomes, records, views) in &runs[1..] {
+        assert_eq!(outcomes, outcomes_one, "batch {batch}: the same counts");
+        assert_eq!(records, records_one, "batch {batch}: the same records");
+        for (table, rows_one) in views_one {
+            assert_eq!(
+                &views[table], rows_one,
+                "batch {batch}: the same rows in view.{table}"
+            );
+        }
+    }
+}
+
 /// One revision of an adopted wikitext page: its `create`, or an `edit` after it.
 fn page_revision(
     page_id: u64,
