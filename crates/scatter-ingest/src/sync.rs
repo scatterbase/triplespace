@@ -226,16 +226,26 @@ fn put_of(
     }
 }
 
-/// Whether a unit of items is written as a block ([`BlockUnit`]; 0013 A76): every subject
-/// its own key and named once, no state mapped from another upstream ID, and no deletion
-/// that clears. A unit of one item gains nothing from it. The caller also requires the
-/// provider to own no keys, so that no mapping moves.
-fn is_block_unit(unit: &[SyncItem], provider: &Provider) -> bool {
-    if unit.len() < 2 {
-        return false;
-    }
-    let mut subjects = BTreeSet::new();
-    unit.iter().all(|item| match item {
+/// A stretch of a unit's items, as the job takes them (0013 A76, A92).
+enum Segment {
+    /// Consecutive items read, decided and written as a block ([`BlockUnit`]).
+    Block(Vec<SyncItem>),
+    /// An item taken by itself, item by item.
+    Single(SyncItem),
+}
+
+/// Whether an item can be one of a block's ([`BlockUnit`]; 0013 A76, A92): its subject
+/// is its own key, and deciding it reads and writes nothing but that subject's records.
+/// So not a state mapped from another upstream ID, nor one whose upstream item owned a
+/// key before the job (`owners_before`), since either moves a mapping; not a keyed
+/// subject, whose key is its surrogate; and not a deletion that clears.
+fn in_block(
+    item: &SyncItem,
+    provider: &Provider,
+    owners_before: &BTreeMap<String, EntityId>,
+    upstream_of: &dyn Fn(&EntityId) -> Option<String>,
+) -> bool {
+    match item {
         SyncItem::State {
             entity,
             upstream_id,
@@ -243,20 +253,68 @@ fn is_block_unit(unit: &[SyncItem], provider: &Provider) -> bool {
         } => {
             upstream_id.is_none()
                 && entity.id.form() != IdForm::Keyed
-                && subjects.insert(entity.id.clone())
+                && upstream_of(&entity.id).is_none_or(|u| !owners_before.contains_key(&u))
         }
-        SyncItem::Deleted { id, .. } => {
-            id.form() != IdForm::Keyed && !clears(provider, id) && subjects.insert(id.clone())
-        }
-        SyncItem::Redirected { from, .. } => {
-            from.form() != IdForm::Keyed && subjects.insert(from.clone())
-        }
+        SyncItem::Deleted { id, .. } => id.form() != IdForm::Keyed && !clears(provider, id),
+        SyncItem::Redirected { from, .. } => from.form() != IdForm::Keyed,
         SyncItem::Rejected { .. } => true,
-    })
+    }
+}
+
+/// The subject an item is about, if it has one.
+fn subject_of(item: &SyncItem) -> Option<&EntityId> {
+    match item {
+        SyncItem::State { entity, .. } => Some(&entity.id),
+        SyncItem::Deleted { id, .. } | SyncItem::Redirected { from: id, .. } => Some(id),
+        SyncItem::Rejected { .. } => None,
+    }
+}
+
+/// A unit's items in order, as the stretches the job takes them in (0013 A92): each run
+/// of consecutive items that a block takes ([`in_block`]), no two on the same subject,
+/// is a block; an item no block takes is taken by itself, where it comes, and so is a
+/// run of one, which gains nothing from a block. What one item writes, the items after
+/// it read: a block is decided when the job comes to it, after everything before it is
+/// written, and nothing in it reads what another of its items writes.
+fn segments(
+    unit: Vec<SyncItem>,
+    provider: &Provider,
+    owners_before: &BTreeMap<String, EntityId>,
+    upstream_of: &dyn Fn(&EntityId) -> Option<String>,
+) -> Vec<Segment> {
+    fn close(run: &mut Vec<SyncItem>, out: &mut Vec<Segment>) {
+        match run.len() {
+            0 => {}
+            1 => out.extend(run.drain(..).map(Segment::Single)),
+            _ => out.push(Segment::Block(std::mem::take(run))),
+        }
+    }
+    let mut out = Vec::new();
+    let mut run: Vec<SyncItem> = Vec::new();
+    let mut subjects: BTreeSet<EntityId> = BTreeSet::new();
+    for item in unit {
+        if !in_block(&item, provider, owners_before, upstream_of) {
+            close(&mut run, &mut out);
+            subjects.clear();
+            out.push(Segment::Single(item));
+            continue;
+        }
+        if let Some(subject) = subject_of(&item)
+            && !subjects.insert(subject.clone())
+        {
+            // The subject again: a new run, which this item begins.
+            close(&mut run, &mut out);
+            subjects.clear();
+            subjects.insert(subject.clone());
+        }
+        run.push(item);
+    }
+    close(&mut run, &mut out);
+    out
 }
 
 /// A unit's items to write as a block, their hashes reconciled: states, deletions and
-/// redirects, each subject named once ([`is_block_unit`]).
+/// redirects, each subject named once ([`segments`]).
 #[derive(Default)]
 struct BlockUnit {
     items: Vec<SyncItem>,
@@ -770,9 +828,9 @@ async fn sync_job<S: IngestStore>(
     // has no batch lines.
     let mut rejected_line = usize::try_from(job.rejected_total).unwrap_or(usize::MAX - 1) + 1;
 
-    // A unit of `batch` items at a time, each its own unit of work. A unit of the common
-    // kind is read, decided and written as a block (0013 A76); any other is written item
-    // by item, below, which a block writes the same records as.
+    // A unit of `batch` items at a time, each its own unit of work. Its items of the
+    // common kind are read, decided and written in blocks (0013 A76); any other is
+    // taken item by item, where it comes in the unit (A92), which writes the same records.
     let mut items = items.into_iter();
     let mut first_unit = true;
     loop {
@@ -785,83 +843,86 @@ async fn sync_job<S: IngestStore>(
             cx = store.begin().await?;
         }
         first_unit = false;
-        if owners_before.is_empty() && is_block_unit(&unit, provider) {
-            let mut block = BlockUnit::default();
-            for item in unit {
-                match item {
-                    SyncItem::State {
-                        entity,
-                        upstream,
-                        upstream_id,
-                        mut upstream_aliases,
-                    } => {
-                        upstream_aliases.sort();
-                        upstream_aliases.dedup();
-                        seen.insert(entity.id.clone());
-                        if let Some(u) = upstream_of(&entity.id) {
-                            upstream_seen.insert(u);
+        for segment in segments(unit, provider, &owners_before, &upstream_of) {
+            let item = match segment {
+                Segment::Block(unit) => {
+                    let mut block = BlockUnit::default();
+                    for item in unit {
+                        match item {
+                            SyncItem::State {
+                                entity,
+                                upstream,
+                                upstream_id,
+                                mut upstream_aliases,
+                            } => {
+                                upstream_aliases.sort();
+                                upstream_aliases.dedup();
+                                seen.insert(entity.id.clone());
+                                if let Some(u) = upstream_of(&entity.id) {
+                                    upstream_seen.insert(u);
+                                }
+                                block.items.push(SyncItem::State {
+                                    entity,
+                                    upstream,
+                                    upstream_id,
+                                    upstream_aliases,
+                                });
+                            }
+                            SyncItem::Deleted { ref id, .. }
+                            | SyncItem::Redirected { from: ref id, .. } => {
+                                seen.insert(id.clone());
+                                if let Some(u) = upstream_of(id) {
+                                    upstream_seen.insert(u);
+                                }
+                                if let Some(present) = foreign_present.as_mut() {
+                                    present.remove(id);
+                                }
+                                block.items.push(item);
+                            }
+                            SyncItem::Rejected {
+                                upstream_id,
+                                reason,
+                            } => {
+                                counts.rejected += 1;
+                                job.reject(Reject {
+                                    line: rejected_line,
+                                    match_key: None,
+                                    reason: format!("{upstream_id}: {reason}"),
+                                });
+                                rejected_line += 1;
+                            }
                         }
-                        block.items.push(SyncItem::State {
-                            entity,
-                            upstream,
-                            upstream_id,
-                            upstream_aliases,
-                        });
                     }
-                    SyncItem::Deleted { ref id, .. }
-                    | SyncItem::Redirected { from: ref id, .. } => {
-                        seen.insert(id.clone());
-                        if let Some(u) = upstream_of(id) {
-                            upstream_seen.insert(u);
+                    let source_version = header.source_version().unwrap_or("").to_string();
+                    let (ops, mismatches) = block
+                        .decide(
+                            store,
+                            &mut cx,
+                            tenant,
+                            partition,
+                            &graph_name,
+                            now,
+                            &source_version,
+                            &hasher,
+                            &mut counts,
+                        )
+                        .await?;
+                    for m in &mismatches {
+                        for (kind, n) in m.by_kind() {
+                            job.mismatch(kind, *n);
                         }
-                        if let Some(present) = foreign_present.as_mut() {
-                            present.remove(id);
-                        }
-                        block.items.push(item);
                     }
-                    SyncItem::Rejected {
-                        upstream_id,
-                        reason,
-                    } => {
-                        counts.rejected += 1;
-                        job.reject(Reject {
-                            line: rejected_line,
-                            match_key: None,
-                            reason: format!("{upstream_id}: {reason}"),
-                        });
-                        rejected_line += 1;
+                    crate::write::write_block(
+                        store, pipeline, &mut cx, &request, partition, &ops, &graph, registry,
+                    )
+                    .await?;
+                    for op in &ops {
+                        count(op, &mut counts);
                     }
+                    continue;
                 }
-            }
-            let source_version = header.source_version().unwrap_or("").to_string();
-            let (ops, mismatches) = block
-                .decide(
-                    store,
-                    &mut cx,
-                    tenant,
-                    partition,
-                    &graph_name,
-                    now,
-                    &source_version,
-                    &hasher,
-                    &mut counts,
-                )
-                .await?;
-            for m in &mismatches {
-                for (kind, n) in m.by_kind() {
-                    job.mismatch(kind, *n);
-                }
-            }
-            crate::write::write_block(
-                store, pipeline, &mut cx, &request, partition, &ops, &graph, registry,
-            )
-            .await?;
-            for op in &ops {
-                count(op, &mut counts);
-            }
-            continue;
-        }
-        for item in unit {
+                Segment::Single(item) => item,
+            };
             let mut ops: Vec<Operation> = Vec::new();
             match item {
                 SyncItem::State {

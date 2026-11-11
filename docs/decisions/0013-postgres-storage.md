@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-11 (A91)
+- **Updated:** 2026-11-11 (A92)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -117,7 +117,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 7. Projections, synchrony and read-your-writes
 
-*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28, A33, A44, A53, A63, A75, A76, A77, A86, A87, A88, A89, A90, A91.*
+*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28, A33, A44, A53, A63, A75, A76, A77, A86, A87, A88, A89, A90, A91, A92.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §5, §6.1, §6.2, §6.3.*
 
@@ -1162,3 +1162,14 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it 
 Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it stood):
 
 > The imports do not use the block write yet, and the projections apply a tenant's records one at a time inside a block.
+
+### A92. A sync's unit is taken in blocks and single items, where they come
+
+- **Date:** 2026-11-11
+- **Source:** Direct: Claude, while building the sync's mixed units, 2026-11-11; unconfirmed (James asked for the sync units that fall back to be moved to the block write)
+- **Change:** amends §7
+- **Summary:** A76 wrote a unit as a block only when every item in it was of the common kind and the provider owned no keys; one other item sent the whole unit, and a provider that maps keys its whole sync, to the item-by-item path. A unit is now taken in stretches, in item order (`sync::segments`): each run of consecutive items a block can take, no two on the same subject, is a block, read, decided and written as A76 has it; an item no block takes is taken by itself, by the item-by-item path, where it comes; and a run of one is taken by itself too. The unit is still one unit of work. The calls made: (1) what makes an item one a block can take is asked of the item, not of the unit or the provider (`sync::in_block`): its subject is its own key and deciding it reads and writes nothing but that subject's records. So a state mapped from another upstream ID, a keyed subject and a clearing deletion are taken by themselves, as before; and where A76 asked that the provider own no keys, a state is now taken by itself only when its own upstream item owned a key before the job, which is the one case in which a state not mapped onto a key reads another subject's records (the key's, for the revision it recorded). (2) A subject named again ends the run and begins the next, rather than sending the unit item by item. (3) A block is decided when the job comes to it, after everything before it in the unit is written, so an item taken by itself that retires a subject an earlier block wrote, or that a later block writes, finds and leaves what it did item by item. The records, counts, owners of keys and every `view` table are those of the sync that fell back, checked over Postgres against that code on three passes over a provider that maps keys: mapped states among foreign ones, a key that moves, a foreign item that becomes mapped and retires what a block wrote, an item that stops owning a key, a keyed deletion, a subject twice in a unit, and a snapshot. A sync of 4,000 items of which every fortieth is mapped onto a key (release build, cloud sandbox, units of 200) takes about 1.6 s against 5.7 s for a first load and 2.0 s against 9.8 s for a pass that changes every item. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §6.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it stood):
+
+> A unit whose subjects are their own keys, each named once, with no mapped state, no clearing deletion and a provider that owns no keys, is read once for the unit (cursors, the records at them, the revisions their keys claimed, page IDs), decided item by item in memory as the item-by-item path decides, appended together and projected over the block by the set-based path a bootstrap load uses (§6.2; [05](../architecture/05-providers-and-ingest.md) §3.8). Any other unit is written item by item.
