@@ -37,7 +37,7 @@ pub mod sync;
 pub mod write;
 
 pub use adopt::{Adoption, AdoptionOutcome, Floors};
-pub use batch::{BatchOutcome, run_batch};
+pub use batch::{BatchOutcome, run_batch, run_batch_in};
 pub use bootstrap::{Prepare, Prepared, Warm, run_bootstrap};
 pub use follow::{ChangeBatch, ChangeSource, FollowJob, FollowOutcome, run_follow};
 pub use import::{

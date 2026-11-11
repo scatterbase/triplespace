@@ -6,7 +6,7 @@ use scatter_ingest::adopt::{Adopted, Adoption, Author, Floors, run_adoption};
 use scatter_ingest::memory::{MemoryCx, MemoryIngest};
 use scatter_ingest::{
     Attestation, BlockEntry, BlockPayload, IngestError, IngestStore, RawRecord, Request, Sequence,
-    SyncItem, run_batch, run_sync, write_many, write_operation, write_raw,
+    SyncItem, run_batch, run_batch_in, run_sync, write_many, write_operation, write_raw,
 };
 use scatter_log::body::Body;
 use scatter_log::cbor::Value;
@@ -434,6 +434,120 @@ fn a_streamed_batch_mints_matches_and_records_rejects() {
                 .iter()
                 .all(|r| r.header().logid.is_some())
         );
+    });
+}
+
+/// A projection that fails on a record under one key, so that a write can fail.
+struct Tripwire(&'static str);
+
+impl Projection<MemoryIngest> for Tripwire {
+    fn name(&self) -> &'static str {
+        "tripwire"
+    }
+    fn step(&self) -> Step {
+        Step::Sources
+    }
+    fn apply<'a>(
+        &'a self,
+        _cx: &'a mut MemoryCx,
+        record: &'a Record,
+    ) -> BoxFuture<'a, Result<Applied, String>> {
+        Box::pin(async move {
+            if record.header().key.as_deref() == Some(self.0) {
+                Err(format!("`{}` trips the wire", self.0))
+            } else {
+                Ok(Applied::rows(0))
+            }
+        })
+    }
+    fn reset<'a>(
+        &'a self,
+        _cx: &'a mut MemoryCx,
+        _partition: u64,
+    ) -> BoxFuture<'a, Result<(), String>> {
+        Box::pin(async { Ok(()) })
+    }
+}
+
+/// A batch writes its operations in blocks (0013 A90), and what a streamed or an atomic
+/// batch leaves is what it leaves an operation at a time (a block of one): the same
+/// records, counts, IDs and rejects. A streamed block in which a write fails is written
+/// again an operation at a time: the one that fails is rejected with its line, in batch
+/// order with the lines that have problems, and the rest land. An atomic batch in which
+/// a write fails lands nothing.
+#[test]
+fn a_batch_in_blocks_leaves_what_one_operation_at_a_time_leaves() {
+    pollster::block_on(async {
+        // `tripped` fails every write under that key: Q7 is the unknown create-or-add.
+        let run = |block: usize, atomic: bool, tripped: Option<&'static str>| async move {
+            let (store, _) = setup();
+            let mut pipeline = Pipeline::new().with(Recorder).unwrap();
+            if let Some(key) = tripped {
+                pipeline = pipeline.with(Tripwire(key)).unwrap();
+            }
+            seed_known(&store, &pipeline).await;
+            let text = if atomic {
+                // Without the line that has problems, which fails an atomic batch.
+                BATCH
+                    .replacen(r#""graph":"local""#, r#""graph":"local","atomic":true"#, 1)
+                    .lines()
+                    .filter(|l| !l.contains(r#""page":3"#))
+                    .fold(String::new(), |mut acc, l| {
+                        acc.push_str(l);
+                        acc.push('\n');
+                        acc
+                    })
+            } else {
+                BATCH.to_string()
+            };
+            let out = run_batch_in(
+                &store,
+                &pipeline,
+                TENANT,
+                Attestation::by("librarybase:2"),
+                &text,
+                &ProviderOrder::default(),
+                registry(),
+                NOW,
+                block,
+            )
+            .await;
+            let records: Vec<_> = store.records(LOCAL).iter().map(comparable).collect();
+            let outcome = out
+                .map(|o| (o.counts, o.ids, o.rejects))
+                .map_err(|e| e.to_string());
+            (outcome, records, events(&store, TENANT_LOG))
+        };
+        for atomic in [false, true] {
+            for tripped in [None, Some("Q7")] {
+                let one = run(1, atomic, tripped).await;
+                for block in [3, 200] {
+                    let blocks = run(block, atomic, tripped).await;
+                    assert_eq!(
+                        blocks, one,
+                        "atomic {atomic}, tripped {tripped:?}, blocks of {block}"
+                    );
+                }
+            }
+        }
+        // Streamed, the failing write is rejected by itself, before the line with problems.
+        let (outcome, records, _) = run(200, false, Some("Q7")).await;
+        let (counts, _, rejects) = outcome.unwrap();
+        assert_eq!(counts.rejected, 2);
+        assert_eq!(
+            rejects.iter().map(|r| r.line).collect::<Vec<_>>(),
+            vec![4, 7]
+        );
+        assert!(rejects[0].reason.contains("trips the wire"), "{rejects:?}");
+        assert_eq!(
+            records.len(),
+            1 + 6,
+            "all but the rejected operation landed"
+        );
+        // Atomic, nothing lands but what was there.
+        let (outcome, records, _) = run(200, true, Some("Q7")).await;
+        assert!(outcome.unwrap_err().contains("trips the wire"));
+        assert_eq!(records.len(), 1);
     });
 }
 

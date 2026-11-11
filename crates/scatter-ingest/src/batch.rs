@@ -2,8 +2,12 @@
 //! minted or matched, `create-or-add` is resolved against the identifier index, a bulk
 //! `retain` fans out, every operation is validated against the job's graph and the
 //! property type map, and each record-shaped operation is written. An `atomic` batch is
-//! one unit of work and fails as a whole; a streamed one applies each operation on its
-//! own and records the rejects on the job.
+//! one unit of work and fails as a whole; a streamed one records the rejects on the job.
+//!
+//! The operations are written in blocks ([`write_many`]; 0013 A90), [`BLOCK`] at a time.
+//! A streamed batch commits each block; a block that fails is rolled back and its
+//! operations are written again each on its own, so that the one that fails is rejected
+//! by itself and the rest land.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -18,7 +22,9 @@ use scatter_wikibase_model::value::DataType;
 use crate::IngestError;
 use crate::job::{Counts, Job, Reject};
 use crate::store::IngestStore;
-use crate::write::{Attestation, Request, mint_entity_id, write_to};
+use crate::write::{
+    Attestation, BlockEntry, BlockPayload, Request, mint_entity_id, write_many, write_to,
+};
 
 /// What a batch run produced.
 #[derive(Debug, Clone, PartialEq)]
@@ -138,6 +144,64 @@ async fn type_map<S: IngestStore>(
     Ok(map)
 }
 
+/// How many operations a batch writes at a time, and a streamed batch commits at a time
+/// (0013 A90): a sync's unit (`--batch`).
+pub const BLOCK: usize = 200;
+
+/// Writes operations in order, as blocks ([`write_many`]): each run of consecutive
+/// operations for one graph ([`crate::write::destination`]) is a block, so that the page
+/// and revision IDs are taken in the order the operations come. What [`write_to`] writes
+/// for each in turn.
+async fn write_ops<S: IngestStore>(
+    store: &S,
+    pipeline: &Pipeline<S>,
+    cx: &mut S::Cx,
+    request: &Request,
+    ops: &[&Operation],
+    registry: &Registry,
+) -> Result<(), IngestError> {
+    let mut graphs = Vec::with_capacity(ops.len());
+    for op in ops {
+        graphs.push(crate::write::destination(op, registry)?);
+    }
+    let mut from = 0;
+    while from < ops.len() {
+        let graph = &graphs[from];
+        let to = from + graphs[from..].iter().take_while(|g| *g == graph).count();
+        let owner = match graph {
+            Graph::Mirror(_) => "",
+            Graph::Local | Graph::Pages | Graph::Source(_) => request.tenant.as_str(),
+        };
+        let partition = store
+            .partition(cx, owner, &graph.name())
+            .await?
+            .ok_or_else(|| IngestError::NoPartition {
+                tenant: owner.to_string(),
+                graph: graph.name(),
+            })?;
+        let entries: Vec<BlockEntry<'_>> = ops[from..to]
+            .iter()
+            .map(|op| BlockEntry {
+                request,
+                payload: BlockPayload::Operation(op),
+            })
+            .collect();
+        write_many(
+            store,
+            pipeline,
+            cx,
+            partition,
+            graph,
+            &entries,
+            request.budget,
+            registry,
+        )
+        .await?;
+        from = to;
+    }
+    Ok(())
+}
+
 fn count(counts: &mut Counts, op: &Operation) {
     match op {
         Operation::Create { .. } => counts.created += 1,
@@ -220,7 +284,7 @@ async fn prepare<S: IngestStore>(
 /// Runs a tenant bulk job over an NDJSON batch. The job line's `graph` is `local` or
 /// `pages`; a mirror sync runs through [`crate::sync::run_sync`] and an adoption through
 /// [`crate::adopt::run_adoption`].
-#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+#[allow(clippy::too_many_arguments)]
 pub async fn run_batch<S: IngestStore>(
     store: &S,
     pipeline: &Pipeline<S>,
@@ -231,6 +295,35 @@ pub async fn run_batch<S: IngestStore>(
     registry: &Registry,
     now: u64,
 ) -> Result<BatchOutcome, IngestError> {
+    run_batch_in(
+        store,
+        pipeline,
+        tenant,
+        attestation,
+        text,
+        order,
+        registry,
+        now,
+        BLOCK,
+    )
+    .await
+}
+
+/// [`run_batch`], `block` operations at a time: [`BLOCK`] for a job, one for a batch
+/// written an operation at a time.
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+pub async fn run_batch_in<S: IngestStore>(
+    store: &S,
+    pipeline: &Pipeline<S>,
+    tenant: &str,
+    attestation: Attestation,
+    text: &str,
+    order: &ProviderOrder,
+    registry: &Registry,
+    now: u64,
+    block: usize,
+) -> Result<BatchOutcome, IngestError> {
+    let block = block.max(1);
     let mut batch = Batch::parse(text)?;
     match batch.job.graph() {
         Some(Graph::Local | Graph::Pages) => {}
@@ -268,16 +361,29 @@ pub async fn run_batch<S: IngestStore>(
                 prepare(store, &mut cx, tenant, &mut batch, order, registry).await?;
             let mut request = Request::new(tenant, job.record_attestation(), now);
             request.budget = scatter_projection::Budget::NONE;
-            for (line, ops) in prepared {
-                let ops =
-                    ops.map_err(|reason| IngestError::Adapter(format!("line {line}: {reason}")))?;
-                for op in &ops {
-                    let graph = crate::write::destination(op, registry)?;
-                    write_to(store, pipeline, &mut cx, &request, op, &graph, registry).await?;
+            // The operations before the first line that has problems are written, as
+            // they were one at a time, so that a failure among them is the one reported.
+            let mut ops: Vec<&Operation> = Vec::new();
+            let mut problem = None;
+            for (line, line_ops) in &prepared {
+                match line_ops {
+                    Ok(line_ops) => ops.extend(line_ops),
+                    Err(reason) => {
+                        problem = Some(IngestError::Adapter(format!("line {line}: {reason}")));
+                        break;
+                    }
+                }
+            }
+            for ops in ops.chunks(block) {
+                write_ops(store, pipeline, &mut cx, &request, ops, registry).await?;
+                for op in ops {
                     count(&mut counts, op);
                 }
             }
-            Ok(ids)
+            match problem {
+                Some(e) => Err(e),
+                None => Ok(ids),
+            }
         }
         .await;
         match outcome {
@@ -311,8 +417,8 @@ pub async fn run_batch<S: IngestStore>(
             }
         }
     } else {
-        // Streamed: the job starts, each operation is its own unit of work, rejects are
-        // recorded, the job finishes.
+        // Streamed: the job starts, the operations are written and committed a block at
+        // a time, rejects are recorded, the job finishes.
         let mut cx = store.begin().await?;
         let mut job =
             Job::start(store, pipeline, &mut cx, tenant, header, attestation, now).await?;
@@ -320,51 +426,60 @@ pub async fn run_batch<S: IngestStore>(
         store.commit(cx).await?;
         let mut request = Request::new(tenant, job.record_attestation(), now);
         request.budget = scatter_projection::Budget::NONE;
-        for (line, ops) in prepared {
-            let ops = match ops {
-                Ok(ops) => ops,
+        // The operations waiting for their block, each with its line. A line with
+        // problems is rejected after the operations before it are written, so that the
+        // rejects come in batch order.
+        let mut waiting: Vec<(usize, &Operation)> = Vec::new();
+        for (line, ops) in &prepared {
+            match ops {
+                Ok(ops) => {
+                    for op in ops {
+                        waiting.push((*line, op));
+                        if waiting.len() >= block {
+                            let ops = std::mem::take(&mut waiting);
+                            write_streamed(
+                                store,
+                                pipeline,
+                                &request,
+                                &ops,
+                                registry,
+                                (&mut counts, &mut job, &mut rejects),
+                            )
+                            .await?;
+                        }
+                    }
+                }
                 Err(reason) => {
+                    let ops = std::mem::take(&mut waiting);
+                    write_streamed(
+                        store,
+                        pipeline,
+                        &request,
+                        &ops,
+                        registry,
+                        (&mut counts, &mut job, &mut rejects),
+                    )
+                    .await?;
                     counts.rejected += 1;
                     let r = Reject {
-                        line,
+                        line: *line,
                         match_key: None,
-                        reason,
+                        reason: reason.clone(),
                     };
                     job.reject(r.clone());
                     rejects.push(r);
-                    continue;
-                }
-            };
-            for op in &ops {
-                let mut cx = store.begin().await?;
-                let result = async {
-                    let graph = crate::write::destination(op, registry)?;
-                    write_to(store, pipeline, &mut cx, &request, op, &graph, registry).await
-                }
-                .await;
-                match result {
-                    Ok(_) => {
-                        store.commit(cx).await?;
-                        count(&mut counts, op);
-                    }
-                    Err(e) => {
-                        store.rollback(cx).await?;
-                        counts.rejected += 1;
-                        let r = Reject {
-                            line,
-                            match_key: match op {
-                                Operation::Create { match_key, .. }
-                                | Operation::Add { match_key, .. } => match_key.clone(),
-                                _ => None,
-                            },
-                            reason: e.to_string(),
-                        };
-                        job.reject(r.clone());
-                        rejects.push(r);
-                    }
                 }
             }
         }
+        write_streamed(
+            store,
+            pipeline,
+            &request,
+            &waiting,
+            registry,
+            (&mut counts, &mut job, &mut rejects),
+        )
+        .await?;
         let mut cx = store.begin().await?;
         job.finish(
             store,
@@ -383,4 +498,65 @@ pub async fn run_batch<S: IngestStore>(
             rejects,
         })
     }
+}
+
+/// Writes a streamed batch's block in a unit of work of its own (0013 A90). When the
+/// block fails it is rolled back and its operations are written again, each in its own
+/// unit of work, as a streamed batch wrote every operation before: the one that fails
+/// is rejected with its line and the rest land.
+async fn write_streamed<S: IngestStore>(
+    store: &S,
+    pipeline: &Pipeline<S>,
+    request: &Request,
+    block: &[(usize, &Operation)],
+    registry: &Registry,
+    (counts, job, rejects): (&mut Counts, &mut Job, &mut Vec<Reject>),
+) -> Result<(), IngestError> {
+    if block.is_empty() {
+        return Ok(());
+    }
+    let ops: Vec<&Operation> = block.iter().map(|(_, op)| *op).collect();
+    let mut cx = store.begin().await?;
+    if write_ops(store, pipeline, &mut cx, request, &ops, registry)
+        .await
+        .is_ok()
+    {
+        store.commit(cx).await?;
+        for op in ops {
+            count(counts, op);
+        }
+        return Ok(());
+    }
+    store.rollback(cx).await?;
+    for (line, op) in block {
+        let mut cx = store.begin().await?;
+        let result = async {
+            let graph = crate::write::destination(op, registry)?;
+            write_to(store, pipeline, &mut cx, request, op, &graph, registry).await
+        }
+        .await;
+        match result {
+            Ok(_) => {
+                store.commit(cx).await?;
+                count(counts, op);
+            }
+            Err(e) => {
+                store.rollback(cx).await?;
+                counts.rejected += 1;
+                let r = Reject {
+                    line: *line,
+                    match_key: match op {
+                        Operation::Create { match_key, .. } | Operation::Add { match_key, .. } => {
+                            match_key.clone()
+                        }
+                        _ => None,
+                    },
+                    reason: e.to_string(),
+                };
+                job.reject(r.clone());
+                rejects.push(r);
+            }
+        }
+    }
+    Ok(())
 }

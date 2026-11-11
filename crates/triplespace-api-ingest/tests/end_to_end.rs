@@ -12,8 +12,8 @@ use scatter_ingest::adopt::{
     Adopted, AdoptedItem, AdoptedPage, Adoption, Author, Floors, run_adoption,
 };
 use scatter_ingest::{
-    Attestation, BlockEntry, BlockPayload, IngestError, Request, SyncItem, run_batch, run_sync,
-    write_many, write_operation,
+    Attestation, BlockEntry, BlockPayload, IngestError, Request, SyncItem, run_batch, run_batch_in,
+    run_sync, write_many, write_operation,
 };
 use scatter_log::body::Body;
 use scatter_log::cbor::Value;
@@ -1104,6 +1104,102 @@ fn revision(id: &str, revid: u64, parent: Option<u64>, time: &str, author: Autho
         withheld: Vec::new(),
         comment: Some(format!("edit {revid}")),
         author,
+    }
+}
+
+/// The batch of the block test: two created items, one of them edited twice more, a
+/// `create-or-add` that finds nothing, a statement naming an item of the batch, a bulk
+/// `retain`, and (streamed only) a line with problems between the operations.
+fn block_batch(atomic: bool) -> String {
+    let job = if atomic {
+        r#"{"job":{"source":"block-batch","graph":"local","atomic":true}}"#
+    } else {
+        r#"{"job":{"source":"block-batch","graph":"local"}}"#
+    };
+    let mut lines = vec![
+        job,
+        r#"{"op":"create","ref":"$a","entity":{"type":"item","id":"$a","labels":{"en":{"language":"en","value":"A paper"}},"claims":{"P356":[{"mainsnak":{"snaktype":"value","property":"P356","datavalue":{"value":"10.1/a","type":"string"},"datatype":"external-id"},"type":"statement","rank":"normal"}]}}}"#,
+        r#"{"op":"create","ref":"$b","entity":{"type":"item","id":"$b","labels":{"en":{"language":"en","value":"Another"}},"claims":{}}}"#,
+        r#"{"op":"add","id":"$a","labels":{"fr":"Un article"}}"#,
+        r#"{"op":"create-or-add","match":{"P356":"10.1/unknown"},"entity":{"type":"item","id":"Q0","labels":{"en":{"language":"en","value":"Unknown"}},"claims":{}}}"#,
+        r#"{"op":"add","id":"$b","claims":{"P31":[{"mainsnak":{"snaktype":"value","property":"P31","datavalue":{"value":{"entity-type":"item","id":"$a"},"type":"wikibase-entityid"},"datatype":"wikibase-item"},"type":"statement","rank":"normal"}]}}"#,
+        r#"{"op":"retain","ids":["XDQ1","XDQ2"],"policy":"retain"}"#,
+    ];
+    if !atomic {
+        lines.push(r#"{"op":"add","id":"Q8","page":3,"labels":{"en":"both"}}"#);
+    }
+    lines.push(r#"{"op":"add","id":"$a","descriptions":{"en":"the first"}}"#);
+    let mut text = lines.join("\n");
+    text.push('\n');
+    text
+}
+
+/// A batch writes its operations in blocks (0013 A90), and over Postgres, with the real
+/// projections, a streamed and an atomic batch leave what they leave an operation at a
+/// time (a block of one): the same records, counts, IDs and rejects, and the same rows
+/// in every `view` table.
+#[tokio::test]
+async fn a_batch_in_blocks_leaves_what_one_operation_at_a_time_leaves() {
+    if skipped() {
+        return;
+    }
+    for atomic in [false, true] {
+        let text = block_batch(atomic);
+        let mut runs = Vec::new();
+        for block in [1usize, 3, 200] {
+            let (client, backend) = fresh().await;
+            let client = seed(client).await;
+            let store = PgIngest::new(backend);
+            let p = pipeline();
+            let registry = Registry::default_registry();
+            let log_store = PgLog::new(client);
+            p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
+                .await
+                .unwrap();
+            let client = log_store.into_inner();
+            let out = run_batch_in(
+                &store,
+                &p,
+                TENANT,
+                Attestation::by("librarybase:7"),
+                &text,
+                &ProviderOrder::default(),
+                registry,
+                NOW,
+                block,
+            )
+            .await
+            .unwrap();
+            let records = rows(
+                &client,
+                "SELECT lpad(\"offset\"::text, 6, '0') || '|' || key || '|' || coalesce(revid::text, '-')
+                        || '|' || coalesce(page_id::text, '-') || '|' || octet_length(body)::text
+                 FROM log.record WHERE partition = 12289",
+            )
+            .await;
+            runs.push((
+                block,
+                (out.counts, out.ids, out.rejects),
+                records,
+                views(&client).await,
+            ));
+        }
+        let (_, outcome_one, records_one, views_one) = &runs[0];
+        assert_eq!(
+            (records_one.len(), outcome_one.0.rejected),
+            (8, u64::from(!atomic)),
+            "atomic {atomic}: eight records, and the line with problems rejected when streamed"
+        );
+        for (block, outcome, records, views) in &runs[1..] {
+            assert_eq!(outcome, outcome_one, "atomic {atomic}, blocks of {block}");
+            assert_eq!(records, records_one, "atomic {atomic}, blocks of {block}");
+            for (table, rows_one) in views_one {
+                assert_eq!(
+                    &views[table], rows_one,
+                    "atomic {atomic}, blocks of {block}: the same rows in view.{table}"
+                );
+            }
+        }
     }
 }
 

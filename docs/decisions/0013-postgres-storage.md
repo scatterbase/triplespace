@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-11 (A89)
+- **Updated:** 2026-11-11 (A90)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -117,7 +117,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 7. Projections, synchrony and read-your-writes
 
-*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28, A33, A44, A53, A63, A75, A76, A77, A86, A87, A88, A89.*
+*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28, A33, A44, A53, A63, A75, A76, A77, A86, A87, A88, A89, A90.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §5, §6.1, §6.2, §6.3.*
 
@@ -1140,3 +1140,14 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.8, as it sto
 Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it stood):
 
 > A key may come more than once: the records are appended together and the projections run over each stretch in which no key repeats.
+
+### A90. A tenant's NDJSON batch writes its operations in blocks
+
+- **Date:** 2026-11-11
+- **Source:** Direct: James, design discussion of 2026-11-11 (the batch job moved to the block write; a streamed batch commits a block at a time rather than an operation at a time); the rest is Claude's, while building it, unconfirmed
+- **Change:** amends §7
+- **Summary:** A tenant's bulk job over an NDJSON batch (`run_batch`; [0002](0002-source-graphs-and-mass-ingest.md) §8.5) writes its operations with the block write of A87, 200 at a time (`batch::BLOCK`, a sync's unit), rather than one at a time. The batch is prepared whole before anything is written, as before. The calls made: (1) consecutive operations for one graph are a block (`local`, or `pages` for a page's statements), so the page and revision IDs are taken in the order the operations come. (2) An atomic batch is still one unit of work: its blocks are written inside it, and the operations before the first line that has problems are written before that line fails the batch, so a failure among them is still the one reported. (3) A streamed batch commits a block at a time. A block in which a write fails is rolled back and its operations are written again each in a unit of work of its own, as every operation was before: the one that fails is rejected with its line and the rest land. A line with problems is rejected after the operations before it are written, so the rejects stay in batch order. (4) What differs from one operation at a time: a streamed batch that is interrupted has landed whole blocks rather than every operation up to the interruption; and since a sequence does not give back what a rolled-back block took, a block that fails leaves a gap in the tenant's revision and page IDs the size of the block rather than of one operation. With no failed write the records, their IDs, the counts, the rejects and every `view` table are those of the job that wrote one operation at a time, checked over Postgres against that code, streamed and atomic. A batch of 2,000 `create`s (release build, cloud sandbox, preparation included) takes about 2.6 s against 7.7 s streamed and 2.6 s against 5.4 s atomic. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §6.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it stood):
+
+> The NDJSON job and the imports do not use the block write yet, and the projections apply a tenant's records one at a time inside a block.
