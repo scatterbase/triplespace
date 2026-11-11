@@ -1074,20 +1074,22 @@ pub async fn run_sync_in<S: IngestStore>(
             store.commit(cx).await?;
             return Err(err);
         }
-        for op in sweep {
-            write_counted(
-                store,
-                pipeline,
-                &mut cx,
-                &request,
-                &op,
-                &graph,
-                registry,
-                &mut counts,
-            )
-            .await?;
-            swept += 1;
-        }
+        // Written in blocks of `batch` where the operations allow it (0013 A86), in the
+        // unit of work that finishes the job.
+        swept = sweep.len();
+        write_counted_runs(
+            store,
+            pipeline,
+            &mut cx,
+            &request,
+            partition,
+            &sweep,
+            &graph,
+            registry,
+            &mut counts,
+            batch,
+        )
+        .await?;
         extra.insert(
             "sweep".into(),
             serde_json::json!({"count": swept, "threshold": threshold}),
@@ -1101,6 +1103,60 @@ pub async fn run_sync_in<S: IngestStore>(
         counts,
         swept,
     })
+}
+
+/// Writes operations in order and counts them, a block at a time where they allow it
+/// (0013 A86): each run of up to `batch` consecutive operations that a block takes
+/// ([`crate::write::is_block_operation`]), no two on the same subject, is written with
+/// [`crate::write::write_block`]; an operation between runs, and a run of one, is
+/// written by itself. The records are those [`write_counted`] writes for each in turn,
+/// at the same offsets: the order is kept, and no operation of a run reads what another
+/// writes.
+#[allow(clippy::too_many_arguments)]
+async fn write_counted_runs<S: IngestStore>(
+    store: &S,
+    pipeline: &Pipeline<S>,
+    cx: &mut S::Cx,
+    request: &Request,
+    partition: u64,
+    ops: &[Operation],
+    graph: &Graph,
+    registry: &Registry,
+    counts: &mut Counts,
+    batch: usize,
+) -> Result<(), IngestError> {
+    let batch = batch.max(1);
+    let mut rest = ops;
+    while !rest.is_empty() {
+        // The run at the front: operations a block takes, each subject once.
+        let mut subjects = BTreeSet::new();
+        let run = rest
+            .iter()
+            .take(batch)
+            .take_while(|op| {
+                crate::write::is_block_operation(op, registry)
+                    && op.subject().is_some_and(|s| subjects.insert(s.to_string()))
+            })
+            .count();
+        if run < 2 {
+            write_counted(
+                store, pipeline, cx, request, &rest[0], graph, registry, counts,
+            )
+            .await?;
+            rest = &rest[1..];
+        } else {
+            let (block, after) = rest.split_at(run);
+            crate::write::write_block(
+                store, pipeline, cx, request, partition, block, graph, registry,
+            )
+            .await?;
+            for op in block {
+                count(op, counts);
+            }
+            rest = after;
+        }
+    }
+    Ok(())
 }
 
 /// Writes one operation and counts it: a new subject is `created`, a clearing `put` is

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-09 (A85)
+- **Updated:** 2026-11-11 (A88)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -117,7 +117,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 7. Projections, synchrony and read-your-writes
 
-*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28, A33, A44, A53, A63, A75, A76, A77.*
+*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28, A33, A44, A53, A63, A75, A76, A77, A86, A87, A88.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §5, §6.1, §6.2, §6.3.*
 
@@ -1108,3 +1108,24 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.8, as it sto
 Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.8, as it stood):
 
 > 5. Checkpoints are signed and the partition goes live.
+
+### A86. A snapshot sweep writes its operations in blocks
+
+- **Date:** 2026-11-11
+- **Source:** Direct: Claude, while building the snapshot sweep's block write, 2026-11-11; unconfirmed (James asked for the sweep to be moved to the block path)
+- **Change:** extends §7
+- **Summary:** The snapshot sweep's operations (the tombstones and clearing `put`s for what the job did not see) are written in blocks, by the block write of A76 (`write_block`: one lookup of page IDs, `append_many`, `apply_inline_many`), rather than one at a time. The calls made: (1) the operations are taken in the order the sweep lists them, and each run of up to `batch` consecutive operations a block can take (a subject that is its own key, named once) is one block; an operation no block takes (a keyed entity's clearing `put`, whose key is its surrogate) is written by itself in its place, as is a run of one, so the records, offsets, page IDs and revision IDs are those of writing one at a time (rather than writing the block-shaped operations first, which would reorder the records). (2) The sweep stays in the one unit of work that finishes the job, as before: it is all written or none of it, and `batch` sizes its blocks, not its commits. (3) Deciding the sweep is unchanged: a clearing `put` of a `deletion = clear` provider still reads its subject's cursor and previous record one subject at a time; only the writing is in blocks. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §6.
+
+### A87. One block write for every graph
+
+- **Date:** 2026-11-11
+- **Source:** Direct: Claude, while building the general block write, 2026-11-11; unconfirmed (James asked for the block write's core to be generalized so that adoption, the NDJSON job and imports can use it, and accepted that a streamed batch then commits a block at a time)
+- **Change:** extends §7
+- **Summary:** The block write of A76 is one function for every graph (`scatter_ingest::write_many`), of which a sync's block (`write_block`) is the case with one request, a mirror or source graph and subjects named once. No job but the sync and its sweep uses it yet: adoption, the NDJSON job and the imports still write one record at a time. The calls made: (1) each record of a block has its own request (who is responsible, the comment, the revision ID it brings), since an adoption or an import attributes every revision to its author; the tenant is the block's, and the fan-out budget is given for the block. (2) A block is written to a tenant's `local` or `pages` as well as to a mirror or source graph: a tenant record takes the revision ID its request brings or the tenant's next, the sequence taken once for the block and handed out in record order. (3) A key with no page ID takes what its first record in the block brings (an adoption's source page ID, a caller-encoded record's) or the next of the sequence, in record order, and keeps it for the rest of the block; a caller-encoded record with no key is keyed by the page ID it mints. These are the IDs writing one record at a time gives. (4) A key may come more than once in a block. The records are appended together, but the synchronous projections run over each stretch of records in which no key repeats, one stretch after another, rather than over the whole block: applied over a block, a projection sees what the earlier projections wrote for all of it, which for two records of one key is not what it sees one record at a time. This is the cautious choice: on the test's block the views came out the same without the stretches, so it may be relaxed once the projections are audited for it; until then a run of revisions of one entity is appended together and projected one record at a time. (5) A keyed entity's surrogate is looked up, or minted, before the block is written, one entity at a time (`key_for`); the lookups are not yet batched. (6) Caller-encoded records (`RawRecord`, a page's) go in a block as operations do. (7) A block makes no base-offset check (0006 §8) and refuses a record that carries one: such a write is interactive and is written by itself. Checked against writing one record at a time, in memory and over Postgres with the real projections: the same records, offsets, page and revision IDs, and the same rows in every `view` table. Not done here: the projections' set-based forms for tenant records (the entity projection applies every record outside an instance mirror one at a time, in a block too), so a tenant block saves the append's and the lookups' round trips, not the projections'. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §6.
+
+### A88. An adoption writes its revisions in blocks
+
+- **Date:** 2026-11-11
+- **Source:** Direct: Claude, while building the adoption's block write, 2026-11-11; unconfirmed (James asked for adoption to be wired onto `write_many`)
+- **Change:** extends §7
+- **Summary:** An adoption (`run_adoption`; [0035](0035-adopting-a-wikibase.md) §3) writes each unit's revisions with the block write of A87, entity revisions to `local` and page revisions to `pages`, rather than one at a time. The calls made: (1) each revision is decided as it arrives, as before (validation, the resume check, its author's surrogate), and queued; the queue is written when the unit of `batch` revisions ends, so a unit is still one unit of work and commits what it did before. (2) Entity and page revisions are not mixed in a block: the queue is written when the other kind begins, so that the revision IDs a `--current-only` adoption mints are taken in the order the revisions come. (3) The resume check reads the store for an entity or page, so the queue is written first when the job comes back to one whose records wait in it, and when a revision has to be compared with the content of one that waits (the same revision twice in a dump); otherwise the newest revision of the entity the job is on is known from the queue. (4) An author's surrogate actor record is written when its revision is decided, ahead of the block that holds the revision: it is in the `actors` partition, with its own sequences, so its place among the `local` and `pages` records does not change. (5) The resume check's reads are still one entity at a time. The records, counts and every `view` table are those of the adoption that wrote one revision at a time, checked over Postgres against that code on a history with repeated entities, surrogate and hidden authors, a redirect, pages between entities and a re-run. Since A87 projects a run of one key's revisions one at a time, the gain is the append's and the lookups' round trips: the Librarybase sample (295 revisions of 254 entities, release build, cloud sandbox) adopts in about 0.63 s against 0.89 s. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §6.

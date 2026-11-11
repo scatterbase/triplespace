@@ -453,12 +453,28 @@ fn draft_of<S: IngestStore>(
     Ok(draft)
 }
 
+/// Whether an entity is its own header key, as a block's subjects are ([`write_block`]):
+/// any entity but a keyed one, whose key is its surrogate (0009 §7); a source's entity
+/// is in the colon shape but is a foreign entity (0078 §2), and its own key.
+fn is_own_key(id: &EntityId, registry: &Registry) -> bool {
+    id.form() != IdForm::Keyed || registry.parse_foreign_id(id.as_str()).is_ok()
+}
+
+/// Whether an operation can be one of a block's ([`write_block`]): a record shape whose
+/// subject is an entity that is its own key.
+#[must_use]
+pub fn is_block_operation(op: &Operation, registry: &Registry) -> bool {
+    op.is_record_shape()
+        && matches!(op.subject(), Some(Subject::Entity(id)) if is_own_key(&id, registry))
+}
+
 /// Writes a sync unit's operations to a mirror or source graph as one block (0013 A76):
 /// what [`write_to`] writes for each, in order, with the lookups made once for the block,
 /// the records appended together ([`IngestStore::append_many`]) and the synchronous
 /// projections run over the block ([`Pipeline::apply_inline_many`]). Each operation's
 /// subject is an entity that is its own key, no two the same, and the request carries no
-/// base offset: a unit that is not so is written operation by operation.
+/// base offset: a unit that is not so is written operation by operation. It is
+/// [`write_many`] with one request for the block and those conditions asked of it.
 ///
 /// # Errors
 ///
@@ -475,33 +491,18 @@ pub async fn write_block<S: IngestStore>(
     graph: &Graph,
     registry: &Registry,
 ) -> Result<Vec<Record>, IngestError> {
-    if ops.is_empty() {
-        return Ok(Vec::new());
-    }
-    if !matches!(graph, Graph::Mirror(_) | Graph::Source(_)) || request.base_offset.is_some() {
+    if !matches!(graph, Graph::Mirror(_) | Graph::Source(_)) {
         return Err(IngestError::Adapter(
-            "a block is written to a mirror or source graph, with no base offset".into(),
+            "a sync's block is written to a mirror or source graph".into(),
         ));
     }
-    let owner = match graph {
-        Graph::Mirror(_) => "",
-        _ => request.tenant.as_str(),
-    };
-    let mut subjects = Vec::with_capacity(ops.len());
-    let mut keys: Vec<String> = Vec::with_capacity(ops.len());
+    let mut keys = std::collections::BTreeSet::new();
     for op in ops {
-        if !op.is_record_shape() {
-            return Err(IngestError::Adapter(format!(
-                "`{}` is not a record shape; resolve it first",
-                op.name()
-            )));
-        }
         match op.subject() {
-            Some(Subject::Entity(id))
-                if id.form() != IdForm::Keyed || registry.parse_foreign_id(id.as_str()).is_ok() =>
-            {
-                keys.push(id.as_str().to_string());
-                subjects.push(Subject::Entity(id));
+            Some(Subject::Entity(id)) if op.is_record_shape() && is_own_key(&id, registry) => {
+                if !keys.insert(id) {
+                    return Err(IngestError::Adapter("a block names a subject twice".into()));
+                }
             }
             _ => {
                 return Err(IngestError::Adapter(format!(
@@ -511,37 +512,300 @@ pub async fn write_block<S: IngestStore>(
             }
         }
     }
-    if keys.iter().collect::<std::collections::BTreeSet<_>>().len() != keys.len() {
-        return Err(IngestError::Adapter("a block names a subject twice".into()));
+    let entries: Vec<BlockEntry<'_>> = ops
+        .iter()
+        .map(|op| BlockEntry {
+            request,
+            payload: BlockPayload::Operation(op),
+        })
+        .collect();
+    write_many(
+        store,
+        pipeline,
+        cx,
+        partition,
+        graph,
+        &entries,
+        request.budget,
+        registry,
+    )
+    .await
+}
+
+/// What one record of a block ([`write_many`]) is made from.
+#[derive(Debug, Clone, Copy)]
+pub enum BlockPayload<'a> {
+    /// A record-shaped operation, as [`write_to`] takes.
+    Operation(&'a Operation),
+    /// A record whose payload the caller encoded, as [`write_raw`] takes.
+    Raw(&'a RawRecord),
+}
+
+/// One record of a block ([`write_many`]): its payload, and the request that says who is
+/// responsible for it, its comment and the revision ID it brings, if any. Each record has
+/// its own, since an adoption or an import attributes every revision to its author.
+#[derive(Debug, Clone, Copy)]
+pub struct BlockEntry<'a> {
+    /// The record's request. Its tenant is the block's; it carries no base offset.
+    pub request: &'a Request,
+    /// The record's payload.
+    pub payload: BlockPayload<'a>,
+}
+
+/// One entry of a block with its key and IDs settled.
+struct Settled<'a> {
+    entry: BlockEntry<'a>,
+    subject: Option<Subject>,
+    key: String,
+    page_id: u64,
+    revid: Option<u64>,
+}
+
+/// Writes a block of records to one partition (0013 A87): what [`write_to`] writes for
+/// each operation and [`write_raw`] for each caller-encoded record, in order, at
+/// consecutive offsets, with the same keys, page IDs and revision IDs, the lookups and
+/// the sequences taken once for the block, the records appended together
+/// ([`IngestStore::append_many`]) and the synchronous projections run over blocks
+/// ([`Pipeline::apply_inline_many`]).
+///
+/// `graph` is the partition's: a mirror or source graph, whose records carry their
+/// upstream revision, or the tenant's `local` or `pages`, whose records carry the
+/// revision ID their request brings or the tenant's next. A key gets the page ID it
+/// has; one with none gets what its first record brings (an adoption's source page ID,
+/// a raw record's) or the next of the sequence, in record order, and keeps it for the
+/// rest of the block. A keyed entity's surrogate is looked up, or minted, before the
+/// block is written ([`key_for`]).
+///
+/// A key may come more than once. The records are appended together all the same, but
+/// the projections run over each stretch of records in which no key repeats, one
+/// stretch after another: a projection applied over a block sees what the earlier
+/// projections wrote for the whole block, which for two records of one key is not what
+/// it sees one record at a time.
+///
+/// A block makes no base-offset check (0006 §8): a write that has one is an
+/// interactive one, written by itself.
+///
+/// # Errors
+///
+/// When the entries are not of one tenant, one carries a base offset or does not belong
+/// to the graph, a lookup or the append fails, or a projection fails.
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+pub async fn write_many<S: IngestStore>(
+    store: &S,
+    pipeline: &Pipeline<S>,
+    cx: &mut S::Cx,
+    partition: u64,
+    graph: &Graph,
+    entries: &[BlockEntry<'_>],
+    budget: Budget,
+    registry: &Registry,
+) -> Result<Vec<Record>, IngestError> {
+    let Some(first) = entries.first() else {
+        return Ok(Vec::new());
+    };
+    let tenant = first.request.tenant.as_str();
+    let upstream = matches!(graph, Graph::Mirror(_) | Graph::Source(_));
+    let owner = match graph {
+        Graph::Mirror(_) => "",
+        Graph::Local | Graph::Pages | Graph::Source(_) => tenant,
+    };
+    let graph_name = graph.name();
+
+    // Each entry's subject and key, and the page ID it brings for a key that has none.
+    let mut keyed: Vec<(Option<Subject>, Option<String>, Option<u64>)> =
+        Vec::with_capacity(entries.len());
+    for entry in entries {
+        if entry.request.tenant != tenant {
+            return Err(IngestError::Adapter(
+                "a block's records are one tenant's".into(),
+            ));
+        }
+        if entry.request.base_offset.is_some() {
+            return Err(IngestError::Adapter(
+                "a block's records carry no base offset".into(),
+            ));
+        }
+        match entry.payload {
+            BlockPayload::Operation(op) => {
+                if !op.is_record_shape() {
+                    return Err(IngestError::Adapter(format!(
+                        "`{}` is not a record shape; resolve it first",
+                        op.name()
+                    )));
+                }
+                let subject = op.subject().ok_or_else(|| {
+                    IngestError::Adapter(format!("`{}` has no subject", op.name()))
+                })?;
+                let key = match &subject {
+                    Subject::Entity(id) => {
+                        key_for(
+                            store,
+                            pipeline,
+                            cx,
+                            id,
+                            &entry.request.attestation,
+                            entry.request.now,
+                            registry,
+                        )
+                        .await?
+                    }
+                    Subject::Page(p) => p.to_string(),
+                };
+                let brings = match op {
+                    Operation::Adopt { source_pageid, .. } => Some(*source_pageid),
+                    _ => None,
+                };
+                keyed.push((Some(subject), Some(key), brings));
+            }
+            BlockPayload::Raw(raw) => {
+                if upstream || raw.graph != graph_name {
+                    return Err(IngestError::Adapter(format!(
+                        "a `{}` record of `{}` in a block of `{graph_name}`",
+                        raw.payload_type, raw.graph
+                    )));
+                }
+                keyed.push((None, raw.key.clone(), raw.page_id));
+            }
+        }
     }
-    // Page IDs: the key's, or the next ones, in the order the operations come, as one
-    // write at a time takes them (0015 §2).
-    let known = store.page_ids_of(cx, &request.tenant, &keys).await?;
-    let fresh = keys.iter().filter(|k| !known.contains_key(*k)).count();
+
+    // Page IDs (0015 §2; 0035 §4): the key's; else what its first record in the block
+    // brings; else the next ones, in record order, as one write at a time takes them.
+    let mut distinct: Vec<String> = keyed.iter().filter_map(|(_, k, _)| k.clone()).collect();
+    distinct.sort();
+    distinct.dedup();
+    let mut page_ids = store.page_ids_of(cx, tenant, &distinct).await?;
+    let mut fresh = 0usize;
+    {
+        let mut first_seen = std::collections::BTreeSet::new();
+        for (_, key, brings) in &keyed {
+            let new = match key {
+                Some(k) => !page_ids.contains_key(k) && first_seen.insert(k.as_str()),
+                None => true,
+            };
+            if new && brings.is_none() {
+                fresh += 1;
+            }
+        }
+    }
     let mut fresh = store
         .next_ids(cx, owner, &Sequence::Page, fresh)
         .await?
         .into_iter();
-    let mut settled = Vec::with_capacity(ops.len());
-    for ((op, subject), key) in ops.iter().zip(subjects).zip(keys) {
-        let page_id = match known.get(&key) {
-            Some(&p) => p,
-            None => fresh
-                .next()
-                .ok_or_else(|| IngestError::Store("a page ID for each new key".into()))?,
-        };
-        settled.push((op, subject, key, page_id));
+    // Revision IDs (0013 §6; 0015 §2): a tenant record's own, or the tenant's next.
+    let minted = if upstream {
+        0
+    } else {
+        entries.iter().filter(|e| e.request.revid.is_none()).count()
+    };
+    // A mirror has no revision sequence to ask, even for none.
+    let mut revids = if minted == 0 {
+        Vec::new()
+    } else {
+        store
+            .next_ids(cx, owner, &Sequence::Revision, minted)
+            .await?
     }
+    .into_iter();
+    let mut settled = Vec::with_capacity(entries.len());
+    for (entry, (subject, key, brings)) in entries.iter().zip(keyed) {
+        let mut next_page = || {
+            brings.map_or_else(
+                || {
+                    fresh
+                        .next()
+                        .ok_or_else(|| IngestError::Store("a page ID for each new key".into()))
+                },
+                Ok,
+            )
+        };
+        let (key, page_id) = if let Some(key) = key {
+            let page_id = if let Some(&p) = page_ids.get(&key) {
+                p
+            } else {
+                let p = next_page()?;
+                page_ids.insert(key.clone(), p);
+                p
+            };
+            (key, page_id)
+        } else {
+            // A record with no key is keyed by the page ID it mints (10 §3.1).
+            let p = next_page()?;
+            (p.to_string(), p)
+        };
+        let revid = match (entry.payload, upstream) {
+            (BlockPayload::Operation(op), true) => upstream_revid(graph, op, registry)?,
+            _ => Some(match entry.request.revid {
+                Some(n) => n,
+                None => revids
+                    .next()
+                    .ok_or_else(|| IngestError::Store("a revision ID for each record".into()))?,
+            }),
+        };
+        settled.push(Settled {
+            entry: *entry,
+            subject,
+            key,
+            page_id,
+            revid,
+        });
+    }
+
+    // The stretches the projections take: a stretch ends before a key it already holds.
+    let mut stretches: Vec<usize> = Vec::new();
+    {
+        let mut held = std::collections::BTreeSet::new();
+        for (i, s) in settled.iter().enumerate() {
+            if !held.insert(s.key.as_str()) {
+                stretches.push(i);
+                held.clear();
+                held.insert(s.key.as_str());
+            }
+        }
+        stretches.push(settled.len());
+    }
+
     // Encoding and hashing each record is its own work: on every core.
-    let drafts = scatter_projection::par_map(settled, |(op, subject, key, page_id)| {
-        let revid = upstream_revid(graph, op, registry)?;
-        let draft = draft_of(store, request, op, &subject, key, page_id, revid)?;
+    let drafts = scatter_projection::par_map(settled, |s| {
+        let draft = match (s.entry.payload, &s.subject) {
+            (BlockPayload::Operation(op), Some(subject)) => draft_of(
+                store,
+                s.entry.request,
+                op,
+                subject,
+                s.key,
+                s.page_id,
+                s.revid,
+            )?,
+            (BlockPayload::Raw(raw), _) => raw_draft(
+                s.entry.request,
+                raw,
+                s.key,
+                s.page_id,
+                s.revid
+                    .ok_or_else(|| IngestError::Store("a raw record has a revision ID".into()))?,
+            )?,
+            (BlockPayload::Operation(op), None) => {
+                return Err(IngestError::Adapter(format!(
+                    "`{}` has no subject",
+                    op.name()
+                )));
+            }
+        };
         let commitment = draft.body.commitment();
         Ok::<_, IngestError>((draft, commitment))
     })
     .into_iter()
     .collect::<Result<Vec<_>, _>>()?;
-    append_projected_many(store, pipeline, cx, partition, drafts, request.budget).await
+    let records = store.append_many(cx, partition, drafts).await?;
+    let mut from = 0;
+    for to in stretches {
+        pipeline
+            .apply_inline_many(store, cx, &records[from..to], budget)
+            .await?;
+        from = to;
+    }
+    Ok(records)
 }
 
 /// [`append_projected`] for a block: drafts appended at consecutive offsets, each with its
@@ -588,6 +852,32 @@ pub struct RawRecord {
     pub extra: Vec<Value>,
 }
 
+/// The draft of a caller-encoded record, its key, page ID and revision ID settled.
+fn raw_draft(
+    request: &Request,
+    raw: &RawRecord,
+    key: String,
+    page_id: u64,
+    revid: u64,
+) -> Result<Draft, IngestError> {
+    let comment = request.comment.as_deref().map_or(Value::Null, Value::text);
+    let mut body = Body::core(&raw.content, &comment, &request.attestation.to_value())
+        .map_err(|e| e.to_string())?;
+    for part in &raw.extra {
+        body.push(scatter_log::body::Part::of(part).map_err(|e| e.to_string())?)
+            .map_err(|e| e.to_string())?;
+    }
+    Ok(Draft {
+        appended_at: request.now,
+        payload_type: raw.payload_type.clone(),
+        key: Some(key),
+        revid: Some(revid),
+        logid: request.logid,
+        page_id: Some(page_id),
+        body,
+    })
+}
+
 /// Writes a caller-encoded record to a tenant graph with the base-offset check, the
 /// page ID and the revision ID of [`write_to`], then runs the synchronous projections.
 pub async fn write_raw<S: IngestStore>(
@@ -605,7 +895,7 @@ pub async fn write_raw<S: IngestStore>(
             tenant: owner.to_string(),
             graph: raw.graph.clone(),
         })?;
-    let (key, page_id) = if let Some(key) = raw.key {
+    let (key, page_id) = if let Some(key) = raw.key.clone() {
         let latest = store.latest_for_key(cx, partition, &key).await?;
         if let (Some(base), Some((latest_offset, _))) = (request.base_offset, &latest)
             && *latest_offset > base
@@ -635,22 +925,7 @@ pub async fn write_raw<S: IngestStore>(
         Some(n) => n,
         None => store.next_id(cx, owner, &Sequence::Revision).await?,
     };
-    let comment = request.comment.as_deref().map_or(Value::Null, Value::text);
-    let mut body = Body::core(&raw.content, &comment, &request.attestation.to_value())
-        .map_err(|e| e.to_string())?;
-    for part in &raw.extra {
-        body.push(scatter_log::body::Part::of(part).map_err(|e| e.to_string())?)
-            .map_err(|e| e.to_string())?;
-    }
-    let draft = Draft {
-        appended_at: request.now,
-        payload_type: raw.payload_type,
-        key: Some(key),
-        revid: Some(revid),
-        logid: request.logid,
-        page_id: Some(page_id),
-        body,
-    };
+    let draft = raw_draft(request, &raw, key, page_id, revid)?;
     let (record, inline) =
         append_projected(store, pipeline, cx, partition, draft, request.budget).await?;
     Ok(Written {

@@ -48,7 +48,8 @@ pub use job::{Counts, Job, Reject};
 pub use store::{Cursor, IngestStore, Sequence};
 pub use sync::{SyncItem, SyncOutcome, run_sync};
 pub use write::{
-    Attestation, MintedValue, RawRecord, Request, Written, write_operation, write_raw,
+    Attestation, BlockEntry, BlockPayload, MintedValue, RawRecord, Request, Written, write_many,
+    write_operation, write_raw,
 };
 
 use scatter_projection::ProjectionError;

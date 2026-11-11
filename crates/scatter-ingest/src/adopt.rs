@@ -34,7 +34,9 @@ use serde::{Deserialize, Serialize};
 use crate::IngestError;
 use crate::job::{Counts, Job, Reject};
 use crate::store::{IngestStore, Sequence};
-use crate::write::{Attestation, Request, append_projected, write_to};
+use crate::write::{
+    Attestation, BlockEntry, BlockPayload, RawRecord, Request, append_projected, write_many,
+};
 
 /// The actor payload type (payloads-actors.md), for the surrogates the job mints.
 pub const PAYLOAD_ACTOR: &str = "scatter:v0/actor";
@@ -295,6 +297,11 @@ async fn set_floors<S: IngestStore>(
 /// Runs an adoption, `batch` revisions per unit of work. The revisions of an entity come
 /// in source-revision order. Re-running it against the same dump skips what is present
 /// and so completes a partial adoption (0035 §3).
+///
+/// A unit's revisions are written as blocks ([`write_many`]; 0013 A88): the entity
+/// revisions that follow one another as one block, the page revisions likewise, each
+/// decided as it arrives and written when the unit ends or the other kind begins. The
+/// records are those of writing each revision as it is decided.
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 pub async fn run_adoption<S: IngestStore>(
     store: &S,
@@ -370,12 +377,20 @@ pub async fn run_adoption<S: IngestStore>(
     let mut rejects = Vec::new();
     let mut cx = store.begin().await?;
     let mut in_unit = 0usize;
-    let mut resume = Resume::default();
+    let mut progress = Progress::default();
     let mut surrogates: BTreeMap<(String, String), String> = BTreeMap::new();
     let mut entities = 0u64;
-    let mut pages = PageResume::default();
+    let unit = AdoptionUnit {
+        tenant,
+        adoption: &adoption,
+        job_attestation: &job_attestation,
+        now,
+        local,
+        registry,
+    };
     for (i, item) in items.into_iter().enumerate() {
         if in_unit >= batch.max(1) {
+            progress.flush(store, pipeline, &mut cx, &unit).await?;
             store.commit(cx).await?;
             cx = store.begin().await?;
             in_unit = 0;
@@ -385,19 +400,13 @@ pub async fn run_adoption<S: IngestStore>(
         let adopted = match item.into() {
             AdoptedItem::Entity(a) => a,
             AdoptedItem::Page(page) => {
-                let unit = AdoptionUnit {
-                    tenant,
-                    adoption: &adoption,
-                    job_attestation: &job_attestation,
-                    now,
-                };
                 match adopt_page(
                     store,
                     pipeline,
                     &mut cx,
                     &unit,
                     page,
-                    &mut pages,
+                    &mut progress,
                     &mut surrogates,
                 )
                 .await?
@@ -461,16 +470,29 @@ pub async fn run_adoption<S: IngestStore>(
         }
         // Idempotent resume (0035 §3): present with the same content is skipped,
         // present with other content is rejected.
-        let present = resume
+        // An entity the job comes back to while its records wait in the block is read
+        // once they are written.
+        if progress.entity.entity.as_ref() != Some(&id)
+            && progress.block.holds(&Graph::Local, id.as_str())
+        {
+            progress.flush(store, pipeline, &mut cx, &unit).await?;
+        }
+        let present = progress
+            .entity
             .newest(store, &mut cx, (tenant, local), &id, adoption.history)
             .await?;
-        if let Some(present) = present {
+        if let Some(mut present) = present {
             let same_revision = !adoption.history || adopted.source_revid == present.revid;
             if adoption.history && adopted.source_revid < present.revid {
                 counts.unchanged += 1;
                 continue;
             }
             if same_revision {
+                // The content of a record still in the block is known once it is written.
+                if progress.entity.unwritten {
+                    progress.flush(store, pipeline, &mut cx, &unit).await?;
+                    present = progress.entity.newest.unwrap_or(present);
+                }
                 let content = serde_json::to_value(&op).map_err(|e| e.to_string())?;
                 let hash =
                     scatter_log::body::Part::of(&scatter_log::cbor::Value::from_json(&content))
@@ -519,19 +541,20 @@ pub async fn run_adoption<S: IngestStore>(
             request.revid = Some(adopted.source_revid);
             request.comment = adopted.comment.filter(|c| !c.is_empty());
         }
-        let written = write_to(
-            store,
-            pipeline,
-            &mut cx,
-            &request,
-            &op,
-            &Graph::Local,
-            registry,
-        )
-        .await?;
-        resume.wrote(&id, adopted.source_revid, &written.record);
+        if !progress.block.takes(&Graph::Local) {
+            progress.flush(store, pipeline, &mut cx, &unit).await?;
+        }
+        progress.entity.queued(&id, adopted.source_revid);
+        progress.block.push(
+            Graph::Local,
+            id.as_str().to_string(),
+            request,
+            Queued::Entity(op),
+        );
         counts.adopted += 1;
     }
+    progress.flush(store, pipeline, &mut cx, &unit).await?;
+    let pages = &progress.pages;
     let mut extra = serde_json::Map::new();
     extra.insert(
         "floors".into(),
@@ -562,12 +585,126 @@ enum PageOutcome {
     Conflict(String),
 }
 
-/// The job-wide inputs a page revision's write needs.
+/// The job-wide inputs a revision's write needs.
 struct AdoptionUnit<'a> {
     tenant: &'a str,
     adoption: &'a Adoption,
     job_attestation: &'a Attestation,
     now: u64,
+    local: u64,
+    registry: &'a Registry,
+}
+
+/// What a queued revision is written from.
+// A block holds a unit of them at most, so the variants' size difference costs little.
+#[allow(clippy::large_enum_variant)]
+enum Queued {
+    Entity(Operation),
+    Page(RawRecord),
+}
+
+/// The revisions decided and not yet written: one graph's, in order (0013 A88).
+#[derive(Default)]
+struct Block {
+    graph: Option<Graph>,
+    items: Vec<(Request, Queued)>,
+    keys: std::collections::BTreeSet<String>,
+}
+
+impl Block {
+    /// Whether a revision of `graph` can join the block: it is empty or of that graph.
+    /// Entity and page revisions are not mixed, so that the revision IDs a
+    /// `--current-only` adoption mints are taken in the order the revisions come.
+    fn takes(&self, graph: &Graph) -> bool {
+        self.graph.as_ref().is_none_or(|g| g == graph)
+    }
+
+    /// Whether a record under `key` of `graph` waits in the block.
+    fn holds(&self, graph: &Graph, key: &str) -> bool {
+        self.graph.as_ref() == Some(graph) && self.keys.contains(key)
+    }
+
+    fn push(&mut self, graph: Graph, key: String, request: Request, queued: Queued) {
+        self.graph = Some(graph);
+        self.keys.insert(key);
+        self.items.push((request, queued));
+    }
+}
+
+/// Where the job is: the entity and the page it is on, and the block it is filling.
+#[derive(Default)]
+struct Progress {
+    entity: Resume,
+    pages: PageResume,
+    block: Block,
+}
+
+impl Progress {
+    /// Writes the block ([`write_many`]), and takes from the records written the content
+    /// of the newest record of the entity or page the job is on, for the resume check.
+    async fn flush<S: IngestStore>(
+        &mut self,
+        store: &S,
+        pipeline: &Pipeline<S>,
+        cx: &mut S::Cx,
+        unit: &AdoptionUnit<'_>,
+    ) -> Result<(), IngestError> {
+        let block = std::mem::take(&mut self.block);
+        let Some(graph) = block.graph else {
+            return Ok(());
+        };
+        let partition = match graph {
+            Graph::Local => unit.local,
+            _ => self.pages.partition(store, cx, unit.tenant).await?,
+        };
+        let entries: Vec<BlockEntry<'_>> = block
+            .items
+            .iter()
+            .map(|(request, queued)| BlockEntry {
+                request,
+                payload: match queued {
+                    Queued::Entity(op) => BlockPayload::Operation(op),
+                    Queued::Page(raw) => BlockPayload::Raw(raw),
+                },
+            })
+            .collect();
+        let records = write_many(
+            store,
+            pipeline,
+            cx,
+            partition,
+            &graph,
+            &entries,
+            Budget::NONE,
+            unit.registry,
+        )
+        .await?;
+        let newest_of = |key: &str| {
+            records
+                .iter()
+                .rev()
+                .find(|r| r.header().key.as_deref() == Some(key))
+                .and_then(|r| r.body().content().content_hash())
+        };
+        if graph == Graph::Local {
+            if self.entity.unwritten
+                && let (Some(id), Some(present)) = (&self.entity.entity, &mut self.entity.newest)
+                && let Some(content_hash) = newest_of(id.as_str())
+            {
+                present.content_hash = content_hash;
+            }
+            self.entity.unwritten = false;
+        } else {
+            if self.pages.unwritten
+                && let (Some(page), Some(present)) = (self.pages.page, &mut self.pages.newest)
+                && let Some(content_hash) = newest_of(&page.to_string())
+            {
+                present.content_hash = content_hash;
+            }
+            self.pages.unwritten = false;
+        }
+        Ok(())
+    }
 }
 
 /// The newest record present for the page the job is on, for the resume check; pages
@@ -579,9 +716,33 @@ struct PageResume {
     partition: Option<u64>,
     /// Pages written to for the first time by this run.
     count: u64,
+    /// The newest revision waits in the block: its content is known once written.
+    unwritten: bool,
 }
 
-/// Writes one adopted page revision, or finds it present (0035 §3, A13).
+impl PageResume {
+    /// The tenant's `pages` partition, looked up once.
+    async fn partition<S: IngestStore>(
+        &mut self,
+        store: &S,
+        cx: &mut S::Cx,
+        tenant: &str,
+    ) -> Result<u64, IngestError> {
+        if let Some(p) = self.partition {
+            return Ok(p);
+        }
+        let p = store.partition(cx, tenant, "pages").await?.ok_or_else(|| {
+            IngestError::NoPartition {
+                tenant: tenant.to_string(),
+                graph: "pages".into(),
+            }
+        })?;
+        self.partition = Some(p);
+        Ok(p)
+    }
+}
+
+/// Queues one adopted page revision for its block, or finds it present (0035 §3, A13).
 #[allow(clippy::too_many_lines)]
 async fn adopt_page<S: IngestStore>(
     store: &S,
@@ -589,25 +750,31 @@ async fn adopt_page<S: IngestStore>(
     cx: &mut S::Cx,
     unit: &AdoptionUnit<'_>,
     page: AdoptedPage,
-    resume: &mut PageResume,
+    progress: &mut Progress,
     surrogates: &mut BTreeMap<(String, String), String>,
 ) -> Result<PageOutcome, IngestError> {
     let tenant = unit.tenant;
-    let partition = if let Some(p) = resume.partition {
-        p
-    } else {
-        let p = store.partition(cx, tenant, "pages").await?.ok_or_else(|| {
-            IngestError::NoPartition {
-                tenant: tenant.to_string(),
-                graph: "pages".into(),
-            }
-        })?;
-        resume.partition = Some(p);
-        p
-    };
+    let partition = progress.pages.partition(store, cx, tenant).await?;
     let key = page.page_id.to_string();
+    // A page the job comes back to while its records wait in the block is read once
+    // they are written.
+    if progress.pages.page != Some(page.page_id) && progress.block.holds(&Graph::Pages, &key) {
+        progress.flush(store, pipeline, cx, unit).await?;
+    }
+    // The content of a record still in the block is known once it is written.
+    if progress.pages.page == Some(page.page_id)
+        && progress.pages.unwritten
+        && progress
+            .pages
+            .newest
+            .is_some_and(|p| !unit.adoption.history || page.source_revid == p.revid)
+    {
+        progress.flush(store, pipeline, cx, unit).await?;
+    }
+    let resume = &mut progress.pages;
     if resume.page != Some(page.page_id) {
         resume.page = Some(page.page_id);
+        resume.unwritten = false;
         resume.newest =
             if let Some((offset, header)) = store.latest_for_key(cx, partition, &key).await? {
                 let record = store.read(cx, partition, offset).await?.ok_or_else(|| {
@@ -677,30 +844,27 @@ async fn adopt_page<S: IngestStore>(
         request.revid = Some(page.source_revid);
         request.comment = page.comment.filter(|c| !c.is_empty());
     }
-    let written = crate::write::write_raw(
-        store,
-        pipeline,
-        cx,
-        &request,
-        crate::write::RawRecord {
+    if !progress.block.takes(&Graph::Pages) {
+        progress.flush(store, pipeline, cx, unit).await?;
+    }
+    progress.pages.newest = Some(Present {
+        revid: page.source_revid,
+        content_hash: [0; 32],
+    });
+    progress.pages.unwritten = true;
+    progress.block.push(
+        Graph::Pages,
+        key.clone(),
+        request,
+        Queued::Page(RawRecord {
             graph: "pages".into(),
             payload_type: page.payload_type,
             key: Some(key),
             page_id: Some(page.page_id),
             content: scatter_log::cbor::Value::from_json(&page.content),
             extra: page.extra,
-        },
-    )
-    .await?;
-    resume.newest = written
-        .record
-        .body()
-        .content()
-        .content_hash()
-        .map(|content_hash| Present {
-            revid: page.source_revid,
-            content_hash,
-        });
+        }),
+    );
     Ok(PageOutcome::Written)
 }
 
@@ -721,6 +885,8 @@ struct Present {
 struct Resume {
     entity: Option<EntityId>,
     newest: Option<Present>,
+    /// The newest revision waits in the block: its content is known once written.
+    unwritten: bool,
 }
 
 impl Resume {
@@ -734,6 +900,7 @@ impl Resume {
     ) -> Result<Option<Present>, IngestError> {
         if self.entity.as_ref() != Some(id) {
             self.entity = Some(id.clone());
+            self.unwritten = false;
             self.newest = if history {
                 match store.latest_for_key(cx, local, id.as_str()).await? {
                     Some((offset, header)) => {
@@ -780,16 +947,15 @@ impl Resume {
         Ok(self.newest)
     }
 
-    fn wrote(&mut self, id: &EntityId, revid: u64, record: &scatter_log::record::Record) {
+    /// A revision of the entity joined the block: it is the newest, its content known
+    /// once the block is written ([`Progress::flush`]).
+    fn queued(&mut self, id: &EntityId, revid: u64) {
         self.entity = Some(id.clone());
-        self.newest = record
-            .body()
-            .content()
-            .content_hash()
-            .map(|content_hash| Present {
-                revid,
-                content_hash,
-            });
+        self.newest = Some(Present {
+            revid,
+            content_hash: [0; 32],
+        });
+        self.unwritten = true;
     }
 }
 

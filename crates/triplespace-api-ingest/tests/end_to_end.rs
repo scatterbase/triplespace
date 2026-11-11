@@ -8,9 +8,12 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use ed25519_dalek::SigningKey;
 use scatter_actors::issuer::IssuerRegistry;
-use scatter_ingest::adopt::{Adopted, Adoption, Author, Floors, run_adoption};
+use scatter_ingest::adopt::{
+    Adopted, AdoptedItem, AdoptedPage, Adoption, Author, Floors, run_adoption,
+};
 use scatter_ingest::{
-    Attestation, IngestError, Request, SyncItem, run_batch, run_sync, write_operation,
+    Attestation, BlockEntry, BlockPayload, IngestError, Request, SyncItem, run_batch, run_sync,
+    write_many, write_operation,
 };
 use scatter_log::body::Body;
 use scatter_log::cbor::Value;
@@ -24,7 +27,7 @@ use scatter_log::tree::Segments;
 use scatter_log_postgres::{PartitionInfo, PgLog, log};
 use scatter_projection::{Backend, Pipeline};
 use scatter_providers::Registry;
-use scatter_wikibase_changeset::{JobHeader, Mode, Operation, ProviderOrder, Upstream};
+use scatter_wikibase_changeset::{Graph, JobHeader, Mode, Operation, ProviderOrder, Upstream};
 use scatter_wikibase_model::entity::Entity;
 use scatter_wikibase_model::id::EntityId;
 use serde_json::json;
@@ -714,6 +717,272 @@ async fn adoption_batch_sync_and_edit_end_to_end() {
 }
 
 /// One revision of a history adoption (0035 A12).
+/// A snapshot sweep writes its operations in blocks (0013 A86), and over Postgres, where
+/// a block is a binary `COPY` and its projections run over the block, it writes what one
+/// operation at a time writes (`batch` 1): the same keys at the same offsets with the same
+/// revision IDs, page IDs and body sizes (a body's hashes are salted, so its leaf differs
+/// from one database to the next), and the same entity rows. The keyed Domain's clearing `put`, which no
+/// block takes, is written by itself between the tombstones' blocks.
+#[tokio::test]
+async fn a_sweep_in_blocks_writes_what_one_operation_at_a_time_writes() {
+    if skipped() {
+        return;
+    }
+    let mut runs = Vec::new();
+    for batch in [1usize, 3, 100] {
+        let (client, backend) = fresh().await;
+        let client = seed(client).await;
+        let store = PgIngest::new(backend);
+        let p = pipeline();
+        let registry = Registry::default_registry();
+        let log_store = PgLog::new(client);
+        p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
+            .await
+            .unwrap();
+        let client = log_store.into_inner();
+        let state = |n: u64| SyncItem::State {
+            entity: Box::new(entity(item(&format!("XDQ{n}"), "An item", &json!({})))),
+            upstream: Upstream::revision(10 + n, None),
+            upstream_id: None,
+            upstream_aliases: Vec::new(),
+        };
+        let domain = entity(json!({"type": "domain", "id": "domain:example.org",
+            "labels": {"en": {"language": "en", "value": "example.org"}}}));
+        let mut items: Vec<SyncItem> = (1..=6).map(state).collect();
+        items.push(SyncItem::State {
+            entity: Box::new(domain),
+            upstream: Upstream::revision(30, None),
+            upstream_id: Some("Q9".into()),
+            upstream_aliases: Vec::new(),
+        });
+        run_sync(
+            &store,
+            &p,
+            JobHeader::mirror("internetdomains", "2026-10-01", Mode::Upsert),
+            Attestation::by("instance:scatter"),
+            items,
+            100,
+            registry,
+            NOW,
+            100,
+        )
+        .await
+        .unwrap();
+        // The snapshot sees XDQ1 alone: five tombstones and the Domain's clearing.
+        let out = run_sync(
+            &store,
+            &p,
+            JobHeader::mirror("internetdomains", "2026-10-02", Mode::Snapshot),
+            Attestation::by("instance:scatter"),
+            vec![state(1)],
+            100,
+            registry,
+            NOW + 10,
+            batch,
+        )
+        .await
+        .unwrap();
+        assert_eq!(out.swept, 6, "batch {batch}");
+        assert_eq!(
+            (out.counts.tombstoned, out.counts.cleared),
+            (5, 1),
+            "batch {batch}"
+        );
+        let records = rows(
+            &client,
+            "SELECT lpad(\"offset\"::text, 6, '0') || '|' || key || '|' || coalesce(revid::text, '-')
+                    || '|' || coalesce(page_id::text, '-') || '|' || octet_length(body)::text
+             FROM log.record WHERE partition = 12306",
+        )
+        .await;
+        let entities = rows(
+            &client,
+            "SELECT id || '|' || resolved_kind || '|' || page_id::text FROM view.entity WHERE tenant = ''",
+        )
+        .await;
+        runs.push((batch, records, entities));
+    }
+    let (_, records_one, entities_one) = &runs[0];
+    assert_eq!(
+        records_one.len(),
+        13,
+        "seven puts, five tombstones, one clearing"
+    );
+    for (batch, records, entities) in &runs[1..] {
+        assert_eq!(records, records_one, "batch {batch}: the same records");
+        assert_eq!(
+            entities, entities_one,
+            "batch {batch}: the same entity rows"
+        );
+    }
+}
+
+/// Every row of every `view` table, as text, by table: what the projections left.
+async fn views(client: &Client) -> BTreeMap<String, Vec<String>> {
+    let tables = rows(
+        client,
+        "SELECT c.relname::text FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE n.nspname = 'view' AND c.relkind = 'r'",
+    )
+    .await;
+    let mut out = BTreeMap::new();
+    for table in tables {
+        let found = rows(
+            client,
+            &format!("SELECT row_to_json(t)::text FROM view.\"{table}\" t"),
+        )
+        .await;
+        out.insert(table, found);
+    }
+    out
+}
+
+/// A block (`write_many`; 0013 A87) over Postgres, where it is a binary `COPY` and the
+/// real projections run over its stretches, leaves what one record at a time leaves: the
+/// same keys at the same offsets with the same revision IDs, page IDs and body sizes,
+/// and the same rows in every `view` table. The block is a tenant's `local` graph by
+/// several authors: a property and items that use it, an item naming one created later
+/// in the block, a key written three times, and an adopted entity's history under its
+/// own page and revision IDs.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn a_block_of_local_records_leaves_what_one_record_at_a_time_leaves() {
+    if skipped() {
+        return;
+    }
+    let by = |actor: &str, comment: Option<&str>, revid: Option<u64>| {
+        let mut r = Request::new(TENANT, Attestation::by(actor), NOW);
+        r.comment = comment.map(str::to_string);
+        r.revid = revid;
+        r.budget = scatter_projection::Budget::NONE;
+        r
+    };
+    let op = |v: serde_json::Value| -> Operation { serde_json::from_value(v).unwrap() };
+    let adopt = |id: &str, label: &str, revid: u64, pageid: u64| Operation::Adopt {
+        id: EntityId::parse(id).unwrap(),
+        entity: Some(entity(item(id, label, &json!({})))),
+        redirect: None,
+        source_revid: revid,
+        source_parentid: None,
+        source_time: "2026-09-20T14:02:11Z".into(),
+        source_pageid: pageid,
+        minor: false,
+        withheld: Vec::new(),
+    };
+    let names_q3 = json!({"P1": [{"mainsnak": {"snaktype": "value", "property": "P1",
+        "datavalue": {"value": {"entity-type": "item", "numeric-id": 3, "id": "Q3"}, "type": "wikibase-entityid"},
+        "datatype": "wikibase-item"}, "type": "statement", "rank": "normal",
+        "id": "Q2$00000000-0000-0000-0000-0000000000B1"}]});
+    let block: Vec<(Request, Operation)> = vec![
+        (
+            by("librarybase:1", Some("a property"), None),
+            op(
+                json!({"op": "create", "id": "P1", "entity": {"type": "property", "id": "P1",
+                "datatype": "wikibase-item", "labels": {"en": {"language": "en", "value": "related to"}}}}),
+            ),
+        ),
+        (
+            by("librarybase:1", Some("first"), None),
+            op(json!({"op": "create", "id": "Q1", "entity": item("Q1", "One", &json!({}))})),
+        ),
+        // Names Q3, which the block creates two records later.
+        (
+            by("librarybase:2", None, None),
+            op(json!({"op": "create", "id": "Q2", "entity": item("Q2", "Two", &names_q3)})),
+        ),
+        (
+            by("librarybase:2", None, None),
+            op(json!({"op": "add", "id": "Q1", "labels": {"fr": "Un"}})),
+        ),
+        (
+            by("librarybase:1", None, None),
+            op(json!({"op": "create", "id": "Q3", "entity": item("Q3", "Three", &json!({}))})),
+        ),
+        (
+            by("librarybase:3", Some("again"), None),
+            op(
+                json!({"op": "add", "id": "Q1", "descriptions": {"en": "the first"}, "aliases": {"en": ["Uno"]}}),
+            ),
+        ),
+        (
+            by("librarybase:7", Some("r40"), Some(40)),
+            adopt("Q7", "Seven", 40, 700),
+        ),
+        (
+            by("librarybase:8", None, Some(41)),
+            adopt("Q7", "Seven, again", 41, 700),
+        ),
+        (
+            by("librarybase:7", None, Some(42)),
+            adopt("Q7", "Seven, thrice", 42, 700),
+        ),
+    ];
+    let mut runs = Vec::new();
+    for in_block in [false, true] {
+        let (client, backend) = fresh().await;
+        let client = seed(client).await;
+        let store = PgIngest::new(backend);
+        let p = pipeline();
+        let registry = Registry::default_registry();
+        let log_store = PgLog::new(client);
+        p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
+            .await
+            .unwrap();
+        let client = log_store.into_inner();
+        let mut cx = store.begin().await.unwrap();
+        if in_block {
+            let entries: Vec<_> = block
+                .iter()
+                .map(|(request, op)| BlockEntry {
+                    request,
+                    payload: BlockPayload::Operation(op),
+                })
+                .collect();
+            write_many(
+                &store,
+                &p,
+                &mut cx,
+                LOCAL,
+                &Graph::Local,
+                &entries,
+                scatter_projection::Budget::NONE,
+                registry,
+            )
+            .await
+            .unwrap();
+        } else {
+            for (request, op) in &block {
+                write_operation(&store, &p, &mut cx, request, op, registry)
+                    .await
+                    .unwrap();
+            }
+        }
+        store.commit(cx).await.unwrap();
+        let records = rows(
+            &client,
+            "SELECT lpad(\"offset\"::text, 6, '0') || '|' || key || '|' || coalesce(revid::text, '-')
+                    || '|' || coalesce(page_id::text, '-') || '|' || octet_length(body)::text
+             FROM log.record WHERE partition = 12289",
+        )
+        .await;
+        runs.push((records, views(&client).await));
+    }
+    let (records_one, views_one) = &runs[0];
+    let (records_block, views_block) = &runs[1];
+    assert_eq!(records_one.len(), 9);
+    assert_eq!(records_block, records_one, "the same records");
+    assert!(
+        views_one.values().map(Vec::len).sum::<usize>() > 20,
+        "the projections wrote their rows"
+    );
+    for (table, rows_one) in views_one {
+        assert_eq!(
+            &views_block[table], rows_one,
+            "the same rows in view.{table}"
+        );
+    }
+}
+
 fn revision(id: &str, revid: u64, parent: Option<u64>, time: &str, author: Author) -> Adopted {
     Adopted {
         id: EntityId::parse(id).unwrap(),
@@ -727,6 +996,197 @@ fn revision(id: &str, revid: u64, parent: Option<u64>, time: &str, author: Autho
         withheld: Vec::new(),
         comment: Some(format!("edit {revid}")),
         author,
+    }
+}
+
+/// One revision of an adopted wikitext page: its `create`, or an `edit` after it.
+fn page_revision(
+    page_id: u64,
+    title: &str,
+    revid: u64,
+    first: bool,
+    author: Author,
+) -> AdoptedPage {
+    use scatter_pages::{PAYLOAD_PAGE, PageOp, Source};
+    let source = Some(Source {
+        source_revid: revid,
+        source_parentid: None,
+        source_time: "2026-09-05T00:00:00Z".into(),
+        withheld: Vec::new(),
+    });
+    let op = if first {
+        PageOp::Create {
+            ns: 4,
+            title: title.into(),
+            model: "wikitext".into(),
+            minor: false,
+            source,
+        }
+    } else {
+        PageOp::Edit {
+            model: None,
+            minor: false,
+            source,
+        }
+    };
+    AdoptedPage {
+        page_id,
+        payload_type: PAYLOAD_PAGE.into(),
+        content: op.to_json(),
+        extra: vec![Value::text(&format!("Text of {title} at {revid}."))],
+        source_revid: revid,
+        comment: Some(format!("page edit {revid}")),
+        author,
+    }
+}
+
+/// An adoption writes each unit's revisions as blocks (0013 A88), and what it leaves is
+/// what it leaves writing one revision per unit (`batch` 1, a block of one each): the
+/// same records in `local`, `pages` and `actors`, the same counts, and the same rows in
+/// every `view` table, over a first run and a re-run that finds everything present. The
+/// history has entities of several revisions, authors that need a surrogate, a hidden
+/// author, a redirect, an entity the dump comes back to, and pages between the entities.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn an_adoption_in_blocks_leaves_what_one_revision_at_a_time_leaves() {
+    if skipped() {
+        return;
+    }
+    let ip = |raw: &str| Author::Surrogate {
+        kind: "anonymous".into(),
+        raw: raw.into(),
+    };
+    let editor = || Author::Actor("librarybase:7".into());
+    let mut merged = revision(
+        "Q7",
+        44_000,
+        Some(43_000),
+        "2026-09-21T00:00:00Z",
+        Author::Hidden,
+    );
+    merged.entity = None;
+    merged.redirect = Some(EntityId::parse("Q6").unwrap());
+    merged.withheld = vec!["attestation".into()];
+    let items: Vec<AdoptedItem> = vec![
+        revision("Q6", 41_000, None, "2026-09-01T00:00:00Z", editor()).into(),
+        revision(
+            "Q6",
+            41_500,
+            Some(41_000),
+            "2026-09-10T00:00:00Z",
+            ip("192.0.2.1"),
+        )
+        .into(),
+        revision(
+            "Q6",
+            41_877,
+            Some(41_500),
+            "2026-09-20T14:02:11Z",
+            ip("192.0.2.1"),
+        )
+        .into(),
+        revision("Q7", 43_000, None, "2026-09-02T00:00:00Z", editor()).into(),
+        page_revision(300, "About", 45_000, true, editor()).into(),
+        page_revision(300, "About", 45_001, false, ip("192.0.2.9")).into(),
+        page_revision(301, "Help", 45_002, true, editor()).into(),
+        merged.into(),
+        // The dump comes back to Q6, and repeats a revision already adopted.
+        revision(
+            "Q6",
+            41_877,
+            Some(41_500),
+            "2026-09-20T14:02:11Z",
+            ip("192.0.2.1"),
+        )
+        .into(),
+        revision(
+            "Q6",
+            46_000,
+            Some(41_877),
+            "2026-09-25T00:00:00Z",
+            ip("192.0.2.2"),
+        )
+        .into(),
+        page_revision(301, "Help", 46_001, false, editor()).into(),
+    ];
+    let adoption = Adoption {
+        issuer: TENANT.into(),
+        source: "https://librarybase.org/".into(),
+        version: "librarybase-20261019-history.xml.gz".into(),
+        adapter_version: None,
+        frozen: true,
+        history: true,
+        current_state_dump: false,
+        floors: Floors {
+            entity: BTreeMap::from([("item".to_string(), 1000)]),
+            page: 2000,
+            revision: 50_000,
+            log: 700,
+            user: 40,
+        },
+        accounts: vec![account("librarybase:7", "Editor")],
+        property_types: BTreeMap::new(),
+    };
+    let mut runs = Vec::new();
+    for batch in [1usize, 4, 100] {
+        let (client, backend) = fresh().await;
+        let client = seed(client).await;
+        let store = PgIngest::new(backend);
+        let p = pipeline();
+        let registry = Registry::default_registry();
+        let log_store = PgLog::new(client);
+        p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
+            .await
+            .unwrap();
+        let client = log_store.into_inner();
+        let mut counts = Vec::new();
+        for _ in 0..2 {
+            let out = run_adoption(
+                &store,
+                &p,
+                TENANT,
+                Attestation::by("librarybase:2"),
+                adoption.clone(),
+                items.clone(),
+                registry,
+                NOW,
+                batch,
+            )
+            .await
+            .unwrap();
+            assert!(out.rejects.is_empty(), "batch {batch}: {:?}", out.rejects);
+            counts.push(out.counts);
+        }
+        let records = rows(
+            &client,
+            "SELECT partition::text || '|' || lpad(\"offset\"::text, 6, '0') || '|' || coalesce(key, '-')
+                    || '|' || coalesce(revid::text, '-') || '|' || coalesce(page_id::text, '-')
+                    || '|' || octet_length(body)::text
+             FROM log.record WHERE partition IN (12289, 12290, 12292)",
+        )
+        .await;
+        runs.push((batch, counts, records, views(&client).await));
+    }
+    let (_, counts_one, records_one, views_one) = &runs[0];
+    assert_eq!(
+        (counts_one[0].adopted, counts_one[0].unchanged),
+        (10, 1),
+        "the first run adopts all but the repeated revision"
+    );
+    assert_eq!(
+        (counts_one[1].adopted, counts_one[1].unchanged),
+        (0, 11),
+        "the re-run finds everything present"
+    );
+    for (batch, counts, records, views) in &runs[1..] {
+        assert_eq!(counts, counts_one, "batch {batch}: the same counts");
+        assert_eq!(records, records_one, "batch {batch}: the same records");
+        for (table, rows_one) in views_one {
+            assert_eq!(
+                &views[table], rows_one,
+                "batch {batch}: the same rows in view.{table}"
+            );
+        }
     }
 }
 
