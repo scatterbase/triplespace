@@ -685,3 +685,18 @@ and, later, WAL writes (`LWLock:WALWrite`, `IO:WalSync`, iowait 8–13%). A bot 
 The first run's rejections were all lexemes, whose forms and senses the adapter does not read yet (0092 A3); each
 batch is its own job, about 8,000 over the two runs. Before running a newer build against an
 older benchmark database, run `triplespace migrate`.
+
+**The follower reads ahead (2026-11-11).** `run_follow` reads the next batch while it writes the
+current one: still one request upstream at a time, batches written in order, each position saved
+after its own batch's job. On the whole-dump mirror, from 16 h behind to caught up, anonymous,
+alternating 12-minute segments of the two builds (`main` with 0092 A3–A5, with and without the
+read-ahead):
+
+| Build | Segments | Batches per minute | Entities per minute | Wikidata time per wall time |
+|---|---|---|---|---|
+| serial | 4 | 5.0, 5.9, 6.0, 7.0 (mean 6.0) | 2,471 | 7.8–10.7× |
+| read-ahead | 3 (and a last 2 minutes) | 8.8, 9.3, 9.4 (mean 9.2) | 3,718 | 14.4–17.4× |
+
+**+53% batches per minute**; each read-ahead segment beat both serial segments beside it, by
+1.34× to 1.76×. More than the write's share of a batch (about 30%) suggested: the read's parsing
+and the write's waits on Postgres overlap too.

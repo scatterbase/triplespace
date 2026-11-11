@@ -2025,3 +2025,100 @@ fn the_next_load_marks_a_dead_load_interrupted() {
         store.rollback(cx).await.unwrap();
     });
 }
+
+/// A change source of three batches that logs when it is read and saved, and how many
+/// records the mirror held at each save.
+struct Scripted<'a> {
+    store: &'a MemoryIngest,
+    batches: std::collections::VecDeque<scatter_ingest::ChangeBatch>,
+    read: u32,
+    log: Vec<String>,
+}
+
+impl scatter_ingest::ChangeSource for Scripted<'_> {
+    type Position = u32;
+
+    async fn next(&mut self) -> Result<(scatter_ingest::ChangeBatch, u32), IngestError> {
+        self.read += 1;
+        self.log.push(format!("read {}", self.read));
+        let batch = self
+            .batches
+            .pop_front()
+            .unwrap_or(scatter_ingest::ChangeBatch {
+                caught_up: true,
+                ..Default::default()
+            });
+        Ok((batch, self.read))
+    }
+
+    async fn save(&mut self, at: u32) -> Result<(), IngestError> {
+        let held = self.store.records(MIRROR_XD).len();
+        self.log.push(format!("save {at} with {held}"));
+        Ok(())
+    }
+}
+
+// 0092 §3: the follower reads the next batch while it writes one, and still writes the
+// batches in order and saves each batch's position only after its records.
+#[test]
+fn the_follower_reads_ahead_and_saves_each_position_after_its_batch() {
+    pollster::block_on(async {
+        let (store, pipeline) = setup();
+        let batch = |items: Vec<SyncItem>, caught_up: bool| scatter_ingest::ChangeBatch {
+            rows: u64::try_from(items.len()).unwrap(),
+            items,
+            caught_up,
+            ..Default::default()
+        };
+        let mut source = Scripted {
+            store: &store,
+            batches: [
+                batch(vec![xd_state("XDQ1", "One", 10)], false),
+                batch(
+                    vec![xd_state("XDQ2", "Two", 20), xd_state("XDQ1", "Uno", 21)],
+                    false,
+                ),
+                batch(vec![xd_state("XDQ3", "Three", 30)], true),
+            ]
+            .into(),
+            read: 0,
+            log: Vec::new(),
+        };
+        let out = scatter_ingest::run_follow(
+            &store,
+            &pipeline,
+            "",
+            "internetdomains",
+            Attestation::by("instance:scatter"),
+            &mut source,
+            registry(),
+            || NOW,
+            100,
+            true,
+        )
+        .await
+        .unwrap();
+        // The mirror holds 1, 3, then 4 records: each save follows its own batch.
+        assert_eq!(
+            source.log,
+            [
+                "read 1",
+                "read 2",
+                "save 1 with 1",
+                "read 3",
+                "save 2 with 3",
+                "save 3 with 4",
+            ]
+        );
+        assert_eq!((out.batches, out.rows, out.counts.created), (3, 4, 3));
+        assert_eq!(out.counts.merged, 1);
+        // Written in order: Q1's later revision is the one that stands.
+        let records = store.records(MIRROR_XD);
+        let revids: Vec<_> = records
+            .iter()
+            .filter_map(|r| r.header().revid)
+            .map(|g| g & ((1 << 40) - 1))
+            .collect();
+        assert!(revids.windows(2).all(|w| w[0] < w[1]), "{revids:?}");
+    });
+}

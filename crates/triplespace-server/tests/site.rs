@@ -513,14 +513,19 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
 struct OneBatch(Option<scatter_ingest::ChangeBatch>);
 
 impl scatter_ingest::ChangeSource for OneBatch {
-    async fn next(&mut self) -> Result<scatter_ingest::ChangeBatch, scatter_ingest::IngestError> {
-        Ok(self.0.take().unwrap_or(scatter_ingest::ChangeBatch {
+    type Position = ();
+
+    async fn next(
+        &mut self,
+    ) -> Result<(scatter_ingest::ChangeBatch, ()), scatter_ingest::IngestError> {
+        let batch = self.0.take().unwrap_or(scatter_ingest::ChangeBatch {
             caught_up: true,
             ..Default::default()
-        }))
+        });
+        Ok((batch, ()))
     }
 
-    async fn save(&mut self) -> Result<(), scatter_ingest::IngestError> {
+    async fn save(&mut self, (): ()) -> Result<(), scatter_ingest::IngestError> {
         Ok(())
     }
 }
