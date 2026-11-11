@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-11 (A93)
+- **Updated:** 2026-11-11 (A94)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -117,7 +117,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 7. Projections, synchrony and read-your-writes
 
-*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28, A33, A44, A53, A63, A75, A76, A77, A86, A87, A88, A89, A90, A91, A92, A93.*
+*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28, A33, A44, A53, A63, A75, A76, A77, A86, A87, A88, A89, A90, A91, A92, A93, A94.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §5, §6.1, §6.2, §6.3.*
 
@@ -1184,3 +1184,14 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it 
 Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it stood):
 
 > The projections apply a tenant's records one at a time inside a block.
+
+### A94. The page projection applies a run of one page's revisions as one
+
+- **Date:** 2026-11-11
+- **Source:** Direct: Claude, while building the page projection's block form, 2026-11-11; unconfirmed (James asked for the page projection to be worked on next)
+- **Change:** amends §7
+- **Summary:** A93 left the page projection applying a block one record at a time, at about ten statements a revision, which was four fifths of an import's time. Of what a revision writes, only its text under its revision ID is the revision's own; the page's row, its redirect, its links and its categories are the page's as its latest text leaves them, written again by every revision. The calls made: (1) the projection applies a block's records in order and pages never together, as before, since a page's record reaches other pages' rows (a `create` resolves the redirects that name its title; a redirect looks its target up by title). (2) A run of consecutive records of one page that is a `create` and the `edit`s after it, or `edit`s alone, is applied as one (`pages::apply_run`): the `create` as it was; the `edit`s as one update of the page's row, with the last revision's offset, revision ID and time, the length and content model of the last revision that carries one, and `revisions` moved by their number; every revision's text in one statement; the redirects naming a created page's title resolved once; and the last text of the run indexed once (the redirect, links and categories). The `view` rows are those of one record at a time. (3) What differs is outside `view`: the report keys queued (`ops.projection_work`) are the page's title and the links and categories the run removes or leaves, queued once at the run's last offset, where one record at a time queued every revision's at its own offset. A link or category that came and went inside the run is not queued, and changes no report, since the page neither held it before the run nor holds it after. (4) A run with a `move`, an erased record or a `create` after its first record goes one record at a time; so does a run of `edit`s the page's row does not take from the first (its offset is not behind the row's, which is records applied again), since then some would apply and some not. An import of 20 pages of 100 revisions takes about 0.6 s against 2.4 s, and of 60 pages of ten 0.5 s against 0.9 s (release build, cloud sandbox). Checked over Postgres: an adoption of pages whose histories change links and categories, pass through a redirect, withhold a text and end as a redirect leaves the same rows in every `view` table as one revision to a unit, and an import the rows the projection left before. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §6.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it stood):
+
+> A shared partition's records, which reach every tenant's overlay, a `convert`, which names two entities, and the page projection are applied one record at a time.

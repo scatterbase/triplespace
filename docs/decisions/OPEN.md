@@ -36,6 +36,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0013 A91](0013-postgres-storage.md#a91-an-import-writes-each-page-as-a-block-and-a-few-records-are-written-one-at-a-time) | 2026-11-11 | An import writes each page as a block, and a few records are written one at a time |
 | [0013 A92](0013-postgres-storage.md#a92-a-syncs-unit-is-taken-in-blocks-and-single-items-where-they-come) | 2026-11-11 | A sync's unit is taken in blocks and single items, where they come |
 | [0013 A93](0013-postgres-storage.md#a93-the-projections-apply-a-tenants-block-a-key-at-a-time-the-keys-together) | 2026-11-11 | The projections apply a tenant's block a key at a time, the keys together |
+| [0013 A94](0013-postgres-storage.md#a94-the-page-projection-applies-a-run-of-one-pages-revisions-as-one) | 2026-11-11 | The page projection applies a run of one page's revisions as one |
 | [0016 A42](0016-permissions-and-access-control.md#a42-delegated-administration-the-calls-made-while-drafting-and-building-tier-4) | 2026-10-30 | Delegated administration: the calls made while drafting and building tier 4 |
 | [0018 A33](0018-tenants.md#a33-multi-tenant-round-1-the-assumptions-the-implementation-made) | 2026-10-30 | Multi-tenant round 1: the assumptions the implementation made |
 | [0019 A31](0019-discussions.md#a31-a-threads-actions-from-the-page-the-calls-made-building-them) | 2026-11-05 | A thread's actions from the page: the calls made building them |

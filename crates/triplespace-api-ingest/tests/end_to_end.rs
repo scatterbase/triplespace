@@ -1612,6 +1612,153 @@ fn page_revision(
     }
 }
 
+/// One revision of an adopted wikitext page with a text of its own, or none (withheld).
+fn page_text_revision(
+    page_id: u64,
+    title: &str,
+    revid: u64,
+    first: bool,
+    text: Option<&str>,
+) -> AdoptedPage {
+    let mut page = page_revision(
+        page_id,
+        title,
+        revid,
+        first,
+        Author::Actor("librarybase:7".into()),
+    );
+    page.extra = text.map(Value::text).into_iter().collect();
+    if text.is_none() {
+        let mut content = page.content.clone();
+        content["withheld"] = json!(["text"]);
+        page.content = content;
+    }
+    page
+}
+
+/// The page projection applies a run of one page's revisions as one (0013 A94), and what
+/// it leaves is what it leaves one revision to a unit (`batch` 1): the same rows in every
+/// `view` table. The pages' histories change their links and categories, pass through a
+/// redirect, withhold a text, and end as a redirect to a page of the same run; and a
+/// re-run finds everything present.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn a_run_of_page_revisions_leaves_what_one_at_a_time_leaves() {
+    if skipped() {
+        return;
+    }
+    let about = [
+        Some("About this wiki. [[Project:Help]] [[Category:Guides]]"),
+        Some("About this wiki, longer. [[Project:Help]] [[Project:Missing]] [[Category:Guides]]"),
+        Some("#REDIRECT [[Project:Help]]"),
+        None,
+        Some("About again. [[Project:Rules]] [[Category:Meta]] [[Category:Guides|about]]"),
+        Some("About, final. [[Project:Rules]] [[Category:Meta]]"),
+    ];
+    let help = [
+        Some("Help. [[Project:About]]"),
+        Some("Help, more. [[Project:About]] [[Category:Guides]]"),
+        Some("Help, with [[Project:Elsewhere]]."),
+        Some("Help, shorter."),
+        Some("#REDIRECT [[Project:About]]"),
+    ];
+    let mut items: Vec<AdoptedItem> = Vec::new();
+    for (i, text) in about.iter().enumerate() {
+        items.push(page_text_revision(300, "About", 45_000 + i as u64, i == 0, *text).into());
+    }
+    for (i, text) in help.iter().enumerate() {
+        items.push(page_text_revision(301, "Help", 45_100 + i as u64, i == 0, *text).into());
+    }
+    // A page of one revision, and one whose last revision has no text.
+    items.push(
+        page_text_revision(302, "Rules", 45_200, true, Some("Rules. [[Project:About]]")).into(),
+    );
+    for (i, text) in [
+        Some("Notes."),
+        Some("Notes, more. [[Category:Meta]]"),
+        Some("Notes, three."),
+        Some("Notes, four."),
+        None,
+    ]
+    .iter()
+    .enumerate()
+    {
+        items.push(page_text_revision(303, "Notes", 45_300 + i as u64, i == 0, *text).into());
+    }
+    let adoption = Adoption {
+        issuer: TENANT.into(),
+        source: "https://librarybase.org/".into(),
+        version: "librarybase-pages.xml.gz".into(),
+        adapter_version: None,
+        frozen: true,
+        history: true,
+        current_state_dump: false,
+        floors: Floors {
+            entity: BTreeMap::from([("item".to_string(), 1000)]),
+            page: 2000,
+            revision: 50_000,
+            log: 700,
+            user: 40,
+        },
+        accounts: vec![account("librarybase:7", "Editor")],
+        property_types: BTreeMap::new(),
+    };
+    let mut runs = Vec::new();
+    for batch in [1usize, 100] {
+        let (client, backend) = fresh().await;
+        let client = seed(client).await;
+        let store = PgIngest::new(backend);
+        let p = pipeline();
+        let registry = Registry::default_registry();
+        let log_store = PgLog::new(client);
+        p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
+            .await
+            .unwrap();
+        let client = log_store.into_inner();
+        let mut counts = Vec::new();
+        for _ in 0..2 {
+            let out = run_adoption(
+                &store,
+                &p,
+                TENANT,
+                Attestation::by("librarybase:2"),
+                adoption.clone(),
+                items.clone(),
+                registry,
+                NOW,
+                batch,
+            )
+            .await
+            .unwrap();
+            assert!(out.rejects.is_empty(), "batch {batch}: {:?}", out.rejects);
+            counts.push(out.counts);
+        }
+        runs.push((batch, counts, views(&client).await));
+    }
+    let (_, counts_one, views_one) = &runs[0];
+    assert_eq!(counts_one[0].adopted, 17);
+    assert_eq!(
+        counts_one[1].unchanged, 17,
+        "the re-run finds everything present"
+    );
+    let page_rows = &views_one["page"];
+    assert_eq!(page_rows.len(), 4, "{page_rows:?}");
+    assert!(
+        views_one["page_link"].len() >= 2 && !views_one["page_category"].is_empty(),
+        "the latest texts were indexed"
+    );
+    assert_eq!(views_one["redirect"].len(), 1, "Help ends as a redirect");
+    for (batch, counts, views) in &runs[1..] {
+        assert_eq!(counts, counts_one, "batch {batch}: the same counts");
+        for (table, rows_one) in views_one {
+            assert_eq!(
+                &views[table], rows_one,
+                "batch {batch}: the same rows in view.{table}"
+            );
+        }
+    }
+}
+
 /// An adoption writes each unit's revisions as blocks (0013 A88), and what it leaves is
 /// what it leaves writing one revision per unit (`batch` 1, a block of one each): the
 /// same records in `local`, `pages` and `actors`, the same counts, and the same rows in

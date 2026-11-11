@@ -124,9 +124,11 @@ more. For a machine with `R` of RAM:
    `create`s take about 2.6 s against 7.7 s streamed, and 2.6 s against 5.4 s atomic (release
    build, cloud sandbox). Since 0013 A93 the projections apply a tenant's block a key at a time
    with the keys' statements pipelined: the same batch takes about 1.6 s, and a history adoption
-   of 200 entities of ten revisions 0.6 s against 2.4 s. What is left is a statement per record
-   and table (about 16 a record), the page projection, which an import spends its time in, and
-   preparing the batch, which still mints each ID in a round trip of its own.
+   of 200 entities of ten revisions 0.6 s against 2.4 s. Since A94 the page projection applies a
+   run of one page's revisions as one: an import of 20 pages of 100 revisions takes 0.6 s
+   against 2.4 s. What is left is a statement per record and table for entities (about 16 a
+   record), a page's activity rows, and preparing the batch, which still mints each ID in a
+   round trip of its own.
 5. **Client CPU (1.2 ms/entity) is unprofiled.** Per entity the op is parsed from XML, validated,
    cloned, converted to JSON then to the CBOR value, encoded and hashed; the projection decodes it
    again and builds canonical JSON even when only its length is kept. The survey pass also reads and
