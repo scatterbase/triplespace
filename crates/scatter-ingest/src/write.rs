@@ -576,11 +576,12 @@ struct Settled<'a> {
 /// rest of the block. A keyed entity's surrogate is looked up, or minted, before the
 /// block is written ([`key_for`]).
 ///
-/// A key may come more than once. The records are appended together all the same, but
-/// the projections run over each stretch of records in which no key repeats, one
-/// stretch after another: a projection applied over a block sees what the earlier
-/// projections wrote for the whole block, which for two records of one key is not what
-/// it sees one record at a time.
+/// A key may come more than once. The records are appended together all the same, and
+/// the projections run over the block's stretches, one after another
+/// ([`Pipeline::apply_inline_stretches`]; 0013 A89): a projection applied over a block
+/// sees what the earlier projections wrote for the whole block, which for two records
+/// of one key is not what it sees one record at a time, so a stretch ends before a
+/// record whose key it holds unless every projection says the key may repeat.
 ///
 /// A block makes no base-offset check (0006 §8): a write that has one is an
 /// interactive one, written by itself.
@@ -751,20 +752,6 @@ pub async fn write_many<S: IngestStore>(
         });
     }
 
-    // The stretches the projections take: a stretch ends before a key it already holds.
-    let mut stretches: Vec<usize> = Vec::new();
-    {
-        let mut held = std::collections::BTreeSet::new();
-        for (i, s) in settled.iter().enumerate() {
-            if !held.insert(s.key.as_str()) {
-                stretches.push(i);
-                held.clear();
-                held.insert(s.key.as_str());
-            }
-        }
-        stretches.push(settled.len());
-    }
-
     // Encoding and hashing each record is its own work: on every core.
     let drafts = scatter_projection::par_map(settled, |s| {
         let draft = match (s.entry.payload, &s.subject) {
@@ -798,13 +785,9 @@ pub async fn write_many<S: IngestStore>(
     .into_iter()
     .collect::<Result<Vec<_>, _>>()?;
     let records = store.append_many(cx, partition, drafts).await?;
-    let mut from = 0;
-    for to in stretches {
-        pipeline
-            .apply_inline_many(store, cx, &records[from..to], budget)
-            .await?;
-        from = to;
-    }
+    pipeline
+        .apply_inline_stretches(store, cx, &records, budget)
+        .await?;
     Ok(records)
 }
 

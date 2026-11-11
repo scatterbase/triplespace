@@ -146,6 +146,12 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for RevisionStateProjection {
         header.partition != CONFIG_PARTITION && header.payload_type == PAYLOAD_CHANGESET
     }
 
+    /// Reads no other projection's rows (0013 A89): the key's state is folded from its own
+    /// table and the log, record by record, in a block as one at a time.
+    fn repeats_in_block(&self, _earlier: &[&Record], _later: &Record) -> bool {
+        true
+    }
+
     fn apply<'a>(
         &'a self,
         cx: &'a mut PgCx,

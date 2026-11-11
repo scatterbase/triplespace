@@ -268,6 +268,12 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for PageProjection {
         header.payload_type == PAYLOAD_PAGE
     }
 
+    /// Reads no other projection's rows (0013 A89): a page's rows come from its records, its own
+    /// tables and the registry, record by record.
+    fn repeats_in_block(&self, _earlier: &[&Record], _later: &Record) -> bool {
+        true
+    }
+
     #[allow(clippy::too_many_lines)]
     fn apply<'a>(
         &'a self,

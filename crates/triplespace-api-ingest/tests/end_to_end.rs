@@ -894,6 +894,11 @@ async fn views(client: &Client) -> BTreeMap<String, Vec<String>> {
 /// several authors: a property and items that use it, an item naming one created later
 /// in the block, a key written three times, and an adopted entity's history under its
 /// own page and revision IDs.
+///
+/// The projections say where a key may repeat in a stretch (0013 A89): that block is one
+/// stretch, and two more blocks are the cases the entity projection keeps apart, an
+/// entity that goes and comes back and records appended at two times, which leave the
+/// same rows because their stretches end there.
 #[tokio::test]
 #[allow(clippy::too_many_lines)]
 async fn a_block_of_local_records_leaves_what_one_record_at_a_time_leaves() {
@@ -967,69 +972,122 @@ async fn a_block_of_local_records_leaves_what_one_record_at_a_time_leaves() {
             adopt("Q7", "Seven, thrice", 42, 700),
         ),
     ];
-    let mut runs = Vec::new();
-    for in_block in [false, true] {
-        let (client, backend) = fresh().await;
-        let client = seed(client).await;
-        let store = PgIngest::new(backend);
-        let p = pipeline();
-        let registry = Registry::default_registry();
-        let log_store = PgLog::new(client);
-        p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
-            .await
-            .unwrap();
-        let client = log_store.into_inner();
-        let mut cx = store.begin().await.unwrap();
-        if in_block {
-            let entries: Vec<_> = block
-                .iter()
-                .map(|(request, op)| BlockEntry {
-                    request,
-                    payload: BlockPayload::Operation(op),
-                })
-                .collect();
-            write_many(
-                &store,
-                &p,
-                &mut cx,
-                LOCAL,
-                &Graph::Local,
-                &entries,
-                scatter_projection::Budget::NONE,
-                registry,
-            )
-            .await
-            .unwrap();
-        } else {
-            for (request, op) in &block {
-                write_operation(&store, &p, &mut cx, request, op, registry)
-                    .await
-                    .unwrap();
+    // A key repeats in a stretch only where the entity projection has shown it leaves the
+    // same rows (0013 A89): not past a revision that takes the entity away, and not when
+    // its records were appended at different times.
+    let redirect = Operation::Adopt {
+        id: EntityId::parse("Q7").unwrap(),
+        entity: None,
+        redirect: Some(EntityId::parse("Q1").unwrap()),
+        source_revid: 41,
+        source_parentid: None,
+        source_time: "2026-09-20T14:02:11Z".into(),
+        source_pageid: 700,
+        minor: false,
+        withheld: Vec::new(),
+    };
+    let gone_and_back: Vec<(Request, Operation)> = vec![
+        (
+            by("librarybase:1", None, None),
+            op(json!({"op": "create", "id": "Q1", "entity": item("Q1", "One", &json!({}))})),
+        ),
+        (
+            by("librarybase:7", None, Some(40)),
+            adopt("Q7", "Seven", 40, 700),
+        ),
+        (by("librarybase:8", None, Some(41)), redirect),
+        (
+            by("librarybase:7", None, Some(42)),
+            adopt("Q7", "Seven, back", 42, 700),
+        ),
+    ];
+    let mut later = by("librarybase:2", None, None);
+    later.now = NOW + 5_000_000;
+    let two_times: Vec<(Request, Operation)> = vec![
+        (
+            by("librarybase:1", None, None),
+            op(json!({"op": "create", "id": "Q1", "entity": item("Q1", "One", &json!({}))})),
+        ),
+        (
+            later,
+            op(json!({"op": "add", "id": "Q1", "labels": {"fr": "Un"}})),
+        ),
+    ];
+    let cases = [
+        ("every key repeats in one stretch", &block, vec![9]),
+        (
+            "an entity that goes and comes back",
+            &gone_and_back,
+            vec![2, 3, 4],
+        ),
+        ("records appended at two times", &two_times, vec![1, 2]),
+    ];
+    for (case, block, stretches) in cases {
+        let mut runs = Vec::new();
+        for in_block in [false, true] {
+            let (client, backend) = fresh().await;
+            let client = seed(client).await;
+            let store = PgIngest::new(backend);
+            let p = pipeline();
+            let registry = Registry::default_registry();
+            let log_store = PgLog::new(client);
+            p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
+                .await
+                .unwrap();
+            let client = log_store.into_inner();
+            let mut cx = store.begin().await.unwrap();
+            if in_block {
+                let entries: Vec<_> = block
+                    .iter()
+                    .map(|(request, op)| BlockEntry {
+                        request,
+                        payload: BlockPayload::Operation(op),
+                    })
+                    .collect();
+                let written = write_many(
+                    &store,
+                    &p,
+                    &mut cx,
+                    LOCAL,
+                    &Graph::Local,
+                    &entries,
+                    scatter_projection::Budget::NONE,
+                    registry,
+                )
+                .await
+                .unwrap();
+                assert_eq!(p.stretches(&written), stretches, "{case}: its stretches");
+            } else {
+                for (request, op) in block {
+                    write_operation(&store, &p, &mut cx, request, op, registry)
+                        .await
+                        .unwrap();
+                }
             }
+            store.commit(cx).await.unwrap();
+            let records = rows(
+                &client,
+                "SELECT lpad(\"offset\"::text, 6, '0') || '|' || key || '|' || coalesce(revid::text, '-')
+                        || '|' || coalesce(page_id::text, '-') || '|' || octet_length(body)::text
+                 FROM log.record WHERE partition = 12289",
+            )
+            .await;
+            runs.push((records, views(&client).await));
         }
-        store.commit(cx).await.unwrap();
-        let records = rows(
-            &client,
-            "SELECT lpad(\"offset\"::text, 6, '0') || '|' || key || '|' || coalesce(revid::text, '-')
-                    || '|' || coalesce(page_id::text, '-') || '|' || octet_length(body)::text
-             FROM log.record WHERE partition = 12289",
-        )
-        .await;
-        runs.push((records, views(&client).await));
-    }
-    let (records_one, views_one) = &runs[0];
-    let (records_block, views_block) = &runs[1];
-    assert_eq!(records_one.len(), 9);
-    assert_eq!(records_block, records_one, "the same records");
-    assert!(
-        views_one.values().map(Vec::len).sum::<usize>() > 20,
-        "the projections wrote their rows"
-    );
-    for (table, rows_one) in views_one {
-        assert_eq!(
-            &views_block[table], rows_one,
-            "the same rows in view.{table}"
+        let (records_one, views_one) = &runs[0];
+        let (records_block, views_block) = &runs[1];
+        assert_eq!(records_one.len(), block.len(), "{case}");
+        assert_eq!(records_block, records_one, "{case}: the same records");
+        assert!(
+            views_one.values().map(Vec::len).sum::<usize>() > 5,
+            "{case}: the projections wrote their rows"
         );
+        for (table, rows_one) in views_one {
+            assert_eq!(
+                &views_block[table], rows_one,
+                "{case}: the same rows in view.{table}"
+            );
+        }
     }
 }
 
