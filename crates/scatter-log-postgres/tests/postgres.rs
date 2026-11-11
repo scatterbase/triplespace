@@ -519,3 +519,36 @@ async fn compaction_by_key() {
     ));
     tx.commit().await.unwrap();
 }
+
+#[tokio::test]
+async fn compaction_keeps_the_highest_revision() {
+    if skipped() {
+        return;
+    }
+    let mut client = fresh().await;
+    let tx = client.transaction().await.unwrap();
+    let mut store = PgLog::new(&tx);
+    store
+        .create_partition(5, Segments::new(4).unwrap())
+        .await
+        .unwrap();
+    // Q1: puts at revisions 10 and 20, then a deletion and a redirect without one.
+    for revid in [Some(10), Some(20), None, None] {
+        let mut d = draft(1);
+        d.revid = revid;
+        store.append(5, d).await.unwrap();
+    }
+    let removed = log::compact_keys(&tx, 5, &["Q1".into()]).await.unwrap();
+    assert_eq!(removed, vec![0, 2]);
+    assert_eq!(
+        store
+            .scan(5, 0, 10)
+            .await
+            .unwrap()
+            .iter()
+            .map(|(o, _)| *o)
+            .collect::<Vec<_>>(),
+        vec![1, 3]
+    );
+    tx.commit().await.unwrap();
+}

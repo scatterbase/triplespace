@@ -12,8 +12,8 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use triplespace_cli::{
-    accounts, adopt, challenge, dump, env_file, follow, forwarder, import_pages, instance, job,
-    log_bundle, logins, oauth_client, rights, settings, source, status, sync, tenant,
+    accounts, adopt, challenge, compact, dump, env_file, follow, forwarder, import_pages, instance,
+    job, log_bundle, logins, oauth_client, rights, settings, source, status, sync, tenant,
 };
 
 /// Triplespace: a Wikibase as an append-only log.
@@ -54,6 +54,8 @@ enum Command {
     Sync(sync::Sync),
     /// Follow a provider's wiki by its recent changes (0092 §1).
     Follow(follow::Follow),
+    /// Compact a provider's mirror by the keys of a range of its records (0013 §3, A96).
+    Compact(compact::Compact),
     /// The bot password a provider's follower logs in with (0092 §10).
     UpstreamLogin {
         #[command(subcommand)]
@@ -174,6 +176,7 @@ async fn run() -> Result<()> {
         Command::Job { command } => job::run(command).await,
         Command::Sync(args) => sync::run(args).await,
         Command::Follow(args) => follow::run(args).await,
+        Command::Compact(args) => compact::run(args).await,
         Command::UpstreamLogin { command } => follow::run_login(command).await,
         Command::Source { command } => source::run(command).await,
         Command::Password {

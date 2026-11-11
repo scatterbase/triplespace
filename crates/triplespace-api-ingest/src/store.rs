@@ -803,4 +803,47 @@ impl IngestStore for PgIngest {
             .map(|r| r.get::<_, i64>(0).cast_unsigned())
             .collect())
     }
+
+    async fn compact_range(
+        &self,
+        cx: &mut PgCx,
+        partition: u64,
+        from: u64,
+        to: u64,
+    ) -> Result<u64, IngestError> {
+        let latest = cx
+            .query_opt(
+                "SELECT 1 FROM log.partition WHERE partition = $1 AND history = 'latest'",
+                &[&partition_to_db(partition)],
+            )
+            .await
+            .map_err(db)?
+            .is_some();
+        if !latest || from >= to {
+            return Ok(0);
+        }
+        let (from, to) = (
+            i64::try_from(from).map_err(store)?,
+            i64::try_from(to).map_err(store)?,
+        );
+        let keys: Vec<String> = cx
+            .query(
+                "SELECT DISTINCT r.key FROM log.record r
+                  WHERE r.partition = $1 AND r.\"offset\" >= $2 AND r.\"offset\" < $3
+                    AND r.key IS NOT NULL
+                    AND NOT EXISTS (SELECT 1 FROM view.entity e
+                                     WHERE e.id = r.key AND e.retention = 'retain')",
+                &[&partition_to_db(partition), &from, &to],
+            )
+            .await
+            .map_err(db)?
+            .iter()
+            .map(|r| r.get(0))
+            .collect();
+        if keys.is_empty() {
+            return Ok(0);
+        }
+        let removed = log::compact_keys(&*cx, partition, &keys).await?;
+        Ok(removed.len() as u64)
+    }
 }

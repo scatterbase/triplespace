@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-11 (A95)
+- **Updated:** 2026-11-11 (A96)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -57,7 +57,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 3. Erasure and compaction in Postgres (amends 0006 §7)
 
-*Changed by A2, A31, A40.*
+*Changed by A2, A31, A40, A96.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §5.2, §6.*
 
@@ -1206,3 +1206,21 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it 
 Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it stood):
 
 > the statements, and so the rows, are those of applying the records in order.
+
+### A96. Compaction keeps the record that claims a key's highest revision, and runs by a range of offsets
+
+- **Date:** 2026-11-11
+- **Source:** Direct: Claude, while building the follower's compaction, 2026-11-11; unconfirmed (James asked for the whole-dump mirror to be compacted, which nothing did)
+- **Change:** amends §3
+- **Summary:** Nothing called compaction: the whole-dump Wikidata mirror, a `latest` partition, held 125,513,063 records for 122,231,562 entities, every followed edit adding a whole state and none removed, about 7.2 KB an edit with the record's body and index entries. Building it found that "every record for a key but the newest" would break the guard 0092 §2 relies on: a mirror's sync reads the highest revision ID any record under a key carries, so as never to claim a revision twice, and a deletion or redirect is written without one, so a key whose newest record is a tombstone or redirect would lose every revision it had claimed, and an entity undeleted at a revision already recorded would claim it again. On the mirror, 150 of 99,661 keys written in a run of 100,000 offsets were such keys. The calls made: (1) compaction keeps a key's newest record and, where it is an older record, the one carrying the key's highest revision ID (ties to the newer), and removes the rest (`scatter_log_postgres::log::compact_keys`). (2) It is asked of a range of offsets: the keys of the records at `from..to`, less any key a tenant retains (`view.entity.retention = 'retain'`, matched on the entity ID the key names), wherever their other records are (`IngestStore::compact_range`); a partition whose history policy is `full` is left alone. (3) It runs 10,000 offsets to a unit of work, each under the partition's append lock (`scatter_ingest::compact`), so that appends wait at most one window. (4) `triplespace compact --provider {slug} [--from] [--to] [--window]` runs it by hand over a registry provider's mirror. Left open: a tombstoned entity that is not retained still keeps the record that claims its highest revision, which the text's "loses every record for its key" does not allow for; until tombstones are removed, which nothing does yet, the two do not meet. The space removed rows held is reused once the table is vacuumed; the files do not shrink. Chapter text: [01](../architecture/01-log-and-records.md) §6.
+
+Replaced text ([01](../architecture/01-log-and-records.md) §6, as it stood):
+
+> Compaction applies to a partition with the `latest` history policy (§1.2) and removes every record for a key except the newest. In Postgres it is a batched delete:
+>
+> ```sql
+> DELETE FROM log.record_mirror_wikidata r
+>  USING (SELECT key, max("offset") AS keep FROM log.record_mirror_wikidata
+>         WHERE key = ANY($keys) GROUP BY key) k
+>  WHERE r.key = k.key AND r."offset" < k.keep;
+> ```

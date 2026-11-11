@@ -449,14 +449,19 @@ Upstream tombstones followed by compaction still erase mirrored data ([0002](../
 
 *Sources: [0005](../decisions/0005-crate-organization.md) §4.2; [0006](../decisions/0006-log-integrity-and-erasure.md) §4, §5, §7; [0013](../decisions/0013-postgres-storage.md) §3; [0058](../decisions/0058-packed-record-storage.md) §6.*
 
-Compaction applies to a partition with the `latest` history policy (§1.2) and removes every record for a key except the newest. In Postgres it is a batched delete:
+Compaction applies to a partition with the `latest` history policy (§1.2) and removes every record for a key except the newest, and except the record carrying the key's highest revision ID where that is an older one: a deletion or a redirect written without a revision ID would otherwise take with it the revisions the key has claimed, which a mirror's sync reads so as never to claim one twice ([0092](../decisions/0092-following-recent-changes.md) §2; [0013](../decisions/0013-postgres-storage.md) A96). In Postgres it is a batched delete by the keys of the records in a range of offsets:
 
 ```sql
 DELETE FROM log.record_mirror_wikidata r
- USING (SELECT key, max("offset") AS keep FROM log.record_mirror_wikidata
+ USING (SELECT key, max("offset") AS keep,
+               (array_agg("offset" ORDER BY revid DESC, "offset" DESC)
+                  FILTER (WHERE revid IS NOT NULL))[1] AS claim
+        FROM log.record_mirror_wikidata
         WHERE key = ANY($keys) GROUP BY key) k
- WHERE r.key = k.key AND r."offset" < k.keep;
+ WHERE r.key = k.key AND r."offset" < k.keep AND r."offset" IS DISTINCT FROM k.claim;
 ```
+
+The keys are those of the records at offsets `from..to`, less any key a tenant retains, taken 10,000 offsets to a transaction under the partition's append lock; a `full` partition is left alone. A registry provider's follower compacts its mirror by the keys it wrote in a day as the day's job closes ([05](05-providers-and-ingest.md) §5.7), and `triplespace compact --provider {slug} [--from {offset}] [--to {offset}]` compacts a range by hand. Running either again over the same range removes nothing more. The space the removed rows held is reused by the partition's later rows once the table is vacuumed; the files do not shrink.
 
 Offsets are never reused, so a compacted partition has holes. That is the model [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §2 borrowed from Kafka. A compacted offset keeps its leaf (§4.1); the header is dropped with the record. A tombstoned entity that is not retained loses every record for its key, including the tombstone once its retention policy has been applied. In a `packed` partition the deleted rows' fragment references become candidates for the next candidate sweep, and fragments they shared with other rows wait for a full sweep ([03](03-storage-caches-and-search.md)).
 

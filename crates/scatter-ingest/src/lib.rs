@@ -28,6 +28,7 @@
 pub mod adopt;
 pub mod batch;
 pub mod bootstrap;
+pub mod compact;
 pub mod follow;
 pub mod import;
 pub mod job;

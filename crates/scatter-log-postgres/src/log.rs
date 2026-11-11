@@ -727,8 +727,11 @@ pub async fn compact<C: PgClient>(
     Ok(())
 }
 
-/// Compacts a `latest` partition by key: every record for each key but the newest
-/// (0013 §3). Returns the offsets removed. Must run inside a transaction.
+/// Compacts a `latest` partition by key: every record for each key but the newest and the
+/// one carrying the key's highest revision ID, where that is an older record (0013 §3,
+/// A96): a deletion or redirect without a revision ID would otherwise lose the revisions
+/// the key has claimed (0092 §2). Returns the offsets removed. Must run inside a
+/// transaction.
 pub async fn compact_keys<C: PgClient>(
     client: &C,
     partition: u64,
@@ -738,9 +741,13 @@ pub async fn compact_keys<C: PgClient>(
     let rows = client
         .query(
             "DELETE FROM log.record r
-             USING (SELECT key, max(\"offset\") AS keep FROM log.record
+             USING (SELECT key, max(\"offset\") AS keep,
+                           (array_agg(\"offset\" ORDER BY revid DESC, \"offset\" DESC)
+                              FILTER (WHERE revid IS NOT NULL))[1] AS claim
+                    FROM log.record
                     WHERE partition = $1 AND key = ANY($2) GROUP BY key) k
              WHERE r.partition = $1 AND r.key = k.key AND r.\"offset\" < k.keep
+               AND r.\"offset\" IS DISTINCT FROM k.claim
              RETURNING r.\"offset\"",
             &[&partition_to_db(partition), &keys],
         )

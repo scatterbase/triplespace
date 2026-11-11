@@ -38,6 +38,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0013 A93](0013-postgres-storage.md#a93-the-projections-apply-a-tenants-block-a-key-at-a-time-the-keys-together) | 2026-11-11 | The projections apply a tenant's block a key at a time, the keys together |
 | [0013 A94](0013-postgres-storage.md#a94-the-page-projection-applies-a-run-of-one-pages-revisions-as-one) | 2026-11-11 | The page projection applies a run of one page's revisions as one |
 | [0013 A95](0013-postgres-storage.md#a95-three-projections-write-a-tenants-block-a-table-at-a-time) | 2026-11-11 | Three projections write a tenant's block a table at a time |
+| [0013 A96](0013-postgres-storage.md#a96-compaction-keeps-the-record-that-claims-a-keys-highest-revision-and-runs-by-a-range-of-offsets) | 2026-11-11 | Compaction keeps the record that claims a key's highest revision, and runs by a range of offsets |
 | [0016 A42](0016-permissions-and-access-control.md#a42-delegated-administration-the-calls-made-while-drafting-and-building-tier-4) | 2026-10-30 | Delegated administration: the calls made while drafting and building tier 4 |
 | [0018 A33](0018-tenants.md#a33-multi-tenant-round-1-the-assumptions-the-implementation-made) | 2026-10-30 | Multi-tenant round 1: the assumptions the implementation made |
 | [0019 A31](0019-discussions.md#a31-a-threads-actions-from-the-page-the-calls-made-building-them) | 2026-11-05 | A thread's actions from the page: the calls made building them |
@@ -72,6 +73,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0087 A6](0087-account-registration-and-challenges.md#a6-registration-loose-ends-from-building-the-challenge) | 2026-10-30 | Registration: loose ends from building the challenge |
 | [0089 A3](0089-the-auth-host-and-instance-logins.md#a3-logins-built-names-the-password-table-and-the-migration-command) | 2026-11-06 | Logins built: names, the password table and the migration command |
 | [0092 A3](0092-following-recent-changes.md#a3-a-state-that-will-not-parse-is-rejected-and-the-follower-goes-on) | 2026-11-09 | A state that will not parse is rejected, and the follower goes on |
+| [0092 A7](0092-following-recent-changes.md#a7-a-follower-compacts-its-mirror-as-the-days-job-closes) | 2026-11-11 | A follower compacts its mirror as the day's job closes |
 | [0097 A3](0097-versioning-and-skins.md#a3-fragments-are-compared-as-normalized-dom) | 2026-10-30 | Fragments are compared as normalized DOM |
 | [0097 A4](0097-versioning-and-skins.md#a4-drawings-are-svg-the-binary-makes) | 2026-10-30 | Drawings are SVG the binary makes |
 | [0097 A6](0097-versioning-and-skins.md#a6-a-part-of-a-later-group-is-carried-as-html-until-that-group-switches) | 2026-10-30 | A part of a later group is carried as HTML until that group switches |

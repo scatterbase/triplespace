@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-26
-- **Updated:** 2026-11-11 (A6)
+- **Updated:** 2026-11-11 (A7)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0053](0053-mirrored-pages.md), [0070](0070-shallow-entity-mirroring.md), [0078](0078-entity-sources.md)
 - **Uses:** [0011](0011-logs.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0027](0027-preferences-and-portability.md), [0040](0040-instance-prerogatives.md), [0067](0067-proposals.md), [0085](0085-settings-and-preferences.md), [0088](0088-external-identity-providers.md), [0091](0091-one-wikibase-adapter.md)
@@ -47,7 +47,7 @@ James's direction, from the design discussion of 2026-10-26:
 
 ### 2. A row says only that a title changed (extends 0070 §3)
 
-*Changed by A3, A5, A6.*
+*Changed by A3, A5, A6, A7.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.7.*
 
@@ -172,3 +172,10 @@ Replaced text (§2, in 05 §5.7):
 - **Source:** Direct: James, review of the follower's runs on the whole-dump mirror, 2026-11-11
 - **Change:** extends §2
 - **Summary:** The follower wrote each batch as a job of its own: 11,955 jobs over two days on the whole-dump mirror, about 1,440 a day per followed source once caught up, each with its own start and finish records and its own rejects, while the module said "one run is one job". Neither fits: a job per batch buries the jobs list and splits a day's rejects across thousands of jobs, and a job per run never finishes in a server's loop and differs between a timer's `--once` runs and a server. A follower now writes under one job per UTC day, version `follow-YYYY-MM-DD`: the day's first batch starts it, each batch commits under it as its own unit of work under the load lock, as before, and the first batch of a later day, or the first run after it, finishes it with the day's counts, batches, rows, late rows and stale states. The open job is kept with the position in `ops.repo_cursor.job` and reopened by the next run. Because it stays `running` between batches, a load of the same source and graph no longer marks a follower's job interrupted ([0011](0011-logs.md) A36, A37); only a follower's new job marks an earlier follower's job, one whose position row lost it. A crash between a batch's commit and the position's save replays that batch, as before, and its counts may then be counted twice. The bookkeeping a job per batch cost was small, about 16 ms of Postgres time a batch; this is about what an operator reads. Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.7, [16](../architecture/16-logs-feeds-and-notifications.md) §2.2, [03](../architecture/03-storage-caches-and-search.md) §4.12.
+
+### A7. A follower compacts its mirror as the day's job closes
+
+- **Date:** 2026-11-11
+- **Source:** Direct: James, review of the whole-dump mirror's size, 2026-11-11 ("Start with compaction"), on Claude's proposal to compact the keys a day wrote as its job closes; the calls below unconfirmed
+- **Change:** extends §2
+- **Summary:** The whole-dump mirror is a `latest` partition, but nothing compacted it, so every followed edit kept the entity's previous state as well: about 3.28 million superseded records after two days of following, and growth of about 7.2 KB an edit, about 1.5 GB a Wikidata day. A registry provider's follower now compacts its mirror by the keys it wrote as each day's job closes ([0013](0013-postgres-storage.md) A96). The calls made: (1) the day's job notes the mirror's size when it opens, `compact_from`, kept with the open job in `ops.repo_cursor.job`; a mirror not yet created starts at 0, and a job opened before this change has none and is not compacted. (2) When the first batch of a later day closes the job, the mirror is compacted from `compact_from` to its size then, before the finish record, which gains `compacted`, the records removed; a crash between the two compacts again, which removes nothing more, and then finishes. (3) A tenant's entity source is not compacted by its follower. (4) What runs before this change left is compacted by hand with `triplespace compact`: on the whole-dump mirror, the keys of the 3,456,078 records the follower had written (offsets 122,056,985 to 125,513,063) lost 3,259,844 older records in 58 minutes, about 940 a second, 10,000 offsets a unit of work, leaving 122,253,219 records for 122,231,562 entities; every key's `view.entity_source` record survived, and no key kept more than two records. Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.7.
