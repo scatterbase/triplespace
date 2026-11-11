@@ -532,6 +532,11 @@ pub async fn write_block<S: IngestStore>(
     .await
 }
 
+/// The most records [`write_many`] writes one at a time rather than as a block
+/// (0013 A91): on an import of pages of so many revisions each, a block took as long as
+/// writing them singly at five, longer below and less above.
+pub const SMALL_BLOCK: usize = 4;
+
 /// What one record of a block ([`write_many`]) is made from.
 #[derive(Debug, Clone, Copy)]
 pub enum BlockPayload<'a> {
@@ -586,11 +591,14 @@ struct Settled<'a> {
 /// A block makes no base-offset check (0006 §8): a write that has one is an
 /// interactive one, written by itself.
 ///
+/// No more than [`SMALL_BLOCK`] records are written one at a time, by [`write_to`] and
+/// [`write_raw`], which write the same records.
+///
 /// # Errors
 ///
 /// When the entries are not of one tenant, one carries a base offset or does not belong
 /// to the graph, a lookup or the append fails, or a projection fails.
-#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+#[allow(clippy::too_many_arguments)]
 pub async fn write_many<S: IngestStore>(
     store: &S,
     pipeline: &Pipeline<S>,
@@ -601,11 +609,109 @@ pub async fn write_many<S: IngestStore>(
     budget: Budget,
     registry: &Registry,
 ) -> Result<Vec<Record>, IngestError> {
+    write_entries(
+        store,
+        pipeline,
+        cx,
+        partition,
+        graph,
+        entries,
+        budget,
+        Some(registry),
+    )
+    .await
+}
+
+/// [`write_many`] for a block of caller-encoded records alone, each with its request: a
+/// job that writes no operations, an import's, has no table of providers to give, and
+/// such records need none.
+///
+/// # Errors
+///
+/// As [`write_many`].
+pub async fn write_raw_many<S: IngestStore>(
+    store: &S,
+    pipeline: &Pipeline<S>,
+    cx: &mut S::Cx,
+    partition: u64,
+    graph: &Graph,
+    records: &[(Request, RawRecord)],
+    budget: Budget,
+) -> Result<Vec<Record>, IngestError> {
+    let entries: Vec<BlockEntry<'_>> = records
+        .iter()
+        .map(|(request, raw)| BlockEntry {
+            request,
+            payload: BlockPayload::Raw(raw),
+        })
+        .collect();
+    write_entries(
+        store, pipeline, cx, partition, graph, &entries, budget, None,
+    )
+    .await
+}
+
+/// [`write_many`]; `registry` is the table of providers, which an operation's key and
+/// upstream revision are read with and a caller-encoded record does without.
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+async fn write_entries<S: IngestStore>(
+    store: &S,
+    pipeline: &Pipeline<S>,
+    cx: &mut S::Cx,
+    partition: u64,
+    graph: &Graph,
+    entries: &[BlockEntry<'_>],
+    budget: Budget,
+    registry: Option<&Registry>,
+) -> Result<Vec<Record>, IngestError> {
+    let providers = || {
+        registry.ok_or_else(|| {
+            IngestError::Adapter("an operation in a block of caller-encoded records".into())
+        })
+    };
     let Some(first) = entries.first() else {
         return Ok(Vec::new());
     };
     let tenant = first.request.tenant.as_str();
     let upstream = matches!(graph, Graph::Mirror(_) | Graph::Source(_));
+    // A few records are written one at a time (0013 A91): what a block saves on each
+    // record it spends again on itself (the lookups for the block, two `COPY`s), and
+    // comes out ahead only past a handful.
+    if entries.len() <= SMALL_BLOCK {
+        let mut records = Vec::with_capacity(entries.len());
+        for entry in entries {
+            if entry.request.tenant != tenant {
+                return Err(IngestError::Adapter(
+                    "a block's records are one tenant's".into(),
+                ));
+            }
+            if entry.request.base_offset.is_some() {
+                return Err(IngestError::Adapter(
+                    "a block's records carry no base offset".into(),
+                ));
+            }
+            let mut request = entry.request.clone();
+            request.budget = budget;
+            let written = match entry.payload {
+                BlockPayload::Operation(op) => {
+                    write_to(store, pipeline, cx, &request, op, graph, providers()?).await?
+                }
+                BlockPayload::Raw(raw) => {
+                    if upstream || raw.graph != graph.name() {
+                        return Err(IngestError::Adapter(format!(
+                            "a `{}` record of `{}` in a block of `{}`",
+                            raw.payload_type,
+                            raw.graph,
+                            graph.name()
+                        )));
+                    }
+                    write_raw(store, pipeline, cx, &request, raw.clone()).await?
+                }
+            };
+            records.push(written.record);
+        }
+        return Ok(records);
+    }
     let owner = match graph {
         Graph::Mirror(_) => "",
         Graph::Local | Graph::Pages | Graph::Source(_) => tenant,
@@ -646,7 +752,7 @@ pub async fn write_many<S: IngestStore>(
                             id,
                             &entry.request.attestation,
                             entry.request.now,
-                            registry,
+                            providers()?,
                         )
                         .await?
                     }
@@ -689,10 +795,12 @@ pub async fn write_many<S: IngestStore>(
             }
         }
     }
-    let mut fresh = store
-        .next_ids(cx, owner, &Sequence::Page, fresh)
-        .await?
-        .into_iter();
+    let mut fresh = if fresh == 0 {
+        Vec::new()
+    } else {
+        store.next_ids(cx, owner, &Sequence::Page, fresh).await?
+    }
+    .into_iter();
     // Revision IDs (0013 §6; 0015 §2): a tenant record's own, or the tenant's next.
     let minted = if upstream {
         0
@@ -735,7 +843,7 @@ pub async fn write_many<S: IngestStore>(
             (p.to_string(), p)
         };
         let revid = match (entry.payload, upstream) {
-            (BlockPayload::Operation(op), true) => upstream_revid(graph, op, registry)?,
+            (BlockPayload::Operation(op), true) => upstream_revid(graph, op, providers()?)?,
             _ => Some(match entry.request.revid {
                 Some(n) => n,
                 None => revids

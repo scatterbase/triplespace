@@ -1000,27 +1000,39 @@ async fn a_block_of_local_records_leaves_what_one_record_at_a_time_leaves() {
             by("librarybase:7", None, Some(42)),
             adopt("Q7", "Seven, back", 42, 700),
         ),
+        (
+            by("librarybase:1", None, None),
+            op(json!({"op": "create", "id": "Q2", "entity": item("Q2", "Two", &json!({}))})),
+        ),
+        (
+            by("librarybase:1", None, None),
+            op(json!({"op": "create", "id": "Q3", "entity": item("Q3", "Three", &json!({}))})),
+        ),
     ];
     let mut later = by("librarybase:2", None, None);
     later.now = NOW + 5_000_000;
-    let two_times: Vec<(Request, Operation)> = vec![
-        (
-            by("librarybase:1", None, None),
-            op(json!({"op": "create", "id": "Q1", "entity": item("Q1", "One", &json!({}))})),
-        ),
-        (
-            later,
-            op(json!({"op": "add", "id": "Q1", "labels": {"fr": "Un"}})),
-        ),
-    ];
+    let mut two_times: Vec<(Request, Operation)> = (1..=5)
+        .map(|n| {
+            let id = format!("Q{n}");
+            (
+                by("librarybase:1", None, None),
+                op(json!({"op": "create", "id": id, "entity": item(&id, "An item", &json!({}))})),
+            )
+        })
+        .collect();
+    two_times.push((
+        later,
+        op(json!({"op": "add", "id": "Q1", "labels": {"fr": "Un"}})),
+    ));
+    // Each case has more records than `SMALL_BLOCK`, so that it is written as a block.
     let cases = [
         ("every key repeats in one stretch", &block, vec![9]),
         (
             "an entity that goes and comes back",
             &gone_and_back,
-            vec![2, 3, 4],
+            vec![2, 3, 6],
         ),
-        ("records appended at two times", &two_times, vec![1, 2]),
+        ("records appended at two times", &two_times, vec![5, 6]),
     ];
     for (case, block, stretches) in cases {
         let mut runs = Vec::new();
@@ -1201,6 +1213,186 @@ async fn a_batch_in_blocks_leaves_what_one_operation_at_a_time_leaves() {
             }
         }
     }
+}
+
+/// One revision of a page in an export, on day `day` of January 2026.
+fn import_revision(
+    id: u64,
+    day: u64,
+    text: Option<&str>,
+    author: Author,
+) -> scatter_ingest::import::ImportRevision {
+    scatter_ingest::import::ImportRevision {
+        source_revid: id,
+        source_parentid: (id > 1).then(|| id - 1),
+        source_time: format!("2026-01-{day:02}T00:00:00Z"),
+        time: 1_767_225_600_000_000 + (day - 1) * 86_400_000_000,
+        model: "wikitext".into(),
+        text: text.map(str::to_string),
+        sha1: text
+            .map(scatter_mediawiki_xml::sha1_base36)
+            .unwrap_or_default(),
+        minor: id.is_multiple_of(2),
+        comment: Some(format!("edit {id}")),
+        withheld: if text.is_none() {
+            vec!["text".into()]
+        } else {
+            Vec::new()
+        },
+        author,
+    }
+}
+
+/// An import writes each page's revisions as one block (0013 A91), over Postgres with the
+/// real projections: a page of six revisions (more than `SMALL_BLOCK`, so one block) by a registered author, an imported one
+/// and a hidden one, one with its text withheld, lands under one minted page ID with the
+/// tenant's revision IDs in timestamp order; a second run writes nothing twice; and
+/// older revisions imported onto the title go behind the page's own newest, which is
+/// restored on top.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn an_import_writes_each_page_as_a_block() {
+    use scatter_ingest::import::{Import, ImportPage, run_import};
+    use triplespace_api_ingest::import::PgImportHost;
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let client = seed(client).await;
+    let store = PgIngest::new(backend);
+    let p = pipeline();
+    let log_store = PgLog::new(client);
+    p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
+        .await
+        .unwrap();
+    let client = log_store.into_inner();
+    let imported = |raw: &str| Author::Surrogate {
+        kind: "imported".into(),
+        raw: raw.into(),
+    };
+    let guide = ImportPage {
+        ns: 4,
+        title: "Guide".into(),
+        revisions: vec![
+            // Out of order in the file: the job sorts by timestamp.
+            import_revision(3, 5, Some("Third text."), Author::Hidden),
+            import_revision(
+                1,
+                3,
+                Some("First text."),
+                Author::Actor("librarybase:7".into()),
+            ),
+            import_revision(2, 4, None, imported("Old Editor")),
+            import_revision(4, 6, Some("Fourth text."), imported("Old Editor")),
+            import_revision(5, 7, Some("Fifth text."), Author::Hidden),
+            import_revision(
+                6,
+                8,
+                Some("Sixth text."),
+                Author::Actor("librarybase:7".into()),
+            ),
+        ],
+    };
+    let single = ImportPage {
+        ns: 4,
+        title: "Single".into(),
+        revisions: vec![import_revision(
+            9,
+            3,
+            Some("Only text."),
+            imported("Another"),
+        )],
+    };
+    let older = ImportPage {
+        ns: 4,
+        title: "Guide".into(),
+        revisions: vec![
+            import_revision(20, 1, Some("An older text."), imported("Another")),
+            import_revision(21, 2, Some("A second older text."), imported("Third")),
+        ],
+    };
+    let import = || Import {
+        source: "upload".into(),
+        version: Some("pages.xml".into()),
+        history: true,
+        summary: None,
+        job_id: None,
+    };
+    let mut outcomes = Vec::new();
+    for pages in [
+        vec![guide.clone(), single.clone()],
+        vec![guide, single],
+        vec![older],
+    ] {
+        let out = run_import(
+            &store,
+            &p,
+            &PgImportHost,
+            TENANT,
+            Attestation::by("librarybase:2"),
+            import(),
+            pages,
+            NOW,
+        )
+        .await
+        .unwrap();
+        assert!(out.rejects.is_empty(), "{:?}", out.rejects);
+        outcomes.push((out.counts, out.pages));
+    }
+    let c = |i: usize| {
+        let c: &scatter_ingest::import::ImportCounts = &outcomes[i].0;
+        (c.created, c.merged, c.revisions, c.present, c.restored)
+    };
+    assert_eq!(c(0), (2, 0, 7, 0, 0), "two pages created, seven revisions");
+    assert_eq!(
+        c(1),
+        (0, 2, 0, 7, 0),
+        "the second run finds them all present"
+    );
+    assert_eq!(
+        c(2),
+        (0, 1, 2, 0, 1),
+        "two older revisions, and the newest restored"
+    );
+    let records = rows(
+        &client,
+        "SELECT lpad(\"offset\"::text, 6, '0') || '|' || key || '|' || revid::text || '|' || page_id::text
+         FROM log.record WHERE partition = 12290",
+    )
+    .await;
+    let guide_id = outcomes[0].1[0].page_id;
+    let single_id = outcomes[0].1[1].page_id;
+    assert_ne!(guide_id, single_id);
+    let of = |page: u64| -> Vec<u64> {
+        records
+            .iter()
+            .filter_map(|r| {
+                let f: Vec<&str> = r.split('|').collect();
+                (f[1] == page.to_string() && f[3] == page.to_string())
+                    .then(|| f[2].parse().unwrap())
+            })
+            .collect()
+    };
+    let guide_revids = of(guide_id);
+    assert_eq!(
+        guide_revids.len(),
+        6 + 2 + 1,
+        "six, two older, the restoring edit"
+    );
+    assert!(
+        guide_revids.windows(2).all(|w| w[0] < w[1]),
+        "revision IDs in the order written: {guide_revids:?}"
+    );
+    assert_eq!(of(single_id).len(), 1);
+    assert_eq!(records.len(), 10);
+    // The page's current text is its own newest revision, restored on top.
+    assert_eq!(
+        rows(&client, "SELECT title || '|' || latest_revid::text FROM view.page WHERE tenant = 'librarybase' AND ns = 4").await,
+        vec![
+            format!("Guide|{}", guide_revids.last().unwrap()),
+            format!("Single|{}", of(single_id)[0]),
+        ]
+    );
 }
 
 /// One revision of an adopted wikitext page: its `create`, or an `edit` after it.

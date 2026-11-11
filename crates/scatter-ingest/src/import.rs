@@ -47,8 +47,8 @@ pub use crate::adopt::surrogate;
 
 use crate::adopt::Author;
 use crate::job::{Job, Reject};
-use crate::store::IngestStore;
-use crate::write::{Attestation, RawRecord, Request, write_raw};
+use crate::store::{IngestStore, Sequence};
+use crate::write::{Attestation, RawRecord, Request, write_raw_many};
 
 /// The page payload type (10 §3.2), which `scatter-pages` names too; this crate does
 /// not depend on it (22 §2.1), so the job encodes the content part itself.
@@ -400,7 +400,9 @@ enum PageOutcome {
 }
 
 /// Writes one page's revisions, in timestamp order, creating the page or merging into
-/// the one its title names.
+/// the one its title names. The revisions are decided one after another, from what the
+/// page held before the job, and written together as one block ([`write_raw_many`];
+/// 0013 A91), the restoring edit last.
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
 async fn import_page<S: IngestStore, H: ImportHost<S>>(
     store: &S,
@@ -426,7 +428,7 @@ async fn import_page<S: IngestStore, H: ImportHost<S>>(
         .existing(store, cx, tenant, page.ns, &page.title)
         .await?;
 
-    let (mut key, mut page_id, mut model, mut newest_held) = match &held {
+    let (key, page_id, mut model, mut newest_held) = match &held {
         Some(h) => (
             Some(h.page_id.to_string()),
             Some(h.page_id),
@@ -438,6 +440,7 @@ async fn import_page<S: IngestStore, H: ImportHost<S>>(
     let mut written = 0u64;
     let mut present = 0u64;
     let mut last_written_time = None;
+    let mut block: Vec<(Request, RawRecord)> = Vec::new();
     for r in revisions {
         if let Some(h) = &held
             && h.revisions
@@ -479,11 +482,8 @@ async fn import_page<S: IngestStore, H: ImportHost<S>>(
         let mut request = Request::new(tenant, job_attestation.as_actor(actor.as_deref()), now);
         request.budget = Budget::NONE;
         request.comment = r.comment.clone().filter(|c| !c.is_empty());
-        let w = write_raw(
-            store,
-            pipeline,
-            cx,
-            &request,
+        block.push((
+            request,
             RawRecord {
                 graph: "pages".into(),
                 payload_type: PAYLOAD_PAGE.into(),
@@ -497,13 +497,7 @@ async fn import_page<S: IngestStore, H: ImportHost<S>>(
                     .into_iter()
                     .collect(),
             },
-        )
-        .await?;
-        if key.is_none() {
-            let id = w.record.header().page_id.unwrap_or_default();
-            key = Some(id.to_string());
-            page_id = Some(id);
-        }
+        ));
         model = Some(r.model.clone());
         written += 1;
         last_written_time = Some(r.time);
@@ -513,6 +507,18 @@ async fn import_page<S: IngestStore, H: ImportHost<S>>(
         }
     }
     let Some(h) = held else {
+        // A new page's ID is the tenant's next, and its records are keyed by it
+        // (10 §3.1). A page of one revision leaves that to the write, as a record with
+        // no key; one of several takes the ID first, for all of them.
+        if block.len() > 1 {
+            let id = store.next_id(cx, tenant, &Sequence::Page).await?;
+            for (_, raw) in &mut block {
+                raw.key = Some(id.to_string());
+                raw.page_id = Some(id);
+            }
+        }
+        let records = write_page(store, pipeline, cx, tenant, &block).await?;
+        let page_id = records.first().and_then(|r| r.header().page_id);
         return Ok(PageOutcome::Created {
             page_id: page_id.unwrap_or_default(),
             revisions: written,
@@ -532,11 +538,8 @@ async fn import_page<S: IngestStore, H: ImportHost<S>>(
             if model.as_deref() != Some(h.model.as_str()) {
                 c.insert("model".into(), h.model.clone().into());
             }
-            write_raw(
-                store,
-                pipeline,
-                cx,
-                &request,
+            block.push((
+                request,
                 RawRecord {
                     graph: "pages".into(),
                     payload_type: PAYLOAD_PAGE.into(),
@@ -550,16 +553,48 @@ async fn import_page<S: IngestStore, H: ImportHost<S>>(
                         .into_iter()
                         .collect(),
                 },
-            )
-            .await?;
+            ));
             true
         }
         _ => false,
     };
+    write_page(store, pipeline, cx, tenant, &block).await?;
     Ok(PageOutcome::Merged {
         page_id: h.page_id,
         revisions: written,
         present,
         restored,
     })
+}
+
+/// Writes a page's records to the tenant's `pages` partition as one block
+/// ([`write_raw_many`]): what [`crate::write::write_raw`] writes for each in turn.
+async fn write_page<S: IngestStore>(
+    store: &S,
+    pipeline: &Pipeline<S>,
+    cx: &mut S::Cx,
+    tenant: &str,
+    block: &[(Request, RawRecord)],
+) -> Result<Vec<scatter_log::record::Record>, IngestError> {
+    if block.is_empty() {
+        return Ok(Vec::new());
+    }
+    let partition =
+        store
+            .partition(cx, tenant, "pages")
+            .await?
+            .ok_or_else(|| IngestError::NoPartition {
+                tenant: tenant.to_string(),
+                graph: "pages".into(),
+            })?;
+    write_raw_many(
+        store,
+        pipeline,
+        cx,
+        partition,
+        &scatter_wikibase_changeset::Graph::Pages,
+        block,
+        Budget::NONE,
+    )
+    .await
 }

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-11 (A90)
+- **Updated:** 2026-11-11 (A91)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -117,7 +117,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 7. Projections, synchrony and read-your-writes
 
-*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28, A33, A44, A53, A63, A75, A76, A77, A86, A87, A88, A89, A90.*
+*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28, A33, A44, A53, A63, A75, A76, A77, A86, A87, A88, A89, A90, A91.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §5, §6.1, §6.2, §6.3.*
 
@@ -1151,3 +1151,14 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it 
 Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it stood):
 
 > The NDJSON job and the imports do not use the block write yet, and the projections apply a tenant's records one at a time inside a block.
+
+### A91. An import writes each page as a block, and a few records are written one at a time
+
+- **Date:** 2026-11-11
+- **Source:** Direct: Claude, while building the import's block write, 2026-11-11; unconfirmed (James asked for the XML import to be moved to the block write)
+- **Change:** amends §7
+- **Summary:** The general import job (`run_import`; [0008](0008-namespaces-and-document-pages.md) §9) writes each page's revisions, and the restoring edit after them, as one block (`write_raw_many`, the block write of A87 for caller-encoded records, which needs no table of providers), rather than one at a time. A page is still its own unit of work, decided from what it held before the job, so what an interrupted import has committed, and the skip rule that makes a second run write nothing twice, are unchanged. The calls made: (1) a new page of several revisions takes its page ID from the sequence before its block, for all its records; a new page of one revision leaves that to the write, as a record with no key, as before. (2) Pages are not batched together: that would commit several pages at a time, which was not asked for. (3) No more than four records (`write::SMALL_BLOCK`) are written one at a time by every caller of the block write, the same records by the same functions as before A87: a block spends on itself (the lookups for the block, two `COPY`s) what it saves on each record, and on an import of 600 revisions in pages of so many each it took 2.1 s against 1.5 s at one revision a page, as long at five, and less above. With the rule: 1.6 s against 1.6 s at one revision a page, 0.9 s against 1.0 s at ten, 0.7 s against 1.0 s at a hundred (release build, cloud sandbox). The records, counts and every `view` table are those of the import that wrote one revision at a time, checked over Postgres against that code on a page of six revisions with registered, imported and hidden authors and a withheld text, a second run, and older revisions merged behind a restored newest. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §6.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it stood):
+
+> The imports do not use the block write yet, and the projections apply a tenant's records one at a time inside a block.

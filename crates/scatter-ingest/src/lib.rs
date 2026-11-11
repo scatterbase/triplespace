@@ -49,7 +49,7 @@ pub use store::{Cursor, IngestStore, Sequence};
 pub use sync::{SyncItem, SyncOutcome, run_sync};
 pub use write::{
     Attestation, BlockEntry, BlockPayload, MintedValue, RawRecord, Request, Written, write_many,
-    write_operation, write_raw,
+    write_operation, write_raw, write_raw_many,
 };
 
 use scatter_projection::ProjectionError;
