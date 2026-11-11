@@ -1058,22 +1058,124 @@ async fn previous_size(
     Ok(row.and_then(|r| r.get::<_, Option<i32>>(0)).unwrap_or(0))
 }
 
+/// Applies one record: its row in `view.activity`.
+#[allow(clippy::too_many_lines)]
+async fn apply_record(cx: &PgCx, record: &Record) -> Result<Applied, String> {
+    let h = record.header();
+    let info = partition_info(cx, h.partition).await?;
+    if h.payload_type == PAYLOAD_CHANGESET
+        && info.is_mirror()
+        && is_load(cx, &info.tenant, attested(record).job).await?
+    {
+        return Ok(Applied::rows(0));
+    }
+    let mut columns = if h.payload_type == PAYLOAD_CHANGESET {
+        changeset_columns(record, info.is_mirror())?
+    } else if h.payload_type == scatter_pages::PAYLOAD_PAGE {
+        page_columns(cx, record).await?
+    } else if h.payload_type == PAYLOAD_RECLAIM {
+        reclaim_columns(record)?
+    } else if h.payload_type == scatter_threads::PAYLOAD_THREAD {
+        let mut c = thread_columns(record)?;
+        moved_from(cx, &info.tenant, h.partition, h.offset, &mut c).await?;
+        c
+    } else if h.payload_type == crate::actors::payload::ACL {
+        acl_columns(cx, record).await?
+    } else if h.payload_type == crate::actors::payload::MEMBERSHIP {
+        membership_columns(record)?
+    } else if h.payload_type == crate::actors::payload::BLOCK {
+        block_columns(cx, record).await?
+    } else if h.payload_type == crate::actors::payload::ACTOR {
+        match actor_columns(cx, record).await? {
+            Some(c) => c,
+            None => return Ok(Applied::rows(0)),
+        }
+    } else {
+        logevent_columns(record)?
+    };
+    if h.payload_type == scatter_pages::PAYLOAD_PAGE
+        && let (Some(size), Some(revid)) = (columns.size, h.revid)
+    {
+        columns.delta =
+            Some(size - previous_size(cx, &info.tenant, columns.target.id.as_ref(), revid).await?);
+    }
+    report_log_event(columns.log_type.as_deref(), columns.log_action.as_deref());
+    let attested = attested(record);
+    let as_i64 = |n: Option<u64>| {
+        n.map(i64::try_from)
+            .transpose()
+            .map_err(|e: std::num::TryFromIntError| e.to_string())
+    };
+    let n = cx.execute(
+            "INSERT INTO view.activity
+               (tenant, time, partition, \"offset\", kind, source, revid, logid, target_kind, target_id, target_member,
+                actor_key, job_id, summary_op, summary_args, comment, tags, new, size, delta,
+                log_type, log_action, params, changes, minor, bot, visibility)
+             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
+             ON CONFLICT (tenant, partition, \"offset\") DO UPDATE SET
+               kind = EXCLUDED.kind, target_kind = EXCLUDED.target_kind, target_id = EXCLUDED.target_id,
+               target_member = EXCLUDED.target_member, actor_key = EXCLUDED.actor_key, job_id = EXCLUDED.job_id,
+               summary_op = EXCLUDED.summary_op, summary_args = EXCLUDED.summary_args, comment = EXCLUDED.comment,
+               tags = EXCLUDED.tags, new = EXCLUDED.new, size = EXCLUDED.size, delta = EXCLUDED.delta,
+               log_type = EXCLUDED.log_type, log_action = EXCLUDED.log_action, params = EXCLUDED.params,
+               changes = EXCLUDED.changes, minor = EXCLUDED.minor, bot = EXCLUDED.bot,
+               visibility = view.activity.visibility | EXCLUDED.visibility",
+            &[
+                &info.tenant,
+                &time_of(columns.time.unwrap_or(h.appended_at)),
+                &scatter_log_postgres::ids::partition_to_db(h.partition),
+                &as_i64(Some(h.offset))?,
+                &columns.kind,
+                &info.name,
+                &as_i64(h.revid)?,
+                &as_i64(h.logid)?,
+                &columns.target.kind,
+                &columns.target.id,
+                &columns.target.member,
+                &attested.actor,
+                &as_i64(attested.job)?,
+                &columns.summary_op,
+                &columns.summary_args,
+                &comment(record),
+                &attested.tags,
+                &columns.new,
+                &columns.size,
+                &columns.delta,
+                &columns.log_type,
+                &columns.log_action,
+                &columns.params,
+                &columns.changes,
+                &columns.minor,
+                &columns.bot,
+                &columns.visibility,
+            ],
+        )
+        .await
+        .map_err(|e| sql(&e))?;
+    Ok(Applied::rows(usize::try_from(n).unwrap_or(0)))
+}
+
 impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
     fn name(&self) -> &'static str {
         "activity"
     }
 
-    /// Record by record, but a load's records, which are no rows (`is_load`), are left
-    /// out with one look-up of the job per block rather than one per record (0013 §9).
+    /// A load's records, which are no rows (`is_load`), are left out with one look-up of
+    /// the job per block rather than one per record (0013 §9). A change set's row is made
+    /// from the record alone, and a page revision's from the record, the log before it
+    /// and the page's earlier rows here, so a block of those is applied a key at a time,
+    /// the keys together (`common::by_key`; 0013 A93); any other block record
+    /// by record.
     fn apply_many<'a>(
         &'a self,
         cx: &'a mut PgCx,
         records: &'a [Record],
     ) -> BoxFuture<'a, Result<Applied, String>> {
         Box::pin(async move {
+            let cx: &PgCx = cx;
             let mut loads: std::collections::BTreeMap<(String, u64), bool> =
                 std::collections::BTreeMap::new();
-            let mut out = Applied::default();
+            let mut kept: Vec<&Record> = Vec::with_capacity(records.len());
             for record in records {
                 let h = record.header();
                 if h.payload_type == PAYLOAD_CHANGESET
@@ -1094,7 +1196,19 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
                         }
                     }
                 }
-                let a = Projection::<B>::apply(self, cx, record).await?;
+                kept.push(record);
+            }
+            let keyed = kept.iter().all(|r| {
+                let payload = &r.header().payload_type;
+                payload == PAYLOAD_CHANGESET || payload == scatter_pages::PAYLOAD_PAGE
+            });
+            if keyed {
+                return crate::common::by_key(kept, &|record| Box::pin(apply_record(cx, record)))
+                    .await;
+            }
+            let mut out = Applied::default();
+            for record in kept {
+                let a = apply_record(cx, record).await?;
                 out.rows += a.rows;
                 out.fanout.extend(a.fanout);
             }
@@ -1132,102 +1246,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
         cx: &'a mut PgCx,
         record: &'a Record,
     ) -> BoxFuture<'a, Result<Applied, String>> {
-        Box::pin(async move {
-            let h = record.header();
-            let info = partition_info(cx, h.partition).await?;
-            if h.payload_type == PAYLOAD_CHANGESET
-                && info.is_mirror()
-                && is_load(cx, &info.tenant, attested(record).job).await?
-            {
-                return Ok(Applied::rows(0));
-            }
-            let mut columns = if h.payload_type == PAYLOAD_CHANGESET {
-                changeset_columns(record, info.is_mirror())?
-            } else if h.payload_type == scatter_pages::PAYLOAD_PAGE {
-                page_columns(cx, record).await?
-            } else if h.payload_type == PAYLOAD_RECLAIM {
-                reclaim_columns(record)?
-            } else if h.payload_type == scatter_threads::PAYLOAD_THREAD {
-                let mut c = thread_columns(record)?;
-                moved_from(cx, &info.tenant, h.partition, h.offset, &mut c).await?;
-                c
-            } else if h.payload_type == crate::actors::payload::ACL {
-                acl_columns(cx, record).await?
-            } else if h.payload_type == crate::actors::payload::MEMBERSHIP {
-                membership_columns(record)?
-            } else if h.payload_type == crate::actors::payload::BLOCK {
-                block_columns(cx, record).await?
-            } else if h.payload_type == crate::actors::payload::ACTOR {
-                match actor_columns(cx, record).await? {
-                    Some(c) => c,
-                    None => return Ok(Applied::rows(0)),
-                }
-            } else {
-                logevent_columns(record)?
-            };
-            if h.payload_type == scatter_pages::PAYLOAD_PAGE
-                && let (Some(size), Some(revid)) = (columns.size, h.revid)
-            {
-                columns.delta = Some(
-                    size - previous_size(cx, &info.tenant, columns.target.id.as_ref(), revid)
-                        .await?,
-                );
-            }
-            report_log_event(columns.log_type.as_deref(), columns.log_action.as_deref());
-            let attested = attested(record);
-            let as_i64 = |n: Option<u64>| {
-                n.map(i64::try_from)
-                    .transpose()
-                    .map_err(|e: std::num::TryFromIntError| e.to_string())
-            };
-            let n = cx.execute(
-                    "INSERT INTO view.activity
-                       (tenant, time, partition, \"offset\", kind, source, revid, logid, target_kind, target_id, target_member,
-                        actor_key, job_id, summary_op, summary_args, comment, tags, new, size, delta,
-                        log_type, log_action, params, changes, minor, bot, visibility)
-                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21, $22, $23, $24, $25, $26, $27)
-                     ON CONFLICT (tenant, partition, \"offset\") DO UPDATE SET
-                       kind = EXCLUDED.kind, target_kind = EXCLUDED.target_kind, target_id = EXCLUDED.target_id,
-                       target_member = EXCLUDED.target_member, actor_key = EXCLUDED.actor_key, job_id = EXCLUDED.job_id,
-                       summary_op = EXCLUDED.summary_op, summary_args = EXCLUDED.summary_args, comment = EXCLUDED.comment,
-                       tags = EXCLUDED.tags, new = EXCLUDED.new, size = EXCLUDED.size, delta = EXCLUDED.delta,
-                       log_type = EXCLUDED.log_type, log_action = EXCLUDED.log_action, params = EXCLUDED.params,
-                       changes = EXCLUDED.changes, minor = EXCLUDED.minor, bot = EXCLUDED.bot,
-                       visibility = view.activity.visibility | EXCLUDED.visibility",
-                    &[
-                        &info.tenant,
-                        &time_of(columns.time.unwrap_or(h.appended_at)),
-                        &scatter_log_postgres::ids::partition_to_db(h.partition),
-                        &as_i64(Some(h.offset))?,
-                        &columns.kind,
-                        &info.name,
-                        &as_i64(h.revid)?,
-                        &as_i64(h.logid)?,
-                        &columns.target.kind,
-                        &columns.target.id,
-                        &columns.target.member,
-                        &attested.actor,
-                        &as_i64(attested.job)?,
-                        &columns.summary_op,
-                        &columns.summary_args,
-                        &comment(record),
-                        &attested.tags,
-                        &columns.new,
-                        &columns.size,
-                        &columns.delta,
-                        &columns.log_type,
-                        &columns.log_action,
-                        &columns.params,
-                        &columns.changes,
-                        &columns.minor,
-                        &columns.bot,
-                        &columns.visibility,
-                    ],
-                )
-                .await
-                .map_err(|e| sql(&e))?;
-            Ok(Applied::rows(usize::try_from(n).unwrap_or(0)))
-        })
+        Box::pin(async move { apply_record(cx, record).await })
     }
 
     fn reset<'a>(&'a self, cx: &'a mut PgCx, partition: u64) -> BoxFuture<'a, Result<(), String>> {

@@ -279,13 +279,27 @@ impl EntityProjection {
     }
 
     /// Recomputes one `(tenant, id)` row and its terms and identifiers.
-    #[allow(clippy::too_many_lines)]
     async fn resolve_subject(
         &self,
         cx: &PgCx,
         tenant: &str,
         id: &EntityId,
         current: Option<&Record>,
+    ) -> Result<u64, String> {
+        self.resolve_subject_times(cx, tenant, id, current, 1).await
+    }
+
+    /// [`Self::resolve_subject`], counted as `times` resolutions: the rows are the
+    /// subject's state as it stands, and `resolved_version` moves by `times`, as it does
+    /// when the subject is resolved once for each of `times` records (0013 A93).
+    #[allow(clippy::too_many_lines)]
+    async fn resolve_subject_times(
+        &self,
+        cx: &PgCx,
+        tenant: &str,
+        id: &EntityId,
+        current: Option<&Record>,
+        times: i64,
     ) -> Result<u64, String> {
         let mut sources = Self::sources(cx, tenant, id).await?;
         sources.sort_by_key(|s| {
@@ -404,12 +418,12 @@ impl EntityProjection {
                 "INSERT INTO view.entity (tenant, id, type, page_id, surrogate, cluster_id, canonical_id, retention,
                                           first_seen, local_offset, local_revid, resolved_version, generation,
                                           resolved_kind, resolved, resolved_size, deleted)
-                 VALUES ($1, $2, $3, $4, $5, NULL, $2, $6, $7, $8, $9, 1, 0, $10, $11, $12, false)
+                 VALUES ($1, $2, $3, $4, $5, NULL, $2, $6, $7, $8, $9, $13, 0, $10, $11, $12, false)
                  ON CONFLICT (tenant, id) DO UPDATE SET
                    type = EXCLUDED.type, page_id = EXCLUDED.page_id, surrogate = EXCLUDED.surrogate,
                    retention = EXCLUDED.retention, first_seen = LEAST(view.entity.first_seen, EXCLUDED.first_seen),
                    local_offset = EXCLUDED.local_offset, local_revid = EXCLUDED.local_revid,
-                   resolved_version = view.entity.resolved_version + 1,
+                   resolved_version = view.entity.resolved_version + $13,
                    resolved_kind = EXCLUDED.resolved_kind, resolved = EXCLUDED.resolved, resolved_size = EXCLUDED.resolved_size",
                 &[
                     &tenant,
@@ -424,6 +438,7 @@ impl EntityProjection {
                     &kind,
                     &blob,
                     &size,
+                    &times,
                 ],
             )
             .await
@@ -582,10 +597,262 @@ impl EntityProjection {
 
         let rows = shared_rows(&graph, fast)?;
         let mut n = write_shared_rows(cx, &rows).await?;
+        // A tenant's records, each about one entity, touch that entity's rows alone: the
+        // keys together, a key's records in order (0013 A93). A shared partition's
+        // records reach every tenant's overlay, and a `convert` two entities: in order.
+        let one_entity = |record: &&Record| matches!(operation(record), Ok(Some(op)) if !matches!(*op, Operation::Convert { .. }));
+        if !info.tenant.is_empty() && slow.len() == records.len() && slow.iter().all(one_entity) {
+            let tenant = info.tenant.as_str();
+            // The entities whose one source is the tenant's `local` graph are resolved
+            // from the block's states and written a table at a time (0013 A95); the
+            // rest a key at a time.
+            let (written, rest) = self.apply_local_block(cx, &info, records).await?;
+            let applied = crate::common::by_key_groups(rest, &|group: Vec<&Record>| {
+                Box::pin(self.apply_group(cx, tenant, group))
+            })
+            .await?;
+            return Ok(Applied::rows(
+                applied.rows + usize::try_from(n + written).unwrap_or(0),
+            ));
+        }
         for record in slow {
             n += self.apply_one(cx, record).await?;
         }
         Ok(Applied::rows(usize::try_from(n).unwrap_or(0)))
+    }
+
+    /// A key's records in a tenant's block. A key that repeats where its rows cannot
+    /// differ ([`repeats`]) is resolved once, as it stands after its last record, for
+    /// all its records (0013 A93); any other one record after another.
+    async fn apply_group(
+        &self,
+        cx: &PgCx,
+        tenant: &str,
+        group: Vec<&Record>,
+    ) -> Result<Applied, String> {
+        let whole = (1..group.len()).all(|i| repeats(&group[..i], group[i]));
+        let mut n = 0;
+        match (group.last(), whole) {
+            (Some(last), true) if group.len() > 1 => {
+                if let Some(id) = operation(last)?.as_deref().and_then(entity_subject) {
+                    let times = i64::try_from(group.len()).map_err(|e| e.to_string())?;
+                    n += self
+                        .resolve_subject_times(cx, tenant, &id, Some(last), times)
+                        .await?;
+                }
+            }
+            _ => {
+                for record in group {
+                    n += self.apply_one(cx, record).await?;
+                }
+            }
+        }
+        Ok(Applied::rows(usize::try_from(n).unwrap_or(0)))
+    }
+
+    /// The rows of a tenant's `local` block written a table at a time (0013 A95), for
+    /// the entities whose one source is that graph: a local entity nothing mirrors or
+    /// overlays, whose state the block's last record of it left (`view.graph_state`,
+    /// which the revision-state projection has written for the whole block). Such an
+    /// entity resolves to its local state and corrections alone, as
+    /// [`Self::resolve_subject`] finds, so the block's are read in two statements (their
+    /// sources, their states), resolved in memory, and written with one upsert of
+    /// `view.entity` and one delete and one insert each of their terms and identifiers.
+    /// A key that repeats is taken only where it may be resolved once ([`repeats`]).
+    ///
+    /// Returns the rows written and the records left for the caller: every record of
+    /// an entity not taken (another source, a foreign or keyed ID, a state that
+    /// resolves to nothing, records that may not be resolved once).
+    #[allow(clippy::too_many_lines)]
+    async fn apply_local_block<'r>(
+        &self,
+        cx: &PgCx,
+        info: &crate::common::PartitionInfo,
+        records: &'r [Record],
+    ) -> Result<(u64, Vec<&'r Record>), String> {
+        let all = || (0, records.iter().collect());
+        if info.name != "local" || records.len() < 2 {
+            return Ok(all());
+        }
+        let tenant = info.tenant.as_str();
+        // The block's records by subject, in the order the subjects first come.
+        let mut groups: Vec<(EntityId, Vec<&Record>)> = Vec::new();
+        let mut index: BTreeMap<String, usize> = BTreeMap::new();
+        for record in records {
+            let Some(id) = operation(record)?.as_deref().and_then(entity_subject) else {
+                return Ok(all());
+            };
+            if let Some(&i) = index.get(id.as_str()) {
+                groups[i].1.push(record);
+            } else {
+                index.insert(id.as_str().to_string(), groups.len());
+                groups.push((id, vec![record]));
+            }
+        }
+        let candidates: Vec<&str> = groups
+            .iter()
+            .filter(|(id, group)| {
+                id.form() == IdForm::Local
+                    && group
+                        .iter()
+                        .all(|r| r.header().key.as_deref() == Some(id.as_str()))
+                    && (1..group.len()).all(|i| repeats(&group[..i], group[i]))
+            })
+            .map(|(id, _)| id.as_str())
+            .collect();
+        if candidates.is_empty() {
+            return Ok(all());
+        }
+        // An entity's sources: taken when the tenant's `local` graph is the only one.
+        let mut sources: BTreeMap<String, Vec<(String, String, std::time::SystemTime)>> =
+            BTreeMap::new();
+        for r in cx
+            .query(
+                "SELECT entity_id, tenant, graph, synced_at FROM view.entity_source
+                 WHERE entity_id = ANY($1) AND (tenant = $2 OR tenant = '')",
+                &[&candidates, &tenant],
+            )
+            .await
+            .map_err(|e| sql(&e))?
+        {
+            sources
+                .entry(r.get(0))
+                .or_default()
+                .push((r.get(1), r.get(2), r.get(3)));
+        }
+        let mut states: BTreeMap<String, (Vec<u8>, i64)> = cx
+            .query(
+                "SELECT entity_id, state, \"offset\" FROM view.graph_state
+                 WHERE tenant = $1 AND graph = 'local' AND entity_id = ANY($2)",
+                &[&tenant, &candidates],
+            )
+            .await
+            .map_err(|e| sql(&e))?
+            .iter()
+            .map(|r| (r.get(0), (r.get(1), r.get(2))))
+            .collect();
+        // What each entity taken is resolved from: its last record, its state, when it
+        // was first seen, and how many records the block has of it.
+        let mut taken: Vec<(&EntityId, &Record, Vec<u8>, std::time::SystemTime, i64)> = Vec::new();
+        let mut rest: Vec<&Record> = Vec::new();
+        for (id, group) in &groups {
+            let last = group.last().expect("a group has a record");
+            let first_seen = match sources.get(id.as_str()).map(Vec::as_slice) {
+                Some([(t, g, synced)]) if t == tenant && g == "local" => Some(*synced),
+                _ => None,
+            };
+            let offset = i64::try_from(last.header().offset).map_err(|e| e.to_string())?;
+            let state = match states.get(id.as_str()) {
+                Some((_, o)) if *o == offset => states.remove(id.as_str()).map(|(b, _)| b),
+                _ => None,
+            };
+            match (candidates.contains(&id.as_str()), first_seen, state) {
+                (true, Some(first_seen), Some(state)) => {
+                    let times = i64::try_from(group.len()).map_err(|e| e.to_string())?;
+                    taken.push((id, last, state, first_seen, times));
+                }
+                _ => rest.extend(group.iter().copied()),
+            }
+        }
+        let resolve_one = |(id, last, state, first_seen, times): (
+            &EntityId,
+            &'r Record,
+            Vec<u8>,
+            std::time::SystemTime,
+            i64,
+        )|
+         -> Result<Result<LocalRows, &'r Record>, String> {
+            let state = crate::revision_state::decode(&state)?;
+            let Some(entity) = &state.entity else {
+                return Ok(Err(last));
+            };
+            let contributions = [Contribution {
+                graph: "local".to_string(),
+                entity: entity.clone(),
+                upstream_id: None,
+            }];
+            let corrections: BTreeMap<StatementId, Correction> = state
+                .corrections
+                .iter()
+                .map(|(k, c)| {
+                    (
+                        k.clone(),
+                        match c {
+                            LocalCorrection::Rank(r) => Correction::Rank(*r),
+                            LocalCorrection::Suppress => Correction::Suppress,
+                        },
+                    )
+                })
+                .collect();
+            let Some(resolved) = resolve(&contributions, &corrections) else {
+                return Ok(Err(last));
+            };
+            let h = last.header();
+            let page_id = h
+                .page_id
+                .ok_or_else(|| format!("no record for `{id}` carries a page ID (0013 §6)"))?;
+            let whole = matches!(
+                operation(last)?.as_deref(),
+                Some(Operation::Create { .. } | Operation::Adopt { .. })
+            );
+            let json = resolved.canonical_json();
+            let single_source = state.offsets.len() == 1
+                && whole
+                && resolved.equals_given(&json, &contributions[0].entity);
+            let (kind, blob) = if single_source {
+                ("source", None)
+            } else {
+                ("materialized", Some(json.as_bytes().to_vec()))
+            };
+            Ok(Ok(LocalRows {
+                id: id.as_str().to_string(),
+                type_name: resolved.entity.entity_type.name().to_string(),
+                page_id: i64::try_from(page_id).map_err(|e| e.to_string())?,
+                retention: state.retention.map(|r| match r {
+                    Retention::Cascade => "cascade",
+                    Retention::Orphan => "orphan",
+                    Retention::Retain => "retain",
+                }),
+                first_seen,
+                local_offset: i64::try_from(h.offset).map_err(|e| e.to_string())?,
+                local_revid: h
+                    .revid
+                    .map(i64::try_from)
+                    .transpose()
+                    .map_err(|e| e.to_string())?,
+                times,
+                kind,
+                blob,
+                size: i32::try_from(json.len()).unwrap_or(i32::MAX),
+                terms: term_rows(&resolved.entity)
+                    .into_iter()
+                    .map(|(k, l, o, x)| (k, l.to_string(), o, x.to_string()))
+                    .collect(),
+                identifiers: identifier_rows(&resolved)
+                    .into_iter()
+                    .map(|((p, key, g), sid)| (p.to_string(), key, g.to_string(), sid.to_string()))
+                    .collect(),
+            }))
+        };
+        let resolved: Vec<_> = if taken.len() < 64 {
+            taken.into_iter().map(resolve_one).collect()
+        } else {
+            crate::common::par_map(taken, resolve_one)
+        };
+        let mut rows = Vec::with_capacity(resolved.len());
+        for r in resolved {
+            match r? {
+                Ok(row) => rows.push(row),
+                // A state that resolves to nothing: the key's records, the full way.
+                Err(last) => {
+                    let key = last.header().key.as_deref();
+                    rest.extend(records.iter().filter(|r| r.header().key.as_deref() == key));
+                }
+            }
+        }
+        rest.sort_by_key(|r| r.header().offset);
+        let written = write_local_rows(cx, tenant, &rows).await?;
+        Ok((written, rest))
     }
 
     /// What [`Projection::apply`] does for one record: the subject's row, and on a shared
@@ -628,6 +895,139 @@ impl EntityProjection {
             .map_err(|e| sql(&e))?;
         Ok(rows.iter().map(|r| r.get(0)).collect())
     }
+}
+
+/// One local entity's rows in its tenant, resolved from its local state alone
+/// ([`EntityProjection::apply_local_block`]).
+struct LocalRows {
+    id: String,
+    type_name: String,
+    page_id: i64,
+    retention: Option<&'static str>,
+    first_seen: std::time::SystemTime,
+    local_offset: i64,
+    local_revid: Option<i64>,
+    /// How many records the block has of the entity: how far `resolved_version` moves.
+    times: i64,
+    kind: &'static str,
+    blob: Option<Vec<u8>>,
+    size: i32,
+    /// `(kind, lang, ordinal, text)`.
+    terms: Vec<(i16, String, i16, String)>,
+    /// `(property, value key, graph, statement ID)`.
+    identifiers: Vec<(String, String, String, String)>,
+}
+
+/// Writes [`LocalRows`] for a block (0013 A95): one upsert of `view.entity`, and the
+/// terms and identifiers replaced with one delete and one insert each; the columns and
+/// the conflict rule are those of [`EntityProjection::resolve_subject`], a row for a row.
+#[allow(clippy::too_many_lines)]
+async fn write_local_rows(cx: &PgCx, tenant: &str, rows: &[LocalRows]) -> Result<u64, String> {
+    if rows.is_empty() {
+        return Ok(0);
+    }
+    let ids: Vec<&str> = rows.iter().map(|r| r.id.as_str()).collect();
+    let types: Vec<&str> = rows.iter().map(|r| r.type_name.as_str()).collect();
+    let pages: Vec<i64> = rows.iter().map(|r| r.page_id).collect();
+    let retentions: Vec<Option<&str>> = rows.iter().map(|r| r.retention).collect();
+    let first: Vec<std::time::SystemTime> = rows.iter().map(|r| r.first_seen).collect();
+    let offsets: Vec<i64> = rows.iter().map(|r| r.local_offset).collect();
+    let revids: Vec<Option<i64>> = rows.iter().map(|r| r.local_revid).collect();
+    let times: Vec<i64> = rows.iter().map(|r| r.times).collect();
+    let kinds: Vec<&str> = rows.iter().map(|r| r.kind).collect();
+    let blobs: Vec<Option<&[u8]>> = rows.iter().map(|r| r.blob.as_deref()).collect();
+    let sizes: Vec<i32> = rows.iter().map(|r| r.size).collect();
+    let (mut te, mut tk, mut tl, mut to, mut tx) =
+        (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new());
+    let (mut ie, mut ip, mut iv, mut ig, mut is) =
+        (Vec::new(), Vec::new(), Vec::new(), Vec::new(), Vec::new());
+    for r in rows {
+        for (kind, lang, ordinal, text) in &r.terms {
+            te.push(r.id.as_str());
+            tk.push(*kind);
+            tl.push(lang.as_str());
+            to.push(*ordinal);
+            tx.push(text.as_str());
+        }
+        for (property, key, graph, sid) in &r.identifiers {
+            ie.push(r.id.as_str());
+            ip.push(property.as_str());
+            iv.push(key.as_str());
+            ig.push(graph.as_str());
+            is.push(sid.as_str());
+        }
+    }
+    let entity_rows = async {
+        cx.execute(
+            "INSERT INTO view.entity (tenant, id, type, page_id, surrogate, cluster_id, canonical_id, retention,
+                                      first_seen, local_offset, local_revid, resolved_version, generation,
+                                      resolved_kind, resolved, resolved_size, deleted)
+             SELECT $1, t.id, t.type, t.page_id, NULL, NULL, t.id, t.retention, t.first_seen, t.local_offset,
+                    t.local_revid, t.times, 0, t.kind, t.resolved, t.size, false
+             FROM unnest($2::text[], $3::text[], $4::bigint[], $5::text[], $6::timestamptz[], $7::bigint[],
+                         $8::bigint[], $9::bigint[], $10::text[], $11::bytea[], $12::int[])
+                  AS t(id, type, page_id, retention, first_seen, local_offset, local_revid, times, kind, resolved, size)
+             ON CONFLICT (tenant, id) DO UPDATE SET
+               type = EXCLUDED.type, page_id = EXCLUDED.page_id, surrogate = EXCLUDED.surrogate,
+               retention = EXCLUDED.retention, first_seen = LEAST(view.entity.first_seen, EXCLUDED.first_seen),
+               local_offset = EXCLUDED.local_offset, local_revid = EXCLUDED.local_revid,
+               resolved_version = view.entity.resolved_version + EXCLUDED.resolved_version,
+               resolved_kind = EXCLUDED.resolved_kind, resolved = EXCLUDED.resolved, resolved_size = EXCLUDED.resolved_size",
+            &[
+                &tenant, &ids, &types, &pages, &retentions, &first, &offsets, &revids, &times, &kinds,
+                &blobs, &sizes,
+            ],
+        )
+        .await
+        .map_err(|e| sql(&e))
+    };
+    // A delete and its insert in order; the three tables together.
+    let term_rows = async {
+        let mut n = cx
+            .execute(
+                "DELETE FROM view.term WHERE tenant = $1 AND entity_id = ANY($2)",
+                &[&tenant, &ids],
+            )
+            .await
+            .map_err(|e| sql(&e))?;
+        if !te.is_empty() {
+            n += cx
+                .execute(
+                    "INSERT INTO view.term (tenant, entity_id, kind, lang, ordinal, text)
+                     SELECT $1, t.entity_id, t.kind, t.lang, t.ordinal, t.text
+                     FROM unnest($2::text[], $3::smallint[], $4::text[], $5::smallint[], $6::text[])
+                          AS t(entity_id, kind, lang, ordinal, text)",
+                    &[&tenant, &te, &tk, &tl, &to, &tx],
+                )
+                .await
+                .map_err(|e| sql(&e))?;
+        }
+        Ok::<u64, String>(n)
+    };
+    let identifier_rows = async {
+        let mut n = cx
+            .execute(
+                "DELETE FROM view.identifier WHERE tenant = $1 AND entity_id = ANY($2)",
+                &[&tenant, &ids],
+            )
+            .await
+            .map_err(|e| sql(&e))?;
+        if !ie.is_empty() {
+            n += cx
+                .execute(
+                    "INSERT INTO view.identifier (tenant, property, value_key, entity_id, graph, statement_id)
+                     SELECT $1, t.property, t.value_key, t.entity_id, t.graph, t.statement_id
+                     FROM unnest($2::text[], $3::text[], $4::text[], $5::text[], $6::text[])
+                          AS t(entity_id, property, value_key, graph, statement_id)",
+                    &[&tenant, &ie, &ip, &iv, &ig, &is],
+                )
+                .await
+                .map_err(|e| sql(&e))?;
+        }
+        Ok::<u64, String>(n)
+    };
+    let (a, b, c) = tokio::try_join!(entity_rows, term_rows, identifier_rows)?;
+    Ok(a + b + c)
 }
 
 /// One mirrored entity's shared rows, computed from its own state alone
@@ -910,6 +1310,37 @@ fn identifier_rows(resolved: &Resolved) -> BTreeMap<(&str, String, &str), &str> 
     rows
 }
 
+/// Whether `later` leaves the rows it leaves one record at a time when the subject is
+/// resolved after `earlier`, the records of the same key before it, and after it, with
+/// nothing in between ([`Projection::repeats_in_block`]; 0013 A89).
+fn repeats(earlier: &[&Record], later: &Record) -> bool {
+    let whole = |op: &Operation| {
+        matches!(
+            op,
+            Operation::Create { .. }
+                | Operation::Adopt {
+                    entity: Some(_),
+                    redirect: None,
+                    ..
+                }
+        )
+    };
+    let local = |op: &Operation| entity_subject(op).is_some_and(|id| id.form() == IdForm::Local);
+    let at = later.header().appended_at;
+    let Ok(Some(last)) = operation(later) else {
+        return false;
+    };
+    if !local(&last) || !(whole(&last) || matches!(*last, Operation::Add { .. })) {
+        return false;
+    }
+    earlier.iter().enumerate().all(|(i, record)| {
+        record.header().appended_at == at
+            && matches!(operation(record), Ok(Some(op))
+                if local(&op)
+                    && (whole(&op) || (i > 0 && matches!(*op, Operation::Add { .. }))))
+    })
+}
+
 impl<B: Backend<Cx = PgCx>> Projection<B> for EntityProjection {
     fn name(&self) -> &'static str {
         "entity"
@@ -934,32 +1365,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for EntityProjection {
     /// that the entity is there from the first record on, and the rest whole states or
     /// `add`s, which leave it there.
     fn repeats_in_block(&self, earlier: &[&Record], later: &Record) -> bool {
-        let whole = |op: &Operation| {
-            matches!(
-                op,
-                Operation::Create { .. }
-                    | Operation::Adopt {
-                        entity: Some(_),
-                        redirect: None,
-                        ..
-                    }
-            )
-        };
-        let local =
-            |op: &Operation| entity_subject(op).is_some_and(|id| id.form() == IdForm::Local);
-        let at = later.header().appended_at;
-        let Ok(Some(last)) = operation(later) else {
-            return false;
-        };
-        if !local(&last) || !(whole(&last) || matches!(*last, Operation::Add { .. })) {
-            return false;
-        }
-        earlier.iter().enumerate().all(|(i, record)| {
-            record.header().appended_at == at
-                && matches!(operation(record), Ok(Some(op))
-                    if local(&op)
-                        && (whole(&op) || (i > 0 && matches!(*op, Operation::Add { .. }))))
-        })
+        repeats(earlier, later)
     }
 
     fn apply<'a>(

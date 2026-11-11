@@ -1024,9 +1024,27 @@ async fn a_block_of_local_records_leaves_what_one_record_at_a_time_leaves() {
         later,
         op(json!({"op": "add", "id": "Q1", "labels": {"fr": "Un"}})),
     ));
+    // More keys than the projections send at once (0013 A93), some of them again: seventy
+    // items created, the first ten then edited, in one stretch.
+    let mut wide: Vec<(Request, Operation)> = (101..=170)
+        .map(|n| {
+            let id = format!("Q{n}");
+            (
+                by("librarybase:1", None, None),
+                op(json!({"op": "create", "id": id, "entity": item(&id, "An item", &json!({}))})),
+            )
+        })
+        .collect();
+    wide.extend((101..=110).map(|n| {
+        (
+            by("librarybase:2", None, None),
+            op(json!({"op": "add", "id": format!("Q{n}"), "labels": {"fr": "Un article"}})),
+        )
+    }));
     // Each case has more records than `SMALL_BLOCK`, so that it is written as a block.
     let cases = [
         ("every key repeats in one stretch", &block, vec![9]),
+        ("more keys than are sent at once", &wide, vec![80]),
         (
             "an entity that goes and comes back",
             &gone_and_back,
@@ -1212,6 +1230,106 @@ async fn a_batch_in_blocks_leaves_what_one_operation_at_a_time_leaves() {
                 );
             }
         }
+    }
+}
+
+/// The revision-state projection folds a block onto the states it reads in one statement
+/// (0013 A95), and seeds a key that has records but no stored state from those records, as
+/// it does one record at a time (0083 A1): with the stored states of two entities taken
+/// away, a block that edits them and creates others leaves what one record at a time
+/// leaves in every `view` table.
+#[tokio::test]
+async fn a_block_seeds_a_state_from_the_records_before_it() {
+    if skipped() {
+        return;
+    }
+    let by = |actor: &str| {
+        let mut r = Request::new(TENANT, Attestation::by(actor), NOW);
+        r.budget = scatter_projection::Budget::NONE;
+        r
+    };
+    let op = |v: serde_json::Value| -> Operation { serde_json::from_value(v).unwrap() };
+    let create = |id: &str, label: &str| {
+        op(json!({"op": "create", "id": id, "entity": item(id, label, &json!({}))}))
+    };
+    let before = [create("Q1", "One"), create("Q2", "Two")];
+    let block: Vec<Operation> = vec![
+        op(json!({"op": "add", "id": "Q1", "labels": {"fr": "Un"}})),
+        create("Q3", "Three"),
+        op(json!({"op": "add", "id": "Q2", "descriptions": {"en": "the second"}})),
+        create("Q4", "Four"),
+        op(json!({"op": "add", "id": "Q1", "aliases": {"en": ["Uno"]}})),
+        create("Q5", "Five"),
+    ];
+    let mut runs = Vec::new();
+    for in_block in [false, true] {
+        let (client, backend) = fresh().await;
+        let client = seed(client).await;
+        let store = PgIngest::new(backend);
+        let p = pipeline();
+        let registry = Registry::default_registry();
+        let log_store = PgLog::new(client);
+        p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
+            .await
+            .unwrap();
+        let client = log_store.into_inner();
+        let request = by("librarybase:1");
+        let mut cx = store.begin().await.unwrap();
+        for op in &before {
+            write_operation(&store, &p, &mut cx, &request, op, registry)
+                .await
+                .unwrap();
+        }
+        store.commit(cx).await.unwrap();
+        // A database that gained the table after the keys had records.
+        let gone = client
+            .execute(
+                "DELETE FROM view.graph_state WHERE tenant = 'librarybase'",
+                &[],
+            )
+            .await
+            .unwrap();
+        assert_eq!(gone, 2);
+        let request = by("librarybase:2");
+        let mut cx = store.begin().await.unwrap();
+        if in_block {
+            let entries: Vec<_> = block
+                .iter()
+                .map(|op| BlockEntry {
+                    request: &request,
+                    payload: BlockPayload::Operation(op),
+                })
+                .collect();
+            write_many(
+                &store,
+                &p,
+                &mut cx,
+                LOCAL,
+                &Graph::Local,
+                &entries,
+                scatter_projection::Budget::NONE,
+                registry,
+            )
+            .await
+            .unwrap();
+        } else {
+            for op in &block {
+                write_operation(&store, &p, &mut cx, &request, op, registry)
+                    .await
+                    .unwrap();
+            }
+        }
+        store.commit(cx).await.unwrap();
+        runs.push(views(&client).await);
+    }
+    let (one, blocks) = (&runs[0], &runs[1]);
+    assert_eq!(
+        one["graph_state"].len(),
+        5,
+        "a state for every entity again"
+    );
+    for (table, rows_one) in one {
+        assert_eq!(&blocks[table], rows_one, "the same rows in view.{table}");
     }
 }
 
@@ -1591,6 +1709,153 @@ fn page_revision(
         source_revid: revid,
         comment: Some(format!("page edit {revid}")),
         author,
+    }
+}
+
+/// One revision of an adopted wikitext page with a text of its own, or none (withheld).
+fn page_text_revision(
+    page_id: u64,
+    title: &str,
+    revid: u64,
+    first: bool,
+    text: Option<&str>,
+) -> AdoptedPage {
+    let mut page = page_revision(
+        page_id,
+        title,
+        revid,
+        first,
+        Author::Actor("librarybase:7".into()),
+    );
+    page.extra = text.map(Value::text).into_iter().collect();
+    if text.is_none() {
+        let mut content = page.content.clone();
+        content["withheld"] = json!(["text"]);
+        page.content = content;
+    }
+    page
+}
+
+/// The page projection applies a run of one page's revisions as one (0013 A94), and what
+/// it leaves is what it leaves one revision to a unit (`batch` 1): the same rows in every
+/// `view` table. The pages' histories change their links and categories, pass through a
+/// redirect, withhold a text, and end as a redirect to a page of the same run; and a
+/// re-run finds everything present.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn a_run_of_page_revisions_leaves_what_one_at_a_time_leaves() {
+    if skipped() {
+        return;
+    }
+    let about = [
+        Some("About this wiki. [[Project:Help]] [[Category:Guides]]"),
+        Some("About this wiki, longer. [[Project:Help]] [[Project:Missing]] [[Category:Guides]]"),
+        Some("#REDIRECT [[Project:Help]]"),
+        None,
+        Some("About again. [[Project:Rules]] [[Category:Meta]] [[Category:Guides|about]]"),
+        Some("About, final. [[Project:Rules]] [[Category:Meta]]"),
+    ];
+    let help = [
+        Some("Help. [[Project:About]]"),
+        Some("Help, more. [[Project:About]] [[Category:Guides]]"),
+        Some("Help, with [[Project:Elsewhere]]."),
+        Some("Help, shorter."),
+        Some("#REDIRECT [[Project:About]]"),
+    ];
+    let mut items: Vec<AdoptedItem> = Vec::new();
+    for (i, text) in about.iter().enumerate() {
+        items.push(page_text_revision(300, "About", 45_000 + i as u64, i == 0, *text).into());
+    }
+    for (i, text) in help.iter().enumerate() {
+        items.push(page_text_revision(301, "Help", 45_100 + i as u64, i == 0, *text).into());
+    }
+    // A page of one revision, and one whose last revision has no text.
+    items.push(
+        page_text_revision(302, "Rules", 45_200, true, Some("Rules. [[Project:About]]")).into(),
+    );
+    for (i, text) in [
+        Some("Notes."),
+        Some("Notes, more. [[Category:Meta]]"),
+        Some("Notes, three."),
+        Some("Notes, four."),
+        None,
+    ]
+    .iter()
+    .enumerate()
+    {
+        items.push(page_text_revision(303, "Notes", 45_300 + i as u64, i == 0, *text).into());
+    }
+    let adoption = Adoption {
+        issuer: TENANT.into(),
+        source: "https://librarybase.org/".into(),
+        version: "librarybase-pages.xml.gz".into(),
+        adapter_version: None,
+        frozen: true,
+        history: true,
+        current_state_dump: false,
+        floors: Floors {
+            entity: BTreeMap::from([("item".to_string(), 1000)]),
+            page: 2000,
+            revision: 50_000,
+            log: 700,
+            user: 40,
+        },
+        accounts: vec![account("librarybase:7", "Editor")],
+        property_types: BTreeMap::new(),
+    };
+    let mut runs = Vec::new();
+    for batch in [1usize, 100] {
+        let (client, backend) = fresh().await;
+        let client = seed(client).await;
+        let store = PgIngest::new(backend);
+        let p = pipeline();
+        let registry = Registry::default_registry();
+        let log_store = PgLog::new(client);
+        p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
+            .await
+            .unwrap();
+        let client = log_store.into_inner();
+        let mut counts = Vec::new();
+        for _ in 0..2 {
+            let out = run_adoption(
+                &store,
+                &p,
+                TENANT,
+                Attestation::by("librarybase:2"),
+                adoption.clone(),
+                items.clone(),
+                registry,
+                NOW,
+                batch,
+            )
+            .await
+            .unwrap();
+            assert!(out.rejects.is_empty(), "batch {batch}: {:?}", out.rejects);
+            counts.push(out.counts);
+        }
+        runs.push((batch, counts, views(&client).await));
+    }
+    let (_, counts_one, views_one) = &runs[0];
+    assert_eq!(counts_one[0].adopted, 17);
+    assert_eq!(
+        counts_one[1].unchanged, 17,
+        "the re-run finds everything present"
+    );
+    let page_rows = &views_one["page"];
+    assert_eq!(page_rows.len(), 4, "{page_rows:?}");
+    assert!(
+        views_one["page_link"].len() >= 2 && !views_one["page_category"].is_empty(),
+        "the latest texts were indexed"
+    );
+    assert_eq!(views_one["redirect"].len(), 1, "Help ends as a redirect");
+    for (batch, counts, views) in &runs[1..] {
+        assert_eq!(counts, counts_one, "batch {batch}: the same counts");
+        for (table, rows_one) in views_one {
+            assert_eq!(
+                &views[table], rows_one,
+                "batch {batch}: the same rows in view.{table}"
+            );
+        }
     }
 }
 

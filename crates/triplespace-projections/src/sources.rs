@@ -5,6 +5,8 @@
 
 use scatter_log::cbor::Value;
 use scatter_log::header::Header;
+use std::collections::BTreeMap;
+
 use scatter_log::record::Record;
 use scatter_projection::{Applied, Backend, BoxFuture, Projection, Step};
 use scatter_wikibase_changeset::{Operation, Upstream};
@@ -208,6 +210,78 @@ fn content_size(record: &Record, declared: Option<u64>) -> i32 {
     i32::try_from(n).unwrap_or(i32::MAX)
 }
 
+impl EntitySourceProjection {
+    /// Applies one record: its entity's cursor in the record's graph, set or removed.
+    async fn apply_record(cx: &PgCx, record: &Record) -> Result<Applied, String> {
+        let info = partition_info(cx, record.header().partition).await?;
+        let Some(op) = operation(record)? else {
+            return Ok(Applied::default());
+        };
+        let Some(id) = entity_subject(&op) else {
+            return Ok(Applied::default());
+        };
+        let graph = info.name.as_str();
+        let t = info.tenant.as_str();
+        let n = match &*op {
+            Operation::Put {
+                upstream,
+                prev_upstream,
+                size,
+                ..
+            } => {
+                Self::upsert(
+                    cx,
+                    t,
+                    &id,
+                    graph,
+                    record,
+                    Cursor {
+                        version: version_text(upstream),
+                        prev: prev_upstream.as_ref().and_then(version_text),
+                        size: content_size(record, *size),
+                    },
+                )
+                .await?
+            }
+            Operation::Tombstone { .. }
+            | Operation::Redirect {
+                upstream: Some(_), ..
+            } => Self::delete(cx, t, &id, graph).await?,
+            Operation::Adopt { source_revid, .. } => {
+                Self::upsert(
+                    cx,
+                    t,
+                    &id,
+                    graph,
+                    record,
+                    Cursor {
+                        version: Some(source_revid.to_string()),
+                        prev: None,
+                        size: content_size(record, None),
+                    },
+                )
+                .await?
+            }
+            _ => {
+                Self::upsert(
+                    cx,
+                    t,
+                    &id,
+                    graph,
+                    record,
+                    Cursor {
+                        version: None,
+                        prev: None,
+                        size: content_size(record, None),
+                    },
+                )
+                .await?
+            }
+        };
+        Ok(rows(n))
+    }
+}
+
 impl<B: Backend<Cx = PgCx>> Projection<B> for EntitySourceProjection {
     fn name(&self) -> &'static str {
         "entity_source"
@@ -232,79 +306,13 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for EntitySourceProjection {
         cx: &'a mut PgCx,
         record: &'a Record,
     ) -> BoxFuture<'a, Result<Applied, String>> {
-        Box::pin(async move {
-            let info = partition_info(cx, record.header().partition).await?;
-            let Some(op) = operation(record)? else {
-                return Ok(Applied::default());
-            };
-            let Some(id) = entity_subject(&op) else {
-                return Ok(Applied::default());
-            };
-            let graph = info.name.as_str();
-            let t = info.tenant.as_str();
-            let n = match &*op {
-                Operation::Put {
-                    upstream,
-                    prev_upstream,
-                    size,
-                    ..
-                } => {
-                    Self::upsert(
-                        cx,
-                        t,
-                        &id,
-                        graph,
-                        record,
-                        Cursor {
-                            version: version_text(upstream),
-                            prev: prev_upstream.as_ref().and_then(version_text),
-                            size: content_size(record, *size),
-                        },
-                    )
-                    .await?
-                }
-                Operation::Tombstone { .. }
-                | Operation::Redirect {
-                    upstream: Some(_), ..
-                } => Self::delete(cx, t, &id, graph).await?,
-                Operation::Adopt { source_revid, .. } => {
-                    Self::upsert(
-                        cx,
-                        t,
-                        &id,
-                        graph,
-                        record,
-                        Cursor {
-                            version: Some(source_revid.to_string()),
-                            prev: None,
-                            size: content_size(record, None),
-                        },
-                    )
-                    .await?
-                }
-                _ => {
-                    Self::upsert(
-                        cx,
-                        t,
-                        &id,
-                        graph,
-                        record,
-                        Cursor {
-                            version: None,
-                            prev: None,
-                            size: content_size(record, None),
-                        },
-                    )
-                    .await?
-                }
-            };
-            Ok(rows(n))
-        })
+        Box::pin(async move { Self::apply_record(cx, record).await })
     }
 
-    /// A block of `put`s, each naming its subject once, is one multi-row upsert of the rows
-    /// [`Projection::apply`] writes one at a time (0013 §9); any other block is applied
-    /// record by record.
+    /// A block that removes no cursor is one multi-row upsert of the cursor each entity
+    /// is left with, its last record's (0013 §9, A95); a block with a `tombstone` or an
+    /// upstream `redirect` is applied a key at a time (`common::by_key`).
+    #[allow(clippy::too_many_lines)]
     fn apply_many<'a>(
         &'a self,
         cx: &'a mut PgCx,
@@ -312,36 +320,57 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for EntitySourceProjection {
     ) -> BoxFuture<'a, Result<Applied, String>> {
         Box::pin(async move {
             let info = partition_info(cx, records[0].header().partition).await?;
-            let mut subjects = std::collections::BTreeSet::new();
-            let mut puts: Vec<(&Record, EntityId, Cursor)> = Vec::with_capacity(records.len());
+            // The cursor each entity is left with: its last record's, when no record of
+            // the block removes one (0013 A95). A block of `put`s that names each subject
+            // once is the bootstrap case of 0013 §9.
+            let mut last: BTreeMap<String, (&Record, EntityId, Cursor)> = BTreeMap::new();
             for record in records {
-                let op = operation(record)?;
-                match op.as_deref() {
-                    Some(Operation::Put {
-                        id,
+                let Some(op) = operation(record)? else {
+                    continue;
+                };
+                let Some(id) = entity_subject(&op) else {
+                    continue;
+                };
+                let cursor = match &*op {
+                    Operation::Put {
                         upstream,
                         prev_upstream,
                         size,
                         ..
-                    }) if subjects.insert(id.as_str().to_string()) => {
-                        let cursor = Cursor {
-                            version: version_text(upstream),
-                            prev: prev_upstream.as_ref().and_then(version_text),
-                            size: content_size(record, *size),
-                        };
-                        puts.push((record, id.clone(), cursor));
+                    } => Cursor {
+                        version: version_text(upstream),
+                        prev: prev_upstream.as_ref().and_then(version_text),
+                        size: content_size(record, *size),
+                    },
+                    Operation::Tombstone { .. }
+                    | Operation::Redirect {
+                        upstream: Some(_), ..
+                    } => {
+                        // A cursor removed: each record sets or removes its own
+                        // entity's, the keys together, a key's records in order (A93).
+                        let cx: &PgCx = cx;
+                        return crate::common::by_key(records, &|record| {
+                            Box::pin(Self::apply_record(cx, record))
+                        })
+                        .await;
                     }
-                    _ => {
-                        let mut out = Applied::default();
-                        for record in records {
-                            let a = Projection::<B>::apply(self, cx, record).await?;
-                            out.rows += a.rows;
-                            out.fanout.extend(a.fanout);
-                        }
-                        return Ok(out);
-                    }
-                }
+                    Operation::Adopt { source_revid, .. } => Cursor {
+                        version: Some(source_revid.to_string()),
+                        prev: None,
+                        size: content_size(record, None),
+                    },
+                    _ => Cursor {
+                        version: None,
+                        prev: None,
+                        size: content_size(record, None),
+                    },
+                };
+                last.insert(id.as_str().to_string(), (record, id, cursor));
             }
+            if last.is_empty() {
+                return Ok(Applied::default());
+            }
+            let puts: Vec<(&Record, EntityId, Cursor)> = last.into_values().collect();
             let mut ids = Vec::with_capacity(puts.len());
             let mut offsets = Vec::with_capacity(puts.len());
             let mut versions = Vec::with_capacity(puts.len());

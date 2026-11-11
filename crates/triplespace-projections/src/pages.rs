@@ -274,146 +274,44 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for PageProjection {
         true
     }
 
-    #[allow(clippy::too_many_lines)]
     fn apply<'a>(
         &'a self,
         cx: &'a mut PgCx,
         record: &'a Record,
     ) -> BoxFuture<'a, Result<Applied, String>> {
+        Box::pin(async move { apply_record(cx, record).await })
+    }
+
+    /// The records in order; each run of consecutive revisions of one page as one
+    /// (`apply_run`; 0013 A94). Pages are not applied together, nor out of order: a
+    /// page's record reaches other pages' rows (the redirects that name its title).
+    fn apply_many<'a>(
+        &'a self,
+        cx: &'a mut PgCx,
+        records: &'a [Record],
+    ) -> BoxFuture<'a, Result<Applied, String>> {
         Box::pin(async move {
-            let h = record.header();
-            let info = partition_info(cx, h.partition).await?;
-            let page = PageRecord::read(record)?;
-            let Some(op) = page.op else {
-                return Ok(Applied::rows(0));
-            };
-            let page_id = h
-                .page_id
-                .and_then(|p| i64::try_from(p).ok())
-                .ok_or("a page record carries its page ID")?;
-            let offset = i64::try_from(h.offset).map_err(|e| e.to_string())?;
-            let revid = h.revid.and_then(|r| i64::try_from(r).ok());
-            let at = time_of(shown_time(h, &op));
-            let tenant = info.tenant.as_str();
-            // The report keys this record touches (0047 §4.3): its titles, and the link
-            // targets and categories it drops or adds.
-            let mut touched: BTreeSet<String> = BTreeSet::new();
-            let len = page
-                .text
-                .as_ref()
-                .map(|t| i32::try_from(t.len()).unwrap_or(i32::MAX));
-            let mut rows = 0u64;
-
-            // The title the latest text is read as, after this record.
-            let (ns, title) = match &op {
-                PageOp::Create {
-                    ns, title, model, ..
-                } => {
-                    rows += cx
-                        .execute(
-                            concat!(
-                                "INSERT INTO view.page (tenant, page_id, ns, title, content_model, latest_offset,
-                               latest_revid, len, latest_at, revisions, reserved, random)
-                             VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, false, ",
-                                crate::page_random_sql!(),
-                                ")
-                             ON CONFLICT (tenant, page_id) DO UPDATE SET
-                               ns = EXCLUDED.ns, title = EXCLUDED.title, content_model = EXCLUDED.content_model,
-                               latest_offset = EXCLUDED.latest_offset, latest_revid = EXCLUDED.latest_revid,
-                               len = EXCLUDED.len, latest_at = EXCLUDED.latest_at, revisions = 1, reserved = false"
-                            ),
-                            &[&tenant, &page_id, ns, title, model, &offset, &revid, &len, &at],
-                        )
-                        .await
-                        .map_err(|e| sql(&e))?;
-                    (*ns, title.clone())
-                }
-                PageOp::Edit { model, .. } => {
-                    let n = cx
-                        .execute(
-                            "UPDATE view.page SET latest_offset = $3, latest_revid = $4,
-                               len = COALESCE($5, len), latest_at = $6,
-                               content_model = COALESCE($7, content_model), revisions = revisions + 1
-                             WHERE tenant = $1 AND page_id = $2 AND (latest_offset IS NULL OR latest_offset < $3)",
-                            &[&tenant, &page_id, &offset, &revid, &len, &at, model],
-                        )
-                        .await
-                        .map_err(|e| sql(&e))?;
-                    if n == 0 {
-                        return Ok(Applied::rows(0));
-                    }
-                    rows += n;
-                    current_title(cx, tenant, page_id).await?
-                }
-                PageOp::Move { ns, title, .. } => {
-                    let (old_ns, old_title) = current_title(cx, tenant, page_id).await?;
-                    touched.insert(crate::reports::title_key(old_ns, &old_title));
-                    let n = cx
-                        .execute(
-                            "UPDATE view.page SET ns = $3, title = $4, latest_offset = $5, latest_revid = $6,
-                               latest_at = $7, revisions = revisions + 1
-                             WHERE tenant = $1 AND page_id = $2 AND (latest_offset IS NULL OR latest_offset < $5)",
-                            &[&tenant, &page_id, ns, title, &offset, &revid, &at],
-                        )
-                        .await
-                        .map_err(|e| sql(&e))?;
-                    if n == 0 {
-                        return Ok(Applied::rows(0));
-                    }
-                    rows += n;
-                    // Redirects that named the page's old title no longer reach it.
-                    cx.execute(
-                        "UPDATE view.redirect SET target_page_id = NULL
-                         WHERE tenant = $1 AND target_page_id = $2 AND NOT (target_ns = $3 AND target_title = $4)",
-                        &[&tenant, &page_id, ns, title],
-                    )
-                    .await
-                    .map_err(|e| sql(&e))?;
-                    (*ns, title.clone())
-                }
-            };
-
-            // The text after the revision: its own, or for a move the text it kept.
-            let text = match (&op, page.text) {
-                (PageOp::Move { .. }, _) => latest_text(cx, tenant, page_id).await?,
-                (_, t) => t,
-            };
-            if let (Some(text), Some(revid)) = (&text, revid) {
-                rows += cx
-                    .execute(
-                        "INSERT INTO view.entity_revision (tenant, revid, entity_id, partition, \"offset\", state)
-                         VALUES ($1, $2, $3, $4, $5, $6)
-                         ON CONFLICT (tenant, revid) DO NOTHING",
-                        &[
-                            &tenant,
-                            &revid,
-                            &page_id.to_string(),
-                            &scatter_log_postgres::ids::partition_to_db(h.partition),
-                            &offset,
-                            &text.as_bytes(),
-                        ],
-                    )
-                    .await
-                    .map_err(|e| sql(&e))?;
+            let cx: &PgCx = cx;
+            let mut out = Applied::default();
+            let mut from = 0;
+            while from < records.len() {
+                let key = &records[from].header().key;
+                let to = from
+                    + records[from..]
+                        .iter()
+                        .take_while(|r| key.is_some() && &r.header().key == key)
+                        .count()
+                        .max(1);
+                let applied = if to - from > 1 {
+                    apply_run(cx, &records[from..to]).await?
+                } else {
+                    apply_record(cx, &records[from]).await?
+                };
+                out.rows += applied.rows;
+                out.fanout.extend(applied.fanout);
+                from = to;
             }
-
-            // A page that now holds a title resolves the redirects that name it.
-            if matches!(op, PageOp::Create { .. } | PageOp::Move { .. }) {
-                cx.execute(
-                    "UPDATE view.redirect SET target_page_id = $2
-                     WHERE tenant = $1 AND target_ns = $3 AND target_title = $4 AND interwiki IS NULL",
-                    &[&tenant, &page_id, &ns, &title],
-                )
-                .await
-                .map_err(|e| sql(&e))?;
-            }
-
-            touched.insert(crate::reports::title_key(ns, &title));
-            if let Some(text) = &text {
-                rows += index_text(cx, tenant, page_id, ns, &title, text, &mut touched).await?;
-            }
-            crate::reports::queue(cx, tenant, h.partition, h.offset, &touched).await?;
-            Ok(Applied::rows(usize::try_from(rows).unwrap_or(usize::MAX)))
+            Ok(out)
         })
     }
 
@@ -438,6 +336,357 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for PageProjection {
             Ok(())
         })
     }
+}
+
+/// Applies one record: the page's row, the revision's text, and what the latest text
+/// makes (its redirect, links and categories).
+#[allow(clippy::too_many_lines)]
+async fn apply_record(cx: &PgCx, record: &Record) -> Result<Applied, String> {
+    let h = record.header();
+    let info = partition_info(cx, h.partition).await?;
+    let page = PageRecord::read(record)?;
+    let Some(op) = page.op else {
+        return Ok(Applied::rows(0));
+    };
+    let page_id = h
+        .page_id
+        .and_then(|p| i64::try_from(p).ok())
+        .ok_or("a page record carries its page ID")?;
+    let offset = i64::try_from(h.offset).map_err(|e| e.to_string())?;
+    let revid = h.revid.and_then(|r| i64::try_from(r).ok());
+    let at = time_of(shown_time(h, &op));
+    let tenant = info.tenant.as_str();
+    // The report keys this record touches (0047 §4.3): its titles, and the link
+    // targets and categories it drops or adds.
+    let mut touched: BTreeSet<String> = BTreeSet::new();
+    let len = page
+        .text
+        .as_ref()
+        .map(|t| i32::try_from(t.len()).unwrap_or(i32::MAX));
+    let mut rows = 0u64;
+
+    // The title the latest text is read as, after this record.
+    let (ns, title) = match &op {
+        PageOp::Create {
+            ns, title, model, ..
+        } => {
+            rows += cx
+                .execute(
+                    concat!(
+                        "INSERT INTO view.page (tenant, page_id, ns, title, content_model, latest_offset,
+                       latest_revid, len, latest_at, revisions, reserved, random)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, false, ",
+                        crate::page_random_sql!(),
+                        ")
+                     ON CONFLICT (tenant, page_id) DO UPDATE SET
+                       ns = EXCLUDED.ns, title = EXCLUDED.title, content_model = EXCLUDED.content_model,
+                       latest_offset = EXCLUDED.latest_offset, latest_revid = EXCLUDED.latest_revid,
+                       len = EXCLUDED.len, latest_at = EXCLUDED.latest_at, revisions = 1, reserved = false"
+                    ),
+                    &[&tenant, &page_id, ns, title, model, &offset, &revid, &len, &at],
+                )
+                .await
+                .map_err(|e| sql(&e))?;
+            (*ns, title.clone())
+        }
+        PageOp::Edit { model, .. } => {
+            let n = cx
+                .execute(
+                    "UPDATE view.page SET latest_offset = $3, latest_revid = $4,
+                       len = COALESCE($5, len), latest_at = $6,
+                       content_model = COALESCE($7, content_model), revisions = revisions + 1
+                     WHERE tenant = $1 AND page_id = $2 AND (latest_offset IS NULL OR latest_offset < $3)",
+                    &[&tenant, &page_id, &offset, &revid, &len, &at, model],
+                )
+                .await
+                .map_err(|e| sql(&e))?;
+            if n == 0 {
+                return Ok(Applied::rows(0));
+            }
+            rows += n;
+            current_title(cx, tenant, page_id).await?
+        }
+        PageOp::Move { ns, title, .. } => {
+            let (old_ns, old_title) = current_title(cx, tenant, page_id).await?;
+            touched.insert(crate::reports::title_key(old_ns, &old_title));
+            let n = cx
+                .execute(
+                    "UPDATE view.page SET ns = $3, title = $4, latest_offset = $5, latest_revid = $6,
+                       latest_at = $7, revisions = revisions + 1
+                     WHERE tenant = $1 AND page_id = $2 AND (latest_offset IS NULL OR latest_offset < $5)",
+                    &[&tenant, &page_id, ns, title, &offset, &revid, &at],
+                )
+                .await
+                .map_err(|e| sql(&e))?;
+            if n == 0 {
+                return Ok(Applied::rows(0));
+            }
+            rows += n;
+            // Redirects that named the page's old title no longer reach it.
+            cx.execute(
+                "UPDATE view.redirect SET target_page_id = NULL
+                 WHERE tenant = $1 AND target_page_id = $2 AND NOT (target_ns = $3 AND target_title = $4)",
+                &[&tenant, &page_id, ns, title],
+            )
+            .await
+            .map_err(|e| sql(&e))?;
+            (*ns, title.clone())
+        }
+    };
+
+    // The text after the revision: its own, or for a move the text it kept.
+    let text = match (&op, page.text) {
+        (PageOp::Move { .. }, _) => latest_text(cx, tenant, page_id).await?,
+        (_, t) => t,
+    };
+    if let (Some(text), Some(revid)) = (&text, revid) {
+        rows += cx
+            .execute(
+                "INSERT INTO view.entity_revision (tenant, revid, entity_id, partition, \"offset\", state)
+                 VALUES ($1, $2, $3, $4, $5, $6)
+                 ON CONFLICT (tenant, revid) DO NOTHING",
+                &[
+                    &tenant,
+                    &revid,
+                    &page_id.to_string(),
+                    &scatter_log_postgres::ids::partition_to_db(h.partition),
+                    &offset,
+                    &text.as_bytes(),
+                ],
+            )
+            .await
+            .map_err(|e| sql(&e))?;
+    }
+
+    // A page that now holds a title resolves the redirects that name it.
+    if matches!(op, PageOp::Create { .. } | PageOp::Move { .. }) {
+        cx.execute(
+            "UPDATE view.redirect SET target_page_id = $2
+             WHERE tenant = $1 AND target_ns = $3 AND target_title = $4 AND interwiki IS NULL",
+            &[&tenant, &page_id, &ns, &title],
+        )
+        .await
+        .map_err(|e| sql(&e))?;
+    }
+
+    touched.insert(crate::reports::title_key(ns, &title));
+    if let Some(text) = &text {
+        rows += index_text(cx, tenant, page_id, ns, &title, text, &mut touched).await?;
+    }
+    crate::reports::queue(cx, tenant, h.partition, h.offset, &touched).await?;
+    Ok(Applied::rows(usize::try_from(rows).unwrap_or(usize::MAX)))
+}
+
+/// Applies a run of consecutive revisions of one page as one (0013 A94): a `create` and
+/// the `edit`s after it, or `edit`s alone. What the revisions leave one after another is
+/// the page's row as the last leaves it (the length and model of the last revision that
+/// has one, the revisions counted), each revision's text under its revision ID, and the
+/// redirect, links and categories of the last text; so the row is written once, the
+/// texts in one statement, and the last text indexed once. The report keys queued are
+/// the page's title and the links and categories that the run removes or leaves, at the
+/// run's last offset: a link or category that came and went inside the run changes no
+/// report.
+///
+/// Any other run (a `move`, an erased record, a `create` after the first record), and a
+/// run whose first `edit` the page's row does not take (a record applied again), is
+/// applied one record at a time.
+#[allow(clippy::too_many_lines)]
+async fn apply_run(cx: &PgCx, records: &[Record]) -> Result<Applied, String> {
+    async fn one_at_a_time(cx: &PgCx, records: &[Record]) -> Result<Applied, String> {
+        let mut out = Applied::default();
+        for record in records {
+            let a = apply_record(cx, record).await?;
+            out.rows += a.rows;
+            out.fanout.extend(a.fanout);
+        }
+        Ok(out)
+    }
+    let mut pages = Vec::with_capacity(records.len());
+    for (i, record) in records.iter().enumerate() {
+        let page = PageRecord::read(record)?;
+        match &page.op {
+            Some(PageOp::Create { .. }) if i == 0 => {}
+            Some(PageOp::Edit { .. }) => {}
+            _ => return one_at_a_time(cx, records).await,
+        }
+        pages.push(page);
+    }
+    let (Some(first), Some(last)) = (records.first(), records.last()) else {
+        return Ok(Applied::default());
+    };
+    let info = partition_info(cx, first.header().partition).await?;
+    let tenant = info.tenant.as_str();
+    let page_id = first
+        .header()
+        .page_id
+        .and_then(|p| i64::try_from(p).ok())
+        .ok_or("a page record carries its page ID")?;
+    if records
+        .iter()
+        .any(|r| r.header().page_id != first.header().page_id)
+    {
+        return one_at_a_time(cx, records).await;
+    }
+    let offset_of = |r: &Record| i64::try_from(r.header().offset).map_err(|e| e.to_string());
+    let revid_of = |r: &Record| r.header().revid.and_then(|r| i64::try_from(r).ok());
+    let len_of = |page: &PageRecord| {
+        page.text
+            .as_ref()
+            .map(|t| i32::try_from(t.len()).unwrap_or(i32::MAX))
+    };
+    let mut rows = 0u64;
+
+    // The `create`, as one record at a time; then the `edit`s as one update.
+    let created = matches!(pages[0].op, Some(PageOp::Create { .. }));
+    let mut title: Option<(i32, String)> = None;
+    if let Some(PageOp::Create {
+        ns,
+        title: t,
+        model,
+        ..
+    }) = &pages[0].op
+    {
+        let at = time_of(shown_time(
+            first.header(),
+            pages[0].op.as_ref().expect("a create"),
+        ));
+        rows += cx
+            .execute(
+                concat!(
+                    "INSERT INTO view.page (tenant, page_id, ns, title, content_model, latest_offset,
+                       latest_revid, len, latest_at, revisions, reserved, random)
+                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 1, false, ",
+                    crate::page_random_sql!(),
+                    ")
+                     ON CONFLICT (tenant, page_id) DO UPDATE SET
+                       ns = EXCLUDED.ns, title = EXCLUDED.title, content_model = EXCLUDED.content_model,
+                       latest_offset = EXCLUDED.latest_offset, latest_revid = EXCLUDED.latest_revid,
+                       len = EXCLUDED.len, latest_at = EXCLUDED.latest_at, revisions = 1, reserved = false"
+                ),
+                &[
+                    &tenant,
+                    &page_id,
+                    ns,
+                    t,
+                    model,
+                    &offset_of(first)?,
+                    &revid_of(first),
+                    &len_of(&pages[0]),
+                    &at,
+                ],
+            )
+            .await
+            .map_err(|e| sql(&e))?;
+        title = Some((*ns, t.clone()));
+    }
+    let edits = usize::from(created)..records.len();
+    if !edits.is_empty() {
+        // What the `edit`s leave in turn: the last one's place and time, and the length
+        // and model of the last that carries one.
+        let len = pages[edits.clone()].iter().rev().find_map(len_of);
+        let model = pages[edits.clone()].iter().rev().find_map(|p| match &p.op {
+            Some(PageOp::Edit { model, .. }) => model.clone(),
+            _ => None,
+        });
+        let at = time_of(shown_time(
+            last.header(),
+            pages[records.len() - 1].op.as_ref().expect("an edit"),
+        ));
+        let n = cx
+            .execute(
+                "UPDATE view.page SET latest_offset = $3, latest_revid = $4,
+                   len = COALESCE($5, len), latest_at = $6,
+                   content_model = COALESCE($7, content_model), revisions = revisions + $8
+                 WHERE tenant = $1 AND page_id = $2 AND (latest_offset IS NULL OR latest_offset < $9)",
+                &[
+                    &tenant,
+                    &page_id,
+                    &offset_of(last)?,
+                    &revid_of(last),
+                    &len,
+                    &at,
+                    &model,
+                    &i32::try_from(edits.len()).map_err(|e| e.to_string())?,
+                    &offset_of(&records[edits.start])?,
+                ],
+            )
+            .await
+            .map_err(|e| sql(&e))?;
+        if n == 0 {
+            if created {
+                // The `create` just set the row's offset below every `edit`'s.
+                return Err(format!(
+                    "page {page_id}'s row did not take the edits after its create"
+                ));
+            }
+            // The row does not take the first `edit`: some of the run was applied before.
+            // Nothing is written yet; the records go one at a time.
+            return one_at_a_time(cx, records).await;
+        }
+        rows += n;
+    }
+    let (ns, title) = match title {
+        Some(t) => t,
+        None => current_title(cx, tenant, page_id).await?,
+    };
+
+    // Each revision's text, under its revision ID.
+    let mut revids: Vec<i64> = Vec::new();
+    let mut offsets: Vec<i64> = Vec::new();
+    let mut texts: Vec<&[u8]> = Vec::new();
+    for (record, page) in records.iter().zip(&pages) {
+        if let (Some(text), Some(revid)) = (&page.text, revid_of(record)) {
+            revids.push(revid);
+            offsets.push(offset_of(record)?);
+            texts.push(text.as_bytes());
+        }
+    }
+    if !revids.is_empty() {
+        rows += cx
+            .execute(
+                "INSERT INTO view.entity_revision (tenant, revid, entity_id, partition, \"offset\", state)
+                 SELECT $1, t.revid, $2, $3, t.o, t.state
+                 FROM unnest($4::bigint[], $5::bigint[], $6::bytea[]) AS t(revid, o, state)
+                 ON CONFLICT (tenant, revid) DO NOTHING",
+                &[
+                    &tenant,
+                    &page_id.to_string(),
+                    &scatter_log_postgres::ids::partition_to_db(first.header().partition),
+                    &revids,
+                    &offsets,
+                    &texts,
+                ],
+            )
+            .await
+            .map_err(|e| sql(&e))?;
+    }
+
+    // A page that now holds a title resolves the redirects that name it.
+    if created {
+        cx.execute(
+            "UPDATE view.redirect SET target_page_id = $2
+             WHERE tenant = $1 AND target_ns = $3 AND target_title = $4 AND interwiki IS NULL",
+            &[&tenant, &page_id, &ns, &title],
+        )
+        .await
+        .map_err(|e| sql(&e))?;
+    }
+
+    // What the latest text makes: the last revision that has one.
+    let mut touched: BTreeSet<String> = BTreeSet::new();
+    touched.insert(crate::reports::title_key(ns, &title));
+    if let Some(text) = pages.iter().rev().find_map(|p| p.text.as_ref()) {
+        rows += index_text(cx, tenant, page_id, ns, &title, text, &mut touched).await?;
+    }
+    crate::reports::queue(
+        cx,
+        tenant,
+        last.header().partition,
+        last.header().offset,
+        &touched,
+    )
+    .await?;
+    Ok(Applied::rows(usize::try_from(rows).unwrap_or(usize::MAX)))
 }
 
 async fn current_title(cx: &PgCx, tenant: &str, page_id: i64) -> Result<(i32, String), String> {
