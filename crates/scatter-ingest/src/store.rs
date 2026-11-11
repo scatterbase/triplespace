@@ -438,11 +438,14 @@ pub trait IngestStore: Backend {
 
     /// The tenant's jobs still `running` for a source and graph (`view.job`), oldest
     /// first: what the next load of the same source and graph marks interrupted (0011 A36).
+    /// A follower's job stays open between its batches (0092 A6), so it is listed only
+    /// when `followers` is set.
     fn running_jobs(
         &self,
         cx: &mut Self::Cx,
         tenant: &str,
         source: &str,
         graph: &str,
+        followers: bool,
     ) -> impl Future<Output = Result<Vec<u64>, IngestError>> + Send;
 }

@@ -67,6 +67,20 @@ pub struct Counts {
     pub other: u64,
 }
 
+impl Counts {
+    /// Adds `other`'s counts to these.
+    pub fn add(&mut self, other: &Counts) {
+        self.created += other.created;
+        self.merged += other.merged;
+        self.unchanged += other.unchanged;
+        self.rejected += other.rejected;
+        self.adopted += other.adopted;
+        self.tombstoned += other.tombstoned;
+        self.cleared += other.cleared;
+        self.other += other.other;
+    }
+}
+
 #[allow(clippy::trivially_copy_pass_by_ref)]
 fn is_zero(n: &u64) -> bool {
     *n == 0
@@ -294,7 +308,8 @@ impl Job {
     /// Marks interrupted every earlier job of the same tenant, source and graph that is
     /// still `running`: a load whose process died without a finish or fail record. Each
     /// gets a `job/interrupt` record under its own key, naming this job as `by` (0011 A36).
-    /// Returns the IDs marked.
+    /// A follower's job is open between its batches, so only a follower's new job marks
+    /// an earlier follower's (0092 A6). Returns the IDs marked.
     pub async fn interrupt_earlier<S: IngestStore>(
         &self,
         store: &S,
@@ -303,7 +318,13 @@ impl Job {
         now: u64,
     ) -> Result<Vec<u64>, IngestError> {
         let earlier: Vec<u64> = store
-            .running_jobs(cx, &self.tenant, &self.header.source, &self.header.graph)
+            .running_jobs(
+                cx,
+                &self.tenant,
+                &self.header.source,
+                &self.header.graph,
+                self.is_follow(),
+            )
             .await?
             .into_iter()
             .filter(|&id| id != self.id)
@@ -322,6 +343,31 @@ impl Job {
             append_projected(store, pipeline, cx, self.log_partition, draft, Budget::NONE).await?;
         }
         Ok(earlier)
+    }
+
+    /// Whether this is a follower's job (`follow` among its arguments).
+    #[must_use]
+    pub fn is_follow(&self) -> bool {
+        self.header
+            .params
+            .get("follow")
+            .is_some_and(|f| f.as_bool() == Some(true))
+    }
+
+    /// A follower's job started earlier, possibly by another process, to write more
+    /// batches under and finish (0092 A6): its start record is already in the log, and
+    /// the rejects and hash mismatches so far are the follower's to restore.
+    pub async fn reopen<S: IngestStore>(
+        store: &S,
+        cx: &mut S::Cx,
+        tenant: &str,
+        id: u64,
+        header: JobHeader,
+        attestation: Attestation,
+    ) -> Result<Self, IngestError> {
+        let mut job = Self::handle(store, cx, tenant, id, attestation).await?;
+        job.header = header;
+        Ok(job)
     }
 
     /// The attestation a record this job writes carries: the actor, the job ID and tags.

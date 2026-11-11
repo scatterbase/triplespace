@@ -57,7 +57,7 @@ pub struct State {
     /// `(tenant, source)` of adoption jobs started.
     pub adoptions: Vec<(String, String)>,
     /// `(tenant, job ID)` → `(source, graph)` of the jobs started and not yet closed.
-    pub running: BTreeMap<(String, u64), (String, String)>,
+    pub running: BTreeMap<(String, u64), (String, String, bool)>,
     /// Rows test projections write: `(table, key)` → value.
     pub rows: BTreeMap<(String, String), String>,
 }
@@ -202,7 +202,13 @@ fn index_job(state: &mut State, partition: &Partition, content: &Value) {
                     .unwrap_or_default()
                     .to_string()
             };
-            state.running.insert(key, (field("source"), field("graph")));
+            let follow = params
+                .and_then(|p| p.get("args"))
+                .and_then(|a| a.get("follow"))
+                .is_some_and(|f| matches!(f, Value::Bool(true)));
+            state
+                .running
+                .insert(key, (field("source"), field("graph"), follow));
         } else {
             state.running.remove(&key);
         }
@@ -758,12 +764,15 @@ impl IngestStore for MemoryIngest {
         tenant: &str,
         source: &str,
         graph: &str,
+        followers: bool,
     ) -> Result<Vec<u64>, IngestError> {
         Ok(cx
             .state
             .running
             .iter()
-            .filter(|((t, _), (s, g))| t == tenant && s == source && g == graph)
+            .filter(|((t, _), (s, g, f))| {
+                t == tenant && s == source && g == graph && (followers || !f)
+            })
             .map(|((_, id), _)| *id)
             .collect())
     }

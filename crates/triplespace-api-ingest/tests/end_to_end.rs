@@ -463,6 +463,27 @@ async fn adoption_batch_sync_and_edit_end_to_end() {
         store.commit(cx).await.unwrap();
         job.id
     };
+    // A follower's job for the day, open between its batches, is left alone (0092 A6).
+    let following = {
+        let mut header = JobHeader::mirror("internetdomains", "follow-2026-10-01", Mode::Upsert);
+        header
+            .params
+            .insert("follow".into(), serde_json::Value::Bool(true));
+        let mut cx = store.begin().await.unwrap();
+        let job = scatter_ingest::Job::start(
+            &store,
+            &p,
+            &mut cx,
+            "",
+            header,
+            Attestation::by("instance:scatter"),
+            NOW + 2,
+        )
+        .await
+        .unwrap();
+        store.commit(cx).await.unwrap();
+        job.id
+    };
     let domain = entity(json!({"type": "domain", "id": "domain:example.org",
         "labels": {"en": {"language": "en", "value": "example.org"}},
         "claims": {"P1": [string_statement("P1", "a", "string", "domain:example.org$00000000-0000-0000-0000-0000000000A1")]}}));
@@ -524,6 +545,35 @@ async fn adoption_batch_sync_and_edit_end_to_end() {
         vec![format!("interrupted|{}|true", out.job_id)],
         "the dead load is closed by the next load of the same mirror"
     );
+    assert_eq!(
+        rows(
+            &client,
+            &format!("SELECT status FROM view.job WHERE tenant = '' AND job_id = {following}")
+        )
+        .await,
+        vec!["running"],
+        "a follower's open job is not a dead load"
+    );
+    {
+        use scatter_ingest::IngestStore;
+        let mut cx = store.begin().await.unwrap();
+        for (followers, want) in [(false, vec![]), (true, vec![following])] {
+            assert_eq!(
+                store
+                    .running_jobs(
+                        &mut cx,
+                        "",
+                        "internetdomains",
+                        "mirror/internetdomains",
+                        followers
+                    )
+                    .await
+                    .unwrap(),
+                want
+            );
+        }
+        store.rollback(cx).await.unwrap();
+    }
     // One load of a source and graph at a time (0011 A37): a second is refused while the
     // first holds the lock, a load of another graph is not, and dropping the lock frees it.
     {
