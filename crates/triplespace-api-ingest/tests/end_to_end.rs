@@ -10,7 +10,8 @@ use ed25519_dalek::SigningKey;
 use scatter_actors::issuer::IssuerRegistry;
 use scatter_ingest::adopt::{Adopted, Adoption, Author, Floors, run_adoption};
 use scatter_ingest::{
-    Attestation, IngestError, Request, SyncItem, run_batch, run_sync, write_operation,
+    Attestation, BlockEntry, BlockPayload, IngestError, Request, SyncItem, run_batch, run_sync,
+    write_many, write_operation,
 };
 use scatter_log::body::Body;
 use scatter_log::cbor::Value;
@@ -24,7 +25,7 @@ use scatter_log::tree::Segments;
 use scatter_log_postgres::{PartitionInfo, PgLog, log};
 use scatter_projection::{Backend, Pipeline};
 use scatter_providers::Registry;
-use scatter_wikibase_changeset::{JobHeader, Mode, Operation, ProviderOrder, Upstream};
+use scatter_wikibase_changeset::{Graph, JobHeader, Mode, Operation, ProviderOrder, Upstream};
 use scatter_wikibase_model::entity::Entity;
 use scatter_wikibase_model::id::EntityId;
 use serde_json::json;
@@ -810,6 +811,172 @@ async fn a_sweep_in_blocks_writes_what_one_operation_at_a_time_writes() {
         assert_eq!(
             entities, entities_one,
             "batch {batch}: the same entity rows"
+        );
+    }
+}
+
+/// Every row of every `view` table, as text, by table: what the projections left.
+async fn views(client: &Client) -> BTreeMap<String, Vec<String>> {
+    let tables = rows(
+        client,
+        "SELECT c.relname::text FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+         WHERE n.nspname = 'view' AND c.relkind = 'r'",
+    )
+    .await;
+    let mut out = BTreeMap::new();
+    for table in tables {
+        let found = rows(
+            client,
+            &format!("SELECT row_to_json(t)::text FROM view.\"{table}\" t"),
+        )
+        .await;
+        out.insert(table, found);
+    }
+    out
+}
+
+/// A block (`write_many`; 0013 A87) over Postgres, where it is a binary `COPY` and the
+/// real projections run over its stretches, leaves what one record at a time leaves: the
+/// same keys at the same offsets with the same revision IDs, page IDs and body sizes,
+/// and the same rows in every `view` table. The block is a tenant's `local` graph by
+/// several authors: a property and items that use it, an item naming one created later
+/// in the block, a key written three times, and an adopted entity's history under its
+/// own page and revision IDs.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn a_block_of_local_records_leaves_what_one_record_at_a_time_leaves() {
+    if skipped() {
+        return;
+    }
+    let by = |actor: &str, comment: Option<&str>, revid: Option<u64>| {
+        let mut r = Request::new(TENANT, Attestation::by(actor), NOW);
+        r.comment = comment.map(str::to_string);
+        r.revid = revid;
+        r.budget = scatter_projection::Budget::NONE;
+        r
+    };
+    let op = |v: serde_json::Value| -> Operation { serde_json::from_value(v).unwrap() };
+    let adopt = |id: &str, label: &str, revid: u64, pageid: u64| Operation::Adopt {
+        id: EntityId::parse(id).unwrap(),
+        entity: Some(entity(item(id, label, &json!({})))),
+        redirect: None,
+        source_revid: revid,
+        source_parentid: None,
+        source_time: "2026-09-20T14:02:11Z".into(),
+        source_pageid: pageid,
+        minor: false,
+        withheld: Vec::new(),
+    };
+    let names_q3 = json!({"P1": [{"mainsnak": {"snaktype": "value", "property": "P1",
+        "datavalue": {"value": {"entity-type": "item", "numeric-id": 3, "id": "Q3"}, "type": "wikibase-entityid"},
+        "datatype": "wikibase-item"}, "type": "statement", "rank": "normal",
+        "id": "Q2$00000000-0000-0000-0000-0000000000B1"}]});
+    let block: Vec<(Request, Operation)> = vec![
+        (
+            by("librarybase:1", Some("a property"), None),
+            op(
+                json!({"op": "create", "id": "P1", "entity": {"type": "property", "id": "P1",
+                "datatype": "wikibase-item", "labels": {"en": {"language": "en", "value": "related to"}}}}),
+            ),
+        ),
+        (
+            by("librarybase:1", Some("first"), None),
+            op(json!({"op": "create", "id": "Q1", "entity": item("Q1", "One", &json!({}))})),
+        ),
+        // Names Q3, which the block creates two records later.
+        (
+            by("librarybase:2", None, None),
+            op(json!({"op": "create", "id": "Q2", "entity": item("Q2", "Two", &names_q3)})),
+        ),
+        (
+            by("librarybase:2", None, None),
+            op(json!({"op": "add", "id": "Q1", "labels": {"fr": "Un"}})),
+        ),
+        (
+            by("librarybase:1", None, None),
+            op(json!({"op": "create", "id": "Q3", "entity": item("Q3", "Three", &json!({}))})),
+        ),
+        (
+            by("librarybase:3", Some("again"), None),
+            op(
+                json!({"op": "add", "id": "Q1", "descriptions": {"en": "the first"}, "aliases": {"en": ["Uno"]}}),
+            ),
+        ),
+        (
+            by("librarybase:7", Some("r40"), Some(40)),
+            adopt("Q7", "Seven", 40, 700),
+        ),
+        (
+            by("librarybase:8", None, Some(41)),
+            adopt("Q7", "Seven, again", 41, 700),
+        ),
+        (
+            by("librarybase:7", None, Some(42)),
+            adopt("Q7", "Seven, thrice", 42, 700),
+        ),
+    ];
+    let mut runs = Vec::new();
+    for in_block in [false, true] {
+        let (client, backend) = fresh().await;
+        let client = seed(client).await;
+        let store = PgIngest::new(backend);
+        let p = pipeline();
+        let registry = Registry::default_registry();
+        let log_store = PgLog::new(client);
+        p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
+            .await
+            .unwrap();
+        let client = log_store.into_inner();
+        let mut cx = store.begin().await.unwrap();
+        if in_block {
+            let entries: Vec<_> = block
+                .iter()
+                .map(|(request, op)| BlockEntry {
+                    request,
+                    payload: BlockPayload::Operation(op),
+                })
+                .collect();
+            write_many(
+                &store,
+                &p,
+                &mut cx,
+                LOCAL,
+                &Graph::Local,
+                &entries,
+                scatter_projection::Budget::NONE,
+                registry,
+            )
+            .await
+            .unwrap();
+        } else {
+            for (request, op) in &block {
+                write_operation(&store, &p, &mut cx, request, op, registry)
+                    .await
+                    .unwrap();
+            }
+        }
+        store.commit(cx).await.unwrap();
+        let records = rows(
+            &client,
+            "SELECT lpad(\"offset\"::text, 6, '0') || '|' || key || '|' || coalesce(revid::text, '-')
+                    || '|' || coalesce(page_id::text, '-') || '|' || octet_length(body)::text
+             FROM log.record WHERE partition = 12289",
+        )
+        .await;
+        runs.push((records, views(&client).await));
+    }
+    let (records_one, views_one) = &runs[0];
+    let (records_block, views_block) = &runs[1];
+    assert_eq!(records_one.len(), 9);
+    assert_eq!(records_block, records_one, "the same records");
+    assert!(
+        views_one.values().map(Vec::len).sum::<usize>() > 20,
+        "the projections wrote their rows"
+    );
+    for (table, rows_one) in views_one {
+        assert_eq!(
+            &views_block[table], rows_one,
+            "the same rows in view.{table}"
         );
     }
 }

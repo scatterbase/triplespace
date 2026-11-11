@@ -29,6 +29,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0013 A77](0013-postgres-storage.md#a77-a-syncs-per-item-work-runs-on-every-core) | 2026-11-06 | A sync's per-item work runs on every core |
 | [0013 A83](0013-postgres-storage.md#a83-how-a-bootstrap-load-keeps-its-blocks-apart) | 2026-11-08 | How a bootstrap load keeps its blocks apart |
 | [0013 A86](0013-postgres-storage.md#a86-a-snapshot-sweep-writes-its-operations-in-blocks) | 2026-11-11 | A snapshot sweep writes its operations in blocks |
+| [0013 A87](0013-postgres-storage.md#a87-one-block-write-for-every-graph) | 2026-11-11 | One block write for every graph |
 | [0016 A42](0016-permissions-and-access-control.md#a42-delegated-administration-the-calls-made-while-drafting-and-building-tier-4) | 2026-10-30 | Delegated administration: the calls made while drafting and building tier 4 |
 | [0018 A33](0018-tenants.md#a33-multi-tenant-round-1-the-assumptions-the-implementation-made) | 2026-10-30 | Multi-tenant round 1: the assumptions the implementation made |
 | [0019 A31](0019-discussions.md#a31-a-threads-actions-from-the-page-the-calls-made-building-them) | 2026-11-05 | A thread's actions from the page: the calls made building them |

@@ -5,8 +5,8 @@ use std::collections::BTreeMap;
 use scatter_ingest::adopt::{Adopted, Adoption, Author, Floors, run_adoption};
 use scatter_ingest::memory::{MemoryCx, MemoryIngest};
 use scatter_ingest::{
-    Attestation, IngestError, IngestStore, Request, Sequence, SyncItem, run_batch, run_sync,
-    write_operation,
+    Attestation, BlockEntry, BlockPayload, IngestError, IngestStore, RawRecord, Request, Sequence,
+    SyncItem, run_batch, run_sync, write_many, write_operation, write_raw,
 };
 use scatter_log::body::Body;
 use scatter_log::cbor::Value;
@@ -15,7 +15,7 @@ use scatter_log::record::Record;
 use scatter_log::store::Draft;
 use scatter_projection::{Applied, Backend, BoxFuture, Pipeline, Projection, Step};
 use scatter_providers::Registry;
-use scatter_wikibase_changeset::{JobHeader, Mode, Operation, ProviderOrder, Upstream};
+use scatter_wikibase_changeset::{Graph, JobHeader, Mode, Operation, ProviderOrder, Upstream};
 use scatter_wikibase_model::entity::Entity;
 use scatter_wikibase_model::id::EntityId;
 use scatter_wikibase_model::value::DataType;
@@ -1786,6 +1786,232 @@ fn a_sweep_in_blocks_writes_what_one_operation_at_a_time_writes() {
             assert_eq!(records, records_one, "batch {batch}: the same records");
             assert_eq!(jobs, jobs_one, "batch {batch}: the same job records");
         }
+    });
+}
+
+/// The records of the block-write equivalence test: a tenant's `local` graph written by
+/// several authors, with a key written more than once, revision IDs the records bring and
+/// revision IDs the tenant mints, and an adoption's own page ID.
+fn local_block() -> Vec<(Request, Operation)> {
+    let by = |actor: &str, comment: Option<&str>, revid: Option<u64>| {
+        let mut r = Request::new(TENANT, Attestation::by(actor), NOW);
+        r.comment = comment.map(str::to_string);
+        r.revid = revid;
+        r.budget = scatter_projection::Budget::NONE;
+        r
+    };
+    let adopt = |id: &str, label: &str, revid: u64, pageid: u64| Operation::Adopt {
+        id: EntityId::parse(id).unwrap(),
+        entity: Some(entity(item(id, label, &json!({})))),
+        redirect: None,
+        source_revid: revid,
+        source_parentid: None,
+        source_time: "2026-09-20T14:02:11Z".into(),
+        source_pageid: pageid,
+        minor: false,
+        withheld: Vec::new(),
+    };
+    vec![
+        (
+            by("librarybase:1", Some("first"), None),
+            op(json!({"op": "create", "id": "Q1", "entity": item("Q1", "One", &json!({}))})),
+        ),
+        // An adopted entity's history: its page ID from its first record, kept by the rest.
+        (
+            by("librarybase:7", Some("r40"), Some(40)),
+            adopt("Q7", "Seven", 40, 700),
+        ),
+        (
+            by("librarybase:8", None, Some(41)),
+            adopt("Q7", "Seven, again", 41, 700),
+        ),
+        (
+            by("librarybase:2", None, None),
+            op(json!({"op": "add", "id": "Q1", "labels": {"fr": "Un"}})),
+        ),
+        (
+            by("librarybase:1", None, None),
+            op(json!({"op": "create", "id": "Q2", "entity": item("Q2", "Two", &json!({}))})),
+        ),
+        (
+            by("librarybase:7", None, Some(42)),
+            adopt("Q7", "Seven, thrice", 42, 700),
+        ),
+    ]
+}
+
+/// The records of the block-write equivalence test for caller-encoded records: `pages`
+/// records with a key and without, with a page ID of their own and without.
+fn raw_block() -> Vec<(Request, RawRecord)> {
+    let raw = |key: Option<&str>, page_id: Option<u64>, text: &str| RawRecord {
+        graph: "pages".into(),
+        payload_type: "scatter:v0/page".into(),
+        key: key.map(str::to_string),
+        page_id,
+        content: Value::from_json(&json!({"op": "edit", "text": text})),
+        extra: vec![Value::text("an extra part")],
+    };
+    let by = |actor: &str, revid: Option<u64>| {
+        let mut r = Request::new(TENANT, Attestation::by(actor), NOW);
+        r.revid = revid;
+        r.budget = scatter_projection::Budget::NONE;
+        r
+    };
+    vec![
+        (by("librarybase:1", None), raw(None, None, "a new page")),
+        (
+            by("librarybase:2", Some(90)),
+            raw(Some("500"), Some(500), "an adopted page"),
+        ),
+        (
+            by("librarybase:3", Some(91)),
+            raw(Some("500"), Some(500), "its next revision"),
+        ),
+        (
+            by("librarybase:1", None),
+            raw(None, Some(600), "a page with its own ID"),
+        ),
+        (
+            by("librarybase:1", None),
+            raw(None, None, "another new page"),
+        ),
+    ]
+}
+
+/// A block (`write_many`; 0013 A87) writes what one record at a time writes
+/// (`write_operation`, `write_raw`): the same records, field by field, at the same
+/// offsets, with the same page and revision IDs, and what the projection saw, for a
+/// tenant's `local` graph and for caller-encoded `pages` records; a key that comes more
+/// than once keeps its page ID. A record with a base offset is refused.
+#[test]
+#[allow(clippy::too_many_lines)]
+fn a_block_writes_what_one_record_at_a_time_writes() {
+    pollster::block_on(async {
+        let run = |block: bool| async move {
+            let (store, pipeline) = setup();
+            let mut cx = store.begin().await.unwrap();
+            let local = local_block();
+            let raws = raw_block();
+            if block {
+                let entries: Vec<_> = local
+                    .iter()
+                    .map(|(request, op)| BlockEntry {
+                        request,
+                        payload: BlockPayload::Operation(op),
+                    })
+                    .collect();
+                let records = write_many(
+                    &store,
+                    &pipeline,
+                    &mut cx,
+                    LOCAL,
+                    &Graph::Local,
+                    &entries,
+                    scatter_projection::Budget::NONE,
+                    registry(),
+                )
+                .await
+                .unwrap();
+                assert_eq!(records.len(), local.len());
+                let entries: Vec<_> = raws
+                    .iter()
+                    .map(|(request, raw)| BlockEntry {
+                        request,
+                        payload: BlockPayload::Raw(raw),
+                    })
+                    .collect();
+                write_many(
+                    &store,
+                    &pipeline,
+                    &mut cx,
+                    PAGES,
+                    &Graph::Pages,
+                    &entries,
+                    scatter_projection::Budget::NONE,
+                    registry(),
+                )
+                .await
+                .unwrap();
+            } else {
+                for (request, op) in &local {
+                    write_operation(&store, &pipeline, &mut cx, request, op, registry())
+                        .await
+                        .unwrap();
+                }
+                for (request, raw) in &raws {
+                    write_raw(&store, &pipeline, &mut cx, request, raw.clone())
+                        .await
+                        .unwrap();
+                }
+            }
+            store.commit(cx).await.unwrap();
+            let (seen, positions) = {
+                let state = store.state();
+                (state.rows.clone(), state.positions.clone())
+            };
+            let local: Vec<_> = store.records(LOCAL).iter().map(comparable).collect();
+            let pages: Vec<_> = store
+                .records(PAGES)
+                .iter()
+                .map(|r| {
+                    let mut h = r.header().clone();
+                    h.commitment = [0; 32];
+                    let parts: Vec<_> = r
+                        .body()
+                        .parts()
+                        .iter()
+                        .map(|p| p.value().ok().flatten())
+                        .collect();
+                    (h, parts)
+                })
+                .collect();
+            (local, pages, (seen, positions))
+        };
+        let (local_one, pages_one, seen_one) = run(false).await;
+        let (local_block, pages_block, seen_block) = run(true).await;
+        assert_eq!(local_block, local_one, "the same `local` records");
+        assert_eq!(pages_block, pages_one, "the same `pages` records");
+        assert_eq!(seen_block, seen_one, "the projection saw the same records");
+        let ids: Vec<_> = local_one
+            .iter()
+            .map(|(h, _, _)| (h.key.clone().unwrap(), h.page_id.unwrap(), h.revid.unwrap()))
+            .collect();
+        assert_eq!(
+            ids,
+            vec![
+                ("Q1".to_string(), 1, 1),
+                ("Q7".to_string(), 700, 40),
+                ("Q7".to_string(), 700, 41),
+                ("Q1".to_string(), 1, 2),
+                ("Q2".to_string(), 2, 3),
+                ("Q7".to_string(), 700, 42),
+            ],
+            "page IDs kept by key, revision IDs brought or minted in order"
+        );
+
+        // A base offset belongs to a write made by itself.
+        let (store, pipeline) = setup();
+        let mut cx = store.begin().await.unwrap();
+        let mut request = Request::new(TENANT, Attestation::by("librarybase:1"), NOW);
+        request.base_offset = Some(0);
+        let create =
+            op(json!({"op": "create", "id": "Q1", "entity": item("Q1", "One", &json!({}))}));
+        let err = write_many(
+            &store,
+            &pipeline,
+            &mut cx,
+            LOCAL,
+            &Graph::Local,
+            &[BlockEntry {
+                request: &request,
+                payload: BlockPayload::Operation(&create),
+            }],
+            scatter_projection::Budget::NONE,
+            registry(),
+        )
+        .await
+        .unwrap_err();
+        assert!(err.to_string().contains("base offset"), "{err}");
     });
 }
 
