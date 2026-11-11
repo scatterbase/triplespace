@@ -448,4 +448,17 @@ pub trait IngestStore: Backend {
         graph: &str,
         followers: bool,
     ) -> impl Future<Output = Result<Vec<u64>, IngestError>> + Send;
+
+    /// Compacts a `latest` partition by the keys of its records at offsets `from..to`
+    /// (0013 §3, A96): each such key keeps its newest record, and the one carrying its
+    /// highest revision ID where that is older (0092 §2), and loses every other record
+    /// wherever it is in the partition. A key a tenant retains is left whole (0002 §5), and
+    /// so is a partition whose history policy is `full`. Returns how many records went.
+    fn compact_range(
+        &self,
+        cx: &mut Self::Cx,
+        partition: u64,
+        from: u64,
+        to: u64,
+    ) -> impl Future<Output = Result<u64, IngestError>> + Send;
 }

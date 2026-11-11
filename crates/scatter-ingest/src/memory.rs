@@ -3,7 +3,7 @@
 //! (cursors, surrogates, match keys, adoption sources) up to date from the records it
 //! appends, as the projections would.
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 use scatter_log::cbor::Value;
@@ -29,8 +29,19 @@ pub struct Partition {
     pub tenant: String,
     /// The graph name.
     pub graph: String,
-    /// The records, by offset.
+    /// The records, by offset, compacted ones included.
     pub records: Vec<Record>,
+    /// The offsets compaction removed (0013 §3).
+    pub compacted: BTreeSet<u64>,
+}
+
+impl Partition {
+    /// The records compaction has not removed, by offset.
+    pub fn live(&self) -> impl DoubleEndedIterator<Item = &Record> {
+        self.records
+            .iter()
+            .filter(|r| !self.compacted.contains(&r.header().offset))
+    }
 }
 
 /// The committed state.
@@ -117,6 +128,7 @@ impl MemoryIngest {
                 tenant: tenant.into(),
                 graph: graph.into(),
                 records: Vec::new(),
+                compacted: BTreeSet::new(),
             },
         );
     }
@@ -134,7 +146,7 @@ impl MemoryIngest {
         self.state()
             .partitions
             .get(&partition)
-            .map(|p| p.records.clone())
+            .map(|p| p.live().cloned().collect())
             .unwrap_or_default()
     }
 
@@ -495,6 +507,9 @@ impl IngestStore for MemoryIngest {
             .partitions
             .get(&partition)
             .ok_or_else(|| store(format!("no partition {partition:#x}")))?;
+        if p.compacted.contains(&offset) {
+            return Ok(None);
+        }
         Ok(p.records
             .get(usize::try_from(offset).map_err(store)?)
             .cloned())
@@ -511,8 +526,7 @@ impl IngestStore for MemoryIngest {
             .partitions
             .get(&partition)
             .ok_or_else(|| store(format!("no partition {partition:#x}")))?;
-        Ok(p.records
-            .iter()
+        Ok(p.live()
             .filter(|r| r.header().key.as_deref() == Some(key))
             .filter_map(|r| r.header().revid)
             .max())
@@ -529,8 +543,7 @@ impl IngestStore for MemoryIngest {
             .partitions
             .get(&partition)
             .ok_or_else(|| store(format!("no partition {partition:#x}")))?;
-        Ok(p.records
-            .iter()
+        Ok(p.live()
             .rev()
             .find(|r| r.header().key.as_deref() == Some(key))
             .map(|r| (r.header().offset, r.header().clone())))
@@ -547,7 +560,7 @@ impl IngestStore for MemoryIngest {
             .partitions
             .values()
             .filter(|p| p.tenant == tenant || p.tenant.is_empty())
-            .flat_map(|p| p.records.iter())
+            .flat_map(Partition::live)
             .find(|r| r.header().key.as_deref() == Some(key))
             .and_then(|r| r.header().page_id))
     }
@@ -704,7 +717,7 @@ impl IngestStore for MemoryIngest {
         else {
             return Ok(None);
         };
-        for r in &p.records {
+        for r in p.live() {
             let Some(key) = r.header().key.as_deref() else {
                 continue;
             };
@@ -730,8 +743,7 @@ impl IngestStore for MemoryIngest {
             .get(&partition)
             .ok_or_else(|| store(format!("no partition {partition:#x}")))?;
         for r in p
-            .records
-            .iter()
+            .live()
             .filter(|r| r.header().payload_type == PAYLOAD_CHANGESET)
         {
             let Some(v) = r.body().content().value().map_err(store)? else {
@@ -775,5 +787,54 @@ impl IngestStore for MemoryIngest {
             })
             .map(|((_, id), _)| *id)
             .collect())
+    }
+
+    /// As the Postgres store's, without retention or history policies: every partition
+    /// compacts and no key is retained.
+    async fn compact_range(
+        &self,
+        cx: &mut MemoryCx,
+        partition: u64,
+        from: u64,
+        to: u64,
+    ) -> Result<u64, IngestError> {
+        let p = cx
+            .state
+            .partitions
+            .get_mut(&partition)
+            .ok_or_else(|| store(format!("no partition {partition:#x}")))?;
+        let keys: BTreeSet<String> = p
+            .live()
+            .filter(|r| (from..to).contains(&r.header().offset))
+            .filter_map(|r| r.header().key.clone())
+            .collect();
+        // Per key: the newest record, and the one carrying the highest revision ID, by
+        // offset; records come in offset order.
+        let mut newest: BTreeMap<&str, u64> = BTreeMap::new();
+        let mut claim: BTreeMap<&str, (u64, u64)> = BTreeMap::new();
+        for r in p.live() {
+            let h = r.header();
+            let Some(key) = h.key.as_deref().filter(|k| keys.contains(*k)) else {
+                continue;
+            };
+            newest.insert(key, h.offset);
+            if let Some(revid) = h.revid
+                && claim.get(key).is_none_or(|(best, _)| revid >= *best)
+            {
+                claim.insert(key, (revid, h.offset));
+            }
+        }
+        let gone: Vec<u64> = p
+            .live()
+            .filter_map(|r| {
+                let h = r.header();
+                let key = h.key.as_deref()?;
+                let kept = newest.get(key)? == &h.offset
+                    || claim.get(key).is_some_and(|(_, o)| *o == h.offset);
+                (!kept).then_some(h.offset)
+            })
+            .collect();
+        p.compacted.extend(gone.iter().copied());
+        Ok(gone.len() as u64)
     }
 }

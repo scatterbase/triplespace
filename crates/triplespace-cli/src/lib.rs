@@ -9,6 +9,7 @@ pub mod adopt_pages;
 pub mod bootstrap;
 pub mod challenge;
 pub mod common;
+pub mod compact;
 pub mod dump;
 pub mod env_file;
 pub mod follow;

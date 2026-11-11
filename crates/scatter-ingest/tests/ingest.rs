@@ -2825,6 +2825,74 @@ fn a_follower_writes_under_one_job_a_day() {
     });
 }
 
+// 0092 A7: as the day's job closes, the follower compacts its mirror by the keys written
+// since the job opened, and the finish record says how many records went.
+#[test]
+fn a_follower_compacts_its_mirror_as_the_day_closes() {
+    pollster::block_on(async {
+        const DAY: u64 = 86_400_000_000;
+        let (store, pipeline) = setup();
+        let mut source = Scripted {
+            store: &store,
+            batches: std::collections::VecDeque::new(),
+            read: 0,
+            log: Vec::new(),
+            job: None,
+        };
+        let first = follow_at(
+            (&store, &pipeline),
+            &mut source,
+            vec![
+                vec![xd_state("XDQ1", "One", 10), xd_state("XDQ2", "Two", 20)],
+                vec![xd_state("XDQ1", "Uno", 21)],
+            ],
+            NOW,
+        )
+        .await;
+        assert_eq!(source.job.as_ref().unwrap().compact_from, Some(0));
+        assert_eq!(
+            store.records(MIRROR_XD).len(),
+            3,
+            "nothing compacts mid-day"
+        );
+
+        follow_at(
+            (&store, &pipeline),
+            &mut source,
+            vec![vec![xd_state("XDQ3", "Three", 30)]],
+            NOW + DAY,
+        )
+        .await;
+        let live: Vec<(String, u64)> = store
+            .records(MIRROR_XD)
+            .iter()
+            .map(|r| {
+                let h = r.header();
+                (h.key.clone().unwrap(), h.offset)
+            })
+            .collect();
+        assert_eq!(
+            live,
+            [("XDQ2".into(), 1), ("XDQ1".into(), 2), ("XDQ3".into(), 3)],
+            "XDQ1's first state went"
+        );
+        let mut cx = store.begin().await.unwrap();
+        assert!(store.read(&mut cx, MIRROR_XD, 0).await.unwrap().is_none());
+        store.rollback(cx).await.unwrap();
+        let finish = store
+            .records(INSTANCE_LOG)
+            .into_iter()
+            .find(|r| {
+                r.header().key.as_deref() == Some(&first.job_id.to_string())
+                    && params_of(r).get("counts").is_some()
+            })
+            .expect("the day's job is finished");
+        assert_eq!(params_of(&finish)["compacted"], 1);
+        // The next day's job compacts from where the mirror stood when it opened.
+        assert_eq!(source.job.as_ref().unwrap().compact_from, Some(3));
+    });
+}
+
 /// One run of the follower over `items`, a batch each, at `at`.
 async fn follow_at(
     (store, pipeline): (&MemoryIngest, &Pipeline<MemoryIngest>),

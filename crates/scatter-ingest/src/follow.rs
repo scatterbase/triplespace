@@ -12,6 +12,10 @@
 //! batch that day commits under it, and the first batch of the next day, or the first run
 //! after it, finishes it with the day's counts. The open job travels with the position, so
 //! `follow --once` from a timer and a server's loop leave the same jobs.
+//!
+//! A registry provider's follower compacts its mirror as the day's job closes (0092 A7):
+//! the keys written since the job opened keep their newest record, and the one carrying
+//! their highest revision ID, and lose the rest ([`crate::compact`]).
 
 use std::collections::BTreeMap;
 use std::future::{Future, poll_fn};
@@ -24,6 +28,7 @@ use scatter_wikibase_changeset::{JobHeader, Mode};
 use serde::{Deserialize, Serialize};
 
 use crate::IngestError;
+use crate::compact::{WINDOW, compact, mirror_of};
 use crate::job::{Counts, Job, Reject};
 use crate::store::IngestStore;
 use crate::sync::{SyncItem, sync_batch};
@@ -98,6 +103,10 @@ pub struct FollowJob {
     /// Upstream hashes kept, by value type.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub hash_mismatches: BTreeMap<String, u64>,
+    /// The mirror's size when the job opened, where the day's compaction starts (0092 A7);
+    /// `None` for a tenant's source, and for a job opened before followers compacted.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub compact_from: Option<u64>,
 }
 
 const DAY_MICROS: u64 = 86_400_000_000;
@@ -167,22 +176,46 @@ async fn finish_day<S: IngestStore>(
     pipeline: &Pipeline<S>,
     job: &Job,
     open: &FollowJob,
+    compacted: Option<u64>,
     now: u64,
 ) -> Result<(), IngestError> {
     let mut extra = serde_json::Map::new();
     for (k, v) in [
-        ("batches", open.batches),
-        ("rows", open.rows),
-        ("late", open.late),
-        ("stale", open.stale),
+        ("batches", Some(open.batches)),
+        ("rows", Some(open.rows)),
+        ("late", Some(open.late)),
+        ("stale", Some(open.stale)),
+        ("compacted", compacted),
     ] {
-        extra.insert(k.into(), v.into());
+        if let Some(v) = v {
+            extra.insert(k.into(), v.into());
+        }
     }
     let mut cx = store.begin().await?;
     job.finish(store, pipeline, &mut cx, &open.counts, extra, now)
         .await?;
     store.commit(cx).await?;
     Ok(())
+}
+
+/// Compacts the mirror by the keys written since a day's job opened (0092 A7), up to the
+/// mirror's size now: the records removed, `None` when the job has no start to compact
+/// from. Run before the job is finished, so that a crash between the two compacts again,
+/// which removes nothing more, and then finishes.
+async fn compact_day<S: IngestStore>(
+    store: &S,
+    slug: &str,
+    open: &FollowJob,
+) -> Result<Option<u64>, IngestError> {
+    let Some(from) = open.compact_from else {
+        return Ok(None);
+    };
+    let Some((partition, size)) = mirror_of(store, slug).await? else {
+        return Ok(None);
+    };
+    compact(store, partition, from, size, WINDOW, |_, _| {})
+        .await
+        .map(Some)
 }
 
 /// What a run did.
@@ -249,13 +282,21 @@ pub async fn run_follow<S: IngestStore, C: ChangeSource>(
             let today = now() / DAY_MICROS;
             // A day's job ends with the day, whether or not the new day has changes yet.
             if let Some(f) = open.as_ref().filter(|f| f.day != today) {
+                let compacted = compact_day(store, slug, f).await?;
                 let handle = handle_of(store, tenant, slug, &attestation, f, job.take()).await?;
-                finish_day(store, pipeline, &handle, f, now()).await?;
+                finish_day(store, pipeline, &handle, f, compacted, now()).await?;
                 open = None;
             }
             if items.is_empty() {
                 return Ok::<_, IngestError>(None);
             }
+            // A registry provider's new day's job compacts from where the mirror stands now;
+            // a mirror not yet created starts at 0.
+            let compact_from = if open.is_none() && tenant.is_empty() {
+                Some(mirror_of(store, slug).await?.map_or(0, |(_, size)| size))
+            } else {
+                None
+            };
             let handle = match open.as_ref() {
                 Some(f) => Some(handle_of(store, tenant, slug, &attestation, f, job.take()).await?),
                 None => None,
@@ -276,6 +317,7 @@ pub async fn run_follow<S: IngestStore, C: ChangeSource>(
             let f = open.get_or_insert_with(|| FollowJob {
                 id: j.id,
                 day: today,
+                compact_from,
                 ..FollowJob::default()
             });
             f.counts.add(&o.counts);
