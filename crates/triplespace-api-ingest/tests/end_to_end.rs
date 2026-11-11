@@ -1233,6 +1233,106 @@ async fn a_batch_in_blocks_leaves_what_one_operation_at_a_time_leaves() {
     }
 }
 
+/// The revision-state projection folds a block onto the states it reads in one statement
+/// (0013 A95), and seeds a key that has records but no stored state from those records, as
+/// it does one record at a time (0083 A1): with the stored states of two entities taken
+/// away, a block that edits them and creates others leaves what one record at a time
+/// leaves in every `view` table.
+#[tokio::test]
+async fn a_block_seeds_a_state_from_the_records_before_it() {
+    if skipped() {
+        return;
+    }
+    let by = |actor: &str| {
+        let mut r = Request::new(TENANT, Attestation::by(actor), NOW);
+        r.budget = scatter_projection::Budget::NONE;
+        r
+    };
+    let op = |v: serde_json::Value| -> Operation { serde_json::from_value(v).unwrap() };
+    let create = |id: &str, label: &str| {
+        op(json!({"op": "create", "id": id, "entity": item(id, label, &json!({}))}))
+    };
+    let before = [create("Q1", "One"), create("Q2", "Two")];
+    let block: Vec<Operation> = vec![
+        op(json!({"op": "add", "id": "Q1", "labels": {"fr": "Un"}})),
+        create("Q3", "Three"),
+        op(json!({"op": "add", "id": "Q2", "descriptions": {"en": "the second"}})),
+        create("Q4", "Four"),
+        op(json!({"op": "add", "id": "Q1", "aliases": {"en": ["Uno"]}})),
+        create("Q5", "Five"),
+    ];
+    let mut runs = Vec::new();
+    for in_block in [false, true] {
+        let (client, backend) = fresh().await;
+        let client = seed(client).await;
+        let store = PgIngest::new(backend);
+        let p = pipeline();
+        let registry = Registry::default_registry();
+        let log_store = PgLog::new(client);
+        p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
+            .await
+            .unwrap();
+        let client = log_store.into_inner();
+        let request = by("librarybase:1");
+        let mut cx = store.begin().await.unwrap();
+        for op in &before {
+            write_operation(&store, &p, &mut cx, &request, op, registry)
+                .await
+                .unwrap();
+        }
+        store.commit(cx).await.unwrap();
+        // A database that gained the table after the keys had records.
+        let gone = client
+            .execute(
+                "DELETE FROM view.graph_state WHERE tenant = 'librarybase'",
+                &[],
+            )
+            .await
+            .unwrap();
+        assert_eq!(gone, 2);
+        let request = by("librarybase:2");
+        let mut cx = store.begin().await.unwrap();
+        if in_block {
+            let entries: Vec<_> = block
+                .iter()
+                .map(|op| BlockEntry {
+                    request: &request,
+                    payload: BlockPayload::Operation(op),
+                })
+                .collect();
+            write_many(
+                &store,
+                &p,
+                &mut cx,
+                LOCAL,
+                &Graph::Local,
+                &entries,
+                scatter_projection::Budget::NONE,
+                registry,
+            )
+            .await
+            .unwrap();
+        } else {
+            for op in &block {
+                write_operation(&store, &p, &mut cx, &request, op, registry)
+                    .await
+                    .unwrap();
+            }
+        }
+        store.commit(cx).await.unwrap();
+        runs.push(views(&client).await);
+    }
+    let (one, blocks) = (&runs[0], &runs[1]);
+    assert_eq!(
+        one["graph_state"].len(),
+        5,
+        "a state for every entity again"
+    );
+    for (table, rows_one) in one {
+        assert_eq!(&blocks[table], rows_one, "the same rows in view.{table}");
+    }
+}
+
 /// One revision of a page in an export, on day `day` of January 2026.
 fn import_revision(
     id: u64,

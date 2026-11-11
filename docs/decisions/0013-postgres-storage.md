@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-11 (A94)
+- **Updated:** 2026-11-11 (A95)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -117,7 +117,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 7. Projections, synchrony and read-your-writes
 
-*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28, A33, A44, A53, A63, A75, A76, A77, A86, A87, A88, A89, A90, A91, A92, A93, A94.*
+*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28, A33, A44, A53, A63, A75, A76, A77, A86, A87, A88, A89, A90, A91, A92, A93, A94, A95.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §5, §6.1, §6.2, §6.3.*
 
@@ -1195,3 +1195,14 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it 
 Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it stood):
 
 > A shared partition's records, which reach every tenant's overlay, a `convert`, which names two entities, and the page projection are applied one record at a time.
+
+### A95. Three projections write a tenant's block a table at a time
+
+- **Date:** 2026-11-11
+- **Source:** Direct: Claude, while building the projections' multi-row statements, 2026-11-11; unconfirmed (James asked for multi-row statements next)
+- **Change:** amends §7
+- **Summary:** A93 left a statement for each record and table, pipelined; a batch of `create`s still sent about sixteen a record, and Postgres's own time on them was then half the job. Three projections now write a block with a statement a table where the block allows it, and fall back to A93's key-at-a-time path where it does not. The calls made: (1) **revision state** reads the states of the block's keys in one statement, folds each key's records onto its state in memory in record order, and writes `view.graph_state` (each key's state after its last record, its version moved by the number of its records) and `view.entity_revision` (the state after each record that has a revision ID) in one statement each. A key with no stored state is seeded from its earlier records as before (0083 A1); one statement finds which such keys have any record before the block, so a key the block is first to write costs no read of its own. A block that names a revision ID twice goes a key at a time, since one statement cannot write a row twice. (2) **Entity source** writes each entity the cursor its last record in the block leaves, in one statement, for any block in which no record removes a cursor (a `tombstone`, an upstream `redirect`); before, only a block of `put`s that named each subject once. (3) **The entity projection**, for a tenant's `local` block, takes the entities whose one source is that graph: a local ID with no other row in `view.entity_source`, whose stored state is at the block's last record of it, which resolves to something, and whose records in the block may be resolved once (A89, A93). It reads their sources and their states in two statements, resolves each in memory as `resolve_subject` does (the local state and its corrections; `source` or `materialized` by the same test; the page ID, offset and revision ID of the last record; `first_seen` from the source's row; `resolved_version` moved by the number of records), and writes `view.entity` in one upsert with the conflict rule of the single form, and the terms and identifiers in one delete and one insert each. Every other entity of the block (a foreign or keyed ID, one a mirror or an overlay also holds, one that resolves to nothing, one whose records may not be resolved once) goes a key at a time as before. (4) Activity still writes a row a statement, pipelined; its row has too many columns of too many kinds to be worth a block form for a twelfth of the time. A batch of 2,000 `create`s takes about 0.76 s against 1.5 s, and a history adoption of 200 entities of ten revisions 0.35 s against 0.6 s (release build, cloud sandbox); against 3.0 s and 2.4 s before A93. The rows of every `view` table are those of one record at a time, by the tests of A87 to A94 and one added for a block that seeds a state from the records before it. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §6.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it stood):
+
+> the statements, and so the rows, are those of applying the records in order.
