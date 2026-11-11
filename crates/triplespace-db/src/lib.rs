@@ -156,6 +156,10 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "0032_job_batch",
         sql: include_str!("../migrations/0032_job_batch.sql"),
     },
+    Migration {
+        name: "0033_follow_job",
+        sql: include_str!("../migrations/0033_follow_job.sql"),
+    },
 ];
 
 /// The crate name migrations are recorded under.

@@ -525,7 +525,17 @@ impl scatter_ingest::ChangeSource for OneBatch {
         Ok((batch, ()))
     }
 
-    async fn save(&mut self, (): ()) -> Result<(), scatter_ingest::IngestError> {
+    async fn job(
+        &mut self,
+    ) -> Result<Option<scatter_ingest::FollowJob>, scatter_ingest::IngestError> {
+        Ok(None)
+    }
+
+    async fn save(
+        &mut self,
+        (): (),
+        _: Option<scatter_ingest::FollowJob>,
+    ) -> Result<(), scatter_ingest::IngestError> {
         Ok(())
     }
 }

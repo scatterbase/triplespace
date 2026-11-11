@@ -984,6 +984,7 @@ CREATE TABLE ops.repo_cursor (                   -- a follower's position: an ev
   rc_retry jsonb,                                 -- [[entity ID, revid], …] read stale, to read again (0092 §2)
   loaded_to timestamptz, handed_over boolean NOT NULL DEFAULT false,  -- where the last load ended; whether the follower took over (0092 §5)
   late bigint NOT NULL DEFAULT 0, stale bigint NOT NULL DEFAULT 0,    -- the poll's counters (0092 §7)
+  job jsonb,                                      -- the follower's open job, the day's: ID, day, counts so far (0092 A6)
   lag_seconds integer, updated timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (tenant, kind, name)
 );

@@ -786,13 +786,15 @@ impl IngestStore for PgIngest {
         tenant: &str,
         source: &str,
         graph: &str,
+        followers: bool,
     ) -> Result<Vec<u64>, IngestError> {
         let rows = cx
             .query(
                 "SELECT job_id FROM view.job
                   WHERE tenant = $1 AND source = $2 AND graph = $3 AND status = 'running'
+                    AND ($4 OR params->>'follow' IS DISTINCT FROM 'true')
                   ORDER BY job_id",
-                &[&tenant, &source, &graph],
+                &[&tenant, &source, &graph, &followers],
             )
             .await
             .map_err(db)?;

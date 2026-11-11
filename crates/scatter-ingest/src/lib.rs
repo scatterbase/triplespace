@@ -39,7 +39,7 @@ pub mod write;
 pub use adopt::{Adoption, AdoptionOutcome, Floors};
 pub use batch::{BatchOutcome, run_batch};
 pub use bootstrap::{Prepare, Prepared, Warm, run_bootstrap};
-pub use follow::{ChangeBatch, ChangeSource, FollowOutcome, run_follow};
+pub use follow::{ChangeBatch, ChangeSource, FollowJob, FollowOutcome, run_follow};
 pub use import::{
     HeldPage, HeldRevision, Import, ImportHost, ImportOutcome, ImportPage, ImportRevision,
     run_import,

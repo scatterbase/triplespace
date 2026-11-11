@@ -103,3 +103,45 @@ async fn a_load_moves_the_recorded_end_only_forward() {
     assert_eq!(p.loaded_to, Some(LATER));
     assert_eq!(p.rc_time, None);
 }
+
+/// The follower's open job is kept with its position (0092 A6), and a load leaves it.
+#[tokio::test]
+async fn the_open_job_is_kept_with_the_position() {
+    let Some(admin) = admin_config() else {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    };
+    let client = fresh(admin).await;
+    assert!(
+        record_load(&client, "", KIND_PROVIDER, "wikidata", LOAD)
+            .await
+            .unwrap()
+    );
+    assert_eq!(at(&client).await.job, None);
+    let mut job = scatter_ingest::FollowJob {
+        id: 42,
+        day: 20_768,
+        batches: 3,
+        rows: 1_500,
+        ..Default::default()
+    };
+    job.counts.merged = 700;
+    client
+        .execute(
+            "UPDATE ops.repo_cursor SET job = $1",
+            &[&serde_json::to_value(&job).unwrap()],
+        )
+        .await
+        .unwrap();
+    assert_eq!(at(&client).await.job.as_ref(), Some(&job));
+    assert!(
+        record_load(&client, "", KIND_PROVIDER, "wikidata", LATER)
+            .await
+            .unwrap()
+    );
+    assert_eq!(
+        at(&client).await.job,
+        Some(job),
+        "a load leaves the open job"
+    );
+}

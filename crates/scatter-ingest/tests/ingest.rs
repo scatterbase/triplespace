@@ -2267,7 +2267,13 @@ fn the_next_load_marks_a_dead_load_interrupted() {
         let mut cx = store.begin().await.unwrap();
         assert_eq!(
             store
-                .running_jobs(&mut cx, "", "internetdomains", "mirror/internetdomains")
+                .running_jobs(
+                    &mut cx,
+                    "",
+                    "internetdomains",
+                    "mirror/internetdomains",
+                    true
+                )
                 .await
                 .unwrap(),
             vec![dead[0]]
@@ -2308,14 +2314,20 @@ fn the_next_load_marks_a_dead_load_interrupted() {
         let mut cx = store.begin().await.unwrap();
         assert!(
             store
-                .running_jobs(&mut cx, "", "internetdomains", "mirror/internetdomains")
+                .running_jobs(
+                    &mut cx,
+                    "",
+                    "internetdomains",
+                    "mirror/internetdomains",
+                    true
+                )
                 .await
                 .unwrap()
                 .is_empty()
         );
         assert_eq!(
             store
-                .running_jobs(&mut cx, "", "internetdomains", "mirror/elsewhere")
+                .running_jobs(&mut cx, "", "internetdomains", "mirror/elsewhere", true)
                 .await
                 .unwrap(),
             vec![dead[1]]
@@ -2331,6 +2343,7 @@ struct Scripted<'a> {
     batches: std::collections::VecDeque<scatter_ingest::ChangeBatch>,
     read: u32,
     log: Vec<String>,
+    job: Option<scatter_ingest::FollowJob>,
 }
 
 impl scatter_ingest::ChangeSource for Scripted<'_> {
@@ -2349,9 +2362,18 @@ impl scatter_ingest::ChangeSource for Scripted<'_> {
         Ok((batch, self.read))
     }
 
-    async fn save(&mut self, at: u32) -> Result<(), IngestError> {
+    async fn job(&mut self) -> Result<Option<scatter_ingest::FollowJob>, IngestError> {
+        Ok(self.job.clone())
+    }
+
+    async fn save(
+        &mut self,
+        at: u32,
+        job: Option<scatter_ingest::FollowJob>,
+    ) -> Result<(), IngestError> {
         let held = self.store.records(MIRROR_XD).len();
         self.log.push(format!("save {at} with {held}"));
+        self.job = job;
         Ok(())
     }
 }
@@ -2381,6 +2403,7 @@ fn the_follower_reads_ahead_and_saves_each_position_after_its_batch() {
             .into(),
             read: 0,
             log: Vec::new(),
+            job: None,
         };
         let out = scatter_ingest::run_follow(
             &store,
@@ -2419,4 +2442,172 @@ fn the_follower_reads_ahead_and_saves_each_position_after_its_batch() {
             .collect();
         assert!(revids.windows(2).all(|w| w[0] < w[1]), "{revids:?}");
     });
+}
+
+// 0092 A6: a follower writes under one job a day. Its batches and its runs that day share
+// the job, a load between them leaves it open, and the first batch of the next day
+// finishes it with the day's counts and starts the next.
+#[test]
+#[allow(clippy::too_many_lines)]
+fn a_follower_writes_under_one_job_a_day() {
+    pollster::block_on(async {
+        const DAY: u64 = 86_400_000_000;
+        let (store, pipeline) = setup();
+        let actor = Attestation::by("instance:scatter");
+        let mut source = Scripted {
+            store: &store,
+            batches: std::collections::VecDeque::new(),
+            read: 0,
+            log: Vec::new(),
+            job: None,
+        };
+        let starts = |store: &MemoryIngest| -> Vec<String> {
+            events(store, INSTANCE_LOG)
+                .into_iter()
+                .filter(|(a, _)| a == "start")
+                .map(|(_, k)| k)
+                .collect()
+        };
+
+        // Two batches, then a second run the same day: one job, still open.
+        let first = follow_at(
+            (&store, &pipeline),
+            &mut source,
+            vec![
+                vec![xd_state("XDQ1", "One", 10)],
+                vec![xd_state("XDQ2", "Two", 20)],
+            ],
+            NOW,
+        )
+        .await;
+        let second = follow_at(
+            (&store, &pipeline),
+            &mut source,
+            vec![vec![xd_state("XDQ3", "Three", 30)]],
+            NOW + 3_600_000_000,
+        )
+        .await;
+        assert_eq!(first.job_id, second.job_id);
+        let day_job = first.job_id;
+        assert_eq!(starts(&store), [day_job.to_string()]);
+        let open = source.job.clone().unwrap();
+        assert_eq!(
+            (open.id, open.batches, open.counts.created),
+            (day_job, 3, 3)
+        );
+        assert!(
+            store
+                .records(MIRROR_XD)
+                .iter()
+                .all(|r| params_of_attestation_job(r) == Some(day_job)),
+            "every record names the day's job"
+        );
+
+        // A load of the same source and graph leaves the follower's open job alone.
+        run_sync(
+            &store,
+            &pipeline,
+            sync_header(Mode::Upsert),
+            actor.clone(),
+            vec![xd_state("XDQ9", "Nine", 90)],
+            100,
+            registry(),
+            NOW + 7_200_000_000,
+            100,
+        )
+        .await
+        .unwrap();
+        assert!(
+            !events(&store, INSTANCE_LOG)
+                .iter()
+                .any(|(a, _)| a == "interrupt"),
+            "the load marked the open job interrupted"
+        );
+        let mut cx = store.begin().await.unwrap();
+        assert_eq!(
+            store
+                .running_jobs(
+                    &mut cx,
+                    "",
+                    "internetdomains",
+                    "mirror/internetdomains",
+                    true
+                )
+                .await
+                .unwrap(),
+            vec![day_job]
+        );
+        store.rollback(cx).await.unwrap();
+
+        // The next day: the day's job is finished with its counts, and another starts.
+        let next = follow_at(
+            (&store, &pipeline),
+            &mut source,
+            vec![vec![xd_state("XDQ4", "Four", 40)]],
+            NOW + DAY,
+        )
+        .await;
+        assert_ne!(next.job_id, day_job);
+        let finish = store
+            .records(INSTANCE_LOG)
+            .into_iter()
+            .find(|r| {
+                r.header().key.as_deref() == Some(&day_job.to_string())
+                    && params_of(r).get("counts").is_some()
+            })
+            .expect("the day's job is finished");
+        let params = params_of(&finish);
+        assert_eq!(params["counts"]["created"], 3);
+        assert_eq!(
+            (params["batches"].as_u64(), params["rows"].as_u64()),
+            (Some(3), Some(3))
+        );
+        assert_eq!(
+            starts(&store).len(),
+            3,
+            "the day's job, the load's, the next day's"
+        );
+        let open = source.job.clone().unwrap();
+        assert_eq!(
+            (open.id, open.batches, open.day),
+            (next.job_id, 1, (NOW + DAY) / DAY)
+        );
+    });
+}
+
+/// One run of the follower over `items`, a batch each, at `at`.
+async fn follow_at(
+    (store, pipeline): (&MemoryIngest, &Pipeline<MemoryIngest>),
+    source: &mut Scripted<'_>,
+    items: Vec<Vec<SyncItem>>,
+    at: u64,
+) -> scatter_ingest::FollowOutcome {
+    source.batches = items
+        .into_iter()
+        .map(|items| scatter_ingest::ChangeBatch {
+            rows: u64::try_from(items.len()).unwrap(),
+            items,
+            ..Default::default()
+        })
+        .collect();
+    scatter_ingest::run_follow(
+        store,
+        pipeline,
+        "",
+        "internetdomains",
+        Attestation::by("instance:scatter"),
+        source,
+        registry(),
+        || at,
+        100,
+        true,
+    )
+    .await
+    .unwrap()
+}
+
+/// The job a record's attestation names.
+fn params_of_attestation_job(record: &Record) -> Option<u64> {
+    let attestation = record.body().attestation().value().ok()??;
+    attestation.get("job").and_then(Value::as_u64)
 }

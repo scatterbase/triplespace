@@ -4,8 +4,8 @@
 //! Each `next` is one poll: the head request (and, once caught up, the tail pass), the
 //! changed titles turned into upstream IDs, their current states read in one request per
 //! fifty (five hundred with the higher limits), and each state through the provider's
-//! key-mapped adapter into the sync items the mirror writes. `save` stores the position in
-//! `ops.repo_cursor` after the batch's job has finished.
+//! key-mapped adapter into the sync items the mirror writes. `save` stores the position, and
+//! the day's open job (0092 A6), in `ops.repo_cursor` once the batch is committed.
 //!
 //! The follower continues a load (0092 §5): with no position of its own it starts at
 //! `loaded_to`, the end of the last dump sync, and it refuses to start from a time the
@@ -17,7 +17,7 @@ use scatter_adapter_mediawiki::{Change, Poller, Windows};
 use scatter_adapter_wikibase::follow::{EntityNamespaces, Fetched, entity_id_of, read_entities};
 use scatter_adapter_wikibase::{Index, KeyMappedAdapter, KeyRules, Outcome};
 use scatter_ingest::IngestError;
-use scatter_ingest::follow::{ChangeBatch, ChangeSource};
+use scatter_ingest::follow::{ChangeBatch, ChangeSource, FollowJob};
 use scatter_ingest::sync::SyncItem;
 use scatter_providers::Provider;
 use scatter_wikibase_changeset::{Adapter, Upstream, WikibaseAdapter};
@@ -31,7 +31,7 @@ pub const KIND_PROVIDER: &str = "provider";
 pub const KIND_SOURCE: &str = "source";
 
 /// Where a follower is, as `ops.repo_cursor` holds it.
-#[derive(Debug, Clone, PartialEq, Eq, Default)]
+#[derive(Debug, Clone, PartialEq, Default)]
 pub struct Position {
     /// The newest change time seen, epoch seconds.
     pub rc_time: Option<u64>,
@@ -50,6 +50,8 @@ pub struct Position {
     pub late: u64,
     /// Stale states, cumulative.
     pub stale: u64,
+    /// The follower's open job, the day's (0092 A6).
+    pub job: Option<FollowJob>,
 }
 
 /// Reads a follower's position.
@@ -66,7 +68,8 @@ pub async fn position<C: GenericClient>(
     let row = client
         .query_opt(
             "SELECT EXTRACT(EPOCH FROM rc_time)::bigint, rc_continue, rc_seen,
-                    EXTRACT(EPOCH FROM loaded_to)::bigint, handed_over, late, stale, rc_retry
+                    EXTRACT(EPOCH FROM loaded_to)::bigint, handed_over, late, stale, rc_retry,
+                    job
              FROM ops.repo_cursor WHERE tenant = $1 AND kind = $2 AND name = $3",
             &[&tenant, &kind, &name],
         )
@@ -82,6 +85,7 @@ pub async fn position<C: GenericClient>(
     let late: i64 = row.get(5);
     let stale: i64 = row.get(6);
     let rc_retry: Option<serde_json::Value> = row.get(7);
+    let job: Option<serde_json::Value> = row.get(8);
     Ok(Position {
         rc_time: rc_time.and_then(|t| u64::try_from(t).ok()),
         rc_continue: rc_continue.and_then(|v| serde_json::from_value(v).ok()),
@@ -95,6 +99,7 @@ pub async fn position<C: GenericClient>(
         handed_over: row.get(4),
         late: u64::try_from(late).unwrap_or(0),
         stale: u64::try_from(stale).unwrap_or(0),
+        job: job.and_then(|v| serde_json::from_value(v).ok()),
     })
 }
 
@@ -147,6 +152,8 @@ pub struct ProviderFollower<'a, C: GenericClient> {
     now: fn() -> u64,
     late: u64,
     stale: u64,
+    /// The open job, as the last save left it (0092 A6).
+    job: Option<FollowJob>,
     /// IDs whose state lagged the row that named them, read again next time.
     retry: Vec<(EntityId, Option<u64>)>,
     /// Whether the last head request had no continuation.
@@ -282,6 +289,7 @@ impl<'a, C: GenericClient> ProviderFollower<'a, C> {
             now,
             late: stored.late,
             stale: stored.stale,
+            job: stored.job.clone(),
             retry: stored
                 .rc_retry
                 .iter()
@@ -521,7 +529,16 @@ impl<C: GenericClient + Sync> ChangeSource for ProviderFollower<'_, C> {
         Ok((batch, self.saved()))
     }
 
-    async fn save(&mut self, at: Saved) -> Result<(), IngestError> {
+    async fn job(&mut self) -> Result<Option<FollowJob>, IngestError> {
+        Ok(self.job.clone())
+    }
+
+    async fn save(&mut self, at: Saved, job: Option<FollowJob>) -> Result<(), IngestError> {
+        let job_value = job
+            .as_ref()
+            .map(serde_json::to_value)
+            .transpose()
+            .map_err(|e| IngestError::Store(e.to_string()))?;
         let now = (self.now)();
         let time = i64::try_from(at.time).unwrap_or(i64::MAX);
         let (cont, seen, retry) = (at.cont, at.seen, at.retry);
@@ -531,13 +548,15 @@ impl<C: GenericClient + Sync> ChangeSource for ProviderFollower<'_, C> {
         self.client
             .execute(
                 "INSERT INTO ops.repo_cursor (tenant, kind, name, rc_time, rc_continue, rc_seen,
-                                              rc_retry, handed_over, late, stale, lag_seconds)
-                 VALUES ($10, $1, $2, to_timestamp($3::bigint), $4, $5, $6, true, $7, $8, $9)
+                                              rc_retry, handed_over, late, stale, lag_seconds,
+                                              job)
+                 VALUES ($10, $1, $2, to_timestamp($3::bigint), $4, $5, $6, true, $7, $8, $9,
+                         $11)
                  ON CONFLICT (tenant, kind, name) DO UPDATE
                  SET rc_time = EXCLUDED.rc_time, rc_continue = EXCLUDED.rc_continue,
                      rc_seen = EXCLUDED.rc_seen, rc_retry = EXCLUDED.rc_retry, handed_over = true,
                      late = EXCLUDED.late, stale = EXCLUDED.stale,
-                     lag_seconds = EXCLUDED.lag_seconds, updated = now()",
+                     lag_seconds = EXCLUDED.lag_seconds, job = EXCLUDED.job, updated = now()",
                 &[
                     &self.kind,
                     &self.provider.slug,
@@ -549,10 +568,12 @@ impl<C: GenericClient + Sync> ChangeSource for ProviderFollower<'_, C> {
                     &stale,
                     &lag,
                     &self.tenant,
+                    &job_value,
                 ],
             )
             .await
             .map_err(|e| IngestError::Store(e.to_string()))?;
+        self.job = job;
         Ok(())
     }
 }

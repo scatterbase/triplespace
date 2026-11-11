@@ -593,7 +593,7 @@ pub async fn run_sync<S: IngestStore>(
 /// `source/{name}` (0078 §4), whose records, job and cursors are the tenant's, with the
 /// tenant's table of names as `registry` ([`Registry::with_sources`]). `tenant` is `""`
 /// for a provider's mirror.
-#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+#[allow(clippy::too_many_arguments)]
 pub async fn run_sync_in<S: IngestStore>(
     store: &S,
     pipeline: &Pipeline<S>,
@@ -606,6 +606,74 @@ pub async fn run_sync_in<S: IngestStore>(
     now: u64,
     batch: usize,
 ) -> Result<SyncOutcome, IngestError> {
+    let (outcome, _) = sync_job(
+        store,
+        pipeline,
+        tenant,
+        header,
+        attestation,
+        None,
+        true,
+        items,
+        threshold,
+        registry,
+        now,
+        batch,
+    )
+    .await?;
+    Ok(outcome)
+}
+
+/// A follower's batch (0092 A6): [`run_sync_in`] in `upsert` mode under the follower's open
+/// job, started here when `job` is `None`, and left open for the next batch. Returns the
+/// batch's counts, and the job with its rejects and hash mismatches so far.
+#[allow(clippy::too_many_arguments)]
+pub async fn sync_batch<S: IngestStore>(
+    store: &S,
+    pipeline: &Pipeline<S>,
+    tenant: &str,
+    header: JobHeader,
+    attestation: Attestation,
+    job: Option<Job>,
+    items: impl IntoIterator<Item = SyncItem>,
+    registry: &Registry,
+    now: u64,
+    batch: usize,
+) -> Result<(SyncOutcome, Job), IngestError> {
+    sync_job(
+        store,
+        pipeline,
+        tenant,
+        header,
+        attestation,
+        job,
+        false,
+        items,
+        0,
+        registry,
+        now,
+        batch,
+    )
+    .await
+}
+
+/// A sync under a job: `job`, or one started here (marking dead loads interrupted), and
+/// finished here when `finish` is set.
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+async fn sync_job<S: IngestStore>(
+    store: &S,
+    pipeline: &Pipeline<S>,
+    tenant: &str,
+    header: JobHeader,
+    attestation: Attestation,
+    job: Option<Job>,
+    finish: bool,
+    items: impl IntoIterator<Item = SyncItem>,
+    threshold: usize,
+    registry: &Registry,
+    now: u64,
+    batch: usize,
+) -> Result<(SyncOutcome, Job), IngestError> {
     let graph = header.graph();
     let (graph, slug) = match &graph {
         Some(g @ Graph::Mirror(slug)) if tenant.is_empty() => (g.clone(), slug.clone()),
@@ -669,18 +737,23 @@ pub async fn run_sync_in<S: IngestStore>(
         })?;
     // Who owned which key before this job (0009 §9).
     let owners_before = store.keyed_owners(&mut cx, &graph_name).await?;
-    let mut job = Job::start(
-        store,
-        pipeline,
-        &mut cx,
-        tenant,
-        header.clone(),
-        attestation,
-        now,
-    )
-    .await?;
-    // A load of the same source and graph whose process died is marked so (0011 A36).
-    job.interrupt_earlier(store, pipeline, &mut cx, now).await?;
+    let mut job = if let Some(job) = job {
+        job
+    } else {
+        let job = Job::start(
+            store,
+            pipeline,
+            &mut cx,
+            tenant,
+            header.clone(),
+            attestation,
+            now,
+        )
+        .await?;
+        // A load of the same source and graph whose process died is marked so (0011 A36).
+        job.interrupt_earlier(store, pipeline, &mut cx, now).await?;
+        job
+    };
     let mut request = Request::new(tenant, job.record_attestation(), now);
     request.budget = Budget::NONE;
     let mut counts = Counts::default();
@@ -693,8 +766,9 @@ pub async fn run_sync_in<S: IngestStore>(
     // The foreign entities in the mirror, loaded the first time a mapped item arrives:
     // whether a newly mapped item's foreign form has to be tombstoned.
     let mut foreign_present: Option<BTreeSet<EntityId>> = None;
-    // Rejects are numbered in the order they arrive; a sync has no batch lines.
-    let mut rejected_line = 1usize;
+    // Rejects are numbered in the order they arrive, across a follower's batches; a sync
+    // has no batch lines.
+    let mut rejected_line = usize::try_from(job.rejected_total).unwrap_or(usize::MAX - 1) + 1;
 
     // A unit of `batch` items at a time, each its own unit of work. A unit of the common
     // kind is read, decided and written as a block (0013 A76); any other is written item
@@ -1095,14 +1169,19 @@ pub async fn run_sync_in<S: IngestStore>(
             serde_json::json!({"count": swept, "threshold": threshold}),
         );
     }
-    job.finish(store, pipeline, &mut cx, &counts, extra, now)
-        .await?;
+    if finish {
+        job.finish(store, pipeline, &mut cx, &counts, extra, now)
+            .await?;
+    }
     store.commit(cx).await?;
-    Ok(SyncOutcome {
-        job_id: job.id,
-        counts,
-        swept,
-    })
+    Ok((
+        SyncOutcome {
+            job_id: job.id,
+            counts,
+            swept,
+        },
+        job,
+    ))
 }
 
 /// Writes operations in order and counts them, a block at a time where they allow it
