@@ -1119,6 +1119,14 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ActivityProjection {
                 || header.payload_type == crate::actors::payload::ACTOR)
     }
 
+    /// A change-set's row is made from the record alone, and a page revision's from the
+    /// record, the log before it and the page's earlier rows here, so their keys may
+    /// repeat in a block (0013 A89). The other payloads' rows have not been shown to.
+    fn repeats_in_block(&self, _earlier: &[&Record], later: &Record) -> bool {
+        let payload = &later.header().payload_type;
+        payload == PAYLOAD_CHANGESET || payload == scatter_pages::PAYLOAD_PAGE
+    }
+
     fn apply<'a>(
         &'a self,
         cx: &'a mut PgCx,

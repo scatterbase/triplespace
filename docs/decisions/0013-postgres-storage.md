@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-11 (A88)
+- **Updated:** 2026-11-11 (A89)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -117,7 +117,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 7. Projections, synchrony and read-your-writes
 
-*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28, A33, A44, A53, A63, A75, A76, A77, A86, A87, A88.*
+*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28, A33, A44, A53, A63, A75, A76, A77, A86, A87, A88, A89.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §5, §6.1, §6.2, §6.3.*
 
@@ -1129,3 +1129,14 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.8, as it sto
 - **Source:** Direct: Claude, while building the adoption's block write, 2026-11-11; unconfirmed (James asked for adoption to be wired onto `write_many`)
 - **Change:** extends §7
 - **Summary:** An adoption (`run_adoption`; [0035](0035-adopting-a-wikibase.md) §3) writes each unit's revisions with the block write of A87, entity revisions to `local` and page revisions to `pages`, rather than one at a time. The calls made: (1) each revision is decided as it arrives, as before (validation, the resume check, its author's surrogate), and queued; the queue is written when the unit of `batch` revisions ends, so a unit is still one unit of work and commits what it did before. (2) Entity and page revisions are not mixed in a block: the queue is written when the other kind begins, so that the revision IDs a `--current-only` adoption mints are taken in the order the revisions come. (3) The resume check reads the store for an entity or page, so the queue is written first when the job comes back to one whose records wait in it, and when a revision has to be compared with the content of one that waits (the same revision twice in a dump); otherwise the newest revision of the entity the job is on is known from the queue. (4) An author's surrogate actor record is written when its revision is decided, ahead of the block that holds the revision: it is in the `actors` partition, with its own sequences, so its place among the `local` and `pages` records does not change. (5) The resume check's reads are still one entity at a time. The records, counts and every `view` table are those of the adoption that wrote one revision at a time, checked over Postgres against that code on a history with repeated entities, surrogate and hidden authors, a redirect, pages between entities and a re-run. Since A87 projects a run of one key's revisions one at a time, the gain is the append's and the lookups' round trips: the Librarybase sample (295 revisions of 254 entities, release build, cloud sandbox) adopts in about 0.63 s against 0.89 s. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §6.
+
+### A89. The projections say where a key may repeat in a block
+
+- **Date:** 2026-11-11
+- **Source:** Direct: James, design discussion of 2026-11-11 (the per-projection declaration, chosen over a rule in `write_many`, after the audit A87 left open); the rule each projection gives is Claude's, while building it, unconfirmed
+- **Change:** amends §7
+- **Summary:** A87 (4) ended a block's stretch at every repeated key until the projections were audited. They were: of the synchronous projections that accept a tenant's change sets and pages (revision state, entity source, keyed map, entity, activity, page), only the entity projection reads another projection's rows (the entity sources and the graph state), and it recomputes its subject's rows from them, so over a whole block it leaves the rows it leaves one record at a time but for two columns of `view.entity` that follow the key's history: `resolved_version`, which starts again when the entity goes and comes back (a state, a redirect, a state: 1 one at a time, 3 over the block), and `first_seen`, the earliest time the key's records carry (a block finds the last). Both were reproduced over Postgres with the stretches off, and nothing else differed. Decided: a projection says whether a key may repeat (`Projection::repeats_in_block(earlier, later)`, the earlier records of the key in the stretch and the one arriving; the default is no), and the pipeline ends a stretch before a record whose key it holds unless every synchronous projection that accepts the record says yes (`Pipeline::stretches`, `apply_inline_stretches`, which `write_many` calls), so that `scatter-ingest` knows nothing of what a projection reads. The answers given: revision state, entity source, keyed map and page say yes; activity says yes for change sets and pages and no for the other payloads, whose rows were not audited; the entity projection says yes for a local entity whose records in the stretch were appended at one time, the first a whole state (a `create`, or an `adopt` with a state and no redirect) and the rest whole states or `add`s, and no otherwise. A run of an adopted entity's revisions is then one stretch; a redirect, a withheld revision or a deletion ends it. Not audited, and so still kept apart: thread, ACL and actor records, and a mirror's records where tenants overlay them (a sync's block names each subject once anyway). On the Librarybase sample, which has few repeated entities (295 revisions of 254), adoption took about 0.55 s against 0.59 s. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §6.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it stood):
+
+> A key may come more than once: the records are appended together and the projections run over each stretch in which no key repeats.

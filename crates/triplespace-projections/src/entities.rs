@@ -923,6 +923,45 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for EntityProjection {
         header.payload_type == PAYLOAD_CHANGESET
     }
 
+    /// The projection recomputes its subject's rows from the entity sources and the
+    /// graph state, which in a block already stand at the key's last record (0013 A89).
+    /// The rows come out as they do one record at a time all the same, but for two
+    /// columns of `view.entity` that follow the key's history rather than its state:
+    /// `resolved_version`, which starts again when the entity goes and comes back, and
+    /// `first_seen`, the earliest time its records carry. So a key repeats only where
+    /// neither can differ: a local entity, every record of it in the block appended at
+    /// one time, the first a whole state (a `create`, or an `adopt` with a state), so
+    /// that the entity is there from the first record on, and the rest whole states or
+    /// `add`s, which leave it there.
+    fn repeats_in_block(&self, earlier: &[&Record], later: &Record) -> bool {
+        let whole = |op: &Operation| {
+            matches!(
+                op,
+                Operation::Create { .. }
+                    | Operation::Adopt {
+                        entity: Some(_),
+                        redirect: None,
+                        ..
+                    }
+            )
+        };
+        let local =
+            |op: &Operation| entity_subject(op).is_some_and(|id| id.form() == IdForm::Local);
+        let at = later.header().appended_at;
+        let Ok(Some(last)) = operation(later) else {
+            return false;
+        };
+        if !local(&last) || !(whole(&last) || matches!(*last, Operation::Add { .. })) {
+            return false;
+        }
+        earlier.iter().enumerate().all(|(i, record)| {
+            record.header().appended_at == at
+                && matches!(operation(record), Ok(Some(op))
+                    if local(&op)
+                        && (whole(&op) || (i > 0 && matches!(*op, Operation::Add { .. }))))
+        })
+    }
+
     fn apply<'a>(
         &'a self,
         cx: &'a mut PgCx,

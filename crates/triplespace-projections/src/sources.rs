@@ -221,6 +221,12 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for EntitySourceProjection {
         header.payload_type == PAYLOAD_CHANGESET
     }
 
+    /// Reads no other projection's rows (0013 A89): each record sets or removes its entity's
+    /// cursor, the last one standing.
+    fn repeats_in_block(&self, _earlier: &[&Record], _later: &Record) -> bool {
+        true
+    }
+
     fn apply<'a>(
         &'a self,
         cx: &'a mut PgCx,
@@ -429,6 +435,11 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for KeyedMapProjection {
 
     fn accepts(&self, header: &Header) -> bool {
         header.payload_type == PAYLOAD_CHANGESET
+    }
+
+    /// Reads no other projection's rows (0013 A89): a keyed `put` replaces its key's own rows.
+    fn repeats_in_block(&self, _earlier: &[&Record], _later: &Record) -> bool {
+        true
     }
 
     fn apply<'a>(

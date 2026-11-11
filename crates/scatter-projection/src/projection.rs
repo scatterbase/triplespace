@@ -151,6 +151,19 @@ pub trait Projection<B: Backend>: Send + Sync {
         })
     }
 
+    /// Whether `later` may be applied in one block with `earlier`, the records of the same
+    /// key that come before it in the block, in order (0013 A89): whether the projection
+    /// then leaves the rows it leaves applying them one at a time, although the projections
+    /// before it have by then applied the whole block, so that what it reads of theirs for
+    /// an earlier record of the key is already the state after the later ones. A
+    /// projection that reads no other projection's rows says yes; one that does says yes
+    /// for the records it has shown it for. The default is no, and the pipeline then ends
+    /// the block's stretch before `later` ([`crate::Pipeline::stretches`]).
+    fn repeats_in_block(&self, earlier: &[&Record], later: &Record) -> bool {
+        let _ = (earlier, later);
+        false
+    }
+
     /// Re-projects one key the record's effects reached. Returns the rows written.
     fn fanout<'a>(
         &'a self,
