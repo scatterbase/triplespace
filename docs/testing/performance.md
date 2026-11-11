@@ -122,8 +122,11 @@ more. For a machine with `R` of RAM:
    API runs at the per-entity rate (about 345 entities/s per job on Librarybase-shaped entities).~~
    Since 2026-11-11 a batch writes its operations in blocks of 200 (0013 A87, A90): 2,000 small
    `create`s take about 2.6 s against 7.7 s streamed, and 2.6 s against 5.4 s atomic (release
-   build, cloud sandbox). The projections still apply a tenant's records one at a time inside a
-   block, and preparing the batch still mints each ID in a round trip of its own.
+   build, cloud sandbox). Since 0013 A93 the projections apply a tenant's block a key at a time
+   with the keys' statements pipelined: the same batch takes about 1.6 s, and a history adoption
+   of 200 entities of ten revisions 0.6 s against 2.4 s. What is left is a statement per record
+   and table (about 16 a record), the page projection, which an import spends its time in, and
+   preparing the batch, which still mints each ID in a round trip of its own.
 5. **Client CPU (1.2 ms/entity) is unprofiled.** Per entity the op is parsed from XML, validated,
    cloned, converted to JSON then to the CBOR value, encoded and hashed; the projection decodes it
    again and builds canonical JSON even when only its length is kept. The survey pass also reads and

@@ -9,6 +9,7 @@ use scatter_log::cbor::{self, Value};
 use scatter_log::record::Record;
 use scatter_log_postgres::PgClient;
 use scatter_log_postgres::ids::partition_to_db;
+use scatter_projection::Applied;
 use scatter_wikibase_changeset::Operation;
 use scatter_wikibase_model::id::{EntityId, IdForm};
 
@@ -617,6 +618,109 @@ pub fn offset_db(record: &Record) -> Result<i64, String> {
     scatter_log_postgres::ids::to_db(record.header().offset).map_err(|e| e.to_string())
 }
 
+/// How many keys' statements a projection sends at once ([`by_key`]).
+pub(crate) const PIPELINE_WIDTH: usize = 32;
+
+/// Runs the futures together on the caller's task and returns their results in order, or
+/// the first error in order once all have finished. Statements the futures send on one
+/// connection while the others wait are pipelined by the driver: sent without waiting
+/// for the answers before them.
+pub(crate) async fn join_all<T>(
+    mut futures: Vec<scatter_projection::BoxFuture<'_, Result<T, String>>>,
+) -> Result<Vec<T>, String> {
+    let mut results: Vec<Option<Result<T, String>>> = futures.iter().map(|_| None).collect();
+    std::future::poll_fn(|task| {
+        let mut waiting = false;
+        for (future, result) in futures.iter_mut().zip(results.iter_mut()) {
+            if result.is_none() {
+                match future.as_mut().poll(task) {
+                    std::task::Poll::Ready(r) => *result = Some(r),
+                    std::task::Poll::Pending => waiting = true,
+                }
+            }
+        }
+        if waiting {
+            std::task::Poll::Pending
+        } else {
+            std::task::Poll::Ready(())
+        }
+    })
+    .await;
+    results
+        .into_iter()
+        .map(|r| r.expect("every future finished"))
+        .collect()
+}
+
+/// Applies a block's records a key at a time (0013 A93): the records of one header key in
+/// order, the keys together, [`PIPELINE_WIDTH`] at a time, so that the statements of
+/// different keys are pipelined rather than each waiting for the one before. For a
+/// projection whose rows for a record are its key's alone: what it reads and writes for
+/// one key is then untouched by another's, and the rows are those of applying the
+/// records in order. A record with no key is applied by itself.
+pub(crate) async fn by_key<'r, 'f, F>(
+    records: impl IntoIterator<Item = &'r Record>,
+    apply: &'f F,
+) -> Result<Applied, String>
+where
+    'r: 'f,
+    F: Fn(&'r Record) -> scatter_projection::BoxFuture<'f, Result<Applied, String>> + Sync,
+{
+    by_key_groups(records, &|group: Vec<&'r Record>| {
+        Box::pin(async move {
+            let mut applied = Applied::default();
+            for record in group {
+                let a = apply(record).await?;
+                applied.rows += a.rows;
+                applied.fanout.extend(a.fanout);
+            }
+            Ok(applied)
+        })
+    })
+    .await
+}
+
+/// [`by_key`], with each key's records handed over together, in order: for a projection
+/// that can do better by a key's records than one after another.
+pub(crate) async fn by_key_groups<'r, 'f, F>(
+    records: impl IntoIterator<Item = &'r Record>,
+    apply: &'f F,
+) -> Result<Applied, String>
+where
+    'r: 'f,
+    F: Fn(Vec<&'r Record>) -> scatter_projection::BoxFuture<'f, Result<Applied, String>> + Sync,
+{
+    let mut groups: Vec<Vec<&'r Record>> = Vec::new();
+    let mut index: std::collections::BTreeMap<&'r str, usize> = std::collections::BTreeMap::new();
+    for record in records {
+        match record.header().key.as_deref() {
+            Some(key) => {
+                if let Some(&i) = index.get(key) {
+                    groups[i].push(record);
+                } else {
+                    index.insert(key, groups.len());
+                    groups.push(vec![record]);
+                }
+            }
+            None => groups.push(vec![record]),
+        }
+    }
+    let mut out = Applied::default();
+    let mut groups = groups.into_iter();
+    loop {
+        let futures: Vec<scatter_projection::BoxFuture<'f, Result<Applied, String>>> =
+            groups.by_ref().take(PIPELINE_WIDTH).map(apply).collect();
+        if futures.is_empty() {
+            break;
+        }
+        for a in join_all(futures).await? {
+            out.rows += a.rows;
+            out.fanout.extend(a.fanout);
+        }
+    }
+    Ok(out)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -741,5 +845,84 @@ mod tests {
         assert_eq!(parse_surrogate_key("domain#17"), Some(("domain", 17)));
         assert_eq!(parse_surrogate_key("Q17"), None);
         assert_eq!(quote("it's"), "'it''s'");
+    }
+
+    /// A future that waits one poll, so that futures run together take turns.
+    struct Turn(bool);
+
+    impl Future for Turn {
+        type Output = ();
+        fn poll(
+            mut self: std::pin::Pin<&mut Self>,
+            task: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<()> {
+            if self.0 {
+                std::task::Poll::Ready(())
+            } else {
+                self.0 = true;
+                task.waker().wake_by_ref();
+                std::task::Poll::Pending
+            }
+        }
+    }
+
+    /// [`by_key`] applies a key's records in order and the keys together (0013 A93): the
+    /// second key starts before the first has finished, and each key's records come in
+    /// the order they were given; an error comes back once every key has finished.
+    #[tokio::test]
+    async fn keys_are_applied_together_and_each_in_order() {
+        let mut records = Vec::new();
+        for (offset, id) in ["Q1", "Q2", "Q1", "Q2", "Q1"].into_iter().enumerate() {
+            let record = tombstone_record(id);
+            let mut header = record.header().clone();
+            header.offset = offset as u64;
+            records.push(Record::seal(header, record.body().clone()));
+        }
+        let seen: std::sync::Mutex<Vec<(String, u64)>> = std::sync::Mutex::new(Vec::new());
+        let seen = &seen;
+        let applied = by_key(&records, &|record: &Record| {
+            Box::pin(async move {
+                Turn(false).await;
+                let h = record.header();
+                seen.lock()
+                    .unwrap()
+                    .push((h.key.clone().unwrap_or_default(), h.offset));
+                Ok(Applied::rows(1))
+            })
+        })
+        .await
+        .unwrap();
+        assert_eq!(applied.rows, 5);
+        let order = seen.lock().unwrap().clone();
+        let of = |key: &str| -> Vec<u64> {
+            order
+                .iter()
+                .filter(|(k, _)| k == key)
+                .map(|(_, o)| *o)
+                .collect()
+        };
+        assert_eq!(of("Q1"), vec![0, 2, 4], "a key's records in order");
+        assert_eq!(of("Q2"), vec![1, 3]);
+        assert_eq!(
+            order[..2]
+                .iter()
+                .map(|(k, _)| k.as_str())
+                .collect::<Vec<_>>(),
+            vec!["Q1", "Q2"],
+            "the keys take turns: {order:?}"
+        );
+
+        let failed = by_key(&records, &|record: &Record| {
+            Box::pin(async move {
+                Turn(false).await;
+                if record.header().offset == 1 {
+                    Err("the second record fails".to_string())
+                } else {
+                    Ok(Applied::rows(1))
+                }
+            })
+        })
+        .await;
+        assert_eq!(failed.unwrap_err(), "the second record fails");
     }
 }

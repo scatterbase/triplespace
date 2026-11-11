@@ -279,13 +279,27 @@ impl EntityProjection {
     }
 
     /// Recomputes one `(tenant, id)` row and its terms and identifiers.
-    #[allow(clippy::too_many_lines)]
     async fn resolve_subject(
         &self,
         cx: &PgCx,
         tenant: &str,
         id: &EntityId,
         current: Option<&Record>,
+    ) -> Result<u64, String> {
+        self.resolve_subject_times(cx, tenant, id, current, 1).await
+    }
+
+    /// [`Self::resolve_subject`], counted as `times` resolutions: the rows are the
+    /// subject's state as it stands, and `resolved_version` moves by `times`, as it does
+    /// when the subject is resolved once for each of `times` records (0013 A93).
+    #[allow(clippy::too_many_lines)]
+    async fn resolve_subject_times(
+        &self,
+        cx: &PgCx,
+        tenant: &str,
+        id: &EntityId,
+        current: Option<&Record>,
+        times: i64,
     ) -> Result<u64, String> {
         let mut sources = Self::sources(cx, tenant, id).await?;
         sources.sort_by_key(|s| {
@@ -404,12 +418,12 @@ impl EntityProjection {
                 "INSERT INTO view.entity (tenant, id, type, page_id, surrogate, cluster_id, canonical_id, retention,
                                           first_seen, local_offset, local_revid, resolved_version, generation,
                                           resolved_kind, resolved, resolved_size, deleted)
-                 VALUES ($1, $2, $3, $4, $5, NULL, $2, $6, $7, $8, $9, 1, 0, $10, $11, $12, false)
+                 VALUES ($1, $2, $3, $4, $5, NULL, $2, $6, $7, $8, $9, $13, 0, $10, $11, $12, false)
                  ON CONFLICT (tenant, id) DO UPDATE SET
                    type = EXCLUDED.type, page_id = EXCLUDED.page_id, surrogate = EXCLUDED.surrogate,
                    retention = EXCLUDED.retention, first_seen = LEAST(view.entity.first_seen, EXCLUDED.first_seen),
                    local_offset = EXCLUDED.local_offset, local_revid = EXCLUDED.local_revid,
-                   resolved_version = view.entity.resolved_version + 1,
+                   resolved_version = view.entity.resolved_version + $13,
                    resolved_kind = EXCLUDED.resolved_kind, resolved = EXCLUDED.resolved, resolved_size = EXCLUDED.resolved_size",
                 &[
                     &tenant,
@@ -424,6 +438,7 @@ impl EntityProjection {
                     &kind,
                     &blob,
                     &size,
+                    &times,
                 ],
             )
             .await
@@ -582,6 +597,42 @@ impl EntityProjection {
 
         let rows = shared_rows(&graph, fast)?;
         let mut n = write_shared_rows(cx, &rows).await?;
+        // A tenant's records, each about one entity, touch that entity's rows alone: the
+        // keys together, a key's records in order (0013 A93). A shared partition's
+        // records reach every tenant's overlay, and a `convert` two entities: in order.
+        let one_entity = |record: &&Record| matches!(operation(record), Ok(Some(op)) if !matches!(*op, Operation::Convert { .. }));
+        if !info.tenant.is_empty() && slow.len() == records.len() && slow.iter().all(one_entity) {
+            // A key that repeats where its rows cannot differ ([`repeats`]) is resolved
+            // once, as it stands after its last record, for all its records.
+            let tenant = info.tenant.as_str();
+            let applied = crate::common::by_key_groups(records, &|group: Vec<&Record>| {
+                Box::pin(async move {
+                    let whole = (1..group.len()).all(|i| repeats(&group[..i], group[i]));
+                    let mut n = 0;
+                    match (group.last(), whole) {
+                        (Some(last), true) if group.len() > 1 => {
+                            if let Some(id) = operation(last)?.as_deref().and_then(entity_subject) {
+                                let times =
+                                    i64::try_from(group.len()).map_err(|e| e.to_string())?;
+                                n += self
+                                    .resolve_subject_times(cx, tenant, &id, Some(last), times)
+                                    .await?;
+                            }
+                        }
+                        _ => {
+                            for record in group {
+                                n += self.apply_one(cx, record).await?;
+                            }
+                        }
+                    }
+                    Ok(Applied::rows(usize::try_from(n).unwrap_or(0)))
+                })
+            })
+            .await?;
+            return Ok(Applied::rows(
+                applied.rows + usize::try_from(n).unwrap_or(0),
+            ));
+        }
         for record in slow {
             n += self.apply_one(cx, record).await?;
         }
@@ -910,6 +961,37 @@ fn identifier_rows(resolved: &Resolved) -> BTreeMap<(&str, String, &str), &str> 
     rows
 }
 
+/// Whether `later` leaves the rows it leaves one record at a time when the subject is
+/// resolved after `earlier`, the records of the same key before it, and after it, with
+/// nothing in between ([`Projection::repeats_in_block`]; 0013 A89).
+fn repeats(earlier: &[&Record], later: &Record) -> bool {
+    let whole = |op: &Operation| {
+        matches!(
+            op,
+            Operation::Create { .. }
+                | Operation::Adopt {
+                    entity: Some(_),
+                    redirect: None,
+                    ..
+                }
+        )
+    };
+    let local = |op: &Operation| entity_subject(op).is_some_and(|id| id.form() == IdForm::Local);
+    let at = later.header().appended_at;
+    let Ok(Some(last)) = operation(later) else {
+        return false;
+    };
+    if !local(&last) || !(whole(&last) || matches!(*last, Operation::Add { .. })) {
+        return false;
+    }
+    earlier.iter().enumerate().all(|(i, record)| {
+        record.header().appended_at == at
+            && matches!(operation(record), Ok(Some(op))
+                if local(&op)
+                    && (whole(&op) || (i > 0 && matches!(*op, Operation::Add { .. }))))
+    })
+}
+
 impl<B: Backend<Cx = PgCx>> Projection<B> for EntityProjection {
     fn name(&self) -> &'static str {
         "entity"
@@ -934,32 +1016,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for EntityProjection {
     /// that the entity is there from the first record on, and the rest whole states or
     /// `add`s, which leave it there.
     fn repeats_in_block(&self, earlier: &[&Record], later: &Record) -> bool {
-        let whole = |op: &Operation| {
-            matches!(
-                op,
-                Operation::Create { .. }
-                    | Operation::Adopt {
-                        entity: Some(_),
-                        redirect: None,
-                        ..
-                    }
-            )
-        };
-        let local =
-            |op: &Operation| entity_subject(op).is_some_and(|id| id.form() == IdForm::Local);
-        let at = later.header().appended_at;
-        let Ok(Some(last)) = operation(later) else {
-            return false;
-        };
-        if !local(&last) || !(whole(&last) || matches!(*last, Operation::Add { .. })) {
-            return false;
-        }
-        earlier.iter().enumerate().all(|(i, record)| {
-            record.header().appended_at == at
-                && matches!(operation(record), Ok(Some(op))
-                    if local(&op)
-                        && (whole(&op) || (i > 0 && matches!(*op, Operation::Add { .. }))))
-        })
+        repeats(earlier, later)
     }
 
     fn apply<'a>(

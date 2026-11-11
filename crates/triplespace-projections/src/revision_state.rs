@@ -133,6 +133,70 @@ pub fn decode(bytes: &[u8]) -> Result<LocalState, String> {
     LocalState::from_storage_json(&v)
 }
 
+/// Applies one record: the key's state after it, and the revision's row.
+async fn apply_record(cx: &PgCx, record: &Record) -> Result<Applied, String> {
+    let h = record.header();
+    let info = partition_info(cx, h.partition).await?;
+    let Some(graph) = delta_graph(&info.name) else {
+        return Ok(Applied::default());
+    };
+    let Some(op) = operation(record)? else {
+        return Ok(Applied::default());
+    };
+    let Some(id) = entity_subject(&op) else {
+        return Ok(Applied::default());
+    };
+    let entity_id = id.as_str().to_string();
+    let (mut state, version) =
+        if let Some((s, _, v)) = graph_state(cx, &info.tenant, &entity_id, graph).await? {
+            (s, v)
+        } else {
+            // No row yet: either the key's first local record, or a database that
+            // gained the table after the key had records (0083 A1). Seed from the
+            // records before this one, so the state is whole without a rebuild.
+            let earlier = crate::revisions::local_revisions(cx, &info.tenant, &id).await?;
+            let mut seed = LocalState::new();
+            for r in earlier.iter().filter(|r| r.offset() < h.offset) {
+                seed.apply(&r.operation, Some(r.offset()));
+            }
+            (seed, 0)
+        };
+    state.apply(&op, Some(h.offset));
+    let bytes = encode(&state);
+    let offset = i64::try_from(h.offset).map_err(|e| e.to_string())?;
+    let mut rows = cx
+        .execute(
+            "INSERT INTO view.graph_state (tenant, entity_id, graph, state, \"offset\", version)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             ON CONFLICT (tenant, entity_id, graph) DO UPDATE SET
+               state = EXCLUDED.state, \"offset\" = EXCLUDED.\"offset\", version = EXCLUDED.version",
+            &[&info.tenant, &entity_id, &graph, &bytes, &offset, &(version + 1)],
+        )
+        .await
+        .map_err(|e| sql(&e))?;
+    if let Some(revid) = h.revid {
+        rows += cx
+            .execute(
+                "INSERT INTO view.entity_revision (tenant, revid, entity_id, partition, \"offset\", state)
+                 VALUES ($1, $2, $3, $4, $5, $6)
+                 ON CONFLICT (tenant, revid) DO UPDATE SET
+                   entity_id = EXCLUDED.entity_id, partition = EXCLUDED.partition,
+                   \"offset\" = EXCLUDED.\"offset\", state = EXCLUDED.state",
+                &[
+                    &info.tenant,
+                    &i64::try_from(revid).map_err(|e| e.to_string())?,
+                    &entity_id,
+                    &scatter_log_postgres::ids::partition_to_db(h.partition),
+                    &offset,
+                    &bytes,
+                ],
+            )
+            .await
+            .map_err(|e| sql(&e))?;
+    }
+    Ok(Applied::rows(usize::try_from(rows).unwrap_or(0)))
+}
+
 impl<B: Backend<Cx = PgCx>> Projection<B> for RevisionStateProjection {
     fn name(&self) -> &'static str {
         "revision_state"
@@ -157,67 +221,19 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for RevisionStateProjection {
         cx: &'a mut PgCx,
         record: &'a Record,
     ) -> BoxFuture<'a, Result<Applied, String>> {
+        Box::pin(async move { apply_record(cx, record).await })
+    }
+
+    /// A key's state is folded from its own rows and records, so the keys of a block are
+    /// applied together ([`crate::common::by_key`]; 0013 A93), each key's records in order.
+    fn apply_many<'a>(
+        &'a self,
+        cx: &'a mut PgCx,
+        records: &'a [Record],
+    ) -> BoxFuture<'a, Result<Applied, String>> {
         Box::pin(async move {
-            let h = record.header();
-            let info = partition_info(cx, h.partition).await?;
-            let Some(graph) = delta_graph(&info.name) else {
-                return Ok(Applied::default());
-            };
-            let Some(op) = operation(record)? else {
-                return Ok(Applied::default());
-            };
-            let Some(id) = entity_subject(&op) else {
-                return Ok(Applied::default());
-            };
-            let entity_id = id.as_str().to_string();
-            let (mut state, version) =
-                if let Some((s, _, v)) = graph_state(cx, &info.tenant, &entity_id, graph).await? {
-                    (s, v)
-                } else {
-                    // No row yet: either the key's first local record, or a database that
-                    // gained the table after the key had records (0083 A1). Seed from the
-                    // records before this one, so the state is whole without a rebuild.
-                    let earlier = crate::revisions::local_revisions(cx, &info.tenant, &id).await?;
-                    let mut seed = LocalState::new();
-                    for r in earlier.iter().filter(|r| r.offset() < h.offset) {
-                        seed.apply(&r.operation, Some(r.offset()));
-                    }
-                    (seed, 0)
-                };
-            state.apply(&op, Some(h.offset));
-            let bytes = encode(&state);
-            let offset = i64::try_from(h.offset).map_err(|e| e.to_string())?;
-            let mut rows = cx
-                .execute(
-                    "INSERT INTO view.graph_state (tenant, entity_id, graph, state, \"offset\", version)
-                     VALUES ($1, $2, $3, $4, $5, $6)
-                     ON CONFLICT (tenant, entity_id, graph) DO UPDATE SET
-                       state = EXCLUDED.state, \"offset\" = EXCLUDED.\"offset\", version = EXCLUDED.version",
-                    &[&info.tenant, &entity_id, &graph, &bytes, &offset, &(version + 1)],
-                )
-                .await
-                .map_err(|e| sql(&e))?;
-            if let Some(revid) = h.revid {
-                rows += cx
-                    .execute(
-                        "INSERT INTO view.entity_revision (tenant, revid, entity_id, partition, \"offset\", state)
-                         VALUES ($1, $2, $3, $4, $5, $6)
-                         ON CONFLICT (tenant, revid) DO UPDATE SET
-                           entity_id = EXCLUDED.entity_id, partition = EXCLUDED.partition,
-                           \"offset\" = EXCLUDED.\"offset\", state = EXCLUDED.state",
-                        &[
-                            &info.tenant,
-                            &i64::try_from(revid).map_err(|e| e.to_string())?,
-                            &entity_id,
-                            &scatter_log_postgres::ids::partition_to_db(h.partition),
-                            &offset,
-                            &bytes,
-                        ],
-                    )
-                    .await
-                    .map_err(|e| sql(&e))?;
-            }
-            Ok(Applied::rows(usize::try_from(rows).unwrap_or(0)))
+            let cx: &PgCx = cx;
+            crate::common::by_key(records, &|record| Box::pin(apply_record(cx, record))).await
         })
     }
 

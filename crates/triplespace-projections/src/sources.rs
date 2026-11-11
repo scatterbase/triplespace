@@ -208,6 +208,78 @@ fn content_size(record: &Record, declared: Option<u64>) -> i32 {
     i32::try_from(n).unwrap_or(i32::MAX)
 }
 
+impl EntitySourceProjection {
+    /// Applies one record: its entity's cursor in the record's graph, set or removed.
+    async fn apply_record(cx: &PgCx, record: &Record) -> Result<Applied, String> {
+        let info = partition_info(cx, record.header().partition).await?;
+        let Some(op) = operation(record)? else {
+            return Ok(Applied::default());
+        };
+        let Some(id) = entity_subject(&op) else {
+            return Ok(Applied::default());
+        };
+        let graph = info.name.as_str();
+        let t = info.tenant.as_str();
+        let n = match &*op {
+            Operation::Put {
+                upstream,
+                prev_upstream,
+                size,
+                ..
+            } => {
+                Self::upsert(
+                    cx,
+                    t,
+                    &id,
+                    graph,
+                    record,
+                    Cursor {
+                        version: version_text(upstream),
+                        prev: prev_upstream.as_ref().and_then(version_text),
+                        size: content_size(record, *size),
+                    },
+                )
+                .await?
+            }
+            Operation::Tombstone { .. }
+            | Operation::Redirect {
+                upstream: Some(_), ..
+            } => Self::delete(cx, t, &id, graph).await?,
+            Operation::Adopt { source_revid, .. } => {
+                Self::upsert(
+                    cx,
+                    t,
+                    &id,
+                    graph,
+                    record,
+                    Cursor {
+                        version: Some(source_revid.to_string()),
+                        prev: None,
+                        size: content_size(record, None),
+                    },
+                )
+                .await?
+            }
+            _ => {
+                Self::upsert(
+                    cx,
+                    t,
+                    &id,
+                    graph,
+                    record,
+                    Cursor {
+                        version: None,
+                        prev: None,
+                        size: content_size(record, None),
+                    },
+                )
+                .await?
+            }
+        };
+        Ok(rows(n))
+    }
+}
+
 impl<B: Backend<Cx = PgCx>> Projection<B> for EntitySourceProjection {
     fn name(&self) -> &'static str {
         "entity_source"
@@ -232,79 +304,12 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for EntitySourceProjection {
         cx: &'a mut PgCx,
         record: &'a Record,
     ) -> BoxFuture<'a, Result<Applied, String>> {
-        Box::pin(async move {
-            let info = partition_info(cx, record.header().partition).await?;
-            let Some(op) = operation(record)? else {
-                return Ok(Applied::default());
-            };
-            let Some(id) = entity_subject(&op) else {
-                return Ok(Applied::default());
-            };
-            let graph = info.name.as_str();
-            let t = info.tenant.as_str();
-            let n = match &*op {
-                Operation::Put {
-                    upstream,
-                    prev_upstream,
-                    size,
-                    ..
-                } => {
-                    Self::upsert(
-                        cx,
-                        t,
-                        &id,
-                        graph,
-                        record,
-                        Cursor {
-                            version: version_text(upstream),
-                            prev: prev_upstream.as_ref().and_then(version_text),
-                            size: content_size(record, *size),
-                        },
-                    )
-                    .await?
-                }
-                Operation::Tombstone { .. }
-                | Operation::Redirect {
-                    upstream: Some(_), ..
-                } => Self::delete(cx, t, &id, graph).await?,
-                Operation::Adopt { source_revid, .. } => {
-                    Self::upsert(
-                        cx,
-                        t,
-                        &id,
-                        graph,
-                        record,
-                        Cursor {
-                            version: Some(source_revid.to_string()),
-                            prev: None,
-                            size: content_size(record, None),
-                        },
-                    )
-                    .await?
-                }
-                _ => {
-                    Self::upsert(
-                        cx,
-                        t,
-                        &id,
-                        graph,
-                        record,
-                        Cursor {
-                            version: None,
-                            prev: None,
-                            size: content_size(record, None),
-                        },
-                    )
-                    .await?
-                }
-            };
-            Ok(rows(n))
-        })
+        Box::pin(async move { Self::apply_record(cx, record).await })
     }
 
     /// A block of `put`s, each naming its subject once, is one multi-row upsert of the rows
     /// [`Projection::apply`] writes one at a time (0013 §9); any other block is applied
-    /// record by record.
+    /// a key at a time ([`crate::common::by_key`]).
     fn apply_many<'a>(
         &'a self,
         cx: &'a mut PgCx,
@@ -332,13 +337,13 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for EntitySourceProjection {
                         puts.push((record, id.clone(), cursor));
                     }
                     _ => {
-                        let mut out = Applied::default();
-                        for record in records {
-                            let a = Projection::<B>::apply(self, cx, record).await?;
-                            out.rows += a.rows;
-                            out.fanout.extend(a.fanout);
-                        }
-                        return Ok(out);
+                        // Each record sets or removes its own entity's cursor: the keys
+                        // together, a key's records in order (0013 A93).
+                        let cx: &PgCx = cx;
+                        return crate::common::by_key(records, &|record| {
+                            Box::pin(Self::apply_record(cx, record))
+                        })
+                        .await;
                     }
                 }
             }

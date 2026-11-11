@@ -1024,9 +1024,27 @@ async fn a_block_of_local_records_leaves_what_one_record_at_a_time_leaves() {
         later,
         op(json!({"op": "add", "id": "Q1", "labels": {"fr": "Un"}})),
     ));
+    // More keys than the projections send at once (0013 A93), some of them again: seventy
+    // items created, the first ten then edited, in one stretch.
+    let mut wide: Vec<(Request, Operation)> = (101..=170)
+        .map(|n| {
+            let id = format!("Q{n}");
+            (
+                by("librarybase:1", None, None),
+                op(json!({"op": "create", "id": id, "entity": item(&id, "An item", &json!({}))})),
+            )
+        })
+        .collect();
+    wide.extend((101..=110).map(|n| {
+        (
+            by("librarybase:2", None, None),
+            op(json!({"op": "add", "id": format!("Q{n}"), "labels": {"fr": "Un article"}})),
+        )
+    }));
     // Each case has more records than `SMALL_BLOCK`, so that it is written as a block.
     let cases = [
         ("every key repeats in one stretch", &block, vec![9]),
+        ("more keys than are sent at once", &wide, vec![80]),
         (
             "an entity that goes and comes back",
             &gone_and_back,

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-11 (A92)
+- **Updated:** 2026-11-11 (A93)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -117,7 +117,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 7. Projections, synchrony and read-your-writes
 
-*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28, A33, A44, A53, A63, A75, A76, A77, A86, A87, A88, A89, A90, A91, A92.*
+*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28, A33, A44, A53, A63, A75, A76, A77, A86, A87, A88, A89, A90, A91, A92, A93.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §5, §6.1, §6.2, §6.3.*
 
@@ -1173,3 +1173,14 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it 
 Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it stood):
 
 > A unit whose subjects are their own keys, each named once, with no mapped state, no clearing deletion and a provider that owns no keys, is read once for the unit (cursors, the records at them, the revisions their keys claimed, page IDs), decided item by item in memory as the item-by-item path decides, appended together and projected over the block by the set-based path a bootstrap load uses (§6.2; [05](../architecture/05-providers-and-ingest.md) §3.8). Any other unit is written item by item.
+
+### A93. The projections apply a tenant's block a key at a time, the keys together
+
+- **Date:** 2026-11-11
+- **Source:** Direct: Claude, while building the projections' block forms for tenant records, 2026-11-11; unconfirmed (James asked for the projections to be done next, starting with a measurement)
+- **Change:** amends §7
+- **Summary:** Measured first (release build, cloud sandbox, `pg_stat_statements` and a timer on each projection, 2,000 records each): with the writes in blocks, the synchronous projections took 89% of a streamed batch of `create`s (3.0 s; the entity projection half of it, revision state a quarter), 95% of a history adoption of 200 entities of ten revisions (2.4 s; the entity projection 59%) and 94% of an import of 20 pages of 100 revisions (2.6 s; the page projection 79%), at 12 to 16 statements a record sent one after another, of which Postgres's own time was under a third. The calls made: (1) a projection whose rows for a record are its key's alone applies a block a key at a time (`common::by_key`): a key's records in order, the keys together, thirty-two at a time, so that the driver pipelines their statements on the one connection rather than each waiting for the answer before it. The statements are those of applying the records in order, and so are the rows; no SQL changed. Revision state, entity source (where the block is not all `put`s) and activity (for change sets and pages) do so for every block; the entity projection for a tenant's partition when no record is a `convert`. (2) Where a key repeats in a block and A89's rule holds for its records, the entity projection resolves the key once, after its last record, and moves `resolved_version` by the number of records, which is what resolving it for each record leaves. (3) Left as they were: a shared partition's records in the entity projection, since they reach every tenant's overlay; a `convert`, which names two entities; and the page projection, whose records reach other pages' rows (a redirect's target), so that pages cannot be applied together, and which was the whole of the import's time. After: the batch 1.6 s, the adoption 0.6 s, the import unchanged at 2.2 s. The records and every `view` table are those of one record at a time, by the tests of A87 to A92, with a block of more keys than are sent at once added. Not done: statements for a block rather than for a record (a multi-row form per table), which is what is left of the batch's time, and a block form for the page projection. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §6.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it stood):
+
+> The projections apply a tenant's records one at a time inside a block.
