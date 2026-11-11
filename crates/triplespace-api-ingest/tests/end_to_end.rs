@@ -8,7 +8,9 @@ use std::sync::atomic::{AtomicU32, Ordering};
 
 use ed25519_dalek::SigningKey;
 use scatter_actors::issuer::IssuerRegistry;
-use scatter_ingest::adopt::{Adopted, Adoption, Author, Floors, run_adoption};
+use scatter_ingest::adopt::{
+    Adopted, AdoptedItem, AdoptedPage, Adoption, Author, Floors, run_adoption,
+};
 use scatter_ingest::{
     Attestation, BlockEntry, BlockPayload, IngestError, Request, SyncItem, run_batch, run_sync,
     write_many, write_operation,
@@ -994,6 +996,197 @@ fn revision(id: &str, revid: u64, parent: Option<u64>, time: &str, author: Autho
         withheld: Vec::new(),
         comment: Some(format!("edit {revid}")),
         author,
+    }
+}
+
+/// One revision of an adopted wikitext page: its `create`, or an `edit` after it.
+fn page_revision(
+    page_id: u64,
+    title: &str,
+    revid: u64,
+    first: bool,
+    author: Author,
+) -> AdoptedPage {
+    use scatter_pages::{PAYLOAD_PAGE, PageOp, Source};
+    let source = Some(Source {
+        source_revid: revid,
+        source_parentid: None,
+        source_time: "2026-09-05T00:00:00Z".into(),
+        withheld: Vec::new(),
+    });
+    let op = if first {
+        PageOp::Create {
+            ns: 4,
+            title: title.into(),
+            model: "wikitext".into(),
+            minor: false,
+            source,
+        }
+    } else {
+        PageOp::Edit {
+            model: None,
+            minor: false,
+            source,
+        }
+    };
+    AdoptedPage {
+        page_id,
+        payload_type: PAYLOAD_PAGE.into(),
+        content: op.to_json(),
+        extra: vec![Value::text(&format!("Text of {title} at {revid}."))],
+        source_revid: revid,
+        comment: Some(format!("page edit {revid}")),
+        author,
+    }
+}
+
+/// An adoption writes each unit's revisions as blocks (0013 A88), and what it leaves is
+/// what it leaves writing one revision per unit (`batch` 1, a block of one each): the
+/// same records in `local`, `pages` and `actors`, the same counts, and the same rows in
+/// every `view` table, over a first run and a re-run that finds everything present. The
+/// history has entities of several revisions, authors that need a surrogate, a hidden
+/// author, a redirect, an entity the dump comes back to, and pages between the entities.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn an_adoption_in_blocks_leaves_what_one_revision_at_a_time_leaves() {
+    if skipped() {
+        return;
+    }
+    let ip = |raw: &str| Author::Surrogate {
+        kind: "anonymous".into(),
+        raw: raw.into(),
+    };
+    let editor = || Author::Actor("librarybase:7".into());
+    let mut merged = revision(
+        "Q7",
+        44_000,
+        Some(43_000),
+        "2026-09-21T00:00:00Z",
+        Author::Hidden,
+    );
+    merged.entity = None;
+    merged.redirect = Some(EntityId::parse("Q6").unwrap());
+    merged.withheld = vec!["attestation".into()];
+    let items: Vec<AdoptedItem> = vec![
+        revision("Q6", 41_000, None, "2026-09-01T00:00:00Z", editor()).into(),
+        revision(
+            "Q6",
+            41_500,
+            Some(41_000),
+            "2026-09-10T00:00:00Z",
+            ip("192.0.2.1"),
+        )
+        .into(),
+        revision(
+            "Q6",
+            41_877,
+            Some(41_500),
+            "2026-09-20T14:02:11Z",
+            ip("192.0.2.1"),
+        )
+        .into(),
+        revision("Q7", 43_000, None, "2026-09-02T00:00:00Z", editor()).into(),
+        page_revision(300, "About", 45_000, true, editor()).into(),
+        page_revision(300, "About", 45_001, false, ip("192.0.2.9")).into(),
+        page_revision(301, "Help", 45_002, true, editor()).into(),
+        merged.into(),
+        // The dump comes back to Q6, and repeats a revision already adopted.
+        revision(
+            "Q6",
+            41_877,
+            Some(41_500),
+            "2026-09-20T14:02:11Z",
+            ip("192.0.2.1"),
+        )
+        .into(),
+        revision(
+            "Q6",
+            46_000,
+            Some(41_877),
+            "2026-09-25T00:00:00Z",
+            ip("192.0.2.2"),
+        )
+        .into(),
+        page_revision(301, "Help", 46_001, false, editor()).into(),
+    ];
+    let adoption = Adoption {
+        issuer: TENANT.into(),
+        source: "https://librarybase.org/".into(),
+        version: "librarybase-20261019-history.xml.gz".into(),
+        adapter_version: None,
+        frozen: true,
+        history: true,
+        current_state_dump: false,
+        floors: Floors {
+            entity: BTreeMap::from([("item".to_string(), 1000)]),
+            page: 2000,
+            revision: 50_000,
+            log: 700,
+            user: 40,
+        },
+        accounts: vec![account("librarybase:7", "Editor")],
+        property_types: BTreeMap::new(),
+    };
+    let mut runs = Vec::new();
+    for batch in [1usize, 4, 100] {
+        let (client, backend) = fresh().await;
+        let client = seed(client).await;
+        let store = PgIngest::new(backend);
+        let p = pipeline();
+        let registry = Registry::default_registry();
+        let log_store = PgLog::new(client);
+        p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
+            .await
+            .unwrap();
+        let client = log_store.into_inner();
+        let mut counts = Vec::new();
+        for _ in 0..2 {
+            let out = run_adoption(
+                &store,
+                &p,
+                TENANT,
+                Attestation::by("librarybase:2"),
+                adoption.clone(),
+                items.clone(),
+                registry,
+                NOW,
+                batch,
+            )
+            .await
+            .unwrap();
+            assert!(out.rejects.is_empty(), "batch {batch}: {:?}", out.rejects);
+            counts.push(out.counts);
+        }
+        let records = rows(
+            &client,
+            "SELECT partition::text || '|' || lpad(\"offset\"::text, 6, '0') || '|' || coalesce(key, '-')
+                    || '|' || coalesce(revid::text, '-') || '|' || coalesce(page_id::text, '-')
+                    || '|' || octet_length(body)::text
+             FROM log.record WHERE partition IN (12289, 12290, 12292)",
+        )
+        .await;
+        runs.push((batch, counts, records, views(&client).await));
+    }
+    let (_, counts_one, records_one, views_one) = &runs[0];
+    assert_eq!(
+        (counts_one[0].adopted, counts_one[0].unchanged),
+        (10, 1),
+        "the first run adopts all but the repeated revision"
+    );
+    assert_eq!(
+        (counts_one[1].adopted, counts_one[1].unchanged),
+        (0, 11),
+        "the re-run finds everything present"
+    );
+    for (batch, counts, records, views) in &runs[1..] {
+        assert_eq!(counts, counts_one, "batch {batch}: the same counts");
+        assert_eq!(records, records_one, "batch {batch}: the same records");
+        for (table, rows_one) in views_one {
+            assert_eq!(
+                &views[table], rows_one,
+                "batch {batch}: the same rows in view.{table}"
+            );
+        }
     }
 }
 
