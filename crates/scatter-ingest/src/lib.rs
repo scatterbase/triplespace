@@ -37,7 +37,7 @@ pub mod sync;
 pub mod write;
 
 pub use adopt::{Adoption, AdoptionOutcome, Floors};
-pub use batch::{BatchOutcome, run_batch};
+pub use batch::{BatchOutcome, run_batch, run_batch_in};
 pub use bootstrap::{Prepare, Prepared, Warm, run_bootstrap};
 pub use follow::{ChangeBatch, ChangeSource, FollowJob, FollowOutcome, run_follow};
 pub use import::{
@@ -49,7 +49,7 @@ pub use store::{Cursor, IngestStore, Sequence};
 pub use sync::{SyncItem, SyncOutcome, run_sync};
 pub use write::{
     Attestation, BlockEntry, BlockPayload, MintedValue, RawRecord, Request, Written, write_many,
-    write_operation, write_raw,
+    write_operation, write_raw, write_raw_many,
 };
 
 use scatter_projection::ProjectionError;

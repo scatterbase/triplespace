@@ -492,3 +492,73 @@ fn a_group_replays_in_append_order_across_partitions() {
         );
     });
 }
+
+/// A projection that lets a key repeat in a block when the later record is even-numbered.
+struct Even;
+
+impl Projection<MemoryBackend> for Even {
+    fn name(&self) -> &'static str {
+        "even"
+    }
+    fn step(&self) -> Step {
+        Step::Registry
+    }
+    fn accepts(&self, header: &Header) -> bool {
+        header.payload_type == "scatter:v0/changeset"
+    }
+    fn repeats_in_block(&self, earlier: &[&Record], later: &Record) -> bool {
+        !earlier.is_empty() && later.header().revid.is_some_and(|n| n % 2 == 0)
+    }
+    fn apply<'a>(
+        &'a self,
+        _cx: &'a mut MemoryCx,
+        _record: &'a Record,
+    ) -> BoxFuture<'a, Result<Applied, String>> {
+        Box::pin(async { Ok(Applied::rows(0)) })
+    }
+    fn reset<'a>(
+        &'a self,
+        _cx: &'a mut MemoryCx,
+        _partition: u64,
+    ) -> BoxFuture<'a, Result<(), String>> {
+        Box::pin(async { Ok(()) })
+    }
+}
+
+/// A block's stretches (0013 A89): a stretch ends before a record whose key it holds,
+/// unless every synchronous projection that accepts the record lets the key repeat; a
+/// projection says no unless it says otherwise.
+#[test]
+fn a_stretch_ends_where_a_projection_keeps_a_key_apart() {
+    pollster::block_on(async {
+        // Revision IDs 1..=6: Q1, Q2, Q1 (odd: kept apart), Q1 (even: repeats), X1, X1.
+        let store = store_with(&[
+            ("Q1", &[]),
+            ("Q2", &[]),
+            ("Q1", &[]),
+            ("Q1", &[]),
+            ("X1", &[]),
+            ("X1", &[]),
+        ])
+        .await;
+        let mut records = Vec::new();
+        for offset in 0..6 {
+            records.push(
+                store
+                    .read(PARTITION, offset)
+                    .await
+                    .unwrap()
+                    .record()
+                    .unwrap()
+                    .clone(),
+            );
+        }
+        // No projection accepts the `X1` records, so nothing keeps them apart.
+        let even = Pipeline::<MemoryBackend>::new().with(Even).unwrap();
+        assert_eq!(even.stretches(&records), vec![2, 6]);
+        // The counter accepts every record and says nothing: a key never repeats.
+        let both = Pipeline::new().with(Even).unwrap().with(Counter).unwrap();
+        assert_eq!(both.stretches(&records), vec![2, 3, 5, 6]);
+        assert_eq!(both.stretches(&[]), Vec::<usize>::new());
+    });
+}

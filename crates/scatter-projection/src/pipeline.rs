@@ -285,6 +285,67 @@ impl<B: Backend> Pipeline<B> {
         Ok(out)
     }
 
+    /// Where a block's stretches end (0013 A89): the stretches of consecutive records the
+    /// synchronous projections apply as one block each ([`Self::apply_inline_many`]),
+    /// given that a key may come more than once. A record whose key the stretch already
+    /// holds stays in it when every synchronous projection that accepts the record says
+    /// the key may repeat ([`Projection::repeats_in_block`]); otherwise the stretch ends
+    /// before it. A record with no key repeats nothing. Returns each stretch's end, the
+    /// last being `records.len()`; nothing for no records.
+    #[must_use]
+    pub fn stretches(&self, records: &[Record]) -> Vec<usize> {
+        let mut ends = Vec::new();
+        let mut held: BTreeMap<&str, Vec<&Record>> = BTreeMap::new();
+        for (i, record) in records.iter().enumerate() {
+            let Some(key) = record.header().key.as_deref() else {
+                continue;
+            };
+            if let Some(earlier) = held.get(key) {
+                let together = self
+                    .synchronous()
+                    .filter(|p| p.accepts(record.header()))
+                    .all(|p| p.repeats_in_block(earlier, record));
+                if !together {
+                    ends.push(i);
+                    held.clear();
+                }
+            }
+            held.entry(key).or_default().push(record);
+        }
+        if !records.is_empty() {
+            ends.push(records.len());
+        }
+        ends
+    }
+
+    /// [`Self::apply_inline_many`] for consecutive records of one partition in which a
+    /// key may come more than once (0013 A89): over each of the block's stretches
+    /// ([`Self::stretches`]), one after another.
+    ///
+    /// # Panics
+    ///
+    /// When the records are not consecutive offsets of one partition.
+    pub async fn apply_inline_stretches(
+        &self,
+        backend: &B,
+        cx: &mut B::Cx,
+        records: &[Record],
+        budget: Budget,
+    ) -> Result<Inline, ProjectionError> {
+        let mut out = Inline::default();
+        let mut from = 0;
+        for to in self.stretches(records) {
+            let inline = self
+                .apply_inline_many(backend, cx, &records[from..to], budget)
+                .await?;
+            out.rows += inline.rows;
+            out.fanned_out += inline.fanned_out;
+            out.queued += inline.queued;
+            from = to;
+        }
+        Ok(out)
+    }
+
     /// Applies one record for every projection whose position is at or below it.
     /// Fan-out is queued, never applied inline: a catch-up is bulk work.
     async fn apply_behind(

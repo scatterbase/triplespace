@@ -118,8 +118,12 @@ more. For a machine with `R` of RAM:
 3. ~~**`sync` has only the internetdomains adapter.**~~ Since 0091, `sync` dispatches on the
    registry's `adapter` field and reads every Wikibase provider, Wikidata included, through
    `scatter-adapter-wikibase`; a JSON dump without key maps is read in one pass.
-4. **The NDJSON job endpoint and the interactive API share `write_to`**, so a bulk import over the
-   API runs at the per-entity rate (about 345 entities/s per job on Librarybase-shaped entities).
+4. ~~**The NDJSON job endpoint and the interactive API share `write_to`**, so a bulk import over the
+   API runs at the per-entity rate (about 345 entities/s per job on Librarybase-shaped entities).~~
+   Since 2026-11-11 a batch writes its operations in blocks of 200 (0013 A87, A90): 2,000 small
+   `create`s take about 2.6 s against 7.7 s streamed, and 2.6 s against 5.4 s atomic (release
+   build, cloud sandbox). The projections still apply a tenant's records one at a time inside a
+   block, and preparing the batch still mints each ID in a round trip of its own.
 5. **Client CPU (1.2 ms/entity) is unprofiled.** Per entity the op is parsed from XML, validated,
    cloned, converted to JSON then to the CBOR value, encoded and hashed; the projection decodes it
    again and builds canonical JSON even when only its length is kept. The survey pass also reads and

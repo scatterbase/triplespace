@@ -12,8 +12,8 @@ use scatter_ingest::adopt::{
     Adopted, AdoptedItem, AdoptedPage, Adoption, Author, Floors, run_adoption,
 };
 use scatter_ingest::{
-    Attestation, BlockEntry, BlockPayload, IngestError, Request, SyncItem, run_batch, run_sync,
-    write_many, write_operation,
+    Attestation, BlockEntry, BlockPayload, IngestError, Request, SyncItem, run_batch, run_batch_in,
+    run_sync, write_many, write_operation,
 };
 use scatter_log::body::Body;
 use scatter_log::cbor::Value;
@@ -894,6 +894,11 @@ async fn views(client: &Client) -> BTreeMap<String, Vec<String>> {
 /// several authors: a property and items that use it, an item naming one created later
 /// in the block, a key written three times, and an adopted entity's history under its
 /// own page and revision IDs.
+///
+/// The projections say where a key may repeat in a stretch (0013 A89): that block is one
+/// stretch, and two more blocks are the cases the entity projection keeps apart, an
+/// entity that goes and comes back and records appended at two times, which leave the
+/// same rows because their stretches end there.
 #[tokio::test]
 #[allow(clippy::too_many_lines)]
 async fn a_block_of_local_records_leaves_what_one_record_at_a_time_leaves() {
@@ -967,69 +972,134 @@ async fn a_block_of_local_records_leaves_what_one_record_at_a_time_leaves() {
             adopt("Q7", "Seven, thrice", 42, 700),
         ),
     ];
-    let mut runs = Vec::new();
-    for in_block in [false, true] {
-        let (client, backend) = fresh().await;
-        let client = seed(client).await;
-        let store = PgIngest::new(backend);
-        let p = pipeline();
-        let registry = Registry::default_registry();
-        let log_store = PgLog::new(client);
-        p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
-            .await
-            .unwrap();
-        let client = log_store.into_inner();
-        let mut cx = store.begin().await.unwrap();
-        if in_block {
-            let entries: Vec<_> = block
-                .iter()
-                .map(|(request, op)| BlockEntry {
-                    request,
-                    payload: BlockPayload::Operation(op),
-                })
-                .collect();
-            write_many(
-                &store,
-                &p,
-                &mut cx,
-                LOCAL,
-                &Graph::Local,
-                &entries,
-                scatter_projection::Budget::NONE,
-                registry,
+    // A key repeats in a stretch only where the entity projection has shown it leaves the
+    // same rows (0013 A89): not past a revision that takes the entity away, and not when
+    // its records were appended at different times.
+    let redirect = Operation::Adopt {
+        id: EntityId::parse("Q7").unwrap(),
+        entity: None,
+        redirect: Some(EntityId::parse("Q1").unwrap()),
+        source_revid: 41,
+        source_parentid: None,
+        source_time: "2026-09-20T14:02:11Z".into(),
+        source_pageid: 700,
+        minor: false,
+        withheld: Vec::new(),
+    };
+    let gone_and_back: Vec<(Request, Operation)> = vec![
+        (
+            by("librarybase:1", None, None),
+            op(json!({"op": "create", "id": "Q1", "entity": item("Q1", "One", &json!({}))})),
+        ),
+        (
+            by("librarybase:7", None, Some(40)),
+            adopt("Q7", "Seven", 40, 700),
+        ),
+        (by("librarybase:8", None, Some(41)), redirect),
+        (
+            by("librarybase:7", None, Some(42)),
+            adopt("Q7", "Seven, back", 42, 700),
+        ),
+        (
+            by("librarybase:1", None, None),
+            op(json!({"op": "create", "id": "Q2", "entity": item("Q2", "Two", &json!({}))})),
+        ),
+        (
+            by("librarybase:1", None, None),
+            op(json!({"op": "create", "id": "Q3", "entity": item("Q3", "Three", &json!({}))})),
+        ),
+    ];
+    let mut later = by("librarybase:2", None, None);
+    later.now = NOW + 5_000_000;
+    let mut two_times: Vec<(Request, Operation)> = (1..=5)
+        .map(|n| {
+            let id = format!("Q{n}");
+            (
+                by("librarybase:1", None, None),
+                op(json!({"op": "create", "id": id, "entity": item(&id, "An item", &json!({}))})),
             )
-            .await
-            .unwrap();
-        } else {
-            for (request, op) in &block {
-                write_operation(&store, &p, &mut cx, request, op, registry)
-                    .await
-                    .unwrap();
+        })
+        .collect();
+    two_times.push((
+        later,
+        op(json!({"op": "add", "id": "Q1", "labels": {"fr": "Un"}})),
+    ));
+    // Each case has more records than `SMALL_BLOCK`, so that it is written as a block.
+    let cases = [
+        ("every key repeats in one stretch", &block, vec![9]),
+        (
+            "an entity that goes and comes back",
+            &gone_and_back,
+            vec![2, 3, 6],
+        ),
+        ("records appended at two times", &two_times, vec![5, 6]),
+    ];
+    for (case, block, stretches) in cases {
+        let mut runs = Vec::new();
+        for in_block in [false, true] {
+            let (client, backend) = fresh().await;
+            let client = seed(client).await;
+            let store = PgIngest::new(backend);
+            let p = pipeline();
+            let registry = Registry::default_registry();
+            let log_store = PgLog::new(client);
+            p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
+                .await
+                .unwrap();
+            let client = log_store.into_inner();
+            let mut cx = store.begin().await.unwrap();
+            if in_block {
+                let entries: Vec<_> = block
+                    .iter()
+                    .map(|(request, op)| BlockEntry {
+                        request,
+                        payload: BlockPayload::Operation(op),
+                    })
+                    .collect();
+                let written = write_many(
+                    &store,
+                    &p,
+                    &mut cx,
+                    LOCAL,
+                    &Graph::Local,
+                    &entries,
+                    scatter_projection::Budget::NONE,
+                    registry,
+                )
+                .await
+                .unwrap();
+                assert_eq!(p.stretches(&written), stretches, "{case}: its stretches");
+            } else {
+                for (request, op) in block {
+                    write_operation(&store, &p, &mut cx, request, op, registry)
+                        .await
+                        .unwrap();
+                }
             }
+            store.commit(cx).await.unwrap();
+            let records = rows(
+                &client,
+                "SELECT lpad(\"offset\"::text, 6, '0') || '|' || key || '|' || coalesce(revid::text, '-')
+                        || '|' || coalesce(page_id::text, '-') || '|' || octet_length(body)::text
+                 FROM log.record WHERE partition = 12289",
+            )
+            .await;
+            runs.push((records, views(&client).await));
         }
-        store.commit(cx).await.unwrap();
-        let records = rows(
-            &client,
-            "SELECT lpad(\"offset\"::text, 6, '0') || '|' || key || '|' || coalesce(revid::text, '-')
-                    || '|' || coalesce(page_id::text, '-') || '|' || octet_length(body)::text
-             FROM log.record WHERE partition = 12289",
-        )
-        .await;
-        runs.push((records, views(&client).await));
-    }
-    let (records_one, views_one) = &runs[0];
-    let (records_block, views_block) = &runs[1];
-    assert_eq!(records_one.len(), 9);
-    assert_eq!(records_block, records_one, "the same records");
-    assert!(
-        views_one.values().map(Vec::len).sum::<usize>() > 20,
-        "the projections wrote their rows"
-    );
-    for (table, rows_one) in views_one {
-        assert_eq!(
-            &views_block[table], rows_one,
-            "the same rows in view.{table}"
+        let (records_one, views_one) = &runs[0];
+        let (records_block, views_block) = &runs[1];
+        assert_eq!(records_one.len(), block.len(), "{case}");
+        assert_eq!(records_block, records_one, "{case}: the same records");
+        assert!(
+            views_one.values().map(Vec::len).sum::<usize>() > 5,
+            "{case}: the projections wrote their rows"
         );
+        for (table, rows_one) in views_one {
+            assert_eq!(
+                &views_block[table], rows_one,
+                "{case}: the same rows in view.{table}"
+            );
+        }
     }
 }
 
@@ -1047,6 +1117,282 @@ fn revision(id: &str, revid: u64, parent: Option<u64>, time: &str, author: Autho
         comment: Some(format!("edit {revid}")),
         author,
     }
+}
+
+/// The batch of the block test: two created items, one of them edited twice more, a
+/// `create-or-add` that finds nothing, a statement naming an item of the batch, a bulk
+/// `retain`, and (streamed only) a line with problems between the operations.
+fn block_batch(atomic: bool) -> String {
+    let job = if atomic {
+        r#"{"job":{"source":"block-batch","graph":"local","atomic":true}}"#
+    } else {
+        r#"{"job":{"source":"block-batch","graph":"local"}}"#
+    };
+    let mut lines = vec![
+        job,
+        r#"{"op":"create","ref":"$a","entity":{"type":"item","id":"$a","labels":{"en":{"language":"en","value":"A paper"}},"claims":{"P356":[{"mainsnak":{"snaktype":"value","property":"P356","datavalue":{"value":"10.1/a","type":"string"},"datatype":"external-id"},"type":"statement","rank":"normal"}]}}}"#,
+        r#"{"op":"create","ref":"$b","entity":{"type":"item","id":"$b","labels":{"en":{"language":"en","value":"Another"}},"claims":{}}}"#,
+        r#"{"op":"add","id":"$a","labels":{"fr":"Un article"}}"#,
+        r#"{"op":"create-or-add","match":{"P356":"10.1/unknown"},"entity":{"type":"item","id":"Q0","labels":{"en":{"language":"en","value":"Unknown"}},"claims":{}}}"#,
+        r#"{"op":"add","id":"$b","claims":{"P31":[{"mainsnak":{"snaktype":"value","property":"P31","datavalue":{"value":{"entity-type":"item","id":"$a"},"type":"wikibase-entityid"},"datatype":"wikibase-item"},"type":"statement","rank":"normal"}]}}"#,
+        r#"{"op":"retain","ids":["XDQ1","XDQ2"],"policy":"retain"}"#,
+    ];
+    if !atomic {
+        lines.push(r#"{"op":"add","id":"Q8","page":3,"labels":{"en":"both"}}"#);
+    }
+    lines.push(r#"{"op":"add","id":"$a","descriptions":{"en":"the first"}}"#);
+    let mut text = lines.join("\n");
+    text.push('\n');
+    text
+}
+
+/// A batch writes its operations in blocks (0013 A90), and over Postgres, with the real
+/// projections, a streamed and an atomic batch leave what they leave an operation at a
+/// time (a block of one): the same records, counts, IDs and rejects, and the same rows
+/// in every `view` table.
+#[tokio::test]
+async fn a_batch_in_blocks_leaves_what_one_operation_at_a_time_leaves() {
+    if skipped() {
+        return;
+    }
+    for atomic in [false, true] {
+        let text = block_batch(atomic);
+        let mut runs = Vec::new();
+        for block in [1usize, 3, 200] {
+            let (client, backend) = fresh().await;
+            let client = seed(client).await;
+            let store = PgIngest::new(backend);
+            let p = pipeline();
+            let registry = Registry::default_registry();
+            let log_store = PgLog::new(client);
+            p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
+                .await
+                .unwrap();
+            let client = log_store.into_inner();
+            let out = run_batch_in(
+                &store,
+                &p,
+                TENANT,
+                Attestation::by("librarybase:7"),
+                &text,
+                &ProviderOrder::default(),
+                registry,
+                NOW,
+                block,
+            )
+            .await
+            .unwrap();
+            let records = rows(
+                &client,
+                "SELECT lpad(\"offset\"::text, 6, '0') || '|' || key || '|' || coalesce(revid::text, '-')
+                        || '|' || coalesce(page_id::text, '-') || '|' || octet_length(body)::text
+                 FROM log.record WHERE partition = 12289",
+            )
+            .await;
+            runs.push((
+                block,
+                (out.counts, out.ids, out.rejects),
+                records,
+                views(&client).await,
+            ));
+        }
+        let (_, outcome_one, records_one, views_one) = &runs[0];
+        assert_eq!(
+            (records_one.len(), outcome_one.0.rejected),
+            (8, u64::from(!atomic)),
+            "atomic {atomic}: eight records, and the line with problems rejected when streamed"
+        );
+        for (block, outcome, records, views) in &runs[1..] {
+            assert_eq!(outcome, outcome_one, "atomic {atomic}, blocks of {block}");
+            assert_eq!(records, records_one, "atomic {atomic}, blocks of {block}");
+            for (table, rows_one) in views_one {
+                assert_eq!(
+                    &views[table], rows_one,
+                    "atomic {atomic}, blocks of {block}: the same rows in view.{table}"
+                );
+            }
+        }
+    }
+}
+
+/// One revision of a page in an export, on day `day` of January 2026.
+fn import_revision(
+    id: u64,
+    day: u64,
+    text: Option<&str>,
+    author: Author,
+) -> scatter_ingest::import::ImportRevision {
+    scatter_ingest::import::ImportRevision {
+        source_revid: id,
+        source_parentid: (id > 1).then(|| id - 1),
+        source_time: format!("2026-01-{day:02}T00:00:00Z"),
+        time: 1_767_225_600_000_000 + (day - 1) * 86_400_000_000,
+        model: "wikitext".into(),
+        text: text.map(str::to_string),
+        sha1: text
+            .map(scatter_mediawiki_xml::sha1_base36)
+            .unwrap_or_default(),
+        minor: id.is_multiple_of(2),
+        comment: Some(format!("edit {id}")),
+        withheld: if text.is_none() {
+            vec!["text".into()]
+        } else {
+            Vec::new()
+        },
+        author,
+    }
+}
+
+/// An import writes each page's revisions as one block (0013 A91), over Postgres with the
+/// real projections: a page of six revisions (more than `SMALL_BLOCK`, so one block) by a registered author, an imported one
+/// and a hidden one, one with its text withheld, lands under one minted page ID with the
+/// tenant's revision IDs in timestamp order; a second run writes nothing twice; and
+/// older revisions imported onto the title go behind the page's own newest, which is
+/// restored on top.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn an_import_writes_each_page_as_a_block() {
+    use scatter_ingest::import::{Import, ImportPage, run_import};
+    use triplespace_api_ingest::import::PgImportHost;
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let client = seed(client).await;
+    let store = PgIngest::new(backend);
+    let p = pipeline();
+    let log_store = PgLog::new(client);
+    p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
+        .await
+        .unwrap();
+    let client = log_store.into_inner();
+    let imported = |raw: &str| Author::Surrogate {
+        kind: "imported".into(),
+        raw: raw.into(),
+    };
+    let guide = ImportPage {
+        ns: 4,
+        title: "Guide".into(),
+        revisions: vec![
+            // Out of order in the file: the job sorts by timestamp.
+            import_revision(3, 5, Some("Third text."), Author::Hidden),
+            import_revision(
+                1,
+                3,
+                Some("First text."),
+                Author::Actor("librarybase:7".into()),
+            ),
+            import_revision(2, 4, None, imported("Old Editor")),
+            import_revision(4, 6, Some("Fourth text."), imported("Old Editor")),
+            import_revision(5, 7, Some("Fifth text."), Author::Hidden),
+            import_revision(
+                6,
+                8,
+                Some("Sixth text."),
+                Author::Actor("librarybase:7".into()),
+            ),
+        ],
+    };
+    let single = ImportPage {
+        ns: 4,
+        title: "Single".into(),
+        revisions: vec![import_revision(
+            9,
+            3,
+            Some("Only text."),
+            imported("Another"),
+        )],
+    };
+    let older = ImportPage {
+        ns: 4,
+        title: "Guide".into(),
+        revisions: vec![
+            import_revision(20, 1, Some("An older text."), imported("Another")),
+            import_revision(21, 2, Some("A second older text."), imported("Third")),
+        ],
+    };
+    let import = || Import {
+        source: "upload".into(),
+        version: Some("pages.xml".into()),
+        history: true,
+        summary: None,
+        job_id: None,
+    };
+    let mut outcomes = Vec::new();
+    for pages in [
+        vec![guide.clone(), single.clone()],
+        vec![guide, single],
+        vec![older],
+    ] {
+        let out = run_import(
+            &store,
+            &p,
+            &PgImportHost,
+            TENANT,
+            Attestation::by("librarybase:2"),
+            import(),
+            pages,
+            NOW,
+        )
+        .await
+        .unwrap();
+        assert!(out.rejects.is_empty(), "{:?}", out.rejects);
+        outcomes.push((out.counts, out.pages));
+    }
+    let c = |i: usize| {
+        let c: &scatter_ingest::import::ImportCounts = &outcomes[i].0;
+        (c.created, c.merged, c.revisions, c.present, c.restored)
+    };
+    assert_eq!(c(0), (2, 0, 7, 0, 0), "two pages created, seven revisions");
+    assert_eq!(
+        c(1),
+        (0, 2, 0, 7, 0),
+        "the second run finds them all present"
+    );
+    assert_eq!(
+        c(2),
+        (0, 1, 2, 0, 1),
+        "two older revisions, and the newest restored"
+    );
+    let records = rows(
+        &client,
+        "SELECT lpad(\"offset\"::text, 6, '0') || '|' || key || '|' || revid::text || '|' || page_id::text
+         FROM log.record WHERE partition = 12290",
+    )
+    .await;
+    let guide_id = outcomes[0].1[0].page_id;
+    let single_id = outcomes[0].1[1].page_id;
+    assert_ne!(guide_id, single_id);
+    let of = |page: u64| -> Vec<u64> {
+        records
+            .iter()
+            .filter_map(|r| {
+                let f: Vec<&str> = r.split('|').collect();
+                (f[1] == page.to_string() && f[3] == page.to_string())
+                    .then(|| f[2].parse().unwrap())
+            })
+            .collect()
+    };
+    let guide_revids = of(guide_id);
+    assert_eq!(
+        guide_revids.len(),
+        6 + 2 + 1,
+        "six, two older, the restoring edit"
+    );
+    assert!(
+        guide_revids.windows(2).all(|w| w[0] < w[1]),
+        "revision IDs in the order written: {guide_revids:?}"
+    );
+    assert_eq!(of(single_id).len(), 1);
+    assert_eq!(records.len(), 10);
+    // The page's current text is its own newest revision, restored on top.
+    assert_eq!(
+        rows(&client, "SELECT title || '|' || latest_revid::text FROM view.page WHERE tenant = 'librarybase' AND ns = 4").await,
+        vec![
+            format!("Guide|{}", guide_revids.last().unwrap()),
+            format!("Single|{}", of(single_id)[0]),
+        ]
+    );
 }
 
 /// One revision of an adopted wikitext page: its `create`, or an `edit` after it.
