@@ -42,7 +42,7 @@ async fn reviewer(
         }
         Err(e) => return Err(internal(&e)),
     };
-    let caller = Caller::resolve(app.accounts_pool(), &tenant.slug, headers)
+    let caller = Caller::resolve(client, &tenant.slug, headers)
         .await
         .map_err(|e| internal(&e.info))?;
     let Some(actor) = caller.identity.actor_key.clone() else {

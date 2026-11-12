@@ -49,7 +49,7 @@ pub async fn handle(
             "the tenancy policy and the tenant list are served only at the farm base",
         );
     }
-    let caller = match Caller::resolve(app.accounts_pool(), &tenant.slug, &headers).await {
+    let caller = match Caller::resolve(&**client, &tenant.slug, &headers).await {
         Ok(c) => c,
         Err(e) => return internal(&e.info),
     };

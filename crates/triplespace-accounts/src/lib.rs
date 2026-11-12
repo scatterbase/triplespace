@@ -27,7 +27,7 @@
 //!   profile call, and the source lookup vouching needs.
 //! - [`bindings`]: `private.binding`, the index of external bindings (0088 §7).
 //! - [`seal`]: secrets sealed at rest under the instance sealing key (0088 §3).
-//! - [`forwarder`]: forwarder keys in `private.forwarder_key`, which let a proxy vouch
+//! - [`forwarder`]: forwarder keys in `ops.forwarder_key`, which let a proxy vouch
 //!   for the client address it forwards (0057 §10).
 //! - [`settings`]: the settings registry, the resolver of a setting's value and the one
 //!   validator every writer of a `site` record calls (0085 §1–3).

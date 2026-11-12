@@ -80,7 +80,7 @@ async fn holder(
         }
         Err(e) => return Err(internal(&e)),
     };
-    let caller = Caller::resolve(app.accounts_pool(), &tenant.slug, headers)
+    let caller = Caller::resolve(client, &tenant.slug, headers)
         .await
         .map_err(|e| internal(&e.info))?;
     if caller.identity.actor_key.is_none() {

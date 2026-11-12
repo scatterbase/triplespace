@@ -331,6 +331,104 @@ async fn the_public_role_cannot_read_accounts_through_the_parent() {
     assert_eq!(insert_as(role::SERVER, 7).await.unwrap(), 1);
 }
 
+/// 0013 §4, A101: the public role finds a request's caller through `ops.caller_session`
+/// and `ops.caller_key`, and still may not read the tables they read; a session whose bot
+/// password was revoked is ended by the lookup; a wrong secret finds nothing.
+#[tokio::test]
+async fn the_public_role_resolves_callers_without_reading_private() {
+    if skipped() {
+        return;
+    }
+    let mut client = fresh().await;
+    migrator().apply(&mut client).await.unwrap();
+    // The SHA-256 of "s3cret", in hex: the function compares the digest it is given.
+    let hash = "1ec1c26b50d5d3c58d9583181af8076655fe00756bf7285940ba3670f99fcba0";
+    client
+        .batch_execute(&format!(
+            "INSERT INTO private.api_key (actor_key, key_id, label, hash, grants)
+               VALUES ('actor:7', 'k1', 'bot', '{hash}', ARRAY['edit']),
+                      ('actor:7', 'k2', 'old', '{hash}', ARRAY['edit']);
+             UPDATE private.api_key SET revoked_at = now() WHERE key_id = 'k2';
+             INSERT INTO private.session (id, tenant, actor_key, key_id, expires)
+               VALUES ('plain', 'demo', 'actor:7', NULL, now() + interval '1 hour'),
+                      ('bot', 'demo', 'actor:7', 'k1', now() + interval '1 hour'),
+                      ('dead', 'demo', 'actor:7', 'k2', now() + interval '1 hour');"
+        ))
+        .await
+        .unwrap();
+    client
+        .batch_execute(&format!("SET ROLE {}", role::SERVER))
+        .await
+        .unwrap();
+    let session = |id: &'static str, tenant: &'static str| {
+        let c = &client;
+        async move {
+            c.query_opt(
+                "SELECT actor_key, key_id, key_grants FROM ops.caller_session($1, $2)",
+                &[&id, &tenant],
+            )
+            .await
+            .unwrap()
+            .map(|r| {
+                (
+                    r.get::<_, Option<String>>(0),
+                    r.get::<_, Option<String>>(1),
+                    r.get::<_, Option<Vec<String>>>(2),
+                )
+            })
+        }
+    };
+    assert_eq!(
+        session("plain", "demo").await,
+        Some((Some("actor:7".into()), None, None))
+    );
+    assert_eq!(
+        session("bot", "demo").await,
+        Some((
+            Some("actor:7".into()),
+            Some("k1".into()),
+            Some(vec!["edit".into()])
+        ))
+    );
+    assert_eq!(session("plain", "other").await, None, "another tenant's");
+    assert_eq!(session("dead", "demo").await, None, "its key was revoked");
+    let key = |id: &'static str, h: &'static str| {
+        let c = &client;
+        async move {
+            c.query_opt("SELECT actor_key FROM ops.caller_key($1, $2)", &[&id, &h])
+                .await
+                .unwrap()
+                .map(|r| r.get::<_, String>(0))
+        }
+    };
+    assert_eq!(key("k1", hash).await, Some("actor:7".into()));
+    assert_eq!(key("k1", "00").await, None, "a wrong secret");
+    assert_eq!(key("k2", hash).await, None, "a revoked key");
+    assert!(
+        client
+            .query("SELECT * FROM private.session", &[])
+            .await
+            .is_err(),
+        "the public role still may not read sessions"
+    );
+    assert!(
+        client
+            .query("SELECT hash FROM private.api_key", &[])
+            .await
+            .is_err()
+    );
+    client.batch_execute("RESET ROLE").await.unwrap();
+    let left: i64 = client
+        .query_one(
+            "SELECT count(*) FROM private.session WHERE id = 'dead'",
+            &[],
+        )
+        .await
+        .unwrap()
+        .get(0);
+    assert_eq!(left, 0, "the dead session was ended");
+}
+
 /// Every grant to a `ts_*` role in the database: on tables and sequences, on schemas, as
 /// default privileges, and as row-level security policies, as `(kind, object, grantee,
 /// privilege)`, sorted.
@@ -345,6 +443,11 @@ async fn ts_grants(client: &Client) -> Vec<(String, String, String, String)> {
              SELECT 'schema', n.nspname, a.grantee::regrole::text, a.privilege_type
                FROM pg_namespace n, aclexplode(n.nspacl) a
               WHERE a.grantee::regrole::text LIKE 'ts\\_%'
+             UNION ALL
+             SELECT 'function', n.nspname || '.' || f.proname, a.grantee::regrole::text, a.privilege_type
+               FROM pg_proc f JOIN pg_namespace n ON n.oid = f.pronamespace, aclexplode(f.proacl) a
+              WHERE n.nspname IN ('log', 'view', 'ops', 'private')
+                AND a.grantee::regrole::text LIKE 'ts\\_%'
              UNION ALL
              SELECT 'policy', p.schemaname || '.' || p.tablename || ':' || p.policyname,
                     array_to_string(p.roles, ','), coalesce(p.qual, '') || ' / ' || coalesce(p.with_check, '')
@@ -420,6 +523,7 @@ async fn ensure_restores_what_migrations_granted() {
              REVOKE ALL ON SCHEMA log, view, ops, private FROM {roles};
              ALTER DEFAULT PRIVILEGES IN SCHEMA log, view, ops, private REVOKE ALL ON TABLES FROM {roles};
              ALTER DEFAULT PRIVILEGES IN SCHEMA log, view, ops, private REVOKE ALL ON SEQUENCES FROM {roles};
+             REVOKE ALL ON ALL FUNCTIONS IN SCHEMA ops FROM {roles};
              DROP POLICY ts_accounts_reads_all ON log.record;
              DROP POLICY ts_public_skips_accounts ON log.record;"
         ))

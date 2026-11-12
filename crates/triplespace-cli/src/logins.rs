@@ -80,6 +80,7 @@ pub async fn check(args: Check) -> Result<()> {
     let required = logins::external_required(&client).await?;
     let ready = triplespace_api_ingest::accounts::readiness(
         &client,
+        &client,
         scatter_actors::issuer::IssuerRegistry::default_registry(),
         &farm.base,
     )
@@ -122,6 +123,7 @@ pub async fn check(args: Check) -> Result<()> {
     // names differ from the derived ones, which a bureaucrat renames first.
     let strict = logins::strict_names(&client).await?;
     let names = triplespace_api_ingest::accounts::strict_readiness(
+        &client,
         &client,
         scatter_actors::issuer::IssuerRegistry::default_registry(),
     )

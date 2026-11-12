@@ -77,9 +77,16 @@ fn draft(
 /// Saves a patch: at a tenant's base (`tenant = Some(slug)`, `Target::Tenant`), or at
 /// the farm base (`Target::Instance`, with the primary tenant's slug or `None`).
 /// `rights` answers for the scope written.
+///
+/// `accounts` is a connection of the accounts service, through which the checks of a
+/// save that changes how people log in read the logins and OAuth clients in `private`
+/// (0013 §4, A101); the settings they weigh them against are read in the save's own unit
+/// of work, which `store`'s role may write. `None` reads both there, for a store that
+/// connects as the owner, as the command line does.
 #[allow(clippy::too_many_arguments)]
 pub async fn save<R: Rights + Sync + ?Sized>(
     store: &PgIngest,
+    accounts: Option<&tokio_postgres::Client>,
     pipeline: &Pipeline<PgIngest>,
     tenant: Option<&str>,
     target: Target,
@@ -90,7 +97,7 @@ pub async fn save<R: Rights + Sync + ?Sized>(
 ) -> Result<Saved, SaveError> {
     let mut cx = store.begin().await.map_err(store_error)?;
     let result = save_in(
-        store, pipeline, &mut cx, tenant, target, patch, actor, rights, now,
+        store, accounts, pipeline, &mut cx, tenant, target, patch, actor, rights, now,
     )
     .await;
     match result {
@@ -108,6 +115,7 @@ pub async fn save<R: Rights + Sync + ?Sized>(
 #[allow(clippy::too_many_arguments)]
 async fn save_in<R: Rights + Sync + ?Sized>(
     store: &PgIngest,
+    accounts: Option<&tokio_postgres::Client>,
     pipeline: &Pipeline<PgIngest>,
     cx: &mut triplespace_projections::PgCx,
     tenant: Option<&str>,
@@ -158,7 +166,7 @@ async fn save_in<R: Rights + Sync + ?Sized>(
                 .iter()
                 .any(|k| k == "login.password" || k == "login.issuers"))
     {
-        no_login_method(cx.conn(), slug).await?;
+        no_login_method(cx.conn(), accounts.unwrap_or(cx.conn()), slug).await?;
     }
     if target == Target::Instance
         && patch
@@ -167,14 +175,14 @@ async fn save_in<R: Rights + Sync + ?Sized>(
             .and_then(serde_json::Value::as_bool)
             == Some(true)
     {
-        external_required_unmet(cx.conn()).await?;
+        external_required_unmet(cx.conn(), accounts.unwrap_or(cx.conn())).await?;
     }
     if target == Target::Instance
         && (patch.set.contains_key("login.names")
             || patch.set.contains_key("login.external_required")
             || patch.unset.iter().any(|k| k == "login.external_required"))
     {
-        strict_names_unmet(cx.conn()).await?;
+        strict_names_unmet(cx.conn(), accounts.unwrap_or(cx.conn())).await?;
     }
     if let Some(event) = planned.event(target) {
         let (log, seq_tenant) = match target {
@@ -213,13 +221,17 @@ async fn save_in<R: Rights + Sync + ?Sized>(
 /// (0101 §2, `ts-external-required-unmet`): the auth host offers no issuer, a login holds
 /// no external identity, or a credential is still keyed by a tenant account. Runs after
 /// the writes, in their unit of work.
-async fn external_required_unmet(client: &tokio_postgres::Client) -> Result<(), SaveError> {
+async fn external_required_unmet(
+    client: &tokio_postgres::Client,
+    accounts: &tokio_postgres::Client,
+) -> Result<(), SaveError> {
     let farm = triplespace_projections::tenants::farm(client)
         .await
         .map_err(store_error)?
         .ok_or_else(|| SaveError::Store("the instance has no farm record".into()))?;
     let ready = crate::accounts::readiness(
         client,
+        accounts,
         scatter_actors::issuer::IssuerRegistry::default_registry(),
         &farm.base,
     )
@@ -245,7 +257,10 @@ async fn external_required_unmet(client: &tokio_postgres::Client) -> Result<(), 
 /// its identity's username derives. Runs after the writes, in their unit of work, so it
 /// sees what the save would leave. This implements 0102 §5 (A2) with
 /// `accounts::strict_readiness`.
-async fn strict_names_unmet(client: &tokio_postgres::Client) -> Result<(), SaveError> {
+async fn strict_names_unmet(
+    client: &tokio_postgres::Client,
+    accounts: &tokio_postgres::Client,
+) -> Result<(), SaveError> {
     if !triplespace_accounts::logins::strict_names(client)
         .await
         .map_err(store_error)?
@@ -254,6 +269,7 @@ async fn strict_names_unmet(client: &tokio_postgres::Client) -> Result<(), SaveE
     }
     let ready = crate::accounts::strict_readiness(
         client,
+        accounts,
         scatter_actors::issuer::IssuerRegistry::default_registry(),
     )
     .await
@@ -275,7 +291,11 @@ async fn strict_names_unmet(client: &tokio_postgres::Client) -> Result<(), SaveE
 /// Refuses a save that would leave a tenant with no way to log in: `login.password` off
 /// and no external issuer offered (0088 §4, `ts-no-login-method`). Runs after the writes,
 /// in their unit of work, so it sees what the save would leave.
-async fn no_login_method(client: &tokio_postgres::Client, tenant: &str) -> Result<(), SaveError> {
+async fn no_login_method(
+    client: &tokio_postgres::Client,
+    accounts: &tokio_postgres::Client,
+    tenant: &str,
+) -> Result<(), SaveError> {
     let (settings, _) = triplespace_accounts::settings::load(client, Some(tenant))
         .await
         .map_err(store_error)?;
@@ -305,7 +325,7 @@ async fn no_login_method(client: &tokio_postgres::Client, tenant: &str) -> Resul
         .map_err(store_error)?
         .and_then(|r| r.get(0));
     let offered = triplespace_accounts::oauth::offered(
-        client,
+        accounts,
         scatter_actors::issuer::IssuerRegistry::default_registry(),
         tenant,
         base.as_deref().unwrap_or_default(),

@@ -447,10 +447,10 @@ async fn run() -> Result<()> {
         tokio::spawn(deliver(app.clone(), notify.clone(), transport));
     }
     background(&app, args.workers).await;
-    // Jobs are operators' work, and an adoption appends to accounts partitions (0035):
-    // the runners connect as the accounts service (0013 §4, A99).
-    let jobs = args.accounts_database.as_ref().unwrap_or(&args.database);
-    job_runners(&app, jobs, args.job_runners)?;
+    // The queued kinds, import and revert, write public partitions only: the runners
+    // connect as the public API (0013 §4, A101). An adoption, which appends to accounts
+    // partitions, is run by `triplespace adopt` as the owner until it joins the queue.
+    job_runners(&app, &args.database, args.job_runners)?;
     if let Some(admin) = &args.admin_listen {
         let admin_router =
             axum::Router::new().route("/healthz", axum::routing::get(|| async { "ok" }));

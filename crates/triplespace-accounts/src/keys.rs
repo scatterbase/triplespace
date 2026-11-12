@@ -168,21 +168,6 @@ pub async fn revoke<C: GenericClient>(
     Ok(n > 0)
 }
 
-/// A live key row, by key ID.
-async fn live<C: GenericClient>(
-    client: &C,
-    key_id: &str,
-) -> Result<Option<(String, String, Vec<String>)>, AccountsError> {
-    let row = client
-        .query_opt(
-            "SELECT actor_key, hash, grants FROM private.api_key
-             WHERE key_id = $1 AND revoked_at IS NULL AND (expires IS NULL OR expires > now())",
-            &[&key_id],
-        )
-        .await?;
-    Ok(row.map(|r| (r.get(0), r.get(1), r.get(2))))
-}
-
 /// Notes a use, at most once a minute (0024 §4).
 async fn touch<C: GenericClient>(client: &C, key_id: &str) -> Result<(), AccountsError> {
     client
@@ -203,25 +188,26 @@ fn constant_time_eq(a: &str, b: &str) -> bool {
             == 0
 }
 
-/// Authenticates a bearer credential, `{key ID}.{secret}` (0024 §4).
-pub async fn authenticate_bearer<C: GenericClient>(
+/// Authenticates a bearer key, `{key_id}.{secret}`, through `ops.caller_key`, which reads
+/// `private.api_key` as its owner and compares the secret's hash there, so that a connection
+/// of the public API resolves its caller and never sees a stored hash (0013 §4, A101).
+pub async fn caller_bearer<C: GenericClient>(
     client: &C,
     bearer: &str,
 ) -> Result<Option<KeyAuth>, AccountsError> {
     let Some((key_id, secret)) = bearer.split_once('.') else {
         return Ok(None);
     };
-    let Some((actor_key, hash, grants)) = live(client, key_id).await? else {
-        return Ok(None);
-    };
-    if !constant_time_eq(&hash, &sha256_hex(secret)) {
-        return Ok(None);
-    }
-    touch(client, key_id).await?;
-    Ok(Some(KeyAuth {
-        actor_key,
+    let row = client
+        .query_opt(
+            "SELECT actor_key, grants FROM ops.caller_key($1, $2)",
+            &[&key_id, &sha256_hex(secret)],
+        )
+        .await?;
+    Ok(row.map(|r| KeyAuth {
+        actor_key: r.get(0),
         key_id: key_id.to_string(),
-        grants: grants.into_iter().collect(),
+        grants: r.get::<_, Vec<String>>(1).into_iter().collect(),
     }))
 }
 

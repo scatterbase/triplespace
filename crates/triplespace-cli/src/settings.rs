@@ -186,6 +186,7 @@ async fn write(at: &Where, instance: bool, patch: &Patch) -> Result<()> {
     let all = |_: &str| true;
     match save(
         &store,
+        None,
         &pipeline,
         Some(&slug),
         target,

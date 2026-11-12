@@ -1,4 +1,4 @@
-//! Forwarder keys (0057 §10): `private.forwarder_key`. A forwarder key lets a proxy (the
+//! Forwarder keys (0057 §10): `ops.forwarder_key`. A forwarder key lets a proxy (the
 //! edge, the web tier) vouch for the client address it appends to `X-Forwarded-For`,
 //! where trusting the proxy by its address is not enough. It acts as no account, reads
 //! nothing and grants nothing. A key is `{key ID}.{secret}`, shaped like an API key
@@ -63,7 +63,7 @@ pub async fn issue<C: GenericClient>(client: &C, label: &str) -> Result<Issued, 
     let secret = random_token(32)?;
     client
         .execute(
-            "INSERT INTO private.forwarder_key (key_id, label, hash) VALUES ($1, $2, $3)",
+            "INSERT INTO ops.forwarder_key (key_id, label, hash) VALUES ($1, $2, $3)",
             &[&key_id, &label, &sha256_hex(&secret)],
         )
         .await
@@ -83,7 +83,7 @@ pub async fn issue<C: GenericClient>(client: &C, label: &str) -> Result<Issued, 
 pub async fn list<C: GenericClient>(client: &C) -> Result<Vec<ForwarderInfo>, AccountsError> {
     let rows = client
         .query(
-            "SELECT key_id, label, created, revoked_at FROM private.forwarder_key
+            "SELECT key_id, label, created, revoked_at FROM ops.forwarder_key
              ORDER BY created DESC",
             &[],
         )
@@ -103,7 +103,7 @@ pub async fn list<C: GenericClient>(client: &C) -> Result<Vec<ForwarderInfo>, Ac
 pub async fn revoke<C: GenericClient>(client: &C, key_id: &str) -> Result<bool, AccountsError> {
     let n = client
         .execute(
-            "UPDATE private.forwarder_key SET revoked_at = now()
+            "UPDATE ops.forwarder_key SET revoked_at = now()
              WHERE key_id = $1 AND revoked_at IS NULL",
             &[&key_id],
         )
@@ -125,7 +125,7 @@ pub async fn verify<C: GenericClient>(
     }
     let row = client
         .query_opt(
-            "SELECT hash FROM private.forwarder_key WHERE key_id = $1 AND revoked_at IS NULL",
+            "SELECT hash FROM ops.forwarder_key WHERE key_id = $1 AND revoked_at IS NULL",
             &[&key_id],
         )
         .await?;
