@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-07
-- **Updated:** 2026-11-12 (A2)
+- **Updated:** 2026-11-12 (A3)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0027](0027-preferences-and-portability.md), [0056](0056-security-model.md)
 - **Uses:** [0039](0039-files-and-media.md), [0081](0081-recovery-keys-and-continuations.md)
@@ -34,7 +34,7 @@ James's direction, from the design discussion of 2026-11-07:
 
 ### 1. Three scopes: export, transfer and backup (amends 0006 §9)
 
-*Changed by A1, A2.*
+*Changed by A1, A2, A3.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §8.2.*
 
@@ -48,7 +48,7 @@ James's direction, from the design discussion of 2026-11-07:
 
 ### 4. Backups and rehosting carry everything (extends 0018 §10; amends 0023 §7)
 
-*Changed by A2.*
+*Changed by A2, A3.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §6.7; [09](../architecture/09-security-and-moderation.md) §6.5.*
 
@@ -83,7 +83,7 @@ James's direction, from the design discussion of 2026-11-07:
 ## Open questions
 
 - **Q1.** ~~**A transfer without the old operator.** A non-cooperative move (08 §6.3) takes its bundle "from backups or from the old instance's public exports". Whether a backup handed over by someone other than the old operator counts as a transfer, with the sealing of §3, or must be reduced to the export scope first, is left open.~~ *Settled by §7: what a non-cooperative move carries depends on its continuation's mode. A backup yields only the tenant's own partitions. An `unauthorized` continuation carries the export scope; a `recovered` one also the tenant's read-restricted and hidden parts, held sealed until the recovery delay passes uncancelled; suppressed and confidential parts never travel this way.*
-- **Q2. The key `private` is encrypted to.** A2 encrypts a backup's `private` schema to a key the operator names; which kind of key (an instance key, a recovery key of [0081](0081-recovery-keys-and-continuations.md), or one of its own), the scheme, and how a restore is given the private key, are left open.
+- **Q2.** ~~**The key `private` is encrypted to.** A2 encrypts a backup's `private` schema to a key the operator names; which kind of key (an instance key, a recovery key of [0081](0081-recovery-keys-and-continuations.md), or one of its own), the scheme, and how a restore is given the private key, are left open.~~ *Settled by A3: a backup key set of its own, any `k` of whose keys restore, `k` 1 by default.*
 
 ## References
 
@@ -113,3 +113,10 @@ Replaced text ([01](../architecture/01-log-and-records.md) §8, as it stood):
 Replaced text ([08](../architecture/08-tenants-and-instances.md) §6.7, as it stood):
 
 > Rehosting an instance whole is a Postgres restore plus the rejects files and the `private` schema.
+
+### A3. The backup key set
+
+- **Date:** 2026-11-12
+- **Source:** Direct: James, design discussion of 2026-11-12
+- **Change:** extends §1, §4
+- **Summary:** A2 left open which key a backup's `private` is encrypted to (Q2). James decided, among the instance key, a recovery key of [0081](0081-recovery-keys-and-continuations.md) and a key of its own: (1) **a dedicated backup key set**, which may hold several keys: each backup's data key is split into a share per key, any `k` of which rebuild it, each share sealed to its key, so that making a backup needs only the public halves and restoring one needs `k` holders, none of whom reveals a private key; (2) the set is registered or replaced by the instance's `owner`, or, where the instance has no owner account, by its operator through the command line; (3) **`k` defaults to 1**: any one key restores, however many the set holds, and the operator may raise it; (4) a new set applies to later backups only; an older backup keeps its set, and re-sealing it to a new one is a direct act of an operator with the old keys, which the instance cannot do itself.
