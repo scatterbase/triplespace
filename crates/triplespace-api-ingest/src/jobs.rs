@@ -14,22 +14,28 @@
 //! (an import skips what it wrote, 0008 §9). **Finishing** deletes the row; the job's
 //! finish or fail record is the job's own.
 //!
-//! Each kind of job is a function of the row ([`Kind`]); this phase carries `import` and
-//! `revert` (0104 §3). The follower, sync and adoption jobs still run where the command
-//! line runs them.
+//! Each kind of job is a function of the row ([`Kind`]): `import`, `revert` (0104 §3) and
+//! `dump` (0104 A6). An export over `export.sync_revisions` and the follower, sync and
+//! adoption jobs are not carried yet: the last three still run where the command line
+//! runs them. A [`Runner`] names the kinds it runs, and claims no other: a row of a kind
+//! no runner here runs waits, and holds nothing else back.
 //!
 //! implements 0104 §8 (A1)
 
+use std::path::{Path, PathBuf};
 use std::time::Duration;
 
+use scatter_actors::{GrantRegistry, Principal, evaluate};
 use scatter_ingest::IngestError;
 use scatter_ingest::IngestStore as _;
-use scatter_ingest::job::Job;
+use scatter_ingest::job::{Counts, Job};
 use scatter_ingest::store::Sequence;
 use scatter_ingest::write::Attestation;
 use scatter_mediawiki_xml::XmlDump;
 use scatter_projection::{Backend as _, Pipeline};
+use scatter_wikibase_changeset::job::JobHeader;
 use tokio_postgres::GenericClient;
+use triplespace_projections::entities::EntityProjection;
 
 use crate::PgIngest;
 use crate::import::{ImportRequest, Stage, run_request};
@@ -48,6 +54,10 @@ pub enum Kind {
     Import,
     /// A revert of another job (0104 §3): `reverts`, the job, and `reason` in `params`.
     Revert,
+    /// A tenant's dumps (02 §4.1; 0013 A78), written into the runner's dumps directory as
+    /// `triplespace dump` writes them; `keep` in `params` where it is not the tenant's
+    /// `dumps.keep`.
+    Dump,
 }
 
 impl Kind {
@@ -57,6 +67,7 @@ impl Kind {
         match self {
             Self::Import => "import",
             Self::Revert => "revert",
+            Self::Dump => "dump",
         }
     }
 
@@ -66,8 +77,43 @@ impl Kind {
         match name {
             "import" => Some(Self::Import),
             "revert" => Some(Self::Revert),
+            "dump" => Some(Self::Dump),
             _ => None,
         }
+    }
+}
+
+/// A runner: its name in the queue's `claimed_by`, the kinds it runs, and what those kinds
+/// need of the process (0104 A6).
+#[derive(Debug, Clone)]
+pub struct Runner {
+    /// The name.
+    pub name: String,
+    /// The kinds it claims.
+    pub kinds: Vec<Kind>,
+    /// The dumps directory (`dumps.dir`), for [`Kind::Dump`].
+    pub dumps_dir: Option<PathBuf>,
+}
+
+impl Runner {
+    /// A runner of the kinds that need nothing of the process: imports and reverts.
+    #[must_use]
+    pub fn new(name: impl Into<String>) -> Self {
+        Self {
+            name: name.into(),
+            kinds: vec![Kind::Import, Kind::Revert],
+            dumps_dir: None,
+        }
+    }
+
+    /// Also runs dumps, into `dir`.
+    #[must_use]
+    pub fn with_dumps(mut self, dir: impl Into<PathBuf>) -> Self {
+        self.dumps_dir = Some(dir.into());
+        if !self.kinds.contains(&Kind::Dump) {
+            self.kinds.push(Kind::Dump);
+        }
+        self
     }
 }
 
@@ -272,7 +318,7 @@ pub struct Claimed {
     pub resumes: Option<u64>,
 }
 
-/// Claims the oldest job whose partition has no running job, for `runner`. A row whose
+/// Claims the oldest job of a kind `runner` runs whose partition has no running job. A row whose
 /// claim went stale is claimed again under a new job ID, and the dead run is marked
 /// `job/interrupt` where it had written its start record.
 ///
@@ -282,11 +328,15 @@ pub struct Claimed {
 pub async fn claim(
     store: &PgIngest,
     pipeline: &Pipeline<PgIngest>,
-    runner: &str,
+    runner: &Runner,
     now: u64,
 ) -> Result<Option<Claimed>, IngestError> {
     let mut cx = store.begin().await?;
     let stale = stale_interval();
+    // The kinds are part of the query, not a check on the row it returns: a row of a
+    // kind this runner does not run must not be the oldest row it ever sees.
+    let kinds: Vec<&str> = runner.kinds.iter().map(|k| k.name()).collect();
+    let runner = runner.name.as_str();
     let row = cx
         .conn()
         .query_opt(
@@ -294,13 +344,14 @@ pub async fn claim(
              FROM ops.job_queue q
              WHERE (q.claimed_at IS NULL OR q.heartbeat < now() - make_interval(secs => $1::double precision))
                AND NOT q.cancel
+               AND q.kind = ANY($2)
                AND NOT EXISTS (SELECT 1 FROM ops.job_queue r
                                WHERE r.partition = q.partition AND r.job_id <> q.job_id
                                  AND r.claimed_at IS NOT NULL AND r.heartbeat >= now() - make_interval(secs => $1::double precision))
              ORDER BY q.submitted, q.job_id
              LIMIT 1
              FOR UPDATE OF q SKIP LOCKED",
-            &[&stale],
+            &[&stale, &kinds],
         )
         .await
         .map_err(store_err)?;
@@ -312,7 +363,7 @@ pub async fn claim(
     let old_id: i64 = row.get(1);
     let kind_name: String = row.get(2);
     let Some(kind) = Kind::parse(&kind_name) else {
-        // A kind this build does not run: left for one that does, never claimed here.
+        // Not reached: the query asked for this runner's kinds.
         store.rollback(cx).await?;
         return Ok(None);
     };
@@ -441,6 +492,7 @@ pub struct Ran {
 pub async fn run_claimed(
     store: &PgIngest,
     pipeline: &Pipeline<PgIngest>,
+    runner: &Runner,
     claimed: Claimed,
     now: fn() -> u64,
 ) -> Result<Ran, IngestError> {
@@ -469,7 +521,7 @@ pub async fn run_claimed(
             }
         })
     };
-    let result = run_kind(store, pipeline, &claimed, now).await;
+    let result = run_kind(store, pipeline, runner, &claimed, now).await;
     let _ = stop.send(true);
     let _ = beating.await;
     let error = match result {
@@ -520,6 +572,7 @@ pub async fn run_claimed(
 async fn run_kind(
     store: &PgIngest,
     pipeline: &Pipeline<PgIngest>,
+    runner: &Runner,
     claimed: &Claimed,
     now: fn() -> u64,
 ) -> Result<(), IngestError> {
@@ -600,7 +653,129 @@ async fn run_kind(
             .await
             .map(|_| ())
         }
+        Kind::Dump => {
+            let dir = runner
+                .dumps_dir
+                .as_deref()
+                .ok_or_else(|| store_err("this runner has no dumps directory"))?;
+            run_dump(store, pipeline, dir, claimed, now).await
+        }
     }
+}
+
+/// A dump job (0104 A6): the job's start record, the tenant's dumps written as
+/// `triplespace dump` writes them, and the finish record naming the dump and its files. A
+/// failure leaves no dump directory (the files are renamed into place last), and the
+/// caller writes the job's `job/fail`.
+async fn run_dump(
+    store: &PgIngest,
+    pipeline: &Pipeline<PgIngest>,
+    dir: &Path,
+    claimed: &Claimed,
+    now: fn() -> u64,
+) -> Result<(), IngestError> {
+    let tenant = claimed.tenant.as_str();
+    let mut cx = store.begin().await?;
+    let mut header = JobHeader::local("dump");
+    header.graph = "local".into();
+    let job = Job::start_as(
+        store,
+        pipeline,
+        &mut cx,
+        tenant,
+        claimed.job_id,
+        header,
+        Attestation::by(&claimed.actor),
+        now(),
+    )
+    .await?;
+    store.commit(cx).await?;
+
+    let mut client = store.backend().pool().get().await.map_err(store_err)?;
+    let base = client
+        .query_opt(
+            "SELECT config->>'base' FROM view.registry WHERE tenant = '' AND kind = 'tenant' AND code = $1",
+            &[&tenant],
+        )
+        .await
+        .map_err(store_err)?
+        .and_then(|r| r.get::<_, Option<String>>(0))
+        .ok_or_else(|| store_err(format!("no tenant `{tenant}`")))?;
+    let registry = triplespace_projections::entity_sources::registry_for(&**client, tenant)
+        .await
+        .map_err(store_err)?;
+    let slugs: Vec<&str> = registry
+        .providers()
+        .iter()
+        .map(|p| p.slug.as_str())
+        .collect();
+    let order = EntityProjection::new(&slugs, &registry);
+    let groups = triplespace_accounts::groups::registry(&**client, tenant)
+        .await
+        .map_err(store_err)?;
+    let reader = evaluate(
+        &Principal::anonymous(),
+        &groups,
+        GrantRegistry::default_registry(),
+    );
+    let keep = match claimed
+        .params
+        .get("keep")
+        .and_then(serde_json::Value::as_u64)
+    {
+        Some(k) => k,
+        None => triplespace_accounts::settings::load(&**client, Some(tenant))
+            .await
+            .map_err(store_err)?
+            .0
+            .value("dumps.keep")
+            .and_then(|v| v.as_u64())
+            .unwrap_or(7),
+    };
+    // On a thread of its own: the dump's future is not `Send` (it verifies its bundle
+    // through borrowed lookups), and a runner is a spawned task.
+    let runtime = tokio::runtime::Handle::current();
+    let (tenant_owned, dir) = (tenant.to_string(), dir.join(tenant));
+    let manifest = tokio::task::spawn_blocking(move || {
+        runtime.block_on(async move {
+            triplespace_rdf::dump(
+                &mut client,
+                &triplespace_rdf::Request {
+                    tenant: &tenant_owned,
+                    base: &base,
+                    registry: &registry,
+                    order: &order,
+                    reader: &reader,
+                    dir: &dir,
+                    keep: usize::try_from(keep).unwrap_or(usize::MAX),
+                    replica: false,
+                },
+            )
+            .await
+        })
+    })
+    .await
+    .map_err(store_err)?
+    .map_err(store_err)?;
+
+    let mut extra = serde_json::Map::new();
+    extra.insert(
+        "dump".into(),
+        serde_json::json!({
+            "name": manifest.name,
+            "taken": manifest.taken,
+            "entities": manifest.entities,
+            "local_entities": manifest.local_entities,
+            "files": manifest.files.iter().map(|f| serde_json::json!({
+                "name": f.name, "records": f.records, "bytes": f.bytes, "sha256": f.sha256,
+            })).collect::<Vec<_>>(),
+        }),
+    );
+    let mut cx = store.begin().await?;
+    job.finish(store, pipeline, &mut cx, &Counts::default(), extra, now())
+        .await?;
+    store.commit(cx).await?;
+    Ok(())
 }
 
 /// One pass of a runner: claims a job and runs it. `Ok(None)` when nothing waits.
@@ -611,11 +786,13 @@ async fn run_kind(
 pub async fn run_once(
     store: &PgIngest,
     pipeline: &Pipeline<PgIngest>,
-    runner: &str,
+    runner: &Runner,
     now: fn() -> u64,
 ) -> Result<Option<Ran>, IngestError> {
     match claim(store, pipeline, runner, now()).await? {
-        Some(claimed) => Ok(Some(run_claimed(store, pipeline, claimed, now).await?)),
+        Some(claimed) => Ok(Some(
+            run_claimed(store, pipeline, runner, claimed, now).await?,
+        )),
         None => Ok(None),
     }
 }
@@ -641,10 +818,11 @@ pub async fn paused<C: GenericClient>(client: &C) -> Result<bool, String> {
 pub async fn run_forever(
     store: PgIngest,
     pipeline: Pipeline<PgIngest>,
-    runner: String,
+    runner: Runner,
     idle: Duration,
     now: fn() -> u64,
 ) {
+    let name = runner.name.clone();
     loop {
         let paused = match store.backend().pool().get().await {
             Ok(client) => paused(&**client).await.unwrap_or(false),
@@ -657,13 +835,13 @@ pub async fn run_forever(
         match run_once(&store, &pipeline, &runner, now).await {
             Ok(Some(ran)) => match ran.error {
                 None => eprintln!(
-                    "{runner}: job {} ({}) for `{}` finished",
+                    "{name}: job {} ({}) for `{}` finished",
                     ran.job_id,
                     ran.kind.name(),
                     ran.tenant
                 ),
                 Some(e) => eprintln!(
-                    "{runner}: job {} ({}) for `{}` failed: {e}",
+                    "{name}: job {} ({}) for `{}` failed: {e}",
                     ran.job_id,
                     ran.kind.name(),
                     ran.tenant
@@ -671,7 +849,7 @@ pub async fn run_forever(
             },
             Ok(None) => tokio::time::sleep(idle).await,
             Err(e) => {
-                eprintln!("{runner}: {e}");
+                eprintln!("{name}: {e}");
                 tokio::time::sleep(idle).await;
             }
         }

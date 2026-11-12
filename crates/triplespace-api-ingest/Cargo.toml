@@ -19,6 +19,7 @@ sha2.workspace = true
 scatter-log-postgres.workspace = true
 triplespace-db.workspace = true
 triplespace-projections.workspace = true
+triplespace-rdf.workspace = true
 triplespace-accounts.workspace = true
 scatter-actors.workspace = true
 thiserror.workspace = true

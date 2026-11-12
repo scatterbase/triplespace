@@ -312,7 +312,7 @@ async fn run_runner(app: &App) -> jobs::Ran {
     jobs::run_once(
         app.store(),
         app.pipeline(),
-        "runner test",
+        &jobs::Runner::new("runner test"),
         triplespace_cli::common::now,
     )
     .await

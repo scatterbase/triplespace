@@ -1,6 +1,6 @@
 //! `triplespace dump`: writes a tenant's dumps (02 §4.1; 17 §1.1) into its directory under
-//! `dumps.dir`, which the server serves at `{base}/dumps/`. Run by hand or by cron until the
-//! job runner takes it (0013 A78).
+//! `dumps.dir`, which the server serves at `{base}/dumps/`. Run by hand or by cron; the
+//! server's job runner writes the same dump for `triplespace job start dump` (0104 A6).
 //!
 //! The dump reads `--replica` where one is given, else the primary, in one exported
 //! snapshot, and holds what an anonymous reader may read; a tenant that restricts reading

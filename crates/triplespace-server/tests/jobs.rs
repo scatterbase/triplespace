@@ -371,7 +371,7 @@ async fn a_large_import_runs_through_the_queue() {
     let ran = jobs::run_once(
         app.store(),
         app.pipeline(),
-        "runner test",
+        &jobs::Runner::new("runner test"),
         triplespace_cli::common::now,
     )
     .await
@@ -383,7 +383,7 @@ async fn a_large_import_runs_through_the_queue() {
         jobs::run_once(
             app.store(),
             app.pipeline(),
-            "runner test",
+            &jobs::Runner::new("runner test"),
             triplespace_cli::common::now
         )
         .await
@@ -498,7 +498,7 @@ async fn a_large_import_runs_through_the_queue() {
     let claimed = jobs::claim(
         store,
         app.pipeline(),
-        "runner dead",
+        &jobs::Runner::new("runner dead"),
         triplespace_cli::common::now(),
     )
     .await
@@ -540,7 +540,7 @@ async fn a_large_import_runs_through_the_queue() {
     let again = jobs::run_once(
         app.store(),
         app.pipeline(),
-        "runner test",
+        &jobs::Runner::new("runner test"),
         triplespace_cli::common::now,
     )
     .await
@@ -613,7 +613,7 @@ async fn a_large_import_runs_through_the_queue() {
     let failed = jobs::run_once(
         app.store(),
         app.pipeline(),
-        "runner test",
+        &jobs::Runner::new("runner test"),
         triplespace_cli::common::now,
     )
     .await
@@ -650,4 +650,80 @@ async fn a_large_import_runs_through_the_queue() {
     .await
     .expect("pause");
     assert!(jobs::paused(&client).await.unwrap());
+}
+
+// 0104 §4 (A6): a dump is a job the runner carries, and a runner claims only its kinds.
+#[tokio::test]
+async fn a_dump_runs_through_the_queue() {
+    let Some((database, key_file)) = setup("tsjobs_dump").await else {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    };
+    let (app, _api) = app(&database, &key_file).await;
+    let now = triplespace_cli::common::now;
+    let dumps = std::env::temp_dir().join(format!("tsjobs-dumps-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dumps);
+
+    // A row of a kind no runner here runs, older than every other: it waits, and holds
+    // nothing back.
+    let client = triplespace_cli::common::connect(&database).await.unwrap();
+    client
+        .execute(
+            "INSERT INTO ops.job_queue (tenant, job_id, partition, kind, params, actor_key, submitted)
+             SELECT $1, 900000, partition, 'adopt', '{}', 'local:1', now() - interval '1 hour'
+             FROM log.partition WHERE tenant = $1 AND name = 'pages'",
+            &[&TENANT],
+        )
+        .await
+        .unwrap();
+    let id = jobs::submit(
+        app.store(),
+        &jobs::Submission {
+            tenant: TENANT.into(),
+            kind: jobs::Kind::Dump,
+            params: serde_json::json!({"keep": 2}),
+            payload: None,
+            actor: "local:1".into(),
+        },
+    )
+    .await
+    .expect("submit");
+
+    // A runner without a dumps directory does not claim it.
+    let plain = jobs::Runner::new("runner plain");
+    assert!(
+        jobs::run_once(app.store(), app.pipeline(), &plain, now)
+            .await
+            .unwrap()
+            .is_none()
+    );
+    // One with a directory runs it under its ID: the start record, the files, the finish.
+    let runner = jobs::Runner::new("runner dumps").with_dumps(&dumps);
+    let ran = jobs::run_once(app.store(), app.pipeline(), &runner, now)
+        .await
+        .expect("the pass")
+        .expect("the dump waited");
+    assert_eq!((ran.job_id, ran.kind), (id, jobs::Kind::Dump));
+    assert_eq!(ran.error, None);
+    let job = query(
+        &database,
+        &format!("SELECT status, source FROM view.job WHERE tenant = '{TENANT}' AND job_id = {id}"),
+    )
+    .await;
+    assert_eq!(job.len(), 1);
+    assert_eq!(job[0].get::<_, String>(0), "finished");
+    assert_eq!(job[0].get::<_, String>(1), "dump");
+    let written: Vec<_> = std::fs::read_dir(dumps.join(TENANT))
+        .expect("the tenant's dump directory")
+        .map(|e| e.unwrap().path())
+        .collect();
+    assert_eq!(written.len(), 1, "{written:?}");
+    let manifest: Value =
+        serde_json::from_slice(&std::fs::read(written[0].join("manifest.json")).unwrap()).unwrap();
+    assert_eq!(manifest["tenant"], TENANT);
+    // The dump's row is gone; the row of the other kind still waits.
+    let left = query(&database, "SELECT kind FROM ops.job_queue").await;
+    assert_eq!(left.len(), 1);
+    assert_eq!(left[0].get::<_, String>(0), "adopt");
+    let _ = std::fs::remove_dir_all(&dumps);
 }

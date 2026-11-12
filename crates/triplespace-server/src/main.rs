@@ -450,7 +450,7 @@ async fn run() -> Result<()> {
     // The queued kinds, import and revert, write public partitions only: the runners
     // connect as the public API (0013 §4, A101). An adoption, which appends to accounts
     // partitions, is run by `triplespace adopt` as the owner until it joins the queue.
-    job_runners(&app, &args.database, args.job_runners)?;
+    job_runners(&app, &args.database, args.job_runners, &args.dumps_dir)?;
     if let Some(admin) = &args.admin_listen {
         let admin_router =
             axum::Router::new().route("/healthz", axum::routing::get(|| async { "ok" }));
@@ -499,8 +499,6 @@ fn with_site(api: axum::Router, skins: Option<&std::path::Path>) -> axum::Router
     api.fallback_service(triplespace_ui::router_for(site))
 }
 
-/// The job runner (0104 §4): background tasks claiming `ops.job_queue`, each with a
-/// store of its own, since a job's units of work are its own transactions.
 /// The pools of each part, from its URL (0013 §4, A99), reported as they connect.
 async fn pools(args: &Args) -> Result<triplespace_db::pool::Pools> {
     let pools = triplespace_db::pool::Pools::new(
@@ -557,14 +555,22 @@ async fn report_privacy(pools: &triplespace_db::pool::Pools) {
     }
 }
 
-fn job_runners(app: &triplespace_api_action::App, database: &str, n: usize) -> Result<()> {
+/// The job runners (0104 §4): background tasks claiming `ops.job_queue`, each with a
+/// store of its own, since a job's units of work are its own transactions. Each runs
+/// imports and reverts, and dumps into `dumps_dir` (0104 A6).
+fn job_runners(
+    app: &triplespace_api_action::App,
+    database: &str,
+    n: usize,
+    dumps_dir: &std::path::Path,
+) -> Result<()> {
     for i in 0..n {
         let (store, pipeline) =
             triplespace_cli::common::store(database, &app.config().farm).context("job runner")?;
         tokio::spawn(triplespace_api_ingest::jobs::run_forever(
             store,
             pipeline,
-            format!("runner {i}"),
+            triplespace_api_ingest::jobs::Runner::new(format!("runner {i}")).with_dumps(dumps_dir),
             WORKER_IDLE,
             triplespace_cli::common::now,
         ));
