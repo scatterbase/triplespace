@@ -161,6 +161,33 @@ async fn load(
     Ok(())
 }
 
+/// Refuses a manifest that names a table outside `schemas`, the bookkeeping table, or a
+/// file outside its section: the restore empties and loads what a manifest names, as the
+/// database's owner, so a manifest names only what a backup writes.
+fn known_tables(tables: &[crate::sealed::Table], schemas: &[&str]) -> Result<()> {
+    for t in tables {
+        let plain = |s: &str| {
+            !s.is_empty()
+                && !s.starts_with('.')
+                && s.chars()
+                    .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-'))
+        };
+        if !schemas.contains(&t.schema.as_str())
+            || (t.schema == "ops" && t.table == "migration")
+            || !plain(&t.table)
+            || !plain(&t.file)
+        {
+            bail!(
+                "the backup names {}.{} in file `{}`, which no backup writes",
+                t.schema,
+                t.table,
+                t.file
+            );
+        }
+    }
+    Ok(())
+}
+
 /// Empties the tables the backup carries and seals, and loads the backup's rows into them.
 /// Returns how many tables it loaded.
 async fn load_tables(
@@ -464,14 +491,25 @@ pub async fn restore_with(args: &Restore, migrator: &Migrator) -> Result<Restore
             manifest.scope
         );
     }
+    if manifest.sealed.is_none() {
+        // `sealed` is written last, true or false (0103 A8): without it the backup
+        // stopped before its carried and sealed sections were whole.
+        bail!(
+            "{} does not say whether it has its sealed sections: the backup that wrote it \
+             did not finish",
+            args.bundle.display()
+        );
+    }
     if manifest.partitions.iter().any(|p| p.registry.is_none()) {
         bail!("the backup predates registry rows in bundles and cannot be restored by the binary");
     }
     let carried = Carried::open(&args.bundle)
         .context("a restore needs a backup of the whole instance, with its carried sections")?;
+    known_tables(&carried.manifest.tables, &["ops"])?;
     let sealed = match (manifest.sealed, args.without_private) {
         (Some(true), false) => {
             let sealed = Sealed::open(&args.bundle)?;
+            known_tables(&sealed.manifest.tables, &["private", "ops"])?;
             let shares = args
                 .shares
                 .iter()
@@ -498,27 +536,36 @@ pub async fn restore_with(args: &Restore, migrator: &Migrator) -> Result<Restore
     let farm = farm_of(&bundle).await?;
 
     let mut client = connect(&args.database).await?;
-    // Two statements: Postgres resolves `log.partition` while planning, before the first
-    // condition could spare it on a database that has none.
-    let has_log: bool = client
-        .query_one("SELECT to_regclass('log.partition') IS NOT NULL", &[])
+    // Empty means never migrated: a restore that stopped part-way has made schemas, and
+    // run again over them would take the backup's tables for ones already migrated.
+    let made: Vec<String> = client
+        .query(
+            "SELECT nspname::text FROM pg_namespace
+             WHERE nspname = ANY($1) ORDER BY nspname",
+            &[&["log", "ops", "view", "private", ASIDE].as_slice()],
+        )
         .await?
-        .get(0);
-    let occupied = has_log
-        && client
-            .query_one("SELECT EXISTS (SELECT 1 FROM log.partition)", &[])
-            .await?
-            .get::<_, bool>(0);
-    if occupied {
-        bail!("the database already holds partitions: a restore needs an empty one");
+        .iter()
+        .map(|r| r.get(0))
+        .collect();
+    if !made.is_empty() {
+        bail!(
+            "the database already has the schema(s) {}: a restore needs an empty database, \
+             so drop and create it again, also after a restore that did not finish",
+            made.join(", ")
+        );
     }
     // The schema: the one the backup was written under where it says, its tables loaded
     // there and migrated forward with the rest (0103 A11); this binary's otherwise.
-    let recorded = carried.manifest.migrations.clone().or_else(|| {
-        Sealed::open(&args.bundle)
-            .ok()
-            .map(|s| s.manifest.migrations)
-    });
+    let recorded = match &carried.manifest.migrations {
+        Some(m) => Some(m.clone()),
+        // A backup from before the carried manifest recorded them: its sealed manifest
+        // does, in the clear, where it has one.
+        None if args.bundle.join(crate::sealed::DIR).is_dir() => {
+            Some(Sealed::open(&args.bundle)?.manifest.migrations)
+        }
+        None => None,
+    };
     let older = match &recorded {
         Some(recorded) => migrator
             .apply_recorded(&mut client, recorded)
@@ -618,6 +665,16 @@ pub async fn restore_with(args: &Restore, migrator: &Migrator) -> Result<Restore
     };
     reset_sequences(&client).await?;
     let epoch = i64::try_from(now()).unwrap_or(i64::MAX);
+    // Every tenant, not only those the backup holds a row for: a row is made at a
+    // tenant's first bump, which the old instance may have reached after the backup.
+    client
+        .execute(
+            "INSERT INTO ops.visibility_epoch (tenant, epoch)
+             SELECT DISTINCT tenant, $1::bigint FROM log.partition WHERE tenant IS NOT NULL
+             ON CONFLICT (tenant) DO UPDATE SET epoch = EXCLUDED.epoch",
+            &[&epoch],
+        )
+        .await?;
     client
         .execute("UPDATE ops.visibility_epoch SET epoch = $1", &[&epoch])
         .await?;
@@ -658,6 +715,34 @@ mod tests {
     use scatter_log::tree::root_of;
 
     use super::*;
+
+    #[test]
+    fn a_manifest_names_only_what_a_backup_writes() {
+        let table = |schema: &str, table: &str, file: &str| crate::sealed::Table {
+            schema: schema.into(),
+            table: table.into(),
+            file: file.into(),
+            columns: Vec::new(),
+        };
+        known_tables(&[table("ops", "job_queue", "ops.job_queue.bin")], &["ops"]).unwrap();
+        known_tables(
+            &[table("private", "login", "private.login.bin")],
+            &["private", "ops"],
+        )
+        .unwrap();
+        for bad in [
+            table("view", "page", "view.page.bin"),
+            table("private", "login", "private.login.bin"),
+            table("ops", "migration", "ops.migration.bin"),
+            table("ops", "job_queue", "../job_queue.bin"),
+            table("ops", "job_queue", "a/b.bin"),
+        ] {
+            assert!(
+                known_tables(std::slice::from_ref(&bad), &["ops"]).is_err(),
+                "{bad:?}"
+            );
+        }
+    }
 
     fn leaves(n: u8) -> Vec<Hash> {
         (0..n).map(|i| [i; 32]).collect()

@@ -355,6 +355,22 @@ async fn a_backup_of_an_older_binary_restores() {
         "the carried row is back, and the restore's own schema is gone"
     );
     serves(&database).await;
+
+    // Every tenant has an epoch no instance before the restore can have counted to,
+    // whether or not the backup held a row for it (0103 A4).
+    assert_eq!(
+        rows(
+            &database,
+            "SELECT DISTINCT p.tenant FROM log.partition p
+             LEFT JOIN ops.visibility_epoch e ON e.tenant = p.tenant
+             WHERE p.tenant IS NOT NULL AND coalesce(e.epoch, 0) < 1000000000000000"
+        )
+        .await,
+        Vec::<Vec<Option<String>>>::new()
+    );
+    // A database a restore has touched is not empty, finished or not.
+    let refused = restore::restore(&args(&database)).await.unwrap_err();
+    assert!(format!("{refused:#}").contains("empty"), "{refused:#}");
 }
 
 /// A migration no binary has yet: it changes a sealed table and a carried one, each from

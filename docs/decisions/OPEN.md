@@ -85,6 +85,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0102 A2](0102-strict-names-from-the-provider.md#a2-a-rename-by-hand-the-tombstone-that-yields) | 2026-11-07 | A rename by hand; the tombstone that yields |
 | [0103 A10](0103-export-transfer-and-backup.md#a10-the-restore-loads-slots-in-blocks-and-checks-the-chain) | 2026-11-12 | The restore loads slots in blocks and checks the chain |
 | [0103 A11](0103-export-transfer-and-backup.md#a11-a-backup-of-an-older-schema-is-migrated-forward) | 2026-11-12 | A backup of an older schema is migrated forward |
+| [0103 A12](0103-export-transfer-and-backup.md#a12-what-a-restore-refuses-before-it-starts) | 2026-11-12 | What a restore refuses before it starts |
 | [0104 A1](0104-batches-and-the-job-runner.md#a1-calls-made-while-building-the-runner) | 2026-11-08 | Calls made while building the runner |
 | [0104 A2](0104-batches-and-the-job-runner.md#a2-calls-made-while-building-the-batches) | 2026-11-08 | Calls made while building the batches |
 | [0104 A3](0104-batches-and-the-job-runner.md#a3-calls-made-while-building-specialcreateentities) | 2026-11-08 | Calls made while building `Special:CreateEntities` |
