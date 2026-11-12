@@ -73,6 +73,15 @@ else
     as_postgres psql -p "$PORT" -qc "ALTER ROLE \"$ME\" LOGIN CREATEDB CREATEROLE" >&2
 fi
 
+# triplespace-db's tests switch to the five group roles its migrations make (SET ROLE). Since
+# Postgres 16 the role that creates another holds it with ADMIN but not SET, so the test role
+# could not; make them here, owned by the server, and give the test role SET on each
+# (docs/testing/gotchas.md). A migration finds them made and leaves them.
+for r in ts_server ts_accounts ts_notify ts_federation ts_verify; do
+    as_postgres psql -p "$PORT" -qc "DO \$\$ BEGIN CREATE ROLE $r NOLOGIN; EXCEPTION WHEN duplicate_object OR unique_violation THEN NULL; END \$\$" >&2
+    as_postgres psql -p "$PORT" -qc "GRANT $r TO \"$ME\" WITH ADMIN TRUE, SET TRUE, INHERIT FALSE" >&2
+done
+
 # URL-shaped, with the socket directory percent-encoded: the test suites and ui/e2e/run.sh swap
 # the database by replacing the text after the last "/", which a key=value string would break.
 ENC_SOCKET=$(printf '%s' "$SOCKET" | sed 's|/|%2F|g')

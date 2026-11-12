@@ -7,14 +7,16 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
 
 ## Known test-environment failures
 
-- `triplespace-db --test db` `the_public_role_cannot_read_private` fails in the cloud sandbox
-  ("permission denied to set role ts_server") on the base commit too; environmental, not a
-  regression. It fails the same way on a Debian 13 VM prepared by `tools/dev_env.sh`
-  (Postgres 17, 2026-11-04). The cause: since Postgres 16 a role that creates another holds it with
-  ADMIN but not SET (`createrole_self_grant` is empty by default), and the test switches to `ts_server`, `ts_accounts` and
-  `ts_verify`. Granting the test user SET on the three (`GRANT ts_server TO jh WITH SET TRUE,
-  INHERIT FALSE`, likewise the others) makes it pass (2026-11-06). `cargo test --workspace` stops
-  at the first failing test binary; use `--no-fail-fast` to run the rest.
+- `triplespace-db --test db`'s role tests (`the_public_role_cannot_read_private`,
+  `the_public_role_cannot_read_accounts_through_the_parent`) fail with "permission denied to set
+  role ts_…" when the test user is not a superuser. Since Postgres 16 a role that creates another
+  holds it with ADMIN but not SET (`createrole_self_grant` is empty by default), and the tests
+  switch to all five roles: `ts_server`, `ts_accounts`, `ts_notify`, `ts_federation`, `ts_verify`.
+  `tools/dev_env.sh` creates the five and gives the test user SET on each (since 2026-11-12); on
+  another set-up, run once as a superuser, for each role, `GRANT ts_server TO <test user> WITH SET
+  TRUE, INHERIT FALSE` (the roles must exist: run the tests once, or create them `NOLOGIN`). CI
+  runs as the `postgres` superuser, which may set any role. `cargo test --workspace` stops at the
+  first failing test binary; use `--no-fail-fast` to run the rest.
 - A test that creates a database registers it with
   `triplespace_db::scratch::drop_at_thread_end` right after `CREATE DATABASE`, and the database
   is dropped when the test's thread ends, whether it passed or panicked. A `cleanup()` call at
