@@ -267,6 +267,13 @@ pub async fn export(args: &Export) -> Result<Vec<BundlePartition>> {
     .await
     .with_context(|| format!("writing {}", args.out.display()))?;
     if scope == "backup" {
+        // The carried sections of a whole instance's backup: the carried `ops` tables and
+        // the `log` sequences, from the same snapshot as the log (0103 A4, A9).
+        if tenant.is_none() {
+            crate::carried::write(&tx, &args.out)
+                .await
+                .context("the carried sections")?;
+        }
         // The sealed sections, from the same snapshot as the log (0103 A2, A7, A8).
         if !args.without_private {
             crate::sealed::write(&tx, &args.out, &farm.slug, created)

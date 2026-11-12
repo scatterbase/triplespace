@@ -312,6 +312,50 @@ async fn the_backup_key_set() {
             .sealed,
         Some(true)
     );
+    // Its carried sections: the carried `ops` tables in the clear, and every `log` sequence
+    // as it stood (0103 A4, A9).
+    let carried = triplespace_cli::carried::Carried::open(&full).unwrap();
+    let carried_names: Vec<String> = carried
+        .manifest
+        .tables
+        .iter()
+        .map(|t| format!("{}.{}", t.schema, t.table))
+        .collect();
+    assert_eq!(
+        carried_names,
+        [
+            "ops.job_queue",
+            "ops.forwarder_key",
+            "ops.repo_cursor",
+            "ops.visibility_epoch"
+        ]
+    );
+    let live_sequences: Vec<(String, i64, bool)> = triplespace_cli::common::connect(&database)
+        .await
+        .unwrap()
+        .query(
+            "SELECT sequencename::text, coalesce(last_value, start_value), last_value IS NOT NULL
+             FROM pg_sequences WHERE schemaname = 'log' ORDER BY 1",
+            &[],
+        )
+        .await
+        .unwrap()
+        .iter()
+        .map(|r| (r.get(0), r.get(1), r.get(2)))
+        .collect();
+    let carried_sequences: Vec<(String, i64, bool)> = carried
+        .manifest
+        .sequences
+        .iter()
+        .map(|s| (s.name.clone(), s.value, s.called))
+        .collect();
+    assert_eq!(carried_sequences, live_sequences);
+    assert!(
+        carried_sequences
+            .iter()
+            .any(|(n, v, called)| n == &format!("{TENANT}.user_id") && *called && *v == 7),
+        "{carried_sequences:?}"
+    );
     let opened = sealed::Sealed::open(&full).unwrap();
     assert_eq!(opened.manifest.set, offset);
     assert_eq!(opened.key.threshold, 2);

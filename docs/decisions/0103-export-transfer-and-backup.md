@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-07
-- **Updated:** 2026-11-12 (A8)
+- **Updated:** 2026-11-12 (A9)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0027](0027-preferences-and-portability.md), [0056](0056-security-model.md)
 - **Uses:** [0039](0039-files-and-media.md), [0081](0081-recovery-keys-and-continuations.md)
@@ -34,7 +34,7 @@ James's direction, from the design discussion of 2026-11-07:
 
 ### 1. Three scopes: export, transfer and backup (amends 0006 §9)
 
-*Changed by A1, A2, A3, A4, A5, A6, A7, A8.*
+*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §8.2.*
 
@@ -48,7 +48,7 @@ James's direction, from the design discussion of 2026-11-07:
 
 ### 4. Backups and rehosting carry everything (extends 0018 §10; amends 0023 §7)
 
-*Changed by A2, A3, A5, A6, A7, A8.*
+*Changed by A2, A3, A5, A6, A7, A8, A9.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §6.7; [09](../architecture/09-security-and-moderation.md) §6.5.*
 
@@ -155,3 +155,10 @@ Replaced text ([08](../architecture/08-tenants-and-instances.md) §6.7, as it st
 - **Source:** Direct: Claude, while building the sealed sections (SCA-354), 2026-11-12; confirmed by James, 2026-11-12
 - **Change:** extends §1, §4
 - **Summary:** The calls made: (1) a backup's sealed sections are `sealed/` in the bundle: `key.cbor`, the data key sealed to the set; one file per table, the table's binary `COPY` of its columns but generated ones, from the backup's own snapshot; and `manifest.cbor`, naming the set's record by offset, each table's file and columns (name, type, identity), and every migration the database had applied with its checksum, which a restore needs to load each table into the schema it came from and migrate it forward (SCA-358); (2) each file is encrypted in chunks of 1 MiB, each chunk's associated data the backup's context (`backup:{farm}:{created}`), the table's name, the chunk's index and whether it is the last, so that a file opens neither in another backup nor under another name, and its chunks can be neither reordered, dropped nor cut short; (3) no digest of a table's plaintext is stored, since one would let a guess at its contents be confirmed; the AEAD authenticates the bytes; (4) every `private` and `ops` table's class is checked against the live schema before sealing, and a backup with an unclassified table fails rather than leaving it out; (5) **a backup of one tenant carries no `private`** and needs `--without-private`: `private` holds every tenant's rows together, and a tenant's own share of it is a transfer's private extract (§3); (6) `bundle.cbor`'s `sealed` is `true` for a backup with its sealed sections, `false` for one without, and absent from an export; (7) the carried `ops` tables are not yet written: they come with the restore (SCA-357), as A4 has it.
+
+### A9. The carried sections and the restore
+
+- **Date:** 2026-11-12
+- **Source:** Direct: Claude, while building `triplespace restore` (SCA-357), 2026-11-12; confirmed by James, 2026-11-12
+- **Change:** extends §1, §4
+- **Summary:** The calls made: (1) a backup of the whole instance writes `carried/`: each `ops` table classed `carried`, its binary `COPY` in the clear, and the value of every sequence in `log`, read in the backup's snapshot, since without them a restore would hand out revision, page, user and entity IDs restored records already hold; the sequences of `ops` and `private` are not carried, since each numbers a column of a table the backup holds and a restore sets it from that column; a backup of one tenant has no carried sections; (2) the restore reads the farm from the backup's own instance `config` (its `farm` record), since the projections need it before there is a registry to read it from; (3) **the order**: migrate; register each partition from its registry row and append every slot verbatim, one unit of work a partition, with its checkpoints and manifests; make the `log` sequences; rebuild every projection; then empty and load the carried and sealed tables, since the backup and not the replay is their record (a replay recomputes an inbox and loses its read marks); set the `ops` and `private` sequences past their rows; advance every `visibility_epoch` (A4); and migrate again for the partitions' grants; (4) the database must be empty, and a table whose columns differ from the database's is refused, so that a backup written under another schema is caught until SCA-358 migrates one forward; (5) `--without-private` restores a sealed backup without its sealed sections, accounts then unable to log in; (6) slots are appended one statement each, which is correct but slow for a large instance; a bulk path is later work.

@@ -4145,6 +4145,7 @@ dependencies = [
  "scatter-titles",
  "scatter-wikibase-changeset",
  "scatter-wikibase-model",
+ "serde",
  "serde_json",
  "tokio",
  "tokio-postgres",

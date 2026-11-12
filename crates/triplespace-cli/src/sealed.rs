@@ -107,7 +107,12 @@ async fn tables<C: GenericClient>(client: &C) -> Result<Vec<(String, String)>> {
     Ok(out)
 }
 
-async fn columns<C: GenericClient>(client: &C, schema: &str, table: &str) -> Result<Vec<Column>> {
+/// A table's columns, in order, generated ones left out: what its `COPY` holds.
+pub(crate) async fn columns<C: GenericClient>(
+    client: &C,
+    schema: &str,
+    table: &str,
+) -> Result<Vec<Column>> {
     Ok(client
         .query(
             "SELECT a.attname::text, format_type(a.atttypid, a.atttypmod), a.attidentity::text
@@ -128,8 +133,32 @@ async fn columns<C: GenericClient>(client: &C, schema: &str, table: &str) -> Res
         .collect())
 }
 
-fn quote(ident: &str) -> String {
+pub(crate) fn quote(ident: &str) -> String {
     format!("\"{}\"", ident.replace('"', "\"\""))
+}
+
+/// The binary `COPY` of `columns` of `schema.table`, read on `client`.
+pub(crate) async fn copy_out(
+    client: &tokio_postgres::Transaction<'_>,
+    schema: &str,
+    table: &str,
+    columns: &[Column],
+) -> Result<Vec<u8>> {
+    let list = columns
+        .iter()
+        .map(|c| quote(&c.name))
+        .collect::<Vec<_>>()
+        .join(", ");
+    let stream = client
+        .copy_out(&format!(
+            "COPY {}.{} ({list}) TO STDOUT (FORMAT binary)",
+            quote(schema),
+            quote(table)
+        ))
+        .await
+        .with_context(|| format!("copy {schema}.{table}"))?;
+    let chunks: Vec<bytes::Bytes> = stream.try_collect().await?;
+    Ok(chunks.concat())
 }
 
 /// Writes the sealed sections of a backup into `bundle`, from `client`'s snapshot, sealed to
@@ -162,21 +191,7 @@ pub async fn write(
     let mut tables = Vec::new();
     for (schema, table) in self::tables(client).await? {
         let columns = columns(client, &schema, &table).await?;
-        let list = columns
-            .iter()
-            .map(|c| quote(&c.name))
-            .collect::<Vec<_>>()
-            .join(", ");
-        let stream = client
-            .copy_out(&format!(
-                "COPY {}.{} ({list}) TO STDOUT (FORMAT binary)",
-                quote(&schema),
-                quote(&table)
-            ))
-            .await
-            .with_context(|| format!("copy {schema}.{table}"))?;
-        let chunks: Vec<bytes::Bytes> = stream.try_collect().await?;
-        let plain: Vec<u8> = chunks.concat();
+        let plain = copy_out(client, &schema, &table, &columns).await?;
         let file = format!("{schema}.{table}.bin");
         std::fs::write(
             dir.join(&file),
@@ -207,6 +222,59 @@ pub async fn write(
     Ok(manifest)
 }
 
+/// A table's entry, as both manifests write it.
+pub(crate) fn table_value(t: &Table) -> Value {
+    let text = |s: &str| Value::text(s);
+    Value::map(vec![
+        (text("schema"), text(&t.schema)),
+        (text("table"), text(&t.table)),
+        (text("file"), text(&t.file)),
+        (
+            text("columns"),
+            Value::Array(
+                t.columns
+                    .iter()
+                    .map(|c| {
+                        Value::map(vec![
+                            (text("name"), text(&c.name)),
+                            (text("type"), text(&c.type_name)),
+                            (text("identity"), text(&c.identity)),
+                        ])
+                    })
+                    .collect(),
+            ),
+        ),
+    ])
+}
+
+/// A table's entry, from [`table_value`]'s form.
+pub(crate) fn table_from(t: &Value) -> Result<Table> {
+    let text = |v: &Value, k: &str| -> Result<String> {
+        Ok(v.get(k)
+            .and_then(Value::as_text)
+            .with_context(|| format!("manifest: `{k}`"))?
+            .to_string())
+    };
+    let Some(Value::Array(cols)) = t.get("columns") else {
+        bail!("manifest: `columns`");
+    };
+    Ok(Table {
+        schema: text(t, "schema")?,
+        table: text(t, "table")?,
+        file: text(t, "file")?,
+        columns: cols
+            .iter()
+            .map(|c| {
+                Ok(Column {
+                    name: text(c, "name")?,
+                    type_name: text(c, "type")?,
+                    identity: text(c, "identity")?,
+                })
+            })
+            .collect::<Result<_>>()?,
+    })
+}
+
 impl Manifest {
     fn to_value(&self) -> Value {
         let text = |s: &str| Value::text(s);
@@ -216,33 +284,7 @@ impl Manifest {
             (text("set"), Value::Int(i128::from(self.set))),
             (
                 text("tables"),
-                Value::Array(
-                    self.tables
-                        .iter()
-                        .map(|t| {
-                            Value::map(vec![
-                                (text("schema"), text(&t.schema)),
-                                (text("table"), text(&t.table)),
-                                (text("file"), text(&t.file)),
-                                (
-                                    text("columns"),
-                                    Value::Array(
-                                        t.columns
-                                            .iter()
-                                            .map(|c| {
-                                                Value::map(vec![
-                                                    (text("name"), text(&c.name)),
-                                                    (text("type"), text(&c.type_name)),
-                                                    (text("identity"), text(&c.identity)),
-                                                ])
-                                            })
-                                            .collect(),
-                                    ),
-                                ),
-                            ])
-                        })
-                        .collect(),
-                ),
+                Value::Array(self.tables.iter().map(table_value).collect()),
             ),
             (
                 text("migrations"),
@@ -280,26 +322,7 @@ impl Manifest {
         };
         let tables = list("tables")?
             .iter()
-            .map(|t| {
-                let Some(Value::Array(cols)) = t.get("columns") else {
-                    bail!("sealed manifest: `columns`");
-                };
-                Ok(Table {
-                    schema: text(t, "schema")?,
-                    table: text(t, "table")?,
-                    file: text(t, "file")?,
-                    columns: cols
-                        .iter()
-                        .map(|c| {
-                            Ok(Column {
-                                name: text(c, "name")?,
-                                type_name: text(c, "type")?,
-                                identity: text(c, "identity")?,
-                            })
-                        })
-                        .collect::<Result<_>>()?,
-                })
-            })
+            .map(table_from)
             .collect::<Result<_>>()?;
         let migrations = list("migrations")?
             .iter()
