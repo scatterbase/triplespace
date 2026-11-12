@@ -471,7 +471,7 @@ async fn two_tenants_on_one_instance() {
 
     // The server: a second tenant needs the auth base in its configuration too.
     let app = App::new(
-        triplespace_db::pool::pool(&database, 4).unwrap(),
+        triplespace_db::scratch::pools(&database, 4),
         Secret::derive(&key.to_bytes()),
         ServerConfig {
             mode: Mode::Production,

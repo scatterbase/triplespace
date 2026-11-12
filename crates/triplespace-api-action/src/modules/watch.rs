@@ -83,10 +83,18 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         let mut entry = Map::new();
         entry.insert("title".into(), json!(title));
         if unwatch {
-            watch::unwatch(ctx.db(), &holder, target.0, &target.1).await?;
+            watch::unwatch(ctx.accounts().await?, &holder, target.0, &target.1).await?;
             entry.insert("unwatched".into(), yes.clone());
         } else {
-            let w = watch::watch(ctx.db(), &holder, target.0, &target.1, expires, notify).await?;
+            let w = watch::watch(
+                ctx.accounts().await?,
+                &holder,
+                target.0,
+                &target.1,
+                expires,
+                notify,
+            )
+            .await?;
             entry.insert("watched".into(), yes.clone());
             entry.insert(
                 "watchlistexpiry".into(),
@@ -127,7 +135,7 @@ pub async fn setnotificationtimestamp(ctx: &mut Ctx) -> Result<ApiResponse, ApiE
     let v2 = ctx.formatversion == 2;
     let yes = if v2 { json!(true) } else { json!("") };
     if ctx.params.flag("entirewatchlist") {
-        watch::mark_seen(ctx.db(), &holder, None, now).await?;
+        watch::mark_seen(ctx.accounts().await?, &holder, None, now).await?;
         return Ok(ApiResponse::ok(json!({"batchcomplete": yes,
             "setnotificationtimestamp": [{"notificationtimestamp": ""}]})));
     }
@@ -136,7 +144,7 @@ pub async fn setnotificationtimestamp(ctx: &mut Ctx) -> Result<ApiResponse, ApiE
     for title in titles(ctx, &site).await? {
         match watching::target_of_title(ctx, &site, &title).await? {
             Some(t) => {
-                watch::mark_seen(ctx.db(), &holder, Some((t.0, &t.1)), now).await?;
+                watch::mark_seen(ctx.accounts().await?, &holder, Some((t.0, &t.1)), now).await?;
                 out.push(json!({"title": title, "notificationtimestamp": ""}));
             }
             None => out.push(json!({"title": title, "invalid": yes})),
@@ -179,7 +187,7 @@ pub async fn raw(ctx: &Ctx, body: &mut Map<String, Value>) -> Result<(), ApiErro
         let (ns, t) = c.split_once('|').unwrap_or(("0", c));
         (ns.parse::<i32>().unwrap_or(0), t.replace('_', " "))
     });
-    let watches = watch::list(ctx.db(), &holder, watching::MAX_WATCHES, None).await?;
+    let watches = watch::list(ctx.accounts().await?, &holder, watching::MAX_WATCHES, None).await?;
     let mut entries: Vec<(i32, String, Option<i64>)> = Vec::new();
     for w in &watches {
         let Some((ns, title)) = watching::title_of(ctx, &site, w).await? else {

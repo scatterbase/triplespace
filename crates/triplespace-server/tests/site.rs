@@ -165,7 +165,7 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
 
     // The API, trusting the web tier on loopback by address (0057 §10).
     let app = App::new(
-        triplespace_db::pool::pool(&database, 4).unwrap(),
+        triplespace_db::scratch::pools(&database, 4),
         Secret::derive(&[7u8; 32]),
         ServerConfig {
             mode: Mode::Production,

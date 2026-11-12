@@ -134,12 +134,23 @@ async fn create_all<C: PgClient>(
 }
 
 /// Creates one sequence of a tenant if it does not exist: for a sequence added after the
-/// tenant was created, such as `actor_surrogate` (0007 A27).
+/// tenant was created, such as `actor_surrogate` (0007 A27). Looks first, and creates only
+/// when it is missing: creating needs the right to create in `log`, which a role that
+/// only appends does not hold, even when `IF NOT EXISTS` would make the statement a no-op.
 pub async fn ensure<C: PgClient>(
     client: &C,
     tenant: &str,
     seq: &Sequence,
 ) -> Result<(), StoreError> {
+    let name = sequence_name(tenant, seq)?;
+    let exists: bool = client
+        .query_one("SELECT to_regclass($1) IS NOT NULL", &[&name])
+        .await
+        .map_err(|e| storage_error(&e))?
+        .get(0);
+    if exists {
+        return Ok(());
+    }
     create_all(client, tenant, std::slice::from_ref(seq)).await
 }
 

@@ -450,8 +450,12 @@ pub async fn advance_next_offset<C: PgClient>(
     }
 }
 
-/// The records of [`append_many`], by binary `COPY` into `log.record`, with the columns
-/// [`insert_record`] writes for an unerased record.
+/// The records of [`append_many`], by binary `COPY` into the partition's own table, with
+/// the columns [`insert_record`] writes for an unerased record. Into the child table, not
+/// `log.record`: every record is the one partition's, and Postgres refuses `COPY FROM` into
+/// a table with row-level security for a role it applies to, which `log.record` has for a
+/// database whose roles keep a partition from some of them (Triplespace's accounts
+/// partition). The child table's own grants decide who may write it.
 async fn copy_records<C: PgClient>(
     client: &C,
     partition: u64,
@@ -459,13 +463,14 @@ async fn copy_records<C: PgClient>(
 ) -> Result<(), StoreError> {
     use tokio_postgres::binary_copy::BinaryCopyInWriter;
     use tokio_postgres::types::Type;
+    let table = record_table(partition);
     let sink = client
         .raw()
-        .copy_in(
-            "COPY log.record (partition, \"offset\", appended_at, payload_type, key, commitment,
+        .copy_in(&format!(
+            "COPY {table} (partition, \"offset\", appended_at, payload_type, key, commitment,
                               revid, logid, page_id, header, leaf, body, erased)
-             FROM STDIN BINARY",
-        )
+             FROM STDIN BINARY"
+        ))
         .await
         .map_err(|e| storage_error(&e))?;
     let writer = BinaryCopyInWriter::new(

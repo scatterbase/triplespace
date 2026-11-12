@@ -210,7 +210,7 @@ async fn threads_over_rest() {
     .expect("instance create");
     cheap_challenge(&database).await;
     let app = App::new(
-        triplespace_db::pool::pool(&database, 4).unwrap(),
+        triplespace_db::scratch::pools(&database, 4),
         Secret::derive(&[7u8; 32]),
         ServerConfig {
             mode: Mode::Production,
@@ -804,7 +804,7 @@ async fn signed_in(tag: &str) -> (Client, String, u64) {
     .expect("instance create");
     cheap_challenge(&database).await;
     let app = App::new(
-        triplespace_db::pool::pool(&database, 4).unwrap(),
+        triplespace_db::scratch::pools(&database, 4),
         Secret::derive(&[7u8; 32]),
         ServerConfig {
             mode: Mode::Production,

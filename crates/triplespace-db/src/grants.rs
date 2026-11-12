@@ -53,6 +53,9 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA private GRANT SELECT, INSERT, UPDATE, DELETE 
 GRANT SELECT, INSERT, UPDATE, DELETE ON private.inbox, private.inbox_state TO ts_notify, ts_accounts;
 GRANT SELECT ON private.watch TO ts_notify;
 GRANT SELECT ON private.email TO ts_notify;
+GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA private TO ts_accounts;
+ALTER DEFAULT PRIVILEGES IN SCHEMA private GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO ts_accounts;
+GRANT SELECT ON private.preference TO ts_notify;
 ";
 
 /// The row-level security of `log.record` that `0034_record_policies` gives, each policy
@@ -220,7 +223,7 @@ mod tests {
                 }
             }
         }
-        assert!(seen >= 17, "found only {seen} grant statements");
+        assert!(seen >= 20, "found only {seen} grant statements");
     }
 
     /// The policies hide the partition [`ensure`] and [`grant_partition`]'s callers call

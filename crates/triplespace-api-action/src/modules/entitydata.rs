@@ -56,10 +56,11 @@ async fn context(app: App, origin: Origin, headers: &HeaderMap) -> Result<Ctx, R
         }
         Err(e) => return Err(plain(StatusCode::INTERNAL_SERVER_ERROR, e.to_string())),
     };
-    let caller = Caller::resolve(&**client, &tenant.slug, headers)
+    let caller = Caller::resolve(app.accounts_pool(), &tenant.slug, headers)
         .await
         .map_err(|e| plain(StatusCode::INTERNAL_SERVER_ERROR, e.to_string()))?;
     Ok(Ctx {
+        accounts: tokio::sync::OnceCell::new(),
         app,
         client,
         tenant,
@@ -146,15 +147,19 @@ impl Format {
 /// languages, else their language, then English, standing in for Wikibase's fallback
 /// chain (`getFetchLanguageCodes`). `uselang` sets the language for one request.
 async fn stub_languages(ctx: &Ctx, uselang: Option<&str>) -> Vec<String> {
-    let resolved = crate::prefs::resolve(
-        ctx.db(),
-        &ctx.tenant.slug,
-        ctx.caller.identity.actor_key.as_deref(),
-        uselang,
-        ctx.accept_language.as_deref(),
-    )
-    .await
-    .ok();
+    // A reader's preferences are the accounts service's (0013 §4, A99).
+    let resolved = match ctx.accounts().await {
+        Ok(db) => crate::prefs::resolve(
+            db,
+            &ctx.tenant.slug,
+            ctx.caller.identity.actor_key.as_deref(),
+            uselang,
+            ctx.accept_language.as_deref(),
+        )
+        .await
+        .ok(),
+        Err(_) => None,
+    };
     let value = |key: &str| {
         resolved
             .as_ref()

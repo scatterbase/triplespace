@@ -108,6 +108,26 @@ Node 22 or later, and PostgreSQL (CI uses 18). A small instance needs Postgres a
 
    Then open <http://127.0.0.1:8080/> and log in as `Alice`.
 
+   **In production, give each part of the server its own login.** Connected as the owner, as
+   above, the server works, but the database does not keep the public API out of accounts'
+   private data, and the server warns that it does not. Create a login for each part, grant it
+   the part's role, and give the server a URL for each (architecture 03 §1.2):
+
+   ```sql
+   CREATE ROLE ts_server_login LOGIN PASSWORD '…' IN ROLE ts_server;
+   CREATE ROLE ts_accounts_login LOGIN PASSWORD '…' IN ROLE ts_accounts;
+   CREATE ROLE ts_notify_login LOGIN PASSWORD '…' IN ROLE ts_notify;
+   ```
+
+   ```sh
+   export TRIPLESPACE_DATABASE_URL=postgres://ts_server_login:…@localhost/triplespace
+   export TRIPLESPACE_ACCOUNTS_DATABASE_URL=postgres://ts_accounts_login:…@localhost/triplespace
+   export TRIPLESPACE_NOTIFY_DATABASE_URL=postgres://ts_notify_login:…@localhost/triplespace
+   ```
+
+   These are the server's. Run `triplespace` commands (`migrate`, `instance create`, `rebuild`)
+   as the owner, by passing its URL: `--database postgres://triplespace@localhost/triplespace`.
+
 7. **Add another wiki (optional).** A second tenant gets its own base URL, partitions, numbering
    and accounts. It needs the instance's auth host, a host of its own that is neither a tenant's
    nor the farm's; give the server the same `TRIPLESPACE_AUTH_BASE`.

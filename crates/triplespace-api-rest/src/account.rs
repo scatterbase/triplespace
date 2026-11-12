@@ -57,7 +57,7 @@ async fn prelude(
         }
         Err(e) => return Err(internal(&e)),
     };
-    let caller = Caller::resolve(client, &tenant.slug, headers)
+    let caller = Caller::resolve(app.accounts_pool(), &tenant.slug, headers)
         .await
         .map_err(|e| internal(&e.info))?;
     let Some(actor) = caller.identity.actor_key.clone() else {
@@ -140,7 +140,7 @@ pub async fn get(
     headers: HeaderMap,
     Query(q): Query<BTreeMap<String, String>>,
 ) -> Response {
-    let client = match app.pool().get().await {
+    let client = match app.accounts_pool().get().await {
         Ok(c) => c,
         Err(e) => return internal(&e),
     };
@@ -177,7 +177,7 @@ pub async fn patch(
     headers: HeaderMap,
     body_bytes: Bytes,
 ) -> Response {
-    let mut client = match app.pool().get().await {
+    let mut client = match app.accounts_pool().get().await {
         Ok(c) => c,
         Err(e) => return internal(&e),
     };
@@ -253,7 +253,7 @@ pub async fn delete(
     Path(key): Path<String>,
     Query(q): Query<BTreeMap<String, String>>,
 ) -> Response {
-    let client = match app.pool().get().await {
+    let client = match app.accounts_pool().get().await {
         Ok(c) => c,
         Err(e) => return internal(&e),
     };

@@ -42,7 +42,7 @@ async fn reviewer(
         }
         Err(e) => return Err(internal(&e)),
     };
-    let caller = Caller::resolve(client, &tenant.slug, headers)
+    let caller = Caller::resolve(app.accounts_pool(), &tenant.slug, headers)
         .await
         .map_err(|e| internal(&e.info))?;
     let Some(actor) = caller.identity.actor_key.clone() else {
@@ -105,7 +105,7 @@ pub async fn list(
     Extension(origin): Extension<Origin>,
     headers: HeaderMap,
 ) -> Response {
-    let client = match app.pool().get().await {
+    let client = match app.accounts_pool().get().await {
         Ok(c) => c,
         Err(e) => return internal(&e),
     };
@@ -145,7 +145,7 @@ pub async fn approve(
     Path(id): Path<String>,
     body: Bytes,
 ) -> Response {
-    let client = match app.pool().get().await {
+    let client = match app.accounts_pool().get().await {
         Ok(c) => c,
         Err(e) => return internal(&e),
     };
@@ -156,7 +156,7 @@ pub async fn approve(
     if let Err(r) = write_body(&app, &caller, &headers, &body) {
         return r;
     }
-    let store = app.store();
+    let store = app.accounts_store();
     let mut cx = match scatter_projection::Backend::begin(store).await {
         Ok(cx) => cx,
         Err(e) => return internal(&e),
@@ -243,7 +243,7 @@ pub async fn reject(
     Path(id): Path<String>,
     body: Bytes,
 ) -> Response {
-    let client = match app.pool().get().await {
+    let client = match app.accounts_pool().get().await {
         Ok(c) => c,
         Err(e) => return internal(&e),
     };

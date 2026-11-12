@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-12 (A98)
+- **Updated:** 2026-11-12 (A100)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -63,7 +63,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 4. Four schemas
 
-*Changed by A3, A7, A8, A9, A11, A27, A45, A64, A65, A66, A67, A97, A98.*
+*Changed by A3, A7, A8, A9, A11, A27, A45, A64, A65, A66, A67, A97, A98, A99, A100.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §1.2, §4.16.*
 
@@ -111,7 +111,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 6. Global revision, log and page IDs (amends 0012 §2.1)
 
-*Changed by A2, A5, A6, A12, A22, A29, A55, A58, A68.*
+*Changed by A2, A5, A6, A12, A22, A29, A55, A58, A68, A100.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §2.3.*
 
@@ -129,7 +129,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 9. Bootstrap mode (extends 0002 §8.6; uses 0006 §5)
 
-*Changed by A31, A53, A70, A71, A72, A73, A74, A82, A83, A85.*
+*Changed by A31, A53, A70, A71, A72, A73, A74, A82, A83, A85, A100.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.8.*
 
@@ -1229,17 +1229,31 @@ Replaced text ([01](../architecture/01-log-and-records.md) §6, as it stood):
 ### A97. The roles and grants converge on every migration run
 
 - **Date:** 2026-11-12
-- **Source:** Direct: Claude, while building the restore path for rehosting, 2026-11-12; unconfirmed (James asked for a database migrated by `pg_dump` and restore to need only the binary)
+- **Source:** Direct: Claude, while building the restore path for rehosting, 2026-11-12; confirmed by James, 2026-11-12
 - **Change:** extends §4
 - **Summary:** Migrating an instance by dumping and restoring its database required creating the five roles by hand: roles are the server's, `pg_dump` does not carry them, and `0004_roles` is recorded in the restored `ops.migration`, so `triplespace migrate` never ran it again. The calls made: (1) `triplespace_db::grants::ensure` creates any role the server lacks and gives every grant the migrations give, then each partition's, and the migration runner calls it at the end of every run, applied or not, in one transaction; `0004_roles` is left as it was, since a recorded migration is never edited. (2) The grants are a copy, `grants::GRANTS`, of every `GRANT` and `ALTER DEFAULT PRIVILEGES` in the migrations; a unit test fails when a migration adds one the copy lacks, and a database test revokes every grant, migrates again and compares. (3) A partition named `accounts` is the one hidden from every role but `ts_accounts`. (4) `grant_partition`, until now called only by tests, is called where the three production paths create a partition (a tenant's partitions, its `config` partition, an entity source's), so the accounts partition's exclusion now holds in production. (5) The documented restore is `pg_restore --no-owner --no-privileges` then `triplespace migrate`, so that the binary, not the dump, decides every grant ([08](../architecture/08-tenants-and-instances.md) §6.7). (6) The runner creates the roles before it applies any migration, so that `0004_roles` always finds them made: two sessions creating one role at once fail with `unique_violation`, which `0004_roles` does not catch, as two databases on a new server migrating together, or the test suite's first run there, would; `ensure_roles` catches both.
 
 ### A98. Row-level security hides the accounts partition in `log.record`
 
 - **Date:** 2026-11-12
-- **Source:** Direct: Claude, while building the accounts partition's exclusion from the parent table, 2026-11-12; unconfirmed (James chose row-level security from Q11's options)
+- **Source:** Direct: Claude, while building the accounts partition's exclusion from the parent table, 2026-11-12; confirmed by James, 2026-11-12
 - **Change:** amends §4
 - **Summary:** Postgres checks privileges only on the table a query names, so revoking the accounts partition's child table left its rows readable, and writable, through the parent `log.record`, to which every role is granted (Q11). Migration `0034_record_policies` enables row-level security on `log.record` with two policies: `ts_accounts_reads_all` admits every row to `ts_accounts`, and `ts_public_skips_accounts` admits to `ts_server`, `ts_notify`, `ts_federation` and `ts_verify` every row whose partition is not in `SELECT partition FROM log.partition WHERE name = 'accounts'`, for reads and writes. The calls made: (1) **The form of the check.** Measured as `ts_server` counting a 200,000-row partition, against 12 ms with no policy: a function called per row took 812 ms; an array read once per query 27 ms with one accounts partition and 401 ms with 1,001, since `<> ALL` over a parameter is a linear scan; a correlated `NOT EXISTS` 129 ms; a literal array 13 ms at any size, but it would be rewritten, under an exclusive lock on `log.record`, whenever a tenant is created; an uncorrelated `NOT IN`, which Postgres hashes once a query, 18 ms with 1 or 1,001. The `NOT IN` was chosen: flat in the number of tenants, and no DDL after the migration. `log.partition.partition` is `NOT NULL`, so `NOT IN` has no null trap. (2) **Restores.** A policy names roles, so a restore onto a server without them leaves it out, and the table, its security enabled, then shows those roles nothing; `grants::POLICIES` re-creates each policy that is missing on every migration run (A97), and leaves one that exists alone, since creating a policy locks the table. (3) **The owner bypasses row-level security** (it is not `FORCE`d): every service connects as the owner today, so nothing changes in production until services connect as the roles. (4) Partitions are recognised by the name `accounts`, as `grants::ensure` does; packed record storage ([0058](0058-packed-record-storage.md)), when built, will hold accounts bodies outside `log.record` and needs the same exclusion.
 
 Replaced text ([03](../architecture/03-storage-caches-and-search.md) §1.2, as it stood):
 
 > Their child table is in the `log` schema but owned by the accounts role, and the public role's `SELECT` on `log.record` is granted per child table, excluding it.
+
+### A99. Each part of the server connects as its own login
+
+- **Date:** 2026-11-12
+- **Source:** Direct: James, design discussion of 2026-11-12
+- **Change:** extends §4
+- **Summary:** §4's privacy rests on the role a connection holds, but every part of the server connected as the database owner, which holds every grant and bypasses row-level security (A98), so nothing kept the public API out of `private`. James chose, between one login that switches role per pool (`SET ROLE`, which a compromised process could undo) and a login per part: **each part connects with its own URL, naming a login the deployment has granted the part's role**. The server takes `TRIPLESPACE_ACCOUNTS_DATABASE_URL` and `TRIPLESPACE_NOTIFY_DATABASE_URL` beside `TRIPLESPACE_DATABASE_URL`, which the public API connects with.
+
+### A100. Which part is which, and what the roles were missing
+
+- **Date:** 2026-11-12
+- **Source:** Direct: Claude, while building the logins of A99, 2026-11-12; unconfirmed
+- **Change:** extends §4, §6, §9
+- **Summary:** Building A99 by running every server test with each part connected under its role found what belongs where and what the owner had hidden. The calls made: (1) **The accounts service** is a request's caller (the session or API key, read on an accounts connection for every request), the Action API's sign-in, sign-up, account-link, preference, rename, watch and inbox actions (which run on its connection throughout, so their records and `private` rows are one transaction), the REST account, auth, email, account-request, settings and watchlist routes, external logins and their OAuth clients, challenges and rate limits, forwarder keys, and the job runners, since an adoption appends to accounts partitions; a public action that needs it for one step takes a second connection. **The notifier** is addressing and email delivery. (2) A part without a URL shares the public API's, so a single owner URL still works, and the server warns at start when the public API's login can read `private`, rather than refusing. (3) `0035_service_grants` gives `ts_accounts` the sequences in `private` (`private.login_id`) and `ts_notify` `SELECT` on `private.preference`, which addressing reads; `grants::GRANTS` repeats both. (4) **§9:** a bulk append copies into the partition's own table, not `log.record`: Postgres refuses `COPY FROM` into a table under row-level security for a role it applies to (A98), and every bulk append is one partition's. (5) **§6:** the `actor_surrogate` sequence made on first use for tenants older than [0007](0007-actor-identity.md) A27 is looked up before it is created, since creating needs a right in `log` the roles lack even when `IF NOT EXISTS` would make the statement a no-op; such a tenant's first surrogate is minted by the owner (any `triplespace` command that writes) or fails. (6) The tests connect each part under its role by the URL's `options=-c role=…`, which sets it as the connection opens, standing in for separate logins.

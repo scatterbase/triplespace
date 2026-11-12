@@ -300,7 +300,7 @@ async fn check_keys(app: &App, presented: &[String]) -> Vec<Option<String>> {
             continue;
         }
         if client.is_none() {
-            client = app.pool().get().await.ok();
+            client = app.accounts_pool().get().await.ok();
         }
         let Some(c) = client.as_ref() else { break };
         if let Ok(v) = triplespace_accounts::forwarder::verify(&***c, k).await {

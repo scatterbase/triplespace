@@ -112,7 +112,7 @@ async fn visible(ctx: &Ctx, items: Vec<Item>) -> Result<Vec<Item>, ApiError> {
     // What the reader may not see by page: a confidential page's, and a hidden user's
     // talk page, which a thread's home may be (09 §5.3, §6.3).
     let absent = triplespace_projections::acl_read::hidden(
-        ctx.db(),
+        ctx.accounts().await?,
         &ctx.tenant.slug,
         &ctx.caller.effective,
         scatter_actors::Timestamp(crate::edit::now_micros()),
@@ -164,7 +164,7 @@ async fn visible(ctx: &Ctx, items: Vec<Item>) -> Result<Vec<Item>, ApiError> {
             } else {
                 let ok = match id.parse::<u64>() {
                     Ok(thread) => triplespace_projections::acl_read::page_readable(
-                        ctx.db(),
+                        ctx.accounts().await?,
                         &ctx.tenant.slug,
                         &ctx.caller.effective,
                         thread,
@@ -187,7 +187,15 @@ async fn visible(ctx: &Ctx, items: Vec<Item>) -> Result<Vec<Item>, ApiError> {
 
 /// The unread items of a section the caller may see, up to [`COUNT_CAP`].
 async fn unread(ctx: &Ctx, me: &str, reasons: Reasons<'_>) -> Result<i64, ApiError> {
-    let items = inbox::list(ctx.db(), me, Filter::Unread, reasons, COUNT_CAP, None).await?;
+    let items = inbox::list(
+        ctx.accounts().await?,
+        me,
+        Filter::Unread,
+        reasons,
+        COUNT_CAP,
+        None,
+    )
+    .await?;
     Ok(i64::try_from(visible(ctx, items).await?.len()).unwrap_or(COUNT_CAP))
 }
 
@@ -212,7 +220,7 @@ async fn threads_of(
     if ids.is_empty() {
         return Ok(std::collections::HashMap::new());
     }
-    let site = crate::pages::Site::load_for(ctx.db(), &ctx.tenant.slug).await?;
+    let site = crate::pages::Site::load_for(ctx.accounts().await?, &ctx.tenant.slug).await?;
     let rows = ctx
         .db()
         .query(
@@ -308,7 +316,7 @@ async fn activity_of(
     keys.dedup();
     let effective = &ctx.caller.effective;
     let hidden = triplespace_projections::acl_read::hidden_actors(
-        ctx.db(),
+        ctx.accounts().await?,
         &ctx.tenant.slug,
         &keys,
         |g| effective.reads_in(g),
@@ -424,7 +432,7 @@ async fn list_of(
         None => None,
     };
     let mut items = inbox::list(
-        ctx.db(),
+        ctx.accounts().await?,
         me,
         filter,
         reasons,
@@ -517,7 +525,7 @@ pub async fn meta(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
     let wants = |p: &str| props.iter().any(|x| x == p);
     let seen = if wants("seenTime") {
         Some(
-            inbox::seen_at(ctx.db(), &me)
+            inbox::seen_at(ctx.accounts().await?, &me)
                 .await?
                 .map_or(Value::Null, |t| json!(iso8601(micros(t)))),
         )
@@ -591,7 +599,7 @@ pub async fn markread(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             }
             [s, ..] => return Err(ApiError::bad_value("sections", s)),
         };
-        inbox::mark(ctx.db(), &me, None, reasons, true).await?;
+        inbox::mark(ctx.accounts().await?, &me, None, reasons, true).await?;
     } else {
         let read = ids(ctx, "list")?;
         let unread = ids(ctx, "unreadlist")?;
@@ -601,8 +609,15 @@ pub async fn markread(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
                 "At least one of the parameters \"list\", \"unreadlist\" and \"all\" is required.",
             ));
         }
-        inbox::mark(ctx.db(), &me, Some(&read), Reasons::All, true).await?;
-        inbox::mark(ctx.db(), &me, Some(&unread), Reasons::All, false).await?;
+        inbox::mark(ctx.accounts().await?, &me, Some(&read), Reasons::All, true).await?;
+        inbox::mark(
+            ctx.accounts().await?,
+            &me,
+            Some(&unread),
+            Reasons::All,
+            false,
+        )
+        .await?;
     }
     let alerts = unread(ctx, &me, reasons_of("alert")).await?;
     let messages = unread(ctx, &me, reasons_of("message")).await?;
@@ -625,7 +640,7 @@ pub async fn markseen(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         Some(other) => return Err(ApiError::bad_value("type", other)),
         None => return Err(ApiError::missing_param("type")),
     }
-    let t = inbox::mark_seen(ctx.db(), &me).await?;
+    let t = inbox::mark_seen(ctx.accounts().await?, &me).await?;
     Ok(ApiResponse::ok(json!({"query": {"echomarkseen": {
         "result": "success",
         "timestamp": iso8601(micros(t)),

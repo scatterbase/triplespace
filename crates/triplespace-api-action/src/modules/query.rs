@@ -275,7 +275,7 @@ async fn tokens(
         .collect();
     }
     if ctx.caller.identity.token_binding().is_none() {
-        let s = session::create(ctx.db(), &ctx.tenant.slug, None, None).await?;
+        let s = session::create(ctx.accounts().await?, &ctx.tenant.slug, None, None).await?;
         response.set_cookie = Some(set_cookie(
             &ctx.app,
             &s.id,
@@ -391,7 +391,10 @@ async fn userinfo(ctx: &Ctx, query: &mut Map<String, Value>) -> Result<(), ApiEr
         // Triplespace's: the open account requests a reviewer has waiting (0087 §6).
         u.insert(
             "accountrequests".into(),
-            json!(triplespace_accounts::requests::open_count(ctx.db(), &ctx.tenant.slug).await?),
+            json!(
+                triplespace_accounts::requests::open_count(ctx.accounts().await?, &ctx.tenant.slug)
+                    .await?
+            ),
         );
     }
     if let Some(k) = &id.credential {
@@ -400,7 +403,7 @@ async fn userinfo(ctx: &Ctx, query: &mut Map<String, Value>) -> Result<(), ApiEr
     if want("options") {
         let accept = ctx.accept_language.as_deref();
         let resolved = crate::prefs::resolve(
-            ctx.db(),
+            ctx.accounts().await?,
             &ctx.tenant.slug,
             id.actor_key.as_deref(),
             ctx.params.get("uselang"),
@@ -1079,7 +1082,7 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                 // External issuers the tenant offers (0088 §9).
                 let offered = crate::external::offered(crate::external::Scope {
                     app: &ctx.app,
-                    db: ctx.db(),
+                    db: ctx.accounts().await?,
                     tenant: &ctx.tenant,
                 })
                 .await?;

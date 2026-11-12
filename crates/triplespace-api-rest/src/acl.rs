@@ -40,15 +40,35 @@ pub(crate) fn refused(e: &ApiError) -> Response {
     error(status_of(e), &e.code, e.info.clone())
 }
 
-/// The request's context, as the Action API's modules take it.
+/// The request's context, as the Action API's modules take it, on the public API's pool.
 pub(crate) async fn context(
     app: &App,
     origin: Origin,
     headers: &HeaderMap,
 ) -> Result<Ctx, Response> {
-    let client = app.pool().get().await.map_err(|e| internal(&e))?;
+    context_on(app, app.pool(), origin, headers).await
+}
+
+/// The request's context on the accounts service's pool (0013 §4, A99), for a route of the
+/// accounts service: the watch set.
+pub(crate) async fn accounts_context(
+    app: &App,
+    origin: Origin,
+    headers: &HeaderMap,
+) -> Result<Ctx, Response> {
+    context_on(app, app.accounts_pool(), origin, headers).await
+}
+
+async fn context_on(
+    app: &App,
+    pool: &deadpool_postgres::Pool,
+    origin: Origin,
+    headers: &HeaderMap,
+) -> Result<Ctx, Response> {
+    let client = pool.get().await.map_err(|e| internal(&e))?;
     let (tenant, caller) = prelude(app, &client, &origin, headers).await?;
     Ok(Ctx {
+        accounts: tokio::sync::OnceCell::new(),
         app: app.clone(),
         client,
         tenant,

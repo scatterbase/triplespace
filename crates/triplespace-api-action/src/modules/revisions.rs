@@ -276,6 +276,7 @@ pub async fn deleted(
     }
     let as_rv = ctx.params.with_prefix_as("drv", "rv");
     let ctx = Ctx {
+        accounts: tokio::sync::OnceCell::new(),
         params: as_rv,
         client: ctx.app.pool().get().await.map_err(ApiError::internal)?,
         app: ctx.app.clone(),

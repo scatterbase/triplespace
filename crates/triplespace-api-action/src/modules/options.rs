@@ -68,7 +68,7 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     }
     let mut client = ctx
         .app
-        .pool()
+        .accounts_pool()
         .get()
         .await
         .map_err(|e| ApiError::internal(&e))?;

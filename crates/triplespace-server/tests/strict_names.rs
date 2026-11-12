@@ -344,7 +344,7 @@ async fn strict_names() {
         seen: Mutex::default(),
     });
     let secret = Secret::derive(&[7u8; 32]);
-    let pool = triplespace_db::pool::pool(&database, 4).unwrap();
+    let pool = triplespace_db::scratch::pools(&database, 4);
     let farm = triplespace_cli::common::farm_at(&database).await.unwrap();
     let app = App::with_upstream(
         pool.clone(),
@@ -362,7 +362,7 @@ async fn strict_names() {
     )
     .unwrap();
     let router = router_with(app.clone(), triplespace_api_rest::routes());
-    let db = pool.get().await.unwrap();
+    let db = pool.accounts.get().await.unwrap();
     let registry = scatter_actors::issuer::IssuerRegistry::default_registry();
     let callback = oauth::callback_url(&format!("https://{HOST}"), ISSUER);
     oauth::set_client(
@@ -378,7 +378,7 @@ async fn strict_names() {
     .await
     .unwrap();
     let name_of = |key: String| {
-        let db = pool.clone();
+        let db = pool.server.clone();
         async move {
             let c = db.get().await.unwrap();
             c.query_one(
@@ -546,7 +546,8 @@ async fn strict_names() {
         (alice_key.as_str(), "Wikimedia-AliceWM"),
         (eve_key.as_str(), "Wikimedia-Eve"),
     ] {
-        let store = app.store();
+        // A rename is the accounts service's: it writes name tombstones (0013 §4, A99).
+        let store = app.accounts_store();
         let mut cx = scatter_projection::Backend::begin(store).await.unwrap();
         triplespace_api_ingest::accounts::rename(
             store,

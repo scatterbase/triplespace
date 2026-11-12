@@ -76,7 +76,7 @@ impl Policy {
     ///
     /// If the store fails.
     pub async fn load(ctx: &Ctx) -> Result<Self, ApiError> {
-        Self::load_for(ctx.db(), &ctx.tenant.slug).await
+        Self::load_for(ctx.accounts().await?, &ctx.tenant.slug).await
     }
 
     /// A tenant's settings, by its slug.
@@ -177,7 +177,7 @@ pub async fn binding(ctx: &mut Ctx) -> Result<String, ApiError> {
     if let Some(b) = ctx.caller.identity.token_binding() {
         return Ok(b.to_string());
     }
-    let s = session::create(ctx.db(), &ctx.tenant.slug, None, None).await?;
+    let s = session::create(ctx.accounts().await?, &ctx.tenant.slug, None, None).await?;
     ctx.set_cookie = Some(set_cookie(
         &ctx.app,
         &s.id,
@@ -209,7 +209,7 @@ pub async fn fresh(
 ) -> Result<Challenge, ApiError> {
     let binding = binding(ctx).await?;
     let bits = challenge::difficulty(
-        ctx.db(),
+        ctx.accounts().await?,
         &ctx.tenant.slug,
         &address(ctx),
         policy.bits,
@@ -252,7 +252,7 @@ pub async fn redeem(ctx: &mut Ctx, trigger: Trigger) -> Result<Result<(), Unsolv
     let id = ctx.params.get("tschallengeid").map(str::to_owned);
     let solution = ctx.params.get("tschallengesolution").map(str::to_owned);
     Ok(challenge::redeem(
-        ctx.db(),
+        ctx.accounts().await?,
         ctx.app.secret(),
         &binding,
         &ctx.tenant.slug,
@@ -345,7 +345,7 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     if let Some(issuer) = super::issuers::pressed(ctx) {
         // Under strict names the name is derived when the identity comes back
         // (0102 §1); a chosen one is not carried.
-        let strict = triplespace_accounts::logins::strict_names(ctx.db()).await?;
+        let strict = triplespace_accounts::logins::strict_names(ctx.accounts().await?).await?;
         if chosen.is_empty() && !strict {
             return Ok(fail("noname", "You have not specified a valid username."));
         }
@@ -353,7 +353,7 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             None
         } else {
             let tenant = ctx.tenant.slug.clone();
-            let mut cx = scatter_projection::Backend::begin(ctx.app.store()).await?;
+            let mut cx = scatter_projection::Backend::begin(ctx.app.accounts_store()).await?;
             let checked = triplespace_api_ingest::accounts::check_available(
                 &mut cx,
                 ctx.app.secret(),
@@ -361,7 +361,7 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
                 &chosen,
             )
             .await;
-            scatter_projection::Backend::rollback(ctx.app.store(), cx).await?;
+            scatter_projection::Backend::rollback(ctx.app.accounts_store(), cx).await?;
             match checked {
                 Ok(n) => Some(n),
                 Err(CreateError::InvalidName(_)) => {
@@ -397,7 +397,7 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     let tenant = ctx.tenant.slug.clone();
     if !ctx.caller.effective.holds("noratelimit") {
         let made = challenge::count(
-            ctx.db(),
+            ctx.accounts().await?,
             &tenant,
             challenge::CREATEACCOUNT,
             &address,
@@ -447,7 +447,7 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     let performer = ctx.caller.identity.actor_key.clone();
     let files_request = policy.approval && !ctx.caller.effective.holds("confirmaccount");
     {
-        let mut cx = scatter_projection::Backend::begin(ctx.app.store()).await?;
+        let mut cx = scatter_projection::Backend::begin(ctx.app.accounts_store()).await?;
         let checked = triplespace_api_ingest::accounts::check_available(
             &mut cx,
             ctx.app.secret(),
@@ -455,7 +455,7 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             &username,
         )
         .await;
-        scatter_projection::Backend::rollback(ctx.app.store(), cx).await?;
+        scatter_projection::Backend::rollback(ctx.app.accounts_store(), cx).await?;
         match checked {
             Ok(_) => {}
             Err(CreateError::InvalidName(_)) => {
@@ -511,7 +511,7 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             .then_some(statement.as_deref())
             .flatten();
         let filed = requests::file(
-            ctx.db(),
+            ctx.accounts().await?,
             &tenant,
             &username,
             &password,
@@ -530,14 +530,20 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             }
             return Err(ApiError::internal(e));
         }
-        challenge::record(ctx.db(), &tenant, challenge::CREATEACCOUNT, &address).await?;
+        challenge::record(
+            ctx.accounts().await?,
+            &tenant,
+            challenge::CREATEACCOUNT,
+            &address,
+        )
+        .await?;
         return Ok(fail(
             "ts-account-requested",
             "Your request for an account has been filed. Someone who reviews new accounts on this wiki will decide on it; log in with the name and password you chose to learn the outcome.",
         ));
     }
     let now = crate::edit::now_micros();
-    let store = ctx.app.store();
+    let store = ctx.app.accounts_store();
     let mut cx = scatter_projection::Backend::begin(store).await?;
     let comment = if performer.is_some() {
         "createaccount: created by another"
@@ -594,7 +600,13 @@ pub async fn createaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             };
         }
     }
-    challenge::record(ctx.db(), &tenant, challenge::CREATEACCOUNT, &address).await?;
+    challenge::record(
+        ctx.accounts().await?,
+        &tenant,
+        challenge::CREATEACCOUNT,
+        &address,
+    )
+    .await?;
     Ok(ApiResponse::ok(json!({"createaccount": {
         "status": "PASS",
         "username": scatter_actors::actor::normalize_name(&username),
@@ -680,7 +692,7 @@ pub async fn authmanagerinfo(
             if policy.guards(ctx, Trigger::BadLogin) {
                 let a = address(ctx);
                 let failed = challenge::count(
-                    ctx.db(),
+                    ctx.accounts().await?,
                     &ctx.tenant.slug,
                     challenge::BADLOGIN_ADDRESS,
                     &a,
@@ -727,7 +739,7 @@ pub async fn guard_login(ctx: &mut Ctx, username: &str) -> Result<Option<ApiResp
         return Ok(None);
     }
     let a = address(ctx);
-    if !challenge::badlogin_applies(ctx.db(), &ctx.tenant.slug, &a, username).await? {
+    if !challenge::badlogin_applies(ctx.accounts().await?, &ctx.tenant.slug, &a, username).await? {
         return Ok(None);
     }
     match redeem(ctx, Trigger::BadLogin).await? {

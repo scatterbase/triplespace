@@ -124,7 +124,9 @@ async fn watch_fields(
     let v2 = ctx.formatversion == 2;
     let yes = if v2 { json!(true) } else { json!("") };
     let w = match target {
-        Some((k, i)) => triplespace_accounts::watch::get(ctx.db(), &holder, *k, i).await?,
+        Some((k, i)) => {
+            triplespace_accounts::watch::get(ctx.accounts().await?, &holder, *k, i).await?
+        }
         None => None,
     };
     if want("watched") {

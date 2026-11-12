@@ -22,9 +22,17 @@ use triplespace_client::{Client, ServiceTransport};
 #[derive(Debug, Parser)]
 #[command(name = "triplespace-server", version, about)]
 struct Args {
-    /// The Postgres URL.
+    /// The Postgres URL the public API and the write path connect with: a login granted
+    /// `ts_server` (0013 §4). Without the two below, every part connects with it.
     #[arg(long, env = "TRIPLESPACE_DATABASE_URL")]
     database: String,
+    /// The Postgres URL the accounts service connects with: a login granted `ts_accounts`,
+    /// the role that reads and writes `private` (0013 §4, A99).
+    #[arg(long, env = "TRIPLESPACE_ACCOUNTS_DATABASE_URL")]
+    accounts_database: Option<String>,
+    /// The Postgres URL the notifier connects with: a login granted `ts_notify`.
+    #[arg(long, env = "TRIPLESPACE_NOTIFY_DATABASE_URL")]
+    notify_database: Option<String>,
     /// Where to listen.
     #[arg(long, env = "TRIPLESPACE_LISTEN", default_value = "127.0.0.1:8080")]
     listen: String,
@@ -223,7 +231,7 @@ async fn deliver(
         });
     }
     loop {
-        let pass = match app.pool().get().await {
+        let pass = match app.notify_pool().get().await {
             Ok(mut client) => {
                 triplespace_notify::mail::deliver_once(&mut client, transport.as_ref())
                     .await
@@ -410,9 +418,9 @@ async fn run() -> Result<()> {
     let auth_base = auth_base(&client, &farm, args.auth_base.as_deref()).await?;
     drop(client);
     let (transport, mail) = mail_transport(&args, mode)?;
-    let pool = triplespace_db::pool::pool(&args.database, args.pool).context("pool")?;
+    let pools = pools(&args).await?;
     let app = App::new(
-        pool,
+        pools,
         secret,
         Config {
             mode,
@@ -435,10 +443,14 @@ async fn run() -> Result<()> {
     app.set_dumps_dir(args.dumps_dir.clone());
     if let Some(transport) = transport {
         eprintln!("mail: transport {}", transport.name());
-        tokio::spawn(deliver(app.clone(), args.database.clone(), transport));
+        let notify = args.notify_database.as_ref().unwrap_or(&args.database);
+        tokio::spawn(deliver(app.clone(), notify.clone(), transport));
     }
     background(&app, args.workers).await;
-    job_runners(&app, &args.database, args.job_runners)?;
+    // Jobs are operators' work, and an adoption appends to accounts partitions (0035):
+    // the runners connect as the accounts service (0013 §4, A99).
+    let jobs = args.accounts_database.as_ref().unwrap_or(&args.database);
+    job_runners(&app, jobs, args.job_runners)?;
     if let Some(admin) = &args.admin_listen {
         let admin_router =
             axum::Router::new().route("/healthz", axum::routing::get(|| async { "ok" }));
@@ -489,6 +501,62 @@ fn with_site(api: axum::Router, skins: Option<&std::path::Path>) -> axum::Router
 
 /// The job runner (0104 §4): background tasks claiming `ops.job_queue`, each with a
 /// store of its own, since a job's units of work are its own transactions.
+/// The pools of each part, from its URL (0013 §4, A99), reported as they connect.
+async fn pools(args: &Args) -> Result<triplespace_db::pool::Pools> {
+    let pools = triplespace_db::pool::Pools::new(
+        &args.database,
+        args.accounts_database.as_deref(),
+        args.notify_database.as_deref(),
+        args.pool,
+    )
+    .context("pool")?;
+    report_privacy(&pools).await;
+    Ok(pools)
+}
+
+/// Says, for each pool, whether its login is held to its role (0013 §4, A99): a public
+/// pool that can read `private`, as the owner can, means the database does not enforce
+/// the privacy of `private` and the accounts partition, and the server says so.
+async fn report_privacy(pools: &triplespace_db::pool::Pools) {
+    use triplespace_db::grants::role;
+    let parts = [
+        ("public API", &pools.server, role::SERVER),
+        ("accounts service", &pools.accounts, role::ACCOUNTS),
+        ("notifier", &pools.notify, role::NOTIFY),
+    ];
+    for (part, pool, want) in parts {
+        let client = match pool.get().await {
+            Ok(c) => c,
+            Err(e) => {
+                eprintln!("database: the {part} cannot connect: {e}");
+                continue;
+            }
+        };
+        let row = client
+            .query_one(
+                "SELECT current_user::text, has_schema_privilege('private', 'USAGE')",
+                &[],
+            )
+            .await;
+        match row {
+            Ok(r) => {
+                let (user, reads_private): (String, bool) = (r.get(0), r.get(1));
+                if want == role::SERVER && reads_private {
+                    eprintln!(
+                        "database: warning: the {part} connects as `{user}`, which can read \
+                         `private`; the database does not enforce its privacy. Connect it as a \
+                         login granted {want}, and the accounts service and the notifier with \
+                         --accounts-database and --notify-database (0013 §4)"
+                    );
+                } else {
+                    eprintln!("database: the {part} connects as `{user}`");
+                }
+            }
+            Err(e) => eprintln!("database: the {part}: {e}"),
+        }
+    }
+}
+
 fn job_runners(app: &triplespace_api_action::App, database: &str, n: usize) -> Result<()> {
     for i in 0..n {
         let (store, pipeline) =

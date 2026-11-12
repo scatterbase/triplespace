@@ -20,8 +20,13 @@ use crate::tenant::{self, Tenant};
 pub struct Ctx {
     /// The state.
     pub app: App,
-    /// A pooled connection; writes open their own unit of work through the store.
+    /// A pooled connection; writes open their own unit of work through the store. The
+    /// public API's pool, or the accounts service's for an action of
+    /// [`ACCOUNTS_ACTIONS`] (0013 §4, A99).
     pub client: Object,
+    /// A connection of the accounts service's pool, opened when a public action first
+    /// needs one ([`Ctx::accounts`]).
+    pub accounts: tokio::sync::OnceCell<Object>,
     /// The tenant the host named.
     pub tenant: Tenant,
     /// Where the request came from: the client address behind trusted proxies.
@@ -56,6 +61,27 @@ impl Ctx {
     #[must_use]
     pub fn db(&self) -> &tokio_postgres::Client {
         &self.client
+    }
+
+    /// A connection of the accounts service (0013 §4, A99), for what reads or writes
+    /// `private` on an account's behalf: a session, a token, the watch set, preferences.
+    /// Opened on first use and kept for the request.
+    ///
+    /// # Errors
+    ///
+    /// An internal error when the pool cannot give a connection.
+    pub async fn accounts(&self) -> Result<&tokio_postgres::Client, ApiError> {
+        let object = self
+            .accounts
+            .get_or_try_init(|| async {
+                self.app
+                    .accounts_pool()
+                    .get()
+                    .await
+                    .map_err(ApiError::internal)
+            })
+            .await?;
+        Ok(object)
     }
 
     /// The tenant's table of names (0078 §3): the registry with its entity sources.
@@ -189,11 +215,7 @@ pub async fn handle(
         .unwrap_or_default()
         .to_string();
     let form = posted && content_type.starts_with("application/x-www-form-urlencoded");
-    let body_text = if form {
-        Some(String::from_utf8_lossy(&body).into_owned())
-    } else {
-        None
-    };
+    let body_text = form.then(|| String::from_utf8_lossy(&body).into_owned());
     let mut params = Params::parse(query.as_deref(), body_text.as_deref(), posted);
     if posted && content_type.starts_with("multipart/form-data") {
         // A multipart body (`action=import`'s `xml` upload): its text fields are body
@@ -202,7 +224,7 @@ pub async fn handle(
             return ApiResponse::err(e).into_response();
         }
     }
-    let caller = match Caller::resolve(&**client, &tenant.slug, &headers).await {
+    let caller = match Caller::resolve(app.accounts_pool(), &tenant.slug, &headers).await {
         Ok(c) => c,
         Err(e) => return ApiResponse::err(e).into_response(),
     };
@@ -210,7 +232,12 @@ pub async fn handle(
         Ok(v) => v,
         Err(e) => return ApiResponse::err(e).into_response(),
     };
+    let client = match connection_for(&app, &params, client).await {
+        Ok(c) => c,
+        Err(e) => return ApiResponse::err(e).into_response(),
+    };
     let mut ctx = Ctx {
+        accounts: tokio::sync::OnceCell::new(),
         app,
         client,
         tenant,
@@ -222,10 +249,7 @@ pub async fn handle(
         warnings: Vec::new(),
         cache_class: Class::Public,
         cache_tags: Vec::new(),
-        accept_language: headers
-            .get(axum::http::header::ACCEPT_LANGUAGE)
-            .and_then(|v| v.to_str().ok())
-            .map(str::to_owned),
+        accept_language: accept_language(&headers),
         batch: std::sync::atomic::AtomicU64::new(0),
         unchanged: std::sync::Mutex::new(None),
     };
@@ -273,6 +297,44 @@ pub async fn handle(
     }
     r
 }
+
+/// The request's `Accept-Language`, for the preferences negotiated from it (0085 §2.2).
+fn accept_language(headers: &HeaderMap) -> Option<String> {
+    headers
+        .get(axum::http::header::ACCEPT_LANGUAGE)
+        .and_then(|v| v.to_str().ok())
+        .map(str::to_owned)
+}
+
+/// The connection an action runs on: the accounts service's pool for an action of
+/// [`ACCOUNTS_ACTIONS`], which reads and writes `private`, and the accounts partition, in the
+/// same transaction as its records (0013 §4, A99); the public API's `client` otherwise.
+async fn connection_for(app: &App, params: &Params, client: Object) -> Result<Object, ApiError> {
+    if ACCOUNTS_ACTIONS.contains(&params.get("action").unwrap_or_default()) {
+        drop(client);
+        app.accounts_pool().get().await.map_err(ApiError::internal)
+    } else {
+        Ok(client)
+    }
+}
+
+/// The actions of the accounts service (0013 §4, A99), which run on its pool: sign-in and
+/// sign-out, accounts and their links, preferences, renames (name tombstones), the watch
+/// set and the inbox.
+pub const ACCOUNTS_ACTIONS: &[&str] = &[
+    "login",
+    "clientlogin",
+    "createaccount",
+    "linkaccount",
+    "unlinkaccount",
+    "logout",
+    "options",
+    "renameuser",
+    "watch",
+    "setnotificationtimestamp",
+    "echomarkread",
+    "echomarkseen",
+];
 
 async fn dispatch(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     match ctx.params.get("format").unwrap_or("jsonfm") {

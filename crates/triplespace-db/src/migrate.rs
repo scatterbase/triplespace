@@ -224,15 +224,24 @@ impl Migrator {
             .collect())
     }
 
-    /// The status of every migration against the database.
+    /// The status of every migration against the database. Reads only: a database without
+    /// `ops.migration` has applied nothing, and the server, which asks before it starts,
+    /// connects as a login that may not create the table (0013 §4, A99).
     pub async fn status<C: GenericClient>(&self, client: &C) -> Result<Vec<Status>, MigrateError> {
-        self.prepare(client).await?;
-        let rows = client
-            .query(
-                "SELECT crate_name, name, applied_at FROM ops.migration",
-                &[],
-            )
-            .await?;
+        let recorded: bool = client
+            .query_one("SELECT to_regclass('ops.migration') IS NOT NULL", &[])
+            .await?
+            .get(0);
+        let rows = if recorded {
+            client
+                .query(
+                    "SELECT crate_name, name, applied_at FROM ops.migration",
+                    &[],
+                )
+                .await?
+        } else {
+            Vec::new()
+        };
         let mut out = Vec::new();
         for (crate_name, m) in self.migrations() {
             let applied_at = rows
@@ -264,7 +273,7 @@ mod tests {
         assert_eq!(names[0], "scatter-log-postgres/0001_log");
         assert_eq!(names[1], "scatter-log-postgres/0002_partition_origin");
         assert_eq!(names[2], "triplespace-db/0001_ops");
-        assert!(names.last().unwrap().ends_with("0034_record_policies"));
+        assert!(names.last().unwrap().ends_with("0035_service_grants"));
         assert_eq!(checksum("").len(), 64);
         assert_ne!(checksum("a"), checksum("b"));
     }

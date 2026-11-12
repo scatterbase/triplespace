@@ -111,7 +111,7 @@ async fn prelude(
         }
         Err(e) => return Err(internal(&e)),
     };
-    let caller = Caller::resolve(client, &tenant.slug, headers)
+    let caller = Caller::resolve(app.accounts_pool(), &tenant.slug, headers)
         .await
         .map_err(|e| internal(&e.info))?;
     Ok((tenant, caller))
@@ -125,7 +125,7 @@ pub async fn start(
     headers: HeaderMap,
     body: Bytes,
 ) -> Response {
-    let client = match app.pool().get().await {
+    let client = match app.accounts_pool().get().await {
         Ok(c) => c,
         Err(e) => return internal(&e),
     };
@@ -186,7 +186,7 @@ pub async fn callback(
     Query(q): Query<BTreeMap<String, String>>,
     headers: HeaderMap,
 ) -> Response {
-    let client = match app.pool().get().await {
+    let client = match app.accounts_pool().get().await {
         Ok(c) => c,
         Err(e) => return internal(&e),
     };
@@ -297,7 +297,7 @@ pub async fn pending(
     Extension(origin): Extension<Origin>,
     headers: HeaderMap,
 ) -> Response {
-    let client = match app.pool().get().await {
+    let client = match app.accounts_pool().get().await {
         Ok(c) => c,
         Err(e) => return internal(&e),
     };
@@ -339,7 +339,7 @@ pub async fn account(
     Extension(origin): Extension<Origin>,
     headers: HeaderMap,
 ) -> Response {
-    let client = match app.pool().get().await {
+    let client = match app.accounts_pool().get().await {
         Ok(c) => c,
         Err(e) => return internal(&e),
     };

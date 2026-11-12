@@ -80,7 +80,7 @@ async fn holder(
         }
         Err(e) => return Err(internal(&e)),
     };
-    let caller = Caller::resolve(client, &tenant.slug, headers)
+    let caller = Caller::resolve(app.accounts_pool(), &tenant.slug, headers)
         .await
         .map_err(|e| internal(&e.info))?;
     if caller.identity.actor_key.is_none() {
@@ -332,7 +332,7 @@ pub async fn list(
     Extension(origin): Extension<Origin>,
     headers: HeaderMap,
 ) -> Response {
-    let client = match app.pool().get().await {
+    let client = match app.accounts_pool().get().await {
         Ok(c) => c,
         Err(e) => return internal(&e),
     };
@@ -416,7 +416,7 @@ pub async fn add(
     headers: HeaderMap,
     body: Bytes,
 ) -> Response {
-    let client = match app.pool().get().await {
+    let client = match app.accounts_pool().get().await {
         Ok(c) => c,
         Err(e) => return internal(&e),
     };
@@ -480,7 +480,7 @@ pub async fn verify(
     headers: HeaderMap,
     body: Bytes,
 ) -> Response {
-    let client = match app.pool().get().await {
+    let client = match app.accounts_pool().get().await {
         Ok(c) => c,
         Err(e) => return internal(&e),
     };
@@ -529,7 +529,7 @@ pub async fn primary(
     headers: HeaderMap,
     body: Bytes,
 ) -> Response {
-    let client = match app.pool().get().await {
+    let client = match app.accounts_pool().get().await {
         Ok(c) => c,
         Err(e) => return internal(&e),
     };
@@ -569,7 +569,7 @@ pub async fn remove(
     headers: HeaderMap,
     body: Bytes,
 ) -> Response {
-    let client = match app.pool().get().await {
+    let client = match app.accounts_pool().get().await {
         Ok(c) => c,
         Err(e) => return internal(&e),
     };
@@ -667,7 +667,7 @@ pub async fn postmark_webhook(State(app): State<App>, headers: HeaderMap, body: 
     };
     let mut marked = 0;
     if let Some(reason) = reason {
-        let client = match app.pool().get().await {
+        let client = match app.accounts_pool().get().await {
             Ok(c) => c,
             Err(e) => return internal(&e),
         };

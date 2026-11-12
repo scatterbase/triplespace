@@ -39,8 +39,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0013 A94](0013-postgres-storage.md#a94-the-page-projection-applies-a-run-of-one-pages-revisions-as-one) | 2026-11-11 | The page projection applies a run of one page's revisions as one |
 | [0013 A95](0013-postgres-storage.md#a95-three-projections-write-a-tenants-block-a-table-at-a-time) | 2026-11-11 | Three projections write a tenant's block a table at a time |
 | [0013 A96](0013-postgres-storage.md#a96-compaction-keeps-the-record-that-claims-a-keys-highest-revision-and-runs-by-a-range-of-offsets) | 2026-11-11 | Compaction keeps the record that claims a key's highest revision, and runs by a range of offsets |
-| [0013 A97](0013-postgres-storage.md#a97-the-roles-and-grants-converge-on-every-migration-run) | 2026-11-12 | The roles and grants converge on every migration run |
-| [0013 A98](0013-postgres-storage.md#a98-row-level-security-hides-the-accounts-partition-in-logrecord) | 2026-11-12 | Row-level security hides the accounts partition in `log.record` |
+| [0013 A100](0013-postgres-storage.md#a100-which-part-is-which-and-what-the-roles-were-missing) | 2026-11-12 | Which part is which, and what the roles were missing |
 | [0016 A42](0016-permissions-and-access-control.md#a42-delegated-administration-the-calls-made-while-drafting-and-building-tier-4) | 2026-10-30 | Delegated administration: the calls made while drafting and building tier 4 |
 | [0018 A33](0018-tenants.md#a33-multi-tenant-round-1-the-assumptions-the-implementation-made) | 2026-10-30 | Multi-tenant round 1: the assumptions the implementation made |
 | [0019 A31](0019-discussions.md#a31-a-threads-actions-from-the-page-the-calls-made-building-them) | 2026-11-05 | A thread's actions from the page: the calls made building them |

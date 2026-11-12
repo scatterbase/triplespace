@@ -66,7 +66,7 @@ pub(crate) async fn prelude(
         }
         Err(e) => return Err(internal(&e)),
     };
-    let caller = Caller::resolve(client, &tenant.slug, headers)
+    let caller = Caller::resolve(app.accounts_pool(), &tenant.slug, headers)
         .await
         .map_err(|e| internal(&e.info))?;
     if caller.require("read").is_err() {
@@ -114,7 +114,7 @@ pub async fn schema(
     headers: HeaderMap,
     Query(q): Query<BTreeMap<String, String>>,
 ) -> Response {
-    let client = match app.pool().get().await {
+    let client = match app.accounts_pool().get().await {
         Ok(c) => c,
         Err(e) => return internal(&e),
     };
@@ -269,7 +269,7 @@ pub async fn get(
     headers: HeaderMap,
     Query(q): Query<BTreeMap<String, String>>,
 ) -> Response {
-    let client = match app.pool().get().await {
+    let client = match app.accounts_pool().get().await {
         Ok(c) => c,
         Err(e) => return internal(&e),
     };
@@ -378,7 +378,7 @@ pub async fn patch(
     Query(q): Query<BTreeMap<String, String>>,
     body: Bytes,
 ) -> Response {
-    let client = match app.pool().get().await {
+    let client = match app.accounts_pool().get().await {
         Ok(c) => c,
         Err(e) => return internal(&e),
     };
@@ -425,7 +425,7 @@ pub async fn patch(
     let rights = |r: &str| holds(&caller, scope, r);
     let now = triplespace_api_action::edit::now_micros();
     match save(
-        app.store(),
+        app.accounts_store(),
         app.pipeline(),
         Some(&tenant.slug),
         target,

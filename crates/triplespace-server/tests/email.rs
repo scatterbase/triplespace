@@ -274,7 +274,7 @@ async fn email_addresses_and_codes() {
     .await
     .expect("instance create");
     let app = App::new(
-        triplespace_db::pool::pool(&database, 4).unwrap(),
+        triplespace_db::scratch::pools(&database, 4),
         Secret::derive(&[7u8; 32]),
         ServerConfig {
             mode: Mode::Production,
