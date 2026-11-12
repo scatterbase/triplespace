@@ -225,6 +225,13 @@ pub async fn open_partition(
     )
     .await
     .with_context(|| format!("create partition `{name}`"))?;
+    triplespace_db::grants::grant_partition(
+        client,
+        partition,
+        name == triplespace_db::grants::ACCOUNTS_PARTITION,
+    )
+    .await
+    .with_context(|| format!("grant partition `{name}`"))?;
     Ok((
         partition,
         GraphEntry::source(graph, name.to_string(), partition, SEGMENT_K),
@@ -256,6 +263,9 @@ pub async fn found(
     )
     .await
     .context("create config partition")?;
+    triplespace_db::grants::grant_partition(client, partition, false)
+        .await
+        .context("grant config partition")?;
     let mut genesis = Genesis {
         partition,
         scope,

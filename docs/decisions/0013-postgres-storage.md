@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-11 (A96)
+- **Updated:** 2026-11-12 (A97)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -63,7 +63,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 4. Four schemas
 
-*Changed by A3, A7, A8, A9, A11, A27, A45, A64, A65, A66, A67.*
+*Changed by A3, A7, A8, A9, A11, A27, A45, A64, A65, A66, A67, A97.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §1.2, §4.16.*
 
@@ -1224,3 +1224,10 @@ Replaced text ([01](../architecture/01-log-and-records.md) §6, as it stood):
 >         WHERE key = ANY($keys) GROUP BY key) k
 >  WHERE r.key = k.key AND r."offset" < k.keep;
 > ```
+
+### A97. The roles and grants converge on every migration run
+
+- **Date:** 2026-11-12
+- **Source:** Direct: Claude, while building the restore path for rehosting, 2026-11-12; unconfirmed (James asked for a database migrated by `pg_dump` and restore to need only the binary)
+- **Change:** extends §4
+- **Summary:** Migrating an instance by dumping and restoring its database required creating the five roles by hand: roles are the server's, `pg_dump` does not carry them, and `0004_roles` is recorded in the restored `ops.migration`, so `triplespace migrate` never ran it again. The calls made: (1) `triplespace_db::grants::ensure` creates any role the server lacks and gives every grant the migrations give, then each partition's, and the migration runner calls it at the end of every run, applied or not, in one transaction; `0004_roles` is left as it was, since a recorded migration is never edited. (2) The grants are a copy, `grants::GRANTS`, of every `GRANT` and `ALTER DEFAULT PRIVILEGES` in the migrations; a unit test fails when a migration adds one the copy lacks, and a database test revokes every grant, migrates again and compares. (3) A partition named `accounts` is the one hidden from every role but `ts_accounts`. (4) `grant_partition`, until now called only by tests, is called where the three production paths create a partition (a tenant's partitions, its `config` partition, an entity source's), so the accounts partition's exclusion now holds in production. (5) The documented restore is `pg_restore --no-owner --no-privileges` then `triplespace migrate`, so that the binary, not the dump, decides every grant ([08](../architecture/08-tenants-and-instances.md) §6.7). (6) The runner creates the roles before it applies any migration, so that `0004_roles` always finds them made: two sessions creating one role at once fail with `unique_violation`, which `0004_roles` does not catch, as two databases on a new server migrating together, or the test suite's first run there, would; `ensure_roles` catches both.

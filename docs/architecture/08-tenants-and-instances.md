@@ -317,9 +317,19 @@ Deleting a tenant is the same as moving one away without a destination: its part
 
 ### 6.7 Rehosting an instance
 
-*Sources: [0018](../decisions/0018-tenants.md) §10; [0103](../decisions/0103-export-transfer-and-backup.md) §4.*
+*Sources: [0013](../decisions/0013-postgres-storage.md) §4; [0018](../decisions/0018-tenants.md) §10; [0103](../decisions/0103-export-transfer-and-backup.md) §4.*
 
 Rehosting an instance whole is a Postgres restore plus the rejects files and the `private` schema. No ID, key or attestation changes, and a change of farm base is an alias (§6.1). Rehosting is a **backup** restored ([01](01-log-and-records.md) §8): everything travels, `private` included, under the custody rules of [20](20-web-tier.md) §5.3, and no export policy limits it ([0103](../decisions/0103-export-transfer-and-backup.md) §4). On a single-tenant instance, moving the only tenant is rehosting the instance, and deleting it is decommissioning the instance (§7.6).
+
+**The restore takes the data, and the binary gives the roles and grants** ([0013](../decisions/0013-postgres-storage.md) A97; [03](03-storage-caches-and-search.md) §1.2). The roles `triplespace-db` makes are the server's, not the database's, so a dump does not carry them. The procedure is:
+
+```sh
+pg_dump -Fc -f instance.dump "$OLD_DATABASE_URL"
+pg_restore --no-owner --no-privileges -d "$NEW_DATABASE_URL" instance.dump
+triplespace migrate --database "$NEW_DATABASE_URL"
+```
+
+`triplespace migrate` applies nothing on a database the same binary wrote, and creates the roles the new server lacks and gives every grant again. A restore that keeps the dump's privileges also works once `migrate` has run, but reports an error for each grant to a role the server did not yet have.
 
 ### 6.8 Recovery keys and continuations
 

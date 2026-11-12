@@ -247,6 +247,99 @@ async fn the_public_role_cannot_read_private() {
     assert!(as_role(role::VERIFY, "INSERT INTO log.partition (partition, name, graph_iri, history, integrity, export, segment_k, hash) VALUES (99, 'x', '', 'full', 'logged', 'public', 1, 'sha-256') RETURNING partition").await.is_err());
 }
 
+/// Every grant to a `ts_*` role in the database: on tables and sequences, on schemas, and
+/// as default privileges, as `(kind, object, grantee, privilege)`, sorted.
+async fn ts_grants(client: &Client) -> Vec<(String, String, String, String)> {
+    client
+        .query(
+            "SELECT 'object', n.nspname || '.' || c.relname, a.grantee::regrole::text, a.privilege_type
+               FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace, aclexplode(c.relacl) a
+              WHERE n.nspname IN ('log', 'view', 'ops', 'private')
+                AND a.grantee::regrole::text LIKE 'ts\\_%'
+             UNION ALL
+             SELECT 'schema', n.nspname, a.grantee::regrole::text, a.privilege_type
+               FROM pg_namespace n, aclexplode(n.nspacl) a
+              WHERE a.grantee::regrole::text LIKE 'ts\\_%'
+             UNION ALL
+             SELECT 'default', coalesce(n.nspname, '') || ':' || d.defaclobjtype::text,
+                    a.grantee::regrole::text, a.privilege_type
+               FROM pg_default_acl d LEFT JOIN pg_namespace n ON n.oid = d.defaclnamespace,
+                    aclexplode(d.defaclacl) a
+              WHERE a.grantee::regrole::text LIKE 'ts\\_%'
+             ORDER BY 1, 2, 3, 4",
+            &[],
+        )
+        .await
+        .unwrap()
+        .iter()
+        .map(|r| (r.get(0), r.get(1), r.get(2), r.get(3)))
+        .collect()
+}
+
+/// 0013 §4, 08 §6.7: a database restored with `pg_restore --no-owner --no-privileges` has
+/// its `ops.migration` rows and none of its grants; the next migration run gives back
+/// every grant the migrations and the partitions' creation gave, accounts partition
+/// excluded as before.
+#[tokio::test]
+async fn ensure_restores_what_migrations_granted() {
+    if skipped() {
+        return;
+    }
+    let mut client = fresh().await;
+    migrator().apply(&mut client).await.unwrap();
+    let mut log = PgLog::new(client);
+    log.create_partition(7, Segments::new(4).unwrap())
+        .await
+        .unwrap();
+    log.create_partition(8, Segments::new(4).unwrap())
+        .await
+        .unwrap();
+    let mut client = log.into_inner();
+    client
+        .batch_execute("UPDATE log.partition SET name = 'accounts' WHERE partition = 8")
+        .await
+        .unwrap();
+    grant_partition(&client, 7, false).await.unwrap();
+    grant_partition(&client, 8, true).await.unwrap();
+    let granted = ts_grants(&client).await;
+    assert!(granted.contains(&(
+        "object".into(),
+        "private.email".into(),
+        role::NOTIFY.into(),
+        "SELECT".into()
+    )));
+    assert!(
+        !granted
+            .iter()
+            .any(|g| g.1 == "log.record_0000000000000008" && g.2 != role::ACCOUNTS),
+        "the accounts partition is hidden from every role but the accounts role"
+    );
+
+    // What `--no-privileges` leaves: no grant to any of the roles.
+    let roles = role::ALL.join(", ");
+    client
+        .batch_execute(&format!(
+            "REVOKE ALL ON ALL TABLES IN SCHEMA log, view, ops, private FROM {roles};
+             REVOKE ALL ON ALL SEQUENCES IN SCHEMA log, view, ops, private FROM {roles};
+             REVOKE ALL ON SCHEMA log, view, ops, private FROM {roles};
+             ALTER DEFAULT PRIVILEGES IN SCHEMA log, view, ops, private REVOKE ALL ON TABLES FROM {roles};
+             ALTER DEFAULT PRIVILEGES IN SCHEMA log, view, ops, private REVOKE ALL ON SEQUENCES FROM {roles};"
+        ))
+        .await
+        .unwrap();
+    assert_eq!(ts_grants(&client).await, Vec::new());
+
+    let applied = migrator().apply(&mut client).await.unwrap();
+    assert!(applied.applied.is_empty(), "nothing to migrate");
+    let ensured = applied.grants.expect("the migrator ensures grants");
+    assert_eq!(ensured.partitions, 2);
+    assert_eq!(ts_grants(&client).await, granted);
+
+    // A second run changes nothing.
+    migrator().apply(&mut client).await.unwrap();
+    assert_eq!(ts_grants(&client).await, granted);
+}
+
 #[tokio::test]
 async fn projection_state_and_lag() {
     if skipped() {
