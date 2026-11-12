@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-07 (A35)
+- **Updated:** 2026-11-12 (A36)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
@@ -25,7 +25,7 @@ This ADR adds tenants, makes each tenant its own issuer of identity, lets a tena
 
 ### 1. Instances and tenants
 
-*Changed by A5, A8, A16, A20.*
+*Changed by A5, A8, A16, A20, A36.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §1.1, §1.2, §1.3, §7.1.*
 
@@ -91,7 +91,7 @@ This ADR adds tenants, makes each tenant its own issuer of identity, lets a tena
 
 ### 12. Crates (amends 0005 §2)
 
-*Changed by A1.*
+*Changed by A1, A36.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
@@ -543,3 +543,10 @@ Replaced text ([08](../architecture/08-tenants-and-instances.md) §6.2, as it st
 Replaced text ([08](../architecture/08-tenants-and-instances.md) §6.3, as it stood):
 
 > `recovered` if the tenant's recovery keys sign it, `unauthorized` if not. Reclaiming is manual.
+
+### A36. Instances and tenants created by question and answer
+
+- **Date:** 2026-11-12
+- **Source:** Direct: Claude, while building interactive instance and tenant creation, 2026-11-12; unconfirmed
+- **Change:** extends §1, §12
+- **Summary:** James asked for an interactive creator for instances and tenants, the instance creator leading into the tenant creator for the first tenant, and the tenant creator runnable alone for more tenants. The calls made building it: the commands are `triplespace instance setup` and `triplespace tenant setup`, beside `instance create` and `tenant create`, rather than a flag on those or prompting for missing flags; they ask, check each answer as the commands do, show a summary with the equivalent command line, and write nothing until confirmed, then run the same code as the commands. The primary tenant's questions are asked inside `instance setup`, since `instance create` creates it in the instance's transaction; `instance setup` then offers `tenant setup`, and finding an instance already in the database offers it too. A base may be typed without its scheme (`https://` is assumed) and with a trailing `/` (dropped); the farm base defaults to the primary tenant's and, when different, needs a host of its own; the wiki's name defaults to the slug; the owner's name defaults to `Owner` and is checked as an account name, which `instance create` and `tenant create` do not do; with several `owner` members on the primary tenant, `tenant setup` asks which one acts. The password is typed twice, hidden, and may be left empty. `instance create` and `tenant create` now read the owner's password file before writing anything, so an unreadable file refuses the creation instead of leaving the owner without a password. `triplespace-cli` gains the `dialoguer` crate for the terminal prompts. Chapter text: 08 §1.1; 22 §2.1.

@@ -89,8 +89,32 @@ fn tenancy_records(preset: &str) -> Result<Vec<(String, String)>> {
 }
 
 /// Creates the instance.
-#[allow(clippy::too_many_lines)]
 pub async fn run(args: Create) -> Result<()> {
+    let password = tenant::owner_password_text(args.owner_password_file.as_deref())?;
+    create_with(args, password.as_deref()).await
+}
+
+/// Whether the database at `database` already holds an instance, asked without changing
+/// it: no migration is applied, and a database without the schema holds none.
+pub async fn exists(database: &str) -> Result<bool> {
+    let client = connect(database).await?;
+    let table: Option<String> = client
+        .query_one("SELECT to_regclass('log.partition')::text", &[])
+        .await?
+        .get(0);
+    if table.is_none() {
+        return Ok(false);
+    }
+    Ok(client
+        .query_opt("SELECT 1 FROM log.partition WHERE partition = 0", &[])
+        .await?
+        .is_some())
+}
+
+/// `instance create` with the owner's password already in hand: what `instance setup`
+/// runs once its questions are answered.
+#[allow(clippy::too_many_lines)]
+pub async fn create_with(args: Create, password: Option<&str>) -> Result<()> {
     check_name(&args.farm_slug, None).context("--farm-slug")?;
     check_name(&args.tenant, args.adopt.as_deref()).context("--tenant")?;
     if args.farm_slug == args.tenant {
@@ -144,14 +168,7 @@ pub async fn run(args: Create) -> Result<()> {
         &[CONFIG_PARTITION, created.config],
     )
     .await?;
-    let password = tenant::owner_password(
-        &args.database,
-        &farm,
-        &created,
-        args.owner_password_file.as_deref(),
-        t,
-    )
-    .await?;
+    let password = tenant::owner_password(&args.database, &farm, &created, password, t).await?;
     println!("instance created");
     println!("  key file      {}", args.key_file.display());
     println!("  farm          {} ({})", farm.slug, farm.base);

@@ -89,6 +89,11 @@ Node 22 or later, and PostgreSQL (CI uses 18). A small instance needs Postgres a
    The farm slug is the instance's own permanent name. List here every provider you may later
    mirror: providers cannot be added after creation.
 
+   The easiest way is to answer its questions: `triplespace instance setup` asks for each of
+   these in turn, checks every answer, shows the equivalent `instance create` command, and
+   creates nothing until you confirm. Afterwards it offers to add more wikis. The same, with
+   flags:
+
    ```sh
    echo 'a long passphrase' > owner.pw
    triplespace instance create \
@@ -130,7 +135,8 @@ Node 22 or later, and PostgreSQL (CI uses 18). A small instance needs Postgres a
 
 7. **Add another wiki (optional).** A second tenant gets its own base URL, partitions, numbering
    and accounts. It needs the instance's auth host, a host of its own that is neither a tenant's
-   nor the farm's; give the server the same `TRIPLESPACE_AUTH_BASE`.
+   nor the farm's; give the server the same `TRIPLESPACE_AUTH_BASE`. `triplespace tenant setup`
+   asks for all of it at a terminal; with flags:
 
    ```sh
    export TRIPLESPACE_AUTH_BASE=https://auth.example.org
