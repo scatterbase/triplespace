@@ -275,7 +275,7 @@ async fn external_login_through_the_site() {
     .await
     .expect("instance create");
     let secret = Secret::derive(&[7u8; 32]);
-    let pool = triplespace_db::pool::pool(&database, 4).unwrap();
+    let pool = triplespace_db::scratch::pools(&database, 4);
     let app = App::with_upstream(
         pool.clone(),
         secret.clone(),
@@ -291,7 +291,7 @@ async fn external_login_through_the_site() {
         Arc::new(Fake),
     )
     .unwrap();
-    let db = pool.get().await.unwrap();
+    let db = pool.accounts.get().await.unwrap();
     oauth::set_client(
         &**db,
         &secret,

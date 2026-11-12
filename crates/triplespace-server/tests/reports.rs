@@ -225,7 +225,7 @@ async fn reports_are_built_kept_and_served() {
     let farm = triplespace_cli::common::farm_at(&database).await.unwrap();
     let signing = triplespace_cli::common::signing_key(&key_file).unwrap();
     let app = App::new(
-        triplespace_db::pool::pool(&database, 4).unwrap(),
+        triplespace_db::scratch::pools(&database, 4),
         Secret::derive(&signing.to_bytes()),
         ServerConfig {
             mode: Mode::Production,

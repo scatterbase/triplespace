@@ -52,7 +52,13 @@ fn scope(ctx: &Ctx) -> Scope<'_> {
 ///
 /// If the store fails.
 pub async fn requests(ctx: &Ctx) -> Result<Vec<Value>, ApiError> {
-    let offered = external::offered(scope(ctx)).await?;
+    // The tenant's OAuth clients are the accounts service's (0013 §4, A99).
+    let offered = external::offered(Scope {
+        app: &ctx.app,
+        db: ctx.accounts().await?,
+        tenant: &ctx.tenant,
+    })
+    .await?;
     Ok(offered.iter().map(|i| request(i)).collect())
 }
 
@@ -423,7 +429,7 @@ pub async fn unlinkaccount(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             format!("Unrecognized value for parameter \"request\": {request}."),
         ));
     };
-    let store = ctx.app.store();
+    let store = ctx.app.accounts_store();
     let mut cx = scatter_projection::Backend::begin(store).await?;
     let tenant = ctx.tenant.slug.clone();
     let done = unbind(

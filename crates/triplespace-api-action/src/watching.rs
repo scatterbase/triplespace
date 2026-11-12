@@ -99,7 +99,7 @@ pub async fn target_of_page(ctx: &Ctx, page_id: u64) -> Result<Option<Target>, A
 ///
 /// A database failure.
 pub async fn watch_set(ctx: &Ctx, actor: &str) -> Result<(Vec<Watch>, Expanded), ApiError> {
-    let watches = watch::list(ctx.db(), actor, MAX_WATCHES, None).await?;
+    let watches = watch::list(ctx.accounts().await?, actor, MAX_WATCHES, None).await?;
     let targets: Vec<Target> = watches.iter().map(|w| (w.kind, w.id.clone())).collect();
     let x = watched::expand(ctx.db(), &ctx.tenant.slug, &targets)
         .await
@@ -299,8 +299,9 @@ pub async fn after_write(
     target: &Target,
     auto: Auto,
 ) -> Result<bool, ApiError> {
+    // The watch set is the accounts service's (0013 §4, A99).
     after_write_with(
-        ctx.db(),
+        ctx.accounts().await?,
         &ctx.tenant.slug,
         actor,
         target,
@@ -356,6 +357,12 @@ pub async fn first_unseen(ctx: &Ctx, holder: &str, w: &Watch) -> Result<Option<i
 /// A database failure.
 pub async fn seen_now(ctx: &Ctx, holder: &str, target: &Target) -> Result<(), ApiError> {
     let now = i64::try_from(crate::edit::now_micros()).unwrap_or(i64::MAX);
-    watch::mark_seen(ctx.db(), holder, Some((target.0, &target.1)), now).await?;
+    watch::mark_seen(
+        ctx.accounts().await?,
+        holder,
+        Some((target.0, &target.1)),
+        now,
+    )
+    .await?;
     Ok(())
 }

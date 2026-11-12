@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-07
-- **Updated:** 2026-11-07 (A1)
+- **Updated:** 2026-11-12 (A2)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0027](0027-preferences-and-portability.md), [0056](0056-security-model.md)
 - **Uses:** [0039](0039-files-and-media.md), [0081](0081-recovery-keys-and-continuations.md)
@@ -34,7 +34,7 @@ James's direction, from the design discussion of 2026-11-07:
 
 ### 1. Three scopes: export, transfer and backup (amends 0006 §9)
 
-*Changed by A1.*
+*Changed by A1, A2.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §8.2.*
 
@@ -47,6 +47,8 @@ James's direction, from the design discussion of 2026-11-07:
 *Current text: [07](../architecture/07-actors-and-accounts.md) §8.5; [08](../architecture/08-tenants-and-instances.md) §6.2.*
 
 ### 4. Backups and rehosting carry everything (extends 0018 §10; amends 0023 §7)
+
+*Changed by A2.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §6.7; [09](../architecture/09-security-and-moderation.md) §6.5.*
 
@@ -81,6 +83,7 @@ James's direction, from the design discussion of 2026-11-07:
 ## Open questions
 
 - **Q1.** ~~**A transfer without the old operator.** A non-cooperative move (08 §6.3) takes its bundle "from backups or from the old instance's public exports". Whether a backup handed over by someone other than the old operator counts as a transfer, with the sealing of §3, or must be reduced to the export scope first, is left open.~~ *Settled by §7: what a non-cooperative move carries depends on its continuation's mode. A backup yields only the tenant's own partitions. An `unauthorized` continuation carries the export scope; a `recovered` one also the tenant's read-restricted and hidden parts, held sealed until the recovery delay passes uncancelled; suppressed and confidential parts never travel this way.*
+- **Q2. The key `private` is encrypted to.** A2 encrypts a backup's `private` schema to a key the operator names; which kind of key (an instance key, a recovery key of [0081](0081-recovery-keys-and-continuations.md), or one of its own), the scheme, and how a restore is given the private key, are left open.
 
 ## References
 
@@ -99,3 +102,14 @@ James's direction, from the design discussion of 2026-11-07:
 Replaced text ([01](../architecture/01-log-and-records.md) §8, as it stood):
 
 > - an **export** publishes: a public bundle, a dump, the update stream, outbound federation. It holds only what the export policies of [02](../architecture/02-graphs-rdf-and-query.md) §1.1 allow, in its visible form: every part an anonymous reader may not read, hidden, suppressed, confidential or restricted, is carried as its commitment, as an erased part is, so every proof still verifies ([09](../architecture/09-security-and-moderation.md) §5.4);
+
+### A2. A backup is the binary's own, with `private` encrypted
+
+- **Date:** 2026-11-12
+- **Source:** Direct: James, design discussion of 2026-11-12
+- **Change:** extends §1; amends §4
+- **Summary:** Rehosting was "a Postgres restore plus the rejects files and the `private` schema", which needs Postgres's tools and a role set-up by hand ([0013](0013-postgres-storage.md) A97). James decided, choosing among a snapshot copy, the log bundle and a hybrid: (1) **the backup is the log bundle by default**: it carries, beside every partition, the partition registry's rows, the `private` schema, the `ops` state no rebuild recovers, the rejects files and the file blobs, and a restore loads the log and rebuilds every projection; (2) **a snapshot backup is offered as well**: every table copied from one snapshot and restored without a rebuild, faster but not verifiable; (3) **`private` is encrypted to a key**, in either form (which key is Q2); (4) **a restore migrates forward** a backup written under an older schema; (5) the rejects files and blobs travel in the backup. A Postgres restore remains a way to rehost.
+
+Replaced text ([08](../architecture/08-tenants-and-instances.md) §6.7, as it stood):
+
+> Rehosting an instance whole is a Postgres restore plus the rejects files and the `private` schema.

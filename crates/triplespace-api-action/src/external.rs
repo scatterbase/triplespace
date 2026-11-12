@@ -448,7 +448,7 @@ async fn follow_provider_name(
     let Some(derived) = logins::derived_name_for(Scope::registry(), issuer, username) else {
         return Ok(());
     };
-    let store = scope.app.store();
+    let store = scope.app.accounts_store();
     let operator = scope.app.config().farm.operator().to_string();
     let mut cx = scatter_projection::Backend::begin(store).await?;
     let done = rename_to_derived(
@@ -623,7 +623,7 @@ async fn vouch(
             "ts-reclaim-taken",
         ))));
     }
-    let store = scope.app.store();
+    let store = scope.app.accounts_store();
     let mut cx = scatter_projection::Backend::begin(store).await?;
     let now = crate::edit::now_micros();
     let done = reclaim(
@@ -663,7 +663,7 @@ async fn link(
     subject: &str,
     username: &str,
 ) -> Result<Conclusion, ApiError> {
-    let store = scope.app.store();
+    let store = scope.app.accounts_store();
     let mut cx = scatter_projection::Backend::begin(store).await?;
     let done = triplespace_api_ingest::accounts::bind(
         store,
@@ -766,7 +766,7 @@ pub async fn create_bound(
             }));
         }
     }
-    let store = scope.app.store();
+    let store = scope.app.accounts_store();
     {
         let mut cx = scatter_projection::Backend::begin(store).await?;
         let checked = if derived.is_some() {

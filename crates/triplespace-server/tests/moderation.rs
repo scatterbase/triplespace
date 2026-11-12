@@ -210,7 +210,7 @@ async fn instance_with(name: &str, adopt: Option<String>) -> (String, App, Clien
     .expect("instance create");
     cheap_challenge(&database).await;
     let app = App::new(
-        triplespace_db::pool::pool(&database, 4).unwrap(),
+        triplespace_db::scratch::pools(&database, 4),
         Secret::derive(&[7u8; 32]),
         ServerConfig {
             mode: Mode::Production,
@@ -2052,7 +2052,7 @@ async fn a_partition_rebuild_keeps_the_other_partitions_acls() {
     for partition in [log, config] {
         let log_store = scatter_log_postgres::PgLog::new(connect().await);
         app.pipeline()
-            .rebuild(app.store(), &log_store, &[partition], 500)
+            .rebuild(app.accounts_store(), &log_store, &[partition], 500)
             .await
             .unwrap();
         assert_eq!(targets().await, before, "after rebuilding {partition:#x}");

@@ -550,7 +550,7 @@ async fn save(
     }
     // The record is committed; the writer's watch on the thread follows it (16 §4.3).
     if let Some(auto) = auto
-        && let Ok(client) = app.pool().get().await
+        && let Ok(client) = app.accounts_pool().get().await
         && let Err(e) = after_write_with(
             &client,
             &tenant.slug,

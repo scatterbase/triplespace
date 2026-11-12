@@ -320,7 +320,7 @@ async fn a_bot_logs_in_reads_and_edits() {
     // 3. The server.
     let signing = triplespace_cli::common::signing_key(&key_file).unwrap();
     let app = App::new(
-        triplespace_db::pool::pool(&database, 4).unwrap(),
+        triplespace_db::scratch::pools(&database, 4),
         Secret::derive(&signing.to_bytes()),
         ServerConfig {
             mode: Mode::Production,

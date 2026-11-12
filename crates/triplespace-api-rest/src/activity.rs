@@ -274,7 +274,7 @@ pub(crate) async fn serve(
         }
         Err(e) => return internal(&e),
     };
-    let caller = match Caller::resolve(&**client, &tenant.slug, headers).await {
+    let caller = match Caller::resolve(app.accounts_pool(), &tenant.slug, headers).await {
         Ok(c) => c,
         Err(e) => return internal(&e.info),
     };
@@ -287,6 +287,7 @@ pub(crate) async fn serve(
     }
     let credentialed = caller.has_session() || bearer(headers).is_some();
     let ctx = triplespace_api_action::api::Ctx {
+        accounts: tokio::sync::OnceCell::new(),
         app: app.clone(),
         client,
         tenant,

@@ -101,7 +101,7 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         }),
         None => None,
     };
-    let store = ctx.app.store();
+    let store = ctx.app.accounts_store();
     let mut cx = store.begin().await.map_err(ApiError::internal)?;
     let tenant = ctx.tenant.slug.clone();
     let done = async {

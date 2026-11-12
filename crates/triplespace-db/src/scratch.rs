@@ -56,3 +56,30 @@ fn drop_now(url: &str, names: &[String]) {
 pub fn drop_at_thread_end(name: &str) {
     MADE.with_borrow_mut(|m| m.0.push(name.to_string()));
 }
+
+/// `url` connecting as `role`: the role is set when each connection opens (`-c role=…`), as
+/// a login granted it would be. The test user needs `SET` on the role
+/// (`docs/testing/gotchas.md`).
+#[must_use]
+pub fn as_role(url: &str, role: &str) -> String {
+    let sep = if url.contains('?') { '&' } else { '?' };
+    format!("{url}{sep}options=-c%20role%3D{role}")
+}
+
+/// The server's pools for a test against `url`, each part connecting as its own role
+/// (0013 §4, A99), so that a test fails where a part reaches a table its role may not.
+///
+/// # Panics
+///
+/// If a pool cannot be built from the URL.
+#[must_use]
+pub fn pools(url: &str, size: usize) -> crate::pool::Pools {
+    use crate::grants::role;
+    crate::pool::Pools::new(
+        &as_role(url, role::SERVER),
+        Some(&as_role(url, role::ACCOUNTS)),
+        Some(&as_role(url, role::NOTIFY)),
+        size,
+    )
+    .expect("pools")
+}

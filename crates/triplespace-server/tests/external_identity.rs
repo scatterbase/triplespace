@@ -382,7 +382,7 @@ async fn external_identity_providers() {
         seen: Mutex::default(),
     });
     let secret = Secret::derive(&[7u8; 32]);
-    let pool = triplespace_db::pool::pool(&database, 4).unwrap();
+    let pool = triplespace_db::scratch::pools(&database, 4);
     let app = App::with_upstream(
         pool.clone(),
         secret.clone(),
@@ -399,7 +399,7 @@ async fn external_identity_providers() {
     )
     .unwrap();
     let router = router_with(app.clone(), triplespace_api_rest::routes());
-    let db = pool.get().await.unwrap();
+    let db = pool.accounts.get().await.unwrap();
 
     // No credential: nothing offered.
     let mut anon = Browser::new(&router, [203, 0, 113, 9]);

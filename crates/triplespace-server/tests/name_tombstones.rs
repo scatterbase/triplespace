@@ -344,7 +344,7 @@ async fn name_tombstones() {
         seen: Mutex::default(),
     });
     let secret = Secret::derive(&[7u8; 32]);
-    let pool = triplespace_db::pool::pool(&database, 4).unwrap();
+    let pool = triplespace_db::scratch::pools(&database, 4);
     let farm = triplespace_cli::common::farm_at(&database).await.unwrap();
     let app = App::with_upstream(
         pool.clone(),
@@ -362,7 +362,7 @@ async fn name_tombstones() {
     )
     .unwrap();
     let router = router_with(app.clone(), triplespace_api_rest::routes());
-    let db = pool.get().await.unwrap();
+    let db = pool.accounts.get().await.unwrap();
     let registry = scatter_actors::issuer::IssuerRegistry::default_registry();
     let callback = oauth::callback_url(&format!("https://{HOST}"), ISSUER);
     oauth::set_client(
@@ -378,7 +378,7 @@ async fn name_tombstones() {
     .await
     .unwrap();
     let tombstone = |name: &'static str| {
-        let db = pool.clone();
+        let db = pool.accounts.clone();
         let secret = secret.clone();
         async move {
             let c = db.get().await.unwrap();

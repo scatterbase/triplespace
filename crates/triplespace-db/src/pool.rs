@@ -62,6 +62,63 @@ pub fn pool(url: &str, size: usize) -> Result<Pool, PoolError> {
         .map_err(|e| PoolError::Build(e.to_string()))
 }
 
+/// The server's pools, one for each of the roles its parts connect as (0013 §4, A99): the
+/// public API and the write path as `ts_server`, the accounts service as `ts_accounts`, the
+/// notifier as `ts_notify`. Each comes from its own URL, naming a login the deployment
+/// has granted that role, so that the public API's connections cannot read `private`.
+///
+/// [`Pools::shared`] puts one pool in every place: the single-URL deployment, connecting
+/// as the owner, which the database does not hold to the roles' grants. The server says
+/// so when it starts.
+#[derive(Clone)]
+pub struct Pools {
+    /// The public API, the site's reads and the write path: `ts_server`.
+    pub server: Pool,
+    /// The accounts service: credentials, sessions, preferences, the watch set: `ts_accounts`.
+    pub accounts: Pool,
+    /// The notifier: addressing and delivery: `ts_notify`.
+    pub notify: Pool,
+}
+
+impl Pools {
+    /// One pool for every part.
+    #[must_use]
+    pub fn shared(pool: Pool) -> Self {
+        Self {
+            server: pool.clone(),
+            accounts: pool.clone(),
+            notify: pool,
+        }
+    }
+
+    /// A pool of `size` for each URL; a part without a URL of its own shares the server's.
+    pub fn new(
+        server: &str,
+        accounts: Option<&str>,
+        notify: Option<&str>,
+        size: usize,
+    ) -> Result<Self, PoolError> {
+        let server = pool(server, size)?;
+        let own = |url: Option<&str>| -> Result<Pool, PoolError> {
+            match url {
+                Some(url) => pool(url, size),
+                None => Ok(server.clone()),
+            }
+        };
+        Ok(Self {
+            accounts: own(accounts)?,
+            notify: own(notify)?,
+            server,
+        })
+    }
+}
+
+impl From<Pool> for Pools {
+    fn from(pool: Pool) -> Self {
+        Self::shared(pool)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

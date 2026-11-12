@@ -9,6 +9,7 @@ use scatter_providers::Registry;
 use triplespace_accounts::Secret;
 use triplespace_accounts::oauth::{HttpUpstream, Upstream};
 use triplespace_api_ingest::PgIngest;
+use triplespace_db::pool::Pools;
 use triplespace_projections::{EntityProjection, Farm, PgBackend, milestone_pipeline};
 
 use crate::forwarded::{KeyCache, TrustList};
@@ -86,8 +87,12 @@ pub struct App {
 }
 
 struct Inner {
-    pool: Pool,
+    pools: Pools,
     store: PgIngest,
+    /// The write store over the accounts service's pool: writes to the accounts partition.
+    accounts_store: PgIngest,
+    /// The write store over the notifier's pool: addressing writes inboxes.
+    notify_store: PgIngest,
     pipeline: Pipeline<PgIngest>,
     worker: Worker<PgIngest>,
     order: EntityProjection,
@@ -108,30 +113,35 @@ struct Inner {
 }
 
 impl App {
-    /// Builds the state over a pool. An entry of `trusted_proxies` that is not an
-    /// address or a CIDR range is an error.
-    pub fn new(pool: Pool, secret: Secret, config: Config) -> Result<Self, String> {
+    /// Builds the state over the server's pools ([`Pools`]; a single pool serves every
+    /// part). An entry of `trusted_proxies` that is not an address or a CIDR range is an
+    /// error.
+    pub fn new(pools: impl Into<Pools>, secret: Secret, config: Config) -> Result<Self, String> {
         let agent = format!(
             "Triplespace/{} (+{})",
             env!("CARGO_PKG_VERSION"),
             config.farm.base.trim_end_matches('/')
         );
         let upstream = HttpUpstream::new(&agent).map_err(|e| e.to_string())?;
-        Self::with_upstream(pool, secret, config, Arc::new(upstream))
+        Self::with_upstream(pools, secret, config, Arc::new(upstream))
     }
 
     /// Builds the state with what flows ask of the world outside (0088 §2, §8): the
     /// providers and source wikis. [`Self::new`] reaches them over HTTP; tests put a
     /// fake here.
     pub fn with_upstream(
-        pool: Pool,
+        pools: impl Into<Pools>,
         secret: Secret,
         config: Config,
         upstream: Arc<dyn Upstream>,
     ) -> Result<Self, String> {
+        let pools = pools.into();
+        let pool = pools.server.clone();
         let trust = TrustList::parse(&config.trusted_proxies)
             .map_err(|e| format!("trusted proxies: {e}"))?;
         let store = PgIngest::new(PgBackend::new(pool.clone()));
+        let accounts_store = PgIngest::new(PgBackend::new(pools.accounts.clone()));
+        let notify_store = PgIngest::new(PgBackend::new(pools.notify.clone()));
         let registry = Registry::default_registry();
         let pipeline = milestone_pipeline(
             scatter_actors::issuer::IssuerRegistry::default_registry().clone(),
@@ -155,8 +165,10 @@ impl App {
         let build = crate::version::BuildInfo::parse(config.version);
         Ok(Self {
             inner: Arc::new(Inner {
-                pool,
+                pools,
                 store,
+                accounts_store,
+                notify_store,
                 pipeline,
                 worker,
                 order,
@@ -175,16 +187,50 @@ impl App {
         })
     }
 
-    /// The pool.
+    /// The public API's pool, `ts_server` (0013 §4): it cannot read `private`, nor the
+    /// accounts partition through `log.record`.
     #[must_use]
     pub fn pool(&self) -> &Pool {
-        &self.inner.pool
+        &self.inner.pools.server
     }
 
-    /// The write store.
+    /// The accounts service's pool, `ts_accounts`: what reads or writes `private` on an
+    /// account's behalf (credentials, sessions, preferences, the watch set), and writes to
+    /// the accounts partition.
+    #[must_use]
+    pub fn accounts_pool(&self) -> &Pool {
+        &self.inner.pools.accounts
+    }
+
+    /// The notifier's pool, `ts_notify`: addressing, inboxes and delivery.
+    #[must_use]
+    pub fn notify_pool(&self) -> &Pool {
+        &self.inner.pools.notify
+    }
+
+    /// Every pool.
+    #[must_use]
+    pub fn pools(&self) -> &Pools {
+        &self.inner.pools
+    }
+
+    /// The write store, over the public API's pool.
     #[must_use]
     pub fn store(&self) -> &PgIngest {
         &self.inner.store
+    }
+
+    /// The write store over the accounts service's pool (0013 §4, A99): what appends to an
+    /// accounts partition, which the public API's role may not write (0013 A98).
+    #[must_use]
+    pub fn accounts_store(&self) -> &PgIngest {
+        &self.inner.accounts_store
+    }
+
+    /// The write store over the notifier's pool: addressing, which writes inboxes.
+    #[must_use]
+    pub fn notify_store(&self) -> &PgIngest {
+        &self.inner.notify_store
     }
 
     /// The pipeline.
@@ -205,7 +251,8 @@ impl App {
     ///
     /// The store's or a projection's error.
     pub async fn catch_up_async(&self) -> Result<u64, String> {
-        let mut client = self.pool().get().await.map_err(|e| e.to_string())?;
+        // Addressing writes inboxes in `private`: the notifier's pool (0013 §4, A99).
+        let mut client = self.notify_pool().get().await.map_err(|e| e.to_string())?;
         let behind: Vec<(i64, String)> = client
             .query(
                 "SELECT p.partition, p.name FROM log.partition p
@@ -249,7 +296,7 @@ impl App {
                 read += self
                     .pipeline()
                     .catch_up(
-                        self.store(),
+                        self.notify_store(),
                         &log,
                         scatter_log_postgres::ids::partition_from_db(*p),
                         500,

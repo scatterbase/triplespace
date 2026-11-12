@@ -235,7 +235,7 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
     let farm = triplespace_cli::common::farm_at(&database).await.unwrap();
     let signing = triplespace_cli::common::signing_key(&key_file).unwrap();
     let app = App::new(
-        triplespace_db::pool::pool(&database, 4).unwrap(),
+        triplespace_db::scratch::pools(&database, 4),
         Secret::derive(&signing.to_bytes()),
         ServerConfig {
             mode: Mode::Production,
