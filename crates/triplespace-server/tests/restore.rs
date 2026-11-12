@@ -339,25 +339,23 @@ async fn a_backup_restores_into_an_empty_database() {
             "{sql}"
         );
     }
-    // Every tenant's visibility epoch has moved past any the old instance used (0103 A4).
+    // Every tenant's visibility epoch has moved past any the old instance used (0103 A4),
+    // a tenant the backup holds no row for included: this instance never bumped its own.
     let before = rows(
         &original,
         "SELECT tenant, epoch::text FROM ops.visibility_epoch ORDER BY 1",
     )
     .await;
+    assert!(before.is_empty(), "{before:?}");
     let after = rows(
         &restored,
         "SELECT tenant, epoch::text FROM ops.visibility_epoch ORDER BY 1",
     )
     .await;
-    assert_eq!(before.len(), after.len());
-    for (b, a) in before.iter().zip(&after) {
-        let (b, a): (i64, i64) = (
-            b[1].as_deref().unwrap().parse().unwrap(),
-            a[1].as_deref().unwrap().parse().unwrap(),
-        );
-        assert!(a > b && a > 1_000_000_000_000_000, "{b} -> {a}");
-    }
+    assert_eq!(after.len(), 1, "{after:?}");
+    assert_eq!(after[0][0].as_deref(), Some(TENANT));
+    let epoch: i64 = after[0][1].as_deref().unwrap().parse().unwrap();
+    assert!(epoch > 1_000_000_000_000_000, "{epoch}");
 
     // A fresh backup of the restored instance verifies (SCA-357): the log, its checkpoints
     // and its manifests came back whole.

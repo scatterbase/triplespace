@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-07
-- **Updated:** 2026-11-12 (A9)
+- **Updated:** 2026-11-12 (A12)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0027](0027-preferences-and-portability.md), [0056](0056-security-model.md)
 - **Uses:** [0039](0039-files-and-media.md), [0081](0081-recovery-keys-and-continuations.md)
@@ -34,7 +34,7 @@ James's direction, from the design discussion of 2026-11-07:
 
 ### 1. Three scopes: export, transfer and backup (amends 0006 §9)
 
-*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9.*
+*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §8.2.*
 
@@ -48,7 +48,7 @@ James's direction, from the design discussion of 2026-11-07:
 
 ### 4. Backups and rehosting carry everything (extends 0018 §10; amends 0023 §7)
 
-*Changed by A2, A3, A5, A6, A7, A8, A9.*
+*Changed by A2, A3, A5, A6, A7, A8, A9, A10, A11, A12.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §6.7; [09](../architecture/09-security-and-moderation.md) §6.5.*
 
@@ -162,3 +162,24 @@ Replaced text ([08](../architecture/08-tenants-and-instances.md) §6.7, as it st
 - **Source:** Direct: Claude, while building `triplespace restore` (SCA-357), 2026-11-12; confirmed by James, 2026-11-12
 - **Change:** extends §1, §4
 - **Summary:** The calls made: (1) a backup of the whole instance writes `carried/`: each `ops` table classed `carried`, its binary `COPY` in the clear, and the value of every sequence in `log`, read in the backup's snapshot, since without them a restore would hand out revision, page, user and entity IDs restored records already hold; the sequences of `ops` and `private` are not carried, since each numbers a column of a table the backup holds and a restore sets it from that column; a backup of one tenant has no carried sections; (2) the restore reads the farm from the backup's own instance `config` (its `farm` record), since the projections need it before there is a registry to read it from; (3) **the order**: migrate; register each partition from its registry row and append every slot verbatim, one unit of work a partition, with its checkpoints and manifests; make the `log` sequences; rebuild every projection; then empty and load the carried and sealed tables, since the backup and not the replay is their record (a replay recomputes an inbox and loses its read marks); set the `ops` and `private` sequences past their rows; advance every `visibility_epoch` (A4); and migrate again for the partitions' grants; (4) the database must be empty, and a table whose columns differ from the database's is refused, so that a backup written under another schema is caught until SCA-358 migrates one forward; (5) `--without-private` restores a sealed backup without its sealed sections, accounts then unable to log in; (6) slots are appended one statement each, which is correct but slow for a large instance; a bulk path is later work.
+
+### A10. The restore loads slots in blocks and checks the chain
+
+- **Date:** 2026-11-12
+- **Source:** Direct: Claude, while building the restore's bulk append (SCA-363), 2026-11-12; unconfirmed
+- **Change:** extends §1, §4
+- **Summary:** A9 (6) left the restore appending one statement a slot. The calls made: (1) **the restore loads each partition in blocks**, at most 8,192 slots and 32 MiB each, one read of the bundle's segment file and one binary `COPY` of the records and one of the tree nodes a block, inside the partition's one unit of work, as bootstrap mode's writer loads (0013 §9); the order of A9 (3) is unchanged, and the partition's table keeps its indexes during the load, since building them afterwards would be a change to how a partition is registered, not to the restore; (2) every slot is checked before its block is written, as the one-statement append checks it: its partition, its offset next in sequence, and its body against the commitment in its header; no database trigger or constraint did more for the one-statement path, so `COPY` passes none by; (3) **the restore checks each partition's checkpoints and segment manifests against the records as they load**, which A9's restore did not: each is verified under the bundle's key chain for its origin, each checkpoint's root must be the tree's at its size, each manifest's the root of its segment's leaves, the segment full, and none may lie past the records; a partition that fails is refused and its unit of work rolled back; (4) the restore does not run all of `verify`: consistency proofs between checkpoints follow from every root matching the one tree, and record signatures and erasure accounting stay `verify`'s, which an operator runs on a bundle before trusting it; (5) a partition refused leaves the partitions before it loaded, so the database is no longer empty and the restore is run again on a fresh one.
+
+### A11. A backup of an older schema is migrated forward
+
+- **Date:** 2026-11-12
+- **Source:** Direct: Claude, while building the restore of an older backup (SCA-358), 2026-11-12; unconfirmed
+- **Change:** extends §1, §4
+- **Summary:** A2 (4) has a restore migrate forward a backup written under an older schema, and A9 (4) refused one until this was built. The calls made: (1) **the carried sections record the migrations too**, `migrations` in `carried/manifest.cbor`, each with its checksum as the sealed manifest records them (A8), so that a backup without sealed sections says what schema its tables are of; a backup from before this entry is read from its sealed manifest, which is in the clear, and one with neither is taken to be of the restoring binary's schema, refused as before if a table's columns differ; (2) **the restore applies exactly the migrations the backup records**, in the restoring binary's order, loads the carried and sealed tables there, then applies the rest, so that the migrations convert the tables as they would have converted the live database's and the restore converts nothing itself; (3) the rows the migrations leave are **set aside** in a schema of the restore's own, `ts_restore`, and the tables emptied, so that the log's load and the rebuild run as in any restore; after the rebuild they are put back in place of what the replay wrote and the schema is dropped; the tables set aside are the restoring schema's carried and sealed ones, not the backup's, since a migration may add, drop or move one (as `0037` moved `forwarder_key` from `private` to `ops`); (4) the remaining order is A9 (3)'s; (5) **a backup that names a migration the binary lacks is refused** as a newer binary's, and one whose recorded checksum differs from the binary's migration is refused as a changed migration is at any start; (6) a later migration runs with the `log` and `view` schemas empty: one that converted a `private` or `ops` table from the log or a projection, and not from the table's own rows, would not find them in a restore, and no migration does; (7) with `--without-private` only the carried tables are loaded and migrated, and the sealed tables are left as the migrations and the rebuild make them. The test keeps a backup made at migration `0038_ops_backup_classes` as a fixture, and runs a migration no binary has over it.
+
+### A12. What a restore refuses before it starts
+
+- **Date:** 2026-11-12
+- **Source:** Direct: Claude, after a review of the backup and restore (SCA-363, SCA-358), 2026-11-12; unconfirmed
+- **Change:** extends §1, §4
+- **Summary:** The calls made: (1) **an empty database is one never migrated**: the restore refuses a database that has any of the schemas `log`, `ops`, `view`, `private` or `ts_restore`, where A9 (4) refused only one with partitions; a restore that stopped after migrating would otherwise be run again over its own schema, and for an older backup (A11) take the backup's tables for ones the later migrations had already converted; the database is dropped and made again after a restore that did not finish; (2) **a backup whose `bundle.cbor` has no `sealed` is refused** as one that did not finish: `sealed` is written last (A8 (6)), and a backup that stopped before it, for want of a key set or otherwise, was restored as one without `private`, silently; (3) **a manifest names only what a backup writes**: a carried table is in `ops`, a sealed one in `private` or `ops`, none is `ops.migration`, and a file is a plain name in its section, since the restore empties and loads what a manifest names as the database's owner; (4) **A4 (5)'s advance reaches every tenant**: the restore gives every tenant of the registry a `visibility_epoch` row at the restore's time, where it had moved only the rows the backup held, and a row is made at a tenant's first bump, which the old instance may have reached after the backup.

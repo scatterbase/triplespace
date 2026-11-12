@@ -52,6 +52,17 @@ pub enum MigrateError {
         /// The checksum of the embedded SQL.
         current: String,
     },
+    /// A backup names a migration this binary does not have: a newer binary wrote it.
+    #[error(
+        "the backup was written under {crate_name}/{name}, a migration this binary does not \
+         have: restore it with the version that wrote it, or a newer one"
+    )]
+    Unknown {
+        /// The crate.
+        crate_name: String,
+        /// The migration.
+        name: String,
+    },
 }
 
 /// What a run did.
@@ -95,6 +106,30 @@ pub fn checksum(sql: &str) -> String {
             let _ = write!(s, "{b:02x}");
             s
         })
+}
+
+/// Applies one migration in a transaction of its own, with its bookkeeping row.
+async fn apply_one(
+    client: &mut tokio_postgres::Client,
+    crate_name: &str,
+    m: &Migration,
+    checksum: &str,
+) -> Result<(), MigrateError> {
+    let tx = client.transaction().await?;
+    tx.batch_execute(m.sql)
+        .await
+        .map_err(|source| MigrateError::Sql {
+            crate_name: crate_name.into(),
+            name: m.name.into(),
+            source,
+        })?;
+    tx.execute(
+        "INSERT INTO ops.migration (crate_name, name, checksum) VALUES ($1, $2, $3)",
+        &[&crate_name, &m.name, &checksum],
+    )
+    .await?;
+    tx.commit().await?;
+    Ok(())
 }
 
 const BOOKKEEPING: &str = "
@@ -181,20 +216,7 @@ impl Migrator {
                 report.skipped.push((crate_name.into(), m.name.into()));
                 continue;
             }
-            let tx = client.transaction().await?;
-            tx.batch_execute(m.sql)
-                .await
-                .map_err(|source| MigrateError::Sql {
-                    crate_name: crate_name.into(),
-                    name: m.name.into(),
-                    source,
-                })?;
-            tx.execute(
-                "INSERT INTO ops.migration (crate_name, name, checksum) VALUES ($1, $2, $3)",
-                &[&crate_name, &m.name, &current],
-            )
-            .await?;
-            tx.commit().await?;
+            apply_one(client, crate_name, m, &current).await?;
             report.applied.push((crate_name.into(), m.name.into()));
         }
         if self.grants {
@@ -207,6 +229,70 @@ impl Migrator {
             report.grants = Some(ensured);
         }
         Ok(report)
+    }
+
+    /// Brings an empty database to the schema a backup was written under (0103 §4, A11):
+    /// applies, in this binary's order, exactly the migrations `recorded` names, each
+    /// `(crate, name, checksum)`, and none of the later ones, which [`Migrator::apply`]
+    /// then runs over the backup's rows as it would have over the live database's. Makes
+    /// the roles, for a migrator made `with_grants`, but gives no grants: they name tables
+    /// later migrations make. Returns whether this binary has migrations the backup lacks.
+    ///
+    /// # Errors
+    ///
+    /// [`MigrateError::Unknown`] for a migration this binary lacks, and
+    /// [`MigrateError::Changed`] for one whose SQL differs from what the backup recorded.
+    pub async fn apply_recorded(
+        &self,
+        client: &mut tokio_postgres::Client,
+        recorded: &[(String, String, String)],
+    ) -> Result<bool, MigrateError> {
+        self.prepare(client).await?;
+        if self.grants {
+            crate::grants::ensure_roles(&*client)
+                .await
+                .map_err(|source| MigrateError::Grants { source })?;
+        }
+        for (crate_name, name, _) in recorded {
+            if !self
+                .migrations()
+                .any(|(c, m)| c == crate_name && m.name == name)
+            {
+                return Err(MigrateError::Unknown {
+                    crate_name: crate_name.clone(),
+                    name: name.clone(),
+                });
+            }
+        }
+        let mut older = false;
+        for (crate_name, m) in self.migrations() {
+            let Some((_, _, sum)) = recorded
+                .iter()
+                .find(|(c, n, _)| c == crate_name && n == m.name)
+            else {
+                older = true;
+                continue;
+            };
+            let current = checksum(m.sql);
+            if *sum != current {
+                return Err(MigrateError::Changed {
+                    crate_name: crate_name.into(),
+                    name: m.name.into(),
+                    recorded: sum.clone(),
+                    current,
+                });
+            }
+            let applied = client
+                .query_opt(
+                    "SELECT 1 FROM ops.migration WHERE crate_name = $1 AND name = $2",
+                    &[&crate_name, &m.name],
+                )
+                .await?;
+            if applied.is_none() {
+                apply_one(client, crate_name, m, &current).await?;
+            }
+        }
+        Ok(older)
     }
 
     /// The `(crate, name)` of every migration the database has not applied, in order:

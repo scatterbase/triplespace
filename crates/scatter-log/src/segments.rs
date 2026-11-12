@@ -221,6 +221,50 @@ impl SegmentStore {
         Ok(p)
     }
 
+    /// The slots from `from`, in order: at most `max_slots` of them and, past the first,
+    /// at most `max_bytes` of their encoding, and none beyond the segment file `from` is
+    /// in, so that one call is one read of one file. Empty only at the head. A bulk
+    /// reader's way through a partition (a restore's), where [`LogStore::read`] opens the
+    /// file once per slot.
+    ///
+    /// # Errors
+    ///
+    /// When the partition is unknown, `from` is past the head, or the file does not read
+    /// or decode.
+    pub fn read_range(
+        &self,
+        partition: u64,
+        from: u64,
+        max_slots: usize,
+        max_bytes: u64,
+    ) -> Result<Vec<Slot>, StoreError> {
+        let p = self.partition(partition)?;
+        if from == p.frontier.size() || max_slots == 0 {
+            return Ok(Vec::new());
+        }
+        let (n, first) = p.locate(partition, from)?;
+        let index = &p.files[usize::try_from(n).expect("fits")];
+        let end_of = |i: usize| index.starts.get(i + 1).copied().unwrap_or(index.end);
+        let start = index.starts[first];
+        let mut last = first;
+        while last + 1 < index.starts.len()
+            && last + 1 - first < max_slots
+            && end_of(last + 1) - start <= max_bytes
+        {
+            last += 1;
+        }
+        let mut f = File::open(p.dir.join(segment_file_name(n)))?;
+        f.seek(SeekFrom::Start(start))?;
+        let mut buf = vec![0; usize::try_from(end_of(last) - start).expect("fits")];
+        f.read_exact(&mut buf)?;
+        (first..=last)
+            .map(|i| {
+                let at = |pos: u64| usize::try_from(pos - start).expect("fits");
+                decode_slot(&buf[at(index.starts[i])..at(end_of(i))])
+            })
+            .collect()
+    }
+
     fn partition(&self, partition: u64) -> Result<&Partition, StoreError> {
         self.partitions
             .get(&partition)
@@ -517,6 +561,47 @@ mod tests {
             SegmentStore::open(r).unwrap()
         }));
         fs::remove_dir_all(&root).unwrap();
+    }
+
+    #[test]
+    fn read_range_is_the_slots_one_by_one() {
+        pollster::block_on(async {
+            let root = temp_root("range");
+            let mut s = SegmentStore::open(&root).unwrap();
+            s.create_partition(9, Segments::new(2).unwrap())
+                .await
+                .unwrap();
+            for n in 0..10 {
+                s.append(9, conformance::draft(n)).await.unwrap();
+            }
+            s.compact(9, &[5]).await.unwrap();
+            // Whatever the block's bounds, walking by ranges reads what `read` reads, and
+            // no range crosses a segment file (four slots here).
+            for (max_slots, max_bytes) in [(1, u64::MAX), (3, u64::MAX), (100, u64::MAX), (100, 1)]
+            {
+                let mut got = Vec::new();
+                while (got.len() as u64) < 10 {
+                    let block = s
+                        .read_range(9, got.len() as u64, max_slots, max_bytes)
+                        .unwrap();
+                    assert!(!block.is_empty() && block.len() <= max_slots.min(4));
+                    if max_bytes == 1 {
+                        assert_eq!(block.len(), 1, "the first slot comes whatever its size");
+                    }
+                    got.extend(block);
+                }
+                for (offset, slot) in got.iter().enumerate() {
+                    assert_eq!(slot, &s.read(9, offset as u64).await.unwrap());
+                }
+                assert!(matches!(got[5], Slot::Compacted { .. }));
+            }
+            assert!(s.read_range(9, 10, 8, u64::MAX).unwrap().is_empty());
+            assert!(matches!(
+                s.read_range(9, 11, 8, u64::MAX),
+                Err(StoreError::NoOffset { .. })
+            ));
+            fs::remove_dir_all(&root).unwrap();
+        });
     }
 
     #[test]

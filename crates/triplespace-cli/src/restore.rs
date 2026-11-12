@@ -4,9 +4,15 @@
 //! 1. the bundle is checked: a backup of the whole instance, every partition with its
 //!    registry row, and its carried sections; its sealed sections opened with `k` shares,
 //!    unless it has none or `--without-private` leaves them;
-//! 2. the database is migrated, which makes the schemas, the roles and their grants;
+//! 2. the database is migrated, which makes the schemas, the roles and their grants. For
+//!    a backup written under an older schema (0103 A11), it is migrated only as far as the
+//!    migrations the backup records; the carried and sealed tables are loaded there; the
+//!    later migrations then run over them, as they would have over the live database;
+//!    and the rows they leave are set aside in a schema of the restore's own, the tables
+//!    emptied, until step 6;
 //! 3. each partition is registered as it was and every slot appended verbatim, compacted
-//!    and erased ones included, with its checkpoints and segment manifests;
+//!    and erased ones included, a block at a time by `COPY` (0103 A10), with its
+//!    checkpoints and segment manifests, each checked against the tree the slots fold to;
 //! 4. the `log` sequences are made at the values the backup holds;
 //! 5. every projection is rebuilt from the log, in the replay order of 03 §6.1;
 //! 6. the carried `ops` tables and the sealed tables replace what the rebuild wrote there,
@@ -16,21 +22,29 @@
 //!    `visibility_epoch` to the restore's time in microseconds (0103 A4);
 //! 8. the migrations run once more, giving every partition its grants.
 //!
-//! A backup written under another schema is refused at step 6; migrating one forward is
-//! SCA-358.
+//! A backup that names a migration this binary lacks was written by a newer one, and is
+//! refused. One that records no migrations (written before 0103 A11, without sealed
+//! sections) is taken to be of this binary's schema, and refused at step 6 if a table's
+//! columns differ.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, Result, bail};
 use futures_util::SinkExt as _;
+use scatter_integrity::backup_key::DataKey;
 use scatter_integrity::backup_key::Share;
-use scatter_integrity::bundle::Bundle;
+use scatter_integrity::bundle::{Bundle, BundlePartition};
+use scatter_integrity::checkpoint::{SignedCheckpoint, segment_origin};
 use scatter_integrity::checkpoints::CheckpointStore as _;
+use scatter_log::hash::Hash;
 use scatter_log::registry::{Export, History, Integrity};
 use scatter_log::store::LogStore as _;
+use scatter_log::tree::{Frontier, Segments};
 use scatter_log_postgres::partition::PartitionInfo;
 use scatter_log_postgres::{Frontiers, PgCheckpoints};
 use tokio_postgres::Client;
+use triplespace_db::Migrator;
 
 use crate::carried::Carried;
 use crate::common::{connect, now};
@@ -124,8 +138,8 @@ async fn load(
     };
     if names(&here) != names(columns) {
         bail!(
-            "{schema}.{table} has other columns here than in the backup: the backup was written \
-             under another schema, and migrating one forward is not built yet (SCA-358)"
+            "{schema}.{table} has other columns here than in the backup: the backup's tables \
+             are not of the schema its migrations make"
         );
     }
     let list = columns
@@ -145,6 +159,155 @@ async fn load(
     sink.send(bytes::Bytes::from(bytes)).await?;
     sink.as_mut().finish().await?;
     Ok(())
+}
+
+/// Refuses a manifest that names a table outside `schemas`, the bookkeeping table, or a
+/// file outside its section: the restore empties and loads what a manifest names, as the
+/// database's owner, so a manifest names only what a backup writes.
+fn known_tables(tables: &[crate::sealed::Table], schemas: &[&str]) -> Result<()> {
+    for t in tables {
+        let plain = |s: &str| {
+            !s.is_empty()
+                && !s.starts_with('.')
+                && s.chars()
+                    .all(|c| c.is_ascii_alphanumeric() || matches!(c, '_' | '.' | '-'))
+        };
+        if !schemas.contains(&t.schema.as_str())
+            || (t.schema == "ops" && t.table == "migration")
+            || !plain(&t.table)
+            || !plain(&t.file)
+        {
+            bail!(
+                "the backup names {}.{} in file `{}`, which no backup writes",
+                t.schema,
+                t.table,
+                t.file
+            );
+        }
+    }
+    Ok(())
+}
+
+/// Empties the tables the backup carries and seals, and loads the backup's rows into them.
+/// Returns how many tables it loaded.
+async fn load_tables(
+    client: &mut Client,
+    carried: &Carried,
+    sealed: Option<&(Sealed, DataKey)>,
+) -> Result<usize> {
+    let mut names: Vec<String> = carried
+        .manifest
+        .tables
+        .iter()
+        .map(|t| format!("{}.{}", quote(&t.schema), quote(&t.table)))
+        .collect();
+    if let Some((sealed, _)) = sealed {
+        names.extend(
+            sealed
+                .manifest
+                .tables
+                .iter()
+                .map(|t| format!("{}.{}", quote(&t.schema), quote(&t.table))),
+        );
+    }
+    if !names.is_empty() {
+        client
+            .batch_execute(&format!("TRUNCATE {}", names.join(", ")))
+            .await?;
+    }
+    let mut tables = 0;
+    for t in &carried.manifest.tables {
+        load(
+            client,
+            &t.schema,
+            &t.table,
+            &t.columns,
+            carried.table(&t.schema, &t.table)?,
+        )
+        .await?;
+        tables += 1;
+    }
+    if let Some((sealed, key)) = sealed {
+        for t in &sealed.manifest.tables {
+            let bytes = sealed.table(key, &t.schema, &t.table)?;
+            load(client, &t.schema, &t.table, &t.columns, bytes).await?;
+            tables += 1;
+        }
+    }
+    Ok(tables)
+}
+
+/// The schema a restore sets migrated tables aside in, dropped when it puts them back.
+const ASIDE: &str = "ts_restore";
+
+/// A table set aside: where it belongs, where it waits, and its column list.
+struct Kept {
+    table: String,
+    aside: String,
+    columns: String,
+}
+
+/// After the later migrations have run over a backup's tables (0103 A11): copies every
+/// table this schema carries, and seals where the sealed sections were loaded, into
+/// [`ASIDE`], and empties the originals, so that the rebuild starts from the tables it
+/// would find in a restore of this schema's own backup. The tables are this schema's, not
+/// the backup's: a migration may have added, dropped or moved one.
+async fn set_aside(client: &mut Client, with_sealed: bool) -> Result<Vec<Kept>> {
+    let mut tables: Vec<(String, String)> = triplespace_db::ops::carried_tables()
+        .into_iter()
+        .map(|t| ("ops".to_string(), t.to_string()))
+        .collect();
+    if with_sealed {
+        tables.extend(crate::sealed::tables(client).await?);
+    }
+    let tx = client.transaction().await?;
+    tx.batch_execute(&format!("CREATE SCHEMA {ASIDE}")).await?;
+    let mut kept = Vec::new();
+    for (i, (schema, table)) in tables.iter().enumerate() {
+        let columns = columns(&tx, schema, table)
+            .await?
+            .iter()
+            .map(|c| quote(&c.name))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let k = Kept {
+            table: format!("{}.{}", quote(schema), quote(table)),
+            aside: format!("{ASIDE}.t{i}"),
+            columns,
+        };
+        tx.batch_execute(&format!(
+            "CREATE TABLE {} AS SELECT {} FROM {}; TRUNCATE {}",
+            k.aside, k.columns, k.table, k.table
+        ))
+        .await
+        .with_context(|| format!("set {schema}.{table} aside"))?;
+        kept.push(k);
+    }
+    tx.commit().await?;
+    Ok(kept)
+}
+
+/// Puts the tables [`set_aside`] kept back in place of what the rebuild wrote, and drops
+/// [`ASIDE`]. Returns how many tables it loaded.
+async fn put_back(client: &mut Client, kept: &[Kept]) -> Result<usize> {
+    let tx = client.transaction().await?;
+    for k in kept {
+        // `OVERRIDING SYSTEM VALUE`: an identity column keeps the value it had.
+        tx.batch_execute(&format!(
+            "TRUNCATE {table};
+             INSERT INTO {table} ({columns}) OVERRIDING SYSTEM VALUE
+             SELECT {columns} FROM {aside}",
+            table = k.table,
+            columns = k.columns,
+            aside = k.aside
+        ))
+        .await
+        .with_context(|| format!("put {} back", k.table))?;
+    }
+    tx.batch_execute(&format!("DROP SCHEMA {ASIDE} CASCADE"))
+        .await?;
+    tx.commit().await?;
+    Ok(kept.len())
 }
 
 /// Sets every sequence in `ops` and `private` past the column it numbers: one it owns, or
@@ -186,14 +349,138 @@ async fn reset_sequences(client: &Client) -> Result<()> {
     Ok(())
 }
 
+/// The most slots a block of the load holds, and the most bytes past its first slot: one
+/// read of the bundle and one `COPY` each (0103 A10).
+const BLOCK_SLOTS: usize = 8192;
+const BLOCK_BYTES: u64 = 32 << 20;
+
+/// A partition's checkpoints and segment manifests, checked against its leaves as they
+/// load (0103 A10): each signed under the bundle's key chain for its origin, each
+/// checkpoint's root the tree's at its size, each manifest's the root of its segment's
+/// leaves, and that segment full. What `verify` checks of them (0006 §9), without holding
+/// every leaf.
+struct ChainCheck {
+    partition: u64,
+    segments: Segments,
+    whole: Frontier,
+    segment: Frontier,
+    /// Roots still to be met, by tree size and by segment.
+    checkpoints: BTreeMap<u64, Hash>,
+    manifests: BTreeMap<u64, Hash>,
+}
+
+impl ChainCheck {
+    fn new(
+        bundle: &Bundle,
+        p: &BundlePartition,
+        segments: Segments,
+        signed: &[SignedCheckpoint],
+        manifests: &[(u64, SignedCheckpoint)],
+    ) -> Result<Self> {
+        let id = p.partition;
+        let verifiers = bundle.chain().verifiers(&p.origin);
+        let mut by_size = BTreeMap::new();
+        for cp in signed {
+            let size = cp.checkpoint.size;
+            cp.verify(&p.origin, &verifiers)
+                .with_context(|| format!("partition {id:#018x}: the checkpoint at size {size}"))?;
+            if by_size
+                .insert(size, cp.checkpoint.root)
+                .is_some_and(|other| other != cp.checkpoint.root)
+            {
+                bail!("partition {id:#018x}: two checkpoints at size {size} disagree");
+            }
+        }
+        let mut by_segment = BTreeMap::new();
+        for (n, m) in manifests {
+            let origin = segment_origin(&p.origin, *n);
+            m.verify(&origin, &bundle.chain().verifiers(&origin))
+                .with_context(|| format!("partition {id:#018x}: the manifest of segment {n}"))?;
+            if m.checkpoint.size != segments.len() {
+                bail!(
+                    "partition {id:#018x}: the manifest of segment {n} is not of a whole segment"
+                );
+            }
+            by_segment.insert(*n, m.checkpoint.root);
+        }
+        if by_size
+            .remove(&0)
+            .is_some_and(|root| root != scatter_log::tree::empty_root())
+        {
+            bail!("partition {id:#018x}: the checkpoint at size 0 is not of the empty tree");
+        }
+        Ok(Self {
+            partition: id,
+            segments,
+            whole: Frontier::new(),
+            segment: Frontier::new(),
+            checkpoints: by_size,
+            manifests: by_segment,
+        })
+    }
+
+    /// The next leaf.
+    fn push(&mut self, leaf: Hash) -> Result<()> {
+        let id = self.partition;
+        let n = self.segments.segment_of(self.whole.size());
+        self.whole.push_leaf(leaf);
+        self.segment.push_leaf(leaf);
+        let size = self.whole.size();
+        if self
+            .checkpoints
+            .remove(&size)
+            .is_some_and(|root| root != self.whole.root())
+        {
+            bail!(
+                "partition {id:#018x}: the checkpoint at size {size} does not match the                  records: the backup does not verify"
+            );
+        }
+        if size == self.segments.range(n).end {
+            if self
+                .manifests
+                .remove(&n)
+                .is_some_and(|root| root != self.segment.root())
+            {
+                bail!(
+                    "partition {id:#018x}: the manifest of segment {n} does not match the                      records: the backup does not verify"
+                );
+            }
+            self.segment = Frontier::new();
+        }
+        Ok(())
+    }
+
+    /// After the last leaf: nothing may be left that the leaves did not reach.
+    fn finish(&self) -> Result<()> {
+        let id = self.partition;
+        if let Some(size) = self.checkpoints.keys().next() {
+            bail!("partition {id:#018x}: a checkpoint at size {size} is past the records");
+        }
+        if let Some(n) = self.manifests.keys().next() {
+            bail!("partition {id:#018x}: a manifest of segment {n}, which is not full");
+        }
+        Ok(())
+    }
+}
+
 /// Restores the backup at `args.bundle` into the empty database at `args.database`.
 ///
 /// # Errors
 ///
 /// A bundle that is not a whole instance's backup, missing or wrong shares, a database
 /// that is not empty, or any step's failure.
-#[allow(clippy::too_many_lines)]
 pub async fn restore(args: &Restore) -> Result<Restored> {
+    restore_with(args, &triplespace_db::migrator()).await
+}
+
+/// [`restore`], with the migrations given: this binary's, but for a test of a migration
+/// that does not exist yet.
+///
+/// # Errors
+///
+/// As [`restore`].
+#[allow(clippy::too_many_lines)]
+pub async fn restore_with(args: &Restore, migrator: &Migrator) -> Result<Restored> {
     let bundle =
         Bundle::open(&args.bundle).with_context(|| format!("open {}", args.bundle.display()))?;
     let manifest = bundle.manifest();
@@ -204,14 +491,25 @@ pub async fn restore(args: &Restore) -> Result<Restored> {
             manifest.scope
         );
     }
+    if manifest.sealed.is_none() {
+        // `sealed` is written last, true or false (0103 A8): without it the backup
+        // stopped before its carried and sealed sections were whole.
+        bail!(
+            "{} does not say whether it has its sealed sections: the backup that wrote it \
+             did not finish",
+            args.bundle.display()
+        );
+    }
     if manifest.partitions.iter().any(|p| p.registry.is_none()) {
         bail!("the backup predates registry rows in bundles and cannot be restored by the binary");
     }
     let carried = Carried::open(&args.bundle)
         .context("a restore needs a backup of the whole instance, with its carried sections")?;
+    known_tables(&carried.manifest.tables, &["ops"])?;
     let sealed = match (manifest.sealed, args.without_private) {
         (Some(true), false) => {
             let sealed = Sealed::open(&args.bundle)?;
+            known_tables(&sealed.manifest.tables, &["private", "ops"])?;
             let shares = args
                 .shares
                 .iter()
@@ -238,24 +536,54 @@ pub async fn restore(args: &Restore) -> Result<Restored> {
     let farm = farm_of(&bundle).await?;
 
     let mut client = connect(&args.database).await?;
-    // Two statements: Postgres resolves `log.partition` while planning, before the first
-    // condition could spare it on a database that has none.
-    let has_log: bool = client
-        .query_one("SELECT to_regclass('log.partition') IS NOT NULL", &[])
+    // Empty means never migrated: a restore that stopped part-way has made schemas, and
+    // run again over them would take the backup's tables for ones already migrated.
+    let made: Vec<String> = client
+        .query(
+            "SELECT nspname::text FROM pg_namespace
+             WHERE nspname = ANY($1) ORDER BY nspname",
+            &[&["log", "ops", "view", "private", ASIDE].as_slice()],
+        )
         .await?
-        .get(0);
-    let occupied = has_log
-        && client
-            .query_one("SELECT EXISTS (SELECT 1 FROM log.partition)", &[])
-            .await?
-            .get::<_, bool>(0);
-    if occupied {
-        bail!("the database already holds partitions: a restore needs an empty one");
+        .iter()
+        .map(|r| r.get(0))
+        .collect();
+    if !made.is_empty() {
+        bail!(
+            "the database already has the schema(s) {}: a restore needs an empty database, \
+             so drop and create it again, also after a restore that did not finish",
+            made.join(", ")
+        );
     }
-    triplespace_db::migrator()
-        .apply(&mut client)
-        .await
-        .context("migrate")?;
+    // The schema: the one the backup was written under where it says, its tables loaded
+    // there and migrated forward with the rest (0103 A11); this binary's otherwise.
+    let recorded = match &carried.manifest.migrations {
+        Some(m) => Some(m.clone()),
+        // A backup from before the carried manifest recorded them: its sealed manifest
+        // does, in the clear, where it has one.
+        None if args.bundle.join(crate::sealed::DIR).is_dir() => {
+            Some(Sealed::open(&args.bundle)?.manifest.migrations)
+        }
+        None => None,
+    };
+    let older = match &recorded {
+        Some(recorded) => migrator
+            .apply_recorded(&mut client, recorded)
+            .await
+            .context("migrate to the backup's schema")?,
+        None => false,
+    };
+    if older {
+        load_tables(&mut client, &carried, sealed.as_ref())
+            .await
+            .context("load the backup's tables into the schema it was written under")?;
+    }
+    migrator.apply(&mut client).await.context("migrate")?;
+    let kept = if older {
+        Some(set_aside(&mut client, sealed.is_some()).await?)
+    } else {
+        None
+    };
 
     // The log, partition by partition, each in a unit of work of its own.
     let mut restored = Restored::default();
@@ -276,19 +604,33 @@ pub async fn restore(args: &Restore) -> Result<Restored> {
         scatter_log_postgres::log::create_partition(&tx, p.partition, head.segments, &info)
             .await
             .with_context(|| format!("register partition {:#018x}", p.partition))?;
+        let signed = bundle.checkpoints().list(p.partition).await?;
+        let manifests = bundle.checkpoints().manifests(p.partition).await?;
+        let mut chain = ChainCheck::new(&bundle, p, head.segments, &signed, &manifests)?;
         let mut frontiers = Frontiers::new();
-        for offset in 0..head.size {
-            let slot = bundle.store().read(p.partition, offset).await?;
-            scatter_log_postgres::log::append_slot_with(&tx, p.partition, slot, &mut frontiers)
-                .await
-                .with_context(|| format!("partition {:#018x}, offset {offset}", p.partition))?;
+        let mut offset = 0;
+        while offset < head.size {
+            let slots = bundle
+                .store()
+                .read_range(p.partition, offset, BLOCK_SLOTS, BLOCK_BYTES)?;
+            let leaves =
+                scatter_log_postgres::log::append_slots(&tx, p.partition, &slots, &mut frontiers)
+                    .await
+                    .with_context(|| {
+                        format!("partition {:#018x}, from offset {offset}", p.partition)
+                    })?;
+            for leaf in leaves {
+                chain.push(leaf)?;
+            }
+            offset += slots.len() as u64;
         }
+        chain.finish()?;
         let mut checkpoints = PgCheckpoints::new(&tx);
-        for cp in bundle.checkpoints().list(p.partition).await? {
-            checkpoints.put(p.partition, &cp).await?;
+        for cp in &signed {
+            checkpoints.put(p.partition, cp).await?;
         }
-        for (n, m) in bundle.checkpoints().manifests(p.partition).await? {
-            checkpoints.put_manifest(p.partition, n, &m).await?;
+        for (n, m) in &manifests {
+            checkpoints.put_manifest(p.partition, *n, m).await?;
         }
         tx.commit().await?;
         restored.partitions += 1;
@@ -315,56 +657,30 @@ pub async fn restore(args: &Restore) -> Result<Restored> {
         .await
         .context("rebuild the projections")?;
 
-    // The backup's own rows, in place of what the replay wrote.
-    let tx = client.transaction().await?;
-    for t in &carried.manifest.tables {
-        tx.batch_execute(&format!(
-            "TRUNCATE {}.{}",
-            quote(&t.schema),
-            quote(&t.table)
-        ))
-        .await?;
-    }
-    if let Some((sealed, _)) = &sealed {
-        let names = sealed
-            .manifest
-            .tables
-            .iter()
-            .map(|t| format!("{}.{}", quote(&t.schema), quote(&t.table)))
-            .collect::<Vec<_>>()
-            .join(", ");
-        tx.batch_execute(&format!("TRUNCATE {names}")).await?;
-    }
-    tx.commit().await?;
-    for t in &carried.manifest.tables {
-        load(
-            &client,
-            &t.schema,
-            &t.table,
-            &t.columns,
-            carried.table(&t.schema, &t.table)?,
-        )
-        .await?;
-        restored.tables += 1;
-    }
-    if let Some((sealed, key)) = &sealed {
-        for t in &sealed.manifest.tables {
-            let bytes = sealed.table(key, &t.schema, &t.table)?;
-            load(&client, &t.schema, &t.table, &t.columns, bytes).await?;
-            restored.tables += 1;
-        }
-    }
+    // The backup's own rows, in place of what the replay wrote: from the bundle, or, for
+    // a backup migrated forward, from where the migrations' result was set aside.
+    restored.tables = match &kept {
+        Some(kept) => put_back(&mut client, kept).await?,
+        None => load_tables(&mut client, &carried, sealed.as_ref()).await?,
+    };
     reset_sequences(&client).await?;
     let epoch = i64::try_from(now()).unwrap_or(i64::MAX);
+    // Every tenant, not only those the backup holds a row for: a row is made at a
+    // tenant's first bump, which the old instance may have reached after the backup.
+    client
+        .execute(
+            "INSERT INTO ops.visibility_epoch (tenant, epoch)
+             SELECT DISTINCT tenant, $1::bigint FROM log.partition WHERE tenant IS NOT NULL
+             ON CONFLICT (tenant) DO UPDATE SET epoch = EXCLUDED.epoch",
+            &[&epoch],
+        )
+        .await?;
     client
         .execute("UPDATE ops.visibility_epoch SET epoch = $1", &[&epoch])
         .await?;
 
     // The grants of every partition the restore made.
-    triplespace_db::migrator()
-        .apply(&mut client)
-        .await
-        .context("grants")?;
+    migrator.apply(&mut client).await.context("grants")?;
     Ok(restored)
 }
 
@@ -392,4 +708,95 @@ pub async fn run(args: Restore) -> Result<()> {
 #[must_use]
 pub fn sealed_key_path(bundle: &Path) -> PathBuf {
     bundle.join(crate::sealed::DIR).join("key.cbor")
+}
+
+#[cfg(test)]
+mod tests {
+    use scatter_log::tree::root_of;
+
+    use super::*;
+
+    #[test]
+    fn a_manifest_names_only_what_a_backup_writes() {
+        let table = |schema: &str, table: &str, file: &str| crate::sealed::Table {
+            schema: schema.into(),
+            table: table.into(),
+            file: file.into(),
+            columns: Vec::new(),
+        };
+        known_tables(&[table("ops", "job_queue", "ops.job_queue.bin")], &["ops"]).unwrap();
+        known_tables(
+            &[table("private", "login", "private.login.bin")],
+            &["private", "ops"],
+        )
+        .unwrap();
+        for bad in [
+            table("view", "page", "view.page.bin"),
+            table("private", "login", "private.login.bin"),
+            table("ops", "migration", "ops.migration.bin"),
+            table("ops", "job_queue", "../job_queue.bin"),
+            table("ops", "job_queue", "a/b.bin"),
+        ] {
+            assert!(
+                known_tables(std::slice::from_ref(&bad), &["ops"]).is_err(),
+                "{bad:?}"
+            );
+        }
+    }
+
+    fn leaves(n: u8) -> Vec<Hash> {
+        (0..n).map(|i| [i; 32]).collect()
+    }
+
+    fn check(
+        leaves: &[Hash],
+        checkpoints: &[(u64, Hash)],
+        manifests: &[(u64, Hash)],
+    ) -> Result<()> {
+        let mut chain = ChainCheck {
+            partition: 7,
+            segments: Segments::new(2).unwrap(),
+            whole: Frontier::new(),
+            segment: Frontier::new(),
+            checkpoints: checkpoints.iter().copied().collect(),
+            manifests: manifests.iter().copied().collect(),
+        };
+        for leaf in leaves {
+            chain.push(*leaf)?;
+        }
+        chain.finish()
+    }
+
+    /// 0103 §4 (A10): a restore refuses a partition whose checkpoints or segment manifests
+    /// are not of the records it loads.
+    #[test]
+    fn checkpoints_and_manifests_are_checked_against_the_leaves() {
+        let l = leaves(10);
+        let at = |n: usize| (n as u64, root_of(&l[..n]));
+        let segment = |n: usize| (n as u64, root_of(&l[n * 4..n * 4 + 4]));
+        check(
+            &l,
+            &[at(1), at(4), at(7), at(10)],
+            &[segment(0), segment(1)],
+        )
+        .unwrap();
+        check(&l, &[], &[]).unwrap();
+
+        let wrong = |r: Result<()>, what: &str| {
+            let e = r.unwrap_err().to_string();
+            assert!(e.contains(what), "{e}");
+        };
+        // A checkpoint of other records, and one past the head.
+        wrong(check(&l, &[(7, root_of(&l[..6]))], &[]), "size 7");
+        wrong(check(&l, &[(11, [0; 32])], &[]), "past the records");
+        // A manifest of other records, and one of a segment the records do not fill.
+        wrong(check(&l, &[], &[(1, root_of(&l[..4]))]), "segment 1");
+        wrong(check(&l, &[], &[(2, [0; 32])]), "not full");
+        // A changed record changes every root after it.
+        let mut changed = l.clone();
+        changed[5] = [99; 32];
+        check(&changed, &[at(4)], &[segment(0)]).unwrap();
+        wrong(check(&changed, &[at(4), at(10)], &[]), "size 10");
+        wrong(check(&changed, &[], &[segment(1)]), "segment 1");
+    }
 }
