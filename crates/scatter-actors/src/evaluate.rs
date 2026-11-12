@@ -364,8 +364,9 @@ pub fn owner_may_leave(
 /// global group at the farm base; held on any other tenant they grant nothing at instance
 /// scope. Some of these names also do ordinary tenant work (`userrights`, `block`,
 /// `ts-config`); at instance scope they are the farm-account and farm-base forms.
-pub const INSTANCE_RIGHTS: [&str; 11] = [
+pub const INSTANCE_RIGHTS: [&str; 12] = [
     "ts-keys",
+    "ts-backup-keys",
     "ts-primary",
     "ts-config",
     "abusefilter-modify",

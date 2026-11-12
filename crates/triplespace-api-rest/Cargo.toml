@@ -16,6 +16,7 @@ scatter-ingest.workspace = true
 scatter-threads.workspace = true
 deadpool-postgres.workspace = true
 scatter-projection.workspace = true
+scatter-integrity.workspace = true
 triplespace-accounts.workspace = true
 scatter-actors.workspace = true
 serde.workspace = true

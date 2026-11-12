@@ -57,7 +57,7 @@ mediawiki = [
 wikibase = ["item-term", "property-term", "item-redirect", "item-merge", "property-create"]
 triplespace = [
   "ts-link", "ts-linkproperty", "ts-retain", "ts-convert", "ts-runjob", "ts-revertjob", "ts-viewrejects",
-  "ts-erase", "ts-viewerasures", "ts-unlink", "ts-config", "ts-keys",
+  "ts-erase", "ts-viewerasures", "ts-unlink", "ts-config", "ts-keys", "ts-backup-keys",
   "ts-editpost",                                 # 0019 §12: edit another actor's post
   "ts-transferaccount",                          # 0024 §11: move a subsidiary to another operator
   "ts-takedown", "ts-expunge", "ts-viewtakedown",   # 0039 §21: operator removal of files; evaluated on the primary tenant only

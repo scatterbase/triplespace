@@ -63,6 +63,7 @@ pub mod account_requests;
 pub mod acl;
 pub mod activity;
 pub mod auth;
+pub mod backup_keys;
 pub mod diff;
 pub mod email;
 mod entity_route;
@@ -137,6 +138,8 @@ rest_operations! {
     get "/auth/pending" => auth::pending;
     get "/account" => auth::account;
     get "/tenancy" => tenancy::handle;
+    get "/backup-keys" => backup_keys::get;
+    put "/backup-keys" => backup_keys::put;
     post "/thread" => threads::create;
     get "/thread/{id}" => threads::get;
     post "/thread/{id}/post" => threads::post;
