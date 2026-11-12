@@ -329,7 +329,7 @@ pg_restore --no-owner --no-privileges -d "$NEW_DATABASE_URL" instance.dump
 triplespace migrate --database "$NEW_DATABASE_URL"
 ```
 
-`triplespace migrate` applies nothing on a database the same binary wrote, and creates the roles the new server lacks and gives every grant again. A restore that keeps the dump's privileges also works once `migrate` has run, but reports an error for each grant to a role the server did not yet have.
+`triplespace migrate` applies nothing on a database the same binary wrote, and creates the roles the new server lacks and gives every grant again. On a server without the roles, `pg_restore` reports two errors even so: `log.record`'s two row-level security policies name the roles, and `migrate` creates them ([03](03-storage-caches-and-search.md) §1.2; [0013](../decisions/0013-postgres-storage.md) A98). A restore that keeps the dump's privileges also works once `migrate` has run, but reports an error for each grant to a role the server did not yet have.
 
 ### 6.8 Recovery keys and continuations
 

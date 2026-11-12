@@ -6,7 +6,9 @@
 //!
 //! A log partition's child table is created when the partition is, so its grant is given
 //! then, by [`grant_partition`], and again by every [`ensure`]. The accounts partition is
-//! hidden from every role but the accounts role.
+//! hidden from every role but the accounts role: its child table by its grant, and its rows
+//! in the parent `log.record` by row-level security ([`POLICIES`]), since Postgres checks
+//! privileges only on the table a query names.
 
 use tokio_postgres::GenericClient;
 
@@ -53,6 +55,24 @@ GRANT SELECT ON private.watch TO ts_notify;
 GRANT SELECT ON private.email TO ts_notify;
 ";
 
+/// The row-level security of `log.record` that `0034_record_policies` gives, each policy
+/// created only where it is missing: a restore onto a server without the roles a policy
+/// names leaves it out, and the table, its security enabled, then shows the public roles
+/// nothing. Creating a policy locks `log.record`, so one that exists is left alone. A
+/// migration that adds or changes a policy adds it here too:
+/// `every_migration_grant_is_ensured` fails until it does.
+pub const POLICIES: &str = "
+ALTER TABLE log.record ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polrelid = 'log.record'::regclass AND polname = 'ts_accounts_reads_all') THEN
+CREATE POLICY ts_accounts_reads_all ON log.record TO ts_accounts USING (true) WITH CHECK (true);
+END IF;
+IF NOT EXISTS (SELECT 1 FROM pg_policy WHERE polrelid = 'log.record'::regclass AND polname = 'ts_public_skips_accounts') THEN
+CREATE POLICY ts_public_skips_accounts ON log.record TO ts_server, ts_notify, ts_federation, ts_verify USING (partition NOT IN (SELECT p.partition FROM log.partition p WHERE p.name = 'accounts')) WITH CHECK (partition NOT IN (SELECT p.partition FROM log.partition p WHERE p.name = 'accounts'));
+END IF;
+END $$;
+";
+
 /// What [`ensure`] did.
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct Ensured {
@@ -97,8 +117,8 @@ pub async fn ensure_roles<C: GenericClient>(
     Ok(created)
 }
 
-/// Creates every role the server lacks ([`ensure_roles`]), then gives [`GRANTS`] and each
-/// partition's grant. Idempotent; run by the migration runner after every run, so that a
+/// Creates every role the server lacks ([`ensure_roles`]), then gives [`GRANTS`], any
+/// missing policy of [`POLICIES`], and each partition's grant. Idempotent; run by the migration runner after every run, so that a
 /// database restored without its roles or its grants regains them (0013 §4; 08 §6.7).
 ///
 /// Granting needs to own the objects, as the role that ran the migrations, or restored the
@@ -110,6 +130,7 @@ pub async fn ensure<C: GenericClient>(client: &C) -> Result<Ensured, tokio_postg
         partitions: 0,
     };
     client.batch_execute(GRANTS).await?;
+    client.batch_execute(POLICIES).await?;
     let rows = client
         .query(
             "SELECT partition, name FROM log.partition ORDER BY partition",
@@ -165,11 +186,12 @@ mod tests {
         s.split_whitespace().collect::<Vec<_>>().join(" ")
     }
 
-    /// Every `GRANT` and `ALTER DEFAULT PRIVILEGES` statement in a migration is in
-    /// [`GRANTS`], so that a restored database regains it (0013 §4).
+    /// Every `GRANT`, `ALTER DEFAULT PRIVILEGES`, `CREATE POLICY` and row-level security
+    /// statement in a migration is in [`GRANTS`] or [`POLICIES`], so that a restored
+    /// database regains it (0013 §4).
     #[test]
     fn every_migration_grant_is_ensured() {
-        let ensured = normalized(GRANTS);
+        let ensured = normalized(&format!("{GRANTS}{POLICIES}"));
         let mut seen = 0;
         for (crate_name, m) in crate::migrator().migrations() {
             let sql = m
@@ -184,6 +206,10 @@ mod tests {
                 if upper.starts_with("GRANT ")
                     || upper.starts_with("REVOKE ")
                     || upper.starts_with("ALTER DEFAULT PRIVILEGES")
+                    || upper.starts_with("CREATE POLICY")
+                    || upper.starts_with("ALTER POLICY")
+                    || upper.starts_with("DROP POLICY")
+                    || upper.contains("ROW LEVEL SECURITY")
                 {
                     seen += 1;
                     assert!(
@@ -194,6 +220,13 @@ mod tests {
                 }
             }
         }
-        assert!(seen >= 14, "found only {seen} grant statements");
+        assert!(seen >= 17, "found only {seen} grant statements");
+    }
+
+    /// The policies hide the partition [`ensure`] and [`grant_partition`]'s callers call
+    /// the accounts partition.
+    #[test]
+    fn the_policies_name_the_accounts_partition() {
+        assert!(POLICIES.contains(&format!("p.name = '{ACCOUNTS_PARTITION}'")));
     }
 }

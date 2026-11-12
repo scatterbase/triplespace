@@ -40,6 +40,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0013 A95](0013-postgres-storage.md#a95-three-projections-write-a-tenants-block-a-table-at-a-time) | 2026-11-11 | Three projections write a tenant's block a table at a time |
 | [0013 A96](0013-postgres-storage.md#a96-compaction-keeps-the-record-that-claims-a-keys-highest-revision-and-runs-by-a-range-of-offsets) | 2026-11-11 | Compaction keeps the record that claims a key's highest revision, and runs by a range of offsets |
 | [0013 A97](0013-postgres-storage.md#a97-the-roles-and-grants-converge-on-every-migration-run) | 2026-11-12 | The roles and grants converge on every migration run |
+| [0013 A98](0013-postgres-storage.md#a98-row-level-security-hides-the-accounts-partition-in-logrecord) | 2026-11-12 | Row-level security hides the accounts partition in `log.record` |
 | [0016 A42](0016-permissions-and-access-control.md#a42-delegated-administration-the-calls-made-while-drafting-and-building-tier-4) | 2026-10-30 | Delegated administration: the calls made while drafting and building tier 4 |
 | [0018 A33](0018-tenants.md#a33-multi-tenant-round-1-the-assumptions-the-implementation-made) | 2026-10-30 | Multi-tenant round 1: the assumptions the implementation made |
 | [0019 A31](0019-discussions.md#a31-a-threads-actions-from-the-page-the-calls-made-building-them) | 2026-11-05 | A thread's actions from the page: the calls made building them |
@@ -136,7 +137,6 @@ Every unstruck question in every ADR (24 §8), with its first sentence. Settle o
 | [0013 Q5](0013-postgres-storage.md) | Vacuum policy | How soon after an `erase` the affected child table is vacuumed, and whether `VACUUM FULL` is the default for reason class `legal`. |
 | [0013 Q8](0013-postgres-storage.md) | Partition count at farm scale | and whether small tenants share physical child tables (0018 Q1). |
 | [0013 Q9](0013-postgres-storage.md) | The addressing projection's role | §7 runs it under the notifier's role because it writes to `private`; whether `ops.projection_state` should record its position like the others, or `private.inbox` should carry its own high-water mark, is an implementatio… |
-| [0013 Q11](0013-postgres-storage.md) | The accounts partition read through `log.record` | §4 hides the accounts partition from the public role by revoking its child table, but Postgres checks privileges only on the table a query names, and every role has `SELECT` on the parent `log.record`, through which `sca… |
 | [0014 Q1](0014-caches-and-search.md) | TTL ceilings and `s-maxage` | in §4 and §6 are starting values. |
 | [0014 Q2](0014-caches-and-search.md) | Analysis configuration | Whether to vendor CirrusSearch's per-language analyzer settings, which are extensive and depend on plugins, or start from OpenSearch's built-in language analyzers and grow. |
 | [0014 Q3](0014-caches-and-search.md) | `statement_keywords` scope | Which properties are indexed for `haswbstatement:` at Wikidata scale; indexing all of them is what makes that field large. |

@@ -247,13 +247,12 @@ async fn the_public_role_cannot_read_private() {
     assert!(as_role(role::VERIFY, "INSERT INTO log.partition (partition, name, graph_iri, history, integrity, export, segment_k, hash) VALUES (99, 'x', '', 'full', 'logged', 'public', 1, 'sha-256') RETURNING partition").await.is_err());
 }
 
-/// 0013 §4, 03 §1.2: the accounts partition is hidden from the public role however it is
-/// read. Postgres checks privileges only on the table a query names, so revoking the child
-/// table is not enough while the public role may read the parent `log.record`: this fails
-/// until the parent excludes the accounts partition's rows. Ignored until that is decided;
-/// run it with `--ignored`.
+/// 0013 §4, A98; 03 §1.2: the accounts partition is hidden from the public role however it
+/// is read. Postgres checks privileges only on the table a query names, so revoking the
+/// child table is not enough while the public role may read the parent `log.record`: the
+/// parent's row-level security excludes the accounts partition's rows, for reads and for
+/// writes.
 #[tokio::test]
-#[ignore = "open: the public role reads the accounts partition through log.record (0013 §4)"]
 async fn the_public_role_cannot_read_accounts_through_the_parent() {
     if skipped() {
         return;
@@ -304,10 +303,37 @@ async fn the_public_role_cannot_read_accounts_through_the_parent() {
         );
     }
     assert_eq!(count_as(role::ACCOUNTS, 8).await.unwrap(), 1);
+    assert_eq!(count_as(role::ACCOUNTS, 7).await.unwrap(), 1);
+
+    // Nor may the public role write there through the parent; it may elsewhere.
+    let insert_as = |r: &'static str, partition: i64| {
+        let c = &client;
+        async move {
+            c.batch_execute(&format!("SET ROLE {r}")).await.unwrap();
+            let out = c
+                .execute(
+                    "INSERT INTO log.record (partition, \"offset\", appended_at, payload_type, \
+                     commitment, header, leaf, body) VALUES ($1, 99, 0, 'test', '', '', '', '')",
+                    &[&partition],
+                )
+                .await;
+            c.batch_execute("RESET ROLE").await.unwrap();
+            out
+        }
+    };
+    let refused = insert_as(role::SERVER, 8).await.unwrap_err();
+    assert!(
+        refused
+            .as_db_error()
+            .is_some_and(|e| e.message().contains("row-level security")),
+        "{refused:?}"
+    );
+    assert_eq!(insert_as(role::SERVER, 7).await.unwrap(), 1);
 }
 
-/// Every grant to a `ts_*` role in the database: on tables and sequences, on schemas, and
-/// as default privileges, as `(kind, object, grantee, privilege)`, sorted.
+/// Every grant to a `ts_*` role in the database: on tables and sequences, on schemas, as
+/// default privileges, and as row-level security policies, as `(kind, object, grantee,
+/// privilege)`, sorted.
 async fn ts_grants(client: &Client) -> Vec<(String, String, String, String)> {
     client
         .query(
@@ -319,6 +345,11 @@ async fn ts_grants(client: &Client) -> Vec<(String, String, String, String)> {
              SELECT 'schema', n.nspname, a.grantee::regrole::text, a.privilege_type
                FROM pg_namespace n, aclexplode(n.nspacl) a
               WHERE a.grantee::regrole::text LIKE 'ts\\_%'
+             UNION ALL
+             SELECT 'policy', p.schemaname || '.' || p.tablename || ':' || p.policyname,
+                    array_to_string(p.roles, ','), coalesce(p.qual, '') || ' / ' || coalesce(p.with_check, '')
+               FROM pg_policies p
+              WHERE p.schemaname IN ('log', 'view', 'ops', 'private')
              UNION ALL
              SELECT 'default', coalesce(n.nspname, '') || ':' || d.defaclobjtype::text,
                     a.grantee::regrole::text, a.privilege_type
@@ -373,8 +404,14 @@ async fn ensure_restores_what_migrations_granted() {
             .any(|g| g.1 == "log.record_0000000000000008" && g.2 != role::ACCOUNTS),
         "the accounts partition is hidden from every role but the accounts role"
     );
+    assert_eq!(
+        granted.iter().filter(|g| g.0 == "policy").count(),
+        2,
+        "log.record's two policies (A98)"
+    );
 
-    // What `--no-privileges` leaves: no grant to any of the roles.
+    // What `--no-privileges` leaves: no grant to any of the roles; and what a restore onto
+    // a server without the roles leaves: no policy that names one.
     let roles = role::ALL.join(", ");
     client
         .batch_execute(&format!(
@@ -382,7 +419,9 @@ async fn ensure_restores_what_migrations_granted() {
              REVOKE ALL ON ALL SEQUENCES IN SCHEMA log, view, ops, private FROM {roles};
              REVOKE ALL ON SCHEMA log, view, ops, private FROM {roles};
              ALTER DEFAULT PRIVILEGES IN SCHEMA log, view, ops, private REVOKE ALL ON TABLES FROM {roles};
-             ALTER DEFAULT PRIVILEGES IN SCHEMA log, view, ops, private REVOKE ALL ON SEQUENCES FROM {roles};"
+             ALTER DEFAULT PRIVILEGES IN SCHEMA log, view, ops, private REVOKE ALL ON SEQUENCES FROM {roles};
+             DROP POLICY ts_accounts_reads_all ON log.record;
+             DROP POLICY ts_public_skips_accounts ON log.record;"
         ))
         .await
         .unwrap();

@@ -264,7 +264,7 @@ mod tests {
         assert_eq!(names[0], "scatter-log-postgres/0001_log");
         assert_eq!(names[1], "scatter-log-postgres/0002_partition_origin");
         assert_eq!(names[2], "triplespace-db/0001_ops");
-        assert!(names.last().unwrap().ends_with("0033_follow_job"));
+        assert!(names.last().unwrap().ends_with("0034_record_policies"));
         assert_eq!(checksum("").len(), 64);
         assert_ne!(checksum("a"), checksum("b"));
     }
