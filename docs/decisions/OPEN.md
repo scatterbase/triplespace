@@ -42,6 +42,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0013 A102](0013-postgres-storage.md#a102-how-settings-checks-and-the-job-runners-left-the-accounts-service) | 2026-11-12 | How settings checks and the job runners left the accounts service |
 | [0016 A42](0016-permissions-and-access-control.md#a42-delegated-administration-the-calls-made-while-drafting-and-building-tier-4) | 2026-10-30 | Delegated administration: the calls made while drafting and building tier 4 |
 | [0018 A33](0018-tenants.md#a33-multi-tenant-round-1-the-assumptions-the-implementation-made) | 2026-10-30 | Multi-tenant round 1: the assumptions the implementation made |
+| [0018 A36](0018-tenants.md#a36-instances-and-tenants-created-by-question-and-answer) | 2026-11-12 | Instances and tenants created by question and answer |
 | [0019 A31](0019-discussions.md#a31-a-threads-actions-from-the-page-the-calls-made-building-them) | 2026-11-05 | A thread's actions from the page: the calls made building them |
 | [0020 A20](0020-change-feeds.md#a20-there-is-no-actionunwatch) | 2026-11-09 | There is no `action=unwatch` |
 | [0021 A23](0021-notifications.md#a23-accountability-the-calls-made-building-tier-5) | 2026-10-30 | Accountability: the calls made building tier 5 |

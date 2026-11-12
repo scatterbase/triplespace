@@ -115,7 +115,8 @@ pub fn check_name(slug: &str, adopt: Option<&str>) -> Result<()> {
 }
 
 /// The host of a base URL, lower-cased, with any port.
-fn host_of(base: &str) -> Option<String> {
+#[must_use]
+pub fn host_of(base: &str) -> Option<String> {
     url::Url::parse(base).ok().and_then(|u| {
         u.host_str().map(|h| match u.port() {
             Some(p) => format!("{}:{p}", h.to_ascii_lowercase()),
@@ -358,7 +359,7 @@ pub fn provision<'a>(
 
 /// Checks that `slug` and `base` are free on this instance: no tenant has the slug, the
 /// farm's included, and no tenant, the farm base or the auth base has the host.
-async fn check_free(
+pub async fn check_free(
     client: &Client,
     spec: &Spec,
     farm: &Farm,
@@ -581,22 +582,27 @@ pub async fn project(database: &str, farm: &Farm, client: Client, first: &[u64])
     Ok(())
 }
 
-/// Sets the owner's password from a file or `TRIPLESPACE_OWNER_PASSWORD`, if either is
-/// given; returns whether one was set.
-pub async fn owner_password(
-    database: &str,
-    farm: &Farm,
-    created: &Created,
-    file: Option<&std::path::Path>,
-    t: u64,
-) -> Result<bool> {
-    let password = match file {
+/// The owner's password from a file or `TRIPLESPACE_OWNER_PASSWORD`, if either is given.
+/// Read before anything is written, so that an unreadable file refuses the creation
+/// rather than leaving the owner without a password.
+pub fn owner_password_text(file: Option<&std::path::Path>) -> Result<Option<String>> {
+    Ok(match file {
         Some(f) => Some(crate::accounts::secret_from(
             Some(f),
             "TRIPLESPACE_OWNER_PASSWORD",
         )?),
         None => std::env::var("TRIPLESPACE_OWNER_PASSWORD").ok(),
-    };
+    })
+}
+
+/// Sets the owner's password, if one is given; returns whether one was set.
+pub async fn owner_password(
+    database: &str,
+    farm: &Farm,
+    created: &Created,
+    password: Option<&str>,
+    t: u64,
+) -> Result<bool> {
     let Some(text) = password else {
         return Ok(false);
     };
@@ -609,7 +615,7 @@ pub async fn owner_password(
         &created.entry.slug,
         &created.owner.to_string(),
         &created.owner_name,
-        &text,
+        text,
         &farm.operator().to_string(),
         t,
     )
@@ -656,6 +662,8 @@ pub fn print_created(created: &Created, spec: &Spec, password: bool) {
 pub enum TenantCommand {
     /// Create a tenant on an existing instance.
     Create(Create),
+    /// Create a tenant on an existing instance by question and answer (0018 A36).
+    Setup(crate::setup::TenantSetup),
     /// List the instance's tenants.
     List(List),
 }
@@ -711,51 +719,64 @@ pub struct List {
 pub async fn run(cmd: TenantCommand) -> Result<()> {
     match cmd {
         TenantCommand::Create(args) => run_create(args).await,
+        TenantCommand::Setup(args) => crate::setup::run_tenant(args).await,
         TenantCommand::List(args) => run_list(args).await,
     }
 }
 
-/// The operator for `tenant create`: an `owner` of the primary tenant (0046 §1).
-async fn operator(client: &Client, id: Option<u64>) -> Result<String> {
+/// The primary tenant's slug and issuer code, and the members of its `owner` group that
+/// it numbers itself, as (user ID, actor key), lowest first: who may create a tenant
+/// (0046 §1).
+pub async fn primary_owners(client: &Client) -> Result<(String, String, Vec<(u64, String)>)> {
     let primary = tenants::primary(client)
         .await?
         .context("the instance has no primary tenant (no `primary` record)")?;
     let issuer = crate::common::issuer_of(client, &primary).await?;
-    let owners: Vec<String> = client
+    let mut owners: Vec<(u64, String)> = client
         .query(
             "SELECT actor_key FROM view.membership WHERE tenant = $1 AND \"group\" = 'owner'",
             &[&primary],
         )
         .await?
         .iter()
-        .map(|r| r.get(0))
+        .filter_map(|r| {
+            let k: String = r.get(0);
+            ActorKey::parse(&k)
+                .ok()
+                .filter(|a| a.issuer() == issuer)
+                .and_then(|a| a.numeric_subject())
+                .map(|n| (n, k))
+        })
         .collect();
-    let numbered = |k: &String| {
-        ActorKey::parse(k)
-            .ok()
-            .filter(|a| a.issuer() == issuer)
-            .and_then(|a| a.numeric_subject())
-    };
+    owners.sort();
+    Ok((primary, issuer, owners))
+}
+
+/// The operator for `tenant create`: an `owner` of the primary tenant (0046 §1).
+async fn operator(client: &Client, id: Option<u64>) -> Result<String> {
+    let (primary, issuer, owners) = primary_owners(client).await?;
     match id {
         Some(id) => {
             let key = ActorKey::numeric(&issuer, id).to_string();
-            if !owners.contains(&key) {
+            if !owners.iter().any(|(_, k)| *k == key) {
                 bail!("{key} is not a member of `owner` on the primary tenant `{primary}`");
             }
             Ok(key)
         }
-        None => owners
-            .iter()
-            .filter_map(|k| numbered(k).map(|n| (n, k)))
-            .min()
-            .map(|(_, k)| k.clone())
-            .with_context(|| {
-                format!("the primary tenant `{primary}` has no `owner`; pass --operator")
-            }),
+        None => owners.first().map(|(_, k)| k.clone()).with_context(|| {
+            format!("the primary tenant `{primary}` has no `owner`; pass --operator")
+        }),
     }
 }
 
 async fn run_create(args: Create) -> Result<()> {
+    let password = owner_password_text(args.owner_password_file.as_deref())?;
+    create_with(args, password.as_deref()).await
+}
+
+/// `tenant create` with the owner's password already in hand: what `tenant setup` runs
+/// once its questions are answered.
+pub async fn create_with(args: Create, password: Option<&str>) -> Result<()> {
     let client = connect(&args.database).await?;
     let farm = farm_of(&client).await?;
     let existing = tenants::tenants(&client).await?;
@@ -790,21 +811,7 @@ async fn run_create(args: Create) -> Result<()> {
         owner_name: args.owner_name.clone(),
     };
     check_free(&client, &spec, &farm, auth_base).await?;
-    let key = signing_key_existing(&args.key_file)?;
-    let key_id = scatter_log::registry::key_id(&key.verifying_key().to_bytes());
-    let current = client
-        .query_opt(
-            "SELECT code FROM view.registry WHERE tenant = '' AND kind = 'key' ORDER BY \"offset\" DESC LIMIT 1",
-            &[],
-        )
-        .await?
-        .map(|r| r.get::<_, String>(0));
-    if current.as_deref() != Some(key_id.as_str()) {
-        bail!(
-            "{} is not the instance's current key",
-            args.key_file.display()
-        );
-    }
+    let key = current_key(&client, &args.key_file).await?;
     let operator = operator(&client, args.operator).await?;
     let t = now();
     // One transaction: the instance is live, and its `config` takes appends from the
@@ -828,25 +835,31 @@ async fn run_create(args: Create) -> Result<()> {
         &[CONFIG_PARTITION, created.config],
     )
     .await?;
-    let password = owner_password(
-        &args.database,
-        &farm,
-        &created,
-        args.owner_password_file.as_deref(),
-        t,
-    )
-    .await?;
+    let password = owner_password(&args.database, &farm, &created, password, t).await?;
     println!("tenant created by {operator}");
     print_created(&created, &spec, password);
     Ok(())
 }
 
-/// The signing key, which must already exist: `tenant create` never makes one.
-fn signing_key_existing(path: &std::path::Path) -> Result<SigningKey> {
+/// The signing key at `path`, which must already exist (`tenant create` never makes one)
+/// and be the instance's current key.
+pub async fn current_key(client: &Client, path: &std::path::Path) -> Result<SigningKey> {
     if !path.exists() {
         bail!("no key file at {}", path.display());
     }
-    signing_key(path)
+    let key = signing_key(path)?;
+    let key_id = scatter_log::registry::key_id(&key.verifying_key().to_bytes());
+    let current = client
+        .query_opt(
+            "SELECT code FROM view.registry WHERE tenant = '' AND kind = 'key' ORDER BY \"offset\" DESC LIMIT 1",
+            &[],
+        )
+        .await?
+        .map(|r| r.get::<_, String>(0));
+    if current.as_deref() != Some(key_id.as_str()) {
+        bail!("{} is not the instance's current key", path.display());
+    }
+    Ok(key)
 }
 
 async fn run_list(args: List) -> Result<()> {

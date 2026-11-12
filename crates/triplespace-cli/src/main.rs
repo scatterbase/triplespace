@@ -13,7 +13,7 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use triplespace_cli::{
     accounts, adopt, challenge, compact, dump, env_file, follow, forwarder, import_pages, instance,
-    job, log_bundle, logins, oauth_client, rights, settings, source, status, sync, tenant,
+    job, log_bundle, logins, oauth_client, rights, settings, setup, source, status, sync, tenant,
 };
 
 /// Triplespace: a Wikibase as an append-only log.
@@ -31,12 +31,13 @@ struct Cli {
 
 #[derive(Debug, Subcommand)]
 enum Command {
-    /// The instance: create it; its forwarder keys.
+    /// The instance: create it, or set it up by question and answer; its forwarder keys.
     Instance {
         #[command(subcommand)]
         command: InstanceCommand,
     },
-    /// Tenants: create one on an existing instance, list them (0018; 0079).
+    /// Tenants: create one on an existing instance, by flags or by question and answer;
+    /// list them (0018; 0079).
     Tenant {
         #[command(subcommand)]
         command: tenant::TenantCommand,
@@ -144,6 +145,9 @@ enum ChallengeCommand {
 enum InstanceCommand {
     /// Create the instance and its primary tenant.
     Create(instance::Create),
+    /// Create the instance and its primary tenant by question and answer, then offer to
+    /// add more tenants (0018 A36).
+    Setup(setup::InstanceSetup),
     /// Forwarder keys, which let a proxy vouch for the client address (0057 §10).
     Forwarder {
         #[command(subcommand)]
@@ -167,6 +171,9 @@ async fn run() -> Result<()> {
         Command::Instance {
             command: InstanceCommand::Create(args),
         } => instance::run(args).await,
+        Command::Instance {
+            command: InstanceCommand::Setup(args),
+        } => setup::run_instance(args).await,
         Command::Instance {
             command: InstanceCommand::Forwarder { command },
         } => forwarder::run(command).await,

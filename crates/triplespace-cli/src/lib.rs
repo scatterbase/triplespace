@@ -23,6 +23,7 @@ pub mod oauth_client;
 pub mod probe;
 pub mod rights;
 pub mod settings;
+pub mod setup;
 pub mod source;
 pub mod status;
 pub mod sync;
