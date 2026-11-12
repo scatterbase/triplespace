@@ -104,6 +104,7 @@ async fn migrations_apply_once_and_notice_edits() {
         assert!(n > 0, "{schema} has tables");
     }
     private::check(&client).await.unwrap();
+    triplespace_db::ops::check(&client).await.unwrap();
 
     // An edited migration is refused.
     let edited = Migrator::new().with("scatter-log-postgres", EDITED);
@@ -154,6 +155,35 @@ async fn an_unclassified_private_table_is_caught() {
     assert!(matches!(
         private::check(&client).await,
         Err(private::PrivateError::Disagrees { .. })
+    ));
+}
+
+/// 0103 A4: an `ops` table without a backup class, or whose comment disagrees with
+/// `OPS_TABLES`, is caught, as a `private` table without a portability class is.
+#[tokio::test]
+async fn an_unclassified_ops_table_is_caught() {
+    use triplespace_db::ops;
+    if skipped() {
+        return;
+    }
+    let mut client = fresh().await;
+    migrator().apply(&mut client).await.unwrap();
+    ops::check(&client).await.unwrap();
+    client
+        .batch_execute("CREATE TABLE ops.stray (a int)")
+        .await
+        .unwrap();
+    assert!(matches!(
+        ops::check(&client).await,
+        Err(ops::OpsError::Unclassified(t)) if t == "stray"
+    ));
+    client
+        .batch_execute("DROP TABLE ops.stray; COMMENT ON TABLE ops.delivery IS 'backup: carried'")
+        .await
+        .unwrap();
+    assert!(matches!(
+        ops::check(&client).await,
+        Err(ops::OpsError::Disagrees { .. })
     ));
 }
 

@@ -641,6 +641,7 @@ async fn write_bundle(
         partition: row.partition,
         name: row.name.clone(),
         origin: origin.clone(),
+        registry: None,
     };
     export_scoped(
         &store,

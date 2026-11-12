@@ -1273,6 +1273,6 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §1.2, as i
 ### A102. How settings checks and the job runners left the accounts service
 
 - **Date:** 2026-11-12
-- **Source:** Direct: Claude, while building A101, 2026-11-12; unconfirmed
+- **Source:** Direct: Claude, while building A101, 2026-11-12; confirmed by James, 2026-11-12
 - **Change:** extends §4
 - **Summary:** Two of A101's changes were built otherwise than first proposed. (1) **Settings checks:** narrow yes-or-no functions, as for callers, do not fit two of the three: `ts-external-required-unmet` and `ts-strict-names-unmet` name the logins that block them, and the strict-names check derives names by the issuer registry's rules in Rust. Instead, a save that changes how people log in takes one connection of the accounts service, through which its checks read the logins and OAuth clients, while the settings they weigh are read in the save's own unit of work, which sees what the save wrote; the readiness reads take the two connections separately. (2) **Job runners:** rather than two kinds of runner, every runner connects as the public API, since no kind queued today writes an accounts partition (import writes actor records to `actors`, revert public records); adoption, which does, is run by the command line, and gets a runner of its own on the accounts login when it joins the queue (SCA-309).

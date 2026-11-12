@@ -228,12 +228,16 @@ pub async fn export(args: &Export) -> Result<Vec<BundlePartition>> {
     }
     let mut partitions = Vec::new();
     for row in rows {
+        // A backup carries each partition's registry row, so that a restore registers it
+        // as it was (0103 A2); an export does not need it.
+        let registry = (scope == "backup").then(|| row.registry());
         partitions.push(BundlePartition {
             partition: row.partition,
             origin: origin_of(&tx, &row, &farm_host)
                 .await
                 .map_err(anyhow::Error::msg)?,
             name: row.name,
+            registry,
         });
     }
     if partitions.is_empty() {

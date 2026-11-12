@@ -216,6 +216,34 @@ async fn origin_is_fixed_at_creation_not_at_first_checkpoint() {
             p.name
         );
     }
+    //    A backup carries each partition's registry row, as `log.partition` holds it, so
+    //    that a restore registers the partition as it was (0103 A2; SCA-353).
+    let bundle = scatter_integrity::Bundle::open(&out).unwrap();
+    let rows = query(
+        &database,
+        &format!(
+            "SELECT partition, tenant, graph_iri, history, integrity, export, hash
+             FROM log.partition WHERE tenant = '{TENANT}' ORDER BY partition"
+        ),
+    )
+    .await;
+    assert_eq!(bundle.manifest().partitions.len(), rows.len());
+    for (p, r) in bundle.manifest().partitions.iter().zip(&rows) {
+        assert_eq!(
+            p.partition,
+            scatter_log_postgres::ids::partition_from_db(r.get(0))
+        );
+        let registry = p
+            .registry
+            .as_ref()
+            .expect("a backup carries the registry row");
+        assert_eq!(registry.tenant, r.get::<_, Option<String>>(1), "{}", p.name);
+        assert_eq!(registry.graph_iri, r.get::<_, String>(2), "{}", p.name);
+        assert_eq!(registry.history, r.get::<_, String>(3), "{}", p.name);
+        assert_eq!(registry.integrity, r.get::<_, String>(4), "{}", p.name);
+        assert_eq!(registry.export, r.get::<_, String>(5), "{}", p.name);
+        assert_eq!(registry.hash, r.get::<_, String>(6), "{}", p.name);
+    }
     let _ = std::fs::remove_dir_all(&out);
 
     // 5. A partition created before the row recorded its origin (the column NULL) keeps

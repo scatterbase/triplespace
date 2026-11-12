@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-07
-- **Updated:** 2026-11-12 (A3)
+- **Updated:** 2026-11-12 (A4)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0027](0027-preferences-and-portability.md), [0056](0056-security-model.md)
 - **Uses:** [0039](0039-files-and-media.md), [0081](0081-recovery-keys-and-continuations.md)
@@ -34,7 +34,7 @@ James's direction, from the design discussion of 2026-11-07:
 
 ### 1. Three scopes: export, transfer and backup (amends 0006 §9)
 
-*Changed by A1, A2, A3.*
+*Changed by A1, A2, A3, A4.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §8.2.*
 
@@ -120,3 +120,10 @@ Replaced text ([08](../architecture/08-tenants-and-instances.md) §6.7, as it st
 - **Source:** Direct: James, design discussion of 2026-11-12
 - **Change:** extends §1, §4
 - **Summary:** A2 left open which key a backup's `private` is encrypted to (Q2). James decided, among the instance key, a recovery key of [0081](0081-recovery-keys-and-continuations.md) and a key of its own: (1) **a dedicated backup key set**, which may hold several keys: each backup's data key is split into a share per key, any `k` of which rebuild it, each share sealed to its key, so that making a backup needs only the public halves and restoring one needs `k` holders, none of whom reveals a private key; (2) the set is registered or replaced by the instance's `owner`, or, where the instance has no owner account, by its operator through the command line; (3) **`k` defaults to 1**: any one key restores, however many the set holds, and the operator may raise it; (4) a new set applies to later backups only; an older backup keeps its set, and re-sealing it to a new one is a direct act of an operator with the old keys, which the instance cannot do itself.
+
+### A4. What a backup does with each `ops` table
+
+- **Date:** 2026-11-12
+- **Source:** Direct: Claude, while building the `ops` classification (SCA-355), 2026-11-12; confirmed by James, 2026-11-12, with (5) added
+- **Change:** extends §1
+- **Summary:** A2 carries "the `ops` state that no rebuild recovers" without naming it. The calls made: (1) **three classes**, each `ops` table's comment, `backup: carried | sealed | left`, checked against `triplespace_db::ops::OPS_TABLES` as `private` tables' portability is, so that no `ops` table exists unclassified; (2) **`delivery` is sealed**, carried but encrypted with `private` under A3's key set: its rows are outgoing messages complete with their addresses and bodies, verification codes among them; (3) **carried**: `job_queue`, uploads included, a job running at the backup's instant running again after a restore as after a runner's crash; `forwarder_key`; `repo_cursor`, a hint the version cursor could rebuild, carried as small and saving polling from the start; and `visibility_epoch`, part of every cache key; (4) **left**: `migration`, which the restore's migrations write; `projection_state` and `projection_work`, which the rebuild fills; and `purge`, purges for caches a restored instance does not have; (5) **a restore advances every tenant's `visibility_epoch`** to the restore's time in microseconds (James, in confirming): the old instance may have raised the epoch after the backup and cached entries under the very values the backup holds, as under any value from before, so neither carrying the value nor starting at 0 keeps a restored instance from meeting them; no epoch the old instance counted to can reach the restore's time, and later bumps count on from it.

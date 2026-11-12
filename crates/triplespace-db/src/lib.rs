@@ -8,6 +8,7 @@
 //!   this crate's ([`MIGRATIONS`]), checksummed, idempotent, recorded;
 //! - [`private`]: the portability class of every `private` table (0027 §2), checked
 //!   against the live schema;
+//! - [`ops`]: what a backup does with every `ops` table (0103 A4), likewise checked;
 //! - [`grants`]: the roles and every grant, ensured on every migration run so that a
 //!   restored database regains them, and per-partition grants, including the accounts
 //!   partition's exclusion;
@@ -19,6 +20,7 @@
 
 pub mod grants;
 pub mod migrate;
+pub mod ops;
 pub mod pool;
 pub mod private;
 pub mod projection_state;
@@ -177,6 +179,10 @@ pub const MIGRATIONS: &[Migration] = &[
     Migration {
         name: "0037_forwarder_key_ops",
         sql: include_str!("../migrations/0037_forwarder_key_ops.sql"),
+    },
+    Migration {
+        name: "0038_ops_backup_classes",
+        sql: include_str!("../migrations/0038_ops_backup_classes.sql"),
     },
 ];
 
