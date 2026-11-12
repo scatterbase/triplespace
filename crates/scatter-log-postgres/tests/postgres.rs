@@ -557,6 +557,7 @@ async fn compaction_keeps_the_highest_revision() {
 /// statement each leaves, erased parts and compacted slots included, and refuses a block
 /// with a slot that is not what its header commits to before writing any of it.
 #[tokio::test]
+#[allow(clippy::too_many_lines)]
 async fn slots_restored_in_bulk_are_the_slots_restored_one_by_one() {
     if skipped() {
         return;

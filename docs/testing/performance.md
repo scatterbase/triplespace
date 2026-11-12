@@ -710,3 +710,30 @@ read-ahead):
 **+53% batches per minute**; each read-ahead segment beat both serial segments beside it, by
 1.34× to 1.76×. More than the write's share of a batch (about 30%) suggested: the read's parsing
 and the write's waits on Postgres overlap too.
+
+## 9. Restoring a backup: the log load (2026-11-12)
+
+**What ran.** `triplespace restore --without-private` of a backup of an instance whose Wikidata
+mirror holds the first 20,000 entities of the 2026-11-11 JSON dump, in the dump's own order
+(`head-20000.json.gz`, sha256 `82e13ef3…`, 124 MB gzip; the dump opens with its largest items, so
+these average 34 KB of bundle each): 10 partitions, 20,207 slots, a 695 MB bundle. In the sandbox:
+4 cores, 15 GB, Postgres 16 with its defaults (`shared_buffers` 128 MB), release builds without
+LTO. The log load is timed from the first partition's registration to the last slot's commit, by
+polling `sum(next_offset)`; the rest is the rebuild and the tables.
+
+| | Log load | Slots per second | Rebuild and the rest | Whole restore |
+|---|---|---|---|---|
+| One statement a slot (`a573b77`) | 42.6 s | 474 | 97.5 s | 141.3 s |
+| Blocks by `COPY` ([0103](../decisions/0103-export-transfer-and-backup.md) A10) | 4.3 s | 4,730 | 96.0 s | 101.2 s |
+
+The two restores leave the same `log.record` and `log.merkle_node` rows as the source, compared
+by a digest over every row. The bulk load also verifies every checkpoint and segment manifest,
+which the one-statement restore did not.
+
+**What it says.** The load is ten times faster and no longer the per-slot round trips of §2: at
+4.3 s for 695 MB it moves about 160 MB/s, which is reading, decoding and hashing the bundle and
+Postgres writing the rows. **The rebuild is now 95% of a restore**, at 210 records per second
+here, the catch-up path's cost that §6 and [real-dumps.md](real-dumps.md) (stage 3) already name; a
+restore of a large instance is bound by it, not by the load, and the snapshot backup
+([0103](../decisions/0103-export-transfer-and-backup.md) A2) is what avoids it. Peak RSS of the
+restore was 759 MB, from the rebuild, not the load, whose blocks are at most 32 MiB.

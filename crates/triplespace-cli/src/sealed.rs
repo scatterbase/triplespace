@@ -82,7 +82,7 @@ fn aad(context: &str, schema: &str, table: &str) -> Vec<u8> {
 /// The tables a backup seals: every table in `private`, and every `ops` table classed
 /// `sealed`; each schema's classification checked against the live schema first, so that
 /// no table is left out unclassified.
-async fn tables<C: GenericClient>(client: &C) -> Result<Vec<(String, String)>> {
+pub(crate) async fn tables<C: GenericClient>(client: &C) -> Result<Vec<(String, String)>> {
     triplespace_db::private::check(client)
         .await
         .context("the `private` tables' portability classes")?;
@@ -205,13 +205,7 @@ pub async fn write(
             columns,
         });
     }
-    let migrations = triplespace_db::migrator()
-        .status(client)
-        .await?
-        .into_iter()
-        .filter(|m| m.applied_at.is_some())
-        .map(|m| (m.crate_name, m.name, m.checksum))
-        .collect();
+    let migrations = applied_migrations(client).await?;
     let manifest = Manifest {
         context,
         set: registered.offset,
@@ -220,6 +214,50 @@ pub async fn write(
     };
     std::fs::write(dir.join(MANIFEST_FILE), cbor::encode(&manifest.to_value())?)?;
     Ok(manifest)
+}
+
+/// `(crate, migration, checksum)` of every migration the database has applied, in order:
+/// what both manifests record, for a restore to make the schema the tables came from.
+pub(crate) async fn applied_migrations<C: GenericClient>(
+    client: &C,
+) -> Result<Vec<(String, String, String)>> {
+    Ok(triplespace_db::migrator()
+        .status(client)
+        .await?
+        .into_iter()
+        .filter(|m| m.applied_at.is_some())
+        .map(|m| (m.crate_name, m.name, m.checksum))
+        .collect())
+}
+
+/// The migrations, as both manifests write them.
+pub(crate) fn migrations_value(migrations: &[(String, String, String)]) -> Value {
+    let text = |s: &str| Value::text(s);
+    Value::Array(
+        migrations
+            .iter()
+            .map(|(c, n, sum)| {
+                Value::map(vec![
+                    (text("crate"), text(c)),
+                    (text("name"), text(n)),
+                    (text("checksum"), text(sum)),
+                ])
+            })
+            .collect(),
+    )
+}
+
+/// The migrations, from [`migrations_value`]'s form.
+pub(crate) fn migrations_from(list: &[Value]) -> Result<Vec<(String, String, String)>> {
+    let text = |v: &Value, k: &str| -> Result<String> {
+        Ok(v.get(k)
+            .and_then(Value::as_text)
+            .with_context(|| format!("manifest: a migration's `{k}`"))?
+            .to_string())
+    };
+    list.iter()
+        .map(|m| Ok((text(m, "crate")?, text(m, "name")?, text(m, "checksum")?)))
+        .collect()
 }
 
 /// A table's entry, as both manifests write it.
@@ -286,21 +324,7 @@ impl Manifest {
                 text("tables"),
                 Value::Array(self.tables.iter().map(table_value).collect()),
             ),
-            (
-                text("migrations"),
-                Value::Array(
-                    self.migrations
-                        .iter()
-                        .map(|(c, n, sum)| {
-                            Value::map(vec![
-                                (text("crate"), text(c)),
-                                (text("name"), text(n)),
-                                (text("checksum"), text(sum)),
-                            ])
-                        })
-                        .collect(),
-                ),
-            ),
+            (text("migrations"), migrations_value(&self.migrations)),
         ])
     }
 
@@ -324,10 +348,7 @@ impl Manifest {
             .iter()
             .map(table_from)
             .collect::<Result<_>>()?;
-        let migrations = list("migrations")?
-            .iter()
-            .map(|m| Ok((text(m, "crate")?, text(m, "name")?, text(m, "checksum")?)))
-            .collect::<Result<_>>()?;
+        let migrations = migrations_from(list("migrations")?)?;
         Ok(Self {
             context: text(v, "context")?,
             set: v

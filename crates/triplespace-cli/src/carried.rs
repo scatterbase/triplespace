@@ -7,9 +7,14 @@
 //! ```text
 //! {bundle}/carried/
 //!   manifest.cbor        {"format": 1, "tables": [{"schema", "table", "file", "columns"}],
-//!                         "sequences": [{"name", "value", "called"}]}
+//!                         "sequences": [{"name", "value", "called"}],
+//!                         "migrations": [{"crate", "name", "checksum"}]}
 //!   ops.{table}.bin      each table's binary COPY
 //! ```
+//!
+//! `migrations` is every migration the database had applied (0103 A11), so that a restore
+//! makes the schema the tables came from even for a backup without sealed sections, whose
+//! manifest records the same; a backup from before A11 lacks the key.
 //!
 //! The sequences of `ops` and `private` are not carried: each numbers a column of a table the
 //! backup holds, and a restore sets it from that column.
@@ -19,7 +24,10 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context as _, Result, bail};
 use scatter_log::cbor::{self, Value};
 
-use crate::sealed::{Table, columns, copy_out, table_from, table_value};
+use crate::sealed::{
+    Table, applied_migrations, columns, copy_out, migrations_from, migrations_value, table_from,
+    table_value,
+};
 
 /// The directory of the carried sections inside a bundle.
 pub const DIR: &str = "carried";
@@ -45,6 +53,9 @@ pub struct Manifest {
     pub tables: Vec<Table>,
     /// Every sequence in `log`.
     pub sequences: Vec<Sequence>,
+    /// `(crate, migration, checksum)` of every migration the database had applied; `None`
+    /// in a backup written before they were recorded here.
+    pub migrations: Option<Vec<(String, String, String)>>,
 }
 
 /// Writes the carried sections of a backup into `bundle` from `client`'s snapshot.
@@ -82,7 +93,11 @@ pub async fn write(client: &tokio_postgres::Transaction<'_>, bundle: &Path) -> R
             called: r.get(2),
         })
         .collect();
-    let manifest = Manifest { tables, sequences };
+    let manifest = Manifest {
+        tables,
+        sequences,
+        migrations: Some(applied_migrations(client).await?),
+    };
     std::fs::write(dir.join(MANIFEST_FILE), cbor::encode(&manifest.to_value())?)?;
     Ok(manifest)
 }
@@ -90,7 +105,7 @@ pub async fn write(client: &tokio_postgres::Transaction<'_>, bundle: &Path) -> R
 impl Manifest {
     fn to_value(&self) -> Value {
         let text = |s: &str| Value::text(s);
-        Value::map(vec![
+        let mut pairs = vec![
             (text("format"), Value::Int(i128::from(FORMAT))),
             (
                 text("tables"),
@@ -111,7 +126,11 @@ impl Manifest {
                         .collect(),
                 ),
             ),
-        ])
+        ];
+        if let Some(m) = &self.migrations {
+            pairs.push((text("migrations"), migrations_value(m)));
+        }
+        Value::map(pairs)
     }
 
     fn from_value(v: &Value) -> Result<Self> {
@@ -146,7 +165,16 @@ impl Manifest {
                 })
             })
             .collect::<Result<_>>()?;
-        Ok(Self { tables, sequences })
+        let migrations = match v.get("migrations") {
+            Some(Value::Array(m)) => Some(migrations_from(m)?),
+            Some(_) => bail!("carried manifest: `migrations`"),
+            None => None,
+        };
+        Ok(Self {
+            tables,
+            sequences,
+            migrations,
+        })
     }
 }
 

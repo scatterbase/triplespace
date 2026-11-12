@@ -4,7 +4,12 @@
 //! 1. the bundle is checked: a backup of the whole instance, every partition with its
 //!    registry row, and its carried sections; its sealed sections opened with `k` shares,
 //!    unless it has none or `--without-private` leaves them;
-//! 2. the database is migrated, which makes the schemas, the roles and their grants;
+//! 2. the database is migrated, which makes the schemas, the roles and their grants. For
+//!    a backup written under an older schema (0103 A11), it is migrated only as far as the
+//!    migrations the backup records; the carried and sealed tables are loaded there; the
+//!    later migrations then run over them, as they would have over the live database;
+//!    and the rows they leave are set aside in a schema of the restore's own, the tables
+//!    emptied, until step 6;
 //! 3. each partition is registered as it was and every slot appended verbatim, compacted
 //!    and erased ones included, a block at a time by `COPY` (0103 A10), with its
 //!    checkpoints and segment manifests, each checked against the tree the slots fold to;
@@ -17,14 +22,17 @@
 //!    `visibility_epoch` to the restore's time in microseconds (0103 A4);
 //! 8. the migrations run once more, giving every partition its grants.
 //!
-//! A backup written under another schema is refused at step 6; migrating one forward is
-//! SCA-358.
+//! A backup that names a migration this binary lacks was written by a newer one, and is
+//! refused. One that records no migrations (written before 0103 A11, without sealed
+//! sections) is taken to be of this binary's schema, and refused at step 6 if a table's
+//! columns differ.
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, Result, bail};
 use futures_util::SinkExt as _;
+use scatter_integrity::backup_key::DataKey;
 use scatter_integrity::backup_key::Share;
 use scatter_integrity::bundle::{Bundle, BundlePartition};
 use scatter_integrity::checkpoint::{SignedCheckpoint, segment_origin};
@@ -36,6 +44,7 @@ use scatter_log::tree::{Frontier, Segments};
 use scatter_log_postgres::partition::PartitionInfo;
 use scatter_log_postgres::{Frontiers, PgCheckpoints};
 use tokio_postgres::Client;
+use triplespace_db::Migrator;
 
 use crate::carried::Carried;
 use crate::common::{connect, now};
@@ -129,8 +138,8 @@ async fn load(
     };
     if names(&here) != names(columns) {
         bail!(
-            "{schema}.{table} has other columns here than in the backup: the backup was written \
-             under another schema, and migrating one forward is not built yet (SCA-358)"
+            "{schema}.{table} has other columns here than in the backup: the backup's tables \
+             are not of the schema its migrations make"
         );
     }
     let list = columns
@@ -150,6 +159,128 @@ async fn load(
     sink.send(bytes::Bytes::from(bytes)).await?;
     sink.as_mut().finish().await?;
     Ok(())
+}
+
+/// Empties the tables the backup carries and seals, and loads the backup's rows into them.
+/// Returns how many tables it loaded.
+async fn load_tables(
+    client: &mut Client,
+    carried: &Carried,
+    sealed: Option<&(Sealed, DataKey)>,
+) -> Result<usize> {
+    let mut names: Vec<String> = carried
+        .manifest
+        .tables
+        .iter()
+        .map(|t| format!("{}.{}", quote(&t.schema), quote(&t.table)))
+        .collect();
+    if let Some((sealed, _)) = sealed {
+        names.extend(
+            sealed
+                .manifest
+                .tables
+                .iter()
+                .map(|t| format!("{}.{}", quote(&t.schema), quote(&t.table))),
+        );
+    }
+    if !names.is_empty() {
+        client
+            .batch_execute(&format!("TRUNCATE {}", names.join(", ")))
+            .await?;
+    }
+    let mut tables = 0;
+    for t in &carried.manifest.tables {
+        load(
+            client,
+            &t.schema,
+            &t.table,
+            &t.columns,
+            carried.table(&t.schema, &t.table)?,
+        )
+        .await?;
+        tables += 1;
+    }
+    if let Some((sealed, key)) = sealed {
+        for t in &sealed.manifest.tables {
+            let bytes = sealed.table(key, &t.schema, &t.table)?;
+            load(client, &t.schema, &t.table, &t.columns, bytes).await?;
+            tables += 1;
+        }
+    }
+    Ok(tables)
+}
+
+/// The schema a restore sets migrated tables aside in, dropped when it puts them back.
+const ASIDE: &str = "ts_restore";
+
+/// A table set aside: where it belongs, where it waits, and its column list.
+struct Kept {
+    table: String,
+    aside: String,
+    columns: String,
+}
+
+/// After the later migrations have run over a backup's tables (0103 A11): copies every
+/// table this schema carries, and seals where the sealed sections were loaded, into
+/// [`ASIDE`], and empties the originals, so that the rebuild starts from the tables it
+/// would find in a restore of this schema's own backup. The tables are this schema's, not
+/// the backup's: a migration may have added, dropped or moved one.
+async fn set_aside(client: &mut Client, with_sealed: bool) -> Result<Vec<Kept>> {
+    let mut tables: Vec<(String, String)> = triplespace_db::ops::carried_tables()
+        .into_iter()
+        .map(|t| ("ops".to_string(), t.to_string()))
+        .collect();
+    if with_sealed {
+        tables.extend(crate::sealed::tables(client).await?);
+    }
+    let tx = client.transaction().await?;
+    tx.batch_execute(&format!("CREATE SCHEMA {ASIDE}")).await?;
+    let mut kept = Vec::new();
+    for (i, (schema, table)) in tables.iter().enumerate() {
+        let columns = columns(&tx, schema, table)
+            .await?
+            .iter()
+            .map(|c| quote(&c.name))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let k = Kept {
+            table: format!("{}.{}", quote(schema), quote(table)),
+            aside: format!("{ASIDE}.t{i}"),
+            columns,
+        };
+        tx.batch_execute(&format!(
+            "CREATE TABLE {} AS SELECT {} FROM {}; TRUNCATE {}",
+            k.aside, k.columns, k.table, k.table
+        ))
+        .await
+        .with_context(|| format!("set {schema}.{table} aside"))?;
+        kept.push(k);
+    }
+    tx.commit().await?;
+    Ok(kept)
+}
+
+/// Puts the tables [`set_aside`] kept back in place of what the rebuild wrote, and drops
+/// [`ASIDE`]. Returns how many tables it loaded.
+async fn put_back(client: &mut Client, kept: &[Kept]) -> Result<usize> {
+    let tx = client.transaction().await?;
+    for k in kept {
+        // `OVERRIDING SYSTEM VALUE`: an identity column keeps the value it had.
+        tx.batch_execute(&format!(
+            "TRUNCATE {table};
+             INSERT INTO {table} ({columns}) OVERRIDING SYSTEM VALUE
+             SELECT {columns} FROM {aside}",
+            table = k.table,
+            columns = k.columns,
+            aside = k.aside
+        ))
+        .await
+        .with_context(|| format!("put {} back", k.table))?;
+    }
+    tx.batch_execute(&format!("DROP SCHEMA {ASIDE} CASCADE"))
+        .await?;
+    tx.commit().await?;
+    Ok(kept.len())
 }
 
 /// Sets every sequence in `ops` and `private` past the column it numbers: one it owns, or
@@ -311,8 +442,18 @@ impl ChainCheck {
 ///
 /// A bundle that is not a whole instance's backup, missing or wrong shares, a database
 /// that is not empty, or any step's failure.
-#[allow(clippy::too_many_lines)]
 pub async fn restore(args: &Restore) -> Result<Restored> {
+    restore_with(args, &triplespace_db::migrator()).await
+}
+
+/// [`restore`], with the migrations given: this binary's, but for a test of a migration
+/// that does not exist yet.
+///
+/// # Errors
+///
+/// As [`restore`].
+#[allow(clippy::too_many_lines)]
+pub async fn restore_with(args: &Restore, migrator: &Migrator) -> Result<Restored> {
     let bundle =
         Bundle::open(&args.bundle).with_context(|| format!("open {}", args.bundle.display()))?;
     let manifest = bundle.manifest();
@@ -371,10 +512,31 @@ pub async fn restore(args: &Restore) -> Result<Restored> {
     if occupied {
         bail!("the database already holds partitions: a restore needs an empty one");
     }
-    triplespace_db::migrator()
-        .apply(&mut client)
-        .await
-        .context("migrate")?;
+    // The schema: the one the backup was written under where it says, its tables loaded
+    // there and migrated forward with the rest (0103 A11); this binary's otherwise.
+    let recorded = carried.manifest.migrations.clone().or_else(|| {
+        Sealed::open(&args.bundle)
+            .ok()
+            .map(|s| s.manifest.migrations)
+    });
+    let older = match &recorded {
+        Some(recorded) => migrator
+            .apply_recorded(&mut client, recorded)
+            .await
+            .context("migrate to the backup's schema")?,
+        None => false,
+    };
+    if older {
+        load_tables(&mut client, &carried, sealed.as_ref())
+            .await
+            .context("load the backup's tables into the schema it was written under")?;
+    }
+    migrator.apply(&mut client).await.context("migrate")?;
+    let kept = if older {
+        Some(set_aside(&mut client, sealed.is_some()).await?)
+    } else {
+        None
+    };
 
     // The log, partition by partition, each in a unit of work of its own.
     let mut restored = Restored::default();
@@ -448,45 +610,12 @@ pub async fn restore(args: &Restore) -> Result<Restored> {
         .await
         .context("rebuild the projections")?;
 
-    // The backup's own rows, in place of what the replay wrote.
-    let tx = client.transaction().await?;
-    for t in &carried.manifest.tables {
-        tx.batch_execute(&format!(
-            "TRUNCATE {}.{}",
-            quote(&t.schema),
-            quote(&t.table)
-        ))
-        .await?;
-    }
-    if let Some((sealed, _)) = &sealed {
-        let names = sealed
-            .manifest
-            .tables
-            .iter()
-            .map(|t| format!("{}.{}", quote(&t.schema), quote(&t.table)))
-            .collect::<Vec<_>>()
-            .join(", ");
-        tx.batch_execute(&format!("TRUNCATE {names}")).await?;
-    }
-    tx.commit().await?;
-    for t in &carried.manifest.tables {
-        load(
-            &client,
-            &t.schema,
-            &t.table,
-            &t.columns,
-            carried.table(&t.schema, &t.table)?,
-        )
-        .await?;
-        restored.tables += 1;
-    }
-    if let Some((sealed, key)) = &sealed {
-        for t in &sealed.manifest.tables {
-            let bytes = sealed.table(key, &t.schema, &t.table)?;
-            load(&client, &t.schema, &t.table, &t.columns, bytes).await?;
-            restored.tables += 1;
-        }
-    }
+    // The backup's own rows, in place of what the replay wrote: from the bundle, or, for
+    // a backup migrated forward, from where the migrations' result was set aside.
+    restored.tables = match &kept {
+        Some(kept) => put_back(&mut client, kept).await?,
+        None => load_tables(&mut client, &carried, sealed.as_ref()).await?,
+    };
     reset_sequences(&client).await?;
     let epoch = i64::try_from(now()).unwrap_or(i64::MAX);
     client
@@ -494,10 +623,7 @@ pub async fn restore(args: &Restore) -> Result<Restored> {
         .await?;
 
     // The grants of every partition the restore made.
-    triplespace_db::migrator()
-        .apply(&mut client)
-        .await
-        .context("grants")?;
+    migrator.apply(&mut client).await.context("grants")?;
     Ok(restored)
 }
 
