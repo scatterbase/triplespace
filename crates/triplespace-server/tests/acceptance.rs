@@ -285,7 +285,7 @@ async fn a_bot_logs_in_reads_and_edits() {
     .unwrap();
     let key_id: String = conn
         .query_one(
-            "SELECT key_id FROM private.forwarder_key WHERE label = 'edge'",
+            "SELECT key_id FROM ops.forwarder_key WHERE label = 'edge'",
             &[],
         )
         .await

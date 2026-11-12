@@ -804,10 +804,14 @@ async fn external_identity_providers() {
         body.contains("1 login holds no external identity"),
         "{body}"
     );
-    let ready =
-        triplespace_api_ingest::accounts::readiness(&**db, registry, &format!("https://{HOST}"))
-            .await
-            .unwrap();
+    let ready = triplespace_api_ingest::accounts::readiness(
+        &**db,
+        &**db,
+        registry,
+        &format!("https://{HOST}"),
+    )
+    .await
+    .unwrap();
     assert_eq!(ready.without_external, vec!["Alice".to_string()]);
     assert_eq!(ready.offered, vec![ISSUER.to_string()]);
     assert_eq!(ready.blockers().len(), 1, "{:?}", ready.blockers());

@@ -4,6 +4,7 @@
 
 use axum::http::HeaderMap;
 use scatter_actors::evaluate::Effective;
+use tokio_postgres::GenericClient;
 use triplespace_accounts::identity::{Auth, Identity, resolve};
 use triplespace_accounts::session::COOKIE;
 use triplespace_accounts::token;
@@ -47,16 +48,14 @@ pub struct Caller {
 }
 
 impl Caller {
-    /// Resolves the request's caller on the tenant, on a connection of the accounts
-    /// service's pool: a session or an API key is read from `private` (0013 §4, A99), which
-    /// the public API's own connection may not read.
-    pub async fn resolve(
-        accounts: &deadpool_postgres::Pool,
+    /// Resolves the request's caller on the tenant. A session or API key is looked up through
+    /// `ops.caller_session` and `ops.caller_key`, so that the public API's own connection,
+    /// which may not read `private`, resolves it (0013 §4, A101).
+    pub async fn resolve<C: GenericClient>(
+        client: &C,
         tenant: &str,
         headers: &HeaderMap,
     ) -> Result<Self, ApiError> {
-        let client = accounts.get().await.map_err(ApiError::internal)?;
-        let client: &tokio_postgres::Client = &client;
         let cookie = session_cookie(headers);
         let bearer = bearer(headers);
         let auth = match (&bearer, &cookie) {

@@ -62,10 +62,9 @@ async fn tenant_dir(app: &App, origin: &Origin, headers: &HeaderMap) -> Result<P
         }
         Err(e) => return Err(plain(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string())),
     };
-    let anonymous =
-        crate::auth::Caller::resolve(app.accounts_pool(), &tenant.slug, &HeaderMap::new())
-            .await
-            .map_err(|e| plain(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?;
+    let anonymous = crate::auth::Caller::resolve(&**client, &tenant.slug, &HeaderMap::new())
+        .await
+        .map_err(|e| plain(StatusCode::INTERNAL_SERVER_ERROR, &e.to_string()))?;
     let chain = triplespace_projections::acl_read::current(
         &**client,
         &tenant.slug,

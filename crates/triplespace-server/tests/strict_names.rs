@@ -498,7 +498,7 @@ async fn strict_names() {
         body.contains("2 accounts are not named after their provider usernames"),
         "{body}"
     );
-    let ready = triplespace_api_ingest::accounts::strict_readiness(&**db, registry)
+    let ready = triplespace_api_ingest::accounts::strict_readiness(&**db, &**db, registry)
         .await
         .unwrap();
     assert!(ready.external_required);
@@ -578,7 +578,7 @@ async fn strict_names() {
         "reported (0102 §6)"
     );
     assert!(
-        triplespace_api_ingest::accounts::strict_readiness(&**db, registry)
+        triplespace_api_ingest::accounts::strict_readiness(&**db, &**db, registry)
             .await
             .unwrap()
             .blockers()

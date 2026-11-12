@@ -788,17 +788,25 @@ impl StrictReadiness {
 }
 
 /// Reads what enacting strict names waits on (0102 §5). This implements 0102 §5 (A2) with
-/// the refusal in `settings::save` and `logins check`.
+/// the refusal in `settings::save` and `logins check`. The settings are read on `public`,
+/// which may be a unit of work that has just written them; the logins on `accounts`, a
+/// connection that may read `private` (0013 §4, A101). One connection may be both.
 ///
 /// # Errors
 ///
 /// If the store fails.
-pub async fn strict_readiness<C: tokio_postgres::GenericClient>(
-    client: &C,
+pub async fn strict_readiness<P, A>(
+    public: &P,
+    accounts: &A,
     registry: &IssuerRegistry,
-) -> Result<StrictReadiness, CreateError> {
+) -> Result<StrictReadiness, CreateError>
+where
+    P: tokio_postgres::GenericClient + Sync,
+    A: tokio_postgres::GenericClient + Sync,
+{
+    let client = accounts;
     let mut r = StrictReadiness {
-        external_required: logins::external_required(client)
+        external_required: logins::external_required(public)
             .await
             .map_err(store_error)?,
         several_identities: logins::with_several_identities(client)
@@ -991,17 +999,25 @@ impl Readiness {
 /// Reads what enacting `login.external_required` waits on. The issuers offered are the
 /// instance default of `login.issuers` with a credential that resolves for the tenant
 /// at the farm base, whose base is the auth base on a single-tenant instance (0089 §12).
-/// This implements 0101 §2.
+/// This implements 0101 §2. The settings and the registry are read on `public`, which may be
+/// a unit of work that has just written them; the logins and OAuth clients on `accounts`,
+/// a connection that may read `private` (0013 §4, A101). One connection may be both.
 ///
 /// # Errors
 ///
 /// If the store fails.
-pub async fn readiness<C: tokio_postgres::GenericClient>(
-    client: &C,
+pub async fn readiness<P, A>(
+    public: &P,
+    accounts: &A,
     registry: &scatter_actors::issuer::IssuerRegistry,
     farm_base: &str,
-) -> Result<Readiness, CreateError> {
-    let (settings, _) = triplespace_accounts::settings::load(client, None)
+) -> Result<Readiness, CreateError>
+where
+    P: tokio_postgres::GenericClient + Sync,
+    A: tokio_postgres::GenericClient + Sync,
+{
+    let client = accounts;
+    let (settings, _) = triplespace_accounts::settings::load(public, None)
         .await
         .map_err(store_error)?;
     let issuers: Vec<String> = settings
@@ -1014,7 +1030,7 @@ pub async fn readiness<C: tokio_postgres::GenericClient>(
             })
         })
         .unwrap_or_else(|| vec!["*".into()]);
-    let primary = client
+    let primary = public
         .query_opt(
             "SELECT code, config->>'base' FROM view.registry
              WHERE tenant = '' AND kind = 'tenant' AND (config->>'base') = $1

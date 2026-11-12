@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-12 (A100)
+- **Updated:** 2026-11-12 (A102)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -63,7 +63,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 4. Four schemas
 
-*Changed by A3, A7, A8, A9, A11, A27, A45, A64, A65, A66, A67, A97, A98, A99, A100.*
+*Changed by A3, A7, A8, A9, A11, A27, A45, A64, A65, A66, A67, A97, A98, A99, A100, A101, A102.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §1.2, §4.16.*
 
@@ -1254,6 +1254,25 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §1.2, as i
 ### A100. Which part is which, and what the roles were missing
 
 - **Date:** 2026-11-12
-- **Source:** Direct: Claude, while building the logins of A99, 2026-11-12; unconfirmed
+- **Source:** Direct: Claude, while building the logins of A99, 2026-11-12; confirmed by James, 2026-11-12, as A101 changes it
 - **Change:** extends §4, §6, §9
 - **Summary:** Building A99 by running every server test with each part connected under its role found what belongs where and what the owner had hidden. The calls made: (1) **The accounts service** is a request's caller (the session or API key, read on an accounts connection for every request), the Action API's sign-in, sign-up, account-link, preference, rename, watch and inbox actions (which run on its connection throughout, so their records and `private` rows are one transaction), the REST account, auth, email, account-request, settings and watchlist routes, external logins and their OAuth clients, challenges and rate limits, forwarder keys, and the job runners, since an adoption appends to accounts partitions; a public action that needs it for one step takes a second connection. **The notifier** is addressing and email delivery. (2) A part without a URL shares the public API's, so a single owner URL still works, and the server warns at start when the public API's login can read `private`, rather than refusing. (3) `0035_service_grants` gives `ts_accounts` the sequences in `private` (`private.login_id`) and `ts_notify` `SELECT` on `private.preference`, which addressing reads; `grants::GRANTS` repeats both. (4) **§9:** a bulk append copies into the partition's own table, not `log.record`: Postgres refuses `COPY FROM` into a table under row-level security for a role it applies to (A98), and every bulk append is one partition's. (5) **§6:** the `actor_surrogate` sequence made on first use for tenants older than [0007](0007-actor-identity.md) A27 is looked up before it is created, since creating needs a right in `log` the roles lack even when `IF NOT EXISTS` would make the statement a no-op; such a tenant's first surrogate is minted by the owner (any `triplespace` command that writes) or fails. (6) The tests connect each part under its role by the URL's `options=-c role=…`, which sets it as the connection opens, standing in for separate logins.
+
+### A101. Callers, settings, jobs and forwarder keys leave the accounts service
+
+- **Date:** 2026-11-12
+- **Source:** Direct: James, design discussion of 2026-11-12
+- **Change:** amends §4
+- **Summary:** Reviewing which parts A100 gave the accounts service, James confirmed that the server warns, rather than refusing to start, when the public API connects as a login that can read `private`, and decided four changes, after which A100 stands confirmed: (1) **a request's caller** is found through narrow functions that read `private` as their owner and return the account and nothing else, `ops.caller_session` and `ops.caller_key` (`0036_caller_lookup`), so that the public API resolves its callers on its own connection and still may not read `private.session` or `private.api_key`; (2) **a settings save** is the public API's again, its login checks no longer holding the whole save on the accounts login; (3) **the job runners** no longer give jobs that write only public partitions the accounts login; (4) **forwarder keys** move from `private` to `ops` (`0037_forwarder_key_ops`): they belong to no account, and the public API checks one on every forwarded request. A102 records how (2) and (3) were built.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §1.2, as it stood):
+
+> | The public API, the site's reads, the write path, the projections' workers | `ts_server` | `TRIPLESPACE_DATABASE_URL` (`--database`) |
+> | The accounts service: a request's caller (its session or API key), sign-in, sign-out and sign-up, external logins and their OAuth clients, account requests, renames and name tombstones, preferences, the watch set, the inbox as its holder reads it, challenges and rate limits, forwarder keys; and the job runners, since an adoption appends to accounts partitions | `ts_accounts` | `TRIPLESPACE_ACCOUNTS_DATABASE_URL` (`--accounts-database`) |
+
+### A102. How settings checks and the job runners left the accounts service
+
+- **Date:** 2026-11-12
+- **Source:** Direct: Claude, while building A101, 2026-11-12; unconfirmed
+- **Change:** extends §4
+- **Summary:** Two of A101's changes were built otherwise than first proposed. (1) **Settings checks:** narrow yes-or-no functions, as for callers, do not fit two of the three: `ts-external-required-unmet` and `ts-strict-names-unmet` name the logins that block them, and the strict-names check derives names by the issuer registry's rules in Rust. Instead, a save that changes how people log in takes one connection of the accounts service, through which its checks read the logins and OAuth clients, while the settings they weigh are read in the save's own unit of work, which sees what the save wrote; the readiness reads take the two connections separately. (2) **Job runners:** rather than two kinds of runner, every runner connects as the public API, since no kind queued today writes an accounts partition (import writes actor records to `actors`, revert public records); adoption, which does, is run by the command line, and gets a runner of its own on the accounts login when it joins the queue (SCA-309).

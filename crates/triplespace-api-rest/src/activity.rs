@@ -274,7 +274,7 @@ pub(crate) async fn serve(
         }
         Err(e) => return internal(&e),
     };
-    let caller = match Caller::resolve(app.accounts_pool(), &tenant.slug, headers).await {
+    let caller = match Caller::resolve(&**client, &tenant.slug, headers).await {
         Ok(c) => c,
         Err(e) => return internal(&e.info),
     };

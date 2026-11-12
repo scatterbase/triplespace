@@ -7,10 +7,9 @@ use std::collections::BTreeSet;
 use scatter_actors::actor::{ActorKind, ActorStatus};
 use scatter_actors::evaluate::{Credential, Effective, Principal, evaluate};
 use scatter_actors::grant::GrantRegistry;
-use scatter_actors::group::GroupRegistry;
 use tokio_postgres::GenericClient;
 
-use crate::keys::{KeyAuth, authenticate_bearer};
+use crate::keys::KeyAuth;
 use crate::session::{self, Session};
 use crate::{AccountsError, now_micros};
 
@@ -159,41 +158,42 @@ pub async fn resolve<C: GenericClient>(
     match auth {
         Auth::None => {}
         Auth::Cookie(id) => {
-            if let Some(s) = session::load(client, tenant, id).await? {
+            // Through `ops.caller_session`, which reads `private` as its owner, so that a
+            // connection of the public API resolves its caller (0013 §4, A101).
+            let row = client
+                .query_opt(
+                    "SELECT actor_key, key_id, expires, login, central, key_grants
+                     FROM ops.caller_session($1, $2)",
+                    &[&id, &tenant],
+                )
+                .await?;
+            if let Some(r) = row {
+                let s = session::Session {
+                    id: id.to_string(),
+                    tenant: tenant.to_string(),
+                    actor_key: r.get(0),
+                    key_id: r.get(1),
+                    expires: r.get(2),
+                    login: r.get(3),
+                    central: r.get(4),
+                };
                 identity.actor_key.clone_from(&s.actor_key);
                 identity.login = s.login;
-                if let Some(key_id) = &s.key_id {
+                if let (Some(key_id), Some(actor_key)) = (&s.key_id, &s.actor_key) {
                     // A bot-password session carries its key's grants (0024 §4).
-                    let row = client
-                        .query_opt(
-                            "SELECT actor_key, grants FROM private.api_key
-                             WHERE key_id = $1 AND revoked_at IS NULL AND (expires IS NULL OR expires > now())",
-                            &[key_id],
-                        )
-                        .await?;
-                    let Some(r) = row else {
-                        // Revoked or expired since: the session is dead.
-                        session::delete(client, id).await?;
-                        return Ok(Resolved {
-                            identity: Identity::default(),
-                            effective: evaluate(
-                                &Principal::anonymous(),
-                                GroupRegistry::default_registry(),
-                                GrantRegistry::default_registry(),
-                            ),
-                        });
-                    };
+                    let grants: Vec<String> =
+                        r.get::<_, Option<Vec<String>>>(5).unwrap_or_default();
                     identity.credential = Some(KeyAuth {
-                        actor_key: r.get(0),
+                        actor_key: actor_key.clone(),
                         key_id: key_id.clone(),
-                        grants: r.get::<_, Vec<String>>(1).into_iter().collect(),
+                        grants: grants.into_iter().collect(),
                     });
                 }
                 identity.session = Some(s);
             }
         }
         Auth::Bearer(bearer) => {
-            if let Some(key) = authenticate_bearer(client, bearer).await? {
+            if let Some(key) = crate::keys::caller_bearer(client, bearer).await? {
                 identity.actor_key = Some(key.actor_key.clone());
                 identity.credential = Some(key);
             }

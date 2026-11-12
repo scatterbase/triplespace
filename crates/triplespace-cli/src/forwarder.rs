@@ -3,7 +3,7 @@
 //! to `X-Forwarded-For`, where trusting it by address (`--trusted-proxy`) is not enough.
 //!
 //! Issuing and revoking a key is two writes in one transaction: the hash in
-//! `private.forwarder_key`, and a `forwarder:{key ID}` record in the instance `config`
+//! `ops.forwarder_key`, and a `forwarder:{key ID}` record in the instance `config`
 //! partition that puts the act in the log without the secret.
 
 use anyhow::{Context, Result};

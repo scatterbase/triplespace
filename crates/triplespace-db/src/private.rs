@@ -43,7 +43,6 @@ pub const PRIVATE_TABLES: &[(&str, Portability)] = &[
     ("password", Portability::ReEstablished),
     ("api_key", Portability::ReEstablished),
     ("session", Portability::NeverLeaves),
-    ("forwarder_key", Portability::NeverLeaves),
     ("preference", Portability::Portable),
     ("challenge_spent", Portability::NeverLeaves),
     ("rate_event", Portability::NeverLeaves),

@@ -56,6 +56,8 @@ GRANT SELECT ON private.email TO ts_notify;
 GRANT USAGE, SELECT, UPDATE ON ALL SEQUENCES IN SCHEMA private TO ts_accounts;
 ALTER DEFAULT PRIVILEGES IN SCHEMA private GRANT USAGE, SELECT, UPDATE ON SEQUENCES TO ts_accounts;
 GRANT SELECT ON private.preference TO ts_notify;
+REVOKE ALL ON FUNCTION ops.caller_session(text, text), ops.caller_key(text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION ops.caller_session(text, text), ops.caller_key(text, text) TO ts_server, ts_accounts;
 ";
 
 /// The row-level security of `log.record` that `0034_record_policies` gives, each policy
@@ -223,7 +225,7 @@ mod tests {
                 }
             }
         }
-        assert!(seen >= 20, "found only {seen} grant statements");
+        assert!(seen >= 22, "found only {seen} grant statements");
     }
 
     /// The policies hide the partition [`ensure`] and [`grant_partition`]'s callers call
