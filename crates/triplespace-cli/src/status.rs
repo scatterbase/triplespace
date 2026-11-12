@@ -179,9 +179,26 @@ pub async fn status(args: Target) -> Result<()> {
 
 /// Replays every projection from offset 0, in replay order (03 §6.1).
 pub async fn rebuild(args: Target) -> Result<()> {
-    let client = connect(&args.database).await?;
-    let farm = farm_of(&client).await?;
-    let (store, pipeline) = store(&args.database, &farm)?;
+    let farm = farm_of(&connect(&args.database).await?).await?;
+    for (id, records, rows) in rebuild_database(&args.database, &farm).await? {
+        println!("{id:#018x}: {records} records, {rows} rows");
+    }
+    Ok(())
+}
+
+/// Rebuilds every projection of the database at `database` from its log, in the replay
+/// order of 03 §6.1, under `farm`: what `triplespace rebuild` and `triplespace restore` run.
+/// Returns, per partition, the records replayed and the rows written.
+///
+/// # Errors
+///
+/// The store's or a projection's.
+pub async fn rebuild_database(
+    database: &str,
+    farm: &triplespace_projections::Farm,
+) -> Result<Vec<(u64, u64, u64)>> {
+    let client = connect(database).await?;
+    let (store, pipeline) = store(database, farm)?;
     let parts = partitions(&client).await?;
     let groups = grouped(&parts);
     let log_store = PgLog::new(client);
@@ -189,10 +206,10 @@ pub async fn rebuild(args: Target) -> Result<()> {
         .rebuild_grouped(&store, &log_store, &groups, 500)
         .await
         .context("rebuild")?;
-    for (id, p) in progress {
-        println!("{id:#018x}: {} records, {} rows", p.records, p.rows);
-    }
-    Ok(())
+    Ok(progress
+        .into_iter()
+        .map(|(id, p)| (id, p.records, u64::try_from(p.rows).unwrap_or(u64::MAX)))
+        .collect())
 }
 
 #[cfg(test)]

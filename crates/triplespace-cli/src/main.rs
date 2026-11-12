@@ -13,8 +13,8 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use triplespace_cli::{
     accounts, adopt, backup_key, challenge, compact, dump, env_file, follow, forwarder,
-    import_pages, instance, job, log_bundle, logins, oauth_client, rights, settings, setup, source,
-    status, sync, tenant,
+    import_pages, instance, job, log_bundle, logins, oauth_client, restore, rights, settings,
+    setup, source, status, sync, tenant,
 };
 
 /// Triplespace: a Wikibase as an append-only log.
@@ -83,6 +83,8 @@ enum Command {
         #[command(subcommand)]
         command: ChallengeCommand,
     },
+    /// Restore an instance from a backup bundle into an empty database (0103 A2, A9).
+    Restore(restore::Restore),
     /// The backup key set: generate a holder's key, register the set, show it, unseal a
     /// share of a backup, reseal a backup to another set (0103 A3).
     BackupKey {
@@ -201,6 +203,7 @@ async fn run() -> Result<()> {
             command: ChallengeCommand::Solve(args),
         } => challenge::run(&args),
         Command::BackupKey { command } => backup_key::run(command).await,
+        Command::Restore(args) => restore::run(args).await,
         Command::OauthClient { command } => oauth_client::run(command).await,
         Command::Settings { command } => settings::run(command).await,
         Command::Member { command } => rights::run_member(command).await,
