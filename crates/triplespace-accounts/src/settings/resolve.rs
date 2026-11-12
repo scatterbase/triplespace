@@ -505,19 +505,30 @@ mod tests {
         s.tenancy.insert(switch.into(), Row::of(v, 1));
     }
 
+    // The observers are the process's, and the other tests resolve settings on threads of
+    // their own while these run: each observer records into a list of the calling thread,
+    // so that a test sees only the reads it made, and only of the kind it observes.
+    thread_local! {
+        static SETTINGS: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
+        static SWITCHES: std::cell::RefCell<Vec<String>> = const { std::cell::RefCell::new(Vec::new()) };
+    }
+
+    fn record_setting(k: &str) {
+        SETTINGS.with_borrow_mut(|seen| seen.push(k.to_owned()));
+    }
+
+    fn record_switch(k: &str) {
+        SWITCHES.with_borrow_mut(|seen| seen.push(k.to_owned()));
+    }
+
     // 0108 §2: a switch read through `switch` is reported; the `locked` list is not a switch.
     #[test]
     fn switch_reads_are_observed() {
-        use std::sync::Mutex;
-        static SEEN: Mutex<Vec<String>> = Mutex::new(Vec::new());
-        fn record(k: &str) {
-            SEEN.lock().unwrap().push(k.to_owned());
-        }
-        observe_switch_reads(record);
+        observe_switch_reads(record_switch);
         let s = snap();
         assert_eq!(s.template_mode(), "none");
         let _ = s.locked_keys();
-        let seen = SEEN.lock().unwrap();
+        let seen = SWITCHES.with_borrow(Clone::clone);
         assert!(seen.iter().any(|k| k == CONFIG_TEMPLATE));
         assert!(!seen.iter().any(|k| k == LOCKED));
     }
@@ -525,18 +536,13 @@ mod tests {
     // 0107 §2: a read by key reports the key, known or not; listing every setting does not.
     #[test]
     fn reads_by_key_are_observed() {
-        use std::sync::Mutex;
-        static SEEN: Mutex<Vec<String>> = Mutex::new(Vec::new());
-        fn record(k: &str) {
-            SEEN.lock().unwrap().push(k.to_owned());
-        }
-        observe_setting_reads(record);
+        observe_setting_reads(record_setting);
         let s = snap();
         let _ = s.value("site.language");
         assert!(s.resolve("site.no-such-key").is_none());
-        let before = SEEN.lock().unwrap().len();
+        let before = SETTINGS.with_borrow(Vec::len);
         let _ = s.resolve_all(Scope::Tenant);
-        let seen = SEEN.lock().unwrap();
+        let seen = SETTINGS.with_borrow(Clone::clone);
         assert_eq!(seen.len(), before, "resolve_all observed a read");
         for k in ["site.language", "site.no-such-key"] {
             assert!(seen.iter().any(|s| s == k), "{k} was not observed");

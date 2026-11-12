@@ -8,7 +8,9 @@
 //!   this crate's ([`MIGRATIONS`]), checksummed, idempotent, recorded;
 //! - [`private`]: the portability class of every `private` table (0027 §2), checked
 //!   against the live schema;
-//! - [`grants`]: per-partition grants, including the accounts partition's exclusion;
+//! - [`grants`]: the roles and every grant, ensured on every migration run so that a
+//!   restored database regains them, and per-partition grants, including the accounts
+//!   partition's exclusion;
 //! - [`pool`]: `deadpool-postgres` pools from a URL;
 //! - [`routing`]: read-your-writes across replicas by LSN (0013 §7);
 //! - [`projection_state`]: `ops.projection_state`, how far each projection has replayed.
@@ -160,16 +162,22 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "0033_follow_job",
         sql: include_str!("../migrations/0033_follow_job.sql"),
     },
+    Migration {
+        name: "0034_record_policies",
+        sql: include_str!("../migrations/0034_record_policies.sql"),
+    },
 ];
 
 /// The crate name migrations are recorded under.
 pub const CRATE: &str = "triplespace-db";
 
 /// A migrator loaded with every schema in 0005 §7's build order: the log, then this
-/// crate. Crates that own later tables add theirs.
+/// crate. Crates that own later tables add theirs. Every run ends by ensuring the roles
+/// and grants ([`grants::ensure`]), so that a restored database regains them.
 #[must_use]
 pub fn migrator() -> Migrator {
     Migrator::new()
         .with("scatter-log-postgres", scatter_log_postgres::MIGRATIONS)
         .with(CRATE, MIGRATIONS)
+        .with_grants()
 }

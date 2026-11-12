@@ -2,6 +2,11 @@
 //! applies them in build order and records each in `ops.migration` with a checksum. A
 //! migration is applied once; a recorded migration whose SQL has changed is an error,
 //! since a change to a schema is a new migration, never an edit.
+//!
+//! A migrator made `with_grants` then runs [`crate::grants::ensure`] on every run, applied
+//! or not: roles belong to the server, not the database, so a database restored onto
+//! another server has its `ops.migration` rows but not the roles `0004_roles` made, and
+//! one restored with `--no-privileges` has neither its grants (0013 §4; 08 §6.7).
 
 use sha2::{Digest as _, Sha256};
 use tokio_postgres::GenericClient;
@@ -19,6 +24,13 @@ pub enum MigrateError {
         crate_name: String,
         /// The migration.
         name: String,
+        /// What Postgres said.
+        #[source]
+        source: tokio_postgres::Error,
+    },
+    /// Creating the roles or giving the grants failed (0013 §4).
+    #[error("roles and grants: {source}")]
+    Grants {
         /// What Postgres said.
         #[source]
         source: tokio_postgres::Error,
@@ -49,6 +61,8 @@ pub struct Applied {
     pub applied: Vec<(String, String)>,
     /// `(crate, name)` of each already recorded.
     pub skipped: Vec<(String, String)>,
+    /// What [`crate::grants::ensure`] did, for a migrator made `with_grants`.
+    pub grants: Option<crate::grants::Ensured>,
 }
 
 /// The status of one migration.
@@ -68,6 +82,7 @@ pub struct Status {
 #[derive(Debug, Clone, Default)]
 pub struct Migrator {
     sets: Vec<(&'static str, &'static [Migration])>,
+    grants: bool,
 }
 
 /// SHA-256 of the SQL, lower-case hex.
@@ -106,6 +121,14 @@ impl Migrator {
         self
     }
 
+    /// Runs [`crate::grants::ensure`] after every [`Migrator::apply`]: for a set that
+    /// includes `triplespace-db`'s `0004_roles` and the migrations its grants name.
+    #[must_use]
+    pub fn with_grants(mut self) -> Self {
+        self.grants = true;
+        self
+    }
+
     /// Every migration in order.
     pub fn migrations(&self) -> impl Iterator<Item = (&'static str, &'static Migration)> + '_ {
         self.sets
@@ -120,12 +143,22 @@ impl Migrator {
     }
 
     /// Applies every migration not yet recorded, in order, each in its own transaction
-    /// with its bookkeeping row; stops at the first failure.
+    /// with its bookkeeping row; stops at the first failure. Then, for a migrator made
+    /// `with_grants`, creates any missing role and gives every grant, in one transaction.
     pub async fn apply(
         &self,
         client: &mut tokio_postgres::Client,
     ) -> Result<Applied, MigrateError> {
         self.prepare(client).await?;
+        // Roles first, outside the migrations' transactions, so that `0004_roles` finds
+        // them made rather than racing another database's run to make them.
+        let created_roles = if self.grants {
+            crate::grants::ensure_roles(&*client)
+                .await
+                .map_err(|source| MigrateError::Grants { source })?
+        } else {
+            Vec::new()
+        };
         let mut report = Applied::default();
         for (crate_name, m) in self.migrations() {
             let current = checksum(m.sql);
@@ -163,6 +196,15 @@ impl Migrator {
             .await?;
             tx.commit().await?;
             report.applied.push((crate_name.into(), m.name.into()));
+        }
+        if self.grants {
+            let tx = client.transaction().await?;
+            let mut ensured = crate::grants::ensure(&tx)
+                .await
+                .map_err(|source| MigrateError::Grants { source })?;
+            tx.commit().await?;
+            ensured.created_roles = created_roles;
+            report.grants = Some(ensured);
         }
         Ok(report)
     }
@@ -222,7 +264,7 @@ mod tests {
         assert_eq!(names[0], "scatter-log-postgres/0001_log");
         assert_eq!(names[1], "scatter-log-postgres/0002_partition_origin");
         assert_eq!(names[2], "triplespace-db/0001_ops");
-        assert!(names.last().unwrap().ends_with("0033_follow_job"));
+        assert!(names.last().unwrap().ends_with("0034_record_policies"));
         assert_eq!(checksum("").len(), 64);
         assert_ne!(checksum("a"), checksum("b"));
     }

@@ -83,6 +83,8 @@ pub struct Database {
 
 /// Applies every migration the database has not applied, in build order (0033 §4), and
 /// prints each; a database an older binary created gains the tables a newer one reads.
+/// Then creates any role the server lacks and gives every grant, so that a database
+/// restored from a dump onto another server is whole (0013 §4; 08 §6.7).
 pub async fn migrate(args: Database) -> Result<()> {
     let mut client = connect(&args.database).await?;
     let applied = triplespace_db::migrator()
@@ -97,6 +99,16 @@ pub async fn migrate(args: Database) -> Result<()> {
         applied.applied.len(),
         applied.skipped.len()
     );
+    // 0013 §4: the roles are the server's, so a restored database may lack them.
+    if let Some(grants) = &applied.grants {
+        if !grants.created_roles.is_empty() {
+            println!("created roles {}", grants.created_roles.join(", "));
+        }
+        println!(
+            "grants given on the schemas and {} log partitions",
+            grants.partitions
+        );
+    }
     if crate::logins::pending(&client).await? {
         println!(
             "note: credentials are still keyed by tenant accounts, or the instance has no logins \

@@ -198,6 +198,10 @@ async fn open_partition(
         )
         .await
         .map_err(store_err)?;
+        // A source partition is never the accounts partition (0013 §4).
+        triplespace_db::grants::grant_partition(cx.conn(), partition, false)
+            .await
+            .map_err(store_err)?;
         let entry = GraphEntry::source(graph, graph_name.clone(), partition, SEGMENT_K);
         let content = Value::from_json(&serde_json::to_value(&entry).map_err(store_err)?);
         append_record(
