@@ -136,6 +136,7 @@ Every unstruck question in every ADR (24 §8), with its first sentence. Settle o
 | [0013 Q5](0013-postgres-storage.md) | Vacuum policy | How soon after an `erase` the affected child table is vacuumed, and whether `VACUUM FULL` is the default for reason class `legal`. |
 | [0013 Q8](0013-postgres-storage.md) | Partition count at farm scale | and whether small tenants share physical child tables (0018 Q1). |
 | [0013 Q9](0013-postgres-storage.md) | The addressing projection's role | §7 runs it under the notifier's role because it writes to `private`; whether `ops.projection_state` should record its position like the others, or `private.inbox` should carry its own high-water mark, is an implementatio… |
+| [0013 Q11](0013-postgres-storage.md) | The accounts partition read through `log.record` | §4 hides the accounts partition from the public role by revoking its child table, but Postgres checks privileges only on the table a query names, and every role has `SELECT` on the parent `log.record`, through which `sca… |
 | [0014 Q1](0014-caches-and-search.md) | TTL ceilings and `s-maxage` | in §4 and §6 are starting values. |
 | [0014 Q2](0014-caches-and-search.md) | Analysis configuration | Whether to vendor CirrusSearch's per-language analyzer settings, which are extensive and depend on plugins, or start from OpenSearch's built-in language analyzers and grow. |
 | [0014 Q3](0014-caches-and-search.md) | `statement_keywords` scope | Which properties are indexed for `haswbstatement:` at Wikidata scale; indexing all of them is what makes that field large. |

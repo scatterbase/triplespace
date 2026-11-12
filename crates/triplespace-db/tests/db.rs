@@ -247,6 +247,65 @@ async fn the_public_role_cannot_read_private() {
     assert!(as_role(role::VERIFY, "INSERT INTO log.partition (partition, name, graph_iri, history, integrity, export, segment_k, hash) VALUES (99, 'x', '', 'full', 'logged', 'public', 1, 'sha-256') RETURNING partition").await.is_err());
 }
 
+/// 0013 §4, 03 §1.2: the accounts partition is hidden from the public role however it is
+/// read. Postgres checks privileges only on the table a query names, so revoking the child
+/// table is not enough while the public role may read the parent `log.record`: this fails
+/// until the parent excludes the accounts partition's rows. Ignored until that is decided;
+/// run it with `--ignored`.
+#[tokio::test]
+#[ignore = "open: the public role reads the accounts partition through log.record (0013 §4)"]
+async fn the_public_role_cannot_read_accounts_through_the_parent() {
+    if skipped() {
+        return;
+    }
+    let mut client = fresh().await;
+    migrator().apply(&mut client).await.unwrap();
+    let mut log = PgLog::new(client);
+    log.create_partition(7, Segments::new(4).unwrap())
+        .await
+        .unwrap();
+    log.create_partition(8, Segments::new(4).unwrap())
+        .await
+        .unwrap();
+    log.append(7, draft(0)).await.unwrap();
+    log.append(8, draft(1)).await.unwrap();
+    let client = log.into_inner();
+    client
+        .batch_execute("UPDATE log.partition SET name = 'accounts' WHERE partition = 8")
+        .await
+        .unwrap();
+    grant_partition(&client, 7, false).await.unwrap();
+    grant_partition(&client, 8, true).await.unwrap();
+
+    let count_as = |r: &'static str, partition: i64| {
+        let c = &client;
+        async move {
+            c.batch_execute(&format!("SET ROLE {r}")).await.unwrap();
+            let n = c
+                .query_one(
+                    "SELECT count(*) FROM log.record WHERE partition = $1",
+                    &[&partition],
+                )
+                .await
+                .map(|row| row.get::<_, i64>(0));
+            c.batch_execute("RESET ROLE").await.unwrap();
+            n
+        }
+    };
+    for r in [role::SERVER, role::NOTIFY, role::FEDERATION, role::VERIFY] {
+        assert_eq!(
+            count_as(r, 7).await.unwrap(),
+            1,
+            "{r} reads a public partition"
+        );
+        assert!(
+            !matches!(count_as(r, 8).await, Ok(n) if n > 0),
+            "{r} read the accounts partition through log.record"
+        );
+    }
+    assert_eq!(count_as(role::ACCOUNTS, 8).await.unwrap(), 1);
+}
+
 /// Every grant to a `ts_*` role in the database: on tables and sequences, on schemas, and
 /// as default privileges, as `(kind, object, grantee, privilege)`, sorted.
 async fn ts_grants(client: &Client) -> Vec<(String, String, String, String)> {
