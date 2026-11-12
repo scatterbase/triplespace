@@ -6,7 +6,8 @@
 //!    unless it has none or `--without-private` leaves them;
 //! 2. the database is migrated, which makes the schemas, the roles and their grants;
 //! 3. each partition is registered as it was and every slot appended verbatim, compacted
-//!    and erased ones included, with its checkpoints and segment manifests;
+//!    and erased ones included, a block at a time by `COPY` (0103 A10), with its
+//!    checkpoints and segment manifests, each checked against the tree the slots fold to;
 //! 4. the `log` sequences are made at the values the backup holds;
 //! 5. every projection is rebuilt from the log, in the replay order of 03 §6.1;
 //! 6. the carried `ops` tables and the sealed tables replace what the rebuild wrote there,
@@ -19,15 +20,19 @@
 //! A backup written under another schema is refused at step 6; migrating one forward is
 //! SCA-358.
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, Result, bail};
 use futures_util::SinkExt as _;
 use scatter_integrity::backup_key::Share;
-use scatter_integrity::bundle::Bundle;
+use scatter_integrity::bundle::{Bundle, BundlePartition};
+use scatter_integrity::checkpoint::{SignedCheckpoint, segment_origin};
 use scatter_integrity::checkpoints::CheckpointStore as _;
+use scatter_log::hash::Hash;
 use scatter_log::registry::{Export, History, Integrity};
 use scatter_log::store::LogStore as _;
+use scatter_log::tree::{Frontier, Segments};
 use scatter_log_postgres::partition::PartitionInfo;
 use scatter_log_postgres::{Frontiers, PgCheckpoints};
 use tokio_postgres::Client;
@@ -186,6 +191,120 @@ async fn reset_sequences(client: &Client) -> Result<()> {
     Ok(())
 }
 
+/// The most slots a block of the load holds, and the most bytes past its first slot: one
+/// read of the bundle and one `COPY` each (0103 A10).
+const BLOCK_SLOTS: usize = 8192;
+const BLOCK_BYTES: u64 = 32 << 20;
+
+/// A partition's checkpoints and segment manifests, checked against its leaves as they
+/// load (0103 A10): each signed under the bundle's key chain for its origin, each
+/// checkpoint's root the tree's at its size, each manifest's the root of its segment's
+/// leaves, and that segment full. What `verify` checks of them (0006 §9), without holding
+/// every leaf.
+struct ChainCheck {
+    partition: u64,
+    segments: Segments,
+    whole: Frontier,
+    segment: Frontier,
+    /// Roots still to be met, by tree size and by segment.
+    checkpoints: BTreeMap<u64, Hash>,
+    manifests: BTreeMap<u64, Hash>,
+}
+
+impl ChainCheck {
+    fn new(
+        bundle: &Bundle,
+        p: &BundlePartition,
+        segments: Segments,
+        signed: &[SignedCheckpoint],
+        manifests: &[(u64, SignedCheckpoint)],
+    ) -> Result<Self> {
+        let id = p.partition;
+        let verifiers = bundle.chain().verifiers(&p.origin);
+        let mut by_size = BTreeMap::new();
+        for cp in signed {
+            let size = cp.checkpoint.size;
+            cp.verify(&p.origin, &verifiers)
+                .with_context(|| format!("partition {id:#018x}: the checkpoint at size {size}"))?;
+            if by_size
+                .insert(size, cp.checkpoint.root)
+                .is_some_and(|other| other != cp.checkpoint.root)
+            {
+                bail!("partition {id:#018x}: two checkpoints at size {size} disagree");
+            }
+        }
+        let mut by_segment = BTreeMap::new();
+        for (n, m) in manifests {
+            let origin = segment_origin(&p.origin, *n);
+            m.verify(&origin, &bundle.chain().verifiers(&origin))
+                .with_context(|| format!("partition {id:#018x}: the manifest of segment {n}"))?;
+            if m.checkpoint.size != segments.len() {
+                bail!(
+                    "partition {id:#018x}: the manifest of segment {n} is not of a whole segment"
+                );
+            }
+            by_segment.insert(*n, m.checkpoint.root);
+        }
+        if by_size
+            .remove(&0)
+            .is_some_and(|root| root != scatter_log::tree::empty_root())
+        {
+            bail!("partition {id:#018x}: the checkpoint at size 0 is not of the empty tree");
+        }
+        Ok(Self {
+            partition: id,
+            segments,
+            whole: Frontier::new(),
+            segment: Frontier::new(),
+            checkpoints: by_size,
+            manifests: by_segment,
+        })
+    }
+
+    /// The next leaf.
+    fn push(&mut self, leaf: Hash) -> Result<()> {
+        let id = self.partition;
+        let n = self.segments.segment_of(self.whole.size());
+        self.whole.push_leaf(leaf);
+        self.segment.push_leaf(leaf);
+        let size = self.whole.size();
+        if self
+            .checkpoints
+            .remove(&size)
+            .is_some_and(|root| root != self.whole.root())
+        {
+            bail!(
+                "partition {id:#018x}: the checkpoint at size {size} does not match the                  records: the backup does not verify"
+            );
+        }
+        if size == self.segments.range(n).end {
+            if self
+                .manifests
+                .remove(&n)
+                .is_some_and(|root| root != self.segment.root())
+            {
+                bail!(
+                    "partition {id:#018x}: the manifest of segment {n} does not match the                      records: the backup does not verify"
+                );
+            }
+            self.segment = Frontier::new();
+        }
+        Ok(())
+    }
+
+    /// After the last leaf: nothing may be left that the leaves did not reach.
+    fn finish(&self) -> Result<()> {
+        let id = self.partition;
+        if let Some(size) = self.checkpoints.keys().next() {
+            bail!("partition {id:#018x}: a checkpoint at size {size} is past the records");
+        }
+        if let Some(n) = self.manifests.keys().next() {
+            bail!("partition {id:#018x}: a manifest of segment {n}, which is not full");
+        }
+        Ok(())
+    }
+}
+
 /// Restores the backup at `args.bundle` into the empty database at `args.database`.
 ///
 /// # Errors
@@ -276,19 +395,33 @@ pub async fn restore(args: &Restore) -> Result<Restored> {
         scatter_log_postgres::log::create_partition(&tx, p.partition, head.segments, &info)
             .await
             .with_context(|| format!("register partition {:#018x}", p.partition))?;
+        let signed = bundle.checkpoints().list(p.partition).await?;
+        let manifests = bundle.checkpoints().manifests(p.partition).await?;
+        let mut chain = ChainCheck::new(&bundle, p, head.segments, &signed, &manifests)?;
         let mut frontiers = Frontiers::new();
-        for offset in 0..head.size {
-            let slot = bundle.store().read(p.partition, offset).await?;
-            scatter_log_postgres::log::append_slot_with(&tx, p.partition, slot, &mut frontiers)
-                .await
-                .with_context(|| format!("partition {:#018x}, offset {offset}", p.partition))?;
+        let mut offset = 0;
+        while offset < head.size {
+            let slots = bundle
+                .store()
+                .read_range(p.partition, offset, BLOCK_SLOTS, BLOCK_BYTES)?;
+            let leaves =
+                scatter_log_postgres::log::append_slots(&tx, p.partition, &slots, &mut frontiers)
+                    .await
+                    .with_context(|| {
+                        format!("partition {:#018x}, from offset {offset}", p.partition)
+                    })?;
+            for leaf in leaves {
+                chain.push(leaf)?;
+            }
+            offset += slots.len() as u64;
         }
+        chain.finish()?;
         let mut checkpoints = PgCheckpoints::new(&tx);
-        for cp in bundle.checkpoints().list(p.partition).await? {
-            checkpoints.put(p.partition, &cp).await?;
+        for cp in &signed {
+            checkpoints.put(p.partition, cp).await?;
         }
-        for (n, m) in bundle.checkpoints().manifests(p.partition).await? {
-            checkpoints.put_manifest(p.partition, n, &m).await?;
+        for (n, m) in &manifests {
+            checkpoints.put_manifest(p.partition, *n, m).await?;
         }
         tx.commit().await?;
         restored.partitions += 1;
@@ -392,4 +525,67 @@ pub async fn run(args: Restore) -> Result<()> {
 #[must_use]
 pub fn sealed_key_path(bundle: &Path) -> PathBuf {
     bundle.join(crate::sealed::DIR).join("key.cbor")
+}
+
+#[cfg(test)]
+mod tests {
+    use scatter_log::tree::root_of;
+
+    use super::*;
+
+    fn leaves(n: u8) -> Vec<Hash> {
+        (0..n).map(|i| [i; 32]).collect()
+    }
+
+    fn check(
+        leaves: &[Hash],
+        checkpoints: &[(u64, Hash)],
+        manifests: &[(u64, Hash)],
+    ) -> Result<()> {
+        let mut chain = ChainCheck {
+            partition: 7,
+            segments: Segments::new(2).unwrap(),
+            whole: Frontier::new(),
+            segment: Frontier::new(),
+            checkpoints: checkpoints.iter().copied().collect(),
+            manifests: manifests.iter().copied().collect(),
+        };
+        for leaf in leaves {
+            chain.push(*leaf)?;
+        }
+        chain.finish()
+    }
+
+    /// 0103 §4 (A10): a restore refuses a partition whose checkpoints or segment manifests
+    /// are not of the records it loads.
+    #[test]
+    fn checkpoints_and_manifests_are_checked_against_the_leaves() {
+        let l = leaves(10);
+        let at = |n: usize| (n as u64, root_of(&l[..n]));
+        let segment = |n: usize| (n as u64, root_of(&l[n * 4..n * 4 + 4]));
+        check(
+            &l,
+            &[at(1), at(4), at(7), at(10)],
+            &[segment(0), segment(1)],
+        )
+        .unwrap();
+        check(&l, &[], &[]).unwrap();
+
+        let wrong = |r: Result<()>, what: &str| {
+            let e = r.unwrap_err().to_string();
+            assert!(e.contains(what), "{e}");
+        };
+        // A checkpoint of other records, and one past the head.
+        wrong(check(&l, &[(7, root_of(&l[..6]))], &[]), "size 7");
+        wrong(check(&l, &[(11, [0; 32])], &[]), "past the records");
+        // A manifest of other records, and one of a segment the records do not fill.
+        wrong(check(&l, &[], &[(1, root_of(&l[..4]))]), "segment 1");
+        wrong(check(&l, &[], &[(2, [0; 32])]), "not full");
+        // A changed record changes every root after it.
+        let mut changed = l.clone();
+        changed[5] = [99; 32];
+        check(&changed, &[at(4)], &[segment(0)]).unwrap();
+        wrong(check(&changed, &[at(4), at(10)], &[]), "size 10");
+        wrong(check(&changed, &[], &[segment(1)]), "segment 1");
+    }
 }

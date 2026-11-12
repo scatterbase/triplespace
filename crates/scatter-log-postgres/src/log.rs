@@ -332,16 +332,7 @@ pub async fn append_slot_with<C: PgClient>(
     check_restorable(&slot, partition, row.size)?;
     let leaf = slot.leaf();
     if let Slot::Record(record) = &slot {
-        let erased = erased_mask(
-            record
-                .body()
-                .parts()
-                .iter()
-                .enumerate()
-                .filter(|(_, p)| p.is_erased())
-                .map(|(i, _)| i),
-        );
-        insert_record(client, partition, record, erased).await?;
+        insert_record(client, partition, record, erased_of(record)).await?;
     }
     advance(client, partition, row.size, leaf, frontiers).await
 }
@@ -378,7 +369,7 @@ pub async fn append_many<C: PgClient>(
         .collect();
     let end = row.size + records.len() as u64;
     let written = async {
-        copy_records(client, partition, &records).await?;
+        copy_records(client, partition, records.iter().map(|r| (r, 0))).await?;
         let frontier = frontiers.load(client, partition, row.size).await?;
         let mut nodes = Vec::with_capacity(records.len() * 2);
         for r in &records {
@@ -417,7 +408,7 @@ pub async fn write_sealed<C: PgClient>(
     records: &[Record],
     nodes: &[(u32, u64, Hash)],
 ) -> Result<(), StoreError> {
-    copy_records(client, partition, records).await?;
+    copy_records(client, partition, records.iter().map(|r| (r, 0))).await?;
     copy_nodes(client, partition, nodes).await
 }
 
@@ -450,16 +441,87 @@ pub async fn advance_next_offset<C: PgClient>(
     }
 }
 
-/// The records of [`append_many`], by binary `COPY` into the partition's own table, with
-/// the columns [`insert_record`] writes for an unerased record. Into the child table, not
+/// The mask of a record's erased parts, as `log.record.erased` holds it.
+fn erased_of(record: &Record) -> i16 {
+    erased_mask(
+        record
+            .body()
+            .parts()
+            .iter()
+            .enumerate()
+            .filter(|(_, p)| p.is_erased())
+            .map(|(i, _)| i),
+    )
+}
+
+/// Restores slots at consecutive offsets from the next one, a block at a time, by binary
+/// `COPY`: what [`append_slot_with`] does for one, for a restore's many (0103 §4). One row
+/// lock; every slot checked as [`append_slot_with`] checks it (its partition, its offset
+/// and its body against its commitment) before anything is written; one `COPY` of the
+/// records still there, erased parts marked; one `COPY` of the tree nodes the leaves
+/// complete, compacted slots' leaves among them; and `next_offset` moved once. Returns the
+/// leaves in order. Must run inside a transaction; a failure forgets the frontier, as an
+/// append's does.
+///
+/// # Errors
+///
+/// When a slot is not the next one or its body does not match its commitment, in which
+/// case nothing was written, or the database fails.
+pub async fn append_slots<C: PgClient>(
+    client: &C,
+    partition: u64,
+    slots: &[Slot],
+    frontiers: &mut Frontiers,
+) -> Result<Vec<Hash>, StoreError> {
+    if slots.is_empty() {
+        return Ok(Vec::new());
+    }
+    let row = partition_row(client, partition, true).await?;
+    for (slot, offset) in slots.iter().zip(row.size..) {
+        check_restorable(slot, partition, offset)?;
+    }
+    let leaves: Vec<Hash> = slots.iter().map(Slot::leaf).collect();
+    let end = row.size + slots.len() as u64;
+    let written = async {
+        let records = slots
+            .iter()
+            .filter_map(Slot::record)
+            .map(|r| (r, erased_of(r)));
+        copy_records(client, partition, records).await?;
+        let frontier = frontiers.load(client, partition, row.size).await?;
+        let mut nodes = Vec::with_capacity(leaves.len() * 2);
+        for leaf in &leaves {
+            nodes.extend(frontier.push_leaf_completing(*leaf));
+        }
+        copy_nodes(client, partition, &nodes).await?;
+        client
+            .execute(
+                "UPDATE log.partition SET next_offset = $2 WHERE partition = $1",
+                &[&partition_to_db(partition), &to_db(end)?],
+            )
+            .await
+            .map_err(|e| storage_error(&e))?;
+        Ok::<(), StoreError>(())
+    }
+    .await;
+    if let Err(e) = written {
+        frontiers.forget(partition);
+        return Err(e);
+    }
+    Ok(leaves)
+}
+
+/// The records of [`append_many`] and [`append_slots`], each with its mask of erased
+/// parts, by binary `COPY` into the partition's own table, with
+/// the columns [`insert_record`] writes. Into the child table, not
 /// `log.record`: every record is the one partition's, and Postgres refuses `COPY FROM` into
 /// a table with row-level security for a role it applies to, which `log.record` has for a
 /// database whose roles keep a partition from some of them (Triplespace's accounts
 /// partition). The child table's own grants decide who may write it.
-async fn copy_records<C: PgClient>(
+async fn copy_records<'a, C: PgClient>(
     client: &C,
     partition: u64,
-    records: &[Record],
+    records: impl Iterator<Item = (&'a Record, i16)> + Send,
 ) -> Result<(), StoreError> {
     use tokio_postgres::binary_copy::BinaryCopyInWriter;
     use tokio_postgres::types::Type;
@@ -493,7 +555,7 @@ async fn copy_records<C: PgClient>(
     );
     let mut writer = std::pin::pin!(writer);
     let p = partition_to_db(partition);
-    for record in records {
+    for (record, erased) in records {
         let h = record.header();
         let header = h.encode();
         let leaf = record.leaf();
@@ -513,7 +575,7 @@ async fn copy_records<C: PgClient>(
                 &header.as_slice(),
                 &leaf.as_slice(),
                 &body.as_slice(),
-                &0i16,
+                &erased,
             ])
             .await
             .map_err(|e| storage_error(&e))?;

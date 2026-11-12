@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-07
-- **Updated:** 2026-11-12 (A9)
+- **Updated:** 2026-11-12 (A10)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0027](0027-preferences-and-portability.md), [0056](0056-security-model.md)
 - **Uses:** [0039](0039-files-and-media.md), [0081](0081-recovery-keys-and-continuations.md)
@@ -34,7 +34,7 @@ James's direction, from the design discussion of 2026-11-07:
 
 ### 1. Three scopes: export, transfer and backup (amends 0006 §9)
 
-*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9.*
+*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §8.2.*
 
@@ -48,7 +48,7 @@ James's direction, from the design discussion of 2026-11-07:
 
 ### 4. Backups and rehosting carry everything (extends 0018 §10; amends 0023 §7)
 
-*Changed by A2, A3, A5, A6, A7, A8, A9.*
+*Changed by A2, A3, A5, A6, A7, A8, A9, A10.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §6.7; [09](../architecture/09-security-and-moderation.md) §6.5.*
 
@@ -162,3 +162,11 @@ Replaced text ([08](../architecture/08-tenants-and-instances.md) §6.7, as it st
 - **Source:** Direct: Claude, while building `triplespace restore` (SCA-357), 2026-11-12; confirmed by James, 2026-11-12
 - **Change:** extends §1, §4
 - **Summary:** The calls made: (1) a backup of the whole instance writes `carried/`: each `ops` table classed `carried`, its binary `COPY` in the clear, and the value of every sequence in `log`, read in the backup's snapshot, since without them a restore would hand out revision, page, user and entity IDs restored records already hold; the sequences of `ops` and `private` are not carried, since each numbers a column of a table the backup holds and a restore sets it from that column; a backup of one tenant has no carried sections; (2) the restore reads the farm from the backup's own instance `config` (its `farm` record), since the projections need it before there is a registry to read it from; (3) **the order**: migrate; register each partition from its registry row and append every slot verbatim, one unit of work a partition, with its checkpoints and manifests; make the `log` sequences; rebuild every projection; then empty and load the carried and sealed tables, since the backup and not the replay is their record (a replay recomputes an inbox and loses its read marks); set the `ops` and `private` sequences past their rows; advance every `visibility_epoch` (A4); and migrate again for the partitions' grants; (4) the database must be empty, and a table whose columns differ from the database's is refused, so that a backup written under another schema is caught until SCA-358 migrates one forward; (5) `--without-private` restores a sealed backup without its sealed sections, accounts then unable to log in; (6) slots are appended one statement each, which is correct but slow for a large instance; a bulk path is later work.
+
+### A10. The restore loads slots in blocks and checks the chain
+
+- **Date:** 2026-11-12
+- **Source:** Direct: Claude, while building the restore's bulk append (SCA-363), 2026-11-12; unconfirmed
+- **Change:** extends §1, §4
+- **Summary:** A9 (6) left the restore appending one statement a slot. The calls made: (1) **the restore loads each partition in blocks**, at most 8,192 slots and 32 MiB each, one read of the bundle's segment file and one binary `COPY` of the records and one of the tree nodes a block, inside the partition's one unit of work, as bootstrap mode's writer loads (0013 §9); the order of A9 (3) is unchanged, and the partition's table keeps its indexes during the load, since building them afterwards would be a change to how a partition is registered, not to the restore; (2) every slot is checked before its block is written, as the one-statement append checks it: its partition, its offset next in sequence, and its body against the commitment in its header; no database trigger or constraint did more for the one-statement path, so `COPY` passes none by; (3) **the restore checks each partition's checkpoints and segment manifests against the records as they load**, which A9's restore did not: each is verified under the bundle's key chain for its origin, each checkpoint's root must be the tree's at its size, each manifest's the root of its segment's leaves, the segment full, and none may lie past the records; a partition that fails is refused and its unit of work rolled back; (4) the restore does not run all of `verify`: consistency proofs between checkpoints follow from every root matching the one tree, and record signatures and erasure accounting stay `verify`'s, which an operator runs on a bundle before trusting it; (5) a partition refused leaves the partitions before it loaded, so the database is no longer empty and the restore is run again on a fresh one.
+

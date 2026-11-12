@@ -552,3 +552,121 @@ async fn compaction_keeps_the_highest_revision() {
     );
     tx.commit().await.unwrap();
 }
+
+/// 0103 §4 (A10): a restore's block of slots, by `COPY`, leaves what restoring them one
+/// statement each leaves, erased parts and compacted slots included, and refuses a block
+/// with a slot that is not what its header commits to before writing any of it.
+#[tokio::test]
+async fn slots_restored_in_bulk_are_the_slots_restored_one_by_one() {
+    if skipped() {
+        return;
+    }
+    // A source with an erased part and a compacted slot.
+    let mut source = PgLog::new(fresh().await);
+    source
+        .create_partition(3, Segments::new(2).unwrap())
+        .await
+        .unwrap();
+    for n in 0..11 {
+        source.append(3, draft(n)).await.unwrap();
+    }
+    source.erase_parts(3, 4, &[COMMENT]).await.unwrap();
+    source.compact(3, &[6]).await.unwrap();
+    let head = source.head(3).await.unwrap();
+    let mut slots = Vec::new();
+    for offset in 0..head.size {
+        slots.push(source.read(3, offset).await.unwrap());
+    }
+
+    let mut one = fresh().await;
+    let mut bulk = fresh().await;
+    for client in [&mut one, &mut bulk] {
+        let tx = client.transaction().await.unwrap();
+        PgLog::new(&tx)
+            .create_partition(3, head.segments)
+            .await
+            .unwrap();
+        tx.commit().await.unwrap();
+    }
+    {
+        let tx = one.transaction().await.unwrap();
+        let mut frontiers = log::Frontiers::new();
+        for slot in &slots {
+            log::append_slot_with(&tx, 3, slot.clone(), &mut frontiers)
+                .await
+                .unwrap();
+        }
+        tx.commit().await.unwrap();
+    }
+    {
+        // Two blocks, so the second starts from a frontier the first left.
+        let tx = bulk.transaction().await.unwrap();
+        let mut frontiers = log::Frontiers::new();
+        let mut leaves = log::append_slots(&tx, 3, &slots[..7], &mut frontiers)
+            .await
+            .unwrap();
+        leaves.extend(
+            log::append_slots(&tx, 3, &slots[7..], &mut frontiers)
+                .await
+                .unwrap(),
+        );
+        assert_eq!(leaves, slots.iter().map(Slot::leaf).collect::<Vec<_>>());
+        assert_eq!(root_of(&leaves), head.root);
+        tx.commit().await.unwrap();
+    }
+    for sql in [
+        "SELECT \"offset\"::text, appended_at::text, payload_type, key, encode(commitment, 'hex'),
+                revid::text, logid::text, page_id::text, encode(header, 'hex'), encode(leaf, 'hex'),
+                encode(body, 'hex'), erased::text
+         FROM log.record ORDER BY 1",
+        "SELECT level::text, index::text, encode(hash, 'hex') FROM log.merkle_node ORDER BY 1, 2",
+        "SELECT next_offset::text FROM log.partition",
+    ] {
+        let rows = async |c: &Client| -> Vec<Vec<Option<String>>> {
+            c.query(sql, &[])
+                .await
+                .unwrap()
+                .iter()
+                .map(|r| (0..r.len()).map(|i| r.get(i)).collect())
+                .collect()
+        };
+        let (a, b) = (rows(&one).await, rows(&bulk).await);
+        assert!(!a.is_empty());
+        assert_eq!(a, b, "{sql}");
+    }
+    let restored = PgLog::new(bulk);
+    assert_eq!(restored.head(3).await.unwrap(), head);
+    assert_eq!(restored.read(3, 4).await.unwrap(), slots[4]);
+    assert!(matches!(
+        restored.read(3, 6).await.unwrap(),
+        Slot::Compacted { .. }
+    ));
+
+    // A record out of place stops the block whole.
+    let mut refused = fresh().await;
+    {
+        let tx = refused.transaction().await.unwrap();
+        PgLog::new(&tx)
+            .create_partition(3, head.segments)
+            .await
+            .unwrap();
+        tx.commit().await.unwrap();
+    }
+    // (A record whose body is not its header's cannot be built at all: `Record::new`
+    // refuses it, so a tampered file fails where the bundle is read.)
+    for bad in [
+        vec![slots[0].clone(), slots[2].clone()],
+        vec![slots[1].clone()],
+    ] {
+        let tx = refused.transaction().await.unwrap();
+        let err = log::append_slots(&tx, 3, &bad, &mut log::Frontiers::new()).await;
+        assert!(err.is_err());
+        tx.commit().await.unwrap();
+        let n: i64 = refused
+            .query_one("SELECT count(*) FROM log.record", &[])
+            .await
+            .unwrap()
+            .get(0);
+        assert_eq!(n, 0, "nothing of a refused block is written");
+    }
+}
