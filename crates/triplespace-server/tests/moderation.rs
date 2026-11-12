@@ -920,6 +920,7 @@ async fn protect_delete_undelete_and_hide() {
         scope: triplespace_cli::log_bundle::Scope::Export,
         tenant: Some(TENANT.into()),
         out: bundle.clone(),
+        without_private: false,
     })
     .await
     .unwrap();

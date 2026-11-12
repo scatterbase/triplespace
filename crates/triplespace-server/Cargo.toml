@@ -39,6 +39,8 @@ anyhow.workspace = true
 tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "net", "time", "sync"] }
 
 [dev-dependencies]
+futures-util.workspace = true
+bytes.workspace = true
 scatter-mediawiki-xml.workspace = true
 base64.workspace = true
 scatter-challenge.workspace = true

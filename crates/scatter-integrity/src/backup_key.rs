@@ -337,6 +337,75 @@ impl DataKey {
     }
 }
 
+/// The plaintext bytes in one chunk of [`DataKey::encrypt_chunks`].
+pub const CHUNK: usize = 1 << 20;
+
+impl DataKey {
+    /// Encrypts `plaintext` in chunks of [`CHUNK`] bytes, each sealed with
+    /// [`DataKey::encrypt`] under associated data that names `aad`, the chunk's index and
+    /// whether it is the last, so that chunks can be neither reordered nor dropped, and
+    /// the stream not cut short. Each chunk is its sealed length, 4 bytes big-endian, then
+    /// the sealed bytes; an empty plaintext is one empty last chunk.
+    #[must_use]
+    pub fn encrypt_chunks(&self, aad: &[u8], plaintext: &[u8]) -> Vec<u8> {
+        let chunks: Vec<&[u8]> = if plaintext.is_empty() {
+            vec![&[]]
+        } else {
+            plaintext.chunks(CHUNK).collect()
+        };
+        let last = chunks.len() - 1;
+        let mut out = Vec::with_capacity(plaintext.len() + chunks.len() * (4 + NONCE + 16));
+        for (i, chunk) in chunks.iter().enumerate() {
+            let sealed = self.encrypt(&chunk_aad(aad, i, i == last), chunk);
+            let len = u32::try_from(sealed.len()).expect("a chunk is under 4 GiB");
+            out.extend(len.to_be_bytes());
+            out.extend(sealed);
+        }
+        out
+    }
+
+    /// Opens what [`DataKey::encrypt_chunks`] sealed for `aad`.
+    ///
+    /// # Errors
+    ///
+    /// [`BackupKeyError::Open`] for another key or place, a changed, reordered or missing
+    /// chunk, or a stream cut short.
+    pub fn decrypt_chunks(&self, aad: &[u8], sealed: &[u8]) -> Result<Vec<u8>, BackupKeyError> {
+        let mut out = Vec::with_capacity(sealed.len());
+        let mut rest = sealed;
+        let mut i = 0usize;
+        loop {
+            if rest.len() < 4 {
+                return Err(BackupKeyError::Open);
+            }
+            let (len, tail) = rest.split_at(4);
+            let len = usize::try_from(u32::from_be_bytes(
+                len.try_into().map_err(|_| BackupKeyError::Open)?,
+            ))
+            .map_err(|_| BackupKeyError::Open)?;
+            if tail.len() < len {
+                return Err(BackupKeyError::Open);
+            }
+            let (chunk, tail) = tail.split_at(len);
+            let last = tail.is_empty();
+            out.extend(self.decrypt(&chunk_aad(aad, i, last), chunk)?);
+            if last {
+                return Ok(out);
+            }
+            rest = tail;
+            i += 1;
+        }
+    }
+}
+
+fn chunk_aad(aad: &[u8], index: usize, last: bool) -> Vec<u8> {
+    let mut out = aad.to_vec();
+    out.push(0);
+    out.extend(u64::try_from(index).unwrap_or(u64::MAX).to_be_bytes());
+    out.push(u8::from(last));
+    out
+}
+
 /// One share, sealed to one key.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct SealedShare {
@@ -855,6 +924,43 @@ mod tests {
             resealed.unseal(&old_secrets[0]).unwrap_err(),
             BackupKeyError::NotHolder
         );
+    }
+
+    #[test]
+    fn chunks_bind_their_order_and_their_end() {
+        let key = DataKey::generate();
+        let big: Vec<u8> = (0..(2 * CHUNK + 17))
+            .map(|i| u8::try_from(i % 251).unwrap())
+            .collect();
+        for plain in [Vec::new(), b"short".to_vec(), big.clone()] {
+            let sealed = key.encrypt_chunks(b"private.inbox", &plain);
+            assert_eq!(
+                key.decrypt_chunks(b"private.inbox", &sealed).unwrap(),
+                plain
+            );
+            assert!(key.decrypt_chunks(b"private.watch", &sealed).is_err());
+        }
+        let sealed = key.encrypt_chunks(b"t", &big);
+        // Three chunks: cut after the first two, the stream ends on a chunk not marked last.
+        let first = 4 + u32::from_be_bytes(sealed[..4].try_into().unwrap()) as usize;
+        let second =
+            first + 4 + u32::from_be_bytes(sealed[first..first + 4].try_into().unwrap()) as usize;
+        assert_eq!(
+            key.decrypt_chunks(b"t", &sealed[..second]).unwrap_err(),
+            BackupKeyError::Open
+        );
+        // The first two swapped: each chunk's index is bound.
+        let mut swapped = sealed[first..second].to_vec();
+        swapped.extend(&sealed[..first]);
+        swapped.extend(&sealed[second..]);
+        assert_eq!(
+            key.decrypt_chunks(b"t", &swapped).unwrap_err(),
+            BackupKeyError::Open
+        );
+        // Trailing bytes after the last chunk.
+        let mut longer = sealed.clone();
+        longer.extend([0, 0, 0, 0]);
+        assert!(key.decrypt_chunks(b"t", &longer).is_err());
     }
 
     #[test]

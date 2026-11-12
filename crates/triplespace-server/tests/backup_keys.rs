@@ -16,7 +16,7 @@ use tower::ServiceExt as _;
 use triplespace_accounts::Secret;
 use triplespace_api_action::{App, Config as ServerConfig, Mode, router_with};
 use triplespace_cli::backup_key::{self, BackupKey};
-use triplespace_cli::instance;
+use triplespace_cli::{instance, log_bundle, sealed};
 
 const DB: &str = "tsbackupkeys_test";
 const HOST: &str = "librarybase.org";
@@ -207,6 +207,35 @@ async fn the_backup_key_set() {
     assert_eq!(r.status, StatusCode::OK, "{}", r.body);
     assert_eq!(r.body["set"], Value::Null);
 
+    // Without a set, a backup refuses to leave `private` out unless told; told, it says so in
+    // the bundle; and a backup of one tenant carries no `private` (0103 A7, A8).
+    let export = |out: std::path::PathBuf, tenant: Option<&str>, without_private: bool| {
+        let args = log_bundle::Export {
+            database: database.clone(),
+            scope: log_bundle::Scope::Backup,
+            tenant: tenant.map(str::to_owned),
+            out,
+            without_private,
+        };
+        async move { log_bundle::export(&args).await }
+    };
+    let refused = export(dir.join("refused"), None, false).await.unwrap_err();
+    assert!(
+        format!("{refused:#}").contains("no backup key set"),
+        "{refused:#}"
+    );
+    let refused = export(dir.join("tenant"), Some(TENANT), false)
+        .await
+        .unwrap_err();
+    assert!(
+        format!("{refused:#}").contains("--without-private"),
+        "{refused:#}"
+    );
+    export(dir.join("log-only"), None, true).await.unwrap();
+    let log_only = scatter_integrity::Bundle::open(dir.join("log-only")).unwrap();
+    assert_eq!(log_only.manifest().sealed, Some(false));
+    assert!(!dir.join("log-only").join(sealed::DIR).exists());
+
     // Three holders make their keys off the instance.
     let secrets: Vec<SecretKey> = (0..3).map(|_| SecretKey::generate()).collect();
     let publics: Vec<String> = secrets.iter().map(|s| s.public().to_text()).collect();
@@ -271,6 +300,102 @@ async fn the_backup_key_set() {
         "{}",
         r.body
     );
+
+    // A real backup, made under the set: `private` and `ops.delivery` sealed into it, from the
+    // backup's snapshot (0103 A7, A8; SCA-354).
+    let full = dir.join("full");
+    export(full.clone(), None, false).await.unwrap();
+    assert_eq!(
+        scatter_integrity::Bundle::open(&full)
+            .unwrap()
+            .manifest()
+            .sealed,
+        Some(true)
+    );
+    let opened = sealed::Sealed::open(&full).unwrap();
+    assert_eq!(opened.manifest.set, offset);
+    assert_eq!(opened.key.threshold, 2);
+    let names: Vec<String> = opened
+        .manifest
+        .tables
+        .iter()
+        .map(|t| format!("{}.{}", t.schema, t.table))
+        .collect();
+    for t in [
+        "private.password",
+        "private.session",
+        "private.login",
+        "ops.delivery",
+    ] {
+        assert!(names.contains(&t.to_string()), "{t} in {names:?}");
+    }
+    assert!(
+        !names.contains(&"ops.job_queue".to_string()),
+        "carried, not sealed"
+    );
+    assert!(opened.manifest.migrations.len() > 30);
+    // No table's bytes are in the clear: the owner's password hash is not in any file.
+    let db = triplespace_cli::common::connect(&database).await.unwrap();
+    let hash: String = db
+        .query_one("SELECT hash FROM private.password LIMIT 1", &[])
+        .await
+        .unwrap()
+        .get(0);
+    for entry in std::fs::read_dir(full.join(sealed::DIR)).unwrap() {
+        let bytes = std::fs::read(entry.unwrap().path()).unwrap();
+        assert!(
+            !bytes.windows(hash.len()).any(|w| w == hash.as_bytes()),
+            "a sealed file holds the hash in the clear"
+        );
+    }
+    // Two holders unseal their shares; one share alone does not open the backup.
+    let mut shares = Vec::new();
+    for i in [1, 2] {
+        let key_file = dir.join(format!("full-holder{i}.key"));
+        std::fs::write(&key_file, secrets[i].to_text()).unwrap();
+        let out = dir.join(format!("full-holder{i}.share"));
+        backup_key::run(BackupKey::Unseal(backup_key::Unseal {
+            sealed: opened.key_path(),
+            key: key_file,
+            out: out.clone(),
+        }))
+        .await
+        .unwrap();
+        shares.push(Share::parse(&std::fs::read_to_string(&out).unwrap()).unwrap());
+    }
+    assert!(opened.key.combine(&shares[..1]).is_err());
+    let data_key = opened.key.combine(&shares).unwrap();
+    // Each table opens to the binary COPY of the table as it was.
+    for (schema, table) in [("private", "password"), ("private", "login")] {
+        let t = opened
+            .manifest
+            .tables
+            .iter()
+            .find(|t| t.schema == schema && t.table == table)
+            .unwrap();
+        let cols = t
+            .columns
+            .iter()
+            .map(|c| format!("\"{}\"", c.name))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let live: Vec<u8> = {
+            use futures_util::TryStreamExt as _;
+            let s = db
+                .copy_out(&format!(
+                    "COPY {schema}.{table} ({cols}) TO STDOUT (FORMAT binary)"
+                ))
+                .await
+                .unwrap();
+            let parts: Vec<bytes::Bytes> = s.try_collect().await.unwrap();
+            parts.concat()
+        };
+        assert_eq!(
+            opened.table(&data_key, schema, table).unwrap(),
+            live,
+            "{schema}.{table}"
+        );
+    }
 
     // A backup made under the set: its data key sealed to the three keys.
     let registered = triplespace_api_ingest::backup_keys::current(

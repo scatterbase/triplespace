@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-07
-- **Updated:** 2026-11-12 (A6)
+- **Updated:** 2026-11-12 (A8)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0027](0027-preferences-and-portability.md), [0056](0056-security-model.md)
 - **Uses:** [0039](0039-files-and-media.md), [0081](0081-recovery-keys-and-continuations.md)
@@ -34,7 +34,7 @@ James's direction, from the design discussion of 2026-11-07:
 
 ### 1. Three scopes: export, transfer and backup (amends 0006 §9)
 
-*Changed by A1, A2, A3, A4, A5, A6.*
+*Changed by A1, A2, A3, A4, A5, A6, A7, A8.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §8.2.*
 
@@ -48,7 +48,7 @@ James's direction, from the design discussion of 2026-11-07:
 
 ### 4. Backups and rehosting carry everything (extends 0018 §10; amends 0023 §7)
 
-*Changed by A2, A3, A5, A6.*
+*Changed by A2, A3, A5, A6, A7, A8.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §6.7; [09](../architecture/09-security-and-moderation.md) §6.5.*
 
@@ -141,3 +141,17 @@ Replaced text ([08](../architecture/08-tenants-and-instances.md) §6.7, as it st
 - **Source:** Direct: Claude, while building the backup key set (SCA-362), 2026-11-12; confirmed by James, 2026-11-12
 - **Change:** extends §1, §4
 - **Summary:** The calls made building A3 and A5: (1) **`ts-backup-keys`**, a new instance right, `ungranted` like `ts-keys`, so that `owner` alone holds it, guards `PUT /backup-keys` at the farm base; `GET` needs only reading; (2) the set is the instance `config` record `backup-keys:set`, `{"keys", "threshold"}`, `threshold` 1 when absent, one set at a time, and a backup names the record's offset; (3) `triplespace backup-key register` **refuses whenever the instance has an owner account** (a member of the primary tenant's `owner` group), reading A3's "where the instance has no owner account" literally, though the operator could write the record by other means; (4) the text forms `backup-key:`, `backup-secret:` and `backup-share:`, base64url without padding; a key's ID the first eight bytes of its SHA-256; the HKDF salt both public keys, its info and the AEAD's associated data `scatter-backup-share-v1`, the backup's context and the key ID, so that a share moved to another backup or holder does not open; (5) with `k` 1 the data key is not split, since `vsss-rs` needs a threshold of at least 2, and each share is the data key itself; (6) `x25519-dalek` 2, which shares `curve25519-dalek` 4 with `ed25519-dalek`, and a `rand_core` 0.10 adapter over `getrandom`, rather than a second `getrandom`; (7) the sealed key is a CBOR value of its own, which `unseal` reads and `reseal` rewrites in place; where a backup carries it is SCA-354's.
+
+### A7. A backup without a key set
+
+- **Date:** 2026-11-12
+- **Source:** Direct: James, design discussion of 2026-11-12
+- **Change:** extends §1, §4
+- **Summary:** A backup seals `private` and the sealed `ops` tables to the backup key set (A3, A4). James decided, among refusing always, warning and leaving them out, and refusing unless told: **a backup with no key set registered refuses, unless `--without-private` asks for one without its sealed sections**, and the bundle records which it is, so that nobody gets a backup without `private` by accident.
+
+### A8. The sealed sections
+
+- **Date:** 2026-11-12
+- **Source:** Direct: Claude, while building the sealed sections (SCA-354), 2026-11-12; confirmed by James, 2026-11-12
+- **Change:** extends §1, §4
+- **Summary:** The calls made: (1) a backup's sealed sections are `sealed/` in the bundle: `key.cbor`, the data key sealed to the set; one file per table, the table's binary `COPY` of its columns but generated ones, from the backup's own snapshot; and `manifest.cbor`, naming the set's record by offset, each table's file and columns (name, type, identity), and every migration the database had applied with its checksum, which a restore needs to load each table into the schema it came from and migrate it forward (SCA-358); (2) each file is encrypted in chunks of 1 MiB, each chunk's associated data the backup's context (`backup:{farm}:{created}`), the table's name, the chunk's index and whether it is the last, so that a file opens neither in another backup nor under another name, and its chunks can be neither reordered, dropped nor cut short; (3) no digest of a table's plaintext is stored, since one would let a guess at its contents be confirmed; the AEAD authenticates the bytes; (4) every `private` and `ops` table's class is checked against the live schema before sealing, and a backup with an unclassified table fails rather than leaving it out; (5) **a backup of one tenant carries no `private`** and needs `--without-private`: `private` holds every tenant's rows together, and a tenant's own share of it is a transfer's private extract (§3); (6) `bundle.cbor`'s `sealed` is `true` for a backup with its sealed sections, `false` for one without, and absent from an export; (7) the carried `ops` tables are not yet written: they come with the restore (SCA-357), as A4 has it.

@@ -1114,6 +1114,8 @@ async fn a_bot_logs_in_reads_and_edits() {
         scope: Scope::Backup,
         tenant: None,
         out: bundle.clone(),
+        // No backup key set here: the log alone (0103 A7).
+        without_private: true,
     })
     .await
     .unwrap();
@@ -1171,6 +1173,7 @@ async fn a_bot_logs_in_reads_and_edits() {
             scope,
             tenant,
             out: bundle.join("refused"),
+            without_private: false,
         })
         .await;
         assert!(refused.is_err(), "{scope:?}");

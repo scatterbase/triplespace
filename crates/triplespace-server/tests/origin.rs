@@ -204,6 +204,8 @@ async fn origin_is_fixed_at_creation_not_at_first_checkpoint() {
         scope: Scope::Backup,
         tenant: Some(TENANT.into()),
         out: out.clone(),
+        // One tenant's backup carries no `private` (0103 A8).
+        without_private: true,
     })
     .await
     .unwrap();

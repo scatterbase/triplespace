@@ -23,6 +23,7 @@ pub mod logins;
 pub mod oauth_client;
 pub mod probe;
 pub mod rights;
+pub mod sealed;
 pub mod settings;
 pub mod setup;
 pub mod source;
