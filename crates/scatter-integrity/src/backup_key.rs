@@ -101,10 +101,16 @@ fn fill(dst: &mut [u8]) {
     getrandom::fill(dst).expect("the operating system's random source");
 }
 
+/// `N` bytes from the operating system's random source, read into uninitialised memory,
+/// so that no value is ever in the buffer but the random one.
+///
+/// # Panics
+///
+/// As [`fill`].
 fn random<const N: usize>() -> [u8; N] {
-    let mut b = [0u8; N];
-    fill(&mut b);
-    b
+    let mut buf = [std::mem::MaybeUninit::<u8>::uninit(); N];
+    let filled = getrandom::fill_uninit(&mut buf).expect("the operating system's random source");
+    <[u8; N]>::try_from(&*filled).expect("`fill_uninit` fills the whole buffer")
 }
 
 /// A holder's public key: what a key set lists and a backup seals a share to.
@@ -385,11 +391,11 @@ fn share_cipher(
     let mut salt = [0u8; 64];
     salt[..32].copy_from_slice(epk);
     salt[32..].copy_from_slice(rpk);
-    let mut okm = [0u8; 32];
+    let mut okm = chacha20poly1305::Key::default();
     Hkdf::<Sha256>::new(Some(&salt), shared)
         .expand(info, &mut okm)
         .expect("32 bytes is a valid HKDF-SHA256 length");
-    XChaCha20Poly1305::new(&okm.into())
+    XChaCha20Poly1305::new(&okm)
 }
 
 fn seal_share(to: &PublicKey, context: &str, share: &[u8]) -> Result<SealedShare, BackupKeyError> {
