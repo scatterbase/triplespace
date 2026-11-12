@@ -24,7 +24,7 @@ pub mod verify;
 pub use attest::{
     AttestError, Attestation, Authority, BuildError, founding_attestation, instance_attestation,
 };
-pub use bundle::{Bundle, BundleError, BundlePartition};
+pub use bundle::{Bundle, BundleError, BundlePartition, PartitionRegistry};
 pub use checkpoint::{Checkpoint, CheckpointError, SignedCheckpoint};
 pub use checkpoints::{CheckpointStore, CheckpointStoreError, FileCheckpoints, MemoryCheckpoints};
 pub use keys::{ChainError, KeyChain};

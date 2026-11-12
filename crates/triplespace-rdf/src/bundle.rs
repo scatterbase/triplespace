@@ -45,6 +45,28 @@ pub struct PartitionRow {
     /// The origin line recorded at creation (01 §4.2; 0006 A29); none for a partition
     /// created before the column existed that no migration could fill.
     pub origin: Option<String>,
+    /// The graph IRI.
+    pub graph_iri: String,
+    /// `full` or `latest`.
+    pub history: String,
+    /// The hash named in the genesis record.
+    pub hash: String,
+}
+
+impl PartitionRow {
+    /// The row as a backup bundle carries it (0103 A2), for a restore to register the
+    /// partition again.
+    #[must_use]
+    pub fn registry(&self) -> scatter_integrity::PartitionRegistry {
+        scatter_integrity::PartitionRegistry {
+            tenant: (!self.tenant.is_empty()).then(|| self.tenant.clone()),
+            graph_iri: self.graph_iri.clone(),
+            history: self.history.clone(),
+            integrity: self.integrity.clone(),
+            export: self.export.clone(),
+            hash: self.hash.clone(),
+        }
+    }
 }
 
 /// The partitions, all or one tenant's, ascending by ID.
@@ -54,7 +76,9 @@ pub async fn partition_rows<C: GenericClient>(
 ) -> Result<Vec<PartitionRow>, String> {
     let rows = client
         .query(
-            "SELECT partition, COALESCE(tenant, ''), name, integrity, export, origin FROM log.partition
+            "SELECT partition, COALESCE(tenant, ''), name, integrity, export, origin, graph_iri,
+                    history, hash
+             FROM log.partition
              WHERE $1::text IS NULL OR tenant = $1 ORDER BY partition",
             &[&tenant],
         )
@@ -69,6 +93,9 @@ pub async fn partition_rows<C: GenericClient>(
             integrity: r.get(3),
             export: r.get(4),
             origin: r.get(5),
+            graph_iri: r.get(6),
+            history: r.get(7),
+            hash: r.get(8),
         })
         .collect())
 }

@@ -4,8 +4,8 @@
 //!
 //! ```text
 //! {dir}/
-//!   bundle.cbor          {"format": 1, "created": µs, "partitions": [{"partition", "name", "origin"}],
-//!                         "scope": "backup" | "export" | "transfer"}
+//!   bundle.cbor          {"format": 1, "created": µs, "partitions": [{"partition", "name", "origin",
+//!                         "registry"?}], "scope": "backup" | "export" | "transfer"}
 //!   keys.seg             the `key:` records of the signing config partition, a CBOR sequence
 //!   withheld.cbor        what the bundle left out on purpose, by partition: [[offset, [part, …] | null], …]
 //!   {partition as 16 hex digits}/
@@ -52,6 +52,63 @@ pub struct BundlePartition {
     pub name: String,
     /// The checkpoint origin line.
     pub origin: String,
+    /// The partition's registry row, which a backup carries so that a restore registers
+    /// the partition as it was (0103 A2); `None` in an export, and in a bundle written
+    /// before backups carried it. `verify` does not need it.
+    pub registry: Option<PartitionRegistry>,
+}
+
+/// A partition's registry row, as a backup carries it: what a restore needs to register
+/// the partition again, beside its ID, name and origin. The segment exponent is the
+/// partition's own `partition.cbor`.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct PartitionRegistry {
+    /// The tenant, `None` for an instance partition.
+    pub tenant: Option<String>,
+    /// The graph IRI.
+    pub graph_iri: String,
+    /// The history policy: `full` or `latest`.
+    pub history: String,
+    /// The integrity: `logged` or `hashed`.
+    pub integrity: String,
+    /// The export policy: `public`, `internal` or `private`.
+    pub export: String,
+    /// The hash named in the genesis record.
+    pub hash: String,
+}
+
+impl PartitionRegistry {
+    fn to_value(&self) -> Value {
+        let mut entries = Vec::new();
+        if let Some(t) = &self.tenant {
+            entries.push((Value::text("tenant"), Value::text(t)));
+        }
+        entries.extend([
+            (Value::text("graph_iri"), Value::text(&self.graph_iri)),
+            (Value::text("history"), Value::text(&self.history)),
+            (Value::text("integrity"), Value::text(&self.integrity)),
+            (Value::text("export"), Value::text(&self.export)),
+            (Value::text("hash"), Value::text(&self.hash)),
+        ]);
+        Value::map(entries)
+    }
+
+    fn from_value(v: &Value) -> Result<Self, BundleError> {
+        let text = |key: &'static str| {
+            v.get(key)
+                .and_then(Value::as_text)
+                .map(str::to_string)
+                .ok_or(BundleError::Manifest(key))
+        };
+        Ok(Self {
+            tenant: v.get("tenant").and_then(Value::as_text).map(str::to_string),
+            graph_iri: text("graph_iri")?,
+            history: text("history")?,
+            integrity: text("integrity")?,
+            export: text("export")?,
+            hash: text("hash")?,
+        })
+    }
 }
 
 /// What `bundle.cbor` says.
@@ -93,14 +150,18 @@ impl BundleManifest {
                     self.partitions
                         .iter()
                         .map(|p| {
-                            Value::map(vec![
+                            let mut entries = vec![
                                 (
                                     Value::text("partition"),
                                     Value::Int(i128::from(p.partition)),
                                 ),
                                 (Value::text("name"), Value::text(&p.name)),
                                 (Value::text("origin"), Value::text(&p.origin)),
-                            ])
+                            ];
+                            if let Some(r) = &p.registry {
+                                entries.push((Value::text("registry"), r.to_value()));
+                            }
+                            Value::map(entries)
                         })
                         .collect(),
                 ),
@@ -138,6 +199,10 @@ impl BundleManifest {
                         .and_then(Value::as_text)
                         .ok_or(bad("origin"))?
                         .to_string(),
+                    registry: p
+                        .get("registry")
+                        .map(PartitionRegistry::from_value)
+                        .transpose()?,
                 })
             })
             .collect::<Result<_, BundleError>>()?;
@@ -560,11 +625,20 @@ mod tests {
                     partition: 0,
                     name: "config".into(),
                     origin: config_origin.clone(),
+                    registry: None,
                 },
                 BundlePartition {
                     partition: 7,
                     name: "local".into(),
                     origin: local_origin.clone(),
+                    registry: Some(PartitionRegistry {
+                        tenant: Some("wiki".into()),
+                        graph_iri: "https://wiki.example/graph/local".into(),
+                        history: "full".into(),
+                        integrity: "logged".into(),
+                        export: "public".into(),
+                        hash: "sha-256".into(),
+                    }),
                 },
             ];
             export(&store, &cps, &partitions, &key_records, 123, &dest)
