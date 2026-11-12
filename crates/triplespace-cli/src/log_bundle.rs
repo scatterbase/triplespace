@@ -181,6 +181,11 @@ pub struct Export {
     /// The directory to write, which must not exist or be empty.
     #[arg(long)]
     pub out: PathBuf,
+    /// For a backup: write it without its sealed sections, `private` and the sealed `ops`
+    /// tables, as when no backup key set is registered; the bundle says so (0103 A7). A
+    /// backup of one tenant (`--tenant`) needs it, since `private` is the instance's.
+    #[arg(long)]
+    pub without_private: bool,
 }
 
 /// Writes a bundle.
@@ -190,6 +195,10 @@ pub struct Export {
 /// A scope not built yet, a database failure, or a directory that is not empty.
 pub async fn export(args: &Export) -> Result<Vec<BundlePartition>> {
     let (scope, tenant) = match (args.scope, &args.tenant) {
+        (Scope::Backup, Some(_)) if !args.without_private => bail!(
+            "`private` is the instance's, every tenant's together, so a backup of one tenant \
+             cannot carry it: pass --without-private, or back the whole instance up (0103 A8)"
+        ),
         (Scope::Backup, t) => ("backup", t.clone()),
         (Scope::Export, Some(t)) => ("export", Some(t.clone())),
         (Scope::Export, None) => bail!("the export scope is one tenant's: name it with --tenant"),
@@ -244,18 +253,28 @@ pub async fn export(args: &Export) -> Result<Vec<BundlePartition>> {
         bail!("no partitions to bundle");
     }
     let keys = key_records(&tx).await.map_err(anyhow::Error::msg)?;
+    let created = now();
     export_scoped(
         &store,
         &checkpoints,
         &partitions,
         &keys,
-        now(),
+        created,
         &args.out,
         scope,
         &withhold,
     )
     .await
     .with_context(|| format!("writing {}", args.out.display()))?;
+    if scope == "backup" {
+        // The sealed sections, from the same snapshot as the log (0103 A2, A7, A8).
+        if !args.without_private {
+            crate::sealed::write(&tx, &args.out, &farm.slug, created)
+                .await
+                .context("the sealed sections")?;
+        }
+        scatter_integrity::bundle::mark_sealed(&args.out, !args.without_private)?;
+    }
     tx.commit().await?;
     Ok(partitions)
 }

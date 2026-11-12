@@ -204,6 +204,9 @@ x25519-dalek = { version = "2", default-features = false, features = ["static_se
 hkdf = "0.13"
 vsss-rs = { version = "6", default-features = false, features = ["std", "zeroize"] }
 rand_core = { version = "0.10", default-features = false }
+# Reading a binary COPY stream (a backup's sealed sections, 0103 A8).
+futures-util = { version = "0.3", default-features = false, features = ["std"] }
+bytes = "1"
 similar = { version = "3.2", default-features = false, features = ["text"] }
 # Skins (0097 §8): templates parsed when a skin is loaded, rendered with autoescape on, with
 # no access to files, the network or the environment; manifests carry semantic versions.

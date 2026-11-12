@@ -121,6 +121,10 @@ pub struct BundleManifest {
     /// Its scope (0103 §1): `backup`, `export` or `transfer`; `backup` when the manifest
     /// predates scopes.
     pub scope: String,
+    /// For a backup, whether it carries its sealed sections, `sealed/` (0103 A2, A7):
+    /// `Some(false)` for one written without them on request; `None` for an export, and for
+    /// a backup written before backups carried them.
+    pub sealed: Option<bool>,
 }
 
 /// What an export leaves out of one record.
@@ -140,7 +144,7 @@ pub type WithheldList = BTreeMap<u64, Option<Vec<usize>>>;
 
 impl BundleManifest {
     fn to_value(&self) -> Value {
-        Value::map(vec![
+        let mut entries = vec![
             (Value::text("format"), Value::Int(i128::from(BUNDLE_FORMAT))),
             (Value::text("created"), Value::Int(i128::from(self.created))),
             (Value::text("scope"), Value::text(&self.scope)),
@@ -166,7 +170,11 @@ impl BundleManifest {
                         .collect(),
                 ),
             ),
-        ])
+        ];
+        if let Some(sealed) = self.sealed {
+            entries.push((Value::text("sealed"), Value::Bool(sealed)));
+        }
+        Value::map(entries)
     }
 
     fn from_value(v: &Value) -> Result<Self, BundleError> {
@@ -211,12 +219,36 @@ impl BundleManifest {
             .and_then(Value::as_text)
             .unwrap_or("backup")
             .to_string();
+        let sealed = match v.get("sealed") {
+            None => None,
+            Some(Value::Bool(b)) => Some(*b),
+            Some(_) => return Err(bad("sealed")),
+        };
         Ok(Self {
             created,
             partitions,
             scope,
+            sealed,
         })
     }
+}
+
+/// Records in `dest`'s `bundle.cbor` whether the backup carries its sealed sections
+/// (0103 A7), once the caller has written them, or chosen not to.
+///
+/// # Errors
+///
+/// The file system's, or a manifest that does not read.
+pub fn mark_sealed(dest: &Path, sealed: bool) -> Result<(), BundleError> {
+    let path = dest.join(MANIFEST_FILE);
+    let v = cbor::decode(&fs::read(&path)?).map_err(|_| BundleError::Manifest("decode"))?;
+    let mut manifest = BundleManifest::from_value(&v)?;
+    manifest.sealed = Some(sealed);
+    fs::write(
+        path,
+        cbor::encode(&manifest.to_value()).expect("the manifest encodes"),
+    )?;
+    Ok(())
 }
 
 /// Why a bundle could not be written or opened.
@@ -362,6 +394,7 @@ pub async fn export_scoped<S: LogStore, C: CheckpointStore>(
         created,
         partitions: partitions.to_vec(),
         scope: scope.to_string(),
+        sealed: None,
     };
     fs::write(
         dest.join(MANIFEST_FILE),
