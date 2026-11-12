@@ -23,6 +23,7 @@
 
 pub mod accounts;
 pub mod acl;
+pub mod backup_keys;
 pub mod batch;
 pub mod blocks;
 pub mod diff;

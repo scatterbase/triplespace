@@ -6,6 +6,7 @@
 pub mod accounts;
 pub mod adopt;
 pub mod adopt_pages;
+pub mod backup_key;
 pub mod bootstrap;
 pub mod challenge;
 pub mod common;

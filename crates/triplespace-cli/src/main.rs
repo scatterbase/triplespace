@@ -12,8 +12,9 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use triplespace_cli::{
-    accounts, adopt, challenge, compact, dump, env_file, follow, forwarder, import_pages, instance,
-    job, log_bundle, logins, oauth_client, rights, settings, setup, source, status, sync, tenant,
+    accounts, adopt, backup_key, challenge, compact, dump, env_file, follow, forwarder,
+    import_pages, instance, job, log_bundle, logins, oauth_client, rights, settings, setup, source,
+    status, sync, tenant,
 };
 
 /// Triplespace: a Wikibase as an append-only log.
@@ -81,6 +82,12 @@ enum Command {
     Challenge {
         #[command(subcommand)]
         command: ChallengeCommand,
+    },
+    /// The backup key set: generate a holder's key, register the set, show it, unseal a
+    /// share of a backup, reseal a backup to another set (0103 A3).
+    BackupKey {
+        #[command(subcommand)]
+        command: backup_key::BackupKey,
     },
     /// Client credentials for logging in through external issuers (0088 §3).
     OauthClient {
@@ -193,6 +200,7 @@ async fn run() -> Result<()> {
         Command::Challenge {
             command: ChallengeCommand::Solve(args),
         } => challenge::run(&args),
+        Command::BackupKey { command } => backup_key::run(command).await,
         Command::OauthClient { command } => oauth_client::run(command).await,
         Command::Settings { command } => settings::run(command).await,
         Command::Member { command } => rights::run_member(command).await,

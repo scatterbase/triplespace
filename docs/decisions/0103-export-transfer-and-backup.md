@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-07
-- **Updated:** 2026-11-12 (A4)
+- **Updated:** 2026-11-12 (A6)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0027](0027-preferences-and-portability.md), [0056](0056-security-model.md)
 - **Uses:** [0039](0039-files-and-media.md), [0081](0081-recovery-keys-and-continuations.md)
@@ -34,7 +34,7 @@ James's direction, from the design discussion of 2026-11-07:
 
 ### 1. Three scopes: export, transfer and backup (amends 0006 §9)
 
-*Changed by A1, A2, A3, A4.*
+*Changed by A1, A2, A3, A4, A5, A6.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §8.2.*
 
@@ -48,7 +48,7 @@ James's direction, from the design discussion of 2026-11-07:
 
 ### 4. Backups and rehosting carry everything (extends 0018 §10; amends 0023 §7)
 
-*Changed by A2, A3.*
+*Changed by A2, A3, A5, A6.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §6.7; [09](../architecture/09-security-and-moderation.md) §6.5.*
 
@@ -127,3 +127,17 @@ Replaced text ([08](../architecture/08-tenants-and-instances.md) §6.7, as it st
 - **Source:** Direct: Claude, while building the `ops` classification (SCA-355), 2026-11-12; confirmed by James, 2026-11-12, with (5) added
 - **Change:** extends §1
 - **Summary:** A2 carries "the `ops` state that no rebuild recovers" without naming it. The calls made: (1) **three classes**, each `ops` table's comment, `backup: carried | sealed | left`, checked against `triplespace_db::ops::OPS_TABLES` as `private` tables' portability is, so that no `ops` table exists unclassified; (2) **`delivery` is sealed**, carried but encrypted with `private` under A3's key set: its rows are outgoing messages complete with their addresses and bodies, verification codes among them; (3) **carried**: `job_queue`, uploads included, a job running at the backup's instant running again after a restore as after a runner's crash; `forwarder_key`; `repo_cursor`, a hint the version cursor could rebuild, carried as small and saving polling from the start; and `visibility_epoch`, part of every cache key; (4) **left**: `migration`, which the restore's migrations write; `projection_state` and `projection_work`, which the rebuild fills; and `purge`, purges for caches a restored instance does not have; (5) **a restore advances every tenant's `visibility_epoch`** to the restore's time in microseconds (James, in confirming): the old instance may have raised the epoch after the backup and cached entries under the very values the backup holds, as under any value from before, so neither carrying the value nor starting at 0 keeps a restored instance from meeting them; no epoch the old instance counted to can reach the restore's time, and later bumps count on from it.
+
+### A5. How a share is sealed and the key split
+
+- **Date:** 2026-11-12
+- **Source:** Direct: James, design discussion of 2026-11-12
+- **Change:** extends §1, §4
+- **Summary:** For A3's set, James chose, among X25519 with HKDF and XChaCha20-Poly1305, the `age` format and HPKE: **each share is sealed by an ephemeral X25519 agreement with the holder's key, HKDF-SHA256, and XChaCha20-Poly1305**, the AEAD already sealing `private`'s secrets at rest; and, between Shamir's scheme written here and a crate, **the `vsss-rs` crate** for splitting the data key when `k` is above 1. The owner's route to register the set comes with the command line's, not after it.
+
+### A6. The record, the right, the formats
+
+- **Date:** 2026-11-12
+- **Source:** Direct: Claude, while building the backup key set (SCA-362), 2026-11-12; confirmed by James, 2026-11-12
+- **Change:** extends §1, §4
+- **Summary:** The calls made building A3 and A5: (1) **`ts-backup-keys`**, a new instance right, `ungranted` like `ts-keys`, so that `owner` alone holds it, guards `PUT /backup-keys` at the farm base; `GET` needs only reading; (2) the set is the instance `config` record `backup-keys:set`, `{"keys", "threshold"}`, `threshold` 1 when absent, one set at a time, and a backup names the record's offset; (3) `triplespace backup-key register` **refuses whenever the instance has an owner account** (a member of the primary tenant's `owner` group), reading A3's "where the instance has no owner account" literally, though the operator could write the record by other means; (4) the text forms `backup-key:`, `backup-secret:` and `backup-share:`, base64url without padding; a key's ID the first eight bytes of its SHA-256; the HKDF salt both public keys, its info and the AEAD's associated data `scatter-backup-share-v1`, the backup's context and the key ID, so that a share moved to another backup or holder does not open; (5) with `k` 1 the data key is not split, since `vsss-rs` needs a threshold of at least 2, and each share is the data key itself; (6) `x25519-dalek` 2, which shares `curve25519-dalek` 4 with `ed25519-dalek`, and a `rand_core` 0.10 adapter over `getrandom`, rather than a second `getrandom`; (7) the sealed key is a CBOR value of its own, which `unseal` reads and `reseal` rewrites in place; where a backup carries it is SCA-354's.

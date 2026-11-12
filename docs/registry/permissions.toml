@@ -188,6 +188,14 @@ allows = "Registering and rotating the instance key; `key:` records in `config`;
 sources = "[0016](../decisions/0016-permissions-and-access-control.md) §2, §4; [0028](../decisions/0028-tenancy-policy.md) §13"
 
 [[permission]]
+names = ["ts-backup-keys"]
+ungranted = true
+granted_note = "`owner` only"
+new = true
+allows = "Registering and replacing the backup key set, the `backup-keys` record of the instance `config` (`PUT /backup-keys`): the keys a backup's sealed sections are encrypted to, and how many of them restore one. An instance right"
+sources = "[0103](../decisions/0103-export-transfer-and-backup.md) A3, A5"
+
+[[permission]]
 names = ["ts-editpost"]
 new = true
 allows = "`edit` of another actor's post"

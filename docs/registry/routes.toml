@@ -64,6 +64,11 @@ purpose = "[0007](../decisions/0007-actor-identity.md) §4, [0008](../decisions/
 sources = "[0012](../decisions/0012-api-requirements.md) §5"
 
 [[route]]
+routes = ["GET /backup-keys", "PUT /backup-keys"]
+purpose = "At the farm base. The backup key set in force: its keys, their IDs, the threshold, and the offset of the `backup-keys` record a backup names; `PUT` registers or replaces it, `{keys, threshold}` with `threshold` 1 when absent, with `ts-backup-keys`, the instance owner's alone ([01](01-log-and-records.md) §8.2)"
+sources = "[0103](../decisions/0103-export-transfer-and-backup.md) A3, A5"
+
+[[route]]
 routes = ["GET /account/requests", "POST /account/requests/{id}/approve", "POST /account/requests/{id}/reject"]
 purpose = "Open account requests oldest first, with name, statement and age, and the address key with `ts-viewip`; approving, or rejecting with `reason`; `confirmaccount` ([07](07-actors-and-accounts.md) §2.6)"
 sources = "[0087](../decisions/0087-account-registration-and-challenges.md) §6"

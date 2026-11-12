@@ -12,6 +12,7 @@
 //! - [`records`]: the `records` export, a selection of records with their proofs.
 
 pub mod attest;
+pub mod backup_key;
 pub mod bundle;
 pub mod checkpoint;
 pub mod checkpoints;

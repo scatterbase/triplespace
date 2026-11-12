@@ -6259,6 +6259,120 @@
           }
         }
       }
+    },
+    "/backup-keys": {
+      "get": {
+        "operationId": "getBackupKeys",
+        "summary": "The backup key set",
+        "description": "At the farm base: the keys a backup's sealed sections are encrypted to, and how many of them restore one (ADR 0103 A3, A6). Readable by anyone who may read the tenant; the keys are public.",
+        "responses": {
+          "200": {
+            "description": "The set, or `{\"set\": null}`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupKeySet"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`ts-instance-policy`: not at the farm base.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "`misdirected`: not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "operationId": "putBackupKeys",
+        "summary": "Register or replace the backup key set",
+        "description": "At the farm base, with `ts-backup-keys`, which the instance's `owner` alone holds (ADR 0103 A3, A6). The body is `{\"keys\": [\"backup-key:…\", …], \"threshold\": k, \"token\": …}`, `threshold` 1 when absent; a session's write carries its CSRF token. Applies to backups made after it.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "keys"
+                ],
+                "properties": {
+                  "keys": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "threshold": {
+                    "type": "integer",
+                    "minimum": 1
+                  },
+                  "token": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The set registered.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BackupKeySet"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`badbody`, `ts-backup-keys-invalid` (no key, a key twice, a key that does not parse, or a threshold outside 1 to the number of keys), or `ts-instance-policy`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied`, or `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "`misdirected`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -9530,6 +9644,50 @@
             "description": "The revert job that reverted this one."
           }
         }
+      },
+      "BackupKeySet": {
+        "type": "object",
+        "description": "The backup key set in force (ADR 0103 A3, A6), or null when none is registered.",
+        "properties": {
+          "set": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "keys": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Each holder's public key, `backup-key:…`."
+              },
+              "key_ids": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "Each key's ID: the first eight bytes of its SHA-256, in hex."
+              },
+              "threshold": {
+                "type": "integer",
+                "minimum": 1,
+                "description": "How many keys restore a backup."
+              },
+              "offset": {
+                "type": "integer",
+                "description": "The offset of the `backup-keys` record in the instance `config` partition, which a backup names."
+              },
+              "actor": {
+                "type": "string",
+                "description": "Who registered it."
+              }
+            }
+          }
+        },
+        "required": [
+          "set"
+        ]
       }
     }
   }
