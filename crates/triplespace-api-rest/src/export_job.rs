@@ -2,7 +2,7 @@
 //! `export.sync_revisions`, queued for the runner, its file kept in the blob store for
 //! the account that asked.
 //!
-//! **Queuing** ([`queue`]). `POST /export` hands a selection over the limit here. Where
+//! **Queuing** (`queue`). `POST /export` hands a selection over the limit here. Where
 //! the caller is signed in and this server keeps a blob store, the request is submitted
 //! as an `export` job, its `params` the request body with `format` written out, and the
 //! answer is `202` with `{"job", "status": "queued", "url"}`, `url` being where the file
@@ -11,7 +11,7 @@
 //! export-too-large`.
 //!
 //! **Running** ([`ExportWork`], which the process gives its runner for
-//! [`Kind::Export`](triplespace_api_ingest::jobs::Kind::Export)). The job reads the
+//! [`Kind::Export`]). The job reads the
 //! stored request again with the rights its submitter holds when it runs, not those held
 //! when it was queued, and with no revision limit; `export.history`, `export.max_history`
 //! and the other export settings hold as they do in place. MediaWiki XML is streamed into
@@ -188,7 +188,7 @@ pub(crate) async fn queue(
 }
 
 /// The work of an export job: what a runner is given for
-/// [`Kind::Export`](triplespace_api_ingest::jobs::Kind::Export).
+/// [`Kind::Export`].
 #[derive(Clone)]
 pub struct ExportWork {
     app: App,
