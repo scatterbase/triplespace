@@ -672,6 +672,8 @@
 	"ts-setting-import-sync_pages-help": "An import of up to this many pages runs while you wait; a larger one is queued for the job runner and shown on Special:Jobs.",
 	"ts-setting-jobs-paused": "Job runner paused",
 	"ts-setting-jobs-paused-help": "While on, queued jobs wait and a running one finishes; nothing new starts.",
+	"ts-setting-jobs-max_attempts": "Most runs of a job",
+	"ts-setting-jobs-max_attempts-help": "How many times a queued job is started before one whose runner died is failed instead of run again.",
 	"ts-setting-federation-accept_fep8b32": "Federation accept fep8b32",
 	"ts-setting-federation-accept_fep8b32-help": "Accept FEP-8b32 object integrity proofs inbound.",
 	"ts-setting-federation-accept_rfc9421": "Federation accept rfc9421",

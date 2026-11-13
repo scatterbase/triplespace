@@ -671,6 +671,8 @@
 	"ts-setting-import-sync_pages-help": "Help text of the setting `import.sync_pages`, under its label on Special:WikiSettings. From the settings catalogue (docs/registry/settings.toml).",
 	"ts-setting-jobs-paused": "Label of the setting `jobs.paused` on Special:InstanceSettings (ADR 0104 §4). The key is shown beside it.",
 	"ts-setting-jobs-paused-help": "Help text of the setting `jobs.paused`, under its label on Special:InstanceSettings. From the settings catalogue (docs/registry/settings.toml).",
+	"ts-setting-jobs-max_attempts": "Label of the setting `jobs.max_attempts` on Special:InstanceSettings (ADR 0104 A7). The key is shown beside it.",
+	"ts-setting-jobs-max_attempts-help": "Help text of the setting `jobs.max_attempts`, under its label on Special:InstanceSettings. From the settings catalogue (docs/registry/settings.toml).",
 	"ts-setting-export-sync_revisions-help": "Help text of the setting `export.sync_revisions`, under its label on Special:WikiSettings or Special:InstanceSettings. From the settings catalogue (docs/registry/settings.toml).",
 	"ts-setting-federation-accept_fep8b32": "Label of the setting `federation.accept_fep8b32` on Special:WikiSettings or Special:InstanceSettings (ADR 0085 §1, §4). The key is shown beside it.",
 	"ts-setting-federation-accept_fep8b32-help": "Help text of the setting `federation.accept_fep8b32`, under its label on Special:WikiSettings or Special:InstanceSettings. From the settings catalogue (docs/registry/settings.toml).",
