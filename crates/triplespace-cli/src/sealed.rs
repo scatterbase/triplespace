@@ -21,7 +21,7 @@ use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, Result, bail};
 use futures_util::TryStreamExt as _;
-use scatter_integrity::backup_key::{DataKey, SealedKey, seal_new};
+use scatter_integrity::backup_key::{ChunkOpener, DataKey, SealedKey, seal_new};
 use scatter_log::cbor::{self, Value};
 use tokio_postgres::GenericClient;
 
@@ -137,13 +137,15 @@ pub(crate) fn quote(ident: &str) -> String {
     format!("\"{}\"", ident.replace('"', "\"\""))
 }
 
-/// The binary `COPY` of `columns` of `schema.table`, read on `client`.
+/// The binary `COPY` of `columns` of `schema.table`, read on `client` and handed to `sink`
+/// a piece at a time, so that no table is held whole (0103 A13).
 pub(crate) async fn copy_out(
     client: &tokio_postgres::Transaction<'_>,
     schema: &str,
     table: &str,
     columns: &[Column],
-) -> Result<Vec<u8>> {
+    mut sink: impl FnMut(&[u8]) -> std::io::Result<()>,
+) -> Result<()> {
     let list = columns
         .iter()
         .map(|c| quote(&c.name))
@@ -157,8 +159,26 @@ pub(crate) async fn copy_out(
         ))
         .await
         .with_context(|| format!("copy {schema}.{table}"))?;
-    let chunks: Vec<bytes::Bytes> = stream.try_collect().await?;
-    Ok(chunks.concat())
+    let mut stream = std::pin::pin!(stream);
+    while let Some(piece) = stream.try_next().await? {
+        sink(&piece)?;
+    }
+    Ok(())
+}
+
+/// A file of a backup's section, written through and synced before it counts as written.
+pub(crate) fn create(path: &Path) -> Result<std::io::BufWriter<std::fs::File>> {
+    Ok(std::io::BufWriter::new(
+        std::fs::File::create(path).with_context(|| format!("write {}", path.display()))?,
+    ))
+}
+
+/// Flushes and syncs what [`create`] opened.
+pub(crate) fn close(file: std::io::BufWriter<std::fs::File>) -> Result<()> {
+    file.into_inner()
+        .map_err(std::io::IntoInnerError::into_error)?
+        .sync_all()?;
+    Ok(())
 }
 
 /// Writes the sealed sections of a backup into `bundle`, from `client`'s snapshot, sealed to
@@ -191,13 +211,15 @@ pub async fn write(
     let mut tables = Vec::new();
     for (schema, table) in self::tables(client).await? {
         let columns = columns(client, &schema, &table).await?;
-        let plain = copy_out(client, &schema, &table, &columns).await?;
         let file = format!("{schema}.{table}.bin");
-        std::fs::write(
-            dir.join(&file),
-            key.encrypt_chunks(&aad(&context, &schema, &table), &plain),
-        )
-        .with_context(|| format!("write {file}"))?;
+        let mut out = create(&dir.join(&file))?;
+        let mut chunks = key.seal_chunks(&aad(&context, &schema, &table));
+        copy_out(client, &schema, &table, &columns, |piece| {
+            chunks.push(piece, &mut out)
+        })
+        .await?;
+        chunks.finish(&mut out)?;
+        close(out)?;
         tables.push(Table {
             schema,
             table,
@@ -216,18 +238,14 @@ pub async fn write(
     Ok(manifest)
 }
 
-/// `(crate, migration, checksum)` of every migration the database has applied, in order:
+/// `(crate, migration, checksum)` of every migration the database records, in order:
 /// what both manifests record, for a restore to make the schema the tables came from.
 pub(crate) async fn applied_migrations<C: GenericClient>(
     client: &C,
 ) -> Result<Vec<(String, String, String)>> {
-    Ok(triplespace_db::migrator()
-        .status(client)
-        .await?
-        .into_iter()
-        .filter(|m| m.applied_at.is_some())
-        .map(|m| (m.crate_name, m.name, m.checksum))
-        .collect())
+    // The database's own record, not this binary's list: a database a newer binary
+    // migrated must say so in its backup, with the checksums it was migrated under.
+    Ok(triplespace_db::migrate::recorded(client).await?)
 }
 
 /// The migrations, as both manifests write them.
@@ -405,13 +423,37 @@ impl Sealed {
     ///
     /// A table the backup does not hold, or a file that does not open under the key.
     pub fn table(&self, key: &DataKey, schema: &str, table: &str) -> Result<Vec<u8>> {
+        let mut chunks = self.open_table(key, schema, table)?;
+        let mut out = Vec::new();
+        while let Some(chunk) = chunks.next_chunk()? {
+            out.extend(chunk);
+        }
+        Ok(out)
+    }
+
+    /// One table's binary `COPY`, decrypted a chunk at a time: what a restore reads, so
+    /// that no table is held whole (0103 A13).
+    ///
+    /// # Errors
+    ///
+    /// A table the backup does not hold, or a file that does not open.
+    pub fn open_table<'k>(
+        &self,
+        key: &'k DataKey,
+        schema: &str,
+        table: &str,
+    ) -> Result<ChunkOpener<'k, std::io::BufReader<std::fs::File>>> {
         let t = self
             .manifest
             .tables
             .iter()
             .find(|t| t.schema == schema && t.table == table)
             .with_context(|| format!("the backup holds no {schema}.{table}"))?;
-        let sealed = std::fs::read(self.dir.join(&t.file))?;
-        Ok(key.decrypt_chunks(&aad(&self.manifest.context, schema, table), &sealed)?)
+        let file = std::fs::File::open(self.dir.join(&t.file))
+            .with_context(|| format!("the backup's {}", t.file))?;
+        Ok(key.open_chunks(
+            &aad(&self.manifest.context, schema, table),
+            std::io::BufReader::new(file),
+        ))
     }
 }

@@ -392,5 +392,124 @@ async fn a_backup_restores_into_an_empty_database() {
         .api("action=query&prop=revisions&rvprop=content&rvslots=main&titles=Restored")
         .await;
     assert!(page.to_string().contains("Before the move."), "{page}");
+
+    // 0103 §4 (A13): without the sealed sections `private.login` is empty, and the next
+    // login is still numbered past every login the log holds.
+    let bare = fresh_database("tsrestore_bare").await;
+    restore::restore(&restore::Restore {
+        database: bare.clone(),
+        bundle: bundle.clone(),
+        shares: vec![],
+        without_private: true,
+    })
+    .await
+    .unwrap();
+    let held = rows(
+        &bare,
+        "SELECT (SELECT count(*) FROM private.login)::text,
+                (nextval('private.login_id') >
+                 (SELECT max(substring(key from '^login:([0-9]+)$')::bigint) FROM log.record r
+                  JOIN log.partition p USING (partition) WHERE p.name = 'logins'))::text",
+    )
+    .await;
+    assert_eq!(held, vec![vec![Some("0".into()), Some("true".into())]]);
+
+    // 0103 §1 (A13): a backup that lost part of itself is refused before the database
+    // is touched: a carried table's file cut short, then a partition's segment file gone.
+    let untouched = fresh_database("tsrestore_cut").await;
+    let cut = dir.join("cut");
+    let copy = |to: &std::path::Path| {
+        let _ = std::fs::remove_dir_all(to);
+        let status = std::process::Command::new("cp")
+            .arg("-r")
+            .arg(&bundle)
+            .arg(to)
+            .status()
+            .unwrap();
+        assert!(status.success());
+    };
+    let refused = |bundle: std::path::PathBuf| {
+        let database = untouched.clone();
+        let share = dir.join("holder.share");
+        async move {
+            let e = restore::restore(&restore::Restore {
+                database: database.clone(),
+                bundle,
+                shares: vec![share],
+                without_private: false,
+            })
+            .await
+            .unwrap_err();
+            assert_eq!(
+                rows(
+                    &database,
+                    "SELECT nspname::text FROM pg_namespace WHERE nspname IN ('log', 'ops')"
+                )
+                .await,
+                Vec::<Vec<Option<String>>>::new(),
+                "refused before the database was touched"
+            );
+            format!("{e:#}")
+        }
+    };
+    copy(&cut);
+    let file = cut.join("carried/ops.forwarder_key.bin");
+    let bytes = std::fs::read(&file).unwrap();
+    std::fs::write(&file, &bytes[..bytes.len() - 2]).unwrap();
+    let e = refused(cut.clone()).await;
+    assert!(e.contains("cut short"), "{e}");
+    copy(&cut);
+    let sealed_file = cut.join("sealed/private.password.bin");
+    let bytes = std::fs::read(&sealed_file).unwrap();
+    std::fs::write(&sealed_file, &bytes[..bytes.len() - 2]).unwrap();
+    let e = refused(cut.clone()).await;
+    assert!(e.contains("does not open"), "{e}");
+    copy(&cut);
+    let config = cut.join("0000000000000000");
+    let mut segments: Vec<_> = std::fs::read_dir(&config)
+        .unwrap()
+        .map(|e| e.unwrap().path())
+        .filter(|p| p.extension().is_some_and(|x| x == "seg"))
+        .collect();
+    segments.sort();
+    std::fs::remove_file(segments.last().unwrap()).unwrap();
+    let e = refused(cut.clone()).await;
+    assert!(e.contains("missing or changed"), "{e}");
+
+    // 0033 §4 (A31): a database a newer binary migrated is not one this binary migrates,
+    // and its backup says what it was migrated under, so this binary refuses that too.
+    let mut newer = triplespace_cli::common::connect(&restored).await.unwrap();
+    newer
+        .execute(
+            "INSERT INTO ops.migration (crate_name, name, checksum)
+             VALUES ('triplespace-db', '9999_from_the_future', 'x')",
+            &[],
+        )
+        .await
+        .unwrap();
+    let unknown = triplespace_db::migrator().unknown(&newer).await.unwrap();
+    assert_eq!(
+        unknown,
+        vec![(
+            "triplespace-db".to_string(),
+            "9999_from_the_future".to_string()
+        )]
+    );
+    assert!(matches!(
+        triplespace_db::migrator().apply(&mut newer).await,
+        Err(triplespace_db::MigrateError::Newer(_))
+    ));
+    let ahead = dir.join("ahead");
+    log_bundle::export(&log_bundle::Export {
+        database: restored.clone(),
+        scope: log_bundle::Scope::Backup,
+        tenant: None,
+        out: ahead.clone(),
+        without_private: true,
+    })
+    .await
+    .unwrap();
+    let e = refused(ahead).await;
+    assert!(e.contains("9999_from_the_future"), "{e}");
     let _ = std::fs::remove_dir_all(&dir);
 }

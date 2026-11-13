@@ -28,6 +28,7 @@
 //! columns differ.
 
 use std::collections::BTreeMap;
+use std::io::Read as _;
 use std::path::{Path, PathBuf};
 
 use anyhow::{Context as _, Result, bail};
@@ -43,6 +44,7 @@ use scatter_log::store::LogStore as _;
 use scatter_log::tree::{Frontier, Segments};
 use scatter_log_postgres::partition::PartitionInfo;
 use scatter_log_postgres::{Frontiers, PgCheckpoints};
+use sha2::{Digest as _, Sha256};
 use tokio_postgres::Client;
 use triplespace_db::Migrator;
 
@@ -124,11 +126,11 @@ async fn farm_of(bundle: &Bundle) -> Result<triplespace_projections::Farm> {
 /// Loads `bytes`, a binary `COPY` of `columns`, into `schema.table`, after checking that the
 /// database's table has the columns the backup holds.
 async fn load(
-    client: &Client,
+    client: &tokio_postgres::Transaction<'_>,
     schema: &str,
     table: &str,
     columns: &[Column],
-    bytes: Vec<u8>,
+    mut next: impl FnMut() -> Result<Option<Vec<u8>>>,
 ) -> Result<()> {
     let here = self::columns(client, schema, table).await?;
     let names = |cs: &[Column]| {
@@ -156,8 +158,84 @@ async fn load(
         .await
         .with_context(|| format!("copy into {schema}.{table}"))?;
     let mut sink = std::pin::pin!(sink);
-    sink.send(bytes::Bytes::from(bytes)).await?;
+    // A piece at a time: no table is held whole, nor sent as one message (0103 A13).
+    while let Some(piece) = next().with_context(|| format!("the backup's {schema}.{table}"))? {
+        if !piece.is_empty() {
+            sink.send(bytes::Bytes::from(piece)).await?;
+        }
+    }
     sink.as_mut().finish().await?;
+    Ok(())
+}
+
+/// A carried table's file, read a piece at a time and held to the length and digest the
+/// manifest states for it: at the end of the file, a mismatch is an error.
+struct CarriedFile<'a> {
+    file: std::fs::File,
+    digest: Option<&'a crate::carried::Digest>,
+    hash: Sha256,
+    bytes: u64,
+}
+
+impl<'a> CarriedFile<'a> {
+    fn open(carried: &'a Carried, schema: &str, table: &str) -> Result<Self> {
+        let (file, digest) = carried.open_table(schema, table)?;
+        Ok(Self {
+            file,
+            digest,
+            hash: Sha256::new(),
+            bytes: 0,
+        })
+    }
+
+    fn next(&mut self) -> Result<Option<Vec<u8>>> {
+        let mut piece = vec![0; 1 << 20];
+        let n = self.file.read(&mut piece)?;
+        if n > 0 {
+            piece.truncate(n);
+            self.hash.update(&piece);
+            self.bytes += n as u64;
+            return Ok(Some(piece));
+        }
+        if let Some(d) = self.digest
+            && (d.bytes != self.bytes || d.sha256 != <[u8; 32]>::from(self.hash.clone().finalize()))
+        {
+            bail!(
+                "`{}` is not the file the backup wrote ({} bytes, where it wrote {}): it is \
+                 cut short or changed",
+                d.file,
+                self.bytes,
+                d.bytes
+            );
+        }
+        Ok(None)
+    }
+}
+
+/// Reads every carried and sealed table file through before the database is touched
+/// (0103 A13): a file cut short or changed, or one the shares do not open, is found now
+/// and not after the log is loaded and the projections rebuilt.
+fn preflight(carried: &Carried, sealed: Option<&(Sealed, DataKey)>) -> Result<()> {
+    for t in &carried.manifest.tables {
+        let mut file = CarriedFile::open(carried, &t.schema, &t.table)?;
+        while file.next()?.is_some() {}
+    }
+    if let Some((sealed, key)) = sealed {
+        for t in &sealed.manifest.tables {
+            let mut chunks = sealed.open_table(key, &t.schema, &t.table)?;
+            while chunks
+                .next_chunk()
+                .with_context(|| {
+                    format!(
+                        "the backup's sealed {}.{} does not open: the shares are of another \
+                         backup, or the file is cut short or changed",
+                        t.schema, t.table
+                    )
+                })?
+                .is_some()
+            {}
+        }
+    }
     Ok(())
 }
 
@@ -210,30 +288,30 @@ async fn load_tables(
                 .map(|t| format!("{}.{}", quote(&t.schema), quote(&t.table))),
         );
     }
+    // One unit of work: the tables are emptied and loaded together or not at all, and a
+    // file that turns out short is not left half loaded.
+    let tx = client.transaction().await?;
     if !names.is_empty() {
-        client
-            .batch_execute(&format!("TRUNCATE {}", names.join(", ")))
+        tx.batch_execute(&format!("TRUNCATE {}", names.join(", ")))
             .await?;
     }
     let mut tables = 0;
     for t in &carried.manifest.tables {
-        load(
-            client,
-            &t.schema,
-            &t.table,
-            &t.columns,
-            carried.table(&t.schema, &t.table)?,
-        )
-        .await?;
+        let mut file = CarriedFile::open(carried, &t.schema, &t.table)?;
+        load(&tx, &t.schema, &t.table, &t.columns, || file.next()).await?;
         tables += 1;
     }
     if let Some((sealed, key)) = sealed {
         for t in &sealed.manifest.tables {
-            let bytes = sealed.table(key, &t.schema, &t.table)?;
-            load(client, &t.schema, &t.table, &t.columns, bytes).await?;
+            let mut chunks = sealed.open_table(key, &t.schema, &t.table)?;
+            load(&tx, &t.schema, &t.table, &t.columns, || {
+                Ok(chunks.next_chunk()?)
+            })
+            .await?;
             tables += 1;
         }
     }
+    tx.commit().await?;
     Ok(tables)
 }
 
@@ -463,6 +541,34 @@ impl ChainCheck {
     }
 }
 
+/// Moves `private.login_id` past every login the log holds (0103 A13). [`reset_sequences`]
+/// sets it from `private.login`, which a restore without the sealed sections leaves
+/// empty: the next login would then be minted as 1 and its record keyed `login:1`, a key
+/// the restored `logins` partition already holds for someone else.
+async fn login_ids_past_the_log(client: &Client) -> Result<()> {
+    let held: Option<i64> = client
+        .query_one(
+            "SELECT max(substring(r.key from '^login:([0-9]{1,18})$')::bigint)
+             FROM log.record r JOIN log.partition p ON p.partition = r.partition
+             WHERE p.tenant IS NULL AND p.name = 'logins'",
+            &[],
+        )
+        .await?
+        .get(0);
+    let Some(held) = held else {
+        return Ok(());
+    };
+    client
+        .execute(
+            "SELECT setval('private.login_id', $1, true)
+             FROM private.login_id WHERE NOT is_called OR last_value < $1",
+            &[&held],
+        )
+        .await
+        .context("move private.login_id past the logins the log holds")?;
+    Ok(())
+}
+
 /// Restores the backup at `args.bundle` into the empty database at `args.database`.
 ///
 /// # Errors
@@ -533,6 +639,7 @@ pub async fn restore_with(args: &Restore, migrator: &Migrator) -> Result<Restore
         }
         _ => None,
     };
+    preflight(&carried, sealed.as_ref())?;
     let farm = farm_of(&bundle).await?;
 
     let mut client = connect(&args.database).await?;
@@ -664,6 +771,7 @@ pub async fn restore_with(args: &Restore, migrator: &Migrator) -> Result<Restore
         None => load_tables(&mut client, &carried, sealed.as_ref()).await?,
     };
     reset_sequences(&client).await?;
+    login_ids_past_the_log(&client).await?;
     let epoch = i64::try_from(now()).unwrap_or(i64::MAX);
     // Every tenant, not only those the backup holds a row for: a row is made at a
     // tenant's first bump, which the old instance may have reached after the backup.

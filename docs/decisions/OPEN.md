@@ -54,6 +54,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0033 A25](0033-backend-stack.md#a25-tls-to-postgres-when-the-url-says-sslmoderequire) | 2026-10-31 | TLS to Postgres when the URL says `sslmode=require` |
 | [0033 A28](0033-backend-stack.md#a28-dependabot-keeps-dependency-versions-current) | 2026-11-09 | Dependabot keeps dependency versions current |
 | [0033 A30](0033-backend-stack.md#a30-dependabot-ignores-a-major-release-that-cannot-be-taken-yet) | 2026-11-10 | Dependabot ignores a major release that cannot be taken yet |
+| [0033 A31](0033-backend-stack.md#a31-a-database-ahead-of-the-binary) | 2026-11-13 | A database ahead of the binary |
 | [0034 A15](0034-frontend-stack.md#a15-uselangqqx-shows-message-keys) | 2026-11-04 | `uselang=qqx` shows message keys |
 | [0034 A17](0034-frontend-stack.md#a17-thread-fragments-the-browsers-language-and-the-media-origin-the-calls-made-building-them) | 2026-11-10 | Thread fragments, the browser's language, and the media origin: the calls made building them |
 | [0034 A18](0034-frontend-stack.md#a18-the-job-progress-bar-is-built-alias-chips-wait-on-codex) | 2026-11-10 | The job progress bar is built; alias chips wait on Codex |
@@ -86,6 +87,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0103 A10](0103-export-transfer-and-backup.md#a10-the-restore-loads-slots-in-blocks-and-checks-the-chain) | 2026-11-12 | The restore loads slots in blocks and checks the chain |
 | [0103 A11](0103-export-transfer-and-backup.md#a11-a-backup-of-an-older-schema-is-migrated-forward) | 2026-11-12 | A backup of an older schema is migrated forward |
 | [0103 A12](0103-export-transfer-and-backup.md#a12-what-a-restore-refuses-before-it-starts) | 2026-11-12 | What a restore refuses before it starts |
+| [0103 A13](0103-export-transfer-and-backup.md#a13-a-bundle-says-what-it-holds-and-no-table-is-held-whole) | 2026-11-13 | A bundle says what it holds, and no table is held whole |
 | [0104 A1](0104-batches-and-the-job-runner.md#a1-calls-made-while-building-the-runner) | 2026-11-08 | Calls made while building the runner |
 | [0104 A2](0104-batches-and-the-job-runner.md#a2-calls-made-while-building-the-batches) | 2026-11-08 | Calls made while building the batches |
 | [0104 A3](0104-batches-and-the-job-runner.md#a3-calls-made-while-building-specialcreateentities) | 2026-11-08 | Calls made while building `Special:CreateEntities` |

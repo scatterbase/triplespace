@@ -380,6 +380,7 @@ fn main() -> Result<()> {
 }
 
 #[tokio::main]
+#[allow(clippy::too_many_lines)]
 async fn run() -> Result<()> {
     let args = Args::parse();
     if let Some(path) = &args.probe {
@@ -400,6 +401,15 @@ async fn run() -> Result<()> {
     let client = triplespace_cli::common::connect(&args.database).await?;
     // A database behind this binary's migrations would answer every read that touches a
     // missing table with an internal error; refuse up front and name the fix.
+    // One ahead of them would be read and written by code that does not know its
+    // schema: refuse that too (0033 A31).
+    let newer = triplespace_db::migrator()
+        .unknown(&client)
+        .await
+        .context("migrations")?;
+    if !newer.is_empty() {
+        return Err(triplespace_db::MigrateError::Newer(newer).into());
+    }
     let pending = triplespace_db::migrator()
         .pending(&client)
         .await

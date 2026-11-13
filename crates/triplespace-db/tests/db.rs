@@ -113,7 +113,7 @@ async fn migrations_apply_once_and_notice_edits() {
         Err(MigrateError::Changed { .. })
     ));
     // A failing migration applies nothing and records nothing.
-    let broken = Migrator::new().with("triplespace-db", BROKEN);
+    let broken = triplespace_db::migrator().with("triplespace-db", BROKEN);
     assert!(matches!(
         broken.apply(&mut client).await,
         Err(MigrateError::Sql { .. })
@@ -131,6 +131,15 @@ async fn migrations_apply_once_and_notice_edits() {
         .await
         .unwrap();
     assert!(recorded.is_none());
+    // 0033 §4 (A31): a binary with fewer migrations than the database records is behind
+    // it, and migrates nothing.
+    let older = Migrator::new().with("scatter-log-postgres", scatter_log_postgres::MIGRATIONS);
+    assert!(!older.unknown(&client).await.unwrap().is_empty());
+    assert!(matches!(
+        older.apply(&mut client).await,
+        Err(MigrateError::Newer(_))
+    ));
+    assert!(m.unknown(&client).await.unwrap().is_empty());
 }
 
 #[tokio::test]

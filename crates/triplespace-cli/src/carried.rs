@@ -12,6 +12,9 @@
 //!   ops.{table}.bin      each table's binary COPY
 //! ```
 //!
+//! `digests` is each table file's length and SHA-256 (`[{"file", "bytes", "sha256"}]`,
+//! 0103 A13), which a restore checks as it loads; a backup from before A13 lacks the key.
+//!
 //! `migrations` is every migration the database had applied (0103 A11), so that a restore
 //! makes the schema the tables came from even for a backup without sealed sections, whose
 //! manifest records the same; a backup from before A11 lacks the key.
@@ -24,9 +27,12 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context as _, Result, bail};
 use scatter_log::cbor::{self, Value};
 
+use sha2::{Digest as _, Sha256};
+use std::io::Write as _;
+
 use crate::sealed::{
-    Table, applied_migrations, columns, copy_out, migrations_from, migrations_value, table_from,
-    table_value,
+    Table, applied_migrations, close, columns, copy_out, create, migrations_from, migrations_value,
+    table_from, table_value,
 };
 
 /// The directory of the carried sections inside a bundle.
@@ -56,6 +62,21 @@ pub struct Manifest {
     /// `(crate, migration, checksum)` of every migration the database had applied; `None`
     /// in a backup written before they were recorded here.
     pub migrations: Option<Vec<(String, String, String)>>,
+    /// Each table file's length and SHA-256 (0103 A13): the carried tables are in the
+    /// clear, with nothing else to say that a file is whole. `None` in a backup written
+    /// before they were recorded.
+    pub digests: Option<Vec<Digest>>,
+}
+
+/// A carried file's length and digest.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Digest {
+    /// The file, as its table names it.
+    pub file: String,
+    /// Its length in bytes.
+    pub bytes: u64,
+    /// Its SHA-256.
+    pub sha256: [u8; 32],
 }
 
 /// Writes the carried sections of a backup into `bundle` from `client`'s snapshot.
@@ -67,11 +88,25 @@ pub async fn write(client: &tokio_postgres::Transaction<'_>, bundle: &Path) -> R
     let dir = bundle.join(DIR);
     std::fs::create_dir_all(&dir).with_context(|| format!("create {}", dir.display()))?;
     let mut tables = Vec::new();
+    let mut digests = Vec::new();
     for table in triplespace_db::ops::carried_tables() {
         let columns = columns(client, "ops", table).await?;
-        let bytes = copy_out(client, "ops", table, &columns).await?;
         let file = format!("ops.{table}.bin");
-        std::fs::write(dir.join(&file), bytes).with_context(|| format!("write {file}"))?;
+        let mut out = create(&dir.join(&file))?;
+        let mut hash = Sha256::new();
+        let mut bytes = 0u64;
+        copy_out(client, "ops", table, &columns, |piece| {
+            hash.update(piece);
+            bytes += piece.len() as u64;
+            out.write_all(piece)
+        })
+        .await?;
+        close(out)?;
+        digests.push(Digest {
+            file: file.clone(),
+            bytes,
+            sha256: hash.finalize().into(),
+        });
         tables.push(Table {
             schema: "ops".into(),
             table: table.into(),
@@ -97,6 +132,7 @@ pub async fn write(client: &tokio_postgres::Transaction<'_>, bundle: &Path) -> R
         tables,
         sequences,
         migrations: Some(applied_migrations(client).await?),
+        digests: Some(digests),
     };
     std::fs::write(dir.join(MANIFEST_FILE), cbor::encode(&manifest.to_value())?)?;
     Ok(manifest)
@@ -129,6 +165,22 @@ impl Manifest {
         ];
         if let Some(m) = &self.migrations {
             pairs.push((text("migrations"), migrations_value(m)));
+        }
+        if let Some(d) = &self.digests {
+            pairs.push((
+                text("digests"),
+                Value::Array(
+                    d.iter()
+                        .map(|d| {
+                            Value::map(vec![
+                                (text("file"), text(&d.file)),
+                                (text("bytes"), Value::Int(i128::from(d.bytes))),
+                                (text("sha256"), Value::Bytes(d.sha256.to_vec())),
+                            ])
+                        })
+                        .collect(),
+                ),
+            ));
         }
         Value::map(pairs)
     }
@@ -170,10 +222,37 @@ impl Manifest {
             Some(_) => bail!("carried manifest: `migrations`"),
             None => None,
         };
+        let digests = match v.get("digests") {
+            Some(Value::Array(d)) => Some(
+                d.iter()
+                    .map(|d| {
+                        let (Some(file), Some(bytes), Some(Value::Bytes(sha))) = (
+                            d.get("file").and_then(Value::as_text),
+                            d.get("bytes").and_then(Value::as_u64),
+                            d.get("sha256"),
+                        ) else {
+                            bail!("carried manifest: a digest");
+                        };
+                        Ok(Digest {
+                            file: file.to_string(),
+                            bytes,
+                            sha256: sha
+                                .as_slice()
+                                .try_into()
+                                .ok()
+                                .context("carried manifest: a digest's `sha256`")?,
+                        })
+                    })
+                    .collect::<Result<_>>()?,
+            ),
+            Some(_) => bail!("carried manifest: `digests`"),
+            None => None,
+        };
         Ok(Self {
             tables,
             sequences,
             migrations,
+            digests,
         })
     }
 }
@@ -204,18 +283,35 @@ impl Carried {
         Ok(Self { dir, manifest })
     }
 
-    /// One table's binary `COPY`.
+    /// One table's binary `COPY`, opened for reading, with the digest the manifest holds
+    /// for it, which the reader checks once it has read the file through.
     ///
     /// # Errors
     ///
-    /// A table the backup does not hold, or a file that does not read.
-    pub fn table(&self, schema: &str, table: &str) -> Result<Vec<u8>> {
+    /// A table the backup does not hold, or a file that does not open.
+    pub fn open_table(
+        &self,
+        schema: &str,
+        table: &str,
+    ) -> Result<(std::fs::File, Option<&Digest>)> {
         let t = self
             .manifest
             .tables
             .iter()
             .find(|t| t.schema == schema && t.table == table)
             .with_context(|| format!("the backup holds no {schema}.{table}"))?;
-        Ok(std::fs::read(self.dir.join(&t.file))?)
+        let file = std::fs::File::open(self.dir.join(&t.file))
+            .with_context(|| format!("the backup's {}", t.file))?;
+        let digest = self
+            .manifest
+            .digests
+            .as_ref()
+            .map(|d| {
+                d.iter()
+                    .find(|d| d.file == t.file)
+                    .with_context(|| format!("the backup states no digest for {}", t.file))
+            })
+            .transpose()?;
+        Ok((file, digest))
     }
 }
