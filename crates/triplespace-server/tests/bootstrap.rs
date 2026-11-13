@@ -126,6 +126,7 @@ async fn created(name: &str) -> String {
 /// Syncs a dump into an instance, read as Librarybase's.
 async fn sync_into(database: &str, load: &Load) -> anyhow::Result<()> {
     sync::run(sync::Sync {
+        job_id: None,
         database: database.to_string(),
         provider: Some("librarybase".into()),
         tenant: None,

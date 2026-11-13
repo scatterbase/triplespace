@@ -207,6 +207,9 @@ pub struct Adoption {
     /// adapter's survey collects them). Empty means snaks are checked against their own
     /// `datatype` only.
     pub property_types: BTreeMap<EntityId, DataType>,
+    /// The job ID a queue minted at submission (0104 §4), under which the start record is
+    /// written; `None` mints one at the start.
+    pub job_id: Option<u64>,
 }
 
 /// What an adoption produced.
@@ -328,6 +331,7 @@ pub async fn run_adoption<S: IngestStore>(
     header.version = Some(adoption.version.clone());
     header.mode = Some(Mode::Adopt);
     header.adapter_version.clone_from(&adoption.adapter_version);
+    header.job_id = adoption.job_id;
     header.params.insert(
         "floors".into(),
         serde_json::to_value(&adoption.floors).map_err(|e| e.to_string())?,

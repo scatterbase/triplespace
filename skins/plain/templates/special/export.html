@@ -3,7 +3,7 @@
 {%- import "codex.html" as codex -%}
 {%- import "forms.html" as forms -%}
 <div class="ts-export">{% for n in notices %}{{ codex.message(n) }}{% endfor %}<p>{{ intro }}</p>
-<form class="ts-export__form" method="post" action="{{ action }}">
+<form class="ts-export__form" method="post" action="{{ action }}">{% if token %}<input type="hidden" name="wpEditToken" value="{{ token }}">{% endif %}
 <div class="ts-export__add">{{ forms.field(category.field) }}<button type="submit" name="{{ category.name }}" value="1" class="{{ category.button.classes }}">{{ category.button.label }}</button></div>
 {%- if namespace %}<div class="ts-export__add">{{ forms.field(namespace.field) }}<button type="submit" name="{{ namespace.name }}" value="1" class="{{ namespace.button.classes }}">{{ namespace.button.label }}</button></div>{% endif %}
 {{ forms.field(pages) }}

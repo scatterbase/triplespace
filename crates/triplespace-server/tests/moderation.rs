@@ -3657,6 +3657,7 @@ async fn a_deleted_pages_changes_leave_the_lists() {
         std::env::temp_dir().join(format!("tsmoderation-{}-entities.xml", std::process::id()));
     std::fs::write(&dump, xml).unwrap();
     adopt::run(adopt::Adopt {
+        job_id: None,
         database: database.clone(),
         tenant: TENANT.into(),
         dump: dump.clone(),

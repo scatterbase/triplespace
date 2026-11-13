@@ -125,6 +125,7 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
     )
     .unwrap();
     adopt::run(adopt::Adopt {
+        job_id: None,
         database: database.clone(),
         tenant: "librarybase".into(),
         dump: dated.clone(),
@@ -144,6 +145,7 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
     .expect("adopt");
     let _ = std::fs::remove_file(&dated);
     sync::run(sync::Sync {
+        job_id: None,
         database: database.clone(),
         provider: Some("internetdomains".into()),
         tenant: None,

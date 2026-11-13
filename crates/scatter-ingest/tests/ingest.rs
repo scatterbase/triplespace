@@ -1116,6 +1116,7 @@ fn adoption(frozen: bool) -> Adoption {
             account("librarybase:7", "Editor"),
         ],
         property_types: BTreeMap::new(),
+        job_id: None,
     }
 }
 

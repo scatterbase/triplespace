@@ -184,6 +184,10 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "0038_ops_backup_classes",
         sql: include_str!("../migrations/0038_ops_backup_classes.sql"),
     },
+    Migration {
+        name: "0039_job_not_before",
+        sql: include_str!("../migrations/0039_job_not_before.sql"),
+    },
 ];
 
 /// The crate name migrations are recorded under.

@@ -25,13 +25,19 @@ use triplespace_projections::actors::payload;
 
 use crate::common::{connect, draft, farm_of, issuer_of, now, store};
 
-/// `adopt`.
-#[derive(Debug, Args)]
+/// `adopt`. Also what an `adopt` job's queue row holds as its parameters (0104 A9), but
+/// for the database, which is the runner's own.
+#[derive(Debug, Clone, Args, serde::Serialize, serde::Deserialize)]
 #[allow(clippy::struct_excessive_bools)] // command-line switches
 pub struct Adopt {
     /// The Postgres URL.
     #[arg(long, env = "TRIPLESPACE_DATABASE_URL")]
+    #[serde(skip)]
     pub database: String,
+    /// The job ID the queue minted, where the runner runs this (0104 §4).
+    #[arg(skip)]
+    #[serde(skip)]
+    pub job_id: Option<u64>,
     /// The tenant slug.
     #[arg(long)]
     pub tenant: String,
@@ -238,6 +244,7 @@ pub async fn run(args: Adopt) -> Result<()> {
         floors,
         accounts,
         property_types: survey.property_types.clone(),
+        job_id: args.job_id,
     };
     if survey.property_types.is_empty() {
         eprintln!(

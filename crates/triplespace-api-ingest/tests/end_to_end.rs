@@ -273,6 +273,7 @@ async fn adoption_batch_sync_and_edit_end_to_end() {
         },
         accounts: vec![account("librarybase:7", "Editor")],
         property_types: BTreeMap::new(),
+        job_id: None,
     };
     let items = vec![
         Adopted::current(
@@ -358,6 +359,7 @@ async fn adoption_batch_sync_and_edit_end_to_end() {
             floors: Floors::default(),
             accounts: vec![],
             property_types: BTreeMap::new(),
+            job_id: None,
         },
         vec![Adopted::current(
             entity(item("Q8", "Eight", &json!({}))),
@@ -1944,6 +1946,7 @@ async fn a_run_of_page_revisions_leaves_what_one_at_a_time_leaves() {
         },
         accounts: vec![account("librarybase:7", "Editor")],
         property_types: BTreeMap::new(),
+        job_id: None,
     };
     let mut runs = Vec::new();
     for batch in [1usize, 100] {
@@ -2087,6 +2090,7 @@ async fn an_adoption_in_blocks_leaves_what_one_revision_at_a_time_leaves() {
         },
         accounts: vec![account("librarybase:7", "Editor")],
         property_types: BTreeMap::new(),
+        job_id: None,
     };
     let mut runs = Vec::new();
     for batch in [1usize, 4, 100] {
@@ -2222,6 +2226,7 @@ async fn a_history_adoption_over_postgres() {
         },
         accounts: vec![account("librarybase:7", "Editor")],
         property_types: BTreeMap::new(),
+        job_id: None,
     };
     let out = run_adoption(
         &store,

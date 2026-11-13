@@ -76,6 +76,7 @@ async fn setup(name: &str) -> Option<(String, PathBuf)> {
     .await
     .expect("instance create");
     adopt::run(adopt::Adopt {
+        job_id: None,
         database: database.clone(),
         tenant: TENANT.into(),
         dump: fixture(),
@@ -136,6 +137,7 @@ async fn talk_pages_became_threads(database: &str) {
 async fn adopting_again_changes_nothing(database: &str) {
     // Adopting again changes nothing.
     adopt::run(adopt::Adopt {
+        job_id: None,
         database: database.to_string(),
         tenant: TENANT.into(),
         dump: fixture(),
@@ -2152,6 +2154,7 @@ async fn an_xml_export_of_librarybase_items_round_trips() {
     .await
     .expect("instance create");
     adopt::run(adopt::Adopt {
+        job_id: None,
         database: database.clone(),
         tenant: TENANT.into(),
         dump: PathBuf::from(env!("CARGO_MANIFEST_DIR"))

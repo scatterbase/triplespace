@@ -316,6 +316,54 @@ async fn derived_objects_are_replaceable_and_originals_are_not() {
 }
 
 #[tokio::test]
+async fn a_job_output_streams_to_its_key_and_a_failed_source_leaves_nothing() {
+    // 0104 A9: a job's output is streamed to `{scope}/job/{job_id}/{name}`.
+    #[derive(Debug, thiserror::Error)]
+    #[error("the export failed")]
+    struct Failed;
+
+    let (_dir, store) = store();
+    let key = Key::job(lb(), 42, "export.xml").unwrap();
+    let data: &'static [u8] = Box::leak(vec![b'x'; 5000].into_boxed_slice());
+    let written = store.put_stream_at(&key, chunks(data, 700)).await.unwrap();
+    assert_eq!(written, 5000);
+    assert_eq!(store.get(&key).await.unwrap().as_ref(), data);
+    assert_eq!(store.head(&key).await.unwrap().unwrap().size, 5000);
+
+    // It is listed under the job's prefix and the scope's jobs, parsed back.
+    for prefix in [Prefix::job(&lb(), 42), Prefix::jobs(&lb())] {
+        let listed: Vec<_> = store.list(&prefix).collect().await;
+        assert_eq!(listed.len(), 1, "{prefix}");
+        assert_eq!(listed[0].as_ref().unwrap().key.as_ref(), Some(&key));
+    }
+    let other: Vec<_> = store.list(&Prefix::job(&lb(), 4)).collect().await;
+    assert!(other.is_empty(), "job 4 is not a prefix of job 42");
+
+    // A failed source: nothing at a new key, and what was at an old one stays.
+    let gone = Key::job(lb(), 43, "export.xml").unwrap();
+    for target in [&gone, &key] {
+        let stream = futures::stream::iter([Ok(Bytes::from_static(b"part")), Err(Failed)]);
+        let err = store.put_stream_at(target, stream).await.unwrap_err();
+        assert!(matches!(err, BlobError::Source(_)), "{err}");
+    }
+    assert!(!store.exists(&gone).await.unwrap());
+    assert_eq!(store.get(&key).await.unwrap().as_ref(), data);
+
+    // Original bytes are never written this way.
+    let stored = store
+        .put(&lb(), Bytes::from_static(b"image"))
+        .await
+        .unwrap();
+    let original = Key::sha256(lb(), stored.digest.sha256);
+    let err = store
+        .put_stream_at(&original, chunks(b"tampered", 4))
+        .await
+        .unwrap_err();
+    assert!(matches!(err, BlobError::Key(_)), "{err}");
+    assert_eq!(store.get(&original).await.unwrap().as_ref(), b"image");
+}
+
+#[tokio::test]
 async fn listing_walks_a_prefix_and_names_strays() {
     // 0039 §14: the listing the orphan sweep and `verify` walk, strays included.
     let (dir, store) = store();

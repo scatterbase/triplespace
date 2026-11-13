@@ -10,6 +10,7 @@ description = "The triplespace/v0 REST API (ADR 0012 §5): data only Triplespace
 publish = false
 
 [dependencies]
+scatter-blob.workspace = true
 triplespace-api-action.workspace = true
 triplespace-api-ingest.workspace = true
 scatter-ingest.workspace = true
@@ -41,7 +42,7 @@ url.workspace = true
 percent-encoding.workspace = true
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["macros", "rt"] }
+tokio = { workspace = true, features = ["macros", "rt", "time"] }
 
 [lints]
 workspace = true

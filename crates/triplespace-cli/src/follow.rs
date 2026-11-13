@@ -30,9 +30,10 @@ use crate::accounts::secret_from;
 use crate::common::{connect, farm_of, now, signing_key, store};
 
 /// `follow`.
-#[derive(Debug, Args)]
+#[derive(Debug, Clone, Args, serde::Serialize, serde::Deserialize)]
 pub struct Follow {
     /// The Postgres URL.
+    #[serde(skip)]
     #[arg(long, env = "TRIPLESPACE_DATABASE_URL")]
     pub database: String,
     /// The provider slug (`wikidata`, `librarybase`, …).
@@ -248,6 +249,18 @@ async fn windows_of(client: &Client) -> Result<(Windows, u64)> {
 
 fn seconds() -> u64 {
     now() / 1_000_000
+}
+
+/// How long a follower waits between passes, in seconds: `--interval`, else the instance's
+/// `follow.interval` (0092 §6). What a queued follower's row waits between its passes.
+///
+/// # Errors
+///
+/// The database's.
+pub async fn interval(args: &Follow) -> Result<u64> {
+    let client = connect(&args.database).await?;
+    let (_, setting) = windows_of(&client).await?;
+    Ok(args.interval.unwrap_or(setting).max(1))
 }
 
 /// Runs the follower.

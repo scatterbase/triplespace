@@ -22,6 +22,9 @@ pub struct ExportAsk {
     pub history: bool,
     /// `templates`.
     pub templates: bool,
+    /// The viewer's CSRF token, which the API needs to queue an export too large to
+    /// answer in place (0104 A10); empty for a viewer who is not signed in.
+    pub token: String,
 }
 
 /// An export the API answered.
@@ -41,8 +44,114 @@ pub struct Exported {
     pub notice: Option<String>,
 }
 
+/// What the API made of an export.
+#[derive(Debug)]
+pub enum ExportAnswer {
+    /// The file, made while the caller waited.
+    File(Exported),
+    /// Too large to make while the caller waits: queued as this job (0104 A9), whose file
+    /// [`Client::export_job`] fetches once it is ready.
+    Queued(u64),
+}
+
+/// An export job, as its submitter sees it.
+#[derive(Debug)]
+pub enum ExportJob {
+    /// Finished: its file.
+    File(Exported),
+    /// Queued or running still.
+    Pending,
+    /// Ended without a file: its status, and the error where it failed.
+    Ended {
+        /// `failed`, `interrupted`, or another final status.
+        status: String,
+        /// What went wrong.
+        error: Option<String>,
+    },
+}
+
+fn refusal(status: StatusCode, body: &[u8]) -> ClientError {
+    let v: Value = serde_json::from_slice(body).unwrap_or(Value::Null);
+    ClientError::Api {
+        code: v["code"].as_str().unwrap_or(status.as_str()).to_string(),
+        info: v["message"]
+            .as_str()
+            .or_else(|| v["info"].as_str())
+            .unwrap_or_default()
+            .to_string(),
+    }
+}
+
+fn file_of(r: crate::StreamedResponse) -> Exported {
+    let text = |name: &str| {
+        r.headers
+            .get(name)
+            .and_then(|v| v.to_str().ok())
+            .map(str::to_string)
+    };
+    let filename = text("content-disposition").and_then(|d| {
+        d.split_once("filename=\"")
+            .and_then(|(_, rest)| rest.split('"').next().map(str::to_string))
+    });
+    Exported {
+        content_type: text("content-type").unwrap_or_else(|| "application/xml".into()),
+        filename,
+        missing: text("x-export-missing")
+            .and_then(|n| n.parse().ok())
+            .unwrap_or(0),
+        notice: text("x-export-notice"),
+        body: r.body,
+    }
+}
+
 impl Client {
-    /// `POST /export`: the file, or the API's refusal as its code and message.
+    /// `GET /export/{id}`: an export job of the caller's own, and its file once ready.
+    ///
+    /// # Errors
+    ///
+    /// The API's refusal (no such job of the caller's, or its file expired), or the API
+    /// away or unreadable.
+    pub async fn export_job(&self, incoming: &Incoming, id: u64) -> Result<ExportJob, ClientError> {
+        let r = self
+            .transport()
+            .send_streamed(ApiRequest {
+                method: Method::GET,
+                path_and_query: format!("/w/rest.php/triplespace/v0/export/{id}"),
+                headers: forward::headers(incoming, self.transport()),
+                body: Vec::new(),
+                peer: incoming.peer,
+            })
+            .await?;
+        let json = r
+            .headers
+            .get(header::CONTENT_TYPE)
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|t| t.starts_with("application/json"));
+        if r.status == StatusCode::OK && !json {
+            return Ok(ExportJob::File(file_of(r)));
+        }
+        let status = r.status;
+        let body = r
+            .body
+            .collect()
+            .await
+            .map_err(|e| ClientError::Unexpected(e.to_string()))?
+            .to_bytes();
+        match status {
+            StatusCode::ACCEPTED => Ok(ExportJob::Pending),
+            StatusCode::OK => {
+                let v: Value = serde_json::from_slice(&body).unwrap_or(Value::Null);
+                Ok(ExportJob::Ended {
+                    status: v["status"].as_str().unwrap_or_default().to_string(),
+                    error: v["error"].as_str().map(str::to_string),
+                })
+            }
+            _ => Err(refusal(status, &body)),
+        }
+    }
+
+    /// `POST /export`: the file, the job the export was queued as, or the API's refusal
+    /// as its code and message.
     ///
     /// # Errors
     ///
@@ -51,7 +160,7 @@ impl Client {
         &self,
         incoming: &Incoming,
         ask: &ExportAsk,
-    ) -> Result<Exported, ClientError> {
+    ) -> Result<ExportAnswer, ClientError> {
         let mut headers = forward::headers(incoming, self.transport());
         headers.insert(
             header::CONTENT_TYPE,
@@ -64,6 +173,7 @@ impl Client {
             "namespaces": ask.namespaces,
             "history": ask.history,
             "templates": ask.templates,
+            "token": ask.token,
         });
         let r = self
             .transport()
@@ -75,43 +185,25 @@ impl Client {
                 peer: incoming.peer,
             })
             .await?;
-        if r.status != StatusCode::OK {
-            // A refusal is small: read it whole for its code and message.
-            let refusal = r
-                .body
-                .collect()
-                .await
-                .map_err(|e| ClientError::Unexpected(e.to_string()))?
-                .to_bytes();
-            let v: Value = serde_json::from_slice(&refusal).unwrap_or(Value::Null);
-            return Err(ClientError::Api {
-                code: v["code"].as_str().unwrap_or(r.status.as_str()).to_string(),
-                info: v["message"]
-                    .as_str()
-                    .or_else(|| v["info"].as_str())
-                    .unwrap_or_default()
-                    .to_string(),
-            });
+        if r.status == StatusCode::OK {
+            return Ok(ExportAnswer::File(file_of(r)));
         }
-        let text = |name: &str| {
-            r.headers
-                .get(name)
-                .and_then(|v| v.to_str().ok())
-                .map(str::to_string)
-        };
-        let filename = text("content-disposition").and_then(|d| {
-            d.split_once("filename=\"")
-                .and_then(|(_, rest)| rest.split('"').next().map(str::to_string))
-        });
-        Ok(Exported {
-            content_type: text("content-type").unwrap_or_else(|| "application/xml".into()),
-            filename,
-            body: r.body,
-            missing: text("x-export-missing")
-                .and_then(|n| n.parse().ok())
-                .unwrap_or(0),
-            notice: text("x-export-notice"),
-        })
+        // A refusal, or the job it was queued as: small, read whole.
+        let status = r.status;
+        let body = r
+            .body
+            .collect()
+            .await
+            .map_err(|e| ClientError::Unexpected(e.to_string()))?
+            .to_bytes();
+        if status == StatusCode::ACCEPTED
+            && let Some(job) = serde_json::from_slice::<Value>(&body)
+                .ok()
+                .and_then(|v| v["job"].as_u64())
+        {
+            return Ok(ExportAnswer::Queued(job));
+        }
+        Err(refusal(status, &body))
     }
 
     /// `list=categorymembers`: the titles in a category, as the API writes them.

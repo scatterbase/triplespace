@@ -130,6 +130,11 @@ pub struct JobHeader {
     /// The job's parameters, as the adapter or submitter records them.
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub params: BTreeMap<String, serde_json::Value>,
+    /// The job ID minted before the job started, where a queue minted one at submission
+    /// (0104 §4): the start record is written under it, and none is minted. Not part of
+    /// the job line: it is neither written nor read with it.
+    #[serde(skip)]
+    pub job_id: Option<u64>,
 }
 
 impl JobHeader {
@@ -145,6 +150,7 @@ impl JobHeader {
             atomic: false,
             adapter_version: None,
             params: BTreeMap::new(),
+            job_id: None,
         }
     }
 
@@ -160,6 +166,7 @@ impl JobHeader {
             atomic: false,
             adapter_version: None,
             params: BTreeMap::new(),
+            job_id: None,
         }
     }
 

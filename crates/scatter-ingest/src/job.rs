@@ -122,7 +122,11 @@ impl Job {
         attestation: Attestation,
         now: u64,
     ) -> Result<Self, IngestError> {
-        let id = store.next_id(cx, "", &Sequence::Job).await?;
+        // Under the ID a queue minted at submission, where the header carries one.
+        let id = match header.job_id {
+            Some(id) => id,
+            None => store.next_id(cx, "", &Sequence::Job).await?,
+        };
         Self::start_as(store, pipeline, cx, tenant, id, header, attestation, now).await
     }
 

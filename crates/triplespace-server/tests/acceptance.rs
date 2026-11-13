@@ -194,6 +194,7 @@ async fn a_bot_logs_in_reads_and_edits() {
     .await
     .expect("instance create");
     adopt::run(adopt::Adopt {
+        job_id: None,
         database: database.clone(),
         tenant: TENANT.into(),
         dump: xml,
@@ -212,6 +213,7 @@ async fn a_bot_logs_in_reads_and_edits() {
     .await
     .expect("adopt");
     sync::run(sync::Sync {
+        job_id: None,
         database: database.clone(),
         provider: Some("internetdomains".into()),
         tenant: None,

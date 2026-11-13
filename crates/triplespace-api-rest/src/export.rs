@@ -18,8 +18,11 @@
 //! entity namespace (`Item:Q6`) names that local entity. `history` (off by default, as
 //! `Special:Export`'s "current revision only" is on) is allowed only where
 //! `export.history` is, and is capped by `export.max_history` per page and
-//! `export.max_entity_history` per entity; a selection over `export.sync_revisions`
-//! revisions is refused with `413 export-too-large` until export jobs exist. Export
+//! `export.max_entity_history` per entity. A selection over `export.sync_revisions`
+//! revisions becomes an export job (21 §4.2; 0104 A9; [`crate::export_job`]) where the
+//! caller is signed in and this server keeps a blob store, answered `202` with the job
+//! and the URL its file is fetched from, and is refused with `413 export-too-large`
+//! otherwise. Export
 //! needs only `read`; every record is shown as the export scope shows it to the caller
 //! (01 §8), a hidden or erased part written as revision-deleted content, and a page or
 //! entity the caller may not know of is listed as missing, as one that does not exist
@@ -30,6 +33,7 @@ use axum::body::{Body, Bytes};
 use axum::extract::{Extension, State};
 use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
+use scatter_actors::Effective;
 use serde_json::Value;
 use triplespace_api_action::App;
 use triplespace_api_action::forwarded::Origin;
@@ -42,7 +46,11 @@ use triplespace_rdf::xml;
 use crate::entity_route::{error, internal};
 use crate::settings::prelude;
 
-fn setting_usize(snap: &triplespace_accounts::settings::Snapshot, key: &str, or: usize) -> usize {
+pub(crate) fn setting_usize(
+    snap: &triplespace_accounts::settings::Snapshot,
+    key: &str,
+    or: usize,
+) -> usize {
     snap.value(key)
         .and_then(|v| v.as_u64())
         .and_then(|n| usize::try_from(n).ok())
@@ -108,8 +116,238 @@ where
     }))
 }
 
-/// `POST /export`.
+/// Why an export was not prepared.
+pub(crate) enum Refusal {
+    /// The request is refused: the status, the code and the message.
+    Refused(StatusCode, &'static str, String),
+    /// The selection is over the revision limit.
+    TooLarge(BuildError),
+    /// Something failed here.
+    Internal(String),
+}
+
+impl Refusal {
+    fn internal(e: &dyn std::fmt::Display) -> Self {
+        Self::Internal(e.to_string())
+    }
+}
+
+impl std::fmt::Display for Refusal {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Refused(_, code, message) => write!(f, "{code}: {message}"),
+            Self::TooLarge(e) => write!(f, "{e}"),
+            Self::Internal(e) => f.write_str(e),
+        }
+    }
+}
+
+/// The format a request asks for: `xml` where it names none.
+pub(crate) fn format_of(request: &Value) -> Result<&'static str, Refusal> {
+    match request.get("format").and_then(Value::as_str) {
+        Some("records") => Ok("records"),
+        Some("xml") | None => Ok("xml"),
+        Some(other) => Err(Refusal::Refused(
+            StatusCode::BAD_REQUEST,
+            "unknown-format",
+            format!("no export format `{other}`"),
+        )),
+    }
+}
+
+/// An export, selected and checked, ready to be written.
+pub(crate) enum Prepared {
+    /// The `records` format, built; its `missing` holds every title not exported.
+    Records(records::Export),
+    /// MediaWiki XML, planned: [`xml::write_chunks`] writes it.
+    Xml {
+        /// The plan.
+        plan: xml::Plan,
+        /// Every title asked for that the export does not hold.
+        missing: Vec<String>,
+    },
+}
+
+/// Who an export is for and where: the tenant, the base its `<siteinfo>` names, and the
+/// reader's rights.
+pub(crate) struct For<'a> {
+    /// The tenant's slug.
+    pub tenant: &'a str,
+    /// The tenant's base, as the reader sees it.
+    pub base: &'a str,
+    /// What the reader may do.
+    pub effective: Effective,
+}
+
+/// Reads an export request as `POST /export` takes it and prepares the export: the
+/// selection resolved as the reader may see it, and the document planned (`xml`) or built
+/// (`records`). `limit` is the most revisions it may hold; `None` is the tenant's
+/// `export.sync_revisions`, which is what a request answered in place is held to, and an
+/// export job passes `usize::MAX` (0104 A9).
 #[allow(clippy::too_many_lines)]
+pub(crate) async fn prepare(
+    app: &App,
+    client: &tokio_postgres::Client,
+    who: For<'_>,
+    request: &Value,
+    limit: Option<usize>,
+    now: u64,
+) -> Result<Prepared, Refusal> {
+    let tenant = who.tenant;
+    let format = format_of(request)?;
+    let titles = list_of(request, "pages");
+    let categories = list_of(request, "categories");
+    let namespaces: Vec<i32> = list_of(request, "namespaces")
+        .iter()
+        .filter_map(|n| n.parse().ok())
+        .collect();
+    if titles.is_empty() && categories.is_empty() && namespaces.is_empty() {
+        return Err(Refusal::Refused(
+            StatusCode::BAD_REQUEST,
+            "no-pages",
+            "name at least one page, category or namespace".into(),
+        ));
+    }
+    let (snap, _) = triplespace_accounts::settings::load(client, Some(tenant))
+        .await
+        .map_err(|e| Refusal::internal(&e))?;
+    let setting_bool =
+        |key: &str, or: bool| snap.value(key).and_then(|v| v.as_bool()).unwrap_or(or);
+    if !namespaces.is_empty() && !setting_bool("export.from_namespaces", false) {
+        return Err(Refusal::Refused(
+            StatusCode::FORBIDDEN,
+            "export-namespaces-off",
+            "exporting a whole namespace is off here (`export.from_namespaces`)".into(),
+        ));
+    }
+    let history = setting_bool("export.history", true)
+        && request
+            .get("history")
+            .and_then(Value::as_bool)
+            .unwrap_or(false);
+    let templates = request
+        .get("templates")
+        .and_then(Value::as_bool)
+        .unwrap_or(false);
+    let site = Site::load_for(client, tenant)
+        .await
+        .map_err(|e| Refusal::internal(&e.info))?;
+    let Ok(reader) = Reader::new(client, tenant, who.effective).await else {
+        return Err(Refusal::Refused(
+            StatusCode::NOT_FOUND,
+            "tenant-not-readable",
+            "nothing of this tenant can be exported to you".into(),
+        ));
+    };
+    let max_page_history = setting_usize(&snap, "export.max_history", 1000);
+    let max_entity_history = setting_usize(&snap, "export.max_entity_history", 100);
+    let mut page_targets: Vec<(u64, String)> = Vec::new();
+    let mut entity_targets: Vec<(String, String)> = Vec::new();
+    let mut missing = Vec::new();
+    for t in &titles {
+        if let Some(id) = pages::entity_of_title(&site, t) {
+            entity_targets.push((id.as_str().to_string(), t.clone()));
+            continue;
+        }
+        let Some(title) = pages::resolve_title(&site, t) else {
+            missing.push(t.clone());
+            continue;
+        };
+        match pages::by_title(
+            client,
+            tenant,
+            &reader.viewer.hidden,
+            title.namespace,
+            &title.text,
+        )
+        .await
+        {
+            Ok(Some(p)) => page_targets.push((p.page_id, t.clone())),
+            Ok(None) => missing.push(t.clone()),
+            Err(e) => return Err(Refusal::internal(&e.info)),
+        }
+    }
+    // `addcat` and `addns`: each adds the pages it lists, by title as the site writes it;
+    // a page the caller may not know of is left out, as a listing leaves it out.
+    for c in &categories {
+        let found = xml::pages_in_category(client, tenant, c)
+            .await
+            .map_err(|e| Refusal::internal(&e))?;
+        for (id, ns, title) in found {
+            if !reader.viewer.hidden.page(ns, id) {
+                page_targets.push((id, site.prefixed(ns, &title)));
+            }
+        }
+    }
+    for ns in &namespaces {
+        let found = xml::pages_in_namespace(client, tenant, *ns)
+            .await
+            .map_err(|e| Refusal::internal(&e))?;
+        for (id, ns, title) in found {
+            if !reader.viewer.hidden.page(ns, id) {
+                page_targets.push((id, site.prefixed(ns, &title)));
+            }
+        }
+    }
+    let limit = limit.unwrap_or_else(|| setting_usize(&snap, "export.sync_revisions", 5000));
+    let sized = |e: BuildError| match e {
+        e @ BuildError::TooLarge { .. } => Refusal::TooLarge(e),
+        e => Refusal::internal(&e),
+    };
+
+    if format == "records" {
+        let selection = records::Selection {
+            pages: page_targets,
+            entities: entity_targets,
+            history,
+            max_page_history,
+            max_entity_history,
+        };
+        let mut export = records::build(client, tenant, &reader, &selection, limit, now)
+            .await
+            .map_err(sized)?;
+        missing.append(&mut export.missing);
+        export.missing = missing;
+        return Ok(Prepared::Records(export));
+    }
+
+    // MediaWiki XML: planned first, so a refusal comes before the body.
+    let names = match TenantNames::load(client, tenant).await {
+        Ok(mut n) => {
+            n.site_name = Some(site.name.clone());
+            n
+        }
+        Err(e) => return Err(Refusal::internal(&e)),
+    };
+    let base = format!(
+        "{}/wiki/{}",
+        who.base.trim_end_matches('/'),
+        triplespace_api_action::modules::query::MAIN_PAGE.replace(' ', "_")
+    );
+    let site_info = xml::site_info(
+        &names,
+        &site.lang,
+        &site.name,
+        &tenant.replace('-', "_"),
+        &base,
+        &app.config().generator,
+    );
+    let selection = xml::Selection {
+        pages: page_targets,
+        entities: entity_targets,
+        history,
+        max_page_history,
+        max_entity_history,
+        templates,
+    };
+    let plan = xml::plan(client, tenant, &reader, &selection, site_info, limit)
+        .await
+        .map_err(sized)?;
+    missing.extend(plan.missing.iter().cloned());
+    Ok(Prepared::Xml { plan, missing })
+}
+
+/// `POST /export`.
 pub async fn post(
     State(app): State<App>,
     Extension(origin): Extension<Origin>,
@@ -131,203 +369,46 @@ pub async fn post(
             "the body is a JSON object",
         );
     };
-    let format = match request.get("format").and_then(Value::as_str) {
-        Some("records") => "records",
-        Some("xml") | None => "xml",
-        Some(other) => {
-            return error(
-                StatusCode::BAD_REQUEST,
-                "unknown-format",
-                format!("no export format `{other}`"),
-            );
-        }
-    };
-    let titles = list_of(&request, "pages");
-    let categories = list_of(&request, "categories");
-    let namespaces: Vec<i32> = list_of(&request, "namespaces")
-        .iter()
-        .filter_map(|n| n.parse().ok())
-        .collect();
-    if titles.is_empty() && categories.is_empty() && namespaces.is_empty() {
-        return error(
-            StatusCode::BAD_REQUEST,
-            "no-pages",
-            "name at least one page, category or namespace",
-        );
-    }
-    let (snap, _) = match triplespace_accounts::settings::load(&**client, Some(&tenant.slug)).await
-    {
-        Ok(s) => s,
-        Err(e) => return internal(&e),
-    };
-    let setting_bool =
-        |key: &str, or: bool| snap.value(key).and_then(|v| v.as_bool()).unwrap_or(or);
-    if !namespaces.is_empty() && !setting_bool("export.from_namespaces", false) {
-        return error(
-            StatusCode::FORBIDDEN,
-            "export-namespaces-off",
-            "exporting a whole namespace is off here (`export.from_namespaces`)",
-        );
-    }
-    let history = setting_bool("export.history", true)
-        && request
-            .get("history")
-            .and_then(Value::as_bool)
-            .unwrap_or(false);
-    let templates = request
-        .get("templates")
-        .and_then(Value::as_bool)
-        .unwrap_or(false);
-    let site = match Site::load_for(&client, &tenant.slug).await {
-        Ok(s) => s,
-        Err(e) => return internal(&e.info),
-    };
-    let Ok(reader) = Reader::new(&**client, &tenant.slug, caller.effective.clone()).await else {
-        return error(
-            StatusCode::NOT_FOUND,
-            "tenant-not-readable",
-            "nothing of this tenant can be exported to you",
-        );
-    };
-    let max_page_history = setting_usize(&snap, "export.max_history", 1000);
-    let max_entity_history = setting_usize(&snap, "export.max_entity_history", 100);
-    let mut page_targets: Vec<(u64, String)> = Vec::new();
-    let mut entity_targets: Vec<(String, String)> = Vec::new();
-    let mut missing = Vec::new();
-    for t in &titles {
-        if let Some(id) = pages::entity_of_title(&site, t) {
-            entity_targets.push((id.as_str().to_string(), t.clone()));
-            continue;
-        }
-        let Some(title) = pages::resolve_title(&site, t) else {
-            missing.push(t.clone());
-            continue;
-        };
-        match pages::by_title(
-            &client,
-            &tenant.slug,
-            &reader.viewer.hidden,
-            title.namespace,
-            &title.text,
-        )
-        .await
-        {
-            Ok(Some(p)) => page_targets.push((p.page_id, t.clone())),
-            Ok(None) => missing.push(t.clone()),
-            Err(e) => return internal(&e.info),
-        }
-    }
-    // `addcat` and `addns`: each adds the pages it lists, by title as the site writes it;
-    // a page the caller may not know of is left out, as a listing leaves it out.
-    for c in &categories {
-        match xml::pages_in_category(&**client, &tenant.slug, c).await {
-            Ok(found) => {
-                for (id, ns, title) in found {
-                    if !reader.viewer.hidden.page(ns, id) {
-                        page_targets.push((id, site.prefixed(ns, &title)));
-                    }
-                }
-            }
-            Err(e) => return internal(&e),
-        }
-    }
-    for ns in &namespaces {
-        match xml::pages_in_namespace(&**client, &tenant.slug, *ns).await {
-            Ok(found) => {
-                for (id, ns, title) in found {
-                    if !reader.viewer.hidden.page(ns, id) {
-                        page_targets.push((id, site.prefixed(ns, &title)));
-                    }
-                }
-            }
-            Err(e) => return internal(&e),
-        }
-    }
-    let limit = setting_usize(&snap, "export.sync_revisions", 5000);
     let now = triplespace_api_action::edit::now_micros();
-
-    if format == "records" {
-        let selection = records::Selection {
-            pages: page_targets,
-            entities: entity_targets,
-            history,
-            max_page_history,
-            max_entity_history,
-        };
-        let mut export =
-            match records::build(&**client, &tenant.slug, &reader, &selection, limit, now).await {
-                Ok(x) => x,
-                Err(e @ BuildError::TooLarge { .. }) => return too_large(&e),
-                Err(e) => return internal(&e),
-            };
-        missing.append(&mut export.missing);
-        export.missing = missing;
-        let bytes = export.encode();
-        let disposition = format!(
-            "attachment; filename=\"{}-records-{now}.cbor\"",
-            tenant.slug
-        );
-        let mut r = (
-            StatusCode::OK,
-            [
-                (header::CONTENT_TYPE, MEDIA_TYPE.to_string()),
-                (header::CACHE_CONTROL, "private, no-store".to_string()),
-                (header::CONTENT_DISPOSITION, disposition),
-            ],
-            bytes,
-        )
-            .into_response();
-        r.headers_mut().insert(
-            "x-export-missing",
-            header::HeaderValue::from(export.missing.len()),
-        );
-        return r;
-    }
-
-    // MediaWiki XML: planned first, so a refusal comes before the body, then streamed.
-    let names = match TenantNames::load(&client, &tenant.slug).await {
-        Ok(mut n) => {
-            n.site_name = Some(site.name.clone());
-            n
-        }
-        Err(e) => return internal(&e),
+    let who = For {
+        tenant: &tenant.slug,
+        base: &tenant.public_base,
+        effective: caller.effective.clone(),
     };
-    let base = format!(
-        "{}/wiki/{}",
-        tenant.public_base.trim_end_matches('/'),
-        triplespace_api_action::modules::query::MAIN_PAGE.replace(' ', "_")
-    );
-    let site_info = xml::site_info(
-        &names,
-        &site.lang,
-        &site.name,
-        &tenant.slug.replace('-', "_"),
-        &base,
-        &app.config().generator,
-    );
-    let selection = xml::Selection {
-        pages: page_targets,
-        entities: entity_targets,
-        history,
-        max_page_history,
-        max_entity_history,
-        templates,
-    };
-    let planned = match xml::plan(
-        &**client,
-        &tenant.slug,
-        &reader,
-        &selection,
-        site_info,
-        limit,
-    )
-    .await
-    {
+    let prepared = match Box::pin(prepare(&app, &client, who, &request, None, now)).await {
         Ok(p) => p,
-        Err(e @ BuildError::TooLarge { .. }) => return too_large(&e),
-        Err(e) => return internal(&e),
+        Err(Refusal::Refused(status, code, message)) => return error(status, code, message),
+        // 21 §4.2: a larger one becomes an export job, for an account to come back to.
+        Err(Refusal::TooLarge(e)) => {
+            return crate::export_job::queue(&app, &tenant, &caller, &headers, request, &e).await;
+        }
+        Err(Refusal::Internal(e)) => return internal(&e),
     };
-    missing.extend(planned.missing.iter().cloned());
+    let (planned, missing) = match prepared {
+        Prepared::Xml { plan, missing } => (plan, missing),
+        Prepared::Records(export) => {
+            let bytes = export.encode();
+            let disposition = format!(
+                "attachment; filename=\"{}-records-{now}.cbor\"",
+                tenant.slug
+            );
+            let mut r = (
+                StatusCode::OK,
+                [
+                    (header::CONTENT_TYPE, MEDIA_TYPE.to_string()),
+                    (header::CACHE_CONTROL, "private, no-store".to_string()),
+                    (header::CONTENT_DISPOSITION, disposition),
+                ],
+                bytes,
+            )
+                .into_response();
+            r.headers_mut().insert(
+                "x-export-missing",
+                header::HeaderValue::from(export.missing.len()),
+            );
+            return r;
+        }
+    };
     let notice = planned.notices.join("; ");
     // A failure mid-document fails the body: the transfer breaks, and what did arrive is
     // a document without its closing tag, which no importer accepts whole.
@@ -357,11 +438,13 @@ pub async fn post(
     r
 }
 
-fn too_large(e: &BuildError) -> Response {
+/// The refusal of a selection over `export.sync_revisions` that is not queued; `why`
+/// says what would have queued it.
+pub(crate) fn too_large(e: &BuildError, why: &str) -> Response {
     error(
         StatusCode::PAYLOAD_TOO_LARGE,
         "export-too-large",
-        format!("{e}; export jobs are not built yet, so narrow the selection"),
+        format!("{e}; {why}"),
     )
 }
 

@@ -107,6 +107,8 @@ struct Inner {
     /// The mail settings, set once by the server after the transport is built.
     mail: std::sync::OnceLock<MailSettings>,
     dumps_dir: std::sync::OnceLock<std::path::PathBuf>,
+    /// The blob store, set once by the server where it keeps one.
+    blobs: std::sync::OnceLock<scatter_blob::BlobStore>,
     /// Each tenant's table of names (0078 §3), leaked for the adapters' `'static`
     /// borrows and rebuilt when the tenant's `entity-source` records move.
     registries: std::sync::Mutex<std::collections::HashMap<String, (i64, &'static Registry)>>,
@@ -182,6 +184,7 @@ impl App {
                 upstream,
                 mail: std::sync::OnceLock::new(),
                 dumps_dir: std::sync::OnceLock::new(),
+                blobs: std::sync::OnceLock::new(),
                 registries: std::sync::Mutex::new(std::collections::HashMap::new()),
             }),
         })
@@ -395,6 +398,18 @@ impl App {
     #[must_use]
     pub fn dumps_dir(&self) -> Option<&std::path::Path> {
         self.inner.dumps_dir.get().map(std::path::PathBuf::as_path)
+    }
+
+    /// Sets the blob store (03 §8), where a queued export's file is kept (0104 A9), once.
+    /// A second call changes nothing.
+    pub fn set_blobs(&self, blobs: scatter_blob::BlobStore) {
+        let _ = self.inner.blobs.set(blobs);
+    }
+
+    /// The blob store, if this server keeps one.
+    #[must_use]
+    pub fn blobs(&self) -> Option<&scatter_blob::BlobStore> {
+        self.inner.blobs.get()
     }
 
     /// The settings.

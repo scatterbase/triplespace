@@ -5764,7 +5764,7 @@
       "post": {
         "operationId": "postExport",
         "summary": "Export selected pages",
-        "description": "An export of selected pages and local entities, streamed (ADR 0047 §8; architecture 21 §4.2). The `records` format is built: the selected targets' records from the tenant's `pages` and `local` partitions, each with an inclusion proof against its partition's latest checkpoint, that checkpoint and the instance's `key:` records, as one canonical-CBOR document that `triplespace verify --records` checks. A record past the latest checkpoint is left out and listed as pending. Every record is shown as the export scope shows it to the caller (architecture 01 §8): parts the caller may not read are their commitments, and a page or entity the caller may not know of is listed in `missing`, as one that does not exist is. A title in an entity namespace names that local entity. `history` (off by default) is allowed where `export.history` is, capped by `export.max_history` per page and `export.max_entity_history` per entity. Needs `read`. The MediaWiki XML format and export jobs are not built.",
+        "description": "An export of selected pages and local entities, streamed (ADR 0047 §8; architecture 21 §4.2, §4.4). `xml` (the default) is MediaWiki XML, export schema 0.11, streamed while it is written. `records` is built: the selected targets' records from the tenant's `pages` and `local` partitions, each with an inclusion proof against its partition's latest checkpoint, that checkpoint and the instance's `key:` records, as one canonical-CBOR document that `triplespace verify --records` checks. A record past the latest checkpoint is left out and listed as pending. Every record is shown as the export scope shows it to the caller (architecture 01 §8): parts the caller may not read are their commitments, and a page or entity the caller may not know of is listed in `missing`, as one that does not exist is. A title in an entity namespace names that local entity. `history` (off by default) is allowed where `export.history` is, capped by `export.max_history` per page and `export.max_entity_history` per entity. Needs `read`. A selection over `export.sync_revisions` revisions is not answered in place: for a signed-in caller, on a server that keeps a blob store, it is queued as an export job (ADR 0104 A9) and answered `202` with the job and the URL its file is fetched from (`GET /export/{id}`); otherwise it is refused `413`. Queuing is a write: a request made with a session cookie must then carry the session's CSRF token as `token` in the body, and is refused `403 badtoken` without it (ADR 0104 A10); a bearer request needs none.",
         "requestBody": {
           "required": true,
           "content": {
@@ -5807,12 +5807,47 @@
         },
         "responses": {
           "200": {
-            "description": "The export. `X-Export-Missing` counts the titles in `missing`.",
+            "description": "The export. `X-Export-Missing` counts the titles in `missing`; `X-Export-Notice` carries an XML export's notices.",
             "content": {
               "application/vnd.triplespace.records+cbor": {
                 "schema": {
                   "type": "string",
                   "format": "binary"
+                }
+              },
+              "application/xml": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "Queued as an export job. `Location` is `url`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "job",
+                    "status",
+                    "url"
+                  ],
+                  "properties": {
+                    "job": {
+                      "type": "integer",
+                      "description": "The job's ID, as `GET /jobs/{id}` and `Special:Jobs/{id}` show it."
+                    },
+                    "status": {
+                      "const": "queued"
+                    },
+                    "url": {
+                      "type": "string",
+                      "format": "uri",
+                      "description": "`GET /export/{id}` of the job."
+                    }
+                  }
                 }
               }
             }
@@ -5838,7 +5873,111 @@
             }
           },
           "413": {
-            "description": "`export-too-large`: more than `export.sync_revisions` records, which export jobs will take.",
+            "description": "`export-too-large`: more than `export.sync_revisions` revisions, asked for by an anonymous caller, or on a server that keeps no blob store for a job's file.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/export/{id}": {
+      "get": {
+        "operationId": "getExport",
+        "summary": "An export job's state, or its file",
+        "description": "The export job `POST /export` queued (ADR 0104 A9; architecture 21 §4.2), for the account that asked for it and nobody else: any other caller, an anonymous one included, is answered `404` as for an ID that is no export job. While the job waits or runs the answer is `202` with its status; once it has finished, the file, kept in the blob store for `export.keep_days` days and `410` after them. Needs `read`.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The file of a finished job, as an attachment named `{tenant}-{id}.xml` or `.cbor`, `Cache-Control: private, no-store`; or, as JSON, a job that did not finish: `status` is `failed` with `error`, `interrupted` with `interrupted_by` (the job the work goes on under) and its `url`, or another final status.",
+            "content": {
+              "application/xml": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/vnd.triplespace.records+cbor": {
+                "schema": {
+                  "type": "string",
+                  "format": "binary"
+                }
+              },
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "job",
+                    "status"
+                  ],
+                  "properties": {
+                    "job": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "type": "string"
+                    },
+                    "error": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "interrupted_by": {
+                      "type": [
+                        "integer",
+                        "null"
+                      ]
+                    },
+                    "url": {
+                      "type": "string",
+                      "format": "uri"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "202": {
+            "description": "The job waits or runs.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "job",
+                    "status"
+                  ],
+                  "properties": {
+                    "job": {
+                      "type": "integer"
+                    },
+                    "status": {
+                      "enum": [
+                        "queued",
+                        "running"
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` without the `read` right.",
             "content": {
               "application/json": {
                 "schema": {
@@ -5847,8 +5986,18 @@
               }
             }
           },
-          "501": {
-            "description": "`not-built`: the `xml` format.",
+          "404": {
+            "description": "`export-not-found`: no export job of the caller's with this ID, or a server that keeps no blob store.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`export-expired`: the job finished and its file is no longer kept.",
             "content": {
               "application/json": {
                 "schema": {

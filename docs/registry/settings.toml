@@ -357,6 +357,17 @@ meaning = "Full history on export (`$wgExportAllowHistory`)"
 source = "[0047](../decisions/0047-special-pages.md) §8"
 
 [[setting]]
+key = "export.keep_days"
+scope = "tenant"
+bound = "tenant"
+group = "exchange"
+type = "integer"
+default = 7
+default_text = "7 days"
+meaning = "Days a queued export's file is kept for the account that asked; after them it is removed"
+source = "[0104](../decisions/0104-batches-and-the-job-runner.md) A9"
+
+[[setting]]
 key = "export.max_bytes"
 scope = "tenant"
 bound = "tenant"

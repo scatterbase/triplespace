@@ -76,6 +76,7 @@ async fn setup() -> Option<(String, PathBuf)> {
     .await
     .expect("instance create");
     adopt::run(adopt::Adopt {
+        job_id: None,
         database: database.clone(),
         tenant: TENANT.into(),
         dump: PathBuf::from(env!("CARGO_MANIFEST_DIR"))
