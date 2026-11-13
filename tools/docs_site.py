@@ -96,7 +96,11 @@ def on_config(config):
     adrs = [{"Index": "decisions/INDEX.md"}, {"Open": "decisions/OPEN.md"}] + [f"decisions/{f}" for f in decisions()]
     api = [f"api/{f}" for f in md_files("api")] + [{"REST reference": "reference/rest.md"}]
     testing = [f"testing/{f}" for f in md_files("testing")]
-    nav = [{"Home": "index.md"}, {"Architecture": arch}, {"As built": built}, {"Decisions": adrs},
+    # The guides' README is the section's own page; the quickstart comes first, the rest by name.
+    guides = [{"Overview": "guides/README.md"}] if os.path.exists(os.path.join(DOCS, "guides", "README.md")) else []
+    guides += [f"guides/{f}" for f in sorted(md_files("guides"), key=lambda f: (f != "quickstart.md", f))
+               if f != "README.md"]
+    nav = [{"Home": "index.md"}, {"Guides": guides}, {"Architecture": arch}, {"As built": built}, {"Decisions": adrs},
            {"API": api}, {"Registry": [f"registry/{f}" for f in md_files("registry")]},
            {"Testing": testing}]
     others = [f for f in md_files("") if f not in ("index.md",)]
@@ -143,6 +147,8 @@ Built from the repository's `docs/` at [`{commit()[:12]}`]({REPO}/commit/{commit
 is the file of the same name there, except the pages this build generates from their sources
 (0109 §2), which are never committed:
 
+- **[Guides](guides/README.md)**: running Triplespace, step by step, from the
+  [Quickstart](guides/quickstart.md) to [moving an instance](guides/moving-an-instance.md).
 - **[Architecture](architecture/README.md)**: what the design holds now, by subject.
 - **[As built](built/index.md)**: what the code says is built of each chapter, section by
   section, with the code that claims it (generated, from the code's `implements` claims).

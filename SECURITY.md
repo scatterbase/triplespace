@@ -22,7 +22,7 @@ Please include, as far as you can:
 
 - what the problem is and what an attacker could do with it;
 - the commit or version you tested;
-- steps to reproduce, ideally against a fresh local instance (the README's Quickstart);
+- steps to reproduce, ideally against a fresh local instance (the [Quickstart](docs/guides/quickstart.md));
 - any proof-of-concept requests, scripts or logs;
 - how you would like to be credited, or whether you would rather not be named.
 
@@ -74,7 +74,7 @@ Out of scope:
 
 ## Testing safely
 
-Test against an instance you run yourself; the Quickstart sets one up in a few minutes. Do not
+Test against an instance you run yourself; the [Quickstart](docs/guides/quickstart.md) sets one up in a few minutes. Do not
 test against instances run by other people without their permission, do not access or change
 data that is not yours, and stop and report as soon as you have shown the problem. We will not
 pursue anyone who reports in good faith and follows this policy.
