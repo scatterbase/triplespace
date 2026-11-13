@@ -130,7 +130,7 @@ mimalloc = { version = "0.1.52", default-features = false }
 # Statement keys (0004 §8), signing-key IDs (0015 §1) and, later, the log's SHA-256 (0006 §2)
 sha2 = "0.11"
 # Password hashing (0033 §6: Argon2id) and keyed token derivation for sessions (0024 §4)
-argon2 = "0.5"
+argon2 = "0.6"
 hmac = "0.13"
 # Canonical CBOR, hand-written to the core-deterministic rules over minicbor's primitives
 # (0006 §2; 0033 §6)
