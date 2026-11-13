@@ -262,36 +262,32 @@ pub async fn sweep(blobs: &BlobStore, scope: &Scope, keep: Duration) -> Result<u
     Ok(old.len() as u64)
 }
 
-/// Streams a planned XML export into the blob store at `key`: the writer hands each
-/// chunk to the store's multipart write through a bounded channel, and reads no further
-/// while [`WAITING_CHUNKS`] are unwritten. A failure of either side ends the other, and
-/// the write is aborted. Returns the bytes written.
-async fn store_xml(
-    blobs: &BlobStore,
-    key: &Key,
-    client: &tokio_postgres::Client,
-    plan: &xml::Plan,
-) -> Result<u64, IngestError> {
-    let (tx, rx) = tokio::sync::mpsc::channel::<Result<Bytes, std::io::Error>>(WAITING_CHUNKS);
+/// Where a streamed file's writer puts its chunks.
+type ChunkTx = tokio::sync::mpsc::Sender<Result<Bytes, std::io::Error>>;
+
+/// Streams what `write` produces into the blob store at `key`, a few chunks in memory at
+/// a time, and answers how many bytes were stored. A document that fails part-way fails
+/// the write, and so does a store that stops taking it: either way nothing is left at
+/// the key (0039 A16).
+async fn store_stream<W, Fut>(blobs: &BlobStore, key: &Key, write: W) -> Result<u64, IngestError>
+where
+    W: FnOnce(ChunkTx) -> Fut,
+    Fut: Future<Output = Result<(), BuildError>>,
+{
+    let (tx, rx) = tokio::sync::mpsc::channel(WAITING_CHUNKS);
     let source = futures_util::stream::unfold(rx, |mut rx| async move {
         rx.recv().await.map(|chunk| (chunk, rx))
     });
+    let failing = tx.clone();
     let writing = async move {
-        let written = xml::write_chunks(client, plan, xml::CHUNK, |chunk| {
-            let tx = tx.clone();
-            async move {
-                tx.send(Ok(Bytes::from(chunk)))
-                    .await
-                    .map_err(|_| BuildError::Io("the blob store stopped taking the export".into()))
-            }
-        })
-        .await;
-        // A document that failed part-way fails the write: nothing is left at the key.
+        let written = write(tx).await;
         if let Err(e) = &written {
-            let _ = tx.send(Err(std::io::Error::other(e.to_string()))).await;
+            let _ = failing
+                .send(Err(std::io::Error::other(e.to_string())))
+                .await;
         }
         written
-        // `tx` is dropped here, which ends the stream.
+        // Both senders are dropped here, which ends the stream.
     };
     let (written, stored) = tokio::join!(writing, blobs.put_stream_at(key, source));
     match (written, stored) {
@@ -301,6 +297,30 @@ async fn store_xml(
         (Err(e), _) => Err(failed(e)),
         (Ok(()), Err(e)) => Err(failed(e)),
     }
+}
+
+/// Hands the stream its next chunk, waiting while the store has not taken the ones before.
+async fn send_chunk(tx: &ChunkTx, chunk: Vec<u8>) -> Result<(), BuildError> {
+    tx.send(Ok(Bytes::from(chunk)))
+        .await
+        .map_err(|_| BuildError::Io("the blob store stopped taking the export".into()))
+}
+
+/// The planned XML export, streamed to `key` as it is written.
+async fn store_xml(
+    blobs: &BlobStore,
+    key: &Key,
+    client: &tokio_postgres::Client,
+    plan: &xml::Plan,
+) -> Result<u64, IngestError> {
+    store_stream(blobs, key, |tx| async move {
+        xml::write_chunks(client, plan, xml::CHUNK, |chunk| {
+            let tx = tx.clone();
+            async move { send_chunk(&tx, chunk).await }
+        })
+        .await
+    })
+    .await
 }
 
 /// The tenant's registered base and what the job's submitter may do now: an account
@@ -613,6 +633,118 @@ mod tests {
         assert!(expired(now - Duration::from_hours(8 * 24), week));
         // A clock that ran backwards expires nothing.
         assert!(!expired(now + Duration::from_mins(1), week));
+    }
+
+    fn store(name: &str) -> (BlobStore, std::path::PathBuf, Key) {
+        let dir = std::env::temp_dir().join(format!("ts-export-job-{name}-{}", std::process::id()));
+        let _ = std::fs::remove_dir_all(&dir);
+        let key = Key::job(Scope::tenant("wiki").unwrap(), 7, "export.xml").unwrap();
+        (BlobStore::filesystem(&dir).unwrap(), dir, key)
+    }
+
+    /// Every file under `dir`, the store's temporary ones included.
+    fn files(dir: &std::path::Path) -> Vec<std::path::PathBuf> {
+        let mut out = Vec::new();
+        let Ok(entries) = std::fs::read_dir(dir) else {
+            return out;
+        };
+        for e in entries.flatten() {
+            if e.path().is_dir() {
+                out.extend(files(&e.path()));
+            } else {
+                out.push(e.path());
+            }
+        }
+        out
+    }
+
+    // 0104 §4 (A9); 0039 §3 (A16): a file is stored whole or not at all.
+    #[tokio::test]
+    async fn a_stream_that_ends_is_stored() {
+        let (blobs, dir, key) = store("whole");
+        let bytes = store_stream(&blobs, &key, |tx| async move {
+            for part in ["<mediawiki>", "<page/>", "</mediawiki>"] {
+                send_chunk(&tx, part.as_bytes().to_vec()).await?;
+            }
+            Ok(())
+        })
+        .await
+        .unwrap();
+        assert_eq!(bytes, 30);
+        assert_eq!(
+            &blobs.get(&key).await.unwrap()[..],
+            b"<mediawiki><page/></mediawiki>"
+        );
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    // The document fails part-way, as when the database is lost mid-export: the job
+    // fails with the document's error, and neither the file nor a part of it is left.
+    #[tokio::test]
+    async fn a_document_that_fails_part_way_leaves_nothing() {
+        let (blobs, dir, key) = store("writer");
+        let e = store_stream(&blobs, &key, |tx| async move {
+            send_chunk(&tx, vec![b'x'; 3 * 1024 * 1024]).await?;
+            send_chunk(&tx, vec![b'y'; 3 * 1024 * 1024]).await?;
+            Err(BuildError::Database("the connection was lost".into()))
+        })
+        .await
+        .unwrap_err();
+        assert!(e.to_string().contains("the connection was lost"), "{e}");
+        assert!(!blobs.exists(&key).await.unwrap());
+        assert_eq!(files(&dir), Vec::<std::path::PathBuf>::new());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    // The store fails part-way, as when its disk goes: here its directory is taken away
+    // under the write. The job fails with the store's error, and nothing is left.
+    #[tokio::test]
+    async fn a_store_that_fails_part_way_leaves_nothing() {
+        let (blobs, dir, key) = store("store");
+        let gone = dir.clone();
+        let e = store_stream(&blobs, &key, |tx| async move {
+            // More than one part of a multipart write, so that some is on disk.
+            for _ in 0..4 {
+                send_chunk(&tx, vec![b'x'; 4 * 1024 * 1024]).await?;
+            }
+            std::fs::remove_dir_all(&gone).unwrap();
+            send_chunk(&tx, vec![b'y'; 4 * 1024 * 1024]).await?;
+            Ok(())
+        })
+        .await
+        .unwrap_err();
+        assert!(!e.to_string().is_empty());
+        assert!(!blobs.exists(&key).await.unwrap_or(false));
+        assert_eq!(files(&dir), Vec::<std::path::PathBuf>::new());
+        let _ = std::fs::remove_dir_all(dir);
+    }
+
+    // The job is stopped part-way, as when its claim is lost (0104 A8): the write is
+    // dropped, and no part of the file is left for anyone to find.
+    #[tokio::test]
+    async fn a_write_that_is_dropped_leaves_nothing() {
+        let (blobs, dir, key) = store("dropped");
+        let (reached, wait) = tokio::sync::oneshot::channel::<()>();
+        let writing = store_stream(&blobs, &key, |tx| async move {
+            for _ in 0..4 {
+                send_chunk(&tx, vec![b'x'; 4 * 1024 * 1024]).await?;
+            }
+            let _ = reached.send(());
+            std::future::pending::<()>().await;
+            Ok(())
+        });
+        tokio::select! {
+            _ = writing => unreachable!("the writer never ends"),
+            () = async {
+                let _ = wait.await;
+                tokio::time::sleep(Duration::from_millis(200)).await;
+            } => {}
+        }
+        // The store's own cleanup of an abandoned write may run a moment later.
+        tokio::time::sleep(Duration::from_millis(300)).await;
+        assert!(!blobs.exists(&key).await.unwrap());
+        assert_eq!(files(&dir), Vec::<std::path::PathBuf>::new());
+        let _ = std::fs::remove_dir_all(dir);
     }
 
     #[test]

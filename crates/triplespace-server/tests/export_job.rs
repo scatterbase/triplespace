@@ -777,3 +777,120 @@ async fn an_export_job_that_cannot_run_fails() {
     );
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+// 0104 §4 (A9): an export whose runner died. While the dead run's claim stands the job
+// reads as running; the next claim marks it interrupted and runs the export again under
+// a new job, which `GET /export/{id}` names for the old one; and a job with a record and
+// no queue row is running still. The records file of a queued export verifies.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn an_export_whose_runner_died_runs_again() {
+    use scatter_ingest::job::Job;
+    use scatter_ingest::write::Attestation;
+    use scatter_projection::Backend as _;
+    use scatter_wikibase_changeset::JobHeader;
+    let Some((database, key_file, dir)) = setup("tsexport_dead").await else {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    };
+    let blobs = dir.join("blobs");
+    let (app, api) = app(&database, &key_file, Some(&blobs)).await;
+    let (store, pipeline) = (app.store(), app.pipeline());
+    let mut owner = Client::new(&api);
+    owner.login("Owner").await;
+    let imported = owner.import(&dump_xml()).await;
+    assert_eq!(imported["error"], Value::Null, "{imported}");
+    set_setting(&database, "export.sync_revisions", "1").await;
+    let selection = json!({"pages": ["Project:Home", "Project:Scope"], "history": true});
+    let runner =
+        jobs::Runner::new("runner dead").with_work(jobs::Kind::Export, export_work(app.clone()));
+    let start = async |id: u64, actor: &str| {
+        let mut cx = store.begin().await.unwrap();
+        let mut header = JobHeader::local("export");
+        header.graph = "pages".into();
+        header.params.insert("format".into(), "xml".into());
+        Job::start_as(
+            store,
+            pipeline,
+            &mut cx,
+            TENANT,
+            id,
+            header,
+            Attestation::by(actor),
+            now(),
+        )
+        .await
+        .expect("a start record");
+        store.commit(cx).await.unwrap();
+    };
+
+    // A runner claims the export, writes its start record, and dies.
+    let dead = queue_export(&mut owner, &selection).await;
+    let claimed = jobs::claim(store, pipeline, &runner, now())
+        .await
+        .unwrap()
+        .expect("the export waited");
+    assert_eq!(claimed.job_id, dead);
+    start(dead, &claimed.actor).await;
+    let running = owner.fetch(dead).await;
+    assert_eq!(running.status, StatusCode::ACCEPTED);
+    assert_eq!(running.json()["status"], "running", "{}", running.text());
+
+    // Its heartbeat goes stale; the next pass interrupts it and runs the export again.
+    query(
+        &database,
+        &format!(
+            "UPDATE ops.job_queue SET heartbeat = now() - interval '10 minutes', claimed_at = now() - interval '10 minutes' WHERE job_id = {dead}"
+        ),
+    )
+    .await;
+    let ran = run_pass(&app).await;
+    assert_ne!(ran.job_id, dead, "the work runs again under a new job");
+    assert_eq!(ran.error, None);
+    let interrupted = owner.fetch(dead).await;
+    assert_eq!(interrupted.status, StatusCode::OK);
+    assert_eq!(
+        interrupted.json(),
+        json!({
+            "job": dead,
+            "status": "interrupted",
+            "interrupted_by": ran.job_id,
+            "url": format!("https://{HOST}/w/rest.php/triplespace/v0/export/{}", ran.job_id),
+        })
+    );
+    let fetched = owner.fetch(ran.job_id).await;
+    assert_eq!(fetched.status, StatusCode::OK, "{}", fetched.text());
+    assert!(fetched.text().trim_end().ends_with("</mediawiki>"));
+    assert!(!file_of(&blobs, dead, "export.xml").exists());
+
+    // A job with its start record and no queue row (its row gone, its end not yet
+    // written) is running, to its submitter.
+    let orphan = queue_export(&mut owner, &selection).await;
+    start(orphan, &claimed.actor).await;
+    query(
+        &database,
+        &format!("DELETE FROM ops.job_queue WHERE job_id = {orphan}"),
+    )
+    .await;
+    let running = owner.fetch(orphan).await;
+    assert_eq!(running.status, StatusCode::ACCEPTED);
+    assert_eq!(running.json(), json!({"job": orphan, "status": "running"}));
+
+    // A queued `records` export is the verifiable document an export in place is: the
+    // file fetched checks out against the key chain it carries (21 §4.4).
+    let mut records = selection.clone();
+    records["format"] = "records".into();
+    let job = queue_export(&mut owner, &records).await;
+    assert_eq!(run_pass(&app).await.error, None);
+    let fetched = owner.fetch(job).await;
+    assert_eq!(fetched.status, StatusCode::OK);
+    let file = dir.join("fetched.cbor");
+    std::fs::write(&file, &fetched.body).unwrap();
+    let (_, reports) = triplespace_cli::log_bundle::verify_records(&file, None)
+        .expect("the records file reads and its key chain holds");
+    assert!(!reports.is_empty());
+    for r in &reports {
+        assert!(r.is_clean(), "{r:?}");
+    }
+    let _ = std::fs::remove_dir_all(&dir);
+}

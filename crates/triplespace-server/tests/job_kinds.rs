@@ -551,3 +551,83 @@ async fn a_follower_logs_in_from_the_accounts_login() {
     );
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+// 0104 §4: the runner as the server runs it, a loop that claims and runs until the
+// process ends: a job queued while it waits is picked up and finished, with nobody
+// calling it, and nothing is claimed while the instance's runner is paused.
+#[tokio::test]
+async fn the_runner_loop_picks_up_what_is_queued() {
+    let Some((database, dir)) = setup("tsjobkinds_loop").await else {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    };
+    let farm = triplespace_cli::common::farm_at(&database).await.unwrap();
+    let (store, pipeline) = triplespace_cli::common::store(&database, &farm).unwrap();
+    let xml = dir.join("librarybase.xml");
+    std::fs::write(&xml, DUMP_XML).unwrap();
+    let pause = |on: bool| {
+        let database = database.clone();
+        async move {
+            let command = job::Database { database };
+            job::run(if on {
+                JobCommand::Pause(command)
+            } else {
+                JobCommand::Resume(command)
+            })
+            .await
+            .expect("pause or resume");
+        }
+    };
+    let status = async |id: u64| {
+        rows(
+            &database,
+            &format!("SELECT status FROM view.job WHERE tenant = '{TENANT}' AND job_id = {id}"),
+        )
+        .await
+        .first()
+        .and_then(|r| r[0].clone())
+    };
+
+    pause(true).await;
+    let looping = tokio::spawn(jobs::run_forever(
+        store,
+        pipeline,
+        job_work::with_loads(Runner::new("loop"), &database),
+        std::time::Duration::from_millis(50),
+        triplespace_cli::common::now,
+    ));
+    start(StartKind::Adopt(adopt_args(&database, &xml))).await;
+    let adoption = queued(&database).await;
+    // Paused: several of the loop's passes go by, and the job still waits.
+    tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+    assert_eq!(
+        status(adoption).await,
+        None,
+        "nothing is claimed while paused"
+    );
+    assert_eq!(
+        one(&database, "SELECT count(*)::text FROM ops.job_queue").await,
+        "1"
+    );
+
+    pause(false).await;
+    let mut finished = false;
+    for _ in 0..200 {
+        if status(adoption).await.as_deref() == Some("finished") {
+            finished = true;
+            break;
+        }
+        tokio::time::sleep(std::time::Duration::from_millis(100)).await;
+    }
+    looping.abort();
+    assert!(
+        finished,
+        "the loop ran the adoption: {:?}",
+        status(adoption).await
+    );
+    assert_eq!(
+        one(&database, "SELECT count(*)::text FROM ops.job_queue").await,
+        "0"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
