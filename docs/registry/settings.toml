@@ -438,6 +438,17 @@ meaning = "Whether the job runner is paused: queued jobs wait, and a running one
 source = "[0104](../decisions/0104-batches-and-the-job-runner.md) §4"
 
 [[setting]]
+key = "jobs.max_attempts"
+scope = "instance"
+bound = "instance"
+group = "exchange"
+type = "integer"
+default = 3
+default_text = "3 claims"
+meaning = "How many times the runner claims a job: one whose claim went stale after that many is failed and removed from the queue in place of another run ([16](16-logs-feeds-and-notifications.md) §2.2)"
+source = "[0104](../decisions/0104-batches-and-the-job-runner.md) §4"
+
+[[setting]]
 key = "federation.accept_fep8b32"
 scope = "tenant"
 bound = "tenant"
