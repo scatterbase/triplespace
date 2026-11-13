@@ -371,6 +371,14 @@ async fn run_pass(app: &App) -> jobs::Ran {
 
 /// Asks for an export over the limit as `client`: the job it was queued as.
 async fn queue_export(client: &mut Client, body: &Value) -> u64 {
+    // 0104 §4 (A10): queuing is a write. Without the session's token it is refused, and
+    // nothing is queued; with it, it is.
+    let refused = client.export(body).await;
+    assert_eq!(refused.status, StatusCode::FORBIDDEN, "{}", refused.text());
+    assert_eq!(refused.json()["code"], "badtoken");
+    let mut body = body.clone();
+    body["token"] = client.token("csrf").await.into();
+    let body = &body;
     let got = client.export(body).await;
     assert_eq!(got.status, StatusCode::ACCEPTED, "{}", got.text());
     let v = got.json();
@@ -636,5 +644,136 @@ async fn a_large_export_runs_as_a_job() {
     backdate(&file_of(&blobs, later, "export.xml"), 3);
     assert_eq!(owner.fetch(later).await.status, StatusCode::GONE);
     assert!(!file_of(&blobs, later, "export.xml").exists());
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// 0104 §4 (A9, A10): what an export job does where it cannot run, and how the site
+// queues one. A submitter who may no longer read gets no export; a blob store that
+// refuses the write fails the job and leaves no file; `Special:Export` queues with the
+// form's token and says which job.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn an_export_job_that_cannot_run_fails() {
+    let Some((database, key_file, dir)) = setup("tsexport_fail").await else {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    };
+    let blobs = dir.join("blobs");
+    let (app, api) = app(&database, &key_file, Some(&blobs)).await;
+    let mut owner = Client::new(&api);
+    owner.login("Owner").await;
+    let imported = owner.import(&dump_xml()).await;
+    assert_eq!(imported["error"], Value::Null, "{imported}");
+    let mut alice = Client::new(&api);
+    alice.register("Alice").await;
+    set_setting(&database, "export.sync_revisions", "1").await;
+    let selection = json!({"pages": ["Project:Home", "Project:Scope"], "history": true});
+    // The site queues it: the form of a signed-in reader carries their token, and the
+    // page that answers names the job.
+    let site =
+        api.clone()
+            .fallback_service(triplespace_ui::router(triplespace_client::Client::new(
+                triplespace_client::ServiceTransport::new(api.clone()),
+            )));
+    let mut on_site = Client {
+        router: site,
+        cookie: owner.cookie.clone(),
+    };
+    let form = on_site.send("GET", "/wiki/Special:Export", None).await;
+    let html = form.text();
+    let token = html
+        .split_once("name=\"wpEditToken\" value=\"")
+        .and_then(|(_, rest)| rest.split('"').next())
+        .expect("the form carries the token")
+        .replace("&#43;", "+")
+        .replace("&#x5c;", "\\")
+        .replace("&#92;", "\\");
+    let post = |token: &str| {
+        format!(
+            "pages={}&format=xml&wpEditToken={}",
+            enc("Project:Home\nProject:Scope"),
+            enc(token)
+        )
+    };
+    let without = on_site
+        .send(
+            "POST",
+            "/wiki/Special:Export",
+            Some((
+                "application/x-www-form-urlencoded".into(),
+                post("").into_bytes(),
+            )),
+        )
+        .await;
+    assert!(
+        !without.text().contains("queued as job"),
+        "no token, no job"
+    );
+    assert_eq!(
+        query(&database, "SELECT count(*) FROM ops.job_queue").await[0].get::<_, i64>(0),
+        0
+    );
+    let queued = on_site
+        .send(
+            "POST",
+            "/wiki/Special:Export",
+            Some((
+                "application/x-www-form-urlencoded".into(),
+                post(&token).into_bytes(),
+            )),
+        )
+        .await;
+    let by_site: i64 = query(
+        &database,
+        "SELECT job_id FROM ops.job_queue WHERE kind = 'export'",
+    )
+    .await[0]
+        .get(0);
+    assert!(
+        queued.text().contains(&format!("queued as job {by_site}")),
+        "{}",
+        queued.text()
+    );
+    assert_eq!(run_pass(&app).await.error, None);
+
+    // The blob store refuses the write (here, a file where its directory would be): the
+    // job fails with the reason, and nothing is left for anyone to fetch.
+    let _ = std::fs::remove_dir_all(blobs.join(TENANT).join("job"));
+    std::fs::write(blobs.join(TENANT).join("job"), b"in the way").unwrap();
+    let refused = queue_export(&mut owner, &selection).await;
+    let ran = run_pass(&app).await;
+    assert_eq!(ran.job_id, refused);
+    assert!(ran.error.is_some(), "{ran:?}");
+    assert_eq!(job_row(&database, refused).await.0, "failed");
+    let told = owner.fetch(refused).await;
+    assert_eq!(told.status, StatusCode::OK);
+    assert_eq!(told.json()["status"], "failed", "{}", told.text());
+    std::fs::remove_file(blobs.join(TENANT).join("job")).unwrap();
+
+    // A submitter who could read when they asked and cannot when the job runs: the
+    // tenant's reading is restricted in between. The job reads as they may read now.
+    let mine = queue_export(&mut alice, &selection).await;
+    let at = owner.token("csrf").await;
+    let restricted = owner
+        .send(
+            "PUT",
+            &format!("/w/rest.php/triplespace/v0/acl/tenant/{TENANT}"),
+            Some((
+                "application/json".into(),
+                json!({"restrictions": {"read": {"group": "owner"}}, "reason": "Private", "token": at})
+                    .to_string()
+                    .into_bytes(),
+            )),
+        )
+        .await;
+    assert_eq!(restricted.status, StatusCode::OK, "{}", restricted.text());
+    let ran = run_pass(&app).await;
+    assert_eq!(ran.job_id, mine);
+    assert!(ran.error.is_some(), "{ran:?}");
+    assert_eq!(job_row(&database, mine).await.0, "failed");
+    assert!(
+        !file_of(&blobs, mine, "export.xml").exists(),
+        "nothing was exported for a reader who may not read"
+    );
     let _ = std::fs::remove_dir_all(&dir);
 }

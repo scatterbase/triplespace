@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-08
-- **Updated:** 2026-11-13 (A9)
+- **Updated:** 2026-11-13 (A10)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0016](0016-permissions-and-access-control.md), [0047](0047-special-pages.md), [0083](0083-write-path-in-three-tiers.md)
 - **Uses:** [0007](0007-actor-identity.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0047](0047-special-pages.md)
@@ -42,7 +42,7 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 4. The runner (extends 0083 §5)
 
-*Changed by A1, A6, A7, A8, A9.*
+*Changed by A1, A6, A7, A8, A9, A10.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §2.2; [21](../architecture/21-special-pages.md) §4.3.*
 
@@ -189,3 +189,9 @@ Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §2.2, a
 - **Change:** extends §4
 - **Summary:** A6 (5) left four kinds uncarried, each waiting on a decision. With James's four: (1) **the work of a kind may live above the queue's crate**: a runner is given it by the process that runs it, and claims the kind only then; the export's work is the REST API's, which reads a request as `POST /export` does, and the adoption's, the sync's and the follower's are the command line's own functions, run from a row whose parameters are the command's arguments; (2) **`export`**: `POST /export` over `export.sync_revisions` from a signed-in account on a server with a blob store answers `202` with the job and the URL of its file, where it answered `413`; the job reads as its submitter may read **when it runs**, not when it was asked for, and fails if the account is gone or may no longer read; it streams the XML, or writes the `records` document, to `{tenant}/job/{id}/` ([0039](0039-files-and-media.md) A16) and names the file, its size, what was missing and its notices in the finish record, which the job projection keeps; (3) **`GET /export/{id}`** answers the account that asked, and to anyone else that there is no such export: `202` while the job waits or runs, the file when it has finished, its error when it failed, and `410` once the file is older than **`export.keep_days`**, a tenant setting, 7 by default; the site serves the same at `Special:Export?job={id}`; (4) **an account has at most five exports queued or running** on a tenant; `POST /export` takes no token, as before, and is counted against no rate class, which is left as it was: whether a queued export should need a token, since a job is a write of a kind, is not decided; (5) **`adopt` and `sync`** are queued by an operator with `triplespace job start adopt` or `sync`, the dump a path the server process must be able to read; no route queues one; each runs under the ID the queue minted, which the job's header now carries to its start record; (6) **`follow`**: a row runs one pass and is put back, unclaimed, its attempts counted afresh, not to be claimed before `follow.interval` (or the row's own interval) has passed, which `ops.job_queue.not_before` holds; cancelling the row ends the following; the follower's records name its own daily job (0092 A6), not the row, whose ID `Special:Jobs` shows as queued for as long as the follower runs; (7) **followers have a runner of their own on the accounts login** ([0013](0013-postgres-storage.md) A103); (8) work whose future cannot cross threads runs on a thread of its own and **is stopped there when its claim is lost**, which now holds for a dump too, where A8 (3) left its thread running; (9) the server takes `--blob-dir` (`TRIPLESPACE_BLOB_DIR`), the `fs` backend's directory, which every replica and runner must share. Not built: a route or a schedule that queues a dump, an adoption or a sync, and stopping a follower from the site.
 
+### A10. Queuing an export needs the session's token
+
+- **Date:** 2026-11-13
+- **Source:** Direct: James, 2026-11-13: "Require a token to queue an export."
+- **Change:** extends §4
+- **Summary:** A9 (4) left open whether queuing an export should need a token. James decided that it does. `POST /export` is still a read where it answers in place, and takes no token then; where the selection is over `export.sync_revisions` and would be queued, a request made with a session must carry the session's CSRF token as `token` in the body, as every write with a session does, and is refused `403 badtoken` without it, nothing queued; a request made with a bearer key needs none. The token is the request's and is not kept in the queue row. `Special:Export`'s form carries the token of a reader who is signed in, as `wpEditToken`, and passes it on; an anonymous reader's form carries none, and stays as cacheable as it was.

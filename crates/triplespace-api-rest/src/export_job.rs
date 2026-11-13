@@ -59,7 +59,7 @@ use triplespace_rdf::xml;
 
 use crate::entity_route::{error, internal};
 use crate::export::{For, Prepared, format_of, prepare, setting_usize, too_large};
-use crate::settings::prelude;
+use crate::settings::{check_token, prelude};
 
 /// The registry default of `export.keep_days`.
 const KEEP_DAYS: usize = 7;
@@ -114,6 +114,7 @@ pub(crate) async fn queue(
     app: &App,
     tenant: &Tenant,
     caller: &Caller,
+    headers: &HeaderMap,
     mut request: Value,
     over: &BuildError,
 ) -> Response {
@@ -128,6 +129,21 @@ pub(crate) async fn queue(
             over,
             "this server keeps no job output, so an export this large cannot be queued: narrow the selection",
         );
+    }
+    // Queuing a job is a write, where an export answered in place is a read: with a
+    // session it needs the session's CSRF token, as every write does (0104 A10).
+    let no_fields = serde_json::Map::new();
+    if let Err(refused) = check_token(
+        app,
+        caller,
+        headers,
+        request.as_object().unwrap_or(&no_fields),
+    ) {
+        return refused;
+    }
+    // The token is the request's, not the job's: it is not kept in the queue.
+    if let Some(object) = request.as_object_mut() {
+        object.remove("token");
     }
     // No more than a few at once for one account: queuing an export costs its
     // submitter nothing, and each is a long read of the database.

@@ -380,7 +380,7 @@ pub async fn post(
         Err(Refusal::Refused(status, code, message)) => return error(status, code, message),
         // 21 §4.2: a larger one becomes an export job, for an account to come back to.
         Err(Refusal::TooLarge(e)) => {
-            return crate::export_job::queue(&app, &tenant, &caller, request, &e).await;
+            return crate::export_job::queue(&app, &tenant, &caller, &headers, request, &e).await;
         }
         Err(Refusal::Internal(e)) => return internal(&e),
     };

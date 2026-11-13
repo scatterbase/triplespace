@@ -22,6 +22,9 @@ pub struct ExportAsk {
     pub history: bool,
     /// `templates`.
     pub templates: bool,
+    /// The viewer's CSRF token, which the API needs to queue an export too large to
+    /// answer in place (0104 A10); empty for a viewer who is not signed in.
+    pub token: String,
 }
 
 /// An export the API answered.
@@ -170,6 +173,7 @@ impl Client {
             "namespaces": ask.namespaces,
             "history": ask.history,
             "templates": ask.templates,
+            "token": ask.token,
         });
         let r = self
             .transport()

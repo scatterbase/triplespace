@@ -33,6 +33,9 @@ pub struct ExportPage {
     pub intro: String,
     /// Where the form posts.
     pub action: String,
+    /// The viewer's CSRF token (`wpEditToken`), for a viewer who is signed in: an export
+    /// too large to answer in place is queued as a job, which is a write (0104 A10).
+    pub token: Option<String>,
     /// The category to add pages from (`catname`), and **Add**.
     pub category: AddRow,
     /// The namespace to add pages from (`nsindex`), and **Add**, where the wiki allows.
@@ -198,6 +201,22 @@ async fn form(
     } else {
         None
     };
+    // A signed-in viewer's form carries their CSRF token: an export too large to answer
+    // in place is queued as a job, and that is a write (0104 A10). An anonymous viewer's
+    // cannot be queued, and their page stays as cacheable as it was.
+    let mut cookies = Vec::new();
+    let token = if cx.user.is_some() {
+        match site.client().token(incoming, "csrf").await {
+            Ok(t) => {
+                cx.inputs.push(t.value.cache.clone());
+                cookies = t.set_cookies;
+                Some(t.value.value)
+            }
+            Err(e) => return pages::api_failed(&cx, headers, &e),
+        }
+    } else {
+        None
+    };
     let m = &cx.m;
     let mut notices: Vec<MessageModel> = notice
         .iter()
@@ -238,6 +257,7 @@ async fn form(
         notices,
         intro: m.get("ts-export-intro"),
         action: format!("/wiki/{TITLE}"),
+        token,
         category: AddRow {
             field: FieldRow::text(
                 "ts-export-catname",
@@ -305,12 +325,13 @@ async fn form(
         .model(),
     };
     let body = cx.draw("special/export.html", &model);
-    pages::respond(&cx, headers, StatusCode::OK, |m| Page {
+    let r = pages::respond(&cx, headers, StatusCode::OK, |m| Page {
         title: m.get("ts-export-title"),
         returnto: Some(TITLE.to_string()),
         body,
         ..Page::default()
-    })
+    });
+    pages::with_cookies(r, &cookies)
 }
 
 /// `GET Special:Export[/{title}]`.
@@ -383,6 +404,7 @@ fn refusal(m: &Messages, code: &str, info: &str) -> String {
         "export-expired" => m.get("ts-export-expired"),
         "export-not-found" => m.get("ts-export-not-found"),
         "export-queue-full" => m.get("ts-export-queue-full"),
+        "badtoken" => m.get("ts-login-expired"),
         "no-pages" => m.get("ts-export-none"),
         "export-too-large" => m.get("ts-export-too-large"),
         "export-namespaces-off" => m.get("ts-export-namespaces-off"),
@@ -505,6 +527,7 @@ pub async fn post(
         namespaces: Vec::new(),
         history: cx.site.export.history && !typed.current_only,
         templates: typed.templates,
+        token: params.map.get("wpEditToken").cloned().unwrap_or_default(),
     };
     match site.client().export(&incoming, &ask).await {
         Ok(ExportAnswer::File(file)) => file_response(file, typed.download),

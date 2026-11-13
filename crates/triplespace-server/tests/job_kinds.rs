@@ -274,38 +274,84 @@ async fn an_adoption_and_a_sync_run_through_the_queue() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
-/// A wiki's API that has seen no changes: every request is answered with an empty list.
-async fn quiet_wiki() -> String {
+/// What a stub wiki was asked: each request's first line and body.
+type Asked = std::sync::Arc<std::sync::Mutex<Vec<String>>>;
+
+/// A wiki's API that has seen no changes and takes any bot password: every listing is
+/// empty, a login succeeds, and each request is noted.
+async fn quiet_wiki() -> (String, Asked) {
     use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
     let address = listener.local_addr().unwrap();
+    let asked = Asked::default();
+    let noted = asked.clone();
     tokio::spawn(async move {
         loop {
             let Ok((mut socket, _)) = listener.accept().await else {
                 return;
             };
+            let noted = noted.clone();
             tokio::spawn(async move {
-                let mut request = vec![0; 16 * 1024];
-                let _ = socket.read(&mut request).await;
-                let body = json!({
-                    "batchcomplete": true,
-                    "curtimestamp": "2026-11-13T00:00:00Z",
-                    "query": {
-                        "recentchanges": [],
-                        "logevents": [],
-                        "namespaces": {
-                            "120": {"id": 120, "canonical": "Item", "defaultcontentmodel": "wikibase-item"},
-                            "122": {"id": 122, "canonical": "Property", "defaultcontentmodel": "wikibase-property"},
+                // The head, then as much body as it says.
+                let mut request = Vec::new();
+                let mut chunk = [0u8; 4096];
+                loop {
+                    let Ok(n) = socket.read(&mut chunk).await else {
+                        return;
+                    };
+                    request.extend_from_slice(&chunk[..n]);
+                    let text = String::from_utf8_lossy(&request);
+                    let Some((head, body)) = text.split_once("\r\n\r\n") else {
+                        if n == 0 {
+                            return;
+                        }
+                        continue;
+                    };
+                    let length = head
+                        .lines()
+                        .find_map(|l| {
+                            l.to_ascii_lowercase()
+                                .strip_prefix("content-length:")
+                                .and_then(|v| v.trim().parse::<usize>().ok())
+                        })
+                        .unwrap_or(0);
+                    if body.len() >= length || n == 0 {
+                        break;
+                    }
+                }
+                let text = String::from_utf8_lossy(&request).into_owned();
+                let line = text.lines().next().unwrap_or_default().to_string();
+                let body = text
+                    .split_once("\r\n\r\n")
+                    .map_or("", |(_, b)| b)
+                    .to_string();
+                noted.lock().unwrap().push(format!("{line} {body}"));
+                let answer = if text.contains("action=login") {
+                    json!({"login": {"result": "Success", "lgusername": "Bot@follow"}})
+                } else if text.contains("meta=tokens") {
+                    json!({"query": {"tokens": {"logintoken": "a-login-token"}}})
+                } else {
+                    json!({
+                        "batchcomplete": true,
+                        "curtimestamp": "2026-11-13T00:00:00Z",
+                        "query": {
+                            "recentchanges": [],
+                            "logevents": [],
+                            "userinfo": {"name": "Bot", "rights": ["apihighlimits"]},
+                            "namespaces": {
+                                "120": {"id": 120, "canonical": "Item", "defaultcontentmodel": "wikibase-item"},
+                                "122": {"id": 122, "canonical": "Property", "defaultcontentmodel": "wikibase-property"},
+                            },
                         },
-                    },
-                })
+                    })
+                }
                 .to_string();
                 let _ = socket
                     .write_all(
                         format!(
                             "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\n\
-                             content-length: {}\r\nconnection: close\r\n\r\n{body}",
-                            body.len()
+                             content-length: {}\r\nconnection: close\r\n\r\n{answer}",
+                            answer.len()
                         )
                         .as_bytes(),
                     )
@@ -313,7 +359,7 @@ async fn quiet_wiki() -> String {
             });
         }
     });
-    format!("http://{address}/w/api.php")
+    (format!("http://{address}/w/api.php"), asked)
 }
 
 // 0104 §4 (A9): a follower is a row of the queue that runs a pass at a time: after a
@@ -340,7 +386,7 @@ async fn a_follower_runs_a_pass_at_a_time() {
         batch: 200,
         key_file: key_file.clone(),
         anonymous: true,
-        api: Some(quiet_wiki().await),
+        api: Some(quiet_wiki().await.0),
     }))
     .await;
     let row = queued(&database).await;
@@ -399,6 +445,109 @@ async fn a_follower_runs_a_pass_at_a_time() {
     assert_eq!(
         one(&database, "SELECT count(*)::text FROM ops.job_queue").await,
         "0"
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
+// 0104 §4 (A9); 0013 §4 (A103): the followers' runner is the one on the accounts login,
+// because a follower logs in upstream with a bot password kept in `private`. On the
+// public API's login the password cannot be read, and the pass goes on anonymously; on
+// the accounts login the follower logs in with it.
+#[tokio::test]
+async fn a_follower_logs_in_from_the_accounts_login() {
+    use triplespace_db::grants::role;
+    let Some((database, dir)) = setup("tsjobkinds_login").await else {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    };
+    let farm = triplespace_cli::common::farm_at(&database).await.unwrap();
+    let now = triplespace_cli::common::now;
+    let key_file = dir.join("triplespace.key");
+    let password = dir.join("bot.pw");
+    std::fs::write(&password, "bot-secret-5678\n").unwrap();
+    follow::run_login(follow::UpstreamLogin::Set(follow::SetLogin {
+        which: follow::WhichLogin {
+            database: database.clone(),
+            provider: Some("internetdomains".into()),
+            tenant: None,
+            source: None,
+        },
+        username: "Bot@follow".into(),
+        password_file: Some(password),
+        key_file: key_file.clone(),
+    }))
+    .await
+    .expect("store the bot password");
+    let (api, asked) = quiet_wiki().await;
+    start(StartKind::Follow(follow::Follow {
+        database: database.clone(),
+        provider: Some("internetdomains".into()),
+        tenant: None,
+        source: None,
+        once: false,
+        from: Some("2026-11-12T00:00:00Z".into()),
+        interval: Some(3600),
+        batch: 200,
+        key_file: key_file.clone(),
+        anonymous: false,
+        api: Some(api),
+    }))
+    .await;
+    let row = queued(&database).await;
+    let logins = || {
+        asked
+            .lock()
+            .unwrap()
+            .iter()
+            .filter(|r| r.contains("action=login"))
+            .cloned()
+            .collect::<Vec<_>>()
+    };
+
+    // As the public API: the pass runs, and nobody logged in.
+    let public = triplespace_db::scratch::as_role(&database, role::SERVER);
+    let (store, pipeline) = triplespace_cli::common::store(&public, &farm).unwrap();
+    let ran = jobs::run_once(
+        &store,
+        &pipeline,
+        &job_work::with_followers(Runner::only("public"), &public, &key_file),
+        now,
+    )
+    .await
+    .unwrap()
+    .expect("the follower waited");
+    assert_eq!((ran.job_id, ran.error), (row, None));
+    assert_eq!(
+        logins(),
+        Vec::<String>::new(),
+        "the password is not the public login's to read"
+    );
+
+    // As the accounts service: the follower logs in with the stored password.
+    let client = triplespace_cli::common::connect(&database).await.unwrap();
+    client
+        .execute("UPDATE ops.job_queue SET not_before = now()", &[])
+        .await
+        .unwrap();
+    let accounts = triplespace_db::scratch::as_role(&database, role::ACCOUNTS);
+    let (store, pipeline) = triplespace_cli::common::store(&accounts, &farm).unwrap();
+    let ran = jobs::run_once(
+        &store,
+        &pipeline,
+        &job_work::with_followers(Runner::only("accounts"), &accounts, &key_file),
+        now,
+    )
+    .await
+    .unwrap()
+    .expect("the follower's next pass");
+    assert_eq!((ran.job_id, ran.error), (row, None));
+    let logged_in = logins();
+    assert_eq!(logged_in.len(), 1, "{logged_in:?}");
+    assert!(
+        logged_in[0].contains("lgname=Bot%40follow")
+            && logged_in[0].contains("lgpassword=bot-secret-5678")
+            && logged_in[0].contains("lgtoken=a-login-token"),
+        "{logged_in:?}"
     );
     let _ = std::fs::remove_dir_all(&dir);
 }
