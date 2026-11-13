@@ -16,7 +16,7 @@ use scatter_ingest::import::Import as ImportJob;
 use scatter_ingest::import::census::Census;
 use scatter_ingest::write::Attestation;
 use scatter_mediawiki_xml::DumpPage;
-use triplespace_api_ingest::import::{census, ensure_accounts, import_pages, issuer_for};
+use triplespace_api_ingest::import::{census, ensure_accounts, import_pages_then, issuer_for};
 use triplespace_api_ingest::talk_import::{self, Authors, TalkContext};
 
 use crate::common::{connect, farm_of, now, store};
@@ -233,7 +233,20 @@ pub async fn run(args: Import) -> Result<()> {
         summary: None,
         job_id: None,
     };
-    let (outcome, read) = import_pages(
+    // Pass 3, the talk pages, comment by comment (0090 §10), is the job's work too: after
+    // its pages and before its finish record, so that the job does not finish with them
+    // undone (0104 A8).
+    let convert = !args.skip_talk && c.talk > 0;
+    let talk_pages: Vec<_> = if convert {
+        all.iter()
+            .filter(|p| talk_import::is_talk_page(p))
+            .cloned()
+            .collect()
+    } else {
+        Vec::new()
+    };
+    let mut talk = None;
+    let (outcome, read) = import_pages_then(
         &store,
         &pipeline,
         &args.tenant,
@@ -242,6 +255,37 @@ pub async fn run(args: Import) -> Result<()> {
         &authors,
         all.iter().cloned(),
         t,
+        async |job| {
+            let mut extra = serde_json::Map::new();
+            if !convert {
+                return Ok(extra);
+            }
+            eprintln!("converting {} talk pages", talk_pages.len());
+            let site = scatter_talk::Site::english();
+            let ctx = TalkContext {
+                tenant: &args.tenant,
+                source: &args.source,
+                authors: authors.clone(),
+                actor: &actor,
+                job: Some(job),
+                site: &site,
+            };
+            let counts =
+                talk_import::convert_all(&store, &pipeline, &ctx, talk_pages.into_iter(), now())
+                    .await
+                    .map_err(|e| {
+                        scatter_ingest::IngestError::Store(format!(
+                            "converting the talk pages: {e}"
+                        ))
+                    })?;
+            extra.insert(
+                "talk".into(),
+                serde_json::to_value(&counts)
+                    .map_err(|e| scatter_ingest::IngestError::Store(e.to_string()))?,
+            );
+            talk = Some(counts);
+            Ok(extra)
+        },
     )
     .await
     .context("import")?;
@@ -264,26 +308,7 @@ pub async fn run(args: Import) -> Result<()> {
         println!("  reject #{}: {}", r.line, r.reason);
     }
 
-    // Pass 3: the talk pages, comment by comment (0090 §10).
-    if !args.skip_talk && c.talk > 0 {
-        eprintln!("converting {} talk pages", c.talk);
-        let site = scatter_talk::Site::english();
-        let ctx = TalkContext {
-            tenant: &args.tenant,
-            source: &args.source,
-            authors,
-            actor: &actor,
-            job: Some(outcome.job_id),
-            site: &site,
-        };
-        let talk = talk_import::convert_all(
-            &store,
-            &pipeline,
-            &ctx,
-            all.into_iter().filter(talk_import::is_talk_page),
-            now(),
-        )
-        .await?;
+    if let Some(talk) = talk {
         println!(
             "  talk       {} pages converted into {} threads, {} posts; {} already present",
             talk.pages, talk.threads, talk.posts, talk.present

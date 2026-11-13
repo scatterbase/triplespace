@@ -371,11 +371,16 @@ pub async fn convert_all(
     let mut surrogates = BTreeMap::new();
     for page in pages {
         let mut cx = Backend::begin(store).await?;
+        // A surrogate minted for a page whose unit of work is rolled back was never
+        // written: the map goes back to what it was, or a later page would attribute its
+        // posts to an actor with no record.
+        let before = surrogates.clone();
         let outcome =
             match convert_page(store, pipeline, &mut cx, ctx, &page, &mut surrogates, now).await {
                 Ok(o) => o,
                 Err(e) => {
                     let _ = Backend::rollback(store, cx).await;
+                    surrogates = before;
                     eprintln!("deferring talk page {} (`{}`): {e}", page.id, page.title);
                     counts.add(&TalkOutcome::Deferred(format!("the write failed: {e}")));
                     continue;
@@ -383,6 +388,7 @@ pub async fn convert_all(
             };
         if let TalkOutcome::Deferred(why) = &outcome {
             let _ = Backend::rollback(store, cx).await;
+            surrogates = before;
             eprintln!("deferring talk page {} (`{}`): {why}", page.id, page.title);
         } else {
             Backend::commit(store, cx).await?;

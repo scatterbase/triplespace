@@ -193,7 +193,7 @@ insta = "1"
 proptest = "1"
 http-body-util = "0.1"
 # The web tier (0057): its HTTP client to the API, rustls on aws-lc-rs (0033 §6–7)
-reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2"] }
+reqwest = { version = "0.13", default-features = false, features = ["rustls", "http2", "stream"] }
 # Outgoing mail (0100 §5): SMTP submission over rustls on aws-lc-rs, and the RFC 5322 builder
 lettre = { version = "0.11.23", default-features = false, features = ["smtp-transport", "builder", "tokio1", "tokio1-rustls", "aws-lc-rs", "rustls-platform-verifier"] }
 # Sealing secrets at rest (0088 §3): XChaCha20-Poly1305

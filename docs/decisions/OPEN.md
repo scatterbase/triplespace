@@ -93,6 +93,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0104 A3](0104-batches-and-the-job-runner.md#a3-calls-made-while-building-specialcreateentities) | 2026-11-08 | Calls made while building `Special:CreateEntities` |
 | [0104 A6](0104-batches-and-the-job-runner.md#a6-dumps-join-the-queue-and-a-runner-claims-only-its-kinds) | 2026-11-12 | Dumps join the queue, and a runner claims only its kinds |
 | [0104 A7](0104-batches-and-the-job-runner.md#a7-claims-are-one-per-partition-and-capped-and-a-job-that-fails-before-it-starts-is-a-failed-job) | 2026-11-13 | Claims are one per partition and capped, and a job that fails before it starts is a failed job |
+| [0104 A8](0104-batches-and-the-job-runner.md#a8-a-job-that-lost-its-claim-is-stopped-and-an-imports-talk-pages-are-its-own-work) | 2026-11-13 | A job that lost its claim is stopped, and an import's talk pages are its own work |
 | [0106 A5](0106-create-entities-grid-and-drafts.md#a5-what-a-draft-needed-to-hold-the-tables-text-found-while-building) | 2026-11-10 | What a draft needed to hold the table's text, found while building |
 | [0106 A6](0106-create-entities-grid-and-drafts.md#a6-how-the-grid-and-the-mapping-step-are-built-found-while-building) | 2026-11-10 | How the grid and the mapping step are built, found while building |
 | [0106 A7](0106-create-entities-grid-and-drafts.md#a7-a-quantitys-unit-in-the-text-found-while-building) | 2026-11-10 | A quantity's unit in the text, found while building |

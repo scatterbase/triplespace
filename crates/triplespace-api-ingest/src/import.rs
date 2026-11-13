@@ -20,7 +20,7 @@ use scatter_ingest::adopt::Author;
 use scatter_ingest::import::census::{Census, PageClass, Status, TextUses};
 use scatter_ingest::import::{
     HeldPage, HeldRevision, Import, ImportHost, ImportOutcome, ImportPage, ImportRevision,
-    run_import,
+    run_import_then,
 };
 use scatter_ingest::write::Attestation;
 use scatter_ingest::{IngestError, IngestStore as _};
@@ -444,8 +444,9 @@ pub struct Read {
 
 /// Runs the import job over a file's pages (10 §6 steps 1–2): each page the census
 /// classes as a document page is read and written; talk pages are left for
-/// [`crate::talk_import::convert_all`], which the caller runs after, and entity pages
-/// are refused.
+/// [`crate::talk_import::convert_all`], and entity pages are refused. The job finishes
+/// with its pages: a caller with talk pages to convert under the job uses
+/// [`import_pages_then`].
 #[allow(clippy::too_many_arguments)]
 pub async fn import_pages(
     store: &PgIngest,
@@ -456,6 +457,35 @@ pub async fn import_pages(
     authors: &Authors<'_>,
     pages: impl IntoIterator<Item = DumpPage>,
     now: u64,
+) -> Result<(ImportOutcome, Read), IngestError> {
+    import_pages_then(
+        store,
+        pipeline,
+        tenant,
+        attestation,
+        import,
+        authors,
+        pages,
+        now,
+        async |_| Ok(serde_json::Map::new()),
+    )
+    .await
+}
+
+/// [`import_pages`], with `after` run under the job once its pages are written and
+/// before its finish record, which takes what `after` returns; if it fails, the job
+/// fails (0104 A8; `scatter_ingest::import::run_import_then`).
+#[allow(clippy::too_many_arguments)]
+pub async fn import_pages_then(
+    store: &PgIngest,
+    pipeline: &Pipeline<PgIngest>,
+    tenant: &str,
+    attestation: Attestation,
+    import: Import,
+    authors: &Authors<'_>,
+    pages: impl IntoIterator<Item = DumpPage>,
+    now: u64,
+    after: impl AsyncFnOnce(u64) -> Result<serde_json::Map<String, serde_json::Value>, IngestError>,
 ) -> Result<(ImportOutcome, Read), IngestError> {
     let mut read = Read::default();
     let mut unreadable: Vec<(usize, String)> = Vec::new();
@@ -485,7 +515,7 @@ pub async fn import_pages(
             }
         })
         .collect();
-    let mut outcome = run_import(
+    let mut outcome = run_import_then(
         store,
         pipeline,
         &PgImportHost,
@@ -494,6 +524,7 @@ pub async fn import_pages(
         import,
         items,
         now,
+        after,
     )
     .await?;
     for (line, reason) in unreadable {
@@ -767,7 +798,23 @@ pub async fn run_request<C: PgClient>(
         )
         .await?;
     }
-    let (outcome, read) = import_pages(
+    // The talk pages are the job's work too: converted once its pages are written, since
+    // threads need their subject pages and accounts, and before its finish record, which
+    // carries their counts. A job is not `finished` with them undone (0104 A8).
+    let mut talk = crate::talk_import::TalkCounts::default();
+    let convert = !(request.skip_talk || c.talk == 0);
+    let talk_pages: Vec<DumpPage> = if convert {
+        pages
+            .iter()
+            .filter(|p| crate::talk_import::is_talk_page(p))
+            .cloned()
+            .collect()
+    } else {
+        Vec::new()
+    };
+    // Boxed: with the conversion inside it the future is too large to hold inline in
+    // every caller's.
+    let (outcome, read) = Box::pin(import_pages_then(
         store,
         pipeline,
         tenant,
@@ -782,31 +829,33 @@ pub async fn run_request<C: PgClient>(
         &authors,
         pages.iter().cloned(),
         now,
-    )
+        async |job| {
+            let mut extra = serde_json::Map::new();
+            if !convert {
+                return Ok(extra);
+            }
+            progress(Stage::Talk);
+            let site = scatter_talk::Site::english();
+            let ctx = crate::talk_import::TalkContext {
+                tenant,
+                source: &request.source,
+                authors: authors.clone(),
+                actor,
+                job: Some(job),
+                site: &site,
+            };
+            talk =
+                crate::talk_import::convert_all(store, pipeline, &ctx, talk_pages.into_iter(), now)
+                    .await
+                    .map_err(|e| IngestError::Store(format!("converting the talk pages: {e}")))?;
+            extra.insert(
+                "talk".into(),
+                serde_json::to_value(&talk).map_err(|e| IngestError::Store(e.to_string()))?,
+            );
+            Ok(extra)
+        },
+    ))
     .await?;
-    let talk = if request.skip_talk || c.talk == 0 {
-        crate::talk_import::TalkCounts::default()
-    } else {
-        progress(Stage::Talk);
-        let site = scatter_talk::Site::english();
-        let ctx = crate::talk_import::TalkContext {
-            tenant,
-            source: &request.source,
-            authors,
-            actor,
-            job: Some(outcome.job_id),
-            site: &site,
-        };
-        crate::talk_import::convert_all(
-            store,
-            pipeline,
-            &ctx,
-            pages.into_iter().filter(crate::talk_import::is_talk_page),
-            now,
-        )
-        .await
-        .map_err(|e| IngestError::Store(e.to_string()))?
-    };
     Ok(ImportReport {
         census: c,
         outcome,

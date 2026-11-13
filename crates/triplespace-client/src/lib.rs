@@ -85,7 +85,8 @@ pub use threads::{
     Attached, Listed, Listing, NewThreadOn, PostForm, PostView, ThreadChange, ThreadView, Written,
 };
 pub use transport::{
-    ApiRequest, ApiResponse, ClientError, HttpTransport, ServiceTransport, Transport,
+    ApiRequest, ApiResponse, ClientError, HttpTransport, ServiceTransport, StreamedResponse,
+    Transport,
 };
 pub use watch::{WatchEntry, WatchForm, WatchState};
 

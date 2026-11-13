@@ -1035,3 +1035,107 @@ async fn claims_are_one_per_partition_and_capped() {
     assert_eq!(job_row(&database, TENANT, lost).await, None);
     assert_eq!(job_row(&database, TENANT, taken).await, None);
 }
+
+// 0104 §4 (A8): a job whose claim is taken while it runs is stopped, not left to write
+// beside the run that took it; and the unit of work it was in is rolled back, its
+// connection closed and not handed to the next unit of work.
+#[tokio::test]
+async fn a_job_that_loses_its_claim_is_stopped() {
+    let Some((database, key_file)) = setup("tsjobs_stop").await else {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    };
+    let (app, _api) = app(&database, &key_file).await;
+    let (store, pipeline) = (app.store(), app.pipeline());
+    let now = triplespace_cli::common::now;
+    let count = async |sql: &str| query(&database, sql).await[0].get::<_, i64>(0);
+
+    // A unit of work dropped part-way leaves nothing behind, in the database or the pool.
+    let cx = store.begin().await.unwrap();
+    cx.conn()
+        .execute(
+            "INSERT INTO ops.visibility_epoch (tenant, epoch) VALUES ('dropped', 1)",
+            &[],
+        )
+        .await
+        .unwrap();
+    drop(cx);
+    for _ in 0..8 {
+        let cx = store.begin().await.unwrap();
+        let seen: i64 = cx
+            .conn()
+            .query_one(
+                "SELECT count(*) FROM ops.visibility_epoch WHERE tenant = 'dropped'",
+                &[],
+            )
+            .await
+            .unwrap()
+            .get(0);
+        assert_eq!(seen, 0, "no unit of work runs inside the abandoned one");
+        store.commit(cx).await.unwrap();
+    }
+
+    // An import of 33 pages, its claim taken before its first heartbeat.
+    let pages_before = count("SELECT count(*) FROM view.page").await;
+    let id = jobs::submit(
+        store,
+        &jobs::Submission {
+            tenant: TENANT.into(),
+            kind: jobs::Kind::Import,
+            params: serde_json::to_value(triplespace_api_ingest::import::ImportRequest {
+                source: "upload".into(),
+                version: None,
+                prefix: "imported".into(),
+                issuer: None,
+                summary: None,
+                tags: Vec::new(),
+                skip_talk: false,
+            })
+            .unwrap(),
+            payload: Some(dump_xml()),
+            actor: "local:1".into(),
+        },
+    )
+    .await
+    .unwrap();
+    let mut runner = jobs::Runner::new("runner slow");
+    runner.heartbeat = std::time::Duration::from_millis(5);
+    let claimed = jobs::claim(store, pipeline, &runner, now())
+        .await
+        .unwrap()
+        .expect("the import waited");
+    assert_eq!(claimed.job_id, id);
+    query(
+        &database,
+        &format!(
+            "UPDATE ops.job_queue SET job_id = {}, claimed_by = 'runner b' WHERE job_id = {id}",
+            id + 1_000_000
+        ),
+    )
+    .await;
+    let ran = jobs::run_claimed(store, pipeline, &runner, claimed, now)
+        .await
+        .unwrap();
+    let error = ran.error.expect("the run did not end as a job's does");
+    assert!(error.contains("stopped"), "{error}");
+    let written = count("SELECT count(*) FROM view.page").await - pages_before;
+    assert!(
+        written < 33,
+        "the import was stopped part-way, at {written} pages"
+    );
+    // Nothing more comes of it: the count stands, and the row is the other runner's.
+    tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+    assert_eq!(
+        count("SELECT count(*) FROM view.page").await - pages_before,
+        written
+    );
+    assert_eq!(count("SELECT count(*) FROM ops.job_queue").await, 1);
+    assert_eq!(
+        count(&format!(
+            "SELECT count(*) FROM view.job WHERE job_id = {id} AND status <> 'running'"
+        ))
+        .await,
+        0,
+        "the stopped run wrote no end for the job"
+    );
+}

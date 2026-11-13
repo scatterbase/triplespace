@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-08
-- **Updated:** 2026-11-13 (A7)
+- **Updated:** 2026-11-13 (A8)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0016](0016-permissions-and-access-control.md), [0047](0047-special-pages.md), [0083](0083-write-path-in-three-tiers.md)
 - **Uses:** [0007](0007-actor-identity.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0047](0047-special-pages.md)
@@ -42,7 +42,7 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 4. The runner (extends 0083 §5)
 
-*Changed by A1, A6, A7.*
+*Changed by A1, A6, A7, A8.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §2.2; [21](../architecture/21-special-pages.md) §4.3.*
 
@@ -170,3 +170,14 @@ Replaced text ([21](../architecture/21-special-pages.md) §6.6, as it stood):
 - **Source:** Direct: Claude, after a review of the job queue (2026-11-13); unconfirmed
 - **Change:** extends §4
 - **Summary:** A review of the queue found three defects and two risks in what A1 built, and these are the calls made in mending them. (1) **One running job per partition is enforced between claimers.** The row lock alone did not: a claimer skipped the row another had locked and not yet committed as claimed, saw no running job in the partition, and claimed a second row of it, with `--job-runners` above 1 or two processes. A claimer now decides for a partition only under a transaction-scoped advisory lock on it, taken without waiting; the statement after the lock sees every claim of the partition committed before it, and a claimer that finds the lock taken passes on to the next partition with a job waiting, where before it had one candidate row and answered that nothing waited. (2) **A job is claimed at most `jobs.max_attempts` times**, a new instance setting, 3 by default. `attempts` was counted and never read, so a job that took its process down was run again every two minutes for ever. A stale claim on a job that has had its attempts is not run: the dead run gets its `job/interrupt` as before, naming as `by` a new job ID under which a start and a `job/fail` record are written, or, where the dead run wrote no start record, the start and fail records are written under the ID the job was submitted with; the row is removed. The error names the setting. (3) **An ID answered at submission is always a job.** A job that failed before its kind's work wrote the start record (a file that is not XML, a file with nothing this wiki can import, a revert of a job that does not exist) left no record, and its page answered 404 for an ID the caller had been given. The runner now writes a start record for it from the queue row (an import: the row's source and version, mode `import`, graph `pages`, the summary; a revert: source `revert`, mode `revert`, the job reverted and the reason; a dump: source `dump`), and then the `job/fail`, so the job shows as `failed` with its error. (4) **A runner whose claim was taken says so and writes nothing more to the queue for the row.** A heartbeat that updates no row means the row was claimed again under a new ID or removed; the runner logs it, and at the job's end, where the row is no longer its own, writes neither a fail record nor the row's deletion. The work itself is not stopped: nothing here can cancel a running job, so a run whose heartbeat stalled for two minutes may still write beside the run that replaced it, as before; the jobs carried are idempotent, which is what that leans on. A heartbeat that could not be written is logged, where it was dropped. (5) **A pass that cannot read `jobs.paused` claims nothing**, where it had run as if not paused. Not changed: an import's talk conversion runs after the job's finish record, so a store error there leaves the job `finished` with the error in the server's log alone; mending it means writing the finish record after the conversion in the import shared by the command line, the request path and the runner, which is left for a decision. Chapter text: [16](../architecture/16-logs-feeds-and-notifications.md) §2.2; [23](../architecture/23-configuration-and-registry.md) (`settings.toml`).
+
+### A8. A job that lost its claim is stopped, and an import's talk pages are its own work
+
+- **Date:** 2026-11-13
+- **Source:** Direct: James, 2026-11-13, asked that the two things A7 left be fixed; the calls in how are Claude's, while fixing them; unconfirmed
+- **Change:** amends §4
+- **Summary:** A7 left two things. (1) **A job whose claim was taken is stopped.** The runner's heartbeat, on finding the row no longer its job's, ends the work where it stands; before, the work ran on beside the run that had taken the claim, each checking what the other had written in transactions of its own. What the stopped run had committed stays, and the other run goes on from it, as after a runner's death. (2) What made stopping safe: **a unit of work that is neither committed nor rolled back closes its connection**, where it had gone back to the pool still inside its transaction, for the next unit of work to run inside and commit with its own; this held for every unit of work an error returned past, not only for a stopped job. (3) A dump's files are written on a thread that is not stopped: it finishes them, and the stopped job records nothing of them; the run that took the claim writes the dump again. (4) **An import's talk pages are converted within the job**: after its pages, since a thread needs its subject page and authors, and before its finish record, which now carries the conversion's counts as `talk`; a conversion that cannot be written fails the job, with its `job/fail`, where it had left the job `finished` and the error in the server's log. This holds for `action=import`, the runner and `triplespace import` alike; an adoption converts after its job, as before. (5) A talk page whose unit of work is rolled back no longer leaves the surrogates it minted in the conversion's memory, where a later page would have attributed posts to an actor with no record.
+
+Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §2.2, as it stood):
+
+> says so in the server's log and writes nothing more to the queue about the row, which is the other runner's; its work is not stopped (A7).

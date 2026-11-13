@@ -9,7 +9,7 @@ use scatter_ingest::IngestError;
 use scatter_ingest::adopt::Author;
 use scatter_ingest::import::{
     HeldPage, HeldRevision, Import, ImportHost, ImportPage, ImportRevision, PAYLOAD_PAGE,
-    RESTORE_COMMENT, run_import,
+    RESTORE_COMMENT, run_import, run_import_then,
 };
 use scatter_ingest::memory::{MemoryCx, MemoryIngest};
 use scatter_ingest::write::{Attestation, RawRecord, Request, write_raw};
@@ -506,5 +506,67 @@ fn a_hidden_text_is_withheld_and_a_model_change_is_kept() {
         assert_eq!(second["op"], "edit");
         assert_eq!(second["model"], "css");
         assert_eq!(text_of(&recs[1]).as_deref(), Some("body {}"));
+    });
+}
+
+// 0104 §4 (A8): work of the job's that follows its pages is done before its finish
+// record, which carries what it returns; where it fails, the job fails, and is not left
+// finished with the work undone.
+#[test]
+fn work_after_the_pages_is_the_jobs_too() {
+    pollster::block_on(async {
+        let page = |title: &str| ImportPage {
+            ns: 0,
+            title: title.into(),
+            revisions: vec![revision(1, 1, "text", Author::Hidden)],
+        };
+        let (store, pipeline) = setup();
+        let out = run_import_then(
+            &store,
+            &pipeline,
+            &Host,
+            TENANT,
+            Attestation::by("lb:1"),
+            import(),
+            vec![page("Alpha")],
+            NOW,
+            async |job| {
+                let mut extra = serde_json::Map::new();
+                extra.insert("talk".into(), json!({"pages": 2, "job": job}));
+                Ok(extra)
+            },
+        )
+        .await
+        .unwrap();
+        let ev = events(&store);
+        assert_eq!(ev.last().unwrap().0, "finish");
+        assert_eq!(ev.last().unwrap().1["talk"]["pages"], 2);
+        assert_eq!(ev.last().unwrap().1["talk"]["job"], out.job_id);
+        assert_eq!(ev.last().unwrap().1["import"]["created"], 1);
+
+        let (store, pipeline) = setup();
+        let failed = run_import_then(
+            &store,
+            &pipeline,
+            &Host,
+            TENANT,
+            Attestation::by("lb:1"),
+            import(),
+            vec![page("Beta")],
+            NOW,
+            async |_| {
+                Err(IngestError::Store(
+                    "the talk pages could not be written".into(),
+                ))
+            },
+        )
+        .await;
+        assert!(failed.is_err());
+        let ev = events(&store);
+        assert_eq!(
+            ev.iter().map(|e| e.0.as_str()).collect::<Vec<_>>(),
+            vec!["start", "fail"]
+        );
+        assert!(ev[1].1["error"].as_str().unwrap().contains("talk pages"));
     });
 }

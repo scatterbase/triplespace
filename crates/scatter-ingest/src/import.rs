@@ -243,6 +243,38 @@ pub async fn run_import<S: IngestStore, H: ImportHost<S>>(
     pages: impl IntoIterator<Item = ImportPage>,
     now: u64,
 ) -> Result<ImportOutcome, IngestError> {
+    run_import_then(
+        store,
+        pipeline,
+        host,
+        tenant,
+        attestation,
+        import,
+        pages,
+        now,
+        async |_| Ok(serde_json::Map::new()),
+    )
+    .await
+}
+
+/// [`run_import`], with work of the job's that follows its pages and comes before its
+/// finish record (0104 A8): `after` is given the job's ID once every page is written, and
+/// what it returns goes into the finish record beside the counts. If it fails, the job
+/// fails: its `job/fail` record, the pages it wrote staying, as when a page fails. A
+/// host's talk-page conversion runs here, so that a job is not `finished` with part of
+/// its work undone.
+#[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+pub async fn run_import_then<S: IngestStore, H: ImportHost<S>>(
+    store: &S,
+    pipeline: &Pipeline<S>,
+    host: &H,
+    tenant: &str,
+    attestation: Attestation,
+    import: Import,
+    pages: impl IntoIterator<Item = ImportPage>,
+    now: u64,
+    after: impl AsyncFnOnce(u64) -> Result<serde_json::Map<String, serde_json::Value>, IngestError>,
+) -> Result<ImportOutcome, IngestError> {
     let mut cx = store.begin().await?;
     let mut header = JobHeader::local(&import.source);
     header.version.clone_from(&import.version);
@@ -358,8 +390,19 @@ pub async fn run_import<S: IngestStore, H: ImportHost<S>>(
             }
         }
     }
+    let mut extra = match after(job.id).await {
+        Ok(extra) => extra,
+        Err(e) => {
+            if let Ok(mut cx) = store.begin().await {
+                let _ = job
+                    .fail(store, pipeline, &mut cx, &e.to_string(), now)
+                    .await;
+                let _ = store.commit(cx).await;
+            }
+            return Err(e);
+        }
+    };
     let mut cx = store.begin().await?;
-    let mut extra = serde_json::Map::new();
     extra.insert(
         "import".into(),
         serde_json::to_value(&counts).map_err(|e| e.to_string())?,
