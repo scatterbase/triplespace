@@ -8,6 +8,7 @@
 //! | `{scope}/thumb/{h}/{transform}` | Thumbnails and other derived renderings (0039 §6) |
 //! | `{scope}/stash/{key}` | Uploads in progress and stashed uploads (0039 §5) |
 //! | `{scope}/cache/{repo}/{sha1}/…` | Bytes fetched from a proxied foreign repository (0039 §11) |
+//! | `{scope}/job/{job_id}/{name}` | A job's output, `{job_id}` the job's ID in decimal (0104 A9) |
 //!
 //! A [`Scope`] is the part of the store a reference counts against (0039 §4): a tenant's
 //! slug under `files.separation = tenant`, or `_instance` for the whole instance. Which one
@@ -15,7 +16,7 @@
 //!
 //! [`Key`] builds and parses those paths; [`Prefix`] names the sets of objects a listing
 //! walks or a deletion clears: a scope (what leaves with a tenant, 0039 §14), one kind within
-//! it, one hash's thumbnails, or one repository's cache.
+//! it, one hash's thumbnails, one repository's cache, or one job's output.
 
 use std::fmt;
 
@@ -106,7 +107,7 @@ impl fmt::Debug for Scope {
     }
 }
 
-/// The four kinds of object a scope holds (0039 §3).
+/// The five kinds of object a scope holds (0039 §3; 0104 A9).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Kind {
     /// Original bytes under `sha256/`: immutable, one key per distinct byte sequence.
@@ -117,6 +118,9 @@ pub enum Kind {
     Stash,
     /// Bytes fetched from a proxied foreign repository under `cache/` (0039 §11).
     Cache,
+    /// A job's output under `job/` (0104 A9): written once by the job, removed by its
+    /// retention.
+    Job,
 }
 
 impl Kind {
@@ -128,6 +132,7 @@ impl Kind {
             Self::Thumb => "thumb",
             Self::Stash => "stash",
             Self::Cache => "cache",
+            Self::Job => "job",
         }
     }
 
@@ -137,6 +142,7 @@ impl Kind {
             "thumb" => Some(Self::Thumb),
             "stash" => Some(Self::Stash),
             "cache" => Some(Self::Cache),
+            "job" => Some(Self::Job),
             _ => None,
         }
     }
@@ -178,6 +184,15 @@ pub enum Key {
         sha1: Sha1,
         /// The remainder of the key, one or more segments joined by `/`.
         rest: String,
+    },
+    /// `{scope}/job/{job_id}/{name}`: a file a job wrote as its output.
+    Job {
+        /// The scope.
+        scope: Scope,
+        /// The job's ID.
+        job: u64,
+        /// The file's name within the job.
+        name: String,
     },
 }
 
@@ -227,6 +242,15 @@ impl Key {
         })
     }
 
+    /// The key of a job's output file.
+    pub fn job(scope: Scope, job: u64, name: &str) -> Result<Self, KeyError> {
+        Ok(Self::Job {
+            scope,
+            job,
+            name: segment(name)?.to_owned(),
+        })
+    }
+
     /// The key's scope.
     #[must_use]
     pub fn scope(&self) -> &Scope {
@@ -234,7 +258,8 @@ impl Key {
             Self::Sha256 { scope, .. }
             | Self::Thumb { scope, .. }
             | Self::Stash { scope, .. }
-            | Self::Cache { scope, .. } => scope,
+            | Self::Cache { scope, .. }
+            | Self::Job { scope, .. } => scope,
         }
     }
 
@@ -246,6 +271,7 @@ impl Key {
             Self::Thumb { .. } => Kind::Thumb,
             Self::Stash { .. } => Kind::Stash,
             Self::Cache { .. } => Kind::Cache,
+            Self::Job { .. } => Kind::Job,
         }
     }
 
@@ -275,6 +301,10 @@ impl Key {
                 v.push(repo.clone());
                 v.push(sha1.hex());
                 v.extend(rest.split('/').map(str::to_owned));
+            }
+            Self::Job { job, name, .. } => {
+                v.push(job.to_string());
+                v.push(name.clone());
             }
         }
         v
@@ -332,6 +362,18 @@ impl Key {
                     rest: rest.join("/"),
                 })
             }
+            (Kind::Job, [id, name]) => {
+                // The ID as the layout writes it, and no other spelling of the number.
+                let job: u64 = id.parse().map_err(|_| layout())?;
+                if job.to_string() != *id {
+                    return Err(layout());
+                }
+                Ok(Self::Job {
+                    scope,
+                    job,
+                    name: name.clone(),
+                })
+            }
             _ => Err(layout()),
         }
     }
@@ -380,6 +422,22 @@ impl Prefix {
         ])))
     }
 
+    /// Every job's output in a scope (0104 A9): what a retention sweep walks.
+    #[must_use]
+    pub fn jobs(scope: &Scope) -> Self {
+        Self::kind(scope, Kind::Job)
+    }
+
+    /// One job's output.
+    #[must_use]
+    pub fn job(scope: &Scope, job: u64) -> Self {
+        Self(Path::from_iter([
+            scope.as_str(),
+            Kind::Job.segment(),
+            &job.to_string(),
+        ]))
+    }
+
     /// The prefix as the backend's path.
     #[must_use]
     pub fn path(&self) -> &Path {
@@ -418,7 +476,7 @@ mod tests {
 
     #[test]
     fn keys_follow_the_layout_and_parse_back() {
-        // 0039 §3: the four kinds of key.
+        // 0039 §3: the four kinds of key; 0104 A9: a job's output.
         let h: Sha256 = H.parse().unwrap();
         let s: Sha1 = S.parse().unwrap();
         let cases = [
@@ -442,6 +500,10 @@ mod tests {
                 Key::cache(lb(), "commons", s, "thumb/120px-Example.jpg").unwrap(),
                 format!("librarybase/cache/commons/{S}/thumb/120px-Example.jpg"),
             ),
+            (
+                Key::job(lb(), 42, "export.xml").unwrap(),
+                "librarybase/job/42/export.xml".to_owned(),
+            ),
         ];
         for (key, want) in cases {
             assert_eq!(key.to_string(), want);
@@ -457,6 +519,8 @@ mod tests {
         assert!(Key::stash(lb(), "a/b").is_err());
         assert!(Key::cache(lb(), "r", S.parse().unwrap(), "a//b").is_err());
         assert!(Prefix::cache(&lb(), "a/b").is_err());
+        assert!(Key::job(lb(), 1, "").is_err());
+        assert!(Key::job(lb(), 1, "a/b").is_err());
     }
 
     #[test]
@@ -472,6 +536,10 @@ mod tests {
             "librarybase/stash/a/b".to_owned(),
             format!("librarybase/cache/commons/{S}"),
             "_x/stash/k".to_owned(),
+            "librarybase/job/42".to_owned(),
+            "librarybase/job/042/export.xml".to_owned(),
+            "librarybase/job/x/export.xml".to_owned(),
+            "librarybase/job/42/a/b".to_owned(),
         ];
         for p in bad {
             assert!(
@@ -497,5 +565,8 @@ mod tests {
             Prefix::cache(&lb(), "commons").unwrap().to_string(),
             "librarybase/cache/commons"
         );
+        assert_eq!(Prefix::jobs(&lb()).to_string(), "librarybase/job");
+        assert_eq!(Prefix::job(&lb(), 42).to_string(), "librarybase/job/42");
+        assert_eq!(Key::job(lb(), 42, "f").unwrap().kind(), Kind::Job);
     }
 }

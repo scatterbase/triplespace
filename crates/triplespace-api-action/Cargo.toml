@@ -10,6 +10,7 @@ description = "The MediaWiki Action API surface: the Wikibase modules a bot clie
 publish = false
 
 [dependencies]
+scatter-blob.workspace = true
 scatter-actors.workspace = true
 scatter-challenge.workspace = true
 scatter-ingest.workspace = true

@@ -81,6 +81,14 @@ pub enum StartKind {
     /// A tenant's dumps (02 §4.1), written by the server's runner into its dumps
     /// directory, as `triplespace dump` writes them here.
     Dump(StartDump),
+    /// An adoption (0035) of a dump the server reads: `triplespace adopt`'s arguments,
+    /// run by the server's runner.
+    Adopt(crate::adopt::Adopt),
+    /// A sync of a dump the server reads (0002 §8.4): `triplespace sync`'s arguments.
+    Sync(crate::sync::Sync),
+    /// A follower (0092 §1), run a pass at a time by the server's runner on its accounts
+    /// login: `triplespace follow`'s arguments. Cancel the job to stop following.
+    Follow(crate::follow::Follow),
 }
 
 /// `job start dump`.
@@ -170,6 +178,37 @@ pub async fn run(command: JobCommand) -> Result<()> {
         JobCommand::Start {
             kind: StartKind::Dump(args),
         } => start_dump(args).await,
+        JobCommand::Start {
+            kind: StartKind::Adopt(mut args),
+        } => {
+            args.dump = server_path(&args.dump)?;
+            let tenant = args.tenant.clone();
+            let subsidiary = args.subsidiary.clone();
+            start_work(
+                &args.database,
+                Kind::Adopt,
+                &tenant,
+                subsidiary.as_deref(),
+                &args,
+            )
+            .await
+        }
+        JobCommand::Start {
+            kind: StartKind::Sync(mut args),
+        } => {
+            args.dump = server_path(&args.dump)?;
+            if let Some(rejects) = &args.rejects {
+                args.rejects = Some(std::path::absolute(rejects)?);
+            }
+            let tenant = args.tenant.clone().unwrap_or_default();
+            start_work(&args.database, Kind::Sync, &tenant, None, &args).await
+        }
+        JobCommand::Start {
+            kind: StartKind::Follow(args),
+        } => {
+            let tenant = args.tenant.clone().unwrap_or_default();
+            start_work(&args.database, Kind::Follow, &tenant, None, &args).await
+        }
         JobCommand::Cancel(args) => {
             let client = connect(&args.database).await?;
             if jobs::cancel(&client, &args.tenant, args.id).await? {
@@ -266,6 +305,52 @@ async fn list(args: List) -> Result<()> {
             r.get::<_, String>(6)
         );
     }
+    Ok(())
+}
+
+/// A dump's path as the server will read it: absolute, and a file that is there now. The
+/// server must see the same path; on another machine that is the operator's to arrange.
+fn server_path(path: &std::path::Path) -> Result<PathBuf> {
+    std::fs::canonicalize(path).with_context(|| format!("the dump {}", path.display()))
+}
+
+/// Queues a job whose parameters are a command's own arguments (0104 A9): for `tenant`,
+/// or the instance when it is empty, where the job's actor is the farm's operator.
+async fn start_work<T: serde::Serialize>(
+    database: &str,
+    kind: Kind,
+    tenant: &str,
+    subsidiary: Option<&str>,
+    args: &T,
+) -> Result<()> {
+    let client = connect(database).await?;
+    let farm = farm_of(&client).await?;
+    let actor = if tenant.is_empty() {
+        farm.operator().to_string()
+    } else {
+        actor_of(&client, tenant, subsidiary).await?
+    };
+    let (store, _pipeline) = store(database, &farm)?;
+    let id = jobs::submit(
+        &store,
+        &Submission {
+            tenant: tenant.to_string(),
+            kind,
+            params: serde_json::to_value(args)?,
+            payload: None,
+            actor,
+        },
+    )
+    .await?;
+    println!(
+        "job {id} queued: {} for {}, which a server's runner runs; Special:Jobs/{id} shows it",
+        kind.name(),
+        if tenant.is_empty() {
+            "the instance".to_string()
+        } else {
+            format!("`{tenant}`")
+        }
+    );
     Ok(())
 }
 

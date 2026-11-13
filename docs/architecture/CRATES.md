@@ -564,7 +564,7 @@ The Action API, the `triplespace/v0` REST API with its OpenAPI contract, and the
 
 **As built** (`triplespace-api-rest`, from its `//!` docs and `implements` claims): The `triplespace/v0` REST API (0012 §1.3, §5): data only Triplespace has, served at `rest.php/triplespace/v0` under both MediaWiki paths. `v0` makes no stability promise yet. The normative contract is `docs/api/triplespace-v0.openapi.json`; a route here and its entry there change together. Claims 0006 §9.4, 0047 §8.2, 0100 §4, 0100 §7 (A2), 0104 §5, 0104 §7, 0108 §1.2.
 
-**As built** (`triplespace-api-ingest`, from its `//!` docs and `implements` claims): The bulk-job side of the server (0002 §8.1, entry point 2): `PgIngest`, `scatter-ingest`'s `IngestStore` over Postgres, which the job endpoint and `triplespace-cli` both run jobs through. The HTTP routes follow with the server. Claims 0089 §4 (A3), 0101 §1, 0101 §2, 0102 §1, 0102 §3 (A2), 0102 §4, 0102 §5 (A2), 0104 §1 (A2), 0104 §2, 0104 §3 (A2), 0104 §8 (A1).
+**As built** (`triplespace-api-ingest`, from its `//!` docs and `implements` claims): The bulk-job side of the server (0002 §8.1, entry point 2): `PgIngest`, `scatter-ingest`'s `IngestStore` over Postgres, which the job endpoint and `triplespace-cli` both run jobs through. The HTTP routes follow with the server. Claims 0089 §4 (A3), 0101 §1, 0101 §2, 0102 §1, 0102 §3 (A2), 0102 §4, 0102 §5 (A2), 0104 §1 (A2), 0104 §2, 0104 §3 (A2), 0104 §4 (A9), 0104 §8 (A1).
 
 ### triplespace-server triplespace-cli
 

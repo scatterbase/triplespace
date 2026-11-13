@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-12 (A102)
+- **Updated:** 2026-11-13 (A103)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -63,7 +63,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 4. Four schemas
 
-*Changed by A3, A7, A8, A9, A11, A27, A45, A64, A65, A66, A67, A97, A98, A99, A100, A101, A102.*
+*Changed by A3, A7, A8, A9, A11, A27, A45, A64, A65, A66, A67, A97, A98, A99, A100, A101, A102, A103.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §1.2, §4.16.*
 
@@ -1276,3 +1276,14 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §1.2, as i
 - **Source:** Direct: Claude, while building A101, 2026-11-12; confirmed by James, 2026-11-12
 - **Change:** extends §4
 - **Summary:** Two of A101's changes were built otherwise than first proposed. (1) **Settings checks:** narrow yes-or-no functions, as for callers, do not fit two of the three: `ts-external-required-unmet` and `ts-strict-names-unmet` name the logins that block them, and the strict-names check derives names by the issuer registry's rules in Rust. Instead, a save that changes how people log in takes one connection of the accounts service, through which its checks read the logins and OAuth clients, while the settings they weigh are read in the save's own unit of work, which sees what the save wrote; the readiness reads take the two connections separately. (2) **Job runners:** rather than two kinds of runner, every runner connects as the public API, since no kind queued today writes an accounts partition (import writes actor records to `actors`, revert public records); adoption, which does, is run by the command line, and gets a runner of its own on the accounts login when it joins the queue (SCA-309).
+
+### A103. The followers' runner is the one on the accounts login
+
+- **Date:** 2026-11-13
+- **Source:** Direct: Claude, while building the queue's adoption, sync and follower jobs (SCA-309), 2026-11-13; unconfirmed
+- **Change:** corrects §4
+- **Summary:** A102 (2) gave adoption a runner of its own on the accounts login when it joined the queue, "since an adoption appends to accounts partitions". It does not: an adoption writes the source's accounts as actor records in the tenant's public `actors` partition, and no binding ([07](../architecture/07-actors-and-accounts.md) §2.5), so the public API's login runs it, as it runs imports. The job that needs the accounts login is the **follower**, which reads the bot password it logs in upstream with from `private.upstream_login` ([0092](0092-following-recent-changes.md) §10). So: every runner but one connects as the public API and runs imports, reverts, dumps, exports, adoptions and syncs; one runner connects as the accounts service and claims `follow` jobs alone ([0104](0104-batches-and-the-job-runner.md) A9). Where the server is given no accounts URL, it uses the one it has.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §1.2, as it stood):
+
+> | The public API, the site's reads, the write path, settings saves, the projections' workers, the job runners | `ts_server` | `TRIPLESPACE_DATABASE_URL` (`--database`) |

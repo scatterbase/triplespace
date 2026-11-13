@@ -30,6 +30,7 @@ triplespace-ui.workspace = true
 triplespace-projections.workspace = true
 triplespace-notify.workspace = true
 triplespace-api-ingest.workspace = true
+scatter-blob.workspace = true
 scatter-mail.workspace = true
 tokio-postgres.workspace = true
 ed25519-dalek.workspace = true

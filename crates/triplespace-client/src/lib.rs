@@ -59,7 +59,7 @@ pub use api::{
 pub use create::{Created, TermEdit};
 pub use email::{EmailAddress, EmailInfo, EmailOutcome};
 pub use entity::{Entities, Provenance};
-pub use export::{ExportAsk, Exported};
+pub use export::{ExportAnswer, ExportAsk, ExportJob, Exported};
 pub use forward::Incoming;
 pub use import::ImportAsk;
 pub use issuers::{AccountInfo, LoginIssuer, Pending};

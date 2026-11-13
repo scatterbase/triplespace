@@ -12,7 +12,7 @@
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::Response;
 use triplespace_client::pages::PageListQuery;
-use triplespace_client::{ClientError, ExportAsk, Incoming};
+use triplespace_client::{ClientError, ExportAnswer, ExportAsk, ExportJob, Exported, Incoming};
 
 use crate::Site;
 use crate::codex::{Action, Button, ButtonModel, Message, MessageKind, MessageModel, Weight};
@@ -327,11 +327,62 @@ pub async fn serve(
         Err(r) => return r,
     };
     let typed = Typed::fresh(prefill(title, params));
-    form(site, cx, headers, &incoming, &typed, None).await
+    // `?job={id}`: a queued export of the reader's own (0104 A9): its file once it is
+    // ready, and until then what has become of it.
+    let notice = match params.map.get("job").map(|j| j.parse::<u64>()) {
+        None => None,
+        Some(Err(_)) => Some((MessageKind::Error, cx.m.get("ts-export-not-found"))),
+        Some(Ok(job)) => match site.client().export_job(&incoming, job).await {
+            Ok(ExportJob::File(file)) => return file_response(file, true),
+            Ok(ExportJob::Pending) => Some((
+                MessageKind::Notice,
+                cx.m.with("ts-export-pending", &[&job.to_string()]),
+            )),
+            Ok(ExportJob::Ended { status, error }) => Some((
+                MessageKind::Error,
+                cx.m.with(
+                    "ts-export-ended",
+                    &[&job.to_string(), &error.unwrap_or(status)],
+                ),
+            )),
+            Err(e) => Some((MessageKind::Error, client_refusal(&cx.m, &e))),
+        },
+    };
+    form(site, cx, headers, &incoming, &typed, notice).await
+}
+
+/// The export as the reader's download or page: the API's body passed on as it arrives.
+fn file_response(file: Exported, download: bool) -> Response {
+    let mut r = Response::new(file.body);
+    *r.status_mut() = StatusCode::OK;
+    let h = r.headers_mut();
+    if let Ok(v) = HeaderValue::from_str(&file.content_type) {
+        h.insert(header::CONTENT_TYPE, v);
+    }
+    h.insert(
+        header::CACHE_CONTROL,
+        HeaderValue::from_static("private, no-store"),
+    );
+    if download
+        && let Some(name) = &file.filename
+        && let Ok(v) = HeaderValue::from_str(&format!("attachment; filename=\"{name}\""))
+    {
+        h.insert(header::CONTENT_DISPOSITION, v);
+    }
+    h.insert("x-export-missing", HeaderValue::from(file.missing));
+    if let Some(n) = &file.notice
+        && let Ok(v) = HeaderValue::from_str(n)
+    {
+        h.insert("x-export-notice", v);
+    }
+    r
 }
 
 fn refusal(m: &Messages, code: &str, info: &str) -> String {
     match code {
+        "export-expired" => m.get("ts-export-expired"),
+        "export-not-found" => m.get("ts-export-not-found"),
+        "export-queue-full" => m.get("ts-export-queue-full"),
         "no-pages" => m.get("ts-export-none"),
         "export-too-large" => m.get("ts-export-too-large"),
         "export-namespaces-off" => m.get("ts-export-namespaces-off"),
@@ -456,30 +507,20 @@ pub async fn post(
         templates: typed.templates,
     };
     match site.client().export(&incoming, &ask).await {
-        Ok(file) => {
-            let mut r = Response::new(file.body);
-            *r.status_mut() = StatusCode::OK;
-            let h = r.headers_mut();
-            if let Ok(v) = HeaderValue::from_str(&file.content_type) {
-                h.insert(header::CONTENT_TYPE, v);
-            }
-            h.insert(
-                header::CACHE_CONTROL,
-                HeaderValue::from_static("private, no-store"),
-            );
-            if typed.download
-                && let Some(name) = &file.filename
-                && let Ok(v) = HeaderValue::from_str(&format!("attachment; filename=\"{name}\""))
-            {
-                h.insert(header::CONTENT_DISPOSITION, v);
-            }
-            h.insert("x-export-missing", HeaderValue::from(file.missing));
-            if let Some(n) = &file.notice
-                && let Ok(v) = HeaderValue::from_str(n)
-            {
-                h.insert("x-export-notice", v);
-            }
-            r
+        Ok(ExportAnswer::File(file)) => file_response(file, typed.download),
+        Ok(ExportAnswer::Queued(job)) => {
+            // Too large to make while the reader waits: queued, and fetched from here
+            // once it is ready (21 §4.2; 0104 A9).
+            let text = cx.m.with("ts-export-queued", &[&job.to_string()]);
+            form(
+                site,
+                cx,
+                headers,
+                &incoming,
+                &typed,
+                Some((MessageKind::Notice, text)),
+            )
+            .await
         }
         Err(e) => {
             let text = client_refusal(&cx.m, &e);

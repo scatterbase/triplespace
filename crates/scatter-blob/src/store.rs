@@ -276,6 +276,46 @@ impl BlobStore {
         Ok(())
     }
 
+    /// Streams bytes to a derived, cached or job-output key, replacing what is there: the
+    /// streamed [`BlobStore::put_at`], for an object too large to hold in memory (0104 A9).
+    /// Returns how many bytes were written. On a failed source the write is aborted and
+    /// nothing new is left at the key: the bytes go to a temporary name and take the key
+    /// only when the stream ends. A key under `sha256/` is refused, as `put_at` refuses it.
+    pub async fn put_stream_at<S, E>(&self, key: &Key, stream: S) -> Result<u64, BlobError>
+    where
+        S: Stream<Item = Result<Bytes, E>> + Send,
+        E: std::error::Error + Send + Sync + 'static,
+    {
+        if key.kind() == Kind::Sha256 {
+            return Err(BlobError::Key(crate::key::KeyError::Layout(
+                key.to_string(),
+            )));
+        }
+        let upload = self.inner.put_multipart(&key.path()).await?;
+        let mut writer = WriteMultipart::new(upload);
+        let mut stream = std::pin::pin!(stream);
+        let mut written = 0u64;
+
+        let outcome: Result<(), BlobError> = async {
+            while let Some(chunk) = stream.next().await {
+                let chunk = chunk.map_err(|e| BlobError::Source(Box::new(e)))?;
+                written += chunk.len() as u64;
+                writer.wait_for_capacity(8).await?;
+                writer.put(chunk);
+            }
+            Ok(())
+        }
+        .await;
+
+        if let Err(e) = outcome {
+            // Best effort, as for a stash write: the original error is the one to report.
+            let _ = writer.abort().await;
+            return Err(e);
+        }
+        writer.finish().await?;
+        Ok(written)
+    }
+
     /// Reads a whole object into memory.
     pub async fn get(&self, key: &Key) -> Result<Bytes, BlobError> {
         Ok(self.inner.get(&key.path()).await?.bytes().await?)

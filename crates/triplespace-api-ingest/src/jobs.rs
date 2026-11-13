@@ -21,11 +21,13 @@
 //! stalled, writes nothing more about the row.
 //!
 //! Each kind of job is a function of the row ([`Kind`]): `import`, `revert` (0104 §3) and
-//! `dump` (0104 A6). An export over `export.sync_revisions` and the follower, sync and
-//! adoption jobs are not carried yet: the last three still run where the command line
-//! runs them. A [`Runner`] names the kinds it runs, and claims no other: a row of a kind
-//! no runner here runs waits, and holds nothing else back.
+//! `dump` (A6) are this crate's; `export`, `adopt`, `sync` and `follow` (A9) are [`Work`]
+//! the process hands its runners, since their code lives above this crate. A [`Runner`]
+//! names the kinds it runs, and claims no other: a row of a kind no runner here runs
+//! waits, and holds nothing else back. A follower's row is put back after each pass
+//! ([`Outcome::Again`]), to be claimed again when its interval has passed.
 //!
+//! implements 0104 §4 (A9)
 //! implements 0104 §8 (A1)
 
 use std::path::{Path, PathBuf};
@@ -78,6 +80,18 @@ pub enum Kind {
     /// `triplespace dump` writes them; `keep` in `params` where it is not the tenant's
     /// `dumps.keep`.
     Dump,
+    /// An export over `export.sync_revisions` (21 §4.2; 0104 A9): the request as
+    /// `POST /export` took it in `params`, the file written to the blob store.
+    Export,
+    /// An adoption (0035) of a dump at a path on the server, in `params` as
+    /// `triplespace adopt` takes it.
+    Adopt,
+    /// A sync of a dump at a path on the server (0002 §8.4), in `params` as
+    /// `triplespace sync` takes it.
+    Sync,
+    /// One pass of a follower (0092 §1), in `params` as `triplespace follow` takes it;
+    /// the row is put back for the next pass.
+    Follow,
 }
 
 impl Kind {
@@ -88,6 +102,10 @@ impl Kind {
             Self::Import => "import",
             Self::Revert => "revert",
             Self::Dump => "dump",
+            Self::Export => "export",
+            Self::Adopt => "adopt",
+            Self::Sync => "sync",
+            Self::Follow => "follow",
         }
     }
 
@@ -98,9 +116,68 @@ impl Kind {
             "import" => Some(Self::Import),
             "revert" => Some(Self::Revert),
             "dump" => Some(Self::Dump),
+            "export" => Some(Self::Export),
+            "adopt" => Some(Self::Adopt),
+            "sync" => Some(Self::Sync),
+            "follow" => Some(Self::Follow),
             _ => None,
         }
     }
+}
+
+/// How a kind's work ended.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Outcome {
+    /// The job is over: its row is removed.
+    Done,
+    /// The work is a pass of something that goes on (a follower): the row is put back,
+    /// unclaimed, to be claimed again once this long has passed (0104 A9).
+    Again(Duration),
+}
+
+/// A boxed future, as [`Work`] returns it.
+pub type WorkFuture<'a> =
+    std::pin::Pin<Box<dyn Future<Output = Result<Outcome, IngestError>> + Send + 'a>>;
+
+/// The work of a kind whose code lives above this crate (0104 A9): an export, which needs
+/// the API's reading of a request; an adoption, a sync and a follower, which the command
+/// line's crate holds. The process that runs the runner gives each to it
+/// ([`Runner::with_work`]); a runner without a kind's work does not claim the kind. The
+/// work writes the job's own start and finish records under [`Claimed::job_id`]; an
+/// error is the job's failure, recorded by the runner.
+pub trait Work: Send + Sync {
+    /// Runs the claimed job.
+    fn run<'a>(&'a self, job: &'a Claimed, now: fn() -> u64) -> WorkFuture<'a>;
+}
+
+/// Runs work whose future is not `Send` on a thread of its own, and stops it when the
+/// caller's future is dropped, as a job's is when its claim is lost (0104 A8, A9): the
+/// work ends at its next await, its unit of work rolled back.
+///
+/// # Errors
+///
+/// When the thread could not be joined, or the work was stopped.
+pub async fn on_thread<T, F, Fut>(work: F) -> Result<T, IngestError>
+where
+    F: FnOnce() -> Fut + Send + 'static,
+    Fut: Future<Output = T>,
+    T: Send + 'static,
+{
+    let runtime = tokio::runtime::Handle::current();
+    // Dropped with this future: the thread's side then sees the channel closed.
+    let (alive, dropped) = tokio::sync::oneshot::channel::<()>();
+    let joined = tokio::task::spawn_blocking(move || {
+        runtime.block_on(async move {
+            tokio::select! {
+                out = work() => Some(out),
+                _ = dropped => None,
+            }
+        })
+    })
+    .await
+    .map_err(store_err)?;
+    drop(alive);
+    joined.ok_or_else(|| store_err("stopped"))
 }
 
 /// A runner: its name in the queue's `claimed_by`, the kinds it runs, and what those kinds
@@ -116,6 +193,14 @@ pub struct Runner {
     /// How often a running job's heartbeat is written: [`HEARTBEAT`], but for a test
     /// that cannot wait for it.
     pub heartbeat: Duration,
+    /// The work of the kinds whose code lives above this crate, by kind.
+    pub works: Vec<(Kind, Arc<dyn Work>)>,
+}
+
+impl std::fmt::Debug for dyn Work {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str("Work")
+    }
 }
 
 impl Runner {
@@ -127,7 +212,29 @@ impl Runner {
             kinds: vec![Kind::Import, Kind::Revert],
             dumps_dir: None,
             heartbeat: HEARTBEAT,
+            works: Vec::new(),
         }
+    }
+
+    /// A runner of nothing yet: for one that runs only the kinds it is then given, as the
+    /// followers' runner on the accounts login does.
+    #[must_use]
+    pub fn only(name: impl Into<String>) -> Self {
+        Self {
+            kinds: Vec::new(),
+            ..Self::new(name)
+        }
+    }
+
+    /// Also runs `kind`, by `work`.
+    #[must_use]
+    pub fn with_work(mut self, kind: Kind, work: Arc<dyn Work>) -> Self {
+        self.works.retain(|(k, _)| *k != kind);
+        self.works.push((kind, work));
+        if !self.kinds.contains(&kind) {
+            self.kinds.push(kind);
+        }
+        self
     }
 
     /// Also runs dumps, into `dir`.
@@ -379,6 +486,18 @@ fn header_of(kind: Kind, params: &serde_json::Value) -> JobHeader {
             header.graph = "local".into();
             header
         }
+        // What the queue row says of a job that ended before its own work wrote its
+        // start: the kind as its source, and the dump or provider it named.
+        Kind::Export | Kind::Adopt | Kind::Sync | Kind::Follow => {
+            let mut header = JobHeader::local(kind.name());
+            header.version = text("version").map(str::to_string);
+            for field in ["dump", "provider", "source", "format"] {
+                if let Some(v) = text(field) {
+                    header.params.insert(field.into(), v.into());
+                }
+            }
+            header
+        }
     }
 }
 
@@ -505,6 +624,7 @@ async fn claim_step(
             "SELECT q.partition FROM ops.job_queue q
              WHERE (q.claimed_at IS NULL OR q.heartbeat < now() - make_interval(secs => $1::double precision))
                AND NOT q.cancel
+               AND (q.not_before IS NULL OR q.not_before <= now())
                AND q.kind = ANY($2)
              GROUP BY q.partition
              ORDER BY min(q.submitted), min(q.job_id)",
@@ -534,6 +654,7 @@ async fn claim_step(
                  WHERE q.partition = $3
                    AND (q.claimed_at IS NULL OR q.heartbeat < now() - make_interval(secs => $1::double precision))
                    AND NOT q.cancel
+                   AND (q.not_before IS NULL OR q.not_before <= now())
                    AND q.kind = ANY($2)
                    AND NOT EXISTS (SELECT 1 FROM ops.job_queue r
                                    WHERE r.partition = q.partition AND r.job_id <> q.job_id
@@ -792,7 +913,7 @@ pub async fn run_claimed(
             );
         }
         let ended = match result {
-            Ok(()) => "the run ended".to_string(),
+            Ok(_) => "the run ended".to_string(),
             Err(e) => format!("the run failed: {e}"),
         };
         return Ok(Ran {
@@ -804,8 +925,30 @@ pub async fn run_claimed(
             )),
         });
     }
+    if let Ok(Outcome::Again(after)) = result {
+        // A pass of something that goes on: the row waits, unclaimed, for its next pass,
+        // its attempts counted afresh, since a pass that ended is not a run that died.
+        cx.conn()
+            .execute(
+                "UPDATE ops.job_queue
+                 SET claimed_by = NULL, claimed_at = NULL, heartbeat = NULL, attempts = 0,
+                     progress = NULL,
+                     not_before = now() + make_interval(secs => $3::double precision)
+                 WHERE tenant = $1 AND job_id = $2",
+                &[&tenant, &id, &after.as_secs_f64()],
+            )
+            .await
+            .map_err(store_err)?;
+        store.commit(cx).await?;
+        return Ok(Ran {
+            tenant,
+            job_id,
+            kind: claimed.kind,
+            error: None,
+        });
+    }
     let error = match result {
-        Ok(()) => None,
+        Ok(_) => None,
         Err(e) => {
             let message = e.to_string();
             // The job's own failure record (0011 §6.3), and its start record first where
@@ -849,8 +992,15 @@ async fn run_kind(
     runner: &Runner,
     claimed: &Claimed,
     now: fn() -> u64,
-) -> Result<(), IngestError> {
+) -> Result<Outcome, IngestError> {
+    if let Some((_, work)) = runner.works.iter().find(|(k, _)| *k == claimed.kind) {
+        return work.run(claimed, now).await;
+    }
     match claimed.kind {
+        Kind::Export | Kind::Adopt | Kind::Sync | Kind::Follow => Err(store_err(format!(
+            "this runner has no work for `{}` jobs",
+            claimed.kind.name()
+        ))),
         Kind::Import => {
             let request: ImportRequest =
                 serde_json::from_value(claimed.params.clone()).map_err(store_err)?;
@@ -935,6 +1085,7 @@ async fn run_kind(
             run_dump(store, pipeline, dir, claimed, now).await
         }
     }
+    .map(|()| Outcome::Done)
 }
 
 /// A dump job (0104 A6): the job's start record, the tenant's dumps written as
@@ -1006,28 +1157,24 @@ async fn run_dump(
     };
     // On a thread of its own: the dump's future is not `Send` (it verifies its bundle
     // through borrowed lookups), and a runner is a spawned task.
-    let runtime = tokio::runtime::Handle::current();
     let (tenant_owned, dir) = (tenant.to_string(), dir.join(tenant));
-    let manifest = tokio::task::spawn_blocking(move || {
-        runtime.block_on(async move {
-            triplespace_rdf::dump(
-                &mut client,
-                &triplespace_rdf::Request {
-                    tenant: &tenant_owned,
-                    base: &base,
-                    registry: &registry,
-                    order: &order,
-                    reader: &reader,
-                    dir: &dir,
-                    keep: usize::try_from(keep).unwrap_or(usize::MAX),
-                    replica: false,
-                },
-            )
-            .await
-        })
+    let manifest = on_thread(move || async move {
+        triplespace_rdf::dump(
+            &mut client,
+            &triplespace_rdf::Request {
+                tenant: &tenant_owned,
+                base: &base,
+                registry: &registry,
+                order: &order,
+                reader: &reader,
+                dir: &dir,
+                keep: usize::try_from(keep).unwrap_or(usize::MAX),
+                replica: false,
+            },
+        )
+        .await
     })
-    .await
-    .map_err(store_err)?
+    .await?
     .map_err(store_err)?;
 
     let mut extra = serde_json::Map::new();

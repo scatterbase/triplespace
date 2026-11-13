@@ -181,6 +181,7 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
 
     // 2. The load from the dump (0092 §4), recording where it ended (0092 §5).
     sync::run(sync::Sync {
+        job_id: None,
         database: database.clone(),
         provider: None,
         tenant: Some(TENANT.into()),

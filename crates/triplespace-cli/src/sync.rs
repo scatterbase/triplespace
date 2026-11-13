@@ -35,9 +35,14 @@ use crate::follow::tenant_registry;
 use crate::common::{connect, farm_of, now, store_sized};
 
 /// `sync`.
-#[derive(Debug, Args)]
+#[derive(Debug, Clone, Args, serde::Serialize, serde::Deserialize)]
 pub struct Sync {
+    /// The job ID the queue minted, where the runner runs this (0104 §4).
+    #[arg(skip)]
+    #[serde(skip)]
+    pub job_id: Option<u64>,
     /// The Postgres URL.
+    #[serde(skip)]
     #[arg(long, env = "TRIPLESPACE_DATABASE_URL")]
     pub database: String,
     /// The provider slug (`internetdomains`, `wikidata`, …).
@@ -397,6 +402,7 @@ pub async fn run(args: Sync) -> Result<()> {
     } else {
         JobHeader::source(slug, &version, mode)
     };
+    header.job_id = args.job_id;
     header.adapter_version = Some(format!(
         "{} {}",
         scatter_adapter_wikibase::NAME,

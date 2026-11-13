@@ -4,7 +4,8 @@
 //! carries the hash of its value as `batch`, kept in its own column so that a write
 //! naming the hash finds the open batch (0104 §1). A job's rejects travel on its finish record as `params.rejects`, the first N for
 //! the job page (0010 §9); an import's own counts, as `params.import`, are kept under
-//! `counts.import`.
+//! `counts.import`, and an export job's file, as `params.export`, under `counts.export`
+//! (0104 A9).
 
 use scatter_log::cbor::Value;
 use scatter_log::header::Header;
@@ -113,8 +114,9 @@ async fn close(cx: &PgCx, ev: &Event<'_>, action: &str) -> Result<u64, String> {
                 obj.insert("hash_mismatches".into(), to_jsonb(m));
             }
             // An import's own counts (0008 §9): revisions written, present, restored; a
-            // revert's: the job reverted, how many records, and what was skipped (0104 §3).
-            for key in ["import", "reverts", "reverted", "skipped"] {
+            // revert's: the job reverted, how many records, and what was skipped (0104 §3);
+            // an export job's: its file, its size, what was missing, its notices (0104 A9).
+            for key in ["import", "reverts", "reverted", "skipped", "export"] {
                 if let (Some(v), Some(obj)) = (params.get(key), c.as_object_mut()) {
                     obj.insert(key.into(), to_jsonb(v));
                 }

@@ -19,6 +19,7 @@ pub mod forwarder;
 pub mod import_pages;
 pub mod instance;
 pub mod job;
+pub mod job_work;
 pub mod log_bundle;
 pub mod logins;
 pub mod oauth_client;

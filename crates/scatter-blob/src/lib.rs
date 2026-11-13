@@ -14,6 +14,8 @@
 //!   [`BlobStore::commit`] for a stream: bytes land under `stash/` while they are hashed and
 //!   the size limit is enforced, then are copied to their content address unless an object is
 //!   already there. [`BlobStore::put_stream`] does both.
+//! - [`BlobStore::put_at`] and the streamed [`BlobStore::put_stream_at`] write what is not
+//!   content-addressed: a derived rendering, cached bytes, a job's output (0104 A9).
 //! - Reads are [`BlobStore::get`], [`BlobStore::get_range`] and the streamed
 //!   [`BlobStore::read`]; [`BlobStore::head`] and [`BlobStore::exists`] look without reading.
 //! - [`BlobStore::delete`] and [`BlobStore::delete_prefix`] remove; [`BlobStore::list`] is

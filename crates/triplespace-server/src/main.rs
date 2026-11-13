@@ -95,6 +95,11 @@ struct Args {
     /// (`dumps.dir`, 0013 A78).
     #[arg(long, env = "TRIPLESPACE_DUMPS_DIR", default_value = "data/dumps")]
     dumps_dir: PathBuf,
+    /// The blob store's directory, its `fs` backend (03 §8): where a queued export's file
+    /// is kept until it is fetched or expires (0104 A9). Every replica that serves
+    /// `GET /export/{id}` and every runner must see the same directory.
+    #[arg(long, env = "TRIPLESPACE_BLOB_DIR", default_value = "data/blobs")]
+    blob_dir: PathBuf,
     /// The SMTP relay (`mail.smtp.url`): `smtps://user@host` for implicit TLS,
     /// `smtp://user@host` with STARTTLS required, plaintext only to a loopback host.
     #[arg(long, env = "TRIPLESPACE_MAIL_SMTP_URL")]
@@ -451,6 +456,10 @@ async fn run() -> Result<()> {
     .map_err(|e| anyhow::anyhow!(e))?;
     app.set_mail(mail);
     app.set_dumps_dir(args.dumps_dir.clone());
+    app.set_blobs(
+        scatter_blob::BlobStore::filesystem(&args.blob_dir)
+            .with_context(|| format!("the blob store at {}", args.blob_dir.display()))?,
+    );
     if let Some(transport) = transport {
         eprintln!("mail: transport {}", transport.name());
         let notify = args.notify_database.as_ref().unwrap_or(&args.database);
@@ -460,7 +469,14 @@ async fn run() -> Result<()> {
     // The queued kinds, import and revert, write public partitions only: the runners
     // connect as the public API (0013 §4, A101). An adoption, which appends to accounts
     // partitions, is run by `triplespace adopt` as the owner until it joins the queue.
-    job_runners(&app, &args.database, args.job_runners, &args.dumps_dir)?;
+    job_runners(
+        &app,
+        &args,
+        &[(
+            triplespace_api_ingest::jobs::Kind::Export,
+            triplespace_api_rest::export_job::export_work(app.clone()),
+        )],
+    )?;
     if let Some(admin) = &args.admin_listen {
         let admin_router =
             axum::Router::new().route("/healthz", axum::routing::get(|| async { "ok" }));
@@ -566,21 +582,51 @@ async fn report_privacy(pools: &triplespace_db::pool::Pools) {
 }
 
 /// The job runners (0104 §4): background tasks claiming `ops.job_queue`, each with a
-/// store of its own, since a job's units of work are its own transactions. Each runs
-/// imports and reverts, and dumps into `dumps_dir` (0104 A6).
+/// store of its own, since a job's units of work are its own transactions. Each of the
+/// `n` runs imports, reverts, dumps into `dumps_dir` (A6), and adoptions and syncs of
+/// dumps this process can read (A9), on the public API's login. One more runs the
+/// followers alone, on the accounts login, since a follower reads its upstream password
+/// from `private` (0092 §10; 0013 A103).
 fn job_runners(
     app: &triplespace_api_action::App,
-    database: &str,
-    n: usize,
-    dumps_dir: &std::path::Path,
+    args: &Args,
+    works: &[(
+        triplespace_api_ingest::jobs::Kind,
+        std::sync::Arc<dyn triplespace_api_ingest::jobs::Work>,
+    )],
 ) -> Result<()> {
-    for i in 0..n {
+    use triplespace_api_ingest::jobs::{Runner, run_forever};
+    let farm = &app.config().farm;
+    for i in 0..args.job_runners {
         let (store, pipeline) =
-            triplespace_cli::common::store(database, &app.config().farm).context("job runner")?;
-        tokio::spawn(triplespace_api_ingest::jobs::run_forever(
+            triplespace_cli::common::store(&args.database, farm).context("job runner")?;
+        let mut runner = triplespace_cli::job_work::with_loads(
+            Runner::new(format!("runner {i}")).with_dumps(&args.dumps_dir),
+            &args.database,
+        );
+        for (kind, work) in works {
+            runner = runner.with_work(*kind, work.clone());
+        }
+        tokio::spawn(run_forever(
             store,
             pipeline,
-            triplespace_api_ingest::jobs::Runner::new(format!("runner {i}")).with_dumps(dumps_dir),
+            runner,
+            WORKER_IDLE,
+            triplespace_cli::common::now,
+        ));
+    }
+    if args.job_runners > 0 {
+        let accounts = args.accounts_database.as_deref().unwrap_or(&args.database);
+        let (store, pipeline) =
+            triplespace_cli::common::store(accounts, farm).context("follower runner")?;
+        tokio::spawn(run_forever(
+            store,
+            pipeline,
+            triplespace_cli::job_work::with_followers(
+                Runner::only("runner follow"),
+                accounts,
+                &args.key_file,
+            ),
             WORKER_IDLE,
             triplespace_cli::common::now,
         ));

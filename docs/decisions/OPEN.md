@@ -39,6 +39,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0013 A94](0013-postgres-storage.md#a94-the-page-projection-applies-a-run-of-one-pages-revisions-as-one) | 2026-11-11 | The page projection applies a run of one page's revisions as one |
 | [0013 A95](0013-postgres-storage.md#a95-three-projections-write-a-tenants-block-a-table-at-a-time) | 2026-11-11 | Three projections write a tenant's block a table at a time |
 | [0013 A96](0013-postgres-storage.md#a96-compaction-keeps-the-record-that-claims-a-keys-highest-revision-and-runs-by-a-range-of-offsets) | 2026-11-11 | Compaction keeps the record that claims a key's highest revision, and runs by a range of offsets |
+| [0013 A103](0013-postgres-storage.md#a103-the-followers-runner-is-the-one-on-the-accounts-login) | 2026-11-13 | The followers' runner is the one on the accounts login |
 | [0016 A42](0016-permissions-and-access-control.md#a42-delegated-administration-the-calls-made-while-drafting-and-building-tier-4) | 2026-10-30 | Delegated administration: the calls made while drafting and building tier 4 |
 | [0018 A33](0018-tenants.md#a33-multi-tenant-round-1-the-assumptions-the-implementation-made) | 2026-10-30 | Multi-tenant round 1: the assumptions the implementation made |
 | [0018 A36](0018-tenants.md#a36-instances-and-tenants-created-by-question-and-answer) | 2026-11-12 | Instances and tenants created by question and answer |
@@ -58,6 +59,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0034 A15](0034-frontend-stack.md#a15-uselangqqx-shows-message-keys) | 2026-11-04 | `uselang=qqx` shows message keys |
 | [0034 A17](0034-frontend-stack.md#a17-thread-fragments-the-browsers-language-and-the-media-origin-the-calls-made-building-them) | 2026-11-10 | Thread fragments, the browser's language, and the media origin: the calls made building them |
 | [0034 A18](0034-frontend-stack.md#a18-the-job-progress-bar-is-built-alias-chips-wait-on-codex) | 2026-11-10 | The job progress bar is built; alias chips wait on Codex |
+| [0039 A16](0039-files-and-media.md#a16-a-fifth-kind-of-key-what-a-job-wrote) | 2026-11-13 | A fifth kind of key: what a job wrote |
 | [0042 A22](0042-template-expansion-and-parsoid.md#a22-which-template-drew-a-block) | 2026-11-04 | Which template drew a block |
 | [0045 A10](0045-table-content-model.md#a10-what-the-grid-edits-in-place-found-while-building) | 2026-11-10 | What the grid edits in place, found while building |
 | [0047 A29](0047-special-pages.md#a29-pagerandom-is-derived-from-the-page) | 2026-11-02 | `page_random` is derived from the page |
@@ -94,6 +96,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0104 A6](0104-batches-and-the-job-runner.md#a6-dumps-join-the-queue-and-a-runner-claims-only-its-kinds) | 2026-11-12 | Dumps join the queue, and a runner claims only its kinds |
 | [0104 A7](0104-batches-and-the-job-runner.md#a7-claims-are-one-per-partition-and-capped-and-a-job-that-fails-before-it-starts-is-a-failed-job) | 2026-11-13 | Claims are one per partition and capped, and a job that fails before it starts is a failed job |
 | [0104 A8](0104-batches-and-the-job-runner.md#a8-a-job-that-lost-its-claim-is-stopped-and-an-imports-talk-pages-are-its-own-work) | 2026-11-13 | A job that lost its claim is stopped, and an import's talk pages are its own work |
+| [0104 A9](0104-batches-and-the-job-runner.md#a9-exports-adoptions-syncs-and-followers-join-the-queue) | 2026-11-13 | Exports, adoptions, syncs and followers join the queue |
 | [0106 A5](0106-create-entities-grid-and-drafts.md#a5-what-a-draft-needed-to-hold-the-tables-text-found-while-building) | 2026-11-10 | What a draft needed to hold the table's text, found while building |
 | [0106 A6](0106-create-entities-grid-and-drafts.md#a6-how-the-grid-and-the-mapping-step-are-built-found-while-building) | 2026-11-10 | How the grid and the mapping step are built, found while building |
 | [0106 A7](0106-create-entities-grid-and-drafts.md#a7-a-quantitys-unit-in-the-text-found-while-building) | 2026-11-10 | A quantity's unit in the text, found while building |

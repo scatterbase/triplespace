@@ -50,6 +50,8 @@
 //!
 //! - `POST /export` ([`export`]): the `records` export of selected pages and local
 //!   entities, with their proofs (0047 §8; 21 §4.2).
+//!   `GET /export/{id}` ([`export_job`]): an export over `export.sync_revisions`, run as
+//!   a job, its file kept in the blob store for the account that asked (0104 A9).
 //!
 //! Every route runs behind the Action API's request layers ([`triplespace_api_action`]):
 //! the tenant the host names (421 otherwise), the caller, the redaction of 0012 §8, and
@@ -68,6 +70,7 @@ pub mod diff;
 pub mod email;
 mod entity_route;
 pub mod export;
+pub mod export_job;
 pub mod groups;
 pub mod history;
 pub mod jobs;
@@ -183,6 +186,7 @@ rest_operations! {
     get "/record/{partition}/{offset}/proof" => record::proof;
     get "/record/proofs" => record::proofs;
     post "/export" => export::post;
+    get "/export/{id}" => export_job::get;
     get "/jobs" => jobs::list;
     get "/jobs/{id}" => jobs::get;
     post "/jobs/{id}/reject" => jobs::reject;
