@@ -53,6 +53,11 @@ impl<W: Write> Writer<W> {
         }
     }
 
+    /// The sink, for a caller that drains it between pages or revisions.
+    pub fn get_mut(&mut self) -> &mut W {
+        &mut self.out
+    }
+
     /// Writes the root element and `<siteinfo>`. Called once, before any page; a page
     /// written first opens the dump with an empty `<siteinfo>`.
     ///

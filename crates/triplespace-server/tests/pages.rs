@@ -1559,6 +1559,7 @@ async fn pages_on_the_site(site: Router, project: &str) {
 /// checks it, against the key chain published at `/.well-known/tlog/keys` (`--keys`),
 /// which refuses a file whose keys it does not hold.
 #[tokio::test]
+#[allow(clippy::too_many_lines)]
 async fn a_records_export_of_librarybase_pages_verifies() {
     let Some((database, key_file)) = setup("tspages_records_test").await else {
         eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
@@ -1657,6 +1658,49 @@ async fn a_records_export_of_librarybase_pages_verifies() {
             .unwrap()
             .starts_with("application/xml")
     );
+    // 0047 §8.2: `export.max_history` keeps the newest records of a page, and a selection
+    // over `export.sync_revisions` is refused, counted after the cap.
+    let with_history =
+        serde_json::json!({"format": "records", "pages": ["Project:Home"], "history": true});
+    set_setting(&database, "export.max_history", "5").await;
+    let (status, _, bytes) = export(with_history.clone()).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(records_in(&bytes), 5);
+    set_setting(&database, "export.sync_revisions", "5").await;
+    let (status, _, _) = export(with_history.clone()).await;
+    assert_eq!(status, StatusCode::OK, "at the limit");
+    set_setting(&database, "export.sync_revisions", "4").await;
+    let (status, _, bytes) = export(with_history).await;
+    let refusal = String::from_utf8_lossy(&bytes).into_owned();
+    assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE, "{refusal}");
+    assert!(
+        refusal.contains("export-too-large") && refusal.contains("holds 5 records"),
+        "{refusal}"
+    );
+    let (status, _, bytes) =
+        export(serde_json::json!({"format": "records", "pages": ["Project:Home"]})).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(records_in(&bytes), 1, "the current revision is under it");
+}
+
+/// Sets a setting of the tenant.
+async fn set_setting(database: &str, key: &str, value: &str) {
+    use triplespace_cli::settings;
+    settings::run(settings::Settings::Set(settings::Set {
+        at: settings::Where {
+            database: database.to_string(),
+            tenant: Some(TENANT.into()),
+            instance: false,
+        },
+        key: key.into(),
+        value: value.into(),
+        default: false,
+        lock: false,
+        tenancy: false,
+        summary: None,
+    }))
+    .await
+    .unwrap_or_else(|e| panic!("set {key}: {e}"));
 }
 
 fn records_in(bytes: &[u8]) -> u64 {
@@ -1998,6 +2042,45 @@ async fn an_xml_export_of_librarybase_pages_round_trips() {
         "{}",
         added.body
     );
+
+    // 0047 §8.1: `export.max_history` keeps the newest revisions of a page, the oldest
+    // kept naming the revision before it as its parent; a selection over
+    // `export.sync_revisions`, counted after the cap, is refused before any byte.
+    let with_history =
+        serde_json::json!({"format": "xml", "pages": ["Project:Home"], "history": true});
+    let (_, _, bytes) = export(with_history.clone()).await;
+    let (_, uncapped) = read(&bytes);
+    assert_eq!(uncapped[0].revisions.len(), 18);
+    set_setting(&database, "export.max_history", "5").await;
+    let (status, _, bytes) = export(with_history.clone()).await;
+    assert_eq!(status, StatusCode::OK);
+    let (_, capped) = read(&bytes);
+    assert_eq!(
+        capped[0].revisions,
+        uncapped[0].revisions[13..],
+        "the newest five, each as the whole history writes it"
+    );
+    assert_eq!(
+        capped[0].revisions[0].parent_id,
+        Some(uncapped[0].revisions[12].id)
+    );
+    set_setting(&database, "export.sync_revisions", "5").await;
+    let (status, _, at_limit) = export(with_history.clone()).await;
+    assert_eq!(status, StatusCode::OK, "at the limit");
+    assert_eq!(at_limit, bytes, "the same document");
+    set_setting(&database, "export.sync_revisions", "4").await;
+    let (status, _, bytes) = export(with_history).await;
+    let refusal = String::from_utf8_lossy(&bytes).into_owned();
+    assert_eq!(status, StatusCode::PAYLOAD_TOO_LARGE, "{refusal}");
+    assert!(
+        refusal.contains("export-too-large") && refusal.contains("holds 5 records"),
+        "{refusal}"
+    );
+    let (status, _, bytes) =
+        export(serde_json::json!({"format": "xml", "pages": ["Project:Home", "Project:Scope"]}))
+            .await;
+    assert_eq!(status, StatusCode::OK, "two current revisions are under it");
+    assert_eq!(read(&bytes).1.len(), 2);
 }
 
 /// `POST /export` on a router: the status, the headers and the body.

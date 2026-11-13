@@ -11,9 +11,11 @@
 //! none left being listed as missing. The XML is written through `scatter-mediawiki-xml`.
 //!
 //! Two phases, so that a refusal (`413` for a selection over `export.sync_revisions`)
-//! comes before any byte of the body: [`plan`] reads the metadata of every revision and
-//! decides what is withheld; [`write()`] then reads each revision's content and streams the
-//! document into any `Write`. [`build`] does both into memory.
+//! comes before any byte of the body: [`plan`] reads the metadata of the revisions the
+//! caps keep, the database cutting each target's history and stopping one row past the
+//! limit, and decides what is withheld; [`write()`] then reads each revision's content and
+//! streams the document into any `Write`, and [`write_chunks`] hands it on chunk by chunk,
+//! waiting for each to be taken. [`build`] does both phases into memory.
 //!
 //! **Not yet:** mirrored pages from `pages/{repo}` (13 §2.6), since no such partition is
 //! projected yet; `templates`, which waits for `view.transclusion` (0047 A33) and is
@@ -259,31 +261,63 @@ fn comment_text(
     (!s.is_empty()).then_some(s)
 }
 
+/// How many rows a query may return for `limit`: one more, which says the limit is passed.
+pub(crate) fn one_past(limit: usize) -> i64 {
+    i64::try_from(limit).map_or(i64::MAX, |l| l.saturating_add(1))
+}
+
+/// A history cap as the database takes it: at least one.
+pub(crate) fn cap_of(cap: usize) -> i64 {
+    i64::try_from(cap.max(1)).unwrap_or(i64::MAX)
+}
+
 /// The revision rows of the selected targets in the published partitions, oldest first
-/// per target, with their contributors.
+/// per target, with their contributors: of each target the newest `page_cap` or
+/// `entity_cap` only, each with its parent (the revision before it, kept or not), and
+/// of all of them no more than one past `limit`. The cut is the database's, so a long
+/// history is never read whole; the count of what the caps keep comes with the rows.
+#[allow(clippy::too_many_arguments)]
 async fn revision_rows<C: PgClient + GenericClient>(
     client: &C,
     tenant: &str,
     partitions: &[i64],
     page_ids: &[String],
     entity_ids: &[String],
+    page_cap: usize,
+    entity_cap: usize,
+    limit: usize,
 ) -> Result<BTreeMap<(i16, String), Vec<RevisionPlan>>, BuildError> {
     let rows = PgClient::query(
         client,
-        "SELECT a.partition, a.\"offset\", a.target_kind, a.target_id, a.revid,
+        "WITH ranked AS (
+           SELECT a.partition, a.\"offset\", a.target_kind, a.target_id,
+                  row_number() OVER (PARTITION BY a.target_kind, a.target_id
+                                     ORDER BY a.partition DESC, a.\"offset\" DESC) AS newest,
+                  lag(a.revid) OVER (PARTITION BY a.target_kind, a.target_id
+                                     ORDER BY a.partition, a.\"offset\") AS parent
+           FROM view.activity a
+           WHERE a.tenant = $1 AND a.partition = ANY($2)
+             AND a.kind IN ('edit', 'erased') AND a.revid IS NOT NULL
+             AND ((a.target_kind = $3 AND a.target_id = ANY($4))
+               OR (a.target_kind = $5 AND a.target_id = ANY($6)))
+         ), kept AS (
+           SELECT r.partition, r.\"offset\", r.parent, count(*) OVER () AS total
+           FROM ranked r
+           WHERE r.newest <= CASE WHEN r.target_kind = $3 THEN $7::bigint ELSE $8::bigint END
+           ORDER BY r.partition, r.\"offset\" LIMIT $9
+         )
+         SELECT a.partition, a.\"offset\", a.target_kind, a.target_id, a.revid,
                 (EXTRACT(EPOCH FROM a.time) * 1000000)::bigint,
                 a.actor_key, ac.name, ac.kind, ac.raw, ac.issuer, ac.subject,
                 a.summary_op, a.summary_args, a.log_type, a.log_action, a.comment,
-                coalesce(a.minor, false)
-         FROM view.activity a
+                coalesce(a.minor, false), coalesce(k.parent, 0), k.total
+         FROM kept k
+         JOIN view.activity a
+           ON a.tenant = $1 AND a.partition = k.partition AND a.\"offset\" = k.\"offset\"
          LEFT JOIN LATERAL (
            SELECT x.name, x.kind, x.raw, x.issuer, x.subject FROM view.actor x
            WHERE x.actor_key = a.actor_key AND x.tenant IN (a.tenant, '')
            ORDER BY (x.tenant = a.tenant) DESC LIMIT 1) ac ON true
-         WHERE a.tenant = $1 AND a.partition = ANY($2)
-           AND a.kind IN ('edit', 'erased') AND a.revid IS NOT NULL
-           AND ((a.target_kind = $3 AND a.target_id = ANY($4))
-             OR (a.target_kind = $5 AND a.target_id = ANY($6)))
          ORDER BY a.partition, a.\"offset\"",
         &[
             &tenant,
@@ -292,10 +326,22 @@ async fn revision_rows<C: PgClient + GenericClient>(
             &page_ids,
             &target_kind::ENTITY,
             &entity_ids,
+            &cap_of(page_cap),
+            &cap_of(entity_cap),
+            &one_past(limit),
         ],
     )
     .await
     .map_err(db)?;
+    let total = rows.first().map_or(0, |r| {
+        usize::try_from(r.get::<_, i64>(19)).unwrap_or(usize::MAX)
+    });
+    if total > limit {
+        return Err(BuildError::TooLarge {
+            records: total,
+            limit,
+        });
+    }
     let mut by_target: BTreeMap<(i16, String), Vec<RevisionPlan>> = BTreeMap::new();
     for r in &rows {
         let get = |i: usize| r.get::<_, Option<String>>(i);
@@ -303,7 +349,7 @@ async fn revision_rows<C: PgClient + GenericClient>(
             partition: ids::partition_from_db(r.get(0)),
             offset: u64::try_from(r.get::<_, i64>(1)).unwrap_or_default(),
             revid: u64::try_from(r.get::<_, i64>(4)).unwrap_or_default(),
-            parent: 0,
+            parent: u64::try_from(r.get::<_, i64>(18)).unwrap_or_default(),
             time: u64::try_from(r.get::<_, i64>(5)).unwrap_or_default(),
             contributor: contributor(
                 get(6).as_deref(),
@@ -329,38 +375,6 @@ async fn revision_rows<C: PgClient + GenericClient>(
             .push(plan);
     }
     Ok(by_target)
-}
-
-/// The revision before the oldest one kept of a target, where the cap cut its history:
-/// MediaWiki's `parentid` for it.
-async fn parent_before<C: PgClient>(
-    client: &C,
-    tenant: &str,
-    partition: u64,
-    kind: i16,
-    id: &str,
-    offset: u64,
-) -> Result<u64, BuildError> {
-    let row = client
-        .query_opt(
-            "SELECT revid FROM view.activity
-             WHERE tenant = $1 AND partition = $2 AND target_kind = $3 AND target_id = $4
-               AND kind IN ('edit', 'erased') AND revid IS NOT NULL AND \"offset\" < $5
-             ORDER BY \"offset\" DESC LIMIT 1",
-            &[
-                &tenant,
-                &ids::partition_to_db(partition),
-                &kind,
-                &id,
-                &i64::try_from(offset).unwrap_or(i64::MAX),
-            ],
-        )
-        .await
-        .map_err(db)?;
-    Ok(row
-        .and_then(|r| r.get::<_, Option<i64>>(0))
-        .and_then(|v| u64::try_from(v).ok())
-        .unwrap_or(0))
 }
 
 /// Plans the export of `selection` on `tenant` for `reader`, refusing more than `limit`
@@ -401,34 +415,24 @@ pub async fn plan<C: PgClient + GenericClient>(
         .iter()
         .map(|(id, _)| id.clone())
         .collect();
-    let mut by_target =
-        revision_rows(client, tenant, &partition_ids, &page_ids, &entity_ids).await?;
-    // Each target's revisions, oldest first, cut to the newest its cap allows.
-    for ((kind, id), revisions) in &mut by_target {
-        let cap = match (selection.history, *kind) {
-            (false, _) => 1,
-            (true, target_kind::PAGE) => selection.max_page_history,
-            (true, _) => selection.max_entity_history,
-        };
-        let cut = revisions.len().saturating_sub(cap.max(1));
-        revisions.drain(..cut);
-        for i in 1..revisions.len() {
-            revisions[i].parent = revisions[i - 1].revid;
-        }
-        if cut > 0
-            && let Some(first) = revisions.first_mut()
-        {
-            first.parent =
-                parent_before(client, tenant, first.partition, *kind, id, first.offset).await?;
-        }
-    }
-    let total: usize = by_target.values().map(Vec::len).sum();
-    if total > limit {
-        return Err(BuildError::TooLarge {
-            records: total,
-            limit,
-        });
-    }
+    // Each target's revisions, oldest first, cut to the newest its cap allows, and the
+    // selection refused over `limit`: both by the database, before the rows are read.
+    let (page_cap, entity_cap) = if selection.history {
+        (selection.max_page_history, selection.max_entity_history)
+    } else {
+        (1, 1)
+    };
+    let mut by_target = revision_rows(
+        client,
+        tenant,
+        &partition_ids,
+        &page_ids,
+        &entity_ids,
+        page_cap,
+        entity_cap,
+        limit,
+    )
+    .await?;
     let offsets: Vec<u64> = by_target
         .values()
         .flatten()
@@ -611,10 +615,44 @@ async fn content<C: PgClient>(
 pub async fn write<C: PgClient, W: Write>(
     client: &C,
     plan: &Plan,
-    out: W,
+    mut out: W,
 ) -> Result<W, BuildError> {
+    write_chunks(client, plan, CHUNK, |bytes| {
+        std::future::ready(
+            out.write_all(&bytes)
+                .map_err(|e| BuildError::Io(e.to_string())),
+        )
+    })
+    .await?;
+    out.flush().map_err(|e| BuildError::Io(e.to_string()))?;
+    Ok(out)
+}
+
+/// The size [`write()`] gathers before it writes on: a chunk of a streamed export.
+pub const CHUNK: usize = 64 * 1024;
+
+/// Writes a planned export chunk by chunk: `emit` is given the document's next bytes
+/// once `chunk` of them are gathered (a revision is never split, so a chunk is as much
+/// larger as its last revision), and is awaited before anything more is read. A slow
+/// reader of the export therefore holds the writing back, and no more than one chunk
+/// and one revision is in memory at a time.
+///
+/// # Errors
+///
+/// A database failure, or `emit`'s: the document then ends without its closing tag.
+pub async fn write_chunks<C, F, Fut>(
+    client: &C,
+    plan: &Plan,
+    chunk: usize,
+    mut emit: F,
+) -> Result<(), BuildError>
+where
+    C: PgClient,
+    F: FnMut(Vec<u8>) -> Fut,
+    Fut: Future<Output = Result<(), BuildError>>,
+{
     let io = |e: scatter_mediawiki_xml::XmlError| BuildError::Io(e.to_string());
-    let mut w = Writer::new(out);
+    let mut w = Writer::new(Vec::new());
     w.start(&plan.site).map_err(io)?;
     for note in &plan.notices {
         w.comment(note).map_err(io)?;
@@ -681,10 +719,18 @@ pub async fn write<C: PgClient, W: Write>(
                 slots: Vec::new(),
             };
             w.revision(&rev).map_err(io)?;
+            if w.get_mut().len() >= chunk {
+                emit(std::mem::take(w.get_mut())).await?;
+            }
         }
         w.close_page().map_err(io)?;
     }
-    w.finish().map_err(io)
+    let rest = w.finish().map_err(io)?;
+    if rest.is_empty() {
+        Ok(())
+    } else {
+        emit(rest).await
+    }
 }
 
 /// A whole export in memory: [`plan`], then [`write()`] into a `Vec`.

@@ -17,6 +17,7 @@ use triplespace_projections::common::target_kind;
 pub use scatter_integrity::records::{MEDIA_TYPE, RecordsExport as Export};
 
 use crate::bundle::{Offsets, PartitionRef, Reader, key_records, origin_of, published, redact};
+use crate::xml::{cap_of, one_past};
 
 /// What to export: pages and local entities, each with the text it was asked by.
 #[derive(Debug, Clone, Default)]
@@ -97,13 +98,27 @@ pub async fn build<C: PgClient + GenericClient>(
         .iter()
         .map(|(id, _)| id.clone())
         .collect();
+    // Each target's records, oldest first, cut to the newest its cap allows, and no more
+    // than one past `limit` of them: the database cuts and counts, so neither a long
+    // history nor a selection that is refused is read whole.
+    let (page_cap, entity_cap) = if selection.history {
+        (selection.max_page_history, selection.max_entity_history)
+    } else {
+        (1, 1)
+    };
     let found = PgClient::query(
         client,
-        "SELECT partition, \"offset\", target_kind, target_id FROM view.activity
-         WHERE tenant = $1 AND partition = ANY($2)
-           AND ((target_kind = $3 AND target_id = ANY($4))
-             OR (target_kind = $5 AND target_id = ANY($6)))
-         ORDER BY partition, \"offset\"",
+        "SELECT k.partition, k.\"offset\", k.target_kind, k.target_id, k.total FROM (
+           SELECT r.*, count(*) OVER () AS total FROM (
+             SELECT partition, \"offset\", target_kind, target_id,
+                    row_number() OVER (PARTITION BY target_kind, target_id
+                                       ORDER BY partition DESC, \"offset\" DESC) AS newest
+             FROM view.activity
+             WHERE tenant = $1 AND partition = ANY($2)
+               AND ((target_kind = $3 AND target_id = ANY($4))
+                 OR (target_kind = $5 AND target_id = ANY($6)))) r
+           WHERE r.newest <= CASE WHEN r.target_kind = $3 THEN $7::bigint ELSE $8::bigint END) k
+         ORDER BY k.partition, k.\"offset\" LIMIT $9",
         &[
             &tenant,
             &ids,
@@ -111,11 +126,22 @@ pub async fn build<C: PgClient + GenericClient>(
             &page_ids,
             &target_kind::ENTITY,
             &entity_ids,
+            &cap_of(page_cap),
+            &cap_of(entity_cap),
+            &one_past(limit),
         ],
     )
     .await
     .map_err(db)?;
-    // Each target's records, oldest first, cut to the newest its cap allows.
+    let total = found.first().map_or(0, |r| {
+        usize::try_from(r.get::<_, i64>(4)).unwrap_or(usize::MAX)
+    });
+    if total > limit {
+        return Err(BuildError::TooLarge {
+            records: total,
+            limit,
+        });
+    }
     let mut by_target: BTreeMap<(i16, String), Vec<(u64, u64)>> = BTreeMap::new();
     for r in &found {
         let at = (
@@ -123,22 +149,6 @@ pub async fn build<C: PgClient + GenericClient>(
             u64::try_from(r.get::<_, i64>(1)).unwrap_or_default(),
         );
         by_target.entry((r.get(2), r.get(3))).or_default().push(at);
-    }
-    for ((kind, _), records) in &mut by_target {
-        let cap = match (selection.history, *kind) {
-            (false, _) => 1,
-            (true, target_kind::PAGE) => selection.max_page_history,
-            (true, _) => selection.max_entity_history,
-        };
-        let cut = records.len().saturating_sub(cap.max(1));
-        records.drain(..cut);
-    }
-    let total: usize = by_target.values().map(Vec::len).sum();
-    if total > limit {
-        return Err(BuildError::TooLarge {
-            records: total,
-            limit,
-        });
     }
     let offsets: Vec<u64> = by_target.values().flatten().map(|&(_, o)| o).collect();
     let withhold = reader

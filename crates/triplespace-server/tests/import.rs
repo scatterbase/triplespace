@@ -1221,6 +1221,64 @@ async fn wikipedia_talk_pages_are_attributed_from_their_history() {
     );
 }
 
+/// A file cut short (0008 §9; 0047 §8.3): an export that ends before `</mediawiki>`,
+/// here between two pages, is not taken for a whole one. `triplespace import` imports
+/// the pages it could read and fails, saying how many; `action=import` refuses the file.
+#[tokio::test]
+async fn a_truncated_file_fails_the_import() {
+    let Some((database, key_file)) = setup("tsimport_truncated_test").await else {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    };
+    let xml = dump_xml();
+    let text = String::from_utf8_lossy(&xml);
+    // Cut after the twentieth page: well-formed as far as it goes.
+    let cut = text
+        .match_indices("</page>")
+        .nth(19)
+        .map(|(at, tag)| at + tag.len())
+        .unwrap();
+    let truncated = &xml[..cut];
+    let file = std::env::temp_dir().join(format!("tsimport-truncated-{}.xml", std::process::id()));
+    std::fs::write(&file, truncated).unwrap();
+    let mut args = import_args(&database);
+    args.file = file.clone();
+    args.skip_talk = true;
+    let mut census = import_args(&database);
+    census.file = file.clone();
+    census.census_only = true;
+    assert!(
+        import_cmd::run(census).await.is_err(),
+        "a census of part of a file says so"
+    );
+    let pages = "SELECT count(*)::bigint FROM view.page WHERE tenant = 'wiki' AND NOT deleted";
+    let before = count(&database, pages).await;
+    let e = import_cmd::run(args)
+        .await
+        .expect_err("a truncated file is a failed import");
+    let said = format!("{e:#}");
+    let created = count(&database, pages).await - before;
+    assert!(created > 0, "the pages read before the cut are imported");
+    assert!(
+        said.contains("pages were imported before it")
+            && said.contains(&format!("({created} created, ")),
+        "{said}"
+    );
+    let _ = std::fs::remove_file(&file);
+
+    // The upload: refused whole, as any file that is not an export is.
+    let mut owner = ApiClient {
+        router: router(&database, &key_file).await,
+        cookie: None,
+    };
+    assert_eq!(owner.login("Owner").await["clientlogin"]["status"], "PASS");
+    let csrf = owner.token("csrf").await;
+    let refused = owner
+        .import(&[("token", &csrf), ("census", "1")], Some(truncated))
+        .await;
+    assert_eq!(refused["error"]["code"], "import-unreadable", "{refused}");
+}
+
 /// The XML export writes the model each revision had (0047 A37): a page imported as
 /// wikitext and then edited to markdown exports with `wikitext` on its first revision and
 /// `markdown` on its second, and imports back the same.
