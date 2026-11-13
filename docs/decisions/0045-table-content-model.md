@@ -202,6 +202,6 @@ Replaced text ([15](../architecture/15-structured-pages.md) §2.1, as it stood):
 ### A10. What the grid edits in place, found while building
 
 - **Date:** 2026-11-10
-- **Source:** Direct: Claude, while building the editing of a Table page's grid (SCA-238), 2026-11-10; unconfirmed
+- **Source:** Direct: Claude, while building the editing of a Table page's grid (SCA-238), 2026-11-10; confirmed by James, 2026-11-13, as what the grid does for now: the cell-by-cell merge of §6 and the swap of a saved row's region are still to be built
 - **Change:** extends §6 and §7
 - **Summary:** (1) A statement cell is edited in the grid when its row is a local entity and it holds no best value or one whose value has a plain form (19 §3.1); its text is that plain form, an item by its ID with its label beside it. Any other cell is read-only there and is edited on the entity's page. (2) A row's edit is one `wbeditentity` with the row's base revision, the summary `Edited via [[{table}]]` followed by the editor's own, and `tags=table:{page id}`. An entity that changed since the page was drawn is refused as an edit conflict for that row, and the editor reloads; the cell-by-cell merge of §6 is not built. (3) After a save in which every row succeeded the page is loaded again, rather than each row's region swapped in. (4) Rows are added by typing or pasting IDs, and a new row creates an item from its cells; both join the definition in the one edit that follows the entities' writes.

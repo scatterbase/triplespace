@@ -737,7 +737,7 @@ Replaced text ([19](../architecture/19-site-ui.md) §3.10, as it stood):
 ### A56. A history has the feeds' filter panel
 
 - **Date:** 2026-11-09
-- **Source:** Direct: James, ticket SCA-227, and design discussion of 2026-11-09 (the `changed` parameter); the rest Claude, while building it, 2026-11-09; unconfirmed
+- **Source:** Direct: James, ticket SCA-227, and design discussion of 2026-11-09 (the `changed` parameter); the rest Claude, while building it, 2026-11-09; confirmed by James, 2026-11-13
 - **Change:** extends §5
 - **Summary:** A page's or an entity's history gets the filter panel recent changes has: by user, by tag, between two dates, without bot edits, without minor edits; and an entity's by what changed, with a language, site or property ([0020](0020-change-feeds.md) A21). Calls made in the building: the panel is a disclosure, open while a filter is on; the parameters are `user`, `tagfilter`, `from`, `to`, `hidebots`, `hideminor`, `changed` and `changedkey`; *Statements* stands for the parts `claims`, `statements`, `references` and `qualifiers`. Not built: hiding reverted edits, which needs a reverted change tag that nothing writes yet; combining consecutive edits by one actor; and telling a page's text edits from its statement edits. Chapter text: [19](../architecture/19-site-ui.md) §3.3.
 
