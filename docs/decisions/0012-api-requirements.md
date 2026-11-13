@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-09 (A90)
+- **Updated:** 2026-11-13 (A91)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -37,7 +37,7 @@ This ADR sets the rules for filling both gaps, and lists what the UI needs from 
 
 #### 2.1 Global revision and log IDs
 
-*Changed by A2, A4, A7, A65, A66, A67, A68, A69.*
+*Changed by A2, A4, A7, A65, A66, A67, A68, A69, A91.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §2.5, §5.3.*
 
@@ -1003,3 +1003,10 @@ Replaced text ([18](../architecture/18-api.md) §3.2, as it stood):
 - **Source:** Direct: James, design discussion of 2026-11-09 ("The warning should apply anywhere an action results in a no op where it normally wouldn't"); which modules that is Claude, while building it, 2026-11-09; unconfirmed
 - **Change:** extends §4
 - **Summary:** An Action API module that would normally append a record, and writes nothing because what it was asked for is already so, succeeds with a warning under its own name in the `warnings` block, giving the reason and "Nothing was written." Calls made in the building: the modules are the twelve Wikibase write modules (an edit that leaves the entity as it is, [0002](0002-source-graphs-and-mass-ingest.md) A48 included), `action=edit` (beside `nochange`), `action=protect`, `action=revisiondelete` and `action=userrights`; a module that already refuses the case as MediaWiki does keeps its error; `action=watch`, `action=options`, `action=echomarkread`, `action=echomarkseen` and `action=setnotificationtimestamp`, whose effect is private state and idempotent by nature, do not warn; re-protecting a page with the settings it has, and adding a group a user already holds, still write their records and so are not no-ops. The REST routes are unchanged. Chapter text: [18](../architecture/18-api.md) §1.5.
+
+### A91. A69's log ID rule holds for records appended from the change that builds it
+
+- **Date:** 2026-11-13
+- **Source:** Direct: James, design discussion of 2026-11-13
+- **Change:** extends §2.1
+- **Summary:** A69 gives every record of `local`, `pages`, the tenant `log` and the tenant `actors` partitions a log ID at append, and the write path does not do so yet for a changeset record. Asked whether logs already written are then written again, James: "existing local logs could use their existing log id so long as there isn't a risk of conflict." There is none: every log ID of a tenant is drawn from the tenant's one sequence, so a record appended later takes a number above every one issued. So a record already in such a partition keeps its header as it is, with the log ID it has or with none, since the ID is in the hashed header and adding one would rewrite the log; the rule holds for records appended from the change that builds it, and nothing, a verifier or an index, may assume a log ID on an earlier one. Chapter text: 01 §2.5.

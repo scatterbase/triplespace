@@ -540,7 +540,7 @@ Replaced text ([21](../architecture/21-special-pages.md) §1.1, as it stood):
 ### A29. `page_random` is derived from the page
 
 - **Date:** 2026-11-02
-- **Source:** Direct: Claude, while building rebuild equivalence for the Librarybase full-history adoption, 2026-11-02; unconfirmed
+- **Source:** Direct: Claude, while building rebuild equivalence for the Librarybase full-history adoption, 2026-11-02; confirmed by James, 2026-11-13
 - **Change:** amends §13
 - **Summary:** `view.page.random` is computed from the page, not drawn: the first 52 bits of the MD5 of `{tenant}:{page_id}`, as a fraction in [0, 1). A log-replayed projection is a function of the log ([03](../architecture/03-storage-caches-and-search.md) §6.1), and a value drawn when the row is created is a new value on every rebuild: the Librarybase rebuild of 2026-11-02 differed from the adopted views in every document page's `random`. The hash is uniform as MediaWiki's draw is, so `Special:Random` and `list=random` pick as evenly; the difference is that the value is reproducible, the same page always sorting to the same place. A source's own `page_random` is not in an XML export, so adoption could not keep it either way. Migration `0025_page_random` recomputes existing rows. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §4.5.
 

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-29 (A63)
+- **Updated:** 2026-11-13 (A64)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md)
 - **Uses:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md)
@@ -29,7 +29,7 @@ Two smaller gaps are closed with them: the document node of a foreign entity on 
 
 ### 2. Global IDs live in the header (amends 0006 §3 and 0013 §6)
 
-*Changed by A3, A15, A23, A37, A48, A49, A50, A51, A62, A63.*
+*Changed by A3, A15, A23, A37, A48, A49, A50, A51, A62, A63, A64.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §2.2, §2.5, §5.3, §7.*
 
@@ -680,3 +680,10 @@ Replaced text ([01](../architecture/01-log-and-records.md) §2.5, as it stood):
 - **Source:** [0097](0097-versioning-and-skins.md) §4
 - **Change:** extends §2
 - **Summary:** Every reader reads every record ever written. The header's format version is the header layout's major, and a payload type's tag carries the payload's major: a change older readers can ignore keeps the tag, one they cannot interpret takes a new tag, and both are read from then on. A new major ships first behind a switch, off by default, in a minor release, and the release that writes it by default is a product major. The chapter text is [01](../architecture/01-log-and-records.md) §2.2.
+
+### A64. A mirrored entity's upstream page ID is carried in the record's content
+
+- **Date:** 2026-11-13
+- **Source:** Direct: James, design discussion of 2026-11-13
+- **Change:** extends §2
+- **Summary:** A50 made a mirrored entity's page ID `provider_number << 40 | upstream page ID`, computed by the writer, and left open how the upstream page ID reaches the writer; the mirror writers still take page IDs from the instance sequence. James: it travels in the record's content, beside the upstream revision ID, and so under the content hash, not as an input only the writer sees. A reader of the record alone can then recompute field 9. A mirror partition written before the writers do this is loaded again, not converted: James, of the Wikidata load of milestone 1, "reloading is fine". Chapter text: 01 §2.5.

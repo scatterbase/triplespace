@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-18
-- **Updated:** 2026-11-06 (A5)
+- **Updated:** 2026-11-13 (A7)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0047](0047-special-pages.md), [0056](0056-security-model.md), [0057](0057-web-tier.md), [0087](0087-account-registration-and-challenges.md), [0088](0088-external-identity-providers.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0034](0034-frontend-stack.md), [0046](0046-primary-tenant.md), [0079](0079-derived-issuer-codes.md), [0085](0085-settings-and-preferences.md)
@@ -40,7 +40,7 @@ James's direction, from the design discussion of 2026-10-18:
 
 ### 3. Sign-in methods belong to the login (amends 0088 §7; amends 0007 §3; amends 0013 §4)
 
-*Changed by A3.*
+*Changed by A3, A7.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.1, §2.2, §2.7, §2.8.*
 
@@ -56,7 +56,7 @@ James's direction, from the design discussion of 2026-10-18:
 
 ### 6. The first visit to a tenant (amends 0088 §6; amends 0010 §10; amends 0087 §6)
 
-*Changed by A5.*
+*Changed by A5, A6.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.6, §2.7, §2.8; [19](../architecture/19-site-ui.md) §2.3.*
 
@@ -131,7 +131,7 @@ James's direction, from the design discussion of 2026-10-18:
 
 ## Open questions
 
-- **Q1. Who may create a login.** Every login is challenged, but an instance of private or closed wikis may want to close login creation itself, or require approval of logins as tenants approve accounts.
+- **Q1.** ~~**Who may create a login.** Every login is challenged, but an instance of private or closed wikis may want to close login creation itself, or require approval of logins as tenants approve accounts.~~ *Settled by A6: a login may log in on any tenant of its instance; what is gated is whether that makes an account there, which is the instance's policy, left to tenants or set as a default they override.*
 - **Q2. Deleting a login.** What becomes of the tenant accounts bound to it: unbound and reclaimable, as after a move, or refusal while any remains.
 - **Q3. The farm base.** Whether a farm base that is no tenant's logs in through the auth host, and which account its session holds: the primary tenant's account of the login, which instance acts need ([0046](0046-primary-tenant.md) §6).
 - **Q4. A login's data.** What the user data bundle of [0027](0027-preferences-and-portability.md) §7 carries of a login, which no tenant owns.
@@ -162,7 +162,7 @@ James's direction, from the design discussion of 2026-10-18:
 ### A3. Logins built: names, the password table and the migration command
 
 - **Date:** 2026-11-06
-- **Source:** Direct: Claude, while building instance logins, 2026-11-06; unconfirmed
+- **Source:** Direct: Claude, while building instance logins, 2026-11-06; confirmed by James, 2026-11-13
 - **Change:** extends §2, §3, §4, §15
 - **Summary:** §2, §3, §4 and §15 are built, with four calls the text left open. (1) **A login made with an account takes the account's name**, on `createaccount`, `instance create`, `password set` and in the migration, as `{name} ({tenant slug})` where that is held; the auth host's own `Special:CreateAccount`, where a person would choose a login name (§8), is not built, and on a single-tenant instance one name serving both is what the person expects. (2) **`private.password` keeps a nullable `actor_key` beside the new `login`**, one or the other per row, so that `logins migrate` can read what it converts; the primary key moved to partial unique indexes on each. (3) **`private.binding`'s holder column is `holder`**, since it names a login (`login:{n}`) for an external identity and an actor key for an account's binding to its login; an account's binding row has the tenant, the issuer `login` and the login ID as subject, and a login's identity rows the empty tenant. `private.session` gained `login` and `central`. (4) **The migration is a command the operator runs**, `triplespace logins migrate --key-file`, not a job the upgrade starts: it appends instance acts, which need the instance key the server does not hold; `triplespace migrate` prints a note while credentials keyed by accounts remain or the `logins` partition is missing. It does what §15 says, in one transaction, and leaves an account whose identity already belongs to another login as it is, reported (Q5). The password binding records accounts held before §3 are erased by it, scanning each `accounts` partition. On a single-tenant instance (§12) the tenant session is the central session: it carries the login, and `clientlogin` checks the login's password. Not built here: the auth host's handshake (§5), the auth host's pages and modules (§7, §8), and logging out everywhere (§9).
 
@@ -187,3 +187,17 @@ Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.8, as it stoo
 Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.8, as it stood):
 
 > **On the first visit**, a login with no account on the tenant is answered as §2.7 says: an account request, then vouching, then the session's pending login, for which the person chooses a public name on `Special:CreateAccount`. The login name is offered as a button, and so is the username of the external identity that authenticated the login, each with the warning that the same name makes accounts easy to connect.
+
+### A6. A login logs in anywhere on its instance; whether that makes an account is the instance's policy
+
+- **Date:** 2026-11-13
+- **Source:** Direct: James, design discussion of 2026-11-13
+- **Change:** extends §6
+- **Summary:** Asked Q1, who may create a login, James: "if a login system is common to an entire instance, they can 'log in' to any tenant on that instance, but whether it results in them having a local account instantiated depends on instance policy, and instances may delegate to tenants or have a default that tenants override." So the gate is not on the login but on the account: a login authenticates on any tenant of the instance, and whether the first visit gives it an account there is decided by the instance, which may leave the choice to each tenant or set a default a tenant overrides, as settings resolve through the instance's defaults and locks. Read with it, and put to James the same day without objection: creating a login is itself open to anyone who passes the challenge and the sign-in methods the instance offers, with no approval of logins. Which settings carry the policy beyond `createaccount` and `account.approval` is for the change that builds the first visit. Chapter text: 07 §2.8.
+
+### A7. `private.password` loses `actor_key` once the migration is done
+
+- **Date:** 2026-11-13
+- **Source:** Direct: James, design discussion of 2026-11-13
+- **Change:** extends §3
+- **Summary:** Confirming A3, James took its second call, the nullable `actor_key` kept beside `login` so that `logins migrate` can read what it converts, as a transition: the column is dropped by a migration once no row is keyed by an account. Chapter text: 03 §4.16.

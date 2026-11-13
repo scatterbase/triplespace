@@ -10,13 +10,11 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 |---|---|---|
 | [0002 A48](0002-source-graphs-and-mass-ingest.md#a48-an-edit-that-only-repeats-a-statement-writes-nothing) | 2026-11-09 | An edit that only repeats a statement writes nothing |
 | [0006 A26](0006-log-integrity-and-erasure.md#a26-a-nesting-depth-limit-for-canonical-cbor) | 2026-11-06 | A nesting-depth limit for canonical CBOR |
-| [0008 A51](0008-namespaces-and-document-pages.md#a51-link-marks-repeated-links-and-a-redirects-target-in-its-title) | 2026-11-09 | Link marks: repeated links, and a redirect's target in its title |
 | [0010 A47](0010-site-ui.md#a47-the-acl-site-ui-the-calls-made-building-it) | 2026-10-30 | The ACL site UI: the calls made building it |
 | [0010 A49](0010-site-ui.md#a49-the-compare-form-and-the-diff-views-the-calls-made-building-them) | 2026-11-04 | The compare form and the diff views: the calls made building them |
 | [0010 A50](0010-site-ui.md#a50-a-document-pages-tabs-its-about-panel-and-its-format-selector-the-calls-made-building-them) | 2026-11-05 | A document page's tabs, its About panel and its Format selector: the calls made building them |
 | [0010 A53](0010-site-ui.md#a53-name-tombstones-and-renameuser-the-calls-made-building-them) | 2026-11-07 | Name tombstones and `renameuser`: the calls made building them |
 | [0010 A55](0010-site-ui.md#a55-feed-rows-the-actions-own-column-summaries-parsed-as-mediawikis-and-a-row-menu) | 2026-11-09 | Feed rows: the action's own column, summaries parsed as MediaWiki's, and a row menu |
-| [0010 A56](0010-site-ui.md#a56-a-history-has-the-feeds-filter-panel) | 2026-11-09 | A history has the feeds' filter panel |
 | [0010 A57](0010-site-ui.md#a57-an-entitys-diff-is-two-columns-as-wikibase-draws-one) | 2026-11-09 | An entity's diff is two columns, as Wikibase draws one |
 | [0011 A38](0011-logs.md#a38-a-followers-batch-waits-for-the-load-lock-a-dump-load-waits-a-minute) | 2026-11-06 | A follower's batch waits for the load lock; a dump load waits a minute |
 | [0012 A89](0012-api-requirements.md#a89-a-route-served-through-a-more-general-one-is-built) | 2026-11-09 | A route served through a more general one is built |
@@ -61,8 +59,6 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0034 A18](0034-frontend-stack.md#a18-the-job-progress-bar-is-built-alias-chips-wait-on-codex) | 2026-11-10 | The job progress bar is built; alias chips wait on Codex |
 | [0039 A16](0039-files-and-media.md#a16-a-fifth-kind-of-key-what-a-job-wrote) | 2026-11-13 | A fifth kind of key: what a job wrote |
 | [0042 A22](0042-template-expansion-and-parsoid.md#a22-which-template-drew-a-block) | 2026-11-04 | Which template drew a block |
-| [0045 A10](0045-table-content-model.md#a10-what-the-grid-edits-in-place-found-while-building) | 2026-11-10 | What the grid edits in place, found while building |
-| [0047 A29](0047-special-pages.md#a29-pagerandom-is-derived-from-the-page) | 2026-11-02 | `page_random` is derived from the page |
 | [0051 A8](0051-page-redirects.md#a8-actionmove-the-calls-made-building-it) | 2026-10-30 | `action=move`: the calls made building it |
 | [0056 A27](0056-security-model.md#a27-entities-the-live-attack-and-tiers-78-the-calls-made-building-them) | 2026-10-30 | Entities, the live attack and tiers 7–8: the calls made building them |
 | [0066 A3](0066-lexemes.md#a3-the-part-suffix-belongs-to-the-lexeme-entity-type-not-to-a-grammar) | 2026-11-04 | The part suffix belongs to the lexeme entity type, not to a grammar |
@@ -75,7 +71,6 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0086 A11](0086-theming.md#a11-greenbar-and-cyanotype-original-palettes-with-type-sets-made-for-them) | 2026-11-01 | Greenbar and Cyanotype, original palettes with type sets made for them |
 | [0086 A12](0086-theming.md#a12-links-on-the-pages-canvas-and-codexs-values-under-every-palette) | 2026-11-04 | Links on the page's canvas, and Codex's values under every palette |
 | [0087 A6](0087-account-registration-and-challenges.md#a6-registration-loose-ends-from-building-the-challenge) | 2026-10-30 | Registration: loose ends from building the challenge |
-| [0089 A3](0089-the-auth-host-and-instance-logins.md#a3-logins-built-names-the-password-table-and-the-migration-command) | 2026-11-06 | Logins built: names, the password table and the migration command |
 | [0092 A3](0092-following-recent-changes.md#a3-a-state-that-will-not-parse-is-rejected-and-the-follower-goes-on) | 2026-11-09 | A state that will not parse is rejected, and the follower goes on |
 | [0092 A7](0092-following-recent-changes.md#a7-a-follower-compacts-its-mirror-as-the-days-job-closes) | 2026-11-11 | A follower compacts its mirror as the day's job closes |
 | [0097 A3](0097-versioning-and-skins.md#a3-fragments-are-compared-as-normalized-dom) | 2026-10-30 | Fragments are compared as normalized DOM |
@@ -125,7 +120,6 @@ Every unstruck question in every ADR (24 §8), with its first sentence. Settle o
 | [0005 Q4](0005-crate-organization.md) | When to extract the shared repository | The trigger in §6 is Scatterbase's first dependency. |
 | [0005 Q5](0005-crate-organization.md) | Whether `scatter.wiki` should redirect | to `scatter.red/terms/v0/` or stay unused. |
 | [0006 Q2](0006-log-integrity-and-erasure.md) | Timestamp anchoring | Whether checkpoints should be anchored externally, which is Scatterbase's TS product code. |
-| [0006 Q4](0006-log-integrity-and-erasure.md) | Defaults | for segment size (k) and checkpoint cadence (N and T). |
 | [0006 Q6](0006-log-integrity-and-erasure.md) | Key compromise | Revocation and recovery, shared with Scatterbase's identity work. |
 | [0006 Q8](0006-log-integrity-and-erasure.md) | Prior-use acknowledgments for each term | Whether they eventually move from the attestation into a log-level check shared by both products. |
 | [0007 Q2](0007-actor-identity.md) | Issuers in RDF | Whether actor nodes should carry their issuer explicitly, for example `scatter:issuedBy`, or leave consumers to infer it from the IRI template. |
@@ -462,7 +456,6 @@ Every unstruck question in every ADR (24 §8), with its first sentence. Settle o
 | [0088 Q2](0088-external-identity-providers.md) | Acting on the profile | Whether a tenant may refuse a login whose provider account is blocked, or require a minimum edit count, from the fields §2 ignores. |
 | [0088 Q3](0088-external-identity-providers.md) | Re-authentication | Whether adding a sign-in method or the linking flow of 0007 §7 should ask the provider to re-prompt (`prompt=login`), which MediaWiki's OAuth does not support today. |
 | [0088 Q4](0088-external-identity-providers.md) | Miraheze | Logging in with Miraheze's central accounts, as `miraheze-central`, once it is confirmed how Miraheze's OAuth 2.0 endpoints, consumer registration and `sub` claim behave. |
-| [0089 Q1](0089-the-auth-host-and-instance-logins.md) | Who may create a login | Every login is challenged, but an instance of private or closed wikis may want to close login creation itself, or require approval of logins as tenants approve accounts. |
 | [0089 Q2](0089-the-auth-host-and-instance-logins.md) | Deleting a login | What becomes of the tenant accounts bound to it: unbound and reclaimable, as after a move, or refusal while any remains. |
 | [0089 Q3](0089-the-auth-host-and-instance-logins.md) | The farm base | Whether a farm base that is no tenant's logs in through the auth host, and which account its session holds: the primary tenant's account of the login, which instance acts need (0046 §6). |
 | [0089 Q4](0089-the-auth-host-and-instance-logins.md) | A login's data | What the user data bundle of 0027 §7 carries of a login, which no tenant owns. |

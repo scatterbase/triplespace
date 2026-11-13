@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-08 (A33)
+- **Updated:** 2026-11-13 (A34)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md)
 
@@ -59,13 +59,13 @@ Three terms are used precisely below:
 
 ### 5. The Merkle tree and segments
 
-*Changed by A2, A14, A24, A25.*
+*Changed by A2, A14, A24, A25, A34.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §4.1, §6.*
 
 ### 6. Checkpoints and keys
 
-*Changed by A3, A6, A8, A12, A19, A22, A24, A25, A28, A29, A33.*
+*Changed by A3, A6, A8, A12, A19, A22, A24, A25, A28, A29, A33, A34.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §4.2, §4.3.*
 
@@ -129,7 +129,7 @@ Three terms are used precisely below:
 - **Q1.** ~~**Witnessing.** Whether to cosign checkpoints with external witnesses, and which ones.~~ *Settled by [0081](0081-recovery-keys-and-continuations.md) §6: yes, by any C2SP tlog-witness a tenant lists in `integrity.witnesses`, for its `config` partition by default and other partitions by choice.*
 - **Q2. Timestamp anchoring.** Whether checkpoints should be anchored externally, which is Scatterbase's TS product code.
 - **Q3.** ~~**Where checkpoints are served,** and whether the path is a well-known URL.~~ *Settled by [0022](0022-federation.md) §1: `{base}/.well-known/tlog/{partition}/checkpoint`, historical checkpoints and manifests beside it, and the key chain at `/.well-known/tlog/keys`.*
-- **Q4. Defaults** for segment size (k) and checkpoint cadence (N and T). Cadence is a `site` setting since [0015](0015-record-format-and-partition-registry.md) §3; the values are still to be chosen.
+- **Q4.** ~~**Defaults** for segment size (k) and checkpoint cadence (N and T). Cadence is a `site` setting since [0015](0015-record-format-and-partition-registry.md) §3; the values are still to be chosen.~~ *Settled by A34: k = 16, N = 4,096 records, T = 60 seconds.*
 - **Q5.** ~~**Reason classes.** Their vocabulary, and whether an `erase` record's reason is visible to everyone.~~ *Settled by [0016](0016-permissions-and-access-control.md) §6: `legal`, `privacy`, `upstream` ([0011](0011-logs.md) §5) and `operational`, extensible in `site` configuration; that a record was erased is public, the class and authority reference are visible to `ts-viewerasures`.*
 - **Q6. Key compromise.** Revocation and recovery, shared with Scatterbase's identity work.
 - **Q7.** ~~**The Wikibase JSON to CBOR mapping.** In particular, which values stay strings and how snak hashes are carried.~~ *Settled by A7: structural and JSON-faithful; every string stays a string; snak and reference hashes and `numeric-id` are dropped and recomputed on output.*
@@ -472,3 +472,14 @@ Replaced text ([01](../architecture/01-log-and-records.md) §8, as it stood):
 Replaced text ([01](../architecture/01-log-and-records.md) §4.2, as it stood):
 
 > **A partition's origin is fixed by its first checkpoint or manifest** and reused for every later one; the first is derived from the tenant's current host, or the farm's ([0006](../decisions/0006-log-integrity-and-erasure.md) A29).
+
+### A34. Defaults for the segment exponent and the checkpoint cadence
+
+- **Date:** 2026-11-13
+- **Source:** Direct: James, design discussion of 2026-11-13
+- **Change:** extends §5; amends §6
+- **Summary:** James took the three defaults Q4 left open. **k = 16**, segments of 65,536 records: it is what every partition made so far has, a `hashed` partition's open segment is unsigned until it is sealed and a small k keeps that short, and a Wikidata-sized mirror is under two thousand segments. **T = 60 seconds** and **N = 4,096 records** for the steady-state cadence of a `logged` partition: T bounds how long a saved edit waits for a checkpoint that an inclusion proof can cite, and since every checkpoint is kept it also caps a partition at 1,440 a day; N matters only under sustained writing between jobs, which checkpoint at their end. The worker signs only a partition that has grown. Chapter text: 01 §4.1, §4.2. The signing worker itself is not built; `triplespace checkpoint` signs until it is.
+
+Replaced text ([01](../architecture/01-log-and-records.md) §4.2, as it stood):
+
+> **Until that worker signs on a cadence**, whose N and T are still open (0006 Q4), `triplespace checkpoint` signs
