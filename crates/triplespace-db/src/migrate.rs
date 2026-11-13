@@ -52,6 +52,14 @@ pub enum MigrateError {
         /// The checksum of the embedded SQL.
         current: String,
     },
+    /// The database has applied migrations this binary does not have: a newer binary
+    /// migrated it, and this one does not know its schema (0033 A31).
+    #[error(
+        "the database has applied {}, which this binary does not have: a newer version \
+         migrated it, so run that version or a newer one",
+        .0.iter().map(|(c, n)| format!("{c}/{n}")).collect::<Vec<_>>().join(", ")
+    )]
+    Newer(Vec<(String, String)>),
     /// A backup names a migration this binary does not have: a newer binary wrote it.
     #[error(
         "the backup was written under {crate_name}/{name}, a migration this binary does not \
@@ -106,6 +114,36 @@ pub fn checksum(sql: &str) -> String {
             let _ = write!(s, "{b:02x}");
             s
         })
+}
+
+/// `(crate, name, checksum)` of every migration the database records, in the order
+/// applied, whether or not a binary at hand has it: what a backup records (0103 A11), so
+/// that a backup of a database a newer binary migrated says so. Reads only; a database
+/// without `ops.migration` has applied nothing.
+///
+/// # Errors
+///
+/// The database's.
+pub async fn recorded<C: GenericClient>(
+    client: &C,
+) -> Result<Vec<(String, String, String)>, MigrateError> {
+    let exists: bool = client
+        .query_one("SELECT to_regclass('ops.migration') IS NOT NULL", &[])
+        .await?
+        .get(0);
+    if !exists {
+        return Ok(Vec::new());
+    }
+    Ok(client
+        .query(
+            "SELECT crate_name, name, checksum FROM ops.migration
+             ORDER BY applied_at, crate_name, name",
+            &[],
+        )
+        .await?
+        .iter()
+        .map(|r| (r.get(0), r.get(1), r.get(2)))
+        .collect())
 }
 
 /// Applies one migration in a transaction of its own, with its bookkeeping row.
@@ -185,6 +223,28 @@ impl Migrator {
         client: &mut tokio_postgres::Client,
     ) -> Result<Applied, MigrateError> {
         self.prepare(client).await?;
+        // A changed migration first, as the more particular complaint; then a database
+        // ahead of this binary. Neither applies anything.
+        let recorded = recorded(&*client).await?;
+        for (crate_name, m) in self.migrations() {
+            let current = checksum(m.sql);
+            if let Some((_, _, sum)) = recorded
+                .iter()
+                .find(|(c, n, _)| c == crate_name && n == m.name)
+                && *sum != current
+            {
+                return Err(MigrateError::Changed {
+                    crate_name: crate_name.into(),
+                    name: m.name.into(),
+                    recorded: sum.clone(),
+                    current,
+                });
+            }
+        }
+        let newer = self.unknown(&*client).await?;
+        if !newer.is_empty() {
+            return Err(MigrateError::Newer(newer));
+        }
         // Roles first, outside the migrations' transactions, so that `0004_roles` finds
         // them made rather than racing another database's run to make them.
         let created_roles = if self.grants {
@@ -247,12 +307,8 @@ impl Migrator {
         client: &mut tokio_postgres::Client,
         recorded: &[(String, String, String)],
     ) -> Result<bool, MigrateError> {
-        self.prepare(client).await?;
-        if self.grants {
-            crate::grants::ensure_roles(&*client)
-                .await
-                .map_err(|source| MigrateError::Grants { source })?;
-        }
+        // Before anything is made: a backup this binary cannot restore leaves the
+        // database as it was.
         for (crate_name, name, _) in recorded {
             if !self
                 .migrations()
@@ -263,6 +319,12 @@ impl Migrator {
                     name: name.clone(),
                 });
             }
+        }
+        self.prepare(client).await?;
+        if self.grants {
+            crate::grants::ensure_roles(&*client)
+                .await
+                .map_err(|source| MigrateError::Grants { source })?;
         }
         let mut older = false;
         for (crate_name, m) in self.migrations() {
@@ -293,6 +355,22 @@ impl Migrator {
             }
         }
         Ok(older)
+    }
+
+    /// The `(crate, name)` of every migration the database records that this binary does
+    /// not have, in the order applied: none, unless a newer binary migrated the database
+    /// (0033 A31). [`Migrator::status`] and [`Migrator::pending`] see only this binary's
+    /// migrations, so a database ahead of the binary looks to them like one in step.
+    pub async fn unknown<C: GenericClient>(
+        &self,
+        client: &C,
+    ) -> Result<Vec<(String, String)>, MigrateError> {
+        Ok(recorded(client)
+            .await?
+            .into_iter()
+            .filter(|(c, n, _)| !self.migrations().any(|(mc, m)| mc == c && m.name == n))
+            .map(|(c, n, _)| (c, n))
+            .collect())
     }
 
     /// The `(crate, name)` of every migration the database has not applied, in order:

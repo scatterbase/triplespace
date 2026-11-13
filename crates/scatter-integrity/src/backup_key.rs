@@ -348,19 +348,12 @@ impl DataKey {
     /// the sealed bytes; an empty plaintext is one empty last chunk.
     #[must_use]
     pub fn encrypt_chunks(&self, aad: &[u8], plaintext: &[u8]) -> Vec<u8> {
-        let chunks: Vec<&[u8]> = if plaintext.is_empty() {
-            vec![&[]]
-        } else {
-            plaintext.chunks(CHUNK).collect()
-        };
-        let last = chunks.len() - 1;
-        let mut out = Vec::with_capacity(plaintext.len() + chunks.len() * (4 + NONCE + 16));
-        for (i, chunk) in chunks.iter().enumerate() {
-            let sealed = self.encrypt(&chunk_aad(aad, i, i == last), chunk);
-            let len = u32::try_from(sealed.len()).expect("a chunk is under 4 GiB");
-            out.extend(len.to_be_bytes());
-            out.extend(sealed);
-        }
+        let mut out = Vec::with_capacity(plaintext.len() + (plaintext.len() / CHUNK + 1) * 44);
+        let mut sealer = self.seal_chunks(aad);
+        sealer
+            .push(plaintext, &mut out)
+            .expect("a Vec takes any write");
+        sealer.finish(&mut out).expect("a Vec takes any write");
         out
     }
 
@@ -372,29 +365,158 @@ impl DataKey {
     /// chunk, or a stream cut short.
     pub fn decrypt_chunks(&self, aad: &[u8], sealed: &[u8]) -> Result<Vec<u8>, BackupKeyError> {
         let mut out = Vec::with_capacity(sealed.len());
-        let mut rest = sealed;
-        let mut i = 0usize;
-        loop {
-            if rest.len() < 4 {
-                return Err(BackupKeyError::Open);
-            }
-            let (len, tail) = rest.split_at(4);
-            let len = usize::try_from(u32::from_be_bytes(
-                len.try_into().map_err(|_| BackupKeyError::Open)?,
-            ))
-            .map_err(|_| BackupKeyError::Open)?;
-            if tail.len() < len {
-                return Err(BackupKeyError::Open);
-            }
-            let (chunk, tail) = tail.split_at(len);
-            let last = tail.is_empty();
-            out.extend(self.decrypt(&chunk_aad(aad, i, last), chunk)?);
-            if last {
-                return Ok(out);
-            }
-            rest = tail;
-            i += 1;
+        let mut opener = self.open_chunks(aad, sealed);
+        while let Some(chunk) = opener.next_chunk()? {
+            out.extend(chunk);
         }
+        Ok(out)
+    }
+
+    /// [`DataKey::encrypt_chunks`] for a plaintext that arrives in pieces and is never
+    /// held whole (0103 A13): the same bytes, written as they are sealed.
+    #[must_use]
+    pub fn seal_chunks(&self, aad: &[u8]) -> ChunkSealer<'_> {
+        ChunkSealer {
+            key: self,
+            aad: aad.to_vec(),
+            pending: Vec::new(),
+            index: 0,
+        }
+    }
+
+    /// [`DataKey::decrypt_chunks`] for a sealed stream read a chunk at a time.
+    #[must_use]
+    pub fn open_chunks<R: std::io::Read>(&self, aad: &[u8], sealed: R) -> ChunkOpener<'_, R> {
+        ChunkOpener {
+            key: self,
+            aad: aad.to_vec(),
+            sealed,
+            index: 0,
+            next_len: None,
+            done: false,
+        }
+    }
+}
+
+/// Seals a stream a chunk at a time: see [`DataKey::seal_chunks`].
+#[allow(missing_debug_implementations)] // it holds the key and plaintext
+pub struct ChunkSealer<'k> {
+    key: &'k DataKey,
+    aad: Vec<u8>,
+    /// Plaintext not yet sealed: a chunk is sealed only once more follows it, since the
+    /// last chunk says that it is the last.
+    pending: Vec<u8>,
+    index: usize,
+}
+
+impl ChunkSealer<'_> {
+    fn emit<W: std::io::Write>(
+        &mut self,
+        chunk: &[u8],
+        last: bool,
+        out: &mut W,
+    ) -> std::io::Result<()> {
+        let sealed = self
+            .key
+            .encrypt(&chunk_aad(&self.aad, self.index, last), chunk);
+        let len = u32::try_from(sealed.len()).expect("a chunk is under 4 GiB");
+        out.write_all(&len.to_be_bytes())?;
+        out.write_all(&sealed)?;
+        self.index += 1;
+        Ok(())
+    }
+
+    /// Takes more plaintext, writing every chunk it completes.
+    ///
+    /// # Errors
+    ///
+    /// The writer's.
+    pub fn push<W: std::io::Write>(&mut self, bytes: &[u8], out: &mut W) -> std::io::Result<()> {
+        self.pending.extend_from_slice(bytes);
+        let mut at = 0;
+        while self.pending.len() - at > CHUNK {
+            let chunk = self.pending[at..at + CHUNK].to_vec();
+            self.emit(&chunk, false, out)?;
+            at += CHUNK;
+        }
+        self.pending.drain(..at);
+        Ok(())
+    }
+
+    /// Writes the last chunk: what is left, or an empty one for an empty stream.
+    ///
+    /// # Errors
+    ///
+    /// The writer's.
+    pub fn finish<W: std::io::Write>(mut self, out: &mut W) -> std::io::Result<()> {
+        let rest = std::mem::take(&mut self.pending);
+        self.emit(&rest, true, out)
+    }
+}
+
+/// Opens a sealed stream a chunk at a time: see [`DataKey::open_chunks`].
+#[allow(missing_debug_implementations)] // it holds the key
+pub struct ChunkOpener<'k, R> {
+    key: &'k DataKey,
+    aad: Vec<u8>,
+    sealed: R,
+    index: usize,
+    /// The next chunk's length, read ahead to learn whether the one before was the last.
+    next_len: Option<u32>,
+    done: bool,
+}
+
+impl<R: std::io::Read> ChunkOpener<'_, R> {
+    /// Reads a 4-byte length; `None` at a clean end of the stream.
+    fn length(&mut self) -> Result<Option<u32>, BackupKeyError> {
+        let mut len = [0u8; 4];
+        let mut got = 0;
+        while got < 4 {
+            match self.sealed.read(&mut len[got..]) {
+                Ok(0) => break,
+                Ok(n) => got += n,
+                Err(e) if e.kind() == std::io::ErrorKind::Interrupted => {}
+                Err(_) => return Err(BackupKeyError::Open),
+            }
+        }
+        match got {
+            0 => Ok(None),
+            4 => Ok(Some(u32::from_be_bytes(len))),
+            _ => Err(BackupKeyError::Open),
+        }
+    }
+
+    /// The next chunk's plaintext; `None` after the last.
+    ///
+    /// # Errors
+    ///
+    /// As [`DataKey::decrypt_chunks`].
+    pub fn next_chunk(&mut self) -> Result<Option<Vec<u8>>, BackupKeyError> {
+        if self.done {
+            return Ok(None);
+        }
+        let len = match self.next_len.take() {
+            Some(len) => len,
+            None => self.length()?.ok_or(BackupKeyError::Open)?,
+        };
+        // No chunk is longer than a sealed [`CHUNK`]: a longer length is not one this
+        // wrote, and is not worth allocating for.
+        let len = usize::try_from(len).map_err(|_| BackupKeyError::Open)?;
+        if len > CHUNK + NONCE + 16 {
+            return Err(BackupKeyError::Open);
+        }
+        let mut chunk = vec![0; len];
+        self.sealed
+            .read_exact(&mut chunk)
+            .map_err(|_| BackupKeyError::Open)?;
+        self.next_len = self.length()?;
+        let last = self.next_len.is_none();
+        let plain = self
+            .key
+            .decrypt(&chunk_aad(&self.aad, self.index, last), &chunk)?;
+        self.index += 1;
+        self.done = last;
+        Ok(Some(plain))
     }
 }
 
@@ -934,6 +1056,19 @@ mod tests {
             .collect();
         for plain in [Vec::new(), b"short".to_vec(), big.clone()] {
             let sealed = key.encrypt_chunks(b"private.inbox", &plain);
+            // Sealed in pieces of any size, the stream is the same but for its nonces,
+            // and opens the same.
+            let mut piecewise = Vec::new();
+            let mut pieces = key.seal_chunks(b"private.inbox");
+            for piece in plain.chunks(70_001) {
+                pieces.push(piece, &mut piecewise).unwrap();
+            }
+            pieces.finish(&mut piecewise).unwrap();
+            assert_eq!(piecewise.len(), sealed.len());
+            assert_eq!(
+                key.decrypt_chunks(b"private.inbox", &piecewise).unwrap(),
+                plain
+            );
             assert_eq!(
                 key.decrypt_chunks(b"private.inbox", &sealed).unwrap(),
                 plain

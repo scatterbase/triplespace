@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-07
-- **Updated:** 2026-11-12 (A12)
+- **Updated:** 2026-11-13 (A13)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0027](0027-preferences-and-portability.md), [0056](0056-security-model.md)
 - **Uses:** [0039](0039-files-and-media.md), [0081](0081-recovery-keys-and-continuations.md)
@@ -34,7 +34,7 @@ James's direction, from the design discussion of 2026-11-07:
 
 ### 1. Three scopes: export, transfer and backup (amends 0006 §9)
 
-*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12.*
+*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §8.2.*
 
@@ -48,7 +48,7 @@ James's direction, from the design discussion of 2026-11-07:
 
 ### 4. Backups and rehosting carry everything (extends 0018 §10; amends 0023 §7)
 
-*Changed by A2, A3, A5, A6, A7, A8, A9, A10, A11, A12.*
+*Changed by A2, A3, A5, A6, A7, A8, A9, A10, A11, A12, A13.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §6.7; [09](../architecture/09-security-and-moderation.md) §6.5.*
 
@@ -183,3 +183,10 @@ Replaced text ([08](../architecture/08-tenants-and-instances.md) §6.7, as it st
 - **Source:** Direct: Claude, after a review of the backup and restore (SCA-363, SCA-358), 2026-11-12; unconfirmed
 - **Change:** extends §1, §4
 - **Summary:** The calls made: (1) **an empty database is one never migrated**: the restore refuses a database that has any of the schemas `log`, `ops`, `view`, `private` or `ts_restore`, where A9 (4) refused only one with partitions; a restore that stopped after migrating would otherwise be run again over its own schema, and for an older backup (A11) take the backup's tables for ones the later migrations had already converted; the database is dropped and made again after a restore that did not finish; (2) **a backup whose `bundle.cbor` has no `sealed` is refused** as one that did not finish: `sealed` is written last (A8 (6)), and a backup that stopped before it, for want of a key set or otherwise, was restored as one without `private`, silently; (3) **a manifest names only what a backup writes**: a carried table is in `ops`, a sealed one in `private` or `ops`, none is `ops.migration`, and a file is a plain name in its section, since the restore empties and loads what a manifest names as the database's owner; (4) **A4 (5)'s advance reaches every tenant**: the restore gives every tenant of the registry a `visibility_epoch` row at the restore's time, where it had moved only the rows the backup held, and a row is made at a tenant's first bump, which the old instance may have reached after the backup.
+
+### A13. A bundle says what it holds, and no table is held whole
+
+- **Date:** 2026-11-13
+- **Source:** Direct: Claude, fixing what a review of the backup and restore found, 2026-11-13; unconfirmed
+- **Change:** extends §1, §4
+- **Summary:** The calls made: (1) **`bundle.cbor` states each partition's size and root** as the bundle holds it, `size` and `root` beside its name, and opening a bundle holds the files to them, for `verify` and a restore alike: a bundle that lost a partition's last segment file, the end of one, or the partition's whole directory was otherwise a shorter log that read whole, unless a checkpoint happened to lie past the cut; a bundle from before this entry states neither and opens as before; (2) **the carried sections state each table file's length and SHA-256**, `digests` in `carried/manifest.cbor`: the carried tables are in the clear, and nothing else said a file was whole; the sealed files need none, their last chunk saying that it is the last (A8 (2)); (3) **no table is held whole**: a backup writes each carried and sealed table as its `COPY` arrives, sealing a chunk at a time, and syncs the file; a restore reads and loads each a piece at a time, in one unit of work for all of them; before, each table was held in memory two or three times over and sent to the database as one message, which fails near 1 GiB, and `job_queue` carries uploads; the sealed format is unchanged; (4) **a restore reads every carried and sealed file through before it touches the database**, so that a file cut short or changed, or shares that do not open the backup, are found then and not after the log is loaded and the projections rebuilt; (5) **a restore moves `private.login_id` past every login the log holds**: the sequence was set from `private.login`, which a restore without the sealed sections leaves empty, so that the next login was minted as 1 and its record keyed `login:1`, a key the restored `logins` partition already held; (6) a backup records the migrations the database's own `ops.migration` holds, with the checksums it holds them under, not the list the backing-up binary has ([0033](0033-backend-stack.md) A31), so that a backup of a database a newer binary migrated says so, and an older binary refuses to restore it (A11 (5)) before making anything in the database.

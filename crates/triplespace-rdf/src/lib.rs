@@ -642,6 +642,7 @@ async fn write_bundle(
         name: row.name.clone(),
         origin: origin.clone(),
         registry: None,
+        head: None,
     };
     export_scoped(
         &store,

@@ -44,6 +44,7 @@ triplespace-projections.workspace = true
 triplespace-rdf.workspace = true
 triplespace-api-ingest.workspace = true
 futures-util.workspace = true
+sha2.workspace = true
 bytes.workspace = true
 triplespace-accounts.workspace = true
 triplespace-notify.workspace = true

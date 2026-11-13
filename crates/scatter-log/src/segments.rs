@@ -265,6 +265,17 @@ impl SegmentStore {
             .collect()
     }
 
+    /// A partition's head as the files give it, without the trait's future; `None` for a
+    /// partition the store does not hold.
+    #[must_use]
+    pub fn head_of(&self, partition: u64) -> Option<Head> {
+        self.partitions.get(&partition).map(|p| Head {
+            size: p.frontier.size(),
+            root: p.frontier.root(),
+            segments: p.segments,
+        })
+    }
+
     fn partition(&self, partition: u64) -> Result<&Partition, StoreError> {
         self.partitions
             .get(&partition)

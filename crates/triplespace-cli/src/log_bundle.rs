@@ -247,6 +247,7 @@ pub async fn export(args: &Export) -> Result<Vec<BundlePartition>> {
                 .map_err(anyhow::Error::msg)?,
             name: row.name,
             registry,
+            head: None,
         });
     }
     if partitions.is_empty() {

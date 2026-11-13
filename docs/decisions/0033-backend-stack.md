@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-10 (A30)
+- **Updated:** 2026-11-13 (A31)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0034](0034-frontend-stack.md)
@@ -42,7 +42,7 @@ This ADR records the rest. The frontend is in 0034.
 
 ### 4. Postgres
 
-*Changed by A9, A20, A25.*
+*Changed by A9, A20, A25, A31.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §1.4, §5.*
 
@@ -456,3 +456,11 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §3.3, as it stood):
 - **Source:** Direct: Claude, while building the first week's Dependabot updates, 2026-11-10; unconfirmed
 - **Change:** extends §16
 - **Summary:** Three of the first week's pull requests could not be merged for a reason outside the repository, and Dependabot would reopen each weekly. `.github/dependabot.yml` now ignores the major releases of `getrandom` (the workspace names it only to turn on `wasm_js` for the copy `oxrdf`'s `rand` 0.9 pulls in, which is `getrandom` 0.3; 0.4 is a second copy without the feature and the wasm32 build of the rule-7 crates fails), `eslint` (`eslint-config-wikimedia` 0.32 is an eslintrc configuration with a peer of ESLint ^8.57, and ESLint 9 and later read only flat configuration) and `typescript` (`vue-tsc` 3.3 needs TypeScript below 7, which has no `lib/tsc`). Each entry carries its reason in the file and is removed when the reason goes. `@playwright/test` was held at 1.63.0 in the same change without an ignore entry: the cloud sandbox has only the browser build that release expects and cannot download another ([gotchas](../testing/gotchas.md)); whether to ignore it, or to take it and lose the sandbox's e2e run, is James's to choose. The chapter text is [22](../architecture/22-crates-and-stack.md) §3.4.
+
+### A31. A database ahead of the binary
+
+- **Date:** 2026-11-13
+- **Source:** Direct: Claude, fixing what a review of the migrations found, 2026-11-13; unconfirmed
+- **Change:** extends §4
+- **Summary:** The runner compared the database with the binary's own migrations only, so a database a newer binary had migrated looked to an older one like a database in step: the older server started on it, `triplespace migrate` said there was nothing to do and gave the older binary's grants, and a backup recorded the older binary's list. The calls made: (1) **a migration the database records and the binary lacks makes the database newer than the binary**; `triplespace-server` refuses to start on one, naming the migrations, as it refuses one behind it (A20), and the runner refuses to migrate one; (2) this also stops an older replica from starting during a rolling upgrade once the database is migrated, and a rollback of the binary alone, both of which ran before, on a schema the code did not know; whether either should be allowed, for migrations marked as safe for the version before, is not decided; (3) a backup records the database's own rows ([0103](0103-export-transfer-and-backup.md) A13). The runner still takes no lock: two runs at once end with one of them failing on `ops.migration`'s key, its migration rolled back.
+

@@ -28,6 +28,7 @@ use std::fs;
 use std::path::{Path, PathBuf};
 
 use scatter_log::cbor::{self, Value};
+use scatter_log::hash::Hash;
 use scatter_log::record::Record;
 use scatter_log::segments::SegmentStore;
 use scatter_log::store::{LogStore, Slot, StoreError};
@@ -56,6 +57,11 @@ pub struct BundlePartition {
     /// the partition as it was (0103 A2); `None` in an export, and in a bundle written
     /// before backups carried it. `verify` does not need it.
     pub registry: Option<PartitionRegistry>,
+    /// The partition's size and root as the bundle holds it (0103 A13), which the export
+    /// writes whatever the caller gave, and [`Bundle::open`] holds the files to: a bundle
+    /// that lost a segment file, or the end of one, is otherwise a shorter partition that
+    /// reads whole. `None` in a bundle written before bundles stated it.
+    pub head: Option<(u64, Hash)>,
 }
 
 /// A partition's registry row, as a backup carries it: what a restore needs to register
@@ -165,6 +171,10 @@ impl BundleManifest {
                             if let Some(r) = &p.registry {
                                 entries.push((Value::text("registry"), r.to_value()));
                             }
+                            if let Some((size, root)) = &p.head {
+                                entries.push((Value::text("size"), Value::Int(i128::from(*size))));
+                                entries.push((Value::text("root"), Value::Bytes(root.to_vec())));
+                            }
                             Value::map(entries)
                         })
                         .collect(),
@@ -211,6 +221,14 @@ impl BundleManifest {
                         .get("registry")
                         .map(PartitionRegistry::from_value)
                         .transpose()?,
+                    head: match (p.get("size"), p.get("root")) {
+                        (None, None) => None,
+                        (Some(size), Some(Value::Bytes(root))) => Some((
+                            size.as_u64().ok_or(bad("size"))?,
+                            root.as_slice().try_into().map_err(|_| bad("root"))?,
+                        )),
+                        _ => return Err(bad("size and root")),
+                    },
                 })
             })
             .collect::<Result<_, BundleError>>()?;
@@ -273,6 +291,20 @@ pub enum BundleError {
     /// The key chain is broken.
     #[error(transparent)]
     Chain(#[from] ChainError),
+    /// A partition's files are not what `bundle.cbor` says the bundle holds: the bundle
+    /// lost part of itself after it was written.
+    #[error(
+        "bundle: partition {partition:#018x} holds {found} records where the bundle was \
+         written with {stated}, or other records: part of the bundle is missing or changed"
+    )]
+    Head {
+        /// The partition.
+        partition: u64,
+        /// The size `bundle.cbor` states.
+        stated: u64,
+        /// The size the files give; the stated one where only the root differs.
+        found: u64,
+    },
     /// The destination exists and is not empty.
     #[error("bundle: {0} is not empty")]
     NotEmpty(PathBuf),
@@ -328,7 +360,8 @@ pub async fn export_scoped<S: LogStore, C: CheckpointStore>(
     let mut out = SegmentStore::open(dest)?;
     let mut cps = FileCheckpoints::new(dest);
     let mut left_out: BTreeMap<u64, WithheldList> = BTreeMap::new();
-    for p in partitions {
+    let mut written = partitions.to_vec();
+    for (p, w) in partitions.iter().zip(&mut written) {
         let head = store.head(p.partition).await?;
         out.create_partition(p.partition, head.segments).await?;
         for offset in 0..head.size {
@@ -378,6 +411,8 @@ pub async fn export_scoped<S: LogStore, C: CheckpointStore>(
         for (n, m) in checkpoints.manifests(p.partition).await? {
             cps.put_manifest(p.partition, n, &m).await?;
         }
+        let wrote = out.head(p.partition).await?;
+        w.head = Some((wrote.size, wrote.root));
     }
     let mut keys = Vec::new();
     for r in key_records {
@@ -392,7 +427,7 @@ pub async fn export_scoped<S: LogStore, C: CheckpointStore>(
     }
     let manifest = BundleManifest {
         created,
-        partitions: partitions.to_vec(),
+        partitions: written,
         scope: scope.to_string(),
         sealed: None,
     };
@@ -498,6 +533,22 @@ impl Bundle {
         }
         let chain = KeyChain::from_records(&records)?;
         let store = SegmentStore::open(&dir)?;
+        for p in &manifest.partitions {
+            let Some((stated, root)) = p.head else {
+                continue;
+            };
+            // A partition whose directory is gone holds nothing.
+            let found = store
+                .head_of(p.partition)
+                .map_or((0, scatter_log::tree::empty_root()), |h| (h.size, h.root));
+            if found != (stated, root) {
+                return Err(BundleError::Head {
+                    partition: p.partition,
+                    stated,
+                    found: found.0,
+                });
+            }
+        }
         let checkpoints = FileCheckpoints::new(&dir);
         let withheld = match fs::read(dir.join(WITHHELD_FILE)) {
             Ok(bytes) => withheld_from_value(
@@ -593,6 +644,19 @@ mod tests {
     use crate::checkpoints::{MemoryCheckpoints, checkpoint, segment_manifest};
     use crate::verify::Problem;
 
+    fn copy_dir(from: &Path, to: &Path) {
+        fs::create_dir_all(to).unwrap();
+        for entry in fs::read_dir(from).unwrap() {
+            let entry = entry.unwrap();
+            let dest = to.join(entry.file_name());
+            if entry.file_type().unwrap().is_dir() {
+                copy_dir(&entry.path(), &dest);
+            } else {
+                fs::copy(entry.path(), dest).unwrap();
+            }
+        }
+    }
+
     #[test]
     #[allow(clippy::too_many_lines)]
     fn export_open_verify() {
@@ -659,6 +723,7 @@ mod tests {
                     name: "config".into(),
                     origin: config_origin.clone(),
                     registry: None,
+                    head: None,
                 },
                 BundlePartition {
                     partition: 7,
@@ -672,6 +737,7 @@ mod tests {
                         export: "public".into(),
                         hash: "sha-256".into(),
                     }),
+                    head: None,
                 },
             ];
             export(&store, &cps, &partitions, &key_records, 123, &dest)
@@ -695,7 +761,16 @@ mod tests {
 
             let bundle = Bundle::open(&dest).unwrap();
             assert_eq!(bundle.manifest().created, 123);
-            assert_eq!(bundle.manifest().partitions, partitions);
+            // The bundle states each partition's head, whatever the caller gave (0103 A13).
+            let stated: Vec<BundlePartition> = {
+                let mut out = partitions.clone();
+                for p in &mut out {
+                    let h = store.head(p.partition).await.unwrap();
+                    p.head = Some((h.size, h.root));
+                }
+                out
+            };
+            assert_eq!(bundle.manifest().partitions, stated);
             assert_eq!(bundle.chain().keys().len(), 1);
             assert_eq!(bundle.store().partitions().await.unwrap(), vec![0, 7]);
             assert_eq!(
@@ -721,6 +796,32 @@ mod tests {
             assert_eq!(reports[1].manifests, 1);
             let reports = bundle.verify(Level::Structure, None, None).await;
             assert!(reports.iter().all(Report::is_clean));
+
+            // 0103 §1 (A13): a bundle that lost its last segment file, or a whole
+            // partition, no longer opens: each is otherwise a shorter log that reads whole.
+            let cut = dest.with_extension("cut");
+            for lost in ["0000000000000007/00000002.seg", "0000000000000007"] {
+                let _ = fs::remove_dir_all(&cut);
+                copy_dir(&dest, &cut);
+                let path = cut.join(lost);
+                if path.is_dir() {
+                    fs::remove_dir_all(&path).unwrap();
+                } else {
+                    fs::remove_file(&path).unwrap();
+                }
+                assert!(
+                    matches!(
+                        Bundle::open(&cut),
+                        Err(BundleError::Head {
+                            partition: 7,
+                            stated: 5,
+                            ..
+                        })
+                    ),
+                    "{lost}"
+                );
+            }
+            let _ = fs::remove_dir_all(&cut);
 
             // An export-scope bundle (0103 §1; 0006 A30): what it withholds is listed and
             // accounted for, and verify still reports the unlisted erasure at offset 1.
