@@ -54,7 +54,9 @@ You need:
   installation after it starts is not in it. Stop writes for the duration (step 3).
 
 The examples use these variables. `OLD` and `NEW` are the owner's database URLs on each side,
-the ones you pass to `triplespace instance create` and `migrate`, not the server's own logins.
+the ones in each installation's `.env` that `triplespace instance setup` and `migrate` use, not
+the server's own logins. Every command below takes `--database` explicitly, so that nothing
+reads the wrong side's `.env` by accident.
 
 ```sh
 export OLD=postgres://triplespace@old-db/triplespace
@@ -151,9 +153,13 @@ To the new installation, by a channel you trust:
 - the **bundle** directory;
 - the **instance key**, `triplespace.key`, mode `0600`. Never put it in the bundle's directory,
   nor anywhere the backup is stored: the bundle's sealing protects `private`, not the key;
-- your **configuration**: the `.env` file or environment (`TRIPLESPACE_AUTH_BASE`,
-  `TRIPLESPACE_KEY_FILE` and the rest), the flags you start `triplespace-server` with
-  (`--mode`, `--listen`, `--trusted-proxy`, `--ui`), and your proxy's configuration;
+- your **configuration**: the `.env` file, and `server.env` if the server has its own (see the
+  [Quickstart](quickstart.md), step 6), or whatever environment and flags you start
+  `triplespace-server` with, and your proxy's configuration. Change the database URLs in them
+  to the new database's;
+- the server's **`data/` directory**, if you want what is in it: the dumps `triplespace dump`
+  wrote (`TRIPLESPACE_DUMPS_DIR`), queued exports' files (`TRIPLESPACE_BLOB_DIR`), and mail
+  written by the `log` transport. The log does not depend on any of them;
 - any **rejects files** you kept from `triplespace sync --rejects …`, if you want them;
 - **uploaded file bytes**, if your instance has any: the export notes that it does not include
   them yet.
@@ -216,7 +222,7 @@ CREATE ROLE ts_notify_login LOGIN PASSWORD '…' IN ROLE ts_notify;
 ```
 
 and point the server's `TRIPLESPACE_DATABASE_URL`, `TRIPLESPACE_ACCOUNTS_DATABASE_URL` and
-`TRIPLESPACE_NOTIFY_DATABASE_URL` at them.
+`TRIPLESPACE_NOTIFY_DATABASE_URL` (in `server.env`) at them.
 
 ## 10. Check, then start
 
@@ -225,9 +231,8 @@ triplespace status --database "$NEW"
 ```
 
 Every partition's head should match the old installation's, and every projection be current.
-Then start the server as you did on the old installation, with the same flags and
-configuration, and with `TRIPLESPACE_KEY_FILE` (or `--key-file`) naming the instance key you
-copied.
+Then start the server as you did on the old installation, with the same configuration, and
+with `TRIPLESPACE_KEY_FILE` naming the instance key you copied.
 
 Log in as an ordinary account and as the owner, open a page and an entity, and make a test edit.
 Restart any `triplespace follow` you ran.

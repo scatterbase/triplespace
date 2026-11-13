@@ -35,23 +35,58 @@ Node 22 or later, and PostgreSQL (CI uses 18). A small instance needs Postgres a
    export PATH="$PWD/target/release:$PATH"
    ```
 
-4. **Create a database and point Triplespace at it.** Every binary reads
-   `TRIPLESPACE_DATABASE_URL`, or a `.env` file in the working directory.
+4. **Create a database and a `.env` file.** Every binary (`triplespace`, `triplespace-server`
+   and `triplespace-web`) reads a `.env` file in the working directory before it reads its
+   flags, so the instance's configuration lives in one place instead of your shell. Run them all
+   from the directory that holds it.
 
    ```sh
    createdb triplespace
-   export TRIPLESPACE_DATABASE_URL=postgres://triplespace@localhost/triplespace
+   cat > .env <<'END'
+   TRIPLESPACE_DATABASE_URL=postgres://triplespace@localhost/triplespace
+   TRIPLESPACE_KEY_FILE=triplespace.key
+   TRIPLESPACE_LISTEN=127.0.0.1:8080
+   TRIPLESPACE_MODE=development
+   TRIPLESPACE_DEV_TENANT=example
+   END
    ```
 
-5. **Create the instance and its first wiki.** This writes the schema, the instance signing key
-   (`triplespace.key`, mode 0600; keep it safe) and the primary tenant with its owner account.
-   The farm slug is the instance's own permanent name. List here every provider you may later
-   mirror: providers cannot be added after creation.
+   Any flag that names an environment variable in its `--help` can be set here. A flag on the
+   command line wins over a variable in the environment, and either wins over the file; the
+   file never overrides what is already set. To read another file instead,
+   `TRIPLESPACE_ENV_FILE=/etc/triplespace/server.env`. The repository's `.gitignore` already
+   leaves out `.env` and `.env.*`: the file holds credentials, so keep it out of version control
+   wherever it lives.
 
-   The easiest way is to answer its questions: `triplespace instance setup` asks for each of
-   these in turn, checks every answer, shows the equivalent `instance create` command, and
-   creates nothing until you confirm. Afterwards it offers to add more wikis. The same, with
-   flags:
+5. **Create the instance and its first wiki.** Run the setup, which asks its questions one at a
+   time:
+
+   ```sh
+   triplespace instance setup
+   ```
+
+   It asks, in order:
+
+   - **Postgres URL**, offering the one from `.env`. It checks that the database answers and
+     holds no instance yet (if it already holds one, it offers to add a wiki instead).
+   - **Instance key file**, offering `triplespace.key`. It is created with mode 0600 and signs
+     the instance's log: keep it safe and back it up.
+   - **Farm slug**: the instance's own permanent name.
+   - **Providers to mirror**: every provider you may ever mirror, such as Wikidata. Choose
+     generously: providers cannot be added after creation.
+   - **The first wiki** (the primary tenant, whose accounts operate the instance): whether it
+     is a new, empty wiki or an existing one to adopt (step 8), its slug, its base URL, and the
+     name shown on its pages. Use `example` as the slug to match `TRIPLESPACE_DEV_TENANT` above.
+   - **Its owner**: their account name, and a password, typed twice and never echoed. Leave it
+     empty to set one later with `triplespace password set`.
+   - **The farm base URL**, offering the first wiki's base.
+
+   Each answer is checked as you give it, and a rejected one is asked again. Then it shows a
+   summary and the equivalent `triplespace instance create` command line, and **writes nothing
+   until you confirm**. Afterwards it offers to add more wikis (step 7).
+
+   The setup needs a terminal. For a script, run the command line it showed you instead,
+   for example:
 
    ```sh
    echo 'a long passphrase' > owner.pw
@@ -62,20 +97,23 @@ Node 22 or later, and PostgreSQL (CI uses 18). A small instance needs Postgres a
        --owner-name Alice --owner-password-file owner.pw
    ```
 
-6. **Start the server.** It serves the API and the site. For local use, development mode answers
-   any host as one tenant over plain HTTP; in production it expects a TLS-terminating proxy in
-   front for each tenant's host.
+6. **Start the server.** It serves the API and the site, and takes its settings from `.env`.
+   For local use, development mode answers any host as the `TRIPLESPACE_DEV_TENANT` wiki over
+   plain HTTP:
 
    ```sh
-   triplespace-server --listen 127.0.0.1:8080 --mode development --dev-tenant example
+   triplespace-server
    ```
 
-   Then open <http://127.0.0.1:8080/> and log in as `Alice`.
+   Then open <http://127.0.0.1:8080/> and log in as the owner.
 
-   **In production, give each part of the server its own login.** Connected as the owner, as
-   above, the server works, but the database does not keep the public API out of accounts'
-   private data, and the server warns that it does not. Create a login for each part, grant it
-   the part's role, and give the server a URL for each ([architecture 03](../architecture/03-storage-caches-and-search.md) §1.2):
+   **In production**, set `TRIPLESPACE_MODE=production` and remove `TRIPLESPACE_DEV_TENANT`: the
+   server then answers only for its wikis' hosts and expects a TLS-terminating proxy in front of
+   each (see *Deploying behind a proxy* below). **Also give each part of the server its own
+   login.** Connected as the database owner, as above, the server works, but the database does
+   not keep the public API out of accounts' private data, and the server warns that it does not.
+   Create a login for each part and grant it the part's role
+   ([architecture 03](../architecture/03-storage-caches-and-search.md) §1.2):
 
    ```sql
    CREATE ROLE ts_server_login LOGIN PASSWORD '…' IN ROLE ts_server;
@@ -83,31 +121,57 @@ Node 22 or later, and PostgreSQL (CI uses 18). A small instance needs Postgres a
    CREATE ROLE ts_notify_login LOGIN PASSWORD '…' IN ROLE ts_notify;
    ```
 
+   The server's logins are not the owner's, so give the server a file of its own and keep `.env`
+   for the `triplespace` commands (`migrate`, `instance setup`, `tenant setup`, `rebuild`),
+   which run as the owner:
+
    ```sh
-   export TRIPLESPACE_DATABASE_URL=postgres://ts_server_login:…@localhost/triplespace
-   export TRIPLESPACE_ACCOUNTS_DATABASE_URL=postgres://ts_accounts_login:…@localhost/triplespace
-   export TRIPLESPACE_NOTIFY_DATABASE_URL=postgres://ts_notify_login:…@localhost/triplespace
+   cat > server.env <<'END'
+   TRIPLESPACE_DATABASE_URL=postgres://ts_server_login:…@localhost/triplespace
+   TRIPLESPACE_ACCOUNTS_DATABASE_URL=postgres://ts_accounts_login:…@localhost/triplespace
+   TRIPLESPACE_NOTIFY_DATABASE_URL=postgres://ts_notify_login:…@localhost/triplespace
+   TRIPLESPACE_KEY_FILE=triplespace.key
+   TRIPLESPACE_LISTEN=127.0.0.1:8080
+   TRIPLESPACE_MODE=production
+   END
+   chmod 600 .env server.env
+   TRIPLESPACE_ENV_FILE=server.env triplespace-server
    ```
 
-   These are the server's. Run `triplespace` commands (`migrate`, `instance create`, `rebuild`)
-   as the owner, by passing its URL: `--database postgres://triplespace@localhost/triplespace`.
-
-7. **Add another wiki (optional).** A second tenant gets its own base URL, partitions, numbering
-   and accounts. It needs the instance's auth host, a host of its own that is neither a tenant's
-   nor the farm's; give the server the same `TRIPLESPACE_AUTH_BASE`. `triplespace tenant setup`
-   asks for all of it at a terminal; with flags:
+7. **Add another wiki (optional).** A second wiki (tenant) gets its own base URL, partitions,
+   numbering and accounts. An instance with more than one wiki signs people in at its **auth
+   host**, a host of its own that is neither a wiki's nor the farm's, and the server must know
+   it. Put it in `.env` first (and in `server.env`, if the server has its own), so that the
+   setup offers it and the server reads the same value:
 
    ```sh
-   export TRIPLESPACE_AUTH_BASE=https://auth.example.org
+   echo 'TRIPLESPACE_AUTH_BASE=https://auth.example.org' >> .env
+   triplespace tenant setup
+   ```
+
+   It shows the instance and the wikis it already has, asks which owner is creating the new
+   one if there is more than one, and confirms the auth base URL. Then it asks about the wiki as
+   `instance setup` did: new or adopted, slug, base URL, name, and its owner's account and
+   password. It shows a summary and the equivalent command, writes nothing until you confirm,
+   and offers another wiki after each one. Restart the server afterwards, and check:
+
+   ```sh
+   triplespace tenant list
+   ```
+
+   Without a terminal, the same with flags (`--auth-base` is read from `.env` when omitted):
+
+   ```sh
    triplespace tenant create --tenant other --base https://other.example \
        --name "Other wiki" --owner-name Bob --owner-password-file bob.pw
-   triplespace tenant list
    ```
 
 8. **Adopt an existing Wikibase (optional).** Adoption makes a wiki *become* a tenant, keeping
    its IDs, users and history. It is one-way: freeze the source first, because afterwards the
-   tenant mints the next IDs. The tenant must be created with `--adopt` (at `instance create` or
-   `tenant create`), and `--owner` is the owner's user ID *on the source*.
+   tenant mints the next IDs. Create the tenant as an adopted wiki first: answer *An existing
+   Wikibase or MediaWiki* in `instance setup` or `tenant setup`, which then asks for the source
+   wiki's base URL and the owner's user ID *on the source*; or, with flags, `--adopt` and
+   `--owner` as below. Then load the dump with `triplespace adopt`.
 
    ```sh
    # On the frozen source wiki: a full-history XML dump, and its ID counters
