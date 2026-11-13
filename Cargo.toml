@@ -200,7 +200,7 @@ lettre = { version = "0.11.23", default-features = false, features = ["smtp-tran
 chacha20poly1305 = "0.11"
 # The backup key set (0103 A3, A5): a share of a backup's data key sealed to each holder's
 # X25519 key, the key split with Shamir over GF(256) when more than one share must meet.
-x25519-dalek = { version = "2", default-features = false, features = ["static_secrets", "zeroize"] }
+x25519-dalek = { version = "3", default-features = false, features = ["static_secrets", "zeroize"] }
 hkdf = "0.13"
 vsss-rs = { version = "6", default-features = false, features = ["std", "zeroize"] }
 rand_core = { version = "0.10", default-features = false }
