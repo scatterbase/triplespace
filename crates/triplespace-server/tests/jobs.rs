@@ -596,8 +596,9 @@ async fn a_large_import_runs_through_the_queue() {
     assert!(!jobs::cancel(&client, TENANT, id).await.unwrap());
     assert!(!jobs::cancel(&client, TENANT, waiting).await.unwrap());
 
-    // A job that fails on its input: its row goes, and its failure is its own record
-    // once it had started. An empty file never starts, and fails before its start.
+    // A job that fails on its input: its row goes, and its failure is its own record.
+    // A file that is not XML fails before the import's start record, and gets both
+    // records, so the ID the submitter holds is a failed job (0104 §4, A7).
     let broken = jobs::submit(
         store,
         &jobs::Submission {
@@ -625,13 +626,29 @@ async fn a_large_import_runs_through_the_queue() {
         query(&database, "SELECT count(*) FROM ops.job_queue").await[0].get::<_, i64>(0),
         0
     );
-    let no_record = owner.rest(&format!("/jobs/{broken}")).await;
+    let record = owner.rest(&format!("/jobs/{broken}")).await;
     assert_eq!(
-        no_record.status,
-        StatusCode::NOT_FOUND,
-        "a job that never started has no record: {}",
-        no_record.text()
+        record.status,
+        StatusCode::OK,
+        "a job that failed before it started is a failed job: {}",
+        record.text()
     );
+    let record = record.json();
+    assert_eq!(record["status"], "failed", "{record}");
+    let job = query(
+        &database,
+        &format!(
+            "SELECT mode, source, counts->>'error' FROM view.job WHERE tenant = 'wiki' AND job_id = {broken}"
+        ),
+    )
+    .await;
+    assert_eq!(job[0].get::<_, String>(0), "import");
+    assert_eq!(job[0].get::<_, String>(1), "upload");
+    assert_eq!(job[0].get::<_, Option<String>>(2), failed.error);
+    let page = owner
+        .send("GET", &format!("/wiki/Special:Jobs/{broken}"), None)
+        .await;
+    assert_eq!(page.status, StatusCode::OK, "{}", page.text());
 
     // Paused: nothing is claimed.
     settings::run(settings::Settings::Set(settings::Set {
@@ -726,4 +743,295 @@ async fn a_dump_runs_through_the_queue() {
     assert_eq!(left.len(), 1);
     assert_eq!(left[0].get::<_, String>(0), "adopt");
     let _ = std::fs::remove_dir_all(&dumps);
+}
+
+/// A job whose file is not XML: an import of it fails as soon as it runs.
+fn broken_job(tenant: &str, kind: jobs::Kind) -> jobs::Submission {
+    jobs::Submission {
+        tenant: tenant.into(),
+        kind,
+        params: serde_json::json!({"source": "upload", "prefix": "imported", "reverts": 1}),
+        payload: Some(b"not xml at all".to_vec()),
+        actor: "local:1".into(),
+    }
+}
+
+/// `(status, counts)` of a job in `view.job`.
+async fn job_row(database: &str, tenant: &str, id: u64) -> Option<(String, Value)> {
+    query(
+        database,
+        &format!(
+            "SELECT status, coalesce(counts, '{{}}'::jsonb) FROM view.job WHERE tenant = '{tenant}' AND job_id = {id}"
+        ),
+    )
+    .await
+    .first()
+    .map(|r| (r.get(0), r.get(1)))
+}
+
+/// Makes a row a dead runner's: claimed `attempts` times, its heartbeat long stale.
+async fn stale(database: &str, id: u64, attempts: u32) {
+    query(
+        database,
+        &format!(
+            "UPDATE ops.job_queue SET claimed_by = 'runner dead', attempts = {attempts},
+                    heartbeat = now() - interval '10 minutes', claimed_at = now() - interval '10 minutes'
+             WHERE job_id = {id}"
+        ),
+    )
+    .await;
+}
+
+async fn queue_len(database: &str) -> i64 {
+    query(database, "SELECT count(*) FROM ops.job_queue").await[0].get::<_, i64>(0)
+}
+
+// 0104 §4 (A7): one running job per partition holds between concurrent claimers, and a
+// claimer that finds a partition taken moves on; a job claimed `jobs.max_attempts` times
+// is failed, not run again; a runner whose claim was taken writes nothing about the row.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn claims_are_one_per_partition_and_capped() {
+    let Some((database, key_file)) = setup("tsjobs_claims").await else {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    };
+    let (app, _api) = app(&database, &key_file).await;
+    let now = triplespace_cli::common::now;
+    let (store, pipeline) = (app.store(), app.pipeline());
+    // A second runner with a store of its own, as the server gives each.
+    let farm = triplespace_cli::common::farm_at(&database).await.unwrap();
+    let (store_b, pipeline_b) = triplespace_cli::common::store(&database, &farm).unwrap();
+    let (a, b) = (jobs::Runner::new("runner a"), jobs::Runner::new("runner b"));
+    let import = broken_job(TENANT, jobs::Kind::Import);
+
+    // Two jobs of one tenant and, younger than both, one of the instance.
+    let first = jobs::submit(store, &import).await.unwrap();
+    let second = jobs::submit(store, &import).await.unwrap();
+    let other = jobs::submit(store, &broken_job("", jobs::Kind::Revert))
+        .await
+        .unwrap();
+
+    // Runner A, stopped in the middle of its claim of the first: the partition's claim
+    // lock taken, the row locked and written as claimed, and nothing committed.
+    let first_id = i64::try_from(first).unwrap();
+    let mut conn_a = triplespace_cli::common::connect(&database).await.unwrap();
+    let tx = conn_a.transaction().await.unwrap();
+    let partition: i64 = tx
+        .query_one(
+            "SELECT partition FROM ops.job_queue WHERE job_id = $1 FOR UPDATE",
+            &[&first_id],
+        )
+        .await
+        .unwrap()
+        .get(0);
+    assert!(
+        tx.query_one(jobs::PARTITION_LOCK, &[&partition])
+            .await
+            .unwrap()
+            .get::<_, bool>(0)
+    );
+    tx.execute(
+        "UPDATE ops.job_queue SET claimed_by = 'runner a', claimed_at = now(), heartbeat = now(), attempts = attempts + 1
+         WHERE job_id = $1",
+        &[&first_id],
+    )
+    .await
+    .unwrap();
+    // Runner B meanwhile: not the second job of that partition, which it cannot yet see
+    // has a running job, but the job of the other partition; and then nothing.
+    let moved_on = jobs::claim(&store_b, &pipeline_b, &b, now())
+        .await
+        .unwrap()
+        .expect("a claimer that loses a partition moves on to another");
+    assert_eq!(
+        (moved_on.tenant.as_str(), moved_on.job_id),
+        ("", other),
+        "not the second job of a partition being claimed"
+    );
+    assert!(
+        jobs::claim(&store_b, &pipeline_b, &b, now())
+            .await
+            .unwrap()
+            .is_none()
+    );
+    tx.commit().await.unwrap();
+    // A's claim is committed: the partition has its running job, and the second waits.
+    assert!(
+        jobs::claim(&store_b, &pipeline_b, &b, now())
+            .await
+            .unwrap()
+            .is_none()
+    );
+    // Until the first has finished.
+    query(
+        &database,
+        &format!("DELETE FROM ops.job_queue WHERE job_id IN ({first}, {other})"),
+    )
+    .await;
+    let next = jobs::claim(&store_b, &pipeline_b, &b, now())
+        .await
+        .unwrap()
+        .expect("the second, once the first is done");
+    assert_eq!(next.job_id, second);
+    query(&database, "DELETE FROM ops.job_queue").await;
+
+    // Two claimers at once, over and over: never both.
+    for round in 0..20 {
+        let one = jobs::submit(store, &import).await.unwrap();
+        let two = jobs::submit(store, &import).await.unwrap();
+        let (now_a, now_b) = (now(), now());
+        let (got_a, got_b) = tokio::join!(
+            jobs::claim(store, pipeline, &a, now_a),
+            jobs::claim(&store_b, &pipeline_b, &b, now_b),
+        );
+        let got: Vec<u64> = [got_a.unwrap(), got_b.unwrap()]
+            .into_iter()
+            .flatten()
+            .map(|c| c.job_id)
+            .collect();
+        assert!(
+            got.len() <= 1,
+            "round {round}: both of {one} and {two} were claimed"
+        );
+        // Where each found the partition taken by the other, the next pass claims.
+        if got.is_empty() {
+            let c = jobs::claim(store, pipeline, &a, now()).await.unwrap();
+            assert_eq!(c.map(|c| c.job_id), Some(one));
+        } else {
+            assert_eq!(got, vec![one]);
+        }
+        assert!(
+            jobs::claim(&store_b, &pipeline_b, &b, now())
+                .await
+                .unwrap()
+                .is_none()
+        );
+        query(&database, "DELETE FROM ops.job_queue").await;
+    }
+
+    // The cap (A7). A job whose runs die before their start record, claimed three times:
+    // the next claim fails it under the ID it was submitted with, and removes its row.
+    let crash = jobs::submit(store, &import).await.unwrap();
+    stale(&database, crash, 3).await;
+    assert!(
+        jobs::claim(store, pipeline, &a, now())
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(queue_len(&database).await, 0, "its row is removed");
+    let (status, counts) = job_row(&database, TENANT, crash)
+        .await
+        .expect("the job exists");
+    assert_eq!(status, "failed");
+    assert!(
+        counts["error"]
+            .as_str()
+            .is_some_and(|e| e.starts_with("given up after 3 runs")),
+        "{counts}"
+    );
+
+    // One whose last run had started: that run is interrupted as ever, by the job that
+    // is failed in its place.
+    let crash = jobs::submit(store, &import).await.unwrap();
+    let claimed = jobs::claim(store, pipeline, &a, now())
+        .await
+        .unwrap()
+        .unwrap();
+    assert_eq!(claimed.job_id, crash);
+    {
+        let mut cx = store.begin().await.unwrap();
+        let mut header = JobHeader::local("upload");
+        header.mode = Some(Mode::Import);
+        header.graph = "pages".into();
+        Job::start_as(
+            store,
+            pipeline,
+            &mut cx,
+            TENANT,
+            crash,
+            header,
+            Attestation::by("local:1"),
+            now(),
+        )
+        .await
+        .unwrap();
+        store.commit(cx).await.unwrap();
+    }
+    stale(&database, crash, 3).await;
+    assert!(
+        jobs::claim(store, pipeline, &a, now())
+            .await
+            .unwrap()
+            .is_none()
+    );
+    assert_eq!(queue_len(&database).await, 0);
+    let (status, counts) = job_row(&database, TENANT, crash).await.unwrap();
+    assert_eq!(status, "interrupted");
+    let by = counts["by"].as_u64().expect("the job that noticed");
+    let (status, counts) = job_row(&database, TENANT, by).await.unwrap();
+    assert_eq!(status, "failed", "{counts}");
+
+    // Under the cap, and under a cap the instance raised, a stale claim runs again.
+    let again = jobs::submit(store, &import).await.unwrap();
+    stale(&database, again, 2).await;
+    let claimed = jobs::claim(store, pipeline, &a, now())
+        .await
+        .unwrap()
+        .expect("two claims are under the cap");
+    assert_eq!(claimed.resumes, Some(again));
+    settings::run(settings::Settings::Set(settings::Set {
+        at: settings::Where {
+            database: database.clone(),
+            tenant: None,
+            instance: true,
+        },
+        key: "jobs.max_attempts".into(),
+        value: "5".into(),
+        default: false,
+        lock: false,
+        tenancy: false,
+        summary: None,
+    }))
+    .await
+    .expect("set jobs.max_attempts");
+    stale(&database, claimed.job_id, 4).await;
+    let claimed = jobs::claim(store, pipeline, &a, now())
+        .await
+        .unwrap()
+        .expect("four claims are under a cap of five");
+    assert_eq!(
+        query(&database, "SELECT attempts FROM ops.job_queue").await[0].get::<_, i32>(0),
+        5
+    );
+
+    // A claim taken while the job ran (its heartbeat had stalled, and another runner
+    // claimed the row, which gives it a new ID): the first runner writes nothing about
+    // the row, neither a record of the job's end nor the row's removal.
+    let lost = claimed.job_id;
+    let taken = lost + 1_000_000;
+    query(
+        &database,
+        &format!(
+            "UPDATE ops.job_queue SET job_id = {taken}, claimed_by = 'runner b' WHERE job_id = {lost}"
+        ),
+    )
+    .await;
+    let ran = jobs::run_claimed(store, pipeline, &a, claimed, now)
+        .await
+        .unwrap();
+    assert!(
+        ran.error
+            .as_deref()
+            .is_some_and(|e| e.starts_with("the claim was lost")),
+        "{ran:?}"
+    );
+    assert_eq!(
+        queue_len(&database).await,
+        1,
+        "the row is the other runner's"
+    );
+    assert_eq!(job_row(&database, TENANT, lost).await, None);
+    assert_eq!(job_row(&database, TENANT, taken).await, None);
 }

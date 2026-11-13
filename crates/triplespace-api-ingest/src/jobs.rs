@@ -6,13 +6,19 @@
 //! **Submitting** ([`submit`]) mints the ID and writes the row in one transaction, so the
 //! API answers with an ID that `Special:Jobs/{id}` shows `queued`. **Claiming**
 //! ([`claim`]) takes the oldest row whose partition has no running job, under the
-//! database's row lock (`FOR UPDATE SKIP LOCKED`), so several runner tasks, in one
-//! process or several, share the queue without a coordinator. A claimed row's `heartbeat`
-//! is refreshed while the job runs; a row whose heartbeat is older than [`STALE`] was a
-//! runner that died, and the next claim writes `job/interrupt` under the dead job's key
-//! (0011 A36) and runs the job again under a new ID, since the jobs here are idempotent
-//! (an import skips what it wrote, 0008 §9). **Finishing** deletes the row; the job's
-//! finish or fail record is the job's own.
+//! database's row lock (`FOR UPDATE SKIP LOCKED`) and, so that two claimers never decide
+//! for one partition at once, a transaction's advisory lock on the partition
+//! ([`PARTITION_LOCK`]; 0104 A7): several runner tasks, in one process or several, share
+//! the queue without a coordinator, and one that finds a partition taken moves on to the
+//! next. A claimed row's `heartbeat` is refreshed while the job runs; a row whose
+//! heartbeat is older than [`STALE`] was a runner that died, and the next claim writes
+//! `job/interrupt` under the dead job's key (0011 A36) and runs the job again under a new
+//! ID, since the jobs here are idempotent (an import skips what it wrote, 0008 §9), until
+//! it has been claimed `jobs.max_attempts` times: then it is failed, not run (A7).
+//! **Finishing** deletes the row; the job's finish or fail record is the job's own, and a
+//! job that fails before its start record gets both, so that an ID once answered is
+//! always a job (A7). A runner whose claim was taken from it, its heartbeat having
+//! stalled, writes nothing more about the row.
 //!
 //! Each kind of job is a function of the row ([`Kind`]): `import`, `revert` (0104 §3) and
 //! `dump` (0104 A6). An export over `export.sync_revisions` and the follower, sync and
@@ -23,6 +29,8 @@
 //! implements 0104 §8 (A1)
 
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use scatter_actors::{GrantRegistry, Principal, evaluate};
@@ -33,8 +41,9 @@ use scatter_ingest::store::Sequence;
 use scatter_ingest::write::Attestation;
 use scatter_mediawiki_xml::XmlDump;
 use scatter_projection::{Backend as _, Pipeline};
-use scatter_wikibase_changeset::job::JobHeader;
+use scatter_wikibase_changeset::job::{JobHeader, Mode};
 use tokio_postgres::GenericClient;
+use triplespace_projections::PgCx;
 use triplespace_projections::entities::EntityProjection;
 
 use crate::PgIngest;
@@ -45,6 +54,17 @@ pub const STALE: Duration = Duration::from_mins(2);
 
 /// How often a running job's heartbeat is written.
 pub const HEARTBEAT: Duration = Duration::from_secs(20);
+
+/// The registry default of `jobs.max_attempts` (0104 A7): how many times a job is claimed
+/// before a stale claim on it is failed in place of another run.
+pub const DEFAULT_MAX_ATTEMPTS: u32 = 3;
+
+/// Takes the claim lock of the partition `$1` for the transaction, or answers `false`
+/// where another claimer holds it (0104 A7). A claimer decides for a partition only
+/// under it, so the claim another has made of the partition and not yet committed is
+/// never missed: the lock is released by that commit, and the statement after sees it.
+pub const PARTITION_LOCK: &str =
+    "SELECT pg_try_advisory_xact_lock(hashtext('ops.job_queue'), hashint8($1))";
 
 /// The kinds of job the queue carries.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -318,9 +338,126 @@ pub struct Claimed {
     pub resumes: Option<u64>,
 }
 
+/// The header of a job's start record where the runner writes it for the kind: a dump's
+/// own, and that of a job that ended before the kind's work wrote its start (0104 A7),
+/// with what the queue row says of it and nothing the work would have found out.
+fn header_of(kind: Kind, params: &serde_json::Value) -> JobHeader {
+    let text = |field: &str| {
+        params
+            .get(field)
+            .and_then(serde_json::Value::as_str)
+            .filter(|s| !s.is_empty())
+    };
+    match kind {
+        Kind::Import => {
+            let mut header = JobHeader::local(text("source").unwrap_or("upload"));
+            header.version = text("version").map(str::to_string);
+            header.mode = Some(Mode::Import);
+            header.graph = "pages".into();
+            if let Some(summary) = text("summary") {
+                header.params.insert("summary".into(), summary.into());
+            }
+            header
+        }
+        Kind::Revert => {
+            let mut header = JobHeader::local("revert");
+            header.mode = Some(Mode::Revert);
+            if let Some(reverts) = params.get("reverts").and_then(serde_json::Value::as_u64) {
+                header.params.insert("reverts".into(), reverts.into());
+            }
+            if let Some(reason) = text("reason") {
+                header.params.insert("reason".into(), reason.into());
+            }
+            header
+        }
+        Kind::Dump => {
+            let mut header = JobHeader::local("dump");
+            header.graph = "local".into();
+            header
+        }
+    }
+}
+
+/// The job's status in `view.job`; `None` where it has no start record.
+async fn status_of<C: GenericClient>(
+    client: &C,
+    tenant: &str,
+    job_id: u64,
+) -> Result<Option<String>, IngestError> {
+    Ok(client
+        .query_opt(
+            "SELECT status FROM view.job WHERE tenant = $1 AND job_id = $2",
+            &[&tenant, &i64::try_from(job_id).map_err(store_err)?],
+        )
+        .await
+        .map_err(store_err)?
+        .map(|r| r.get(0)))
+}
+
+/// Ends job `job_id` as failed with `error`: its `job/fail` record, after the start
+/// record where it had none (0104 A7). A job that already ended is left as it ended.
+#[allow(clippy::too_many_arguments)]
+async fn fail_job(
+    store: &PgIngest,
+    pipeline: &Pipeline<PgIngest>,
+    cx: &mut PgCx,
+    tenant: &str,
+    job_id: u64,
+    kind: Kind,
+    params: &serde_json::Value,
+    actor: &str,
+    error: &str,
+    now: u64,
+) -> Result<(), IngestError> {
+    let job = match status_of(cx.conn(), tenant, job_id).await?.as_deref() {
+        None => {
+            Job::start_as(
+                store,
+                pipeline,
+                cx,
+                tenant,
+                job_id,
+                header_of(kind, params),
+                Attestation::by(actor),
+                now,
+            )
+            .await?
+        }
+        Some("running") => Job::handle(store, cx, tenant, job_id, Attestation::by(actor)).await?,
+        Some(_) => return Ok(()),
+    };
+    job.fail(store, pipeline, cx, error, now).await?;
+    Ok(())
+}
+
+/// `jobs.max_attempts`, as the instance sets it.
+async fn max_attempts<C: GenericClient>(client: &C) -> Result<u32, IngestError> {
+    let (settings, _) = triplespace_accounts::settings::load(client, None)
+        .await
+        .map_err(store_err)?;
+    Ok(settings
+        .value("jobs.max_attempts")
+        .and_then(|v| v.as_u64())
+        .map_or(DEFAULT_MAX_ATTEMPTS, |n| {
+            u32::try_from(n).unwrap_or(u32::MAX)
+        }))
+}
+
+/// What one transaction of [`claim`] came to.
+enum Step {
+    /// A job to run.
+    Claimed(Claimed),
+    /// A job was failed in place of another run; look again.
+    GaveUp,
+    /// Nothing this runner may claim now.
+    Nothing,
+}
+
 /// Claims the oldest job of a kind `runner` runs whose partition has no running job. A row whose
 /// claim went stale is claimed again under a new job ID, and the dead run is marked
-/// `job/interrupt` where it had written its start record.
+/// `job/interrupt` where it had written its start record; one already claimed
+/// `jobs.max_attempts` times is failed and removed instead, and the next is looked for
+/// (0104 A7). A partition another claimer is deciding for is passed over.
 ///
 /// # Errors
 ///
@@ -331,33 +468,86 @@ pub async fn claim(
     runner: &Runner,
     now: u64,
 ) -> Result<Option<Claimed>, IngestError> {
+    loop {
+        match claim_step(store, pipeline, runner, now).await? {
+            Step::Claimed(claimed) => return Ok(Some(claimed)),
+            Step::GaveUp => {}
+            Step::Nothing => return Ok(None),
+        }
+    }
+}
+
+/// One transaction of a claim.
+#[allow(clippy::too_many_lines)]
+async fn claim_step(
+    store: &PgIngest,
+    pipeline: &Pipeline<PgIngest>,
+    runner: &Runner,
+    now: u64,
+) -> Result<Step, IngestError> {
     let mut cx = store.begin().await?;
     let stale = stale_interval();
     // The kinds are part of the query, not a check on the row it returns: a row of a
     // kind this runner does not run must not be the oldest row it ever sees.
     let kinds: Vec<&str> = runner.kinds.iter().map(|k| k.name()).collect();
     let runner = runner.name.as_str();
-    let row = cx
+    // The partitions with a job to claim, by their oldest. Each is decided under its
+    // claim lock (0104 A7): without it a claimer skips the row another has locked and not
+    // yet committed as claimed, sees no running job in the partition, and claims a second
+    // row of it. A partition whose lock is taken is passed over, not waited for.
+    let partitions = cx
         .conn()
-        .query_opt(
-            "SELECT q.tenant, q.job_id, q.kind, q.params, q.payload, q.actor_key, q.claimed_at IS NOT NULL
-             FROM ops.job_queue q
+        .query(
+            "SELECT q.partition FROM ops.job_queue q
              WHERE (q.claimed_at IS NULL OR q.heartbeat < now() - make_interval(secs => $1::double precision))
                AND NOT q.cancel
                AND q.kind = ANY($2)
-               AND NOT EXISTS (SELECT 1 FROM ops.job_queue r
-                               WHERE r.partition = q.partition AND r.job_id <> q.job_id
-                                 AND r.claimed_at IS NOT NULL AND r.heartbeat >= now() - make_interval(secs => $1::double precision))
-             ORDER BY q.submitted, q.job_id
-             LIMIT 1
-             FOR UPDATE OF q SKIP LOCKED",
+             GROUP BY q.partition
+             ORDER BY min(q.submitted), min(q.job_id)",
             &[&stale, &kinds],
         )
         .await
         .map_err(store_err)?;
+    let mut row = None;
+    for p in &partitions {
+        let partition: i64 = p.get(0);
+        let locked: bool = cx
+            .conn()
+            .query_one(PARTITION_LOCK, &[&partition])
+            .await
+            .map_err(store_err)?
+            .get(0);
+        if !locked {
+            continue;
+        }
+        // A statement of its own, after the lock: it sees every claim of the partition
+        // committed before the lock was this transaction's.
+        row = cx
+            .conn()
+            .query_opt(
+                "SELECT q.tenant, q.job_id, q.kind, q.params, q.payload, q.actor_key, q.claimed_at IS NOT NULL, q.attempts
+                 FROM ops.job_queue q
+                 WHERE q.partition = $3
+                   AND (q.claimed_at IS NULL OR q.heartbeat < now() - make_interval(secs => $1::double precision))
+                   AND NOT q.cancel
+                   AND q.kind = ANY($2)
+                   AND NOT EXISTS (SELECT 1 FROM ops.job_queue r
+                                   WHERE r.partition = q.partition AND r.job_id <> q.job_id
+                                     AND r.claimed_at IS NOT NULL AND r.heartbeat >= now() - make_interval(secs => $1::double precision))
+                 ORDER BY q.submitted, q.job_id
+                 LIMIT 1
+                 FOR UPDATE OF q SKIP LOCKED",
+                &[&stale, &kinds, &partition],
+            )
+            .await
+            .map_err(store_err)?;
+        if row.is_some() {
+            break;
+        }
+    }
     let Some(row) = row else {
         store.rollback(cx).await?;
-        return Ok(None);
+        return Ok(Step::Nothing);
     };
     let tenant: String = row.get(0);
     let old_id: i64 = row.get(1);
@@ -365,43 +555,15 @@ pub async fn claim(
     let Some(kind) = Kind::parse(&kind_name) else {
         // Not reached: the query asked for this runner's kinds.
         store.rollback(cx).await?;
-        return Ok(None);
+        return Ok(Step::Nothing);
     };
     let params: serde_json::Value = row.get(3);
     let payload: Option<Vec<u8>> = row.get(4);
     let actor: String = row.get(5);
     let was_claimed: bool = row.get(6);
+    let attempts = u32::try_from(row.get::<_, i32>(7)).unwrap_or(0);
     let old = u64::try_from(old_id).map_err(store_err)?;
-    let (job_id, resumes) = if was_claimed {
-        // The earlier runner died. Its job is interrupted where it had started, and the
-        // work runs again under a new ID (0104 §4).
-        let started: bool = cx
-            .conn()
-            .query_opt(
-                "SELECT 1 FROM view.job WHERE tenant = $1 AND job_id = $2 AND status = 'running'",
-                &[&tenant, &old_id],
-            )
-            .await
-            .map_err(store_err)?
-            .is_some();
-        let new_id = store.next_id(&mut cx, "", &Sequence::Job).await?;
-        if started {
-            let handle = Job::handle(store, &mut cx, &tenant, old, Attestation::by(&actor)).await?;
-            handle
-                .interrupt(store, pipeline, &mut cx, new_id, now)
-                .await?;
-        }
-        cx.conn()
-            .execute(
-                "UPDATE ops.job_queue SET job_id = $3, claimed_by = $4, claimed_at = now(), heartbeat = now(),
-                        attempts = attempts + 1, progress = NULL
-                 WHERE tenant = $1 AND job_id = $2",
-                &[&tenant, &old_id, &i64::try_from(new_id).map_err(store_err)?, &runner],
-            )
-            .await
-            .map_err(store_err)?;
-        (new_id, Some(old))
-    } else {
+    if !was_claimed {
         cx.conn()
             .execute(
                 "UPDATE ops.job_queue SET claimed_by = $3, claimed_at = now(), heartbeat = now(),
@@ -411,27 +573,83 @@ pub async fn claim(
             )
             .await
             .map_err(store_err)?;
-        (old, None)
+        store.commit(cx).await?;
+        return Ok(Step::Claimed(Claimed {
+            tenant,
+            job_id: old,
+            kind,
+            params,
+            payload,
+            actor,
+            resumes: None,
+        }));
+    }
+    // The earlier runner died. Its job is interrupted where it had started, and the
+    // work runs again under a new ID (0104 §4), unless it has had its attempts.
+    let started = status_of(cx.conn(), &tenant, old).await?.as_deref() == Some("running");
+    let give_up = attempts >= max_attempts(cx.conn()).await?;
+    // A dead run that wrote no start record keeps its ID when it is failed: the ID the
+    // submitter was answered with is then the failed job.
+    let new_id = if started || !give_up {
+        store.next_id(&mut cx, "", &Sequence::Job).await?
+    } else {
+        old
     };
+    if started {
+        let handle = Job::handle(store, &mut cx, &tenant, old, Attestation::by(&actor)).await?;
+        handle
+            .interrupt(store, pipeline, &mut cx, new_id, now)
+            .await?;
+    }
+    if give_up {
+        // 0104 A7: a job that takes its runner down with it is not run for ever.
+        let error = format!(
+            "given up after {attempts} runs that ended without a result (jobs.max_attempts)"
+        );
+        fail_job(
+            store, pipeline, &mut cx, &tenant, new_id, kind, &params, &actor, &error, now,
+        )
+        .await?;
+        cx.conn()
+            .execute(
+                "DELETE FROM ops.job_queue WHERE tenant = $1 AND job_id = $2",
+                &[&tenant, &old_id],
+            )
+            .await
+            .map_err(store_err)?;
+        store.commit(cx).await?;
+        eprintln!("{runner}: job {new_id} ({kind_name}) for `{tenant}`: {error}");
+        return Ok(Step::GaveUp);
+    }
+    cx.conn()
+        .execute(
+            "UPDATE ops.job_queue SET job_id = $3, claimed_by = $4, claimed_at = now(), heartbeat = now(),
+                    attempts = attempts + 1, progress = NULL
+             WHERE tenant = $1 AND job_id = $2",
+            &[&tenant, &old_id, &i64::try_from(new_id).map_err(store_err)?, &runner],
+        )
+        .await
+        .map_err(store_err)?;
     store.commit(cx).await?;
-    Ok(Some(Claimed {
+    Ok(Step::Claimed(Claimed {
         tenant,
-        job_id,
+        job_id: new_id,
         kind,
         params,
         payload,
         actor,
-        resumes,
+        resumes: Some(old),
     }))
 }
 
-/// Writes a claimed row's heartbeat and progress.
+/// Writes a claimed row's heartbeat and progress. `Ok(false)` where the row is no longer
+/// this job's: the claim was taken (the row runs under a new ID) or the row is gone.
 async fn beat<C: GenericClient>(
     client: &C,
     tenant: &str,
     job_id: u64,
     progress: Option<&serde_json::Value>,
-) -> Result<(), tokio_postgres::Error> {
+) -> Result<bool, tokio_postgres::Error> {
     let id = i64::try_from(job_id).unwrap_or(i64::MAX);
     match progress {
         Some(p) => client
@@ -440,31 +658,15 @@ async fn beat<C: GenericClient>(
                 &[&tenant, &id, p],
             )
             .await
-            .map(|_| ()),
+            .map(|n| n > 0),
         None => client
             .execute(
                 "UPDATE ops.job_queue SET heartbeat = now() WHERE tenant = $1 AND job_id = $2",
                 &[&tenant, &id],
             )
             .await
-            .map(|_| ()),
+            .map(|n| n > 0),
     }
-}
-
-/// Deletes a finished job's row.
-async fn finish<C: GenericClient>(
-    client: &C,
-    tenant: &str,
-    job_id: u64,
-) -> Result<(), tokio_postgres::Error> {
-    let id = i64::try_from(job_id).unwrap_or(i64::MAX);
-    client
-        .execute(
-            "DELETE FROM ops.job_queue WHERE tenant = $1 AND job_id = $2",
-            &[&tenant, &id],
-        )
-        .await
-        .map(|_| ())
 }
 
 /// How a run ended, for the runner's log line.
@@ -481,14 +683,18 @@ pub struct Ran {
 }
 
 /// Runs a claimed job to its end: the kind's work under the job's ID, with the heartbeat
-/// written as it goes, then the row deleted. A job that fails gets its `job/fail` record
-/// where it had started, and its row is deleted too: the jobs here fail on their input,
-/// not on the weather, so nothing is retried.
+/// written as it goes, then the row deleted. A job that fails gets its `job/fail` record,
+/// after its start record where it failed before writing one (0104 A7), and its row is
+/// deleted too: the jobs here fail on their input, not on the weather, so nothing is
+/// retried. Where the claim was taken meanwhile (the heartbeat stalled for [`STALE`] and
+/// another runner claimed the row), nothing more is written about the row: it is the
+/// other runner's, and the result says so.
 ///
 /// # Errors
 ///
 /// The store's, where the queue itself could not be written; a job's own failure is in
 /// the result.
+#[allow(clippy::too_many_lines)]
 pub async fn run_claimed(
     store: &PgIngest,
     pipeline: &Pipeline<PgIngest>,
@@ -499,19 +705,42 @@ pub async fn run_claimed(
     let pool = store.backend().pool().clone();
     let tenant = claimed.tenant.clone();
     let job_id = claimed.job_id;
-    // The heartbeat, from a connection of its own, until the job ends.
+    // The heartbeat, from a connection of its own, until the job ends. One that finds
+    // the row no longer this job's has lost the claim, and says so at once: the work
+    // itself cannot be stopped from here.
     let (stop, mut stopped) = tokio::sync::watch::channel(false);
+    let lost = Arc::new(AtomicBool::new(false));
     let beating = {
         let pool = pool.clone();
         let tenant = tenant.clone();
+        let lost = lost.clone();
+        let name = runner.name.clone();
         tokio::spawn(async move {
             let mut every = tokio::time::interval(HEARTBEAT);
             every.tick().await;
             loop {
                 tokio::select! {
                     _ = every.tick() => {
-                        if let Ok(client) = pool.get().await {
-                            let _ = beat(&**client, &tenant, job_id, None).await;
+                        let beaten = match pool.get().await {
+                            Ok(client) => beat(&**client, &tenant, job_id, None)
+                                .await
+                                .map_err(|e| e.to_string()),
+                            Err(e) => Err(e.to_string()),
+                        };
+                        match beaten {
+                            Ok(true) => {}
+                            Ok(false) => {
+                                eprintln!(
+                                    "{name}: job {job_id} for `{tenant}` LOST ITS CLAIM: its row was taken by \
+                                     another runner or removed while it ran; its work goes on, and nothing \
+                                     more is written to the queue for it"
+                                );
+                                lost.store(true, Ordering::Relaxed);
+                                break;
+                            }
+                            Err(e) => eprintln!(
+                                "{name}: job {job_id} for `{tenant}`: the heartbeat was not written: {e}"
+                            ),
                         }
                     }
                     r = stopped.changed() => {
@@ -524,42 +753,71 @@ pub async fn run_claimed(
     let result = run_kind(store, pipeline, runner, &claimed, now).await;
     let _ = stop.send(true);
     let _ = beating.await;
+    // Whether the row is still this job's, read under its lock: a claim taken meanwhile
+    // leaves the row under another ID, and its end is the other runner's to write.
+    let id = i64::try_from(job_id).map_err(store_err)?;
+    let mut cx = store.begin().await?;
+    let held = cx
+        .conn()
+        .query_opt(
+            "SELECT 1 FROM ops.job_queue WHERE tenant = $1 AND job_id = $2 FOR UPDATE",
+            &[&tenant, &id],
+        )
+        .await
+        .map_err(store_err)?
+        .is_some();
+    if !held {
+        store.rollback(cx).await?;
+        if !lost.load(Ordering::Relaxed) {
+            eprintln!(
+                "{}: job {job_id} for `{tenant}` LOST ITS CLAIM: its row was taken by another runner \
+                 or removed while it ran",
+                runner.name
+            );
+        }
+        let ended = match result {
+            Ok(()) => "the run ended".to_string(),
+            Err(e) => format!("the run failed: {e}"),
+        };
+        return Ok(Ran {
+            tenant,
+            job_id,
+            kind: claimed.kind,
+            error: Some(format!(
+                "the claim was lost while the job ran, and nothing was written to the queue for it ({ended})"
+            )),
+        });
+    }
     let error = match result {
         Ok(()) => None,
         Err(e) => {
             let message = e.to_string();
-            // The job's own failure record, where it had started (0011 §6.3).
-            let mut cx = store.begin().await?;
-            let started: bool = cx
-                .conn()
-                .query_opt(
-                    "SELECT 1 FROM view.job WHERE tenant = $1 AND job_id = $2 AND status = 'running'",
-                    &[&tenant, &i64::try_from(job_id).map_err(store_err)?],
-                )
-                .await
-                .map_err(store_err)?
-                .is_some();
-            if started {
-                let handle = Job::handle(
-                    store,
-                    &mut cx,
-                    &tenant,
-                    job_id,
-                    Attestation::by(&claimed.actor),
-                )
-                .await?;
-                handle
-                    .fail(store, pipeline, &mut cx, &message, now())
-                    .await?;
-            }
-            store.commit(cx).await?;
+            // The job's own failure record (0011 §6.3), and its start record first where
+            // it failed before one: the ID is a job from submission on (0104 A7).
+            fail_job(
+                store,
+                pipeline,
+                &mut cx,
+                &tenant,
+                job_id,
+                claimed.kind,
+                &claimed.params,
+                &claimed.actor,
+                &message,
+                now(),
+            )
+            .await?;
             Some(message)
         }
     };
-    let client = pool.get().await.map_err(store_err)?;
-    finish(&**client, &tenant, job_id)
+    cx.conn()
+        .execute(
+            "DELETE FROM ops.job_queue WHERE tenant = $1 AND job_id = $2",
+            &[&tenant, &id],
+        )
         .await
         .map_err(store_err)?;
+    store.commit(cx).await?;
     Ok(Ran {
         tenant,
         job_id,
@@ -676,15 +934,13 @@ async fn run_dump(
 ) -> Result<(), IngestError> {
     let tenant = claimed.tenant.as_str();
     let mut cx = store.begin().await?;
-    let mut header = JobHeader::local("dump");
-    header.graph = "local".into();
     let job = Job::start_as(
         store,
         pipeline,
         &mut cx,
         tenant,
         claimed.job_id,
-        header,
+        header_of(Kind::Dump, &claimed.params),
         Attestation::by(&claimed.actor),
         now(),
     )
@@ -824,10 +1080,17 @@ pub async fn run_forever(
 ) {
     let name = runner.name.clone();
     loop {
+        // A setting that cannot be read is not a setting that is off: the pass waits.
         let paused = match store.backend().pool().get().await {
-            Ok(client) => paused(&**client).await.unwrap_or(false),
-            Err(_) => false,
-        };
+            Ok(client) => paused(&**client).await,
+            Err(e) => Err(e.to_string()),
+        }
+        .unwrap_or_else(|e| {
+            eprintln!(
+                "{name}: `jobs.paused` could not be read, so nothing is claimed this pass: {e}"
+            );
+            true
+        });
         if paused {
             tokio::time::sleep(idle).await;
             continue;
