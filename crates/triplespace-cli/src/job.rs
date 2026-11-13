@@ -78,6 +78,26 @@ pub struct Cancel {
 pub enum StartKind {
     /// A MediaWiki XML export's pages (0008 §9), as `triplespace import` takes them.
     Import(StartImport),
+    /// A tenant's dumps (02 §4.1), written by the server's runner into its dumps
+    /// directory, as `triplespace dump` writes them here.
+    Dump(StartDump),
+}
+
+/// `job start dump`.
+#[derive(Debug, Args)]
+pub struct StartDump {
+    /// The Postgres URL.
+    #[arg(long, env = "TRIPLESPACE_DATABASE_URL")]
+    pub database: String,
+    /// The tenant slug.
+    #[arg(long)]
+    pub tenant: String,
+    /// How many dumps to keep, the new one included; by default the tenant's `dumps.keep`.
+    #[arg(long)]
+    pub keep: Option<u64>,
+    /// The subsidiary running the job, `librarybase:2`; the owner's own key by default.
+    #[arg(long)]
+    pub subsidiary: Option<String>,
 }
 
 /// `job start import`.
@@ -147,6 +167,9 @@ pub async fn run(command: JobCommand) -> Result<()> {
         JobCommand::Start {
             kind: StartKind::Import(args),
         } => start_import(args).await,
+        JobCommand::Start {
+            kind: StartKind::Dump(args),
+        } => start_dump(args).await,
         JobCommand::Cancel(args) => {
             let client = connect(&args.database).await?;
             if jobs::cancel(&client, &args.tenant, args.id).await? {
@@ -243,6 +266,34 @@ async fn list(args: List) -> Result<()> {
             r.get::<_, String>(6)
         );
     }
+    Ok(())
+}
+
+async fn start_dump(args: StartDump) -> Result<()> {
+    let client = connect(&args.database).await?;
+    let farm = farm_of(&client).await?;
+    let actor = actor_of(&client, &args.tenant, args.subsidiary.as_deref()).await?;
+    let (store, _pipeline) = store(&args.database, &farm)?;
+    let mut params = serde_json::Map::new();
+    if let Some(keep) = args.keep {
+        params.insert("keep".into(), keep.into());
+    }
+    let id = jobs::submit(
+        &store,
+        &Submission {
+            tenant: args.tenant.clone(),
+            kind: Kind::Dump,
+            params: serde_json::Value::Object(params),
+            payload: None,
+            actor,
+        },
+    )
+    .await?;
+    println!(
+        "job {id} queued: a dump of `{}`, which a server's runner writes into its dumps \
+         directory; Special:Jobs/{id} shows it",
+        args.tenant
+    );
     Ok(())
 }
 

@@ -4076,6 +4076,7 @@ dependencies = [
  "triplespace-accounts",
  "triplespace-db",
  "triplespace-projections",
+ "triplespace-rdf",
  "triplespace-upstream",
 ]
 

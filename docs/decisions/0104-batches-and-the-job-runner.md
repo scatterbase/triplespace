@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-08
-- **Updated:** 2026-11-10 (A5)
+- **Updated:** 2026-11-12 (A6)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0016](0016-permissions-and-access-control.md), [0047](0047-special-pages.md), [0083](0083-write-path-in-three-tiers.md)
 - **Uses:** [0007](0007-actor-identity.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0047](0047-special-pages.md)
@@ -42,7 +42,7 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 4. The runner (extends 0083 §5)
 
-*Changed by A1.*
+*Changed by A1, A6.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §2.2; [21](../architecture/21-special-pages.md) §4.3.*
 
@@ -156,3 +156,10 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.5, as it sto
 Replaced text ([21](../architecture/21-special-pages.md) §6.6, as it stood):
 
 > ### 6.6 `Special:CreateEntities`
+
+### A6. Dumps join the queue, and a runner claims only its kinds
+
+- **Date:** 2026-11-12
+- **Source:** Direct: Claude, while building the dump job (SCA-309), 2026-11-12; unconfirmed
+- **Change:** extends §4
+- **Summary:** §4 has the runner run a dump, and A1 carried `import` alone, then `revert`. The calls made: (1) **`dump` is a kind of the queue**: its row names the tenant and, where it is not the tenant's `dumps.keep`, `keep`; the runner writes the job's `job/start` record in the tenant's `log`, with source `dump`, writes the tenant's dumps into `{dumps.dir}/{tenant}/` exactly as `triplespace dump` does, which stays, and writes `job/finish` naming the dump, its instant, its entity counts and each file with its size and digest; a dump that fails leaves no directory and gets its `job/fail`; (2) it is submitted by `triplespace job start dump --tenant {slug}`; **no route submits one and nothing schedules one**, since who may ask for a dump and how often one is made are not decided; (3) **a runner names the kinds it runs and the claim asks for those alone**: a row of a kind the runner does not run is never the row it looks at, where before such a row, once the oldest, kept every runner from every younger row; `triplespace-server`'s runners run `import`, `revert` and, into `--dumps-dir`, `dump`; this is also what will let adoption have a runner of its own ([0013](0013-postgres-storage.md) A102); (4) `triplespace-api-ingest` depends on `triplespace-rdf` for the dump, an edge the crate map already allows; (5) **still not carried**: an export over `export.sync_revisions`, which waits on where a job's output is kept, for how long and who may fetch it; and the adoption, sync and follower jobs, which the command line runs: each reads a dump file or holds a session where the command runs, and how a server is given one is not decided.
