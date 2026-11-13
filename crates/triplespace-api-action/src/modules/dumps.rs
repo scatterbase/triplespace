@@ -124,6 +124,7 @@ fn json_response(v: &Value) -> Response {
 /// A file of a dump: `manifest.json`, or one the manifest lists (of the local product
 /// only, under `/dumps/local/`).
 async fn file(dir: &FsPath, name: &str, file: &str, local: bool) -> Response {
+    let by_name = name != "latest";
     let name = if name == "latest" {
         match triplespace_rdf::list(dir).ok().and_then(|mut n| n.pop()) {
             Some(n) => n,
@@ -166,16 +167,21 @@ async fn file(dir: &FsPath, name: &str, file: &str, local: bool) -> Response {
     {
         headers.insert(header::ETAG, v);
     }
-    // A dump never changes once written; `latest` does.
-    let cache = if m["name"] == name && file != "manifest.json" {
-        "public, max-age=31536000, immutable"
-    } else {
-        "public, max-age=300"
-    };
-    if let Ok(v) = cache.parse() {
+    if let Ok(v) = cache_control(by_name && file != "manifest.json").parse() {
         headers.insert(header::CACHE_CONTROL, v);
     }
     response
+}
+
+/// `Cache-Control` of a served file. A dump never changes once written, so a file asked
+/// for by its dump's name is immutable; `latest` names another dump after the next one is
+/// written, so what is asked for through it is kept only briefly, as a manifest is.
+fn cache_control(immutable: bool) -> &'static str {
+    if immutable {
+        "public, max-age=31536000, immutable"
+    } else {
+        "public, max-age=300"
+    }
 }
 
 /// `GET /dumps/`.
@@ -348,6 +354,7 @@ pub async fn bundle_file(
         Ok(d) => d,
         Err(r) => return r,
     };
+    let by_name = name != "latest";
     let (Some(name), Some(rel)) = (dump_name(&dir, &name), bundle_path(&path)) else {
         return not_found();
     };
@@ -375,7 +382,7 @@ pub async fn bundle_file(
         h.insert(header::CONTENT_TYPE, v);
     }
     h.insert(header::CONTENT_LENGTH, len.into());
-    if let Ok(v) = "public, max-age=31536000, immutable".parse() {
+    if let Ok(v) = cache_control(by_name).parse() {
         h.insert(header::CACHE_CONTROL, v);
     }
     response

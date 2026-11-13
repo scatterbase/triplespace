@@ -1,7 +1,9 @@
 //! `POST /export` (0047 §8.1, §8.2; 21 §4.2, §4.4): an export of selected pages, streamed.
 //!
 //! Two formats. `xml` is MediaWiki XML, export schema 0.11, assembled by
-//! `triplespace_rdf::xml` and streamed as `application/xml` while it is written: the
+//! `triplespace_rdf::xml` and streamed as `application/xml` while it is written, no
+//! faster than the client takes it, a failure after the first byte breaking the transfer
+//! rather than ending it: the
 //! selected document pages, one `<revision>` per record, and the selected local entities
 //! as `wikibase-item` and `wikibase-property` pages, one `<revision>` per local
 //! revision with the canonical JSON of the local-graph state. `records` is the
@@ -23,8 +25,6 @@
 //! entity the caller may not know of is listed as missing, as one that does not exist
 //! is: `x-export-missing` counts them. `x-export-notice` carries the export's notices.
 //! Mirrored pages, `templates` proper and files are not in the XML yet (21 §4.2).
-
-use std::io::Write;
 
 use axum::body::{Body, Bytes};
 use axum::extract::{Extension, State};
@@ -69,39 +69,43 @@ fn list_of(request: &Value, key: &str) -> Vec<String> {
         .collect()
 }
 
-/// A sink that hands what is written to it to the response body, in chunks, through a
-/// channel a task drains into the body's pipe.
-struct ChunkSink {
-    tx: tokio::sync::mpsc::UnboundedSender<Bytes>,
-    buf: Vec<u8>,
-}
+/// How many chunks may wait for the client: the writer stops reading the database while
+/// this many are untaken, so a slow client holds a few chunks in memory, never the document.
+const WAITING_CHUNKS: usize = 2;
 
-impl ChunkSink {
-    const CHUNK: usize = 64 * 1024;
+/// Where a streamed body's writer puts its chunks.
+struct Chunks(tokio::sync::mpsc::Sender<Result<Bytes, std::io::Error>>);
 
-    fn send(&mut self) -> std::io::Result<()> {
-        if self.buf.is_empty() {
-            return Ok(());
-        }
-        let chunk = Bytes::from(std::mem::take(&mut self.buf));
-        self.tx
-            .send(chunk)
-            .map_err(|_| std::io::Error::other("the client went away"))
+impl Chunks {
+    /// Hands the body its next chunk, waiting while the client has not taken the ones
+    /// before it.
+    async fn send(&self, chunk: Vec<u8>) -> Result<(), BuildError> {
+        self.0
+            .send(Ok(Bytes::from(chunk)))
+            .await
+            .map_err(|_| BuildError::Io("the client went away".into()))
     }
 }
 
-impl Write for ChunkSink {
-    fn write(&mut self, buf: &[u8]) -> std::io::Result<usize> {
-        self.buf.extend_from_slice(buf);
-        if self.buf.len() >= Self::CHUNK {
-            self.send()?;
+/// A response body that `write` fills chunk by chunk, each chunk waiting for the client
+/// to take the ones before it. Where `write` fails the body fails with it, so the
+/// transfer ends as a broken one (a chunked response without its last chunk, a reset
+/// stream) and never as a complete response holding part of a document.
+fn streamed<F, Fut>(write: F) -> Body
+where
+    F: FnOnce(Chunks) -> Fut + Send + 'static,
+    Fut: Future<Output = Result<(), BuildError>> + Send,
+{
+    let (tx, rx) = tokio::sync::mpsc::channel(WAITING_CHUNKS);
+    let failed = tx.clone();
+    tokio::spawn(async move {
+        if let Err(e) = write(Chunks(tx)).await {
+            let _ = failed.send(Err(std::io::Error::other(e.to_string()))).await;
         }
-        Ok(buf.len())
-    }
-
-    fn flush(&mut self) -> std::io::Result<()> {
-        self.send()
-    }
+    });
+    Body::from_stream(futures_util::stream::unfold(rx, |mut rx| async move {
+        rx.recv().await.map(|chunk| (chunk, rx))
+    }))
 }
 
 /// `POST /export`.
@@ -325,32 +329,13 @@ pub async fn post(
     };
     missing.extend(planned.missing.iter().cloned());
     let notice = planned.notices.join("; ");
-    let (tx, mut rx) = tokio::sync::mpsc::unbounded_channel::<Bytes>();
-    let (mut pipe_in, pipe_out) = tokio::io::duplex(ChunkSink::CHUNK);
-    tokio::spawn(async move {
-        let sink = ChunkSink {
-            tx,
-            buf: Vec::new(),
-        };
-        // A failure mid-document cuts the body short: the reader sees a document
-        // without its closing tag, which no importer accepts whole.
-        if let Ok(mut sink) = xml::write(&*client, &planned, sink).await {
-            let _ = sink.flush();
-        }
-    });
-    tokio::spawn(async move {
-        use tokio::io::AsyncWriteExt as _;
-        while let Some(chunk) = rx.recv().await {
-            if pipe_in.write_all(&chunk).await.is_err() {
-                break;
-            }
-        }
-        let _ = pipe_in.shutdown().await;
+    // A failure mid-document fails the body: the transfer breaks, and what did arrive is
+    // a document without its closing tag, which no importer accepts whole.
+    let body = streamed(move |chunks| async move {
+        xml::write_chunks(&*client, &planned, xml::CHUNK, |chunk| chunks.send(chunk)).await
     });
     let disposition = format!("attachment; filename=\"{}-{now}.xml\"", tenant.slug);
-    let mut r = Response::new(Body::from_stream(tokio_util::io::ReaderStream::new(
-        pipe_out,
-    )));
+    let mut r = Response::new(body);
     let h = r.headers_mut();
     h.insert(
         header::CONTENT_TYPE,
@@ -378,4 +363,75 @@ fn too_large(e: &BuildError) -> Response {
         "export-too-large",
         format!("{e}; export jobs are not built yet, so narrow the selection"),
     )
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
+    use super::*;
+
+    // 0047 §8.1: a failure after the first byte breaks the transfer; it never ends it.
+    #[tokio::test]
+    async fn a_failed_export_fails_its_body() {
+        let whole = streamed(|chunks| async move {
+            chunks.send(b"<mediawiki>".to_vec()).await?;
+            chunks.send(b"</mediawiki>".to_vec()).await
+        });
+        assert_eq!(
+            axum::body::to_bytes(whole, usize::MAX).await.unwrap(),
+            "<mediawiki></mediawiki>"
+        );
+        let cut = streamed(|chunks| async move {
+            chunks.send(b"<mediawiki><page>".to_vec()).await?;
+            Err(BuildError::Database("the connection was lost".into()))
+        });
+        let e = axum::body::to_bytes(cut, usize::MAX).await.unwrap_err();
+        assert!(
+            format!("{e:?}").contains("the connection was lost"),
+            "{e:?}"
+        );
+    }
+
+    // 0047 §8.1: the export is written no faster than the client takes it.
+    #[tokio::test]
+    async fn a_slow_client_holds_the_writer_back() {
+        let sent = Arc::new(AtomicUsize::new(0));
+        let counter = sent.clone();
+        let body = streamed(move |chunks| async move {
+            for _ in 0..100 {
+                chunks.send(vec![b'x'; 10]).await?;
+                counter.fetch_add(1, Ordering::SeqCst);
+            }
+            Ok(())
+        });
+        // Nobody reads the body: the writer gets as far as the waiting chunks and stops.
+        for _ in 0..50 {
+            tokio::task::yield_now().await;
+        }
+        assert_eq!(sent.load(Ordering::SeqCst), WAITING_CHUNKS);
+        // Read, and the rest follows.
+        let all = axum::body::to_bytes(body, usize::MAX).await.unwrap();
+        assert_eq!(all.len(), 1000);
+        assert_eq!(sent.load(Ordering::SeqCst), 100);
+    }
+
+    // The client going away ends the writer at its next chunk.
+    #[tokio::test]
+    async fn a_client_that_leaves_stops_the_writer() {
+        let (done_tx, done_rx) = tokio::sync::oneshot::channel();
+        let body = streamed(move |chunks| async move {
+            let r = async {
+                loop {
+                    chunks.send(vec![b'x'; 10]).await?;
+                }
+            }
+            .await;
+            let _ = done_tx.send(matches!(&r, Err(BuildError::Io(_))));
+            r
+        });
+        drop(body);
+        assert!(done_rx.await.unwrap());
+    }
 }

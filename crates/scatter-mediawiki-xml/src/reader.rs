@@ -1,7 +1,9 @@
 //! A MediaWiki XML dump (export schema 0.10 or 0.11), streamed one `<page>` at a time
 //! with its revisions. A `--current` dump has one revision per page; a history dump has
 //! many, all returned in order. The `<siteinfo>` header is kept for the reader to ask
-//! for once a page has been read. About 0005 A119 and 0047 §8.1.
+//! for once a page has been read. A document that ends before its `</mediawiki>` is a
+//! truncated one, and the reader says so with an error after the pages it could read.
+//! About 0005 A119 and 0047 §8.1.
 
 use std::io::BufRead;
 
@@ -126,6 +128,8 @@ pub struct XmlDump<R: BufRead> {
     reader: Reader<R>,
     buf: Vec<u8>,
     siteinfo: SiteInfo,
+    /// Whether `<mediawiki>` is open: the input may not end while it is.
+    open: bool,
     done: bool,
 }
 
@@ -157,6 +161,7 @@ impl<R: BufRead> XmlDump<R> {
             reader: r,
             buf: Vec::new(),
             siteinfo: SiteInfo::default(),
+            open: false,
             done: false,
         }
     }
@@ -434,13 +439,16 @@ impl<R: BufRead> Iterator for XmlDump<R> {
             self.buf.clear();
             match self.reader.read_event_into(&mut self.buf) {
                 Ok(Event::Start(e)) => match e.name().as_ref() {
-                    b"mediawiki" => match attribute(&e, "xml:lang") {
-                        Ok(lang) => self.siteinfo.lang = lang.unwrap_or_default(),
-                        Err(e) => {
-                            self.done = true;
-                            return Some(Err(e));
+                    b"mediawiki" => {
+                        self.open = true;
+                        match attribute(&e, "xml:lang") {
+                            Ok(lang) => self.siteinfo.lang = lang.unwrap_or_default(),
+                            Err(e) => {
+                                self.done = true;
+                                return Some(Err(e));
+                            }
                         }
-                    },
+                    }
                     b"siteinfo" => {
                         if let Err(e) = self.read_siteinfo() {
                             self.done = true;
@@ -456,8 +464,17 @@ impl<R: BufRead> Iterator for XmlDump<R> {
                     }
                     _ => {}
                 },
+                Ok(Event::End(e)) if e.name().as_ref() == b"mediawiki" => self.open = false,
                 Ok(Event::Eof) => {
                     self.done = true;
+                    // A document cut short, even between two pages, is not the document:
+                    // whoever reads it must learn that pages are missing.
+                    if self.open {
+                        return Some(Err(XmlError::Malformed(
+                            "unexpected end of file before </mediawiki>: the document is truncated"
+                                .into(),
+                        )));
+                    }
                     return None;
                 }
                 Ok(_) => {}
@@ -615,5 +632,33 @@ pub(crate) mod tests {
                 .unwrap()
                 .is_err()
         );
+    }
+
+    // 0047 §8.1: an export cut short is refused, wherever the cut falls.
+    #[test]
+    fn a_document_without_its_closing_tag_is_an_error() {
+        // Cut after the first `</page>`: the page reads, then the reader reports the cut.
+        let cut = SAMPLE.find("</page>").unwrap() + "</page>".len();
+        let mut dump = XmlDump::new(&SAMPLE.as_bytes()[..cut]);
+        assert_eq!(dump.next().unwrap().unwrap().title, "Item:Q6");
+        let e = dump.next().unwrap().unwrap_err();
+        assert!(e.to_string().contains("</mediawiki>"), "{e}");
+        assert!(dump.next().is_none(), "the error ends the iteration");
+        // Cut before any page.
+        let cut = SAMPLE.find("</siteinfo>").unwrap() + "</siteinfo>".len();
+        assert!(
+            XmlDump::new(&SAMPLE.as_bytes()[..cut])
+                .next()
+                .unwrap()
+                .is_err()
+        );
+        // The whole document, and one with no pages, end without one.
+        assert!(XmlDump::new(SAMPLE.as_bytes()).all(|p| p.is_ok()));
+        assert_eq!(
+            XmlDump::new("<mediawiki></mediawiki>".as_bytes()).count(),
+            0
+        );
+        assert_eq!(XmlDump::new("<mediawiki/>".as_bytes()).count(), 0);
+        assert_eq!(XmlDump::new("".as_bytes()).count(), 0);
     }
 }

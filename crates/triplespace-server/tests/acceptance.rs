@@ -1039,6 +1039,33 @@ async fn a_bot_logs_in_reads_and_edits() {
         serde_json::from_slice::<Value>(&body).unwrap()["name"],
         name.as_str()
     );
+    // 02 §4.1: a file asked for by its dump's name never changes and is cached for good;
+    // the same file through `latest` is another dump's after the next one is written,
+    // and a manifest is never immutable.
+    let cache_of = |h: &axum::http::HeaderMap| {
+        h.get(header::CACHE_CONTROL)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default()
+            .to_string()
+    };
+    for (uri, immutable) in [
+        (format!("/dumps/{name}/wikibase.nt.gz"), true),
+        (format!("/dumps/local/{name}/local.nq.gz"), true),
+        (format!("/dumps/local/bundle/{name}/bundle.cbor"), true),
+        ("/dumps/latest/wikibase.nt.gz".to_string(), false),
+        ("/dumps/local/latest/local.nq.gz".to_string(), false),
+        ("/dumps/local/bundle/latest/bundle.cbor".to_string(), false),
+        (format!("/dumps/{name}/manifest.json"), false),
+        ("/dumps/latest/manifest.json".to_string(), false),
+    ] {
+        let (status, h, _) = download(uri.clone()).await;
+        assert_eq!(status, StatusCode::OK, "{uri}");
+        let cache = cache_of(&h);
+        assert_eq!(cache.contains("immutable"), immutable, "{uri}: {cache}");
+        if !immutable {
+            assert_eq!(cache, "public, max-age=300", "{uri}");
+        }
+    }
     let (status, _, _) = download("/dumps/../manifest.json".into()).await;
     assert_ne!(status, StatusCode::OK);
     // The public bundle of the `local` partition rides in the same dump (17 §1.1; 0013

@@ -169,12 +169,21 @@ pub async fn run(args: Import) -> Result<()> {
     let c = census(&client, &args.tenant, all.iter()).await?;
     print_census(&c);
     if errors > 0 {
-        println!("  unreadable {errors} pages (see stderr)");
+        println!("  unreadable: {errors} file errors (see stderr)");
     }
     if args.census_only {
+        if errors > 0 {
+            bail!(
+                "the file could not be read whole ({errors} errors, see stderr): the census covers the {} pages read before it",
+                all.len()
+            );
+        }
         return Ok(());
     }
     if c.imported == 0 && c.talk == 0 {
+        if errors > 0 {
+            bail!("the file could not be read ({errors} errors, see stderr): nothing was imported");
+        }
         bail!("nothing to import");
     }
 
@@ -286,6 +295,16 @@ pub async fn run(args: Import) -> Result<()> {
                 println!("    {k} × {why}");
             }
         }
+    }
+    // A file that could not be read whole was imported in part: say so, and fail, so
+    // that no script takes a truncated export for a finished import.
+    if errors > 0 {
+        bail!(
+            "the file could not be read whole ({errors} errors, see stderr): {} pages were imported before it ({} created, {} merged), and the rest of the file was not",
+            outcome.counts.created + outcome.counts.merged,
+            outcome.counts.created,
+            outcome.counts.merged
+        );
     }
     Ok(())
 }
