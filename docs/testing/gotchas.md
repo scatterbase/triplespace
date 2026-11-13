@@ -150,20 +150,17 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
 
 - An instance partition's `log.partition.tenant` is NULL, while the `view` tables write the
   instance as `''`: a join between them on the tenant needs
-  `p.tenant IS NOT DISTINCT FROM nullif(v.tenant, '')`, or it silently finds nothing.
+  `p.tenant IS NOT DISTINCT FROM nullif(v.tenant, '')`, or it silently finds nothing (SCA-385).
 - A load (a dump sync or a crawl) writes no `view.activity` rows for its mirror records, only
   its job's (03 §4.6), and the REST change view (`/entity/{id}/changes/{p}/{o}`) reads the
   activity row, so a loaded record has none. A test that needs `sync` rows runs the follower
   (`scatter_ingest::run_follow`, as `triplespace-server/tests/site.rs` does; or
   `triplespace follow --once --api` against a stand-in wiki, as `ui/e2e/run.sh` does with
-  `ui/e2e/wiki.mjs`).
+  `ui/e2e/wiki.mjs`). SCA-384 is about the change view's 404 for loaded records.
 
-- A `PgCx` dropped after a failed write without `store.rollback(cx)` can leave the pooled
-  connection mid-transaction and hang the next write on the same key. Always roll back explicitly,
-  as `editpage` does.
 - Partition IDs are 64-bit and stored as `bigint` bit for bit (`ids::partition_from_db`): half of
   them read back negative. Anything built from a partition read as `i64` must `cast_unsigned`
-  first.
+  first (SCA-386).
 - `owner` holds every permission and reads every group but the suppression group
   (`includes = ["*"]`); it is still in no other group for edit restrictions and the lock-out. A
   test that needs a logged-in reader outside a group uses `suppress` as the group, or a non-owner
@@ -181,7 +178,7 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
   the tenant's derived issuer code (`ActorKey::numeric(issuer, id)`), not the tenant slug.
 - A real instance has no `board` group: `action=protect read=board` on it is `ts-locked-out`,
   where `/acl` says `ts-unknown-group`. Define a group over `/group` first. The tests' `grant`
-  helper bypasses this.
+  helper bypasses this. `action=protect` should answer `ts-unknown-group` too (SCA-383).
 - A test that registers accounts at the default challenge (20 bits, one more per account from
   the same address) spends most of its time in `scatter_challenge::solve`: a debug build hashes
   at about 0.2 million a second, so the first account costs five seconds and the third twenty.
@@ -200,7 +197,7 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
   test), `account(router, name, password)` (`action=createaccount`, solving the challenge) and
   `grant(app, name, group)` (a membership record written through the pipeline).
 - REST handlers that return the Action API's `ApiError` need `#[allow(clippy::result_large_err)]`
-  (as `triplespace-api-rest/src/acl.rs` does module-wide).
+  (as `triplespace-api-rest/src/acl.rs` does module-wide; SCA-387).
 - Entities have no `view.page` row: code that checks "does this page ID exist" must also look in
   `view.entity`.
 - An XML dump's entity JSON carries no snak `datatype`; `sync` fills them from the dump's property
@@ -208,8 +205,6 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
   typing; a mock wiki built from dump text must add them or every state reads as changed.
 - `Index::observe` is idempotent (a follower re-reads items): the same item with the same key is
   not a conflict, and a changed key releases the old one.
-- A colon-form ID that is neither a registered keyed type nor one of the tenant's sources is
-  `invalid-entity-id` on reads (it used to answer as an empty keyed entity of an unknown type).
 - Applied migrations are checksummed (`ops.migration`): never edit one, even a comment; add a new
   migration.
 - Pywikibot's API cache can mask whether a fix worked; clear it between runs.
