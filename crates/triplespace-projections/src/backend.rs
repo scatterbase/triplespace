@@ -36,11 +36,42 @@ use triplespace_db::projection_state;
 
 use crate::common::{PartitionInfo, Partitions};
 
+/// A unit of work's connection. One whose unit of work was neither committed nor rolled
+/// back, because an error returned past it or its future was dropped, is still inside
+/// `BEGIN`: handed back to the pool, the next unit of work would run inside the abandoned
+/// one, and commit its writes with its own. Such a connection is taken out of the pool
+/// and closed instead, which rolls the transaction back.
+#[derive(Debug)]
+struct Held(Option<Object>);
+
+impl Held {
+    /// Hands the connection back to the pool: the unit of work has ended.
+    fn release(mut self) {
+        drop(self.0.take());
+    }
+}
+
+impl std::ops::Deref for Held {
+    type Target = Object;
+
+    fn deref(&self) -> &Object {
+        self.0.as_ref().expect("held until released")
+    }
+}
+
+impl Drop for Held {
+    fn drop(&mut self) {
+        if let Some(conn) = self.0.take() {
+            drop(Object::take(conn));
+        }
+    }
+}
+
 /// A unit of work: a connection inside `BEGIN … COMMIT`, with the state the transaction
 /// accumulates (see the module docs).
 #[derive(Debug)]
 pub struct PgCx {
-    conn: Object,
+    conn: Held,
     /// `(projection, partition)` → applied offset, written at commit.
     positions: BTreeMap<(String, u64), u64>,
     /// `log.partition` rows seen in this unit of work. Behind a mutex because the
@@ -179,7 +210,7 @@ impl Backend for PgBackend {
     type Cx = PgCx;
 
     async fn begin(&self) -> Result<PgCx, ProjectionError> {
-        let conn = self.pool.get().await.map_err(backend)?;
+        let conn = Held(Some(self.pool.get().await.map_err(backend)?));
         conn.batch_execute("BEGIN").await.map_err(pg)?;
         Ok(PgCx {
             conn,
@@ -202,11 +233,15 @@ impl Backend for PgBackend {
                 .await
                 .map_err(pg)?;
         }
-        cx.conn.batch_execute("COMMIT").await.map_err(pg)
+        cx.conn.batch_execute("COMMIT").await.map_err(pg)?;
+        cx.conn.release();
+        Ok(())
     }
 
     async fn rollback(&self, cx: PgCx) -> Result<(), ProjectionError> {
-        cx.conn.batch_execute("ROLLBACK").await.map_err(pg)
+        cx.conn.batch_execute("ROLLBACK").await.map_err(pg)?;
+        cx.conn.release();
+        Ok(())
     }
 
     async fn applied(

@@ -40,6 +40,19 @@ pub struct ApiResponse {
     pub body: Vec<u8>,
 }
 
+/// The API's answer with its body still to come: what a caller that passes a large body
+/// on, an export, takes in place of [`ApiResponse`], so that the body is never held whole.
+#[derive(Debug)]
+pub struct StreamedResponse {
+    /// The status.
+    pub status: StatusCode,
+    /// The headers.
+    pub headers: HeaderMap,
+    /// The body, as it arrives. A transfer that fails part-way fails this body, and so
+    /// the response it is passed on in.
+    pub body: Body,
+}
+
 /// Why a call failed.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
@@ -71,6 +84,23 @@ pub type BoxFuture<'a, T> = Pin<Box<dyn Future<Output = T> + Send + 'a>>;
 pub trait Transport: Send + Sync {
     /// Sends one request.
     fn send(&self, request: ApiRequest) -> BoxFuture<'_, Result<ApiResponse, ClientError>>;
+
+    /// Sends one request and answers once the headers are in, the body following as a
+    /// stream. Never retried: the caller passes the body on as it comes. A transport that
+    /// cannot stream answers with the whole body in one piece, which is the default.
+    fn send_streamed(
+        &self,
+        request: ApiRequest,
+    ) -> BoxFuture<'_, Result<StreamedResponse, ClientError>> {
+        Box::pin(async move {
+            let r = self.send(request).await?;
+            Ok(StreamedResponse {
+                status: r.status,
+                headers: r.headers,
+                body: Body::from(r.body),
+            })
+        })
+    }
 
     /// Whether this transport calls the API in process, so the browser's request is
     /// passed as it arrived rather than forwarded by a proxy hop.
@@ -133,6 +163,31 @@ where
             Ok(ApiResponse {
                 status,
                 headers,
+                body,
+            })
+        })
+    }
+
+    fn send_streamed(
+        &self,
+        request: ApiRequest,
+    ) -> BoxFuture<'_, Result<StreamedResponse, ClientError>> {
+        let service = self.service.clone();
+        Box::pin(async move {
+            let mut req = Request::builder()
+                .method(request.method)
+                .uri(&request.path_and_query)
+                .body(Body::from(request.body))
+                .map_err(|e| ClientError::Unexpected(e.to_string()))?;
+            *req.headers_mut() = request.headers;
+            if let Some(peer) = request.peer {
+                req.extensions_mut().insert(ConnectInfo(peer));
+            }
+            let Ok(response) = service.oneshot(req).await;
+            let (parts, body) = response.into_parts();
+            Ok(StreamedResponse {
+                status: parts.status,
+                headers: parts.headers,
                 body,
             })
         })
@@ -322,6 +377,31 @@ impl Transport for HttpTransport {
             Err(ClientError::Unreachable(
                 last.map_or_else(|| "no attempt".into(), |e| e.to_string()),
             ))
+        })
+    }
+
+    fn send_streamed(
+        &self,
+        request: ApiRequest,
+    ) -> BoxFuture<'_, Result<StreamedResponse, ClientError>> {
+        Box::pin(async move {
+            let url = self
+                .base
+                .join(request.path_and_query.trim_start_matches('/'))
+                .map_err(|e| ClientError::Unexpected(e.to_string()))?;
+            let resp = self
+                .client
+                .request(request.method, url)
+                .headers(request.headers)
+                .body(request.body)
+                .send()
+                .await
+                .map_err(|e| ClientError::Unreachable(e.to_string()))?;
+            Ok(StreamedResponse {
+                status: resp.status(),
+                headers: resp.headers().clone(),
+                body: Body::from_stream(resp.bytes_stream()),
+            })
         })
     }
 

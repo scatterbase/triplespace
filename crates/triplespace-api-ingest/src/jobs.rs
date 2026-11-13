@@ -113,6 +113,9 @@ pub struct Runner {
     pub kinds: Vec<Kind>,
     /// The dumps directory (`dumps.dir`), for [`Kind::Dump`].
     pub dumps_dir: Option<PathBuf>,
+    /// How often a running job's heartbeat is written: [`HEARTBEAT`], but for a test
+    /// that cannot wait for it.
+    pub heartbeat: Duration,
 }
 
 impl Runner {
@@ -123,6 +126,7 @@ impl Runner {
             name: name.into(),
             kinds: vec![Kind::Import, Kind::Revert],
             dumps_dir: None,
+            heartbeat: HEARTBEAT,
         }
     }
 
@@ -706,17 +710,20 @@ pub async fn run_claimed(
     let tenant = claimed.tenant.clone();
     let job_id = claimed.job_id;
     // The heartbeat, from a connection of its own, until the job ends. One that finds
-    // the row no longer this job's has lost the claim, and says so at once: the work
-    // itself cannot be stopped from here.
+    // the row no longer this job's has lost the claim: it says so, and the work is
+    // stopped (0104 A8).
     let (stop, mut stopped) = tokio::sync::watch::channel(false);
     let lost = Arc::new(AtomicBool::new(false));
+    let stopping = Arc::new(tokio::sync::Notify::new());
     let beating = {
         let pool = pool.clone();
         let tenant = tenant.clone();
         let lost = lost.clone();
+        let stopping = stopping.clone();
         let name = runner.name.clone();
+        let heartbeat = runner.heartbeat;
         tokio::spawn(async move {
-            let mut every = tokio::time::interval(HEARTBEAT);
+            let mut every = tokio::time::interval(heartbeat);
             every.tick().await;
             loop {
                 tokio::select! {
@@ -732,10 +739,11 @@ pub async fn run_claimed(
                             Ok(false) => {
                                 eprintln!(
                                     "{name}: job {job_id} for `{tenant}` LOST ITS CLAIM: its row was taken by \
-                                     another runner or removed while it ran; its work goes on, and nothing \
-                                     more is written to the queue for it"
+                                     another runner or removed while it ran; its work is stopped, and \
+                                     nothing more is written to the queue for it"
                                 );
                                 lost.store(true, Ordering::Relaxed);
+                                stopping.notify_one();
                                 break;
                             }
                             Err(e) => eprintln!(
@@ -750,7 +758,15 @@ pub async fn run_claimed(
             }
         })
     };
-    let result = run_kind(store, pipeline, runner, &claimed, now).await;
+    // The work, or the loss of the claim, whichever comes first. Losing the claim drops
+    // the work where it stands: the unit of work it was in is rolled back with its
+    // connection, and what it had committed is the run's that took the claim to go on
+    // from, as after a runner's death. A dump's files are written on a thread that is
+    // not stopped; it finishes them, and records nothing.
+    let result = tokio::select! {
+        result = Box::pin(run_kind(store, pipeline, runner, &claimed, now)) => result,
+        () = stopping.notified() => Err(store_err("stopped: the claim was lost")),
+    };
     let _ = stop.send(true);
     let _ = beating.await;
     // Whether the row is still this job's, read under its lock: a claim taken meanwhile

@@ -9,7 +9,6 @@
 //! does (22 §1.2 rule 6); its refusal is shown over the form with what was typed.
 //! `Special:Export/{title}` and `?pages=` prefill the titles, as MediaWiki's page does.
 
-use axum::body::Body;
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::Response;
 use triplespace_client::pages::PageListQuery;
@@ -458,7 +457,7 @@ pub async fn post(
     };
     match site.client().export(&incoming, &ask).await {
         Ok(file) => {
-            let mut r = Response::new(Body::from(file.body));
+            let mut r = Response::new(file.body);
             *r.status_mut() = StatusCode::OK;
             let h = r.headers_mut();
             if let Ok(v) = HeaderValue::from_str(&file.content_type) {

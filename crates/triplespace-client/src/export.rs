@@ -2,6 +2,7 @@
 //! `POST /export`, and the file the API answers with.
 
 use axum::http::{HeaderValue, Method, StatusCode, header};
+use http_body_util::BodyExt as _;
 use serde_json::{Value, json};
 
 use crate::{ApiRequest, Client, ClientError, Incoming, forward};
@@ -24,14 +25,16 @@ pub struct ExportAsk {
 }
 
 /// An export the API answered.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug)]
 pub struct Exported {
     /// The file's media type.
     pub content_type: String,
     /// The file name the API suggests.
     pub filename: Option<String>,
-    /// The file.
-    pub body: Vec<u8>,
+    /// The file, as it arrives from the API: passed on to the reader without being held
+    /// whole, and failing where the API's stream fails, so that a cut-short export is a
+    /// failed download and not a short file (21 §4.2).
+    pub body: axum::body::Body,
     /// How many of the titles asked for the export does not hold.
     pub missing: usize,
     /// What the export says about itself.
@@ -64,7 +67,7 @@ impl Client {
         });
         let r = self
             .transport()
-            .send(ApiRequest {
+            .send_streamed(ApiRequest {
                 method: Method::POST,
                 path_and_query: "/w/rest.php/triplespace/v0/export".to_string(),
                 headers,
@@ -73,7 +76,14 @@ impl Client {
             })
             .await?;
         if r.status != StatusCode::OK {
-            let v: Value = serde_json::from_slice(&r.body).unwrap_or(Value::Null);
+            // A refusal is small: read it whole for its code and message.
+            let refusal = r
+                .body
+                .collect()
+                .await
+                .map_err(|e| ClientError::Unexpected(e.to_string()))?
+                .to_bytes();
+            let v: Value = serde_json::from_slice(&refusal).unwrap_or(Value::Null);
             return Err(ClientError::Api {
                 code: v["code"].as_str().unwrap_or(r.status.as_str()).to_string(),
                 info: v["message"]
