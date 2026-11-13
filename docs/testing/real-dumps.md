@@ -551,3 +551,111 @@ before 2026-11-09 were typed by hand.
 | 3.2 WD first-50k + all properties, `main` vs streaming | same archive: Q1–Q52905 (first 50,000 items) and 14,017 properties, 64,017 entities, 2.85 GB JSON | 31m34s streaming; 34m04s `main` (3 runs in parallel) | **157 MB** streaming; **10.9 GB** `main` | | 63,757 | 0 | 260 | | 2026-11-04. Same counts both ways; RSS flat with streaming, linear without (≈220 KB/entity). ~35–45 entities/s on these dense early items. |
 | 3.2 WD 1M slice | | | | | | | | | |
 | restore, WD dump head 20k (SCA-363) | `head-20000.json.gz` (sha256 `82e13ef3…`) | 1m36s | 759 MB | 373 MB |  |  |  |  | 2026-11-12, `401450d+`, `restore --without-private` of a backup of a mirror of the first 20,000 entities of the 2026-11-11 dump, in the dump's own order (20,207 slots, a 695 MB bundle), sandbox, 4 cores, Postgres 16 untuned, release build without LTO. Log load 4.3 s by `COPY` in blocks; 42.6 s one statement a slot at `a573b77`; the rebuild is the other 96 s either way. performance.md §9. |
+| 1 WD 20k ordinary first | `ab-20k.json.gz` (sha256 `8f980337…`) | 19s | 1.06 GB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `35b71e6`, handoff run 1, build 35b71e6 |
+| 1 WD 20k ordinary update | `ab-20k-v2.json.gz` (sha256 `353b809e…`) | 13s | 724 MB | 210 MB | 2,000 | 0 | 0 |  | 2026-11-12, `35b71e6`, handoff run 1, build 35b71e6 |
+| 1 WD 20k ordinary first | `ab-20k.json.gz` (sha256 `8f980337…`) | 15s | 1.06 GB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 1, build a909dbc |
+| 1 WD 20k ordinary update | `ab-20k-v2.json.gz` (sha256 `353b809e…`) | 12s | 707 MB | 210 MB | 2,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 1, build a909dbc |
+| 1 WD 20k ordinary first | `ab-20k.json.gz` (sha256 `8f980337…`) | 15s | 1.05 GB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `35b71e6`, handoff run 1, build 35b71e6 |
+| 1 WD 20k ordinary update | `ab-20k-v2.json.gz` (sha256 `353b809e…`) | 13s | 691 MB | 210 MB | 2,000 | 0 | 0 |  | 2026-11-12, `35b71e6`, handoff run 1, build 35b71e6 |
+| 1 WD 20k ordinary first | `ab-20k.json.gz` (sha256 `8f980337…`) | 15s | 1.05 GB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 1, build a909dbc |
+| 1 WD 20k ordinary update | `ab-20k-v2.json.gz` (sha256 `353b809e…`) | 12s | 704 MB | 210 MB | 2,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 1, build a909dbc |
+| 1 WD 2M bootstrap | `wd-bench-2m.json.gz` (sha256 `4ceed74c…`) | 13m08s | 2.02 GB | 19 GB | 2,014,017 | 0 | 0 |  | 2026-11-12, `35b71e6`, handoff run 1, build 35b71e6 |
+| 1 WD 2M bootstrap | `wd-bench-2m.json.gz` (sha256 `4ceed74c…`) | 11m42s | 1.94 GB | 19 GB | 2,014,017 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 1, build a909dbc |
+| 1 WD 2M bootstrap | `wd-bench-2m.json.gz` (sha256 `4ceed74c…`) | 11m30s | 1.99 GB | 19 GB | 2,014,017 | 0 | 0 |  | 2026-11-12, `35b71e6`, handoff run 1, build 35b71e6 |
+| 1 WD 2M bootstrap | `wd-bench-2m.json.gz` (sha256 `4ceed74c…`) | 12m58s | 2.19 GB | 19 GB | 2,014,017 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 1, build a909dbc |
+| 5 WD ab-20k b2 sb0 | `ab-20k.json.gz` (sha256 `8f980337…`) | 2m03s | 966 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 0 |
+| 5 WD ab-20k b2 sb4 | `ab-20k.json.gz` (sha256 `8f980337…`) | 1m56s | 924 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 4 |
+| 5 WD ab-20k b2 sb8 | `ab-20k.json.gz` (sha256 `8f980337…`) | 2m01s | 928 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 8 |
+| 5 WD ab-20k b4 sb0 | `ab-20k.json.gz` (sha256 `8f980337…`) | 1m17s | 961 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 0 |
+| 5 WD ab-20k b4 sb4 | `ab-20k.json.gz` (sha256 `8f980337…`) | 1m40s | 932 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 4 |
+| 5 WD ab-20k b4 sb8 | `ab-20k.json.gz` (sha256 `8f980337…`) | 1m43s | 929 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 8 |
+| 5 WD ab-20k b8 sb0 | `ab-20k.json.gz` (sha256 `8f980337…`) | 1m04s | 963 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 0 |
+| 5 WD ab-20k b8 sb4 | `ab-20k.json.gz` (sha256 `8f980337…`) | 1m24s | 957 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 4 |
+| 5 WD ab-20k b8 sb8 | `ab-20k.json.gz` (sha256 `8f980337…`) | 1m33s | 924 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 8 |
+| 5 WD ab-20k b16 sb0 | `ab-20k.json.gz` (sha256 `8f980337…`) | 1m14s | 978 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 0 |
+| 5 WD ab-20k b16 sb4 | `ab-20k.json.gz` (sha256 `8f980337…`) | 43s | 977 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 4 |
+| 5 WD ab-20k b16 sb8 | `ab-20k.json.gz` (sha256 `8f980337…`) | 42s | 992 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 8 |
+| 5 WD dense-4k b2 sb0 | `dense-4k.json.gz` (sha256 `176934ce…`) | 1m27s | 1.71 GB | 172 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 0 |
+| 5 WD dense-4k b2 sb4 | `dense-4k.json.gz` (sha256 `176934ce…`) | 1m10s | 1.66 GB | 172 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 4 |
+| 5 WD dense-4k b2 sb8 | `dense-4k.json.gz` (sha256 `176934ce…`) | 1m10s | 1.65 GB | 172 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 8 |
+| 5 WD dense-4k b4 sb0 | `dense-4k.json.gz` (sha256 `176934ce…`) | 52s | 1.73 GB | 172 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 0 |
+| 5 WD dense-4k b4 sb4 | `dense-4k.json.gz` (sha256 `176934ce…`) | 1m04s | 1.67 GB | 172 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 4 |
+| 5 WD dense-4k b4 sb8 | `dense-4k.json.gz` (sha256 `176934ce…`) | 1m04s | 1.65 GB | 172 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 8 |
+| 5 WD dense-4k b8 sb0 | `dense-4k.json.gz` (sha256 `176934ce…`) | 42s | 1.75 GB | 172 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 0 |
+| 5 WD dense-4k b8 sb4 | `dense-4k.json.gz` (sha256 `176934ce…`) | 1m03s | 1.75 GB | 172 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 4 |
+| 5 WD dense-4k b8 sb8 | `dense-4k.json.gz` (sha256 `176934ce…`) | 1m03s | 1.67 GB | 172 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 8 |
+| 5 WD dense-4k b16 sb0 | `dense-4k.json.gz` (sha256 `176934ce…`) | 51s | 1.83 GB | 172 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 0 |
+| 5 WD dense-4k b16 sb4 | `dense-4k.json.gz` (sha256 `176934ce…`) | 35s | 1.81 GB | 172 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 4 |
+| 5 WD dense-4k b16 sb8 | `dense-4k.json.gz` (sha256 `176934ce…`) | 50s | 1.82 GB | 171 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 8 |
+| 5 WD ab-20k b2 sb0 | `ab-20k.json.gz` (sha256 `8f980337…`) | 1m50s | 960 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 0 |
+| 5 WD ab-20k b2 sb4 | `ab-20k.json.gz` (sha256 `8f980337…`) | 1m56s | 927 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 4 |
+| 5 WD ab-20k b2 sb8 | `ab-20k.json.gz` (sha256 `8f980337…`) | 1m59s | 920 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 8 |
+| 5 WD ab-20k b4 sb0 | `ab-20k.json.gz` (sha256 `8f980337…`) | 1m23s | 972 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 0 |
+| 5 WD ab-20k b4 sb4 | `ab-20k.json.gz` (sha256 `8f980337…`) | 1m43s | 917 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 4 |
+| 5 WD ab-20k b4 sb8 | `ab-20k.json.gz` (sha256 `8f980337…`) | 1m43s | 928 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 8 |
+| 5 WD ab-20k b8 sb0 | `ab-20k.json.gz` (sha256 `8f980337…`) | 1m05s | 956 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 0 |
+| 5 WD ab-20k b8 sb4 | `ab-20k.json.gz` (sha256 `8f980337…`) | 52s | 969 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 4 |
+| 5 WD ab-20k b8 sb8 | `ab-20k.json.gz` (sha256 `8f980337…`) | 1m32s | 928 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 8 |
+| 5 WD ab-20k b16 sb0 | `ab-20k.json.gz` (sha256 `8f980337…`) | 48s | 979 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 0 |
+| 5 WD ab-20k b16 sb4 | `ab-20k.json.gz` (sha256 `8f980337…`) | 43s | 980 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 4 |
+| 5 WD ab-20k b16 sb8 | `ab-20k.json.gz` (sha256 `8f980337…`) | 43s | 981 MB | 174 MB | 20,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 8 |
+| 5 WD dense-4k b2 sb0 | `dense-4k.json.gz` (sha256 `176934ce…`) | 1m11s | 1.71 GB | 172 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 0 |
+| 5 WD dense-4k b2 sb4 | `dense-4k.json.gz` (sha256 `176934ce…`) | 1m12s | 1.67 GB | 172 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 4 |
+| 5 WD dense-4k b2 sb8 | `dense-4k.json.gz` (sha256 `176934ce…`) | 1m09s | 1.68 GB | 172 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 8 |
+| 5 WD dense-4k b4 sb0 | `dense-4k.json.gz` (sha256 `176934ce…`) | 1m13s | 1.73 GB | 172 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 0 |
+| 5 WD dense-4k b4 sb4 | `dense-4k.json.gz` (sha256 `176934ce…`) | 1m05s | 1.67 GB | 172 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 4 |
+| 5 WD dense-4k b4 sb8 | `dense-4k.json.gz` (sha256 `176934ce…`) | 1m03s | 1.66 GB | 172 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 8 |
+| 5 WD dense-4k b8 sb0 | `dense-4k.json.gz` (sha256 `176934ce…`) | 43s | 1.74 GB | 172 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 0 |
+| 5 WD dense-4k b8 sb4 | `dense-4k.json.gz` (sha256 `176934ce…`) | 41s | 1.74 GB | 172 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 4 |
+| 5 WD dense-4k b8 sb8 | `dense-4k.json.gz` (sha256 `176934ce…`) | 1m00s | 1.70 GB | 172 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 8 |
+| 5 WD dense-4k b16 sb0 | `dense-4k.json.gz` (sha256 `176934ce…`) | 37s | 1.81 GB | 172 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 0 |
+| 5 WD dense-4k b16 sb4 | `dense-4k.json.gz` (sha256 `176934ce…`) | 37s | 1.82 GB | 172 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 4 |
+| 5 WD dense-4k b16 sb8 | `dense-4k.json.gz` (sha256 `176934ce…`) | 49s | 1.84 GB | 171 MB | 4,000 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 5, SMALL_BLOCK 8 |
+| 2 WD 1M snapshot omit1 | `wd-1m-omit1.json.gz` (sha256 `f444ff4d…`) | 6m23s | 1.82 GB | 12 GB | 0 | 0 | 0 |  | 2026-11-12, `35b71e6`, handoff run 2, build 35b71e6, 10000 items left out |
+| 2 WD 1M snapshot omit1 | `wd-1m-omit1.json.gz` (sha256 `f444ff4d…`) | 6m06s | 1.78 GB | 12 GB | 0 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 2, build a909dbc, 10000 items left out |
+| 2 WD 1M snapshot omit10x | `wd-1m-omit10x.json.gz` (sha256 `e74b4531…`) | 24m41s | 1.68 GB | 12 GB | 0 | 0 | 0 |  | 2026-11-12, `35b71e6`, handoff run 2, build 35b71e6, 109000 items left out |
+| 2 WD 1M snapshot omit10x | `wd-1m-omit10x.json.gz` (sha256 `e74b4531…`) | 6m40s | 1.83 GB | 12 GB | 0 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 2, build a909dbc, 109000 items left out |
+| 2 WD 1M snapshot omit1 | `wd-1m-omit1.json.gz` (sha256 `f444ff4d…`) | 6m23s | 1.90 GB | 12 GB | 0 | 0 | 0 |  | 2026-11-12, `35b71e6`, handoff run 2, build 35b71e6, 10000 items left out |
+| 2 WD 1M snapshot omit1 | `wd-1m-omit1.json.gz` (sha256 `f444ff4d…`) | 6m05s | 1.80 GB | 12 GB | 0 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 2, build a909dbc, 10000 items left out |
+| 2 WD 1M snapshot omit10x | `wd-1m-omit10x.json.gz` (sha256 `e74b4531…`) | 24m14s | 1.74 GB | 12 GB | 0 | 0 | 0 |  | 2026-11-12, `35b71e6`, handoff run 2, build 35b71e6, 109000 items left out |
+| 2 WD 1M snapshot omit10x | `wd-1m-omit10x.json.gz` (sha256 `e74b4531…`) | 6m37s | 1.80 GB | 12 GB | 0 | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 2, build a909dbc, 109000 items left out |
+| 3 XD full | `domainswiki-20261004.xml` (sha256 `abcf3e2d…`) | 19m59s | 330 MB | 1.31 GB | 312,926 | 8,307 | 0 |  | 2026-11-12, `35b71e6`, handoff run 3, build 35b71e6 |
+| 3 XD resync | `domainswiki-20261004.xml` (sha256 `abcf3e2d…`) | 2m50s | 292 MB | 1.31 GB | 0 | 8,307 | 0 |  | 2026-11-12, `35b71e6`, handoff run 3, build 35b71e6 |
+| 3 XD snapshot omit1 | `domainswiki-omit1.xml` (sha256 `ca9fcd7c…`) | 2m59s | 381 MB | 1.31 GB | 20 | 8,188 | 0 |  | 2026-11-12, `35b71e6`, handoff run 3, build 35b71e6 |
+| 3 XD full | `domainswiki-20261004.xml` (sha256 `abcf3e2d…`) | 20m01s | 340 MB | 1.31 GB | 312,926 | 8,307 | 0 |  | 2026-11-12, `a909dbc`, handoff run 3, build a909dbc |
+| 3 XD resync | `domainswiki-20261004.xml` (sha256 `abcf3e2d…`) | 3m03s | 298 MB | 1.31 GB | 0 | 8,307 | 0 |  | 2026-11-12, `a909dbc`, handoff run 3, build a909dbc |
+| 3 XD snapshot omit1 | `domainswiki-omit1.xml` (sha256 `ca9fcd7c…`) | 3m20s | 382 MB | 1.31 GB | 20 | 8,188 | 0 |  | 2026-11-12, `a909dbc`, handoff run 3, build a909dbc |
+| 3 XD full | `domainswiki-20261004.xml` (sha256 `abcf3e2d…`) | 21m37s | 331 MB | 1.31 GB | 312,926 | 8,307 | 0 |  | 2026-11-12, `35b71e6`, handoff run 3, build 35b71e6 |
+| 3 XD resync | `domainswiki-20261004.xml` (sha256 `abcf3e2d…`) | 2m58s | 293 MB | 1.30 GB | 0 | 8,307 | 0 |  | 2026-11-12, `35b71e6`, handoff run 3, build 35b71e6 |
+| 3 XD snapshot omit1 | `domainswiki-omit1.xml` (sha256 `ca9fcd7c…`) | 3m17s | 380 MB | 1.31 GB | 20 | 8,188 | 0 |  | 2026-11-12, `35b71e6`, handoff run 3, build 35b71e6 |
+| 3 XD full | `domainswiki-20261004.xml` (sha256 `abcf3e2d…`) | 21m35s | 339 MB | 1.31 GB | 312,926 | 8,307 | 0 |  | 2026-11-12, `a909dbc`, handoff run 3, build a909dbc |
+| 3 XD resync | `domainswiki-20261004.xml` (sha256 `abcf3e2d…`) | 2m46s | 302 MB | 1.30 GB | 0 | 8,307 | 0 |  | 2026-11-12, `a909dbc`, handoff run 3, build a909dbc |
+| 3 XD snapshot omit1 | `domainswiki-omit1.xml` (sha256 `ca9fcd7c…`) | 2m52s | 382 MB | 1.31 GB | 20 | 8,188 | 0 |  | 2026-11-12, `a909dbc`, handoff run 3, build a909dbc |
+| 7 LB adopt | `librarybase-20261101.xml.gz` (sha256 `f722e518…`), 247,011 entities | 14m24s | 113 MB | 1.83 GB | 248,097 revisions | 0 | 0 |  | 2026-11-12, `35b71e6`, handoff run 7, build 35b71e6 |
+| 7 LB re-adopt | `librarybase-20261101.xml.gz` (sha256 `f722e518…`), 247,011 entities | 2m23s | 26 MB | 1.83 GB | 0 revisions | 0 | 0 |  | 2026-11-12, `35b71e6`, handoff run 7, build 35b71e6 |
+| 7 batch streamed | `batch-20k-streamed.ndjson` (sha256 `fde61cfc…`) | 2m10s | 903 MB | 1.96 GB |  |  |  |  | 2026-11-12, `35b71e6`, handoff run 7, build 35b71e6 |
+| 7 batch atomic | `batch-20k-atomic.ndjson` (sha256 `8bc3abf4…`) | 1m45s | 901 MB | 1.96 GB |  |  |  |  | 2026-11-12, `35b71e6`, handoff run 7, build 35b71e6 |
+| 7 enwiki import | `history.xml.gz` (sha256 `83310c88…`) | 2h31m46s | 4.04 GB | 3.74 GB | 12 |  | 0 |  | 2026-11-12, `35b71e6`, handoff run 7, build 35b71e6 |
+| 7 LB adopt | `librarybase-20261101.xml.gz` (sha256 `f722e518…`), 247,011 entities | 3m29s | 174 MB | 1.81 GB | 248,097 revisions | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 7, build a909dbc |
+| 7 LB re-adopt | `librarybase-20261101.xml.gz` (sha256 `f722e518…`), 247,011 entities | 2m28s | 26 MB | 1.81 GB | 0 revisions | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 7, build a909dbc |
+| 7 batch streamed | `batch-20k-streamed.ndjson` (sha256 `fde61cfc…`) | 18s | 966 MB | 1.95 GB |  |  |  |  | 2026-11-12, `a909dbc`, handoff run 7, build a909dbc |
+| 7 batch atomic | `batch-20k-atomic.ndjson` (sha256 `8bc3abf4…`) | 15s | 966 MB | 1.95 GB |  |  |  |  | 2026-11-12, `a909dbc`, handoff run 7, build a909dbc |
+| 7 enwiki import | `history.xml.gz` (sha256 `83310c88…`) | 3m03s | 5.99 GB | 3.59 GB | 12 |  | 0 |  | 2026-11-12, `a909dbc`, handoff run 7, build a909dbc |
+| 7 LB adopt | `librarybase-20261101.xml.gz` (sha256 `f722e518…`), 247,011 entities | 15m26s | 114 MB | 1.83 GB | 248,097 revisions | 0 | 0 |  | 2026-11-12, `35b71e6`, handoff run 7, build 35b71e6 |
+| 7 LB re-adopt | `librarybase-20261101.xml.gz` (sha256 `f722e518…`), 247,011 entities | 2m22s | 26 MB | 1.83 GB | 0 revisions | 0 | 0 |  | 2026-11-12, `35b71e6`, handoff run 7, build 35b71e6 |
+| 7 batch streamed | `batch-20k-streamed.ndjson` (sha256 `fde61cfc…`) | 2m06s | 903 MB | 1.96 GB |  |  |  |  | 2026-11-12, `35b71e6`, handoff run 7, build 35b71e6 |
+| 7 batch atomic | `batch-20k-atomic.ndjson` (sha256 `8bc3abf4…`) | 1m44s | 903 MB | 1.96 GB |  |  |  |  | 2026-11-12, `35b71e6`, handoff run 7, build 35b71e6 |
+| 7 enwiki import | `history.xml.gz` (sha256 `83310c88…`) | 2h32m10s | 4.04 GB | 3.75 GB | 12 |  | 0 |  | 2026-11-12, `35b71e6`, handoff run 7, build 35b71e6 |
+| 7 LB adopt | `librarybase-20261101.xml.gz` (sha256 `f722e518…`), 247,011 entities | 3m39s | 162 MB | 1.81 GB | 248,097 revisions | 0 | 0 |  | 2026-11-12, `a909dbc`, handoff run 7, build a909dbc |
+| 7 LB re-adopt | `librarybase-20261101.xml.gz` (sha256 `f722e518…`), 247,011 entities | 2m29s | 26 MB | 1.81 GB | 0 revisions | 0 | 0 |  | 2026-11-13, `a909dbc`, handoff run 7, build a909dbc |
+| 7 batch streamed | `batch-20k-streamed.ndjson` (sha256 `fde61cfc…`) | 15s | 966 MB | 1.95 GB |  |  |  |  | 2026-11-13, `a909dbc`, handoff run 7, build a909dbc |
+| 7 batch atomic | `batch-20k-atomic.ndjson` (sha256 `8bc3abf4…`) | 19s | 965 MB | 1.95 GB |  |  |  |  | 2026-11-13, `a909dbc`, handoff run 7, build a909dbc |
+| 7 enwiki import | `history.xml.gz` (sha256 `83310c88…`) | 3m28s | 5.99 GB | 3.59 GB | 12 |  | 0 |  | 2026-11-13, `a909dbc`, handoff run 7, build a909dbc |
+| 6 overlay streamed | `overlay-10k-streamed.ndjson` (sha256 `e6208ecb…`) | 1m47s | 342 MB | 19 GB |  |  |  |  | 2026-11-13, `35b71e6`, handoff run 6, build 35b71e6 |
+| 6 overlay atomic | `overlay-10k-atomic.ndjson` (sha256 `41e2cb6e…`) | 1m09s | 322 MB | 19 GB |  |  |  |  | 2026-11-13, `35b71e6`, handoff run 6, build 35b71e6 |
+| 6 overlay streamed | `overlay-10k-streamed.ndjson` (sha256 `e6208ecb…`) | 46s | 359 MB | 19 GB |  |  |  |  | 2026-11-13, `a909dbc`, handoff run 6, build a909dbc |
+| 6 overlay atomic | `overlay-10k-atomic.ndjson` (sha256 `41e2cb6e…`) | 39s | 339 MB | 19 GB |  |  |  |  | 2026-11-13, `a909dbc`, handoff run 6, build a909dbc |
+| 6 overlay streamed | `overlay-10k-streamed.ndjson` (sha256 `e6208ecb…`) | 1m58s | 342 MB | 19 GB |  |  |  |  | 2026-11-13, `35b71e6`, handoff run 6, build 35b71e6 |
+| 6 overlay atomic | `overlay-10k-atomic.ndjson` (sha256 `41e2cb6e…`) | 1m09s | 322 MB | 19 GB |  |  |  |  | 2026-11-13, `35b71e6`, handoff run 6, build 35b71e6 |
+| 6 overlay streamed | `overlay-10k-streamed.ndjson` (sha256 `e6208ecb…`) | 45s | 358 MB | 19 GB |  |  |  |  | 2026-11-13, `a909dbc`, handoff run 6, build a909dbc |
+| 6 overlay atomic | `overlay-10k-atomic.ndjson` (sha256 `41e2cb6e…`) | 38s | 340 MB | 19 GB |  |  |  |  | 2026-11-13, `a909dbc`, handoff run 6, build a909dbc |

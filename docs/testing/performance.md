@@ -737,3 +737,135 @@ here, the catch-up path's cost that §6 and [real-dumps.md](real-dumps.md) (stag
 restore of a large instance is bound by it, not by the load, and the snapshot backup
 ([0103](../decisions/0103-export-transfer-and-backup.md) A2) is what avoids it. Peak RSS of the
 restore was 759 MB, from the rebuild, not the load, whose blocks are at most 32 MiB.
+
+## 10. The block writes on real data (2026-11-12/13)
+
+**What ran.** The block-write and projection work of
+[0013](../decisions/0013-postgres-storage.md) A86–A95, measured on real dumps after being built and
+timed on synthetic data in a sandbox. Before is `35b71e6` (the merge of #200), after is `a909dbc`
+(A86–A95 and A96). Debian VM, 16 cores, 125 GB, Postgres 17 with the settings of §4, release
+builds; every phase in a fresh database or a fresh copy of one, `pg_stat_statements` reset before
+it and a `CHECKPOINT` after the reset. Two runs of each, both reported; the rows are in
+[real-dumps.md](real-dumps.md)'s results log, under runs 1 to 7. Statements are per entity, record
+or operation as the table says; "exec" and "plan" are Postgres's own totals.
+
+Two of the paths have no command: nothing in the CLI or the server submits an NDJSON batch
+(`run_batch` is called from tests only), so runs 6 and 7 drove it with a harness outside the tree
+that calls `run_batch` with the CLI's store and pipeline, as the owner. Run 4, the follower with
+compaction, has not been done yet.
+
+**1. No regression where it was already fast.** Wikidata, ordinary sync on the 20k slice and its
+update pass, and a bootstrap load of the 2M set.
+
+| | Before | After |
+|---|---|---|
+| 20k first load | 19 s, 15 s | 15 s, 15 s |
+| 20k update pass | 13 s, 13 s | 12 s, 12 s |
+| 2M bootstrap load | 13m08s, 11m30s | 11m42s, 12m58s |
+
+The 2M load sends 194k statements (0.10 per entity) in both builds, with the same statements on
+top; peak RSS about 2 GB. The baselines of §8 (24m11s) and of A76 (39 s) are older than these
+builds and no longer the reference.
+
+**2. A snapshot sweep at scale (A86).** A 1M-entity Wikidata slice, then `--snapshot
+--threshold` of the same slice with 10,000 or 109,000 entities left out.
+
+| Left out | Build | Wall | Finish transaction | Statements | Postgres exec |
+|---|---|---|---|---|---|
+| 10,000 | before | 6m23s, 6m23s | 25 s | | |
+| 10,000 | after | 6m06s, 6m05s | 9 s | | |
+| 109,000 | before | 24m41s, 24m14s | 1,159 s, 1,133 s | 1.44M | ~1,000 s |
+| 109,000 | after | 6m40s, 6m37s | 76 s, 77 s | 680k | 61 s |
+
+Before, the sweep is quadratic: four log statements per tombstone, at about 2.2 ms each, from
+updating one `log.partition` row again and again in one transaction. After, it is linear. WAL is
+about 6 KB per tombstone (0.67 GB at 109k), peak RSS 1.7–1.9 GB, and no lock waits were sampled.
+**A86's single transaction holds**: at this rate a sweep of 1M tombstones is about 12 minutes. What
+is left is the per-tombstone view deletes and the read of each previous record (32 s at 109k).
+
+**3. A key-mapped provider (A92).** internetdomains, `domainswiki-20261004.xml`: 312,926 items,
+304,114 of them mapped to keys (97%, against the synthetic one in forty), 864 keys in conflict and
+so 8,307 items rejected. Full sync, re-sync, and `--snapshot` of the export with every hundredth
+Item page left out (3,128).
+
+| | Before | After | Statements per entity |
+|---|---|---|---|
+| Full sync | 19m59s, 21m37s | 20m01s, 21m35s | 28.9 → 28.7 |
+| Re-sync | 2m50s, 2m58s | 3m03s, 2m46s | 3.0 → 3.0 |
+| Snapshot | 2m59s, 3m17s | 3m20s, 2m52s | 3.2 → 3.2 |
+
+No change, because **A92's blocks hardly apply here**: 310,573 of 312,926 entities (99.3%) still
+went the single-write path, since a mapped item does, and two appends per entity follow. The full
+sync sends 9.0M statements and Postgres spends about 285 s of a 1,200 s wall on them: the rest is
+round trips, about 260 entities/s against 2,800/s for a Wikidata bootstrap. Peak RSS 330–340 MB;
+database 1.31 GB; longest transaction 11 s; counts identical in every run.
+
+**4. The follower with compaction (A96).** Not run yet.
+
+**5. The small-block threshold (A91).** `SMALL_BLOCK` rebuilt at 0, 4 and 8, ordinary sync at
+`--batch` 2, 4, 8 and 16, on `ab-20k` (Wikidata, 23 KB average) and `dense-4k` (73 KB average,
+largest 2.7 MB). At two records a block and single writes are level; at four, blocks are about 20%
+faster on `ab-20k` (77–83 s against 100–103 s); at eight about 30%. **The crossover is two to three
+records, not four** on real records: `SMALL_BLOCK = 2`, or a threshold by size, would fit them.
+Single writes take about 17–22 statements an entity, a block about 26 in all. Peak RSS grows a
+little with the block (1.65 to 1.82 GB on `dense-4k`). Runs varied by up to ±30%, with spikes of
+Postgres execution after a `dropdb`; the `CHECKPOINT` before each phase came from this run.
+
+**6. Tenant overlays on mirrored entities.** A copy of the 2M mirror; a batch of 10,000
+operations on distinct `WDQ…` items, a third each `retain`, `add` (a statement) and `override`
+(a mirrored statement deprecated), streamed, then another 10,000 on other items, atomic.
+
+| | Before | After | Statements per operation |
+|---|---|---|---|
+| Streamed | 1m47s, 1m58s | 46s, 45s | 35.5 → 12.3 |
+| Atomic | 1m09s, 1m09s | 39s, 38s | 24.0 → 12.1 |
+
+About 220 operations a second, against 1,100–1,300 for local creates (run 7): overlays go the
+per-key entity path, since A95's block form takes only local IDs that nothing mirrors. Per
+operation, two reads of the mirrored record and two of the partition head, then the tenant's view
+rewritten: the term upsert is the largest statement (10.1 s of 15 s exec). Postgres is a third of
+the wall; the rest is decoding and resolving the mirrored entity. Peak RSS 320–360 MB.
+
+**7. Tenant jobs.** Full-history adoption of Librarybase (`librarybase-20261101.xml.gz`, 247,011
+entities, 248,097 revisions) and the same adoption again; an NDJSON batch of 20,000 `create`s cut
+from Librarybase items (every twelfth item's newest revision, 45 MB), streamed and then atomic on a
+copy; and an XML import of twelve English Wikipedia articles with their whole histories (34,296
+revisions, 1.5 GB of XML, fetched with `tools/talk_dumps.py --history`).
+
+| | Before | After | Statements per record | Peak RSS |
+|---|---|---|---|---|
+| Adoption | 14m24s, 15m26s | 3m29s, 3m39s | 22.0 → 2.1 | 113 → 160–175 MB |
+| Adoption again (0 adopted) | 2m23s, 2m22s | 2m28s, 2m29s | 3.0 → 3.0 | 26 MB |
+| Batch, streamed | 2m10s, 2m06s | 18s, 15s | 37.0 → 2.2 | 900 → 966 MB |
+| Batch, atomic | 1m45s, 1m44s | 15s, 19s | 23.0 → 2.1 | 900 → 966 MB |
+| Import | 2h31m46s, 2h32m10s | 3m03s, 3m28s | 180 → 6.6 | 4.0 → 6.0 GB |
+
+The synthetic figures understated the gains: adoption is about 4× faster (synthetic 6.9×), the
+batch 6–7× (3.9×), the import 47× (4×). Before, the import re-derives every revision's links: 5.0M
+`INSERT INTO view.page_link`, 6,092 s of Postgres time; A94 removes it. Counts were identical in
+every run.
+
+**What the numbers say, against the follow-ups the handoff listed:**
+
+- **No regression** (run 1).
+- **The sweep's one transaction is fine** at 109k (run 2); there is no case for committing it a
+  block at a time.
+- **Adoption run again is not faster** (2m25s, three statements a revision: the latest header,
+  the body, the partition head): batching the resume check is worth doing.
+- **`INSERT INTO view.activity` now leads** adoption and the import, one per record: a
+  one-statement-per-block form for activity is next there.
+- **`SELECT nextval` is not worth batching**: 20,003 calls take 59 ms; the batch's remaining ~10 s
+  is preparation outside Postgres.
+- **Overlays are the largest gap left** between local and mirrored writes (run 6): the case for
+  extending the entity block form to entities a mirror holds.
+- **A key-mapped sync is still one item at a time** (run 3), and that is now the slowest sync.
+- **Retune `SMALL_BLOCK`** to 2 or by size (run 5).
+- **RSS grows with the block in the import** (6.0 GB against 4.0 GB for 1.5 GB of wikitext): bound a
+  block by bytes as well as by count. The batch holds about 1 GB for a 45 MB file in both builds,
+  since it is prepared whole.
+- **Planning outweighs execution** on a few per-entity reads: the latest header of a key
+  (11.5 s plan against 2.1 s exec in adoption), `max(revid)` and the tenant `UNION` in a sync
+  (21–42 s plan each against 2–5 s exec). Why their plans are not reused is not yet known.
+- After A94 the import's largest statements are the previous revision's size read from
+  `view.activity` (29.7 s over 34,250 calls) and the actor lookup by name (17.4 s over 7,633 calls,
+  2.3 ms each); 14,925 of its 34,296 records were still appended singly.
