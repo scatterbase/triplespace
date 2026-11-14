@@ -743,16 +743,15 @@ restore was 759 MB, from the rebuild, not the load, whose blocks are at most 32 
 **What ran.** The block-write and projection work of
 [0013](../decisions/0013-postgres-storage.md) A86–A95, measured on real dumps after being built and
 timed on synthetic data in a sandbox. Before is `35b71e6` (the merge of #200), after is `a909dbc`
-(A86–A95 and A96). Debian VM, 16 cores, 125 GB, Postgres 17 with the settings of §4, release
-builds; every phase in a fresh database or a fresh copy of one, `pg_stat_statements` reset before
+(A86–A95 and A96); run 4 is on `ce12a0e`. Debian VM, 16 cores, 125 GB, Postgres 17 with the
+settings of §4, release builds; every phase in a fresh database or a fresh copy of one, `pg_stat_statements` reset before
 it and a `CHECKPOINT` after the reset. Two runs of each, both reported; the rows are in
 [real-dumps.md](real-dumps.md)'s results log, under runs 1 to 7. Statements are per entity, record
 or operation as the table says; "exec" and "plan" are Postgres's own totals.
 
 Two of the paths have no command: nothing in the CLI or the server submits an NDJSON batch
 (`run_batch` is called from tests only), so runs 6 and 7 drove it with a harness outside the tree
-that calls `run_batch` with the CLI's store and pipeline, as the owner. Run 4, the follower with
-compaction, has not been done yet.
+that calls `run_batch` with the CLI's store and pipeline, as the owner.
 
 **1. No regression where it was already fast.** Wikidata, ordinary sync on the 20k slice and its
 update pass, and a bootstrap load of the 2M set.
@@ -800,7 +799,38 @@ sync sends 9.0M statements and Postgres spends about 285 s of a 1,200 s wall on 
 round trips, about 260 entities/s against 2,800/s for a Wikidata bootstrap. Peak RSS 330–340 MB;
 database 1.31 GB; longest transaction 11 s; counts identical in every run.
 
-**4. The follower with compaction (A96).** Not run yet.
+**4. The follower with compaction (A96).** On the whole-dump mirror (`ts_full`, 688 GB), build
+`ce12a0e` (`main` of 2026-11-13, migrated to it), anonymous, from its saved position
+(2026-11-11T04:20Z) through the day close at 00:00 UTC on 2026-11-14: 18 hours, 761,402 records.
+Today's job opened with `compact_from` at the mirror's size; at the half-way point of the catch-up
+a manual `triplespace compact` ran over the records followed so far, with the follower writing.
+Sampled every second: the mirror's size, the longest transaction, each lock wait.
+
+| | Records | Time | Removed | Follower meanwhile |
+|---|---|---|---|---|
+| Manual `compact`, during the catch-up | 245,250 offsets | 71 s | 233,691 | kept appending (3,416 records against 2,112 in the 70 s before); its partition lock waited in 46 of the 71 seconds, at most 5.5 s, about one window |
+| `compact_day` at the close | 748,739 offsets (the manual range again, and the rest) | about 12 min (00:00:35–00:12:28) | 476,293 | no appends for 12.5 minutes: the compaction runs in the follower's own write, so the next batch waits behind it; caught up again within minutes |
+
+Over 100 windows of 10,000 offsets, the key scan took 2.0 s and the `DELETE` 5.3 s on average
+(525 s in all); windows at the close were about three times slower than the manual run's
+(8.7 s against 2.8 s), for reasons not looked into. The follower took 2.7 statements a record
+(2.03M statements, 6,846 s of exec), about 36 records/s while 50 hours behind and 5 a second
+caught up, bound by the upstream. Of its Postgres time, `INSERT INTO view.identifier` was a
+quarter (1,746 s, 323 ms a block of 200), then reading the previous records' bodies (773 s) and
+the term upsert (529 s); the page-ID lookup that 0015 A64 removes was 8.7 s. The database grew
+from 688 to 690 GB: what compaction frees waits for a vacuum.
+
+Correctness, checked in SQL afterwards over the 706,703 keys written in the compacted range:
+every key's `view.entity_source` row names its newest record; no key has more than two records
+but the 138 written to again after the close; the 2,106 with no `entity_source` and no
+`view.entity` row end in a changeset, deletions and redirects (the two jobs count 2,373).
+`triplespace verify` checks a bundle, not a database, so it was not used.
+
+So for A96: a manual compaction beside the follower costs it a few seconds a window and no
+throughput; **the day close stops the follower for as long as it takes** (12 minutes here),
+since it runs inline. Caught up, the follower wrote about 16,500 records an hour, some 400,000
+a day, so an ordinary day's close is likely of the same order. Smaller windows would not shorten
+that; running `compact_day` beside the follower rather than in its write would.
 
 **5. The small-block threshold (A91).** `SMALL_BLOCK` rebuilt at 0, 4 and 8, ordinary sync at
 `--batch` 2, 4, 8 and 16, on `ab-20k` (Wikidata, 23 KB average) and `dense-4k` (73 KB average,
@@ -848,6 +878,9 @@ every run.
 **What the numbers say, against the follow-ups the handoff listed:**
 
 - **No regression** (run 1).
+- **Compaction beside the follower is cheap; at the day close it stops the follower** for the
+  compaction's length (run 4): compact beside the follower rather than in its write, if that
+  matters.
 - **The sweep's one transaction is fine** at 109k (run 2); there is no case for committing it a
   block at a time.
 - **Adoption run again is not faster** (2m25s, three statements a revision: the latest header,
