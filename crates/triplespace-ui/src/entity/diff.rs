@@ -806,12 +806,9 @@ async fn lookup_for(
     let mut lookup = if ids.is_empty() {
         Lookup::default()
     } else {
-        let f = site
-            .client()
-            .entities(incoming, &ids, "labels|datatype", &chain.join("|"))
-            .await?;
+        let f = site.client().labels(incoming, &ids, &chain).await?;
         cx.inputs.push(f.cache);
-        Lookup::from_entities(&f.value.found, &chain)
+        Lookup::from_labels(f.value)
     };
     lookup.add_self(entity, &chain);
     Ok(lookup)

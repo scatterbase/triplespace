@@ -250,6 +250,28 @@ fn body(
     out
 }
 
+/// The provenance of an entity the caller may read, with the state it was read from,
+/// which the page bundle serves beside it (0012 A70).
+pub(crate) async fn assemble(
+    app: &App,
+    client: &tokio_postgres::Client,
+    tenant: &Tenant,
+    id: &EntityId,
+) -> Result<(Value, Option<Current>), String> {
+    let current = read::current(client, app.order(), &tenant.slug, id).await?;
+    let standing = read::standing(client, &tenant.slug, id).await?;
+    let minted = minted_by(app, client, tenant, id)
+        .await
+        .map_err(|e| e.to_string())?;
+    let registry = app
+        .registry_for(client, &tenant.slug)
+        .await
+        .unwrap_or_else(|_| app.registry());
+    let urls = upstream_urls(registry, &standing);
+    let body = body(id, current.as_ref(), &standing, &minted, &urls, registry);
+    Ok((body, current))
+}
+
 /// The handler.
 pub async fn handle(
     State(app): State<App>,
@@ -273,24 +295,10 @@ pub async fn handle(
         Err(r) => return r,
     };
     let (tenant, id, credentialed) = (r.tenant, r.id, r.credentialed);
-    let current = match read::current(&client, app.order(), &tenant.slug, &id).await {
-        Ok(c) => c,
+    let body = match assemble(&app, &client, &tenant, &id).await {
+        Ok((body, _)) => body.to_string(),
         Err(e) => return internal(&e),
     };
-    let standing = match read::standing(&client, &tenant.slug, &id).await {
-        Ok(s) => s,
-        Err(e) => return internal(&e),
-    };
-    let minted = match minted_by(&app, &client, &tenant, &id).await {
-        Ok(v) => v,
-        Err(e) => return internal(&e),
-    };
-    let registry = app
-        .registry_for(&client, &tenant.slug)
-        .await
-        .unwrap_or_else(|_| app.registry());
-    let urls = upstream_urls(registry, &standing);
-    let body = body(&id, current.as_ref(), &standing, &minted, &urls, registry).to_string();
     let class = Class::Public.permitted(&method, credentialed, false, false);
     http_cache::respond(
         &headers,

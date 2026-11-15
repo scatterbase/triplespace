@@ -48,6 +48,10 @@ pub(crate) struct Resolved {
     pub id: EntityId,
     /// Whether the request carried a credential, for the cache class.
     pub credentialed: bool,
+    /// The entity the ID given stands for, where it is a key-mapped provider's own item
+    /// ID and the entity is the keyed one it was written under (05 §4.1): the ID asked,
+    /// canonical.
+    pub alias_of: Option<EntityId>,
 }
 
 /// Resolves an entity route on a connection, or answers for it.
@@ -94,12 +98,12 @@ pub(crate) async fn resolve(
         ));
     }
     // A key-mapped provider's own item ID resolves to the keyed entity (05 §4.1).
-    let id = match read::mapped_alias(client, registry, &tenant.slug, &id)
+    let (id, alias_of) = match read::mapped_alias(client, registry, &tenant.slug, &id)
         .await
         .map_err(|e| internal(&e))?
     {
-        Some(target) => target,
-        None => id,
+        Some(target) => (target, Some(id)),
+        None => (id, None),
     };
     let current = read::current(client, app.order(), &tenant.slug, &id)
         .await
@@ -139,5 +143,6 @@ pub(crate) async fn resolve(
         tenant,
         id,
         credentialed,
+        alias_of,
     })
 }

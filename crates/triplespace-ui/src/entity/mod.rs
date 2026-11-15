@@ -165,6 +165,25 @@ impl Lookup {
         out
     }
 
+    /// From the bulk labels route's answer (0012 A70): each entity's label and its
+    /// language. A property's data type is read from its statements' snaks.
+    #[must_use]
+    pub fn from_labels(labels: BTreeMap<String, triplespace_client::entity::Label>) -> Self {
+        Self {
+            labels: labels
+                .into_iter()
+                .map(|(id, l)| (id, (l.value, l.language)))
+                .collect(),
+            datatypes: BTreeMap::new(),
+        }
+    }
+
+    /// Adds the data types the page bundle gives for the properties whose snaks do not
+    /// say theirs.
+    pub fn add_datatypes(&mut self, datatypes: BTreeMap<String, String>) {
+        self.datatypes.extend(datatypes);
+    }
+
     /// Adds the page's own entity, which a statement may name (an item that is an
     /// instance of itself), so it shows with its label rather than its ID.
     pub fn add_self(&mut self, entity: &Entity, chain: &[String]) {
@@ -375,11 +394,10 @@ pub async fn serve(
 ) -> Response {
     let incoming = pages::incoming(headers, peer);
     let client = site.client();
-    let one = [title.clone()];
-    let (cx, fetched, provenance) = tokio::join!(
+    // The page bundle: the entity and its provenance in one call (19 §5.1 rule 5).
+    let (cx, fetched) = tokio::join!(
         pages::context(site, &incoming, query),
-        client.entities(&incoming, &one, "", ""),
-        client.provenance(&incoming, &title),
+        client.page_bundle(&incoming, &title),
     );
     let mut cx = match cx {
         Ok(cx) => cx,
@@ -400,8 +418,7 @@ pub async fn serve(
         Err(e) => return pages::api_failed(&cx, headers, &e),
     };
     cx.inputs.push(fetched.cache.clone());
-    let visibility = fetched.value.visibility.values().next().cloned();
-    let Some((_, mut json)) = fetched.value.found.into_iter().next() else {
+    let Some(bundle) = fetched.value else {
         if render {
             return pages::fragment(&cx, headers, StatusCode::NOT_FOUND, String::new);
         }
@@ -413,11 +430,11 @@ pub async fn serve(
         }
         return missing(&cx, headers, &title);
     };
-    let redirected = json
-        .as_object_mut()
-        .and_then(|m| m.remove("redirects"))
-        .is_some();
-    let parsed = match Entity::from_value(json) {
+    let visibility = bundle.visibility;
+    let datatypes = bundle.datatypes;
+    let redirected = bundle.redirected;
+    let provenance = bundle.provenance;
+    let parsed = match Entity::from_value(bundle.entity) {
         Ok(p) => p,
         Err(e) => {
             return pages::api_failed(
@@ -434,17 +451,6 @@ pub async fn serve(
     if redirected && own != title {
         return pages::redirect_to_with(&cx, &own, query);
     }
-    let provenance = match provenance {
-        Ok(p) => {
-            cx.inputs.push(p.cache);
-            p.value
-        }
-        Err(e) => {
-            eprintln!("triplespace-ui: provenance of {title}: {e}");
-            cx.inputs.push(CacheInfo::default());
-            None
-        }
-    };
     // A diff, a comparison or an old revision (19 §3.7–3.8): MediaWiki's `diff=` and
     // `oldid=` on the entity's title.
     if !render
@@ -468,13 +474,12 @@ pub async fn serve(
     let mut lookup = if ids.is_empty() {
         Lookup::default()
     } else {
-        match client
-            .entities(&incoming, &ids, "labels|datatype", &chain.join("|"))
-            .await
-        {
+        // Every label the page shows, in one call for up to a thousand entities
+        // (19 §5.1 rule 5).
+        match client.labels(&incoming, &ids, &chain).await {
             Ok(f) => {
                 cx.inputs.push(f.cache);
-                Lookup::from_entities(&f.value.found, &chain)
+                Lookup::from_labels(f.value)
             }
             Err(e) => {
                 eprintln!("triplespace-ui: labels for {title}: {e}");
@@ -484,6 +489,7 @@ pub async fn serve(
         }
     };
     lookup.add_self(&entity, &chain);
+    lookup.add_datatypes(datatypes);
     let history_tab =
         !render && TabName::of(query) == TabName::History && cx.features.has(Feature::History);
     let history = if history_tab {

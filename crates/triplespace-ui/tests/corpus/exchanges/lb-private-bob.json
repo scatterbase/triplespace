@@ -8,7 +8,7 @@
       "cache-control": "private, no-cache",
       "content-length": "171",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:10 GMT",
+      "date": "Sun, 15 Nov 2026 17:59:21 GMT",
       "etag": "\"0f890ae67e9854a3d427c0d0c6de80f5\"",
       "mediawiki-api-error": "missingtitle",
       "vary": "Accept, Accept-Language"
@@ -28,10 +28,10 @@
     "status": 200,
     "headers": {
       "cache-control": "private, no-cache",
-      "content-length": "879",
+      "content-length": "900",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:09 GMT",
-      "etag": "\"9c6ce5fb87332331b404c15bb2a90cc3\"",
+      "date": "Sun, 15 Nov 2026 17:59:20 GMT",
+      "etag": "\"cf2dbeecf83f77df60a69382e32d2cc1\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -45,7 +45,7 @@
           }
         ],
         "templates": [],
-        "text": "<div class=\"mw-parser-output\"><p>Welcome to <b>Librarybase</b>, a catalogue of sources and the people who cite them.\n</p><h2><span class=\"mw-headline\" id=\"About\">About</span></h2><p>See <a href=\"/wiki/librarybase:About\" class=\"mw-redirect\" title=\"librarybase:About\">Project:About</a> and <a href=\"/wiki/librarybase:Analytics\" title=\"librarybase:Analytics\">Project:Analytics</a>.\n</p><h2><span class=\"mw-headline\" id=\"Lists\">Lists</span></h2><ul><li><a href=\"/wiki/Special:ListProperties\" title=\"Special:ListProperties\">Properties</a></li><li><a href=\"/wiki/Special:RecentChanges\" title=\"Special:RecentChanges\">Recent changes</a></li></ul></div>",
+        "text": "<div class=\"mw-parser-output\"><p>Welcome to <b>Librarybase</b>, a catalogue of sources and the people who cite them.\n</p><h2><span class=\"mw-headline\" id=\"About\">About</span></h2><p>See <a href=\"/wiki/librarybase:About\" class=\"mw-redirect\" title=\"librarybase:About → librarybase:Home\">Project:About</a> and <a href=\"/wiki/librarybase:Analytics\" title=\"librarybase:Analytics\">Project:Analytics</a>.\n</p><h2><span class=\"mw-headline\" id=\"Lists\">Lists</span></h2><ul><li><a href=\"/wiki/Special:ListProperties\" title=\"Special:ListProperties\">Properties</a></li><li><a href=\"/wiki/Special:RecentChanges\" title=\"Special:RecentChanges\">Recent changes</a></li></ul></div>",
         "title": "librarybase:Home",
         "ts-visibility": {
           "groups": [
@@ -63,10 +63,10 @@
     "status": 200,
     "headers": {
       "cache-control": "private, no-cache",
-      "content-length": "812",
+      "content-length": "833",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:08 GMT",
-      "etag": "\"f6ced1edc9ff66ae55e4976ddd67497f\"",
+      "date": "Sun, 15 Nov 2026 17:59:20 GMT",
+      "etag": "\"c1dbd4c8b2af828ff972db88c752c37d\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -74,7 +74,7 @@
         "categories": [],
         "pageid": 489,
         "templates": [],
-        "text": "<div class=\"mw-parser-output\"><p>Welcome to <b>Librarybase</b>, a catalogue of sources and the people who cite them.\n</p><h2><span class=\"mw-headline\" id=\"About\">About</span></h2><p>See <a href=\"/wiki/librarybase:About\" class=\"mw-redirect\" title=\"librarybase:About\">Project:About</a> and <a href=\"/wiki/librarybase:Analytics\" title=\"librarybase:Analytics\">Project:Analytics</a>.\n</p><h2><span class=\"mw-headline\" id=\"Lists\">Lists</span></h2><ul><li><a href=\"/wiki/Special:ListProperties\" title=\"Special:ListProperties\">Properties</a></li><li><a href=\"/wiki/Special:RecentChanges\" title=\"Special:RecentChanges\">Recent changes</a></li></ul></div>",
+        "text": "<div class=\"mw-parser-output\"><p>Welcome to <b>Librarybase</b>, a catalogue of sources and the people who cite them.\n</p><h2><span class=\"mw-headline\" id=\"About\">About</span></h2><p>See <a href=\"/wiki/librarybase:About\" class=\"mw-redirect\" title=\"librarybase:About → librarybase:Home\">Project:About</a> and <a href=\"/wiki/librarybase:Analytics\" title=\"librarybase:Analytics\">Project:Analytics</a>.\n</p><h2><span class=\"mw-headline\" id=\"Lists\">Lists</span></h2><ul><li><a href=\"/wiki/Special:ListProperties\" title=\"Special:ListProperties\">Properties</a></li><li><a href=\"/wiki/Special:RecentChanges\" title=\"Special:RecentChanges\">Recent changes</a></li></ul></div>",
         "title": "librarybase:Home",
         "ts-visibility": {
           "groups": [
@@ -94,7 +94,7 @@
       "cache-control": "private, no-cache",
       "content-length": "47",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:11 GMT",
+      "date": "Sun, 15 Nov 2026 17:59:21 GMT",
       "etag": "\"9b8a5359db2b6f583784e5b74003b5e0\"",
       "vary": "Accept, Accept-Language"
     },
@@ -107,6 +107,26 @@
   },
   {
     "method": "GET",
+    "path_and_query": "/w/api.php?action=query&list=prefixsearch&format=json&formatversion=2&pssearch=six&psnamespace=*&pslimit=7",
+    "credentialed": true,
+    "status": 200,
+    "headers": {
+      "cache-control": "private, no-cache",
+      "content-length": "50",
+      "content-type": "application/json; charset=utf-8",
+      "date": "Sun, 15 Nov 2026 17:59:20 GMT",
+      "etag": "\"fadb6093475142a9be1af0ab0574f872\"",
+      "vary": "Accept, Accept-Language"
+    },
+    "json": {
+      "batchcomplete": true,
+      "query": {
+        "prefixsearch": []
+      }
+    }
+  },
+  {
+    "method": "GET",
     "path_and_query": "/w/api.php?action=query&list=protectedpages%7Cprotectedtitles&prtype=edit%7Cmove%7Cread%7Ccreate&prlimit=500&ptlimit=500&format=json&formatversion=2",
     "credentialed": true,
     "status": 200,
@@ -114,7 +134,7 @@
       "cache-control": "private, no-cache",
       "content-length": "254",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:11 GMT",
+      "date": "Sun, 15 Nov 2026 17:59:21 GMT",
       "etag": "\"3b6c324b8fc028cd312f959bb84282c0\"",
       "vary": "Accept, Accept-Language"
     },
@@ -152,7 +172,7 @@
       "cache-control": "private, no-cache",
       "content-length": "236",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:11 GMT",
+      "date": "Sun, 15 Nov 2026 17:59:21 GMT",
       "etag": "\"1e733cf4f2eafa1743ff4b58ac38ccf6\"",
       "vary": "Accept, Accept-Language"
     },
@@ -191,8 +211,8 @@
       "cache-control": "private, no-cache",
       "content-length": "695",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:11 GMT",
-      "etag": "\"5993bbf121920cebe70eebf2acd3afd2\"",
+      "date": "Sun, 15 Nov 2026 17:59:21 GMT",
+      "etag": "\"350c6e6c3db05d69c3ac0922d5762861\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -200,7 +220,7 @@
       "query": {
         "notifications": {
           "alert": {
-            "continue": "1793723849|12",
+            "continue": "1794765509|14",
             "count": "6",
             "list": [
               {
@@ -209,14 +229,14 @@
                   "name": "Alice"
                 },
                 "category": "user-rights",
-                "id": 12,
+                "id": 14,
                 "section": "alert",
                 "timestamp": {
-                  "mw": "20261103163729",
-                  "unix": "1793723849",
-                  "utciso8601": "2026-11-03T16:37:29Z",
-                  "utcmw": "20261103163729",
-                  "utcunix": "1793723849"
+                  "mw": "20261115175829",
+                  "unix": "1794765509",
+                  "utciso8601": "2026-11-15T17:58:29Z",
+                  "utcmw": "20261115175829",
+                  "utcunix": "1794765509"
                 },
                 "title": {
                   "full": "User:Bob",
@@ -235,14 +255,14 @@
               }
             ],
             "rawcount": 6,
-            "seenTime": "2026-11-03T16:38:59Z"
+            "seenTime": "2026-11-15T17:58:58Z"
           },
           "count": "6",
           "message": {
             "count": "0",
             "list": [],
             "rawcount": 0,
-            "seenTime": "2026-11-03T16:38:59Z"
+            "seenTime": "2026-11-15T17:58:58Z"
           },
           "rawcount": 6
         }
@@ -256,10 +276,10 @@
     "status": 200,
     "headers": {
       "cache-control": "private, no-cache",
-      "content-length": "89037",
+      "content-length": "89238",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:11 GMT",
-      "etag": "\"b35841063fb906fabc839d25277c9221\"",
+      "date": "Sun, 15 Nov 2026 17:59:21 GMT",
+      "etag": "\"1f88ec7572e0a170e8edd244ea9e96e0\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -325,7 +345,7 @@
             "4": 250,
             "5": 300
           },
-          "time": "2026-11-03T16:40:11Z",
+          "time": "2026-11-15T17:59:21Z",
           "timeoffset": 0,
           "timezone": "UTC",
           "uploadsenabled": false,
@@ -757,12 +777,14 @@
         "triplespace": {
           "account": {
             "approval": true,
+            "external_required": false,
+            "names": "chosen",
             "statement": "optional"
           },
           "api_version": 6,
           "at_farm": true,
           "build": {
-            "commit": "614327b21b50eafd42023c8e210bff54f2b3b1e7",
+            "commit": "65326ae883e9da9ebdb40308580d6b99a44da8af",
             "modified": true,
             "version": "0.0.1"
           },
@@ -791,11 +813,14 @@
             "move",
             "protect",
             "userrights",
+            "renameuser",
             "block",
             "delete",
             "notifications",
             "watchlist",
-            "reports"
+            "reports",
+            "export",
+            "import"
           ],
           "challenge": {
             "algorithm": "sha256-leading-zero-bits",
@@ -806,8 +831,12 @@
               "badlogin"
             ]
           },
+          "export": {
+            "from_namespaces": false,
+            "history": true
+          },
           "farm": "scatter",
-          "farm_code": "qy5lcrhd6pygzivl5eerupvdx4",
+          "farm_code": "upvnufjxdkvq7tdjbxg7wnt4lj",
           "grants": [
             "basic",
             "highvolume",
@@ -823,11 +852,15 @@
             "editmywatchlist",
             "ts-jobs"
           ],
+          "import": {
+            "max_upload": 104857600,
+            "sync_pages": 100
+          },
           "insecure": true,
           "interface": {
             "messages": {}
           },
-          "issuer": "pep52en4doftudxz5zaztpvbao",
+          "issuer": "mkqavovhrxj56hkmbusdncsbrk",
           "login": [],
           "primary": "librarybase",
           "providers": [
@@ -892,9 +925,9 @@
                       "color-destructive": "#E2798A",
                       "color-error": "#E2798A",
                       "color-success": "#84AA1E",
-                      "color-visited": "#CE64AE",
-                      "color-visited--active": "#CE64AE",
-                      "color-visited--hover": "#CE64AE",
+                      "color-visited": "#D06AB1",
+                      "color-visited--active": "#D06AB1",
+                      "color-visited--hover": "#D06AB1",
                       "color-warning": "#AE9685"
                     },
                     "dark-more": {
@@ -952,9 +985,9 @@
                       "color-destructive": "#831B2E",
                       "color-error": "#831B2E",
                       "color-success": "#3B4B0D",
-                      "color-visited": "#892C6D",
-                      "color-visited--active": "#892C6D",
-                      "color-visited--hover": "#892C6D",
+                      "color-visited": "#812966",
+                      "color-visited--active": "#812966",
+                      "color-visited--hover": "#812966",
                       "color-warning": "#534236"
                     }
                   },
@@ -974,9 +1007,9 @@
                       "color-destructive": "#FF6904",
                       "color-error": "#FF6904",
                       "color-success": "#0CA8CD",
-                      "color-visited": "#A977BB",
-                      "color-visited--active": "#A977BB",
-                      "color-visited--hover": "#A977BB",
+                      "color-visited": "#AC7CBD",
+                      "color-visited--active": "#AC7CBD",
+                      "color-visited--hover": "#AC7CBD",
                       "color-warning": "#C88F5A"
                     },
                     "dark-more": {
@@ -1034,9 +1067,9 @@
                       "color-destructive": "#752F00",
                       "color-error": "#752F00",
                       "color-success": "#054C5D",
-                      "color-visited": "#6A3D7A",
-                      "color-visited--active": "#6A3D7A",
-                      "color-visited--hover": "#6A3D7A",
+                      "color-visited": "#663B75",
+                      "color-visited--active": "#663B75",
+                      "color-visited--hover": "#663B75",
                       "color-warning": "#5F3D20"
                     }
                   }
@@ -1188,7 +1221,7 @@
                   "color-progressive--hover": "#0847C3",
                   "color-subtle": "#65677C",
                   "color-success": "#2F741F",
-                  "color-visited": "#8839EF",
+                  "color-visited": "#8636EF",
                   "color-visited--active": "#5F10C6",
                   "color-visited--hover": "#7113EC",
                   "color-warning": "#905B13",
@@ -1228,7 +1261,7 @@
                   "color-progressive--hover": "#052F82",
                   "color-subtle": "#484A63",
                   "color-success": "#215316",
-                  "color-visited": "#6711D7",
+                  "color-visited": "#6110CB",
                   "color-visited--active": "#430B8B",
                   "color-visited--hover": "#550EB1",
                   "color-warning": "#68420E",
@@ -1255,9 +1288,9 @@
                       "color-destructive": "#EBA4B0",
                       "color-error": "#EBA4B0",
                       "color-success": "#A0CE25",
-                      "color-visited": "#DD93C6",
-                      "color-visited--active": "#DD93C6",
-                      "color-visited--hover": "#DD93C6",
+                      "color-visited": "#E3A5CF",
+                      "color-visited--active": "#E3A5CF",
+                      "color-visited--hover": "#E3A5CF",
                       "color-warning": "#C9B9AD"
                     },
                     "dark-more": {
@@ -1275,9 +1308,9 @@
                       "color-destructive": "#F4CDD4",
                       "color-error": "#F4CDD4",
                       "color-success": "#C8E773",
-                      "color-visited": "#E4ABD3",
-                      "color-visited--active": "#E4ABD3",
-                      "color-visited--hover": "#E4ABD3",
+                      "color-visited": "#E8B8DA",
+                      "color-visited--active": "#E8B8DA",
+                      "color-visited--hover": "#E8B8DA",
                       "color-warning": "#E0D8D1"
                     },
                     "light": {
@@ -1330,16 +1363,16 @@
                       "background-color-error-subtle": "#42455E",
                       "background-color-success-subtle": "#185082",
                       "background-color-warning-subtle": "#394B6B",
-                      "border-color-destructive": "#FF9C59",
-                      "border-color-error": "#FF9C59",
+                      "border-color-destructive": "#FFA161",
+                      "border-color-error": "#FFA161",
                       "border-color-success": "#35CFF4",
                       "border-color-warning": "#DAB38F",
-                      "color-destructive": "#FF9C59",
-                      "color-error": "#FF9C59",
+                      "color-destructive": "#FFA161",
+                      "color-error": "#FFA161",
                       "color-success": "#35CFF4",
-                      "color-visited": "#C29ECE",
-                      "color-visited--active": "#C29ECE",
-                      "color-visited--hover": "#C29ECE",
+                      "color-visited": "#CBADD6",
+                      "color-visited--active": "#CBADD6",
+                      "color-visited--hover": "#CBADD6",
                       "color-warning": "#DAB38F"
                     },
                     "dark-more": {
@@ -1357,9 +1390,9 @@
                       "color-destructive": "#FFCBA8",
                       "color-error": "#FFCBA8",
                       "color-success": "#9EE8FA",
-                      "color-visited": "#CFB2D8",
-                      "color-visited--active": "#CFB2D8",
-                      "color-visited--hover": "#CFB2D8",
+                      "color-visited": "#D6BEDE",
+                      "color-visited--active": "#D6BEDE",
+                      "color-visited--hover": "#D6BEDE",
                       "color-warning": "#EAD4C1"
                     },
                     "light": {
@@ -1590,6 +1623,7 @@
                   "color-progressive--hover": "#003135",
                   "color-subtle": "#2A4373",
                   "color-success": "#23582F",
+                  "color-visited": "#693E8C",
                   "color-warning": "#6C4600"
                 },
                 "name": "cyanotype"
@@ -1663,7 +1697,7 @@
                   "color-progressive--hover": "#1D3A75",
                   "color-subtle": "#45494D",
                   "color-success": "#115947",
-                  "color-visited": "#574D9C",
+                  "color-visited": "#544A97",
                   "color-visited--active": "#352F5E",
                   "color-visited--hover": "#463E7D",
                   "color-warning": "#5E4418",
@@ -2042,9 +2076,9 @@
                       "color-destructive": "#E58595",
                       "color-error": "#E58595",
                       "color-success": "#8CB420",
-                      "color-visited": "#D06CB2",
-                      "color-visited--active": "#D06CB2",
-                      "color-visited--hover": "#D06CB2",
+                      "color-visited": "#D47AB9",
+                      "color-visited--active": "#D47AB9",
+                      "color-visited--hover": "#D47AB9",
                       "color-warning": "#B5A090"
                     },
                     "dark-more": {
@@ -2062,9 +2096,9 @@
                       "color-destructive": "#F0B8C1",
                       "color-error": "#F0B8C1",
                       "color-success": "#ACDB2F",
-                      "color-visited": "#DC93C6",
-                      "color-visited--active": "#DC93C6",
-                      "color-visited--hover": "#DC93C6",
+                      "color-visited": "#E0A0CD",
+                      "color-visited--active": "#E0A0CD",
+                      "color-visited--hover": "#E0A0CD",
                       "color-warning": "#D3C7BD"
                     },
                     "light": {
@@ -2102,9 +2136,9 @@
                       "color-destructive": "#821B2D",
                       "color-error": "#821B2D",
                       "color-success": "#3A4B0D",
-                      "color-visited": "#882C6D",
-                      "color-visited--active": "#882C6D",
-                      "color-visited--hover": "#882C6D",
+                      "color-visited": "#7C2864",
+                      "color-visited--active": "#7C2864",
+                      "color-visited--hover": "#7C2864",
                       "color-warning": "#534236"
                     }
                   },
@@ -2124,9 +2158,9 @@
                       "color-destructive": "#FF7B22",
                       "color-error": "#FF7B22",
                       "color-success": "#0CB2D9",
-                      "color-visited": "#AD7DBE",
-                      "color-visited--active": "#AD7DBE",
-                      "color-visited--hover": "#AD7DBE",
+                      "color-visited": "#B489C4",
+                      "color-visited--active": "#B489C4",
+                      "color-visited--hover": "#B489C4",
                       "color-warning": "#CD996A"
                     },
                     "dark-more": {
@@ -2144,9 +2178,9 @@
                       "color-destructive": "#FFB786",
                       "color-error": "#FFB786",
                       "color-success": "#59D7F6",
-                      "color-visited": "#C29DCE",
-                      "color-visited--active": "#C29DCE",
-                      "color-visited--hover": "#C29DCE",
+                      "color-visited": "#C9A9D4",
+                      "color-visited--active": "#C9A9D4",
+                      "color-visited--hover": "#C9A9D4",
                       "color-warning": "#E2C3A7"
                     },
                     "light": {
@@ -2184,9 +2218,9 @@
                       "color-destructive": "#752F00",
                       "color-error": "#752F00",
                       "color-success": "#054B5D",
-                      "color-visited": "#6A3D7A",
-                      "color-visited--active": "#6A3D7A",
-                      "color-visited--hover": "#6A3D7A",
+                      "color-visited": "#633972",
+                      "color-visited--active": "#633972",
+                      "color-visited--hover": "#633972",
                       "color-warning": "#5F3D20"
                     }
                   }
@@ -2286,7 +2320,7 @@
                   "color-progressive--hover": "#CEDBD6",
                   "color-subtle": "#D5C4A1",
                   "color-success": "#CFD32B",
-                  "color-visited": "#D998A9",
+                  "color-visited": "#DEA5B4",
                   "color-visited--active": "#EFD4DB",
                   "color-visited--hover": "#E4B6C2",
                   "color-warning": "#FBC953"
@@ -2376,7 +2410,7 @@
                   "color-progressive--hover": "#032B33",
                   "color-subtle": "#504945",
                   "color-success": "#4D4909",
-                  "color-visited": "#7E3764",
+                  "color-visited": "#73325C",
                   "color-visited--active": "#451E37",
                   "color-visited--hover": "#622B4D",
                   "color-warning": "#64420B"
@@ -2402,9 +2436,9 @@
                       "color-destructive": "#E996A4",
                       "color-error": "#E996A4",
                       "color-success": "#97C223",
-                      "color-visited": "#D67FBC",
-                      "color-visited--active": "#D67FBC",
-                      "color-visited--hover": "#D67FBC",
+                      "color-visited": "#DA8DC3",
+                      "color-visited--active": "#DA8DC3",
+                      "color-visited--hover": "#DA8DC3",
                       "color-warning": "#BFAD9F"
                     },
                     "dark-more": {
@@ -2422,9 +2456,9 @@
                       "color-destructive": "#F3C8CF",
                       "color-error": "#F3C8CF",
                       "color-success": "#C1E462",
-                      "color-visited": "#E1A0CD",
-                      "color-visited--active": "#E1A0CD",
-                      "color-visited--hover": "#E1A0CD",
+                      "color-visited": "#E7B4D8",
+                      "color-visited--active": "#E7B4D8",
+                      "color-visited--hover": "#E7B4D8",
                       "color-warning": "#DDD3CC"
                     },
                     "light": {
@@ -2462,9 +2496,9 @@
                       "color-destructive": "#801B2D",
                       "color-error": "#801B2D",
                       "color-success": "#3A4A0D",
-                      "color-visited": "#872B6C",
-                      "color-visited--active": "#872B6C",
-                      "color-visited--hover": "#872B6C",
+                      "color-visited": "#802966",
+                      "color-visited--active": "#802966",
+                      "color-visited--hover": "#802966",
                       "color-warning": "#514135"
                     }
                   },
@@ -2484,9 +2518,9 @@
                       "color-destructive": "#FF8F43",
                       "color-error": "#FF8F43",
                       "color-success": "#0DBFE9",
-                      "color-visited": "#B78DC6",
-                      "color-visited--active": "#B78DC6",
-                      "color-visited--hover": "#B78DC6",
+                      "color-visited": "#BE98CB",
+                      "color-visited--active": "#BE98CB",
+                      "color-visited--hover": "#BE98CB",
                       "color-warning": "#D4A77F"
                     },
                     "dark-more": {
@@ -2504,9 +2538,9 @@
                       "color-destructive": "#FFC7A1",
                       "color-error": "#FFC7A1",
                       "color-success": "#81E1F8",
-                      "color-visited": "#C9A9D4",
-                      "color-visited--active": "#C9A9D4",
-                      "color-visited--hover": "#C9A9D4",
+                      "color-visited": "#D4BADC",
+                      "color-visited--active": "#D4BADC",
+                      "color-visited--hover": "#D4BADC",
                       "color-warning": "#E8CFB9"
                     },
                     "light": {
@@ -2544,9 +2578,9 @@
                       "color-destructive": "#742E00",
                       "color-error": "#742E00",
                       "color-success": "#054A5C",
-                      "color-visited": "#6A3D7A",
-                      "color-visited--active": "#6A3D7A",
-                      "color-visited--hover": "#6A3D7A",
+                      "color-visited": "#653A75",
+                      "color-visited--active": "#653A75",
+                      "color-visited--hover": "#653A75",
                       "color-warning": "#5E3C1F"
                     }
                   }
@@ -2603,7 +2637,7 @@
                   "color-progressive--hover": "#ACD3DF",
                   "color-subtle": "#B8C0CE",
                   "color-success": "#A9C394",
-                  "color-visited": "#B691AF",
+                  "color-visited": "#BD9BB6",
                   "color-visited--active": "#D7C2D3",
                   "color-visited--hover": "#C6AAC1",
                   "color-warning": "#EBCB8B",
@@ -2650,7 +2684,7 @@
                   "color-progressive--hover": "#DDEDF2",
                   "color-subtle": "#D8DEE9",
                   "color-success": "#CEDDC2",
-                  "color-visited": "#C8ACC2",
+                  "color-visited": "#D3BCCE",
                   "color-visited--active": "#E9DDE6",
                   "color-visited--hover": "#D8C5D4",
                   "color-warning": "#F2DDB2"
@@ -2706,7 +2740,7 @@
                   "color-progressive--hover": "#3A5271",
                   "color-subtle": "#4C566A",
                   "color-success": "#55703F",
-                  "color-visited": "#8C5D84",
+                  "color-visited": "#86597F",
                   "color-visited--active": "#5B3C56",
                   "color-visited--hover": "#734D6D",
                   "color-warning": "#A04F35",
@@ -2746,7 +2780,7 @@
                   "color-progressive--hover": "#263549",
                   "color-subtle": "#3B4252",
                   "color-success": "#3E512E",
-                  "color-visited": "#674461",
+                  "color-visited": "#63415D",
                   "color-visited--active": "#362433",
                   "color-visited--hover": "#4E344A",
                   "color-warning": "#743926",
@@ -2786,16 +2820,16 @@
                       "background-color-error-subtle": "#290F14",
                       "background-color-success-subtle": "#24290F",
                       "background-color-warning-subtle": "#231C15",
-                      "border-color-destructive": "#E78C9C",
-                      "border-color-error": "#E78C9C",
+                      "border-color-destructive": "#E994A3",
+                      "border-color-error": "#E994A3",
                       "border-color-success": "#97C222",
                       "border-color-warning": "#BAA697",
-                      "color-destructive": "#E78C9C",
-                      "color-error": "#E78C9C",
+                      "color-destructive": "#E994A3",
+                      "color-error": "#E994A3",
                       "color-success": "#97C222",
-                      "color-visited": "#DB8EC4",
+                      "color-visited": "#DD95C8",
                       "color-visited--active": "#DD95C8",
-                      "color-visited--hover": "#DB8EC4",
+                      "color-visited--hover": "#DD95C8",
                       "color-warning": "#BAA697"
                     },
                     "light": {
@@ -2868,16 +2902,16 @@
                       "background-color-error-subtle": "#291B0F",
                       "background-color-success-subtle": "#0F2429",
                       "background-color-warning-subtle": "#231D15",
-                      "border-color-destructive": "#FF8B3E",
-                      "border-color-error": "#FF8B3E",
+                      "border-color-destructive": "#FF8E43",
+                      "border-color-error": "#FF8E43",
                       "border-color-success": "#0DBCE7",
                       "border-color-warning": "#D1A075",
-                      "color-destructive": "#FF8B3E",
-                      "color-error": "#FF8B3E",
+                      "color-destructive": "#FF8E43",
+                      "color-error": "#FF8E43",
                       "color-success": "#0DBCE7",
-                      "color-visited": "#BF99CC",
+                      "color-visited": "#C39FCF",
                       "color-visited--active": "#C3A0CF",
-                      "color-visited--hover": "#BF99CC",
+                      "color-visited--hover": "#C39FCF",
                       "color-warning": "#D1A075"
                     },
                     "light": {
@@ -3385,10 +3419,10 @@
     "status": 200,
     "headers": {
       "cache-control": "private, no-cache",
-      "content-length": "3236",
+      "content-length": "3253",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:11 GMT",
-      "etag": "\"ff228b9187bcdb1adfd1dd689ac4ab3e\"",
+      "date": "Sun, 15 Nov 2026 17:59:21 GMT",
+      "etag": "\"77fc76d0f03cdb4ad4c37badfab56159\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -3604,6 +3638,7 @@
               "skipcaptcha",
               "suppressredirect",
               "suppressrevision",
+              "ts-backup-keys",
               "ts-config",
               "ts-convert",
               "ts-editpost",
@@ -3650,15 +3685,15 @@
       "cache-control": "private, no-cache",
       "content-length": "94",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:09 GMT",
-      "etag": "\"64d1cf1108596549a1b5beca5d286ed8\"",
+      "date": "Sun, 15 Nov 2026 17:59:20 GMT",
+      "etag": "\"6143432a576ecba2461ddde489d30a7f\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
       "batchcomplete": true,
       "query": {
         "tokens": {
-          "watchtoken": "DLIqDhMvcDlm5gyf73A3DOgdzGUO0ujN+\\"
+          "watchtoken": "yC0q1ruEhBnhiVohkQ73pRJ4jlUVe0vQ+\\"
         }
       }
     }
@@ -3672,8 +3707,8 @@
       "cache-control": "private, no-cache",
       "content-length": "3007",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:10 GMT",
-      "etag": "\"284316fd96bdf2b42cbebd8af36e2dde\"",
+      "date": "Sun, 15 Nov 2026 17:59:20 GMT",
+      "etag": "\"e1bbbd7f9f6e8c44e3f616c435e79d96\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -3698,7 +3733,7 @@
               "help": "The challenge the solution is for.",
               "label": "Challenge",
               "type": "hidden",
-              "value": "1.librarybase.createaccount.13.1793724610.OY5zTqJbGTyYVIqRvj__Cg.fXmfoSYtcJDyW7cf8lKxew"
+              "value": "1.librarybase.createaccount.13.1794766160.zyA00tv4Q4a-21hFpJE3FA._YBzgL_dweX9Nj4Orsjoeg"
             },
             "tschallengeinfo": {
               "help": "The browser does this while the form is filled in.",
@@ -3781,7 +3816,7 @@
                   "help": "The challenge the solution is for.",
                   "label": "Challenge",
                   "type": "hidden",
-                  "value": "1.librarybase.createaccount.13.1793724610.OY5zTqJbGTyYVIqRvj__Cg.fXmfoSYtcJDyW7cf8lKxew"
+                  "value": "1.librarybase.createaccount.13.1794766160.zyA00tv4Q4a-21hFpJE3FA._YBzgL_dweX9Nj4Orsjoeg"
                 },
                 "tschallengeinfo": {
                   "help": "The browser does this while the form is filled in.",
@@ -3799,7 +3834,7 @@
               "metadata": {
                 "algorithm": "sha256-leading-zero-bits",
                 "bits": 13,
-                "expires": 1793724610
+                "expires": 1794766160
               },
               "provider": "Triplespace challenge",
               "required": "required"
@@ -3807,8 +3842,8 @@
           ]
         },
         "tokens": {
-          "createaccounttoken": "rKEIO6tUtgNdpOkoZ92MJ8tKbJ9WniNZ+\\",
-          "logintoken": "sQuO2M18cwuaqP5ecno6Os4qan3IAYxp+\\"
+          "createaccounttoken": "LABYn3HLpR9NUStDbtliGWQvD2OEHW-K+\\",
+          "logintoken": "kSOE3QDbSVFj-TjbOEhzhpfDTVg-hty5+\\"
         }
       }
     }
@@ -3820,10 +3855,10 @@
     "status": 200,
     "headers": {
       "cache-control": "private, no-cache",
-      "content-length": "1185",
+      "content-length": "1478",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:11 GMT",
-      "etag": "\"7ee0c0c49e2e056f4e8f627b5cfd1b26\"",
+      "date": "Sun, 15 Nov 2026 17:59:21 GMT",
+      "etag": "\"090ddcd000f38306a218dc51d0d532bf\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -3850,7 +3885,16 @@
             "label-languages": [],
             "language": "de",
             "notifications.email-digest": "immediate",
+            "notifications.group-join.web": true,
+            "notifications.job.web": true,
+            "notifications.mention.web": true,
+            "notifications.rename.web": true,
+            "notifications.reply.web": true,
+            "notifications.rights.web": true,
             "notifications.talk.email": true,
+            "notifications.talk.web": true,
+            "notifications.thread-status.web": true,
+            "notifications.watch.web": true,
             "rc.limit": 50,
             "shapes.pins": {},
             "threads.visibility": {
@@ -3906,6 +3950,69 @@
   },
   {
     "method": "GET",
+    "path_and_query": "/w/api.php?action=query&prop=info%7Crevisions&inprop=protection&rvprop=ids%7Ctimestamp%7Cuser&rvdir=newer&rvlimit=1&titles=librarybase%3AHome&format=json&formatversion=2",
+    "credentialed": true,
+    "status": 200,
+    "headers": {
+      "cache-control": "private, no-cache",
+      "content-length": "638",
+      "content-type": "application/json; charset=utf-8",
+      "date": "Sun, 15 Nov 2026 17:59:20 GMT",
+      "etag": "\"210167d2f7ed940912ce34e2e7294cd5\"",
+      "vary": "Accept, Accept-Language"
+    },
+    "json": {
+      "batchcomplete": true,
+      "continue": {
+        "continue": "||",
+        "rvcontinue": "1689039998000000|15982878658614155561|73"
+      },
+      "query": {
+        "pages": [
+          {
+            "contentmodel": "wikitext",
+            "lastrevid": 248240,
+            "length": 240,
+            "ns": 4,
+            "pageid": 489,
+            "pagelanguage": "en",
+            "pagelanguagedir": "ltr",
+            "pagelanguagehtmlcode": "en",
+            "protection": [
+              {
+                "expiry": "infinity",
+                "level": "user",
+                "source": "acl:tenant:librarybase",
+                "type": "read"
+              }
+            ],
+            "restrictiontypes": [
+              "edit",
+              "move",
+              "read",
+              "create"
+            ],
+            "revisions": [
+              {
+                "parentid": 0,
+                "revid": 1020,
+                "timestamp": "2023-07-11T01:46:38Z",
+                "upstream": {
+                  "revid": 1020,
+                  "time": "2023-07-11T01:46:38Z"
+                },
+                "user": "Harej"
+              }
+            ],
+            "title": "librarybase:Home",
+            "touched": "2026-11-15T17:58:27Z"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "method": "GET",
     "path_and_query": "/w/api.php?action=query&prop=info&inprop=watched%7Cnotificationtimestamp&titles=Item%3AQ6&format=json&formatversion=2",
     "credentialed": true,
     "status": 200,
@@ -3913,7 +4020,7 @@
       "cache-control": "private, no-cache",
       "content-length": "262",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:09 GMT",
+      "date": "Sun, 15 Nov 2026 17:59:20 GMT",
       "etag": "\"7115c5c37cb3912d38f12ac9dfb95c25\"",
       "vary": "Accept, Accept-Language"
     },
@@ -3947,8 +4054,8 @@
       "cache-control": "private, no-cache",
       "content-length": "296",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:09 GMT",
-      "etag": "\"1ef70def7ed918835cb016f585cb95d1\"",
+      "date": "Sun, 15 Nov 2026 17:59:20 GMT",
+      "etag": "\"fdab7e489278fd14c2b66c0f478c3cef\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -3966,7 +4073,7 @@
             "pagelanguagedir": "ltr",
             "pagelanguagehtmlcode": "en",
             "title": "librarybase:Home",
-            "touched": "2026-11-03T16:37:26Z",
+            "touched": "2026-11-15T17:58:27Z",
             "watched": true
           }
         ]
@@ -3975,636 +4082,33 @@
   },
   {
     "method": "GET",
-    "path_and_query": "/w/api.php?action=wbgetentities&format=json&formatversion=2&ids=Item:Q6",
+    "path_and_query": "/w/api.php?action=query&prop=info&titles=six&format=json&formatversion=2",
     "credentialed": true,
     "status": 200,
     "headers": {
       "cache-control": "private, no-cache",
-      "content-length": "5055",
+      "content-length": "121",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:09 GMT",
-      "etag": "\"b1a7727c1e98d85f4f019844f17b5337\"",
+      "date": "Sun, 15 Nov 2026 17:59:20 GMT",
+      "etag": "\"46cfb77a27e3f1fc059d8bfdd461e089\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
-      "entities": {
-        "Q6": {
-          "aliases": {
-            "en": [
-              {
-                "language": "en",
-                "value": "6"
-              },
-              {
-                "language": "en",
-                "value": "VI"
-              }
-            ]
-          },
-          "claims": {
-            "P10": [
-              {
-                "id": "Q6$00000011-0000-0000-0000-000000000000",
-                "mainsnak": {
-                  "datatype": "wikibase-item",
-                  "hash": "ad23bfa7c0b35954df0dc78769476d462a80de6d",
-                  "property": "P10",
-                  "snaktype": "somevalue"
-                },
-                "rank": "normal",
-                "type": "statement"
-              }
-            ],
-            "P12": [
-              {
-                "id": "Q6$00000001-0000-0000-0000-000000000000",
-                "mainsnak": {
-                  "datatype": "string",
-                  "datavalue": {
-                    "type": "string",
-                    "value": "six"
-                  },
-                  "hash": "806cd5ceb2f3b86811672c2c4f6057b5abaf0c0a",
-                  "property": "P12",
-                  "snaktype": "value"
-                },
-                "rank": "normal",
-                "type": "statement"
-              }
-            ],
-            "P2": [
-              {
-                "id": "Q6$00000002-0000-0000-0000-000000000000",
-                "mainsnak": {
-                  "datatype": "wikibase-item",
-                  "datavalue": {
-                    "type": "wikibase-entityid",
-                    "value": {
-                      "entity-type": "item",
-                      "id": "Q2",
-                      "numeric-id": 2
-                    }
-                  },
-                  "hash": "6511c2931be27bcac018d16006b07c7c2e704c57",
-                  "property": "P2",
-                  "snaktype": "value"
-                },
-                "rank": "preferred",
-                "type": "statement"
-              },
-              {
-                "id": "Q6$00000003-0000-0000-0000-000000000000",
-                "mainsnak": {
-                  "datatype": "wikibase-item",
-                  "datavalue": {
-                    "type": "wikibase-entityid",
-                    "value": {
-                      "entity-type": "item",
-                      "id": "Q1",
-                      "numeric-id": 1
-                    }
-                  },
-                  "hash": "a32497b849d1964f21897e84ee8e80317d84992f",
-                  "property": "P2",
-                  "snaktype": "value"
-                },
-                "rank": "normal",
-                "type": "statement"
-              },
-              {
-                "id": "Q6$00000004-0000-0000-0000-000000000000",
-                "mainsnak": {
-                  "datatype": "wikibase-item",
-                  "datavalue": {
-                    "type": "wikibase-entityid",
-                    "value": {
-                      "entity-type": "item",
-                      "id": "Q3",
-                      "numeric-id": 3
-                    }
-                  },
-                  "hash": "1fa75381e3bd9253ba0ef08d92830adf043d7717",
-                  "property": "P2",
-                  "snaktype": "value"
-                },
-                "rank": "deprecated",
-                "type": "statement"
-              },
-              {
-                "id": "Q6$C1D41689-4250-5816-99F5-70ABC62E76FE",
-                "mainsnak": {
-                  "datatype": "wikibase-item",
-                  "datavalue": {
-                    "type": "wikibase-entityid",
-                    "value": {
-                      "entity-type": "item",
-                      "id": "Q5",
-                      "numeric-id": 5
-                    }
-                  },
-                  "hash": "44c11d9ab91c8c3cf203033599eebcb8d1be97ce",
-                  "property": "P2",
-                  "snaktype": "value"
-                },
-                "rank": "normal",
-                "type": "statement"
-              }
-            ],
-            "P3": [
-              {
-                "id": "Q6$00000005-0000-0000-0000-000000000000",
-                "mainsnak": {
-                  "datatype": "quantity",
-                  "datavalue": {
-                    "type": "quantity",
-                    "value": {
-                      "amount": "+3898900",
-                      "lowerBound": "+3898890",
-                      "unit": "https://librarybase.org/entity/Q5",
-                      "upperBound": "+3898910"
-                    }
-                  },
-                  "hash": "23ee7821e0cc2c6f6ccee6090466af8a2205dd5b",
-                  "property": "P3",
-                  "snaktype": "value"
-                },
-                "qualifiers": {
-                  "P9": [
-                    {
-                      "datatype": "time",
-                      "datavalue": {
-                        "type": "time",
-                        "value": {
-                          "after": 0,
-                          "before": 0,
-                          "calendarmodel": "http://www.wikidata.org/entity/Q1985727",
-                          "precision": 9,
-                          "time": "+2024-00-00T00:00:00Z",
-                          "timezone": 0
-                        }
-                      },
-                      "hash": "ce321b0847830f5a9cc728006b29e0128960719c",
-                      "property": "P9",
-                      "snaktype": "value"
-                    }
-                  ]
-                },
-                "qualifiers-order": [
-                  "P9"
-                ],
-                "rank": "normal",
-                "references": [
-                  {
-                    "hash": "f4a095394fe4224f4898bf508a631caaa2b4eb17",
-                    "snaks": {
-                      "P11": [
-                        {
-                          "datatype": "url",
-                          "datavalue": {
-                            "type": "string",
-                            "value": "https://example.org/census/2024"
-                          },
-                          "hash": "af9c27e7217821c1d17a0f5700e44a43d048c0c5",
-                          "property": "P11",
-                          "snaktype": "value"
-                        }
-                      ]
-                    },
-                    "snaks-order": [
-                      "P11"
-                    ]
-                  }
-                ],
-                "type": "statement"
-              }
-            ],
-            "P5": [
-              {
-                "id": "Q6$00000007-0000-0000-0000-000000000000",
-                "mainsnak": {
-                  "datatype": "globe-coordinate",
-                  "datavalue": {
-                    "type": "globecoordinate",
-                    "value": {
-                      "altitude": null,
-                      "globe": "http://www.wikidata.org/entity/Q2",
-                      "latitude": 34.0522,
-                      "longitude": -118.2437,
-                      "precision": 0.016666666666666666
-                    }
-                  },
-                  "hash": "f34671ec8da70add85b109bfab61949b691e5fb7",
-                  "property": "P5",
-                  "snaktype": "value"
-                },
-                "rank": "normal",
-                "type": "statement"
-              }
-            ],
-            "P6": [
-              {
-                "id": "Q6$00000008-0000-0000-0000-000000000000",
-                "mainsnak": {
-                  "datatype": "url",
-                  "datavalue": {
-                    "type": "string",
-                    "value": "https://six.example/"
-                  },
-                  "hash": "5a18ad034e259bc2637ddbdd5704f4e109c944e2",
-                  "property": "P6",
-                  "snaktype": "value"
-                },
-                "rank": "normal",
-                "type": "statement"
-              }
-            ],
-            "P7": [
-              {
-                "id": "Q6$00000009-0000-0000-0000-000000000000",
-                "mainsnak": {
-                  "datatype": "external-id",
-                  "datavalue": {
-                    "type": "string",
-                    "value": "0000 0001 2103 2683"
-                  },
-                  "hash": "6d9782af79d9ac504e7051d1bd66e63f133c7ecc",
-                  "property": "P7",
-                  "snaktype": "value"
-                },
-                "rank": "normal",
-                "type": "statement"
-              }
-            ],
-            "P8": [
-              {
-                "id": "Q6$00000010-0000-0000-0000-000000000000",
-                "mainsnak": {
-                  "datatype": "monolingualtext",
-                  "datavalue": {
-                    "type": "monolingualtext",
-                    "value": {
-                      "language": "ar",
-                      "text": "ستة"
-                    }
-                  },
-                  "hash": "907bf8f3f97652cc470b923361e0fb75de521526",
-                  "property": "P8",
-                  "snaktype": "value"
-                },
-                "rank": "normal",
-                "type": "statement"
-              },
-              {
-                "id": "Q6$8CA24725-A85B-5862-9441-B628DDA2F47E",
-                "mainsnak": {
-                  "datatype": "monolingualtext",
-                  "datavalue": {
-                    "type": "monolingualtext",
-                    "value": {
-                      "language": "de",
-                      "text": "sechs"
-                    }
-                  },
-                  "hash": "5fb876283961f01a33cbf3da7e053eaa35ea08cc",
-                  "property": "P8",
-                  "snaktype": "value"
-                },
-                "rank": "preferred",
-                "references": [
-                  {
-                    "hash": "f4a095394fe4224f4898bf508a631caaa2b4eb17",
-                    "snaks": {
-                      "P11": [
-                        {
-                          "datatype": "url",
-                          "datavalue": {
-                            "type": "string",
-                            "value": "https://example.org/census/2024"
-                          },
-                          "hash": "af9c27e7217821c1d17a0f5700e44a43d048c0c5",
-                          "property": "P11",
-                          "snaktype": "value"
-                        }
-                      ]
-                    },
-                    "snaks-order": [
-                      "P11"
-                    ]
-                  }
-                ],
-                "type": "statement"
-              }
-            ]
-          },
-          "descriptions": {
-            "de": {
-              "language": "de",
-              "value": "eine Zahl"
-            },
-            "en": {
-              "language": "en",
-              "value": "a number"
-            }
-          },
-          "id": "Q6",
-          "labels": {
-            "ar": {
-              "language": "ar",
-              "value": "ستة"
-            },
-            "de": {
-              "language": "de",
-              "value": "Sechs"
-            },
-            "en": {
-              "language": "en",
-              "value": "Six & more"
-            }
-          },
-          "lastrevid": 248259,
-          "modified": "2026-11-03T16:37:28Z",
-          "ns": 120,
-          "pageid": 26,
-          "sitelinks": {},
-          "title": "Item:Q6",
-          "type": "item"
-        }
-      },
-      "success": 1,
-      "ts-visibility": {
-        "Q6": {
-          "groups": [
-            "user"
-          ],
-          "sets": []
-        }
-      }
-    }
-  },
-  {
-    "method": "GET",
-    "path_and_query": "/w/api.php?action=wbgetentities&format=json&formatversion=2&ids=P10%7CP11%7CP12%7CP2%7CP3%7CP5%7CP6%7CP7%7CP8%7CP9%7CQ1%7CQ2%7CQ3%7CQ5%7CWDQ2&props=labels%7Cdatatype&languages=de%7Cmul%7Cen",
-    "credentialed": true,
-    "status": 200,
-    "headers": {
-      "cache-control": "private, no-cache",
-      "content-length": "2136",
-      "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:09 GMT",
-      "etag": "\"19c2b4e4257ddd67be26b2ed12897a5f\"",
-      "vary": "Accept, Accept-Language"
-    },
-    "json": {
-      "entities": {
-        "P10": {
-          "datatype": "wikibase-item",
-          "id": "P10",
-          "labels": {
-            "en": {
-              "language": "en",
-              "value": "stated in"
-            }
-          },
-          "type": "property"
-        },
-        "P11": {
-          "datatype": "url",
-          "id": "P11",
-          "labels": {
-            "en": {
-              "language": "en",
-              "value": "reference URL"
-            }
-          },
-          "type": "property"
-        },
-        "P12": {
-          "datatype": "string",
-          "id": "P12",
-          "labels": {
-            "en": {
-              "language": "en",
-              "value": "note"
-            }
-          },
-          "type": "property"
-        },
-        "P2": {
-          "datatype": "wikibase-item",
-          "id": "P2",
-          "labels": {
-            "en": {
-              "language": "en",
-              "value": "instance of"
-            }
-          },
-          "type": "property"
-        },
-        "P3": {
-          "datatype": "quantity",
-          "id": "P3",
-          "labels": {
-            "en": {
-              "language": "en",
-              "value": "population"
-            }
-          },
-          "type": "property"
-        },
-        "P5": {
-          "datatype": "globe-coordinate",
-          "id": "P5",
-          "labels": {
-            "en": {
-              "language": "en",
-              "value": "coordinate location"
-            }
-          },
-          "type": "property"
-        },
-        "P6": {
-          "datatype": "url",
-          "id": "P6",
-          "labels": {
-            "en": {
-              "language": "en",
-              "value": "official website"
-            }
-          },
-          "type": "property"
-        },
-        "P7": {
-          "datatype": "external-id",
-          "id": "P7",
-          "labels": {
-            "en": {
-              "language": "en",
-              "value": "ISNI"
-            }
-          },
-          "type": "property"
-        },
-        "P8": {
-          "datatype": "monolingualtext",
-          "id": "P8",
-          "labels": {
-            "en": {
-              "language": "en",
-              "value": "native label"
-            }
-          },
-          "type": "property"
-        },
-        "P9": {
-          "datatype": "time",
-          "id": "P9",
-          "labels": {
-            "en": {
-              "language": "en",
-              "value": "point in time"
-            }
-          },
-          "type": "property"
-        },
-        "Q1": {
-          "id": "Q1",
-          "labels": {
-            "de": {
-              "language": "de",
-              "value": "Stadt"
-            },
-            "en": {
-              "language": "en",
-              "value": "city"
-            }
-          },
-          "type": "item"
-        },
-        "Q2": {
-          "id": "Q2",
-          "labels": {
-            "de": {
-              "language": "de",
-              "value": "Zahl"
-            },
-            "en": {
-              "language": "en",
-              "value": "number"
-            }
-          },
-          "type": "item"
-        },
-        "Q3": {
-          "id": "Q3",
-          "labels": {
-            "en": {
-              "language": "en",
-              "value": "Example Gazette"
-            }
-          },
-          "type": "item"
-        },
-        "Q5": {
-          "id": "Q5",
-          "labels": {
-            "en": {
-              "language": "en",
-              "value": "inhabitant"
-            }
-          },
-          "type": "item"
-        },
-        "WDQ2": {
-          "id": "WDQ2",
-          "missing": ""
-        }
-      },
-      "success": 1,
-      "ts-visibility": {
-        "P10": {
-          "groups": [
-            "user"
-          ],
-          "sets": []
-        },
-        "P11": {
-          "groups": [
-            "user"
-          ],
-          "sets": []
-        },
-        "P12": {
-          "groups": [
-            "user"
-          ],
-          "sets": []
-        },
-        "P2": {
-          "groups": [
-            "user"
-          ],
-          "sets": []
-        },
-        "P3": {
-          "groups": [
-            "user"
-          ],
-          "sets": []
-        },
-        "P5": {
-          "groups": [
-            "user"
-          ],
-          "sets": []
-        },
-        "P6": {
-          "groups": [
-            "user"
-          ],
-          "sets": []
-        },
-        "P7": {
-          "groups": [
-            "user"
-          ],
-          "sets": []
-        },
-        "P8": {
-          "groups": [
-            "user"
-          ],
-          "sets": []
-        },
-        "P9": {
-          "groups": [
-            "user"
-          ],
-          "sets": []
-        },
-        "Q1": {
-          "groups": [
-            "user"
-          ],
-          "sets": []
-        },
-        "Q2": {
-          "groups": [
-            "user"
-          ],
-          "sets": []
-        },
-        "Q3": {
-          "groups": [
-            "user"
-          ],
-          "sets": []
-        },
-        "Q5": {
-          "groups": [
-            "user"
-          ],
-          "sets": []
-        }
+      "batchcomplete": true,
+      "query": {
+        "normalized": [
+          {
+            "from": "six",
+            "to": "Six"
+          }
+        ],
+        "pages": [
+          {
+            "missing": true,
+            "ns": 0,
+            "title": "Six"
+          }
+        ]
       }
     }
   },
@@ -4617,7 +4121,7 @@
       "cache-control": "private, no-cache",
       "content-length": "55",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:10 GMT",
+      "date": "Sun, 15 Nov 2026 17:59:20 GMT",
       "etag": "\"78bb77ce8e2f423644c7cb75888004e3\"",
       "vary": "Accept, Accept-Language"
     },
@@ -4638,7 +4142,7 @@
       "cache-control": "private, no-cache",
       "content-length": "415",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:10 GMT",
+      "date": "Sun, 15 Nov 2026 17:59:20 GMT",
       "etag": "\"87c179102d05c9bf610c88621fda134d\"",
       "vary": "Accept, Accept-Language"
     },
@@ -4685,7 +4189,7 @@
       "cache-control": "private, no-cache",
       "content-length": "55",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:10 GMT",
+      "date": "Sun, 15 Nov 2026 17:59:20 GMT",
       "etag": "\"78bb77ce8e2f423644c7cb75888004e3\"",
       "vary": "Accept, Accept-Language"
     },
@@ -4699,15 +4203,15 @@
   },
   {
     "method": "GET",
-    "path_and_query": "/w/rest.php/triplespace/v0/activity?kind=edit%7Cjob%7Clog%7Cerased&since=2026-10-04T16:40:09Z&limit=50&lang=de",
+    "path_and_query": "/w/rest.php/triplespace/v0/activity?kind=edit%7Cjob%7Clog%7Cerased&since=2026-10-16T17:59:20Z&limit=50&lang=de",
     "credentialed": true,
     "status": 200,
     "headers": {
       "cache-control": "private, no-cache",
-      "content-length": "38420",
+      "content-length": "37597",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:09 GMT",
-      "etag": "\"82489b273c64f978b219ebd28fd8ddca\"",
+      "date": "Sun, 15 Nov 2026 17:59:20 GMT",
+      "etag": "\"f2475bf9a010da4304aa5002b5d61889\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -4717,12 +4221,12 @@
         "log",
         "erased"
       ],
-      "next": "1793723842217993|11007694284629955556|3",
+      "next": "1794765508000291|15982878658614155561|145",
       "rows": [
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4752,7 +4256,7 @@
           "patrolled": false,
           "record": {
             "offset": 11,
-            "partition": 8749913987010289102
+            "partition": 15121516645434313429
           },
           "source": "config",
           "summary": {
@@ -4760,13 +4264,13 @@
             "text": "/* protect/protect */ "
           },
           "tags": [],
-          "time": "2026-11-03T16:40:06Z",
+          "time": "2026-11-15T17:59:19Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4793,7 +4297,7 @@
           "patrolled": false,
           "record": {
             "offset": 11,
-            "partition": 1135715011209769946
+            "partition": 6224947094729474791
           },
           "source": "actors",
           "summary": {
@@ -4802,7 +4306,7 @@
           },
           "tags": [],
           "target": {
-            "id": "pep52en4doftudxz5zaztpvbao:2",
+            "id": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "actor",
             "label": {
               "language": "",
@@ -4812,13 +4316,13 @@
             "title": "User:Alice",
             "url": "https://librarybase.org/wiki/User:Alice"
           },
-          "time": "2026-11-03T16:37:31Z",
+          "time": "2026-11-15T17:58:29Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4845,7 +4349,7 @@
           "patrolled": false,
           "record": {
             "offset": 10,
-            "partition": 1135715011209769946
+            "partition": 6224947094729474791
           },
           "source": "actors",
           "summary": {
@@ -4854,7 +4358,7 @@
           },
           "tags": [],
           "target": {
-            "id": "pep52en4doftudxz5zaztpvbao:2",
+            "id": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "actor",
             "label": {
               "language": "",
@@ -4864,13 +4368,13 @@
             "title": "User:Alice",
             "url": "https://librarybase.org/wiki/User:Alice"
           },
-          "time": "2026-11-03T16:37:30Z",
+          "time": "2026-11-15T17:58:29Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4900,7 +4404,7 @@
           "patrolled": false,
           "record": {
             "offset": 11,
-            "partition": 12573034115826478371
+            "partition": 3685844351379826967
           },
           "source": "log",
           "summary": {
@@ -4908,13 +4412,226 @@
             "text": "/* protect/protect */ "
           },
           "tags": [],
-          "time": "2026-11-03T16:37:30Z",
+          "time": "2026-11-15T17:58:29Z",
+          "visibility": []
+        },
+        {
+          "actor": {
+            "key": "instance:upvnufjxdkvq7tdjbxg7wnt4lj"
+          },
+          "flags": {
+            "bot": false,
+            "minor": false,
+            "new": false
+          },
+          "kind": "log",
+          "links": {},
+          "log": {
+            "action": "change",
+            "params": {
+              "changes": [
+                {
+                  "key": "thread.max_pinned",
+                  "new": 5,
+                  "old": null,
+                  "scope": "defaults"
+                },
+                {
+                  "key": "locked",
+                  "new": [
+                    "site:thread.max_pinned"
+                  ],
+                  "old": [],
+                  "scope": "locks"
+                }
+              ],
+              "scope": "instance"
+            },
+            "type": "settings"
+          },
+          "logid": 9,
+          "patrolled": false,
+          "record": {
+            "offset": 8,
+            "partition": 8676743977377409406
+          },
+          "source": "log",
+          "summary": {
+            "op": "settings/change",
+            "text": "/* settings/change */"
+          },
+          "tags": [],
+          "time": "2026-11-15T17:58:29Z",
+          "visibility": []
+        },
+        {
+          "actor": {
+            "key": "instance:upvnufjxdkvq7tdjbxg7wnt4lj"
+          },
+          "flags": {
+            "bot": false,
+            "minor": false,
+            "new": false
+          },
+          "kind": "log",
+          "links": {},
+          "log": {
+            "action": "change",
+            "params": {
+              "changes": [
+                {
+                  "key": "dumps.keep",
+                  "new": 14,
+                  "old": null,
+                  "scope": "defaults"
+                }
+              ],
+              "scope": "instance"
+            },
+            "type": "settings"
+          },
+          "logid": 8,
+          "patrolled": false,
+          "record": {
+            "offset": 7,
+            "partition": 8676743977377409406
+          },
+          "source": "log",
+          "summary": {
+            "op": "settings/change",
+            "text": "/* settings/change */"
+          },
+          "tags": [],
+          "time": "2026-11-15T17:58:29Z",
+          "visibility": []
+        },
+        {
+          "actor": {
+            "key": "instance:upvnufjxdkvq7tdjbxg7wnt4lj"
+          },
+          "flags": {
+            "bot": false,
+            "minor": false,
+            "new": false
+          },
+          "kind": "log",
+          "links": {},
+          "log": {
+            "action": "change",
+            "params": {
+              "changes": [
+                {
+                  "key": "config.template",
+                  "new": "locks",
+                  "old": "none",
+                  "scope": "tenancy"
+                }
+              ],
+              "scope": "instance"
+            },
+            "type": "settings"
+          },
+          "logid": 7,
+          "patrolled": false,
+          "record": {
+            "offset": 6,
+            "partition": 8676743977377409406
+          },
+          "source": "log",
+          "summary": {
+            "op": "settings/change",
+            "text": "/* settings/change */"
+          },
+          "tags": [],
+          "time": "2026-11-15T17:58:29Z",
+          "visibility": []
+        },
+        {
+          "actor": {
+            "key": "instance:upvnufjxdkvq7tdjbxg7wnt4lj"
+          },
+          "flags": {
+            "bot": false,
+            "minor": false,
+            "new": false
+          },
+          "kind": "log",
+          "links": {},
+          "log": {
+            "action": "change",
+            "params": {
+              "changes": [
+                {
+                  "key": "query.max_concurrent",
+                  "new": 4,
+                  "old": null,
+                  "scope": "instance"
+                }
+              ],
+              "scope": "instance"
+            },
+            "type": "settings"
+          },
+          "logid": 6,
+          "patrolled": false,
+          "record": {
+            "offset": 5,
+            "partition": 8676743977377409406
+          },
+          "source": "log",
+          "summary": {
+            "op": "settings/change",
+            "text": "/* settings/change */"
+          },
+          "tags": [],
+          "time": "2026-11-15T17:58:29Z",
+          "visibility": []
+        },
+        {
+          "actor": {
+            "key": "instance:upvnufjxdkvq7tdjbxg7wnt4lj"
+          },
+          "flags": {
+            "bot": false,
+            "minor": false,
+            "new": false
+          },
+          "kind": "log",
+          "links": {},
+          "log": {
+            "action": "change",
+            "params": {
+              "changes": [
+                {
+                  "key": "account.approval",
+                  "new": true,
+                  "old": null,
+                  "scope": "tenant"
+                }
+              ],
+              "scope": "tenant"
+            },
+            "type": "settings"
+          },
+          "logid": 26,
+          "patrolled": false,
+          "record": {
+            "offset": 10,
+            "partition": 3685844351379826967
+          },
+          "source": "log",
+          "summary": {
+            "op": "settings/change",
+            "text": "/* settings/change */"
+          },
+          "tags": [],
+          "time": "2026-11-15T17:58:29Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4941,7 +4658,7 @@
           "patrolled": false,
           "record": {
             "offset": 9,
-            "partition": 1135715011209769946
+            "partition": 6224947094729474791
           },
           "source": "actors",
           "summary": {
@@ -4950,7 +4667,7 @@
           },
           "tags": [],
           "target": {
-            "id": "pep52en4doftudxz5zaztpvbao:25",
+            "id": "mkqavovhrxj56hkmbusdncsbrk:25",
             "kind": "actor",
             "label": {
               "language": "",
@@ -4960,13 +4677,13 @@
             "title": "User:Bob",
             "url": "https://librarybase.org/wiki/User:Bob"
           },
-          "time": "2026-11-03T16:37:29Z",
+          "time": "2026-11-15T17:58:29Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4983,7 +4700,7 @@
           "log": {
             "action": "block",
             "params": {
-              "expires": 1794328649782428,
+              "expires": 1795370309488808,
               "removes": [
                 "createpage",
                 "edit"
@@ -4995,7 +4712,7 @@
           "patrolled": false,
           "record": {
             "offset": 8,
-            "partition": 1135715011209769946
+            "partition": 6224947094729474791
           },
           "source": "actors",
           "summary": {
@@ -5004,7 +4721,7 @@
           },
           "tags": [],
           "target": {
-            "id": "pep52en4doftudxz5zaztpvbao:26",
+            "id": "mkqavovhrxj56hkmbusdncsbrk:26",
             "kind": "actor",
             "label": {
               "language": "",
@@ -5014,13 +4731,13 @@
             "title": "User:Carol",
             "url": "https://librarybase.org/wiki/User:Carol"
           },
-          "time": "2026-11-03T16:37:29Z",
+          "time": "2026-11-15T17:58:29Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5055,7 +4772,7 @@
           "patrolled": false,
           "record": {
             "offset": 9,
-            "partition": 12573034115826478371
+            "partition": 3685844351379826967
           },
           "source": "log",
           "summary": {
@@ -5076,13 +4793,13 @@
             "title": "Item:Q6",
             "url": "https://librarybase.org/wiki/Item:Q6"
           },
-          "time": "2026-11-03T16:37:29Z",
+          "time": "2026-11-15T17:58:29Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5119,7 +4836,7 @@
           "patrolled": false,
           "record": {
             "offset": 7,
-            "partition": 12573034115826478371
+            "partition": 3685844351379826967
           },
           "source": "log",
           "summary": {
@@ -5128,10 +4845,10 @@
           },
           "tags": [],
           "target": {
-            "id": "11753460991249689013:174",
+            "id": "15982878658614155561:174",
             "kind": "record"
           },
-          "time": "2026-11-03T16:37:29Z",
+          "time": "2026-11-15T17:58:29Z",
           "visibility": []
         },
         {
@@ -5152,7 +4869,7 @@
           "patrolled": false,
           "record": {
             "offset": 175,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248278,
           "size": 42,
@@ -5168,7 +4885,7 @@
             "title": "Project:Sandbox",
             "url": "https://librarybase.org/wiki/Project:Sandbox"
           },
-          "time": "2026-11-03T16:37:29Z",
+          "time": "2026-11-15T17:58:29Z",
           "visibility": [
             "content",
             "comment",
@@ -5194,7 +4911,7 @@
           "patrolled": false,
           "record": {
             "offset": 174,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248277,
           "size": 54,
@@ -5210,7 +4927,7 @@
             "title": "Project:Sandbox",
             "url": "https://librarybase.org/wiki/Project:Sandbox"
           },
-          "time": "2026-11-03T16:37:29Z",
+          "time": "2026-11-15T17:58:29Z",
           "visibility": [
             "comment",
             "user"
@@ -5219,7 +4936,7 @@
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5230,8 +4947,8 @@
           },
           "kind": "edit",
           "links": {
-            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FHouse_style&diff=248276",
-            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FHouse_style&action=history"
+            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FHouse_style&diff=248276",
+            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FHouse_style&action=history"
           },
           "log": {
             "action": "create",
@@ -5252,7 +4969,7 @@
           "patrolled": false,
           "record": {
             "offset": 173,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248276,
           "size": 26,
@@ -5267,16 +4984,16 @@
             "id": "247197",
             "kind": "page",
             "ns": 214,
-            "title": "Thread:2026-11-03/House style",
-            "url": "https://librarybase.org/wiki/Thread:2026-11-03/House_style"
+            "title": "Thread:2026-11-15/House style",
+            "url": "https://librarybase.org/wiki/Thread:2026-11-15/House_style"
           },
-          "time": "2026-11-03T16:37:29Z",
+          "time": "2026-11-15T17:58:29Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5287,13 +5004,13 @@
           },
           "kind": "edit",
           "links": {
-            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FWelcome_text&diff=248275",
-            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FWelcome_text&action=history"
+            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FWelcome_text&diff=248275",
+            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FWelcome_text&action=history"
           },
           "patrolled": false,
           "record": {
             "offset": 172,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248275,
           "size": 28,
@@ -5307,16 +5024,16 @@
             "id": "247195",
             "kind": "page",
             "ns": 214,
-            "title": "Thread:2026-11-03/Welcome text",
-            "url": "https://librarybase.org/wiki/Thread:2026-11-03/Welcome_text"
+            "title": "Thread:2026-11-15/Welcome text",
+            "url": "https://librarybase.org/wiki/Thread:2026-11-15/Welcome_text"
           },
-          "time": "2026-11-03T16:37:29Z",
+          "time": "2026-11-15T17:58:29Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/25",
-            "key": "pep52en4doftudxz5zaztpvbao:25",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:25",
             "kind": "registered",
             "name": "Bob"
           },
@@ -5327,8 +5044,8 @@
           },
           "kind": "edit",
           "links": {
-            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FWelcome_text&diff=248274",
-            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FWelcome_text&action=history"
+            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FWelcome_text&diff=248274",
+            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FWelcome_text&action=history"
           },
           "log": {
             "action": "create",
@@ -5349,7 +5066,7 @@
           "patrolled": false,
           "record": {
             "offset": 171,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248274,
           "size": 47,
@@ -5364,16 +5081,16 @@
             "id": "247195",
             "kind": "page",
             "ns": 214,
-            "title": "Thread:2026-11-03/Welcome text",
-            "url": "https://librarybase.org/wiki/Thread:2026-11-03/Welcome_text"
+            "title": "Thread:2026-11-15/Welcome text",
+            "url": "https://librarybase.org/wiki/Thread:2026-11-15/Welcome_text"
           },
-          "time": "2026-11-03T16:37:29Z",
+          "time": "2026-11-15T17:58:29Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/25",
-            "key": "pep52en4doftudxz5zaztpvbao:25",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:25",
             "kind": "registered",
             "name": "Bob"
           },
@@ -5384,13 +5101,13 @@
           },
           "kind": "edit",
           "links": {
-            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&diff=248273",
-            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&action=history"
+            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&diff=248273",
+            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&action=history"
           },
           "patrolled": false,
           "record": {
             "offset": 170,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248273,
           "size": 15,
@@ -5404,16 +5121,16 @@
             "id": "247193",
             "kind": "page",
             "ns": 214,
-            "title": "Thread:2026-11-03/Is five a city?",
-            "url": "https://librarybase.org/wiki/Thread:2026-11-03/Is_five_a_city%3F"
+            "title": "Thread:2026-11-15/Is five a city?",
+            "url": "https://librarybase.org/wiki/Thread:2026-11-15/Is_five_a_city%3F"
           },
-          "time": "2026-11-03T16:37:29Z",
+          "time": "2026-11-15T17:58:29Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5424,13 +5141,13 @@
           },
           "kind": "edit",
           "links": {
-            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&diff=248272",
-            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&action=history"
+            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&diff=248272",
+            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&action=history"
           },
           "patrolled": false,
           "record": {
             "offset": 169,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248272,
           "size": 15,
@@ -5444,16 +5161,16 @@
             "id": "247193",
             "kind": "page",
             "ns": 214,
-            "title": "Thread:2026-11-03/Is five a city?",
-            "url": "https://librarybase.org/wiki/Thread:2026-11-03/Is_five_a_city%3F"
+            "title": "Thread:2026-11-15/Is five a city?",
+            "url": "https://librarybase.org/wiki/Thread:2026-11-15/Is_five_a_city%3F"
           },
-          "time": "2026-11-03T16:37:29Z",
+          "time": "2026-11-15T17:58:29Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/25",
-            "key": "pep52en4doftudxz5zaztpvbao:25",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:25",
             "kind": "registered",
             "name": "Bob"
           },
@@ -5464,13 +5181,13 @@
           },
           "kind": "edit",
           "links": {
-            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&diff=248271",
-            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&action=history"
+            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&diff=248271",
+            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&action=history"
           },
           "patrolled": false,
           "record": {
             "offset": 168,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248271,
           "size": 15,
@@ -5484,16 +5201,16 @@
             "id": "247193",
             "kind": "page",
             "ns": 214,
-            "title": "Thread:2026-11-03/Is five a city?",
-            "url": "https://librarybase.org/wiki/Thread:2026-11-03/Is_five_a_city%3F"
+            "title": "Thread:2026-11-15/Is five a city?",
+            "url": "https://librarybase.org/wiki/Thread:2026-11-15/Is_five_a_city%3F"
           },
-          "time": "2026-11-03T16:37:29Z",
+          "time": "2026-11-15T17:58:29Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5504,13 +5221,13 @@
           },
           "kind": "edit",
           "links": {
-            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&diff=248270",
-            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&action=history"
+            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&diff=248270",
+            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&action=history"
           },
           "patrolled": false,
           "record": {
             "offset": 167,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248270,
           "size": 15,
@@ -5524,16 +5241,16 @@
             "id": "247193",
             "kind": "page",
             "ns": 214,
-            "title": "Thread:2026-11-03/Is five a city?",
-            "url": "https://librarybase.org/wiki/Thread:2026-11-03/Is_five_a_city%3F"
+            "title": "Thread:2026-11-15/Is five a city?",
+            "url": "https://librarybase.org/wiki/Thread:2026-11-15/Is_five_a_city%3F"
           },
-          "time": "2026-11-03T16:37:29Z",
+          "time": "2026-11-15T17:58:29Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/25",
-            "key": "pep52en4doftudxz5zaztpvbao:25",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:25",
             "kind": "registered",
             "name": "Bob"
           },
@@ -5544,13 +5261,13 @@
           },
           "kind": "edit",
           "links": {
-            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&diff=248269",
-            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&action=history"
+            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&diff=248269",
+            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&action=history"
           },
           "patrolled": false,
           "record": {
             "offset": 166,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248269,
           "size": 15,
@@ -5564,16 +5281,16 @@
             "id": "247193",
             "kind": "page",
             "ns": 214,
-            "title": "Thread:2026-11-03/Is five a city?",
-            "url": "https://librarybase.org/wiki/Thread:2026-11-03/Is_five_a_city%3F"
+            "title": "Thread:2026-11-15/Is five a city?",
+            "url": "https://librarybase.org/wiki/Thread:2026-11-15/Is_five_a_city%3F"
           },
-          "time": "2026-11-03T16:37:28Z",
+          "time": "2026-11-15T17:58:29Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5584,13 +5301,13 @@
           },
           "kind": "edit",
           "links": {
-            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&diff=248268",
-            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&action=history"
+            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&diff=248268",
+            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&action=history"
           },
           "patrolled": false,
           "record": {
             "offset": 165,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248268,
           "size": 15,
@@ -5604,16 +5321,16 @@
             "id": "247193",
             "kind": "page",
             "ns": 214,
-            "title": "Thread:2026-11-03/Is five a city?",
-            "url": "https://librarybase.org/wiki/Thread:2026-11-03/Is_five_a_city%3F"
+            "title": "Thread:2026-11-15/Is five a city?",
+            "url": "https://librarybase.org/wiki/Thread:2026-11-15/Is_five_a_city%3F"
           },
-          "time": "2026-11-03T16:37:28Z",
+          "time": "2026-11-15T17:58:29Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/25",
-            "key": "pep52en4doftudxz5zaztpvbao:25",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:25",
             "kind": "registered",
             "name": "Bob"
           },
@@ -5624,13 +5341,13 @@
           },
           "kind": "edit",
           "links": {
-            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&diff=248267",
-            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&action=history"
+            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&diff=248267",
+            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&action=history"
           },
           "patrolled": false,
           "record": {
             "offset": 164,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248267,
           "size": 15,
@@ -5644,16 +5361,16 @@
             "id": "247193",
             "kind": "page",
             "ns": 214,
-            "title": "Thread:2026-11-03/Is five a city?",
-            "url": "https://librarybase.org/wiki/Thread:2026-11-03/Is_five_a_city%3F"
+            "title": "Thread:2026-11-15/Is five a city?",
+            "url": "https://librarybase.org/wiki/Thread:2026-11-15/Is_five_a_city%3F"
           },
-          "time": "2026-11-03T16:37:28Z",
+          "time": "2026-11-15T17:58:29Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5664,13 +5381,13 @@
           },
           "kind": "edit",
           "links": {
-            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&diff=248266",
-            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&action=history"
+            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&diff=248266",
+            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&action=history"
           },
           "patrolled": false,
           "record": {
             "offset": 163,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248266,
           "size": 37,
@@ -5684,16 +5401,16 @@
             "id": "247193",
             "kind": "page",
             "ns": 214,
-            "title": "Thread:2026-11-03/Is five a city?",
-            "url": "https://librarybase.org/wiki/Thread:2026-11-03/Is_five_a_city%3F"
+            "title": "Thread:2026-11-15/Is five a city?",
+            "url": "https://librarybase.org/wiki/Thread:2026-11-15/Is_five_a_city%3F"
           },
-          "time": "2026-11-03T16:37:28Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/26",
-            "key": "pep52en4doftudxz5zaztpvbao:26",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:26",
             "kind": "registered",
             "name": "Carol"
           },
@@ -5704,13 +5421,13 @@
           },
           "kind": "edit",
           "links": {
-            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&diff=248265",
-            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&action=history"
+            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&diff=248265",
+            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&action=history"
           },
           "patrolled": false,
           "record": {
             "offset": 162,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248265,
           "size": 17,
@@ -5724,16 +5441,16 @@
             "id": "247193",
             "kind": "page",
             "ns": 214,
-            "title": "Thread:2026-11-03/Is five a city?",
-            "url": "https://librarybase.org/wiki/Thread:2026-11-03/Is_five_a_city%3F"
+            "title": "Thread:2026-11-15/Is five a city?",
+            "url": "https://librarybase.org/wiki/Thread:2026-11-15/Is_five_a_city%3F"
           },
-          "time": "2026-11-03T16:37:28Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5744,13 +5461,13 @@
           },
           "kind": "edit",
           "links": {
-            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&diff=248264",
-            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&action=history"
+            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&diff=248264",
+            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&action=history"
           },
           "patrolled": false,
           "record": {
             "offset": 161,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248264,
           "size": 28,
@@ -5764,16 +5481,16 @@
             "id": "247193",
             "kind": "page",
             "ns": 214,
-            "title": "Thread:2026-11-03/Is five a city?",
-            "url": "https://librarybase.org/wiki/Thread:2026-11-03/Is_five_a_city%3F"
+            "title": "Thread:2026-11-15/Is five a city?",
+            "url": "https://librarybase.org/wiki/Thread:2026-11-15/Is_five_a_city%3F"
           },
-          "time": "2026-11-03T16:37:28Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/25",
-            "key": "pep52en4doftudxz5zaztpvbao:25",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:25",
             "kind": "registered",
             "name": "Bob"
           },
@@ -5784,13 +5501,13 @@
           },
           "kind": "edit",
           "links": {
-            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&diff=248263",
-            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&action=history"
+            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&diff=248263",
+            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&action=history"
           },
           "patrolled": false,
           "record": {
             "offset": 160,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248263,
           "size": 21,
@@ -5804,16 +5521,16 @@
             "id": "247193",
             "kind": "page",
             "ns": 214,
-            "title": "Thread:2026-11-03/Is five a city?",
-            "url": "https://librarybase.org/wiki/Thread:2026-11-03/Is_five_a_city%3F"
+            "title": "Thread:2026-11-15/Is five a city?",
+            "url": "https://librarybase.org/wiki/Thread:2026-11-15/Is_five_a_city%3F"
           },
-          "time": "2026-11-03T16:37:28Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5824,13 +5541,13 @@
           },
           "kind": "edit",
           "links": {
-            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&diff=248262",
-            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&action=history"
+            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&diff=248262",
+            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&action=history"
           },
           "patrolled": false,
           "record": {
             "offset": 159,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248262,
           "size": 26,
@@ -5844,16 +5561,16 @@
             "id": "247193",
             "kind": "page",
             "ns": 214,
-            "title": "Thread:2026-11-03/Is five a city?",
-            "url": "https://librarybase.org/wiki/Thread:2026-11-03/Is_five_a_city%3F"
+            "title": "Thread:2026-11-15/Is five a city?",
+            "url": "https://librarybase.org/wiki/Thread:2026-11-15/Is_five_a_city%3F"
           },
-          "time": "2026-11-03T16:37:28Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/25",
-            "key": "pep52en4doftudxz5zaztpvbao:25",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:25",
             "kind": "registered",
             "name": "Bob"
           },
@@ -5864,13 +5581,13 @@
           },
           "kind": "edit",
           "links": {
-            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&diff=248261",
-            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&action=history"
+            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&diff=248261",
+            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&action=history"
           },
           "patrolled": false,
           "record": {
             "offset": 158,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248261,
           "size": 19,
@@ -5884,16 +5601,16 @@
             "id": "247193",
             "kind": "page",
             "ns": 214,
-            "title": "Thread:2026-11-03/Is five a city?",
-            "url": "https://librarybase.org/wiki/Thread:2026-11-03/Is_five_a_city%3F"
+            "title": "Thread:2026-11-15/Is five a city?",
+            "url": "https://librarybase.org/wiki/Thread:2026-11-15/Is_five_a_city%3F"
           },
-          "time": "2026-11-03T16:37:28Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5904,8 +5621,8 @@
           },
           "kind": "edit",
           "links": {
-            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&diff=248260",
-            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-03%2FIs_five_a_city%3F&action=history"
+            "diff": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&diff=248260",
+            "history": "https://librarybase.org/w/index.php?title=Thread%3A2026-11-15%2FIs_five_a_city%3F&action=history"
           },
           "log": {
             "action": "create",
@@ -5926,7 +5643,7 @@
           "patrolled": false,
           "record": {
             "offset": 157,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248260,
           "size": 38,
@@ -5941,16 +5658,16 @@
             "id": "247193",
             "kind": "page",
             "ns": 214,
-            "title": "Thread:2026-11-03/Is five a city?",
-            "url": "https://librarybase.org/wiki/Thread:2026-11-03/Is_five_a_city%3F"
+            "title": "Thread:2026-11-15/Is five a city?",
+            "url": "https://librarybase.org/wiki/Thread:2026-11-15/Is_five_a_city%3F"
           },
-          "time": "2026-11-03T16:37:28Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5968,7 +5685,7 @@
           "patrolled": false,
           "record": {
             "offset": 20,
-            "partition": 8911809911746461750
+            "partition": 2269571391676479016
           },
           "revid": 248259,
           "size": 1034,
@@ -5992,13 +5709,13 @@
             "title": "Item:Q6",
             "url": "https://librarybase.org/wiki/Item:Q6"
           },
-          "time": "2026-11-03T16:37:28Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -6016,7 +5733,7 @@
           "patrolled": false,
           "record": {
             "offset": 19,
-            "partition": 8911809911746461750
+            "partition": 2269571391676479016
           },
           "revid": 248258,
           "size": 135,
@@ -6040,13 +5757,13 @@
             "title": "Item:Q6",
             "url": "https://librarybase.org/wiki/Item:Q6"
           },
-          "time": "2026-11-03T16:37:28Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -6063,7 +5780,7 @@
           "patrolled": false,
           "record": {
             "offset": 18,
-            "partition": 8911809911746461750
+            "partition": 2269571391676479016
           },
           "revid": 248257,
           "size": 208,
@@ -6087,13 +5804,13 @@
             "title": "Item:Q5",
             "url": "https://librarybase.org/wiki/Item:Q5"
           },
-          "time": "2026-11-03T16:37:28Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -6110,7 +5827,7 @@
           "patrolled": false,
           "record": {
             "offset": 17,
-            "partition": 8911809911746461750
+            "partition": 2269571391676479016
           },
           "revid": 248256,
           "size": 222,
@@ -6134,13 +5851,13 @@
             "title": "Item:Q6",
             "url": "https://librarybase.org/wiki/Item:Q6"
           },
-          "time": "2026-11-03T16:37:27Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/25",
-            "key": "pep52en4doftudxz5zaztpvbao:25",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:25",
             "kind": "registered",
             "name": "Bob"
           },
@@ -6157,7 +5874,7 @@
           "patrolled": false,
           "record": {
             "offset": 16,
-            "partition": 8911809911746461750
+            "partition": 2269571391676479016
           },
           "revid": 248255,
           "size": 40,
@@ -6181,13 +5898,13 @@
             "title": "Item:Q6",
             "url": "https://librarybase.org/wiki/Item:Q6"
           },
-          "time": "2026-11-03T16:37:27Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -6219,7 +5936,7 @@
           "patrolled": false,
           "record": {
             "offset": 6,
-            "partition": 12573034115826478371
+            "partition": 3685844351379826967
           },
           "source": "log",
           "summary": {
@@ -6234,13 +5951,13 @@
             "title": "Project:Consensus",
             "url": "https://librarybase.org/wiki/Project:Consensus"
           },
-          "time": "2026-11-03T16:37:27Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -6259,7 +5976,7 @@
           "patrolled": false,
           "record": {
             "offset": 156,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248254,
           "size": 41,
@@ -6275,13 +5992,13 @@
             "title": "Project:Analytics/Orb",
             "url": "https://librarybase.org/wiki/Project:Analytics/Orb"
           },
-          "time": "2026-11-03T16:37:27Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -6311,7 +6028,7 @@
           "patrolled": false,
           "record": {
             "offset": 155,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248253,
           "source": "pages",
@@ -6327,13 +6044,13 @@
             "title": "Project:Analytics/Orbit",
             "url": "https://librarybase.org/wiki/Project:Analytics/Orbit"
           },
-          "time": "2026-11-03T16:37:27Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -6351,7 +6068,7 @@
           "patrolled": false,
           "record": {
             "offset": 154,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248252,
           "size": 30,
@@ -6367,13 +6084,13 @@
             "title": "Project:Shortcut/Again",
             "url": "https://librarybase.org/wiki/Project:Shortcut/Again"
           },
-          "time": "2026-11-03T16:37:27Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -6391,7 +6108,7 @@
           "patrolled": false,
           "record": {
             "offset": 153,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248251,
           "size": 35,
@@ -6407,13 +6124,13 @@
             "title": "Project:Old name",
             "url": "https://librarybase.org/wiki/Project:Old_name"
           },
-          "time": "2026-11-03T16:37:27Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -6431,7 +6148,7 @@
           "patrolled": false,
           "record": {
             "offset": 152,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248250,
           "size": 27,
@@ -6447,13 +6164,13 @@
             "title": "Category:Unused",
             "url": "https://librarybase.org/wiki/Category:Unused"
           },
-          "time": "2026-11-03T16:37:27Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -6471,7 +6188,7 @@
           "patrolled": false,
           "record": {
             "offset": 151,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248249,
           "size": 24,
@@ -6487,13 +6204,13 @@
             "title": "Category:Guides",
             "url": "https://librarybase.org/wiki/Category:Guides"
           },
-          "time": "2026-11-03T16:37:27Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -6511,7 +6228,7 @@
           "patrolled": false,
           "record": {
             "offset": 150,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248248,
           "size": 42,
@@ -6527,13 +6244,13 @@
             "title": "Orphan",
             "url": "https://librarybase.org/wiki/Orphan"
           },
-          "time": "2026-11-03T16:37:27Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/25",
-            "key": "pep52en4doftudxz5zaztpvbao:25",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:25",
             "kind": "registered",
             "name": "Bob"
           },
@@ -6551,7 +6268,7 @@
           "patrolled": false,
           "record": {
             "offset": 149,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248247,
           "size": 6,
@@ -6567,13 +6284,13 @@
             "title": "Stub",
             "url": "https://librarybase.org/wiki/Stub"
           },
-          "time": "2026-11-03T16:37:27Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/25",
-            "key": "pep52en4doftudxz5zaztpvbao:25",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:25",
             "kind": "registered",
             "name": "Bob"
           },
@@ -6591,7 +6308,7 @@
           "patrolled": false,
           "record": {
             "offset": 148,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248246,
           "size": 176,
@@ -6607,13 +6324,13 @@
             "title": "Citing sources",
             "url": "https://librarybase.org/wiki/Citing_sources"
           },
-          "time": "2026-11-03T16:37:27Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -6631,7 +6348,7 @@
           "patrolled": false,
           "record": {
             "offset": 147,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248245,
           "size": 72,
@@ -6647,13 +6364,13 @@
             "title": "Citing sources",
             "url": "https://librarybase.org/wiki/Citing_sources"
           },
-          "time": "2026-11-03T16:37:26Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -6671,7 +6388,7 @@
           "patrolled": false,
           "record": {
             "offset": 146,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248244,
           "size": 151,
@@ -6687,13 +6404,13 @@
             "title": "Project:Wishlist",
             "url": "https://librarybase.org/wiki/Project:Wishlist"
           },
-          "time": "2026-11-03T16:37:26Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
+            "key": "mkqavovhrxj56hkmbusdncsbrk:2",
             "kind": "registered",
             "name": "Alice"
           },
@@ -6711,7 +6428,7 @@
           "patrolled": false,
           "record": {
             "offset": 145,
-            "partition": 11753460991249689013
+            "partition": 15982878658614155561
           },
           "revid": 248243,
           "size": 26,
@@ -6727,214 +6444,7 @@
             "title": "Project:Shortcut",
             "url": "https://librarybase.org/wiki/Project:Shortcut"
           },
-          "time": "2026-11-03T16:37:26Z",
-          "visibility": []
-        },
-        {
-          "actor": {
-            "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
-            "kind": "registered",
-            "name": "Alice"
-          },
-          "delta": 80,
-          "flags": {
-            "bot": false,
-            "minor": false,
-            "new": true
-          },
-          "kind": "edit",
-          "links": {
-            "diff": "https://librarybase.org/w/index.php?title=Project%3ANotes&diff=248242",
-            "history": "https://librarybase.org/w/index.php?title=Project%3ANotes&action=history"
-          },
-          "patrolled": false,
-          "record": {
-            "offset": 144,
-            "partition": 11753460991249689013
-          },
-          "revid": 248242,
-          "size": 80,
-          "source": "pages",
-          "summary": {
-            "text": ""
-          },
-          "tags": [],
-          "target": {
-            "id": "247182",
-            "kind": "page",
-            "ns": 4,
-            "title": "Project:Notes",
-            "url": "https://librarybase.org/wiki/Project:Notes"
-          },
-          "time": "2026-11-03T16:37:26Z",
-          "visibility": []
-        },
-        {
-          "actor": {
-            "iri": "https://librarybase.org/user/25",
-            "key": "pep52en4doftudxz5zaztpvbao:25",
-            "kind": "registered",
-            "name": "Bob"
-          },
-          "delta": 96,
-          "flags": {
-            "bot": false,
-            "minor": false,
-            "new": true
-          },
-          "kind": "edit",
-          "links": {
-            "diff": "https://librarybase.org/w/index.php?title=Project%3ASandbox&diff=248241",
-            "history": "https://librarybase.org/w/index.php?title=Project%3ASandbox&action=history"
-          },
-          "patrolled": false,
-          "record": {
-            "offset": 143,
-            "partition": 11753460991249689013
-          },
-          "revid": 248241,
-          "size": 96,
-          "source": "pages",
-          "summary": {
-            "text": ""
-          },
-          "tags": [],
-          "target": {
-            "id": "247181",
-            "kind": "page",
-            "ns": 4,
-            "title": "Project:Sandbox",
-            "url": "https://librarybase.org/wiki/Project:Sandbox"
-          },
-          "time": "2026-11-03T16:37:26Z",
-          "visibility": []
-        },
-        {
-          "actor": {
-            "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
-            "kind": "registered",
-            "name": "Alice"
-          },
-          "delta": 151,
-          "flags": {
-            "bot": false,
-            "minor": false,
-            "new": false
-          },
-          "kind": "edit",
-          "links": {
-            "diff": "https://librarybase.org/w/index.php?title=Project%3AHome&diff=248240",
-            "history": "https://librarybase.org/w/index.php?title=Project%3AHome&action=history"
-          },
-          "patrolled": false,
-          "record": {
-            "offset": 142,
-            "partition": 11753460991249689013
-          },
-          "revid": 248240,
-          "size": 240,
-          "source": "pages",
-          "summary": {
-            "text": ""
-          },
-          "tags": [],
-          "target": {
-            "id": "489",
-            "kind": "page",
-            "ns": 4,
-            "title": "Project:Home",
-            "url": "https://librarybase.org/wiki/Project:Home"
-          },
-          "time": "2026-11-03T16:37:26Z",
-          "visibility": []
-        },
-        {
-          "actor": {
-            "iri": "https://librarybase.org/user/2",
-            "key": "pep52en4doftudxz5zaztpvbao:2",
-            "kind": "registered",
-            "name": "Alice"
-          },
-          "delta": -374,
-          "flags": {
-            "bot": false,
-            "minor": false,
-            "new": false
-          },
-          "kind": "edit",
-          "links": {
-            "diff": "https://librarybase.org/w/index.php?title=Project%3AHome&diff=248239",
-            "history": "https://librarybase.org/w/index.php?title=Project%3AHome&action=history"
-          },
-          "patrolled": false,
-          "record": {
-            "offset": 141,
-            "partition": 11753460991249689013
-          },
-          "revid": 248239,
-          "size": 89,
-          "source": "pages",
-          "summary": {
-            "text": ""
-          },
-          "tags": [],
-          "target": {
-            "id": "489",
-            "kind": "page",
-            "ns": 4,
-            "title": "Project:Home",
-            "url": "https://librarybase.org/wiki/Project:Home"
-          },
-          "time": "2026-11-03T16:37:26Z",
-          "visibility": []
-        },
-        {
-          "actor": {
-            "key": "instance:qy5lcrhd6pygzivl5eerupvdx4"
-          },
-          "flags": {
-            "bot": false,
-            "minor": false,
-            "new": false
-          },
-          "kind": "job",
-          "links": {
-            "history": "https://librarybase.org/w/index.php?title=Special%3AJobs%2F3&action=history"
-          },
-          "log": {
-            "action": "finish",
-            "params": {
-              "counts": {
-                "created": 4,
-                "merged": 0,
-                "rejected": 0,
-                "unchanged": 0
-              }
-            },
-            "type": "job"
-          },
-          "logid": 4,
-          "patrolled": false,
-          "record": {
-            "offset": 3,
-            "partition": 11007694284629955556
-          },
-          "source": "log",
-          "summary": {
-            "op": "job/finish",
-            "text": "/* job/finish */"
-          },
-          "tags": [],
-          "target": {
-            "id": "3",
-            "kind": "job",
-            "ns": -1,
-            "title": "Special:Jobs/3",
-            "url": "https://librarybase.org/wiki/Special:Jobs/3"
-          },
-          "time": "2026-11-03T16:37:22Z",
+          "time": "2026-11-15T17:58:28Z",
           "visibility": []
         }
       ],
@@ -6944,138 +6454,510 @@
   },
   {
     "method": "GET",
-    "path_and_query": "/w/rest.php/triplespace/v0/entity/Item:Q6/provenance",
+    "path_and_query": "/w/rest.php/triplespace/v0/entity/Item:Q6/page",
     "credentialed": true,
     "status": 200,
     "headers": {
       "cache-control": "private, no-cache",
-      "content-length": "1791",
+      "content-length": "6839",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:09 GMT",
-      "etag": "\"79057ad39720823fd935eaac7c669e76\"",
+      "date": "Sun, 15 Nov 2026 17:59:20 GMT",
+      "etag": "\"854d20eebd58c02df01d48247dc74913\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
-      "canonical": "Q6",
-      "corrections": {},
-      "dominant": "local",
-      "first_seen": "2026-11-03T16:37:20Z",
-      "graphs": [
-        {
-          "graph": "local",
-          "history": "full",
-          "statements": 12,
-          "synced_at": "2026-11-03T16:37:28Z"
-        }
-      ],
+      "entity": {
+        "aliases": {
+          "en": [
+            {
+              "language": "en",
+              "value": "6"
+            },
+            {
+              "language": "en",
+              "value": "VI"
+            }
+          ]
+        },
+        "claims": {
+          "P10": [
+            {
+              "id": "Q6$00000011-0000-0000-0000-000000000000",
+              "mainsnak": {
+                "datatype": "wikibase-item",
+                "hash": "ad23bfa7c0b35954df0dc78769476d462a80de6d",
+                "property": "P10",
+                "snaktype": "somevalue"
+              },
+              "rank": "normal",
+              "type": "statement"
+            }
+          ],
+          "P12": [
+            {
+              "id": "Q6$00000001-0000-0000-0000-000000000000",
+              "mainsnak": {
+                "datatype": "string",
+                "datavalue": {
+                  "type": "string",
+                  "value": "six"
+                },
+                "hash": "806cd5ceb2f3b86811672c2c4f6057b5abaf0c0a",
+                "property": "P12",
+                "snaktype": "value"
+              },
+              "rank": "normal",
+              "type": "statement"
+            }
+          ],
+          "P2": [
+            {
+              "id": "Q6$00000002-0000-0000-0000-000000000000",
+              "mainsnak": {
+                "datatype": "wikibase-item",
+                "datavalue": {
+                  "type": "wikibase-entityid",
+                  "value": {
+                    "entity-type": "item",
+                    "id": "Q2",
+                    "numeric-id": 2
+                  }
+                },
+                "hash": "6511c2931be27bcac018d16006b07c7c2e704c57",
+                "property": "P2",
+                "snaktype": "value"
+              },
+              "rank": "preferred",
+              "type": "statement"
+            },
+            {
+              "id": "Q6$00000003-0000-0000-0000-000000000000",
+              "mainsnak": {
+                "datatype": "wikibase-item",
+                "datavalue": {
+                  "type": "wikibase-entityid",
+                  "value": {
+                    "entity-type": "item",
+                    "id": "Q1",
+                    "numeric-id": 1
+                  }
+                },
+                "hash": "a32497b849d1964f21897e84ee8e80317d84992f",
+                "property": "P2",
+                "snaktype": "value"
+              },
+              "rank": "normal",
+              "type": "statement"
+            },
+            {
+              "id": "Q6$00000004-0000-0000-0000-000000000000",
+              "mainsnak": {
+                "datatype": "wikibase-item",
+                "datavalue": {
+                  "type": "wikibase-entityid",
+                  "value": {
+                    "entity-type": "item",
+                    "id": "Q3",
+                    "numeric-id": 3
+                  }
+                },
+                "hash": "1fa75381e3bd9253ba0ef08d92830adf043d7717",
+                "property": "P2",
+                "snaktype": "value"
+              },
+              "rank": "deprecated",
+              "type": "statement"
+            },
+            {
+              "id": "Q6$C1D41689-4250-5816-99F5-70ABC62E76FE",
+              "mainsnak": {
+                "datatype": "wikibase-item",
+                "datavalue": {
+                  "type": "wikibase-entityid",
+                  "value": {
+                    "entity-type": "item",
+                    "id": "Q5",
+                    "numeric-id": 5
+                  }
+                },
+                "hash": "44c11d9ab91c8c3cf203033599eebcb8d1be97ce",
+                "property": "P2",
+                "snaktype": "value"
+              },
+              "rank": "normal",
+              "type": "statement"
+            }
+          ],
+          "P3": [
+            {
+              "id": "Q6$00000005-0000-0000-0000-000000000000",
+              "mainsnak": {
+                "datatype": "quantity",
+                "datavalue": {
+                  "type": "quantity",
+                  "value": {
+                    "amount": "+3898900",
+                    "lowerBound": "+3898890",
+                    "unit": "https://librarybase.org/entity/Q5",
+                    "upperBound": "+3898910"
+                  }
+                },
+                "hash": "23ee7821e0cc2c6f6ccee6090466af8a2205dd5b",
+                "property": "P3",
+                "snaktype": "value"
+              },
+              "qualifiers": {
+                "P9": [
+                  {
+                    "datatype": "time",
+                    "datavalue": {
+                      "type": "time",
+                      "value": {
+                        "after": 0,
+                        "before": 0,
+                        "calendarmodel": "http://www.wikidata.org/entity/Q1985727",
+                        "precision": 9,
+                        "time": "+2024-00-00T00:00:00Z",
+                        "timezone": 0
+                      }
+                    },
+                    "hash": "ce321b0847830f5a9cc728006b29e0128960719c",
+                    "property": "P9",
+                    "snaktype": "value"
+                  }
+                ]
+              },
+              "qualifiers-order": [
+                "P9"
+              ],
+              "rank": "normal",
+              "references": [
+                {
+                  "hash": "f4a095394fe4224f4898bf508a631caaa2b4eb17",
+                  "snaks": {
+                    "P11": [
+                      {
+                        "datatype": "url",
+                        "datavalue": {
+                          "type": "string",
+                          "value": "https://example.org/census/2024"
+                        },
+                        "hash": "af9c27e7217821c1d17a0f5700e44a43d048c0c5",
+                        "property": "P11",
+                        "snaktype": "value"
+                      }
+                    ]
+                  },
+                  "snaks-order": [
+                    "P11"
+                  ]
+                }
+              ],
+              "type": "statement"
+            }
+          ],
+          "P5": [
+            {
+              "id": "Q6$00000007-0000-0000-0000-000000000000",
+              "mainsnak": {
+                "datatype": "globe-coordinate",
+                "datavalue": {
+                  "type": "globecoordinate",
+                  "value": {
+                    "altitude": null,
+                    "globe": "http://www.wikidata.org/entity/Q2",
+                    "latitude": 34.0522,
+                    "longitude": -118.2437,
+                    "precision": 0.016666666666666666
+                  }
+                },
+                "hash": "f34671ec8da70add85b109bfab61949b691e5fb7",
+                "property": "P5",
+                "snaktype": "value"
+              },
+              "rank": "normal",
+              "type": "statement"
+            }
+          ],
+          "P6": [
+            {
+              "id": "Q6$00000008-0000-0000-0000-000000000000",
+              "mainsnak": {
+                "datatype": "url",
+                "datavalue": {
+                  "type": "string",
+                  "value": "https://six.example/"
+                },
+                "hash": "5a18ad034e259bc2637ddbdd5704f4e109c944e2",
+                "property": "P6",
+                "snaktype": "value"
+              },
+              "rank": "normal",
+              "type": "statement"
+            }
+          ],
+          "P7": [
+            {
+              "id": "Q6$00000009-0000-0000-0000-000000000000",
+              "mainsnak": {
+                "datatype": "external-id",
+                "datavalue": {
+                  "type": "string",
+                  "value": "0000 0001 2103 2683"
+                },
+                "hash": "6d9782af79d9ac504e7051d1bd66e63f133c7ecc",
+                "property": "P7",
+                "snaktype": "value"
+              },
+              "rank": "normal",
+              "type": "statement"
+            }
+          ],
+          "P8": [
+            {
+              "id": "Q6$00000010-0000-0000-0000-000000000000",
+              "mainsnak": {
+                "datatype": "monolingualtext",
+                "datavalue": {
+                  "type": "monolingualtext",
+                  "value": {
+                    "language": "ar",
+                    "text": "ستة"
+                  }
+                },
+                "hash": "907bf8f3f97652cc470b923361e0fb75de521526",
+                "property": "P8",
+                "snaktype": "value"
+              },
+              "rank": "normal",
+              "type": "statement"
+            },
+            {
+              "id": "Q6$8CA24725-A85B-5862-9441-B628DDA2F47E",
+              "mainsnak": {
+                "datatype": "monolingualtext",
+                "datavalue": {
+                  "type": "monolingualtext",
+                  "value": {
+                    "language": "de",
+                    "text": "sechs"
+                  }
+                },
+                "hash": "5fb876283961f01a33cbf3da7e053eaa35ea08cc",
+                "property": "P8",
+                "snaktype": "value"
+              },
+              "rank": "preferred",
+              "references": [
+                {
+                  "hash": "f4a095394fe4224f4898bf508a631caaa2b4eb17",
+                  "snaks": {
+                    "P11": [
+                      {
+                        "datatype": "url",
+                        "datavalue": {
+                          "type": "string",
+                          "value": "https://example.org/census/2024"
+                        },
+                        "hash": "af9c27e7217821c1d17a0f5700e44a43d048c0c5",
+                        "property": "P11",
+                        "snaktype": "value"
+                      }
+                    ]
+                  },
+                  "snaks-order": [
+                    "P11"
+                  ]
+                }
+              ],
+              "type": "statement"
+            }
+          ]
+        },
+        "descriptions": {
+          "de": {
+            "language": "de",
+            "value": "eine Zahl"
+          },
+          "en": {
+            "language": "en",
+            "value": "a number"
+          }
+        },
+        "id": "Q6",
+        "labels": {
+          "ar": {
+            "language": "ar",
+            "value": "ستة"
+          },
+          "de": {
+            "language": "de",
+            "value": "Sechs"
+          },
+          "en": {
+            "language": "en",
+            "value": "Six & more"
+          }
+        },
+        "lastrevid": 248259,
+        "modified": "2026-11-15T17:58:28Z",
+        "ns": 120,
+        "pageid": 26,
+        "sitelinks": {},
+        "title": "Item:Q6",
+        "type": "item"
+      },
       "id": "Q6",
-      "lastrevid": 248259,
-      "minted_by": {
-        "adopted_from": "https://librarybase.org/",
-        "kind": "tenant",
-        "tenant": "librarybase"
+      "provenance": {
+        "canonical": "Q6",
+        "corrections": {},
+        "dominant": "local",
+        "first_seen": "2026-11-15T17:58:26Z",
+        "graphs": [
+          {
+            "graph": "local",
+            "history": "full",
+            "statements": 12,
+            "synced_at": "2026-11-15T17:58:28Z"
+          }
+        ],
+        "id": "Q6",
+        "lastrevid": 248259,
+        "minted_by": {
+          "adopted_from": "https://librarybase.org/",
+          "kind": "tenant",
+          "tenant": "librarybase"
+        },
+        "modified": "2026-11-15T17:58:28Z",
+        "page_id": 26,
+        "statements": {
+          "Q6$00000001-0000-0000-0000-000000000000": {
+            "graphs": [
+              "local"
+            ],
+            "members": [
+              "Q6$00000001-0000-0000-0000-000000000000"
+            ]
+          },
+          "Q6$00000002-0000-0000-0000-000000000000": {
+            "graphs": [
+              "local"
+            ],
+            "members": [
+              "Q6$00000002-0000-0000-0000-000000000000"
+            ]
+          },
+          "Q6$00000003-0000-0000-0000-000000000000": {
+            "graphs": [
+              "local"
+            ],
+            "members": [
+              "Q6$00000003-0000-0000-0000-000000000000"
+            ]
+          },
+          "Q6$00000004-0000-0000-0000-000000000000": {
+            "graphs": [
+              "local"
+            ],
+            "members": [
+              "Q6$00000004-0000-0000-0000-000000000000"
+            ]
+          },
+          "Q6$00000005-0000-0000-0000-000000000000": {
+            "graphs": [
+              "local"
+            ],
+            "members": [
+              "Q6$00000005-0000-0000-0000-000000000000"
+            ]
+          },
+          "Q6$00000007-0000-0000-0000-000000000000": {
+            "graphs": [
+              "local"
+            ],
+            "members": [
+              "Q6$00000007-0000-0000-0000-000000000000"
+            ]
+          },
+          "Q6$00000008-0000-0000-0000-000000000000": {
+            "graphs": [
+              "local"
+            ],
+            "members": [
+              "Q6$00000008-0000-0000-0000-000000000000"
+            ]
+          },
+          "Q6$00000009-0000-0000-0000-000000000000": {
+            "graphs": [
+              "local"
+            ],
+            "members": [
+              "Q6$00000009-0000-0000-0000-000000000000"
+            ]
+          },
+          "Q6$00000010-0000-0000-0000-000000000000": {
+            "graphs": [
+              "local"
+            ],
+            "members": [
+              "Q6$00000010-0000-0000-0000-000000000000"
+            ]
+          },
+          "Q6$00000011-0000-0000-0000-000000000000": {
+            "graphs": [
+              "local"
+            ],
+            "members": [
+              "Q6$00000011-0000-0000-0000-000000000000"
+            ]
+          },
+          "Q6$8CA24725-A85B-5862-9441-B628DDA2F47E": {
+            "graphs": [
+              "local"
+            ],
+            "members": [
+              "Q6$8CA24725-A85B-5862-9441-B628DDA2F47E"
+            ]
+          },
+          "Q6$C1D41689-4250-5816-99F5-70ABC62E76FE": {
+            "graphs": [
+              "local"
+            ],
+            "members": [
+              "Q6$C1D41689-4250-5816-99F5-70ABC62E76FE"
+            ]
+          }
+        },
+        "type": "item"
       },
-      "modified": "2026-11-03T16:37:28Z",
-      "page_id": 26,
-      "statements": {
-        "Q6$00000001-0000-0000-0000-000000000000": {
-          "graphs": [
-            "local"
-          ],
-          "members": [
-            "Q6$00000001-0000-0000-0000-000000000000"
-          ]
-        },
-        "Q6$00000002-0000-0000-0000-000000000000": {
-          "graphs": [
-            "local"
-          ],
-          "members": [
-            "Q6$00000002-0000-0000-0000-000000000000"
-          ]
-        },
-        "Q6$00000003-0000-0000-0000-000000000000": {
-          "graphs": [
-            "local"
-          ],
-          "members": [
-            "Q6$00000003-0000-0000-0000-000000000000"
-          ]
-        },
-        "Q6$00000004-0000-0000-0000-000000000000": {
-          "graphs": [
-            "local"
-          ],
-          "members": [
-            "Q6$00000004-0000-0000-0000-000000000000"
-          ]
-        },
-        "Q6$00000005-0000-0000-0000-000000000000": {
-          "graphs": [
-            "local"
-          ],
-          "members": [
-            "Q6$00000005-0000-0000-0000-000000000000"
-          ]
-        },
-        "Q6$00000007-0000-0000-0000-000000000000": {
-          "graphs": [
-            "local"
-          ],
-          "members": [
-            "Q6$00000007-0000-0000-0000-000000000000"
-          ]
-        },
-        "Q6$00000008-0000-0000-0000-000000000000": {
-          "graphs": [
-            "local"
-          ],
-          "members": [
-            "Q6$00000008-0000-0000-0000-000000000000"
-          ]
-        },
-        "Q6$00000009-0000-0000-0000-000000000000": {
-          "graphs": [
-            "local"
-          ],
-          "members": [
-            "Q6$00000009-0000-0000-0000-000000000000"
-          ]
-        },
-        "Q6$00000010-0000-0000-0000-000000000000": {
-          "graphs": [
-            "local"
-          ],
-          "members": [
-            "Q6$00000010-0000-0000-0000-000000000000"
-          ]
-        },
-        "Q6$00000011-0000-0000-0000-000000000000": {
-          "graphs": [
-            "local"
-          ],
-          "members": [
-            "Q6$00000011-0000-0000-0000-000000000000"
-          ]
-        },
-        "Q6$8CA24725-A85B-5862-9441-B628DDA2F47E": {
-          "graphs": [
-            "local"
-          ],
-          "members": [
-            "Q6$8CA24725-A85B-5862-9441-B628DDA2F47E"
-          ]
-        },
-        "Q6$C1D41689-4250-5816-99F5-70ABC62E76FE": {
-          "graphs": [
-            "local"
-          ],
-          "members": [
-            "Q6$C1D41689-4250-5816-99F5-70ABC62E76FE"
-          ]
-        }
-      },
-      "type": "item"
+      "visibility": {
+        "groups": [
+          "user"
+        ],
+        "sets": []
+      }
+    }
+  },
+  {
+    "method": "GET",
+    "path_and_query": "/w/rest.php/triplespace/v0/labels?ids=P10%7CP11%7CP12%7CP2%7CP3%7CP5%7CP6%7CP7%7CP8%7CP9%7CQ1%7CQ2%7CQ3%7CQ5%7CWDQ2&language=de%7Cmul%7Cen",
+    "credentialed": true,
+    "status": 200,
+    "headers": {
+      "cache-control": "private, no-cache",
+      "content-length": "42",
+      "content-type": "application/json; charset=utf-8",
+      "date": "Sun, 15 Nov 2026 17:59:20 GMT",
+      "etag": "\"2aec489184061c9fcc2f9528a0adff6f\"",
+      "vary": "Accept, Accept-Language"
+    },
+    "json": {
+      "labels": {},
+      "language": [
+        "de",
+        "mul",
+        "en"
+      ]
     }
   },
   {
@@ -7085,10 +6967,10 @@
     "status": 200,
     "headers": {
       "cache-control": "private, no-cache",
-      "content-length": "43370",
+      "content-length": "43389",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:10 GMT",
-      "etag": "\"5488a3b3f54272dc6d824feb6592cd97\"",
+      "date": "Sun, 15 Nov 2026 17:59:21 GMT",
+      "etag": "\"059138507a265343d9e024582034e7ea\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -7114,12 +6996,15 @@
         }
       ],
       "build": {
-        "commit": "614327b21b50eafd42023c8e210bff54f2b3b1e7",
-        "commit_date": "2026-11-02T22:02:13-08:00",
-        "features": [],
+        "commit": "65326ae883e9da9ebdb40308580d6b99a44da8af",
+        "commit_date": "2026-11-15T06:20:52-08:00",
+        "features": [
+          "default",
+          "mimalloc"
+        ],
         "modified": true,
         "profile": "debug",
-        "rustc": "rustc 1.97.0 (2d8144b78 2026-07-07)",
+        "rustc": "rustc 1.95.0 (59807616e 2026-04-14)",
         "target": "x86_64-unknown-linux-gnu",
         "version": "0.0.1"
       },
@@ -7165,7 +7050,7 @@
         "instance": [
           {
             "key": "search.farm_wide",
-            "set": false,
+            "set": true,
             "value": "off"
           },
           {
@@ -9842,425 +9727,5 @@
       ],
       "workspace": []
     }
-  },
-  {
-    "method": "GET",
-    "path_and_query": "/w/api.php?action=query&prop=info&titles=Librarybase&format=json&formatversion=2",
-    "status": 200,
-    "headers": {
-      "content-type": "application/json; charset=utf-8",
-      "etag": "\"6910173d5ee316d6b618503bb9f3b830\"",
-      "cache-control": "private, no-cache",
-      "vary": "Accept, Accept-Language",
-      "content-length": "88",
-      "date": "Sat, 07 Nov 2026 04:13:06 GMT"
-    },
-    "json": {
-      "batchcomplete": true,
-      "query": {
-        "pages": [
-          {
-            "missing": true,
-            "ns": 0,
-            "title": "Librarybase"
-          }
-        ]
-      }
-    },
-    "credentialed": true
-  },
-  {
-    "method": "GET",
-    "path_and_query": "/w/api.php?action=query&prop=info&titles=six&format=json&formatversion=2",
-    "status": 200,
-    "headers": {
-      "content-type": "application/json; charset=utf-8",
-      "etag": "\"46cfb77a27e3f1fc059d8bfdd461e089\"",
-      "cache-control": "private, no-cache",
-      "vary": "Accept, Accept-Language",
-      "content-length": "121",
-      "date": "Sat, 07 Nov 2026 04:13:06 GMT"
-    },
-    "json": {
-      "batchcomplete": true,
-      "query": {
-        "normalized": [
-          {
-            "from": "six",
-            "to": "Six"
-          }
-        ],
-        "pages": [
-          {
-            "missing": true,
-            "ns": 0,
-            "title": "Six"
-          }
-        ]
-      }
-    },
-    "credentialed": true
-  },
-  {
-    "method": "GET",
-    "path_and_query": "/w/api.php?action=query&prop=info&titles=zzzz&format=json&formatversion=2",
-    "status": 200,
-    "headers": {
-      "content-type": "application/json; charset=utf-8",
-      "etag": "\"ab215b693a1637c55a0e11cd7e454bf8\"",
-      "cache-control": "private, no-cache",
-      "vary": "Accept, Accept-Language",
-      "content-length": "124",
-      "date": "Sat, 07 Nov 2026 04:13:06 GMT"
-    },
-    "json": {
-      "batchcomplete": true,
-      "query": {
-        "normalized": [
-          {
-            "from": "zzzz",
-            "to": "Zzzz"
-          }
-        ],
-        "pages": [
-          {
-            "missing": true,
-            "ns": 0,
-            "title": "Zzzz"
-          }
-        ]
-      }
-    },
-    "credentialed": true
-  },
-  {
-    "method": "GET",
-    "path_and_query": "/w/api.php?action=query&prop=info&titles=n&format=json&formatversion=2",
-    "status": 200,
-    "headers": {
-      "content-type": "application/json; charset=utf-8",
-      "etag": "\"1dc0343790115943abaa43987923702a\"",
-      "cache-control": "private, no-cache",
-      "vary": "Accept, Accept-Language",
-      "content-length": "115",
-      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
-    },
-    "json": {
-      "batchcomplete": true,
-      "query": {
-        "normalized": [
-          {
-            "from": "n",
-            "to": "N"
-          }
-        ],
-        "pages": [
-          {
-            "missing": true,
-            "ns": 0,
-            "title": "N"
-          }
-        ]
-      }
-    },
-    "credentialed": true
-  },
-  {
-    "method": "GET",
-    "path_and_query": "/w/api.php?action=query&prop=info&titles=e&format=json&formatversion=2",
-    "status": 200,
-    "headers": {
-      "content-type": "application/json; charset=utf-8",
-      "etag": "\"6de0e09b03402363dea53bda7ef6cd73\"",
-      "cache-control": "private, no-cache",
-      "vary": "Accept, Accept-Language",
-      "content-length": "115",
-      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
-    },
-    "json": {
-      "batchcomplete": true,
-      "query": {
-        "normalized": [
-          {
-            "from": "e",
-            "to": "E"
-          }
-        ],
-        "pages": [
-          {
-            "missing": true,
-            "ns": 0,
-            "title": "E"
-          }
-        ]
-      }
-    },
-    "credentialed": true
-  },
-  {
-    "method": "GET",
-    "path_and_query": "/w/api.php?action=query&prop=info&titles=half&format=json&formatversion=2",
-    "status": 200,
-    "headers": {
-      "content-type": "application/json; charset=utf-8",
-      "etag": "\"94361540659fe26dfe406d9f52eb374d\"",
-      "cache-control": "private, no-cache",
-      "vary": "Accept, Accept-Language",
-      "content-length": "124",
-      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
-    },
-    "json": {
-      "batchcomplete": true,
-      "query": {
-        "normalized": [
-          {
-            "from": "half",
-            "to": "Half"
-          }
-        ],
-        "pages": [
-          {
-            "missing": true,
-            "ns": 0,
-            "title": "Half"
-          }
-        ]
-      }
-    },
-    "credentialed": true
-  },
-  {
-    "method": "GET",
-    "path_and_query": "/w/api.php?action=query&prop=info&titles=Q404&format=json&formatversion=2",
-    "status": 200,
-    "headers": {
-      "content-type": "application/json; charset=utf-8",
-      "etag": "\"6fe3ae8bb437235224ed2c0a8db90b6b\"",
-      "cache-control": "private, no-cache",
-      "vary": "Accept, Accept-Language",
-      "content-length": "81",
-      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
-    },
-    "json": {
-      "batchcomplete": true,
-      "query": {
-        "pages": [
-          {
-            "missing": true,
-            "ns": 0,
-            "title": "Q404"
-          }
-        ]
-      }
-    },
-    "credentialed": true
-  },
-  {
-    "method": "GET",
-    "path_and_query": "/w/api.php?action=query&list=prefixsearch&format=json&formatversion=2&pssearch=Librarybase&psnamespace=*&pslimit=7",
-    "status": 200,
-    "headers": {
-      "content-type": "application/json; charset=utf-8",
-      "etag": "\"fd5dfb6c07976d27d1be612dd4e65f71\"",
-      "cache-control": "private, no-cache",
-      "vary": "Accept, Accept-Language",
-      "content-length": "230",
-      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
-    },
-    "json": {
-      "batchcomplete": true,
-      "query": {
-        "prefixsearch": [
-          {
-            "ns": 2,
-            "pageid": 5,
-            "title": "User:Librarybase"
-          },
-          {
-            "ns": 4,
-            "pageid": 246986,
-            "title": "librarybase:Librarybase Tech"
-          },
-          {
-            "ns": 4,
-            "pageid": 508,
-            "title": "librarybase:Librarybase Query Service"
-          }
-        ]
-      }
-    },
-    "credentialed": true
-  },
-  {
-    "method": "GET",
-    "path_and_query": "/w/api.php?action=query&list=prefixsearch&format=json&formatversion=2&pssearch=six&psnamespace=*&pslimit=7",
-    "status": 200,
-    "headers": {
-      "content-type": "application/json; charset=utf-8",
-      "etag": "\"fadb6093475142a9be1af0ab0574f872\"",
-      "cache-control": "private, no-cache",
-      "vary": "Accept, Accept-Language",
-      "content-length": "50",
-      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
-    },
-    "json": {
-      "batchcomplete": true,
-      "query": {
-        "prefixsearch": []
-      }
-    },
-    "credentialed": true
-  },
-  {
-    "method": "GET",
-    "path_and_query": "/w/api.php?action=query&list=prefixsearch&format=json&formatversion=2&pssearch=zzzz&psnamespace=*&pslimit=7",
-    "status": 200,
-    "headers": {
-      "content-type": "application/json; charset=utf-8",
-      "etag": "\"fadb6093475142a9be1af0ab0574f872\"",
-      "cache-control": "private, no-cache",
-      "vary": "Accept, Accept-Language",
-      "content-length": "50",
-      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
-    },
-    "json": {
-      "batchcomplete": true,
-      "query": {
-        "prefixsearch": []
-      }
-    },
-    "credentialed": true
-  },
-  {
-    "method": "GET",
-    "path_and_query": "/w/api.php?action=query&list=prefixsearch&format=json&formatversion=2&pssearch=n&psnamespace=*&pslimit=7",
-    "status": 200,
-    "headers": {
-      "content-type": "application/json; charset=utf-8",
-      "etag": "\"ba820e97394318898c1fe919c992b64a\"",
-      "cache-control": "private, no-cache",
-      "vary": "Accept, Accept-Language",
-      "content-length": "103",
-      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
-    },
-    "json": {
-      "batchcomplete": true,
-      "query": {
-        "prefixsearch": [
-          {
-            "ns": 4,
-            "pageid": 13,
-            "title": "librarybase:Notability"
-          }
-        ]
-      }
-    },
-    "credentialed": true
-  },
-  {
-    "method": "GET",
-    "path_and_query": "/w/api.php?action=query&list=prefixsearch&format=json&formatversion=2&pssearch=e&psnamespace=*&pslimit=7",
-    "status": 200,
-    "headers": {
-      "content-type": "application/json; charset=utf-8",
-      "etag": "\"e8f3bf7141975d05237d814f3770a34b\"",
-      "cache-control": "private, no-cache",
-      "vary": "Accept, Accept-Language",
-      "content-length": "94",
-      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
-    },
-    "json": {
-      "batchcomplete": true,
-      "query": {
-        "prefixsearch": [
-          {
-            "ns": 2,
-            "pageid": 514,
-            "title": "User:Example"
-          }
-        ]
-      }
-    },
-    "credentialed": true
-  },
-  {
-    "method": "GET",
-    "path_and_query": "/w/api.php?action=query&list=prefixsearch&format=json&formatversion=2&pssearch=half&psnamespace=*&pslimit=7",
-    "status": 200,
-    "headers": {
-      "content-type": "application/json; charset=utf-8",
-      "etag": "\"fadb6093475142a9be1af0ab0574f872\"",
-      "cache-control": "private, no-cache",
-      "vary": "Accept, Accept-Language",
-      "content-length": "50",
-      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
-    },
-    "json": {
-      "batchcomplete": true,
-      "query": {
-        "prefixsearch": []
-      }
-    },
-    "credentialed": true
-  },
-  {
-    "method": "GET",
-    "path_and_query": "/w/api.php?action=query&list=prefixsearch&format=json&formatversion=2&pssearch=Q6&psnamespace=*&pslimit=7",
-    "status": 200,
-    "headers": {
-      "content-type": "application/json; charset=utf-8",
-      "etag": "\"fadb6093475142a9be1af0ab0574f872\"",
-      "cache-control": "private, no-cache",
-      "vary": "Accept, Accept-Language",
-      "content-length": "50",
-      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
-    },
-    "json": {
-      "batchcomplete": true,
-      "query": {
-        "prefixsearch": []
-      }
-    },
-    "credentialed": true
-  },
-  {
-    "method": "GET",
-    "path_and_query": "/w/api.php?action=query&list=prefixsearch&format=json&formatversion=2&pssearch=Q404&psnamespace=*&pslimit=7",
-    "status": 200,
-    "headers": {
-      "content-type": "application/json; charset=utf-8",
-      "etag": "\"fadb6093475142a9be1af0ab0574f872\"",
-      "cache-control": "private, no-cache",
-      "vary": "Accept, Accept-Language",
-      "content-length": "50",
-      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
-    },
-    "json": {
-      "batchcomplete": true,
-      "query": {
-        "prefixsearch": []
-      }
-    },
-    "credentialed": true
-  },
-  {
-    "method": "GET",
-    "path_and_query": "/w/api.php?action=query&list=prefixsearch&format=json&formatversion=2&pssearch=wikipedia.org&psnamespace=*&pslimit=7",
-    "status": 200,
-    "headers": {
-      "content-type": "application/json; charset=utf-8",
-      "etag": "\"fadb6093475142a9be1af0ab0574f872\"",
-      "cache-control": "private, no-cache",
-      "vary": "Accept, Accept-Language",
-      "content-length": "50",
-      "date": "Sat, 07 Nov 2026 04:13:07 GMT"
-    },
-    "json": {
-      "batchcomplete": true,
-      "query": {
-        "prefixsearch": []
-      }
-    },
-    "credentialed": true
   }
 ]

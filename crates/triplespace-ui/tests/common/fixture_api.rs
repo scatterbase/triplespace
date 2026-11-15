@@ -127,6 +127,12 @@ impl FixtureApi {
         api
     }
 
+    /// The fixtures with one more entity, or another in place of one of them.
+    pub fn with(mut self, id: &str, entity: Value) -> Self {
+        self.entities.insert(id.to_string(), entity);
+        self
+    }
+
     #[allow(clippy::too_many_lines)]
     fn answer(&self, path_and_query: &str, signed_in: bool) -> (StatusCode, Value, Vec<String>) {
         let (path, query) = path_and_query
@@ -224,6 +230,54 @@ impl FixtureApi {
                 }]}]}}),
                 vec!["entity:Q6".into()],
             );
+        }
+        if path == "/w/rest.php/triplespace/v0/labels" {
+            // Bulk labels (0012 A70): each ID's label along the chain given.
+            let chain = param(query, "language").unwrap_or_default();
+            let mut out = serde_json::Map::new();
+            for given in param(query, "ids").unwrap_or_default().split('|') {
+                let Some(e) = self.entities.get(&id_of(given)) else {
+                    continue;
+                };
+                if let Some(l) = chain.split('|').find_map(|l| e["labels"].get(l)) {
+                    out.insert(given.to_string(), l.clone());
+                }
+            }
+            return (
+                StatusCode::OK,
+                json!({"language": chain.split('|').collect::<Vec<_>>(), "labels": out}),
+                vec![],
+            );
+        }
+        if let Some(rest) = path.strip_prefix("/w/rest.php/triplespace/v0/entity/")
+            && let Some(given) = rest.strip_suffix("/page")
+        {
+            // The page bundle (0012 A70): the entity and its recorded provenance.
+            let given = decode(given);
+            let id = id_of(&given);
+            if id.chars().next().is_some_and(char::is_lowercase) && !id.contains(':') {
+                return (
+                    StatusCode::BAD_REQUEST,
+                    json!({"code": "invalid-entity-id", "message": "Invalid entity ID"}),
+                    vec![],
+                );
+            }
+            return match self.entities.get(&id) {
+                Some(e) => {
+                    // An entity with no recorded provenance is served without one, the
+                    // case the page words as "the server did not say".
+                    let mut body = json!({"id": id, "entity": e});
+                    if let Some(p) = fixture(&format!("provenance-{}.json", id.replace(':', "-"))) {
+                        body["provenance"] = p;
+                    }
+                    (StatusCode::OK, body, vec![format!("entity:{id}")])
+                }
+                None => (
+                    StatusCode::NOT_FOUND,
+                    json!({"code": "entity-not-found", "message": "no entity"}),
+                    vec![],
+                ),
+            };
         }
         if let Some(rest) = path.strip_prefix("/w/rest.php/triplespace/v0/entity/") {
             let id = id_of(&decode(rest.trim_end_matches("/provenance")));
