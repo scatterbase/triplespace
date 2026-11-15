@@ -722,7 +722,7 @@ Vue 3 with Codex's Vue components, written in TypeScript, mounted into placehold
 | Statement value editor, rank menu | Lookup, Combobox, Menu, Dialog, TextInput | one value or one statement |
 | Term editor (labels, descriptions, aliases) | TextInput, ChipInput; until Codex's ChipInput passes the accessibility checks of §5.7, the aliases are a text area, one a line ([0034](../decisions/0034-frontend-stack.md) A18) | the term box |
 | Source editor with live preview (§3.2) | CodeMirror 6 (§5.5), Tabs | the edit view |
-| Search box with "Go to" suggestions (§2.1) | TypeaheadSearch | the global header |
+| Search box with "Go to" suggestions (§2.1) | Lookup, in the header's own form, loaded when the box is first used; TypeaheadSearch once Codex's passes the accessibility checks of §5.7 ([0034](../decisions/0034-frontend-stack.md) A20) | the global header |
 | Notifications bell and inbox (§6.2) | Popover, Menu | the account area |
 | Live updates switch ([16](16-logs-feeds-and-notifications.md)) | ToggleSwitch | feed pages |
 | Recent changes filters | Checkbox, Lookup, MultiselectLookup | the filter panel |

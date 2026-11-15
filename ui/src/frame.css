@@ -120,6 +120,25 @@ h3 {
 	max-width: var( --size-3200, 32rem );
 }
 
+/* The suggesting search box (19 §5.3), which takes the form's place once it is used:
+   the field and its button in one row, as the plain form draws them. */
+.ts-typeahead {
+	display: flex;
+	align-items: stretch;
+}
+
+.ts-typeahead__box {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.ts-typeahead__button {
+	flex: none;
+	margin-inline-start: -1px;
+	border-start-start-radius: 0;
+	border-end-start-radius: 0;
+}
+
 .ts-header__nav {
 	display: flex;
 	flex-wrap: wrap;

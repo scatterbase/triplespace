@@ -61,6 +61,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0034 A17](0034-frontend-stack.md#a17-thread-fragments-the-browsers-language-and-the-media-origin-the-calls-made-building-them) | 2026-11-10 | Thread fragments, the browser's language, and the media origin: the calls made building them |
 | [0034 A18](0034-frontend-stack.md#a18-the-job-progress-bar-is-built-alias-chips-wait-on-codex) | 2026-11-10 | The job progress bar is built; alias chips wait on Codex |
 | [0034 A19](0034-frontend-stack.md#a19-the-vite-dev-server-servervite-and-webvite) | 2026-11-15 | The Vite dev server: `server.vite` and `web.vite` |
+| [0034 A20](0034-frontend-stack.md#a20-the-headers-search-box-suggests-on-codexs-lookup) | 2026-11-15 | The header's search box suggests, on Codex's Lookup |
 | [0039 A16](0039-files-and-media.md#a16-a-fifth-kind-of-key-what-a-job-wrote) | 2026-11-13 | A fifth kind of key: what a job wrote |
 | [0042 A22](0042-template-expansion-and-parsoid.md#a22-which-template-drew-a-block) | 2026-11-04 | Which template drew a block |
 | [0051 A8](0051-page-redirects.md#a8-actionmove-the-calls-made-building-it) | 2026-10-30 | `action=move`: the calls made building it |
