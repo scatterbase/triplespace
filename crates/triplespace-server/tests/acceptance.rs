@@ -2020,6 +2020,8 @@ async fn what_the_site_reads(router: &Router, database: &str) {
         "the tenant's own statement on the Domain: {p}"
     );
 
+    the_page_bundle_and_bulk_labels(router).await;
+
     // Missing and malformed IDs.
     let (status, _, e) = send(
         router,
@@ -2037,4 +2039,204 @@ async fn what_the_site_reads(router: &Router, database: &str) {
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(e["code"], "invalid-entity-id");
+}
+
+/// The two routes an entity page is drawn from (0012 §5, A70): the page bundle and the
+/// bulk labels, against the instance `what_the_site_reads` has prepared.
+#[allow(clippy::too_many_lines, clippy::many_single_char_names)]
+async fn the_page_bundle_and_bulk_labels(router: &Router) {
+    // The page bundle (0012 §5, A70): the entity as `wbgetentities` serves it and its
+    // provenance, in one response, cached as the entity is.
+    let (_, _, whole) = send(
+        router,
+        "/w/api.php?action=wbgetentities&ids=Q6|domain:wikipedia.org&format=json",
+        &[],
+    )
+    .await;
+    let (_, _, q6_provenance) = send(
+        router,
+        "/w/rest.php/triplespace/v0/entity/Q6/provenance",
+        &[],
+    )
+    .await;
+    let (status, h, b) = send(router, "/w/rest.php/triplespace/v0/entity/Q6/page", &[]).await;
+    assert_eq!(status, StatusCode::OK, "{b}");
+    assert_eq!(b["id"], "Q6");
+    assert_eq!(b["entity"], whole["entities"]["Q6"], "{b}");
+    assert_eq!(b["provenance"], q6_provenance, "{b}");
+    assert!(
+        b.get("visibility").is_none() && b.get("redirects").is_none(),
+        "{b}"
+    );
+    assert_eq!(h["cache-tag"], "entity:Q6");
+    assert!(
+        h["cache-control"]
+            .to_str()
+            .unwrap()
+            .starts_with("public, max-age=0, s-maxage=60")
+    );
+    let etag = h["etag"].to_str().unwrap().to_string();
+    let (status, _, _) = send(
+        router,
+        "/w/rest.php/triplespace/v0/entity/Q6/page",
+        &[("if-none-match", etag)],
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_MODIFIED);
+    // A key-mapped provider's own item ID answers with the keyed entity, and says so.
+    let (status, _, b) = send(router, "/rest.php/triplespace/v0/entity/XDQ11/page", &[]).await;
+    assert_eq!(status, StatusCode::OK, "{b}");
+    assert_eq!(b["id"], "domain:wikipedia.org");
+    assert_eq!(
+        b["entity"], whole["entities"]["domain:wikipedia.org"],
+        "{b}"
+    );
+    assert_eq!(
+        b["redirects"],
+        json!({"from": "XDQ11", "to": "domain:wikipedia.org"})
+    );
+    assert_eq!(
+        b["provenance"]["graphs"][1]["graph"],
+        "mirror/internetdomains"
+    );
+    // A keyed ID no graph holds is an empty entity, as `wbgetentities` serves it.
+    let (status, _, b) = send(
+        router,
+        "/rest.php/triplespace/v0/entity/domain:nothing-here.example/page",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{b}");
+    assert_eq!(
+        b["entity"]["labels"]["mul"]["value"],
+        "nothing-here.example"
+    );
+    for (path, status, code) in [
+        ("Q999999", StatusCode::NOT_FOUND, "entity-not-found"),
+        ("not-an-id", StatusCode::BAD_REQUEST, "invalid-entity-id"),
+    ] {
+        let (s, _, e) = send(
+            router,
+            &format!("/w/rest.php/triplespace/v0/entity/{path}/page"),
+            &[],
+        )
+        .await;
+        assert_eq!((s, e["code"].as_str()), (status, Some(code)), "{e}");
+    }
+    // An absent entity's answer is public for a caller with no credential, tagged so
+    // that creating the entity purges it; with one it is private.
+    let (s, h, _) = send(
+        router,
+        "/w/rest.php/triplespace/v0/entity/Q999999/page",
+        &[],
+    )
+    .await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+    assert!(h["cache-control"].to_str().unwrap().starts_with("public"));
+    assert_eq!(h["cache-tag"], "entity:Q999999");
+    let (s, h, _) = send(
+        router,
+        "/w/rest.php/triplespace/v0/entity/Q999999/page",
+        &[("authorization", "Bearer nonsense.key".into())],
+    )
+    .await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+    assert_eq!(h["cache-control"], "private, no-cache");
+
+    // Bulk labels (0012 §5, A70): each ID's label in the chain given, keyed as given.
+    let labels = "/w/rest.php/triplespace/v0/labels";
+    let (status, h, l) = send(
+        router,
+        &format!(
+            "{labels}?ids=Q6|P12|Item:Q6|domain:wikipedia.org|XDQ11|domain:nothing-here.example|Q999999&language=fr|mul|en"
+        ),
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{l}");
+    assert_eq!(l["language"], json!(["fr", "mul", "en"]));
+    assert_eq!(
+        l["labels"]["Q6"], whole["entities"]["Q6"]["labels"]["fr"],
+        "the first language of the chain: {l}"
+    );
+    assert_eq!(l["labels"]["Item:Q6"], l["labels"]["Q6"], "{l}");
+    assert_eq!(
+        l["labels"]["P12"],
+        json!({"language": "en", "value": "note"}),
+        "{l}"
+    );
+    // A Domain's derived label is its `mul` label, before the mirror's English one.
+    assert_eq!(
+        l["labels"]["domain:wikipedia.org"],
+        json!({"language": "mul", "value": "wikipedia.org"}),
+        "{l}"
+    );
+    assert_eq!(
+        l["labels"]["XDQ11"], l["labels"]["domain:wikipedia.org"],
+        "{l}"
+    );
+    assert_eq!(
+        l["labels"]["domain:nothing-here.example"]["value"], "nothing-here.example",
+        "{l}"
+    );
+    assert!(l["labels"].get("Q999999").is_none(), "{l}");
+    // Public, by its URL alone, with no tag per entity.
+    assert!(
+        h["cache-control"]
+            .to_str()
+            .unwrap()
+            .starts_with("public, max-age=0, s-maxage=60")
+    );
+    assert!(h.get("cache-tag").is_none());
+    let etag = h["etag"].to_str().unwrap().to_string();
+    // The chain is the caller's: English first reads the mirror's label.
+    let (_, _, l) = send(
+        router,
+        &format!("{labels}?ids=domain:wikipedia.org&language=en|mul"),
+        &[],
+    )
+    .await;
+    assert_eq!(
+        l["labels"]["domain:wikipedia.org"],
+        json!({"language": "en", "value": "Wikipedia"}),
+        "{l}"
+    );
+    let (status, _, _) = send(
+        router,
+        &format!(
+            "{labels}?ids=Q6|P12|Item:Q6|domain:wikipedia.org|XDQ11|domain:nothing-here.example|Q999999&language=fr|mul|en"
+        ),
+        &[("if-none-match", etag)],
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_MODIFIED);
+    // A thousand IDs in one call, and no more.
+    let many = |n: usize| {
+        (1..=n)
+            .map(|i| format!("Q{i}"))
+            .collect::<Vec<_>>()
+            .join("|")
+    };
+    let (status, _, l) = send(
+        router,
+        &format!("{labels}?ids={}&language=en", many(1000)),
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{l}");
+    assert_eq!(l["labels"]["Q6"]["language"], "en", "{l}");
+    for (query, code) in [
+        (format!("ids={}&language=en", many(1001)), "toomanyvalues"),
+        ("language=en".to_string(), "param-missing"),
+        ("ids=Q6".to_string(), "param-missing"),
+        ("ids=not-an-id&language=en".to_string(), "invalid-entity-id"),
+        ("ids=Q6&language=en;drop".to_string(), "invalid-language"),
+    ] {
+        let (s, _, e) = send(router, &format!("{labels}?{query}"), &[]).await;
+        assert_eq!(
+            (s, e["code"].as_str()),
+            (StatusCode::BAD_REQUEST, Some(code)),
+            "{e}"
+        );
+    }
 }

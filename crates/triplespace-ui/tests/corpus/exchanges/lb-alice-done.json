@@ -6,10 +6,10 @@
     "status": 200,
     "headers": {
       "cache-control": "private, no-cache",
-      "content-length": "794",
+      "content-length": "796",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:06 GMT",
-      "etag": "\"990aa27d4eec064e1d341db3a24e0e18\"",
+      "date": "Sun, 15 Nov 2026 17:59:19 GMT",
+      "etag": "\"4f29dabedf7c0878e97d57aae546eb73\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -17,8 +17,8 @@
       "query": {
         "notifications": {
           "alert": {
-            "continue": "1793723849|9",
-            "count": "5",
+            "continue": "1794765509|11",
+            "count": "7",
             "list": [
               {
                 "agent": {
@@ -26,21 +26,21 @@
                   "name": "Bob"
                 },
                 "category": "ts-reply",
-                "id": 9,
+                "id": 11,
                 "revid": 248273,
                 "section": "alert",
                 "timestamp": {
-                  "mw": "20261103163729",
-                  "unix": "1793723849",
-                  "utciso8601": "2026-11-03T16:37:29Z",
-                  "utcmw": "20261103163729",
-                  "utcunix": "1793723849"
+                  "mw": "20261115175829",
+                  "unix": "1794765509",
+                  "utciso8601": "2026-11-15T17:58:29Z",
+                  "utcmw": "20261115175829",
+                  "utcunix": "1794765509"
                 },
                 "title": {
-                  "full": "Thread:2026-11-03/Is five a city?",
+                  "full": "Thread:2026-11-15/Is five a city?",
                   "namespace": "Thread",
                   "namespace-key": 214,
-                  "text": "2026-11-03/Is five a city?"
+                  "text": "2026-11-15/Is five a city?"
                 },
                 "ts-params": null,
                 "ts-reason": "reply",
@@ -55,17 +55,17 @@
                 "wiki": "librarybase"
               }
             ],
-            "rawcount": 5,
-            "seenTime": "2026-11-03T16:40:01Z"
+            "rawcount": 7,
+            "seenTime": "2026-11-15T17:59:17Z"
           },
-          "count": "5",
+          "count": "7",
           "message": {
             "count": "0",
             "list": [],
             "rawcount": 0,
-            "seenTime": "2026-11-03T16:40:01Z"
+            "seenTime": "2026-11-15T17:59:17Z"
           },
-          "rawcount": 5
+          "rawcount": 7
         }
       }
     }
@@ -77,10 +77,10 @@
     "status": 200,
     "headers": {
       "cache-control": "private, no-cache",
-      "content-length": "89036",
+      "content-length": "89237",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:06 GMT",
-      "etag": "\"49c1ca5430fd23c20ea52d63aa8ffafa\"",
+      "date": "Sun, 15 Nov 2026 17:59:19 GMT",
+      "etag": "\"9969a6d1d4d11730b9d2fcf1039fca17\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -146,7 +146,7 @@
             "4": 250,
             "5": 300
           },
-          "time": "2026-11-03T16:40:06Z",
+          "time": "2026-11-15T17:59:19Z",
           "timeoffset": 0,
           "timezone": "UTC",
           "uploadsenabled": false,
@@ -578,12 +578,14 @@
         "triplespace": {
           "account": {
             "approval": true,
+            "external_required": false,
+            "names": "chosen",
             "statement": "optional"
           },
           "api_version": 6,
           "at_farm": true,
           "build": {
-            "commit": "614327b21b50eafd42023c8e210bff54f2b3b1e7",
+            "commit": "65326ae883e9da9ebdb40308580d6b99a44da8af",
             "modified": true,
             "version": "0.0.1"
           },
@@ -612,11 +614,14 @@
             "move",
             "protect",
             "userrights",
+            "renameuser",
             "block",
             "delete",
             "notifications",
             "watchlist",
-            "reports"
+            "reports",
+            "export",
+            "import"
           ],
           "challenge": {
             "algorithm": "sha256-leading-zero-bits",
@@ -627,8 +632,12 @@
               "badlogin"
             ]
           },
+          "export": {
+            "from_namespaces": false,
+            "history": true
+          },
           "farm": "scatter",
-          "farm_code": "qy5lcrhd6pygzivl5eerupvdx4",
+          "farm_code": "upvnufjxdkvq7tdjbxg7wnt4lj",
           "grants": [
             "basic",
             "highvolume",
@@ -644,11 +653,15 @@
             "editmywatchlist",
             "ts-jobs"
           ],
+          "import": {
+            "max_upload": 104857600,
+            "sync_pages": 100
+          },
           "insecure": true,
           "interface": {
             "messages": {}
           },
-          "issuer": "pep52en4doftudxz5zaztpvbao",
+          "issuer": "mkqavovhrxj56hkmbusdncsbrk",
           "login": [],
           "primary": "librarybase",
           "providers": [
@@ -713,9 +726,9 @@
                       "color-destructive": "#E2798A",
                       "color-error": "#E2798A",
                       "color-success": "#84AA1E",
-                      "color-visited": "#CE64AE",
-                      "color-visited--active": "#CE64AE",
-                      "color-visited--hover": "#CE64AE",
+                      "color-visited": "#D06AB1",
+                      "color-visited--active": "#D06AB1",
+                      "color-visited--hover": "#D06AB1",
                       "color-warning": "#AE9685"
                     },
                     "dark-more": {
@@ -773,9 +786,9 @@
                       "color-destructive": "#831B2E",
                       "color-error": "#831B2E",
                       "color-success": "#3B4B0D",
-                      "color-visited": "#892C6D",
-                      "color-visited--active": "#892C6D",
-                      "color-visited--hover": "#892C6D",
+                      "color-visited": "#812966",
+                      "color-visited--active": "#812966",
+                      "color-visited--hover": "#812966",
                       "color-warning": "#534236"
                     }
                   },
@@ -795,9 +808,9 @@
                       "color-destructive": "#FF6904",
                       "color-error": "#FF6904",
                       "color-success": "#0CA8CD",
-                      "color-visited": "#A977BB",
-                      "color-visited--active": "#A977BB",
-                      "color-visited--hover": "#A977BB",
+                      "color-visited": "#AC7CBD",
+                      "color-visited--active": "#AC7CBD",
+                      "color-visited--hover": "#AC7CBD",
                       "color-warning": "#C88F5A"
                     },
                     "dark-more": {
@@ -855,9 +868,9 @@
                       "color-destructive": "#752F00",
                       "color-error": "#752F00",
                       "color-success": "#054C5D",
-                      "color-visited": "#6A3D7A",
-                      "color-visited--active": "#6A3D7A",
-                      "color-visited--hover": "#6A3D7A",
+                      "color-visited": "#663B75",
+                      "color-visited--active": "#663B75",
+                      "color-visited--hover": "#663B75",
                       "color-warning": "#5F3D20"
                     }
                   }
@@ -1009,7 +1022,7 @@
                   "color-progressive--hover": "#0847C3",
                   "color-subtle": "#65677C",
                   "color-success": "#2F741F",
-                  "color-visited": "#8839EF",
+                  "color-visited": "#8636EF",
                   "color-visited--active": "#5F10C6",
                   "color-visited--hover": "#7113EC",
                   "color-warning": "#905B13",
@@ -1049,7 +1062,7 @@
                   "color-progressive--hover": "#052F82",
                   "color-subtle": "#484A63",
                   "color-success": "#215316",
-                  "color-visited": "#6711D7",
+                  "color-visited": "#6110CB",
                   "color-visited--active": "#430B8B",
                   "color-visited--hover": "#550EB1",
                   "color-warning": "#68420E",
@@ -1076,9 +1089,9 @@
                       "color-destructive": "#EBA4B0",
                       "color-error": "#EBA4B0",
                       "color-success": "#A0CE25",
-                      "color-visited": "#DD93C6",
-                      "color-visited--active": "#DD93C6",
-                      "color-visited--hover": "#DD93C6",
+                      "color-visited": "#E3A5CF",
+                      "color-visited--active": "#E3A5CF",
+                      "color-visited--hover": "#E3A5CF",
                       "color-warning": "#C9B9AD"
                     },
                     "dark-more": {
@@ -1096,9 +1109,9 @@
                       "color-destructive": "#F4CDD4",
                       "color-error": "#F4CDD4",
                       "color-success": "#C8E773",
-                      "color-visited": "#E4ABD3",
-                      "color-visited--active": "#E4ABD3",
-                      "color-visited--hover": "#E4ABD3",
+                      "color-visited": "#E8B8DA",
+                      "color-visited--active": "#E8B8DA",
+                      "color-visited--hover": "#E8B8DA",
                       "color-warning": "#E0D8D1"
                     },
                     "light": {
@@ -1151,16 +1164,16 @@
                       "background-color-error-subtle": "#42455E",
                       "background-color-success-subtle": "#185082",
                       "background-color-warning-subtle": "#394B6B",
-                      "border-color-destructive": "#FF9C59",
-                      "border-color-error": "#FF9C59",
+                      "border-color-destructive": "#FFA161",
+                      "border-color-error": "#FFA161",
                       "border-color-success": "#35CFF4",
                       "border-color-warning": "#DAB38F",
-                      "color-destructive": "#FF9C59",
-                      "color-error": "#FF9C59",
+                      "color-destructive": "#FFA161",
+                      "color-error": "#FFA161",
                       "color-success": "#35CFF4",
-                      "color-visited": "#C29ECE",
-                      "color-visited--active": "#C29ECE",
-                      "color-visited--hover": "#C29ECE",
+                      "color-visited": "#CBADD6",
+                      "color-visited--active": "#CBADD6",
+                      "color-visited--hover": "#CBADD6",
                       "color-warning": "#DAB38F"
                     },
                     "dark-more": {
@@ -1178,9 +1191,9 @@
                       "color-destructive": "#FFCBA8",
                       "color-error": "#FFCBA8",
                       "color-success": "#9EE8FA",
-                      "color-visited": "#CFB2D8",
-                      "color-visited--active": "#CFB2D8",
-                      "color-visited--hover": "#CFB2D8",
+                      "color-visited": "#D6BEDE",
+                      "color-visited--active": "#D6BEDE",
+                      "color-visited--hover": "#D6BEDE",
                       "color-warning": "#EAD4C1"
                     },
                     "light": {
@@ -1411,6 +1424,7 @@
                   "color-progressive--hover": "#003135",
                   "color-subtle": "#2A4373",
                   "color-success": "#23582F",
+                  "color-visited": "#693E8C",
                   "color-warning": "#6C4600"
                 },
                 "name": "cyanotype"
@@ -1484,7 +1498,7 @@
                   "color-progressive--hover": "#1D3A75",
                   "color-subtle": "#45494D",
                   "color-success": "#115947",
-                  "color-visited": "#574D9C",
+                  "color-visited": "#544A97",
                   "color-visited--active": "#352F5E",
                   "color-visited--hover": "#463E7D",
                   "color-warning": "#5E4418",
@@ -1863,9 +1877,9 @@
                       "color-destructive": "#E58595",
                       "color-error": "#E58595",
                       "color-success": "#8CB420",
-                      "color-visited": "#D06CB2",
-                      "color-visited--active": "#D06CB2",
-                      "color-visited--hover": "#D06CB2",
+                      "color-visited": "#D47AB9",
+                      "color-visited--active": "#D47AB9",
+                      "color-visited--hover": "#D47AB9",
                       "color-warning": "#B5A090"
                     },
                     "dark-more": {
@@ -1883,9 +1897,9 @@
                       "color-destructive": "#F0B8C1",
                       "color-error": "#F0B8C1",
                       "color-success": "#ACDB2F",
-                      "color-visited": "#DC93C6",
-                      "color-visited--active": "#DC93C6",
-                      "color-visited--hover": "#DC93C6",
+                      "color-visited": "#E0A0CD",
+                      "color-visited--active": "#E0A0CD",
+                      "color-visited--hover": "#E0A0CD",
                       "color-warning": "#D3C7BD"
                     },
                     "light": {
@@ -1923,9 +1937,9 @@
                       "color-destructive": "#821B2D",
                       "color-error": "#821B2D",
                       "color-success": "#3A4B0D",
-                      "color-visited": "#882C6D",
-                      "color-visited--active": "#882C6D",
-                      "color-visited--hover": "#882C6D",
+                      "color-visited": "#7C2864",
+                      "color-visited--active": "#7C2864",
+                      "color-visited--hover": "#7C2864",
                       "color-warning": "#534236"
                     }
                   },
@@ -1945,9 +1959,9 @@
                       "color-destructive": "#FF7B22",
                       "color-error": "#FF7B22",
                       "color-success": "#0CB2D9",
-                      "color-visited": "#AD7DBE",
-                      "color-visited--active": "#AD7DBE",
-                      "color-visited--hover": "#AD7DBE",
+                      "color-visited": "#B489C4",
+                      "color-visited--active": "#B489C4",
+                      "color-visited--hover": "#B489C4",
                       "color-warning": "#CD996A"
                     },
                     "dark-more": {
@@ -1965,9 +1979,9 @@
                       "color-destructive": "#FFB786",
                       "color-error": "#FFB786",
                       "color-success": "#59D7F6",
-                      "color-visited": "#C29DCE",
-                      "color-visited--active": "#C29DCE",
-                      "color-visited--hover": "#C29DCE",
+                      "color-visited": "#C9A9D4",
+                      "color-visited--active": "#C9A9D4",
+                      "color-visited--hover": "#C9A9D4",
                       "color-warning": "#E2C3A7"
                     },
                     "light": {
@@ -2005,9 +2019,9 @@
                       "color-destructive": "#752F00",
                       "color-error": "#752F00",
                       "color-success": "#054B5D",
-                      "color-visited": "#6A3D7A",
-                      "color-visited--active": "#6A3D7A",
-                      "color-visited--hover": "#6A3D7A",
+                      "color-visited": "#633972",
+                      "color-visited--active": "#633972",
+                      "color-visited--hover": "#633972",
                       "color-warning": "#5F3D20"
                     }
                   }
@@ -2107,7 +2121,7 @@
                   "color-progressive--hover": "#CEDBD6",
                   "color-subtle": "#D5C4A1",
                   "color-success": "#CFD32B",
-                  "color-visited": "#D998A9",
+                  "color-visited": "#DEA5B4",
                   "color-visited--active": "#EFD4DB",
                   "color-visited--hover": "#E4B6C2",
                   "color-warning": "#FBC953"
@@ -2197,7 +2211,7 @@
                   "color-progressive--hover": "#032B33",
                   "color-subtle": "#504945",
                   "color-success": "#4D4909",
-                  "color-visited": "#7E3764",
+                  "color-visited": "#73325C",
                   "color-visited--active": "#451E37",
                   "color-visited--hover": "#622B4D",
                   "color-warning": "#64420B"
@@ -2223,9 +2237,9 @@
                       "color-destructive": "#E996A4",
                       "color-error": "#E996A4",
                       "color-success": "#97C223",
-                      "color-visited": "#D67FBC",
-                      "color-visited--active": "#D67FBC",
-                      "color-visited--hover": "#D67FBC",
+                      "color-visited": "#DA8DC3",
+                      "color-visited--active": "#DA8DC3",
+                      "color-visited--hover": "#DA8DC3",
                       "color-warning": "#BFAD9F"
                     },
                     "dark-more": {
@@ -2243,9 +2257,9 @@
                       "color-destructive": "#F3C8CF",
                       "color-error": "#F3C8CF",
                       "color-success": "#C1E462",
-                      "color-visited": "#E1A0CD",
-                      "color-visited--active": "#E1A0CD",
-                      "color-visited--hover": "#E1A0CD",
+                      "color-visited": "#E7B4D8",
+                      "color-visited--active": "#E7B4D8",
+                      "color-visited--hover": "#E7B4D8",
                       "color-warning": "#DDD3CC"
                     },
                     "light": {
@@ -2283,9 +2297,9 @@
                       "color-destructive": "#801B2D",
                       "color-error": "#801B2D",
                       "color-success": "#3A4A0D",
-                      "color-visited": "#872B6C",
-                      "color-visited--active": "#872B6C",
-                      "color-visited--hover": "#872B6C",
+                      "color-visited": "#802966",
+                      "color-visited--active": "#802966",
+                      "color-visited--hover": "#802966",
                       "color-warning": "#514135"
                     }
                   },
@@ -2305,9 +2319,9 @@
                       "color-destructive": "#FF8F43",
                       "color-error": "#FF8F43",
                       "color-success": "#0DBFE9",
-                      "color-visited": "#B78DC6",
-                      "color-visited--active": "#B78DC6",
-                      "color-visited--hover": "#B78DC6",
+                      "color-visited": "#BE98CB",
+                      "color-visited--active": "#BE98CB",
+                      "color-visited--hover": "#BE98CB",
                       "color-warning": "#D4A77F"
                     },
                     "dark-more": {
@@ -2325,9 +2339,9 @@
                       "color-destructive": "#FFC7A1",
                       "color-error": "#FFC7A1",
                       "color-success": "#81E1F8",
-                      "color-visited": "#C9A9D4",
-                      "color-visited--active": "#C9A9D4",
-                      "color-visited--hover": "#C9A9D4",
+                      "color-visited": "#D4BADC",
+                      "color-visited--active": "#D4BADC",
+                      "color-visited--hover": "#D4BADC",
                       "color-warning": "#E8CFB9"
                     },
                     "light": {
@@ -2365,9 +2379,9 @@
                       "color-destructive": "#742E00",
                       "color-error": "#742E00",
                       "color-success": "#054A5C",
-                      "color-visited": "#6A3D7A",
-                      "color-visited--active": "#6A3D7A",
-                      "color-visited--hover": "#6A3D7A",
+                      "color-visited": "#653A75",
+                      "color-visited--active": "#653A75",
+                      "color-visited--hover": "#653A75",
                       "color-warning": "#5E3C1F"
                     }
                   }
@@ -2424,7 +2438,7 @@
                   "color-progressive--hover": "#ACD3DF",
                   "color-subtle": "#B8C0CE",
                   "color-success": "#A9C394",
-                  "color-visited": "#B691AF",
+                  "color-visited": "#BD9BB6",
                   "color-visited--active": "#D7C2D3",
                   "color-visited--hover": "#C6AAC1",
                   "color-warning": "#EBCB8B",
@@ -2471,7 +2485,7 @@
                   "color-progressive--hover": "#DDEDF2",
                   "color-subtle": "#D8DEE9",
                   "color-success": "#CEDDC2",
-                  "color-visited": "#C8ACC2",
+                  "color-visited": "#D3BCCE",
                   "color-visited--active": "#E9DDE6",
                   "color-visited--hover": "#D8C5D4",
                   "color-warning": "#F2DDB2"
@@ -2527,7 +2541,7 @@
                   "color-progressive--hover": "#3A5271",
                   "color-subtle": "#4C566A",
                   "color-success": "#55703F",
-                  "color-visited": "#8C5D84",
+                  "color-visited": "#86597F",
                   "color-visited--active": "#5B3C56",
                   "color-visited--hover": "#734D6D",
                   "color-warning": "#A04F35",
@@ -2567,7 +2581,7 @@
                   "color-progressive--hover": "#263549",
                   "color-subtle": "#3B4252",
                   "color-success": "#3E512E",
-                  "color-visited": "#674461",
+                  "color-visited": "#63415D",
                   "color-visited--active": "#362433",
                   "color-visited--hover": "#4E344A",
                   "color-warning": "#743926",
@@ -2607,16 +2621,16 @@
                       "background-color-error-subtle": "#290F14",
                       "background-color-success-subtle": "#24290F",
                       "background-color-warning-subtle": "#231C15",
-                      "border-color-destructive": "#E78C9C",
-                      "border-color-error": "#E78C9C",
+                      "border-color-destructive": "#E994A3",
+                      "border-color-error": "#E994A3",
                       "border-color-success": "#97C222",
                       "border-color-warning": "#BAA697",
-                      "color-destructive": "#E78C9C",
-                      "color-error": "#E78C9C",
+                      "color-destructive": "#E994A3",
+                      "color-error": "#E994A3",
                       "color-success": "#97C222",
-                      "color-visited": "#DB8EC4",
+                      "color-visited": "#DD95C8",
                       "color-visited--active": "#DD95C8",
-                      "color-visited--hover": "#DB8EC4",
+                      "color-visited--hover": "#DD95C8",
                       "color-warning": "#BAA697"
                     },
                     "light": {
@@ -2689,16 +2703,16 @@
                       "background-color-error-subtle": "#291B0F",
                       "background-color-success-subtle": "#0F2429",
                       "background-color-warning-subtle": "#231D15",
-                      "border-color-destructive": "#FF8B3E",
-                      "border-color-error": "#FF8B3E",
+                      "border-color-destructive": "#FF8E43",
+                      "border-color-error": "#FF8E43",
                       "border-color-success": "#0DBCE7",
                       "border-color-warning": "#D1A075",
-                      "color-destructive": "#FF8B3E",
-                      "color-error": "#FF8B3E",
+                      "color-destructive": "#FF8E43",
+                      "color-error": "#FF8E43",
                       "color-success": "#0DBCE7",
-                      "color-visited": "#BF99CC",
+                      "color-visited": "#C39FCF",
                       "color-visited--active": "#C3A0CF",
-                      "color-visited--hover": "#BF99CC",
+                      "color-visited--hover": "#C39FCF",
                       "color-warning": "#D1A075"
                     },
                     "light": {
@@ -3208,15 +3222,15 @@
       "cache-control": "private, no-cache",
       "content-length": "93",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:06 GMT",
-      "etag": "\"ebca6a4c08053ce80a8d74af286e883c\"",
+      "date": "Sun, 15 Nov 2026 17:59:19 GMT",
+      "etag": "\"7b5d94c37a6e8e3dced6e412e01d79d6\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
       "batchcomplete": true,
       "query": {
         "tokens": {
-          "csrftoken": "ITN6FlOEy-Lv8FNcAZcdnDoxbrbhc6Pl+\\"
+          "csrftoken": "aMbkcHXVxyCf08QFKvcr47kwbmyAyzQf+\\"
         }
       }
     }
@@ -3228,10 +3242,10 @@
     "status": 200,
     "headers": {
       "cache-control": "private, no-cache",
-      "content-length": "2051",
+      "content-length": "2361",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:06 GMT",
-      "etag": "\"cf7ba073fd883d221c033869836e16ff\"",
+      "date": "Sun, 15 Nov 2026 17:59:19 GMT",
+      "etag": "\"0ee2b0408c5f95bde045ae07e7540207\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -3259,7 +3273,16 @@
             "label-languages": [],
             "language": "en",
             "notifications.email-digest": "immediate",
+            "notifications.group-join.web": true,
+            "notifications.job.web": true,
+            "notifications.mention.web": true,
+            "notifications.rename.web": true,
+            "notifications.reply.web": true,
+            "notifications.rights.web": true,
             "notifications.talk.email": true,
+            "notifications.talk.web": true,
+            "notifications.thread-status.web": true,
+            "notifications.watch.web": true,
             "rc.limit": 50,
             "shapes.pins": {},
             "threads.visibility": {
@@ -3335,6 +3358,7 @@
             "skipcaptcha",
             "suppressredirect",
             "suppressrevision",
+            "ts-backup-keys",
             "ts-config",
             "ts-convert",
             "ts-editpost",
@@ -3376,7 +3400,7 @@
       "cache-control": "private, no-cache",
       "content-length": "25",
       "content-type": "application/json; charset=utf-8",
-      "date": "Tue, 03 Nov 2026 16:40:06 GMT",
+      "date": "Sun, 15 Nov 2026 17:59:19 GMT",
       "etag": "\"1b93036d44139baa5e61a025acae2959\"",
       "vary": "Accept, Accept-Language"
     },

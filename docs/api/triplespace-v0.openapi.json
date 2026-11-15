@@ -129,6 +129,197 @@
         }
       }
     },
+    "/entity/{id}/page": {
+      "get": {
+        "operationId": "getEntityPage",
+        "summary": "The page bundle: an entity and its provenance in one response",
+        "description": "Everything an entity page is drawn from but the labels of what it links to: the entity's JSON as `wbgetentities` serves it, with every part and language, and the provenance response of `GET /entity/{id}/provenance`, which carries the identity-line facts (who minted the ID, the canonical ID, each graph's sync state and history policy, retention). With `GET /labels` it lets an entity page reach its first byte within four API calls (ADR 0012 A70; chapter 19 §5.1). It answers as `/provenance` does for an entity that is absent or not the caller's to read, and is cached as the entity is: its `ETag` changes when the entity's resolved state does. A valid keyed ID that no graph holds answers with an empty entity, as `wbgetentities` does (ADR 0009 §4).",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "description": "An entity ID in any form the Action API accepts: `Q6`, `XDQ12`, `domain:wikipedia.org`, `Item:Q6`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The bundle.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Tag": {
+                "description": "Public responses only: `entity:{id}`.",
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/PageBundle"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "The client's copy, named by `If-None-Match`, is current."
+          },
+          "400": {
+            "description": "Not an entity ID, or one of no registered provider.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller lacks `read`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No such entity, or one the caller may not know exists (ADR 0056 §5).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The host is not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/labels": {
+      "get": {
+        "operationId": "getLabels",
+        "summary": "The labels of up to 1,000 entities in a language chain",
+        "description": "Bulk labels (ADR 0012 A70; chapter 19 §5.1): for each ID given, its label in the first language of the chain that has one, and nothing else. An ID with no label in the chain, or that names no entity, is left out of the answer. Each ID is resolved through its identity cluster: where the entity has no label in a language, the cluster's canonical member's is taken, then another member's. A keyed entity's derived label stands in for a `mul` label it lacks. **The public form only**: an entity under a `read` restriction, a deleted one, and every entity of a private wiki is left out, whoever asks, so the response depends on its URL alone and is cacheable by language and not by viewer. It carries no `Cache-Tag` per entity; a label may be stale for as long as `s-maxage` (chapter 20 §6).",
+        "parameters": [
+          {
+            "name": "ids",
+            "in": "query",
+            "required": true,
+            "description": "Up to 1,000 entity IDs separated by `|`, each in any form the Action API accepts: `Q6|P31|XDQ12|domain:wikipedia.org`. The answer is keyed by each ID as it was given.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "language",
+            "in": "query",
+            "required": true,
+            "description": "The language chain, most wanted first, separated by `|`: `de|mul|en`. No fallback is added to it.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The labels.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Labels"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "The client's copy, named by `If-None-Match`, is current."
+          },
+          "400": {
+            "description": "`ids` or `language` is missing, names more than the route takes, or holds something that is not an entity ID or a language code.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller lacks `read`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The host is not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/version": {
       "get": {
         "operationId": "getVersion",
@@ -6798,6 +6989,95 @@
             }
           }
         ]
+      },
+      "PageBundle": {
+        "type": "object",
+        "required": [
+          "id",
+          "entity",
+          "provenance"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The entity's ID, canonical."
+          },
+          "entity": {
+            "type": "object",
+            "description": "The entity as `wbgetentities` serves it, with every part and language (wikibase-compat §4.1).",
+            "additionalProperties": true
+          },
+          "provenance": {
+            "$ref": "#/components/schemas/Provenance"
+          },
+          "datatypes": {
+            "type": "object",
+            "description": "Only where a snak of the entity names a property without its data type: that property's data type, by property ID.",
+            "additionalProperties": {
+              "type": "string"
+            }
+          },
+          "visibility": {
+            "type": "object",
+            "description": "Only for an entity under a `read` restriction: who may read it, as `wbgetentities` reports it in `ts-visibility` (chapter 19 §1.3).",
+            "additionalProperties": true
+          },
+          "redirects": {
+            "type": "object",
+            "description": "Only where the ID given is a key-mapped provider's own item ID and the entity is the keyed one it was written under (chapter 05 §4.1).",
+            "required": [
+              "from",
+              "to"
+            ],
+            "properties": {
+              "from": {
+                "type": "string"
+              },
+              "to": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "Label": {
+        "type": "object",
+        "required": [
+          "language",
+          "value"
+        ],
+        "properties": {
+          "language": {
+            "type": "string",
+            "description": "The language of the chain the label was found in."
+          },
+          "value": {
+            "type": "string"
+          }
+        }
+      },
+      "Labels": {
+        "type": "object",
+        "required": [
+          "language",
+          "labels"
+        ],
+        "properties": {
+          "language": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The language chain, as it was given."
+          },
+          "labels": {
+            "type": "object",
+            "description": "By each ID as it was given; an ID with no label in the chain is absent.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Label"
+            }
+          }
+        }
       },
       "Component": {
         "type": "object",

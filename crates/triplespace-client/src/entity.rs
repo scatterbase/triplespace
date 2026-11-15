@@ -1,6 +1,8 @@
-//! The entity calls the site makes for an entity page: `wbgetentities` for the entity and
-//! for the labels of what it refers to, and `GET /entity/{id}/provenance` for where it
-//! comes from (0012 §5).
+//! The entity calls the site makes: for an entity page, `GET /entity/{id}/page`, the page
+//! bundle of the entity and where it comes from, and `GET /labels`, the labels of what
+//! it refers to, the two calls of the page's budget (0012 §5, A70; 19 §5.1); and, for the
+//! pages that need more of other entities than their labels, `wbgetentities` and
+//! `GET /entity/{id}/provenance`.
 //!
 //! Entities come back as the API's JSON, one object per ID: the site parses them with the
 //! Wikibase model it renders from, which this crate does not depend on (0005 §2).
@@ -34,6 +36,61 @@ pub(crate) const SEGMENT: &AsciiSet = &NON_ALPHANUMERIC
 
 /// The most IDs one `wbgetentities` call takes.
 pub const IDS_PER_CALL: usize = 50;
+
+/// The most IDs one `GET /labels` call takes (0012 A70).
+pub const LABELS_PER_CALL: usize = 1000;
+
+/// The most bytes of IDs one `GET /labels` call carries in its URL, which a thousand
+/// IDs stay under unless they are long keyed ones: a URL is at most 64 KiB to the
+/// servers in between.
+pub const LABEL_BYTES_PER_CALL: usize = 48 * 1024;
+
+/// The page bundle, `GET /entity/{id}/page` (0012 A70): an entity and its provenance.
+#[derive(Debug, Clone, Default)]
+pub struct Bundle {
+    /// The entity's ID, canonical.
+    pub id: String,
+    /// The entity, as `wbgetentities` serves it.
+    pub entity: Value,
+    /// Where it comes from; `None` only where the API left it out.
+    pub provenance: Option<Provenance>,
+    /// The data type of each property a snak of the entity names without saying it.
+    pub datatypes: BTreeMap<String, String>,
+    /// Who may read it, where it is restricted (19 §1.3).
+    pub visibility: Option<crate::pages::Visibility>,
+    /// Whether the ID asked for is an alias of this entity (05 §4.1).
+    pub redirected: bool,
+}
+
+/// A label and its language.
+#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+pub struct Label {
+    /// The language of the chain it was found in.
+    pub language: String,
+    /// The text.
+    pub value: String,
+}
+
+/// Splits IDs into the calls `GET /labels` takes: at most [`LABELS_PER_CALL`] IDs and
+/// [`LABEL_BYTES_PER_CALL`] bytes of them each.
+fn label_calls(ids: &[String]) -> Vec<&[String]> {
+    let mut out = Vec::new();
+    let (mut start, mut bytes) = (0, 0);
+    for (i, id) in ids.iter().enumerate() {
+        // An ID and its separator, as the URL encodes them at their longest.
+        let cost = id.len() * 3 + 3;
+        if i > start && (i - start == LABELS_PER_CALL || bytes + cost > LABEL_BYTES_PER_CALL) {
+            out.push(&ids[start..i]);
+            start = i;
+            bytes = 0;
+        }
+        bytes += cost;
+    }
+    if start < ids.len() {
+        out.push(&ids[start..]);
+    }
+    out
+}
 
 /// The entities of one or more `wbgetentities` calls, by the ID the API keyed them under.
 #[derive(Debug, Clone, Default)]
@@ -176,7 +233,106 @@ pub struct StatementSources {
     pub graphs: Vec<String>,
 }
 
+/// The error a REST response other than `200` and `404` stands for.
+fn rest_error(r: &crate::ApiResponse) -> ClientError {
+    let v: Map<String, Value> = serde_json::from_slice(&r.body).unwrap_or_default();
+    ClientError::Api {
+        code: v
+            .get("code")
+            .and_then(Value::as_str)
+            .map_or_else(|| format!("http-{}", r.status.as_u16()), str::to_string),
+        info: v
+            .get("message")
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string(),
+    }
+}
+
 impl Client {
+    /// `GET /entity/{id}/page`, the page bundle (0012 A70), for an ID or a title
+    /// (`Item:Q6`); `None` when the entity does not exist (or is not the viewer's to
+    /// see, which the API answers alike).
+    pub async fn page_bundle(
+        &self,
+        incoming: &Incoming,
+        id: &str,
+    ) -> Result<Fetched<Option<Bundle>>, ClientError> {
+        let path = format!(
+            "/w/rest.php/triplespace/v0/entity/{}/page",
+            utf8_percent_encode(id, SEGMENT)
+        );
+        let r = self.get(incoming, &path).await?;
+        let cache = CacheInfo::of(&r);
+        let value = match r.status {
+            StatusCode::OK => {
+                let mut v: Map<String, Value> = serde_json::from_slice(&r.body)
+                    .map_err(|e| ClientError::Unexpected(format!("the page bundle: {e}")))?;
+                let provenance = match v.remove("provenance") {
+                    Some(p) if !p.is_null() => Some(serde_json::from_value(p).map_err(|e| {
+                        ClientError::Unexpected(format!("the page bundle's provenance: {e}"))
+                    })?),
+                    _ => None,
+                };
+                Some(Bundle {
+                    id: v
+                        .get("id")
+                        .and_then(Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    entity: v.remove("entity").unwrap_or_default(),
+                    provenance,
+                    datatypes: v
+                        .remove("datatypes")
+                        .and_then(|d| serde_json::from_value(d).ok())
+                        .unwrap_or_default(),
+                    visibility: v.get("visibility").and_then(crate::pages::Visibility::of),
+                    redirected: v.contains_key("redirects"),
+                })
+            }
+            StatusCode::NOT_FOUND => None,
+            _ => return Err(rest_error(&r)),
+        };
+        Ok(Fetched { value, cache })
+    }
+
+    /// `GET /labels` (0012 A70): the label of each ID in the language chain, by the ID
+    /// as given; an ID with none is absent. One call for up to [`LABELS_PER_CALL`] IDs;
+    /// more run one after another, their caching facts combined.
+    pub async fn labels(
+        &self,
+        incoming: &Incoming,
+        ids: &[String],
+        chain: &[String],
+    ) -> Result<Fetched<BTreeMap<String, Label>>, ClientError> {
+        #[derive(Deserialize)]
+        struct Answer {
+            #[serde(default)]
+            labels: BTreeMap<String, Label>,
+        }
+        let mut out = BTreeMap::new();
+        let mut caches = Vec::new();
+        let language = utf8_percent_encode(&chain.join("|"), QUERY).to_string();
+        for call in label_calls(ids) {
+            let path = format!(
+                "/w/rest.php/triplespace/v0/labels?ids={}&language={language}",
+                utf8_percent_encode(&call.join("|"), QUERY)
+            );
+            let r = self.get(incoming, &path).await?;
+            if r.status != StatusCode::OK {
+                return Err(rest_error(&r));
+            }
+            let a: Answer = serde_json::from_slice(&r.body)
+                .map_err(|e| ClientError::Unexpected(format!("labels: {e}")))?;
+            out.extend(a.labels);
+            caches.push(CacheInfo::of(&r));
+        }
+        Ok(Fetched {
+            value: out,
+            cache: CacheInfo::combine(&caches),
+        })
+    }
+
     /// `wbgetentities` for some IDs or titles (`Item:Q6`, `Domain:example.org`), in calls of
     /// at most [`IDS_PER_CALL`], with `props` and `languages` as the API takes them (`|`
     /// separated; empty for all). The calls run one after another; their caching facts
@@ -258,6 +414,30 @@ impl Client {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // 0012 §5 (A70): a thousand IDs are one call.
+    #[test]
+    fn label_calls_hold_a_thousand_ids_and_a_bounded_url() {
+        let ids: Vec<String> = (1..=2500).map(|i| format!("Q{i}")).collect();
+        let calls = label_calls(&ids);
+        assert_eq!(
+            calls.iter().map(|c| c.len()).collect::<Vec<_>>(),
+            [1000, 1000, 500]
+        );
+        assert_eq!(label_calls(&ids[..700]).len(), 1);
+        assert!(label_calls(&[]).is_empty());
+        // Long keyed IDs are split by their bytes.
+        let long: Vec<String> = (0..900)
+            .map(|i| format!("domain:{}.example", "x".repeat(40 + i % 3)))
+            .collect();
+        let calls = label_calls(&long);
+        assert!(calls.len() > 1);
+        assert_eq!(calls.iter().map(|c| c.len()).sum::<usize>(), 900);
+        for c in calls {
+            let bytes: usize = c.iter().map(|id| id.len() * 3 + 3).sum();
+            assert!(bytes <= LABEL_BYTES_PER_CALL);
+        }
+    }
 
     #[test]
     fn entities_split_found_and_missing() {

@@ -61,6 +61,24 @@ sed -e "s/2026-09-20T14:02:11Z/$yesterday/g" -e 's|<username>Alice</username><id
 	--source https://librarybase.org/ --version pages --frozen >/dev/null
 "$bin/triplespace" sync --provider internetdomains --dump "$fixtures/internetdomains.json" \
 	--version 20261001 >/dev/null
+# A load writes no activity rows for its records (0013 §5.5): the `sync` rows a history shows
+# are the follower's. So the follower reads one upstream edit from a stand-in for the wiki's
+# api.php (ui/e2e/wiki.mjs), as the end-to-end suite does, and stops.
+wikiport="${WIKI_PORT:-18390}"
+node "$root/ui/e2e/wiki.mjs" "$wikiport" "$fixtures/internetdomains.json" &
+wiki=$!
+pids+=($wiki)
+for _ in $(seq 50); do
+	if curl -sf -o /dev/null "http://127.0.0.1:$wikiport/w/api.php?action=query&meta=siteinfo"; then break; fi
+	sleep 0.2
+done
+"$bin/triplespace" follow --provider internetdomains --api "http://127.0.0.1:$wikiport/w/api.php" \
+	--once --anonymous --key-file "$work/k.key" >"$work/follow.log" 2>&1 || {
+	echo "--- follow log"
+	cat "$work/follow.log"
+	exit 1
+}
+kill "$wiki" 2>/dev/null || true
 
 "$bin/triplespace-server" --listen "127.0.0.1:$port" --key-file "$work/k.key" --mode development \
 	--dev-tenant $tenant --trusted-proxy 127.0.0.1 --ui off >"$work/api.log" 2>&1 &

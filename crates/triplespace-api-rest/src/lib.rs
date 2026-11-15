@@ -8,6 +8,10 @@
 //! - `GET /entity/{id}/provenance` ([`provenance`]): which graphs assert the entity and
 //!   each statement, the local corrections, each graph's sync state and history policy,
 //!   who minted the ID, retention and the canonical ID (0003 §6; 0012 §5).
+//! - `GET /entity/{id}/page` ([`page_bundle`]): the page bundle, the entity's JSON and its
+//!   provenance in one response, and `GET /labels` ([`labels`]): the labels of up to
+//!   1,000 entities in a language chain; the two calls an entity page is drawn from
+//!   (0012 A70; 19 §5.1).
 //! - `GET /version` and `GET /version/licenses/{id}` ([`version`]): everything
 //!   `Special:Version` shows, and one component's licence texts (0077 §10).
 //! - `GET /activity` ([`activity`]): a change feed in the row shape of 16 §3.1 — recent
@@ -74,6 +78,8 @@ pub mod export_job;
 pub mod groups;
 pub mod history;
 pub mod jobs;
+pub mod labels;
+pub mod page_bundle;
 pub mod provenance;
 pub mod purges;
 pub mod record;
@@ -121,6 +127,8 @@ macro_rules! rest_operations {
 
 rest_operations! {
     get "/entity/{id}/provenance" => provenance::handle;
+    get "/entity/{id}/page" => page_bundle::handle;
+    get "/labels" => labels::handle;
     get "/version" => version::handle;
     get "/version/licenses/{id}" => version::license;
     get "/activity" => activity::handle;

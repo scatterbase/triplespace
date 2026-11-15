@@ -2648,6 +2648,11 @@ async fn entities_under_acls() {
             .rest("GET", &format!("/entity/{secret}/provenance"), None)
             .await;
         assert_eq!(d.status, StatusCode::NOT_FOUND, "{}", d.body);
+        // The page bundle answers as every entity route does (0012 §5, A70).
+        let b = who
+            .rest("GET", &format!("/entity/{secret}/page"), None)
+            .await;
+        assert_eq!(b.status, StatusCode::NOT_FOUND, "{}", b.body);
         let i = who
             .api(&format!("action=query&prop=info&titles=Item:{secret}"))
             .await;
@@ -2680,6 +2685,36 @@ async fn entities_under_acls() {
     );
     let s = carol.api(search).await;
     assert_eq!(s["search"][0]["id"], secret.as_str(), "{s}");
+    // The group's page bundle names who may read it, as `ts-visibility` does.
+    let b = carol
+        .rest("GET", &format!("/entity/{secret}/page"), None)
+        .await;
+    assert_eq!(b.status, StatusCode::OK, "{}", b.body);
+    assert_eq!(b.body["entity"]["labels"]["en"]["value"], "Secretive");
+    assert_eq!(
+        b.body["visibility"], e["ts-visibility"][&secret],
+        "{}",
+        b.body
+    );
+    assert!(b.body["visibility"].is_object(), "{}", b.body);
+    // Bulk labels are the public form, whoever asks: the restricted item is left out
+    // even for its group, and the open one beside it is named (0012 §5, A70).
+    for who in [&mut anon, &mut bob, &mut carol] {
+        let l = who
+            .rest(
+                "GET",
+                &format!("/labels?ids={secret}|{member}&language=en"),
+                None,
+            )
+            .await;
+        assert_eq!(l.status, StatusCode::OK, "{}", l.body);
+        assert!(l.body["labels"].get(&secret).is_none(), "{}", l.body);
+        assert_eq!(
+            l.body["labels"][&member]["value"], "Membership",
+            "{}",
+            l.body
+        );
+    }
     let ct = enc(&carol.csrf().await);
     let w = carol
         .api_post(&format!(

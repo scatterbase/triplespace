@@ -54,10 +54,9 @@ async fn a_local_item_reads_without_javascript() {
     );
     let tags = h["cache-tag"].to_str().unwrap();
     assert!(tags.contains("entity:Q6"), "{tags}");
-    assert!(
-        tags.contains("entity:P2"),
-        "the labels' tags are the page's too: {tags}"
-    );
+    // The page is tagged with its subject and not with the entities it drew labels
+    // from (0057 §6): a large item's labels come from thousands.
+    assert_eq!(tags, "entity:Q6");
     assert!(h.get(header::ETAG).is_some());
     insta::assert_snapshot!("item_statements", main_of(&html));
 }
@@ -652,4 +651,107 @@ async fn an_old_revision_is_the_page_as_it_then_was() {
     let (status, _, html) = get("/wiki/Item:Q6?oldid=1").await;
     assert_eq!(status, StatusCode::NOT_FOUND);
     assert!(html.contains("Revision 1 is not a local revision of this entity."));
+}
+
+/// A transport that counts the calls made through it, by path.
+#[derive(Clone)]
+struct Counted {
+    api: FixtureApi,
+    calls: std::sync::Arc<std::sync::Mutex<Vec<String>>>,
+}
+
+impl triplespace_client::Transport for Counted {
+    fn send(
+        &self,
+        request: triplespace_client::ApiRequest,
+    ) -> triplespace_client::transport::BoxFuture<
+        '_,
+        Result<triplespace_client::ApiResponse, triplespace_client::ClientError>,
+    > {
+        self.calls
+            .lock()
+            .unwrap()
+            .push(request.path_and_query.clone());
+        self.api.send(request)
+    }
+
+    fn embedded(&self) -> bool {
+        false
+    }
+}
+
+/// An item with a statement to each of `n` other items, every one of them an entity the
+/// fixture API holds with a label.
+fn item_linking_to(n: usize) -> FixtureApi {
+    let mut api = FixtureApi::new();
+    let mut claims = Vec::new();
+    for i in 0..n {
+        let id = format!("Q{}", 7000 + i);
+        api = api.with(
+            &id,
+            serde_json::json!({"type": "item", "id": id,
+                "labels": {"en": {"language": "en", "value": format!("Linked {i}")}}}),
+        );
+        claims.push(serde_json::json!({
+            "id": format!("Q6999${i:08}-0000-0000-0000-000000000000"),
+            "type": "statement", "rank": "normal",
+            "mainsnak": {"snaktype": "value", "property": "P2", "datatype": "wikibase-item",
+                "datavalue": {"type": "wikibase-entityid",
+                    "value": {"entity-type": "item", "id": id}}}
+        }));
+    }
+    api.with(
+        "Q6999",
+        serde_json::json!({"type": "item", "id": "Q6999",
+            "labels": {"en": {"language": "en", "value": "Hub"}},
+            "claims": {"P2": claims}}),
+    )
+}
+
+// 0034 §1 rule 5 (19 §5.1): an entity page reaches its first byte within four API calls,
+// however many entities it links to; 0012 §5 (A70): the bundle and the bulk labels.
+#[tokio::test]
+async fn an_entity_page_with_hundreds_of_links_takes_at_most_four_api_calls() {
+    // A reader's page is three calls: `siteinfo`, the bundle and the labels. A signed-in
+    // viewer's adds who they are and their inbox count, which are two calls still, where
+    // 19 §5.1 counts them as one.
+    for (cookie, most) in [(None, 4), (Some("triplespace_session=alice"), 5)] {
+        let counted = Counted {
+            api: item_linking_to(700),
+            calls: std::sync::Arc::default(),
+        };
+        let mut req = Request::get("/wiki/Item:Q6999").header(header::HOST, "librarybase.org");
+        if let Some(c) = cookie {
+            req = req.header(header::COOKIE, c);
+        }
+        let r = common::site_router(Client::new(counted.clone()))
+            .oneshot(req.body(Body::empty()).unwrap())
+            .await
+            .unwrap();
+        assert_eq!(r.status(), StatusCode::OK);
+        let body = r.into_body().collect().await.unwrap().to_bytes();
+        let html = String::from_utf8(body.to_vec()).unwrap();
+        // Every linked entity is named by its label: the first and the last.
+        assert!(html.contains(">Linked 0</a>"), "the first link's label");
+        assert!(html.contains(">Linked 699</a>"), "the last link's label");
+        let calls = counted.calls.lock().unwrap().clone();
+        let count = |part: &str| calls.iter().filter(|c| c.contains(part)).count();
+        assert_eq!(count("/entity/Item:Q6999/page"), 1, "{calls:#?}");
+        assert_eq!(
+            count("/v0/labels?"),
+            1,
+            "one call for 701 labels: {calls:#?}"
+        );
+        assert_eq!(count("action=wbgetentities"), 0, "{calls:#?}");
+        assert_eq!(count("/provenance"), 0, "{calls:#?}");
+        assert!(
+            calls.len() <= most,
+            "{} API calls for {cookie:?}, the budget is {most}: {:#?}",
+            calls.len(),
+            calls
+                .iter()
+                .map(|c| &c[..c.len().min(90)])
+                .collect::<Vec<_>>()
+        );
+    }
 }
