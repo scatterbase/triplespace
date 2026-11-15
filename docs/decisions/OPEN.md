@@ -83,6 +83,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0087 A6](0087-account-registration-and-challenges.md#a6-registration-loose-ends-from-building-the-challenge) | 2026-10-30 | Registration: loose ends from building the challenge |
 | [0092 A3](0092-following-recent-changes.md#a3-a-state-that-will-not-parse-is-rejected-and-the-follower-goes-on) | 2026-11-09 | A state that will not parse is rejected, and the follower goes on |
 | [0092 A7](0092-following-recent-changes.md#a7-a-follower-compacts-its-mirror-as-the-days-job-closes) | 2026-11-11 | A follower compacts its mirror as the day's job closes |
+| [0092 A8](0092-following-recent-changes.md#a8-a-days-compaction-runs-beside-the-next-days-batches) | 2026-11-15 | A day's compaction runs beside the next day's batches |
 | [0097 A3](0097-versioning-and-skins.md#a3-fragments-are-compared-as-normalized-dom) | 2026-10-30 | Fragments are compared as normalized DOM |
 | [0097 A4](0097-versioning-and-skins.md#a4-drawings-are-svg-the-binary-makes) | 2026-10-30 | Drawings are SVG the binary makes |
 | [0097 A6](0097-versioning-and-skins.md#a6-a-part-of-a-later-group-is-carried-as-html-until-that-group-switches) | 2026-10-30 | A part of a later group is carried as HTML until that group switches |

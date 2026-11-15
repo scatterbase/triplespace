@@ -17,7 +17,7 @@ use scatter_adapter_mediawiki::{Change, Poller, Windows};
 use scatter_adapter_wikibase::follow::{EntityNamespaces, Fetched, entity_id_of, read_entities};
 use scatter_adapter_wikibase::{Index, KeyMappedAdapter, KeyRules, Outcome};
 use scatter_ingest::IngestError;
-use scatter_ingest::follow::{ChangeBatch, ChangeSource, FollowJob};
+use scatter_ingest::follow::{ChangeBatch, ChangeSource, FollowJob, FollowState};
 use scatter_ingest::sync::SyncItem;
 use scatter_providers::Provider;
 use scatter_wikibase_changeset::{Adapter, Upstream, WikibaseAdapter};
@@ -50,8 +50,9 @@ pub struct Position {
     pub late: u64,
     /// Stale states, cumulative.
     pub stale: u64,
-    /// The follower's open job, the day's (0092 A6).
-    pub job: Option<FollowJob>,
+    /// The follower's jobs: the day's open job (0092 A6), and a closed day's still
+    /// compacting (A8).
+    pub state: FollowState,
 }
 
 /// Reads a follower's position.
@@ -99,7 +100,16 @@ pub async fn position<C: GenericClient>(
         handed_over: row.get(4),
         late: u64::try_from(late).unwrap_or(0),
         stale: u64::try_from(stale).unwrap_or(0),
-        job: job.and_then(|v| serde_json::from_value(v).ok()),
+        state: job.map(state_of).unwrap_or_default(),
+    })
+}
+
+/// The follower's jobs as `ops.repo_cursor.job` holds them: a [`FollowState`], or, as a
+/// position saved before A8 left it, the open job alone.
+fn state_of(v: serde_json::Value) -> FollowState {
+    serde_json::from_value(v.clone()).unwrap_or_else(|_| FollowState {
+        open: serde_json::from_value::<FollowJob>(v).ok(),
+        closing: None,
     })
 }
 
@@ -152,8 +162,8 @@ pub struct ProviderFollower<'a, C: GenericClient> {
     now: fn() -> u64,
     late: u64,
     stale: u64,
-    /// The open job, as the last save left it (0092 A6).
-    job: Option<FollowJob>,
+    /// The jobs, as the last save left them (0092 A6, A8).
+    state: FollowState,
     /// IDs whose state lagged the row that named them, read again next time.
     retry: Vec<(EntityId, Option<u64>)>,
     /// Whether the last head request had no continuation.
@@ -289,7 +299,7 @@ impl<'a, C: GenericClient> ProviderFollower<'a, C> {
             now,
             late: stored.late,
             stale: stored.stale,
-            job: stored.job.clone(),
+            state: stored.state.clone(),
             retry: stored
                 .rc_retry
                 .iter()
@@ -549,13 +559,13 @@ impl<C: GenericClient + Sync> ChangeSource for ProviderFollower<'_, C> {
         Ok((batch, self.saved()))
     }
 
-    async fn job(&mut self) -> Result<Option<FollowJob>, IngestError> {
-        Ok(self.job.clone())
+    async fn state(&mut self) -> Result<FollowState, IngestError> {
+        Ok(self.state.clone())
     }
 
-    async fn save(&mut self, at: Saved, job: Option<FollowJob>) -> Result<(), IngestError> {
-        let job_value = job
-            .as_ref()
+    async fn save(&mut self, at: Saved, jobs: FollowState) -> Result<(), IngestError> {
+        let job_value = Some(&jobs)
+            .filter(|s| !s.is_empty())
             .map(serde_json::to_value)
             .transpose()
             .map_err(|e| IngestError::Store(e.to_string()))?;
@@ -593,7 +603,7 @@ impl<C: GenericClient + Sync> ChangeSource for ProviderFollower<'_, C> {
             )
             .await
             .map_err(|e| IngestError::Store(e.to_string()))?;
-        self.job = job;
+        self.state = jobs;
         Ok(())
     }
 }

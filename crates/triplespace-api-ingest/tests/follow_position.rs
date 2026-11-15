@@ -117,7 +117,7 @@ async fn the_open_job_is_kept_with_the_position() {
             .await
             .unwrap()
     );
-    assert_eq!(at(&client).await.job, None);
+    assert!(at(&client).await.state.is_empty());
     let mut job = scatter_ingest::FollowJob {
         id: 42,
         day: 20_768,
@@ -133,15 +133,38 @@ async fn the_open_job_is_kept_with_the_position() {
         )
         .await
         .unwrap();
-    assert_eq!(at(&client).await.job.as_ref(), Some(&job));
+    assert_eq!(
+        at(&client).await.state.open.as_ref(),
+        Some(&job),
+        "a position saved before 0092 A8 holds the open job alone"
+    );
+    // 0092 A8: a closed day's job still compacting is kept beside the open one.
+    let state = scatter_ingest::FollowState {
+        open: Some(scatter_ingest::FollowJob {
+            id: 43,
+            day: 20_769,
+            ..Default::default()
+        }),
+        closing: Some(scatter_ingest::Closing {
+            job: job.clone(),
+            partition: 7,
+            to: 90_000,
+            at: 40_000,
+            removed: 1_234,
+        }),
+    };
+    client
+        .execute(
+            "UPDATE ops.repo_cursor SET job = $1",
+            &[&serde_json::to_value(&state).unwrap()],
+        )
+        .await
+        .unwrap();
+    assert_eq!(at(&client).await.state, state);
     assert!(
         record_load(&client, "", KIND_PROVIDER, "wikidata", LATER)
             .await
             .unwrap()
     );
-    assert_eq!(
-        at(&client).await.job,
-        Some(job),
-        "a load leaves the open job"
-    );
+    assert_eq!(at(&client).await.state, state, "a load leaves the jobs");
 }
