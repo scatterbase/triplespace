@@ -20,6 +20,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0012 A89](0012-api-requirements.md#a89-a-route-served-through-a-more-general-one-is-built) | 2026-11-09 | A route served through a more general one is built |
 | [0012 A90](0012-api-requirements.md#a90-an-action-that-changes-nothing-warns) | 2026-11-09 | An action that changes nothing warns |
 | [0012 A92](0012-api-requirements.md#a92-the-page-bundle-and-bulk-labels-are-built-their-shapes-and-the-public-form) | 2026-11-15 | The page bundle and bulk labels are built: their shapes and the public form |
+| [0012 A93](0012-api-requirements.md#a93-the-viewers-session-facts-are-one-call) | 2026-11-15 | The viewer's session facts are one call |
 | [0013 A70](0013-postgres-storage.md#a70-how-a-load-enters-bootstrap-mode) | 2026-11-05 | How a load enters bootstrap mode |
 | [0013 A71](0013-postgres-storage.md#a71-bootstrap-projections-run-per-block-during-the-load) | 2026-11-05 | Bootstrap projections run per block, during the load |
 | [0013 A73](0013-postgres-storage.md#a73-a-bootstrap-load-refreshes-the-planners-statistics-as-its-tables-double) | 2026-11-05 | A bootstrap load refreshes the planner's statistics as its tables double |

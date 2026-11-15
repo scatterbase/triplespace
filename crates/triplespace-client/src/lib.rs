@@ -43,6 +43,7 @@ pub mod reports;
 pub mod revisions;
 pub mod rights;
 pub mod search;
+pub mod session;
 pub mod settings;
 pub mod theme;
 pub mod threads;

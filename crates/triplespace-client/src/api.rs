@@ -233,6 +233,24 @@ pub struct ChipColours {
     pub background: String,
 }
 
+/// `meta=userinfo`'s object read as what the site needs of it.
+pub(crate) fn user_info_of(u: &Value) -> UserInfo {
+    let anon = match &u["anon"] {
+        Value::Bool(b) => *b,
+        Value::String(_) => true,
+        _ => u["id"].as_u64().unwrap_or(0) == 0,
+    };
+    UserInfo {
+        name: u["name"].as_str().unwrap_or_default().to_string(),
+        id: u["id"].as_u64().unwrap_or(0),
+        anon,
+        options: u["options"].as_object().cloned().unwrap_or_default(),
+        account_requests: u["accountrequests"].as_u64(),
+        rights: strings(&u["rights"]),
+        groups: strings(&u["groups"]),
+    }
+}
+
 /// What the site needs of `meta=userinfo`.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct UserInfo {
@@ -570,21 +588,7 @@ impl Client {
             )
             .await?;
         let v = check(&r)?;
-        let u = &v["query"]["userinfo"];
-        let anon = match &u["anon"] {
-            Value::Bool(b) => *b,
-            Value::String(_) => true,
-            _ => u["id"].as_u64().unwrap_or(0) == 0,
-        };
-        let value = UserInfo {
-            name: u["name"].as_str().unwrap_or_default().to_string(),
-            id: u["id"].as_u64().unwrap_or(0),
-            anon,
-            options: u["options"].as_object().cloned().unwrap_or_default(),
-            account_requests: u["accountrequests"].as_u64(),
-            rights: strings(&u["rights"]),
-            groups: strings(&u["groups"]),
-        };
+        let value = user_info_of(&v["query"]["userinfo"]);
         Ok(Fetched {
             value,
             cache: CacheInfo::of(&r),

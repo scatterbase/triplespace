@@ -395,8 +395,10 @@ pub async fn serve(
     let incoming = pages::incoming(headers, peer);
     let client = site.client();
     // The page bundle: the entity and its provenance in one call (19 §5.1 rule 5).
+    // The star is drawn for the entity's own title, which the address names unless it
+    // is an alias: its facts come with the session.
     let (cx, fetched) = tokio::join!(
-        pages::context(site, &incoming, query),
+        pages::context_watching(site, &incoming, query, Some(&title)),
         client.page_bundle(&incoming, &title),
     );
     let mut cx = match cx {

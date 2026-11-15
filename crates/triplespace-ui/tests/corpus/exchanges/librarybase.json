@@ -7,7 +7,7 @@
       "cache-control": "private, no-cache",
       "content-length": "171",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:24 GMT",
+      "date": "Sun, 15 Nov 2026 21:59:50 GMT",
       "etag": "\"0f890ae67e9854a3d427c0d0c6de80f5\"",
       "mediawiki-api-error": "missingtitle",
       "vary": "Accept, Accept-Language"
@@ -28,7 +28,7 @@
       "cache-control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
       "content-length": "46",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:24 GMT",
+      "date": "Sun, 15 Nov 2026 21:59:50 GMT",
       "etag": "\"8c35d9caf8f06911945ff3337a6f10d0\"",
       "vary": "Accept, Accept-Language"
     },
@@ -47,7 +47,7 @@
       "cache-control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
       "content-length": "47",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:24 GMT",
+      "date": "Sun, 15 Nov 2026 21:59:50 GMT",
       "etag": "\"9b8a5359db2b6f583784e5b74003b5e0\"",
       "vary": "Accept, Accept-Language"
     },
@@ -66,7 +66,7 @@
       "cache-control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
       "content-length": "50",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:24 GMT",
+      "date": "Sun, 15 Nov 2026 21:59:50 GMT",
       "etag": "\"fadb6093475142a9be1af0ab0574f872\"",
       "vary": "Accept, Accept-Language"
     },
@@ -85,7 +85,7 @@
       "cache-control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
       "content-length": "265",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:24 GMT",
+      "date": "Sun, 15 Nov 2026 21:59:50 GMT",
       "etag": "\"0779538f4c9fffda5ec44fdb4c51f82c\"",
       "vary": "Accept, Accept-Language"
     },
@@ -118,8 +118,8 @@
       "cache-control": "public, max-age=60, s-maxage=60, stale-while-revalidate=300",
       "content-length": "89203",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:24 GMT",
-      "etag": "\"078b708917f7832e760b2e6a14ecffcb\"",
+      "date": "Sun, 15 Nov 2026 21:59:51 GMT",
+      "etag": "\"d829e3a97e723a0b0b6f8f20e990b358\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -185,7 +185,7 @@
             "4": 250,
             "5": 300
           },
-          "time": "2026-11-15T17:59:24Z",
+          "time": "2026-11-15T21:59:51Z",
           "timeoffset": 0,
           "timezone": "UTC",
           "uploadsenabled": false,
@@ -624,7 +624,7 @@
           "api_version": 6,
           "at_farm": true,
           "build": {
-            "commit": "65326ae883e9da9ebdb40308580d6b99a44da8af",
+            "commit": "bc4e0dab40a05fb6d32c047b566a43c606594d5e",
             "modified": true,
             "version": "0.0.1"
           },
@@ -676,7 +676,7 @@
             "history": true
           },
           "farm": "scatter",
-          "farm_code": "ddhes4shiwxxtfgzxkppgdlgqn",
+          "farm_code": "zn4yrn7jjpqvigiva6beizsklm",
           "grants": [
             "basic",
             "highvolume",
@@ -700,7 +700,7 @@
           "interface": {
             "messages": {}
           },
-          "issuer": "hptuhz5vgoirot7fqo5havib2g",
+          "issuer": "p2tegideluwpgfqdodpgkh32gd",
           "login": [],
           "primary": "librarybase",
           "providers": [
@@ -3259,7 +3259,7 @@
       "cache-control": "public, max-age=60, s-maxage=60, stale-while-revalidate=300",
       "content-length": "7039",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:24 GMT",
+      "date": "Sun, 15 Nov 2026 21:59:50 GMT",
       "etag": "\"dd90469db90d90418540150ba809c6df\"",
       "vary": "Accept, Accept-Language"
     },
@@ -3697,9 +3697,9 @@
       "cache-control": "private, no-cache",
       "content-length": "2478",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:24 GMT",
-      "etag": "\"095069e97b512d96871a626641d4dae0\"",
-      "set-cookie": "triplespace_session=6SnAM1piwQSflOSn_RLR0O27Yjku-huSP5gZGmoJeKg; Path=/; HttpOnly; SameSite=Lax; Max-Age=3600",
+      "date": "Sun, 15 Nov 2026 21:59:51 GMT",
+      "etag": "\"a0d8d16033a57cc33b2db79e35668904\"",
+      "set-cookie": "triplespace_session=u9qIL94dXg4aKg30Gyq2a1yUut4O0oqure0r1xTPw9Y; Path=/; HttpOnly; SameSite=Lax; Max-Age=3600",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -3724,7 +3724,7 @@
               "help": "The challenge the solution is for.",
               "label": "Challenge",
               "type": "hidden",
-              "value": "1.librarybase.createaccount.20.1794766164.WJTya7IPlArPiwm5GUsNUA.K2Xe6VNx91aYzzUcz4mGeA"
+              "value": "1.librarybase.createaccount.20.1794780591.5vbfuDgy-pqh_eh3HXxuxA.HKXwsiNca7qhjTuE-55xnQ"
             },
             "tschallengeinfo": {
               "help": "The browser does this while the form is filled in.",
@@ -3785,7 +3785,7 @@
                   "help": "The challenge the solution is for.",
                   "label": "Challenge",
                   "type": "hidden",
-                  "value": "1.librarybase.createaccount.20.1794766164.WJTya7IPlArPiwm5GUsNUA.K2Xe6VNx91aYzzUcz4mGeA"
+                  "value": "1.librarybase.createaccount.20.1794780591.5vbfuDgy-pqh_eh3HXxuxA.HKXwsiNca7qhjTuE-55xnQ"
                 },
                 "tschallengeinfo": {
                   "help": "The browser does this while the form is filled in.",
@@ -3803,7 +3803,7 @@
               "metadata": {
                 "algorithm": "sha256-leading-zero-bits",
                 "bits": 20,
-                "expires": 1794766164
+                "expires": 1794780591
               },
               "provider": "Triplespace challenge",
               "required": "required"
@@ -3811,8 +3811,8 @@
           ]
         },
         "tokens": {
-          "createaccounttoken": "5YUx0oXbjUzqjC5DjROxjuZ4MlTZFCEF+\\",
-          "logintoken": "xyzKoErKE9oVQTAPEUY7ykYIzs_nv52x+\\"
+          "createaccounttoken": "2R7P1vrzGWeFyiDD1fP65qqiWhLvj5Hu+\\",
+          "logintoken": "8mNLuufPth52v5R3WBNCoaEfXunKQ_z6+\\"
         }
       }
     }
@@ -3825,9 +3825,9 @@
       "cache-control": "private, no-cache",
       "content-length": "797",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:24 GMT",
-      "etag": "\"f2d6bb7d51ea2e1c719c955635b761bb\"",
-      "set-cookie": "triplespace_session=BmoHMWIwvfdYvOdIJb8Lp_1Pseh8uCbvARc0p8RpHvg; Path=/; HttpOnly; SameSite=Lax; Max-Age=3600",
+      "date": "Sun, 15 Nov 2026 21:59:51 GMT",
+      "etag": "\"652a5798bf169a294064b8ef123a9085\"",
+      "set-cookie": "triplespace_session=RGW8bRAVRi_k521NIXk8twU3eREm88dF9kY0IpbRd6c; Path=/; HttpOnly; SameSite=Lax; Max-Age=3600",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -3873,7 +3873,7 @@
           ]
         },
         "tokens": {
-          "logintoken": "HtzLPjqSDwfzIPl3iypc_fUZVWIJJdrv+\\"
+          "logintoken": "CmG1vcSAXaWsVOAp03SAtNsFsIUMIeu5+\\"
         }
       }
     }
@@ -3886,7 +3886,7 @@
       "cache-control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
       "content-length": "121",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:24 GMT",
+      "date": "Sun, 15 Nov 2026 21:59:50 GMT",
       "etag": "\"46cfb77a27e3f1fc059d8bfdd461e089\"",
       "vary": "Accept, Accept-Language"
     },
@@ -3917,7 +3917,7 @@
       "cache-control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
       "content-length": "55",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:24 GMT",
+      "date": "Sun, 15 Nov 2026 21:59:50 GMT",
       "etag": "\"78bb77ce8e2f423644c7cb75888004e3\"",
       "vary": "Accept, Accept-Language"
     },
@@ -3938,7 +3938,7 @@
       "cache-tag": "entity:Q6",
       "content-length": "423",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:24 GMT",
+      "date": "Sun, 15 Nov 2026 21:59:50 GMT",
       "etag": "\"af74197f784074a7007e332d843f938a\"",
       "vary": "Accept, Accept-Language"
     },
@@ -3984,7 +3984,7 @@
       "cache-control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
       "content-length": "55",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:24 GMT",
+      "date": "Sun, 15 Nov 2026 21:59:50 GMT",
       "etag": "\"78bb77ce8e2f423644c7cb75888004e3\"",
       "vary": "Accept, Accept-Language"
     },
@@ -3998,15 +3998,15 @@
   },
   {
     "method": "GET",
-    "path_and_query": "/w/rest.php/triplespace/v0/activity?actor=Alice&kind=edit%7Cjob%7Clog%7Cerased&since=2026-10-16T17:59:24Z&limit=50&lang=en",
+    "path_and_query": "/w/rest.php/triplespace/v0/activity?actor=Alice&kind=edit%7Cjob%7Clog%7Cerased&since=2026-10-16T21:59:50Z&limit=50&lang=en",
     "status": 200,
     "headers": {
       "cache-control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
       "cache-tag": "activity",
-      "content-length": "14660",
+      "content-length": "14644",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:24 GMT",
-      "etag": "\"511f5ba250674ddeabe431ee073ad9c3\"",
+      "date": "Sun, 15 Nov 2026 21:59:50 GMT",
+      "etag": "\"c01e29f8004d6418c17e75edc7526357\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -4020,7 +4020,7 @@
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4064,7 +4064,7 @@
           "patrolled": false,
           "record": {
             "offset": 1,
-            "partition": 14336079677391667019
+            "partition": 10275474208161327802
           },
           "source": "log",
           "summary": {
@@ -4079,13 +4079,13 @@
             "title": "Special:Jobs/1",
             "url": "https://librarybase.org/wiki/Special:Jobs/1"
           },
-          "time": "2026-11-15T17:59:23Z",
+          "time": "2026-11-15T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4126,7 +4126,7 @@
           "patrolled": false,
           "record": {
             "offset": 0,
-            "partition": 14336079677391667019
+            "partition": 10275474208161327802
           },
           "source": "log",
           "summary": {
@@ -4141,13 +4141,13 @@
             "title": "Special:Jobs/1",
             "url": "https://librarybase.org/wiki/Special:Jobs/1"
           },
-          "time": "2026-11-15T17:59:23Z",
+          "time": "2026-11-15T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4166,7 +4166,7 @@
           "patrolled": false,
           "record": {
             "offset": 15,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 916,
           "size": 3136,
@@ -4188,13 +4188,13 @@
             "title": "Item:Q6",
             "url": "https://librarybase.org/wiki/Item:Q6"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4213,7 +4213,7 @@
           "patrolled": false,
           "record": {
             "offset": 14,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 915,
           "size": 188,
@@ -4235,13 +4235,13 @@
             "title": "Item:Q5",
             "url": "https://librarybase.org/wiki/Item:Q5"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4260,7 +4260,7 @@
           "patrolled": false,
           "record": {
             "offset": 13,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 914,
           "size": 193,
@@ -4282,13 +4282,13 @@
             "title": "Item:Q3",
             "url": "https://librarybase.org/wiki/Item:Q3"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4307,7 +4307,7 @@
           "patrolled": false,
           "record": {
             "offset": 12,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 913,
           "size": 210,
@@ -4329,13 +4329,13 @@
             "title": "Item:Q2",
             "url": "https://librarybase.org/wiki/Item:Q2"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4354,7 +4354,7 @@
           "patrolled": false,
           "record": {
             "offset": 11,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 912,
           "size": 209,
@@ -4376,13 +4376,13 @@
             "title": "Item:Q1",
             "url": "https://librarybase.org/wiki/Item:Q1"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4401,7 +4401,7 @@
           "patrolled": false,
           "record": {
             "offset": 10,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 911,
           "size": 198,
@@ -4423,13 +4423,13 @@
             "title": "Property:P11",
             "url": "https://librarybase.org/wiki/Property:P11"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4448,7 +4448,7 @@
           "patrolled": false,
           "record": {
             "offset": 9,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 910,
           "size": 204,
@@ -4470,13 +4470,13 @@
             "title": "Property:P10",
             "url": "https://librarybase.org/wiki/Property:P10"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4495,7 +4495,7 @@
           "patrolled": false,
           "record": {
             "offset": 8,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 909,
           "size": 197,
@@ -4517,13 +4517,13 @@
             "title": "Property:P9",
             "url": "https://librarybase.org/wiki/Property:P9"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4542,7 +4542,7 @@
           "patrolled": false,
           "record": {
             "offset": 7,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 908,
           "size": 207,
@@ -4564,13 +4564,13 @@
             "title": "Property:P8",
             "url": "https://librarybase.org/wiki/Property:P8"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4589,7 +4589,7 @@
           "patrolled": false,
           "record": {
             "offset": 6,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 907,
           "size": 195,
@@ -4611,13 +4611,13 @@
             "title": "Property:P7",
             "url": "https://librarybase.org/wiki/Property:P7"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4636,7 +4636,7 @@
           "patrolled": false,
           "record": {
             "offset": 5,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 906,
           "size": 199,
@@ -4658,13 +4658,13 @@
             "title": "Property:P6",
             "url": "https://librarybase.org/wiki/Property:P6"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4683,7 +4683,7 @@
           "patrolled": false,
           "record": {
             "offset": 4,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 905,
           "size": 215,
@@ -4705,13 +4705,13 @@
             "title": "Property:P5",
             "url": "https://librarybase.org/wiki/Property:P5"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4730,7 +4730,7 @@
           "patrolled": false,
           "record": {
             "offset": 3,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 904,
           "size": 193,
@@ -4752,13 +4752,13 @@
             "title": "Property:P4",
             "url": "https://librarybase.org/wiki/Property:P4"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4777,7 +4777,7 @@
           "patrolled": false,
           "record": {
             "offset": 2,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 903,
           "size": 198,
@@ -4799,13 +4799,13 @@
             "title": "Property:P3",
             "url": "https://librarybase.org/wiki/Property:P3"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4824,7 +4824,7 @@
           "patrolled": false,
           "record": {
             "offset": 1,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 902,
           "size": 204,
@@ -4846,13 +4846,13 @@
             "title": "Property:P2",
             "url": "https://librarybase.org/wiki/Property:P2"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -4871,7 +4871,7 @@
           "patrolled": false,
           "record": {
             "offset": 0,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 901,
           "size": 192,
@@ -4893,27 +4893,27 @@
             "title": "Property:P12",
             "url": "https://librarybase.org/wiki/Property:P12"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         }
       ],
       "set": {
-        "actor": "hptuhz5vgoirot7fqo5havib2g:7"
+        "actor": "p2tegideluwpgfqdodpgkh32gd:7"
       },
       "sources": []
     }
   },
   {
     "method": "GET",
-    "path_and_query": "/w/rest.php/triplespace/v0/activity?kind=edit%7Cjob%7Clog%7Cerased&since=2026-10-16T17:59:24Z&limit=50&lang=en",
+    "path_and_query": "/w/rest.php/triplespace/v0/activity?kind=edit%7Cjob%7Clog%7Cerased&since=2026-10-16T21:59:50Z&limit=50&lang=en",
     "status": 200,
     "headers": {
       "cache-control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
       "cache-tag": "activity",
-      "content-length": "17477",
+      "content-length": "17460",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:24 GMT",
-      "etag": "\"0d6e8d2ffafe5d12a548ec826fc046c1\"",
+      "date": "Sun, 15 Nov 2026 21:59:50 GMT",
+      "etag": "\"b8bcf0a6f0ceae2c34687f4ef0ba05cb\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -4926,7 +4926,7 @@
       "rows": [
         {
           "actor": {
-            "key": "instance:ddhes4shiwxxtfgzxkppgdlgqn"
+            "key": "instance:zn4yrn7jjpqvigiva6beizsklm"
           },
           "flags": {
             "bot": false,
@@ -4954,7 +4954,7 @@
           "patrolled": false,
           "record": {
             "offset": 4,
-            "partition": 6536656193715755338
+            "partition": 3001406484988339991
           },
           "source": "log",
           "summary": {
@@ -4969,12 +4969,12 @@
             "title": "Special:Jobs/3",
             "url": "https://librarybase.org/wiki/Special:Jobs/3"
           },
-          "time": "2026-11-15T17:59:23Z",
+          "time": "2026-11-15T21:59:50Z",
           "visibility": []
         },
         {
           "actor": {
-            "key": "instance:ddhes4shiwxxtfgzxkppgdlgqn"
+            "key": "instance:zn4yrn7jjpqvigiva6beizsklm"
           },
           "flags": {
             "bot": false,
@@ -5001,7 +5001,7 @@
           "patrolled": false,
           "record": {
             "offset": 3,
-            "partition": 6536656193715755338
+            "partition": 3001406484988339991
           },
           "source": "log",
           "summary": {
@@ -5016,12 +5016,12 @@
             "title": "Special:Jobs/2",
             "url": "https://librarybase.org/wiki/Special:Jobs/2"
           },
-          "time": "2026-11-15T17:59:23Z",
+          "time": "2026-11-15T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
-            "key": "instance:ddhes4shiwxxtfgzxkppgdlgqn"
+            "key": "instance:zn4yrn7jjpqvigiva6beizsklm"
           },
           "flags": {
             "bot": false,
@@ -5047,7 +5047,7 @@
           "patrolled": false,
           "record": {
             "offset": 0,
-            "partition": 6536656193715755338
+            "partition": 3001406484988339991
           },
           "source": "log",
           "summary": {
@@ -5062,13 +5062,13 @@
             "title": "Special:Jobs/2",
             "url": "https://librarybase.org/wiki/Special:Jobs/2"
           },
-          "time": "2026-11-15T17:59:23Z",
+          "time": "2026-11-15T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5112,7 +5112,7 @@
           "patrolled": false,
           "record": {
             "offset": 1,
-            "partition": 14336079677391667019
+            "partition": 10275474208161327802
           },
           "source": "log",
           "summary": {
@@ -5127,13 +5127,13 @@
             "title": "Special:Jobs/1",
             "url": "https://librarybase.org/wiki/Special:Jobs/1"
           },
-          "time": "2026-11-15T17:59:23Z",
+          "time": "2026-11-15T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5174,7 +5174,7 @@
           "patrolled": false,
           "record": {
             "offset": 0,
-            "partition": 14336079677391667019
+            "partition": 10275474208161327802
           },
           "source": "log",
           "summary": {
@@ -5189,12 +5189,12 @@
             "title": "Special:Jobs/1",
             "url": "https://librarybase.org/wiki/Special:Jobs/1"
           },
-          "time": "2026-11-15T17:59:23Z",
+          "time": "2026-11-15T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
-            "key": "instance:ddhes4shiwxxtfgzxkppgdlgqn"
+            "key": "instance:zn4yrn7jjpqvigiva6beizsklm"
           },
           "comment": "tenant create",
           "flags": {
@@ -5219,7 +5219,7 @@
           "patrolled": false,
           "record": {
             "offset": 1,
-            "partition": 15928952786346538418
+            "partition": 1969524084494348199
           },
           "source": "actors",
           "summary": {
@@ -5228,7 +5228,7 @@
           },
           "tags": [],
           "target": {
-            "id": "hptuhz5vgoirot7fqo5havib2g:7",
+            "id": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "actor",
             "label": {
               "language": "",
@@ -5238,13 +5238,13 @@
             "title": "User:Alice",
             "url": "https://librarybase.org/wiki/User:Alice"
           },
-          "time": "2026-11-15T17:59:21Z",
+          "time": "2026-11-15T21:59:48Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5263,7 +5263,7 @@
           "patrolled": false,
           "record": {
             "offset": 15,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 916,
           "size": 3136,
@@ -5285,13 +5285,13 @@
             "title": "Item:Q6",
             "url": "https://librarybase.org/wiki/Item:Q6"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5310,7 +5310,7 @@
           "patrolled": false,
           "record": {
             "offset": 14,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 915,
           "size": 188,
@@ -5332,13 +5332,13 @@
             "title": "Item:Q5",
             "url": "https://librarybase.org/wiki/Item:Q5"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5357,7 +5357,7 @@
           "patrolled": false,
           "record": {
             "offset": 13,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 914,
           "size": 193,
@@ -5379,13 +5379,13 @@
             "title": "Item:Q3",
             "url": "https://librarybase.org/wiki/Item:Q3"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5404,7 +5404,7 @@
           "patrolled": false,
           "record": {
             "offset": 12,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 913,
           "size": 210,
@@ -5426,13 +5426,13 @@
             "title": "Item:Q2",
             "url": "https://librarybase.org/wiki/Item:Q2"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5451,7 +5451,7 @@
           "patrolled": false,
           "record": {
             "offset": 11,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 912,
           "size": 209,
@@ -5473,13 +5473,13 @@
             "title": "Item:Q1",
             "url": "https://librarybase.org/wiki/Item:Q1"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5498,7 +5498,7 @@
           "patrolled": false,
           "record": {
             "offset": 10,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 911,
           "size": 198,
@@ -5520,13 +5520,13 @@
             "title": "Property:P11",
             "url": "https://librarybase.org/wiki/Property:P11"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5545,7 +5545,7 @@
           "patrolled": false,
           "record": {
             "offset": 9,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 910,
           "size": 204,
@@ -5567,13 +5567,13 @@
             "title": "Property:P10",
             "url": "https://librarybase.org/wiki/Property:P10"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5592,7 +5592,7 @@
           "patrolled": false,
           "record": {
             "offset": 8,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 909,
           "size": 197,
@@ -5614,13 +5614,13 @@
             "title": "Property:P9",
             "url": "https://librarybase.org/wiki/Property:P9"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5639,7 +5639,7 @@
           "patrolled": false,
           "record": {
             "offset": 7,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 908,
           "size": 207,
@@ -5661,13 +5661,13 @@
             "title": "Property:P8",
             "url": "https://librarybase.org/wiki/Property:P8"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5686,7 +5686,7 @@
           "patrolled": false,
           "record": {
             "offset": 6,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 907,
           "size": 195,
@@ -5708,13 +5708,13 @@
             "title": "Property:P7",
             "url": "https://librarybase.org/wiki/Property:P7"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5733,7 +5733,7 @@
           "patrolled": false,
           "record": {
             "offset": 5,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 906,
           "size": 199,
@@ -5755,13 +5755,13 @@
             "title": "Property:P6",
             "url": "https://librarybase.org/wiki/Property:P6"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5780,7 +5780,7 @@
           "patrolled": false,
           "record": {
             "offset": 4,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 905,
           "size": 215,
@@ -5802,13 +5802,13 @@
             "title": "Property:P5",
             "url": "https://librarybase.org/wiki/Property:P5"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5827,7 +5827,7 @@
           "patrolled": false,
           "record": {
             "offset": 3,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 904,
           "size": 193,
@@ -5849,13 +5849,13 @@
             "title": "Property:P4",
             "url": "https://librarybase.org/wiki/Property:P4"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5874,7 +5874,7 @@
           "patrolled": false,
           "record": {
             "offset": 2,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 903,
           "size": 198,
@@ -5896,13 +5896,13 @@
             "title": "Property:P3",
             "url": "https://librarybase.org/wiki/Property:P3"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5921,7 +5921,7 @@
           "patrolled": false,
           "record": {
             "offset": 1,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 902,
           "size": 204,
@@ -5943,13 +5943,13 @@
             "title": "Property:P2",
             "url": "https://librarybase.org/wiki/Property:P2"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         },
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -5968,7 +5968,7 @@
           "patrolled": false,
           "record": {
             "offset": 0,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 901,
           "size": 192,
@@ -5990,7 +5990,7 @@
             "title": "Property:P12",
             "url": "https://librarybase.org/wiki/Property:P12"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         }
       ],
@@ -6007,8 +6007,8 @@
       "cache-tag": "entity:domain:wikipedia.org",
       "content-length": "1570",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:23 GMT",
-      "etag": "\"dfb084e1a7ced44d453715d5d76f8d38\"",
+      "date": "Sun, 15 Nov 2026 21:59:50 GMT",
+      "etag": "\"d496cfbf002104b27d3a229786a29d46\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -6058,7 +6058,7 @@
           }
         },
         "lastrevid": 5497558138937,
-        "modified": "2026-11-15T17:59:23Z",
+        "modified": "2026-11-15T21:59:50Z",
         "ns": 210,
         "pageid": 2,
         "title": "Domain:wikipedia.org",
@@ -6069,14 +6069,14 @@
         "canonical": "domain:wikipedia.org",
         "corrections": {},
         "dominant": "mirror/internetdomains",
-        "first_seen": "2026-11-15T17:59:23Z",
+        "first_seen": "2026-11-15T21:59:49Z",
         "graphs": [
           {
             "graph": "mirror/internetdomains",
             "history": "latest",
             "job": 3,
             "statements": 1,
-            "synced_at": "2026-11-15T17:59:23Z",
+            "synced_at": "2026-11-15T21:59:50Z",
             "upstream_id": "Q11",
             "upstream_iri": "https://internetdomains.wiki/entity/Q11",
             "upstream_url": "https://internetdomains.wiki/w/index.php?oldid=57",
@@ -6089,7 +6089,7 @@
           "kind": "keyed",
           "type": "domain"
         },
-        "modified": "2026-11-15T17:59:23Z",
+        "modified": "2026-11-15T21:59:50Z",
         "page_id": 2,
         "statements": {
           "domain:wikipedia.org$00000000-0000-0000-0000-0000000000B2": {
@@ -6114,8 +6114,8 @@
       "cache-tag": "entity:Q6",
       "content-length": "6434",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:23 GMT",
-      "etag": "\"5cbccf192aef9025cd6b6455ff4d4830\"",
+      "date": "Sun, 15 Nov 2026 21:59:50 GMT",
+      "etag": "\"c7ef81edfda26fd8a9e4fa05f8a881cf\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -6435,7 +6435,7 @@
           }
         },
         "lastrevid": 916,
-        "modified": "2026-11-15T17:59:23Z",
+        "modified": "2026-11-15T21:59:49Z",
         "ns": 120,
         "pageid": 26,
         "sitelinks": {},
@@ -6447,14 +6447,14 @@
         "canonical": "Q6",
         "corrections": {},
         "dominant": "local",
-        "first_seen": "2026-11-15T17:59:23Z",
+        "first_seen": "2026-11-15T21:59:49Z",
         "graphs": [
           {
             "graph": "local",
             "history": "full",
             "job": 1,
             "statements": 11,
-            "synced_at": "2026-11-15T17:59:23Z",
+            "synced_at": "2026-11-15T21:59:49Z",
             "upstream_version": "916"
           }
         ],
@@ -6465,7 +6465,7 @@
           "kind": "tenant",
           "tenant": "librarybase"
         },
-        "modified": "2026-11-15T17:59:23Z",
+        "modified": "2026-11-15T21:59:49Z",
         "page_id": 26,
         "statements": {
           "Q6$00000001-0000-0000-0000-000000000000": {
@@ -6570,8 +6570,8 @@
       "cache-tag": "entity:P3",
       "content-length": "679",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:23 GMT",
-      "etag": "\"614dc67b060e886b4d50e0d90c6928fa\"",
+      "date": "Sun, 15 Nov 2026 21:59:50 GMT",
+      "etag": "\"1e267ff708cfa2d62af2b13873256dab\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -6588,7 +6588,7 @@
           }
         },
         "lastrevid": 903,
-        "modified": "2026-11-15T17:59:23Z",
+        "modified": "2026-11-15T21:59:49Z",
         "ns": 122,
         "pageid": 13,
         "title": "Property:P3",
@@ -6598,14 +6598,14 @@
       "provenance": {
         "canonical": "P3",
         "corrections": {},
-        "first_seen": "2026-11-15T17:59:23Z",
+        "first_seen": "2026-11-15T21:59:49Z",
         "graphs": [
           {
             "graph": "local",
             "history": "full",
             "job": 1,
             "statements": 0,
-            "synced_at": "2026-11-15T17:59:23Z",
+            "synced_at": "2026-11-15T21:59:49Z",
             "upstream_version": "903"
           }
         ],
@@ -6616,7 +6616,7 @@
           "kind": "tenant",
           "tenant": "librarybase"
         },
-        "modified": "2026-11-15T17:59:23Z",
+        "modified": "2026-11-15T21:59:49Z",
         "page_id": 13,
         "statements": {},
         "type": "property"
@@ -6630,10 +6630,10 @@
     "headers": {
       "cache-control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
       "cache-tag": "entity:Q6",
-      "content-length": "887",
+      "content-length": "886",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:23 GMT",
-      "etag": "\"de9a1d28e16a593d2b1e2b5af9b93841\"",
+      "date": "Sun, 15 Nov 2026 21:59:50 GMT",
+      "etag": "\"e08f9e92a8fef2c4e715f8ee5175424a\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -6648,7 +6648,7 @@
         {
           "actor": {
             "iri": "https://librarybase.org/user/7",
-            "key": "hptuhz5vgoirot7fqo5havib2g:7",
+            "key": "p2tegideluwpgfqdodpgkh32gd:7",
             "kind": "registered",
             "name": "Alice"
           },
@@ -6667,7 +6667,7 @@
           "patrolled": false,
           "record": {
             "offset": 15,
-            "partition": 10563402161594158043
+            "partition": 6784599344574992055
           },
           "revid": 916,
           "size": 3136,
@@ -6689,7 +6689,7 @@
             "title": "Item:Q6",
             "url": "https://librarybase.org/wiki/Item:Q6"
           },
-          "time": "2026-11-14T17:59:22Z",
+          "time": "2026-11-14T21:59:49Z",
           "visibility": []
         }
       ],
@@ -6708,7 +6708,7 @@
       "cache-control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
       "content-length": "704",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:23 GMT",
+      "date": "Sun, 15 Nov 2026 21:59:50 GMT",
       "etag": "\"3fc5eca4ba071c6b1bffe23bd1e9dbaf\"",
       "vary": "Accept, Accept-Language"
     },
@@ -6789,7 +6789,7 @@
       "cache-control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
       "content-length": "147",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:23 GMT",
+      "date": "Sun, 15 Nov 2026 21:59:50 GMT",
       "etag": "\"2edf1541187f3e596a27542923436033\"",
       "vary": "Accept, Accept-Language"
     },
@@ -6818,8 +6818,8 @@
       "cache-control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
       "content-length": "43389",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:24 GMT",
-      "etag": "\"059138507a265343d9e024582034e7ea\"",
+      "date": "Sun, 15 Nov 2026 21:59:50 GMT",
+      "etag": "\"559d3f1f6e6be8ca35305b9df7a4a9c7\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -6845,8 +6845,8 @@
         }
       ],
       "build": {
-        "commit": "65326ae883e9da9ebdb40308580d6b99a44da8af",
-        "commit_date": "2026-11-15T06:20:52-08:00",
+        "commit": "bc4e0dab40a05fb6d32c047b566a43c606594d5e",
+        "commit_date": "2026-11-15T13:46:40-08:00",
         "features": [
           "default",
           "mimalloc"
