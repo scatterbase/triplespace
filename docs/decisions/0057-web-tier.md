@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-03
-- **Updated:** 2026-10-29 (A9)
+- **Updated:** 2026-11-15 (A10)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0025](0025-oauth-server.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0056](0056-security-model.md)
 - **Uses:** [0003](0003-statement-ui.md), [0039](0039-files-and-media.md), [0045](0045-table-content-model.md), [0047](0047-special-pages.md), [0053](0053-mirrored-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -75,7 +75,7 @@ James's direction, from the design discussion of 2026-10-03:
 
 ### 8. Fragments: `action=render` on the page's own URL (amends 0034 §5, §11; extends 0010 §12, §13)
 
-*Changed by A4, A9.*
+*Changed by A4, A9, A10.*
 
 *Current text: [20](../architecture/20-web-tier.md) §3.2.*
 
@@ -92,6 +92,8 @@ James's direction, from the design discussion of 2026-10-03:
 *Current text: [20](../architecture/20-web-tier.md) §5.1, §5.2, §5.5.*
 
 ### 11. Health and observability (uses 0033 §13)
+
+*Changed by A10.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §4.7.*
 
@@ -236,3 +238,10 @@ Replaced text ([20](../architecture/20-web-tier.md) §3.1, as it stood):
 Replaced text (§9):
 
 > - **The API's version.** `meta=siteinfo&siprop=triplespace` reports `api_version`, beside the capability list it already carries ([18](../architecture/18-api.md)). The web tier hides what the API lacks ([0012](0012-api-requirements.md) §1.4) and reports itself not ready below the minimum `api_version` it was built for.
+
+### A10. Stopping on `SIGTERM`, and the build ID a component sends
+
+- **Date:** 2026-11-15
+- **Source:** Direct: Claude, while building two of the gaps the implementation-claims audit found in the web tier (SCA-288), 2026-11-15; unconfirmed
+- **Change:** extends §8, §11
+- **Summary:** Two parts of this ADR are built as written, with these calls. (1) §11: on `SIGTERM` the web tier stops accepting, finishes what is in flight, and exits with status 0, as it already did on an interrupt; `triplespace-server` stops the same way, since an orchestrator sends it the same signal whether or not it serves the site. (2) §8, A9: the build ID a component is handed and sends back as `X-Triplespace-UI-Build` is `{binary's build}+{skin} {version}`, the one a page's `ETag` already hashed; until now a component was handed the binary's build alone, so a region request was never skew for a change of skin. Chapter text: 22 §4.7; 20 §3.2.

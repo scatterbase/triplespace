@@ -644,11 +644,7 @@ fn region(
     headers: &HeaderMap,
     query: &BTreeMap<String, String>,
 ) -> Response {
-    if headers
-        .get("x-triplespace-ui-build")
-        .and_then(|v| v.to_str().ok())
-        .is_some_and(|b| b != crate::assets::build_id())
-    {
+    if cx.build_skewed(headers) {
         return pages::build_skew();
     }
     let part = match query.get("region").map(String::as_str) {
@@ -675,7 +671,7 @@ fn edit_data(r: &Render<'_>, cx: &Context, title: &str) -> String {
         "title": title,
         "lang": cx.m.lang(),
         "dir": cx.m.dir(),
-        "build": crate::assets::build_id(),
+        "build": cx.build_id(),
         "conceptBase": cx.site.concept_base,
         "messages": cx.m.with_prefix("ts-edit-"),
     });

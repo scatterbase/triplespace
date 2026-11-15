@@ -177,7 +177,33 @@ fn difference(a: &Rendering, b: &Rendering) -> Option<String> {
         .iter()
         .fold(a.body.clone(), |body, l| body.replace(l, ""));
     let kind = Kind::of(&without);
-    compare(&without, &b.body, kind).map(|d| d.to_string().replace('\n', " "))
+    // A page's build ID names the skin that drew it (0097 §15), so the two differ there
+    // by design: the skin's part is left out of both.
+    compare(
+        &without_skin_build(&without),
+        &without_skin_build(&b.body),
+        kind,
+    )
+    .map(|d| d.to_string().replace('\n', " "))
+}
+
+/// A page without the skin's part of the build ID a component is handed (`"build":
+/// "{binary}+{skin} {version}"`, in the edit data): the binary's build alone.
+fn without_skin_build(body: &str) -> String {
+    const KEY: &str = "\"build\":\"";
+    let mut out = String::with_capacity(body.len());
+    let mut rest = body;
+    while let Some(at) = rest.find(KEY) {
+        let value = at + KEY.len();
+        out.push_str(&rest[..value]);
+        let after = &rest[value..];
+        let end = after.find('"').unwrap_or(after.len());
+        let id = &after[..end];
+        out.push_str(id.split_once('+').map_or(id, |(binary, _)| binary));
+        rest = &after[end..];
+    }
+    out.push_str(rest);
+    out
 }
 
 /// The median and the 95th percentile of some durations, in microseconds.

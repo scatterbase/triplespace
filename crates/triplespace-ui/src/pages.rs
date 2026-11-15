@@ -207,6 +207,28 @@ impl Context {
         drawn_message(self.skin.as_deref(), &self.m, kind, text)
     }
 
+    /// The build a page drawn in this context belongs to (0057 §8; 0097 §15): the
+    /// binary's build and the skin that draws the page, with its version. A component
+    /// sends it with a region request, and a web tier on another build, or drawing with
+    /// another skin or another version of it, answers build skew.
+    #[must_use]
+    pub fn build_id(&self) -> String {
+        match &self.skin {
+            Some(s) => format!("{}+{}", assets::build_id(), s.build()),
+            None => assets::build_id().to_string(),
+        }
+    }
+
+    /// Whether a request names another build than this page's, in
+    /// `X-Triplespace-UI-Build`; a request without the header is always served.
+    #[must_use]
+    pub fn build_skewed(&self, headers: &HeaderMap) -> bool {
+        headers
+            .get("x-triplespace-ui-build")
+            .and_then(|v| v.to_str().ok())
+            .is_some_and(|b| b != self.build_id())
+    }
+
     /// What the frame needs of the site.
     #[must_use]
     pub fn chrome(&self) -> Chrome<'_> {

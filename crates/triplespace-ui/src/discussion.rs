@@ -1185,11 +1185,7 @@ async fn thread_fragment(
     info: Lookup<PageInfo>,
     params: &Params,
 ) -> Response {
-    if headers
-        .get("x-triplespace-ui-build")
-        .and_then(|v| v.to_str().ok())
-        .is_some_and(|b| b != crate::assets::build_id())
-    {
+    if cx.build_skewed(headers) {
         return pages::build_skew();
     }
     let Lookup::Found(page) = info else {

@@ -150,6 +150,47 @@ async fn regions_are_the_pages_own_parts() {
         StatusCode::CONFLICT,
         "build skew reloads instead of swapping"
     );
+    // 0057 §8; 0097 §15: the build names the skin that drew the page and its version,
+    // so the binary's build alone is another build, and so is another skin's.
+    let site = triplespace_ui::Site::new(Client::new(FixtureApi::new()));
+    let skin = site
+        .skins()
+        .choose(None, None, None, None)
+        .expect("a default skin")
+        .build();
+    let binary = triplespace_ui::assets::build_id();
+    for (build, status) in [
+        (format!("{binary}+{skin}"), StatusCode::OK),
+        (binary.to_string(), StatusCode::CONFLICT),
+        (format!("{binary}+{skin}9"), StatusCode::CONFLICT),
+        (format!("{binary}+plain 0.0.0"), StatusCode::CONFLICT),
+    ] {
+        let req = Request::get("/wiki/Item:Q6?action=render&region=terms")
+            .header(header::HOST, "librarybase.org")
+            .header("x-triplespace-ui-build", &build)
+            .body(Body::empty())
+            .unwrap();
+        let r = common::site_router(Client::new(FixtureApi::new()))
+            .oneshot(req)
+            .await
+            .unwrap();
+        assert_eq!(r.status(), status, "{build}");
+    }
+    // Drawn with another skin, the same request is that skin's build.
+    let req = Request::get("/wiki/Item:Q6?action=render&region=terms&useskin=plain")
+        .header(header::HOST, "librarybase.org")
+        .header("x-triplespace-ui-build", format!("{binary}+{skin}"))
+        .body(Body::empty())
+        .unwrap();
+    let r = common::site_router(Client::new(FixtureApi::new()))
+        .oneshot(req)
+        .await
+        .unwrap();
+    assert_eq!(
+        r.status(),
+        StatusCode::CONFLICT,
+        "a change of skin is build skew"
+    );
 }
 
 #[tokio::test]
