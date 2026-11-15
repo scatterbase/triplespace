@@ -312,12 +312,35 @@ async fn serve(args: Serve) -> Result<()> {
         listener,
         triplespace_ui::router_for(site).into_make_service_with_connect_info::<SocketAddr>(),
     )
-    .with_graceful_shutdown(async {
-        let _ = tokio::signal::ctrl_c().await;
-    })
+    .with_graceful_shutdown(shutdown_signal())
     .await
     .context("serve")?;
     Ok(())
+}
+
+/// Resolves when the process is asked to stop: `SIGTERM`, which an orchestrator sends
+/// before it removes a replica, or an interrupt from the terminal. The server then stops
+/// accepting, finishes what is in flight, and exits (0057 §11; 22 §4.7).
+async fn shutdown_signal() {
+    #[cfg(unix)]
+    {
+        use tokio::signal::unix::{SignalKind, signal};
+        match signal(SignalKind::terminate()) {
+            Ok(mut term) => {
+                tokio::select! {
+                    _ = term.recv() => {}
+                    _ = tokio::signal::ctrl_c() => {}
+                }
+            }
+            Err(_) => {
+                let _ = tokio::signal::ctrl_c().await;
+            }
+        }
+    }
+    #[cfg(not(unix))]
+    {
+        let _ = tokio::signal::ctrl_c().await;
+    }
 }
 
 /// Ready when the API answers its health check. The API's version is checked on every
