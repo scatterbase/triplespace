@@ -103,6 +103,13 @@ struct Serve {
     /// A directory of installed skins beside the shipped ones (`web.skins`, 0097 §8).
     #[arg(long, env = "TRIPLESPACE_WEB_SKINS")]
     skins: Option<PathBuf>,
+    /// A running Vite dev server (`npm run dev` in `ui/`), such as
+    /// `http://localhost:5173`, to take the site's assets from in place of the built
+    /// ones, so that a change under `ui/src` reaches the open page without a rebuild
+    /// (`web.vite`, 0034 §8). Development only: a release build has no such option.
+    #[cfg(debug_assertions)]
+    #[arg(long, env = "TRIPLESPACE_WEB_VITE")]
+    vite: Option<String>,
 }
 
 fn main() -> Result<()> {
@@ -286,9 +293,21 @@ async fn serve(args: Serve) -> Result<()> {
         env!("CARGO_PKG_VERSION"),
         args.listen
     );
+    #[cfg(debug_assertions)]
+    let dev = match args.vite.as_deref() {
+        Some(url) => {
+            let dev = triplespace_ui::assets::DevServer::new(url)?;
+            eprintln!("assets from the Vite dev server at {}", dev.origin());
+            Some(dev)
+        }
+        None => None,
+    };
+    #[cfg(not(debug_assertions))]
+    let dev = None;
     let site = triplespace_ui::Site::new(client)
         .with_build(VERSION_JSON)
-        .with_skins_dir(args.skins.as_deref());
+        .with_skins_dir(args.skins.as_deref())
+        .with_dev_assets(dev);
     axum::serve(
         listener,
         triplespace_ui::router_for(site).into_make_service_with_connect_info::<SocketAddr>(),

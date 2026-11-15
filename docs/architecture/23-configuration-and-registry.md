@@ -391,7 +391,7 @@ These share the dotted form but are fields of the record named, not `site` setti
 
 ### 3.6 Deployment configuration
 
-*Sources: [0033](../decisions/0033-backend-stack.md) §12; [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §1; [0097](../decisions/0097-versioning-and-skins.md) §8; [0100](../decisions/0100-email-addresses-and-verification-codes.md) §5, A2.*
+*Sources: [0033](../decisions/0033-backend-stack.md) §12; [0034](../decisions/0034-frontend-stack.md) §8; [0042](../decisions/0042-template-expansion-and-parsoid.md) §2; [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §1; [0097](../decisions/0097-versioning-and-skins.md) §8; [0100](../decisions/0100-email-addresses-and-verification-codes.md) §5, A2.*
 
 Deployment configuration is read by `figment` (§5.1), never from a log record, as the Postgres and OpenSearch addresses are; the credentials of an `enterprise` page-repository source are deployment configuration too ([0053](../decisions/0053-mirrored-pages.md) §1).
 
@@ -403,6 +403,7 @@ Deployment configuration is read by `figment` (§5.1), never from a log record, 
 | `server.auth_base` | URL | unset: the single tenant's base serves as the auth base | The auth host, where a person authenticates to the instance; required once there is a second tenant, and never a tenant base or the farm base ([07](07-actors-and-accounts.md) §2.8) | [0089](../decisions/0089-the-auth-host-and-instance-logins.md) §1, §12 |
 | `server.ui` | `embedded`, `off` | `embedded` | Whether the server serves the site | [0033](../decisions/0033-backend-stack.md) §12; [0057](../decisions/0057-web-tier.md) §2 |
 | `server.skins` | a directory | unset: the shipped skins only | The skins the operator installs, one directory each, read at start; one named as a shipped skin replaces it ([19](19-site-ui.md) §5.10) | [0097](../decisions/0097-versioning-and-skins.md) §8 |
+| `server.vite`, `web.vite` | URL, an origin | unset: the built assets | Development only, and absent from a release build: the Vite dev server the binary takes the site's assets from, for hot reload ([22](22-crates-and-stack.md) §5.1) | [0034](../decisions/0034-frontend-stack.md) §8 |
 | `parsoid.url` | URL | unset: no tenant can choose `parsoid` | The Parsoid service | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2 |
 | `parsoid.timeout` | duration | 30 s | Per render; also the validity of a render's API token | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2 |
 | `parsoid.concurrency` | integer | — | Concurrent Parsoid renders | [0042](../decisions/0042-template-expansion-and-parsoid.md) §2 |

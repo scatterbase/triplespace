@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-10 (A18)
+- **Updated:** 2026-11-15 (A19)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0029](0029-resolver-namespaces.md), [0033](0033-backend-stack.md)
@@ -61,7 +61,7 @@ The backend stack is in 0033.
 
 ### 8. Build
 
-*Changed by A6, A8.*
+*Changed by A6, A8, A19.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §5.1.*
 
@@ -343,3 +343,10 @@ Replaced text ([19](../architecture/19-site-ui.md) §4.9, as it stood):
 - **Source:** Direct: Claude, while building two of the Codex components SCA-312 lists, 2026-11-10; unconfirmed
 - **Change:** extends §4
 - **Summary:** A running job's page shows Codex's ProgressBar, indeterminate and inline, named by the progress the page says, since a job reports the stage and the pages done and no total. Not built: **Sync again** and **Run again** beside it, which need jobs that can be queued again ([0104](0104-batches-and-the-job-runner.md) §4). The term editor's aliases stay a text area, one alias a line: Codex 2.7.0's ChipInput was built in and taken out again, because its chip list is a `listbox` with no accessible name and, while it holds no chip, no option, which fails axe's `aria-input-field-name` and `aria-required-children` and so the accessibility bar of §10; neither can be set from outside the component. It can return when a Codex release passes, or if James accepts the two findings as an exception. Chapter text: [19](../architecture/19-site-ui.md) §5.3.
+
+### A19. The Vite dev server: `server.vite` and `web.vite`
+
+- **Date:** 2026-11-15
+- **Source:** Direct: Claude, while building the development proxy to the Vite dev server (SCA-328), 2026-11-15; unconfirmed
+- **Change:** extends §8
+- **Summary:** The proxy to the Vite dev server is built, with these calls. (1) The option is `--vite` on both binaries (`server.vite`, `TRIPLESPACE_VITE`; `web.vite`, `TRIPLESPACE_WEB_VITE`), an origin such as `http://localhost:5173`; it exists only in a debug build, so a release binary has no such option and nothing of it. (2) With it set, a page links Vite's client and the source entries (`src/site.css`, `src/head.js`, `src/main.js`) under `/ui/assets/`, on the site's own origin, and the binary passes every request under `/ui/assets/` through to the dev server; what the dev server lacks (a type set's built font files) is served from `ui/dist`, as is everything when the dev server is not running. (3) The head script is linked as a module, since the dev server serves it with its imports; it therefore runs after the first paint, where the built one blocks. (4) The Content Security Policy is widened by three sources and no more: the dev server's WebSocket in `connect-src` (Vite's client connects to it directly, since the binary passes no WebSocket through), `'unsafe-inline'` in `style-src` (Vite applies a stylesheet a module imports as a `<style>` element), and `data:` in `font-src` (it serves a small font inline). Scripts still come from the site's own origin alone. (5) Templates and Rust are not reloaded: a template change still needs the web process restarted. Chapter text: 22 §5.1; 23 §3.6.

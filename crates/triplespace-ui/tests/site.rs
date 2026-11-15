@@ -7,6 +7,7 @@ use std::sync::{Arc, Mutex};
 
 use axum::body::Body;
 use axum::http::{HeaderMap, Request, StatusCode, header};
+use axum::response::IntoResponse as _;
 use http_body_util::BodyExt as _;
 use serde_json::json;
 use tower::ServiceExt as _;
@@ -338,4 +339,124 @@ async fn root_search_and_theme() {
     assert_eq!(h[header::CACHE_CONTROL], "public, max-age=60");
     let (_, h, _) = get(&fake, "/ui/theme/0000000000000000.css", &[]).await;
     assert_eq!(h[header::CACHE_CONTROL], "public, max-age=60");
+}
+
+/// A stand-in for the Vite dev server: it serves what is under `/ui/assets/` and says
+/// what it was asked, with the query and the `Accept` header it was sent.
+async fn fake_vite() -> String {
+    use axum::extract::{Path, RawQuery};
+    let app = axum::Router::new().route(
+        "/ui/assets/{*path}",
+        axum::routing::get(
+            |Path(path): Path<String>, RawQuery(q): RawQuery, h: HeaderMap| async move {
+                if path == "missing.woff2" {
+                    return (StatusCode::NOT_FOUND, "no").into_response();
+                }
+                let accept = h
+                    .get(header::ACCEPT)
+                    .and_then(|v| v.to_str().ok())
+                    .unwrap_or("-")
+                    .to_string();
+                (
+                    [
+                        (header::CONTENT_TYPE, "text/javascript"),
+                        (header::CACHE_CONTROL, "no-cache"),
+                    ],
+                    format!("vite:{path}?{}:{accept}", q.unwrap_or_default()),
+                )
+                    .into_response()
+            },
+        ),
+    );
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let addr = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        let _ = axum::serve(listener, app).await;
+    });
+    format!("http://{addr}")
+}
+
+async fn get_dev(
+    vite: &str,
+    uri: &str,
+    headers: &[(&str, &str)],
+) -> (StatusCode, HeaderMap, String) {
+    let dev = triplespace_ui::assets::DevServer::new(vite).unwrap();
+    let site = triplespace_ui::Site::new(Client::new(api())).with_dev_assets(Some(dev));
+    let mut req = Request::get(uri).header(header::HOST, "librarybase.org");
+    for (k, v) in headers {
+        req = req.header(*k, *v);
+    }
+    let r = triplespace_ui::router_for(site)
+        .oneshot(req.body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    let status = r.status();
+    let h = r.headers().clone();
+    let body = r.into_body().collect().await.unwrap().to_bytes();
+    (status, h, String::from_utf8_lossy(&body).into_owned())
+}
+
+// 0034 §8: in development the page links Vite's client and the source entries in place
+// of the hashed files, and the policy admits the dev server, under that option only.
+#[tokio::test]
+async fn under_a_vite_dev_server_a_page_links_the_sources() {
+    let vite = fake_vite().await;
+    let (status, h, html) = get_dev(&vite, "/wiki/Project:Home", &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    let client = html
+        .find(r#"<script type="module" src="/ui/assets/@vite/client"></script>"#)
+        .expect("Vite's client is linked");
+    let head = html
+        .find(r#"<script type="module" src="/ui/assets/src/head.js"></script>"#)
+        .expect("the head script is linked as a module");
+    let main = html
+        .find(r#"<script type="module" src="/ui/assets/src/main.js"></script>"#)
+        .expect("the site's script is linked from its source");
+    assert!(client < head && head < main, "the client loads first");
+    assert!(html.contains(r#"<link rel="stylesheet" href="/ui/assets/src/site.css">"#));
+    let csp = h[header::CONTENT_SECURITY_POLICY].to_str().unwrap();
+    let ws = vite.replace("http://", "ws://");
+    assert!(csp.contains(&format!("connect-src 'self' {ws}")), "{csp}");
+    assert!(csp.contains("style-src 'self' 'unsafe-inline'"), "{csp}");
+    assert!(csp.contains("script-src 'self';"), "{csp}");
+
+    // Without the option nothing of it shows: the policy is the site's own.
+    let (_, h, html) = get(&api(), "/wiki/Project:Home", &[]).await;
+    assert_eq!(
+        h[header::CONTENT_SECURITY_POLICY],
+        triplespace_ui::pages::CSP
+    );
+    assert!(!html.contains("@vite/client"));
+    assert!(!html.contains("/ui/assets/src/"));
+}
+
+// 0034 §8: asset requests are passed through to the dev server, and what it lacks
+// comes from the build.
+#[tokio::test]
+async fn under_a_vite_dev_server_asset_requests_pass_through() {
+    let vite = fake_vite().await;
+    let (status, h, body) = get_dev(
+        &vite,
+        "/ui/assets/src/site.css?t=17&direct",
+        &[("accept", "text/css,*/*;q=0.1")],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(body, "vite:src/site.css?t=17&direct:text/css,*/*;q=0.1");
+    assert_eq!(h[header::CONTENT_TYPE], "text/javascript");
+    // Vite's own caching, not the year a hashed file is kept.
+    assert_eq!(h[header::CACHE_CONTROL], "no-cache");
+    // A path below the base that Vite serves and the build never had.
+    let (status, _, body) = get_dev(&vite, "/ui/assets/@vite/client", &[]).await;
+    assert_eq!(
+        (status, body.as_str()),
+        (StatusCode::OK, "vite:@vite/client?:*/*")
+    );
+    // What the dev server lacks falls back to the build, which has no such file either.
+    let (status, _, _) = get_dev(&vite, "/ui/assets/missing.woff2", &[]).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    // A dev server that is not running is not an error page: the build answers.
+    let (status, _, _) = get_dev("http://127.0.0.1:9", "/ui/assets/src/main.js", &[]).await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
 }

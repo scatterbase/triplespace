@@ -10,6 +10,7 @@
 	},
 	"scripts": {
 		"build": "vite build",
+		"dev": "vite",
 		"fallbacks": "node scripts/fallbacks.js",
 		"lint": "npm run lint:js && npm run lint:types && npm run lint:css && npm run lint:i18n",
 		"lint:js": "eslint --max-warnings 0 .",
