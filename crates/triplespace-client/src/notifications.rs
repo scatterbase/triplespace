@@ -98,6 +98,25 @@ fn q(s: &str) -> String {
     url::form_urlencoded::byte_serialize(s.as_bytes()).collect()
 }
 
+/// `meta=notifications`' object, grouped by section, read as the counts.
+pub(crate) fn counts_of(n: &serde_json::Value) -> Counts {
+    let newest = ["alert", "message"]
+        .iter()
+        .filter_map(|s| n[*s]["list"][0]["timestamp"]["utciso8601"].as_str())
+        .max()
+        .map(str::to_string);
+    Counts {
+        alerts: n["alert"]["rawcount"].as_u64().unwrap_or(0),
+        messages: n["message"]["rawcount"].as_u64().unwrap_or(0),
+        newest_unread: newest,
+        seen: n["alert"]["seenTime"].as_str().map(str::to_string),
+    }
+}
+
+/// The parameters `meta=notifications` takes for the counts.
+pub(crate) const COUNT_PARAMS: &str =
+    "notprop=count%7CseenTime%7Clist&notfilter=!read&notlimit=1&notgroupbysection=1";
+
 impl Client {
     /// The bell's and the orange bar's counts: `meta=notifications` with `notprop=count|
     /// seenTime|list`, grouped by section, the newest unread item of each.
@@ -116,18 +135,7 @@ impl Client {
             )
             .await?;
         let v = check(&r)?;
-        let n = &v["query"]["notifications"];
-        let newest = ["alert", "message"]
-            .iter()
-            .filter_map(|s| n[*s]["list"][0]["timestamp"]["utciso8601"].as_str())
-            .max()
-            .map(str::to_string);
-        let value = Counts {
-            alerts: n["alert"]["rawcount"].as_u64().unwrap_or(0),
-            messages: n["message"]["rawcount"].as_u64().unwrap_or(0),
-            newest_unread: newest,
-            seen: n["alert"]["seenTime"].as_str().map(str::to_string),
-        };
+        let value = counts_of(&v["query"]["notifications"]);
         Ok(Fetched {
             value,
             cache: CacheInfo::of(&r),

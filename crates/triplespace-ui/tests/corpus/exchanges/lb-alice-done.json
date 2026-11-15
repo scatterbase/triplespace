@@ -1,77 +1,6 @@
 [
   {
     "method": "GET",
-    "path_and_query": "/w/api.php?action=query&meta=notifications&notprop=count%7CseenTime%7Clist&notfilter=!read&notlimit=1&notgroupbysection=1&format=json&formatversion=2",
-    "credentialed": true,
-    "status": 200,
-    "headers": {
-      "cache-control": "private, no-cache",
-      "content-length": "796",
-      "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:19 GMT",
-      "etag": "\"4f29dabedf7c0878e97d57aae546eb73\"",
-      "vary": "Accept, Accept-Language"
-    },
-    "json": {
-      "batchcomplete": true,
-      "query": {
-        "notifications": {
-          "alert": {
-            "continue": "1794765509|11",
-            "count": "7",
-            "list": [
-              {
-                "agent": {
-                  "id": 25,
-                  "name": "Bob"
-                },
-                "category": "ts-reply",
-                "id": 11,
-                "revid": 248273,
-                "section": "alert",
-                "timestamp": {
-                  "mw": "20261115175829",
-                  "unix": "1794765509",
-                  "utciso8601": "2026-11-15T17:58:29Z",
-                  "utcmw": "20261115175829",
-                  "utcunix": "1794765509"
-                },
-                "title": {
-                  "full": "Thread:2026-11-15/Is five a city?",
-                  "namespace": "Thread",
-                  "namespace-key": 214,
-                  "text": "2026-11-15/Is five a city?"
-                },
-                "ts-params": null,
-                "ts-reason": "reply",
-                "ts-thread": {
-                  "subject": "Is five a city?",
-                  "talk": {
-                    "full": "Item talk:Q5",
-                    "namespace-key": 121
-                  }
-                },
-                "type": "ts-reply",
-                "wiki": "librarybase"
-              }
-            ],
-            "rawcount": 7,
-            "seenTime": "2026-11-15T17:59:17Z"
-          },
-          "count": "7",
-          "message": {
-            "count": "0",
-            "list": [],
-            "rawcount": 0,
-            "seenTime": "2026-11-15T17:59:17Z"
-          },
-          "rawcount": 7
-        }
-      }
-    }
-  },
-  {
-    "method": "GET",
     "path_and_query": "/w/api.php?action=query&meta=siteinfo&siprop=general%7Ctriplespace%7Cproviders&format=json&formatversion=2",
     "credentialed": true,
     "status": 200,
@@ -79,8 +8,8 @@
       "cache-control": "private, no-cache",
       "content-length": "89237",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:19 GMT",
-      "etag": "\"9969a6d1d4d11730b9d2fcf1039fca17\"",
+      "date": "Sun, 15 Nov 2026 21:59:46 GMT",
+      "etag": "\"a374cd607cec1b8be6a7169878bc602b\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -146,7 +75,7 @@
             "4": 250,
             "5": 300
           },
-          "time": "2026-11-15T17:59:19Z",
+          "time": "2026-11-15T21:59:46Z",
           "timeoffset": 0,
           "timezone": "UTC",
           "uploadsenabled": false,
@@ -585,7 +514,7 @@
           "api_version": 6,
           "at_farm": true,
           "build": {
-            "commit": "65326ae883e9da9ebdb40308580d6b99a44da8af",
+            "commit": "bc4e0dab40a05fb6d32c047b566a43c606594d5e",
             "modified": true,
             "version": "0.0.1"
           },
@@ -637,7 +566,7 @@
             "history": true
           },
           "farm": "scatter",
-          "farm_code": "upvnufjxdkvq7tdjbxg7wnt4lj",
+          "farm_code": "7rjsqybowymh43u47s2voktzbf",
           "grants": [
             "basic",
             "highvolume",
@@ -661,7 +590,7 @@
           "interface": {
             "messages": {}
           },
-          "issuer": "mkqavovhrxj56hkmbusdncsbrk",
+          "issuer": "evgrxivwayreefwxqsk4wbcg2f",
           "login": [],
           "primary": "librarybase",
           "providers": [
@@ -3222,35 +3151,87 @@
       "cache-control": "private, no-cache",
       "content-length": "93",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:19 GMT",
-      "etag": "\"7b5d94c37a6e8e3dced6e412e01d79d6\"",
+      "date": "Sun, 15 Nov 2026 21:59:46 GMT",
+      "etag": "\"c0254e63fd581f3409369735ed2320b6\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
       "batchcomplete": true,
       "query": {
         "tokens": {
-          "csrftoken": "aMbkcHXVxyCf08QFKvcr47kwbmyAyzQf+\\"
+          "csrftoken": "ImCg3yWgkq_bJzCCjtEGcI4OxK9DFOJA+\\"
         }
       }
     }
   },
   {
     "method": "GET",
-    "path_and_query": "/w/api.php?action=query&meta=userinfo&uiprop=options|accountrequests|rights|groups&format=json&formatversion=2",
+    "path_and_query": "/w/api.php?action=query&meta=userinfo|notifications&uiprop=options|accountrequests|rights|groups&notprop=count%7CseenTime%7Clist&notfilter=!read&notlimit=1&notgroupbysection=1&format=json&formatversion=2",
     "credentialed": true,
     "status": 200,
     "headers": {
       "cache-control": "private, no-cache",
-      "content-length": "2361",
+      "content-length": "3125",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:19 GMT",
-      "etag": "\"0ee2b0408c5f95bde045ae07e7540207\"",
+      "date": "Sun, 15 Nov 2026 21:59:46 GMT",
+      "etag": "\"d6c5b650ac9bbbbaa497191ca28e1a5c\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
       "batchcomplete": true,
       "query": {
+        "notifications": {
+          "alert": {
+            "continue": "1794779938|11",
+            "count": "7",
+            "list": [
+              {
+                "agent": {
+                  "id": 25,
+                  "name": "Bob"
+                },
+                "category": "ts-reply",
+                "id": 11,
+                "revid": 248273,
+                "section": "alert",
+                "timestamp": {
+                  "mw": "20261115215858",
+                  "unix": "1794779938",
+                  "utciso8601": "2026-11-15T21:58:58Z",
+                  "utcmw": "20261115215858",
+                  "utcunix": "1794779938"
+                },
+                "title": {
+                  "full": "Thread:2026-11-15/Is five a city?",
+                  "namespace": "Thread",
+                  "namespace-key": 214,
+                  "text": "2026-11-15/Is five a city?"
+                },
+                "ts-params": null,
+                "ts-reason": "reply",
+                "ts-thread": {
+                  "subject": "Is five a city?",
+                  "talk": {
+                    "full": "Item talk:Q5",
+                    "namespace-key": 121
+                  }
+                },
+                "type": "ts-reply",
+                "wiki": "librarybase"
+              }
+            ],
+            "rawcount": 7,
+            "seenTime": "2026-11-15T21:59:44Z"
+          },
+          "count": "7",
+          "message": {
+            "count": "0",
+            "list": [],
+            "rawcount": 0,
+            "seenTime": "2026-11-15T21:59:44Z"
+          },
+          "rawcount": 7
+        },
         "userinfo": {
           "accountrequests": 0,
           "groups": [
@@ -3400,7 +3381,7 @@
       "cache-control": "private, no-cache",
       "content-length": "25",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:19 GMT",
+      "date": "Sun, 15 Nov 2026 21:59:46 GMT",
       "etag": "\"1b93036d44139baa5e61a025acae2959\"",
       "vary": "Accept, Accept-Language"
     },

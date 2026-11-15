@@ -45,18 +45,30 @@ pub async fn control(
         return None;
     }
     let client = site.client();
-    let (state, token) = tokio::join!(
-        client.watch_state(incoming, title),
-        client.token(incoming, "watch")
-    );
-    let state = state.ok()?.value;
-    let token = token.ok()?.value.value;
-    if state.unseen.is_some()
-        && let Ok(csrf) = client.token(incoming, "csrf").await
-    {
-        let _ = client
-            .mark_watch_seen(incoming, Some(title), &csrf.value.value)
-            .await;
+    // The page asked for the star's facts with the session (19 §5.1 rule 5); a page
+    // that did not, or asked about another title, asks now.
+    let asked = cx.watching.as_ref().filter(|w| w.title == title);
+    let (state, token, csrf) = if let Some(w) = asked {
+        (w.state.clone(), w.token.clone(), w.csrf.clone())
+    } else {
+        let (state, token) = tokio::join!(
+            client.watch_state(incoming, title),
+            client.token(incoming, "watch")
+        );
+        (state.ok()?.value, token.ok()?.value.value, None)
+    };
+    if state.unseen.is_some() {
+        let csrf = match csrf {
+            Some(c) => Some(c),
+            None => client
+                .token(incoming, "csrf")
+                .await
+                .ok()
+                .map(|c| c.value.value),
+        };
+        if let Some(csrf) = csrf {
+            let _ = client.mark_watch_seen(incoming, Some(title), &csrf).await;
+        }
     }
     Some(WatchControl {
         title: title.to_string(),

@@ -7,7 +7,7 @@
       "cache-control": "public, max-age=60, s-maxage=60, stale-while-revalidate=300",
       "content-length": "79750",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:20 GMT",
+      "date": "Sun, 15 Nov 2026 21:59:47 GMT",
       "etag": "\"a2714e4960fb516e32069fadf528e95a\"",
       "vary": "Accept, Accept-Language"
     },
@@ -2560,7 +2560,7 @@
       "cache-tag": "entity:Q6",
       "content-length": "52",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 17:59:19 GMT",
+      "date": "Sun, 15 Nov 2026 21:59:46 GMT",
       "etag": "\"ee54dc6b1d179c30f9663e1a0e8ce3af\"",
       "vary": "Accept, Accept-Language"
     },

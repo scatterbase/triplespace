@@ -699,6 +699,9 @@ async fn an_old_revision_is_the_page_as_it_then_was() {
 struct Counted {
     api: FixtureApi,
     calls: std::sync::Arc<std::sync::Mutex<Vec<String>>>,
+    /// Whether the API serves notifications and watching, as a whole instance does: the
+    /// bell and the watch star are then part of the page.
+    whole: bool,
 }
 
 impl triplespace_client::Transport for Counted {
@@ -713,7 +716,32 @@ impl triplespace_client::Transport for Counted {
             .lock()
             .unwrap()
             .push(request.path_and_query.clone());
-        self.api.send(request)
+        let q = request.path_and_query.clone();
+        let whole = self.whole;
+        Box::pin(async move {
+            let mut r = self.api.send(request).await?;
+            if !whole {
+                return Ok(r);
+            }
+            let mut v: Value = serde_json::from_slice(&r.body).unwrap();
+            if q.contains("meta=siteinfo") {
+                let caps = v["query"]["triplespace"]["capabilities"]
+                    .as_array_mut()
+                    .unwrap();
+                caps.push("notifications".into());
+                caps.push("watchlist".into());
+            } else if q.contains("meta=userinfo|notifications|tokens") {
+                // The parts of the one session call the fixture API does not answer.
+                v["query"]["notifications"] = serde_json::json!({
+                    "alert": {"rawcount": 2}, "message": {"rawcount": 0}
+                });
+                v["query"]["tokens"] =
+                    serde_json::json!({"watchtoken": "w+\\", "csrftoken": "c+\\"});
+                v["query"]["pages"] = serde_json::json!([{"title": "Item:Q6999", "watched": true}]);
+            }
+            r.body = serde_json::to_vec(&v).unwrap();
+            Ok(r)
+        })
     }
 
     fn embedded(&self) -> bool {
@@ -754,12 +782,18 @@ fn item_linking_to(n: usize) -> FixtureApi {
 #[tokio::test]
 async fn an_entity_page_with_hundreds_of_links_takes_at_most_four_api_calls() {
     // A reader's page is three calls: `siteinfo`, the bundle and the labels. A signed-in
-    // viewer's adds who they are and their inbox count, which are two calls still, where
-    // 19 §5.1 counts them as one.
-    for (cookie, most) in [(None, 4), (Some("triplespace_session=alice"), 5)] {
+    // viewer's adds one: who they are, their inbox count and the watch star's facts.
+    // On a whole instance the page also draws the bell and the watch star, from that
+    // same call.
+    for (cookie, whole, most) in [
+        (None, false, 3),
+        (Some("triplespace_session=alice"), false, 4),
+        (Some("triplespace_session=alice"), true, 4),
+    ] {
         let counted = Counted {
             api: item_linking_to(700),
             calls: std::sync::Arc::default(),
+            whole,
         };
         let mut req = Request::get("/wiki/Item:Q6999").header(header::HOST, "librarybase.org");
         if let Some(c) = cookie {
@@ -775,6 +809,18 @@ async fn an_entity_page_with_hundreds_of_links_takes_at_most_four_api_calls() {
         // Every linked entity is named by its label: the first and the last.
         assert!(html.contains(">Linked 0</a>"), "the first link's label");
         assert!(html.contains(">Linked 699</a>"), "the last link's label");
+        if whole {
+            assert!(html.contains(r#"<div class="ts-watch">"#), "the watch star");
+            assert!(
+                html.contains("ts-watch--on"),
+                "the star says the page is watched"
+            );
+            assert!(
+                html.contains(r#"name="wpEditToken" value="w+\""#),
+                "the star's token"
+            );
+            assert!(html.contains("ts-bell"), "the bell");
+        }
         let calls = counted.calls.lock().unwrap().clone();
         let count = |part: &str| calls.iter().filter(|c| c.contains(part)).count();
         assert_eq!(count("/entity/Item:Q6999/page"), 1, "{calls:#?}");
@@ -785,6 +831,19 @@ async fn an_entity_page_with_hundreds_of_links_takes_at_most_four_api_calls() {
         );
         assert_eq!(count("action=wbgetentities"), 0, "{calls:#?}");
         assert_eq!(count("/provenance"), 0, "{calls:#?}");
+        // The session facts are one call, and the star asks nothing of its own.
+        assert_eq!(count("meta=notifications"), 0, "{calls:#?}");
+        assert_eq!(count("meta=tokens"), 0, "{calls:#?}");
+        assert_eq!(
+            count("prop=info"),
+            usize::from(cookie.is_some()),
+            "{calls:#?}"
+        );
+        assert_eq!(
+            count("meta=userinfo|notifications|tokens"),
+            usize::from(cookie.is_some()),
+            "{calls:#?}"
+        );
         assert!(
             calls.len() <= most,
             "{} API calls for {cookie:?}, the budget is {most}: {:#?}",

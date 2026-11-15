@@ -161,13 +161,14 @@ async fn a_signed_in_page_is_private_and_names_the_viewer() {
     assert!(html.contains("<span class=\"ts-header__user\">Alice</span>"));
     assert!(!html.contains("Special:UserLogin"));
     assert_eq!(h[header::CACHE_CONTROL], "private, no-cache");
-    // Siteinfo, userinfo, and the bell's counts.
+    // Siteinfo, and one call for who the viewer is and the bell's counts (19 §5.1
+    // rule 5).
     let seen = fake.seen.lock().unwrap();
-    assert_eq!(seen.len(), 3);
+    assert_eq!(seen.len(), 2);
     assert!(
         seen.iter()
-            .any(|r| r.path_and_query.contains("meta=notifications")),
-        "the bell's counts are asked for"
+            .any(|r| r.path_and_query.contains("meta=userinfo|notifications")),
+        "the bell's counts are asked for with the viewer"
     );
 }
 

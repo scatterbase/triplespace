@@ -170,6 +170,9 @@ pub struct Context {
     pub skin: Option<std::sync::Arc<Skin>>,
     /// The stylesheet and scripts a page links: the build's, or a dev server's sources.
     pub assets: assets::Entries,
+    /// The watch star's facts for the title the page asked about with the session
+    /// ([`context_watching`]); `None` where it asked about none, or the API said nothing.
+    pub watching: Option<triplespace_client::session::Watching>,
 }
 
 impl Context {
@@ -295,18 +298,43 @@ pub async fn context(
     incoming: &Incoming,
     query: &BTreeMap<String, String>,
 ) -> Result<Context, Response> {
+    context_watching(site, incoming, query, None).await
+}
+
+/// [`context`] for a page that shows the watch star for `watch`, a title: the star's
+/// state and tokens are asked for in the same call as who the viewer is, so the page
+/// stays within its four API calls (19 §5.1 rule 5).
+///
+/// # Errors
+///
+/// As [`context`].
+#[allow(clippy::too_many_lines)]
+pub async fn context_watching(
+    site: &Site,
+    incoming: &Incoming,
+    query: &BTreeMap<String, String>,
+    watch: Option<&str>,
+) -> Result<Context, Response> {
     let client = site.client();
-    // The bell's counts are asked for beside who the viewer is; an anonymous viewer's
-    // answer is a refusal, which is dropped.
-    let (si, ui, counts) = if incoming.credentialed() {
-        let (si, ui, counts) = tokio::join!(
-            client.siteinfo(incoming),
-            client.userinfo(incoming),
-            client.notification_counts(incoming)
-        );
-        (si, Some(ui), counts.ok())
+    // Who the viewer is, the bell's counts and the star's facts are one call.
+    let (si, session) = if incoming.credentialed() {
+        let (si, session) =
+            tokio::join!(client.siteinfo(incoming), client.session(incoming, watch));
+        (si, Some(session))
     } else {
-        (client.siteinfo(incoming).await, None, None)
+        (client.siteinfo(incoming).await, None)
+    };
+    let (ui, counts, watching) = match session {
+        Some(Ok(s)) => (
+            Some(Ok(triplespace_client::api::Fetched {
+                value: s.value.user,
+                cache: s.cache,
+            })),
+            s.value.counts,
+            s.value.watching,
+        ),
+        Some(Err(e)) => (Some(Err(e)), None, None),
+        None => (None, None, None),
     };
     let si = si.map_err(|e| unavailable(site, incoming, &e, failure_key(&e)))?;
     if si.value.api_version < MIN_API_VERSION {
@@ -342,7 +370,8 @@ pub async fn context(
         }
         None => None,
     };
-    let notifications = counts.filter(|_| user.is_some()).map(|c| c.value);
+    let notifications = counts.filter(|_| user.is_some());
+    let watching = watching.filter(|_| user.is_some());
     // `uselang`, then a signed-in reader's own interface language, then the request's
     // `Accept-Language` matched against the languages the interface has messages for,
     // then the site's (0034 §9; 0085 §2.2).
@@ -396,6 +425,7 @@ pub async fn context(
         notifications,
         skin,
         assets: site.entries().clone(),
+        watching,
     })
 }
 

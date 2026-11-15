@@ -64,7 +64,20 @@ pub struct WatchForm<'a> {
     pub token: &'a str,
 }
 
-fn q(s: &str) -> String {
+/// A page of `prop=info&inprop=watched|notificationtimestamp` read as its watch state.
+pub(crate) fn watch_state_of(p: &serde_json::Value) -> WatchState {
+    WatchState {
+        watched: p["watched"].as_bool().unwrap_or(false),
+        expires: p["watchlistexpiry"].as_str().map(str::to_string),
+        notify: p["ts-notify"].as_bool().unwrap_or(false),
+        unseen: p["notificationtimestamp"]
+            .as_str()
+            .filter(|s| !s.is_empty())
+            .map(str::to_string),
+    }
+}
+
+pub(crate) fn q(s: &str) -> String {
     url::form_urlencoded::byte_serialize(s.as_bytes()).collect()
 }
 
@@ -89,16 +102,7 @@ impl Client {
             )
             .await?;
         let v = check(&r)?;
-        let p = &v["query"]["pages"][0];
-        let value = WatchState {
-            watched: p["watched"].as_bool().unwrap_or(false),
-            expires: p["watchlistexpiry"].as_str().map(str::to_string),
-            notify: p["ts-notify"].as_bool().unwrap_or(false),
-            unseen: p["notificationtimestamp"]
-                .as_str()
-                .filter(|s| !s.is_empty())
-                .map(str::to_string),
-        };
+        let value = watch_state_of(&v["query"]["pages"][0]);
         Ok(Fetched {
             value,
             cache: CacheInfo::of(&r),
