@@ -188,6 +188,10 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "0039_job_not_before",
         sql: include_str!("../migrations/0039_job_not_before.sql"),
     },
+    Migration {
+        name: "0040_view_autovacuum",
+        sql: include_str!("../migrations/0040_view_autovacuum.sql"),
+    },
 ];
 
 /// The crate name migrations are recorded under.

@@ -671,3 +671,80 @@ async fn slots_restored_in_bulk_are_the_slots_restored_one_by_one() {
         assert_eq!(n, 0, "nothing of a refused block is written");
     }
 }
+
+/// The storage parameters of every record partition and of `log.merkle_node`.
+async fn autovacuum_options(client: &Client) -> Vec<Option<Vec<String>>> {
+    client
+        .query(
+            "SELECT c.reloptions FROM pg_class c
+             WHERE c.oid IN (SELECT inhrelid FROM pg_inherits
+                             WHERE inhparent = 'log.record'::regclass)
+                OR c.oid = 'log.merkle_node'::regclass
+             ORDER BY c.relname",
+            &[],
+        )
+        .await
+        .unwrap()
+        .iter()
+        .map(|r| r.get(0))
+        .collect()
+}
+
+#[tokio::test]
+async fn record_partitions_vacuum_after_a_hundredth() {
+    if skipped() {
+        return;
+    }
+    let client = fresh().await;
+    let mut store = PgLog::new(client);
+    for p in [5, 6] {
+        store
+            .create_partition(p, Segments::new(4).unwrap())
+            .await
+            .unwrap();
+    }
+    let client = store.into_inner();
+    let expected = Some(vec![
+        "autovacuum_vacuum_scale_factor=0.01".to_string(),
+        "autovacuum_vacuum_insert_scale_factor=0.01".to_string(),
+        "autovacuum_analyze_scale_factor=0.005".to_string(),
+        "autovacuum_vacuum_cost_limit=2000".to_string(),
+    ]);
+    // A new partition has them from its creation, and the merkle nodes from the migration.
+    assert_eq!(autovacuum_options(&client).await, vec![expected.clone(); 3]);
+    // A partition made before the migration gets them when the migration runs again.
+    let mut tables: Vec<String> = client
+        .query(
+            "SELECT inhrelid::regclass::text FROM pg_inherits
+             WHERE inhparent = 'log.record'::regclass",
+            &[],
+        )
+        .await
+        .unwrap()
+        .iter()
+        .map(|r| r.get(0))
+        .collect();
+    tables.push("log.merkle_node".into());
+    for t in tables {
+        client
+            .batch_execute(&format!(
+                "ALTER TABLE {t} RESET (autovacuum_vacuum_scale_factor, \
+                 autovacuum_vacuum_insert_scale_factor, autovacuum_analyze_scale_factor, \
+                 autovacuum_vacuum_cost_limit)"
+            ))
+            .await
+            .unwrap();
+    }
+    assert_eq!(autovacuum_options(&client).await, vec![None; 3]);
+    client
+        .batch_execute(
+            scatter_log_postgres::MIGRATIONS
+                .iter()
+                .find(|m| m.name == "0003_record_autovacuum")
+                .unwrap()
+                .sql,
+        )
+        .await
+        .unwrap();
+    assert_eq!(autovacuum_options(&client).await, vec![expected; 3]);
+}

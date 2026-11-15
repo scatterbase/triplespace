@@ -52,6 +52,10 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "0002_partition_origin",
         sql: include_str!("../migrations/0002_partition_origin.sql"),
     },
+    Migration {
+        name: "0003_record_autovacuum",
+        sql: include_str!("../migrations/0003_record_autovacuum.sql"),
+    },
 ];
 
 /// Applies every migration, in order. Each is idempotent, so this can run at every start.
