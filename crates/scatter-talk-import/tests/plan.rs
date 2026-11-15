@@ -163,13 +163,13 @@ fn read_dump(path: &Path) -> Vec<Rev> {
     loop {
         match reader.read_event_into(&mut buf).expect("xml") {
             Event::Start(e) => {
-                stack.push(String::from_utf8_lossy(e.name().as_ref()).into_owned());
+                stack.push(e.name().as_ref().to_owned());
                 leaf.clear();
             }
-            Event::Text(t) => leaf.push_str(&t.decode().expect("text")),
+            Event::Text(t) => leaf.push_str(&t),
             Event::GeneralRef(r) => match r.resolve_char_ref().expect("ref") {
                 Some(c) => leaf.push(c),
-                None => leaf.push_str(match r.decode().expect("ref").as_ref() {
+                None => leaf.push_str(match &*r {
                     "lt" => "<",
                     "gt" => ">",
                     "amp" => "&",
@@ -189,7 +189,7 @@ fn read_dump(path: &Path) -> Vec<Rev> {
                     [.., "revision", "text"] => cur.3 = v,
                     _ => {}
                 }
-                if e.name().as_ref() == b"revision" {
+                if e.name().as_ref() == "revision" {
                     out.push((
                         title.clone(),
                         cur.0,

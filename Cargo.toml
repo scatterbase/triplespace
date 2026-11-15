@@ -161,7 +161,7 @@ thiserror = "2"
 anyhow = "1"
 
 # Dumps (0033 §10): MediaWiki XML and Wikibase JSON dumps, gzip and bzip2 compressed
-quick-xml = "0.41"
+quick-xml = "0.42"
 flate2 = "1"
 bzip2 = "0.6"
 
