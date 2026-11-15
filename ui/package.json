@@ -114,6 +114,7 @@
 		"@wikimedia/codex": "2.7.0",
 		"@wikimedia/codex-design-tokens": "2.7.0",
 		"@wikimedia/codex-icons": "2.7.0",
+		"banana-i18n": "2.4.0",
 		"vue": "3.5.45"
 	},
 	"devDependencies": {

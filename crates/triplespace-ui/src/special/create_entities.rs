@@ -396,6 +396,7 @@ fn form_model(cx: &Context, typed: &Typed) -> CreateEntitiesPage {
             let data = serde_json::json!({
                 "page": "create",
                 "lang": cx.site.lang,
+                "uiLang": m.lang(),
                 "dir": m.dir(),
                 "canCreateProperty": typed.can_new,
                 "datatypes": offered(&cx.site),

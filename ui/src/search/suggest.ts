@@ -5,6 +5,7 @@
  */
 import type { SearchResult } from '@wikimedia/codex';
 import type { Api } from '../edit/api';
+import { format } from '../i18n/format';
 
 /** What the server writes beside the box (`ts-search-data`). */
 export interface SearchData {
@@ -33,8 +34,7 @@ export const MOST = 10;
  * @return The message
  */
 export function message( data: SearchData, key: string, param = '' ): string {
-	const text = data.messages[ key ];
-	return text === undefined ? `⧼${ key }⧽` : text.replace( /\$1/g, () => param );
+	return format( data.messages, data.lang, key, [ param ] );
 }
 
 /**
