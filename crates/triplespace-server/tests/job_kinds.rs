@@ -611,10 +611,16 @@ async fn the_runner_loop_picks_up_what_is_queued() {
     );
 
     pause(false).await;
+    // The work's last transaction finishes the job; the runner takes it off the queue in
+    // the next one. The loop is stopped only once both are done: stopped between them, it
+    // would leave the row queued, as a runner that died there does (0104 §4), which is
+    // another test's subject.
     let mut finished = false;
+    let mut left = String::new();
     for _ in 0..200 {
-        if status(adoption).await.as_deref() == Some("finished") {
-            finished = true;
+        finished = status(adoption).await.as_deref() == Some("finished");
+        left = one(&database, "SELECT count(*)::text FROM ops.job_queue").await;
+        if finished && left == "0" {
             break;
         }
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
@@ -625,9 +631,6 @@ async fn the_runner_loop_picks_up_what_is_queued() {
         "the loop ran the adoption: {:?}",
         status(adoption).await
     );
-    assert_eq!(
-        one(&database, "SELECT count(*)::text FROM ops.job_queue").await,
-        "0"
-    );
+    assert_eq!(left, "0", "a finished job leaves the queue");
     let _ = std::fs::remove_dir_all(&dir);
 }
