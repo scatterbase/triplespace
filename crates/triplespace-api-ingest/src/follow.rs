@@ -305,19 +305,19 @@ impl<'a, C: GenericClient> ProviderFollower<'a, C> {
         &self.poller
     }
 
-    /// The entity IDs a batch of changes names, with the revision each row carried.
-    fn ids_of(&self, changes: &[Change]) -> Vec<(EntityId, Option<u64>)> {
+    /// The entity IDs a batch of changes names, with the revision and page ID each row
+    /// carried.
+    fn ids_of(&self, changes: &[Change]) -> Vec<Named> {
         changes
             .iter()
-            .filter_map(|c| entity_id_of(&c.title, c.ns, &self.namespaces).map(|id| (id, c.revid)))
+            .filter_map(|c| {
+                entity_id_of(&c.title, c.ns, &self.namespaces).map(|id| (id, c.revid, c.pageid))
+            })
             .collect()
     }
 
     /// Reads the current states of `ids` and turns them into sync items.
-    async fn states(
-        &mut self,
-        ids: Vec<(EntityId, Option<u64>)>,
-    ) -> Result<(Vec<SyncItem>, u64), IngestError> {
+    async fn states(&mut self, ids: Vec<Named>) -> Result<(Vec<SyncItem>, u64), IngestError> {
         let mut items = Vec::new();
         let mut stale = 0;
         let mut fetched = BTreeMap::new();
@@ -330,7 +330,7 @@ impl<'a, C: GenericClient> ProviderFollower<'a, C> {
                         "ids",
                         chunk
                             .iter()
-                            .map(|(id, _)| id.as_str())
+                            .map(|(id, _, _)| id.as_str())
                             .collect::<Vec<_>>()
                             .join("|"),
                     ),
@@ -355,7 +355,7 @@ impl<'a, C: GenericClient> ProviderFollower<'a, C> {
             }
         }
         self.adapter.index_mut().finish();
-        for (id, revid) in ids {
+        for (id, revid, pageid) in ids {
             let Some(f) = fetched.remove(id.as_str()) else {
                 continue;
             };
@@ -370,14 +370,26 @@ impl<'a, C: GenericClient> ProviderFollower<'a, C> {
                 self.retry.push((id, revid));
                 continue;
             }
-            self.items_of(f, revid, &mut items);
+            self.items_of(f, revid, pageid, &mut items);
         }
         Ok((items, stale))
     }
 
     /// The sync items one fetched entity becomes.
-    fn items_of(&self, fetched: Fetched, revid: Option<u64>, items: &mut Vec<SyncItem>) {
-        let version = || revid.map_or_else(Upstream::default, |r| Upstream::revision(r, None));
+    /// A deletion or a redirect carries the page ID its change row named, so that its
+    /// record's page ID comes from its content, as a state's does (0015 A65).
+    fn items_of(
+        &self,
+        fetched: Fetched,
+        revid: Option<u64>,
+        pageid: Option<u64>,
+        items: &mut Vec<SyncItem>,
+    ) {
+        let version = || {
+            revid
+                .map_or_else(Upstream::default, |r| Upstream::revision(r, None))
+                .with_pageid(pageid)
+        };
         match fetched {
             Fetched::State(p) => {
                 let upstream_id = p.entity.id.as_str().to_string();
@@ -449,6 +461,9 @@ impl<'a, C: GenericClient> ProviderFollower<'a, C> {
     }
 }
 
+/// An entity a change row named, the revision it named, and its page ID.
+type Named = (EntityId, Option<u64>, Option<u64>);
+
 /// Where a follower stands after a batch, as [`ChangeSource::save`] stores it.
 #[derive(Debug, Clone)]
 pub struct Saved {
@@ -496,7 +511,12 @@ impl<C: GenericClient + Sync> ChangeSource for ProviderFollower<'_, C> {
             .read(&body, false)
             .map_err(|e| IngestError::Store(e.to_string()))?;
         let mut rows = u64::try_from(head.rows).unwrap_or(u64::MAX);
-        let mut ids = std::mem::take(&mut self.retry);
+        // A retried ID is read again without the page ID its row named: a deletion found
+        // then takes the key's page ID, as before 0015 A65.
+        let mut ids: Vec<Named> = std::mem::take(&mut self.retry)
+            .into_iter()
+            .map(|(id, revid)| (id, revid, None))
+            .collect();
         ids.extend(self.ids_of(&head.changes));
         let mut late = 0;
         self.at_head = !head.more;

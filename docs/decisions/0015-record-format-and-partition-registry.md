@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-15 (A65)
+- **Updated:** 2026-11-15 (A66)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md)
 - **Uses:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md)
@@ -29,7 +29,7 @@ Two smaller gaps are closed with them: the document node of a foreign entity on 
 
 ### 2. Global IDs live in the header (amends 0006 §3 and 0013 §6)
 
-*Changed by A3, A15, A23, A37, A48, A49, A50, A51, A62, A63, A64, A65.*
+*Changed by A3, A15, A23, A37, A48, A49, A50, A51, A62, A63, A64, A65, A66.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §2.2, §2.5, §5.3, §7.*
 
@@ -694,3 +694,10 @@ Replaced text ([01](../architecture/01-log-and-records.md) §2.5, as it stood):
 - **Source:** Direct: Claude, while building A64, 2026-11-15; unconfirmed
 - **Change:** extends §2
 - **Summary:** The mirror writers (one write, a block, and the bootstrap loader) take a mirror or source record's page ID from the upstream page ID in its content, `provider_number << 40 | pageid`, with no lookup of the key and nothing from the page sequence; a dump's redirect carries the page ID of `from`'s page, which stays the retired ID's. Two cases keep the earlier rule, the key's page ID or else a fresh one: a keyed subject, since a key outlives any one upstream page as the mapping moves between items (0009 §9), so its field 9 is not recomputable from the record alone; and an operation that carries no upstream page ID, which today is a follower's tombstone or redirect, read from the change rather than from the page, and every put of a provider that publishes none. For the latter, A50's `provider_number << 40 | mirror offset` is not built: such a key still takes its first page ID from `log."instance.page_id"`. `pageid` is a new field in `upstream`, which an older reader refuses (`Upstream` denies unknown fields); A63 would give that a new payload tag after the first release, and this is before it.
+
+### A66. A follower's deletions and redirects carry their page IDs; offsets per provider
+
+- **Date:** 2026-11-15
+- **Source:** Direct: James, 2026-11-15, on A65; the registry declaration and the fallback are Claude's, while building it, unconfirmed
+- **Change:** extends §2
+- **Summary:** James confirms A65's rule for a keyed subject, which keeps its key's page ID. For an operation without an upstream page ID, A65's fallback to the page sequence goes: (1) **a follower's deletion and redirect** carry the page ID their change row names, so that their page ID comes from their content as a state's does. A deletion's log row names the deleted page (every one of 120 deletions in Wikidata's recent changes on 2026-11-15 did), a redirect's row is an edit of the redirected page, and the rows about one title in a batch keep any page ID one of them names. An entity read again on a later pass, after a lagging replica, has lost its row and takes its key's page ID. (2) **A provider that publishes no page IDs** takes `provider_number << 40 | offset of the key's first record`, as A50 has it, for every record, and one that publishes them never does, so that the two never share a provider's range. Which a provider does is declared on its registry entry, not judged record by record, and a record of a provider that publishes page IDs that arrives without one takes its key's page ID. (2) is not yet built, and until it is such a provider still draws from `log."instance.page_id"`: the log store assigns a record's offset when it appends it, after its header, field 9 included, is fixed, so the append has to fill field 9 from the offset it assigns. Chapter text: 01 §2.5.
