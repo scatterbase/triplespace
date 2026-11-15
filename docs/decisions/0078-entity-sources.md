@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-08
-- **Updated:** 2026-10-26 (A5)
+- **Updated:** 2026-11-15 (A6)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0029](0029-resolver-namespaces.md), [0035](0035-adopting-a-wikibase.md), [0070](0070-shallow-entity-mirroring.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0043](0043-lua-modules.md), [0044](0044-tenant-relative-ids.md), [0048](0048-notation.md), [0052](0052-page-repositories-and-title-inheritance.md), [0056](0056-security-model.md), [0065](0065-mediainfo-captions-and-commons.md), [0071](0071-derived-statements-from-mirrored-pages.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -35,6 +35,8 @@ James's direction, from the design discussion of 2026-10-07 and 2026-10-08:
 *Current text: [05](../architecture/05-providers-and-ingest.md) §6.1.*
 
 ### 2. Source IDs (amends 0017 §1)
+
+*Changed by A6.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §6.2.*
 
@@ -187,3 +189,14 @@ Replaced text (05 §6.4, as it stood):
 Replaced text (05 §6.4, as it stood):
 
 > follows `events` where the source declares them, and otherwise relies on the daily sweep (§5.7).
+
+### A6. What separates a keyed ID from a source ID
+
+- **Date:** 2026-11-15
+- **Source:** [0110](0110-wikimedia-pages-and-revisions.md) §2
+- **Change:** amends §2
+- **Summary:** The line between keyed IDs and source IDs is drawn by what makes the ID valid, not by who minted it: a Wikimedia key's number was minted by a wiki, yet the key is valid by its form alone on every instance, while a source ID means something only where the source is declared. Chapter text: [05](../architecture/05-providers-and-ingest.md) §6.2.
+
+Replaced text ([05](../architecture/05-providers-and-ingest.md) §6.2, as it stood):
+
+> A keyed ID names a thing whose key is minted by the thing itself; a source's entity was minted by a provider, the source ([0009](../decisions/0009-keyed-entity-types-and-domain.md) §1).

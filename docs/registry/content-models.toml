@@ -142,6 +142,18 @@ format = "application/json"
 direct_editing = false
 defined_in = "0036 §3, 0041 §3, 0048 §7"
 
+# Pending (0110 §5; README): a comment until the `wikimedia` entity type exists.
+# [[model]]
+# id = "triplespace-wikimedia"
+# origin = "triplespace"
+# status = "implemented"
+# source = "entity"
+# slot = "main"
+# entity_type = "wikimedia"
+# format = "application/json"
+# direct_editing = false
+# defined_in = "0110 §5"
+
 # --- Discussions --------------------------------------------------------------------------------
 [[model]]
 id = "triplespace-thread"

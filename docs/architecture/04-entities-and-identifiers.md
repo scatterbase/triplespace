@@ -105,7 +105,7 @@ Input is case-insensitive, as every ID is (§2.2): `qqq5` is `Q5`. **The rest of
 
 ### 3.1 What a keyed type is
 
-*Sources: [0009](../decisions/0009-keyed-entity-types-and-domain.md) §1; [0017](../decisions/0017-entity-id-grammar.md) §3; [0048](../decisions/0048-notation.md) §6.*
+*Sources: [0009](../decisions/0009-keyed-entity-types-and-domain.md) §1; [0017](../decisions/0017-entity-id-grammar.md) §3; [0048](../decisions/0048-notation.md) §6; [0110](../decisions/0110-wikimedia-pages-and-revisions.md) §1.*
 
 A **keyed entity type** is an entity type whose ID is a normalized natural key, not a minted identifier. Each keyed type is a registry entry, recorded in the log as configuration (§4.10). The entry records:
 
@@ -117,10 +117,10 @@ A **keyed entity type** is an entity type whose ID is a normalized natural key, 
 - the **display rule**: how the key is shown as a label, **derived** or **editable** (§3.6, §3.7);
 - the **data type** used to refer to entities of this type (§3.2);
 - the **ID prefix**: the type's name and a colon (§3.2);
-- whether the type's entities **join identity clusters**, `clusters` (default true; false for keyword and notation, §4.1);
+- whether the type's entities **join identity clusters**, `clusters` (default true; false for keyword, notation and wikimedia, §4.1);
 - a **label** for the type.
 
-**Domain is the first keyed type registered.** The mechanism is general so that others can be added as registry entries: Keyword (§3.7) and Notation (§3.8) have been. `docs/registry/keyed-types.toml` is authoritative. Normalizers come from `scatter-normalize` (§3.10).
+**Domain is the first keyed type registered.** The mechanism is general so that others can be added as registry entries: Keyword (§3.7), Notation (§3.8) and Wikimedia (§3.11, [0110](../decisions/0110-wikimedia-pages-and-revisions.md) §1) have been. `docs/registry/keyed-types.toml` is authoritative. Normalizers come from `scatter-normalize` (§3.10).
 
 ### 3.2 Keyed IDs, JSON and values
 
@@ -342,9 +342,9 @@ One scheme shares one namespace with every other scheme, which leaves 218 to 219
 
 ### 3.9 What a notation is, and what it is not
 
-*Sources: [0048](../decisions/0048-notation.md) §3; [0048](../decisions/0048-notation.md) §4; [0036](../decisions/0036-openstreetmap-providers.md) §6.*
+*Sources: [0048](../decisions/0048-notation.md) §3; [0048](../decisions/0048-notation.md) §4; [0036](../decisions/0036-openstreetmap-providers.md) §6; [0110](../decisions/0110-wikimedia-pages-and-revisions.md) §2.*
 
-Four mechanisms give strings an identity. The question that tells them apart is who decides that two strings are the same thing.
+Five mechanisms give strings an identity. The question that tells them apart is who decides that two strings are the same thing.
 
 | Mechanism | Use it when | Example |
 |---|---|---|
@@ -352,6 +352,9 @@ Four mechanisms give strings an identity. The question that tells them apart is 
 | **Keyword** (§3.7) | The string is a phrase about a work, and variants should converge whoever writes them. Labels are editable because folding loses case | `keyword:machine-learning` |
 | **Provider item** ([0037](../decisions/0037-gdelt-provider.md) §2) | One provider publishes and identifies a finite list | `GDTTAX_FNCACT_MAYOR`, a GDELT theme |
 | **Resolver** ([0029](../decisions/0029-resolver-namespaces.md)) | The string identifies a thing that already has an item | A DOI |
+| **Wikimedia key** (§3.11) | A Wikimedia wiki gave a page or revision a number, and the string is that number qualified by the wiki's database name. It names the page or revision itself | `wikimedia:enwiki-p12` |
+
+**A Wikimedia key is not a notation** ([0110](../decisions/0110-wikimedia-pages-and-revisions.md) §2). A notation is a term: `notation:osm:amenity=cafe` is a tag, not the café. A Wikimedia key names its page or revision as a Domain names its domain, so a statement about `wikimedia:enwiki-p12` is a statement about the article, and a `wikibase-wikimedia` value cites the page or revision, not a string that names it.
 
 **Notations never join identity clusters** (§4.1), as keywords do not, for the same reason: `notation:osm:amenity=cafe` is a tag, and a Wikidata item about cafés is the concept. A notation may carry an ordinary statement pointing at the concept it usually denotes; `P7` and `P12` stay statements, so a user can follow a tag to its concept without the phrase becoming canonical over the concept.
 
@@ -373,6 +376,34 @@ Normalizers come from `scatter-normalize` ([22](22-crates-and-stack.md)), which 
 | IDNA / UTS 46 (0009) | `idna` |
 | Case folding (DOI resolver, 0029) and plural rules | `icu_casemap`, `icu_plurals` (ICU4X; wasm-friendly) |
 | Unicode normalization | `unicode-normalization` |
+
+### 3.11 Wikimedia pages and revisions
+
+*Sources: [0110](../decisions/0110-wikimedia-pages-and-revisions.md) §1; [0110](../decisions/0110-wikimedia-pages-and-revisions.md) §2; [0110](../decisions/0110-wikimedia-pages-and-revisions.md) §3.*
+
+A **Wikimedia key** names one page or one revision on a Wikimedia wiki by the wiki's database name and the number MediaWiki gave it. `wikimedia:enwiki-p12` is English Wikipedia's page 12, the article *Anarchism*, whatever its title becomes; `wikimedia:enwiki-r1234567` is one revision on English Wikipedia.
+
+| | |
+|---|---|
+| Type name, ID prefix | `wikimedia`, `wikimedia:` |
+| Key | The database name, `-`, `p` for a page or `r` for a revision, and the number: `enwiki-p12` |
+| ID | `wikimedia:enwiki-p12` (§3.2) |
+| Namespace | `Wikimedia`, 314, with `Wikimedia talk` at 315 ([0008](../decisions/0008-namespaces-and-document-pages.md) §2; [10](10-pages-and-content-models.md) §1.4). Titles read `Wikimedia:enwiki-p12` |
+| Data type | `wikibase-wikimedia`, value type `wikibase-entityid` |
+| Content model | `triplespace-wikimedia` ([10](10-pages-and-content-models.md) §4.4) |
+| IRI | `https://scatter.red/wikimedia/{key}`, content-derived and shared by every instance (§3.5) |
+| Grammar | The database name, 1 to 64 characters of lowercase ASCII letters, digits and underscores, starting with a letter; then `-`; then `p` or `r`; then a decimal number from 1 to 2^63 − 1 with no leading zeros |
+| Normalizer | ASCII letters lowercased, and nothing else: `ENWIKI-P12` is `enwiki-p12`, while `enwiki-p012`, ` enwiki-p12` and `en.wikipedia.org-p12` are not keys |
+| Display | Derived: the key as the `mul` label; `wbsetlabel` fails with `derived-label` as on a Domain (§3.6). Descriptions and aliases are stored and reconciled like an item's |
+| Clusters | Never (§4.1) |
+
+**The key is checked by its form alone.** It is valid whether or not the wiki, the page or the revision exists, as a Domain is valid whether or not anyone has registered it (§3.3). No table of wikis is read to decide it, so the key is the same on every instance and does not change when Wikimedia opens, closes or renames a wiki. A database name never contains a hyphen, so the first hyphen ends it. Every database name Wikimedia uses fits the grammar, those with underscores included (`zh_min_nanwiki`, `be_x_oldwiki`).
+
+**A page key names the page, a revision key names the revision.** MediaWiki keeps a page's ID when the page is moved, so `wikimedia:enwiki-p12` follows the article through renames, and a revision ID is never given to another revision. Neither key says anything of the other: which page a revision belongs to is data, because a history merge can move revisions between pages.
+
+The rest of what §3 says of a Domain applies unchanged: a Wikimedia key exists because it is valid, with no create, redirect or delete (§3.3); log headers carry a surrogate (§3.4); upstream items can be key-mapped onto Wikimedia keys ([05](05-providers-and-ingest.md)).
+
+**Links come from the site aliases** ([0110](../decisions/0110-wikimedia-pages-and-revisions.md) §3). The entity's page and its identity line link to the page or revision on its wiki. The database name is looked up as a site ID in the default site aliases, `docs/registry/sites.toml` ([0026](../decisions/0026-sitelinks.md) §2, in [06](06-statements-and-properties.md) §4.3), and the link is `https://{host}/?curid={n}` for a page and `https://{host}/?oldid={n}` for a revision. Only the registry's aliases are read, never a tenant's `site-alias` records, so no tenant can point a Wikimedia key at another wiki. A database name the aliases do not list gets no link, and the page says the wiki is not known; the key stays valid. `scatter-wikibase-model` builds the link ([22](22-crates-and-stack.md) §2.1).
 
 ## 4. Identity clusters
 

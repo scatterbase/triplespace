@@ -320,7 +320,7 @@ mod tests {
         let en = r.by_id("enwiki").unwrap();
         assert_eq!(en.host, "en.wikipedia.org");
         assert!(std::ptr::eq(r.by_host("en.wikipedia.org").unwrap(), en));
-        assert!(r.by_id("testwiki").is_none());
+        assert!(r.by_id("nosuchwiki").is_none());
     }
 
     #[test]
@@ -378,7 +378,10 @@ mod tests {
                 .as_deref(),
             Some("https://collections.example.museum/objects/1?v=2")
         );
-        assert_eq!(r.sitelink_url(&mk("testwiki", "Douglas Adams", None)), None);
+        assert_eq!(
+            r.sitelink_url(&mk("nosuchwiki", "Douglas Adams", None)),
+            None
+        );
     }
 
     #[test]

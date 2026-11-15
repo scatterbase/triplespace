@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-25 (A17)
+- **Updated:** 2026-11-15 (A18)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0019](0019-discussions.md), [0029](0029-resolver-namespaces.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md)
 - **Uses:** [0035](0035-adopting-a-wikibase.md), [0043](0043-lua-modules.md), [0045](0045-table-content-model.md), [0048](0048-notation.md), [0049](0049-boards.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -47,7 +47,7 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 3. The content model registry (extends 0008 §5)
 
-*Changed by A2, A3, A4, A5, A7, A8, A9, A10, A11, A13, A15, A17.*
+*Changed by A2, A3, A4, A5, A7, A8, A9, A10, A11, A13, A15, A17, A18.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §1.4, §4.4.*
 
@@ -293,3 +293,10 @@ Replaced text ([10](../architecture/10-pages-and-content-models.md) §4.3 and §
 > | Diff | Line diff | Wikibase's entity diff ([0012](../decisions/0012-api-requirements.md) §7) | Per post | — | Statement diff |
 >
 > | `triplespace-talk` | Triplespace | composite | main | — | No | Every enabled talk namespace | [0041](../decisions/0041-content-models.md) §3 |
+
+### A18. The `triplespace-wikimedia` model
+
+- **Date:** 2026-11-15
+- **Source:** [0110](0110-wikimedia-pages-and-revisions.md) §5
+- **Change:** extends §3
+- **Summary:** `triplespace-wikimedia` is the entity model of the `wikimedia` keyed type, default in namespace 314. Chapter text: [10](../architecture/10-pages-and-content-models.md) §4.4.

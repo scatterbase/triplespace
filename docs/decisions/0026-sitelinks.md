@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-06 (A8)
+- **Updated:** 2026-11-15 (A9)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md)
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0022](0022-federation.md), [Wikibase contract](../api/wikibase-compat.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -27,7 +27,7 @@ Two constraints shape the rest. The **host of a URL is a Domain** ([0009](0009-k
 
 ### 2. The host is the site ID; one link per host; one item per URL
 
-*Changed by A2, A3, A7.*
+*Changed by A2, A3, A7, A9.*
 
 *Current text: [06](../architecture/06-statements-and-properties.md) §4.2, §4.3, §4.6.*
 
@@ -177,3 +177,10 @@ Replaced text (§8):
 - **Source:** Direct: Claude, while fixing the URL normalizer's idempotence (CI run 42331701027), 2026-11-06; unconfirmed
 - **Change:** extends §1
 - **Summary:** Step 4 decodes escaped unreserved characters, and the hex digits are unreserved, so a `%` not followed by two hex digits could become an escape after one pass and change on the next (`%%30a` → `%0a` → `%0A`): the normalized form was not a fixed point. An escaped hex digit that would complete a triplet with such a stray `%` now stays encoded (`%%30a` is its own key). The call for James is that a malformed `%` is kept as written, as the WHATWG parser keeps it, rather than encoded as `%25` or refused. Folded at [06](../architecture/06-statements-and-properties.md) §4.1.
+
+### A9. The site aliases are generated
+
+- **Date:** 2026-11-15
+- **Source:** [0110](0110-wikimedia-pages-and-revisions.md) §4
+- **Change:** extends §2
+- **Summary:** `tools/sites_gen.py` writes `sites.toml` from Wikimedia's site matrix: every public wiki, closed and fishbowl wikis included and private wikis left out, with group `special` for the matrix's specials. The same entries give a Wikimedia key's database name its host. Chapter text: [06](../architecture/06-statements-and-properties.md) §4.3.
