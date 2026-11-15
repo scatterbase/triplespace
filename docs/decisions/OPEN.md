@@ -103,12 +103,10 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0104 A7](0104-batches-and-the-job-runner.md#a7-claims-are-one-per-partition-and-capped-and-a-job-that-fails-before-it-starts-is-a-failed-job) | 2026-11-13 | Claims are one per partition and capped, and a job that fails before it starts is a failed job |
 | [0104 A8](0104-batches-and-the-job-runner.md#a8-a-job-that-lost-its-claim-is-stopped-and-an-imports-talk-pages-are-its-own-work) | 2026-11-13 | A job that lost its claim is stopped, and an import's talk pages are its own work |
 | [0104 A9](0104-batches-and-the-job-runner.md#a9-exports-adoptions-syncs-and-followers-join-the-queue) | 2026-11-13 | Exports, adoptions, syncs and followers join the queue |
-| [0104 A11](0104-batches-and-the-job-runner.md#a11-specialcreatemanyentities-closes-its-batch-when-its-run-ends) | 2026-11-15 | `Special:CreateManyEntities` closes its batch when its run ends |
 | [0106 A5](0106-create-entities-grid-and-drafts.md#a5-what-a-draft-needed-to-hold-the-tables-text-found-while-building) | 2026-11-10 | What a draft needed to hold the table's text, found while building |
 | [0106 A6](0106-create-entities-grid-and-drafts.md#a6-how-the-grid-and-the-mapping-step-are-built-found-while-building) | 2026-11-10 | How the grid and the mapping step are built, found while building |
 | [0106 A7](0106-create-entities-grid-and-drafts.md#a7-a-quantitys-unit-in-the-text-found-while-building) | 2026-11-10 | A quantity's unit in the text, found while building |
 | [0106 A8](0106-create-entities-grid-and-drafts.md#a8-a-literal-backslash-in-a-cell-of-several-values) | 2026-11-10 | A literal backslash in a cell of several values |
-| [0106 A10](0106-create-entities-grid-and-drafts.md#a10-what-a9-needed-found-while-building) | 2026-11-15 | What A9 needed, found while building |
 
 ## Open questions
 

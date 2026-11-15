@@ -199,7 +199,7 @@ Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §2.2, a
 ### A11. `Special:CreateManyEntities` closes its batch when its run ends
 
 - **Date:** 2026-11-15
-- **Source:** Direct: James, 2026-11-15, after using the page: "The job finishes but keeps saying 'in progress' even after refreshing the page."; the closing as its remedy, Claude, while building it, 2026-11-15; unconfirmed
+- **Source:** Direct: James, 2026-11-15, after using the page: "The job finishes but keeps saying 'in progress' even after refreshing the page."; the closing as its remedy, Claude, while building it, 2026-11-15; confirmed by James, 2026-11-15
 - **Change:** extends §11
 - **Summary:** A keyed batch stays `running` until its submitter closes it (§1), and the page never did, so a finished run read as running for good. When its run ends the page closes the batch, as the submitter it acts for, and the job reads `closed`. A batch rejected during the run is left as it is. If the closing fails, the report says so and names the job, whose page can close it. A later run under the same batch value opens a new job, as §1 has it for a closed batch.
 
