@@ -183,18 +183,18 @@ impl<R: BufRead> XmlDump<R> {
     }
 
     /// Reads the text up to the matching end tag of the element just opened.
-    fn text_of(&mut self, end: &[u8]) -> Result<String, XmlError> {
+    fn text_of(&mut self, end: &str) -> Result<String, XmlError> {
         let mut out = String::new();
         loop {
             self.buf.clear();
             match self.reader.read_event_into(&mut self.buf).map_err(xml)? {
-                Event::Text(t) => out.push_str(&t.decode().map_err(xml)?),
+                Event::Text(t) => out.push_str(&t),
                 Event::GeneralRef(r) => {
                     if let Some(c) = r.resolve_char_ref().map_err(xml)? {
                         out.push(c);
                     } else {
-                        let name = r.decode().map_err(xml)?;
-                        out.push_str(match name.as_ref() {
+                        let name: &str = &r;
+                        out.push_str(match name {
                             "amp" => "&",
                             "lt" => "<",
                             "gt" => ">",
@@ -208,12 +208,11 @@ impl<R: BufRead> XmlDump<R> {
                         });
                     }
                 }
-                Event::CData(c) => out.push_str(std::str::from_utf8(&c).map_err(xml)?),
+                Event::CData(c) => out.push_str(&c),
                 Event::End(e) if e.name().as_ref() == end => return Ok(out),
                 Event::Eof => {
                     return Err(XmlError::Malformed(format!(
-                        "unexpected end of file inside <{}>",
-                        String::from_utf8_lossy(end)
+                        "unexpected end of file inside <{end}>"
                     )));
                 }
                 _ => {}
@@ -221,13 +220,12 @@ impl<R: BufRead> XmlDump<R> {
         }
     }
 
-    fn number_of(&mut self, end: &[u8]) -> Result<Option<u64>, XmlError> {
+    fn number_of(&mut self, end: &str) -> Result<Option<u64>, XmlError> {
         Ok(self.text_of(end)?.trim().parse().ok())
     }
 
-    fn skip(&mut self, name: &[u8]) -> Result<(), XmlError> {
-        let name = name.to_vec();
-        self.text_of(&name).map(drop)
+    fn skip(&mut self, name: &str) -> Result<(), XmlError> {
+        self.text_of(name).map(drop)
     }
 
     fn read_contributor(&mut self, rev: &mut Revision) -> Result<(), XmlError> {
@@ -237,15 +235,15 @@ impl<R: BufRead> XmlDump<R> {
             self.buf.clear();
             match self.reader.read_event_into(&mut self.buf).map_err(xml)? {
                 Event::Start(e) => match e.name().as_ref() {
-                    b"id" => id = self.number_of(b"id")?,
-                    b"username" => name = Some(self.text_of(b"username")?),
-                    b"ip" => rev.ip = Some(self.text_of(b"ip")?),
+                    "id" => id = self.number_of("id")?,
+                    "username" => name = Some(self.text_of("username")?),
+                    "ip" => rev.ip = Some(self.text_of("ip")?),
                     other => {
-                        let other = other.to_vec();
+                        let other = other.to_owned();
                         self.skip(&other)?;
                     }
                 },
-                Event::End(e) if e.name().as_ref() == b"contributor" => break,
+                Event::End(e) if e.name().as_ref() == "contributor" => break,
                 Event::Eof => {
                     return Err(XmlError::Malformed(
                         "unexpected end of file inside <contributor>".into(),
@@ -266,24 +264,24 @@ impl<R: BufRead> XmlDump<R> {
             self.buf.clear();
             match self.reader.read_event_into(&mut self.buf).map_err(xml)? {
                 Event::Start(e) => match e.name().as_ref() {
-                    b"role" => slot.role = self.text_of(b"role")?.trim().to_string(),
-                    b"origin" => slot.origin = self.number_of(b"origin")?,
-                    b"model" => slot.model = Some(self.text_of(b"model")?.trim().to_string()),
-                    b"format" => slot.format = Some(self.text_of(b"format")?.trim().to_string()),
-                    b"text" => {
+                    "role" => slot.role = self.text_of("role")?.trim().to_string(),
+                    "origin" => slot.origin = self.number_of("origin")?,
+                    "model" => slot.model = Some(self.text_of("model")?.trim().to_string()),
+                    "format" => slot.format = Some(self.text_of("format")?.trim().to_string()),
+                    "text" => {
                         slot.text_hidden = is_deleted(&e)?;
-                        slot.text = self.text_of(b"text")?;
+                        slot.text = self.text_of("text")?;
                     }
-                    b"sha1" => slot.sha1 = Some(self.text_of(b"sha1")?.trim().to_string()),
+                    "sha1" => slot.sha1 = Some(self.text_of("sha1")?.trim().to_string()),
                     other => {
-                        let other = other.to_vec();
+                        let other = other.to_owned();
                         self.skip(&other)?;
                     }
                 },
-                Event::Empty(e) if e.name().as_ref() == b"text" => {
+                Event::Empty(e) if e.name().as_ref() == "text" => {
                     slot.text_hidden = is_deleted(&e)?;
                 }
-                Event::End(e) if e.name().as_ref() == b"content" => return Ok(slot),
+                Event::End(e) if e.name().as_ref() == "content" => return Ok(slot),
                 Event::Eof => {
                     return Err(XmlError::Malformed(
                         "unexpected end of file inside <content>".into(),
@@ -300,48 +298,48 @@ impl<R: BufRead> XmlDump<R> {
             self.buf.clear();
             match self.reader.read_event_into(&mut self.buf).map_err(xml)? {
                 Event::Start(e) => match e.name().as_ref() {
-                    b"id" => rev.id = self.number_of(b"id")?.unwrap_or(0),
-                    b"parentid" => rev.parent_id = self.number_of(b"parentid")?,
-                    b"timestamp" => rev.timestamp = self.text_of(b"timestamp")?.trim().to_string(),
-                    b"contributor" => {
+                    "id" => rev.id = self.number_of("id")?.unwrap_or(0),
+                    "parentid" => rev.parent_id = self.number_of("parentid")?,
+                    "timestamp" => rev.timestamp = self.text_of("timestamp")?.trim().to_string(),
+                    "contributor" => {
                         if is_deleted(&e)? {
                             rev.user_hidden = true;
                         }
                         self.read_contributor(&mut rev)?;
                     }
-                    b"comment" => {
+                    "comment" => {
                         if is_deleted(&e)? {
                             rev.comment_hidden = true;
                         }
-                        rev.comment = Some(self.text_of(b"comment")?);
+                        rev.comment = Some(self.text_of("comment")?);
                     }
-                    b"origin" => rev.origin = self.number_of(b"origin")?,
-                    b"model" => rev.model = Some(self.text_of(b"model")?.trim().to_string()),
-                    b"format" => rev.format = Some(self.text_of(b"format")?.trim().to_string()),
-                    b"text" => {
+                    "origin" => rev.origin = self.number_of("origin")?,
+                    "model" => rev.model = Some(self.text_of("model")?.trim().to_string()),
+                    "format" => rev.format = Some(self.text_of("format")?.trim().to_string()),
+                    "text" => {
                         if is_deleted(&e)? {
                             rev.text_hidden = true;
                         }
-                        rev.text = self.text_of(b"text")?;
+                        rev.text = self.text_of("text")?;
                     }
-                    b"sha1" => {
-                        let s = self.text_of(b"sha1")?.trim().to_string();
+                    "sha1" => {
+                        let s = self.text_of("sha1")?.trim().to_string();
                         rev.sha1 = (!s.is_empty()).then_some(s);
                     }
-                    b"content" => rev.slots.push(self.read_slot()?),
+                    "content" => rev.slots.push(self.read_slot()?),
                     other => {
-                        let other = other.to_vec();
+                        let other = other.to_owned();
                         self.skip(&other)?;
                     }
                 },
                 Event::Empty(e) => match e.name().as_ref() {
-                    b"minor" => rev.minor = true,
-                    b"contributor" if is_deleted(&e)? => rev.user_hidden = true,
-                    b"comment" if is_deleted(&e)? => rev.comment_hidden = true,
-                    b"text" if is_deleted(&e)? => rev.text_hidden = true,
+                    "minor" => rev.minor = true,
+                    "contributor" if is_deleted(&e)? => rev.user_hidden = true,
+                    "comment" if is_deleted(&e)? => rev.comment_hidden = true,
+                    "text" if is_deleted(&e)? => rev.text_hidden = true,
                     _ => {}
                 },
-                Event::End(e) if e.name().as_ref() == b"revision" => return Ok(rev),
+                Event::End(e) if e.name().as_ref() == "revision" => return Ok(rev),
                 Event::Eof => {
                     return Err(XmlError::Malformed(
                         "unexpected end of file inside <revision>".into(),
@@ -358,23 +356,23 @@ impl<R: BufRead> XmlDump<R> {
             self.buf.clear();
             match self.reader.read_event_into(&mut self.buf).map_err(xml)? {
                 Event::Start(e) => match e.name().as_ref() {
-                    b"title" => page.title = self.text_of(b"title")?,
-                    b"ns" => page.ns = self.text_of(b"ns")?.trim().parse().unwrap_or(0),
-                    b"id" => page.id = self.number_of(b"id")?.unwrap_or(0),
-                    b"revision" => page.revisions.push(self.read_revision()?),
-                    b"redirect" => {
+                    "title" => page.title = self.text_of("title")?,
+                    "ns" => page.ns = self.text_of("ns")?.trim().parse().unwrap_or(0),
+                    "id" => page.id = self.number_of("id")?.unwrap_or(0),
+                    "revision" => page.revisions.push(self.read_revision()?),
+                    "redirect" => {
                         page.redirect = attribute(&e, "title")?;
-                        self.skip(b"redirect")?;
+                        self.skip("redirect")?;
                     }
                     other => {
-                        let other = other.to_vec();
+                        let other = other.to_owned();
                         self.skip(&other)?;
                     }
                 },
-                Event::Empty(e) if e.name().as_ref() == b"redirect" => {
+                Event::Empty(e) if e.name().as_ref() == "redirect" => {
                     page.redirect = attribute(&e, "title")?;
                 }
-                Event::End(e) if e.name().as_ref() == b"page" => return Ok(page),
+                Event::End(e) if e.name().as_ref() == "page" => return Ok(page),
                 Event::Eof => {
                     return Err(XmlError::Malformed(
                         "unexpected end of file inside <page>".into(),
@@ -390,15 +388,15 @@ impl<R: BufRead> XmlDump<R> {
             self.buf.clear();
             match self.reader.read_event_into(&mut self.buf).map_err(xml)? {
                 Event::Start(e) => match e.name().as_ref() {
-                    b"sitename" => self.siteinfo.sitename = self.text_of(b"sitename")?,
-                    b"dbname" => self.siteinfo.dbname = self.text_of(b"dbname")?,
-                    b"base" => self.siteinfo.base = self.text_of(b"base")?,
-                    b"generator" => self.siteinfo.generator = self.text_of(b"generator")?,
-                    b"case" => self.siteinfo.case = self.text_of(b"case")?,
-                    b"namespace" => {
+                    "sitename" => self.siteinfo.sitename = self.text_of("sitename")?,
+                    "dbname" => self.siteinfo.dbname = self.text_of("dbname")?,
+                    "base" => self.siteinfo.base = self.text_of("base")?,
+                    "generator" => self.siteinfo.generator = self.text_of("generator")?,
+                    "case" => self.siteinfo.case = self.text_of("case")?,
+                    "namespace" => {
                         let key = attribute(&e, "key")?.and_then(|k| k.parse().ok());
                         let case = attribute(&e, "case")?.unwrap_or_default();
-                        let name = self.text_of(b"namespace")?;
+                        let name = self.text_of("namespace")?;
                         self.siteinfo.namespaces.push(SiteNamespace {
                             key: key.unwrap_or(0),
                             case,
@@ -407,7 +405,7 @@ impl<R: BufRead> XmlDump<R> {
                     }
                     _ => {}
                 },
-                Event::Empty(e) if e.name().as_ref() == b"namespace" => {
+                Event::Empty(e) if e.name().as_ref() == "namespace" => {
                     let key = attribute(&e, "key")?.and_then(|k| k.parse().ok());
                     let case = attribute(&e, "case")?.unwrap_or_default();
                     self.siteinfo.namespaces.push(SiteNamespace {
@@ -416,7 +414,7 @@ impl<R: BufRead> XmlDump<R> {
                         name: String::new(),
                     });
                 }
-                Event::End(e) if e.name().as_ref() == b"siteinfo" => return Ok(()),
+                Event::End(e) if e.name().as_ref() == "siteinfo" => return Ok(()),
                 Event::Eof => {
                     return Err(XmlError::Malformed(
                         "unexpected end of file inside <siteinfo>".into(),
@@ -439,7 +437,7 @@ impl<R: BufRead> Iterator for XmlDump<R> {
             self.buf.clear();
             match self.reader.read_event_into(&mut self.buf) {
                 Ok(Event::Start(e)) => match e.name().as_ref() {
-                    b"mediawiki" => {
+                    "mediawiki" => {
                         self.open = true;
                         match attribute(&e, "xml:lang") {
                             Ok(lang) => self.siteinfo.lang = lang.unwrap_or_default(),
@@ -449,13 +447,13 @@ impl<R: BufRead> Iterator for XmlDump<R> {
                             }
                         }
                     }
-                    b"siteinfo" => {
+                    "siteinfo" => {
                         if let Err(e) = self.read_siteinfo() {
                             self.done = true;
                             return Some(Err(e));
                         }
                     }
-                    b"page" => {
+                    "page" => {
                         let page = self.read_page();
                         if page.is_err() {
                             self.done = true;
@@ -464,7 +462,7 @@ impl<R: BufRead> Iterator for XmlDump<R> {
                     }
                     _ => {}
                 },
-                Ok(Event::End(e)) if e.name().as_ref() == b"mediawiki" => self.open = false,
+                Ok(Event::End(e)) if e.name().as_ref() == "mediawiki" => self.open = false,
                 Ok(Event::Eof) => {
                     self.done = true;
                     // A document cut short, even between two pages, is not the document:
