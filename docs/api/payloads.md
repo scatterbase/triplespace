@@ -151,7 +151,7 @@ Every operation has `op` and a subject, `id` (an entity) or `page` (a page ID):
 
 ```json
 {"op": "put", "id": "WDQ42", "entity": {…canonical JSON…},
- "upstream": {"revid": 2148573921, "time": "2026-09-30T12:00:00Z"},
+ "upstream": {"revid": 2148573921, "time": "2026-09-30T12:00:00Z", "pageid": 138},
  "prev_upstream": {"revid": 2148570000}, "first_seen": 1780000000000000,
  "size": 48211, "prev_size": 47990,
  "changes": {"claims": {"P31": {"added": 1, "removed": 0, "changed": 0}},
@@ -168,7 +168,11 @@ Every operation has `op` and a subject, `id` (an entity) or `page` (a page ID):
   provider form (`WDQ42`), rewritten by the adapter.
 - `upstream` names the upstream version: `revid` (an integer; it is also header field 7's
   `n`) and `time` for a provider with revisions; `version` (the provider's own string, a
-  dump date or `updated_date`) for one without. `prev_upstream` has the same shape.
+  dump date or `updated_date`) for one without; and `pageid`, the upstream page ID, where
+  the provider publishes one (an integer; it is also header field 9's `n`, so the header's
+  page ID can be recomputed from the record alone, 0015 A64). `prev_upstream` has the same
+  shape. A `redirect` carries `from`'s page ID, which stays the retired ID's; a `tombstone`
+  from a follower that read the deletion, not the page, has none and keeps the key's.
 - `first_seen`, `size`, `prev_size`, `changes` and `delta` are 0012 §2.2; `changes` maps
   `claims` by property, `labels`/`descriptions`/`aliases` by language and `sitelinks` by
   site to `{added, removed, changed}` counts; `delta` is the statement-level difference

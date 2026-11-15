@@ -198,6 +198,7 @@ fn put_of(
             revid: None,
             time: upstream.time,
             version: Some(format!("{r}+{source_version}")),
+            pageid: upstream.pageid,
         },
         _ => upstream,
     };

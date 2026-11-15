@@ -364,12 +364,16 @@ pub async fn write_to<S: IngestStore>(
             latest: *latest_offset,
         });
     }
-    // The page ID: the key's, the adoption's, or a fresh one (0015 §2; 0035 §4).
-    let page_id = match store.page_id_of(cx, &request.tenant, &key).await? {
+    // The page ID: a mirrored entity's, from the upstream page ID its content carries;
+    // else the key's, the adoption's, or a fresh one (0015 §2, A64; 0035 §4).
+    let page_id = match ranged_page_id(graph, op, registry)? {
         Some(p) => p,
-        None => match op {
-            Operation::Adopt { source_pageid, .. } => *source_pageid,
-            _ => store.next_id(cx, owner, &Sequence::Page).await?,
+        None => match store.page_id_of(cx, &request.tenant, &key).await? {
+            Some(p) => p,
+            None => match op {
+                Operation::Adopt { source_pageid, .. } => *source_pageid,
+                _ => store.next_id(cx, owner, &Sequence::Page).await?,
+            },
         },
     };
     // The revision ID (0013 §6; 0015 §2).
@@ -388,6 +392,45 @@ pub async fn write_to<S: IngestStore>(
         record,
         inline,
     })
+}
+
+/// A block entry's subject, key, the page ID it brings for a key that has none, and
+/// whether that page ID is derived from its content (0015 A64).
+type Keyed = (Option<Subject>, Option<String>, Option<u64>, bool);
+
+/// The page ID of a mirror or source record whose content carries the upstream page ID:
+/// the provider's range at that page ID, with no lookup and no allocation (0015 §2, A64).
+/// `None` for a keyed subject, whose key outlives any one upstream page, and for an
+/// operation that carries no upstream page ID: those take the key's page ID as before.
+fn ranged_page_id(
+    graph: &Graph,
+    op: &Operation,
+    registry: &Registry,
+) -> Result<Option<u64>, IngestError> {
+    let (Graph::Mirror(slug) | Graph::Source(slug)) = graph else {
+        return Ok(None);
+    };
+    if let Some(Subject::Entity(id)) = op.subject()
+        && id.form() == IdForm::Keyed
+    {
+        return Ok(None);
+    }
+    let pageid = match op {
+        Operation::Put { upstream, .. } | Operation::Tombstone { upstream, .. } => upstream.pageid,
+        Operation::Redirect {
+            upstream: Some(u), ..
+        } => u.pageid,
+        _ => None,
+    };
+    let Some(n) = pageid else {
+        return Ok(None);
+    };
+    let provider = registry
+        .by_slug(slug)
+        .ok_or_else(|| IngestError::UnknownProvider(slug.clone()))?;
+    global_id(u64::from(provider.number), n)
+        .map(Some)
+        .ok_or_else(|| IngestError::Adapter(format!("upstream page ID {n} is out of range")))
 }
 
 /// The revision ID of a mirror or source record: the provider's range, at the upstream
@@ -718,9 +761,9 @@ async fn write_entries<S: IngestStore>(
     };
     let graph_name = graph.name();
 
-    // Each entry's subject and key, and the page ID it brings for a key that has none.
-    let mut keyed: Vec<(Option<Subject>, Option<String>, Option<u64>)> =
-        Vec::with_capacity(entries.len());
+    // Each entry's subject and key, the page ID it brings for a key that has none, and
+    // whether that page ID is the record's own, derived from its content (0015 A64).
+    let mut keyed: Vec<Keyed> = Vec::with_capacity(entries.len());
     for entry in entries {
         if entry.request.tenant != tenant {
             return Err(IngestError::Adapter(
@@ -758,11 +801,12 @@ async fn write_entries<S: IngestStore>(
                     }
                     Subject::Page(p) => p.to_string(),
                 };
+                let ranged = ranged_page_id(graph, op, providers()?)?;
                 let brings = match op {
                     Operation::Adopt { source_pageid, .. } => Some(*source_pageid),
-                    _ => None,
+                    _ => ranged,
                 };
-                keyed.push((Some(subject), Some(key), brings));
+                keyed.push((Some(subject), Some(key), brings, ranged.is_some()));
             }
             BlockPayload::Raw(raw) => {
                 if upstream || raw.graph != graph_name {
@@ -771,21 +815,33 @@ async fn write_entries<S: IngestStore>(
                         raw.payload_type, raw.graph
                     )));
                 }
-                keyed.push((None, raw.key.clone(), raw.page_id));
+                keyed.push((None, raw.key.clone(), raw.page_id, false));
             }
         }
     }
 
     // Page IDs (0015 §2; 0035 §4): the key's; else what its first record in the block
     // brings; else the next ones, in record order, as one write at a time takes them.
-    let mut distinct: Vec<String> = keyed.iter().filter_map(|(_, k, _)| k.clone()).collect();
+    // A record whose page ID is derived from its content asks for nothing.
+    let mut distinct: Vec<String> = keyed
+        .iter()
+        .filter(|(_, _, _, derived)| !derived)
+        .filter_map(|(_, k, _, _)| k.clone())
+        .collect();
     distinct.sort();
     distinct.dedup();
     let mut page_ids = store.page_ids_of(cx, tenant, &distinct).await?;
     let mut fresh = 0usize;
     {
         let mut first_seen = std::collections::BTreeSet::new();
-        for (_, key, brings) in &keyed {
+        for (_, key, brings, derived) in &keyed {
+            if *derived {
+                // Its key has its page ID from here on, as the key's would be.
+                if let Some(k) = key {
+                    first_seen.insert(k.as_str());
+                }
+                continue;
+            }
             let new = match key {
                 Some(k) => !page_ids.contains_key(k) && first_seen.insert(k.as_str()),
                 None => true,
@@ -817,7 +873,7 @@ async fn write_entries<S: IngestStore>(
     }
     .into_iter();
     let mut settled = Vec::with_capacity(entries.len());
-    for (entry, (subject, key, brings)) in entries.iter().zip(keyed) {
+    for (entry, (subject, key, brings, derived)) in entries.iter().zip(keyed) {
         let mut next_page = || {
             brings.map_or_else(
                 || {
@@ -828,7 +884,11 @@ async fn write_entries<S: IngestStore>(
                 Ok,
             )
         };
-        let (key, page_id) = if let Some(key) = key {
+        let (key, page_id) = if let (Some(key), true, Some(p)) = (&key, derived, brings) {
+            // A later record of the key without one in its content keeps it.
+            page_ids.insert(key.clone(), p);
+            (key.clone(), p)
+        } else if let Some(key) = key {
             let page_id = if let Some(&p) = page_ids.get(&key) {
                 p
             } else {

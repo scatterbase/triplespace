@@ -51,6 +51,8 @@ pub struct DumpRedirect {
     pub revid: u64,
     /// Its timestamp.
     pub timestamp: String,
+    /// The page ID of `from`'s page, which stays the retired ID's (0015 A64).
+    pub pageid: u64,
 }
 
 /// An entity or a redirect.
@@ -102,6 +104,7 @@ impl<R: BufRead> Entities<R> {
                                 to,
                                 revid: latest.id,
                                 timestamp: latest.timestamp.clone(),
+                                pageid: page.id,
                             })));
                         }
                         None => continue,
@@ -196,8 +199,13 @@ mod tests {
         );
         assert_eq!(redirects.len(), 1);
         assert_eq!(
-            (redirects[0].from.as_str(), redirects[0].to.as_str()),
-            ("Q7", "Q6")
+            (
+                redirects[0].from.as_str(),
+                redirects[0].to.as_str(),
+                redirects[0].pageid
+            ),
+            ("Q7", "Q6", 13),
+            "with the retired ID's page (0015 A64)"
         );
     }
 }

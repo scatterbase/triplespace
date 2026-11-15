@@ -1,5 +1,5 @@
 //! Mirror mode (0002 §8.4): a provider's entities under its prefixed IDs, with the
-//! upstream version from the dump's `lastrevid` and `modified`.
+//! upstream version from the dump's `lastrevid` and `modified`, and its `pageid`.
 
 use scatter_wikibase_changeset::{Adapter, Upstream, WikibaseAdapter};
 use scatter_wikibase_model::entity::{Entity, ParsedEntity};
@@ -20,7 +20,8 @@ pub fn mirror_entity(
             parsed.page.as_ref().and_then(|p| p.modified.as_deref()),
         ),
         None => Upstream::default(),
-    };
+    }
+    .with_pageid(parsed.page.as_ref().and_then(|p| p.pageid));
     Ok((entity, upstream))
 }
 
@@ -34,7 +35,7 @@ mod tests {
             r#"{"type":"item","id":"Q42","labels":{},"claims":{"P31":[{"mainsnak":{"snaktype":"value","property":"P31",
                 "datavalue":{"value":{"entity-type":"item","id":"Q5"},"type":"wikibase-entityid"},"datatype":"wikibase-item"},
                 "type":"statement","rank":"normal","id":"Q42$F078E5B3-F9A8-480E-B7AC-D97778CBBEF9"}]},
-                "lastrevid":2148573921,"modified":"2026-09-30T12:00:00Z"}"#,
+                "pageid":138,"lastrevid":2148573921,"modified":"2026-09-30T12:00:00Z"}"#,
         )
         .unwrap();
         let wd = WikibaseAdapter::new("wikidata").unwrap();
@@ -42,6 +43,11 @@ mod tests {
         assert_eq!(entity.id.as_str(), "WDQ42");
         assert_eq!(upstream.revid, Some(2_148_573_921));
         assert_eq!(upstream.time.as_deref(), Some("2026-09-30T12:00:00Z"));
+        assert_eq!(
+            upstream.pageid,
+            Some(138),
+            "carried for header field 9 (0015 A64)"
+        );
         let s = entity.all_statements().next().unwrap();
         assert_eq!(
             s.id.as_ref().unwrap().as_str(),
