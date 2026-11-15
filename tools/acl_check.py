@@ -443,11 +443,11 @@ def threads(x):
     """A thread on the confidential page's talk page: `tstalk=1` took the talk page along."""
     a, at = x.alice, x.alice.token()
     st, r = a.rest("POST", "/thread", {"target": {"kind": "page", "id": x.secret},
-                                       "subject": "Secret talk", "text": "The code is 4711.", "token": at})
+                                       "subject": "Secret talk", "text": "The code is zq4711.", "token": at})
     must("board member opens a thread on the talk page", (st, r))
     thread = r.get("thread")
     talk = a.rest("GET", f"/thread/{thread}")[1]["home"]["talk_page_id"]
-    needles = ["4711", "Secret talk"]
+    needles = ["zq4711", "Secret talk"]
     for who in x.outsiders:
         for name, probe in [
             ("thread", lambda c: c.rest("GET", f"/thread/{thread}")),
@@ -464,7 +464,7 @@ def threads(x):
         tok = who.token() if who.name != "anon" else "+\\"
         deny(f"post into the hidden thread as {who.name}",
              who.rest("POST", f"/thread/{thread}/post", {"text": "hi", "token": tok}))
-    must("board member reads the thread", x.carol.rest("GET", f"/thread/{thread}"), "4711")
+    must("board member reads the thread", x.carol.rest("GET", f"/thread/{thread}"), "zq4711")
 
 
 def _site_form(who, title, action, fields):
@@ -494,14 +494,14 @@ def discussions(x):
     # A confidential thread: homed on the confidential page's talk page, listed on the public one.
     c = x.carol
     st, r = c.rest("POST", "/thread", {"target": {"kind": "page", "id": x.secret}, "subject": "Board only",
-                                       "text": "Ballot 9931.", "also": [{"kind": "page", "id": open_id}],
+                                       "text": "Ballot zq9931.", "also": [{"kind": "page", "id": open_id}],
                                        "token": c.token()})
     must("board member lists a confidential thread on the public talk page", (st, r))
     hid, hid_title, hid_rev = r.get("thread"), r.get("title"), r.get("revid")
-    hidden = ["9931", "Board only"]
+    hidden = ["zq9931", "Board only"]
     # A post whose text and author are hidden afterwards.
     bt = x.bob.token()
-    st, r = x.bob.rest("POST", f"/thread/{pub}/post", {"text": "Draft 2468, [[User:Mallory]].", "token": bt})
+    st, r = x.bob.rest("POST", f"/thread/{pub}/post", {"text": "Draft zq2468, [[User:Mallory]].", "token": bt})
     must("sysop replies in the public thread", (st, r))
     hidden_reply = r.get("revid")
     must("the reply's mention reaches Mallory",
@@ -511,7 +511,7 @@ def discussions(x):
                 token=a.token()), "Success")
     must("board member mentions outsiders and the owner in the confidential thread",
          c.rest("POST", f"/thread/{hid}/post",
-                {"text": "Ask [[User:Mallory]], [[User:Bob]] and [[User:Alice]]. Ballot 9931.", "token": c.token()}))
+                {"text": "Ask [[User:Mallory]], [[User:Bob]] and [[User:Alice]]. Ballot zq9931.", "token": c.token()}))
     posts_before = len(a.rest("GET", f"/thread/{hid}")[1].get("posts", []))
 
     for who in x.outsiders:
@@ -524,9 +524,9 @@ def discussions(x):
             ("site talk history", lambda c: c.raw("/wiki/Project_talk:Open?action=history"), hidden),
             ("site public thread", lambda c: c.raw(f"/wiki/Thread:{pub_title}"), CONTENT),
             # The request names the hidden thread's subject; judged on its content.
-            ("site hidden thread", lambda c: c.raw(f"/wiki/Thread:{hid_title}"), ["9931"]),
+            ("site hidden thread", lambda c: c.raw(f"/wiki/Thread:{hid_title}"), ["zq9931"]),
             ("site hidden thread history", lambda c: c.raw(f"/wiki/Thread:{hid_title}?action=history"),
-             ["9931", "started the thread"]),
+             ["zq9931", "started the thread"]),
             # The talk page's revisions and diffs are its threads' (0019 A29).
             ("talk revisions", lambda c: c.api(action="query", prop="revisions", pageids=open_talk,
                                                  rvprop="ids|content|comment", rvslots="main", rvlimit=50), hidden),
@@ -544,7 +544,7 @@ def discussions(x):
                 ("site thread", lambda c: c.raw(f"/wiki/Thread:{pub_title}")),
                 ("REST history", lambda c: c.rest("GET", f"/page/{open_talk}/history?limit=500")),
             ]:
-                absent(f"hidden post's text and author via {name} as {who.name}", probe(who), ["2468", "Bob"])
+                absent(f"hidden post's text and author via {name} as {who.name}", probe(who), ["zq2468", "Bob"])
         # Notifications (16 §5.2): a mention in a thread the account may not read addresses
         # nobody, and a hidden post leaves the inbox it reached.
         for name, probe in [
@@ -557,7 +557,7 @@ def discussions(x):
         absent(f"the hidden reply's mention as {who.name}",
                who.api(action="query", meta="notifications", notprop="list"), [f'"revid": {hidden_reply}'])
         absent(f"site reply to the hidden thread as {who.name}",
-               _site_form(who, f"Thread:{hid_title}", "reply", {"wpTextbox1": "Me too. ~~~~"}), ["9931"])
+               _site_form(who, f"Thread:{hid_title}", "reply", {"wpTextbox1": "Me too. ~~~~"}), ["zq9931"])
         tok = who.token() if who.name != "anon" else "+\\"
         deny(f"list the hidden thread elsewhere as {who.name}",
              who.rest("POST", f"/thread/{hid}/attach", {"target": {"kind": "page", "id": x.plain_page}, "base": 0,
@@ -575,9 +575,9 @@ def discussions(x):
     must("board member sees the listed thread", x.carol.rest("GET", f"/page/{open_talk}/threads"), "Board only")
     must("board member sees its rows in the composite history",
          x.carol.rest("GET", f"/page/{open_talk}/history?limit=500"), str(hid))
-    must("board member reads it on the site", (200, x.carol.raw("/wiki/Project_talk:Open")), "9931")
+    must("board member reads it on the site", (200, x.carol.raw("/wiki/Project_talk:Open")), "zq9931")
     must("board member reads it in the talk page's revisions",
-         x.carol.api(action="query", prop="revisions", pageids=open_talk, rvprop="content", rvslots="main"), "9931")
+         x.carol.api(action="query", prop="revisions", pageids=open_talk, rvprop="content", rvslots="main"), "zq9931")
 
     # Departures: the detach of a confidential thread, and a public thread that moves into
     # the confidential talk page and is renamed there, leave rows on the public page.
@@ -593,14 +593,14 @@ def discussions(x):
                                                  "token": c.token()}))
     b = c.rest("GET", f"/thread/{mover}")[1]["base"]
     must("and renames it there",
-         c.rest("POST", f"/thread/{mover}/rename", {"subject": "Plans 5150", "base": b, "token": c.token()}))
+         c.rest("POST", f"/thread/{mover}/rename", {"subject": "Plans zq5150", "base": b, "token": c.token()}))
     for who in x.outsiders:
         for name, probe in [
             ("REST history", lambda c: c.rest("GET", f"/page/{open_talk}/history?limit=500")),
             ("site history", lambda c: c.raw("/wiki/Project_talk:Open?action=history")),
             ("recentchanges", lambda c: c.api(action="query", list="recentchanges", rcprop="title|comment", rclimit=500)),
         ]:
-            absent(f"departures via {name} as {who.name}", probe(who), hidden + ["5150"])
+            absent(f"departures via {name} as {who.name}", probe(who), hidden + ["zq5150"])
     must("board member sees the move on the public page's history",
          x.carol.rest("GET", f"/page/{open_talk}/history?limit=500"), "from_talk")
 
