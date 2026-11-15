@@ -97,7 +97,8 @@ pub struct Row {
     /// The revision, 0 for a log entry.
     #[serde(default)]
     pub revid: u64,
-    /// The page ID, 0 for a log entry about a deleted page.
+    /// The page ID; on a deletion's log row, the deleted page's; 0 for a log row about
+    /// no page.
     #[serde(default)]
     pub pageid: u64,
     /// The timestamp, ISO 8601.
@@ -139,6 +140,8 @@ pub struct Change {
     /// The highest revision the batch saw for the title, or `None` for a log row, which
     /// means "read the entity's state whatever it is".
     pub revid: Option<u64>,
+    /// The page's ID, which a deletion's log row also carries; `None` where a row gave 0.
+    pub pageid: Option<u64>,
     /// The row's time, seconds since the epoch.
     pub time: u64,
     /// The log row that kept it, if any: `(type, action, params)`.
@@ -318,6 +321,7 @@ impl Poller {
                 title: row.title.clone(),
                 ns,
                 revid: (!is_log).then_some(row.revid),
+                pageid: (row.pageid != 0).then_some(row.pageid),
                 time: t,
                 log: if is_log {
                     Some((
@@ -335,7 +339,9 @@ impl Poller {
                     kept.push(change);
                 }
                 Some(&i) => {
-                    let old = &kept[i];
+                    let old = &mut kept[i];
+                    // Every row about a title names the same page; keep one that says.
+                    old.pageid = old.pageid.or(change.pageid);
                     // A log row always stays; otherwise the highest revision wins.
                     let replace = match (old.revid, change.revid) {
                         (None, _) => false,
@@ -343,7 +349,8 @@ impl Poller {
                         (Some(a), Some(b)) => b > a,
                     };
                     if replace {
-                        kept[i] = change;
+                        let pageid = change.pageid.or(kept[i].pageid);
+                        kept[i] = Change { pageid, ..change };
                     }
                 }
             }
@@ -548,6 +555,46 @@ mod tests {
         assert_eq!(b.changes.len(), 1);
         assert_eq!(b.changes[0].title, "Item:Q11");
         assert_eq!(p.time, t0 + 7);
+    }
+
+    #[test]
+    fn a_change_keeps_the_page_id_its_rows_name() {
+        let t0 = parse_iso("2026-10-04T00:00:00Z").unwrap();
+        let mut p = Poller::new(t0, vec![860], 500, Windows::default());
+        let page = |r: String, id: u64| r.replace(r#""pageid":1"#, &format!(r#""pageid":{id}"#));
+        let b = p
+            .read(
+                &body(
+                    &[
+                        // A deletion's log row names the deleted page, as Wikidata's do.
+                        page(row(1, "log", "Item:Q9", 0, "2026-10-04T00:00:01Z"), 90),
+                        // An edit then a log row that names no page: the edit's stays.
+                        page(row(2, "edit", "Item:Q8", 10, "2026-10-04T00:00:02Z"), 80),
+                        page(row(3, "log", "Item:Q8", 0, "2026-10-04T00:00:03Z"), 0),
+                        // A log row that names no page, then an edit that does.
+                        page(row(4, "log", "Item:Q7", 0, "2026-10-04T00:00:04Z"), 0),
+                        page(row(5, "edit", "Item:Q7", 11, "2026-10-04T00:00:05Z"), 70),
+                        page(row(6, "log", "Item:Q6", 0, "2026-10-04T00:00:06Z"), 0),
+                    ],
+                    None,
+                ),
+                false,
+            )
+            .unwrap();
+        let pages: Vec<_> = b
+            .changes
+            .iter()
+            .map(|c| (c.title.as_str(), c.pageid))
+            .collect();
+        assert_eq!(
+            pages,
+            [
+                ("Item:Q9", Some(90)),
+                ("Item:Q8", Some(80)),
+                ("Item:Q7", Some(70)),
+                ("Item:Q6", None)
+            ]
+        );
     }
 
     #[test]

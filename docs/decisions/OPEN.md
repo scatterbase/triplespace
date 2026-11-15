@@ -39,6 +39,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0013 A96](0013-postgres-storage.md#a96-compaction-keeps-the-record-that-claims-a-keys-highest-revision-and-runs-by-a-range-of-offsets) | 2026-11-11 | Compaction keeps the record that claims a key's highest revision, and runs by a range of offsets |
 | [0013 A103](0013-postgres-storage.md#a103-the-followers-runner-is-the-one-on-the-accounts-login) | 2026-11-13 | The followers' runner is the one on the accounts login |
 | [0015 A65](0015-record-format-and-partition-registry.md#a65-where-a-mirror-records-page-id-comes-from-when-its-content-carries-none) | 2026-11-15 | Where a mirror record's page ID comes from when its content carries none |
+| [0015 A66](0015-record-format-and-partition-registry.md#a66-a-followers-deletions-and-redirects-carry-their-page-ids-offsets-per-provider) | 2026-11-15 | A follower's deletions and redirects carry their page IDs; offsets per provider |
 | [0016 A42](0016-permissions-and-access-control.md#a42-delegated-administration-the-calls-made-while-drafting-and-building-tier-4) | 2026-10-30 | Delegated administration: the calls made while drafting and building tier 4 |
 | [0018 A33](0018-tenants.md#a33-multi-tenant-round-1-the-assumptions-the-implementation-made) | 2026-10-30 | Multi-tenant round 1: the assumptions the implementation made |
 | [0018 A36](0018-tenants.md#a36-instances-and-tenants-created-by-question-and-answer) | 2026-11-12 | Instances and tenants created by question and answer |
