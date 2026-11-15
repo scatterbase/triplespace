@@ -6,7 +6,8 @@
 //! migrate` converts (0089 §15).
 
 use argon2::Argon2;
-use argon2::password_hash::{PasswordHash, PasswordHasher, PasswordVerifier, SaltString};
+use argon2::password_hash::phc::PasswordHash;
+use argon2::password_hash::{PasswordHasher, PasswordVerifier};
 use scatter_actors::issuer::PASSWORD;
 use scatter_log::store::Draft;
 use tokio_postgres::GenericClient;
@@ -20,11 +21,10 @@ pub const PAYLOAD_BINDING: &str = "scatter:v0/binding";
 pub fn hash(password: &str) -> Result<String, AccountsError> {
     let mut salt = [0u8; 16];
     getrandom::fill(&mut salt).map_err(|e| AccountsError::Random(e.to_string()))?;
-    let salt = SaltString::encode_b64(&salt).map_err(|e| AccountsError::Hash(e.to_string()))?;
-    Ok(Argon2::default()
-        .hash_password(password.as_bytes(), &salt)
-        .map_err(|e| AccountsError::Hash(e.to_string()))?
-        .to_string())
+    let phc: PasswordHash = Argon2::default()
+        .hash_password_with_salt(password.as_bytes(), &salt)
+        .map_err(|e| AccountsError::Hash(e.to_string()))?;
+    Ok(phc.to_string())
 }
 
 /// Whether the password matches the PHC string.
@@ -158,6 +158,22 @@ mod tests {
         assert!(verify(&a, "correct horse battery staple"));
         assert!(!verify(&a, "Correct horse battery staple"));
         assert!(!verify("not a hash", "x"));
+    }
+
+    /// A hash stored before the argon2 0.6 upgrade, made by argon2 0.5.3's `hash()` with
+    /// the salt fixed at sixteen 7s.
+    const HASHED_BY_0_5: &str = "$argon2id$v=19$m=19456,t=2,p=1$BwcHBwcHBwcHBwcHBwcHBw$WLRGUa13/B3MXznFse33FId4O++DaYL6ulYUMEhpRqE";
+
+    #[test]
+    fn hashes_stored_before_the_upgrade_still_verify() {
+        assert!(verify(HASHED_BY_0_5, "correct horse battery"));
+        assert!(!verify(HASHED_BY_0_5, "correct horse battery staple"));
+        // The same password and salt hash to the same string: the parameters and the
+        // encoding did not change.
+        let again: PasswordHash = Argon2::default()
+            .hash_password_with_salt(b"correct horse battery", &[7u8; 16])
+            .unwrap();
+        assert_eq!(again.to_string(), HASHED_BY_0_5);
     }
 
     #[test]
