@@ -124,7 +124,8 @@ impl SyncItems {
         let mut parsed = match entry {
             Ok(DumpEntry::Entity(p)) => *p,
             Ok(DumpEntry::Redirect(r)) => {
-                let upstream = Upstream::revision(r.revid, Some(&r.timestamp));
+                let upstream =
+                    Upstream::revision(r.revid, Some(&r.timestamp)).with_pageid(Some(r.pageid));
                 match self
                     .adapter
                     .sync_redirect(r.from.as_str(), r.to.as_str(), upstream)
@@ -372,6 +373,11 @@ async fn target(
 
 /// Runs the sync.
 pub async fn run(args: Sync) -> Result<()> {
+    // Boxed, so that callers do not carry the whole sync in their own futures.
+    Box::pin(run_sync(args)).await
+}
+
+async fn run_sync(args: Sync) -> Result<()> {
     let client = connect(&args.database).await?;
     let (registry, provider, tenant) = target(&client, &args).await?;
     let slug = provider.slug.as_str();

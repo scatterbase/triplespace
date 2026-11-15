@@ -221,6 +221,22 @@ impl Prepare {
                 })
             })
             .transpose()?;
+        // The page ID the content carries, ranged (0015 A64); a block takes the others.
+        let page_id = match &op {
+            Operation::Put { upstream, .. } | Operation::Tombstone { upstream, .. } => {
+                upstream.pageid
+            }
+            Operation::Redirect {
+                upstream: Some(u), ..
+            } => u.pageid,
+            _ => None,
+        }
+        .map(|n| {
+            global_id(self.provider_number, n).ok_or_else(|| {
+                IngestError::Adapter(format!("upstream page ID {n} is out of range"))
+            })
+        })
+        .transpose()?;
         let content = serde_json::to_value(&op).map_err(|e| e.to_string())?;
         let body = Body::core(
             &Value::from_json_owned(content),
@@ -239,7 +255,7 @@ impl Prepare {
                 key: Some(subject.as_str().to_string()),
                 revid,
                 logid: None,
-                page_id: None,
+                page_id,
                 body,
             },
             commitment,
@@ -466,12 +482,19 @@ async fn write_block<S: IngestStore>(
     if block.is_empty() {
         return Ok(());
     }
-    let pages = store.next_ids(cx, "", &Sequence::Page, block.len()).await?;
+    let wanted = block.iter().filter(|(d, _, _)| d.page_id.is_none()).count();
+    let mut pages = if wanted == 0 {
+        Vec::new()
+    } else {
+        store.next_ids(cx, "", &Sequence::Page, wanted).await?
+    }
+    .into_iter();
     let block = block
         .into_iter()
-        .zip(pages)
-        .map(|((mut draft, commitment, _), page)| {
-            draft.page_id = Some(page);
+        .map(|(mut draft, commitment, _)| {
+            if draft.page_id.is_none() {
+                draft.page_id = pages.next();
+            }
             (draft, commitment)
         })
         .collect();
@@ -630,6 +653,28 @@ where
         out
     }
 
+    /// Page IDs from the sequence for the block's records whose content carries none
+    /// (0015 A64), reserved while the blocks in flight go on.
+    async fn reserve_pages(
+        &mut self,
+        block: &[Entry],
+    ) -> Result<std::vec::IntoIter<u64>, IngestError> {
+        let n = block.iter().filter(|(d, _, _)| d.page_id.is_none()).count();
+        if n == 0 {
+            return Ok(Vec::new().into_iter());
+        }
+        let store = self.store;
+        let pages = self
+            .alongside(async move {
+                let mut c = store.begin().await?;
+                let pages = store.next_ids(&mut c, "", &Sequence::Page, n).await?;
+                store.commit(c).await?;
+                Ok(pages)
+            })
+            .await?;
+        Ok(pages.into_iter())
+    }
+
     /// Seals a block at the next offsets, folds its leaves into the frontier, and sets its
     /// unit of work going once fewer than `limit` blocks are in flight.
     async fn dispatch(&mut self, block: Vec<Entry>) -> Result<(), IngestError> {
@@ -640,24 +685,17 @@ where
             block.iter().filter_map(|(d, _, _)| d.key.clone()).collect();
         let alone = waits_for_earlier(&block, &subjects, self.inflight.iter().map(|(_, s)| s));
         self.drain(if alone { 0 } else { self.limit - 1 }).await?;
+        let mut pages = self.reserve_pages(&block).await?;
         let store = self.store;
-        let n = block.len();
-        let pages = self
-            .alongside(async move {
-                let mut c = store.begin().await?;
-                let pages = store.next_ids(&mut c, "", &Sequence::Page, n).await?;
-                store.commit(c).await?;
-                Ok(pages)
-            })
-            .await?;
         let partition = self.partition;
         let start = self.next_offset;
         let records: Vec<Record> = block
             .into_iter()
-            .zip(pages)
             .zip(start..)
-            .map(|(((mut draft, commitment, _), page), offset)| {
-                draft.page_id = Some(page);
+            .map(|((mut draft, commitment, _), offset)| {
+                if draft.page_id.is_none() {
+                    draft.page_id = pages.next();
+                }
                 draft.seal_committed(partition, offset, commitment)
             })
             .collect();

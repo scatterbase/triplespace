@@ -21,7 +21,8 @@ use crate::changes::Changes;
 use crate::rank::ProviderOrder;
 
 /// The upstream version a mirror operation refers to (payloads.md §3.1): `revid` and
-/// `time` for a provider with revisions, `version` for one without.
+/// `time` for a provider with revisions, `version` for one without, and `pageid` where
+/// the provider publishes one, from which the writer derives header field 9 (0015 A64).
 #[derive(Debug, Clone, PartialEq, Eq, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Upstream {
@@ -34,6 +35,9 @@ pub struct Upstream {
     /// The provider's own version string, for a provider without revisions.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub version: Option<String>,
+    /// The upstream page ID; also header field 9's `n` for a mirrored entity (0015 A64).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub pageid: Option<u64>,
 }
 
 impl Upstream {
@@ -44,6 +48,7 @@ impl Upstream {
             revid: Some(revid),
             time: time.map(str::to_owned),
             version: None,
+            pageid: None,
         }
     }
 
@@ -54,7 +59,15 @@ impl Upstream {
             revid: None,
             time: None,
             version: Some(v.to_string()),
+            pageid: None,
         }
+    }
+
+    /// The same version, with the upstream page ID (0015 A64).
+    #[must_use]
+    pub fn with_pageid(mut self, pageid: Option<u64>) -> Self {
+        self.pageid = pageid;
+        self
     }
 
     /// Whether anything names the version.

@@ -2130,6 +2130,101 @@ fn a_block_writes_what_one_record_at_a_time_writes() {
     });
 }
 
+/// A mirrored entity's page ID is the provider's range at the upstream page ID its content
+/// carries, on one write and in a block alike, and takes nothing from the page sequence;
+/// an operation without one keeps the key's page ID, or takes a fresh one (0015 A64).
+#[test]
+fn a_mirrored_entity_takes_its_page_id_from_its_content() {
+    pollster::block_on(async {
+        let xd = u64::from(registry().by_slug("internetdomains").unwrap().number);
+        let ranged = |n: u64| (xd << 40) | n;
+        let put = |id: &str, revid: u64, pageid: Option<u64>| {
+            let mut upstream = json!({"revid": revid});
+            if let Some(p) = pageid {
+                upstream["pageid"] = json!(p);
+            }
+            op(
+                json!({"op": "put", "id": id, "entity": item(id, id, &json!({})), "upstream": upstream}),
+            )
+        };
+        let ops = [
+            put("XDQ5", 900, Some(5005)),
+            put("XDQ6", 901, Some(6006)),
+            put("XDQ5", 902, Some(5005)),
+            put("XDQ7", 903, None),
+            put("XDQ7", 904, None),
+            op(json!({"op": "tombstone", "id": "XDQ6", "upstream": {"revid": 905}})),
+        ];
+        let request = Request::new(TENANT, Attestation::by("librarybase:1"), NOW);
+        let run = |block: bool| {
+            let ops = ops.clone();
+            let request = request.clone();
+            async move {
+                let (store, pipeline) = setup();
+                let mut cx = store.begin().await.unwrap();
+                if block {
+                    let entries: Vec<_> = ops
+                        .iter()
+                        .map(|o| BlockEntry {
+                            request: &request,
+                            payload: BlockPayload::Operation(o),
+                        })
+                        .collect();
+                    write_many(
+                        &store,
+                        &pipeline,
+                        &mut cx,
+                        MIRROR_XD,
+                        &Graph::Mirror("internetdomains".into()),
+                        &entries,
+                        scatter_projection::Budget::NONE,
+                        registry(),
+                    )
+                    .await
+                    .unwrap();
+                } else {
+                    for o in &ops {
+                        write_operation(&store, &pipeline, &mut cx, &request, o, registry())
+                            .await
+                            .unwrap();
+                    }
+                }
+                let next = store.next_id(&mut cx, "", &Sequence::Page).await.unwrap();
+                store.commit(cx).await.unwrap();
+                let ids: Vec<_> = store
+                    .records(MIRROR_XD)
+                    .iter()
+                    .map(|r| (r.header().key.clone().unwrap(), r.header().page_id.unwrap()))
+                    .collect();
+                (ids, next)
+            }
+        };
+        let (one, next_one) = run(false).await;
+        let (many, next_many) = run(true).await;
+        let fresh = one[3].1;
+        assert_eq!(
+            one,
+            vec![
+                ("XDQ5".to_string(), ranged(5005)),
+                ("XDQ6".to_string(), ranged(6006)),
+                ("XDQ5".to_string(), ranged(5005)),
+                ("XDQ7".to_string(), fresh),
+                ("XDQ7".to_string(), fresh),
+                ("XDQ6".to_string(), ranged(6006)),
+            ],
+            "ranged from the content; without it, the key's"
+        );
+        assert!(fresh < 1 << 40, "a page ID from the sequence: {fresh}");
+        assert_eq!(
+            next_one,
+            fresh + 1,
+            "only the entity without one took from it"
+        );
+        assert_eq!(many, one, "a block derives the same page IDs");
+        assert_eq!(next_many, next_one);
+    });
+}
+
 /// The passes of the mixed-unit test over a key-mapped provider: items a block takes
 /// among items it does not (states mapped onto keys, a state whose upstream item owned a
 /// key, a keyed deletion, a subject named twice), a mapping that moves, and a snapshot.

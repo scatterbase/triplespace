@@ -579,7 +579,8 @@ impl KeyMappedAdapter {
                 parsed.page.as_ref().and_then(|p| p.modified.as_deref()),
             ),
             None => Upstream::default(),
-        };
+        }
+        .with_pageid(parsed.page.as_ref().and_then(|p| p.pageid));
         let mut entity = parsed.entity;
         let upstream_id = entity.id.as_str().to_string();
         let rule = self.index.rule_of.get(&upstream_id).copied();
