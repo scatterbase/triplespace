@@ -147,9 +147,9 @@ serde_json = { version = "1", features = ["float_roundtrip"] }
 
 # HTML: the sanitizer the wikitext and markdown renderers share (0033 §9.1–9.2), and the
 # HTML5 parser the golden tests normalize through. html5ever and markup5ever_rcdom move
-# together, on the release ammonia uses, so there is one copy. ammonia 4.2.4 or later:
+# together, on the release ammonia uses, so there is one copy. ammonia 4.2.5 or later:
 # earlier releases have open advisories.
-ammonia = "4.2.4"
+ammonia = "4.2.5"
 # CommonMark for markdown pages and posts (0033 §9.2), without its CLI and highlighting.
 comrak = { version = "0.59", default-features = false }
 html5ever = "0.40"
