@@ -3,6 +3,8 @@
  * editable entity's content (ADR 0034 §4), with the interface messages they need.
  */
 
+import { format } from '../i18n/format';
+
 export interface EditData {
 	/** The entity's ID. */
 	id: string;
@@ -41,8 +43,8 @@ export function readData( doc: Document ): EditData | null {
 }
 
 /**
- * A message with `$1`, `$2`, … replaced; `⧼key⧽` when it is missing, as MediaWiki shows
- * one.
+ * A message with its parameters, formatted by `banana-i18n` (ADR 0034 §9); `⧼key⧽` when
+ * it is missing, as MediaWiki shows one.
  *
  * @param data The edit data
  * @param key The message key
@@ -50,12 +52,5 @@ export function readData( doc: Document ): EditData | null {
  * @return The message
  */
 export function msg( data: EditData, key: string, ...params: string[] ): string {
-	const raw = data.messages[ key ];
-	if ( raw === undefined ) {
-		return `⧼${ key }⧽`;
-	}
-	return raw.replace( /\$(\d+)/g, ( whole, n: string ) => {
-		const p = params[ Number( n ) - 1 ];
-		return p === undefined ? whole : p;
-	} );
+	return format( data.messages, data.lang, key, params );
 }

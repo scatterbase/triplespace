@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-15 (A20)
+- **Updated:** 2026-11-15 (A21)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0029](0029-resolver-namespaces.md), [0033](0033-backend-stack.md)
@@ -67,7 +67,7 @@ The backend stack is in 0033.
 
 ### 9. Internationalisation
 
-*Changed by A11, A14, A15, A17.*
+*Changed by A11, A14, A15, A17, A21.*
 
 *Current text: [19](../architecture/19-site-ui.md) §5.6.*
 
@@ -361,3 +361,10 @@ Replaced text ([19](../architecture/19-site-ui.md) §4.9, as it stood):
 Replaced text ([19](../architecture/19-site-ui.md) §5.3, as it stood):
 
 > | Search box with "Go to" suggestions (§2.1) | TypeaheadSearch | the global header |
+
+### A21. `banana-i18n` in the components; `GENDER` and `GRAMMAR` stay degenerate on the server
+
+- **Date:** 2026-11-15
+- **Source:** Direct: Claude, while building per-skin message bundles and `banana-i18n` in the components (SCA-327), 2026-11-15; unconfirmed
+- **Change:** extends §9
+- **Summary:** **The components format their messages with the `banana-i18n` JavaScript library** (2.4.0, MIT, pinned), as this section says: the editing components, the grid and the header's search box read the messages the server hands them in their data block, unexpanded, and one shared formatter loads that set for the interface language, so `$n` and `{{PLURAL:}}` mean in the browser what they mean on the server. The calls: the server still hands each component only the messages it needs, from the same files, where the library could fetch whole files; `[[…]]` in a message stays text, since links are the site's to draw; a key the set lacks shows as `⧼key⧽`; the grid's block gains the interface language, which it lacked. A test holds every shipped message a component is handed to the text the components produced before. **On the server** `{{GENDER:}}` keeps taking the neutral form and `{{GRAMMAR:}}` keeps returning the word unchanged. English needs neither, no shipped message uses either, and the in-house implementation this section allows expands `PLURAL` with ICU4X's rules, which is what English messages do use. They are built, with a reader's gender from a preference and each language's grammar rules, before the first translation that calls one; James may ask for them sooner. Chapter text: 19 §5.6.

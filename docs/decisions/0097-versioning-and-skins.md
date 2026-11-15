@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-29
-- **Updated:** 2026-11-03 (A12)
+- **Updated:** 2026-11-15 (A13)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0015](0015-record-format-and-partition-registry.md), [0034](0034-frontend-stack.md), [0057](0057-web-tier.md), [0077](0077-special-version.md), [0086](0086-theming.md), [0095](0095-the-interface-namespace.md)
 - **Uses:** [0012](0012-api-requirements.md), [0028](0028-tenancy-policy.md), [0050](0050-adr-format.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [0058](0058-packed-record-storage.md), [0085](0085-settings-and-preferences.md)
@@ -62,7 +62,7 @@ James's direction, from the design discussion of 2026-10-29:
 
 ### 8. Skins (amends 0034 §2)
 
-*Changed by A2.*
+*Changed by A2, A13.*
 
 *Current text: [19](../architecture/19-site-ui.md) §5.2, §5.10; [21](../architecture/21-special-pages.md) §5.6; [23](../architecture/23-configuration-and-registry.md) §3.4.*
 
@@ -86,7 +86,7 @@ James's direction, from the design discussion of 2026-10-29:
 
 ### 13. Message bundles (amends 0034 §9; extends 0095 §2)
 
-*Changed by A2.*
+*Changed by A2, A13.*
 
 *Current text: [19](../architecture/19-site-ui.md) §5.6.*
 
@@ -275,3 +275,10 @@ Replaced text ([20](../architecture/20-web-tier.md) §1.2 and [23](../architectu
 > | `web.renderer` | `builtin` (the default), `skin` or `compare`, as `server.renderer`, until the skin migration is done ([19](../architecture/19-site-ui.md) §5.10) |
 
 > | `server.renderer` | `builtin`, `skin`, `compare` | `builtin` | Which renderer draws the embedded site's pages until the skin migration is done: `compare` renders both, serves the built-in result and logs each route that differs; removed with the last group ([19](../architecture/19-site-ui.md) §5.10) | [0097](../decisions/0097-versioning-and-skins.md) §16 |
+
+### A13. Plain's message bundle: which messages are a skin's
+
+- **Date:** 2026-11-15
+- **Source:** Direct: Claude, while building per-skin message bundles (SCA-327), 2026-11-15; unconfirmed
+- **Change:** extends §8, §13
+- **Summary:** A skin's bundle is built, with these calls. (1) **A skin's messages are the ones its own templates name with `msg()` and nothing else reads.** What the site's Rust words, the view models every skin draws, stays the binary's, as do the messages a script is handed and the ones a key is built for. By that rule six messages are Plain's and moved, renamed from `ts-` to `plain-`: the skip link, the footer line, the names of the site navigation and of the tabs, the tabs' overflow label and the Julian mark. The other reading, that every message of the site is Plain's and only errors, notifications, mail and API text are the binary's, would rename some two thousand keys; it is James's to choose, and `tools/skin_messages.py` is where the rule lives. (2) The bundle's version is `[messages] version` in `skin.toml`, 0.1.0 for Plain. (3) A skin is not loaded when a key of its bundle does not open with its name and a hyphen, when it has messages and gives no version, or when it extends another skin and brings messages or a `[messages]` table. (4) A skin's templates read the skin's bundle beside the binary's through `msg()`; a skin that extends Plain reads Plain's. (5) A wiki's Interface page overrides a skin's message by its key, and `meta=allmessages` lists the shipped skins' messages among the defaults; an installed skin's are not listed, since the API does not know the web tier's skins. (6) `banana-checker` checks Plain's bundle with the binary's. Chapter text: 19 §5.6, §5.10.

@@ -626,6 +626,7 @@ fn sheet_data(
         "page": "table",
         "conceptBase": cx.site.concept_base,
         "lang": cx.site.lang,
+        "uiLang": m.lang(),
         "dir": m.dir(),
         "messages": m.with_prefix("ts-sheet-"),
         "title": source.title,

@@ -63,6 +63,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0034 A18](0034-frontend-stack.md#a18-the-job-progress-bar-is-built-alias-chips-wait-on-codex) | 2026-11-10 | The job progress bar is built; alias chips wait on Codex |
 | [0034 A19](0034-frontend-stack.md#a19-the-vite-dev-server-servervite-and-webvite) | 2026-11-15 | The Vite dev server: `server.vite` and `web.vite` |
 | [0034 A20](0034-frontend-stack.md#a20-the-headers-search-box-suggests-on-codexs-lookup) | 2026-11-15 | The header's search box suggests, on Codex's Lookup |
+| [0034 A21](0034-frontend-stack.md#a21-banana-i18n-in-the-components-gender-and-grammar-stay-degenerate-on-the-server) | 2026-11-15 | `banana-i18n` in the components; `GENDER` and `GRAMMAR` stay degenerate on the server |
 | [0039 A16](0039-files-and-media.md#a16-a-fifth-kind-of-key-what-a-job-wrote) | 2026-11-13 | A fifth kind of key: what a job wrote |
 | [0042 A22](0042-template-expansion-and-parsoid.md#a22-which-template-drew-a-block) | 2026-11-04 | Which template drew a block |
 | [0051 A8](0051-page-redirects.md#a8-actionmove-the-calls-made-building-it) | 2026-10-30 | `action=move`: the calls made building it |
@@ -85,6 +86,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0097 A3](0097-versioning-and-skins.md#a3-fragments-are-compared-as-normalized-dom) | 2026-10-30 | Fragments are compared as normalized DOM |
 | [0097 A4](0097-versioning-and-skins.md#a4-drawings-are-svg-the-binary-makes) | 2026-10-30 | Drawings are SVG the binary makes |
 | [0097 A6](0097-versioning-and-skins.md#a6-a-part-of-a-later-group-is-carried-as-html-until-that-group-switches) | 2026-10-30 | A part of a later group is carried as HTML until that group switches |
+| [0097 A13](0097-versioning-and-skins.md#a13-plains-message-bundle-which-messages-are-a-skins) | 2026-11-15 | Plain's message bundle: which messages are a skin's |
 | [0100 A1](0100-email-addresses-and-verification-codes.md#a1-the-login-an-address-belongs-to-until-instance-logins-exist) | 2026-11-06 | The login an address belongs to, until instance logins exist |
 | [0100 A2](0100-email-addresses-and-verification-codes.md#a2-the-postmark-transport-built-with-bounce-and-complaint-handling) | 2026-11-06 | The Postmark transport, built with bounce and complaint handling |
 | [0100 A3](0100-email-addresses-and-verification-codes.md#a3-addresses-keyed-by-the-login) | 2026-11-06 | Addresses keyed by the login |

@@ -4,10 +4,14 @@
  * 0106 §1; 0045 §6), with the interface messages they need.
  */
 
+import { format } from '../i18n/format';
+
 /** What both pages' blocks hold. */
 interface Common {
 	/** The wiki's language, which a term column without one is in. */
 	lang: string;
+	/** The interface language, which the messages' plural forms follow. */
+	uiLang?: string;
 	/** The interface's writing direction. */
 	dir: string;
 	/** The base of the site's concept IRIs, which a quantity's unit is written under. */
@@ -108,7 +112,8 @@ export function readSheetData( doc: Document ): SheetData | null {
 }
 
 /**
- * A message with `$1`, `$2`, … replaced; `⧼key⧽` when it is missing.
+ * A message with its parameters, formatted by `banana-i18n` (ADR 0034 §9); `⧼key⧽` when
+ * it is missing.
  *
  * @param data The block
  * @param key The message key
@@ -116,12 +121,5 @@ export function readSheetData( doc: Document ): SheetData | null {
  * @return The message
  */
 export function msg( data: Common, key: string, ...params: string[] ): string {
-	const raw = data.messages[ key ];
-	if ( raw === undefined ) {
-		return `⧼${ key }⧽`;
-	}
-	return raw.replace( /\$(\d+)/g, ( whole, n: string ) => {
-		const p = params[ Number( n ) - 1 ];
-		return p === undefined ? whole : p;
-	} );
+	return format( data.messages, data.uiLang ?? data.lang, key, params );
 }

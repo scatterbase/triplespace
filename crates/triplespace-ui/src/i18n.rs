@@ -168,13 +168,94 @@ pub fn term_chain(lang: &str) -> Vec<String> {
 /// base page.
 pub type Overrides = BTreeMap<String, BTreeMap<String, String>>;
 
-/// The messages of one interface language, with the wiki's overrides.
+/// A skin's message bundle (0097 §13; 19 §5.6): the messages its own templates name,
+/// from the skin's `i18n/`, each key carrying the skin's name as a prefix, with a
+/// version of its own.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct Bundle {
+    /// The bundle's version, from the skin's manifest.
+    pub version: Option<String>,
+    /// The messages, by language, then key.
+    by_lang: BTreeMap<String, BTreeMap<String, String>>,
+}
+
+impl Bundle {
+    /// A bundle from a skin's files: each `i18n/{language}.json` but `qqq.json`, the
+    /// documentation, read as banana JSON.
+    ///
+    /// # Errors
+    ///
+    /// A file that is not a JSON object of strings, or a key that does not open with
+    /// `prefix`, the skin's name and a hyphen: a key belongs to one bundle.
+    pub fn from_files<'a>(
+        files: impl Iterator<Item = (&'a str, &'a [u8])>,
+        prefix: &str,
+        version: Option<String>,
+    ) -> Result<Self, String> {
+        let mut by_lang = BTreeMap::new();
+        for (path, data) in files {
+            let Some(lang) = path
+                .strip_prefix("i18n/")
+                .and_then(|f| f.strip_suffix(".json"))
+            else {
+                continue;
+            };
+            if lang == "qqq" {
+                continue;
+            }
+            let v: serde_json::Map<String, serde_json::Value> = serde_json::from_slice(data)
+                .map_err(|e| format!("`{path}` is not a JSON object: {e}"))?;
+            let mut messages = BTreeMap::new();
+            for (k, text) in v {
+                if k.starts_with('@') {
+                    continue;
+                }
+                if !k.starts_with(prefix) {
+                    return Err(format!(
+                        "`{path}`: the message `{k}` does not open with `{prefix}`"
+                    ));
+                }
+                let Some(text) = text.as_str() else {
+                    return Err(format!("`{path}`: the message `{k}` is not text"));
+                };
+                messages.insert(k, text.to_string());
+            }
+            by_lang.insert(lang.to_string(), messages);
+        }
+        Ok(Self { version, by_lang })
+    }
+
+    /// A message in one language.
+    fn get(&self, lang: &str, key: &str) -> Option<&String> {
+        self.by_lang.get(lang)?.get(key)
+    }
+
+    /// The English messages, which say what keys the bundle has.
+    fn english(&self) -> impl Iterator<Item = (&String, &String)> {
+        self.by_lang.get("en").into_iter().flatten()
+    }
+
+    /// Whether the bundle has no messages.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.by_lang.values().all(BTreeMap::is_empty)
+    }
+
+    /// The keys the bundle has, from its English file.
+    pub fn keys(&self) -> impl Iterator<Item = &str> {
+        self.english().map(|(k, _)| k.as_str())
+    }
+}
+
+/// The messages of one interface language, with the wiki's overrides and, where a skin
+/// draws with them, the skin's own bundle beside the binary's.
 #[derive(Debug, Clone)]
 pub struct Messages {
     lang: String,
     chain: Vec<String>,
     overrides: Arc<Overrides>,
     content_lang: String,
+    skin: Option<Arc<Bundle>>,
 }
 
 impl Messages {
@@ -187,7 +268,17 @@ impl Messages {
             lang,
             overrides: Arc::default(),
             content_lang: String::new(),
+            skin: None,
         }
+    }
+
+    /// The same messages with a skin's bundle beside the binary's (0097 §13): what the
+    /// skin's templates read. A key belongs to one bundle, so the order does not matter;
+    /// the wiki's Interface pages override either.
+    #[must_use]
+    pub fn with_bundle(mut self, bundle: Arc<Bundle>) -> Self {
+        self.skin = (!bundle.is_empty()).then_some(bundle);
+        self
     }
 
     /// The same messages with a wiki's Interface pages over the shipped ones (0095 §2):
@@ -254,6 +345,7 @@ impl Messages {
             self.overridden(key, l)
                 .cloned()
                 .or_else(|| catalogue(l).and_then(|c| c.get(key).cloned()))
+                .or_else(|| self.skin.as_ref().and_then(|b| b.get(l, key)).cloned())
                 .map(|m| (m, l.clone()))
         })
     }
@@ -459,6 +551,50 @@ mod tests {
         assert_eq!(js["ts-bell"], "(ts-bell)");
         assert_eq!(js["ts-bell-unread"], "(ts-bell-unread: $1)");
         assert_eq!(qqx_template("k", "$2 of $1"), "(k: $1, $2)");
+    }
+
+    // 0097 §13; 0034 §9: a skin's bundle is read beside the binary's, each key opening
+    // with the skin's name, and a wiki overrides its messages as any other.
+    #[test]
+    fn a_skins_bundle_is_read_beside_the_binarys() {
+        let files: Vec<(&str, &[u8])> = vec![
+            (
+                "i18n/en.json",
+                br#"{"@metadata": {}, "plain-x": "Ex $1", "plain-y": "Why"}"#,
+            ),
+            ("i18n/de.json", br#"{"plain-x": "Iks $1"}"#),
+            ("i18n/qqq.json", br#"{"plain-x": "documentation"}"#),
+            ("style.css", b"a{}"),
+        ];
+        let bundle = Arc::new(
+            Bundle::from_files(files.iter().copied(), "plain-", Some("0.1.0".into())).unwrap(),
+        );
+        assert_eq!(bundle.keys().collect::<Vec<_>>(), ["plain-x", "plain-y"]);
+        assert_eq!(bundle.version.as_deref(), Some("0.1.0"));
+        let en = Messages::for_language("en").with_bundle(bundle.clone());
+        assert_eq!(en.with("plain-x", &["1"]), "Ex 1");
+        // The binary's messages are read as before, and a missing key shows as one.
+        assert_eq!(en.get("ts-login"), "Log in");
+        assert_eq!(en.get("plain-z"), "⧼plain-z⧽");
+        // The language's own, then the chain's end, English.
+        let de = Messages::for_language("de").with_bundle(bundle.clone());
+        assert_eq!(de.with("plain-x", &["1"]), "Iks 1");
+        assert_eq!(de.get("plain-y"), "Why");
+        // Without the bundle the skin's keys are not messages.
+        assert_eq!(Messages::for_language("en").get("plain-x"), "⧼plain-x⧽");
+        // `qqx` shows the key; the wiki's Interface page overrides the message.
+        let qqx = Messages::for_language("qqx").with_bundle(bundle.clone());
+        assert_eq!(qqx.with("plain-x", &["1"]), "(plain-x: 1)");
+        let o: Overrides =
+            serde_json::from_value(serde_json::json!({"plain-y": {"": "Because"}})).unwrap();
+        let overridden = Messages::for_language("en")
+            .with_overrides(o, "en")
+            .with_bundle(bundle);
+        assert_eq!(overridden.get("plain-y"), "Because");
+        // A key belongs to one bundle: one without the skin's prefix is refused.
+        let stray: Vec<(&str, &[u8])> = vec![("i18n/en.json", br#"{"ts-x": "no"}"#)];
+        let e = Bundle::from_files(stray.iter().copied(), "plain-", None).unwrap_err();
+        assert!(e.contains("`ts-x` does not open with `plain-`"), "{e}");
     }
 
     #[test]

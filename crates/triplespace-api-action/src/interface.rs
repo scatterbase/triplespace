@@ -16,6 +16,11 @@ use crate::response::ApiError;
 /// `meta=allmessages` reports as the defaults (0095 §8).
 const SHIPPED_EN: &str = include_str!("../../../i18n/en.json");
 
+/// The messages of the shipped skins' own bundles, in English (19 §5.6): Plain's, which
+/// Worksheet draws with too. An Interface page overrides a skin's message as it does
+/// any other, so `meta=allmessages` lists them among the defaults.
+const SHIPPED_SKINS_EN: [&str; 1] = [include_str!("../../../skins/plain/i18n/en.json")];
+
 /// The wiki's Interface pages anyone may read, as `(title, text)` with the title inside
 /// the namespace: the instance's first, then the wiki's own, so that a later one replaces
 /// an earlier one for the same key and language.
@@ -210,8 +215,9 @@ impl triplespace_notify::mail::Texts for Texts {
 fn shipped() -> &'static BTreeMap<String, String> {
     static SHIPPED: std::sync::OnceLock<BTreeMap<String, String>> = std::sync::OnceLock::new();
     SHIPPED.get_or_init(|| {
-        let v: Map<String, Value> = serde_json::from_str(SHIPPED_EN).unwrap_or_default();
-        v.into_iter()
+        std::iter::once(SHIPPED_EN)
+            .chain(SHIPPED_SKINS_EN)
+            .flat_map(|text| serde_json::from_str::<Map<String, Value>>(text).unwrap_or_default())
             .filter(|(k, _)| !k.starts_with('@'))
             .filter_map(|(k, v)| v.as_str().map(|s| (k, s.to_string())))
             .collect()
@@ -365,6 +371,20 @@ pub fn allmessages(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // 0097 §13: the shipped skins' messages are defaults too, beside the binary's, each
+    // under its bundle's prefix.
+    #[test]
+    fn the_shipped_skins_messages_are_among_the_defaults() {
+        let s = shipped();
+        assert_eq!(s["ts-login"], "Log in");
+        assert_eq!(s["plain-skip-to-content"], "Skip to content");
+        assert!(!s.contains_key("ts-skip-to-content"));
+        assert_eq!(
+            key("Plain-skip-to-content/de"),
+            ("plain-skip-to-content".into(), "de".into())
+        );
+    }
 
     #[test]
     fn titles_read_as_keys_and_languages() {

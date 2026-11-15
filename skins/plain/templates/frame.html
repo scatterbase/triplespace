@@ -31,7 +31,7 @@
 {%- endif %}
 </head>
 <body>
-<a class="ts-skip" href="#content">{{ msg("ts-skip-to-content") }}</a>
+<a class="ts-skip" href="#content">{{ msg("plain-skip-to-content") }}</a>
 <header class="ts-header">
 	<div class="ts-header__inner">
 		<a class="ts-header__site" href="{{ mainpage_href }}">{{ sitename }}</a>
@@ -44,7 +44,7 @@
 			{%- endif %}
 		</form>
 		{%- endif %}
-		<nav class="ts-header__nav" aria-label="{{ msg("ts-nav-label") }}">
+		<nav class="ts-header__nav" aria-label="{{ msg("plain-nav-label") }}">
 			{%- for label, href in nav %}
 			<a class="ts-header__nav-link" href="{{ href }}">{{ label }}</a>
 			{%- endfor %}
@@ -101,7 +101,7 @@
 	{{ subtitle|safe }}
 	{%- endif %}
 	{%- if tabs or actions or watch %}
-	<nav class="ts-tabs" aria-label="{{ msg("ts-tabs-label") }}">
+	<nav class="ts-tabs" aria-label="{{ msg("plain-tabs-label") }}">
 		{%- for tab in tabs %}
 		<a class="ts-tabs__link" href="{{ tab.href }}"{% if tab.current %} aria-current="page"{% endif %}>{{ tab.label }}</a>
 		{%- endfor %}
@@ -110,7 +110,7 @@
 		{%- endif %}
 		{%- if actions %}
 		<details class="ts-menu ts-tabs__more">
-			<summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet">{{ msg("ts-tabs-more") }}</summary>
+			<summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet">{{ msg("plain-tabs-more") }}</summary>
 			<ul class="ts-menu__items">
 				{%- for label, href in actions %}
 				<li><a class="ts-menu__link" href="{{ href }}">{{ label }}</a></li>
@@ -125,7 +125,7 @@
 	</div>
 </main>
 <footer class="ts-footer">
-	<p>{{ msg("ts-footer-powered") }}</p>
+	<p>{{ msg("plain-footer-powered") }}</p>
 </footer>
 </body>
 </html>
