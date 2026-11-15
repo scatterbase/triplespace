@@ -92,7 +92,7 @@ fn media_policy(cx: &Context, headers: &HeaderMap, r: &mut Response) {
 }
 
 /// Adds the security headers to every response.
-pub async fn security_headers(request: Request, next: Next) -> Response {
+pub async fn security_headers(State(site): State<Site>, request: Request, next: Next) -> Response {
     let mut r = next.run(request).await;
     let h = r.headers_mut();
     // A page that widened `form-action` for its issuers' buttons keeps its own policy.
@@ -101,6 +101,15 @@ pub async fn security_headers(request: Request, next: Next) -> Response {
             header::CONTENT_SECURITY_POLICY,
             HeaderValue::from_static(CSP),
         );
+    }
+    // In development the policy admits the Vite dev server, and only then (0034 §8).
+    if let Some(dev) = site.dev_assets()
+        && let Some(policy) = h
+            .get(header::CONTENT_SECURITY_POLICY)
+            .and_then(|v| v.to_str().ok())
+        && let Ok(v) = HeaderValue::from_str(&dev.widen_csp(policy))
+    {
+        h.insert(header::CONTENT_SECURITY_POLICY, v);
     }
     h.insert(
         header::REFERRER_POLICY,
@@ -159,6 +168,8 @@ pub struct Context {
     /// wiki's `skins.default`, in that order, among the skins the wiki offers; `None`
     /// only when no skin at all is loaded.
     pub skin: Option<std::sync::Arc<Skin>>,
+    /// The stylesheet and scripts a page links: the build's, or a dev server's sources.
+    pub assets: assets::Entries,
 }
 
 impl Context {
@@ -203,6 +214,7 @@ impl Context {
             sitename: &self.site.sitename,
             mainpage: &self.site.mainpage,
             features: &self.features,
+            assets: &self.assets,
             prefs: self.prefs.as_ref(),
             account_requests: self.account_requests,
             notifications: self
@@ -361,6 +373,7 @@ pub async fn context(
         groups,
         notifications,
         skin,
+        assets: site.entries().clone(),
     })
 }
 
@@ -391,6 +404,7 @@ fn unavailable(site: &Site, incoming: &Incoming, error: &ClientError, key: &str)
         sitename: &sitename,
         mainpage: DEFAULT_MAINPAGE,
         features: &none,
+        assets: site.entries(),
         prefs: None,
         account_requests: None,
         notifications: None,
@@ -1089,7 +1103,21 @@ pub async fn not_found(State(site): State<Site>, headers: HeaderMap, peer: Peer)
 }
 
 /// `/ui/assets/{path}`: a file of the build, kept for a year, since its name is its hash.
-pub async fn asset(Path(path): Path<String>) -> Response {
+///
+/// Under a dev server (0034 §8) the request is passed through to it, query and all, and
+/// only what it does not have comes from the build.
+pub async fn asset(
+    State(site): State<Site>,
+    Path(path): Path<String>,
+    axum::extract::RawQuery(query): axum::extract::RawQuery,
+    headers: HeaderMap,
+) -> Response {
+    if let Some(dev) = site.dev_assets()
+        && !path.contains("..")
+        && let Some(r) = dev.fetch(&path, query.as_deref(), &headers).await
+    {
+        return r;
+    }
     match assets::get(&path) {
         Some((data, content_type)) => (
             [

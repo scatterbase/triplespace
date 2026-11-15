@@ -4356,6 +4356,7 @@ dependencies = [
  "markup5ever_rcdom",
  "minijinja",
  "percent-encoding",
+ "reqwest",
  "rust-embed",
  "scatter-pages",
  "scatter-titles",

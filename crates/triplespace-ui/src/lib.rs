@@ -83,6 +83,7 @@ pub struct Site {
     client: Client,
     build: Option<std::sync::Arc<triplespace_client::version::Build>>,
     skins: std::sync::Arc<skin::Skins>,
+    dev_assets: Option<std::sync::Arc<assets::DevServer>>,
 }
 
 impl Site {
@@ -93,6 +94,31 @@ impl Site {
             client,
             build: None,
             skins: std::sync::Arc::new(skin::Skins::load(None)),
+            dev_assets: None,
+        }
+    }
+
+    /// The site taking its assets from a Vite dev server (`server.vite`, `web.vite`;
+    /// 0034 §8), for development only: its pages link the sources, and its Content
+    /// Security Policy admits the server's WebSocket and `<style>` elements.
+    #[must_use]
+    pub fn with_dev_assets(mut self, dev: Option<assets::DevServer>) -> Self {
+        self.dev_assets = dev.map(std::sync::Arc::new);
+        self
+    }
+
+    /// The dev server the assets come from, in development.
+    #[must_use]
+    pub fn dev_assets(&self) -> Option<&assets::DevServer> {
+        self.dev_assets.as_deref()
+    }
+
+    /// The assets a page links: the dev server's sources, else the build's hashed files.
+    #[must_use]
+    pub fn entries(&self) -> &assets::Entries {
+        match self.dev_assets.as_deref() {
+            Some(dev) => dev.entries(),
+            None => assets::entries(),
         }
     }
 
@@ -184,7 +210,10 @@ pub fn router_for(site: Site) -> Router {
         .route("/ui/skins/{skin}/{hash}/{*path}", get(pages::skin_asset))
         .route("/ui/theme/{file}", get(pages::theme_css))
         .fallback(pages::not_found)
-        .with_state(site)
+        .with_state(site.clone())
         .layer(axum::middleware::from_fn(pages::api_paths_refused))
-        .layer(axum::middleware::from_fn(pages::security_headers))
+        .layer(axum::middleware::from_fn_with_state(
+            site,
+            pages::security_headers,
+        ))
 }

@@ -80,6 +80,13 @@ struct Args {
     /// A directory of installed skins beside the shipped ones (`server.skins`, 0097 §8).
     #[arg(long, env = "TRIPLESPACE_SKINS")]
     skins: Option<std::path::PathBuf>,
+    /// A running Vite dev server (`npm run dev` in `ui/`), such as
+    /// `http://localhost:5173`, to take the site's assets from in place of the built
+    /// ones, so that a change under `ui/src` reaches the open page without a rebuild
+    /// (`server.vite`, 0034 §8). Development only: a release build has no such option.
+    #[cfg(debug_assertions)]
+    #[arg(long, env = "TRIPLESPACE_VITE")]
+    vite: Option<String>,
     /// How the instance sends mail (`mail.transport`, 0100 §5): `none`, `log`, `smtp` or
     /// `postmark`. `log` is refused in production.
     #[arg(long, env = "TRIPLESPACE_MAIL_TRANSPORT", default_value = "none")]
@@ -499,8 +506,19 @@ async fn run() -> Result<()> {
         args.ui
     );
     let api = router_with(app, triplespace_api_rest::routes());
+    #[cfg(debug_assertions)]
+    let dev = match args.vite.as_deref() {
+        Some(url) => {
+            let dev = triplespace_ui::assets::DevServer::new(url)?;
+            eprintln!("assets from the Vite dev server at {}", dev.origin());
+            Some(dev)
+        }
+        None => None,
+    };
+    #[cfg(not(debug_assertions))]
+    let dev = None;
     let router = if embedded {
-        with_site(api, args.skins.as_deref())
+        with_site(api, args.skins.as_deref(), dev)
     } else {
         api
     };
@@ -519,9 +537,15 @@ async fn run() -> Result<()> {
 /// The API's router with the site as its fallback, calling the API in process (0057 §1.4,
 /// §2): whatever the API does not route, the site serves, except the API's own paths,
 /// which the site refuses.
-fn with_site(api: axum::Router, skins: Option<&std::path::Path>) -> axum::Router {
+fn with_site(
+    api: axum::Router,
+    skins: Option<&std::path::Path>,
+    dev: Option<triplespace_ui::assets::DevServer>,
+) -> axum::Router {
     let client = Client::new(ServiceTransport::new(api.clone()));
-    let site = triplespace_ui::Site::new(client).with_skins_dir(skins);
+    let site = triplespace_ui::Site::new(client)
+        .with_skins_dir(skins)
+        .with_dev_assets(dev);
     api.fallback_service(triplespace_ui::router_for(site))
 }
 

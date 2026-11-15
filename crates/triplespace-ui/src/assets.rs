@@ -2,6 +2,11 @@
 //! in the binary in a release build and read from disk in a debug one. Its manifest names
 //! the hashed files a page links to.
 //!
+//! In development the files can come from a running Vite dev server instead ([`DevServer`];
+//! 22 §5.1): a page then links Vite's client and the source entries, requests under
+//! `/ui/assets/` are passed through to it, and a change under `ui/src` reaches the open
+//! page without a rebuild.
+//!
 //! A build without `ui/dist` (no Node on the machine, as in the Rust CI job) still
 //! compiles and serves pages; they link no stylesheet or script, which a page reads
 //! without.
@@ -28,6 +33,12 @@ pub struct Entries {
     /// The blocking script in `<head>` that applies a reader's stored appearance before
     /// the first paint (0085 §6).
     pub head_js: Option<String>,
+    /// Whether the head script is a module: only under a dev server, which serves the
+    /// source with its imports, where the build wraps one classic script.
+    pub head_module: bool,
+    /// Vite's client, the module that keeps the page current with the sources; only
+    /// under a dev server.
+    pub dev_client: Option<String>,
 }
 
 fn entry(manifest: &serde_json::Value, src: &str) -> Option<String> {
@@ -49,6 +60,8 @@ static MANIFEST: LazyLock<(Entries, String)> = LazyLock::new(|| {
         css_rtl: entry(&manifest, "src/site-rtl.css"),
         js: entry(&manifest, "src/main.js"),
         head_js: entry(&manifest, "src/head.js"),
+        head_module: false,
+        dev_client: None,
     };
     // The build ID: the crate's version and the manifest's hash, so that a new frontend is
     // a new build even when the Rust is unchanged (0057 §8).
@@ -63,6 +76,201 @@ static MANIFEST: LazyLock<(Entries, String)> = LazyLock::new(|| {
 #[must_use]
 pub fn entries() -> &'static Entries {
     &MANIFEST.0
+}
+
+/// The path every file of the build is served under, and Vite's `base` (`ui/vite.config.js`).
+pub const BASE: &str = "/ui/assets/";
+
+/// A Vite dev server the site takes its assets from in development (22 §5.1), in place
+/// of the hashed files of `ui/dist`. With the embedded build above, this implements
+/// 0034 §8 (A19).
+///
+/// The page links the server's client and the source entries under [`BASE`], on the
+/// site's own origin; the site passes those requests through ([`DevServer::fetch`]), so
+/// only the client's WebSocket goes to the dev server directly. What Vite does not serve
+/// (a type set's built font files) still comes from `ui/dist`.
+#[derive(Debug, Clone)]
+pub struct DevServer {
+    /// The server's origin, `http://localhost:5173`: scheme, host and port, no path.
+    origin: String,
+    entries: Entries,
+    http: reqwest::Client,
+}
+
+/// Why a dev server's URL is refused.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct DevServerError(String);
+
+impl std::fmt::Display for DevServerError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&self.0)
+    }
+}
+
+impl std::error::Error for DevServerError {}
+
+/// The request headers passed to the dev server: what Vite reads to choose a
+/// representation (a stylesheet asked for by a `<link>` is served as CSS, by an `import`
+/// as a module) and to answer `304`.
+const DEV_REQUEST_HEADERS: [&str; 5] = [
+    "accept",
+    "sec-fetch-dest",
+    "sec-fetch-mode",
+    "if-none-match",
+    "if-modified-since",
+];
+
+/// The response headers passed back from it.
+const DEV_RESPONSE_HEADERS: [&str; 4] = ["content-type", "etag", "last-modified", "cache-control"];
+
+impl DevServer {
+    /// The dev server at a URL: `http` or `https`, with a host, and nothing after it but
+    /// `/`, since Vite's `base` is [`BASE`] and the site names every path itself.
+    ///
+    /// # Errors
+    /// A URL that is not one, has another scheme, or carries a path, query or credentials.
+    pub fn new(url: &str) -> Result<Self, DevServerError> {
+        let bad = |why: &str| DevServerError(format!("the Vite dev server `{url}` {why}"));
+        let parsed = url::Url::parse(url).map_err(|e| bad(&format!("is not a URL: {e}")))?;
+        if !matches!(parsed.scheme(), "http" | "https") {
+            return Err(bad("is not an http or https URL"));
+        }
+        if parsed.host_str().is_none_or(str::is_empty) {
+            return Err(bad("names no host"));
+        }
+        if !matches!(parsed.path(), "" | "/")
+            || parsed.query().is_some()
+            || parsed.fragment().is_some()
+            || !parsed.username().is_empty()
+            || parsed.password().is_some()
+        {
+            return Err(bad("must be an origin only, such as http://localhost:5173"));
+        }
+        let at = |src: &str| Some(format!("{BASE}{src}"));
+        Ok(Self {
+            // The serialization of an origin holds a scheme, a host and a port: nothing
+            // that could end a directive of the Content Security Policy.
+            origin: parsed.origin().ascii_serialization(),
+            entries: Entries {
+                css: at("src/site.css"),
+                css_rtl: at("src/site-rtl.css"),
+                js: at("src/main.js"),
+                head_js: at("src/head.js"),
+                head_module: true,
+                dev_client: at("@vite/client"),
+            },
+            // The dev server is on this machine or beside it: never through a proxy the
+            // environment names.
+            http: reqwest::Client::builder()
+                .no_proxy()
+                .build()
+                .map_err(|e| bad(&format!("cannot be reached: {e}")))?,
+        })
+    }
+
+    /// The server's origin.
+    #[must_use]
+    pub fn origin(&self) -> &str {
+        &self.origin
+    }
+
+    /// The origin of the WebSocket Vite's client opens to the server: the same host and
+    /// port, `ws` for `http` and `wss` for `https`.
+    #[must_use]
+    pub fn socket_origin(&self) -> String {
+        match self.origin.split_once("://") {
+            Some(("https", rest)) => format!("wss://{rest}"),
+            Some((_, rest)) => format!("ws://{rest}"),
+            None => self.origin.clone(),
+        }
+    }
+
+    /// The entries a page links under this server.
+    #[must_use]
+    pub fn entries(&self) -> &Entries {
+        &self.entries
+    }
+
+    /// The Content Security Policy of a response under this server: `policy` with the
+    /// server's WebSocket among the sources a script may connect to, and with `<style>`
+    /// elements allowed, which is how Vite applies a stylesheet a module imports, and
+    /// with fonts from `data:` URLs, which is how it serves a small one. Nothing else is
+    /// widened: scripts and stylesheets still come from the site's own origin.
+    #[must_use]
+    pub fn widen_csp(&self, policy: &str) -> String {
+        let mut out: Vec<String> = Vec::new();
+        let mut connect = false;
+        for directive in policy.split(';').map(str::trim).filter(|d| !d.is_empty()) {
+            let name = directive.split_whitespace().next().unwrap_or_default();
+            match name {
+                "style-src" if !directive.contains("'unsafe-inline'") => {
+                    out.push(format!("{directive} 'unsafe-inline'"));
+                }
+                // Vite's dev server inlines a small font into the stylesheet as a
+                // `data:` URL, where the build links a hashed file.
+                "font-src" if !directive.contains("data:") => {
+                    out.push(format!("{directive} data:"));
+                }
+                "connect-src" => {
+                    connect = true;
+                    out.push(format!("{directive} {}", self.socket_origin()));
+                }
+                _ => out.push(directive.to_string()),
+            }
+        }
+        if !connect {
+            out.push(format!("connect-src 'self' {}", self.socket_origin()));
+        }
+        out.join("; ")
+    }
+
+    /// A file under [`BASE`] from the dev server: its status, the headers a browser
+    /// needs, and its body. `None` when the server has no such file, or cannot be
+    /// reached, and the caller falls back to `ui/dist`.
+    pub async fn fetch(
+        &self,
+        path: &str,
+        query: Option<&str>,
+        headers: &axum::http::HeaderMap,
+    ) -> Option<axum::response::Response> {
+        use axum::response::IntoResponse as _;
+        let mut url = format!("{}{BASE}{path}", self.origin);
+        if let Some(q) = query {
+            url.push('?');
+            url.push_str(q);
+        }
+        let mut request = self.http.get(&url);
+        for name in DEV_REQUEST_HEADERS {
+            if let Some(v) = headers.get(name) {
+                request = request.header(name, v.as_bytes());
+            }
+        }
+        let answer = match request.send().await {
+            Ok(a) => a,
+            Err(e) => {
+                eprintln!(
+                    "triplespace-ui: the Vite dev server at {} did not answer: {e}",
+                    self.origin
+                );
+                return None;
+            }
+        };
+        let status = answer.status();
+        if status == reqwest::StatusCode::NOT_FOUND {
+            return None;
+        }
+        let mut out = axum::http::HeaderMap::new();
+        for name in DEV_RESPONSE_HEADERS {
+            if let Some(v) = answer.headers().get(name)
+                && let Ok(v) = axum::http::HeaderValue::from_bytes(v.as_bytes())
+            {
+                out.insert(axum::http::HeaderName::from_static(name), v);
+            }
+        }
+        let body = answer.bytes().await.ok()?;
+        let status = axum::http::StatusCode::from_u16(status.as_u16()).ok()?;
+        Some((status, out, body.to_vec()).into_response())
+    }
 }
 
 /// The `@font-face` rules of a shipped type set's typefaces (0086 §3), built from
@@ -140,6 +348,50 @@ pub fn content_type(path: &str) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // 0034 §8: under a dev server a page links Vite's client and the sources.
+    #[test]
+    fn a_dev_server_names_the_sources_and_widens_only_what_vite_needs() {
+        let dev = DevServer::new("http://localhost:5173/").unwrap();
+        assert_eq!(dev.origin(), "http://localhost:5173");
+        let e = dev.entries();
+        assert_eq!(e.dev_client.as_deref(), Some("/ui/assets/@vite/client"));
+        assert_eq!(e.js.as_deref(), Some("/ui/assets/src/main.js"));
+        assert_eq!(e.css.as_deref(), Some("/ui/assets/src/site.css"));
+        assert_eq!(e.css_rtl.as_deref(), Some("/ui/assets/src/site-rtl.css"));
+        assert!(e.head_module);
+        let csp = dev.widen_csp(crate::pages::CSP);
+        assert!(csp.contains("style-src 'self' 'unsafe-inline';"), "{csp}");
+        assert!(
+            csp.contains("connect-src 'self' ws://localhost:5173"),
+            "{csp}"
+        );
+        // Scripts still come from the site's own origin alone.
+        assert!(csp.contains("script-src 'self';"), "{csp}");
+        assert!(csp.contains("style-src-attr 'unsafe-inline'"), "{csp}");
+        assert!(csp.contains("font-src 'self' data:;"), "{csp}");
+        assert_eq!(
+            DevServer::new("https://vite.test").unwrap().socket_origin(),
+            "wss://vite.test"
+        );
+        // The built entries never carry the dev server's pieces.
+        assert!(entries().dev_client.is_none());
+        assert!(!entries().head_module);
+    }
+
+    #[test]
+    fn a_dev_server_url_is_an_origin() {
+        for bad in [
+            "localhost:5173",
+            "ftp://localhost",
+            "http://localhost:5173/ui",
+            "http://localhost:5173/?x=1",
+            "http://user:pw@localhost:5173",
+            "not a url",
+        ] {
+            assert!(DevServer::new(bad).is_err(), "{bad}");
+        }
+    }
 
     #[test]
     fn content_types_and_refusals() {

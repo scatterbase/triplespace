@@ -20,8 +20,11 @@
 {%- if typeset_href %}
 <link rel="stylesheet" id="ts-typeset" href="{{ typeset_href }}">
 {%- endif %}
+{%- if dev_client %}
+<script type="module" src="{{ dev_client }}"></script>
+{%- endif %}
 {%- if head_js %}
-<script src="{{ head_js }}"></script>
+<script{% if head_module %} type="module"{% endif %} src="{{ head_js }}"></script>
 {%- endif %}
 {%- if js %}
 <script type="module" src="{{ js }}"></script>

@@ -116,6 +116,8 @@ pub struct Chrome<'a> {
     pub mainpage: &'a str,
     /// What the site offers.
     pub features: &'a Features,
+    /// The stylesheet and scripts the page links (0034 §8).
+    pub assets: &'a assets::Entries,
     /// A signed-in viewer's resolved preferences, which the Appearance menu and
     /// `<html>` draw on (0085 §6); `None` for anyone else.
     pub prefs: Option<&'a serde_json::Map<String, serde_json::Value>>,
@@ -184,6 +186,10 @@ pub struct Model {
     pub js: Option<String>,
     /// The blocking script in `<head>`.
     pub head_js: Option<String>,
+    /// Whether the head script is a module, as a dev server serves it (0034 §8).
+    pub head_module: bool,
+    /// Vite's client, under a dev server.
+    pub dev_client: Option<String>,
     /// The palette's stylesheet.
     pub palette_href: Option<String>,
     /// The type set's stylesheet.
@@ -448,7 +454,7 @@ pub fn model(
     let (bell, orange_bar) = notices(m, chrome.notifications, user_talk.as_deref());
     // The orange bar is not drawn on the page it points to.
     let orange_bar = orange_bar.filter(|_| user_talk.as_deref() != Some(page.title.as_str()));
-    let entries = assets::entries();
+    let entries = chrome.assets;
     let site_css = if m.dir() == "rtl" {
         entries.css_rtl.as_deref()
     } else {
@@ -494,6 +500,8 @@ pub fn model(
         stylesheets,
         js: entries.js.clone(),
         head_js: entries.head_js.clone(),
+        head_module: entries.head_module,
+        dev_client: entries.dev_client.clone(),
         palette_href: theme.href(Sheet::Palette, &palette),
         typeset_href: theme.href(Sheet::Typeset, &typeset),
         theme_data: theme.data(),
@@ -577,6 +585,7 @@ mod tests {
             sitename: "Librarybase",
             mainpage: "Project:Home",
             features,
+            assets: assets::entries(),
             prefs: None,
             account_requests: None,
             notifications: None,
