@@ -931,6 +931,26 @@ group = "wikibaserepo"
 restricted = "createpage"
 adr = "0104 §11, 0106"
 
+# A file read as that page's table, or as QuickStatements commands (0106 §7, A9).
+[[page]]
+name = "CreateEntitiesFromFile"
+origin = "triplespace"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+restricted = "createpage"
+adr = "0106 §7"
+
+# QuickStatements V1 commands read as that page's table (0106 A9).
+[[page]]
+name = "QuickStatements"
+origin = "triplespace"
+status = "served"
+scope = "tenant"
+group = "wikibaserepo"
+restricted = "createpage"
+adr = "0106 §7"
+
 [[page]]
 name = "CreateSprint"
 origin = "triplespace"

@@ -1,208 +1,199 @@
 <template>
-	<div class="ts-sheet-create">
-		<MapColumns
-			v-if="mapping"
-			:data="data"
+	<div ref="root" class="ts-sheet-create">
+		<CdxMessage v-if="notice" type="notice">
+			{{ notice }}
+		</CdxMessage>
+		<CdxMessage v-if="problem" type="error">
+			{{ problem }}
+		</CdxMessage>
+		<form
+			v-if="panel === 'add'"
+			class="ts-sheet__panel"
+			@submit.prevent.stop="addColumn">
+			<select
+				v-model="adding.target"
+				class="cdx-select"
+				:aria-label="t( 'ts-sheet-add-column' )">
+				<option
+					v-for="o in addable"
+					:key="o"
+					:value="o">
+					{{ t( `ts-sheet-target-${ o }` ) }}
+				</option>
+			</select>
+			<input
+				v-if="isTerm( adding.target )"
+				v-model="adding.language"
+				class="cdx-text-input__input ts-sheet-map__short"
+				type="text"
+				:aria-label="t( 'ts-sheet-language' )">
+			<EntityLookup
+				v-if="adding.target === 'reference'"
+				:api="api"
+				:lang="data.lang"
+				type="property"
+				:label="t( 'ts-sheet-reference-of' )"
+				:placeholder="t( 'ts-sheet-reference-of' )"
+				@pick="( id ) => { adding.of = id; }"
+			/>
+			<EntityLookup
+				v-if="needsProperty( adding.target )"
+				:key="adding.target"
+				:api="api"
+				:lang="data.lang"
+				type="property"
+				:label="t( 'ts-sheet-property' )"
+				:placeholder="t( 'ts-sheet-property' )"
+				@pick="( id ) => { adding.property = id; }"
+			/>
+			<input
+				v-if="adding.target === 'new' || adding.target === 'reads'"
+				v-model="adding.label"
+				class="cdx-text-input__input"
+				type="text"
+				:aria-label="nameLabel"
+				:placeholder="nameLabel">
+			<select
+				v-if="adding.target === 'new'"
+				v-model="adding.datatype"
+				class="cdx-select"
+				:aria-label="t( 'ts-sheet-datatype' )">
+				<option value="">
+					{{ t( 'ts-sheet-datatype-later' ) }}
+				</option>
+				<option
+					v-for="d in data.datatypes"
+					:key="d"
+					:value="d">
+					{{ d }}
+				</option>
+			</select>
+			<CdxButton type="submit" action="progressive">
+				{{ t( 'ts-sheet-add' ) }}
+			</CdxButton>
+			<CdxButton type="button" @click="panel = null">
+				{{ t( 'ts-sheet-cancel' ) }}
+			</CdxButton>
+		</form>
+		<div
+			v-if="typeof panel === 'number'"
+			class="ts-sheet__panel">
+			<strong>{{ headers[ panel ] ? headers[ panel ].label : '' }}</strong>
+			<CdxButton type="button" @click="fillDown( panel as number )">
+				{{ t( 'ts-sheet-fill-down' ) }}
+			</CdxButton>
+			<input
+				v-model="find"
+				class="cdx-text-input__input"
+				type="text"
+				:aria-label="t( 'ts-sheet-find' )"
+				:placeholder="t( 'ts-sheet-find' )"
+				@keydown.enter.prevent>
+			<input
+				v-model="replacement"
+				class="cdx-text-input__input"
+				type="text"
+				:aria-label="t( 'ts-sheet-replace-with' )"
+				:placeholder="t( 'ts-sheet-replace-with' )"
+				@keydown.enter.prevent>
+			<CdxButton
+				type="button"
+				:disabled="find === ''"
+				@click="replaceIn( panel as number )">
+				{{ t( 'ts-sheet-replace' ) }}
+			</CdxButton>
+			<CdxButton
+				type="button"
+				action="destructive"
+				@click="removeColumn( panel as number )">
+				{{ t( 'ts-sheet-remove-column' ) }}
+			</CdxButton>
+		</div>
+		<CellLookup
+			v-if="lookupFor"
 			:api="api"
-			:sheet="mapping"
-			@apply="mapped"
-			@cancel="mapping = null"
+			:lang="data.lang"
+			:label="lookupFor.label"
+			:at="`${ lookupFor.r }-${ lookupFor.c }`"
+			@pick="picked"
 		/>
-		<template v-else>
-			<div class="ts-sheet__bar">
-				<CdxButton
-					type="button"
-					:aria-pressed="mode === 'grid'"
-					@click="show( 'grid' )">
-					{{ t( 'ts-sheet-mode-grid' ) }}
-				</CdxButton>
-				<CdxButton
-					type="button"
-					:aria-pressed="mode === 'text'"
-					@click="show( 'text' )">
-					{{ t( 'ts-sheet-mode-text' ) }}
-				</CdxButton>
-				<template v-if="mode === 'grid'">
-					<CdxButton type="button" @click="addRow">
-						{{ t( 'ts-sheet-add-row' ) }}
-					</CdxButton>
-					<CdxButton type="button" @click="panel = panel === 'add' ? null : 'add'">
-						{{ t( 'ts-sheet-add-column' ) }}
-					</CdxButton>
-					<CdxButton
-						type="button"
-						action="progressive"
-						:disabled="checking"
-						@click="check">
-						{{ checking ? t( 'ts-sheet-checking' ) : t( 'ts-sheet-check' ) }}
-					</CdxButton>
-					<label class="ts-sheet__filter">
-						<input v-model="onlyProblems" type="checkbox">
-						{{ t( 'ts-sheet-only-problems' ) }}
-					</label>
-				</template>
-			</div>
-			<CdxMessage v-if="notice" type="notice">
-				{{ notice }}
-			</CdxMessage>
-			<CdxMessage v-if="problem" type="error">
-				{{ problem }}
-			</CdxMessage>
-			<template v-if="mode === 'grid'">
-				<form
-					v-if="panel === 'add'"
-					class="ts-sheet__panel"
-					@submit.prevent="addColumn">
-					<select
-						v-model="adding.target"
-						class="cdx-select"
-						:aria-label="t( 'ts-sheet-add-column' )">
-						<option
-							v-for="o in addable"
-							:key="o"
-							:value="o">
-							{{ t( `ts-sheet-target-${ o }` ) }}
-						</option>
-					</select>
-					<input
-						v-if="isTerm( adding.target )"
-						v-model="adding.language"
-						class="cdx-text-input__input ts-sheet-map__short"
-						type="text"
-						:aria-label="t( 'ts-sheet-language' )">
-					<EntityLookup
-						v-if="adding.target === 'reference'"
-						:api="api"
-						:lang="data.lang"
-						type="property"
-						:label="t( 'ts-sheet-reference-of' )"
-						:placeholder="t( 'ts-sheet-reference-of' )"
-						@pick="( id ) => { adding.of = id; }"
-					/>
-					<EntityLookup
-						v-if="needsProperty( adding.target )"
-						:key="adding.target"
-						:api="api"
-						:lang="data.lang"
-						type="property"
-						:label="t( 'ts-sheet-property' )"
-						:placeholder="t( 'ts-sheet-property' )"
-						@pick="( id ) => { adding.property = id; }"
-					/>
-					<input
-						v-if="adding.target === 'new' || adding.target === 'reads'"
-						v-model="adding.label"
-						class="cdx-text-input__input"
-						type="text"
-						:aria-label="nameLabel"
-						:placeholder="nameLabel">
-					<select
-						v-if="adding.target === 'new'"
-						v-model="adding.datatype"
-						class="cdx-select"
-						:aria-label="t( 'ts-sheet-datatype' )">
-						<option value="">
-							{{ t( 'ts-sheet-datatype-later' ) }}
-						</option>
-						<option
-							v-for="d in data.datatypes"
-							:key="d"
-							:value="d">
-							{{ d }}
-						</option>
-					</select>
-					<CdxButton type="submit" action="progressive">
-						{{ t( 'ts-sheet-add' ) }}
-					</CdxButton>
-				</form>
-				<form
-					v-if="typeof panel === 'number'"
-					class="ts-sheet__panel"
-					@submit.prevent>
-					<strong>{{ headers[ panel ] ? headers[ panel ].label : '' }}</strong>
-					<CdxButton type="button" @click="fillDown( panel as number )">
-						{{ t( 'ts-sheet-fill-down' ) }}
-					</CdxButton>
-					<input
-						v-model="find"
-						class="cdx-text-input__input"
-						type="text"
-						:aria-label="t( 'ts-sheet-find' )"
-						:placeholder="t( 'ts-sheet-find' )">
-					<input
-						v-model="replacement"
-						class="cdx-text-input__input"
-						type="text"
-						:aria-label="t( 'ts-sheet-replace-with' )"
-						:placeholder="t( 'ts-sheet-replace-with' )">
-					<CdxButton
-						type="button"
-						:disabled="find === ''"
-						@click="replaceIn( panel as number )">
-						{{ t( 'ts-sheet-replace' ) }}
-					</CdxButton>
-					<CdxButton
-						type="button"
-						action="destructive"
-						@click="removeColumn( panel as number )">
-						{{ t( 'ts-sheet-remove-column' ) }}
-					</CdxButton>
-				</form>
-				<CellLookup
-					v-if="lookupFor"
-					:api="api"
-					:lang="data.lang"
-					:label="lookupFor.label"
-					:at="`${ lookupFor.r }-${ lookupFor.c }`"
-					@pick="picked"
-				/>
-				<SheetGrid
-					:headers="headers"
-					:rows="shown"
-					:lead-heading="t( 'ts-sheet-row' )"
-					:status-heading="t( 'ts-sheet-status' )"
-					:cell-label="( h, lead ) => t( 'ts-sheet-cell', h, lead )"
-					:menu-label="( h ) => t( 'ts-sheet-column-menu', h )"
-					:remove-label="( lead ) => t( 'ts-sheet-remove-row', lead )"
-					@edit="edit"
-					@paste="paste"
-					@fill="fillFromAbove"
-					@menu="( c ) => { panel = panel === c ? null : c; }"
-					@remove="removeRow"
-					@focus="focused"
-				/>
-				<p v-if="outcome" class="ts-sheet__summary">
-					{{ outcome }}
-				</p>
-				<p v-else-if="stale && result" class="ts-sheet__summary ts-sheet__summary--stale">
-					{{ t( 'ts-sheet-stale' ) }}
-				</p>
-				<ul v-if="result && !stale && result.notices.length" class="ts-sheet__notices">
-					<li
-						v-for="( n, i ) in result.notices"
-						:key="i"
-						:class="{ 'ts-sheet__notice--error': n.error }">
-						{{ n.text }}
-					</li>
-				</ul>
-			</template>
-		</template>
+		<SheetGrid
+			:headers="headers"
+			:rows="shown"
+			:lead-heading="t( 'ts-sheet-row' )"
+			:status-heading="t( 'ts-sheet-status' )"
+			:cell-label="( h, lead ) => t( 'ts-sheet-cell', h, lead )"
+			:menu-label="( h ) => t( 'ts-sheet-column-menu', h )"
+			:remove-label="( lead ) => t( 'ts-sheet-remove-row', lead )"
+			:add-column-label="t( 'ts-sheet-add-column' )"
+			:add-row-label="t( 'ts-sheet-add-row' )"
+			@edit="edit"
+			@paste="paste"
+			@fill="fillFromAbove"
+			@menu="( c ) => { panel = panel === c ? null : c; }"
+			@remove="removeRow"
+			@focus="focused"
+			@add-column="panel = panel === 'add' ? null : 'add'"
+			@add-row="addRow"
+		/>
+		<div class="ts-sheet__after" aria-live="polite">
+			<p v-if="outcome" class="ts-sheet__summary">
+				{{ outcome }}
+			</p>
+			<p v-else-if="stale && result" class="ts-sheet__summary ts-sheet__summary--stale">
+				{{ t( 'ts-sheet-stale' ) }}
+			</p>
+			<label v-if="fresh" class="ts-sheet__filter">
+				<input v-model="onlyProblems" type="checkbox">
+				{{ t( 'ts-sheet-only-problems' ) }}
+			</label>
+		</div>
+		<ul v-if="fresh && fresh.notices.length" class="ts-sheet__notices">
+			<li
+				v-for="( n, i ) in fresh.notices"
+				:key="i"
+				:class="{ 'ts-sheet__notice--error': n.error }">
+				{{ n.text }}
+			</li>
+		</ul>
+		<Teleport v-if="sharedHost && sharedBox" :to="sharedHost">
+			<LinesEditor
+				:data="data"
+				:api="api"
+				:box="sharedBox"
+				kind="shared"
+				:columns="[]"
+			/>
+		</Teleport>
+		<Teleport v-if="referenceHost && referenceBox" :to="referenceHost">
+			<LinesEditor
+				:key="referenceVersion"
+				:data="data"
+				:api="api"
+				:box="referenceBox"
+				kind="reference"
+				:columns="plainColumns"
+			/>
+		</Teleport>
 	</div>
 </template>
 
 <script setup lang="ts">
 // The table of Special:CreateManyEntities as a grid, one row per item, over the same
 // text the page posts (ADR 0106 §1, §6; 21 §6.7). Every change is written into the
-// form's text box, so checking, saving a draft and importing are the form's own, with
-// or without this script. The page's check is asked for as JSON to show each row's
-// status; what the check writes back into the text (a matched row's `id`, a proposed
-// data type) is taken up. A file chosen in the form is mapped here first (0106 §7).
-import { computed, onBeforeUnmount, onMounted, reactive, ref } from 'vue';
+// form's text box, which the grid stands in for. The form's one button checks the rows
+// and then imports them (0106 A9): its first press asks the page for its check as JSON
+// and shows each row's status, what the check wrote back into the text (a matched row's
+// `id`, a proposed data type) being taken up; pressed again with nothing changed since,
+// it posts the confirmation the check answered with, which the page without this
+// script shows as a form of its own. The statements on every item and the reference on
+// every statement are edited as lists beside the grid, over their own text boxes.
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { CdxButton, CdxMessage } from '@wikimedia/codex';
 import EntityLookup from '../edit/EntityLookup.vue';
 import type { Api } from '../edit/api';
 import CellLookup from './CellLookup.vue';
-import MapColumns from './MapColumns.vue';
+import LinesEditor from './LinesEditor.vue';
 import SheetGrid from './SheetGrid.vue';
 import type { SheetHeader, SheetRow } from './sheet';
 import { runCheck } from './check';
@@ -211,14 +202,16 @@ import { msg } from './data';
 import type { CreateData } from './data';
 import { apply, complete, emptyMapping } from './mapping';
 import type { Target } from './mapping';
-import { readFile } from './readers';
-import type { Sheet as FileSheet } from './readers';
 import { column, joinValues, rowRef, rowsOf, splitValues, textOf } from './text';
 
 const props = defineProps<{
 	data: CreateData;
 	api: Api;
 	form: HTMLFormElement;
+	/** Where the statements on every item are edited, beside their text box. */
+	sharedHost?: HTMLElement;
+	/** Where the reference on every statement is. */
+	referenceHost?: HTMLElement;
 }>();
 
 const t = ( key: string, ...params: string[] ): string => msg( props.data, key, ...params );
@@ -226,16 +219,19 @@ const t = ( key: string, ...params: string[] ): string => msg( props.data, key, 
 type Field = HTMLTextAreaElement | HTMLInputElement | null;
 const field = ( name: string ): Field => props.form.elements.namedItem( name ) as Field;
 const area = field( 'rows' ) as HTMLTextAreaElement;
-const file = field( 'file' ) as HTMLInputElement | null;
+const sharedBox = field( 'shared' ) as HTMLTextAreaElement | null;
+const referenceBox = field( 'reference' ) as HTMLTextAreaElement | null;
+// The form's button, which checks the rows and then imports them.
+const button = props.form.querySelector<HTMLButtonElement>( 'button[type="submit"]:not([name])' );
 // The text box's field, label and help together, which the grid stands in for.
 const areaField = area.closest<HTMLElement>( '.cdx-field' ) ?? area;
 
+const root = ref<HTMLElement | null>( null );
 const starting = rowsOf( area.value );
 // One list of rows, the header first, every row as wide as the header.
 const table = ref<string[][]>( starting.length ?
 	starting :
 	[ [ 'label', 'description', 'aliases' ], [ '', '', '' ] ] );
-const mode = ref<'grid' | 'text'>( 'grid' );
 const result = ref<Check | null>( null );
 const stale = ref( false );
 const checking = ref( false );
@@ -246,7 +242,8 @@ const panel = ref<'add' | number | null>( null );
 const find = ref( '' );
 const replacement = ref( '' );
 const active = ref<{ r: number; c: number } | null>( null );
-const mapping = ref<FileSheet | null>( null );
+// Counts the lines the grid itself wrote into the reference, so that its list reads them.
+const referenceVersion = ref( 0 );
 const adding = reactive( { ...emptyMapping( props.data.lang ), target: 'property' as Target } );
 
 const isTerm = ( x: Target ): boolean => x === 'label' || x === 'description' || x === 'aliases';
@@ -448,6 +445,7 @@ function addReference( lines: string[] ): void {
 	const have = box.value.split( '\n' ).map( ( l ) => l.trim() );
 	const more = lines.filter( ( l ) => !have.includes( l ) );
 	box.value = [ box.value.trim(), ...more ].filter( ( l ) => l !== '' ).join( '\n' );
+	referenceVersion.value++;
 }
 
 function focused( key: string, c: number ): void {
@@ -514,69 +512,78 @@ async function check(): Promise<void> {
 	}
 }
 
-function show( next: 'grid' | 'text' ): void {
-	if ( next === mode.value ) {
-		return;
+// The columns the reference on every statement can read: the plain ones.
+const plainColumns = computed( () => table.value[ 0 ].filter( ( _, i ) => columns.value[ i ].kind === 'plain' ) );
+
+// The confirmation the last check answered with, while nothing has changed since.
+const ready = computed( () => {
+	const found = fresh.value;
+	return found?.hidden?.length && found.confirm ? found : null;
+} );
+
+// The button says what pressing it does: check the rows, or write them.
+watch( [ ready, checking ], () => {
+	if ( button ) {
+		button.textContent = checking.value ?
+			t( 'ts-sheet-checking' ) :
+			( ready.value?.confirm ?? props.data.check );
+		button.disabled = checking.value;
 	}
-	if ( next === 'grid' ) {
-		const rows = rowsOf( area.value );
-		table.value = rows.length ? rows : [ [ 'label', 'description', 'aliases' ], [ '', '', '' ] ];
-		normalize();
-		stale.value = result.value !== null;
-	} else {
+} );
+
+// Posts the confirmation, as the page's own confirmation form would.
+function confirm( hidden: [ string, string ][] ): void {
+	const doc = props.form.ownerDocument;
+	const post = doc.createElement( 'form' );
+	post.method = 'post';
+	post.action = props.form.getAttribute( 'action' ) ?? '';
+	post.hidden = true;
+	for ( const [ name, value ] of hidden ) {
+		const input = doc.createElement( 'input' );
+		input.type = 'hidden';
+		input.name = name;
+		input.value = value;
+		post.append( input );
+	}
+	doc.body.append( post );
+	post.submit();
+}
+
+// The form's button: the first press checks, the second writes. Saving a draft is the
+// form's own.
+function submitted( e: SubmitEvent ): void {
+	const by = e.submitter as HTMLButtonElement | null;
+	if ( by?.name === 'wpSave' ) {
 		sync();
-	}
-	mode.value = next;
-	areaField.hidden = next === 'grid';
-}
-
-// A chosen file is read here and mapped, and never uploaded: the grid holds its rows.
-async function chosen(): Promise<void> {
-	const upload = file?.files?.[ 0 ];
-	if ( !upload || !file ) {
 		return;
 	}
-	problem.value = '';
-	notice.value = '';
-	try {
-		const sheet = await readFile( upload, props.data.lang );
-		file.value = '';
-		if ( mode.value === 'text' ) {
-			show( 'grid' );
-		}
-		const body = table.value.slice( 1 ).filter( ( r ) => r.some( ( c ) => c !== '' ) );
-		const kept = table.value[ 0 ].filter( ( h ) => h.toLowerCase() !== 'id' );
-		const known = kept.some( ( h ) => column( h, props.data.lang ).kind !== 'plain' );
-		if ( !body.length && known && kept.length === sheet.headers.length && field( 'draft' ) ) {
-			// A saved mapping: a draft with columns and no rows, and a file of its shape.
-			table.value = [ kept, ...sheet.rows ];
-			notice.value = t( 'ts-sheet-map-saved', String( sheet.rows.length ) );
-			sync();
-			return;
-		}
-		mapping.value = sheet;
-	} catch ( e ) {
-		file.value = '';
-		problem.value = t( 'ts-sheet-file-failed', e instanceof Error ? e.message : String( e ) );
+	e.preventDefault();
+	if ( checking.value ) {
+		return;
 	}
+	if ( ready.value?.hidden ) {
+		checking.value = true;
+		confirm( ready.value.hidden );
+		return;
+	}
+	check().catch( () => {} );
 }
 
-function mapped( rows: string[][], reference: string[] ): void {
-	mapping.value = null;
-	table.value = rows.length > 1 ? rows : [ rows[ 0 ], rows[ 0 ].map( () => '' ) ];
-	addReference( reference );
-	result.value = null;
-	sync();
+// Anything typed beside the grid (a shared statement, the batch) makes the check stale.
+// What is typed within it either changes the table, which says so itself, or does not
+// (the filter, a column's find and replace).
+function changed( e: Event ): void {
+	if ( root.value && e.target instanceof Node && root.value.contains( e.target ) ) {
+		return;
+	}
+	stale.value = result.value !== null;
 }
-
-const onChosen = (): void => {
-	chosen().catch( () => {} );
-};
 
 onMounted( () => {
 	normalize();
 	areaField.hidden = true;
-	file?.addEventListener( 'change', onChosen );
+	props.form.addEventListener( 'submit', submitted );
+	props.form.addEventListener( 'input', changed );
 	// A page that came back from the server's own check shows its findings already.
 	if ( area.value.trim() !== '' && props.form.ownerDocument.querySelector( '.ts-createentities__preview' ) ) {
 		check().catch( () => {} );
@@ -584,7 +591,8 @@ onMounted( () => {
 } );
 
 onBeforeUnmount( () => {
-	file?.removeEventListener( 'change', onChosen );
+	props.form.removeEventListener( 'submit', submitted );
+	props.form.removeEventListener( 'input', changed );
 	areaField.hidden = false;
 } );
 </script>

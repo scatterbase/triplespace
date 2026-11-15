@@ -1,100 +1,115 @@
 <template>
 	<div class="ts-sheet">
-		<table class="ts-sheet__table">
-			<thead>
-				<tr>
-					<th scope="col" class="ts-sheet__corner">
-						{{ leadHeading }}
-					</th>
-					<th
-						v-if="statusHeading"
-						scope="col"
-						class="ts-sheet__status-heading">
-						{{ statusHeading }}
-					</th>
-					<th
-						v-for="( h, c ) in headers"
-						:key="c"
-						scope="col"
-						:class="{ 'ts-sheet__heading--active': active && active.c === c }">
-						<span class="ts-sheet__heading">{{ h.label }}</span>
-						<button
-							v-if="h.menu"
-							type="button"
-							class="ts-sheet__menu"
-							:aria-label="menuLabel( h.label )"
-							:title="menuLabel( h.label )"
-							@click="emit( 'menu', c )">
-							⋯
-						</button>
-						<span v-if="h.sub" class="ts-sheet__sub">{{ h.sub }}</span>
-					</th>
-				</tr>
-			</thead>
-			<tbody>
-				<template v-for="( row, r ) in rows" :key="row.key">
-					<tr class="ts-sheet__row" :class="rowClass( row, r )">
-						<th scope="row" class="ts-sheet__lead">
-							<a v-if="row.href" :href="row.href">{{ row.lead }}</a>
-							<span v-else>{{ row.lead }}</span>
-							<button
-								v-if="row.removable"
-								type="button"
-								class="ts-sheet__remove"
-								:aria-label="removeLabel( row.lead )"
-								:title="removeLabel( row.lead )"
-								@click="emit( 'remove', row.key )">
-								×
-							</button>
+		<div class="ts-sheet__frame" :class="{ 'ts-sheet__frame--grows': grows }">
+			<table class="ts-sheet__table">
+				<thead>
+					<tr>
+						<th scope="col" class="ts-sheet__corner">
+							{{ leadHeading }}
 						</th>
-						<td v-if="statusHeading" class="ts-sheet__status-cell">
-							<span
-								v-if="row.status"
-								class="ts-sheet__status"
-								:class="statusClass( row )">{{ row.status }}</span>
-						</td>
-						<td
-							v-for="( cell, c ) in row.cells"
+						<th
+							v-if="statusHeading"
+							scope="col"
+							class="ts-sheet__status-heading">
+							{{ statusHeading }}
+						</th>
+						<th
+							v-for="( h, c ) in headers"
 							:key="c"
-							class="ts-sheet__cell"
-							:class="{
-								'ts-sheet__cell--changed': row.changed && row.changed[ c ],
-								'ts-sheet__cell--readonly': row.readonly && row.readonly[ c ],
-								'ts-sheet__cell--active': active && active.r === r && active.c === c
-							}">
-							<span
-								v-if="row.readonly && row.readonly[ c ]"
-								class="ts-sheet__fixed">{{ cell }}</span>
-							<input
-								v-else
-								class="ts-sheet__input"
-								type="text"
-								:value="cell"
-								:data-r="r"
-								:data-c="c"
-								:aria-label="cellLabel( headingOf( c ), row.lead )"
-								@input="typed( $event, row.key, c )"
-								@focus="focus( row.key, r, c )"
-								@keydown="key( $event, row.key, r, c )"
-								@paste="paste( $event, row.key, c )">
-							<span
-								v-if="row.notes && row.notes[ c ]"
-								class="ts-sheet__note">{{ row.notes[ c ] }}</span>
-						</td>
+							scope="col"
+							:class="{ 'ts-sheet__heading--active': active && active.c === c }">
+							<span class="ts-sheet__heading">{{ h.label }}</span>
+							<button
+								v-if="h.menu"
+								type="button"
+								class="ts-sheet__menu"
+								:aria-label="menuLabel( h.label )"
+								:title="menuLabel( h.label )"
+								@click="emit( 'menu', c )">
+								⋯
+							</button>
+							<span v-if="h.sub" class="ts-sheet__sub">{{ h.sub }}</span>
+						</th>
 					</tr>
-					<tr v-if="row.problems && row.problems.length" class="ts-sheet__problem-row">
-						<td class="ts-sheet__lead" />
-						<td :colspan="headers.length + ( statusHeading ? 1 : 0 )">
-							<ul class="ts-sheet__problems">
-								<li v-for="( p, i ) in row.problems" :key="i">
-									{{ p }}
-								</li>
-							</ul>
-						</td>
-					</tr>
-				</template>
-			</tbody>
-		</table>
+				</thead>
+				<tbody>
+					<template v-for="( row, r ) in rows" :key="row.key">
+						<tr class="ts-sheet__row" :class="rowClass( row, r )">
+							<th scope="row" class="ts-sheet__lead">
+								<a v-if="row.href" :href="row.href">{{ row.lead }}</a>
+								<span v-else>{{ row.lead }}</span>
+								<button
+									v-if="row.removable"
+									type="button"
+									class="ts-sheet__remove"
+									:aria-label="removeLabel( row.lead )"
+									:title="removeLabel( row.lead )"
+									@click="emit( 'remove', row.key )">
+									×
+								</button>
+							</th>
+							<td v-if="statusHeading" class="ts-sheet__status-cell">
+								<span
+									v-if="row.status"
+									class="ts-sheet__status"
+									:class="statusClass( row )">{{ row.status }}</span>
+							</td>
+							<td
+								v-for="( cell, c ) in row.cells"
+								:key="c"
+								class="ts-sheet__cell"
+								:class="cellClass( row, r, c )">
+								<span
+									v-if="row.readonly && row.readonly[ c ]"
+									class="ts-sheet__fixed">{{ cell }}</span>
+								<input
+									v-else
+									class="ts-sheet__input"
+									type="text"
+									:value="cell"
+									:data-r="r"
+									:data-c="c"
+									:aria-label="cellLabel( headingOf( c ), row.lead )"
+									@input="typed( $event, row.key, c )"
+									@focus="focus( row.key, r, c )"
+									@keydown="key( $event, row.key, r, c )"
+									@paste="paste( $event, row.key, c )">
+								<span
+									v-if="row.notes && row.notes[ c ]"
+									class="ts-sheet__note">{{ row.notes[ c ] }}</span>
+							</td>
+						</tr>
+						<tr v-if="row.problems?.length" class="ts-sheet__problem-row">
+							<td class="ts-sheet__lead" />
+							<td :colspan="headers.length + ( statusHeading ? 1 : 0 )">
+								<ul class="ts-sheet__problems">
+									<li v-for="( p, i ) in row.problems" :key="i">
+										{{ p }}
+									</li>
+								</ul>
+							</td>
+						</tr>
+					</template>
+				</tbody>
+			</table>
+			<button
+				v-if="addColumnLabel"
+				type="button"
+				class="ts-sheet__add ts-sheet__add--column"
+				:aria-label="addColumnLabel"
+				:title="addColumnLabel"
+				@click="emit( 'add-column' )">
+				<CdxIcon :icon="cdxIconAdd" size="small" />
+			</button>
+			<button
+				v-if="addRowLabel"
+				type="button"
+				class="ts-sheet__add ts-sheet__add--row"
+				@click="emit( 'add-row' )">
+				<CdxIcon :icon="cdxIconAdd" size="small" />
+				{{ addRowLabel }}
+			</button>
+		</div>
 	</div>
 </template>
 
@@ -105,8 +120,12 @@
 // and ruled cells that are edited where they stand. It holds no state of its own: each
 // keystroke, paste and fill is reported, and the rows it is given are what it shows.
 // Enter and the up and down arrows move between rows; Ctrl+D fills a cell from the one
-// above; pasting a range from a spreadsheet is reported whole.
-import { ref } from 'vue';
+// above; pasting a range from a spreadsheet is reported whole. Where the page lets the
+// table grow, a button as tall as the table stands to the right of its last column, to
+// add a column, and one as wide stands beneath its last row, to add a row (0106 A9).
+import { computed, ref } from 'vue';
+import { CdxIcon } from '@wikimedia/codex';
+import { cdxIconAdd } from '@wikimedia/codex-icons';
 import type { SheetHeader, SheetRow, Words, Words2 } from './sheet';
 
 const props = defineProps<{
@@ -118,6 +137,10 @@ const props = defineProps<{
 	cellLabel: Words2;
 	menuLabel: Words;
 	removeLabel: Words;
+	/** The name of the button that adds a column; without one, there is no such button. */
+	addColumnLabel?: string;
+	/** The label of the button that adds a row; without one, there is no such button. */
+	addRowLabel?: string;
 }>();
 
 const emit = defineEmits<{
@@ -127,14 +150,22 @@ const emit = defineEmits<{
 	menu: [ column: number ];
 	remove: [ key: string ];
 	focus: [ key: string, column: number ];
+	'add-column': [];
+	'add-row': [];
 }>();
 
 const active = ref<{ r: number; c: number } | null>( null );
 
+const grows = computed( () => Boolean( props.addColumnLabel || props.addRowLabel ) );
 const headingOf = ( c: number ): string => props.headers[ c ]?.label ?? '';
 const statusClass = ( row: SheetRow ): string | undefined => ( row.kind ?
 	`ts-sheet__status--${ row.kind }` :
 	undefined );
+const cellClass = ( row: SheetRow, r: number, c: number ): Record<string, boolean> => ( {
+	'ts-sheet__cell--changed': Boolean( row.changed?.[ c ] ),
+	'ts-sheet__cell--readonly': Boolean( row.readonly?.[ c ] ),
+	'ts-sheet__cell--active': active.value !== null && active.value.r === r && active.value.c === c
+} );
 const rowClass = ( row: SheetRow, r: number ): Record<string, boolean> => ( {
 	[ `ts-sheet__row--${ row.kind ?? 'plain' }` ]: true,
 	'ts-sheet__row--active': active.value !== null && active.value.r === r

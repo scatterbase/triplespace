@@ -177,6 +177,12 @@ pub async fn serve(
         "CreateManyEntities" => {
             Some(create_entities::serve(site, headers, peer, title, params).await)
         }
+        "CreateEntitiesFromFile" => {
+            Some(create_entities::from_file::serve(site, headers, peer, title, params).await)
+        }
+        "QuickStatements" => {
+            Some(create_entities::quickstatements::serve(site, headers, peer, params).await)
+        }
         // The page's name until 0104 A5: a GET is sent on to the name it has now, with
         // its subpage (0047 §2).
         "CreateEntities" => {
@@ -260,6 +266,12 @@ pub async fn post(
         "Import" => Some(import::post(site, headers, peer, query, params).await),
         "CreateManyEntities" | "CreateEntities" => {
             Some(create_entities::post(site, headers, peer, query, params).await)
+        }
+        "CreateEntitiesFromFile" => {
+            Some(create_entities::from_file::post(site, headers, peer, title, query, params).await)
+        }
+        "QuickStatements" => {
+            Some(create_entities::quickstatements::post(site, headers, peer, query, params).await)
         }
         "Jobs" => Some(jobs::post(site, headers, peer, title, query, params).await),
         "Notifications" => Some(notifications::post(site, headers, peer, params).await),

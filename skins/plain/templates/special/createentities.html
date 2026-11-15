@@ -17,9 +17,9 @@
 {%- for row in p.rows %}<tr class="ts-createentities__row--{{ row.kind }}"><td>{{ row.line }}</td><td>{{ row.shown }}</td><td><span class="ts-createentities__status ts-createentities__status--{{ row.kind }}">{{ row.status }}</span>{% if row.item %} <a href="{{ row.item[0] }}">{{ row.item[1] }}</a>{% endif %}</td><td>{{ row.summary }}</td><td>{% if row.errors %}<ul>{% for e in row.errors %}<li>{{ e }}</li>{% endfor %}</ul>{% endif %}</td></tr>{% endfor %}</tbody></table>
 <form class="ts-createentities__confirm" method="post" action="{{ action }}">{% for h in p.hidden %}<input type="hidden" name="{{ h[0] }}" value="{{ h[1] }}">{% endfor %}<p>{{ p.confirm_note }}</p><div class="ts-protect__actions">{% if p.submit %}{{ codex.button(p.submit) }}{% endif %}<a href="{{ p.cancel }}" class="ts-protect__cancel">{{ p.cancel_label }}</a></div></form>
 {%- else %}<p>{{ intro }}</p>{% endif %}
-<form class="ts-createentities__form" method="post" enctype="multipart/form-data" action="{{ action }}"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="wpStep" value="preview">
+<form class="ts-createentities__form" method="post" action="{{ action }}"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="wpStep" value="preview">
 {%- if draft %}<input type="hidden" name="draft" value="{{ draft.title }}"><p class="ts-createentities__draft">{{ draft.text }} <a href="{{ draft.href }}">{{ draft.title }}</a></p>{% endif %}
-{{ forms.field(rows) }}{{ forms.field(file) }}{{ forms.field(shared) }}{{ forms.field(reference) }}{{ forms.field(batch) }}{% if draft_name %}{{ forms.field(draft_name) }}{% endif %}
+{% if draft_name %}{{ forms.field(draft_name) }}{% endif %}{{ forms.field(rows) }}<p class="ts-createentities__from-file"><a href="{{ from_file[0] }}">{{ from_file[1] }}</a></p>{{ forms.field(shared) }}{{ forms.field(reference) }}{{ forms.field(batch) }}
 {{ sheet_data_html|safe }}
 <div class="ts-protect__actions">{{ codex.button(submit) }}<button type="{{ save.kind }}" class="{{ save.classes }}" name="wpSave" value="1">{{ save.label }}</button></div></form>
 {%- endif %}</div>
