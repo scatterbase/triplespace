@@ -143,6 +143,42 @@ async fn migrations_apply_once_and_notice_edits() {
 }
 
 #[tokio::test]
+async fn the_large_view_tables_vacuum_after_a_hundredth() {
+    if skipped() {
+        return;
+    }
+    let mut client = fresh().await;
+    migrator().apply(&mut client).await.unwrap();
+    let rows = client
+        .query(
+            "SELECT c.oid::regclass::text, c.reloptions FROM pg_class c
+             JOIN pg_namespace n ON n.oid = c.relnamespace
+             WHERE n.nspname = 'view' AND c.reloptions IS NOT NULL ORDER BY 1",
+            &[],
+        )
+        .await
+        .unwrap();
+    let tables: Vec<String> = rows.iter().map(|r| r.get(0)).collect();
+    assert_eq!(
+        tables,
+        [
+            "view.activity",
+            "view.entity",
+            "view.entity_source",
+            "view.identifier",
+            "view.term"
+        ]
+    );
+    for r in &rows {
+        let options: Vec<String> = r.get(1);
+        assert!(
+            options.contains(&"autovacuum_vacuum_scale_factor=0.01".to_string()),
+            "{options:?}"
+        );
+    }
+}
+
+#[tokio::test]
 async fn an_unclassified_private_table_is_caught() {
     if skipped() {
         return;

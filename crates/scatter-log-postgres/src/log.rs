@@ -30,6 +30,15 @@ use crate::merkle;
 use crate::partition::{PartitionInfo, export_str, history_str, integrity_str};
 use crate::storage_error;
 
+/// The autovacuum settings of a record partition (0013 A104): vacuum and analyze after
+/// 1% and 0.5% of its rows change, not Postgres's 20% and 10%, with a cost limit ten
+/// times the default so that a vacuum of a mirror-sized partition finishes. Migration
+/// `0003_record_autovacuum` gives existing partitions the same.
+const RECORD_AUTOVACUUM: &str = "autovacuum_vacuum_scale_factor = 0.01, \
+     autovacuum_vacuum_insert_scale_factor = 0.01, \
+     autovacuum_analyze_scale_factor = 0.005, \
+     autovacuum_vacuum_cost_limit = 2000";
+
 /// The log over a client or a transaction.
 #[derive(Debug)]
 pub struct PgLog<C> {
@@ -152,7 +161,7 @@ pub async fn create_partition<C: PgClient>(
     let table = record_table(partition);
     client
         .batch_execute(&format!(
-            "CREATE TABLE {table} PARTITION OF log.record FOR VALUES IN ({p});
+            "CREATE TABLE {table} PARTITION OF log.record FOR VALUES IN ({p}) WITH ({RECORD_AUTOVACUUM});
              CREATE INDEX ON {table} (key, \"offset\" DESC);"
         ))
         .await

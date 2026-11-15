@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-13 (A103)
+- **Updated:** 2026-11-15 (A104)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
@@ -51,7 +51,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 2. The `log` schema
 
-*Changed by A2, A5, A27, A31, A53, A57.*
+*Changed by A2, A5, A27, A31, A53, A57, A104.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §2.1, §2.2, §5.*
 
@@ -1287,3 +1287,10 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §1.2, as i
 Replaced text ([03](../architecture/03-storage-caches-and-search.md) §1.2, as it stood):
 
 > | The public API, the site's reads, the write path, settings saves, the projections' workers, the job runners | `ts_server` | `TRIPLESPACE_DATABASE_URL` (`--database`) |
+
+### A104. The large tables vacuum after a hundredth of their rows change
+
+- **Date:** 2026-11-15
+- **Source:** Direct: James, 2026-11-15, on the vacuum settings proposed after the whole-Wikidata benchmark; the values are Claude's, while building it, unconfirmed
+- **Change:** extends §2
+- **Summary:** Postgres's autovacuum waits until a fifth of a table's rows are dead (a tenth for analyze), which on the Wikidata mirror is 24M rows of its record partition and 54M of `view.identifier`: compaction removed 710,000 superseded records in the day-close benchmark and the database still grew, because the space stays unusable until a vacuum. Every record partition, `log.merkle_node`, and the views that grow with a mirror (`view.identifier`, `view.term`, `view.entity`, `view.entity_source`, `view.activity`) are vacuumed after 1% of their rows are dead or newly inserted and analyzed after 0.5%, with a per-table cost limit of 2000, ten times the default, so that a vacuum of a table of hundreds of gigabytes finishes. `create_partition` gives each new partition these settings, and the migrations `scatter-log-postgres/0003_record_autovacuum` and `triplespace-db/0040_view_autovacuum` give them to existing tables. Storage parameters only: no table, index or projection changes. Chapter text: 03 §2.
