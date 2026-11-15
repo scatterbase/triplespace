@@ -137,6 +137,9 @@ pub struct Filters {
     pub log_type: Option<String>,
     /// … and this action.
     pub log_action: Option<String>,
+    /// Only the `settings/change` events that changed this setting or switch: one
+    /// setting's history (0085 §4; 19 §2.8).
+    pub setting: Option<String>,
     /// The `bot` tag.
     pub bot: Flag,
     /// The `minor` tag.
@@ -761,6 +764,15 @@ fn build(tenant: &str, feed: &Feed, viewer: &Viewer) -> Built {
     }
     if let Some(t) = &f.log_action {
         push(&mut sql, "a.log_action = $n", Box::new(t.clone()));
+    }
+    if let Some(key) = &f.setting {
+        // The event's `changes` name each key set or unset (16 §2.3).
+        push(
+            &mut sql,
+            "(a.log_type = 'settings' AND a.params->'changes' @> \
+             jsonb_build_array(jsonb_build_object('key', $n::text)))",
+            Box::new(key.clone()),
+        );
     }
     for (flag, expr) in [
         (f.bot, "(a.bot OR 'bot' = ANY(a.tags))"),

@@ -675,6 +675,13 @@ async fn the_visibility_section_sets_the_tenant_acl() {
     let (status, body) = get(&api, "/wiki/Special:WikiSettings", Some("alice")).await;
     assert_eq!(status, StatusCode::OK);
     assert!(body.contains("id=\"visibility\""), "{body}");
+    // Each setting links to its history in the log (0085 §4; 19 §2.8).
+    assert!(
+        body.contains(
+            r#"<a class="ts-setting__history" href="/w/index.php?title=Special:Log&amp;type=settings&amp;setting=site%2Ename""#
+        ),
+        "{body}"
+    );
     assert!(
         body.contains("Who may read this wiki now: Anyone"),
         "{body}"

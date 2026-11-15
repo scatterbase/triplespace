@@ -50,12 +50,12 @@
 
 {#- One row of a settings or preferences form (`SettingRow`): the label, its origin chips
     and the key, the help, the row's errors, then the control or the value shown, **Reset**,
-    **Lock** or the locked chip, and a note. -#}
+    **Lock** or the locked chip, a link to the setting's history, and a note. -#}
 {%- macro setting(r) -%}
 <div class="ts-setting" id="{{ r.row_id }}"><div class="ts-setting__head">{% if r.label_for %}<label class="ts-setting__label" for="{{ r.label_for }}">{{ r.label }}</label>{% else %}<span class="ts-setting__label">{{ r.label }}</span>{% endif %}{% for c in r.chips %} {{ codex.chip(c) }}{% endfor %} <code class="ts-setting__key">{{ r.key }}</code></div>
 {%- if r.help %}<p class="ts-setting__help"{% if r.help_id %} id="{{ r.help_id }}"{% endif %}>{{ r.help }}</p>{% endif -%}
 {%- for e in r.errors %}{{ codex.message(e) }}{% endfor -%}
-<div class="ts-setting__value">{% if r.control %}{{ control(r.control) }}{% endif %}{% if r.shown is not none %}<span class="ts-setting__shown">{{ r.shown }}</span>{% endif %}{% if r.reset %}<button class="cdx-button cdx-button--weight-quiet ts-setting__reset" type="submit" name="reset" value="{{ r.reset.value }}" aria-label="{{ r.reset.aria_label }}">{{ r.reset.label }}</button>{% endif %}{% if r.lock %} {{ control(r.lock) }}{% endif %}{% if r.shown_chip %} {{ codex.chip(r.shown_chip) }}{% endif %}{% if r.note %}<p class="ts-setting__note">{{ r.note }}</p>{% endif %}</div></div>
+<div class="ts-setting__value">{% if r.control %}{{ control(r.control) }}{% endif %}{% if r.shown is not none %}<span class="ts-setting__shown">{{ r.shown }}</span>{% endif %}{% if r.reset %}<button class="cdx-button cdx-button--weight-quiet ts-setting__reset" type="submit" name="reset" value="{{ r.reset.value }}" aria-label="{{ r.reset.aria_label }}">{{ r.reset.label }}</button>{% endif %}{% if r.lock %} {{ control(r.lock) }}{% endif %}{% if r.shown_chip %} {{ codex.chip(r.shown_chip) }}{% endif %}{% if r.history %} <a class="ts-setting__history" href="{{ r.history.href }}" aria-label="{{ r.history.aria_label }}">{{ r.history.label }}</a>{% endif %}{% if r.note %}<p class="ts-setting__note">{{ r.note }}</p>{% endif %}</div></div>
 {%- endmacro -%}
 
 {#- One item of a form that works by GET (`FormItem`): a control under its label, which

@@ -366,6 +366,29 @@ async fn settings_and_preferences() {
     assert_eq!(events.len(), 1, "{log}");
     assert_eq!(events[0]["action"], "change");
 
+    // A setting's history (0085 §4; 19 §2.8): the feed narrowed to the changes of one
+    // setting names each with its value before and after.
+    let r = c.rest("GET", "/activity?setting=site.language", None).await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let rows = r.body["rows"].as_array().unwrap();
+    assert_eq!(rows.len(), 1, "{}", r.body);
+    assert_eq!(rows[0]["log"]["type"], "settings");
+    let changed: Vec<&Value> = rows[0]["log"]["params"]["changes"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .filter(|ch| ch["key"] == "site.language")
+        .collect();
+    assert_eq!(changed.len(), 1, "{}", r.body);
+    assert_eq!(changed[0]["new"], "de", "{}", r.body);
+    // A setting nobody changed has none, and a key is matched whole.
+    for other in ["site.icon", "site.lang", "site"] {
+        let r = c
+            .rest("GET", &format!("/activity?setting={other}"), None)
+            .await;
+        assert_eq!(r.body["rows"], json!([]), "{other}: {}", r.body);
+    }
+
     // Unset returns it to the registry default.
     let r = c
         .rest(

@@ -5,6 +5,7 @@
 // the binaries that serve the site (rust-embed); Node is a build-time dependency only.
 import { defineConfig } from 'vitest/config';
 import vue from '@vitejs/plugin-vue';
+import { licenceHeader } from './src/build/licence-header.js';
 
 /**
  * The npm packages whose files end up in the build, as `packages.json` beside the
@@ -76,7 +77,7 @@ function classicHeadScript() {
 }
 
 export default defineConfig( {
-	plugins: [ vue(), bundledPackages(), classicHeadScript() ],
+	plugins: [ vue(), bundledPackages(), classicHeadScript(), licenceHeader() ],
 	base: '/ui/assets/',
 	build: {
 		outDir: 'dist',

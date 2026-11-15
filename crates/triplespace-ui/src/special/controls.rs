@@ -611,6 +611,35 @@ pub struct SettingRow {
     pub shown_chip: Option<crate::codex::ChipModel>,
     /// A note under the value.
     pub note: Option<String>,
+    /// A link to the setting's history in the log (19 §2.8).
+    pub history: Option<HistoryLink>,
+}
+
+/// The link from a setting to its history: `Special:Log` narrowed to the changes of
+/// the one setting.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct HistoryLink {
+    /// Where it goes.
+    pub href: String,
+    /// What it says.
+    pub label: String,
+    /// Its accessible name, which names the setting.
+    pub aria_label: String,
+}
+
+impl HistoryLink {
+    /// The link for a setting, named by its label.
+    #[must_use]
+    pub fn of(m: &crate::i18n::Messages, key: &str, label: &str) -> Self {
+        Self {
+            href: format!(
+                "/w/index.php?title=Special:Log&type=settings&setting={}",
+                percent_encoding::utf8_percent_encode(key, percent_encoding::NON_ALPHANUMERIC)
+            ),
+            label: m.get("ts-settings-history"),
+            aria_label: m.with("ts-settings-history-of", &[label]),
+        }
+    }
 }
 
 /// A posted field read as a value of the kind: `Ok(None)` for "no change" (an empty

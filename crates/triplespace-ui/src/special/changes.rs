@@ -75,7 +75,7 @@ enum Which {
 
 /// The log types `Special:Log` offers, each a message key; any other type typed into
 /// the address is passed through.
-const LOG_TYPES: [(&str, &str); 9] = [
+const LOG_TYPES: [(&str, &str); 10] = [
     ("delete", "ts-log-type-delete"),
     ("move", "ts-log-type-move"),
     ("suppress", "ts-log-type-suppress"),
@@ -85,6 +85,7 @@ const LOG_TYPES: [(&str, &str); 9] = [
     ("create", "ts-log-type-create"),
     ("thread", "ts-log-type-thread"),
     ("reclaim", "ts-log-type-reclaim"),
+    ("settings", "ts-log-type-settings"),
 ];
 
 /// What the query asks for.
@@ -100,6 +101,8 @@ struct Ask {
     log_type: Option<String>,
     /// A page's title, for the log.
     page: Option<String>,
+    /// A setting, for the log: its history (19 §2.8), which is not cut off by days.
+    setting: Option<String>,
     days: u32,
     limit: u32,
     cursor: Option<String>,
@@ -166,9 +169,19 @@ impl Ask {
             Which::Log => q.get("page").map(|p| clean(p)).filter(|p| !p.is_empty()),
             _ => None,
         };
+        let setting = match which {
+            Which::Log => q.get("setting").map(|s| s.trim().to_string()).filter(|s| {
+                !s.is_empty()
+                    && s.len() <= 128
+                    && s.chars()
+                        .all(|c| c.is_ascii_alphanumeric() || matches!(c, '.' | '_' | '-' | ':'))
+            }),
+            _ => None,
+        };
         Self {
             which,
             user,
+            setting,
             kinds: match which {
                 Which::Log => vec!["log".into()],
                 Which::NewPages => vec!["edit".into()],
@@ -202,6 +215,7 @@ impl Ask {
             target,
             actor: self.user.clone(),
             log_type: self.log_type.clone(),
+            setting: self.setting.clone(),
             kinds,
             namespaces: self.namespace.iter().cloned().collect(),
             show: self
@@ -210,7 +224,8 @@ impl Ask {
                 .into_iter()
                 .chain((self.which == Which::NewPages).then(|| "new".to_string()))
                 .collect(),
-            since: Some(iso8601(since)),
+            // A setting's history reaches back to its first change.
+            since: self.setting.is_none().then(|| iso8601(since)),
             limit: self.limit,
             cursor: self.cursor.clone(),
             lang: lang.to_string(),
@@ -255,6 +270,9 @@ impl Ask {
             }
             if let Some(u) = &self.user {
                 let _ = write!(s, "&user={}", utf8_percent_encode(u, NON_ALPHANUMERIC));
+            }
+            if let Some(k) = &self.setting {
+                let _ = write!(s, "&setting={}", utf8_percent_encode(k, NON_ALPHANUMERIC));
             }
             if let Some(p) = &self.page {
                 let _ = write!(s, "&page={}", utf8_percent_encode(p, NON_ALPHANUMERIC));
@@ -824,6 +842,35 @@ fn thread_summary(m: &Messages, row: &ActivityRow, here: Option<u64>) -> Option<
     Some(m.get(key))
 }
 
+/// A `settings/change` event in words (16 §2.3): each setting it changed with its value
+/// before and after, "site.name: Old → New", an unset value as a dash.
+fn settings_summary(m: &Messages, row: &ActivityRow) -> Option<String> {
+    let log = row.log.as_ref().filter(|l| l.r#type == "settings")?;
+    let changes = log.params.as_ref()?.get("changes")?.as_array()?;
+    let shown = |v: &serde_json::Value| match v {
+        serde_json::Value::Null => m.get("ts-log-settings-unset"),
+        serde_json::Value::String(s) => s.clone(),
+        other => other.to_string(),
+    };
+    let parts: Vec<String> = changes
+        .iter()
+        .filter_map(|c| {
+            let key = c.get("key")?.as_str()?;
+            Some(m.with(
+                "ts-log-settings-change",
+                &[
+                    key,
+                    &shown(c.get("old").unwrap_or(&serde_json::Value::Null)),
+                    &shown(c.get("new").unwrap_or(&serde_json::Value::Null)),
+                ],
+            ))
+        })
+        .collect();
+    parts
+        .into_iter()
+        .reduce(|list, next| m.with("ts-log-settings-list", &[&list, &next]))
+}
+
 /// The summary: the user's comment, and the automatic part muted.
 fn summary_model(m: &Messages, row: &ActivityRow, here: Option<u64>) -> SummaryModel {
     let mut out = SummaryModel {
@@ -848,6 +895,8 @@ fn summary_model(m: &Messages, row: &ActivityRow, here: Option<u64>) -> SummaryM
         .then(|| thread_summary(m, row, here))
         .flatten()
     {
+        Some(t)
+    } else if let Some(t) = settings_summary(m, row) {
         Some(t)
     } else {
         auto
@@ -1254,6 +1303,15 @@ fn form_model(m: &Messages, ask: &Ask) -> FormModel {
             ));
             items.push(text(m.get("ts-log-user"), "user", ask.user.as_deref()));
             items.push(text(m.get("ts-log-page"), "page", ask.page.as_deref()));
+            // One setting's history (19 §2.8): the field shows only when the log is
+            // narrowed to one, as a settings row's History link narrows it.
+            if ask.setting.is_some() {
+                items.push(text(
+                    m.get("ts-log-setting"),
+                    "setting",
+                    ask.setting.as_deref(),
+                ));
+            }
         }
         Which::RecentChanges => {}
     }
@@ -1485,6 +1543,49 @@ pub async fn contributions(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    // 0085 §4; 19 §2.8: a settings change reads as what it changed, each setting with its
+    // value before and after.
+    #[test]
+    fn a_settings_change_names_each_setting_with_its_values() {
+        let m = Messages::for_language("en");
+        let row: ActivityRow = serde_json::from_value(serde_json::json!({
+            "kind": "log", "time": "2026-11-09T10:00:00Z", "source": "config",
+            "record": {"partition": 1, "offset": 2}, "logid": 9,
+            "actor": {"key": "local:7", "name": "Alice", "kind": "registered"},
+            "summary": {"op": "settings/change"},
+            "log": {"type": "settings", "action": "change", "params": {"scope": "tenant", "changes": [
+                {"scope": "tenant", "key": "site.name", "old": "librarybase", "new": "Library Base"},
+                {"scope": "tenant", "key": "site.language", "old": null, "new": "de"},
+                {"scope": "tenant", "key": "search.limit", "old": 20, "new": null}
+            ]}},
+        }))
+        .unwrap();
+        let s = summary_model(&m, &row, None);
+        assert_eq!(
+            s.auto.as_deref(),
+            Some(
+                "site.name: librarybase → Library Base; site.language: — → de; search.limit: 20 → —"
+            )
+        );
+        // The log narrowed to one setting keeps the filter in its links and is not cut
+        // off by days.
+        let mut params = Params::default();
+        params.map.insert("type".into(), "settings".into());
+        params.map.insert("setting".into(), "site.name".into());
+        let ask = Ask::of(Which::Log, &params, None);
+        assert_eq!(ask.setting.as_deref(), Some("site.name"));
+        assert!(
+            ask.href(None)
+                .contains("&type=settings&setting=site%2Ename")
+        );
+        let q = ask.query(1_800_000_000_000_000, "en", None);
+        assert_eq!(q.setting.as_deref(), Some("site.name"));
+        assert!(q.since.is_none());
+        // Anything that is not shaped as a key is not a filter.
+        params.map.insert("setting".into(), "site name&x=1".into());
+        assert!(Ask::of(Which::Log, &params, None).setting.is_none());
+    }
 
     // 19 §3.4; 0010 A55: a row's menu links to the moderation pages with its actor and
     // target filled in, each for a holder of its right; the action has its own column,

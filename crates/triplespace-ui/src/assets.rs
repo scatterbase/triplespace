@@ -307,11 +307,19 @@ fn built_css(dir: &str, name: &str) -> Option<String> {
                 let src = src.strip_suffix(".css")?;
                 let file = e.get("file")?.as_str()?;
                 let css = String::from_utf8(Dist::get(file)?.data.into_owned()).ok()?;
-                Some((src.to_string(), css))
+                Some((src.to_string(), without_header(&css).to_string()))
             })
             .collect()
     });
     FONTS.get(&format!("{dir}{name}")).cloned()
+}
+
+/// A built stylesheet without the licence header the build opens every file with
+/// (21 §5.3): the rules alone, for a sheet the site composes from them.
+fn without_header(css: &str) -> &str {
+    css.strip_prefix("/*!")
+        .and_then(|rest| rest.split_once("*/"))
+        .map_or(css, |(_, rules)| rules.trim_start_matches(['\r', '\n']))
 }
 
 /// The build ID, which a page's `ETag` and the components' build check carry.
@@ -391,6 +399,17 @@ mod tests {
         ] {
             assert!(DevServer::new(bad).is_err(), "{bad}");
         }
+    }
+
+    // 0077 §3: the header is the build's, not part of the rules a composed sheet takes.
+    #[test]
+    fn a_composed_sheet_takes_the_rules_without_the_licence_header() {
+        assert_eq!(
+            without_header("/*! @license GPL-3.0-or-later. x */\n@font-face{a:b}"),
+            "@font-face{a:b}"
+        );
+        assert_eq!(without_header("@font-face{a:b}"), "@font-face{a:b}");
+        assert_eq!(without_header("/* note */a{}"), "/* note */a{}");
     }
 
     #[test]

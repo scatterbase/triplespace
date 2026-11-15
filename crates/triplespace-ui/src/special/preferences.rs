@@ -500,6 +500,7 @@ fn row_model(
         lock: None,
         shown_chip: None,
         note: None,
+        history: None,
     }
 }
 
