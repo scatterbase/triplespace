@@ -15,8 +15,11 @@
 //!
 //! A registry provider's follower compacts its mirror as the day's job closes (0092 A7):
 //! the keys written since the job opened keep their newest record, and the one carrying
-//! their highest revision ID, and lose the rest ([`crate::compact`]).
+//! their highest revision ID, and lose the rest ([`crate::compact`]). The compaction runs
+//! beside the next day's batches, a window at a time, and the closed day's job is finished
+//! once it is done (A8), so that following never waits for a whole day's compaction.
 
+use std::cell::Cell;
 use std::collections::BTreeMap;
 use std::future::{Future, poll_fn};
 use std::pin::pin;
@@ -64,17 +67,55 @@ pub trait ChangeSource {
         &mut self,
     ) -> impl Future<Output = Result<(ChangeBatch, Self::Position), IngestError>> + Send;
 
-    /// The follower's open job, as the last `save` left it.
-    fn job(&mut self) -> impl Future<Output = Result<Option<FollowJob>, IngestError>> + Send;
+    /// The follower's jobs, as the last `save` left them.
+    fn state(&mut self) -> impl Future<Output = Result<FollowState, IngestError>> + Send;
 
-    /// Saves a position a batch left, with the follower's open job as it stands after
-    /// that batch: called after that batch's records are committed, never before, so that
-    /// a crash between the two replays rather than skips (0092 §3).
+    /// Saves a position a batch left, with the follower's jobs as they stand after that
+    /// batch: called after that batch's records are committed, never before, so that a
+    /// crash between the two replays rather than skips (0092 §3).
     fn save(
         &mut self,
         at: Self::Position,
-        job: Option<FollowJob>,
+        state: FollowState,
     ) -> impl Future<Output = Result<(), IngestError>> + Send;
+}
+
+/// A follower's jobs between batches and between runs: the day's open job (0092 A6), and
+/// a closed day's job whose compaction is still running beside it (A8).
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct FollowState {
+    /// The day's open job.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub open: Option<FollowJob>,
+    /// A closed day's job, finished once its compaction is done.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub closing: Option<Closing>,
+}
+
+impl FollowState {
+    /// Whether the follower has no job at all.
+    #[must_use]
+    pub fn is_empty(&self) -> bool {
+        self.open.is_none() && self.closing.is_none()
+    }
+}
+
+/// A closed day's job and its compaction's progress (0092 A8): the mirror's offsets from
+/// the job's `compact_from` to `to` are compacted, `at` is where the compaction has got
+/// to, and the job is finished, with `removed` as its `compacted`, once `at` reaches `to`.
+#[derive(Debug, Clone, PartialEq, Default, Serialize, Deserialize)]
+pub struct Closing {
+    /// The day's job, as it stood when the day closed.
+    pub job: FollowJob,
+    /// The mirror's partition.
+    pub partition: u64,
+    /// The mirror's size when the day closed: where the compaction ends.
+    pub to: u64,
+    /// The first offset not yet compacted.
+    pub at: u64,
+    /// Records removed so far.
+    pub removed: u64,
 }
 
 /// A follower's open job, the day's (0092 A6): what its finish record will say, kept with
@@ -198,24 +239,79 @@ async fn finish_day<S: IngestStore>(
     Ok(())
 }
 
-/// Compacts the mirror by the keys written since a day's job opened (0092 A7), up to the
-/// mirror's size now: the records removed, `None` when the job has no start to compact
-/// from. Run before the job is finished, so that a crash between the two compacts again,
-/// which removes nothing more, and then finishes.
-async fn compact_day<S: IngestStore>(
+/// Closes a day's job (0092 A7, A8): the compaction of the mirror by the keys written since
+/// the job opened, up to the mirror's size now, to run beside what follows; `None` when the
+/// job has no start to compact from, or there is no mirror, and so is finished at once.
+async fn close_day<S: IngestStore>(
     store: &S,
     slug: &str,
-    open: &FollowJob,
-) -> Result<Option<u64>, IngestError> {
+    open: FollowJob,
+) -> Result<Result<Closing, FollowJob>, IngestError> {
     let Some(from) = open.compact_from else {
-        return Ok(None);
+        return Ok(Err(open));
     };
     let Some((partition, size)) = mirror_of(store, slug).await? else {
-        return Ok(None);
+        return Ok(Err(open));
     };
-    compact(store, partition, from, size, WINDOW, |_, _| {})
-        .await
-        .map(Some)
+    Ok(Ok(Closing {
+        job: open,
+        partition,
+        to: size,
+        at: from.min(size),
+        removed: 0,
+    }))
+}
+
+/// Compacts a closing day beside the batch being written and the one being read (0092
+/// A8): a window at a time until `busy`, the count of those still running, falls to 0, and
+/// at least one window, so that each batch moves the compaction on; done at once when
+/// there is nothing left to compact. A window is its own unit of work, so a crash loses
+/// only the progress not yet saved, and the windows run again remove nothing more.
+async fn compact_beside<S: IngestStore>(
+    store: &S,
+    closing: Option<&mut Closing>,
+    busy: &Cell<u8>,
+) -> Result<(), IngestError> {
+    let Some(c) = closing else {
+        return Ok(());
+    };
+    while c.at < c.to {
+        let end = c.at.saturating_add(WINDOW).min(c.to);
+        c.removed += compact(store, c.partition, c.at, end, WINDOW, |_, _| {}).await?;
+        c.at = end;
+        if busy.get() == 0 {
+            break;
+        }
+    }
+    Ok(())
+}
+
+/// Runs `f`, then marks it done in `busy`, for [`compact_beside`].
+async fn counted<F: Future>(f: F, busy: &Cell<u8>) -> F::Output {
+    let out = f.await;
+    busy.set(busy.get().saturating_sub(1));
+    out
+}
+
+/// Finishes a closing day's job if its compaction is done, taking it out of `closing`.
+#[allow(clippy::too_many_arguments)]
+async fn finish_closed<S: IngestStore>(
+    store: &S,
+    pipeline: &Pipeline<S>,
+    tenant: &str,
+    slug: &str,
+    attestation: &Attestation,
+    closing: &mut Option<Closing>,
+    handle: &mut Option<Job>,
+    now: u64,
+) -> Result<(), IngestError> {
+    let Some(c) = closing.as_ref().filter(|c| c.at >= c.to) else {
+        return Ok(());
+    };
+    let job = handle_of(store, tenant, slug, attestation, &c.job, handle.take()).await?;
+    finish_day(store, pipeline, &job, &c.job, Some(c.removed), now).await?;
+    *closing = None;
+    Ok(())
 }
 
 /// What a run did.
@@ -238,9 +334,12 @@ pub struct FollowOutcome {
 /// Runs a follower until the source is caught up, or forever when `once` is false.
 ///
 /// Each batch is a sync in `upsert` mode (0092 §2) under the follower's job for the day
-/// (A6), committed as its own unit of work under the load lock; the position, and the job
-/// as it stands, are saved once the batch is committed. The day's first batch starts the
-/// job, and the first batch of a later day finishes it first. While a batch is written,
+/// (A6), committed as its own unit of work under the load lock; the position, and the jobs
+/// as they stand, are saved once the batch is committed. The day's first batch starts the
+/// job, and the first batch of a later day closes it first: a registry provider's mirror is
+/// compacted by the day's keys beside the batches that follow, at least a window a batch,
+/// and the job is finished when that is done (A7, A8); a run with `once` finishes it before
+/// it returns. While a batch is written,
 /// the next one is read: the wait on the upstream overlaps the writing, batches are still
 /// written one at a time and in order, and each position is saved after its own batch, so
 /// a crash replays at most the batch read ahead. `tenant` is `""` for a registry
@@ -260,8 +359,12 @@ pub async fn run_follow<S: IngestStore, C: ChangeSource>(
     once: bool,
 ) -> Result<FollowOutcome, IngestError> {
     let mut out = FollowOutcome::default();
-    let mut open = source.job().await?;
+    let FollowState {
+        mut open,
+        mut closing,
+    } = source.state().await?;
     let mut job: Option<Job> = None;
+    let mut closing_job: Option<Job> = None;
     let mut ahead = source.next().await?;
     loop {
         let (b, at) = ahead;
@@ -277,16 +380,42 @@ pub async fn run_follow<S: IngestStore, C: ChangeSource>(
         out.late += late;
         out.stale += stale;
         let last = caught_up && once;
-        // Boxed: with the read ahead beside it, the pair would make a large future.
-        let write = Box::pin(async {
-            let today = now() / DAY_MICROS;
-            // A day's job ends with the day, whether or not the new day has changes yet.
-            if let Some(f) = open.as_ref().filter(|f| f.day != today) {
-                let compacted = compact_day(store, slug, f).await?;
-                let handle = handle_of(store, tenant, slug, &attestation, f, job.take()).await?;
-                finish_day(store, pipeline, &handle, f, compacted, now()).await?;
-                open = None;
+        let today = now() / DAY_MICROS;
+        // A day's job ends with the day, whether or not the new day has changes yet; its
+        // compaction runs beside what follows, and a day before it still compacting is
+        // finished first.
+        if let Some(f) = open.take_if(|f| f.day != today) {
+            if let Some(c) = closing.as_mut() {
+                c.removed +=
+                    Box::pin(compact(store, c.partition, c.at, c.to, WINDOW, |_, _| {})).await?;
+                c.at = c.to;
+                Box::pin(finish_closed(
+                    store,
+                    pipeline,
+                    tenant,
+                    slug,
+                    &attestation,
+                    &mut closing,
+                    &mut closing_job,
+                    now(),
+                ))
+                .await?;
             }
+            let handle = job.take().filter(|j| j.id == f.id);
+            match close_day(store, slug, f).await? {
+                Ok(c) => {
+                    closing = Some(c);
+                    closing_job = handle;
+                }
+                Err(f) => {
+                    let handle = handle_of(store, tenant, slug, &attestation, &f, handle).await?;
+                    finish_day(store, pipeline, &handle, &f, None, now()).await?;
+                }
+            }
+        }
+        // Boxed: with the read ahead and the compaction beside it, the three would make a
+        // large future.
+        let write = Box::pin(async {
             if items.is_empty() {
                 return Ok::<_, IngestError>(None);
             }
@@ -328,22 +457,55 @@ pub async fn run_follow<S: IngestStore, C: ChangeSource>(
             job = Some(j);
             Ok(Some(o))
         });
-        let (written, next) = if last {
-            (write.await, None)
+        let busy = Cell::new(if last { 1 } else { 2 });
+        let beside = Box::pin(compact_beside(store, closing.as_mut(), &busy));
+        let (written, next, compacted) = if last {
+            let (written, compacted) = both(counted(write, &busy), beside).await;
+            (written, None, compacted)
         } else {
-            let (written, next) = both(write, source.next()).await;
-            (written, Some(next))
+            let ((written, next), compacted) = both(
+                both(counted(write, &busy), counted(source.next(), &busy)),
+                beside,
+            )
+            .await;
+            (written, Some(next), compacted)
         };
         if let Some(o) = written? {
             out.counts.add(&o.counts);
         }
+        compacted?;
+        // A run that ends here leaves no compaction behind it.
+        if last && let Some(c) = closing.as_mut() {
+            c.removed +=
+                Box::pin(compact(store, c.partition, c.at, c.to, WINDOW, |_, _| {})).await?;
+            c.at = c.to;
+        }
+        Box::pin(finish_closed(
+            store,
+            pipeline,
+            tenant,
+            slug,
+            &attestation,
+            &mut closing,
+            &mut closing_job,
+            now(),
+        ))
+        .await?;
         if let Some(f) = open.as_mut() {
             out.job_id = f.id;
             f.rows += rows;
             f.late += late;
             f.stale += stale;
         }
-        source.save(at, open.clone()).await?;
+        source
+            .save(
+                at,
+                FollowState {
+                    open: open.clone(),
+                    closing: closing.clone(),
+                },
+            )
+            .await?;
         match next {
             None => return Ok(out),
             Some(next) => ahead = next?,

@@ -330,7 +330,8 @@ pub async fn run(args: Follow) -> Result<()> {
     );
 
     loop {
-        let outcome = run_follow(
+        // Boxed: the follower's future is too large to keep in this one's.
+        let outcome = Box::pin(run_follow(
             &store,
             &pipeline,
             &tenant,
@@ -341,7 +342,7 @@ pub async fn run(args: Follow) -> Result<()> {
             now,
             args.batch.max(1),
             true,
-        )
+        ))
         .await
         .context("follow")?;
         let pos = position(&client, &who.tenant, &who.kind, &provider.slug).await?;

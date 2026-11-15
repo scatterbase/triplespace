@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-26
-- **Updated:** 2026-11-11 (A7)
+- **Updated:** 2026-11-15 (A8)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0053](0053-mirrored-pages.md), [0070](0070-shallow-entity-mirroring.md), [0078](0078-entity-sources.md)
 - **Uses:** [0011](0011-logs.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0027](0027-preferences-and-portability.md), [0040](0040-instance-prerogatives.md), [0067](0067-proposals.md), [0085](0085-settings-and-preferences.md), [0088](0088-external-identity-providers.md), [0091](0091-one-wikibase-adapter.md)
@@ -47,7 +47,7 @@ James's direction, from the design discussion of 2026-10-26:
 
 ### 2. A row says only that a title changed (extends 0070 §3)
 
-*Changed by A3, A5, A6, A7.*
+*Changed by A3, A5, A6, A7, A8.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.7.*
 
@@ -179,3 +179,14 @@ Replaced text (§2, in 05 §5.7):
 - **Source:** Direct: James, review of the whole-dump mirror's size, 2026-11-11 ("Start with compaction"), on Claude's proposal to compact the keys a day wrote as its job closes; the calls below unconfirmed
 - **Change:** extends §2
 - **Summary:** The whole-dump mirror is a `latest` partition, but nothing compacted it, so every followed edit kept the entity's previous state as well: about 3.28 million superseded records after two days of following, and growth of about 7.2 KB an edit, about 1.5 GB a Wikidata day. A registry provider's follower now compacts its mirror by the keys it wrote as each day's job closes ([0013](0013-postgres-storage.md) A96). The calls made: (1) the day's job notes the mirror's size when it opens, `compact_from`, kept with the open job in `ops.repo_cursor.job`; a mirror not yet created starts at 0, and a job opened before this change has none and is not compacted. (2) When the first batch of a later day closes the job, the mirror is compacted from `compact_from` to its size then, before the finish record, which gains `compacted`, the records removed; a crash between the two compacts again, which removes nothing more, and then finishes. (3) A tenant's entity source is not compacted by its follower. (4) What runs before this change left is compacted by hand with `triplespace compact`: on the whole-dump mirror, the keys of the 3,456,078 records the follower had written (offsets 122,056,985 to 125,513,063) lost 3,259,844 older records in 58 minutes, about 940 a second, 10,000 offsets a unit of work, leaving 122,253,219 records for 122,231,562 entities; every key's `view.entity_source` record survived, and no key kept more than two records. Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.7.
+
+### A8. A day's compaction runs beside the next day's batches
+
+- **Date:** 2026-11-15
+- **Source:** Direct: James, 2026-11-15 ("Daily compaction beside the follower": "Yes"), on Claude's proposal after the follower's run on the whole-dump mirror; the calls below unconfirmed
+- **Change:** amends §2 (A7 (2))
+- **Summary:** A7 compacted the closed day inside the follower's write, so the next batch waited for all of it. On the whole-dump mirror, the close of 2026-11-13 compacted 748,739 records in about 12 minutes, with no appends for 12.5 minutes, and a caught-up Wikidata day is about that size. A manual `triplespace compact` beside the running follower delayed its appends by at most 5.5 s at a time, about one window. The day's compaction now runs beside the batches that follow. The calls made: (1) when a day closes, the job and its compaction's range and progress (`closing`: the partition, the mirror's size at the close, the first offset not yet compacted, the records removed so far) are kept with the open job and the position in `ops.repo_cursor.job`, which now holds `{open, closing}`; a position saved before this change, the open job alone, still reads. (2) With each batch the follower compacts at least one window of 10,000 offsets, and goes on window by window while the batch is written and the next one read. (3) The closed day's job is finished, with `compacted`, once its range is done, so its finish record follows the next day's start. A `--once` run completes the compaction before it returns, so a timer's runs leave no compaction behind, and a day that closes while an earlier day is still compacting completes the earlier one first, inside the write, as A7 did. (4) A crash loses only the progress not yet saved; the windows run again remove nothing more, so `compacted` can then fall short, as A7's crash between compaction and finish could. Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.7.
+
+Replaced text (A7 (2), in 05 §5.7):
+
+> - **Compaction at the day's end.** A registry provider's follower notes the mirror's size when the day's job opens (`compact_from`, kept with the job), and as the job closes compacts the mirror by the keys of the records written since ([01](../architecture/01-log-and-records.md) §6), before the finish record, which says how many records went (`compacted`). A crash between the two compacts again, which removes nothing more, and then finishes. A tenant's entity source is not compacted by its follower ([0092](../decisions/0092-following-recent-changes.md) A7).

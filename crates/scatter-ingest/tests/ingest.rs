@@ -2689,7 +2689,7 @@ struct Scripted<'a> {
     batches: std::collections::VecDeque<scatter_ingest::ChangeBatch>,
     read: u32,
     log: Vec<String>,
-    job: Option<scatter_ingest::FollowJob>,
+    state: scatter_ingest::FollowState,
 }
 
 impl scatter_ingest::ChangeSource for Scripted<'_> {
@@ -2708,18 +2708,18 @@ impl scatter_ingest::ChangeSource for Scripted<'_> {
         Ok((batch, self.read))
     }
 
-    async fn job(&mut self) -> Result<Option<scatter_ingest::FollowJob>, IngestError> {
-        Ok(self.job.clone())
+    async fn state(&mut self) -> Result<scatter_ingest::FollowState, IngestError> {
+        Ok(self.state.clone())
     }
 
     async fn save(
         &mut self,
         at: u32,
-        job: Option<scatter_ingest::FollowJob>,
+        state: scatter_ingest::FollowState,
     ) -> Result<(), IngestError> {
         let held = self.store.records(MIRROR_XD).len();
         self.log.push(format!("save {at} with {held}"));
-        self.job = job;
+        self.state = state;
         Ok(())
     }
 }
@@ -2749,7 +2749,7 @@ fn the_follower_reads_ahead_and_saves_each_position_after_its_batch() {
             .into(),
             read: 0,
             log: Vec::new(),
-            job: None,
+            state: scatter_ingest::FollowState::default(),
         };
         let out = scatter_ingest::run_follow(
             &store,
@@ -2805,7 +2805,7 @@ fn a_follower_writes_under_one_job_a_day() {
             batches: std::collections::VecDeque::new(),
             read: 0,
             log: Vec::new(),
-            job: None,
+            state: scatter_ingest::FollowState::default(),
         };
         let starts = |store: &MemoryIngest| -> Vec<String> {
             events(store, INSTANCE_LOG)
@@ -2836,7 +2836,7 @@ fn a_follower_writes_under_one_job_a_day() {
         assert_eq!(first.job_id, second.job_id);
         let day_job = first.job_id;
         assert_eq!(starts(&store), [day_job.to_string()]);
-        let open = source.job.clone().unwrap();
+        let open = source.state.open.clone().unwrap();
         assert_eq!(
             (open.id, open.batches, open.counts.created),
             (day_job, 3, 3)
@@ -2913,7 +2913,7 @@ fn a_follower_writes_under_one_job_a_day() {
             3,
             "the day's job, the load's, the next day's"
         );
-        let open = source.job.clone().unwrap();
+        let open = source.state.open.clone().unwrap();
         assert_eq!(
             (open.id, open.batches, open.day),
             (next.job_id, 1, (NOW + DAY) / DAY)
@@ -2933,7 +2933,7 @@ fn a_follower_compacts_its_mirror_as_the_day_closes() {
             batches: std::collections::VecDeque::new(),
             read: 0,
             log: Vec::new(),
-            job: None,
+            state: scatter_ingest::FollowState::default(),
         };
         let first = follow_at(
             (&store, &pipeline),
@@ -2945,7 +2945,7 @@ fn a_follower_compacts_its_mirror_as_the_day_closes() {
             NOW,
         )
         .await;
-        assert_eq!(source.job.as_ref().unwrap().compact_from, Some(0));
+        assert_eq!(source.state.open.as_ref().unwrap().compact_from, Some(0));
         assert_eq!(
             store.records(MIRROR_XD).len(),
             3,
@@ -2985,7 +2985,76 @@ fn a_follower_compacts_its_mirror_as_the_day_closes() {
             .expect("the day's job is finished");
         assert_eq!(params_of(&finish)["compacted"], 1);
         // The next day's job compacts from where the mirror stood when it opened.
-        assert_eq!(source.job.as_ref().unwrap().compact_from, Some(3));
+        let next = source.state.open.clone().unwrap();
+        assert_eq!(next.compact_from, Some(3));
+        // 0092 A8: the compaction ran beside the next day's first batch, so the closed
+        // day's job is finished after the next day's has started, and nothing is left.
+        let jobs: Vec<(String, String)> = events(&store, INSTANCE_LOG)
+            .into_iter()
+            .filter(|(a, _)| a == "start" || a == "finish")
+            .collect();
+        assert_eq!(
+            jobs,
+            [
+                ("start".into(), first.job_id.to_string()),
+                ("start".into(), next.id.to_string()),
+                ("finish".into(), first.job_id.to_string()),
+            ]
+        );
+        assert_eq!(source.state.closing, None);
+    });
+}
+
+// 0092 A8: a closed day's compaction left part done, by a crash or a stop, goes on from
+// where it got to, and the job's finish counts what the earlier run removed as well.
+#[test]
+fn a_closed_days_compaction_goes_on_from_where_it_got_to() {
+    pollster::block_on(async {
+        const DAY: u64 = 86_400_000_000;
+        let (store, pipeline) = setup();
+        let mut source = Scripted {
+            store: &store,
+            batches: std::collections::VecDeque::new(),
+            read: 0,
+            log: Vec::new(),
+            state: scatter_ingest::FollowState::default(),
+        };
+        let first = follow_at(
+            (&store, &pipeline),
+            &mut source,
+            vec![
+                vec![xd_state("XDQ1", "One", 10), xd_state("XDQ2", "Two", 20)],
+                vec![xd_state("XDQ1", "Uno", 21)],
+            ],
+            NOW,
+        )
+        .await;
+        // As a run stopped mid-compaction leaves it: the day closed, offset 0 done, and
+        // 5 removed by then.
+        let job = source.state.open.take().unwrap();
+        source.state.closing = Some(scatter_ingest::Closing {
+            job,
+            partition: MIRROR_XD,
+            to: 3,
+            at: 1,
+            removed: 5,
+        });
+        follow_at((&store, &pipeline), &mut source, vec![], NOW + DAY).await;
+        assert_eq!(source.state, scatter_ingest::FollowState::default());
+        let finish = store
+            .records(INSTANCE_LOG)
+            .into_iter()
+            .find(|r| {
+                r.header().key.as_deref() == Some(&first.job_id.to_string())
+                    && params_of(r).get("counts").is_some()
+            })
+            .expect("the closed day's job is finished, with no batch of its own day");
+        assert_eq!(params_of(&finish)["compacted"], 6);
+        assert_eq!(
+            store.records(MIRROR_XD).len(),
+            2,
+            "XDQ1, written again at offset 2, lost offset 0"
+        );
     });
 }
 
