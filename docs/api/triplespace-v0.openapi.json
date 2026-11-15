@@ -577,6 +577,15 @@
             }
           },
           {
+            "name": "setting",
+            "in": "query",
+            "required": false,
+            "description": "Only the `settings/change` events that changed this setting or tenancy switch (`site.name`): one setting's history (ADR 0085 §4).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "show",
             "in": "query",
             "required": false,

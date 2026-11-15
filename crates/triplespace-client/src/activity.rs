@@ -229,6 +229,8 @@ pub struct ActivityQuery {
     pub tag: Option<String>,
     /// A log type (`delete`, `protect`, `rights`, `block`, …), for `Special:Log`.
     pub log_type: Option<String>,
+    /// A setting or tenancy switch: the `settings/change` events that changed it.
+    pub setting: Option<String>,
     /// Parts an entity edit touched (`labels`, `labels:en`, `claims:P31`).
     pub changed: Vec<String>,
     /// From this time, ISO 8601.
@@ -319,6 +321,9 @@ impl ActivityQuery {
         }
         if let Some(t) = &self.log_type {
             push("log_type", t);
+        }
+        if let Some(k) = &self.setting {
+            push("setting", k);
         }
         if !self.changed.is_empty() {
             push("changed", &self.changed.join("|"));

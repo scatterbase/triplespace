@@ -35,7 +35,9 @@ use crate::features::Feature;
 use crate::frame::{Page, Tab, title_url};
 use crate::i18n::Messages;
 use crate::pages::{self, Context, Params, Peer};
-use crate::special::controls::{self, Control, ControlModel, Kind, ResetModel, SettingRow};
+use crate::special::controls::{
+    self, Control, ControlModel, HistoryLink, Kind, ResetModel, SettingRow,
+};
 
 /// Which page.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -551,7 +553,6 @@ fn row_model(
     SettingRow {
         row_id: format!("setting-{}", def.key),
         key: def.key.clone(),
-        label: label_text,
         label_for: edits.then(|| id.clone()),
         chips: origin_chips(m, scope, r),
         help_id: Some(help_id),
@@ -565,6 +566,8 @@ fn row_model(
         note: r
             .unresolved_default
             .then(|| m.get("ts-settings-unresolved-default")),
+        history: Some(HistoryLink::of(m, &def.key, &label_text)),
+        label: label_text,
     }
 }
 
@@ -960,7 +963,6 @@ fn defaults_model(
             Some(SettingRow {
                 row_id: format!("default-{}", def.key),
                 key: def.key.clone(),
-                label: label_text,
                 label_for: edits.then_some(id),
                 chips: Vec::new(),
                 help_id: None,
@@ -982,6 +984,8 @@ fn defaults_model(
                 note: ts
                     .inheriting
                     .map(|n| m.with("ts-settings-inheriting", &[&n.to_string()])),
+                history: Some(HistoryLink::of(m, &def.key, &label_text)),
+                label: label_text,
             })
         })
         .collect();

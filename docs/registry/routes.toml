@@ -105,8 +105,8 @@ sources = "[0016](../decisions/0016-permissions-and-access-control.md) §7; [002
 
 [[route]]
 routes = ["GET /activity"]
-purpose = "Recent changes as the UI shows them: one row per job, mirror syncs on request, and grouping by page. Filters: `kind`, namespace and period, applied to every set; `target={kind}:{id}`, `related={kind}:{id}&direction=out|in`, `set=watchlist`, `set=farm` at the farm base, and `syncs=on|off`"
-sources = "[0012](../decisions/0012-api-requirements.md) §5; [0020](../decisions/0020-change-feeds.md) §5; [0028](../decisions/0028-tenancy-policy.md) §11"
+purpose = "Recent changes as the UI shows them: one row per job, mirror syncs on request, and grouping by page. Filters: `kind`, namespace and period, applied to every set; `target={kind}:{id}`, `related={kind}:{id}&direction=out|in`, `set=watchlist`, `set=farm` at the farm base, and `syncs=on|off`; `setting={key}` narrows it to the `settings/change` events that changed one setting or tenancy switch, the setting's history ([19](19-site-ui.md) §2.8)"
+sources = "[0012](../decisions/0012-api-requirements.md) §5; [0020](../decisions/0020-change-feeds.md) §5; [0028](../decisions/0028-tenancy-policy.md) §11; [0085](../decisions/0085-settings-and-preferences.md) §4"
 
 [[route]]
 routes = ["GET /activity/stream"]

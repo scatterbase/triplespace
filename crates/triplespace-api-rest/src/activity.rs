@@ -16,6 +16,8 @@
 //! - `syncs=on|off` — the sync switch of 16 §4.2, a shorthand on `kind`.
 //! - `namespace={n}` — entity namespaces, several with `|`.
 //! - `tag`, `job`, `exclude_actor`, `log_type`, `log_action`.
+//! - `setting={key}` — the `settings/change` events that changed one setting or tenancy
+//!   switch: its history (0085 §4).
 //! - `changed=labels|labels:en|claims:P31|…` — entity edits that touched one of these
 //!   parts, optionally by language, site or property; several with `|` (16 §4.1).
 //! - `show=bot|!bot|minor|!minor|new|!new|patrolled|!patrolled`.
@@ -199,6 +201,9 @@ pub(crate) async fn feed_of(
     }
     if let Some(a) = q.get("log_action") {
         feed.filters.log_action = Some(a.clone());
+    }
+    if let Some(key) = q.get("setting").filter(|k| !k.is_empty()) {
+        feed.filters.setting = Some(key.clone());
     }
     if let Some(show) = q.get("show") {
         let show: Vec<String> = show.split('|').map(str::to_string).collect();
@@ -468,6 +473,7 @@ mod tests {
             "exclude_actor",
             "log_type",
             "log_action",
+            "setting",
             "show",
             "since",
             "until",

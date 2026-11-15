@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-07
-- **Updated:** 2026-11-07 (A7)
+- **Updated:** 2026-11-15 (A8)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0033](0033-backend-stack.md), [0047](0047-special-pages.md)
 - **Uses:** [0005](0005-crate-organization.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0046](0046-primary-tenant.md), [0056](0056-security-model.md), [0057](0057-web-tier.md), [0059](0059-query-service.md), [0075](0075-mcp-server.md)
@@ -53,7 +53,7 @@ And on the first proposal, the same day:
 
 ### 3. The licence notice and licence texts
 
-*Changed by A7.*
+*Changed by A7, A8.*
 
 *Current text: [21](../architecture/21-special-pages.md) §5.3.*
 
@@ -233,3 +233,10 @@ Replaced text ([21](../architecture/21-special-pages.md) §5.3, as it stood):
 Replaced text ([22](../architecture/22-crates-and-stack.md) §7.2, as it stood):
 
 > **Triplespace crates:** each workspace crate linked into the binary, with its version and licence. A `scatter-*` crate is marked as also available under a commercial licence (§3.3).
+
+### A8. The licence header on built JavaScript and CSS
+
+- **Date:** 2026-11-15
+- **Source:** Direct: Claude, while building the `@license` headers (SCA-273), 2026-11-15; unconfirmed
+- **Change:** extends §3
+- **Summary:** Every JavaScript and CSS file the front-end build writes opens with `/*! @license GPL-3.0-or-later. Triplespace; licence texts and source: Special:Version */`. The calls: one header for a whole file, although a bundled file also holds third-party code under its own licence, which `Special:Version` lists with its texts; the comment opens with `/*!`, which minifiers keep; it is written after the files are named, so a file's hashed name does not cover it; font files, the manifest and the package list carry none. Not built: the header on wasm files, which the front-end build does not write. Chapter text: 21 §5.3.

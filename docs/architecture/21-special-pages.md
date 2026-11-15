@@ -492,7 +492,7 @@ One more sentence follows, in `ts-version-cc0`: the documentation and registry d
 - For a build from a clean tree, `{developer.source}/tree/{commit}`.
 - `instance.source_url` ([23](23-configuration-and-registry.md) §3.3) replaces it, for an operator who publishes a modified build elsewhere.
 - A build from a modified tree (the manifest's `modified` flag) without `instance.source_url` shows "modified build; source location not configured" to everyone, and `triplespace instance check` warns. The JavaScript and wasm sent to browsers are conveyed to every reader, so their source must be offered whatever the server's licence would otherwise require of a hosted service ([0033](../decisions/0033-backend-stack.md) §16).
-- The built JavaScript, CSS and wasm files carry a header comment with `@license GPL-3.0-or-later` and the path `Special:Version`.
+- The built JavaScript, CSS and wasm files carry a header comment with `@license GPL-3.0-or-later` and the path `Special:Version`. For JavaScript and CSS it is the first line of every file the front-end build writes, `/*! @license GPL-3.0-or-later. Triplespace; licence texts and source: Special:Version */`, written after the files are named, so that a file's hashed name changes only with its code ([0077](../decisions/0077-special-version.md) A8).
 
 ### 5.4 Installed software and services
 

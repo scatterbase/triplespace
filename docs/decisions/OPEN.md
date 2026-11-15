@@ -68,9 +68,11 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0056 A27](0056-security-model.md#a27-entities-the-live-attack-and-tiers-78-the-calls-made-building-them) | 2026-10-30 | Entities, the live attack and tiers 7–8: the calls made building them |
 | [0066 A3](0066-lexemes.md#a3-the-part-suffix-belongs-to-the-lexeme-entity-type-not-to-a-grammar) | 2026-11-04 | The part suffix belongs to the lexeme entity type, not to a grammar |
 | [0077 A6](0077-special-version.md#a6-licensing-loose-ends-from-building-specialversion) | 2026-10-30 | Licensing: loose ends from building Special:Version |
+| [0077 A8](0077-special-version.md#a8-the-licence-header-on-built-javascript-and-css) | 2026-11-15 | The licence header on built JavaScript and CSS |
 | [0082 A2](0082-source-form-and-the-shared-view.md#a2-the-instances-content-languages) | 2026-11-04 | The instance's content languages |
 | [0085 A2](0085-settings-and-preferences.md#a2-settings-the-calls-made-building-the-backend-slice) | 2026-10-30 | Settings: the calls made building the backend slice |
 | [0085 A4](0085-settings-and-preferences.md#a4-preferences-controls-that-suit-their-keys-and-tabs-as-panes) | 2026-11-09 | Preferences: controls that suit their keys, and tabs as panes |
+| [0085 A5](0085-settings-and-preferences.md#a5-a-settings-history-is-the-log-narrowed-to-it) | 2026-11-15 | A setting's history is the log narrowed to it |
 | [0086 A9](0086-theming.md#a9-theming-loose-ends-from-building-it) | 2026-10-30 | Theming: loose ends from building it |
 | [0086 A10](0086-theming.md#a10-gruvbox-nord-and-catppuccin-with-type-sets-made-for-them) | 2026-11-01 | Gruvbox, Nord and Catppuccin, with type sets made for them |
 | [0086 A11](0086-theming.md#a11-greenbar-and-cyanotype-original-palettes-with-type-sets-made-for-them) | 2026-11-01 | Greenbar and Cyanotype, original palettes with type sets made for them |
