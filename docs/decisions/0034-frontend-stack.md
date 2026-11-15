@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-15 (A19)
+- **Updated:** 2026-11-15 (A20)
 - **Author:** James Hare / Claude
 - **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0029](0029-resolver-namespaces.md), [0033](0033-backend-stack.md)
@@ -37,7 +37,7 @@ The backend stack is in 0033.
 
 ### 4. Interactive components
 
-*Changed by A3, A18.*
+*Changed by A3, A18, A20.*
 
 *Current text: [19](../architecture/19-site-ui.md) §3.10, §5.3.*
 
@@ -350,3 +350,14 @@ Replaced text ([19](../architecture/19-site-ui.md) §4.9, as it stood):
 - **Source:** Direct: Claude, while building the development proxy to the Vite dev server (SCA-328), 2026-11-15; unconfirmed
 - **Change:** extends §8
 - **Summary:** The proxy to the Vite dev server is built, with these calls. (1) The option is `--vite` on both binaries (`server.vite`, `TRIPLESPACE_VITE`; `web.vite`, `TRIPLESPACE_WEB_VITE`), an origin such as `http://localhost:5173`; it exists only in a debug build, so a release binary has no such option and nothing of it. (2) With it set, a page links Vite's client and the source entries (`src/site.css`, `src/head.js`, `src/main.js`) under `/ui/assets/`, on the site's own origin, and the binary passes every request under `/ui/assets/` through to the dev server; what the dev server lacks (a type set's built font files) is served from `ui/dist`, as is everything when the dev server is not running. (3) The head script is linked as a module, since the dev server serves it with its imports; it therefore runs after the first paint, where the built one blocks. (4) The Content Security Policy is widened by three sources and no more: the dev server's WebSocket in `connect-src` (Vite's client connects to it directly, since the binary passes no WebSocket through), `'unsafe-inline'` in `style-src` (Vite applies a stylesheet a module imports as a `<style>` element), and `data:` in `font-src` (it serves a small font inline). Scripts still come from the site's own origin alone. (5) Templates and Rust are not reloaded: a template change still needs the web process restarted. Chapter text: 22 §5.1; 23 §3.6.
+
+### A20. The header's search box suggests, on Codex's Lookup
+
+- **Date:** 2026-11-15
+- **Source:** Direct: Claude, while building the header's search suggestions (SCA-326), 2026-11-15; unconfirmed
+- **Change:** amends §4
+- **Summary:** The header's search box suggests as the reader types, with these calls. (1) It is built on Codex's Lookup inside the header's own form, not on Codex's TypeaheadSearch: 2.7.0's TypeaheadSearch draws each suggestion, and its footer, as a link inside an option, which axe refuses (`nested-interactive`), as it refused ChipInput (A18). A suggestion here is an option; choosing it goes to its page. TypeaheadSearch takes its place once a Codex release passes, or on James's decision to accept the finding as an exception. (2) The component, with Vue, loads the first time the box is focused or typed in and takes the plain form's place, keeping what was typed and the focus, so a reader who does not search downloads none of it; without JavaScript the form searches as before. (3) The suggestions: where the text is shaped as an entity ID that no suggestion names, **Go to** first, which is the search page's own go; then items, properties and domains by label or alias, at most four of each, then pages by title, ten in all; each entity with its description and its ID, a page marked as one; last, a line to the full results. The suggestions are flat, in that order, not grouped under headings. (4) Enter with no suggestion highlighted submits the form, as the plain one does. (5) The server writes the language, the kinds and the `ts-typeahead-*` messages beside the box. The bell's panel stays the site's own markup and script, not Codex's Popover: nothing was found wrong with it, and whether to rebuild it on Popover is James's to decide. Chapter text: 19 §5.3.
+
+Replaced text ([19](../architecture/19-site-ui.md) §5.3, as it stood):
+
+> | Search box with "Go to" suggestions (§2.1) | TypeaheadSearch | the global header |

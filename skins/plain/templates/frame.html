@@ -39,6 +39,9 @@
 		<form class="ts-header__search" role="search" action="/w/index.php" method="get">
 			<input type="hidden" name="title" value="Special:Search">
 			{{ codex.search(search) }}
+			{%- if search_data %}
+			<script type="application/json" id="ts-search-data">{{ search_data|safe }}</script>
+			{%- endif %}
 		</form>
 		{%- endif %}
 		<nav class="ts-header__nav" aria-label="{{ msg("ts-nav-label") }}">

@@ -2,7 +2,8 @@
 // document as having JavaScript (the head script has usually done so already), wires the
 // Appearance menu (ADR 0085 §6), the challenge of a registration or login form
 // (ADR 0087 §5), a diff page's arrow keys (ADR 0010 §6), the bell's panel
-// (ADR 0021 A20) and the panes of Special:Preferences (19 §2.6), and loads the editing
+// (ADR 0021 A20), the panes of Special:Preferences (19 §2.6) and the suggestions of the
+// header's search box, which load when the box is first used, and loads the editing
 // components only on a page that has something the viewer may edit (the server writes an
 // edit data block there), so a reader downloads none of Vue. The grid of
 // Special:CreateManyEntities and of a Table page (ADR 0106 §1; 0045 §6) loads the same way.
@@ -11,6 +12,7 @@ import { initBell } from './bell/bell.js';
 import { initChallenges } from './challenge/form.js';
 import { initDiffNav } from './diffnav/diffnav.js';
 import { initPrefTabs } from './prefs/tabs.js';
+import { initTypeahead } from './search/typeahead.js';
 
 document.documentElement.classList.replace( 'client-nojs', 'client-js' );
 initAppearance( document, window );
@@ -18,6 +20,7 @@ initChallenges( document );
 initDiffNav( document, window );
 initBell( document, window );
 initPrefTabs( document, window );
+initTypeahead( document );
 if ( document.getElementById( 'ts-edit-data' ) ) {
 	import( './edit/index.ts' );
 }
