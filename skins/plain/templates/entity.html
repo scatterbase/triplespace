@@ -28,7 +28,7 @@
 {%- else -%}
 <a href="{{ v.link.href }}"><span class="ts-mono">{{ v.link.id }}</span></a>
 {%- endif -%}
-{%- elif v.kind == "time" %}<span class="ts-time">{{ v.text }}</span>{% if v.julian %} <span class="ts-subtle">{{ msg("ts-time-julian") }}</span>{% endif %}
+{%- elif v.kind == "time" %}<span class="ts-time">{{ v.text }}</span>{% if v.julian %} <span class="ts-subtle">{{ msg("plain-time-julian") }}</span>{% endif %}
 {%- elif v.kind == "text" %}<bdi>{{ v.text }}</bdi>
 {%- elif v.kind == "quantity" %}<span class="ts-number">{{ v.amount }}</span>{% if v.plus %}±{{ v.plus }}{% endif %}{% if v.bounds %} <span class="ts-subtle">[{{ v.bounds[0] }}, {{ v.bounds[1] }}]</span>{% endif %}{% if v.unit %} <span class="ts-unit">{{ unit(v.unit) }}</span>{% endif %}
 {%- elif v.kind == "external-id" %}<span class="ts-mono" dir="ltr">{{ v.text }}</span>
@@ -71,7 +71,7 @@
 {%- else -%}
 <a href="{{ val.link.href }}"><span class="ts-mono">{{ val.link.id }}</span></a>
 {%- endif -%}
-{%- elif val.kind == "time" %}<span class="ts-time">{{ val.text }}</span>{% if val.julian %} <span class="ts-subtle">{{ msg("ts-time-julian") }}</span>{% endif %}
+{%- elif val.kind == "time" %}<span class="ts-time">{{ val.text }}</span>{% if val.julian %} <span class="ts-subtle">{{ msg("plain-time-julian") }}</span>{% endif %}
 {%- elif val.kind == "text" %}<bdi>{{ val.text }}</bdi>
 {%- elif val.kind == "quantity" %}<span class="ts-number">{{ val.amount }}</span>{% if val.plus %}±{{ val.plus }}{% endif %}{% if val.bounds %} <span class="ts-subtle">[{{ val.bounds[0] }}, {{ val.bounds[1] }}]</span>{% endif %}{% if val.unit %} <span class="ts-unit">{{ unit(val.unit) }}</span>{% endif %}
 {%- elif val.kind == "external-id" %}<span class="ts-mono" dir="ltr">{{ val.text }}</span>

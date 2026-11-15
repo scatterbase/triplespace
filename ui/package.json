@@ -15,7 +15,7 @@
 		"lint": "npm run lint:js && npm run lint:types && npm run lint:css && npm run lint:i18n",
 		"lint:js": "eslint --max-warnings 0 .",
 		"lint:css": "stylelint \"src/**/*.css\"",
-		"lint:i18n": "banana-checker ../i18n",
+		"lint:i18n": "banana-checker ../i18n ../skins/plain/i18n",
 		"test": "vitest run --passWithNoTests",
 		"e2e": "e2e/run.sh",
 		"lint:types": "vue-tsc --noEmit"

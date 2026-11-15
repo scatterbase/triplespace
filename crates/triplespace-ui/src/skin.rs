@@ -77,6 +77,19 @@ pub struct Manifest {
     /// What the skin needs of the binary.
     #[serde(default)]
     pub requires: Requires,
+    /// The skin's message bundle, `i18n/` (19 §5.6): a skin that stands alone and has
+    /// messages of its own gives the bundle's version.
+    #[serde(default)]
+    pub messages: Option<MessageBundle>,
+}
+
+/// What a manifest says of the skin's message bundle.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct MessageBundle {
+    /// The bundle's version, its own (0097 §13): renaming or removing a key is a major,
+    /// a new translation a patch.
+    pub version: String,
 }
 
 /// A manifest's requirements, each a Cargo-style version requirement.
@@ -104,6 +117,9 @@ pub struct Skin {
     files: BTreeMap<String, Vec<u8>>,
     /// The template environment: this skin's own, or its parent's.
     env: Arc<Environment<'static>>,
+    /// The messages the templates name beside the binary's: this skin's own bundle, or
+    /// its parent's, since a skin that extends another adds none (19 §5.6).
+    bundle: Arc<crate::i18n::Bundle>,
     /// The chain of skins whose stylesheets a page links: the root first.
     stylesheets: Vec<(String, String)>,
     /// The hash of everything, for asset URLs.
@@ -143,6 +159,12 @@ impl Skin {
     #[must_use]
     pub fn origin(&self) -> &str {
         &self.origin
+    }
+
+    /// The skin's message bundle: its own, or the one of the skin it extends.
+    #[must_use]
+    pub fn messages(&self) -> &Arc<crate::i18n::Bundle> {
+        &self.bundle
     }
 
     /// The name and version together, `worksheet 0.1.0`: part of the build ID of a page
@@ -192,7 +214,7 @@ impl Skin {
         model: impl serde::Serialize,
     ) -> Result<String, minijinja::Error> {
         let t = self.env.get_template(template)?;
-        let msg = Value::from_object(Msg(m.clone()));
+        let msg = Value::from_object(Msg(m.clone().with_bundle(self.bundle.clone())));
         let model = Value::from(minijinja::value::Serde(&model));
         t.render(minijinja::context! { msg, ..model })
     }
@@ -212,7 +234,7 @@ impl Skin {
         m: &Messages,
         model: impl serde::Serialize,
     ) -> Result<String, minijinja::Error> {
-        let msg = Value::from_object(Msg(m.clone()));
+        let msg = Value::from_object(Msg(m.clone().with_bundle(self.bundle.clone())));
         let model = Value::from(minijinja::value::Serde(&model));
         self.env
             .render_str(source, minijinja::context! { msg, ..model })
@@ -451,10 +473,16 @@ impl Skins {
                     .iter()
                     .map(|s| (manifest.name.clone(), s.clone())),
             );
+            if manifest.messages.is_some() {
+                return Err(Refuse(format!(
+                    "extends `{parent_name}` and so has no message bundle of its own"
+                )));
+            }
             return Ok(Skin {
                 origin: r.origin.clone(),
                 files,
                 env: parent.env.clone(),
+                bundle: parent.bundle.clone(),
                 stylesheets,
                 hash,
                 manifest,
@@ -508,10 +536,31 @@ impl Skins {
             .iter()
             .map(|s| (manifest.name.clone(), s.clone()))
             .collect();
+        // Its messages: every key opens with the skin's name, and the bundle has a
+        // version once it has a message (19 §5.6).
+        let bundle = crate::i18n::Bundle::from_files(
+            r.files.iter().map(|(p, d)| (p.as_str(), d.as_slice())),
+            &format!("{}-", manifest.name),
+            manifest.messages.as_ref().map(|b| b.version.clone()),
+        )
+        .map_err(Refuse)?;
+        match (&manifest.messages, bundle.is_empty()) {
+            (None, false) => {
+                return Err(Refuse(
+                    "has messages under i18n/ and no [messages] version in skin.toml".into(),
+                ));
+            }
+            (Some(b), _) => {
+                semver::Version::parse(&b.version)
+                    .map_err(|e| Refuse(format!("messages.version `{}`: {e}", b.version)))?;
+            }
+            (None, true) => {}
+        }
         Ok(Skin {
             origin: r.origin.clone(),
             files,
             env: Arc::new(env),
+            bundle: Arc::new(bundle),
             stylesheets,
             hash,
             manifest,
@@ -664,6 +713,62 @@ mod tests {
         );
     }
 
+    // 0097 §13; 0034 §9: Plain has a bundle of its own, with a version, which Worksheet
+    // draws with too; every message a shipped template names is in one of the bundles.
+    #[test]
+    fn the_skins_messages_are_in_the_skins_bundle() {
+        let skins = Skins::load(None);
+        let plain = skins.get("plain").expect("Plain loads");
+        let worksheet = skins.get("worksheet").expect("Worksheet loads");
+        assert_eq!(plain.messages().version.as_deref(), Some("0.1.0"));
+        assert!(plain.messages().keys().all(|k| k.starts_with("plain-")));
+        assert!(
+            plain
+                .messages()
+                .keys()
+                .any(|k| k == "plain-skip-to-content")
+        );
+        // A skin that extends Plain adds no messages: it has Plain's.
+        assert!(Arc::ptr_eq(plain.messages(), worksheet.messages()));
+        // Drawn through either skin, a skin's message is its text, in the page's
+        // language where the bundle has it and in English where it does not.
+        for skin in [plain, worksheet] {
+            for lang in ["en", "de"] {
+                let m = Messages::for_language(lang);
+                let out = skin
+                    .render_str(
+                        "{{ msg(\"plain-skip-to-content\") }}",
+                        &m,
+                        serde_json::json!({}),
+                    )
+                    .unwrap();
+                assert_eq!(out, "Skip to content", "{} in {lang}", skin.name());
+            }
+        }
+        // Every key a shipped template names resolves: none shows as a missing message.
+        let m = Messages::for_language("en").with_bundle(plain.messages().clone());
+        let mut named = 0;
+        for path in Shipped::iter().filter(|p| p.starts_with("plain/templates/")) {
+            let file = Shipped::get(&path).unwrap();
+            let text = std::str::from_utf8(&file.data).unwrap();
+            for (at, _) in text.match_indices("msg(\"") {
+                let rest = &text[at + 5..];
+                let key = &rest[..rest.find('"').unwrap()];
+                assert!(
+                    m.has(key),
+                    "{path} names the message `{key}`, which no bundle has"
+                );
+                // What the skin's own bundle holds, only its templates name.
+                assert!(
+                    key.starts_with("ts-") || key.starts_with("plain-"),
+                    "{path}: `{key}` is in neither bundle's namespace"
+                );
+                named += 1;
+            }
+        }
+        assert!(named > 10, "the templates name messages");
+    }
+
     #[test]
     fn the_codex_token_version_is_the_one_the_build_pins() {
         let package: serde_json::Value =
@@ -686,6 +791,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::too_many_lines)]
     fn requirements_are_checked_and_refusals_say_why() {
         let mut skins = Skins::load(None);
         let mut raw_skins = BTreeMap::new();
@@ -723,7 +829,56 @@ mod tests {
                 &[("skin.toml", "name = \"other\"\nversion = \"0.1.0\"\n")],
             ),
         );
+        // 19 §5.6: a skin's keys carry its name; its bundle has a version; a skin that
+        // extends another has no messages of its own.
+        let standalone = |name: &str, extra: &str, files: &[(&str, &str)]| {
+            let manifest = format!(
+                "name = \"{name}\"\nversion = \"0.1.0\"\n{extra}[requires]\ntemplate_contract = \"0.1\"\ncodex_tokens = 2\n"
+            );
+            let mut all = vec![
+                ("skin.toml", manifest.as_str()),
+                ("templates/frame.html", "x"),
+            ];
+            all.extend_from_slice(files);
+            raw(name, &all)
+        };
+        raw_skins.insert(
+            "stray".to_string(),
+            standalone(
+                "stray",
+                "[messages]\nversion = \"0.1.0\"\n",
+                &[("i18n/en.json", r#"{"plain-x": "not mine"}"#)],
+            ),
+        );
+        raw_skins.insert(
+            "unversioned".to_string(),
+            standalone(
+                "unversioned",
+                "",
+                &[("i18n/en.json", r#"{"unversioned-x": "X"}"#)],
+            ),
+        );
+        raw_skins.insert(
+            "own".to_string(),
+            standalone(
+                "own",
+                "[messages]\nversion = \"1.2.0\"\n",
+                &[("i18n/en.json", r#"{"own-x": "Mine"}"#)],
+            ),
+        );
+        raw_skins.insert(
+            "wordy".to_string(),
+            raw(
+                "wordy",
+                &[
+                    ("skin.toml", "name = \"wordy\"\nversion = \"0.1.0\"\nextends = \"plain\"\n[messages]\nversion = \"0.1.0\"\n[requires]\nplain = \"0.1\"\n"),
+                ],
+            ),
+        );
         skins.load_all(raw_skins);
+        let own = skins.get("own").expect("a skin with its own bundle loads");
+        assert_eq!(own.messages().version.as_deref(), Some("1.2.0"));
+        assert_eq!(own.messages().keys().collect::<Vec<_>>(), ["own-x"]);
         let child = skins.get("child").expect("the child loads");
         assert_eq!(child.stylesheets().len(), 1);
         assert_eq!(
@@ -741,6 +896,18 @@ mod tests {
             "{reasons:?}"
         );
         assert!(reasons["orphan"].contains("`nothing`, which is not loaded"));
+        assert!(
+            reasons["stray"].contains("`plain-x` does not open with `stray-`"),
+            "{reasons:?}"
+        );
+        assert!(
+            reasons["unversioned"].contains("no [messages] version"),
+            "{reasons:?}"
+        );
+        assert!(
+            reasons["wordy"].contains("has no message bundle of its own"),
+            "{reasons:?}"
+        );
         assert!(reasons["wrongname"].contains("names `other`"));
     }
 
@@ -759,6 +926,7 @@ mod tests {
             origin: String::new(),
             files: BTreeMap::new(),
             env: Arc::new(env),
+            bundle: Arc::default(),
             stylesheets: Vec::new(),
             hash: String::new(),
         };
