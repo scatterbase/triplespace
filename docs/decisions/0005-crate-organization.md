@@ -1282,9 +1282,9 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, `crates.toml`
 - **Change:** extends §2
 - **Summary:** `triplespace-api-rest` holds the observer of the REST routes served, `triplespace-api-action` that of the Action API modules served, and `triplespace-accounts` and `scatter-actors` those of tenancy-switch reads; the server installs the API's two with the probe's `module` and `route`. No new crate and no new edge. Chapter text: [22](../architecture/22-crates-and-stack.md) §2.1 (`crates.toml`).
 
-### A126. The `hosted` keyed type
+### A126. The `remote` keyed type
 
 - **Date:** 2026-11-15
-- **Source:** [0110](0110-hosted-pages-and-revisions.md) §7
+- **Source:** [0110](0110-remote-pages-and-revisions.md) §7
 - **Change:** extends §2
-- **Summary:** `scatter-normalize` holds the `hosted` keyed type's grammar and normalizer and the host registry with its site grammars, embedding `hosts.toml`; `scatter-wikibase-model` holds the entity type, the `wikibase-hosted` data type and the link through a host's site list. No new crate and no new edge. Chapter text: [22](../architecture/22-crates-and-stack.md) §2.1 (`crates.toml`).
+- **Summary:** `scatter-normalize` holds the `remote` keyed type's grammar and normalizer and the host registry with its site grammars, embedding `hosts.toml`; `scatter-wikibase-model` holds the entity type, the `wikibase-remote` data type and the link through a host's site list. No new crate and no new edge. Chapter text: [22](../architecture/22-crates-and-stack.md) §2.1 (`crates.toml`).

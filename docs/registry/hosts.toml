@@ -1,8 +1,8 @@
 # Hosts.  ADR 0110 §2.
 #
-# A host runs many sites, names each, and numbers each site's pages and revisions. A `hosted` key
+# A host runs many sites, names each, and numbers each site's pages and revisions. A `remote` key
 # (keyed-types.toml) is `{host}:{site}-{p|r}{number}`: wikimedia:enwiki-p12 is English
-# Wikipedia's page 12. Not yet embedded: `scatter-normalize` reads this file once the `hosted`
+# Wikipedia's page 12. Not yet embedded: `scatter-normalize` reads this file once the `remote`
 # type is built (README, Pending allocations).
 #
 # name          Lowercase ASCII letters, digits and single hyphens, starting with a letter, at most
@@ -19,7 +19,7 @@
 # page_url      Template for a page's link: {base} and {n}.
 # revision_url  Template for a revision's link: {base} and {n}.
 #
-# Hosts are allocated here only, never by an instance or a tenant: hosted IDs and IRIs are shared
+# Hosts are allocated here only, never by an instance or a tenant: remote IDs and IRIs are shared
 # by every instance. A host's name is never reused for another host; a retired host stays with
 # `retired = true`.
 

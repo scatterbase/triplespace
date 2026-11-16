@@ -66,7 +66,7 @@ HEADER = """\
 # `enwiki` + `Douglas Adams` and https://en.wikipedia.org/wiki/Douglas_Adams are one sitelink.
 # There is no site table: an alias exists only for compatibility, and a host without one is
 # linked by URL with the host as its site ID. The same entries are the `wikimedia` host's
-# site list (hosts.toml): a hosted key's link to its page or revision takes the site's host
+# site list (hosts.toml): a remote key's link to its page or revision takes the site's host
 # from here (0110 §4); the key does not depend on them.
 #
 # Every public wiki in Wikimedia's site matrix (API:Sitematrix) is listed, closed and

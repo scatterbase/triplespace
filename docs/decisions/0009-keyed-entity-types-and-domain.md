@@ -302,9 +302,9 @@ Replaced text (22 §2.1, the row, as it stood):
 
 > | | `scatter-adapter-internetdomains` | The key-mapped adapter for internetdomains.wiki ([0009](0009-keyed-entity-types-and-domain.md) §9, §12) | `scatter-wikibase-changeset`, `scatter-wikibase-model`, `scatter-providers`, `scatter-normalize` |
 
-### A16. The `hosted` keyed type
+### A16. The `remote` keyed type
 
 - **Date:** 2026-11-15
-- **Source:** [0110](0110-hosted-pages-and-revisions.md) §1
+- **Source:** [0110](0110-remote-pages-and-revisions.md) §1
 - **Change:** extends §1
-- **Summary:** A fourth keyed type, `hosted`, names a page or revision on a site that a registered host runs, by the host, the site's name, `p` or `r`, and the number the host gave it: `hosted:wikimedia:enwiki-p12`. Its normalizer reads nothing but the key. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.1, §3.11.
+- **Summary:** A fourth keyed type, `remote`, names a page or revision on a site that a registered host runs, by the host, the site's name, `p` or `r`, and the number the host gave it: `remote:wikimedia:enwiki-p12`. Its normalizer reads nothing but the key. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.1, §3.11.

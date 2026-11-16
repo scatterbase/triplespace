@@ -105,7 +105,7 @@ Input is case-insensitive, as every ID is (§2.2): `qqq5` is `Q5`. **The rest of
 
 ### 3.1 What a keyed type is
 
-*Sources: [0009](../decisions/0009-keyed-entity-types-and-domain.md) §1; [0017](../decisions/0017-entity-id-grammar.md) §3; [0048](../decisions/0048-notation.md) §6; [0110](../decisions/0110-hosted-pages-and-revisions.md) §1.*
+*Sources: [0009](../decisions/0009-keyed-entity-types-and-domain.md) §1; [0017](../decisions/0017-entity-id-grammar.md) §3; [0048](../decisions/0048-notation.md) §6; [0110](../decisions/0110-remote-pages-and-revisions.md) §1.*
 
 A **keyed entity type** is an entity type whose ID is a normalized natural key, not a minted identifier. Each keyed type is a registry entry, recorded in the log as configuration (§4.10). The entry records:
 
@@ -117,10 +117,10 @@ A **keyed entity type** is an entity type whose ID is a normalized natural key, 
 - the **display rule**: how the key is shown as a label, **derived** or **editable** (§3.6, §3.7);
 - the **data type** used to refer to entities of this type (§3.2);
 - the **ID prefix**: the type's name and a colon (§3.2);
-- whether the type's entities **join identity clusters**, `clusters` (default true; false for keyword, notation and hosted, §4.1);
+- whether the type's entities **join identity clusters**, `clusters` (default true; false for keyword, notation and remote, §4.1);
 - a **label** for the type.
 
-**Domain is the first keyed type registered.** The mechanism is general so that others can be added as registry entries: Keyword (§3.7), Notation (§3.8) and Hosted (§3.11, [0110](../decisions/0110-hosted-pages-and-revisions.md) §1) have been. `docs/registry/keyed-types.toml` is authoritative. Normalizers come from `scatter-normalize` (§3.10).
+**Domain is the first keyed type registered.** The mechanism is general so that others can be added as registry entries: Keyword (§3.7), Notation (§3.8) and Remote (§3.11, [0110](../decisions/0110-remote-pages-and-revisions.md) §1) have been. `docs/registry/keyed-types.toml` is authoritative. Normalizers come from `scatter-normalize` (§3.10).
 
 ### 3.2 Keyed IDs, JSON and values
 
@@ -342,7 +342,7 @@ One scheme shares one namespace with every other scheme, which leaves 218 to 219
 
 ### 3.9 What a notation is, and what it is not
 
-*Sources: [0048](../decisions/0048-notation.md) §3; [0048](../decisions/0048-notation.md) §4; [0036](../decisions/0036-openstreetmap-providers.md) §6; [0110](../decisions/0110-hosted-pages-and-revisions.md) §3.*
+*Sources: [0048](../decisions/0048-notation.md) §3; [0048](../decisions/0048-notation.md) §4; [0036](../decisions/0036-openstreetmap-providers.md) §6; [0110](../decisions/0110-remote-pages-and-revisions.md) §3.*
 
 Five mechanisms give strings an identity. The question that tells them apart is who decides that two strings are the same thing.
 
@@ -352,9 +352,9 @@ Five mechanisms give strings an identity. The question that tells them apart is 
 | **Keyword** (§3.7) | The string is a phrase about a work, and variants should converge whoever writes them. Labels are editable because folding loses case | `keyword:machine-learning` |
 | **Provider item** ([0037](../decisions/0037-gdelt-provider.md) §2) | One provider publishes and identifies a finite list | `GDTTAX_FNCACT_MAYOR`, a GDELT theme |
 | **Resolver** ([0029](../decisions/0029-resolver-namespaces.md)) | The string identifies a thing that already has an item | A DOI |
-| **Hosted key** (§3.11) | A host that runs many sites has numbered a page or revision on one of them, and the string is that number qualified by the host and the site. It names the page or revision itself | `hosted:wikimedia:enwiki-p12` |
+| **Remote key** (§3.11) | A host that runs many sites has numbered a page or revision on one of them, and the string is that number qualified by the host and the site. It names the page or revision itself | `remote:wikimedia:enwiki-p12` |
 
-**A hosted key is not a notation** ([0110](../decisions/0110-hosted-pages-and-revisions.md) §3). A notation is a term: `notation:osm:amenity=cafe` is a tag, not the café. A hosted key names its page or revision as a Domain names its domain, so a statement about `hosted:wikimedia:enwiki-p12` is a statement about the article, and a `wikibase-hosted` value cites the page or revision, not a string that names it.
+**A remote key is not a notation** ([0110](../decisions/0110-remote-pages-and-revisions.md) §3). A notation is a term: `notation:osm:amenity=cafe` is a tag, not the café. A remote key names its page or revision as a Domain names its domain, so a statement about `remote:wikimedia:enwiki-p12` is a statement about the article, and a `wikibase-remote` value cites the page or revision, not a string that names it.
 
 **Notations never join identity clusters** (§4.1), as keywords do not, for the same reason: `notation:osm:amenity=cafe` is a tag, and a Wikidata item about cafés is the concept. A notation may carry an ordinary statement pointing at the concept it usually denotes; `P7` and `P12` stay statements, so a user can follow a tag to its concept without the phrase becoming canonical over the concept.
 
@@ -377,21 +377,21 @@ Normalizers come from `scatter-normalize` ([22](22-crates-and-stack.md)), which 
 | Case folding (DOI resolver, 0029) and plural rules | `icu_casemap`, `icu_plurals` (ICU4X; wasm-friendly) |
 | Unicode normalization | `unicode-normalization` |
 
-### 3.11 Hosted pages and revisions
+### 3.11 Remote pages and revisions
 
-*Sources: [0110](../decisions/0110-hosted-pages-and-revisions.md) §1; [0110](../decisions/0110-hosted-pages-and-revisions.md) §3; [0110](../decisions/0110-hosted-pages-and-revisions.md) §4.*
+*Sources: [0110](../decisions/0110-remote-pages-and-revisions.md) §1; [0110](../decisions/0110-remote-pages-and-revisions.md) §3; [0110](../decisions/0110-remote-pages-and-revisions.md) §4; [0110](../decisions/0110-remote-pages-and-revisions.md) §8.*
 
-A **host** runs many sites, gives each a short name, and numbers each site's pages and revisions: Wikimedia names its wikis by database name (`enwiki`) and MediaWiki numbers their pages and revisions. A **hosted key** names one page or one revision by the host, the site and the number. `hosted:wikimedia:enwiki-p12` is English Wikipedia's page 12, the article *Anarchism*, whatever its title becomes; `hosted:wikimedia:enwiki-r1234567` is one revision on English Wikipedia. The pattern is not particular to wikis: any host that names its sites and numbers their pages and revisions can be registered (§3.12).
+A **host** runs many sites, gives each a short name, and numbers each site's pages and revisions: Wikimedia names its wikis by database name (`enwiki`) and MediaWiki numbers their pages and revisions. A **remote key** names one page or one revision by the host, the site and the number. `remote:wikimedia:enwiki-p12` is English Wikipedia's page 12, the article *Anarchism*, whatever its title becomes; `remote:wikimedia:enwiki-r1234567` is one revision on English Wikipedia. The pattern is not particular to wikis: any host that names its sites and numbers their pages and revisions can be registered (§3.12).
 
 | | |
 |---|---|
-| Type name, ID prefix | `hosted`, `hosted:` |
+| Type name, ID prefix | `remote`, `remote:` |
 | Key | The host's name, `:`, the site's name, `-`, `p` for a page or `r` for a revision, and the number: `wikimedia:enwiki-p12` |
-| ID | `hosted:wikimedia:enwiki-p12` (§3.2) |
-| Namespace | `Hosted`, 314, with `Hosted talk` at 315 ([0008](../decisions/0008-namespaces-and-document-pages.md) §2; [10](10-pages-and-content-models.md) §1.4). Titles read `Hosted:wikimedia:enwiki-p12` |
-| Data type | `wikibase-hosted`, value type `wikibase-entityid` |
-| Content model | `triplespace-hosted` ([10](10-pages-and-content-models.md) §4.4) |
-| IRI | `https://scatter.red/hosted/{key}`, content-derived and shared by every instance (§3.5) |
+| ID | `remote:wikimedia:enwiki-p12` (§3.2) |
+| Namespace | `Remote`, 314, with `Remote talk` at 315 ([0008](../decisions/0008-namespaces-and-document-pages.md) §2; [10](10-pages-and-content-models.md) §1.4). Titles read `Remote:wikimedia:enwiki-p12` |
+| Data type | `wikibase-remote`, value type `wikibase-entityid` |
+| Content model | `triplespace-remote` ([10](10-pages-and-content-models.md) §4.4) |
+| IRI | `https://scatter.red/remote/{key}`, content-derived and shared by every instance (§3.5) |
 | Grammar | A registered host's name; `:`; a site name in the host's site grammar (§3.12), which never admits `-`; `-`; `p` or `r`; a decimal number from 1 to 2^63 − 1 with no leading zeros |
 | Normalizer | The host's name lowercased, the site name by its grammar, and the letter lowercased; nothing else. `WIKIMEDIA:ENWIKI-P12` is `wikimedia:enwiki-p12`, while `wikimedia:enwiki-p012` and `wikimedia:en.wikipedia.org-p12` are not keys |
 | Display | Derived: the key without the host as the `mul` label; `wbsetlabel` fails with `derived-label` as on a Domain (§3.6). Descriptions and aliases are stored and reconciled like an item's |
@@ -401,15 +401,19 @@ A **host** runs many sites, gives each a short name, and numbers each site's pag
 
 **The key is checked by its form alone.** It is valid whether or not the site, the page or the revision exists, as a Domain is valid whether or not anyone has registered it (§3.3). No list of sites is read to decide it, so the key is the same on every instance and does not change when a host opens, closes or renames a site.
 
-**A page key names the page, a revision key names the revision.** A host whose numbers this type records keeps a page's number when the page is renamed and never gives a revision's number to another revision; MediaWiki does both, so `hosted:wikimedia:enwiki-p12` follows the article through moves. Neither key says anything of the other: which page a revision belongs to is data, because a history merge can move revisions between pages.
+**A page key names the page, a revision key names the revision.** A host whose numbers this type records keeps a page's number when the page is renamed and never gives a revision's number to another revision; MediaWiki does both, so `remote:wikimedia:enwiki-p12` follows the article through moves. Neither key says anything of the other: which page a revision belongs to is data, because a history merge can move revisions between pages.
 
-The rest of what §3 says of a Domain applies unchanged: a hosted key exists because it is valid, with no create, redirect or delete (§3.3); log headers carry a surrogate (§3.4); upstream items can be key-mapped onto hosted keys ([05](05-providers-and-ingest.md)). Host names join the one table of keyed-type, resolver and scheme names, so `wikimedia:enwiki-p12` typed into `/resolve` or the search box means the hosted key, tried after keyed IDs and with notation keys, before resolver strings.
+The rest of what §3 says of a Domain applies unchanged: a remote key exists because it is valid, with no create, redirect or delete (§3.3); log headers carry a surrogate (§3.4); upstream items can be key-mapped onto remote keys ([05](05-providers-and-ingest.md)). Host names join the one table of keyed-type, resolver and scheme names, so `wikimedia:enwiki-p12` typed into `/resolve` or the search box means the remote key, tried after keyed IDs and with notation keys, before resolver strings.
 
-**Links come from the host's site list** ([0110](../decisions/0110-hosted-pages-and-revisions.md) §4). The entity's page and its identity line link to the page or revision on its site: the site's base URL is looked up in the site list the host names, and the link is the host's page or revision URL template filled with it and the number. For Wikimedia the site list is the default site aliases, `docs/registry/sites.toml` ([0026](../decisions/0026-sitelinks.md) §2, in [06](06-statements-and-properties.md) §4.3), and the links are `https://{host}/?curid={n}` and `https://{host}/?oldid={n}`. Only the registry's lists are read, never a tenant's `site-alias` records, so no tenant can point a hosted key at another site. A site the list does not name, or a host with no list, gets no link, and the page says the site is not known; the key stays valid. `scatter-wikibase-model` builds the link ([22](22-crates-and-stack.md) §2.1).
+**Links come from the host's site list** ([0110](../decisions/0110-remote-pages-and-revisions.md) §4). The entity's page and its identity line link to the page or revision on its site: the site's base URL is looked up in the site list the host names, and the link is the host's page or revision URL template filled with it and the number. For Wikimedia the site list is the default site aliases, `docs/registry/sites.toml` ([0026](../decisions/0026-sitelinks.md) §2, in [06](06-statements-and-properties.md) §4.3), and the links are `https://{host}/?curid={n}` and `https://{host}/?oldid={n}`. Only the registry's lists are read, never a tenant's `site-alias` records, so no tenant can point a remote key at another site. A site the list does not name, or a host with no list, gets no link, and the page says the site is not known; the key stays valid. `scatter-wikibase-model` builds the link ([22](22-crates-and-stack.md) §2.1).
+
+**On a tenant that serves the site, a remote key goes to the served page** ([0110](../decisions/0110-remote-pages-and-revisions.md) §8). A tenant serves a site when one of its page repositories ([13](13-mirrored-pages.md) §1.1) belongs to the provider of that site. **The provider entry names its site** in a `remote` field, `wikimedia:enwiki` for English Wikipedia's (`providers.toml`, [05](05-providers-and-ingest.md) §1.5); where the field is empty, it is derived by looking up the host of the provider's API endpoint in each host's site list, so a Wikimedia wiki needs nothing written, and a host with no site list needs the field. The tie is a fact about the wiki, the same on every instance, and anything that knows the provider can use it. There, viewing `Remote:wikimedia:enwiki-p12` shows the repository's copy of page 12: the upstream page ID is looked up in the repository's title index ([13](13-mirrored-pages.md) §2.3), so the key finds the page under its current title after a move, and a revision key shows the served revision by its ranged `oldid` ([13](13-mirrored-pages.md) §1.6). The entity's statements are then the served page's page statements, in its Page data tab ([13](13-mirrored-pages.md) §1.7, [0110](../decisions/0110-remote-pages-and-revisions.md) §9). Where the tenant does not serve the site, or the index has no such page, `Remote:` shows the entity's page, as on any other tenant.
+
+**A remote key names the page on its site and nothing else.** A fork is a new local page with a page ID of its own, whose first record names the page it came from ([13](13-mirrored-pages.md) §3.1); it is never what a remote key names. Where a fork is the primary at the page's title, `Remote:…-p12` shows the repository's page, which the stack then offers as an alternate ([13](13-mirrored-pages.md) §1.5); where the repository is set to hide shadowed pages, there is no served copy to show, and the entity's page is shown.
 
 ### 3.12 Hosts
 
-*Sources: [0110](../decisions/0110-hosted-pages-and-revisions.md) §2; [0110](../decisions/0110-hosted-pages-and-revisions.md) §4.*
+*Sources: [0110](../decisions/0110-remote-pages-and-revisions.md) §2; [0110](../decisions/0110-remote-pages-and-revisions.md) §4.*
 
 **Hosts are registry data,** in `docs/registry/hosts.toml`, to be embedded by `scatter-normalize` with the type. Each entry has:
 
@@ -423,7 +427,7 @@ The rest of what §3 says of a Domain applies unchanged: a hosted key exists bec
 | `defined_in` | The ADR that registered the host |
 | `retired` | Optional. A retired host stays in the file so its name is never given to another |
 
-**Hosts are allocated in the registry only, never by an instance or a tenant,** for the reason schemes are (§3.8): a hosted ID and its IRI are shared by every instance, so two instances that gave one name to different hosts would describe different pages with one IRI. **A new host is a registry change; a new site grammar is code.** A host is not a provider (`providers.toml`, [05](05-providers-and-ingest.md) §1.5): it mints nothing Triplespace stores or mirrors, and needs only a name, a grammar and its links.
+**Hosts are allocated in the registry only, never by an instance or a tenant,** for the reason schemes are (§3.8): a remote ID and its IRI are shared by every instance, so two instances that gave one name to different hosts would describe different pages with one IRI. **A new host is a registry change; a new site grammar is code.** A host is not a provider (`providers.toml`, [05](05-providers-and-ingest.md) §1.5): it mints nothing Triplespace stores or mirrors, and needs only a name, a grammar and its links.
 
 **Wikimedia is the first host:** site grammar `dbname`, site list `site-aliases`, page URL `{base}/?curid={n}`, revision URL `{base}/?oldid={n}`. **Miraheze is drafted as a candidate,** commented out as `resolvers.toml` drafts its candidates: its wikis have database names too, some the same as Wikimedia's (`metawiki`), which the host in the key keeps apart. It has no site list yet, because a Miraheze wiki's domain is a subdomain of `miraheze.org` unless it has a custom one.
 

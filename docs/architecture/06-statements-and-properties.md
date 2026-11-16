@@ -222,7 +222,7 @@ A sitelink to another tenant's or instance's entity page is a plain sitelink, as
 
 ### 4.3 Site aliases
 
-*Sources: [0026](../decisions/0026-sitelinks.md) §2; [0110](../decisions/0110-hosted-pages-and-revisions.md) §5.*
+*Sources: [0026](../decisions/0026-sitelinks.md) §2; [0110](../decisions/0110-remote-pages-and-revisions.md) §5.*
 
 **Site aliases keep Wikidata tooling working.** Tools and clients hard-code MediaWiki site IDs (`enwiki`, `dewikisource`, `commonswiki`) and pass titles, not URLs. A **site alias** maps a MediaWiki site ID to a host, an article path and a language, so that `enwiki` + `Douglas Adams` and `https://en.wikipedia.org/wiki/Douglas_Adams` are the same sitelink:
 
@@ -233,7 +233,7 @@ A sitelink to another tenant's or instance's entity page is a plain sitelink, as
 | Article path | `/wiki/$1` |
 | Language | `en` |
 
-The defaults ship in `docs/registry/sites.toml` ([23](23-configuration-and-registry.md) §4.1), generated from Wikimedia's site matrix by `tools/sites_gen.py` and committed ([0110](../decisions/0110-hosted-pages-and-revisions.md) §5). They are every public wiki the matrix lists, closed and fishbowl wikis included and private wikis left out, with the database name as site ID, the article path `/wiki/$1`, the site's language, and as group the project family (`wikipedia` for the matrix's `wiki`) or `special`. Refreshing them is running the script, reading the diff and committing it; nothing fetches the matrix while the instance runs. The same entries are the `wikimedia` host's site list, from which hosted keys take their links ([04](04-entities-and-identifiers.md) §3.11). A tenant adds aliases for other MediaWiki hosts as `config` records of kind `site-alias` ([23](23-configuration-and-registry.md) §2.2). Where a host has an alias, the JSON `sitelinks` map is keyed by the alias's site ID and the entry carries the title in MediaWiki form; where it has none, the map is keyed by the host and `title` is the URL's path, query and fragment. Every entry carries `url`, as Wikibase's JSON already does. Input accepts either form everywhere.
+The defaults ship in `docs/registry/sites.toml` ([23](23-configuration-and-registry.md) §4.1), generated from Wikimedia's site matrix by `tools/sites_gen.py` and committed ([0110](../decisions/0110-remote-pages-and-revisions.md) §5). They are every public wiki the matrix lists, closed and fishbowl wikis included and private wikis left out, with the database name as site ID, the article path `/wiki/$1`, the site's language, and as group the project family (`wikipedia` for the matrix's `wiki`) or `special`. Refreshing them is running the script, reading the diff and committing it; nothing fetches the matrix while the instance runs. The same entries are the `wikimedia` host's site list, from which remote keys take their links ([04](04-entities-and-identifiers.md) §3.11). A tenant adds aliases for other MediaWiki hosts as `config` records of kind `site-alias` ([23](23-configuration-and-registry.md) §2.2). Where a host has an alias, the JSON `sitelinks` map is keyed by the alias's site ID and the entry carries the title in MediaWiki form; where it has none, the map is keyed by the host and `title` is the URL's path, query and fragment. Every entry carries `url`, as Wikibase's JSON already does. Input accepts either form everywhere.
 
 A tenant registers a site alias for its own host too (§4.6).
 

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-10-09 (A8)
+- **Updated:** 2026-11-16 (A9)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0038](0038-page-metadata-and-categories.md), [0042](0042-template-expansion-and-parsoid.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0026](0026-sitelinks.md), [0028](0028-tenancy-policy.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0043](0043-lua-modules.md), [0051](0051-page-redirects.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -69,7 +69,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 7. Talk pages, statements, categories and feeds
 
-*Changed by A1.*
+*Changed by A1, A9.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §1.7, §1.8.*
 
@@ -105,7 +105,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 ## Open questions
 
-- **Q1. Local metadata on foreign pages.** Whether a title whose primary is foreign may carry local page statements, keyed by the ranged ID, and how a fork carries them across the change of page ID. The file-page precedent ([0039](0039-files-and-media.md) §11, "a local page for a foreign file") suggests yes.
+- **Q1.** ~~**Local metadata on foreign pages.** Whether a title whose primary is foreign may carry local page statements, keyed by the ranged ID, and how a fork carries them across the change of page ID. The file-page precedent ([0039](0039-files-and-media.md) §11, "a local page for a foreign file") suggests yes.~~ *Settled by [0110](0110-remote-pages-and-revisions.md) §9: a foreign page with a remote key carries page statements, stored on the remote key; a fork is a new page and does not take them.*
 - **Q2. Sitelinks to inherited titles.** Whether a sitelink may target a foreign primary by title rather than page ID, breaking when the title is forked, or whether forking should re-target it.
 - **Q3. Foreign category membership.** Whether a `Category:` page served by a repository should list the repository's members, fetched live or from the mirror, and whether mirrored pages' categories should join `view.page_category` in `mirror` mode.
 - **Q4. Watching foreign pages.** Whether a watch on an inherited title should deliver the repository's changes to the page, which needs the repository's events ([0053](0053-mirrored-pages.md) §6) to become activity rows or notifications.
@@ -206,3 +206,14 @@ Replaced text ([13](../architecture/13-mirrored-pages.md) §1.1, as it stood):
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §6
 - **Summary:** A mirrored entity's page ID is provider-ranged exactly as a foreign page's is: `provider_number << 40 | upstream page ID` where the provider publishes one, `provider_number << 40 | mirror offset` otherwise, computed by the writer from the record with no allocation, so a bulk sync takes no page-ID sequence and every tenant reading the provider sees one number. `log."instance.page_id"` is not used for entities; the range below 2^40 is the tenant's own sequence; `view.entity`'s unique key on the page ID is `(tenant, page_id)`. The ledger's verb is `amends`, but §6 said nothing about entities' page IDs that this contradicts, so it is logged as `extends`; the contradicted text is [0013](0013-postgres-storage.md) §6's and [0015](0015-record-format-and-partition-registry.md) §2's. (REVIEW G18)
+
+### A9. A foreign page with a remote key carries page statements
+
+- **Date:** 2026-11-16
+- **Source:** [0110](0110-remote-pages-and-revisions.md) §9
+- **Change:** amends §7
+- **Summary:** A page served from a repository whose site has a remote key carries page statements, stored on the remote key rather than the ranged page ID and edited in its Page data tab; they are the remote entity's statements, the same data whether or not the site is served. A fork is a new page and does not take them. A foreign page with no remote key still carries none. Chapter text: [13](../architecture/13-mirrored-pages.md) §1.7.
+
+Replaced text ([13](../architecture/13-mirrored-pages.md) §1.7, as it stood):
+
+> **A foreign page carries no local statements.** Page statements are keyed by page ID in the tenant's `pages` partition ([0038](../decisions/0038-page-metadata-and-categories.md) §1), and a ranged ID could key them; but a page with local statements and no local text would be a third kind of entry, neither inherited nor forked, and the fork would have to carry the statements across a change of page ID. Local metadata about a foreign page waits for a decision on that shape. Until then, a fork is the way to say anything local about a page.

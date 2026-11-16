@@ -137,9 +137,9 @@ Replaced text (Amendments to earlier ADRs):
 - **Change:** relocates §1–§8
 - **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [04](../architecture/04-entities-and-identifiers.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
 
-### A4. A hosted key is not a notation
+### A4. A remote key is not a notation
 
 - **Date:** 2026-11-15
-- **Source:** [0110](0110-hosted-pages-and-revisions.md) §3
+- **Source:** [0110](0110-remote-pages-and-revisions.md) §3
 - **Change:** extends §3
-- **Summary:** The table of mechanisms that give strings an identity gains a fifth row, the hosted key, which names a page or revision itself rather than a term for it, as a Domain names its domain. Host names, like scheme names, are allocated in the registry only. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.9.
+- **Summary:** The table of mechanisms that give strings an identity gains a fifth row, the remote key, which names a page or revision itself rather than a term for it, as a Domain names its domain. Host names, like scheme names, are allocated in the registry only. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.9.
