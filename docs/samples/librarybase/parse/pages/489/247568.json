@@ -1,0 +1,128 @@
+{
+ "categories": [],
+ "displaytitle": "<span class=\"mw-page-title-namespace\">Project</span><span class=\"mw-page-title-separator\">:</span><span class=\"mw-page-title-main\">Home</span>",
+ "externallinks": [
+  "https://query.librarybase.org/#select%20?item%20?itemLabel%20where%20%7B%20?item%20lbt:P19%20lb:Q410%20.%20SERVICE%20wikibase:label%20%7B%20bd:serviceParam%20wikibase:language%20%22%5BAUTO_LANGUAGE%5D,en%22.%20%7D%20%7D",
+  "https://query.librarybase.org/#select%20?item%20?itemLabel%20where%20%7B%20?item%20lbt:P19%20lb:Q422%20.%20SERVICE%20wikibase:label%20%7B%20bd:serviceParam%20wikibase:language%20%22%5BAUTO_LANGUAGE%5D,en%22.%20%7D%20%7D",
+  "https://wikibase.world",
+  "https://internetdomains.wiki",
+  "https://communities.miraheze.org"
+ ],
+ "images": [],
+ "iwlinks": [],
+ "langlinks": [],
+ "links": [
+  {
+   "exists": true,
+   "ns": 4,
+   "title": "Project:Principles"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q2"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q253"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q410"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q413"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q422"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q458"
+  },
+  {
+   "exists": true,
+   "ns": 120,
+   "title": "Item:Q509"
+  },
+  {
+   "exists": true,
+   "ns": 122,
+   "title": "Property:P19"
+  }
+ ],
+ "pageid": 489,
+ "parsewarnings": [],
+ "properties": {
+  "unexpectedUnconnectedPage": -4
+ },
+ "revid": 247568,
+ "sections": [
+  {
+   "anchor": "Current_projects",
+   "byteoffset": 320,
+   "fromtitle": "Project:Home",
+   "index": "1",
+   "level": "2",
+   "line": "Current projects",
+   "number": "1",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Historic_patents",
+   "byteoffset": 342,
+   "fromtitle": "Project:Home",
+   "index": "2",
+   "level": "3",
+   "line": "Historic patents",
+   "number": "1.1",
+   "toclevel": 2
+  },
+  {
+   "anchor": "Odia_Bibhaba",
+   "byteoffset": 453,
+   "fromtitle": "Project:Home",
+   "index": "3",
+   "level": "3",
+   "line": "Odia Bibhaba",
+   "number": "1.2",
+   "toclevel": 2
+  },
+  {
+   "anchor": "Copyright_expiry",
+   "byteoffset": 565,
+   "fromtitle": "Project:Home",
+   "index": "4",
+   "level": "3",
+   "line": "Copyright expiry",
+   "number": "1.3",
+   "toclevel": 2
+  },
+  {
+   "anchor": "Classes_and_roles",
+   "byteoffset": 744,
+   "fromtitle": "Project:Home",
+   "index": "5",
+   "level": "3",
+   "line": "Classes and roles",
+   "number": "1.4",
+   "toclevel": 2
+  }
+ ],
+ "showtoc": true,
+ "templates": [
+  {
+   "exists": true,
+   "ns": 10,
+   "title": "Template:Cwbn"
+  }
+ ],
+ "title": "Project:Home"
+}

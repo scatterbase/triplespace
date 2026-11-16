@@ -1,0 +1,5 @@
+{#- Special:RenameUser (19 §2.3; 0010 §10): the account, the new name and the reason, and
+    that the old name stays reserved. -#}
+{%- import "codex.html" as codex -%}
+<div class="ts-renameuser-page">{% for n in notices %}{{ codex.message(n) }}{% endfor -%}
+<form class="ts-renameuser" method="post" action="{{ action }}"><input type="hidden" name="token" value="{{ token }}">{{ codex.field(user) }}{{ codex.field(newuser) }}{{ codex.field(reason) }}{{ codex.message(note) }}<div class="ts-renameuser__actions">{{ codex.button(submit) }}</div></form></div>

@@ -1,0 +1,344 @@
+//! Saving settings (0085 §3): the one writer of `site`, `template:site:` and `tenancy`
+//! records that `PATCH /settings` and `triplespace-cli settings` share.
+//!
+//! A save reads the configuration and plans against it inside the unit of work that
+//! appends, under a transaction-scoped advisory lock, so two saves cannot both pass the
+//! conflict check against the same state. Every record lands in one transaction with its
+//! projections, each carrying the summary in its comment part, followed by one
+//! `settings/change` log event naming the keys with their old and new values (16 §2.3).
+
+use scatter_ingest::IngestError;
+use scatter_ingest::store::{IngestStore as _, Sequence};
+use scatter_ingest::write::append_projected;
+use scatter_log::body::Body;
+use scatter_log::cbor::Value;
+use scatter_log::registry::PAYLOAD_CONFIG;
+use scatter_log::store::Draft;
+use scatter_projection::{Backend as _, Budget, Pipeline};
+use triplespace_accounts::settings::plan::{Change, Rights, Target, Write};
+use triplespace_accounts::settings::{Patch, Refusal, load, plan};
+use triplespace_projections::common::PAYLOAD_LOGEVENT;
+
+use crate::PgIngest;
+
+/// The advisory lock every save holds for its transaction.
+const SETTINGS_LOCK: i64 = 0x0085_5e77;
+
+/// What a save did.
+#[derive(Debug, Clone, PartialEq)]
+pub struct Saved {
+    /// The changes, as the log event reports them.
+    pub changes: Vec<Change>,
+    /// The `{partition, offset}` of every record appended, the log event last.
+    pub records: Vec<(u64, u64)>,
+    /// The written `config`'s next offset after the save: the base of the next one.
+    pub base: u64,
+}
+
+/// Why a save failed.
+#[derive(Debug, thiserror::Error)]
+pub enum SaveError {
+    /// The validator refused it; nothing was written.
+    #[error("refused: {}", .0.iter().map(|r| r.message.as_str()).collect::<Vec<_>>().join("; "))]
+    Refused(Vec<Refusal>),
+    /// The store failed; nothing was written.
+    #[error("store: {0}")]
+    Store(String),
+}
+
+fn store_error(e: impl std::fmt::Display) -> SaveError {
+    SaveError::Store(e.to_string())
+}
+
+fn draft(
+    payload_type: &str,
+    key: &str,
+    content: Option<&serde_json::Value>,
+    comment: Option<&str>,
+    actor: &str,
+    now: u64,
+) -> Result<Draft, SaveError> {
+    Ok(Draft {
+        appended_at: now,
+        payload_type: payload_type.into(),
+        key: Some(key.into()),
+        revid: None,
+        logid: None,
+        page_id: None,
+        body: Body::core(
+            &content.map_or(Value::Null, Value::from_json),
+            &comment.map_or(Value::Null, Value::text),
+            &Value::map(vec![(Value::text("actor"), Value::text(actor))]),
+        )
+        .map_err(store_error)?,
+    })
+}
+
+/// Saves a patch: at a tenant's base (`tenant = Some(slug)`, `Target::Tenant`), or at
+/// the farm base (`Target::Instance`, with the primary tenant's slug or `None`).
+/// `rights` answers for the scope written.
+///
+/// `accounts` is a connection of the accounts service, through which the checks of a
+/// save that changes how people log in read the logins and OAuth clients in `private`
+/// (0013 §4, A101); the settings they weigh them against are read in the save's own unit
+/// of work, which `store`'s role may write. `None` reads both there, for a store that
+/// connects as the owner, as the command line does.
+#[allow(clippy::too_many_arguments)]
+pub async fn save<R: Rights + Sync + ?Sized>(
+    store: &PgIngest,
+    accounts: Option<&tokio_postgres::Client>,
+    pipeline: &Pipeline<PgIngest>,
+    tenant: Option<&str>,
+    target: Target,
+    patch: &Patch,
+    actor: &str,
+    rights: &R,
+    now: u64,
+) -> Result<Saved, SaveError> {
+    let mut cx = store.begin().await.map_err(store_error)?;
+    let result = save_in(
+        store, accounts, pipeline, &mut cx, tenant, target, patch, actor, rights, now,
+    )
+    .await;
+    match result {
+        Ok(saved) => {
+            store.commit(cx).await.map_err(store_error)?;
+            Ok(saved)
+        }
+        Err(e) => {
+            let _ = store.rollback(cx).await;
+            Err(e)
+        }
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn save_in<R: Rights + Sync + ?Sized>(
+    store: &PgIngest,
+    accounts: Option<&tokio_postgres::Client>,
+    pipeline: &Pipeline<PgIngest>,
+    cx: &mut triplespace_projections::PgCx,
+    tenant: Option<&str>,
+    target: Target,
+    patch: &Patch,
+    actor: &str,
+    rights: &R,
+    now: u64,
+) -> Result<Saved, SaveError> {
+    cx.conn()
+        .execute("SELECT pg_advisory_xact_lock($1)", &[&SETTINGS_LOCK])
+        .await
+        .map_err(store_error)?;
+    let snapshot_tenant = match target {
+        Target::Tenant => tenant,
+        Target::Instance => None,
+    };
+    let (snap, parts) = load(cx.conn(), snapshot_tenant)
+        .await
+        .map_err(store_error)?;
+    let planned = plan(&snap, target, patch, rights).map_err(SaveError::Refused)?;
+    let config = match target {
+        Target::Tenant => parts
+            .tenant_config
+            .ok_or_else(|| SaveError::Store("the tenant has no config partition".into()))?,
+        Target::Instance => parts.instance_config,
+    };
+    let comment = planned.summary.as_deref();
+    let mut records = Vec::new();
+    let mut base = match target {
+        Target::Tenant => parts.tenant_next.unwrap_or(0),
+        Target::Instance => parts.instance_next,
+    };
+    for Write { key, content, .. } in &planned.writes {
+        let d = draft(PAYLOAD_CONFIG, key, content.as_ref(), comment, actor, now)?;
+        let (record, _) = append_projected(store, pipeline, cx, config, d, Budget::NONE)
+            .await
+            .map_err(|e: IngestError| store_error(e))?;
+        records.push((config, record.header().offset));
+        base = record.header().offset + 1;
+    }
+    if target == Target::Tenant
+        && let Some(slug) = tenant
+        && (patch.set.contains_key("login.password")
+            || patch.set.contains_key("login.issuers")
+            || patch
+                .unset
+                .iter()
+                .any(|k| k == "login.password" || k == "login.issuers"))
+    {
+        no_login_method(cx.conn(), accounts.unwrap_or(cx.conn()), slug).await?;
+    }
+    if target == Target::Instance
+        && patch
+            .set
+            .get("login.external_required")
+            .and_then(serde_json::Value::as_bool)
+            == Some(true)
+    {
+        external_required_unmet(cx.conn(), accounts.unwrap_or(cx.conn())).await?;
+    }
+    if target == Target::Instance
+        && (patch.set.contains_key("login.names")
+            || patch.set.contains_key("login.external_required")
+            || patch.unset.iter().any(|k| k == "login.external_required"))
+    {
+        strict_names_unmet(cx.conn(), accounts.unwrap_or(cx.conn())).await?;
+    }
+    if let Some(event) = planned.event(target) {
+        let (log, seq_tenant) = match target {
+            Target::Tenant => (parts.tenant_log, tenant.unwrap_or("")),
+            Target::Instance => (parts.instance_log, ""),
+        };
+        if let Some(log) = log {
+            let mut d = draft(
+                PAYLOAD_LOGEVENT,
+                "settings",
+                Some(&event),
+                comment,
+                actor,
+                now,
+            )?;
+            d.logid = Some(
+                store
+                    .next_id(cx, seq_tenant, &Sequence::Log)
+                    .await
+                    .map_err(store_error)?,
+            );
+            let (record, _) = append_projected(store, pipeline, cx, log, d, Budget::NONE)
+                .await
+                .map_err(store_error)?;
+            records.push((log, record.header().offset));
+        }
+    }
+    Ok(Saved {
+        changes: planned.changes,
+        records,
+        base,
+    })
+}
+
+/// Refuses enacting `login.external_required` while a login would be locked out
+/// (0101 §2, `ts-external-required-unmet`): the auth host offers no issuer, a login holds
+/// no external identity, or a credential is still keyed by a tenant account. Runs after
+/// the writes, in their unit of work.
+async fn external_required_unmet(
+    client: &tokio_postgres::Client,
+    accounts: &tokio_postgres::Client,
+) -> Result<(), SaveError> {
+    let farm = triplespace_projections::tenants::farm(client)
+        .await
+        .map_err(store_error)?
+        .ok_or_else(|| SaveError::Store("the instance has no farm record".into()))?;
+    let ready = crate::accounts::readiness(
+        client,
+        accounts,
+        scatter_actors::issuer::IssuerRegistry::default_registry(),
+        &farm.base,
+    )
+    .await
+    .map_err(store_error)?;
+    let blockers = ready.blockers();
+    if blockers.is_empty() {
+        return Ok(());
+    }
+    Err(SaveError::Refused(vec![Refusal {
+        code: "ts-external-required-unmet",
+        key: Some("login.external_required".into()),
+        message: format!(
+            "Not every login could sign in through an external provider yet: {}. `triplespace logins check` names the logins.",
+            blockers.join("; ")
+        ),
+    }]))
+}
+
+/// Refuses a save that leaves strict names on while they cannot hold (0102 §5,
+/// `ts-strict-names-unmet`): `login.external_required` off, a login with more than one
+/// external identity, or an account whose name is not, or is not known to be, the one
+/// its identity's username derives. Runs after the writes, in their unit of work, so it
+/// sees what the save would leave. This implements 0102 §5 (A2) with
+/// `accounts::strict_readiness`.
+async fn strict_names_unmet(
+    client: &tokio_postgres::Client,
+    accounts: &tokio_postgres::Client,
+) -> Result<(), SaveError> {
+    if !triplespace_accounts::logins::strict_names(client)
+        .await
+        .map_err(store_error)?
+    {
+        return Ok(());
+    }
+    let ready = crate::accounts::strict_readiness(
+        client,
+        accounts,
+        scatter_actors::issuer::IssuerRegistry::default_registry(),
+    )
+    .await
+    .map_err(store_error)?;
+    let blockers = ready.blockers();
+    if blockers.is_empty() {
+        return Ok(());
+    }
+    Err(SaveError::Refused(vec![Refusal {
+        code: "ts-strict-names-unmet",
+        key: Some("login.names".into()),
+        message: format!(
+            "Not every account could carry its provider's name yet: {}. `triplespace logins check` names them.",
+            blockers.join("; ")
+        ),
+    }]))
+}
+
+/// Refuses a save that would leave a tenant with no way to log in: `login.password` off
+/// and no external issuer offered (0088 §4, `ts-no-login-method`). Runs after the writes,
+/// in their unit of work, so it sees what the save would leave.
+async fn no_login_method(
+    client: &tokio_postgres::Client,
+    accounts: &tokio_postgres::Client,
+    tenant: &str,
+) -> Result<(), SaveError> {
+    let (settings, _) = triplespace_accounts::settings::load(client, Some(tenant))
+        .await
+        .map_err(store_error)?;
+    if settings
+        .value("login.password")
+        .and_then(|v| v.as_bool())
+        .unwrap_or(true)
+    {
+        return Ok(());
+    }
+    let issuers: Vec<String> = settings
+        .value("login.issuers")
+        .and_then(|v| {
+            v.as_array().map(|a| {
+                a.iter()
+                    .filter_map(|s| s.as_str().map(str::to_owned))
+                    .collect()
+            })
+        })
+        .unwrap_or_else(|| vec!["*".into()]);
+    let base: Option<String> = client
+        .query_opt(
+            "SELECT config->>'base' FROM view.registry WHERE tenant = '' AND kind = 'tenant' AND code = $1",
+            &[&tenant],
+        )
+        .await
+        .map_err(store_error)?
+        .and_then(|r| r.get(0));
+    let offered = triplespace_accounts::oauth::offered(
+        accounts,
+        scatter_actors::issuer::IssuerRegistry::default_registry(),
+        tenant,
+        base.as_deref().unwrap_or_default(),
+        &issuers,
+    )
+    .await
+    .map_err(store_error)?;
+    if offered.is_empty() {
+        return Err(SaveError::Refused(vec![Refusal {
+            code: "ts-no-login-method",
+            key: Some("login.password".into()),
+            message: "That would leave this wiki with no way to log in: keep passwords on, or offer an external issuer that has a client credential.".into(),
+        }]));
+    }
+    Ok(())
+}

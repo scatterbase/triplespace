@@ -1,0 +1,197 @@
+---
+source: crates/triplespace-ui/tests/entity.rs
+expression: main
+---
+<main class="ts-page" id="content">
+	<p class="ts-page__identity">
+<span class="ts-chip ts-chip--local">Q6</span> <span>Item</span> <span aria-hidden="true">·</span> <span>Adopted from https://librarybase.org/</span> <span aria-hidden="true">·</span> <a href="https://librarybase.org/entity/Q6" class="external" rel="noopener" dir="ltr">librarybase.org/entity/Q6 ↗</a>
+</p>
+	<h1 class="ts-page__title">Six &amp; more</h1>
+	<div class="ts-terms" data-region="terms">
+<p class="ts-terms__description">a number</p>
+<p class="ts-terms__aliases">Also known as <span>6 · half dozen</span>
+</p>
+</div>
+	<nav class="ts-tabs" aria-label="Page">
+		<a class="ts-tabs__link" href="/wiki/Item:Q6">Statements</a>
+		<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=identifiers">Identifiers</a>
+		<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=sitelinks">Sitelinks</a>
+		<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=labels">Labels in other languages</a>
+		<a class="ts-tabs__link" href="/wiki/Item:Q6?action=history" aria-current="page">History</a>
+		<a class="ts-tabs__link" href="/wiki/Special:WhatLinksHere/Item:Q6">Links here</a>
+		<a class="ts-tabs__link" href="/wiki/Item_talk:Q6">Discussion</a>
+	</nav>
+	<div class="ts-page__body">
+		<div class="ts-history">
+<details class="ts-history__filter">
+<summary>Filter this history</summary>
+<form class="ts-changes-form" action="/w/index.php" method="get" aria-label="Filter this history">
+<input type="hidden" name="title" value="Item:Q6">
+<input type="hidden" name="action" value="history">
+<label class="ts-form-field">
+<span>User</span> <div class="cdx-text-input">
+<input class="cdx-text-input__input" type="text" name="user" value="">
+</div>
+</label>
+<label class="ts-form-field">
+<span>Tag</span> <div class="cdx-text-input">
+<input class="cdx-text-input__input" type="text" name="tagfilter" value="">
+</div>
+</label>
+<label class="ts-form-field">
+<span>From</span> <div class="cdx-text-input">
+<input class="cdx-text-input__input" type="date" name="from" value="">
+</div>
+</label>
+<label class="ts-form-field">
+<span>To</span> <div class="cdx-text-input">
+<input class="cdx-text-input__input" type="date" name="to" value="">
+</div>
+</label>
+<label class="ts-form-field">
+<span>What changed</span> <select class="cdx-select" name="changed">
+<option value="" selected>Anything</option>
+<option value="labels">Labels</option>
+<option value="descriptions">Descriptions</option>
+<option value="aliases">Aliases</option>
+<option value="sitelinks">Sitelinks</option>
+<option value="statements">Statements</option>
+</select>
+</label>
+<label class="ts-form-field">
+<span>Language, site or property</span> <div class="cdx-text-input">
+<input class="cdx-text-input__input" type="text" name="changedkey" value="">
+</div>
+</label>
+<fieldset class="ts-form-group">
+<legend>Hide</legend>
+<label class="cdx-checkbox cdx-checkbox--inline">
+<input class="cdx-checkbox__input" type="checkbox" name="hidebots" value="1">
+<span class="cdx-checkbox__icon">
+</span>
+<span class="cdx-checkbox__label">Bot edits</span>
+</label>
+<label class="cdx-checkbox cdx-checkbox--inline">
+<input class="cdx-checkbox__input" type="checkbox" name="hideminor" value="1">
+<span class="cdx-checkbox__icon">
+</span>
+<span class="cdx-checkbox__label">Minor edits</span>
+</label>
+</fieldset> <button class="cdx-button cdx-button--action-progressive cdx-button--weight-primary" type="submit">Show history</button>
+</form>
+</details>
+<form class="ts-history__compare" action="/w/index.php" method="get">
+<input type="hidden" name="title" value="Item:Q6">
+<div class="ts-history__compare-actions">
+<button class="cdx-button" type="submit">Compare selected revisions</button>
+</div>
+<div class="ts-changes__scroll">
+<table class="ts-changes__table">
+<thead>
+<tr>
+<th scope="col" class="ts-change__head ts-change__head--compare">Compare</th>
+<th scope="col" class="ts-change__head ts-change__head--time">Time</th>
+<th scope="col" class="ts-change__head ts-change__head--origin">Source</th>
+<th scope="col" class="ts-change__head ts-change__head--flags">Flags</th>
+<th scope="col" class="ts-change__head ts-change__head--target">Page</th>
+<th scope="col" class="ts-change__head ts-change__head--size">Size</th>
+<th scope="col" class="ts-change__head ts-change__head--user">User</th>
+<th scope="col" class="ts-change__head ts-change__head--action">Action</th>
+<th scope="col" class="ts-change__head ts-change__head--summary">Summary</th>
+</tr>
+</thead>
+<tbody>
+<tr class="ts-changes__dayrow">
+<th scope="rowgroup" colspan="9" class="ts-changes__day">2 October 2026</th>
+</tr>
+<tr class="ts-change ts-change--edit">
+<td class="ts-change__cell ts-change__cell--compare">
+<input class="ts-change__pick ts-change__pick--new" type="radio" name="diff" value="907" aria-label="Compare to the revision of 14:05, 2 October 2026" checked>
+</td>
+<td class="ts-change__cell ts-change__cell--time">
+<a href="/wiki/Item:Q6?diff=907" class="ts-change__diff">
+<time class="ts-change__time" datetime="2026-10-02T14:05:11Z">14:05</time>
+</a>
+</td>
+<td class="ts-change__cell ts-change__cell--origin">
+<span class="ts-chip ts-chip--local">Local</span>
+</td>
+<td class="ts-change__cell ts-change__cell--flags">
+</td>
+<td class="ts-change__cell ts-change__cell--target">
+<span class="ts-change__part">
+<a href="/wiki/Item:Q6" class="ts-change__target">
+<span>Six &amp; more</span>
+</a>
+</span>
+<span class="ts-change__part ts-change__id ts-mono">Q6</span>
+</td>
+<td class="ts-change__cell ts-change__cell--size">
+<span class="ts-change__delta ts-change__delta--pos" dir="ltr">+20</span>
+</td>
+<td class="ts-change__cell ts-change__cell--user">
+<span class="ts-change__part">
+<a href="/wiki/Special:Contributions/Alice_bot" class="ts-change__actor">Alice bot</a>
+</span>
+</td>
+<td class="ts-change__cell ts-change__cell--action">
+<span class="ts-change__auto">add: aliases:en</span>
+</td>
+<td class="ts-change__cell ts-change__cell--summary">
+</td>
+</tr>
+</tbody>
+<tbody>
+<tr class="ts-changes__dayrow">
+<th scope="rowgroup" colspan="9" class="ts-changes__day">1 October 2026</th>
+</tr>
+<tr class="ts-change ts-change--edit">
+<td class="ts-change__cell ts-change__cell--compare">
+<input class="ts-change__pick" type="radio" name="oldid" value="900" aria-label="Compare from the revision of 09:30, 1 October 2026" checked>
+<input class="ts-change__pick ts-change__pick--new" type="radio" name="diff" value="900" aria-label="Compare to the revision of 09:30, 1 October 2026">
+</td>
+<td class="ts-change__cell ts-change__cell--time">
+<a href="/wiki/Item:Q6?diff=900" class="ts-change__diff">
+<time class="ts-change__time" datetime="2026-10-01T09:30:00Z">09:30</time>
+</a>
+</td>
+<td class="ts-change__cell ts-change__cell--origin">
+<span class="ts-chip ts-chip--local">Local</span>
+</td>
+<td class="ts-change__cell ts-change__cell--flags">
+<abbr class="ts-change__flag ts-change__flag--new" title="This edit created the page">N</abbr>
+<abbr class="ts-change__flag ts-change__flag--bot" title="This edit was made by a bot">b</abbr>
+</td>
+<td class="ts-change__cell ts-change__cell--target">
+<span class="ts-change__part">
+<a href="/wiki/Item:Q6" class="ts-change__target">
+<span>Six &amp; more</span>
+</a>
+</span>
+<span class="ts-change__part ts-change__id ts-mono">Q6</span>
+</td>
+<td class="ts-change__cell ts-change__cell--size">
+<span class="ts-change__delta" dir="ltr">(392)</span>
+</td>
+<td class="ts-change__cell ts-change__cell--user">
+<span class="ts-change__part">
+<a href="/wiki/Special:Contributions/Alice" class="ts-change__actor">Alice</a>
+</span>
+</td>
+<td class="ts-change__cell ts-change__cell--action">
+<span class="ts-change__auto">adopt</span>
+</td>
+<td class="ts-change__cell ts-change__cell--summary">
+<span class="ts-change__tags">
+<span class="ts-change__tag">job:8</span>
+<span class="ts-change__tag">adopt</span>
+</span>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+</form>
+</div>
+	</div>
+</main>

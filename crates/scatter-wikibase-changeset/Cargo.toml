@@ -1,0 +1,22 @@
+[package]
+name = "scatter-wikibase-changeset"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Change-set operations and the NDJSON wire format, eager validation, change summaries, and the Adapter trait with key mapping"
+publish = false
+
+[dependencies]
+scatter-wikibase-model.workspace = true
+scatter-providers.workspace = true
+indexmap.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha1.workspace = true
+thiserror.workspace = true
+
+[lints]
+workspace = true

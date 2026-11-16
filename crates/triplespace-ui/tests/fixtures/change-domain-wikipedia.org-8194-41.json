@@ -1,0 +1,48 @@
+{
+  "entity": "domain:wikipedia.org",
+  "source": "mirror/internetdomains",
+  "kind": "sync",
+  "record": {
+    "partition": 8194,
+    "offset": 41
+  },
+  "revision": {
+    "partition": 8194,
+    "offset": 41,
+    "revid": 1099511627817,
+    "time": "2026-10-02T12:00:00Z",
+    "op": "put",
+    "upstream": {
+      "revid": 57
+    },
+    "prev_upstream": {
+      "revid": 56
+    }
+  },
+  "previous": null,
+  "diff": null,
+  "changes": {
+    "labels": {
+      "de": {
+        "added": 1,
+        "removed": 0,
+        "changed": 0
+      }
+    },
+    "claims": {
+      "P12": {
+        "added": 0,
+        "removed": 0,
+        "changed": 1
+      }
+    }
+  },
+  "size": 400,
+  "delta": 20,
+  "effect": null,
+  "integrity": {
+    "partition": 8194,
+    "offset": 41,
+    "checkpoint": null
+  }
+}

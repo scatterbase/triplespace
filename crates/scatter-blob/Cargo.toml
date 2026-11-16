@@ -1,0 +1,26 @@
+[package]
+name = "scatter-blob"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "The blob store over object_store: storage scopes, the content-addressed key layout, streaming SHA-256 and SHA-1, copy-if-absent, ranged and streamed reads, prefix deletion, and listing"
+publish = false
+
+[dependencies]
+object_store = { version = "0.14", default-features = false, features = ["fs"] }
+bytes = "1"
+futures = "0.3"
+sha2.workspace = true
+sha1.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+tempfile = "3"
+thiserror.workspace = true
+
+[lints]
+workspace = true

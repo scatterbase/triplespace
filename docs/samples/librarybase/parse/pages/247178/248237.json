@@ -1,0 +1,40 @@
+{
+ "categories": [],
+ "displaytitle": "<span class=\"mw-page-title-namespace\">Project</span><span class=\"mw-page-title-separator\">:</span><span class=\"mw-page-title-main\">Scatterbase</span>",
+ "externallinks": [],
+ "images": [],
+ "iwlinks": [],
+ "langlinks": [],
+ "links": [],
+ "pageid": 247178,
+ "parsewarnings": [],
+ "properties": {
+  "unexpectedUnconnectedPage": -4
+ },
+ "revid": 248237,
+ "sections": [
+  {
+   "anchor": "Foreign_entity_space",
+   "byteoffset": 350,
+   "fromtitle": "Project:Scatterbase",
+   "index": "1",
+   "level": "2",
+   "line": "Foreign entity space",
+   "number": "1",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Identity_collapse",
+   "byteoffset": 1281,
+   "fromtitle": "Project:Scatterbase",
+   "index": "2",
+   "level": "3",
+   "line": "Identity collapse",
+   "number": "1.1",
+   "toclevel": 2
+  }
+ ],
+ "showtoc": false,
+ "templates": [],
+ "title": "Project:Scatterbase"
+}

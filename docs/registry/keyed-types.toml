@@ -1,0 +1,81 @@
+# Keyed entity types.  ADR 0009 §1.
+#
+# A keyed type's entity ID is its normalized natural key, not a minted identifier.
+# name         The `type` in Wikibase JSON, and the normalizer's name in namespaces.toml.
+# namespace    The namespace whose pages host the type.
+# data_type    The Wikibase data type used to refer to entities of this type.
+# iri          Concept IRI template; {key} is the normalized key. Content-derived, so shared
+#              by every instance (0005 §5, 0009 §6).
+# id_prefix    The entity ID is id_prefix + key, e.g. domain:en.wikipedia.org (0017 §1, §3).
+# display      "derived": the label is computed from the key and cannot be edited (Domain).
+#              "editable": labels and descriptions are stored and reconciled like an item's (Keyword).
+# grammar      Which strings are valid keys (0009 §2).
+# normalizer   How input becomes the canonical key (0009 §2).
+# display      How the key is shown as a label (0009 §5).
+# Log header keys for keyed entities are surrogates (0009 §7), never the key itself.
+
+version = 1
+
+[[keyed_type]]
+name = "domain"
+label = "Domain"
+namespace = "Domain"
+data_type = "wikibase-domain"
+iri = "https://scatter.red/domain/{key}"
+id_prefix = "domain:"
+grammar = "DNS host or zone name: at most 253 octets, labels at most 63, at least two labels or a single alphabetic/xn-- label; no underscores"
+normalizer = "strip one trailing dot; UTS #46 non-transitional with CheckHyphens, CheckBidi, CheckJoiners and UseSTD3ASCIIRules; A-labels; lowercase"
+display = "derived: U-label form, language mul; A-label as a derived alias when it differs"
+defined_in = "0009, 0017"
+
+# Keyword (ADR 0017 §5): a short phrase describing what a work is about, as OpenAlex defines its
+# keywords. A keyword is the phrase, not the concept it denotes, and never joins an identity cluster.
+[[keyed_type]]
+name = "keyword"
+label = "Keyword"
+namespace = "Keyword"
+data_type = "wikibase-keyword"
+iri = "https://scatter.red/keyword/{key}"
+id_prefix = "keyword:"
+grammar = "1 to 200 characters of letters, digits and single hyphens, at least one letter, no leading or trailing hyphen"
+normalizer = "Unicode NFKC; casefold; every run of whitespace or punctuation becomes one hyphen; trim hyphens"
+display = "editable; when no label exists, the key with hyphens shown as spaces"
+clusters = false                 # same-as with a keyword is rejected (0017 §5)
+defined_in = "0017"
+
+# Notation (ADR 0048 §1): a string that names something in an outside vocabulary, exactly as that
+# vocabulary's own rule says. The key is `{scheme}:{string}`; the scheme decides the normalizer and
+# grammar (notation-schemes.toml). Replaces 0036's `osm-tag`, which is now the `osm` scheme; no
+# instance held data under `osm-tag`, so it is replaced rather than retired.
+[[keyed_type]]
+name = "notation"
+label = "Notation"
+namespace = "Notation"
+data_type = "wikibase-notation"
+iri = "https://scatter.red/notation/{key}"
+id_prefix = "notation:"
+grammar = "a registered scheme name, `:`, and a string valid under that scheme's grammar (notation-schemes.toml)"
+normalizer = "scheme name lowercased; the string normalized by the scheme's normalizer"
+display = "derived: the string, without the scheme, as the mul label; descriptions and aliases editable and reconciled like an item's (0002 §3)"
+clusters = false                 # same-as with a notation is rejected, as with keywords (0017 §5, 0048 §3)
+defined_in = "0048"
+
+# Remote (ADR 0110 §1): a page or revision on a site that a host runs, by the host (hosts.toml),
+# the site's name and the number the host gave it: remote:wikimedia:enwiki-p12. Pending (README):
+# scatter-normalize rejects a keyed type it has no normalizer for, so the entry stays a comment
+# until the normalizer is written.
+# [[keyed_type]]
+# name = "remote"
+# label = "Remote page or revision"
+# namespace = "Remote"
+# data_type = "wikibase-remote"
+# iri = "https://scatter.red/remote/{key}"
+# id_prefix = "remote:"
+# grammar = "a registered host's name, `:`, a site name in the host's site grammar, `-`, `p` or `r`, and a decimal number from 1 to 2^63 − 1 without leading zeros"
+# normalizer = "host name lowercased; site name by its grammar; the letter lowercased; nothing else"
+# display = "editable; without a stored label, the UI builds one: the synced title and site, else the number and site (0110 A1)"
+# clusters = false               # a page is not a concept (0110 §3)
+# defined_in = "0110"
+
+# DOI is a resolver (resolvers.toml, 0029), not a keyed type: a DOI names a thing that already has
+# an item. Resolver names and keyed-type names share one namespace, so `doi` is taken.

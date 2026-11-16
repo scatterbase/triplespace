@@ -1,0 +1,75 @@
+{
+ "categories": [],
+ "displaytitle": "<span class=\"mw-page-title-namespace\">Project</span><span class=\"mw-page-title-separator\">:</span><span class=\"mw-page-title-main\">Analytics/WCD</span>",
+ "externallinks": [
+  "https://github.com/internetarchive/iari",
+  "https://github.com/internetarchive/wiki-references-extractor",
+  "https://github.com/internetarchive/wiki-references-db",
+  "https://github.com/internetarchive/RevisionChest",
+  "https://github.com/scatter-llc/UVAWikipediaCitationsDatabase",
+  "https://citations.scatteranalytics.com/explorer/citation/51c35f5a082e88d867dfb0872e4ab6ac7311a9e9/other-articles?page_id=12292404",
+  "https://citations.scatteranalytics.com/explorer/template/6385/report?parameter_key=isbn&parameter_value=978-0-226-77142-7",
+  "https://citations.scatteranalytics.com/explorer/citation/bdbb085b4fb9a609b67d8732f076eab3d8d6a536/other-articles?page_id=3410",
+  "https://citations.scatteranalytics.com/explorer/template/6385/report?parameter_key=isbn&parameter_value=%201-873410-89-1%0A%20",
+  "https://citations.scatteranalytics.com/explorer/citation/1ab8b8026639f6959f94736a4ec83e777e63ef14/other-articles?page_id=3410",
+  "https://citations.scatteranalytics.com/explorer/template/1374/report?parameter_key=doi&parameter_value=10.1016/0006-3207(91)90031-4%20",
+  "https://citations.scatteranalytics.com/explorer/citation/da6f699ca0a7f4d229011919ae1bd0b3c2b6f5e9/other-articles?page_id=1553396",
+  "https://citations.scatteranalytics.com/explorer/template/6385/report?parameter_key=isbn&parameter_value=978-0-19-958740-7",
+  "https://citations.scatteranalytics.com"
+ ],
+ "images": [],
+ "iwlinks": [],
+ "langlinks": [],
+ "links": [],
+ "pageid": 246987,
+ "parsewarnings": [],
+ "properties": {
+  "unexpectedUnconnectedPage": -4
+ },
+ "revid": 248226,
+ "sections": [
+  {
+   "anchor": "Introduction",
+   "byteoffset": 0,
+   "fromtitle": "Project:Analytics/WCD",
+   "index": "1",
+   "level": "2",
+   "line": "Introduction",
+   "number": "1",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Generations",
+   "byteoffset": 404,
+   "fromtitle": "Project:Analytics/WCD",
+   "index": "2",
+   "level": "2",
+   "line": "Generations",
+   "number": "2",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Interesting_findings",
+   "byteoffset": 1717,
+   "fromtitle": "Project:Analytics/WCD",
+   "index": "3",
+   "level": "2",
+   "line": "Interesting findings",
+   "number": "3",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Longer_term_challenges",
+   "byteoffset": 3356,
+   "fromtitle": "Project:Analytics/WCD",
+   "index": "4",
+   "level": "2",
+   "line": "Longer term challenges",
+   "number": "4",
+   "toclevel": 1
+  }
+ ],
+ "showtoc": true,
+ "templates": [],
+ "title": "Project:Analytics/WCD"
+}

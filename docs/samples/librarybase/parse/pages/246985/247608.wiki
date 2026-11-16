@@ -1,0 +1,49 @@
+A data organization+presentation and knowledge management platform, combining MediaWiki, Wikibase, Cargo, and other innovations in the MediaWiki ecosystem. It will be the primary deployment platform for Librarybase and a future wiki hosting platform.
+
+'''Goal: ship the highest priority extensions for a minimum-viable knowledgebase product.''' People trying to do Wikibase or Wikibase-type stuff, easily.
+
+Not a priority at this time:
+*Implementing company knowledgebase use case; that means no encrypted content extension yet
+**That also means not deploying Lockdown. Lockdown is beneath the standards of Popup.
+*Other user stories
+==To install==
+===Services===
+*Blazegraph and Elastic (included with WBStack/WBSuite)
+*Anubis
+===Base deployment===
+*UnlinkedWikibase
+*ExternalData
+*ParserFunctions
+*TemplateData
+*TemplateStyles
+*Notifications / Echo
+*UploadWizard
+*InlineComments
+*Cite
+*QuickInstantCommons
+*PageForms
+*SecureLinkFixer
+*Thanks
+*AdvancedSearch
+*PluggableAuth
+*ConfirmAccount
+*InviteSignup
+*ApprovedRevs
+*LoginNotify
+*DiscussionTools
+===Knowledge graph with WikibaseTypedTables===
+*Cargo
+*BatchIngestion
+*BlueSpice Page Forms Connector
+===Soft Wikipedia forking===
+*WikiMirror
+===Public wiki===
+*SpamBlacklist
+*TitleBlacklist
+*StopForumSpam
+*AbuseFilter
+*TorBlock
+==To develop==
+*WikibaseShadow
+*QuotaEnforcement
+*WikibaseTypedTables

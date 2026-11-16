@@ -1,0 +1,19 @@
+[package]
+name = "scatter-threads"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Thread records (scatter:v0/thread): the operations, the fold to thread state and its validation, thread titles, and the thread-status registry (ADR 0019)"
+publish = false
+
+[dependencies]
+scatter-pages.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+toml.workspace = true
+
+[lints]
+workspace = true

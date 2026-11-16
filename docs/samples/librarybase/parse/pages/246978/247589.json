@@ -1,0 +1,189 @@
+{
+ "categories": [],
+ "displaytitle": "<span class=\"mw-page-title-namespace\">Project</span><span class=\"mw-page-title-separator\">:</span><span class=\"mw-page-title-main\">Analytics</span>",
+ "externallinks": [
+  "https://wikidata.org/wiki/WD:CRAP",
+  "https://meta.wikimedia.org/wiki/WikiCite"
+ ],
+ "images": [],
+ "iwlinks": [],
+ "langlinks": [],
+ "links": [
+  {
+   "exists": true,
+   "ns": 4,
+   "title": "Project:Analytics/IABot"
+  },
+  {
+   "exists": true,
+   "ns": 4,
+   "title": "Project:Analytics/Orb"
+  },
+  {
+   "exists": true,
+   "ns": 4,
+   "title": "Project:Analytics/PubPeer"
+  },
+  {
+   "exists": true,
+   "ns": 4,
+   "title": "Project:Analytics/WCD"
+  },
+  {
+   "exists": true,
+   "ns": 4,
+   "title": "Project:Analytics/Wikibases"
+  },
+  {
+   "exists": true,
+   "ns": 4,
+   "title": "Project:PopupStack"
+  },
+  {
+   "exists": false,
+   "ns": 4,
+   "title": "Project:Analytics/World News"
+  },
+  {
+   "exists": false,
+   "ns": 4,
+   "title": "Project:Analytics/Graph Completeness"
+  },
+  {
+   "exists": false,
+   "ns": 4,
+   "title": "Project:Analytics/Wikidata Microcontributions"
+  },
+  {
+   "exists": false,
+   "ns": 4,
+   "title": "Project:Analytics/Source Recommendation"
+  },
+  {
+   "exists": false,
+   "ns": 4,
+   "title": "Project:Analytics/Citation Watchlist"
+  },
+  {
+   "exists": false,
+   "ns": 4,
+   "title": "Project:Analytics/IARE"
+  },
+  {
+   "exists": false,
+   "ns": 4,
+   "title": "Project:Analytics/Workspaces"
+  },
+  {
+   "exists": false,
+   "ns": 4,
+   "title": "Project:Analytics/NIOSH"
+  },
+  {
+   "exists": false,
+   "ns": 4,
+   "title": "Project:Analytics/VSAFE"
+  },
+  {
+   "exists": false,
+   "ns": 4,
+   "title": "Project:Analytics/WikiApiary"
+  },
+  {
+   "exists": false,
+   "ns": 4,
+   "title": "Project:Analytics/Pageset"
+  },
+  {
+   "exists": false,
+   "ns": 4,
+   "title": "Project:Analytics/Wikibase Patcher"
+  },
+  {
+   "exists": false,
+   "ns": 4,
+   "title": "Project:Analytics/Reports bot"
+  }
+ ],
+ "pageid": 246978,
+ "parsewarnings": [],
+ "properties": {
+  "unexpectedUnconnectedPage": -4
+ },
+ "revid": 247589,
+ "sections": [
+  {
+   "anchor": "Goals",
+   "byteoffset": 352,
+   "fromtitle": "Project:Analytics",
+   "index": "1",
+   "level": "2",
+   "line": "Goals",
+   "number": "1",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Adding_projects_to_this_list",
+   "byteoffset": 678,
+   "fromtitle": "Project:Analytics",
+   "index": "2",
+   "level": "2",
+   "line": "Adding projects to this list",
+   "number": "2",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Visualization_and_lookup",
+   "byteoffset": 906,
+   "fromtitle": "Project:Analytics",
+   "index": "3",
+   "level": "2",
+   "line": "Visualization and lookup",
+   "number": "3",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Data_processes",
+   "byteoffset": 1771,
+   "fromtitle": "Project:Analytics",
+   "index": "4",
+   "level": "2",
+   "line": "Data processes",
+   "number": "4",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Data_curation",
+   "byteoffset": 2281,
+   "fromtitle": "Project:Analytics",
+   "index": "5",
+   "level": "2",
+   "line": "Data curation",
+   "number": "5",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Teams",
+   "byteoffset": 2402,
+   "fromtitle": "Project:Analytics",
+   "index": "6",
+   "level": "2",
+   "line": "Teams",
+   "number": "6",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Adjacent_Initiatives",
+   "byteoffset": 2559,
+   "fromtitle": "Project:Analytics",
+   "index": "7",
+   "level": "2",
+   "line": "Adjacent Initiatives",
+   "number": "7",
+   "toclevel": 1
+  }
+ ],
+ "showtoc": true,
+ "templates": [],
+ "title": "Project:Analytics"
+}

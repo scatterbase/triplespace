@@ -1,0 +1,231 @@
+# Reserved graph names.  ADR 0015 §5.
+#
+# A tenant graph's IRI is {tenant base}/graph/{name}; an instance graph's is
+# {farm base}/instance/graph/{name} (0046 §7), so the two cannot collide when the bases are equal.
+# Names are fixed by this file; IRIs are per instance.
+#
+# kind       = "source" | "projection"          (0005 §4.1)
+# history    = "full" | "latest"                (0002 §2)
+# integrity  = "logged" | "hashed"              (0006 §4)
+# export     = "public" | "internal" | "private" (0005 §4.1, 0007 §8)
+# per_provider = true means one graph exists per registered provider,
+#                with {provider} replaced by the provider's slug.
+# per_repo     = true means one graph exists per mirrored file repository (0039 §11),
+#                with {repo} replaced by the repository's name.
+# scope      = "tenant" | "instance" | "both"  (0018 §2): a tenant graph exists once per tenant
+#              under {tenant base}; an instance graph once, under {farm base}/instance/ (0046 §7). The registry
+#              is keyed by (tenant, name); instance graphs have a null tenant.
+#
+# Source graphs are log partitions. The instance config partition is partition 0 (0015 §3);
+# every other partition gets a random 64-bit ID when it is created (0018 §2).
+
+version = 1
+
+[[graph]]
+name = "config"
+kind = "source"
+scope = "both"                 # instance config is partition 0; each tenant has its own (0018 §3)
+partition = 0
+history = "full"
+integrity = "logged"
+export = "public"
+payload_types = ["scatter:v0/config", "scatter:v0/acl"]   # acl here: graph targets only (0023 §3)
+defined_in = "0015 §3, 0023 §3"
+scatterbase = "server"
+
+[[graph]]
+name = "local"
+kind = "source"
+scope = "tenant"
+history = "full"
+integrity = "logged"
+export = "public"
+payload_types = ["scatter:v0/changeset", "scatter:v0/erase"]
+defined_in = "0002 §2"
+scatterbase = "claim"
+
+[[graph]]
+name = "pages"
+kind = "source"
+scope = "tenant"
+history = "full"
+integrity = "logged"
+export = "public"
+payload_types = ["scatter:v0/page", "scatter:v0/thread", "scatter:v0/changeset", "scatter:v0/upload", "scatter:v0/task", "scatter:v0/erase"]   # changeset: page statements (0038 §1); upload: file versions (0039 §2); task: sprint claims, keyed to the sprint page (0061 §5)
+defined_in = "0008 §4, 0019 §4, 0038 §1, 0039 §2"
+
+[[graph]]
+name = "log"
+kind = "source"
+scope = "both"                 # tenant log; since 0039 §10 also the instance's own log, for operator records
+history = "full"
+integrity = "logged"
+export = "internal"
+payload_types = ["scatter:v0/logevent", "scatter:v0/acl", "scatter:v0/filter", "scatter:v0/filter-hit", "scatter:v0/expunge", "scatter:v0/erase", "scatter:v0/reclaim"]   # reclaim: a reclaimed account (0088 §8); acl: page, entity, record and actor targets (0023 §3), and instance-scope blob targets (0039 §10); patrol marks are logevents (0023 §6); filters and hits (0030 §5; global filters in the instance log, 0040 §6); expunge: instance log only (0039 §10); job records of jobs that write instance acts, instance log (0040 §4)
+defined_in = "0011 §2, §6.3, 0023 §3, §6, 0030 §5, 0039 §10, 0040 §4"
+scatterbase = "meta"
+
+[[graph]]
+name = "actors"
+kind = "source"
+scope = "tenant"
+history = "full"
+integrity = "logged"
+export = "internal"
+payload_types = ["scatter:v0/actor", "scatter:v0/link-account", "scatter:v0/membership", "scatter:v0/block", "scatter:v0/key", "scatter:v0/erase"]   # key: an actor's signing key (0015 §1, 0024 §4, amended 2026-09-27)
+defined_in = "0007 §8, 0016 §3, 0024 §4"
+scatterbase = "mutable"
+
+[[graph]]
+name = "accounts"
+kind = "source"
+scope = "tenant"
+history = "full"
+integrity = "logged"
+export = "private"
+payload_types = ["scatter:v0/binding", "scatter:v0/erase"]
+defined_in = "0007 §8"
+scatterbase = "mutable"
+
+[[graph]]
+name = "mirror/{provider}"
+kind = "source"
+scope = "instance"
+per_provider = true
+history = "latest"          # an instance may set "full" per provider (0002 §2)
+integrity = "hashed"
+export = "public"
+payload_types = ["scatter:v0/changeset", "scatter:v0/erase"]
+defined_in = "0002 §2"
+scatterbase = "foreign"
+
+[[graph]]
+name = "actors/{provider}"
+kind = "source"
+scope = "instance"
+per_provider = true
+history = "latest"
+integrity = "hashed"
+export = "internal"
+payload_types = ["scatter:v0/actor", "scatter:v0/erase"]
+defined_in = "0007 §8"
+
+[[graph]]
+name = "log/{provider}"
+kind = "source"
+scope = "instance"
+per_provider = true
+history = "full"
+integrity = "hashed"
+export = "internal"
+payload_types = ["scatter:v0/logevent", "scatter:v0/upstream-revision", "scatter:v0/erase"]
+defined_in = "0011 §2, 0015 §4"
+
+# The farm as an issuer (0028 §2): three instance partitions under the farm's slug, present only
+# when the tenancy policy's identity.farm_issuer is not "none". They follow the per-issuer names
+# above but hold instance data, so they are logged and full, not hashed and latest.
+[[graph]]
+name = "actors/{farm}"
+kind = "source"
+scope = "instance"
+per_farm = true
+history = "full"
+integrity = "logged"
+export = "internal"
+payload_types = ["scatter:v0/actor", "scatter:v0/link-account", "scatter:v0/membership", "scatter:v0/block", "scatter:v0/erase"]
+defined_in = "0028 §2"
+
+[[graph]]
+name = "logins"
+kind = "source"
+scope = "instance"
+history = "full"
+integrity = "logged"
+export = "private"
+payload_types = ["scatter:v0/login", "scatter:v0/binding", "scatter:v0/erase"]   # instance logins and their external bindings
+defined_in = "0089 §2"
+
+[[graph]]
+name = "accounts/{farm}"
+kind = "source"
+scope = "instance"
+per_farm = true
+history = "full"
+integrity = "logged"
+export = "private"
+payload_types = ["scatter:v0/binding", "scatter:v0/erase"]
+defined_in = "0028 §2"
+
+[[graph]]
+name = "log/{farm}"
+kind = "source"
+scope = "instance"
+per_farm = true
+history = "full"
+integrity = "logged"
+export = "internal"
+payload_types = ["scatter:v0/logevent", "scatter:v0/acl", "scatter:v0/erase"]
+defined_in = "0028 §2"
+
+[[graph]]
+name = "resolved"
+kind = "projection"
+scope = "tenant"               # shared rows plus the tenant's overlay (0018 §6)
+export = "public"
+description = "The main graph of 0001 §2, computed over the source graphs (0002 §3). The Wikibase-compatible dump (0013 §8)."
+defined_in = "0002 §3"
+
+[[graph]]
+name = "metadata"
+kind = "projection"
+scope = "tenant"
+export = "public"            # in the full dump only, never the Wikibase-compatible dump (0013 §8; 0103 §5)
+description = "Revision nodes, actors, log events and provenance (0001 §2, 0007 §8, 0011 §8)."
+defined_in = "0001 §2"
+
+[[graph]]
+name = "files/{repo}"
+kind = "source"
+scope = "instance"
+per_repo = true             # one per file repository configured in `mirror` mode (0039 §11)
+history = "latest"          # an instance may set "full" per repository
+integrity = "hashed"
+export = "public"           # records only; bytes are never in a public dump (0039 §14)
+payload_types = ["scatter:v0/upload", "scatter:v0/erase"]
+defined_in = "0039 §11"
+
+[[graph]]
+name = "pages/{repo}"
+kind = "source"
+scope = "instance"
+per_repo = true             # one per page repository configured in `mirror` mode (0053 §5)
+history = "latest"          # an instance may set "full" per repository
+integrity = "hashed"
+export = "public"
+payload_types = ["scatter:v0/mirrored-page", "scatter:v0/erase"]   # five parts: content, comment, attestation, wikitext, html
+defined_in = "0053 §5"
+
+# Pending (0071 §1, §3): a tenant's derived graph, one per extraction source. Commented out until
+# `scatter-log`'s registry accepts a per-extraction placeholder (`per_source` and `{name}` are the
+# entity-source graph's); the parser rejects unknown fields.
+# [[graph]]
+# name = "derived/{source}"
+# kind = "source"
+# scope = "tenant"
+# per_extraction = true       # one per `extraction` config record (0071 §2)
+# history = "latest"          # a tenant may set "full"
+# integrity = "logged"
+# export = "public"
+# payload_types = ["scatter:v0/derivation", "scatter:v0/erase"]   # four parts: content, comment, attestation, evidence
+# defined_in = "0071 §1, §3"
+
+[[graph]]
+name = "source/{name}"
+kind = "source"
+scope = "tenant"
+per_source = true           # one per `entity-source` config record (0078 §1, §4)
+history = "latest"          # a tenant may set "full", as for mirror/{provider}
+integrity = "hashed"
+export = "public"
+payload_types = ["scatter:v0/changeset", "scatter:v0/erase"]
+defined_in = "0078 §4"

@@ -1,0 +1,37 @@
+<div class="mw-parser-output"><div id="toc" class="toc" role="navigation" aria-labelledby="mw-toc-heading"><input type="checkbox" role="button" id="toctogglecheckbox" class="toctogglecheckbox" style="display:none" /><div class="toctitle" lang="en" dir="ltr"><h2 id="mw-toc-heading">Contents</h2><span class="toctogglespan"><label class="toctogglelabel" for="toctogglecheckbox"></label></span></div>
+<ul>
+<li class="toclevel-1 tocsection-1"><a href="#2025-10-25_Orb_Blended"><span class="tocnumber">1</span> <span class="toctext">2025-10-25 Orb Blended</span></a></li>
+<li class="toclevel-1 tocsection-2"><a href="#2026-01_Rebuild_attempt"><span class="tocnumber">2</span> <span class="toctext">2026-01 Rebuild attempt</span></a></li>
+<li class="toclevel-1 tocsection-3"><a href="#2026-04_Rebuild_attempt"><span class="tocnumber">3</span> <span class="toctext">2026-04 Rebuild attempt</span></a></li>
+<li class="toclevel-1 tocsection-4"><a href="#2026-05_Rebuild_attempt"><span class="tocnumber">4</span> <span class="toctext">2026-05 Rebuild attempt</span></a></li>
+</ul>
+</div>
+
+<h2><span class="mw-headline" id="2025-10-25_Orb_Blended">2025-10-25 Orb Blended</span></h2>
+<p>The virtual machine "Orb Blended" in my workstation cluster was created to experiment with blending the Wikidata Query Service with other datasets in a single Blazegraph instance. Work started earlier, but this is the first journal.
+</p><p>For the last few weeks it has been building the Wikidata Query Service. I have paused it at file 4470 since I am taking the system down. <a href="/wiki/User:Harej" title="User:Harej">Harej</a> (<a href="/wiki/User_talk:Harej" title="User talk:Harej">talk</a>) 18:25, 25 October 2025 (UTC)
+</p>
+<ul><li>Resuming build. <a href="/wiki/User:Harej" title="User:Harej">Harej</a> (<a href="/wiki/User_talk:Harej" title="User talk:Harej">talk</a>) 03:49, 28 October 2025 (UTC)</li>
+<li>2025-11-08: Rebuild took too long; have to start again. Downloading dump from November 3. If I can't complete the build by December 3, I am not sure Blazegraph is still viable.</li>
+<li>2025-12-06: Rebuild of dataset is complete; local up-to-date copy of WDQS on dev1001.</li>
+<li>Started to gzip data.jnl in preparation to upload to fileserver and as a backup before experimenting with adding more data sources. <a href="/wiki/User:Harej" title="User:Harej">Harej</a> (<a href="/wiki/User_talk:Harej" title="User talk:Harej">talk</a>) 02:00, 7 December 2025 (UTC)</li></ul>
+<h2><span class="mw-headline" id="2026-01_Rebuild_attempt">2026-01 Rebuild attempt</span></h2>
+<p>Updater is running into numerous issues on both my workstation and the server, so I am downloading wikidata-20260112-all-BETA.ttl.gz to my workstation for a rebuild. <a href="/wiki/User:Harej" title="User:Harej">Harej</a> (<a href="/wiki/User_talk:Harej" title="User talk:Harej">talk</a>) 22:33, 22 January 2026 (UTC)
+</p><p>Munge process produced 4940 bundles; now ingesting into Blazegraph. <a href="/wiki/User:Harej" title="User:Harej">Harej</a> (<a href="/wiki/User_talk:Harej" title="User talk:Harej">talk</a>) 23:25, 24 January 2026 (UTC)
+</p>
+<h2><span class="mw-headline" id="2026-04_Rebuild_attempt">2026-04 Rebuild attempt</span></h2>
+<p>The last rebuild attempt, on my workstation, failed because it took too long to build the database. By the time it was finished, the data was more than 30 days old and could not be synced with recent changes. Trying again, directly on the production server (station1001), with wikidata-<b>20260330</b>-all-BETA.ttl.gz, only three days old as of writing.
+</p>
+<ul><li>2026-04-02: Direct rsync from WMF dump server to orb-wdqs</li>
+<li>2026-04-02: Begin munge process</li>
+<li>2026-04-04 15:23 (UTC): Begin loading of <b>4971</b> bundles</li>
+<li>2026-04-09 22:28 (UTC): Completed 1657 (one-third of) files</li>
+<li>2026-04-20 03:27 (UTC): Completed 3314 (two-thirds of) files</li>
+<li>Canceled at 5:52 PM local time on 2026-04-21 since it was not going to complete and more urgent hardware matters needed to be attended to</li></ul>
+<h2><span class="mw-headline" id="2026-05_Rebuild_attempt">2026-05 Rebuild attempt</span></h2>
+<p>This time on the workstation again.
+</p>
+<ul><li>2026-05-16 at 10:55 AM PDT:
+<ul><li>docker compose exec wdqs /wdqs/munge.sh -c 25000 -f /sources/wikidata-<b>20260511</b>-all-BETA.ttl.gz -d /sources</li></ul></li>
+<li>2026-05-17 at 01:04 PM PDT (over 5,007 shards):
+<ul><li>/wdqs/loadData.sh -n wdq -d /sources &amp;&amp; /wdqs/runUpdate.sh</li></ul></li></ul></div>

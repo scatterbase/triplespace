@@ -1,0 +1,50 @@
+# Hosts.  ADR 0110 §2.
+#
+# A host runs many sites, names each, and numbers each site's pages and revisions. A `remote` key
+# (keyed-types.toml) is `{host}:{site}-{p|r}{number}`: wikimedia:enwiki-p12 is English
+# Wikipedia's page 12. Not yet embedded: `scatter-normalize` reads this file once the `remote`
+# type is built (README, Pending allocations).
+#
+# name          Lowercase ASCII letters, digits and single hyphens, starting with a letter, at most
+#               32 characters; no colon, so the first colon of a key ends the host's name. Host
+#               names share one table with keyed-type, resolver and notation-scheme names.
+# label         The host's name for people, shown in the UI's identity line.
+# site_grammar  A grammar implemented in scatter-normalize, which validates and normalizes a site's
+#               name. None admits `-`, so the first hyphen of a key after the host ends the site.
+#                 "dbname"  1 to 64 ASCII letters, digits and underscores, starting with a letter;
+#                           lowercased (enwiki, zh_min_nanwiki)
+# sites         Optional. Where a site's base URL comes from:
+#                 "site-aliases"  sites.toml, by site ID; the base is https://{host}
+#               Without it the host's keys have no links.
+# page_url      Template for a page's link: {base} and {n}.
+# revision_url  Template for a revision's link: {base} and {n}.
+# alias         Optional. A title alias for the host's keys: Wikimedia:enwiki-p12 is
+#               Remote:wikimedia:enwiki-p12. Takes no namespace number (0110 A2).
+#
+# Hosts here are shared by every instance: their remote IDs and IRIs are the same everywhere. A tenant
+# may also declare a host of its own, as a `remote-host` config record whose keys mean something only
+# on that tenant (0110 A3). A host's name is never reused for another host; a retired host stays with
+# `retired = true`.
+
+version = 1
+
+[[host]]
+name = "wikimedia"
+label = "Wikimedia"
+site_grammar = "dbname"
+sites = "site-aliases"
+page_url = "{base}/?curid={n}"
+revision_url = "{base}/?oldid={n}"
+alias = "Wikimedia"
+defined_in = "0110 §2, A2"
+
+# --- Candidates (0110 §2; deferred, Q7) -------------------------------------------------------------------
+#
+# Miraheze: wikis named by database name, numbered by MediaWiki. No site list yet: a wiki's domain
+# is its subdomain of miraheze.org unless it has a custom one, so links wait for a generated list.
+# [[host]]
+# name = "miraheze"
+# label = "Miraheze"
+# site_grammar = "dbname"
+# page_url = "{base}/?curid={n}"
+# revision_url = "{base}/?oldid={n}"

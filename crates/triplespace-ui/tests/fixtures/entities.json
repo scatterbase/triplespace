@@ -1,0 +1,843 @@
+{
+    "entities": {
+        "P10": {
+            "aliases": {},
+            "claims": {},
+            "datatype": "wikibase-item",
+            "descriptions": {},
+            "id": "P10",
+            "labels": {
+                "en": {
+                    "language": "en",
+                    "value": "stated in"
+                }
+            },
+            "lastrevid": 926,
+            "modified": "2026-10-04T05:36:04Z",
+            "ns": 122,
+            "pageid": 20,
+            "title": "Property:P10",
+            "type": "property"
+        },
+        "P11": {
+            "aliases": {},
+            "claims": {},
+            "datatype": "url",
+            "descriptions": {},
+            "id": "P11",
+            "labels": {
+                "en": {
+                    "language": "en",
+                    "value": "reference URL"
+                }
+            },
+            "lastrevid": 927,
+            "modified": "2026-10-04T05:36:04Z",
+            "ns": 122,
+            "pageid": 21,
+            "title": "Property:P11",
+            "type": "property"
+        },
+        "P12": {
+            "aliases": {},
+            "claims": {},
+            "datatype": "string",
+            "descriptions": {},
+            "id": "P12",
+            "labels": {
+                "en": {
+                    "language": "en",
+                    "value": "note"
+                }
+            },
+            "lastrevid": 917,
+            "modified": "2026-10-04T05:36:04Z",
+            "ns": 122,
+            "pageid": 11,
+            "title": "Property:P12",
+            "type": "property"
+        },
+        "P2": {
+            "aliases": {},
+            "claims": {},
+            "datatype": "wikibase-item",
+            "descriptions": {},
+            "id": "P2",
+            "labels": {
+                "en": {
+                    "language": "en",
+                    "value": "instance of"
+                }
+            },
+            "lastrevid": 918,
+            "modified": "2026-10-04T05:36:04Z",
+            "ns": 122,
+            "pageid": 12,
+            "title": "Property:P2",
+            "type": "property"
+        },
+        "P3": {
+            "aliases": {},
+            "claims": {},
+            "datatype": "quantity",
+            "descriptions": {},
+            "id": "P3",
+            "labels": {
+                "en": {
+                    "language": "en",
+                    "value": "population"
+                }
+            },
+            "lastrevid": 919,
+            "modified": "2026-10-04T05:36:04Z",
+            "ns": 122,
+            "pageid": 13,
+            "title": "Property:P3",
+            "type": "property"
+        },
+        "P4": {
+            "aliases": {},
+            "claims": {},
+            "datatype": "time",
+            "descriptions": {},
+            "id": "P4",
+            "labels": {
+                "en": {
+                    "language": "en",
+                    "value": "inception"
+                }
+            },
+            "lastrevid": 920,
+            "modified": "2026-10-04T05:36:04Z",
+            "ns": 122,
+            "pageid": 14,
+            "title": "Property:P4",
+            "type": "property"
+        },
+        "P5": {
+            "aliases": {},
+            "claims": {},
+            "datatype": "globe-coordinate",
+            "descriptions": {},
+            "id": "P5",
+            "labels": {
+                "en": {
+                    "language": "en",
+                    "value": "coordinate location"
+                }
+            },
+            "lastrevid": 921,
+            "modified": "2026-10-04T05:36:04Z",
+            "ns": 122,
+            "pageid": 15,
+            "title": "Property:P5",
+            "type": "property"
+        },
+        "P6": {
+            "aliases": {},
+            "claims": {},
+            "datatype": "url",
+            "descriptions": {},
+            "id": "P6",
+            "labels": {
+                "en": {
+                    "language": "en",
+                    "value": "official website"
+                }
+            },
+            "lastrevid": 922,
+            "modified": "2026-10-04T05:36:04Z",
+            "ns": 122,
+            "pageid": 16,
+            "title": "Property:P6",
+            "type": "property"
+        },
+        "P7": {
+            "aliases": {},
+            "claims": {},
+            "datatype": "external-id",
+            "descriptions": {},
+            "id": "P7",
+            "labels": {
+                "en": {
+                    "language": "en",
+                    "value": "ISNI"
+                }
+            },
+            "lastrevid": 923,
+            "modified": "2026-10-04T05:36:04Z",
+            "ns": 122,
+            "pageid": 17,
+            "title": "Property:P7",
+            "type": "property"
+        },
+        "P8": {
+            "aliases": {},
+            "claims": {},
+            "datatype": "monolingualtext",
+            "descriptions": {},
+            "id": "P8",
+            "labels": {
+                "en": {
+                    "language": "en",
+                    "value": "native label"
+                }
+            },
+            "lastrevid": 924,
+            "modified": "2026-10-04T05:36:04Z",
+            "ns": 122,
+            "pageid": 18,
+            "title": "Property:P8",
+            "type": "property"
+        },
+        "P9": {
+            "aliases": {},
+            "claims": {},
+            "datatype": "time",
+            "descriptions": {},
+            "id": "P9",
+            "labels": {
+                "en": {
+                    "language": "en",
+                    "value": "point in time"
+                }
+            },
+            "lastrevid": 925,
+            "modified": "2026-10-04T05:36:04Z",
+            "ns": 122,
+            "pageid": 19,
+            "title": "Property:P9",
+            "type": "property"
+        },
+        "Q1": {
+            "aliases": {},
+            "claims": {},
+            "descriptions": {},
+            "id": "Q1",
+            "labels": {
+                "de": {
+                    "language": "de",
+                    "value": "Stadt"
+                },
+                "en": {
+                    "language": "en",
+                    "value": "city"
+                }
+            },
+            "lastrevid": 928,
+            "modified": "2026-10-04T05:36:04Z",
+            "ns": 120,
+            "pageid": 22,
+            "sitelinks": {},
+            "title": "Item:Q1",
+            "type": "item"
+        },
+        "Q2": {
+            "aliases": {},
+            "claims": {},
+            "descriptions": {},
+            "id": "Q2",
+            "labels": {
+                "de": {
+                    "language": "de",
+                    "value": "Zahl"
+                },
+                "en": {
+                    "language": "en",
+                    "value": "number"
+                }
+            },
+            "lastrevid": 929,
+            "modified": "2026-10-04T05:36:04Z",
+            "ns": 120,
+            "pageid": 23,
+            "sitelinks": {},
+            "title": "Item:Q2",
+            "type": "item"
+        },
+        "Q3": {
+            "aliases": {},
+            "claims": {},
+            "descriptions": {},
+            "id": "Q3",
+            "labels": {
+                "en": {
+                    "language": "en",
+                    "value": "Example Gazette"
+                }
+            },
+            "lastrevid": 930,
+            "modified": "2026-10-04T05:36:04Z",
+            "ns": 120,
+            "pageid": 24,
+            "sitelinks": {},
+            "title": "Item:Q3",
+            "type": "item"
+        },
+        "Q5": {
+            "aliases": {},
+            "claims": {},
+            "descriptions": {},
+            "id": "Q5",
+            "labels": {
+                "en": {
+                    "language": "en",
+                    "value": "inhabitant"
+                }
+            },
+            "lastrevid": 931,
+            "modified": "2026-10-04T05:36:04Z",
+            "ns": 120,
+            "pageid": 25,
+            "sitelinks": {},
+            "title": "Item:Q5",
+            "type": "item"
+        },
+        "Q6": {
+            "aliases": {
+                "en": [
+                    {
+                        "language": "en",
+                        "value": "6"
+                    },
+                    {
+                        "language": "en",
+                        "value": "half dozen"
+                    }
+                ]
+            },
+            "claims": {
+                "P10": [
+                    {
+                        "id": "Q6$00000011-0000-0000-0000-000000000000",
+                        "mainsnak": {
+                            "datatype": "wikibase-item",
+                            "hash": "ad23bfa7c0b35954df0dc78769476d462a80de6d",
+                            "property": "P10",
+                            "snaktype": "somevalue"
+                        },
+                        "rank": "normal",
+                        "type": "statement"
+                    }
+                ],
+                "P12": [
+                    {
+                        "id": "Q6$00000001-0000-0000-0000-000000000000",
+                        "mainsnak": {
+                            "datatype": "string",
+                            "datavalue": {
+                                "type": "string",
+                                "value": "six"
+                            },
+                            "hash": "806cd5ceb2f3b86811672c2c4f6057b5abaf0c0a",
+                            "property": "P12",
+                            "snaktype": "value"
+                        },
+                        "rank": "normal",
+                        "type": "statement"
+                    }
+                ],
+                "P2": [
+                    {
+                        "id": "Q6$00000002-0000-0000-0000-000000000000",
+                        "mainsnak": {
+                            "datatype": "wikibase-item",
+                            "datavalue": {
+                                "type": "wikibase-entityid",
+                                "value": {
+                                    "entity-type": "item",
+                                    "id": "Q2",
+                                    "numeric-id": 2
+                                }
+                            },
+                            "hash": "6511c2931be27bcac018d16006b07c7c2e704c57",
+                            "property": "P2",
+                            "snaktype": "value"
+                        },
+                        "rank": "preferred",
+                        "type": "statement"
+                    },
+                    {
+                        "id": "Q6$00000003-0000-0000-0000-000000000000",
+                        "mainsnak": {
+                            "datatype": "wikibase-item",
+                            "datavalue": {
+                                "type": "wikibase-entityid",
+                                "value": {
+                                    "entity-type": "item",
+                                    "id": "Q1",
+                                    "numeric-id": 1
+                                }
+                            },
+                            "hash": "a32497b849d1964f21897e84ee8e80317d84992f",
+                            "property": "P2",
+                            "snaktype": "value"
+                        },
+                        "rank": "normal",
+                        "type": "statement"
+                    },
+                    {
+                        "id": "Q6$00000004-0000-0000-0000-000000000000",
+                        "mainsnak": {
+                            "datatype": "wikibase-item",
+                            "datavalue": {
+                                "type": "wikibase-entityid",
+                                "value": {
+                                    "entity-type": "item",
+                                    "id": "Q3",
+                                    "numeric-id": 3
+                                }
+                            },
+                            "hash": "1fa75381e3bd9253ba0ef08d92830adf043d7717",
+                            "property": "P2",
+                            "snaktype": "value"
+                        },
+                        "rank": "deprecated",
+                        "type": "statement"
+                    }
+                ],
+                "P3": [
+                    {
+                        "id": "Q6$00000005-0000-0000-0000-000000000000",
+                        "mainsnak": {
+                            "datatype": "quantity",
+                            "datavalue": {
+                                "type": "quantity",
+                                "value": {
+                                    "amount": "+3898747",
+                                    "lowerBound": "+3898737",
+                                    "unit": "https://librarybase.org/entity/Q5",
+                                    "upperBound": "+3898757"
+                                }
+                            },
+                            "hash": "2cf5a7709cd1adbe563ec061a04520a8162c1b96",
+                            "property": "P3",
+                            "snaktype": "value"
+                        },
+                        "qualifiers": {
+                            "P9": [
+                                {
+                                    "datatype": "time",
+                                    "datavalue": {
+                                        "type": "time",
+                                        "value": {
+                                            "after": 0,
+                                            "before": 0,
+                                            "calendarmodel": "http://www.wikidata.org/entity/Q1985727",
+                                            "precision": 9,
+                                            "time": "+2020-00-00T00:00:00Z",
+                                            "timezone": 0
+                                        }
+                                    },
+                                    "hash": "ad563a9c0b002470ff3d93c8388e47244b2a4b7e",
+                                    "property": "P9",
+                                    "snaktype": "value"
+                                }
+                            ]
+                        },
+                        "qualifiers-order": [
+                            "P9"
+                        ],
+                        "rank": "normal",
+                        "references": [
+                            {
+                                "hash": "0a9c940ef1c4c23a06c3ee30fefb14e9cf2490ff",
+                                "snaks": {
+                                    "P10": [
+                                        {
+                                            "datatype": "wikibase-item",
+                                            "datavalue": {
+                                                "type": "wikibase-entityid",
+                                                "value": {
+                                                    "entity-type": "item",
+                                                    "id": "Q3",
+                                                    "numeric-id": 3
+                                                }
+                                            },
+                                            "hash": "bc7b9df55271eddd0681f6ffd1cf6f0a5e1c3821",
+                                            "property": "P10",
+                                            "snaktype": "value"
+                                        }
+                                    ],
+                                    "P11": [
+                                        {
+                                            "datatype": "url",
+                                            "datavalue": {
+                                                "type": "string",
+                                                "value": "https://example.org/census"
+                                            },
+                                            "hash": "7a7255b805e78ec292ce54fbb1883f15020551a1",
+                                            "property": "P11",
+                                            "snaktype": "value"
+                                        }
+                                    ]
+                                },
+                                "snaks-order": [
+                                    "P10",
+                                    "P11"
+                                ]
+                            }
+                        ],
+                        "type": "statement"
+                    }
+                ],
+                "P4": [
+                    {
+                        "id": "Q6$00000006-0000-0000-0000-000000000000",
+                        "mainsnak": {
+                            "datatype": "time",
+                            "datavalue": {
+                                "type": "time",
+                                "value": {
+                                    "after": 0,
+                                    "before": 0,
+                                    "calendarmodel": "http://www.wikidata.org/entity/Q1985727",
+                                    "precision": 11,
+                                    "time": "+1952-03-11T00:00:00Z",
+                                    "timezone": 0
+                                }
+                            },
+                            "hash": "0f5efecf52db4e0a0e5d435600299c6592d92143",
+                            "property": "P4",
+                            "snaktype": "value"
+                        },
+                        "rank": "normal",
+                        "type": "statement"
+                    }
+                ],
+                "P5": [
+                    {
+                        "id": "Q6$00000007-0000-0000-0000-000000000000",
+                        "mainsnak": {
+                            "datatype": "globe-coordinate",
+                            "datavalue": {
+                                "type": "globecoordinate",
+                                "value": {
+                                    "altitude": null,
+                                    "globe": "http://www.wikidata.org/entity/Q2",
+                                    "latitude": 34.0522,
+                                    "longitude": -118.2437,
+                                    "precision": 0.016666666666666666
+                                }
+                            },
+                            "hash": "f34671ec8da70add85b109bfab61949b691e5fb7",
+                            "property": "P5",
+                            "snaktype": "value"
+                        },
+                        "rank": "normal",
+                        "type": "statement"
+                    }
+                ],
+                "P6": [
+                    {
+                        "id": "Q6$00000008-0000-0000-0000-000000000000",
+                        "mainsnak": {
+                            "datatype": "url",
+                            "datavalue": {
+                                "type": "string",
+                                "value": "https://six.example/"
+                            },
+                            "hash": "5a18ad034e259bc2637ddbdd5704f4e109c944e2",
+                            "property": "P6",
+                            "snaktype": "value"
+                        },
+                        "rank": "normal",
+                        "type": "statement"
+                    }
+                ],
+                "P7": [
+                    {
+                        "id": "Q6$00000009-0000-0000-0000-000000000000",
+                        "mainsnak": {
+                            "datatype": "external-id",
+                            "datavalue": {
+                                "type": "string",
+                                "value": "0000 0001 2103 2683"
+                            },
+                            "hash": "6d9782af79d9ac504e7051d1bd66e63f133c7ecc",
+                            "property": "P7",
+                            "snaktype": "value"
+                        },
+                        "rank": "normal",
+                        "type": "statement"
+                    }
+                ],
+                "P8": [
+                    {
+                        "id": "Q6$00000010-0000-0000-0000-000000000000",
+                        "mainsnak": {
+                            "datatype": "monolingualtext",
+                            "datavalue": {
+                                "type": "monolingualtext",
+                                "value": {
+                                    "language": "ar",
+                                    "text": "ستة"
+                                }
+                            },
+                            "hash": "907bf8f3f97652cc470b923361e0fb75de521526",
+                            "property": "P8",
+                            "snaktype": "value"
+                        },
+                        "rank": "normal",
+                        "type": "statement"
+                    }
+                ]
+            },
+            "descriptions": {
+                "de": {
+                    "language": "de",
+                    "value": "eine Zahl"
+                },
+                "en": {
+                    "language": "en",
+                    "value": "a number"
+                }
+            },
+            "id": "Q6",
+            "labels": {
+                "ar": {
+                    "language": "ar",
+                    "value": "ستة"
+                },
+                "de": {
+                    "language": "de",
+                    "value": "Sechs"
+                },
+                "en": {
+                    "language": "en",
+                    "value": "Six & more"
+                }
+            },
+            "lastrevid": 932,
+            "modified": "2026-10-04T05:36:04Z",
+            "ns": 120,
+            "pageid": 26,
+            "sitelinks": {},
+            "title": "Item:Q6",
+            "type": "item"
+        },
+        "XDP1": {
+            "aliases": {},
+            "claims": {},
+            "datatype": "string",
+            "descriptions": {},
+            "id": "XDP1",
+            "labels": {
+                "en": {
+                    "language": "en",
+                    "value": "domain name"
+                }
+            },
+            "lastrevid": 5497558138883,
+            "modified": "2026-10-04T05:36:04Z",
+            "ns": 122,
+            "pageid": 3,
+            "title": "Property:XDP1",
+            "type": "property"
+        },
+        "XDP8": {
+            "aliases": {},
+            "claims": {},
+            "datatype": "wikibase-item",
+            "descriptions": {},
+            "id": "XDP8",
+            "labels": {
+                "en": {
+                    "language": "en",
+                    "value": "related domain"
+                }
+            },
+            "lastrevid": 5497558138884,
+            "modified": "2026-10-04T05:36:04Z",
+            "ns": 122,
+            "pageid": 4,
+            "title": "Property:XDP8",
+            "type": "property"
+        },
+        "domain:example.org": {
+            "aliases": {},
+            "claims": {},
+            "descriptions": {},
+            "id": "domain:example.org",
+            "labels": {
+                "en": {
+                    "language": "en",
+                    "value": "example.org"
+                },
+                "mul": {
+                    "language": "mul",
+                    "value": "example.org"
+                }
+            },
+            "lastrevid": 5497558138935,
+            "modified": "2026-10-04T05:36:04Z",
+            "ns": 210,
+            "pageid": 1,
+            "title": "Domain:example.org",
+            "type": "domain"
+        },
+        "domain:wikipedia.org": {
+            "aliases": {},
+            "claims": {
+                "XDP8": [
+                    {
+                        "id": "domain:wikipedia.org$00000000-0000-0000-0000-0000000000B2",
+                        "mainsnak": {
+                            "datatype": "wikibase-domain",
+                            "datavalue": {
+                                "type": "wikibase-entityid",
+                                "value": {
+                                    "entity-type": "domain",
+                                    "id": "domain:example.org"
+                                }
+                            },
+                            "hash": "58244104ed90469fb1321e00269941b6e437f18e",
+                            "property": "XDP8",
+                            "snaktype": "value"
+                        },
+                        "rank": "normal",
+                        "type": "statement"
+                    }
+                ]
+            },
+            "descriptions": {
+                "en": {
+                    "language": "en",
+                    "value": "the free encyclopedia"
+                }
+            },
+            "id": "domain:wikipedia.org",
+            "labels": {
+                "en": {
+                    "language": "en",
+                    "value": "Wikipedia"
+                },
+                "mul": {
+                    "language": "mul",
+                    "value": "wikipedia.org"
+                }
+            },
+            "lastrevid": 5497558138936,
+            "modified": "2026-10-04T05:36:04Z",
+            "ns": 210,
+            "pageid": 2,
+            "title": "Domain:wikipedia.org",
+            "type": "domain"
+        },
+        "WDQ65": {
+            "type": "item",
+            "id": "WDQ65",
+            "pageid": 4611686018427388000,
+            "ns": 120,
+            "title": "Item:WDQ65",
+            "lastrevid": 1099511629000,
+            "modified": "2026-10-01T00:00:00Z",
+            "labels": {
+                "en": {
+                    "language": "en",
+                    "value": "Los Angeles"
+                },
+                "es": {
+                    "language": "es",
+                    "value": "Los Ángeles"
+                }
+            },
+            "descriptions": {
+                "en": {
+                    "language": "en",
+                    "value": "largest city in California, United States"
+                }
+            },
+            "aliases": {
+                "en": [
+                    {
+                        "language": "en",
+                        "value": "LA"
+                    },
+                    {
+                        "language": "en",
+                        "value": "City of Angels"
+                    }
+                ]
+            },
+            "claims": {
+                "WDP31": [
+                    {
+                        "id": "WDQ65$aaaaaaaa-0000-0000-0000-000000000001",
+                        "mainsnak": {
+                            "snaktype": "value",
+                            "property": "WDP31",
+                            "datatype": "wikibase-item",
+                            "datavalue": {
+                                "type": "wikibase-entityid",
+                                "value": {
+                                    "entity-type": "item",
+                                    "id": "WDQ1093829"
+                                }
+                            }
+                        },
+                        "rank": "normal",
+                        "type": "statement"
+                    }
+                ],
+                "P12": [
+                    {
+                        "id": "WDQ65$bbbbbbbb-0000-0000-0000-000000000002",
+                        "mainsnak": {
+                            "snaktype": "value",
+                            "property": "P12",
+                            "datatype": "string",
+                            "datavalue": {
+                                "type": "string",
+                                "value": "added here"
+                            }
+                        },
+                        "rank": "normal",
+                        "type": "statement"
+                    }
+                ]
+            },
+            "sitelinks": {
+                "enwiki": {
+                    "site": "enwiki",
+                    "title": "Los Angeles",
+                    "badges": []
+                },
+                "eswiki": {
+                    "site": "eswiki",
+                    "title": "Los Ángeles",
+                    "badges": []
+                }
+            }
+        },
+        "WDP31": {
+            "type": "property",
+            "id": "WDP31",
+            "datatype": "wikibase-item",
+            "labels": {
+                "en": {
+                    "language": "en",
+                    "value": "instance of"
+                }
+            },
+            "descriptions": {},
+            "aliases": {},
+            "claims": {}
+        },
+        "WDQ1093829": {
+            "type": "item",
+            "id": "WDQ1093829",
+            "labels": {
+                "en": {
+                    "language": "en",
+                    "value": "city in the United States"
+                }
+            },
+            "descriptions": {},
+            "aliases": {},
+            "claims": {},
+            "sitelinks": {}
+        }
+    },
+    "success": 1
+}

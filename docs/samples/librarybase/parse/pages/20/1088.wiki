@@ -1,0 +1,10 @@
+
+* navigation
+** mainpage|mainpage-description
+** Special:NewItem|New item
+** Special:NewProperty|New property
+** Special:ListProperties|All properties
+** recentchanges-url|recentchanges
+* SEARCH
+* TOOLBOX
+* LANGUAGES

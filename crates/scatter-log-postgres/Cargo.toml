@@ -1,0 +1,24 @@
+[package]
+name = "scatter-log-postgres"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "LogStore and CheckpointStore over the Postgres `log` schema, its migrations, Merkle nodes, and the per-tenant ID sequences"
+publish = false
+
+[dependencies]
+scatter-log.workspace = true
+scatter-integrity.workspace = true
+tokio-postgres.workspace = true
+deadpool-postgres.workspace = true
+thiserror.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+ed25519-dalek.workspace = true
+
+[lints]
+workspace = true

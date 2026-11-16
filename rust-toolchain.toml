@@ -1,0 +1,8 @@
+# Stable Rust, pinned (ADR 0033 §2). The minimum supported version moves deliberately,
+# in its own commit, together with `rust-version` in Cargo.toml.
+[toolchain]
+channel = "1.95.0"
+components = ["rustfmt", "clippy"]
+# Rule-7 crates of ADR 0005 must build for wasm32 (checked by `cargo xtask wasm`).
+targets = ["wasm32-unknown-unknown"]
+profile = "minimal"

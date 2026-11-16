@@ -1,0 +1,9 @@
+/* The typefaces of the accessibility type set `opendyslexic` (docs/registry/themes.toml; ADR 0086
+   §3): OpenDyslexic, by Abbie Gonzalez. Its stack names OpenDyslexic Mono for code, which no
+   package yet provides, so code falls back to IBM Plex Mono, served here too. SIL Open Font
+   License 1.1. */
+@import '@fontsource/opendyslexic/400.css';
+@import '@fontsource/opendyslexic/400-italic.css';
+@import '@fontsource/opendyslexic/700.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';

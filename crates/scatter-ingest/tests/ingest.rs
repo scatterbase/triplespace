@@ -1,0 +1,3096 @@
+//! The write path, bulk batches, mirror syncs and adoption against the in-memory store.
+
+use std::collections::BTreeMap;
+
+use scatter_ingest::adopt::{Adopted, Adoption, Author, Floors, run_adoption};
+use scatter_ingest::memory::{MemoryCx, MemoryIngest};
+use scatter_ingest::{
+    Attestation, BlockEntry, BlockPayload, IngestError, IngestStore, RawRecord, Request, Sequence,
+    SyncItem, run_batch, run_batch_in, run_sync, write_many, write_operation, write_raw,
+};
+use scatter_log::body::Body;
+use scatter_log::cbor::Value;
+use scatter_log::header::Header;
+use scatter_log::record::Record;
+use scatter_log::store::Draft;
+use scatter_projection::{Applied, Backend, BoxFuture, Pipeline, Projection, Step};
+use scatter_providers::Registry;
+use scatter_wikibase_changeset::{Graph, JobHeader, Mode, Operation, ProviderOrder, Upstream};
+use scatter_wikibase_model::entity::Entity;
+use scatter_wikibase_model::id::EntityId;
+use scatter_wikibase_model::value::DataType;
+use serde_json::json;
+
+const TENANT: &str = "librarybase";
+const LOCAL: u64 = 0x11;
+const PAGES: u64 = 0x12;
+const TENANT_LOG: u64 = 0x13;
+const ACTORS: u64 = 0x14;
+const INSTANCE_LOG: u64 = 0x21;
+const MIRROR_XD: u64 = 0x22;
+const NOW: u64 = 1_790_000_000_000_000;
+
+/// A projection that records what it saw, so the inline run is observable.
+struct Recorder;
+
+impl Projection<MemoryIngest> for Recorder {
+    fn name(&self) -> &'static str {
+        "recorder"
+    }
+    fn step(&self) -> Step {
+        Step::Sources
+    }
+    fn apply<'a>(
+        &'a self,
+        cx: &'a mut MemoryCx,
+        record: &'a Record,
+    ) -> BoxFuture<'a, Result<Applied, String>> {
+        Box::pin(async move {
+            let h = record.header();
+            cx.put(
+                "seen",
+                &format!("{:#x}:{}", h.partition, h.offset),
+                h.key.as_deref().unwrap_or("-"),
+            );
+            Ok(Applied::rows(1))
+        })
+    }
+    fn reset<'a>(
+        &'a self,
+        _cx: &'a mut MemoryCx,
+        _partition: u64,
+    ) -> BoxFuture<'a, Result<(), String>> {
+        Box::pin(async { Ok(()) })
+    }
+}
+
+fn setup() -> (MemoryIngest, Pipeline<MemoryIngest>) {
+    let store = MemoryIngest::new();
+    store.create_partition(LOCAL, TENANT, "local");
+    store.create_partition(PAGES, TENANT, "pages");
+    store.create_partition(TENANT_LOG, TENANT, "log");
+    store.create_partition(ACTORS, TENANT, "actors");
+    store.create_partition(INSTANCE_LOG, "", "log");
+    store.create_partition(MIRROR_XD, "", "mirror/internetdomains");
+    store.set_datatype(TENANT, "P356", DataType::ExternalId);
+    store.set_datatype(TENANT, "P31", DataType::WikibaseItem);
+    let pipeline = Pipeline::new().with(Recorder).unwrap();
+    (store, pipeline)
+}
+
+fn registry() -> &'static Registry {
+    Registry::default_registry()
+}
+
+fn entity(v: serde_json::Value) -> Entity {
+    Entity::from_value(v).unwrap().entity
+}
+
+fn string_statement(p: &str, v: &str, datatype: &str) -> serde_json::Value {
+    json!({"mainsnak": {"snaktype": "value", "property": p, "datavalue": {"value": v, "type": "string"}, "datatype": datatype},
+        "type": "statement", "rank": "normal"})
+}
+
+fn item(id: &str, label: &str, claims: &serde_json::Value) -> serde_json::Value {
+    json!({"type": "item", "id": id, "labels": {"en": {"language": "en", "value": label}}, "claims": claims})
+}
+
+fn op(v: serde_json::Value) -> Operation {
+    serde_json::from_value(v).unwrap()
+}
+
+fn operation_of(record: &Record) -> Operation {
+    scatter_log::cbor::from_value(record.body().content().value().unwrap().unwrap()).unwrap()
+}
+
+fn events(store: &MemoryIngest, partition: u64) -> Vec<(String, String)> {
+    store
+        .records(partition)
+        .iter()
+        .filter(|r| r.header().payload_type == "scatter:v0/logevent")
+        .map(|r| {
+            let v = r.body().content().value().unwrap().unwrap();
+            (
+                v.get("action")
+                    .and_then(Value::as_text)
+                    .unwrap()
+                    .to_string(),
+                r.header().key.clone().unwrap(),
+            )
+        })
+        .collect()
+}
+
+fn params_of(record: &Record) -> serde_json::Value {
+    record
+        .body()
+        .content()
+        .value()
+        .unwrap()
+        .unwrap()
+        .get("params")
+        .unwrap()
+        .to_json()
+        .unwrap()
+}
+
+// --- the write path ----------------------------------------------------------------------
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn writes_take_ids_keys_and_project_inline() {
+    pollster::block_on(async {
+        let (store, pipeline) = setup();
+        let request = Request::new(TENANT, Attestation::by("librarybase:1"), NOW);
+        let mut cx = store.begin().await.unwrap();
+        let create =
+            op(json!({"op": "create", "id": "Q1", "entity": item("Q1", "One", &json!({}))}));
+        let w = write_operation(&store, &pipeline, &mut cx, &request, &create, registry())
+            .await
+            .unwrap();
+        assert_eq!(w.partition, LOCAL);
+        let h: &Header = w.record.header();
+        assert_eq!(
+            (h.offset, h.revid, h.page_id, h.key.as_deref()),
+            (0, Some(1), Some(1), Some("Q1"))
+        );
+        assert_eq!(h.payload_type, "scatter:v0/changeset");
+        assert_eq!(w.inline.rows, 1, "the recorder ran inline");
+        // A second write to the same key keeps the page ID, takes the next revision.
+        let add = op(json!({"op": "add", "id": "Q1", "labels": {"fr": "Un"}}));
+        let w2 = write_operation(&store, &pipeline, &mut cx, &request, &add, registry())
+            .await
+            .unwrap();
+        assert_eq!(
+            (
+                w2.offset(),
+                w2.record.header().revid,
+                w2.record.header().page_id
+            ),
+            (1, Some(2), Some(1))
+        );
+        // A stale base offset is a conflict (0006 §8).
+        let mut stale = request.clone();
+        stale.base_offset = Some(0);
+        let err = write_operation(&store, &pipeline, &mut cx, &stale, &add, registry())
+            .await
+            .unwrap_err();
+        assert!(
+            matches!(
+                err,
+                IngestError::Conflict {
+                    base: 0,
+                    latest: 1,
+                    ..
+                }
+            ),
+            "{err}"
+        );
+        let mut fresh = request.clone();
+        fresh.base_offset = Some(1);
+        write_operation(&store, &pipeline, &mut cx, &fresh, &add, registry())
+            .await
+            .unwrap();
+        // A page's statements go to `pages`.
+        let page = op(
+            json!({"op": "add", "page": 77, "claims": {"P31": [{"mainsnak": {"snaktype": "somevalue", "property": "P31", "datatype": "wikibase-item"}, "type": "statement", "rank": "normal"}]}}),
+        );
+        let wp = write_operation(&store, &pipeline, &mut cx, &request, &page, registry())
+            .await
+            .unwrap();
+        assert_eq!(wp.partition, PAGES);
+        assert_eq!(wp.record.header().key.as_deref(), Some("77"));
+        assert_eq!(
+            wp.record.header().page_id,
+            Some(2),
+            "a fresh page ID for a new key"
+        );
+        // A keyed subject is keyed by a surrogate, minted and recorded in the instance log.
+        let domain =
+            op(json!({"op": "add", "id": "domain:example.org", "labels": {"en": "Example"}}));
+        let wd = write_operation(&store, &pipeline, &mut cx, &request, &domain, registry())
+            .await
+            .unwrap();
+        assert_eq!(wd.record.header().key.as_deref(), Some("domain#1"));
+        let again = write_operation(&store, &pipeline, &mut cx, &request, &domain, registry())
+            .await
+            .unwrap();
+        assert_eq!(
+            again.record.header().key.as_deref(),
+            Some("domain#1"),
+            "reused"
+        );
+        assert_eq!(again.record.header().page_id, wd.record.header().page_id);
+        // A mirror put goes to the provider's partition with a provider-ranged revid.
+        let put = op(
+            json!({"op": "put", "id": "XDQ5", "entity": item("XDQ5", "Five", &json!({})), "upstream": {"revid": 900}}),
+        );
+        let wm = write_operation(&store, &pipeline, &mut cx, &request, &put, registry())
+            .await
+            .unwrap();
+        assert_eq!(wm.partition, MIRROR_XD);
+        let xd = registry().by_slug("internetdomains").unwrap().number;
+        assert_eq!(
+            wm.record.header().revid,
+            Some((u64::from(xd) << 40) | 0x384)
+        );
+        // Not record-shaped: refused.
+        let bulk = op(json!({"op": "retain", "ids": ["Q1"], "policy": "retain"}));
+        assert!(
+            write_operation(&store, &pipeline, &mut cx, &request, &bulk, registry())
+                .await
+                .is_err()
+        );
+        store.commit(cx).await.unwrap();
+
+        let instance_log = store.records(INSTANCE_LOG);
+        assert_eq!(instance_log.len(), 1);
+        assert_eq!(
+            instance_log[0].header().payload_type,
+            "scatter:v0/keyed-surrogate"
+        );
+        assert_eq!(instance_log[0].header().key.as_deref(), Some("domain#1"));
+        let mapping = instance_log[0].body().content().value().unwrap().unwrap();
+        assert_eq!(
+            mapping.get("key").and_then(Value::as_text),
+            Some("example.org")
+        );
+        assert_eq!(store.records(LOCAL).len(), 5);
+        assert_eq!(
+            store.state().rows.len(),
+            8,
+            "every record was projected inline"
+        );
+        // Rollback leaves nothing.
+        let mut cx = store.begin().await.unwrap();
+        write_operation(&store, &pipeline, &mut cx, &request, &add, registry())
+            .await
+            .unwrap();
+        store.rollback(cx).await.unwrap();
+        assert_eq!(store.records(LOCAL).len(), 5);
+    });
+}
+
+// --- bulk batches ------------------------------------------------------------------------
+
+const BATCH: &str = r#"{"job":{"source":"citation-batch","graph":"local"}}
+{"op":"create","ref":"$w1","entity":{"type":"item","id":"$w1","labels":{"en":{"language":"en","value":"A paper"}},"claims":{"P356":[{"mainsnak":{"snaktype":"value","property":"P356","datavalue":{"value":"10.1/new","type":"string"},"datatype":"external-id"},"type":"statement","rank":"normal"}]}}}
+{"op":"create-or-add","ref":"$w2","match":{"P356":"10.1/known"},"entity":{"type":"item","id":"$w2","labels":{"fr":{"language":"fr","value":"Connu"}},"claims":{}}}
+{"op":"create-or-add","match":{"P356":"10.1/unknown"},"entity":{"type":"item","id":"Q0","labels":{"en":{"language":"en","value":"Unknown"}},"claims":{}}}
+{"op":"add","id":"$w2","claims":{"P31":[{"mainsnak":{"snaktype":"value","property":"P31","datavalue":{"value":{"entity-type":"item","id":"$w1"},"type":"wikibase-entityid"},"datatype":"wikibase-item"},"type":"statement","rank":"normal"}]}}
+{"op":"retain","ids":["XDQ1","XDQ2"],"policy":"retain"}
+{"op":"add","id":"Q9","page":3,"labels":{"en":"both"}}
+{"op":"override","statement":"XDQ1$2F1C0000-0000-0000-0000-000000000000","rank":"deprecated"}
+"#;
+
+async fn seed_known(store: &MemoryIngest, pipeline: &Pipeline<MemoryIngest>) {
+    let request = Request::new(TENANT, Attestation::by("librarybase:1"), NOW);
+    let mut cx = store.begin().await.unwrap();
+    let known = op(
+        json!({"op": "create", "id": "Q5", "entity": item("Q5", "Known", &json!({"P356": [string_statement("P356", "10.1/known", "external-id")]}))}),
+    );
+    write_operation(store, pipeline, &mut cx, &request, &known, registry())
+        .await
+        .unwrap();
+    store.commit(cx).await.unwrap();
+    // Q5 took item number 1 from the sequence; floor it so minted IDs start at Q6.
+    let mut cx = store.begin().await.unwrap();
+    store
+        .floor(&mut cx, TENANT, &Sequence::Entity("item".into()), 5)
+        .await
+        .unwrap();
+    store.commit(cx).await.unwrap();
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn a_streamed_batch_mints_matches_and_records_rejects() {
+    pollster::block_on(async {
+        let (store, pipeline) = setup();
+        seed_known(&store, &pipeline).await;
+        let out = run_batch(
+            &store,
+            &pipeline,
+            TENANT,
+            Attestation::by("librarybase:2"),
+            BATCH,
+            &ProviderOrder::default(),
+            registry(),
+            NOW,
+        )
+        .await
+        .unwrap();
+        assert_eq!(out.ids.get("$w1").map(EntityId::as_str), Some("Q6"));
+        assert_eq!(
+            out.ids.get("$w2").map(EntityId::as_str),
+            Some("Q5"),
+            "matched by DOI"
+        );
+        assert_eq!(out.counts.created, 2, "$w1 and the unknown create-or-add");
+        assert_eq!(
+            out.counts.merged, 2,
+            "the matched create-or-add and the add"
+        );
+        assert_eq!(out.counts.other, 3, "two retains and the override");
+        assert_eq!(out.counts.rejected, 1);
+        assert_eq!(out.rejects.len(), 1);
+        assert_eq!(out.rejects[0].line, 7);
+        assert!(
+            out.rejects[0]
+                .reason
+                .contains("exactly one of `id` and `page`"),
+            "{}",
+            out.rejects[0].reason
+        );
+
+        let ops = store.operations(LOCAL);
+        assert_eq!(ops.len(), 1 + 7);
+        match &ops[1] {
+            Operation::Create {
+                id: Some(id),
+                entity,
+                ..
+            } => {
+                assert_eq!(id.as_str(), "Q6");
+                assert_eq!(entity.id.as_str(), "Q6");
+            }
+            other => panic!("{other:?}"),
+        }
+        match &ops[2] {
+            Operation::Add {
+                id: Some(id),
+                labels,
+                via: Some(_),
+                match_key: Some(_),
+                ..
+            } => {
+                assert_eq!(id.as_str(), "Q5");
+                assert_eq!(labels["fr"], "Connu");
+            }
+            other => panic!("{other:?}"),
+        }
+        match &ops[3] {
+            Operation::Create {
+                id: Some(id),
+                via: Some(_),
+                ..
+            } => assert_eq!(id.as_str(), "Q7"),
+            other => panic!("{other:?}"),
+        }
+        match &ops[4] {
+            Operation::Add {
+                id: Some(id),
+                claims,
+                ..
+            } => {
+                assert_eq!(id.as_str(), "Q5");
+                let s = &claims.first().unwrap().1[0];
+                assert_eq!(
+                    s.mainsnak
+                        .data_value()
+                        .unwrap()
+                        .entity_id()
+                        .unwrap()
+                        .as_str(),
+                    "Q6"
+                );
+            }
+            other => panic!("{other:?}"),
+        }
+        assert_eq!(ops[5].key().as_deref(), Some("XDQ1"));
+        assert_eq!(ops[6].key().as_deref(), Some("XDQ2"));
+        assert_eq!(
+            ops[7].key().as_deref(),
+            Some("XDQ1"),
+            "the override completed from its statement"
+        );
+        // Every record names the job and the subsidiary.
+        for r in store.records(LOCAL).iter().skip(1) {
+            let a = r.body().attestation().value().unwrap().unwrap();
+            assert_eq!(
+                a.get("actor").and_then(Value::as_text),
+                Some("librarybase:2")
+            );
+            assert_eq!(a.get("job").and_then(Value::as_u64), Some(out.job_id));
+        }
+        // The job's records in the tenant log.
+        assert_eq!(
+            events(&store, TENANT_LOG),
+            vec![
+                ("start".to_string(), "1".to_string()),
+                ("finish".to_string(), "1".to_string())
+            ]
+        );
+        let finish = params_of(&store.records(TENANT_LOG)[1]);
+        assert_eq!(finish["counts"]["created"], 2);
+        assert_eq!(finish["counts"]["rejected"], 1);
+        assert_eq!(finish["rejects"][0]["line"], 7);
+        let start = params_of(&store.records(TENANT_LOG)[0]);
+        assert_eq!(start["source"], "citation-batch");
+        assert_eq!(start["graph"], "local");
+        assert!(
+            store
+                .records(TENANT_LOG)
+                .iter()
+                .all(|r| r.header().logid.is_some())
+        );
+    });
+}
+
+/// A projection that fails on a record under one key, so that a write can fail.
+struct Tripwire(&'static str);
+
+impl Projection<MemoryIngest> for Tripwire {
+    fn name(&self) -> &'static str {
+        "tripwire"
+    }
+    fn step(&self) -> Step {
+        Step::Sources
+    }
+    fn apply<'a>(
+        &'a self,
+        _cx: &'a mut MemoryCx,
+        record: &'a Record,
+    ) -> BoxFuture<'a, Result<Applied, String>> {
+        Box::pin(async move {
+            if record.header().key.as_deref() == Some(self.0) {
+                Err(format!("`{}` trips the wire", self.0))
+            } else {
+                Ok(Applied::rows(0))
+            }
+        })
+    }
+    fn reset<'a>(
+        &'a self,
+        _cx: &'a mut MemoryCx,
+        _partition: u64,
+    ) -> BoxFuture<'a, Result<(), String>> {
+        Box::pin(async { Ok(()) })
+    }
+}
+
+/// A batch writes its operations in blocks (0013 A90), and what a streamed or an atomic
+/// batch leaves is what it leaves an operation at a time (a block of one): the same
+/// records, counts, IDs and rejects. A streamed block in which a write fails is written
+/// again an operation at a time: the one that fails is rejected with its line, in batch
+/// order with the lines that have problems, and the rest land. An atomic batch in which
+/// a write fails lands nothing.
+#[test]
+fn a_batch_in_blocks_leaves_what_one_operation_at_a_time_leaves() {
+    pollster::block_on(async {
+        // `tripped` fails every write under that key: Q7 is the unknown create-or-add.
+        let run = |block: usize, atomic: bool, tripped: Option<&'static str>| async move {
+            let (store, _) = setup();
+            let mut pipeline = Pipeline::new().with(Recorder).unwrap();
+            if let Some(key) = tripped {
+                pipeline = pipeline.with(Tripwire(key)).unwrap();
+            }
+            seed_known(&store, &pipeline).await;
+            let text = if atomic {
+                // Without the line that has problems, which fails an atomic batch.
+                BATCH
+                    .replacen(r#""graph":"local""#, r#""graph":"local","atomic":true"#, 1)
+                    .lines()
+                    .filter(|l| !l.contains(r#""page":3"#))
+                    .fold(String::new(), |mut acc, l| {
+                        acc.push_str(l);
+                        acc.push('\n');
+                        acc
+                    })
+            } else {
+                BATCH.to_string()
+            };
+            let out = run_batch_in(
+                &store,
+                &pipeline,
+                TENANT,
+                Attestation::by("librarybase:2"),
+                &text,
+                &ProviderOrder::default(),
+                registry(),
+                NOW,
+                block,
+            )
+            .await;
+            let records: Vec<_> = store.records(LOCAL).iter().map(comparable).collect();
+            let outcome = out
+                .map(|o| (o.counts, o.ids, o.rejects))
+                .map_err(|e| e.to_string());
+            (outcome, records, events(&store, TENANT_LOG))
+        };
+        for atomic in [false, true] {
+            for tripped in [None, Some("Q7")] {
+                let one = run(1, atomic, tripped).await;
+                for block in [3, 200] {
+                    let blocks = run(block, atomic, tripped).await;
+                    assert_eq!(
+                        blocks, one,
+                        "atomic {atomic}, tripped {tripped:?}, blocks of {block}"
+                    );
+                }
+            }
+        }
+        // Streamed, the failing write is rejected by itself, before the line with problems.
+        let (outcome, records, _) = run(200, false, Some("Q7")).await;
+        let (counts, _, rejects) = outcome.unwrap();
+        assert_eq!(counts.rejected, 2);
+        assert_eq!(
+            rejects.iter().map(|r| r.line).collect::<Vec<_>>(),
+            vec![4, 7]
+        );
+        assert!(rejects[0].reason.contains("trips the wire"), "{rejects:?}");
+        assert_eq!(
+            records.len(),
+            1 + 6,
+            "all but the rejected operation landed"
+        );
+        // Atomic, nothing lands but what was there.
+        let (outcome, records, _) = run(200, true, Some("Q7")).await;
+        assert!(outcome.unwrap_err().contains("trips the wire"));
+        assert_eq!(records.len(), 1);
+    });
+}
+
+#[test]
+fn an_atomic_batch_fails_as_a_whole() {
+    pollster::block_on(async {
+        let (store, pipeline) = setup();
+        let text = BATCH.replacen(r#""graph":"local""#, r#""graph":"local","atomic":true"#, 1);
+        let err = run_batch(
+            &store,
+            &pipeline,
+            TENANT,
+            Attestation::by("librarybase:2"),
+            &text,
+            &ProviderOrder::default(),
+            registry(),
+            NOW,
+        )
+        .await
+        .unwrap_err();
+        assert!(err.to_string().contains("line 7"), "{err}");
+        assert!(store.records(LOCAL).is_empty(), "nothing landed");
+        assert_eq!(
+            events(&store, TENANT_LOG),
+            vec![
+                ("start".to_string(), "1".to_string()),
+                ("fail".to_string(), "1".to_string())
+            ]
+        );
+        // Without the bad line it goes through in one unit of work.
+        let good: String = text.lines().filter(|l| !l.contains(r#""page":3"#)).fold(
+            String::new(),
+            |mut acc, l| {
+                acc.push_str(l);
+                acc.push('\n');
+                acc
+            },
+        );
+        let out = run_batch(
+            &store,
+            &pipeline,
+            TENANT,
+            Attestation::by("librarybase:2"),
+            &good,
+            &ProviderOrder::default(),
+            registry(),
+            NOW,
+        )
+        .await
+        .unwrap();
+        assert_eq!(out.counts.rejected, 0);
+        assert_eq!(store.operations(LOCAL).len(), 7);
+        assert_eq!(events(&store, TENANT_LOG).len(), 4);
+        // A mirror graph or a mode is not a bulk job's.
+        let bad = r#"{"job":{"source":"x","graph":"mirror/internetdomains"}}"#;
+        assert!(
+            run_batch(
+                &store,
+                &pipeline,
+                TENANT,
+                Attestation::by("librarybase:2"),
+                bad,
+                &ProviderOrder::default(),
+                registry(),
+                NOW
+            )
+            .await
+            .is_err()
+        );
+    });
+}
+
+// --- mirror sync -------------------------------------------------------------------------
+
+fn xd_state(id: &str, label: &str, revid: u64) -> SyncItem {
+    SyncItem::State {
+        entity: Box::new(entity(item(
+            id,
+            label,
+            &json!({"P1": [string_statement("P1", "a", "string")]}),
+        ))),
+        upstream: Upstream::revision(revid, Some("2026-10-01T00:00:00Z")),
+        upstream_id: None,
+        upstream_aliases: Vec::new(),
+    }
+}
+
+fn sync_header(mode: Mode) -> JobHeader {
+    JobHeader::mirror("internetdomains", "2026-10-01", mode)
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn a_sync_keeps_the_cursor_and_sweeps_in_snapshot_mode() {
+    pollster::block_on(async {
+        let (store, pipeline) = setup();
+        let actor = Attestation::by("instance:scatter");
+        // A domain mapped from Q9, with a bogus upstream hash that the guard counts.
+        let mut domain = entity(json!({"type": "domain", "id": "domain:example.org",
+            "labels": {"en": {"language": "en", "value": "example.org"}},
+            "claims": {"P1": [{"mainsnak": {"snaktype": "value", "property": "P1", "hash": "0000000000000000000000000000000000000000",
+                "datavalue": {"value": "a", "type": "string"}, "datatype": "string"}, "type": "statement", "rank": "normal"}]}}));
+        domain.id = EntityId::parse("domain:example.org").unwrap();
+        let items = vec![
+            xd_state("XDQ1", "One", 10),
+            xd_state("XDQ2", "Two", 20),
+            SyncItem::State {
+                entity: Box::new(domain.clone()),
+                upstream: Upstream::revision(30, None),
+                upstream_id: Some("Q9".into()),
+                upstream_aliases: Vec::new(),
+            },
+            SyncItem::Deleted {
+                id: EntityId::parse("XDQ99").unwrap(),
+                upstream: Upstream::revision(31, None),
+            },
+        ];
+        let out = run_sync(
+            &store,
+            &pipeline,
+            sync_header(Mode::Upsert),
+            actor.clone(),
+            items,
+            100,
+            registry(),
+            NOW,
+            2,
+        )
+        .await
+        .unwrap();
+        assert_eq!(out.counts.created, 3);
+        assert_eq!(out.counts.unchanged, 1, "a deletion of nothing");
+        let ops = store.operations(MIRROR_XD);
+        assert_eq!(ops.len(), 3);
+        match &ops[0] {
+            Operation::Put {
+                prev_upstream,
+                first_seen,
+                size,
+                changes,
+                ..
+            } => {
+                assert!(prev_upstream.is_none());
+                assert_eq!(*first_seen, Some(NOW));
+                assert!(size.is_some());
+                assert_eq!(changes.as_ref().unwrap().labels["en"].added, 1);
+            }
+            other => panic!("{other:?}"),
+        }
+        match &ops[2] {
+            Operation::Put {
+                id,
+                upstream_id,
+                entity,
+                ..
+            } => {
+                assert_eq!(id.as_str(), "domain:example.org");
+                assert_eq!(upstream_id.as_deref(), Some("Q9"));
+                assert!(
+                    entity
+                        .all_statements()
+                        .next()
+                        .unwrap()
+                        .mainsnak
+                        .hash
+                        .is_some(),
+                    "a differing hash is kept"
+                );
+            }
+            other => panic!("{other:?}"),
+        }
+        assert_eq!(
+            store.records(MIRROR_XD)[2].header().key.as_deref(),
+            Some("domain#1")
+        );
+        let log = store.records(INSTANCE_LOG);
+        let kinds: Vec<&str> = log
+            .iter()
+            .map(|r| r.header().payload_type.as_str())
+            .collect();
+        assert_eq!(
+            kinds,
+            vec![
+                "scatter:v0/logevent",
+                "scatter:v0/keyed-surrogate",
+                "scatter:v0/logevent"
+            ]
+        );
+        let finish = params_of(&log[2]);
+        assert_eq!(finish["hash_mismatches"]["string"], 1);
+        assert_eq!(finish["counts"]["created"], 3);
+        assert_eq!(
+            finish["mode"],
+            serde_json::Value::Null,
+            "the finish carries counts; the start carries the mode"
+        );
+        assert_eq!(params_of(&log[0])["mode"], "upsert");
+
+        // Re-running with the same states changes nothing; a newer state is merged with
+        // the previous version and a summary; an older one is skipped.
+        let mut two_new = entity(item(
+            "XDQ2",
+            "Two renamed",
+            &json!({"P1": [string_statement("P1", "a", "string"), string_statement("P1", "b", "string")]}),
+        ));
+        two_new.id = EntityId::parse("XDQ2").unwrap();
+        let items = vec![
+            xd_state("XDQ1", "One", 10),
+            SyncItem::State {
+                entity: Box::new(two_new),
+                upstream: Upstream::revision(25, None),
+                upstream_id: None,
+                upstream_aliases: Vec::new(),
+            },
+            xd_state("XDQ1", "Older", 5),
+        ];
+        let out = run_sync(
+            &store,
+            &pipeline,
+            sync_header(Mode::Upsert),
+            actor.clone(),
+            items,
+            100,
+            registry(),
+            NOW + 10,
+            50,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            (out.counts.created, out.counts.merged, out.counts.unchanged),
+            (0, 1, 2)
+        );
+        let ops = store.operations(MIRROR_XD);
+        match &ops[3] {
+            Operation::Put {
+                id,
+                prev_upstream,
+                first_seen,
+                prev_size,
+                changes,
+                upstream,
+                ..
+            } => {
+                assert_eq!(id.as_str(), "XDQ2");
+                assert_eq!(prev_upstream.as_ref().unwrap().revid, Some(20));
+                assert_eq!(upstream.revid, Some(25));
+                assert_eq!(*first_seen, Some(NOW), "carried from the first put");
+                assert!(prev_size.is_some());
+                let c = changes.as_ref().unwrap();
+                assert_eq!(c.labels["en"].changed, 1);
+                assert_eq!(c.claims[&EntityId::parse("P1").unwrap()].added, 1);
+            }
+            other => panic!("{other:?}"),
+        }
+
+        // Snapshot mode: what the job did not see is swept, within the threshold.
+        let out = run_sync(
+            &store,
+            &pipeline,
+            sync_header(Mode::Snapshot),
+            actor.clone(),
+            vec![xd_state("XDQ1", "One", 10)],
+            5,
+            registry(),
+            NOW + 20,
+            50,
+        )
+        .await
+        .unwrap();
+        assert_eq!(out.swept, 2, "XDQ2 and the domain");
+        assert_eq!(out.counts.tombstoned, 1, "XDQ2");
+        assert_eq!(
+            out.counts.cleared, 1,
+            "a Domain is cleared, never tombstoned"
+        );
+        let ops = store.operations(MIRROR_XD);
+        assert!(matches!(ops[ops.len() - 2], Operation::Tombstone { .. }));
+        match &ops[ops.len() - 1] {
+            Operation::Put {
+                id,
+                entity,
+                upstream_id,
+                prev_upstream,
+                ..
+            } => {
+                assert_eq!(id.as_str(), "domain:example.org");
+                assert!(entity.labels.is_empty() && entity.statements.is_empty());
+                assert_eq!(*upstream_id, None);
+                assert_eq!(prev_upstream.as_ref().unwrap().revid, Some(30));
+            }
+            other => panic!("{other:?}"),
+        }
+        let mut cx = store.begin().await.unwrap();
+        let remaining = store
+            .entities_of_graph(&mut cx, "", "mirror/internetdomains")
+            .await
+            .unwrap();
+        assert_eq!(
+            remaining.len(),
+            2,
+            "XDQ1, and the cleared Domain, which still exists"
+        );
+        store.rollback(cx).await.unwrap();
+        let finish = params_of(store.records(INSTANCE_LOG).last().unwrap());
+        assert_eq!(finish["sweep"]["count"], 2);
+
+        // Over the threshold, the sweep refuses and the job fails.
+        let before = store.records(MIRROR_XD).len();
+        let err = run_sync(
+            &store,
+            &pipeline,
+            sync_header(Mode::Snapshot),
+            actor,
+            Vec::<SyncItem>::new(),
+            0,
+            registry(),
+            NOW + 30,
+            50,
+        )
+        .await
+        .unwrap_err();
+        assert!(
+            matches!(
+                err,
+                IngestError::SweepThreshold {
+                    count: 1,
+                    threshold: 0
+                }
+            ),
+            "{err}"
+        );
+        assert_eq!(store.records(MIRROR_XD).len(), before);
+        let last = events(&store, INSTANCE_LOG).pop().unwrap();
+        assert_eq!(last.0, "fail");
+    });
+}
+
+fn domain_state(key: &str, owner: &str, aliases: &[&str], label: &str, revid: u64) -> SyncItem {
+    let mut domain = entity(json!({"type": "domain", "id": format!("domain:{key}"),
+        "labels": {"en": {"language": "en", "value": label}}}));
+    domain.id = EntityId::parse(&format!("domain:{key}")).unwrap();
+    SyncItem::State {
+        entity: Box::new(domain),
+        upstream: Upstream::revision(revid, Some("2026-10-01T00:00:00Z")),
+        upstream_id: Some(owner.into()),
+        upstream_aliases: aliases.iter().map(|a| (*a).to_string()).collect(),
+    }
+}
+
+fn owners(store: &MemoryIngest) -> Vec<(String, String)> {
+    pollster::block_on(async {
+        let mut cx = store.begin().await.unwrap();
+        let o = store
+            .keyed_owners(&mut cx, "mirror/internetdomains")
+            .await
+            .unwrap();
+        store.rollback(cx).await.unwrap();
+        o.into_iter().map(|(u, k)| (u, k.to_string())).collect()
+    })
+}
+
+fn last_put_of<'a>(ops: &'a [Operation], id: &str) -> &'a Operation {
+    ops.iter()
+        .rev()
+        .find(|op| matches!(op, Operation::Put { id: i, .. } if i.as_str() == id))
+        .unwrap_or_else(|| panic!("no put of {id}"))
+}
+
+/// 0009 §9 and architecture 05 §4.2, over four upsert jobs: an identity value that moves
+/// clears the old key; an item that becomes mapped retires its foreign form; a merge into
+/// a mapped item is an alias; a repeated redirect is written once; an item that stops
+/// being mapped clears its key; a deleted Domain is cleared, and only once.
+#[test]
+#[allow(clippy::too_many_lines)]
+fn a_key_mapped_sync_follows_keys_as_they_move() {
+    pollster::block_on(async {
+        let (store, pipeline) = setup();
+        let actor = Attestation::by("instance:scatter");
+        let xd = |id: &str| EntityId::parse(id).unwrap();
+        let redirect = |from: &str, to: &str| SyncItem::Redirected {
+            from: xd(from),
+            to: xd(to),
+            upstream: Upstream::revision(40, Some("2026-10-01T00:00:00Z")),
+        };
+        let sync = |items: Vec<SyncItem>, at: u64| {
+            run_sync(
+                &store,
+                &pipeline,
+                sync_header(Mode::Upsert),
+                actor.clone(),
+                items,
+                100,
+                registry(),
+                at,
+                3,
+            )
+        };
+
+        // 1. Q9 owns a.example; Q5 and Q7 are foreign items; Q8 was merged into Q7.
+        let out = sync(
+            vec![
+                domain_state("a.example", "Q9", &[], "A", 10),
+                xd_state("XDQ5", "Five", 11),
+                xd_state("XDQ7", "Seven", 12),
+                redirect("XDQ8", "XDQ7"),
+            ],
+            NOW,
+        )
+        .await
+        .unwrap();
+        assert_eq!((out.counts.created, out.counts.other), (3, 1));
+        assert_eq!(owners(&store), [("Q9".into(), "domain:a.example".into())]);
+
+        // 2. Q9's identity value moves to b.example; Q5 becomes mapped to c.example, with
+        // Q6 merged into it; the Q8 redirect is seen again.
+        let out = sync(
+            vec![
+                domain_state("b.example", "Q9", &[], "B", 20),
+                domain_state("c.example", "Q5", &["Q6"], "C", 21),
+                xd_state("XDQ7", "Seven", 12),
+                redirect("XDQ8", "XDQ7"),
+            ],
+            NOW + 10,
+        )
+        .await
+        .unwrap();
+        assert_eq!(out.counts.created, 2, "b.example and c.example");
+        assert_eq!(out.counts.cleared, 1, "a.example, which Q9 no longer owns");
+        assert_eq!(out.counts.tombstoned, 1, "XDQ5, now mapped");
+        assert_eq!(out.counts.other, 0, "the redirect is already recorded");
+        assert_eq!(out.counts.unchanged, 2, "XDQ7 and the redirect");
+        assert_eq!(
+            owners(&store),
+            [
+                ("Q5".into(), "domain:c.example".into()),
+                ("Q9".into(), "domain:b.example".into())
+            ]
+        );
+        let ops = store.operations(MIRROR_XD);
+        match last_put_of(&ops, "domain:a.example") {
+            Operation::Put {
+                entity,
+                upstream_id,
+                ..
+            } => {
+                assert!(entity.labels.is_empty());
+                assert_eq!(*upstream_id, None);
+            }
+            _ => unreachable!(),
+        }
+        match last_put_of(&ops, "domain:c.example") {
+            Operation::Put {
+                upstream_aliases, ..
+            } => assert_eq!(upstream_aliases, &["Q6".to_string()]),
+            _ => unreachable!(),
+        }
+        assert!(
+            ops.iter()
+                .any(|op| matches!(op, Operation::Tombstone { id, .. } if id.as_str() == "XDQ5"))
+        );
+
+        // 3. The same input again: nothing is written, nothing cleared twice.
+        let before = store.records(MIRROR_XD).len();
+        let out = sync(
+            vec![
+                domain_state("b.example", "Q9", &[], "B", 20),
+                domain_state("c.example", "Q5", &["Q6"], "C", 21),
+                xd_state("XDQ7", "Seven", 12),
+                redirect("XDQ8", "XDQ7"),
+            ],
+            NOW + 20,
+        )
+        .await
+        .unwrap();
+        assert_eq!(out.counts.unchanged, 4);
+        assert_eq!(store.records(MIRROR_XD).len(), before);
+
+        // 3b. Another item is merged into Q5 while Q5 itself is not edited: the state is
+        // written again at revision 21, which an earlier record already claimed, so it
+        // carries the revision in its version instead.
+        let out = sync(
+            vec![domain_state("c.example", "Q5", &["Q6", "Q16"], "C", 21)],
+            NOW + 25,
+        )
+        .await
+        .unwrap();
+        assert_eq!(out.counts.merged, 1);
+        match last_put_of(&store.operations(MIRROR_XD), "domain:c.example") {
+            Operation::Put {
+                upstream,
+                upstream_aliases,
+                ..
+            } => {
+                assert_eq!(upstream.revid, None);
+                assert_eq!(upstream.version.as_deref(), Some("21+2026-10-01"));
+                assert_eq!(upstream_aliases, &["Q16".to_string(), "Q6".to_string()]);
+            }
+            _ => unreachable!(),
+        }
+        let out = sync(
+            vec![domain_state("c.example", "Q5", &["Q6", "Q16"], "C", 21)],
+            NOW + 26,
+        )
+        .await
+        .unwrap();
+        assert_eq!(out.counts.unchanged, 1, "and is not written again");
+
+        // 4. Q9 stops being mapped (it is a foreign item again), and upstream deletes the
+        // item behind c.example, twice.
+        let deleted = || SyncItem::Deleted {
+            id: xd("domain:c.example"),
+            upstream: Upstream::revision(50, None),
+        };
+        let out = sync(
+            vec![xd_state("XDQ9", "Nine", 30), deleted(), deleted()],
+            NOW + 30,
+        )
+        .await
+        .unwrap();
+        assert_eq!(out.counts.created, 1, "XDQ9");
+        assert_eq!(out.counts.cleared, 2, "c.example once, and b.example");
+        assert_eq!(out.counts.unchanged, 1, "the second deletion");
+        assert_eq!(out.counts.tombstoned, 0, "a Domain is never tombstoned");
+        assert!(owners(&store).is_empty());
+    });
+}
+
+// --- adoption ----------------------------------------------------------------------------
+
+fn account(key: &str, name: &str) -> Draft {
+    Draft {
+        appended_at: NOW,
+        payload_type: "scatter:v0/actor".into(),
+        key: Some(key.into()),
+        revid: None,
+        logid: None,
+        page_id: None,
+        body: Body::core(
+            &Value::from_json(&json!({"kind": "registered", "name": name, "status": "active"})),
+            &Value::Null,
+            &Value::map(vec![(Value::text("actor"), Value::text("librarybase:2"))]),
+        )
+        .unwrap(),
+    }
+}
+
+fn adoption(frozen: bool) -> Adoption {
+    Adoption {
+        issuer: TENANT.into(),
+        source: "https://librarybase.org/".into(),
+        version: "librarybase-20260928.json.gz".into(),
+        adapter_version: Some("scatter-adapter-wikibase 0.0.1".into()),
+        frozen,
+        history: false,
+        current_state_dump: false,
+        floors: Floors {
+            entity: BTreeMap::from([("item".to_string(), 1000), ("property".to_string(), 50)]),
+            page: 2000,
+            revision: 50_000,
+            log: 700,
+            user: 40,
+        },
+        accounts: vec![
+            account("librarybase:1", "Owner"),
+            account("librarybase:7", "Editor"),
+        ],
+        property_types: BTreeMap::new(),
+        job_id: None,
+    }
+}
+
+fn adopted(id: &str, label: &str, revid: u64, pageid: u64) -> Adopted {
+    Adopted::current(
+        entity(item(id, label, &json!({}))),
+        revid,
+        "2026-09-20T14:02:11Z",
+        pageid,
+    )
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn adoption_checks_floors_resumes_and_rejects_conflicts() {
+    pollster::block_on(async {
+        let (store, pipeline) = setup();
+        let actor = Attestation::by("librarybase:2");
+        // The owner is already there, from `instance create --adopt --owner`.
+        let mut cx = store.begin().await.unwrap();
+        store
+            .append(&mut cx, ACTORS, account("librarybase:1", "Owner"))
+            .await
+            .unwrap();
+        store.commit(cx).await.unwrap();
+
+        let err = run_adoption(
+            &store,
+            &pipeline,
+            TENANT,
+            actor.clone(),
+            adoption(false),
+            Vec::<Adopted>::new(),
+            registry(),
+            NOW,
+            10,
+        )
+        .await
+        .unwrap_err();
+        assert!(err.to_string().contains("frozen"), "{err}");
+
+        let items = vec![
+            adopted("Q6", "Six", 41_877, 12),
+            adopted("P12", "prop", 903, 40),
+            adopted("Q8", "Eight", 42_000, 13),
+        ];
+        let mut items = items;
+        items[1].id = EntityId::parse("P12").unwrap();
+        items[1].entity = Some(entity(
+            json!({"type": "property", "id": "P12", "datatype": "string", "labels": {"en": {"language": "en", "value": "prop"}}, "claims": {}}),
+        ));
+        let out = run_adoption(
+            &store,
+            &pipeline,
+            TENANT,
+            actor.clone(),
+            adoption(true),
+            items.clone(),
+            registry(),
+            NOW,
+            2,
+        )
+        .await
+        .unwrap();
+        assert_eq!(out.counts.adopted, 3);
+        assert_eq!(
+            out.accounts, 1,
+            "the owner was present; the editor was written"
+        );
+        assert_eq!(store.records(ACTORS).len(), 2);
+        let local = store.records(LOCAL);
+        assert_eq!(local.len(), 3);
+        assert_eq!(local[0].header().page_id, Some(12), "the source's page ID");
+        assert_eq!(local[1].header().page_id, Some(40));
+        assert!(
+            local[0].header().revid.unwrap() > 50_000,
+            "above the revision floor"
+        );
+        assert!(matches!(
+            operation_of(&local[0]),
+            Operation::Adopt {
+                source_revid: 41_877,
+                ..
+            }
+        ));
+        // The floors moved the sequences.
+        let mut cx = store.begin().await.unwrap();
+        assert_eq!(
+            store
+                .next_id(&mut cx, TENANT, &Sequence::Entity("item".into()))
+                .await
+                .unwrap(),
+            1001
+        );
+        assert_eq!(
+            store
+                .next_id(&mut cx, TENANT, &Sequence::Page)
+                .await
+                .unwrap(),
+            2001
+        );
+        assert_eq!(
+            store
+                .next_id(&mut cx, TENANT, &Sequence::User)
+                .await
+                .unwrap(),
+            41
+        );
+        store.rollback(cx).await.unwrap();
+        let log = store.records(TENANT_LOG);
+        let start = params_of(&log[0]);
+        assert_eq!(start["mode"], "adopt");
+        assert_eq!(start["args"]["floors"]["page"], 2000);
+        let finish = params_of(&log[1]);
+        assert_eq!(finish["counts"]["adopted"], 3);
+        assert_eq!(finish["floors"]["revision"], 50_000);
+        assert_eq!(finish["accounts"], 1);
+
+        // Re-running skips what is present and rejects a changed entity.
+        let mut again = items.clone();
+        again[2].entity = Some(entity(item("Q8", "Eight, changed", &json!({}))));
+        again.push(adopted("Q9", "Nine", 42_100, 14));
+        let out = run_adoption(
+            &store,
+            &pipeline,
+            TENANT,
+            actor.clone(),
+            adoption(true),
+            again,
+            registry(),
+            NOW + 1,
+            10,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            (
+                out.counts.adopted,
+                out.counts.unchanged,
+                out.counts.rejected
+            ),
+            (1, 2, 1)
+        );
+        assert!(out.rejects[0].reason.contains("ts-adopt-conflict"));
+        assert_eq!(store.records(LOCAL).len(), 4);
+
+        // History cannot go in front of a `--current-only` record (0035 §7).
+        let mut full = adoption(true);
+        full.history = true;
+        let err = run_adoption(
+            &store,
+            &pipeline,
+            TENANT,
+            actor.clone(),
+            full,
+            vec![revision("Q6", 41_000, None, 12, Author::Job)],
+            registry(),
+            NOW,
+            10,
+        )
+        .await
+        .unwrap_err();
+        assert!(err.to_string().contains("--current-only"), "{err}");
+
+        // Another source is refused; so is a partition with an ordinary edit.
+        let mut other = adoption(true);
+        other.source = "https://elsewhere.example/".into();
+        let err = run_adoption(
+            &store,
+            &pipeline,
+            TENANT,
+            actor.clone(),
+            other,
+            Vec::<Adopted>::new(),
+            registry(),
+            NOW,
+            10,
+        )
+        .await
+        .unwrap_err();
+        assert!(err.to_string().contains("adopted from"), "{err}");
+        let request = Request::new(TENANT, actor.clone(), NOW);
+        let mut cx = store.begin().await.unwrap();
+        write_operation(
+            &store,
+            &pipeline,
+            &mut cx,
+            &request,
+            &op(json!({"op": "add", "id": "Q6", "labels": {"fr": "Six"}})),
+            registry(),
+        )
+        .await
+        .unwrap();
+        store.commit(cx).await.unwrap();
+        let err = run_adoption(
+            &store,
+            &pipeline,
+            TENANT,
+            actor,
+            adoption(true),
+            Vec::<Adopted>::new(),
+            registry(),
+            NOW,
+            10,
+        )
+        .await
+        .unwrap_err();
+        assert!(err.to_string().contains("not adoptions"), "{err}");
+    });
+}
+
+/// One revision of a history adoption (0035 A12).
+fn revision(id: &str, revid: u64, parent: Option<u64>, pageid: u64, author: Author) -> Adopted {
+    Adopted {
+        id: EntityId::parse(id).unwrap(),
+        entity: Some(entity(item(id, &format!("{id} at {revid}"), &json!({})))),
+        redirect: None,
+        source_revid: revid,
+        source_parentid: parent,
+        source_time: "2026-09-20T14:02:11Z".into(),
+        source_pageid: pageid,
+        minor: false,
+        withheld: Vec::new(),
+        comment: Some(format!("edit {revid}")),
+        author,
+    }
+}
+
+fn attestation_of(record: &Record) -> serde_json::Value {
+    record
+        .body()
+        .attestation()
+        .value()
+        .unwrap()
+        .unwrap()
+        .to_json()
+        .unwrap()
+}
+
+#[test]
+#[allow(clippy::too_many_lines)]
+fn a_history_adoption_keeps_every_revision_and_its_author() {
+    pollster::block_on(async {
+        let (store, pipeline) = setup();
+        let actor = Attestation::by("librarybase:2");
+        let ip = || Author::Surrogate {
+            kind: "anonymous".into(),
+            raw: "192.0.2.1".into(),
+        };
+        let mut hidden = revision("Q6", 41_500, Some(41_000), 12, ip());
+        hidden.entity = None;
+        hidden.comment = None;
+        hidden.withheld = vec!["content".into(), "comment".into()];
+        let mut minor = revision("Q6", 41_877, Some(41_500), 12, ip());
+        minor.minor = true;
+        let mut merged = revision(
+            "Q7",
+            44_000,
+            Some(43_000),
+            13,
+            Author::Actor("librarybase:7".into()),
+        );
+        merged.entity = None;
+        merged.redirect = Some(EntityId::parse("Q6").unwrap());
+        let history = vec![
+            revision(
+                "Q6",
+                41_000,
+                None,
+                12,
+                Author::Actor("librarybase:7".into()),
+            ),
+            hidden,
+            minor,
+            revision("Q7", 43_000, None, 13, Author::Hidden),
+            merged,
+        ];
+        let mut full = adoption(true);
+        full.history = true;
+
+        // A current-state export is refused.
+        let mut current = full.clone();
+        current.current_state_dump = true;
+        let err = run_adoption(
+            &store,
+            &pipeline,
+            TENANT,
+            actor.clone(),
+            current,
+            Vec::<Adopted>::new(),
+            registry(),
+            NOW,
+            10,
+        )
+        .await
+        .unwrap_err();
+        assert!(err.to_string().contains("current-state export"), "{err}");
+
+        // A partial run, then the whole dump: the second run skips what the first wrote.
+        let out = run_adoption(
+            &store,
+            &pipeline,
+            TENANT,
+            actor.clone(),
+            full.clone(),
+            history[..2].to_vec(),
+            registry(),
+            NOW,
+            1,
+        )
+        .await
+        .unwrap();
+        assert_eq!(out.counts.adopted, 2);
+        let out = run_adoption(
+            &store,
+            &pipeline,
+            TENANT,
+            actor.clone(),
+            full.clone(),
+            history.clone(),
+            registry(),
+            NOW,
+            2,
+        )
+        .await
+        .unwrap();
+        assert_eq!(
+            (
+                out.counts.adopted,
+                out.counts.unchanged,
+                out.counts.rejected
+            ),
+            (3, 2, 0),
+            "{:?}",
+            out.rejects
+        );
+
+        let local = store.records(LOCAL);
+        let revids: Vec<Option<u64>> = local.iter().map(|r| r.header().revid).collect();
+        assert_eq!(
+            revids,
+            [
+                Some(41_000),
+                Some(41_500),
+                Some(41_877),
+                Some(43_000),
+                Some(44_000)
+            ],
+            "every revision keeps the source's ID, below the floor"
+        );
+        assert_eq!(local[0].header().page_id, Some(12));
+        assert_eq!(attestation_of(&local[0])["actor"], "librarybase:7");
+        assert!(attestation_of(&local[0])["job"].is_u64());
+        assert_eq!(
+            local[0]
+                .body()
+                .comment()
+                .value()
+                .unwrap()
+                .unwrap()
+                .to_json()
+                .unwrap(),
+            "edit 41000",
+            "the edit summary is the comment part"
+        );
+        // The IP got one surrogate for both its revisions, with its actor record.
+        assert_eq!(attestation_of(&local[1])["actor"], "actor:1");
+        assert_eq!(attestation_of(&local[2])["actor"], "actor:1");
+        let surrogates: Vec<Record> = store
+            .records(ACTORS)
+            .into_iter()
+            .filter(|r| r.header().key.as_deref() == Some("actor:1"))
+            .collect();
+        assert_eq!(surrogates.len(), 1);
+        assert_eq!(
+            surrogates[0]
+                .body()
+                .content()
+                .value()
+                .unwrap()
+                .unwrap()
+                .to_json()
+                .unwrap(),
+            json!({"kind": "anonymous", "status": "active", "raw": "192.0.2.1"})
+        );
+        // A hidden comment leaves the comment part empty; a hidden user, no actor.
+        assert!(
+            local[1]
+                .body()
+                .comment()
+                .value()
+                .unwrap()
+                .is_none_or(|v| v == Value::Null)
+        );
+        assert!(matches!(
+            operation_of(&local[1]),
+            Operation::Adopt { entity: None, redirect: None, ref withheld, .. } if withheld.len() == 2
+        ));
+        let hidden = attestation_of(&local[3]);
+        assert_eq!(hidden.get("actor"), None);
+        assert_eq!(hidden["hidden"], true);
+        assert!(matches!(
+            operation_of(&local[4]),
+            Operation::Adopt { redirect: Some(ref to), entity: None, .. } if to.as_str() == "Q6"
+        ));
+        let finish = params_of(store.records(TENANT_LOG).last().unwrap());
+        assert_eq!(finish["history"], "full");
+
+        // A revision present under its ID with other content is a conflict.
+        let mut changed = history.clone();
+        changed[2].minor = false;
+        let out = run_adoption(
+            &store,
+            &pipeline,
+            TENANT,
+            actor,
+            full,
+            changed,
+            registry(),
+            NOW,
+            10,
+        )
+        .await
+        .unwrap();
+        assert_eq!((out.counts.adopted, out.counts.rejected), (0, 1));
+        assert!(out.rejects[0].reason.contains("ts-adopt-conflict"));
+        assert_eq!(store.records(LOCAL).len(), 5);
+    });
+}
+
+/// An upstream undelete brings an entity back at the revision its last state had (0092
+/// §2): the state is written again, under the "revision already claimed" form, since no
+/// two records may carry the same revision ID.
+#[test]
+fn an_undeleted_entity_comes_back_without_claiming_its_revision_twice() {
+    pollster::block_on(async {
+        let (store, pipeline) = setup();
+        let actor = Attestation::by("instance:scatter");
+        let sync = |items: Vec<SyncItem>, t: u64| {
+            run_sync(
+                &store,
+                &pipeline,
+                sync_header(Mode::Upsert),
+                actor.clone(),
+                items,
+                100,
+                registry(),
+                t,
+                50,
+            )
+        };
+        sync(vec![xd_state("XDQ7", "Seven", 70)], NOW)
+            .await
+            .unwrap();
+        let out = sync(
+            vec![SyncItem::Deleted {
+                id: EntityId::parse("XDQ7").unwrap(),
+                upstream: Upstream::default(),
+            }],
+            NOW + 1,
+        )
+        .await
+        .unwrap();
+        assert_eq!(out.counts.tombstoned, 1);
+        // Undeleted: the same state, the same upstream revision.
+        let out = sync(vec![xd_state("XDQ7", "Seven", 70)], NOW + 2)
+            .await
+            .unwrap();
+        assert_eq!(out.counts.created, 1, "{out:?}");
+        let ops = store.operations(MIRROR_XD);
+        let revisions: Vec<Option<u64>> = store
+            .records(MIRROR_XD)
+            .iter()
+            .filter(|r| r.header().key.as_deref() == Some("XDQ7"))
+            .map(|r| r.header().revid)
+            .collect();
+        let claimed: Vec<u64> = revisions.iter().flatten().copied().collect();
+        assert_eq!(
+            claimed.len(),
+            1,
+            "revision 70 is claimed once: {revisions:?}"
+        );
+        match ops.last().unwrap() {
+            Operation::Put { id, upstream, .. } => {
+                assert_eq!(id.as_str(), "XDQ7");
+                assert_eq!(upstream.revid, None);
+                assert_eq!(upstream.version.as_deref(), Some("70+2026-10-01"));
+            }
+            other => panic!("{other:?}"),
+        }
+    });
+}
+
+/// A follower reads current states, so a redirect or a deletion can be found on a row
+/// whose revision a `put` already claims (0092 A5): nothing is written for it then, and
+/// the row of its own revision writes it later. One item at a time and in blocks alike.
+#[test]
+fn a_redirect_or_deletion_at_a_claimed_revision_waits_for_its_own() {
+    pollster::block_on(async {
+        for batch in [1, 100] {
+            let (store, pipeline) = setup();
+            let actor = Attestation::by("instance:scatter");
+            let sync = |items: Vec<SyncItem>| {
+                run_sync(
+                    &store,
+                    &pipeline,
+                    sync_header(Mode::Upsert),
+                    actor.clone(),
+                    items,
+                    100,
+                    registry(),
+                    NOW,
+                    batch,
+                )
+            };
+            let id = |s: &str| EntityId::parse(s).unwrap();
+            let at = |r: u64| Upstream::revision(r, Some("2026-11-07T05:06:45Z"));
+            sync(vec![
+                xd_state("XDQ7", "Seven", 70),
+                xd_state("XDQ9", "Nine", 90),
+            ])
+            .await
+            .unwrap();
+            let before = store.records(MIRROR_XD).len();
+            let out = sync(vec![
+                SyncItem::Redirected {
+                    from: id("XDQ7"),
+                    to: id("XDQ8"),
+                    upstream: at(70),
+                },
+                SyncItem::Deleted {
+                    id: id("XDQ9"),
+                    upstream: at(90),
+                },
+            ])
+            .await
+            .unwrap();
+            assert_eq!(out.counts.unchanged, 2, "batch {batch}: {out:?}");
+            assert_eq!(store.records(MIRROR_XD).len(), before, "batch {batch}");
+            // Their own rows, at their own revisions.
+            let out = sync(vec![
+                SyncItem::Redirected {
+                    from: id("XDQ7"),
+                    to: id("XDQ8"),
+                    upstream: at(71),
+                },
+                SyncItem::Deleted {
+                    id: id("XDQ9"),
+                    upstream: Upstream::default(),
+                },
+            ])
+            .await
+            .unwrap();
+            assert_eq!(
+                (out.counts.other, out.counts.tombstoned),
+                (1, 1),
+                "batch {batch}: {out:?}"
+            );
+            let revids: Vec<u64> = store
+                .records(MIRROR_XD)
+                .iter()
+                .filter_map(|r| r.header().revid)
+                .collect();
+            let mut unique = revids.clone();
+            unique.sort_unstable();
+            unique.dedup();
+            assert_eq!(unique.len(), revids.len(), "batch {batch}: {revids:?}");
+        }
+    });
+}
+
+// --- bootstrap mode ----------------------------------------------------------------------
+
+/// The items of the bootstrap equivalence test: two states (one with an upstream hash the
+/// guard counts), an upstream deletion of nothing, a reject and its state, and a redirect.
+fn bootstrap_items() -> Vec<SyncItem> {
+    let mut hashed = entity(json!({"type": "item", "id": "XDQ2",
+        "labels": {"en": {"language": "en", "value": "Two"}},
+        "claims": {"P1": [{"mainsnak": {"snaktype": "value", "property": "P1", "hash": "0000000000000000000000000000000000000000",
+            "datavalue": {"value": "a", "type": "string"}, "datatype": "string"}, "type": "statement", "rank": "normal"}]}}));
+    hashed.id = EntityId::parse("XDQ2").unwrap();
+    vec![
+        xd_state("XDQ1", "One", 10),
+        SyncItem::State {
+            entity: Box::new(hashed),
+            upstream: Upstream::revision(20, Some("2026-10-01T00:00:00Z")),
+            upstream_id: None,
+            upstream_aliases: Vec::new(),
+        },
+        SyncItem::Deleted {
+            id: EntityId::parse("XDQ99").unwrap(),
+            upstream: Upstream::revision(31, None),
+        },
+        SyncItem::Rejected {
+            upstream_id: "Q5".into(),
+            reason: "not a valid domain key".into(),
+        },
+        xd_state("XDQ5", "Five", 50),
+        SyncItem::Redirected {
+            from: EntityId::parse("XDQ3").unwrap(),
+            to: EntityId::parse("XDQ1").unwrap(),
+            upstream: Upstream::revision(60, None),
+        },
+    ]
+}
+
+/// A second pass over the mirror [`bootstrap_items`] loaded: a changed state, the same
+/// state, an older revision, a deletion, a deletion of nothing, a redirect, a new entity
+/// and a reject.
+fn second_pass_items() -> Vec<SyncItem> {
+    vec![
+        xd_state("XDQ1", "One, renamed", 11),
+        xd_state("XDQ5", "Five", 50),
+        xd_state("XDQ6", "Six", 70),
+        SyncItem::Deleted {
+            id: EntityId::parse("XDQ2").unwrap(),
+            upstream: Upstream::revision(80, None),
+        },
+        SyncItem::Deleted {
+            id: EntityId::parse("XDQ98").unwrap(),
+            upstream: Upstream::revision(81, None),
+        },
+        SyncItem::Redirected {
+            from: EntityId::parse("XDQ4").unwrap(),
+            to: EntityId::parse("XDQ1").unwrap(),
+            upstream: Upstream::revision(90, None),
+        },
+        SyncItem::Rejected {
+            upstream_id: "Q7".into(),
+            reason: "not a valid domain key".into(),
+        },
+        xd_state("XDQ8", "Eight", 9),
+    ]
+}
+
+/// A sync writes its units as blocks (0013 A76) and what it writes is what writing item
+/// by item writes (`batch` 1): the same records, field by field, the same counts and the
+/// same job record, over a first load and a second pass that changes, keeps, deletes and
+/// redirects; and a unit naming a subject twice is written item by item.
+#[test]
+fn a_sync_in_blocks_writes_what_one_item_at_a_time_writes() {
+    pollster::block_on(async {
+        let run = |batch: usize| async move {
+            let (store, pipeline) = setup();
+            let actor = Attestation::by("instance:scatter");
+            let mut outcomes = Vec::new();
+            for items in [bootstrap_items(), second_pass_items()] {
+                let outcome = run_sync(
+                    &store,
+                    &pipeline,
+                    sync_header(Mode::Upsert),
+                    actor.clone(),
+                    items,
+                    100,
+                    registry(),
+                    NOW,
+                    batch,
+                )
+                .await
+                .unwrap();
+                outcomes.push(outcome.counts);
+            }
+            // A unit naming a subject twice: the block path declines it.
+            let mut twice = vec![
+                xd_state("XDQ9", "Nine", 5),
+                xd_state("XDQ9", "Nine, again", 6),
+            ];
+            twice.push(xd_state("XDQ10", "Ten", 7));
+            let outcome = run_sync(
+                &store,
+                &pipeline,
+                sync_header(Mode::Upsert),
+                actor,
+                twice,
+                100,
+                registry(),
+                NOW,
+                batch,
+            )
+            .await
+            .unwrap();
+            outcomes.push(outcome.counts);
+            let records: Vec<_> = store.records(MIRROR_XD).iter().map(comparable).collect();
+            let jobs: Vec<_> = store
+                .records(INSTANCE_LOG)
+                .iter()
+                .filter(|r| r.header().payload_type == "scatter:v0/logevent")
+                .map(params_of)
+                .collect();
+            (outcomes, records, jobs)
+        };
+        let (one, records_one, jobs_one) = run(1).await;
+        let (block, records_block, jobs_block) = run(100).await;
+        assert_eq!(block, one, "the same counts");
+        assert_eq!(
+            (
+                one[1].created,
+                one[1].merged,
+                one[1].unchanged,
+                one[1].tombstoned,
+                one[1].other,
+                one[1].rejected
+            ),
+            (2, 1, 2, 1, 1, 1),
+            "the second pass: XDQ6 and XDQ8 created, XDQ1 merged, XDQ5 and XDQ98 unchanged, \
+             XDQ2 tombstoned, XDQ4 redirected, one reject"
+        );
+        assert_eq!(
+            records_block, records_one,
+            "the same records, field by field"
+        );
+        assert_eq!(jobs_block, jobs_one, "the same job records");
+    });
+}
+
+/// A snapshot sweep writes its operations in blocks (0013 A86) and what it writes is what
+/// writing them one at a time writes (`batch` 1): the same records, field by field, the
+/// same counts and the same job record. The tombstones go in blocks of `batch`; the keyed
+/// entity's clearing `put`, which no block takes, is written by itself, in its place.
+#[test]
+fn a_sweep_in_blocks_writes_what_one_operation_at_a_time_writes() {
+    pollster::block_on(async {
+        let run = |batch: usize| async move {
+            let (store, pipeline) = setup();
+            let actor = Attestation::by("instance:scatter");
+            let mut domain = entity(json!({"type": "domain", "id": "domain:example.org",
+                "labels": {"en": {"language": "en", "value": "example.org"}}}));
+            domain.id = EntityId::parse("domain:example.org").unwrap();
+            let mut items: Vec<SyncItem> = (1..=6)
+                .map(|n| xd_state(&format!("XDQ{n}"), "An item", 10 + n))
+                .collect();
+            items.push(SyncItem::State {
+                entity: Box::new(domain),
+                upstream: Upstream::revision(30, None),
+                upstream_id: Some("Q9".into()),
+                upstream_aliases: Vec::new(),
+            });
+            run_sync(
+                &store,
+                &pipeline,
+                sync_header(Mode::Upsert),
+                actor.clone(),
+                items,
+                100,
+                registry(),
+                NOW,
+                batch,
+            )
+            .await
+            .unwrap();
+            // The snapshot sees XDQ1 alone: five tombstones and the domain's clearing.
+            let outcome = run_sync(
+                &store,
+                &pipeline,
+                sync_header(Mode::Snapshot),
+                actor,
+                vec![xd_state("XDQ1", "An item", 11)],
+                100,
+                registry(),
+                NOW + 10,
+                batch,
+            )
+            .await
+            .unwrap();
+            let records: Vec<_> = store.records(MIRROR_XD).iter().map(comparable).collect();
+            let jobs: Vec<_> = store
+                .records(INSTANCE_LOG)
+                .iter()
+                .filter(|r| r.header().payload_type == "scatter:v0/logevent")
+                .map(params_of)
+                .collect();
+            (outcome.swept, outcome.counts, records, jobs)
+        };
+        let (swept_one, counts_one, records_one, jobs_one) = run(1).await;
+        assert_eq!(swept_one, 6);
+        assert_eq!((counts_one.tombstoned, counts_one.cleared), (5, 1));
+        // Blocks of three and two, and one block of five.
+        for batch in [3, 100] {
+            let (swept, counts, records, jobs) = run(batch).await;
+            assert_eq!(swept, swept_one, "batch {batch}: the same number swept");
+            assert_eq!(counts, counts_one, "batch {batch}: the same counts");
+            assert_eq!(records, records_one, "batch {batch}: the same records");
+            assert_eq!(jobs, jobs_one, "batch {batch}: the same job records");
+        }
+    });
+}
+
+/// The records of the block-write equivalence test: a tenant's `local` graph written by
+/// several authors, with a key written more than once, revision IDs the records bring and
+/// revision IDs the tenant mints, and an adoption's own page ID.
+fn local_block() -> Vec<(Request, Operation)> {
+    let by = |actor: &str, comment: Option<&str>, revid: Option<u64>| {
+        let mut r = Request::new(TENANT, Attestation::by(actor), NOW);
+        r.comment = comment.map(str::to_string);
+        r.revid = revid;
+        r.budget = scatter_projection::Budget::NONE;
+        r
+    };
+    let adopt = |id: &str, label: &str, revid: u64, pageid: u64| Operation::Adopt {
+        id: EntityId::parse(id).unwrap(),
+        entity: Some(entity(item(id, label, &json!({})))),
+        redirect: None,
+        source_revid: revid,
+        source_parentid: None,
+        source_time: "2026-09-20T14:02:11Z".into(),
+        source_pageid: pageid,
+        minor: false,
+        withheld: Vec::new(),
+    };
+    vec![
+        (
+            by("librarybase:1", Some("first"), None),
+            op(json!({"op": "create", "id": "Q1", "entity": item("Q1", "One", &json!({}))})),
+        ),
+        // An adopted entity's history: its page ID from its first record, kept by the rest.
+        (
+            by("librarybase:7", Some("r40"), Some(40)),
+            adopt("Q7", "Seven", 40, 700),
+        ),
+        (
+            by("librarybase:8", None, Some(41)),
+            adopt("Q7", "Seven, again", 41, 700),
+        ),
+        (
+            by("librarybase:2", None, None),
+            op(json!({"op": "add", "id": "Q1", "labels": {"fr": "Un"}})),
+        ),
+        (
+            by("librarybase:1", None, None),
+            op(json!({"op": "create", "id": "Q2", "entity": item("Q2", "Two", &json!({}))})),
+        ),
+        (
+            by("librarybase:7", None, Some(42)),
+            adopt("Q7", "Seven, thrice", 42, 700),
+        ),
+    ]
+}
+
+/// The records of the block-write equivalence test for caller-encoded records: `pages`
+/// records with a key and without, with a page ID of their own and without.
+fn raw_block() -> Vec<(Request, RawRecord)> {
+    let raw = |key: Option<&str>, page_id: Option<u64>, text: &str| RawRecord {
+        graph: "pages".into(),
+        payload_type: "scatter:v0/page".into(),
+        key: key.map(str::to_string),
+        page_id,
+        content: Value::from_json(&json!({"op": "edit", "text": text})),
+        extra: vec![Value::text("an extra part")],
+    };
+    let by = |actor: &str, revid: Option<u64>| {
+        let mut r = Request::new(TENANT, Attestation::by(actor), NOW);
+        r.revid = revid;
+        r.budget = scatter_projection::Budget::NONE;
+        r
+    };
+    vec![
+        (by("librarybase:1", None), raw(None, None, "a new page")),
+        (
+            by("librarybase:2", Some(90)),
+            raw(Some("500"), Some(500), "an adopted page"),
+        ),
+        (
+            by("librarybase:3", Some(91)),
+            raw(Some("500"), Some(500), "its next revision"),
+        ),
+        (
+            by("librarybase:1", None),
+            raw(None, Some(600), "a page with its own ID"),
+        ),
+        (
+            by("librarybase:1", None),
+            raw(None, None, "another new page"),
+        ),
+    ]
+}
+
+/// A block (`write_many`; 0013 A87) writes what one record at a time writes
+/// (`write_operation`, `write_raw`): the same records, field by field, at the same
+/// offsets, with the same page and revision IDs, and what the projection saw, for a
+/// tenant's `local` graph and for caller-encoded `pages` records; a key that comes more
+/// than once keeps its page ID. A record with a base offset is refused.
+#[test]
+#[allow(clippy::too_many_lines)]
+fn a_block_writes_what_one_record_at_a_time_writes() {
+    pollster::block_on(async {
+        let run = |block: bool| async move {
+            let (store, pipeline) = setup();
+            let mut cx = store.begin().await.unwrap();
+            let local = local_block();
+            let raws = raw_block();
+            if block {
+                let entries: Vec<_> = local
+                    .iter()
+                    .map(|(request, op)| BlockEntry {
+                        request,
+                        payload: BlockPayload::Operation(op),
+                    })
+                    .collect();
+                let records = write_many(
+                    &store,
+                    &pipeline,
+                    &mut cx,
+                    LOCAL,
+                    &Graph::Local,
+                    &entries,
+                    scatter_projection::Budget::NONE,
+                    registry(),
+                )
+                .await
+                .unwrap();
+                assert_eq!(records.len(), local.len());
+                let entries: Vec<_> = raws
+                    .iter()
+                    .map(|(request, raw)| BlockEntry {
+                        request,
+                        payload: BlockPayload::Raw(raw),
+                    })
+                    .collect();
+                write_many(
+                    &store,
+                    &pipeline,
+                    &mut cx,
+                    PAGES,
+                    &Graph::Pages,
+                    &entries,
+                    scatter_projection::Budget::NONE,
+                    registry(),
+                )
+                .await
+                .unwrap();
+            } else {
+                for (request, op) in &local {
+                    write_operation(&store, &pipeline, &mut cx, request, op, registry())
+                        .await
+                        .unwrap();
+                }
+                for (request, raw) in &raws {
+                    write_raw(&store, &pipeline, &mut cx, request, raw.clone())
+                        .await
+                        .unwrap();
+                }
+            }
+            store.commit(cx).await.unwrap();
+            let (seen, positions) = {
+                let state = store.state();
+                (state.rows.clone(), state.positions.clone())
+            };
+            let local: Vec<_> = store.records(LOCAL).iter().map(comparable).collect();
+            let pages: Vec<_> = store
+                .records(PAGES)
+                .iter()
+                .map(|r| {
+                    let mut h = r.header().clone();
+                    h.commitment = [0; 32];
+                    let parts: Vec<_> = r
+                        .body()
+                        .parts()
+                        .iter()
+                        .map(|p| p.value().ok().flatten())
+                        .collect();
+                    (h, parts)
+                })
+                .collect();
+            (local, pages, (seen, positions))
+        };
+        let (local_one, pages_one, seen_one) = run(false).await;
+        let (local_block, pages_block, seen_block) = run(true).await;
+        assert_eq!(local_block, local_one, "the same `local` records");
+        assert_eq!(pages_block, pages_one, "the same `pages` records");
+        assert_eq!(seen_block, seen_one, "the projection saw the same records");
+        let ids: Vec<_> = local_one
+            .iter()
+            .map(|(h, _, _)| (h.key.clone().unwrap(), h.page_id.unwrap(), h.revid.unwrap()))
+            .collect();
+        assert_eq!(
+            ids,
+            vec![
+                ("Q1".to_string(), 1, 1),
+                ("Q7".to_string(), 700, 40),
+                ("Q7".to_string(), 700, 41),
+                ("Q1".to_string(), 1, 2),
+                ("Q2".to_string(), 2, 3),
+                ("Q7".to_string(), 700, 42),
+            ],
+            "page IDs kept by key, revision IDs brought or minted in order"
+        );
+
+        // A base offset belongs to a write made by itself.
+        let (store, pipeline) = setup();
+        let mut cx = store.begin().await.unwrap();
+        let mut request = Request::new(TENANT, Attestation::by("librarybase:1"), NOW);
+        request.base_offset = Some(0);
+        let create =
+            op(json!({"op": "create", "id": "Q1", "entity": item("Q1", "One", &json!({}))}));
+        let err = write_many(
+            &store,
+            &pipeline,
+            &mut cx,
+            LOCAL,
+            &Graph::Local,
+            &[BlockEntry {
+                request: &request,
+                payload: BlockPayload::Operation(&create),
+            }],
+            scatter_projection::Budget::NONE,
+            registry(),
+        )
+        .await
+        .unwrap_err();
+        assert!(err.to_string().contains("base offset"), "{err}");
+    });
+}
+
+/// A mirrored entity's page ID is the provider's range at the upstream page ID its content
+/// carries, on one write and in a block alike, and takes nothing from the page sequence;
+/// an operation without one keeps the key's page ID, or takes a fresh one (0015 A64).
+#[test]
+fn a_mirrored_entity_takes_its_page_id_from_its_content() {
+    pollster::block_on(async {
+        let xd = u64::from(registry().by_slug("internetdomains").unwrap().number);
+        let ranged = |n: u64| (xd << 40) | n;
+        let put = |id: &str, revid: u64, pageid: Option<u64>| {
+            let mut upstream = json!({"revid": revid});
+            if let Some(p) = pageid {
+                upstream["pageid"] = json!(p);
+            }
+            op(
+                json!({"op": "put", "id": id, "entity": item(id, id, &json!({})), "upstream": upstream}),
+            )
+        };
+        let ops = [
+            put("XDQ5", 900, Some(5005)),
+            put("XDQ6", 901, Some(6006)),
+            put("XDQ5", 902, Some(5005)),
+            put("XDQ7", 903, None),
+            put("XDQ7", 904, None),
+            op(json!({"op": "tombstone", "id": "XDQ6", "upstream": {"revid": 905}})),
+        ];
+        let request = Request::new(TENANT, Attestation::by("librarybase:1"), NOW);
+        let run = |block: bool| {
+            let ops = ops.clone();
+            let request = request.clone();
+            async move {
+                let (store, pipeline) = setup();
+                let mut cx = store.begin().await.unwrap();
+                if block {
+                    let entries: Vec<_> = ops
+                        .iter()
+                        .map(|o| BlockEntry {
+                            request: &request,
+                            payload: BlockPayload::Operation(o),
+                        })
+                        .collect();
+                    write_many(
+                        &store,
+                        &pipeline,
+                        &mut cx,
+                        MIRROR_XD,
+                        &Graph::Mirror("internetdomains".into()),
+                        &entries,
+                        scatter_projection::Budget::NONE,
+                        registry(),
+                    )
+                    .await
+                    .unwrap();
+                } else {
+                    for o in &ops {
+                        write_operation(&store, &pipeline, &mut cx, &request, o, registry())
+                            .await
+                            .unwrap();
+                    }
+                }
+                let next = store.next_id(&mut cx, "", &Sequence::Page).await.unwrap();
+                store.commit(cx).await.unwrap();
+                let ids: Vec<_> = store
+                    .records(MIRROR_XD)
+                    .iter()
+                    .map(|r| (r.header().key.clone().unwrap(), r.header().page_id.unwrap()))
+                    .collect();
+                (ids, next)
+            }
+        };
+        let (one, next_one) = run(false).await;
+        let (many, next_many) = run(true).await;
+        let fresh = one[3].1;
+        assert_eq!(
+            one,
+            vec![
+                ("XDQ5".to_string(), ranged(5005)),
+                ("XDQ6".to_string(), ranged(6006)),
+                ("XDQ5".to_string(), ranged(5005)),
+                ("XDQ7".to_string(), fresh),
+                ("XDQ7".to_string(), fresh),
+                ("XDQ6".to_string(), ranged(6006)),
+            ],
+            "ranged from the content; without it, the key's"
+        );
+        assert!(fresh < 1 << 40, "a page ID from the sequence: {fresh}");
+        assert_eq!(
+            next_one,
+            fresh + 1,
+            "only the entity without one took from it"
+        );
+        assert_eq!(many, one, "a block derives the same page IDs");
+        assert_eq!(next_many, next_one);
+    });
+}
+
+/// The passes of the mixed-unit test over a key-mapped provider: items a block takes
+/// among items it does not (states mapped onto keys, a state whose upstream item owned a
+/// key, a keyed deletion, a subject named twice), a mapping that moves, and a snapshot.
+fn mixed_passes() -> Vec<(Mode, Vec<SyncItem>)> {
+    let xd = |id: &str| EntityId::parse(id).unwrap();
+    let deleted = |id: &str, revid: u64| SyncItem::Deleted {
+        id: xd(id),
+        upstream: Upstream::revision(revid, None),
+    };
+    let redirect = |from: &str, to: &str, revid: u64| SyncItem::Redirected {
+        from: xd(from),
+        to: xd(to),
+        upstream: Upstream::revision(revid, Some("2026-10-01T00:00:00Z")),
+    };
+    let rejected = |id: &str| SyncItem::Rejected {
+        upstream_id: id.into(),
+        reason: "not a valid domain key".into(),
+    };
+    vec![
+        (
+            Mode::Upsert,
+            vec![
+                xd_state("XDQ1", "One", 10),
+                xd_state("XDQ2", "Two", 11),
+                domain_state("a.example", "Q9", &[], "A", 12),
+                xd_state("XDQ3", "Three", 13),
+                xd_state("XDQ4", "Four", 14),
+                xd_state("XDQ5", "Five", 15),
+                xd_state("XDQ6", "Six", 16),
+                domain_state("d.example", "Q20", &[], "D", 17),
+                xd_state("XDQ7", "Seven", 18),
+                redirect("XDQ8", "XDQ7", 19),
+                deleted("XDQ99", 20),
+                rejected("Q30"),
+            ],
+        ),
+        (
+            Mode::Upsert,
+            vec![
+                xd_state("XDQ1", "One, changed", 30),
+                xd_state("XDQ2", "Two", 11),
+                // Q9's key moves; Q5 becomes mapped, with Q6 merged into it: XDQ5 and
+                // XDQ6, which a block wrote, are retired.
+                domain_state("b.example", "Q9", &[], "B", 31),
+                domain_state("c.example", "Q5", &["Q6"], "C", 32),
+                xd_state("XDQ3", "Three, changed", 33),
+                deleted("XDQ4", 34),
+                // Q20 no longer owns a key: it comes as the foreign item it is.
+                xd_state("XDQ20", "Twenty", 35),
+                xd_state("XDQ7", "Seven, changed", 36),
+                rejected("Q31"),
+                // The same subject again in the unit.
+                xd_state("XDQ7", "Seven, changed again", 37),
+                redirect("XDQ8", "XDQ7", 19),
+                xd_state("XDQ10", "Ten", 38),
+                xd_state("XDQ11", "Eleven", 39),
+                SyncItem::Deleted {
+                    id: EntityId::parse("domain:d.example").unwrap(),
+                    upstream: Upstream::revision(40, None),
+                },
+                xd_state("XDQ12", "Twelve", 41),
+            ],
+        ),
+        (
+            Mode::Snapshot,
+            vec![
+                xd_state("XDQ1", "One, changed", 30),
+                domain_state("b.example", "Q9", &[], "B", 31),
+                xd_state("XDQ10", "Ten, changed", 50),
+                xd_state("XDQ12", "Twelve", 41),
+            ],
+        ),
+    ]
+}
+
+/// A unit's items that a block takes are written in blocks where they come among items
+/// it does not (0013 A92), for a provider that maps keys too, and what the sync writes
+/// is what it writes one item to a unit (`batch` 1, every item by itself): the same
+/// records, field by field, the same owners of keys, counts and job records.
+#[test]
+fn a_mixed_unit_writes_what_one_item_at_a_time_writes() {
+    pollster::block_on(async {
+        let run = |batch: usize| async move {
+            let (store, pipeline) = setup();
+            let actor = Attestation::by("instance:scatter");
+            let mut outcomes = Vec::new();
+            for (i, (mode, items)) in mixed_passes().into_iter().enumerate() {
+                let outcome = run_sync(
+                    &store,
+                    &pipeline,
+                    sync_header(mode),
+                    actor.clone(),
+                    items,
+                    100,
+                    registry(),
+                    NOW + 10 * i as u64,
+                    batch,
+                )
+                .await
+                .unwrap();
+                outcomes.push((outcome.counts, outcome.swept));
+            }
+            let records: Vec<_> = store.records(MIRROR_XD).iter().map(comparable).collect();
+            let jobs: Vec<_> = store
+                .records(INSTANCE_LOG)
+                .iter()
+                .filter(|r| r.header().payload_type == "scatter:v0/logevent")
+                .map(params_of)
+                .collect();
+            (outcomes, records, jobs, owners(&store))
+        };
+        let one = run(1).await;
+        let (counts, swept) = &one.0[1];
+        assert_eq!(
+            (
+                counts.created,
+                counts.merged,
+                counts.cleared,
+                counts.tombstoned
+            ),
+            (6, 4, 2, 3),
+            "the second pass: b, c, XDQ20, XDQ10, XDQ11 and XDQ12 created; XDQ1, XDQ3 and \
+             XDQ7 twice merged; a.example and d.example cleared; XDQ5, XDQ6 and XDQ4 tombstoned"
+        );
+        assert_eq!(*swept, 0);
+        assert!(one.0[2].1 > 0, "the snapshot sweeps");
+        for batch in [3, 6, 100] {
+            let blocks = run(batch).await;
+            assert_eq!(blocks.0, one.0, "batch {batch}: the same counts");
+            assert_eq!(blocks.1, one.1, "batch {batch}: the same records");
+            assert_eq!(blocks.2, one.2, "batch {batch}: the same job records");
+            assert_eq!(blocks.3, one.3, "batch {batch}: the same owners of keys");
+        }
+    });
+}
+
+/// The ordinary write path hands the projections each change-set record's operation with
+/// the body it was encoded into (`IngestStore::encoded`; 0013 A74): the record appended
+/// carries those content bytes, and decoding it gives that operation, so what a store
+/// keeps can stand for decoding it.
+#[test]
+fn the_write_path_hands_over_what_it_appends() {
+    pollster::block_on(async {
+        let (synced, pipeline) = setup();
+        run_sync(
+            &synced,
+            &pipeline,
+            sync_header(Mode::Upsert),
+            Attestation::by("instance:scatter"),
+            bootstrap_items(),
+            100,
+            registry(),
+            NOW,
+            2,
+        )
+        .await
+        .unwrap();
+        let encoded = synced.encoded_ops();
+        let records = synced.records(MIRROR_XD);
+        assert_eq!(records.len(), 4);
+        for record in &records {
+            let bytes = record.body().content().bytes().unwrap();
+            let (_, op) = encoded
+                .iter()
+                .find(|(b, _)| b.as_slice() == bytes)
+                .expect("each record's content was handed over");
+            assert_eq!(&operation_of(record), op);
+        }
+    });
+}
+
+/// A bootstrap load hands each record's operation, with the body it was encoded into, to
+/// the projections' warm hook on the preparing thread (0013 A74): the body is the appended
+/// record's, byte for byte, and the operation is what decoding that record gives, so what
+/// the hook keeps can stand for decoding it.
+#[test]
+fn a_bootstrap_load_warms_with_what_it_appends() {
+    pollster::block_on(async {
+        type Warmed = Vec<(String, Vec<u8>, Operation)>;
+        let warmed: std::sync::Arc<std::sync::Mutex<Warmed>> = std::sync::Arc::default();
+        let seen = std::sync::Arc::clone(&warmed);
+        let warm: scatter_ingest::Warm = std::sync::Arc::new(move |graph, body, op, _| {
+            seen.lock().unwrap().push((
+                graph.to_string(),
+                body.content().bytes().unwrap().to_vec(),
+                op,
+            ));
+        });
+        let (loaded, pipeline) = setup();
+        scatter_ingest::run_bootstrap(
+            &loaded,
+            &pipeline,
+            sync_header(Mode::Upsert),
+            Attestation::by("instance:scatter"),
+            registry(),
+            NOW,
+            2,
+            1,
+            |prepare| {
+                let prepare = prepare.warmed_by(warm);
+                bootstrap_items()
+                    .into_iter()
+                    .map(move |item| prepare.item(item))
+                    .collect::<Vec<_>>()
+            },
+        )
+        .await
+        .unwrap();
+        let warmed = warmed.lock().unwrap();
+        let records = loaded.records(MIRROR_XD);
+        assert_eq!(records.len(), 4);
+        assert_eq!(warmed.len(), records.len(), "one call per record appended");
+        for (record, (graph, bytes, op)) in records.iter().zip(warmed.iter()) {
+            assert_eq!(graph, "mirror/internetdomains");
+            assert_eq!(record.body().content().bytes().unwrap(), bytes.as_slice());
+            assert_eq!(
+                &operation_of(record),
+                op,
+                "decoding gives the operation warmed"
+            );
+        }
+    });
+}
+
+/// What a mirror record is, but for its salts and hashes: the header fields a writer sets,
+/// the operation and the attestation.
+fn comparable(record: &Record) -> (Header, Operation, serde_json::Value) {
+    let mut h = record.header().clone();
+    h.commitment = [0; 32];
+    (h, operation_of(record), attestation_of(record))
+}
+
+/// Bootstrap mode writes what the ordinary sync writes into an empty partition (0013 §9):
+/// the same records, offsets, page and revision IDs, operations and attestations, the
+/// same counts and the same job record, in blocks; and it refuses a partition that is
+/// not empty.
+#[test]
+fn a_bootstrap_load_writes_what_a_sync_writes() {
+    pollster::block_on(async {
+        let actor = Attestation::by("instance:scatter");
+        let (synced, pipeline) = setup();
+        let ordinary = run_sync(
+            &synced,
+            &pipeline,
+            sync_header(Mode::Upsert),
+            actor.clone(),
+            bootstrap_items(),
+            100,
+            registry(),
+            NOW,
+            2,
+        )
+        .await
+        .unwrap();
+        let (loaded, pipeline) = setup();
+        let bootstrapped = scatter_ingest::run_bootstrap(
+            &loaded,
+            &pipeline,
+            sync_header(Mode::Upsert),
+            actor.clone(),
+            registry(),
+            NOW,
+            2,
+            1,
+            |prepare| {
+                bootstrap_items()
+                    .into_iter()
+                    .map(move |item| prepare.item(item))
+                    .collect::<Vec<_>>()
+            },
+        )
+        .await
+        .unwrap();
+        assert_eq!(bootstrapped.counts, ordinary.counts);
+        assert_eq!(
+            (
+                bootstrapped.counts.created,
+                bootstrapped.counts.unchanged,
+                bootstrapped.counts.rejected,
+                bootstrapped.counts.other
+            ),
+            (3, 1, 1, 1)
+        );
+        assert_eq!(bootstrapped.job_id, ordinary.job_id);
+        let a: Vec<_> = synced.records(MIRROR_XD).iter().map(comparable).collect();
+        let b: Vec<_> = loaded.records(MIRROR_XD).iter().map(comparable).collect();
+        assert_eq!(a.len(), 4);
+        assert_eq!(b, a, "the same records, field by field");
+        // The job's finish record: the same counts, rejects and hash mismatches.
+        let finish = |store: &MemoryIngest| {
+            store
+                .records(INSTANCE_LOG)
+                .iter()
+                .filter(|r| r.header().payload_type == "scatter:v0/logevent")
+                .map(params_of)
+                .next_back()
+                .unwrap()
+        };
+        assert_eq!(finish(&loaded), finish(&synced));
+        // A partition that holds records is the ordinary sync's.
+        let err = scatter_ingest::run_bootstrap(
+            &loaded,
+            &pipeline,
+            sync_header(Mode::Upsert),
+            actor,
+            registry(),
+            NOW,
+            2,
+            1,
+            |prepare| {
+                bootstrap_items()
+                    .into_iter()
+                    .map(move |item| prepare.item(item))
+                    .collect::<Vec<_>>()
+            },
+        )
+        .await
+        .unwrap_err();
+        assert!(err.to_string().contains("empty partition"), "{err}");
+    });
+}
+
+/// A store that cannot run several units of work at once writes one block at a time
+/// whatever the writers asked for (0013 §9, A83): the same counts and records as one writer.
+#[test]
+fn a_store_without_concurrent_units_writes_one_block_at_a_time() {
+    pollster::block_on(async {
+        let mut loads = Vec::new();
+        for writers in [1, 4] {
+            let (store, pipeline) = setup();
+            let outcome = scatter_ingest::run_bootstrap(
+                &store,
+                &pipeline,
+                sync_header(Mode::Upsert),
+                Attestation::by("instance:scatter"),
+                registry(),
+                NOW,
+                2,
+                writers,
+                |prepare| {
+                    bootstrap_items()
+                        .into_iter()
+                        .map(move |item| prepare.item(item))
+                        .collect::<Vec<_>>()
+                },
+            )
+            .await
+            .unwrap();
+            let records: Vec<_> = store.records(MIRROR_XD).iter().map(comparable).collect();
+            loads.push((outcome.counts, records));
+        }
+        assert_eq!(loads[1], loads[0]);
+        assert_eq!(loads[0].1.len(), 4);
+    });
+}
+
+/// A load whose process died leaves its job `running`; the next load of the same source
+/// and graph marks it interrupted, and leaves a running job of another graph alone
+/// (0011 A36).
+#[test]
+fn the_next_load_marks_a_dead_load_interrupted() {
+    pollster::block_on(async {
+        let (store, pipeline) = setup();
+        let actor = Attestation::by("instance:scatter");
+        // Two loads that died after their start record: one of this mirror, one of another
+        // graph.
+        let mut other = sync_header(Mode::Upsert);
+        other.graph = "mirror/elsewhere".into();
+        let mut dead = Vec::new();
+        for header in [sync_header(Mode::Upsert), other] {
+            let mut cx = store.begin().await.unwrap();
+            let job = scatter_ingest::Job::start(
+                &store,
+                &pipeline,
+                &mut cx,
+                "",
+                header,
+                actor.clone(),
+                NOW,
+            )
+            .await
+            .unwrap();
+            store.commit(cx).await.unwrap();
+            dead.push(job.id);
+        }
+        let mut cx = store.begin().await.unwrap();
+        assert_eq!(
+            store
+                .running_jobs(
+                    &mut cx,
+                    "",
+                    "internetdomains",
+                    "mirror/internetdomains",
+                    true
+                )
+                .await
+                .unwrap(),
+            vec![dead[0]]
+        );
+        store.rollback(cx).await.unwrap();
+
+        for _ in 0..2 {
+            run_sync(
+                &store,
+                &pipeline,
+                sync_header(Mode::Upsert),
+                actor.clone(),
+                bootstrap_items(),
+                100,
+                registry(),
+                NOW,
+                100,
+            )
+            .await
+            .unwrap();
+        }
+        let log = events(&store, INSTANCE_LOG);
+        let interrupts: Vec<_> = log.iter().filter(|(a, _)| a == "interrupt").collect();
+        assert_eq!(
+            interrupts,
+            vec![&("interrupt".to_string(), dead[0].to_string())],
+            "once, by the first load after it, and only the job of the same graph"
+        );
+        let record = store
+            .records(INSTANCE_LOG)
+            .into_iter()
+            .find(|r| {
+                r.header().payload_type == "scatter:v0/logevent" && params_of(r).get("by").is_some()
+            })
+            .unwrap();
+        assert_eq!(params_of(&record), json!({"by": dead[1] + 1}));
+
+        let mut cx = store.begin().await.unwrap();
+        assert!(
+            store
+                .running_jobs(
+                    &mut cx,
+                    "",
+                    "internetdomains",
+                    "mirror/internetdomains",
+                    true
+                )
+                .await
+                .unwrap()
+                .is_empty()
+        );
+        assert_eq!(
+            store
+                .running_jobs(&mut cx, "", "internetdomains", "mirror/elsewhere", true)
+                .await
+                .unwrap(),
+            vec![dead[1]]
+        );
+        store.rollback(cx).await.unwrap();
+    });
+}
+
+/// A change source of three batches that logs when it is read and saved, and how many
+/// records the mirror held at each save.
+struct Scripted<'a> {
+    store: &'a MemoryIngest,
+    batches: std::collections::VecDeque<scatter_ingest::ChangeBatch>,
+    read: u32,
+    log: Vec<String>,
+    state: scatter_ingest::FollowState,
+}
+
+impl scatter_ingest::ChangeSource for Scripted<'_> {
+    type Position = u32;
+
+    async fn next(&mut self) -> Result<(scatter_ingest::ChangeBatch, u32), IngestError> {
+        self.read += 1;
+        self.log.push(format!("read {}", self.read));
+        let batch = self
+            .batches
+            .pop_front()
+            .unwrap_or(scatter_ingest::ChangeBatch {
+                caught_up: true,
+                ..Default::default()
+            });
+        Ok((batch, self.read))
+    }
+
+    async fn state(&mut self) -> Result<scatter_ingest::FollowState, IngestError> {
+        Ok(self.state.clone())
+    }
+
+    async fn save(
+        &mut self,
+        at: u32,
+        state: scatter_ingest::FollowState,
+    ) -> Result<(), IngestError> {
+        let held = self.store.records(MIRROR_XD).len();
+        self.log.push(format!("save {at} with {held}"));
+        self.state = state;
+        Ok(())
+    }
+}
+
+// 0092 §3: the follower reads the next batch while it writes one, and still writes the
+// batches in order and saves each batch's position only after its records.
+#[test]
+fn the_follower_reads_ahead_and_saves_each_position_after_its_batch() {
+    pollster::block_on(async {
+        let (store, pipeline) = setup();
+        let batch = |items: Vec<SyncItem>, caught_up: bool| scatter_ingest::ChangeBatch {
+            rows: u64::try_from(items.len()).unwrap(),
+            items,
+            caught_up,
+            ..Default::default()
+        };
+        let mut source = Scripted {
+            store: &store,
+            batches: [
+                batch(vec![xd_state("XDQ1", "One", 10)], false),
+                batch(
+                    vec![xd_state("XDQ2", "Two", 20), xd_state("XDQ1", "Uno", 21)],
+                    false,
+                ),
+                batch(vec![xd_state("XDQ3", "Three", 30)], true),
+            ]
+            .into(),
+            read: 0,
+            log: Vec::new(),
+            state: scatter_ingest::FollowState::default(),
+        };
+        let out = scatter_ingest::run_follow(
+            &store,
+            &pipeline,
+            "",
+            "internetdomains",
+            Attestation::by("instance:scatter"),
+            &mut source,
+            registry(),
+            || NOW,
+            100,
+            true,
+        )
+        .await
+        .unwrap();
+        // The mirror holds 1, 3, then 4 records: each save follows its own batch.
+        assert_eq!(
+            source.log,
+            [
+                "read 1",
+                "read 2",
+                "save 1 with 1",
+                "read 3",
+                "save 2 with 3",
+                "save 3 with 4",
+            ]
+        );
+        assert_eq!((out.batches, out.rows, out.counts.created), (3, 4, 3));
+        assert_eq!(out.counts.merged, 1);
+        // Written in order: Q1's later revision is the one that stands.
+        let records = store.records(MIRROR_XD);
+        let revids: Vec<_> = records
+            .iter()
+            .filter_map(|r| r.header().revid)
+            .map(|g| g & ((1 << 40) - 1))
+            .collect();
+        assert!(revids.windows(2).all(|w| w[0] < w[1]), "{revids:?}");
+    });
+}
+
+// 0092 A6: a follower writes under one job a day. Its batches and its runs that day share
+// the job, a load between them leaves it open, and the first batch of the next day
+// finishes it with the day's counts and starts the next.
+#[test]
+#[allow(clippy::too_many_lines)]
+fn a_follower_writes_under_one_job_a_day() {
+    pollster::block_on(async {
+        const DAY: u64 = 86_400_000_000;
+        let (store, pipeline) = setup();
+        let actor = Attestation::by("instance:scatter");
+        let mut source = Scripted {
+            store: &store,
+            batches: std::collections::VecDeque::new(),
+            read: 0,
+            log: Vec::new(),
+            state: scatter_ingest::FollowState::default(),
+        };
+        let starts = |store: &MemoryIngest| -> Vec<String> {
+            events(store, INSTANCE_LOG)
+                .into_iter()
+                .filter(|(a, _)| a == "start")
+                .map(|(_, k)| k)
+                .collect()
+        };
+
+        // Two batches, then a second run the same day: one job, still open.
+        let first = follow_at(
+            (&store, &pipeline),
+            &mut source,
+            vec![
+                vec![xd_state("XDQ1", "One", 10)],
+                vec![xd_state("XDQ2", "Two", 20)],
+            ],
+            NOW,
+        )
+        .await;
+        let second = follow_at(
+            (&store, &pipeline),
+            &mut source,
+            vec![vec![xd_state("XDQ3", "Three", 30)]],
+            NOW + 3_600_000_000,
+        )
+        .await;
+        assert_eq!(first.job_id, second.job_id);
+        let day_job = first.job_id;
+        assert_eq!(starts(&store), [day_job.to_string()]);
+        let open = source.state.open.clone().unwrap();
+        assert_eq!(
+            (open.id, open.batches, open.counts.created),
+            (day_job, 3, 3)
+        );
+        assert!(
+            store
+                .records(MIRROR_XD)
+                .iter()
+                .all(|r| params_of_attestation_job(r) == Some(day_job)),
+            "every record names the day's job"
+        );
+
+        // A load of the same source and graph leaves the follower's open job alone.
+        run_sync(
+            &store,
+            &pipeline,
+            sync_header(Mode::Upsert),
+            actor.clone(),
+            vec![xd_state("XDQ9", "Nine", 90)],
+            100,
+            registry(),
+            NOW + 7_200_000_000,
+            100,
+        )
+        .await
+        .unwrap();
+        assert!(
+            !events(&store, INSTANCE_LOG)
+                .iter()
+                .any(|(a, _)| a == "interrupt"),
+            "the load marked the open job interrupted"
+        );
+        let mut cx = store.begin().await.unwrap();
+        assert_eq!(
+            store
+                .running_jobs(
+                    &mut cx,
+                    "",
+                    "internetdomains",
+                    "mirror/internetdomains",
+                    true
+                )
+                .await
+                .unwrap(),
+            vec![day_job]
+        );
+        store.rollback(cx).await.unwrap();
+
+        // The next day: the day's job is finished with its counts, and another starts.
+        let next = follow_at(
+            (&store, &pipeline),
+            &mut source,
+            vec![vec![xd_state("XDQ4", "Four", 40)]],
+            NOW + DAY,
+        )
+        .await;
+        assert_ne!(next.job_id, day_job);
+        let finish = store
+            .records(INSTANCE_LOG)
+            .into_iter()
+            .find(|r| {
+                r.header().key.as_deref() == Some(&day_job.to_string())
+                    && params_of(r).get("counts").is_some()
+            })
+            .expect("the day's job is finished");
+        let params = params_of(&finish);
+        assert_eq!(params["counts"]["created"], 3);
+        assert_eq!(
+            (params["batches"].as_u64(), params["rows"].as_u64()),
+            (Some(3), Some(3))
+        );
+        assert_eq!(
+            starts(&store).len(),
+            3,
+            "the day's job, the load's, the next day's"
+        );
+        let open = source.state.open.clone().unwrap();
+        assert_eq!(
+            (open.id, open.batches, open.day),
+            (next.job_id, 1, (NOW + DAY) / DAY)
+        );
+    });
+}
+
+// 0092 A7: as the day's job closes, the follower compacts its mirror by the keys written
+// since the job opened, and the finish record says how many records went.
+#[test]
+fn a_follower_compacts_its_mirror_as_the_day_closes() {
+    pollster::block_on(async {
+        const DAY: u64 = 86_400_000_000;
+        let (store, pipeline) = setup();
+        let mut source = Scripted {
+            store: &store,
+            batches: std::collections::VecDeque::new(),
+            read: 0,
+            log: Vec::new(),
+            state: scatter_ingest::FollowState::default(),
+        };
+        let first = follow_at(
+            (&store, &pipeline),
+            &mut source,
+            vec![
+                vec![xd_state("XDQ1", "One", 10), xd_state("XDQ2", "Two", 20)],
+                vec![xd_state("XDQ1", "Uno", 21)],
+            ],
+            NOW,
+        )
+        .await;
+        assert_eq!(source.state.open.as_ref().unwrap().compact_from, Some(0));
+        assert_eq!(
+            store.records(MIRROR_XD).len(),
+            3,
+            "nothing compacts mid-day"
+        );
+
+        follow_at(
+            (&store, &pipeline),
+            &mut source,
+            vec![vec![xd_state("XDQ3", "Three", 30)]],
+            NOW + DAY,
+        )
+        .await;
+        let live: Vec<(String, u64)> = store
+            .records(MIRROR_XD)
+            .iter()
+            .map(|r| {
+                let h = r.header();
+                (h.key.clone().unwrap(), h.offset)
+            })
+            .collect();
+        assert_eq!(
+            live,
+            [("XDQ2".into(), 1), ("XDQ1".into(), 2), ("XDQ3".into(), 3)],
+            "XDQ1's first state went"
+        );
+        let mut cx = store.begin().await.unwrap();
+        assert!(store.read(&mut cx, MIRROR_XD, 0).await.unwrap().is_none());
+        store.rollback(cx).await.unwrap();
+        let finish = store
+            .records(INSTANCE_LOG)
+            .into_iter()
+            .find(|r| {
+                r.header().key.as_deref() == Some(&first.job_id.to_string())
+                    && params_of(r).get("counts").is_some()
+            })
+            .expect("the day's job is finished");
+        assert_eq!(params_of(&finish)["compacted"], 1);
+        // The next day's job compacts from where the mirror stood when it opened.
+        let next = source.state.open.clone().unwrap();
+        assert_eq!(next.compact_from, Some(3));
+        // 0092 A8: the compaction ran beside the next day's first batch, so the closed
+        // day's job is finished after the next day's has started, and nothing is left.
+        let jobs: Vec<(String, String)> = events(&store, INSTANCE_LOG)
+            .into_iter()
+            .filter(|(a, _)| a == "start" || a == "finish")
+            .collect();
+        assert_eq!(
+            jobs,
+            [
+                ("start".into(), first.job_id.to_string()),
+                ("start".into(), next.id.to_string()),
+                ("finish".into(), first.job_id.to_string()),
+            ]
+        );
+        assert_eq!(source.state.closing, None);
+    });
+}
+
+// 0092 A8: a closed day's compaction left part done, by a crash or a stop, goes on from
+// where it got to, and the job's finish counts what the earlier run removed as well.
+#[test]
+fn a_closed_days_compaction_goes_on_from_where_it_got_to() {
+    pollster::block_on(async {
+        const DAY: u64 = 86_400_000_000;
+        let (store, pipeline) = setup();
+        let mut source = Scripted {
+            store: &store,
+            batches: std::collections::VecDeque::new(),
+            read: 0,
+            log: Vec::new(),
+            state: scatter_ingest::FollowState::default(),
+        };
+        let first = follow_at(
+            (&store, &pipeline),
+            &mut source,
+            vec![
+                vec![xd_state("XDQ1", "One", 10), xd_state("XDQ2", "Two", 20)],
+                vec![xd_state("XDQ1", "Uno", 21)],
+            ],
+            NOW,
+        )
+        .await;
+        // As a run stopped mid-compaction leaves it: the day closed, offset 0 done, and
+        // 5 removed by then.
+        let job = source.state.open.take().unwrap();
+        source.state.closing = Some(scatter_ingest::Closing {
+            job,
+            partition: MIRROR_XD,
+            to: 3,
+            at: 1,
+            removed: 5,
+        });
+        follow_at((&store, &pipeline), &mut source, vec![], NOW + DAY).await;
+        assert_eq!(source.state, scatter_ingest::FollowState::default());
+        let finish = store
+            .records(INSTANCE_LOG)
+            .into_iter()
+            .find(|r| {
+                r.header().key.as_deref() == Some(&first.job_id.to_string())
+                    && params_of(r).get("counts").is_some()
+            })
+            .expect("the closed day's job is finished, with no batch of its own day");
+        assert_eq!(params_of(&finish)["compacted"], 6);
+        assert_eq!(
+            store.records(MIRROR_XD).len(),
+            2,
+            "XDQ1, written again at offset 2, lost offset 0"
+        );
+    });
+}
+
+/// One run of the follower over `items`, a batch each, at `at`.
+async fn follow_at(
+    (store, pipeline): (&MemoryIngest, &Pipeline<MemoryIngest>),
+    source: &mut Scripted<'_>,
+    items: Vec<Vec<SyncItem>>,
+    at: u64,
+) -> scatter_ingest::FollowOutcome {
+    source.batches = items
+        .into_iter()
+        .map(|items| scatter_ingest::ChangeBatch {
+            rows: u64::try_from(items.len()).unwrap(),
+            items,
+            ..Default::default()
+        })
+        .collect();
+    scatter_ingest::run_follow(
+        store,
+        pipeline,
+        "",
+        "internetdomains",
+        Attestation::by("instance:scatter"),
+        source,
+        registry(),
+        || at,
+        100,
+        true,
+    )
+    .await
+    .unwrap()
+}
+
+/// The job a record's attestation names.
+fn params_of_attestation_job(record: &Record) -> Option<u64> {
+    let attestation = record.body().attestation().value().ok()??;
+    attestation.get("job").and_then(Value::as_u64)
+}

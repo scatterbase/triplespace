@@ -1,0 +1,38 @@
+{
+ "categories": [],
+ "displaytitle": "<span class=\"mw-page-title-namespace\">Project</span><span class=\"mw-page-title-separator\">:</span><span class=\"mw-page-title-main\">Consensus</span>",
+ "externallinks": [
+  "https://en.wikipedia.org/wiki/Wikipedia:Consensus"
+ ],
+ "images": [],
+ "iwlinks": [],
+ "langlinks": [],
+ "links": [
+  {
+   "exists": true,
+   "ns": 4,
+   "title": "Project:Requests for comment"
+  }
+ ],
+ "pageid": 490,
+ "parsewarnings": [],
+ "properties": {
+  "unexpectedUnconnectedPage": -4
+ },
+ "revid": 1022,
+ "sections": [
+  {
+   "anchor": "As_Wikipedia_defines_it",
+   "byteoffset": 1220,
+   "fromtitle": "Project:Consensus",
+   "index": "1",
+   "level": "2",
+   "line": "As Wikipedia defines it",
+   "number": "1",
+   "toclevel": 1
+  }
+ ],
+ "showtoc": false,
+ "templates": [],
+ "title": "Project:Consensus"
+}

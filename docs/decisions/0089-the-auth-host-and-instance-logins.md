@@ -1,0 +1,203 @@
+# 0089. The auth host and instance logins
+
+- **Status:** Proposed
+- **Date:** 2026-10-18
+- **Updated:** 2026-11-13 (A7)
+- **Author:** James Hare / Claude Opus
+- **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0047](0047-special-pages.md), [0056](0056-security-model.md), [0057](0057-web-tier.md), [0087](0087-account-registration-and-challenges.md), [0088](0088-external-identity-providers.md)
+- **Uses:** [0006](0006-log-integrity-and-erasure.md), [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0034](0034-frontend-stack.md), [0046](0046-primary-tenant.md), [0079](0079-derived-issuer-codes.md), [0085](0085-settings-and-preferences.md)
+
+## Context
+
+[0018](0018-tenants.md) §4 made identity per tenant and said that authentication is uncoupled from identity: a binding maps an identity provider's subject to a tenant account, and "a farm that wants single sign-on registers itself as an identity provider". Nothing ever registered it. What [0007](0007-actor-identity.md) §3, [0087](0087-account-registration-and-challenges.md) and [0088](0088-external-identity-providers.md) built instead binds every credential to a tenant account:
+
+- **A password belongs to a tenant account.** The built-in `password` issuer's subject is the tenant's own user ID, so a person with accounts on three tenants has three passwords and logs in three times.
+- **An external identity is bound per tenant**, through a callback at each tenant's own host. A provider returns only to the URL its consumer was registered with, so [0088](0088-external-identity-providers.md) §3 gave each tenant on its own host a credential row of its own, and an instance of ten wikis on ten hosts registers ten consumers with Wikimedia.
+- **Sessions are per tenant host** ([0056](0056-security-model.md) §1), and nothing joins them.
+- **Farm identity** ([0028](0028-tenancy-policy.md) §2) gives a person one farm account and links their tenant accounts to it publicly, but a farm account still "authenticates through bindings to identity providers exactly as a tenant account does", and the farm has no passwords.
+
+Wikimedia moved its logins to one host, `auth.wikimedia.org`, from which each wiki gets a session; Miraheze did the same with `auth.miraheze.org`. One host is one place to type a password, one callback to register with each provider, and one cookie to hold.
+
+### Direction
+
+James's direction, from the design discussion of 2026-10-18:
+
+- **"A thought comes to mind: these days, Wikimedia has auth.wikimedia.org and Miraheze has auth.miraheze.org. What if instances with more than one tenants had a standalone auth domain that can be used in conjunction with the OAuth identity provider?"**
+- **"It should use a dedicated host similar to how Wikimedia has auth.wikimedia.org. Password login should move to the auth host as well. To clarify with per-tenant accounts, it's my understanding that the system is supposed to uncouple authentication with the instance from identity on the tenant. That is to say, whether there is per-tenant identity or farm-wide identity, this is separate from the mechanism used to login in. I am not sure why a tenant would need its own OAuth consumer and I am disinclined to support it. A new ADR makes sense."**
+- On the questions put to him, he chose: passwords become **instance logins**, which tenant accounts bind to like any issuer, so one password serves every tenant while actors stay per tenant, and existing password hashes migrate to logins; a **central session** that completes a tenant's login when the person presses "Log in" there, with no password prompt and no silent sign-in; an auth host that is **optional on a single-tenant instance** and required once there is a second tenant; and that creating a login, managing sign-in methods and logging out everywhere also move to the auth host, while bot passwords and the Action API's `clientlogin` stay on tenant hosts.
+
+## Decision
+
+### 1. The auth host (extends 0033 §12; amends 0056 §10; extends 0057 §3)
+
+*Current text: [07](../architecture/07-actors-and-accounts.md) §2.8; [20](../architecture/20-web-tier.md) §2.1, §5.3; [23](../architecture/23-configuration-and-registry.md) §3.6.*
+
+### 2. Instance logins (amends 0007 §3; amends 0018 §4; extends 0015 §5; amends 0013 §4)
+
+*Changed by A2, A3, A4.*
+
+*Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.2; [03](../architecture/03-storage-caches-and-search.md) §4.16, §12.1; [07](../architecture/07-actors-and-accounts.md) §2.1, §2.8; [08](../architecture/08-tenants-and-instances.md) §3.2.*
+
+### 3. Sign-in methods belong to the login (amends 0088 §7; amends 0007 §3; amends 0013 §4)
+
+*Changed by A3, A7.*
+
+*Current text: [07](../architecture/07-actors-and-accounts.md) §2.1, §2.2, §2.7, §2.8.*
+
+### 4. Tenant accounts bind to a login (amends 0007 §3; amends 0088 §6; amends 0028 §2)
+
+*Changed by A3.*
+
+*Current text: [07](../architecture/07-actors-and-accounts.md) §2.1, §2.8; [08](../architecture/08-tenants-and-instances.md) §3.2.*
+
+### 5. Logging in on a tenant (amends 0088 §5; amends 0056 §1; extends 0012 §5; amends 0013 §4; amends 0014 §4)
+
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §4.16, §12.1; [07](../architecture/07-actors-and-accounts.md) §2.4, §2.8; [09](../architecture/09-security-and-moderation.md) §1.4; [18](../architecture/18-api.md) §3.2; [19](../architecture/19-site-ui.md) §2.3.*
+
+### 6. The first visit to a tenant (amends 0088 §6; amends 0010 §10; amends 0087 §6)
+
+*Changed by A5, A6.*
+
+*Current text: [07](../architecture/07-actors-and-accounts.md) §2.6, §2.7, §2.8; [19](../architecture/19-site-ui.md) §2.3.*
+
+### 7. What the auth host serves (amends 0012 §4; extends 0047 §3; amends 0010 §10, §11)
+
+*Changed by A2, A4.*
+
+*Current text: [07](../architecture/07-actors-and-accounts.md) §2.8; [18](../architecture/18-api.md) §2.3; [19](../architecture/19-site-ui.md) §2.3, §2.4; [21](../architecture/21-special-pages.md) §1.3.*
+
+### 8. Creating a login (amends 0087 §2, §4)
+
+*Changed by A4.*
+
+*Current text: [07](../architecture/07-actors-and-accounts.md) §2.6; [19](../architecture/19-site-ui.md) §2.3.*
+
+### 9. Logging out (amends 0056 §1; amends 0014 §4)
+
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §4.16, §12.1; [07](../architecture/07-actors-and-accounts.md) §2.4, §2.8; [09](../architecture/09-security-and-moderation.md) §1.4; [18](../architecture/18-api.md) §2.3.*
+
+### 10. One OAuth consumer per issuer (amends 0088 §3, §4, §5; amends 0013 §4)
+
+*Current text: [07](../architecture/07-actors-and-accounts.md) §2.7; [18](../architecture/18-api.md) §3.2.*
+
+### 11. Tenant hosts keep `clientlogin` and bot passwords (amends 0012 §4)
+
+*Current text: [07](../architecture/07-actors-and-accounts.md) §2.8; [18](../architecture/18-api.md) §2.3.*
+
+### 12. A single-tenant instance (amends 0056 §10)
+
+*Current text: [07](../architecture/07-actors-and-accounts.md) §2.8; [20](../architecture/20-web-tier.md) §5.3.*
+
+### 13. Farm identity (amends 0028 §2)
+
+*Current text: [07](../architecture/07-actors-and-accounts.md) §2.8; [08](../architecture/08-tenants-and-instances.md) §3.5, §3.6; [19](../architecture/19-site-ui.md) §2.3.*
+
+### 14. Moving a tenant and vouching (amends 0018 §10; amends 0088 §8)
+
+*Current text: [07](../architecture/07-actors-and-accounts.md) §2.5; [08](../architecture/08-tenants-and-instances.md) §6.2, §6.4.*
+
+### 15. Migration
+
+*Changed by A3, A4.*
+
+*Current text: [07](../architecture/07-actors-and-accounts.md) §2.8.*
+
+### 16. Settings, reporting and errors (uses 0085 §1; amends 0088 §9)
+
+*Current text: [07](../architecture/07-actors-and-accounts.md) §2.8; [18](../architecture/18-api.md) §2.2.*
+
+### 17. Crates (extends 0005 §2)
+
+*Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
+
+## Alternatives considered
+
+- **A login per tenant, joined by a central session.** Keeps passwords on tenant accounts and lets the auth host vouch only for the tenant you already chose. It cannot ask for a password without knowing the tenant first, and a person still has a password per wiki. James chose instance logins.
+- **The farm account as the login.** Farm accounts are public actors that exist only under farm identity; logins must exist on every instance and must not be public. James was explicit that the mechanism of logging in is separate from whether identity is per tenant or farm-wide.
+- **A per-tenant OAuth consumer.** [0088](0088-external-identity-providers.md) §3 offered it for tenants on other hosts; with one callback on the auth host it buys nothing, and James was disinclined to support it.
+- **Silent sign-in**, where a tenant checks the auth host on every page view by redirect or frame. It would log a reader in without their asking, cost a round trip on every first view, and need third-party cookies or a redirect on every page. James chose "on click".
+- **The auth host as an OpenID Connect provider over HTTP.** The tenant and the auth host are one process with one database, so the exchange happens in process; the flow keeps OAuth's shape (state, PKCE, a short-lived code) so that a later split costs only the transport.
+- **Logins kept only in `private`.** Passwords are, but bindings were already records so that erasure is logged; logins keep that.
+
+## Consequences
+
+- **One consumer per provider for the whole instance**, registered once with the auth host's callback, whatever the number of tenants and hosts.
+- **One password per person per instance**, and one place to type it; a tenant host never sees a password typed into a form, though `clientlogin` still takes one.
+- **Accounts stay per tenant.** Attribution, groups, blocks and renames are untouched; a login binds accounts without linking them.
+- **A tenant cannot hide which login holds an account from the instance**, which it never could; it remains hidden from everyone else.
+- **Tenant hosts lose the API modules for managing credentials**, which clients that managed passwords through the API must call at the auth base.
+- **0088's tenant-level credentials and bindings are rewritten** by the migration, and its per-tenant consumer rows are dropped.
+- **On a single-tenant instance a login and its account share a name**, so a person who signs up sees one name, and the login name only becomes a separate thing when a second tenant exists (A3).
+
+## Open questions
+
+- **Q1.** ~~**Who may create a login.** Every login is challenged, but an instance of private or closed wikis may want to close login creation itself, or require approval of logins as tenants approve accounts.~~ *Settled by A6: a login may log in on any tenant of its instance; what is gated is whether that makes an account there, which is the instance's policy, left to tenants or set as a default they override.*
+- **Q2. Deleting a login.** What becomes of the tenant accounts bound to it: unbound and reclaimable, as after a move, or refusal while any remains.
+- **Q3. The farm base.** Whether a farm base that is no tenant's logs in through the auth host, and which account its session holds: the primary tenant's account of the login, which instance acts need ([0046](0046-primary-tenant.md) §6).
+- **Q4. A login's data.** What the user data bundle of [0027](0027-preferences-and-portability.md) §7 carries of a login, which no tenant owns.
+- **Q5. Moving an account to another login**, for a person who ends up with two logins after the migration.
+
+## References
+
+- [Wikimedia's SUL3 and `auth.wikimedia.org`](https://www.mediawiki.org/wiki/MediaWiki_Platform_Team/SUL3)
+- [RFC 7636: Proof Key for Code Exchange](https://www.rfc-editor.org/rfc/rfc7636)
+- [MediaWiki's AuthManager](https://www.mediawiki.org/wiki/Manual:SessionManager_and_AuthManager)
+
+## Amendment log
+
+### A1. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-30
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§17
+- **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [20](../architecture/20-web-tier.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.
+
+### A2. Email addresses
+
+- **Date:** 2026-11-05
+- **Source:** [0100](0100-email-addresses-and-verification-codes.md) §1, §3, §6
+- **Change:** extends §2, §7
+- **Summary:** A login holds email addresses, up to `email.max_addresses`, one verified address being its primary ([07](../architecture/07-actors-and-accounts.md) §2.9). The auth host's `Special:Account` gains an **Email addresses** section, and the auth base the `/auth/email` routes.
+
+### A3. Logins built: names, the password table and the migration command
+
+- **Date:** 2026-11-06
+- **Source:** Direct: Claude, while building instance logins, 2026-11-06; confirmed by James, 2026-11-13
+- **Change:** extends §2, §3, §4, §15
+- **Summary:** §2, §3, §4 and §15 are built, with four calls the text left open. (1) **A login made with an account takes the account's name**, on `createaccount`, `instance create`, `password set` and in the migration, as `{name} ({tenant slug})` where that is held; the auth host's own `Special:CreateAccount`, where a person would choose a login name (§8), is not built, and on a single-tenant instance one name serving both is what the person expects. (2) **`private.password` keeps a nullable `actor_key` beside the new `login`**, one or the other per row, so that `logins migrate` can read what it converts; the primary key moved to partial unique indexes on each. (3) **`private.binding`'s holder column is `holder`**, since it names a login (`login:{n}`) for an external identity and an actor key for an account's binding to its login; an account's binding row has the tenant, the issuer `login` and the login ID as subject, and a login's identity rows the empty tenant. `private.session` gained `login` and `central`. (4) **The migration is a command the operator runs**, `triplespace logins migrate --key-file`, not a job the upgrade starts: it appends instance acts, which need the instance key the server does not hold; `triplespace migrate` prints a note while credentials keyed by accounts remain or the `logins` partition is missing. It does what §15 says, in one transaction, and leaves an account whose identity already belongs to another login as it is, reported (Q5). The password binding records accounts held before §3 are erased by it, scanning each `accounts` partition. On a single-tenant instance (§12) the tenant session is the central session: it carries the login, and `clientlogin` checks the login's password. Not built here: the auth host's handshake (§5), the auth host's pages and modules (§7, §8), and logging out everywhere (§9).
+
+### A4. Requiring an external sign-in method
+
+- **Date:** 2026-11-06
+- **Source:** [0101](0101-requiring-an-external-sign-in-method.md) §1, §2, §3
+- **Change:** amends §8; extends §2, §7, §15
+- **Summary:** Under `login.external_required` a login is created only from an external identity: `Special:CreateAccount` and `action=createaccount` refuse a password with `ts-external-required`, for oneself, for another and under `account.approval`, and `password set` makes no login for an account without one. Every login then holds at least one identity (§2), the auth host's `Special:CreateAccount` shows the issuers' buttons alone and `Special:Account` disables the last identity's **Remove** (§7), and `logins check` reports what enacting the requirement waits on (§15).
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.8, as it stood):
+
+> `Special:CreateAccount` creates a login, with a password under the `createaccount` challenge, or from an external identity bound to no login.
+
+### A5. Strict names
+
+- **Date:** 2026-11-06
+- **Source:** [0102](0102-strict-names-from-the-provider.md) §1
+- **Change:** amends §6
+- **Summary:** Under `login.names = provider` nothing is chosen on the first visit: the account is created with the name derived from the login's external identity, `{label}-{username}`, on every tenant alike ([07](../architecture/07-actors-and-accounts.md) §2.10).
+
+Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.8, as it stood):
+
+> **On the first visit**, a login with no account on the tenant is answered as §2.7 says: an account request, then vouching, then the session's pending login, for which the person chooses a public name on `Special:CreateAccount`. The login name is offered as a button, and so is the username of the external identity that authenticated the login, each with the warning that the same name makes accounts easy to connect.
+
+### A6. A login logs in anywhere on its instance; whether that makes an account is the instance's policy
+
+- **Date:** 2026-11-13
+- **Source:** Direct: James, design discussion of 2026-11-13
+- **Change:** extends §6
+- **Summary:** Asked Q1, who may create a login, James: "if a login system is common to an entire instance, they can 'log in' to any tenant on that instance, but whether it results in them having a local account instantiated depends on instance policy, and instances may delegate to tenants or have a default that tenants override." So the gate is not on the login but on the account: a login authenticates on any tenant of the instance, and whether the first visit gives it an account there is decided by the instance, which may leave the choice to each tenant or set a default a tenant overrides, as settings resolve through the instance's defaults and locks. Read with it, and put to James the same day without objection: creating a login is itself open to anyone who passes the challenge and the sign-in methods the instance offers, with no approval of logins. Which settings carry the policy beyond `createaccount` and `account.approval` is for the change that builds the first visit. Chapter text: 07 §2.8.
+
+### A7. `private.password` loses `actor_key` once the migration is done
+
+- **Date:** 2026-11-13
+- **Source:** Direct: James, design discussion of 2026-11-13
+- **Change:** extends §3
+- **Summary:** Confirming A3, James took its second call, the nullable `actor_key` kept beside `login` so that `logins migrate` can read what it converts, as a transition: the column is dropped by a migration once no row is keyed by an account. Chapter text: 03 §4.16.

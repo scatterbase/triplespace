@@ -1,0 +1,7 @@
+'''Literature reviews!''' Use Librarybase to catalog and synthesize works. Build metadata records while doing so.
+
+By default, any given literature review is '''open for all''' to participate. If, for some reason, you do not want this, please clearly state so at the beginning of the page.
+
+== Ongoing reviews ==
+
+* [[Project:Reviews/Wikipedia citation extraction]]

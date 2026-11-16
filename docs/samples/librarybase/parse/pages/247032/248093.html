@@ -1,0 +1,82 @@
+<div class="mw-parser-output"><div id="toc" class="toc" role="navigation" aria-labelledby="mw-toc-heading"><input type="checkbox" role="button" id="toctogglecheckbox" class="toctogglecheckbox" style="display:none" /><div class="toctitle" lang="en" dir="ltr"><h2 id="mw-toc-heading">Contents</h2><span class="toctogglespan"><label class="toctogglelabel" for="toctogglecheckbox"></label></span></div>
+<ul>
+<li class="toclevel-1 tocsection-1"><a href="#API"><span class="tocnumber">1</span> <span class="toctext">API</span></a></li>
+<li class="toclevel-1 tocsection-2"><a href="#Resources"><span class="tocnumber">2</span> <span class="toctext">Resources</span></a></li>
+<li class="toclevel-1 tocsection-3"><a href="#Process"><span class="tocnumber">3</span> <span class="toctext">Process</span></a>
+<ul>
+<li class="toclevel-2 tocsection-4"><a href="#Data_collection_and_indexing"><span class="tocnumber">3.1</span> <span class="toctext">Data collection and indexing</span></a></li>
+<li class="toclevel-2 tocsection-5"><a href="#Reporting_and_wiki_updates"><span class="tocnumber">3.2</span> <span class="toctext">Reporting and wiki updates</span></a></li>
+<li class="toclevel-2 tocsection-6"><a href="#Database_Schema_(schema.sql)"><span class="tocnumber">3.3</span> <span class="toctext">Database Schema (schema.sql)</span></a></li>
+<li class="toclevel-2 tocsection-7"><a href="#Post-Implementation_Status"><span class="tocnumber">3.4</span> <span class="toctext">Post-Implementation Status</span></a></li>
+</ul>
+</li>
+<li class="toclevel-1 tocsection-8"><a href="#2026-01-19_Observation"><span class="tocnumber">4</span> <span class="toctext">2026-01-19 Observation</span></a></li>
+</ul>
+</div>
+
+<h2><span class="mw-headline" id="API">API</span></h2>
+<p><a rel="nofollow" class="external free" href="https://dashboards.pubpeer.com/docs/api#/operations/partner">https://dashboards.pubpeer.com/docs/api#/operations/partner</a>
+</p><p>Relevant parameters:
+</p>
+<ul><li><code>page</code>: start with <code>1</code> then iterate based on whether there are more results</li>
+<li><code>per_page</code>: set at maximum value <code>300</code></li>
+<li><code>sort</code>:</li>
+<li><s><code>published_at</code></s>: concerns when the document was <i>published</i>; I only care about <i>comments</i></li></ul>
+<h2><span class="mw-headline" id="Resources">Resources</span></h2>
+<ul><li>Wikimedia Cloud Services
+<ul><li>Toolforge: project "pubpeer"
+<ul><li>Don't think it's being used for anything</li></ul></li>
+<li>Cloud VPS: project "wikicite"
+<ul><li>VM wikicite-refsdb-proc-1.wikicite.eqiad1.wikimedia.cloud</li>
+<li>Trove DB: ouqdvgrbzf3.svc.trove.eqiad1.wikimedia.cloud</li></ul></li></ul></li></ul>
+<h2><span class="mw-headline" id="Process">Process</span></h2>
+<h3><span class="mw-headline" id="Data_collection_and_indexing">Data collection and indexing</span></h3>
+<dl><dt>PubPeer Data (index_pubpeer.py)</dt></dl>
+<ul><li><b>Initial Seed:</b>
+<ul><li>Starts from 2000-01-01</li>
+<li>Uses an initial large date window (2000-01-01 to 2014-12-31) followed by 30-day increments</li>
+<li>API query handles pagination (per_page: 300) and automatically reduces the time window if the result set hits the 10,000-record limit to ensure no data is missed</li></ul></li>
+<li><b>Subsequent Builds:</b>
+<ul><li>Triggered via <code>python index_pubpeer.py --update</code></li>
+<li>Identifies the latest_comment_date from the local database and starts fetching from that date to the present</li></ul></li>
+<li><b>Database Updates:</b>
+<ul><li>Updates the pubpeer_articles table</li>
+<li>Fields: id_pubpeer (URL), id_doi, id_pubmed, id_arxiv, title (truncated to 250 chars), and time_last_comment</li></ul></li></ul>
+<dl><dt>Wikipedia Citations (index_citations.py)</dt></dl>
+<ul><li><b>Process:</b>
+<ul><li>Pulls current external links from Wikimedia Cloud DB Replicas for DOI (org.doi.), PubMed (gov.nih.nlm.ncbi.pubmed.), and arXiv (org.arxiv.)</li>
+<li>Restricted to Main (0) and Draft (118) namespaces</li>
+<li>Matches these links against the local pubpeer_articles table</li></ul></li>
+<li><b>Database Updates:</b>
+<ul><li><b>wikipedia table:</b> Stores language_code, mw_page_id, mw_page_title, and mw_talk_page_id. Page titles are refreshed during each run</li>
+<li><b>citations table:</b> Maps id_pubpeer to id_wiki_page</li>
+<li><b>Stale Data:</b> Automatically removes citations from the local database if the link has been removed from Wikipedia</li></ul></li></ul>
+<h3><span class="mw-headline" id="Reporting_and_wiki_updates">Reporting and wiki updates</span></h3>
+<ul><li><b>Wiki Maintenance:</b>
+<ul><li>Automatically handles page moves and deletions via sync_wikipedia_titles.py before updating reports</li></ul></li>
+<li><b>Report Generation (report.py):</b>
+<ul><li><b>Alerts Report:</b> Lists new citations (time_last_updated_table IS NULL) or existing citations with new comments (time_last_comment &gt; time_last_updated_table)</li>
+<li><b>Most Affected Report:</b> Lists Wikipedia articles with the highest number of unique PubPeer-commented citations</li>
+<li><b>Article List Reports:</b> Large table and alphabetical subpages (/By article/A, etc.) listing all matched citations</li>
+<li><b>Frequency Report:</b> Aggregates by PubPeer article to show which research is most cited across Wikipedia</li></ul></li>
+<li><b>User Interactions (Dismissals):</b> (pending working implementation)
+<ul><li>The bot reads the current wiki report and compares it to its previous version</li>
+<li>If an editor removes a row from a wiki table, the bot marks that citation as dismissed = TRUE in the database and stops reporting it</li></ul></li></ul>
+<h3><span id="Database_Schema_.28schema.sql.29"></span><span class="mw-headline" id="Database_Schema_(schema.sql)">Database Schema (schema.sql)</span></h3>
+<ul><li><b>wikipedia:</b> id, language_code, mw_page_id, mw_page_title, mw_talk_page_id, librarybase_id</li>
+<li><b>pubpeer_articles:</b> id_pubpeer, id_doi, id_pubmed, id_arxiv, title, time_last_comment</li>
+<li><b>citations:</b>
+<ul><li>Links articles to wiki pages</li>
+<li>cited_id_type: 1 (DOI), 2 (PubMed), 3 (arXiv)
+<ul><li>0 is reserved for "other"</li></ul></li>
+<li>time_last_updated_table: Tracks when the wiki report last included this citation</li>
+<li>time_last_talk_page_post: (Reserved for future talk page notifications)</li>
+<li>dismissed: Boolean flag for editor-driven dismissals</li></ul></li></ul>
+<h3><span class="mw-headline" id="Post-Implementation_Status">Post-Implementation Status</span></h3>
+<ul><li><b>Talk Page Notifications:</b> Code includes fields for tracking (time_last_talk_page_post), but the active workflow currently focuses on centralized reports (Wikipedia:PubPeer/*) rather than automated talk page posting</li>
+<li><b>Frequency of Runs:</b> Designed to be run periodically (e.g., via cron) using the --update flag for index_pubpeer.py</li>
+<li><b>Dismissals Not Recognized:</b> The logic to recognize user removals of report entries does not work yet and has been disabled.</li></ul>
+<h2><span class="mw-headline" id="2026-01-19_Observation">2026-01-19 Observation</span></h2>
+<p>Example edit: <a rel="nofollow" class="external free" href="https://en.wikipedia.org/w/index.php?title=Wikipedia:PubPeer/By_article/Z&amp;diff=prev&amp;oldid=1333802277">https://en.wikipedia.org/w/index.php?title=Wikipedia:PubPeer/By_article/Z&amp;diff=prev&amp;oldid=1333802277</a>
+</p><p>Sometimes, an article will have multiple PubPeer IDs, with different sets of comments on each. This causes the report generation process to be confused. Should probably canonize on a different identifier.
+</p></div>

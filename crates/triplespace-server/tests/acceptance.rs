@@ -1,0 +1,2242 @@
+//! The milestone-1 acceptance test (`claude/milestone-1-critical-path.md`): a bot client
+//! logs in with a bot password, reads `Item:Q6` and `Domain:wikipedia.org`, and saves an
+//! edit — against the router the server runs, over a database the CLI set up from a
+//! Librarybase-shaped XML dump and an internetdomains-shaped JSON dump. Needs
+//! `TRIPLESPACE_TEST_DATABASE_URL`; vacuous without it.
+
+use std::path::PathBuf;
+use triplespace_cli::log_bundle::{self, Checkpoint, Export, Scope, Verify, VerifyLevel};
+
+use axum::Router;
+use axum::body::Body;
+use axum::http::{Request, StatusCode, header};
+use http_body_util::BodyExt as _;
+use serde_json::{Value, json};
+use tokio_postgres::{Config, NoTls};
+use tower::ServiceExt as _;
+use triplespace_accounts::{Secret, keys};
+use triplespace_api_action::{App, Config as ServerConfig, Mode, router_with};
+use triplespace_cli::forwarder::{Create, Forwarder, Revoke, Target};
+use triplespace_cli::{accounts, adopt, instance, sync};
+
+const DB: &str = "tsaccept_test";
+const TENANT: &str = "librarybase";
+const HOST: &str = "librarybase.org";
+
+const DUMP_XML: &str = r#"<mediawiki xmlns="http://www.mediawiki.org/xml/export-0.11/" version="0.11" xml:lang="en">
+  <siteinfo><sitename>Librarybase</sitename><namespaces>
+    <namespace key="120" case="first-letter">Item</namespace>
+    <namespace key="122" case="first-letter">Property</namespace>
+  </namespaces></siteinfo>
+  <page><title>Property:P12</title><ns>122</ns><id>40</id>
+    <revision><id>903</id><timestamp>2024-01-03T09:15:40Z</timestamp>
+      <contributor><username>Alice</username><id>7</id></contributor>
+      <model>wikibase-property</model><format>application/json</format>
+      <text xml:space="preserve">{"type":"property","id":"P12","datatype":"string","labels":{"en":{"language":"en","value":"note"}},"claims":{}}</text>
+    </revision></page>
+  <page><title>Item:Q6</title><ns>120</ns><id>12</id>
+    <revision><id>41877</id><timestamp>2026-09-20T14:02:11Z</timestamp>
+      <contributor><username>Bob</username><id>9</id></contributor>
+      <comment>/* wbeditentity-create-item:0| */ Six</comment>
+      <model>wikibase-item</model><format>application/json</format>
+      <text xml:space="preserve">{"type":"item","id":"Q6","labels":{"en":{"language":"en","value":"Six &amp; more"}},"descriptions":{"en":{"language":"en","value":"a number"}},"claims":{"P12":[{"mainsnak":{"snaktype":"value","property":"P12","datatype":"string","datavalue":{"value":"six","type":"string"}},"type":"statement","rank":"normal","id":"Q6$11111111-1111-1111-1111-111111111111"}]}}</text>
+    </revision></page>
+</mediawiki>
+"#;
+
+fn dump_json() -> String {
+    let st = |p: &str, v: Value, guid: &str, dt: &str| {
+        let dv = if dt == "string" {
+            json!({"value": v, "type": "string"})
+        } else {
+            json!({"value": {"entity-type": "item", "id": v}, "type": "wikibase-entityid"})
+        };
+        json!({"mainsnak": {"snaktype": "value", "property": p, "datatype": dt, "datavalue": dv},
+            "type": "statement", "rank": "normal", "id": guid})
+    };
+    let items = [
+        json!({"type": "item", "id": "Q9", "labels": {"en": {"language": "en", "value": "example.org"}}, "descriptions": {}, "aliases": {},
+            "claims": {"P1": [st("P1", json!("example.org"), "Q9$00000000-0000-0000-0000-0000000000A1", "string")]},
+            "sitelinks": {}, "lastrevid": 55, "modified": "2026-10-01T00:00:00Z"}),
+        json!({"type": "item", "id": "Q11", "labels": {"en": {"language": "en", "value": "Wikipedia"}},
+            "descriptions": {"en": {"language": "en", "value": "the free encyclopedia"}}, "aliases": {},
+            "claims": {"P1": [st("P1", json!("wikipedia.org"), "Q11$00000000-0000-0000-0000-0000000000B1", "string")],
+                       "P8": [st("P8", json!("Q9"), "Q11$00000000-0000-0000-0000-0000000000B2", "wikibase-item")]},
+            "sitelinks": {}, "lastrevid": 56, "modified": "2026-10-01T00:00:00Z"}),
+        json!({"type": "property", "id": "P1", "datatype": "string", "labels": {"en": {"language": "en", "value": "domain name"}},
+            "descriptions": {}, "aliases": {}, "claims": {}, "lastrevid": 3, "modified": "2026-10-01T00:00:00Z"}),
+        json!({"type": "property", "id": "P8", "datatype": "wikibase-item", "labels": {"en": {"language": "en", "value": "related domain"}},
+            "descriptions": {}, "aliases": {}, "claims": {}, "lastrevid": 4, "modified": "2026-10-01T00:00:00Z"}),
+    ];
+    let lines: Vec<String> = items.iter().map(ToString::to_string).collect();
+    format!("[\n{}\n]\n", lines.join(",\n"))
+}
+
+fn admin_config() -> Option<Config> {
+    let url = std::env::var("TRIPLESPACE_TEST_DATABASE_URL").ok()?;
+    Some(url.parse().expect("TRIPLESPACE_TEST_DATABASE_URL parses"))
+}
+
+async fn fresh_database() -> String {
+    let admin = admin_config().expect("checked by the caller");
+    let (client, connection) = admin.connect(NoTls).await.expect("connect");
+    tokio::spawn(async move {
+        let _ = connection.await;
+    });
+    let _ = client
+        .batch_execute(&format!("DROP DATABASE IF EXISTS {DB} WITH (FORCE)"))
+        .await;
+    client
+        .batch_execute(&format!("CREATE DATABASE {DB}"))
+        .await
+        .expect("create database");
+    triplespace_db::scratch::drop_at_thread_end(DB);
+    let url = std::env::var("TRIPLESPACE_TEST_DATABASE_URL").unwrap();
+    url.rsplit_once('/')
+        .map(|(head, _)| format!("{head}/{DB}"))
+        .unwrap()
+}
+
+/// A client with a cookie jar of one cookie.
+struct Client {
+    router: Router,
+    cookie: Option<String>,
+    bearer: Option<String>,
+}
+
+impl Client {
+    async fn call(&mut self, method: &str, query: &str, form: Option<&str>) -> (StatusCode, Value) {
+        let mut req = Request::builder()
+            .method(method)
+            .uri(format!("/w/api.php?{query}"))
+            .header(header::HOST, HOST);
+        if let Some(c) = &self.cookie {
+            req = req.header(header::COOKIE, format!("triplespace_session={c}"));
+        }
+        if let Some(b) = &self.bearer {
+            req = req.header(header::AUTHORIZATION, format!("Bearer {b}"));
+        }
+        let req = match form {
+            Some(f) => req
+                .header(header::CONTENT_TYPE, "application/x-www-form-urlencoded")
+                .body(Body::from(f.to_string()))
+                .unwrap(),
+            None => req.body(Body::empty()).unwrap(),
+        };
+        let response = self.router.clone().oneshot(req).await.unwrap();
+        let status = response.status();
+        if let Some(sc) = response.headers().get(header::SET_COOKIE) {
+            let text = sc.to_str().unwrap();
+            let value = text
+                .strip_prefix("triplespace_session=")
+                .and_then(|r| r.split(';').next())
+                .unwrap()
+                .to_string();
+            self.cookie = if value.is_empty() { None } else { Some(value) };
+        }
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        let body: Value = serde_json::from_slice(&bytes)
+            .unwrap_or(Value::String(String::from_utf8_lossy(&bytes).into_owned()));
+        (status, body)
+    }
+
+    async fn get(&mut self, query: &str) -> Value {
+        let (status, body) = self.call("GET", query, None).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        body
+    }
+
+    async fn post(&mut self, query: &str, form: &str) -> Value {
+        let (status, body) = self.call("POST", query, Some(form)).await;
+        assert_eq!(status, StatusCode::OK, "{body}");
+        body
+    }
+}
+
+fn enc(s: &str) -> String {
+    url::form_urlencoded::byte_serialize(s.as_bytes()).collect()
+}
+
+#[tokio::test]
+#[allow(clippy::too_many_lines, clippy::many_single_char_names)]
+async fn a_bot_logs_in_reads_and_edits() {
+    if admin_config().is_none() {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    }
+    let database = fresh_database().await;
+    let dir = std::env::temp_dir().join(format!("tsaccept-{}", std::process::id()));
+    std::fs::create_dir_all(&dir).unwrap();
+    let key_file: PathBuf = dir.join("triplespace.key");
+    let xml = dir.join("librarybase.xml");
+    std::fs::write(&xml, DUMP_XML).unwrap();
+    let xd = dir.join("internetdomains.json");
+    std::fs::write(&xd, dump_json()).unwrap();
+    let pw = dir.join("owner.pw");
+    std::fs::write(&pw, "owner-secret-1234\n").unwrap();
+
+    // 1. The instance, the adoption, the mirror sync: what the operator runs.
+    instance::run(instance::Create {
+        database: database.clone(),
+        key_file: key_file.clone(),
+        tenant: TENANT.into(),
+        base: format!("https://{HOST}"),
+        name: None,
+        farm_slug: "testfarm".into(),
+        tenancy: "isolated".into(),
+        farm_base: None,
+        providers: vec!["internetdomains".into()],
+        adopt: Some(format!("https://{HOST}/")),
+        owner: Some(7),
+        owner_name: "Alice".into(),
+        owner_password_file: Some(pw),
+    })
+    .await
+    .expect("instance create");
+    adopt::run(adopt::Adopt {
+        job_id: None,
+        database: database.clone(),
+        tenant: TENANT.into(),
+        dump: xml,
+        source: format!("https://{HOST}/"),
+        version: Some("test".into()),
+        frozen: true,
+        current_only: false,
+        counters: Some("item=6,property=12".into()),
+        log_floor: 0,
+        entity_sources: vec![],
+        subsidiary: None,
+        batch: 200,
+        skip_talk: false,
+        no_accounts: false,
+    })
+    .await
+    .expect("adopt");
+    sync::run(sync::Sync {
+        job_id: None,
+        database: database.clone(),
+        provider: Some("internetdomains".into()),
+        tenant: None,
+        source: None,
+        dump: xd,
+        version: Some("20261001".into()),
+        snapshot: false,
+        threshold: 1000,
+        batch: 200,
+        rejects: None,
+        no_bootstrap: false,
+        writers: sync::WRITERS,
+    })
+    .await
+    .expect("sync");
+
+    // 2. A subsidiary with a key.
+    let farm = triplespace_cli::common::farm_at(&database).await.unwrap();
+    // The tenant's issuer code, derived from its founding record (0079), which its actor
+    // keys carry.
+    let lb = triplespace_cli::common::issuer_at(&database, TENANT)
+        .await
+        .unwrap();
+    assert!(scatter_actors::issuer::is_derived_code(&lb), "{lb}");
+    let alice = format!("{lb}:7");
+    let (store, pipeline) = triplespace_cli::common::store(&database, &farm).unwrap();
+    let mut cx = scatter_projection::Backend::begin(&store).await.unwrap();
+    let bot_key = accounts::create_subsidiary(
+        &store,
+        &pipeline,
+        &mut cx,
+        TENANT,
+        "Alice bot",
+        &alice,
+        &["bot".into()],
+        &alice,
+        triplespace_cli::common::now(),
+    )
+    .await
+    .unwrap();
+    scatter_projection::Backend::commit(&store, cx)
+        .await
+        .unwrap();
+    assert_eq!(
+        bot_key,
+        format!("{lb}:10"),
+        "after the adopted users 7 and 9"
+    );
+    let conn = triplespace_cli::common::connect(&database).await.unwrap();
+    let issued = keys::issue(
+        &conn,
+        &bot_key,
+        "laptop",
+        &["editentity".into(), "highvolume".into()],
+        None,
+    )
+    .await
+    .unwrap();
+    let (_, secret) = issued.bearer.split_once('.').unwrap();
+
+    // A forwarder key (0057 §10): the hash in `private`, the act in the instance config,
+    // and its revocation a null record that retires the registry row.
+    let target = || Target {
+        database: database.clone(),
+    };
+    triplespace_cli::forwarder::run(Forwarder::Create(Create {
+        target: target(),
+        label: "edge".into(),
+    }))
+    .await
+    .unwrap();
+    let key_id: String = conn
+        .query_one(
+            "SELECT key_id FROM ops.forwarder_key WHERE label = 'edge'",
+            &[],
+        )
+        .await
+        .unwrap()
+        .get(0);
+    let row = conn
+        .query_one(
+            "SELECT config FROM view.registry WHERE tenant = '' AND kind = 'forwarder' AND code = $1",
+            &[&key_id],
+        )
+        .await
+        .unwrap();
+    let entry: Value = row.get(0);
+    assert_eq!(entry["label"], "edge");
+    assert!(entry.get("hash").is_none() && entry.get("secret").is_none());
+    triplespace_cli::forwarder::run(Forwarder::Revoke(Revoke {
+        target: target(),
+        key_id: key_id.clone(),
+    }))
+    .await
+    .unwrap();
+    assert!(
+        conn.query_opt(
+            "SELECT 1 FROM view.registry WHERE kind = 'forwarder' AND code = $1",
+            &[&key_id],
+        )
+        .await
+        .unwrap()
+        .is_none()
+    );
+
+    // 3. The server.
+    let signing = triplespace_cli::common::signing_key(&key_file).unwrap();
+    let app = App::new(
+        triplespace_db::scratch::pools(&database, 4),
+        Secret::derive(&signing.to_bytes()),
+        ServerConfig {
+            mode: Mode::Production,
+            trusted_proxies: vec![],
+            dev_tenant: None,
+            farm,
+            auth_base: None,
+            generator: "Triplespace test".into(),
+            version: None,
+        },
+    )
+    .unwrap();
+    // `dumps.dir` (0013 A78): empty until step 7c writes a dump into it.
+    let dumps = std::env::temp_dir().join(format!("tsaccept-dumps-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&dumps);
+    app.set_dumps_dir(dumps.clone());
+    let mut c = Client {
+        router: router_with(app, triplespace_api_rest::routes()),
+        cookie: None,
+        bearer: None,
+    };
+
+    // An unregistered host is 421.
+    let req = Request::builder()
+        .uri("/w/api.php?action=query&meta=siteinfo&format=json")
+        .header(header::HOST, "evil.example")
+        .body(Body::empty())
+        .unwrap();
+    assert_eq!(
+        c.router.clone().oneshot(req).await.unwrap().status(),
+        StatusCode::MISDIRECTED_REQUEST
+    );
+
+    // siteinfo, as a client's first call.
+    let si = c
+        .get("action=query&meta=siteinfo&siprop=general|namespaces|triplespace&format=json")
+        .await;
+    assert_eq!(
+        si["query"]["general"]["wikibase-conceptbaseuri"],
+        json!(format!("https://{HOST}/entity/"))
+    );
+    assert_eq!(
+        si["query"]["namespaces"]["120"]["defaultcontentmodel"],
+        "wikibase-item"
+    );
+    assert_eq!(si["query"]["namespaces"]["210"]["name"], "Domain");
+    assert!(si["query"]["triplespace"].get("insecure").is_none());
+
+    // Anonymous read of both entities.
+    let r = c
+        .get("action=wbgetentities&ids=Q6|Domain:wikipedia.org&format=json")
+        .await;
+    assert_eq!(r["success"], 1);
+    let q6 = &r["entities"]["Q6"];
+    assert_eq!(q6["labels"]["en"]["value"], "Six & more");
+    assert_eq!(q6["title"], "Item:Q6");
+    assert_eq!(q6["pageid"], 12);
+    let first_revid = q6["lastrevid"].as_u64().unwrap();
+    assert_eq!(
+        first_revid, 41_877,
+        "the source's own revision ID (0035 A12)"
+    );
+    let wp = &r["entities"]["domain:wikipedia.org"];
+    assert_eq!(wp["type"], "domain");
+    assert_eq!(wp["title"], "Domain:wikipedia.org");
+    assert_eq!(wp["labels"]["en"]["value"], "Wikipedia");
+    assert_eq!(
+        wp["labels"]["mul"]["value"], "wikipedia.org",
+        "the derived label (0009 §5)"
+    );
+    assert_eq!(
+        wp["claims"]["XDP8"][0]["mainsnak"]["datavalue"]["value"]["id"], "domain:example.org",
+        "a value pointing at a mapped item is a domain value (0009 §9)"
+    );
+    assert!(
+        wp["claims"].get("XDP1").is_none(),
+        "the identity property is dropped"
+    );
+    let empty = c
+        .get("action=wbgetentities&ids=domain:nothing-here.example&format=json")
+        .await;
+    assert_eq!(
+        empty["entities"]["domain:nothing-here.example"]["labels"]["mul"]["value"],
+        "nothing-here.example"
+    );
+    assert!(
+        empty["entities"]["domain:nothing-here.example"]
+            .get("missing")
+            .is_none(),
+        "a Domain is never missing (0009 §4)"
+    );
+    let missing = c.get("action=wbgetentities&ids=Q999&format=json").await;
+    assert_eq!(missing["entities"]["Q999"]["missing"], "");
+
+    // An anonymous write is refused.
+    let (_, denied) = c
+        .call(
+            "POST",
+            "action=wbsetlabel&format=json",
+            Some(&format!("id=Q6&language=fr&value=Six&token={}", enc(r"+\"))),
+        )
+        .await;
+    assert_eq!(denied["error"]["code"], "permissiondenied", "{denied}");
+
+    // 4. Bot-password login, as WikibaseIntegrator does it.
+    let t = c
+        .get("action=query&meta=tokens&type=login&format=json")
+        .await;
+    let login_token = t["query"]["tokens"]["logintoken"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert!(c.cookie.is_some(), "an anonymous session for the token");
+    let bad = c
+        .post(
+            "action=login&format=json",
+            &format!(
+                "lgname={}&lgpassword=wrong&lgtoken={}",
+                enc("Alice bot@laptop"),
+                enc(&login_token)
+            ),
+        )
+        .await;
+    assert_eq!(bad["login"]["result"], "Failed");
+    let primary = c
+        .post(
+            "action=login&format=json",
+            &format!("lgname=Alice&lgpassword=x&lgtoken={}", enc(&login_token)),
+        )
+        .await;
+    assert_eq!(primary["login"]["code"], "ts-use-oauth", "{primary}");
+    let ok = c
+        .post(
+            "action=login&format=json",
+            &format!(
+                "lgname={}&lgpassword={}&lgtoken={}",
+                enc("Alice bot@laptop"),
+                enc(secret),
+                enc(&login_token)
+            ),
+        )
+        .await;
+    assert_eq!(ok["login"]["result"], "Success", "{ok}");
+    assert_eq!(ok["login"]["lgusername"], "Alice bot");
+    let ui = c
+        .get("action=query&meta=userinfo&uiprop=groups|rights&format=json")
+        .await;
+    assert_eq!(ui["query"]["userinfo"]["name"], "Alice bot");
+    assert!(
+        ui["query"]["userinfo"]["groups"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("bot"))
+    );
+    assert!(
+        ui["query"]["userinfo"]["rights"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("edit"))
+    );
+    assert_eq!(ui["query"]["userinfo"]["operator"], alice.as_str());
+    let csrf = c.get("action=query&meta=tokens&format=json").await["query"]["tokens"]["csrftoken"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    assert!(csrf.ends_with(r"+\"));
+
+    // 5. Edits: a label on Q6 through wbeditentity, a statement on the Domain.
+    let (_, wrong) = c
+        .call(
+            "POST",
+            "action=wbeditentity&format=json",
+            Some(&format!(
+                "id=Q6&data={}&token={}",
+                enc(r#"{"labels":{"fr":{"language":"fr","value":"Six"}}}"#),
+                enc(r"+\")
+            )),
+        )
+        .await;
+    assert_eq!(wrong["error"]["code"], "badtoken");
+    let edited = c
+        .post(
+            "action=wbeditentity&format=json",
+            &format!(
+                "id=Q6&data={}&summary=fr+label&token={}",
+                enc(r#"{"labels":{"fr":{"language":"fr","value":"Six"}}}"#),
+                enc(&csrf)
+            ),
+        )
+        .await;
+    assert_eq!(edited["success"], 1, "{edited}");
+    assert_eq!(edited["entity"]["labels"]["fr"]["value"], "Six");
+    assert_eq!(
+        edited["entity"]["labels"]["en"]["value"], "Six & more",
+        "untouched terms stay"
+    );
+    let second_revid = edited["entity"]["lastrevid"].as_u64().unwrap();
+    assert!(second_revid > first_revid);
+
+    let created = c
+        .post(
+            "action=wbcreateclaim&format=json",
+            &format!(
+                "entity={}&property=P12&snaktype=value&value={}&token={}",
+                enc("domain:wikipedia.org"),
+                enc("\"an assertion of ours\""),
+                enc(&csrf)
+            ),
+        )
+        .await;
+    assert_eq!(created["success"], 1, "{created}");
+    let guid = created["claim"]["id"].as_str().unwrap().to_string();
+    assert!(guid.starts_with("domain:wikipedia.org$"), "{guid}");
+    let r = c
+        .get("action=wbgetentities&ids=domain:wikipedia.org&format=json")
+        .await;
+    let wp = &r["entities"]["domain:wikipedia.org"];
+    assert_eq!(
+        wp["claims"]["P12"][0]["mainsnak"]["datavalue"]["value"],
+        "an assertion of ours"
+    );
+    assert_eq!(
+        wp["claims"]["XDP8"][0]["mainsnak"]["datavalue"]["value"]["id"], "domain:example.org",
+        "the mirrored statement is still there"
+    );
+    assert_eq!(wp["labels"]["en"]["value"], "Wikipedia");
+
+    // 0002 §8.5 (A48): the same statement again merges onto the one there, so nothing is
+    // written; the answer is that statement, the revision it already had, and a warning.
+    let before_repeat = created["pageinfo"]["lastrevid"].clone();
+    let repeated = c
+        .post(
+            "action=wbcreateclaim&format=json",
+            &format!(
+                "entity={}&property=P12&snaktype=value&value={}&token={}",
+                enc("domain:wikipedia.org"),
+                enc("\"an assertion of ours\""),
+                enc(&csrf)
+            ),
+        )
+        .await;
+    assert_eq!(repeated["success"], 1, "{repeated}");
+    assert_eq!(repeated["claim"]["id"], guid.as_str(), "{repeated}");
+    assert_eq!(
+        repeated["pageinfo"]["lastrevid"], before_repeat,
+        "{repeated}"
+    );
+    let warning = repeated["warnings"]["wbcreateclaim"].to_string();
+    assert!(
+        warning.contains("already has this statement") && warning.contains(&guid),
+        "{repeated}"
+    );
+    let r = c
+        .get("action=wbgetentities&ids=domain:wikipedia.org&format=json")
+        .await;
+    assert_eq!(
+        r["entities"]["domain:wikipedia.org"]["claims"]["P12"]
+            .as_array()
+            .map(Vec::len),
+        Some(1),
+        "no second statement"
+    );
+    // 18 §1.5 (0012 A90): any Wikibase write that leaves the entity as it is warns the
+    // same way, and writes nothing.
+    let same = c
+        .post(
+            "action=wbsetlabel&format=json",
+            &format!("id=Q6&language=fr&value=Six&token={}", enc(&csrf)),
+        )
+        .await;
+    assert_eq!(same["success"], 1, "{same}");
+    assert_eq!(same["entity"]["lastrevid"], second_revid, "{same}");
+    assert!(
+        same["warnings"]["wbsetlabel"]
+            .to_string()
+            .contains("already as this edit would leave it. Nothing was written."),
+        "{same}"
+    );
+    assert!(
+        created.get("warnings").is_none(),
+        "a new statement has no warning"
+    );
+
+    // A stale base revision is an edit conflict (0006 §8).
+    let (_, conflict) = c
+        .call(
+            "POST",
+            "action=wbsetdescription&format=json",
+            Some(&format!(
+                "id=Q6&language=fr&value=nombre&baserevid={first_revid}&token={}",
+                enc(&csrf)
+            )),
+        )
+        .await;
+    assert_eq!(conflict["error"]["code"], "editconflict", "{conflict}");
+    let fine = c
+        .post(
+            "action=wbsetdescription&format=json",
+            &format!(
+                "id=Q6&language=fr&value=nombre&baserevid={second_revid}&token={}",
+                enc(&csrf)
+            ),
+        )
+        .await;
+    assert_eq!(fine["success"], 1, "{fine}");
+    let third_revid = fine["entity"]["lastrevid"].as_u64().unwrap();
+
+    // Changing and removing a statement: remove + add under the same GUID, then remove.
+    let changed = c.post("action=wbsetclaim&format=json", &format!("claim={}&token={}", enc(r#"{"id":"Q6$11111111-1111-1111-1111-111111111111","mainsnak":{"snaktype":"value","property":"P12","datavalue":{"value":"SIX","type":"string"}},"type":"statement","rank":"preferred"}"#), enc(&csrf))).await;
+    assert_eq!(changed["success"], 1, "{changed}");
+    assert_eq!(changed["claim"]["rank"], "preferred");
+    assert_eq!(changed["claim"]["mainsnak"]["datavalue"]["value"], "SIX");
+    let r = c.get("action=wbgetentities&ids=Q6&format=json").await;
+    assert_eq!(
+        r["entities"]["Q6"]["claims"]["P12"]
+            .as_array()
+            .unwrap()
+            .len(),
+        1,
+        "replaced, not duplicated: {}",
+        r["entities"]["Q6"]["claims"]
+    );
+    // `wbsetclaimvalue` changes only the main snak's value: the rank stays preferred.
+    let valued = c
+        .post(
+            "action=wbsetclaimvalue&format=json",
+            &format!(
+                "claim={}&snaktype=value&value={}&token={}",
+                enc("Q6$11111111-1111-1111-1111-111111111111"),
+                enc("\"seven\""),
+                enc(&csrf)
+            ),
+        )
+        .await;
+    assert_eq!(valued["success"], 1, "{valued}");
+    assert_eq!(valued["claim"]["mainsnak"]["datavalue"]["value"], "seven");
+    assert_eq!(valued["claim"]["rank"], "preferred", "{valued}");
+    let (_, no_claim) = c
+        .call(
+            "POST",
+            "action=wbsetclaimvalue&format=json",
+            Some(&format!(
+                "claim={}&snaktype=value&value={}&token={}",
+                enc("Q6$22222222-2222-2222-2222-222222222222"),
+                enc("\"x\""),
+                enc(&csrf)
+            )),
+        )
+        .await;
+    assert!(
+        no_claim["error"]["code"].is_string(),
+        "no such claim: {no_claim}"
+    );
+    let removed = c
+        .post(
+            "action=wbremoveclaims&format=json",
+            &format!(
+                "claim={}&token={}",
+                enc("Q6$11111111-1111-1111-1111-111111111111"),
+                enc(&csrf)
+            ),
+        )
+        .await;
+    assert_eq!(removed["success"], 1, "{removed}");
+    let r = c.get("action=wbgetentities&ids=Q6&format=json").await;
+    assert!(
+        r["entities"]["Q6"]["claims"].get("P12").is_none(),
+        "{}",
+        r["entities"]["Q6"]
+    );
+    assert!(r["entities"]["Q6"]["lastrevid"].as_u64().unwrap() > third_revid);
+
+    // A new item.
+    let new = c.post("action=wbeditentity&format=json", &format!("new=item&data={}&token={}", enc(r#"{"labels":{"en":{"language":"en","value":"Seven"}},"claims":{"P12":[{"mainsnak":{"snaktype":"value","property":"P12","datavalue":{"value":"seven","type":"string"}},"type":"statement","rank":"normal"}]}}"#), enc(&csrf))).await;
+    assert_eq!(new["success"], 1, "{new}");
+    assert_eq!(new["entity"]["id"], "Q7", "above the item floor");
+    assert!(
+        new["entity"]["claims"]["P12"][0]["id"]
+            .as_str()
+            .unwrap()
+            .starts_with("Q7$")
+    );
+    let s = c
+        .get("action=wbsearchentities&search=sev&language=en&format=json")
+        .await;
+    assert_eq!(s["search"][0]["id"], "Q7", "{s}");
+    assert_eq!(s["search"][0]["label"], "Seven");
+    // A new property needs `property-create`, which every registered account holds by
+    // default, as in a stock Wikibase (0016 A32).
+    let property = c
+        .post(
+            "action=wbeditentity&format=json",
+            &format!(
+                "new=property&data={}&token={}",
+                enc(
+                    r#"{"labels":{"en":{"language":"en","value":"ISBN"}},"datatype":"external-id"}"#
+                ),
+                enc(&csrf)
+            ),
+        )
+        .await;
+    assert_eq!(property["success"], 1, "{property}");
+    assert_eq!(property["entity"]["type"], "property");
+    assert_eq!(property["entity"]["datatype"], "external-id");
+
+    // 6. The same key as a bearer credential, stateless.
+    let mut b = Client {
+        router: c.router.clone(),
+        cookie: None,
+        bearer: Some(issued.bearer.clone()),
+    };
+    let ui = b
+        .get("action=query&meta=userinfo&uiprop=groups&format=json")
+        .await;
+    assert_eq!(ui["query"]["userinfo"]["name"], "Alice bot");
+    assert!(b.cookie.is_none(), "no session for a bearer request");
+    let btoken =
+        b.get("action=query&meta=tokens&format=json").await["query"]["tokens"]["csrftoken"]
+            .as_str()
+            .unwrap()
+            .to_string();
+    let aliased = b
+        .post(
+            "action=wbsetaliases&format=json",
+            &format!("id=Q6&language=en&add=VI&token={}", enc(&btoken)),
+        )
+        .await;
+    assert_eq!(aliased["success"], 1, "{aliased}");
+    assert_eq!(aliased["entity"]["aliases"]["en"][0]["value"], "VI");
+
+    // 7. The data document and the concept URI.
+    let req = Request::builder()
+        .uri("/wiki/Special:EntityData/Q6.json")
+        .header(header::HOST, HOST)
+        .body(Body::empty())
+        .unwrap();
+    let resp = c.router.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::OK);
+    let body: Value =
+        serde_json::from_slice(&resp.into_body().collect().await.unwrap().to_bytes()).unwrap();
+    assert_eq!(body["entities"]["Q6"]["labels"]["fr"]["value"], "Six");
+    let req = Request::builder()
+        .uri("/entity/Q6")
+        .header(header::HOST, HOST)
+        .body(Body::empty())
+        .unwrap();
+    let resp = c.router.clone().oneshot(req).await.unwrap();
+    assert_eq!(resp.status(), StatusCode::SEE_OTHER);
+    assert_eq!(
+        resp.headers()[header::LOCATION],
+        "/wiki/Special:EntityData/Q6.json"
+    );
+
+    // 7a. The RDF forms (0001 §3; 02 §4.2): Wikibase's triples for Q6 under the tenant's
+    // base, as Turtle and N-Triples, and the concept URI choosing one by `Accept`.
+    let fetch = |uri: &'static str, accept: Option<&'static str>| {
+        let router = c.router.clone();
+        async move {
+            let mut req = Request::builder().uri(uri).header(header::HOST, HOST);
+            if let Some(a) = accept {
+                req = req.header(header::ACCEPT, a);
+            }
+            let resp = router
+                .oneshot(req.body(Body::empty()).unwrap())
+                .await
+                .unwrap();
+            let status = resp.status();
+            let headers = resp.headers().clone();
+            let body = resp.into_body().collect().await.unwrap().to_bytes();
+            (status, headers, String::from_utf8(body.to_vec()).unwrap())
+        }
+    };
+    let (status, headers, ttl) = fetch("/wiki/Special:EntityData/Q6.ttl", None).await;
+    assert_eq!(status, StatusCode::OK, "{ttl}");
+    assert_eq!(headers[header::CONTENT_TYPE], "text/turtle; charset=utf-8");
+    assert!(
+        ttl.contains("@prefix wikibase: <http://wikiba.se/ontology#> ."),
+        "{ttl}"
+    );
+    assert!(ttl.contains("wikibase:Item"), "{ttl}");
+    assert!(ttl.contains("\"Six\"@fr"), "{ttl}");
+    let (status, headers, nt) = fetch("/wiki/Special:EntityData/Q6.nt", None).await;
+    assert_eq!(status, StatusCode::OK, "{nt}");
+    assert_eq!(
+        headers[header::CONTENT_TYPE],
+        "application/n-triples; charset=utf-8"
+    );
+    assert!(
+        nt.lines()
+            .any(|l| l
+                .contains("/entity/Q6> <http://www.w3.org/2004/02/skos/core#altLabel> \"VI\"@en")),
+        "{nt}"
+    );
+    let (status, headers, _) =
+        fetch("/entity/Q6", Some("text/turtle, application/json;q=0.5")).await;
+    assert_eq!(status, StatusCode::SEE_OTHER);
+    assert_eq!(headers[header::LOCATION], "/wiki/Special:EntityData/Q6.ttl");
+    let (status, _, _) = fetch("/wiki/Special:EntityData/Q6.rdf", None).await;
+    assert_eq!(status, StatusCode::NOT_ACCEPTABLE);
+    // The default flavor is `full` (0001 A21): the version information on the document
+    // node, and a stub for each property and entity the statements mention. The Domain has
+    // a local P12 statement and a mirrored XDP8 one whose value is another Domain; XDP8's
+    // predicates are its upstream's (0002 A42).
+    assert!(ttl.contains("cc:license"), "{ttl}");
+    let (status, _, full) = fetch("/wiki/Special:EntityData/domain:wikipedia.org.nt", None).await;
+    assert_eq!(status, StatusCode::OK, "{full}");
+    // A key-mapped provider's statement carries the keyed entity's ID, and the mirror's
+    // record names the item it was mapped from (Q11), so the statement is named as the
+    // provider names it, not under the tenant's base (0002 A44).
+    assert!(
+        full.contains(
+            "<https://internetdomains.wiki/entity/statement/Q11-00000000-0000-0000-0000-0000000000B2>"
+        ),
+        "{full}"
+    );
+    // The tenant's own P12 statement on the Domain stays under the tenant's base; the
+    // mirrored one is not there twice.
+    assert!(
+        !full.contains(
+            "/entity/statement/domain:wikipedia.org-00000000-0000-0000-0000-0000000000B2>"
+        ),
+        "{full}"
+    );
+    assert!(
+        full.contains("<https://librarybase.org/entity/statement/domain:wikipedia.org-"),
+        "{full}"
+    );
+    assert!(
+        full.contains("/entity/P12> <http://www.w3.org/2000/01/rdf-schema#label> \"note\"@en"),
+        "the P12 stub: {full}"
+    );
+    assert!(
+        full.contains(
+            "<https://internetdomains.wiki/prop/direct/P8> <https://scatter.red/domain/example.org>"
+        ),
+        "the mirrored statement on upstream's predicate: {full}"
+    );
+    assert!(
+        full.contains("<https://internetdomains.wiki/entity/P8> <http://wikiba.se/ontology#directClaim> <https://internetdomains.wiki/prop/direct/P8>"),
+        "the XDP8 stub: {full}"
+    );
+    let (status, _, dump) = fetch(
+        "/wiki/Special:EntityData/domain:wikipedia.org.nt?flavor=dump",
+        None,
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{dump}");
+    assert!(dump.contains("creativecommons.org/ns#license"), "{dump}");
+    assert!(!dump.contains("\"note\"@en"), "no stubs under dump: {dump}");
+    let (status, _, simple) = fetch("/wiki/Special:EntityData/Q6.nt?flavor=simple", None).await;
+    assert_eq!(status, StatusCode::OK, "{simple}");
+    assert!(!simple.contains("/entity/statement/"), "{simple}");
+    let (status, _, body) = fetch("/wiki/Special:EntityData/Q6.ttl?flavor=nonsense", None).await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert!(body.contains("simple|dump|long|full"), "{body}");
+    let (status, _, _) = fetch("/wiki/Special:EntityData/Q6.json?flavor=nonsense", None).await;
+    assert_eq!(status, StatusCode::OK, ".json ignores flavor=");
+
+    // 7c. The dumps (0013 §8, A33; 02 §4.1; 17 §1.1): `triplespace dump` writes the
+    // resolved view and the local graph from one snapshot, plain and skolemized, and the
+    // server lists and serves them under `{base}/dumps/`.
+    let (status, _, body) = fetch("/dumps/", None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        serde_json::from_str::<Value>(&body).unwrap()["dumps"],
+        json!([])
+    );
+    triplespace_cli::dump::run(triplespace_cli::dump::Dump {
+        database: database.clone(),
+        replica: None,
+        tenant: TENANT.into(),
+        dir: dumps.clone(),
+        keep: Some(2),
+    })
+    .await
+    .unwrap();
+    let (status, _, body) = fetch("/dumps/", None).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    let index: Value = serde_json::from_str(&body).unwrap();
+    let latest = &index["dumps"][0];
+    assert_eq!(latest["tenant"], TENANT);
+    assert_eq!(latest["cursor"], Value::Null, "no update stream yet");
+    assert!(latest["entities"].as_u64().unwrap() > 0, "{latest}");
+    assert!(latest["local_entities"].as_u64().unwrap() > 0, "{latest}");
+    let files: Vec<&str> = latest["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["name"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        files,
+        [
+            "wikibase.nt.gz",
+            "wikibase-skolem.nt.gz",
+            "local.nq.gz",
+            "local-skolem.nq.gz",
+            "local.json.gz"
+        ]
+    );
+    let name = latest["name"].as_str().unwrap().to_string();
+    let gunzip = |bytes: &[u8]| {
+        use std::io::Read as _;
+        let mut out = String::new();
+        flate2::read::GzDecoder::new(bytes)
+            .read_to_string(&mut out)
+            .unwrap();
+        out
+    };
+    let download = |uri: String| {
+        let router = c.router.clone();
+        async move {
+            let req = Request::builder()
+                .uri(uri)
+                .header(header::HOST, HOST)
+                .body(Body::empty())
+                .unwrap();
+            let resp = router.oneshot(req).await.unwrap();
+            let status = resp.status();
+            let headers = resp.headers().clone();
+            (
+                status,
+                headers,
+                resp.into_body()
+                    .collect()
+                    .await
+                    .unwrap()
+                    .to_bytes()
+                    .to_vec(),
+            )
+        }
+    };
+    let download_as = |uri: String, accept: &'static str| {
+        let router = c.router.clone();
+        async move {
+            let req = Request::builder()
+                .uri(uri)
+                .header(header::HOST, HOST)
+                .header(header::ACCEPT, accept)
+                .body(Body::empty())
+                .unwrap();
+            let resp = router.oneshot(req).await.unwrap();
+            let status = resp.status();
+            let headers = resp.headers().clone();
+            let body = resp
+                .into_body()
+                .collect()
+                .await
+                .unwrap()
+                .to_bytes()
+                .to_vec();
+            (status, headers, body)
+        }
+    };
+    let (status, headers, gz) = download(format!("/dumps/{name}/wikibase.nt.gz")).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(headers[header::CONTENT_TYPE], "application/gzip");
+    assert_eq!(
+        headers[header::ETAG].to_str().unwrap(),
+        format!("\"{}\"", latest["files"][0]["sha256"].as_str().unwrap())
+    );
+    let nt = gunzip(&gz);
+    assert!(
+        nt.starts_with("# Triplespace dump of https://librarybase.org/"),
+        "{nt}"
+    );
+    assert!(nt.contains(
+        "<http://wikiba.se/ontology#Dump> <http://schema.org/softwareVersion> \"1.0.0\""
+    ));
+    assert!(
+        nt.contains(&format!(
+            "<https://{HOST}/entity/Q6> <http://www.w3.org/2004/02/skos/core#altLabel> \"VI\"@en ."
+        )),
+        "{nt}"
+    );
+    assert!(
+        nt.contains("<https://scatter.red/domain/wikipedia.org> <https://internetdomains.wiki/prop/direct/P8> <https://scatter.red/domain/example.org> ."),
+        "the mirrored statement, on upstream's predicate"
+    );
+    let (_, _, gz) = download(format!("/dumps/{name}/wikibase-skolem.nt.gz")).await;
+    let skolem = gunzip(&gz);
+    assert!(
+        !skolem
+            .lines()
+            .any(|l| !l.starts_with('#') && l.contains(" _:")),
+        "no blank nodes"
+    );
+    assert_eq!(
+        nt.lines().count(),
+        skolem.lines().count(),
+        "the two forms map one to one"
+    );
+    let (_, _, gz) = download(format!("/dumps/local/{name}/local.json.gz")).await;
+    let local = gunzip(&gz);
+    let q6: Value = local
+        .lines()
+        .map(|l| serde_json::from_str::<Value>(l).unwrap())
+        .find(|l| l["id"] == "Q6")
+        .expect("Q6's local state");
+    assert!(
+        q6["offset"].as_u64().is_some() && q6["partition"].as_u64().is_some(),
+        "{q6}"
+    );
+    assert_eq!(q6["entity"]["labels"]["fr"]["value"], "Six");
+    let (_, _, gz) = download(format!("/dumps/local/{name}/local.nq.gz")).await;
+    assert!(gunzip(&gz).contains(&format!("<https://{HOST}/graph/local> .")));
+    let (status, _, _) = download(format!("/dumps/local/{name}/wikibase.nt.gz")).await;
+    assert_eq!(
+        status,
+        StatusCode::NOT_FOUND,
+        "the local listing serves the local dump only"
+    );
+    let (status, _, body) = download("/dumps/latest/manifest.json".into()).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        serde_json::from_slice::<Value>(&body).unwrap()["name"],
+        name.as_str()
+    );
+    // 02 §4.1: a file asked for by its dump's name never changes and is cached for good;
+    // the same file through `latest` is another dump's after the next one is written,
+    // and a manifest is never immutable.
+    let cache_of = |h: &axum::http::HeaderMap| {
+        h.get(header::CACHE_CONTROL)
+            .and_then(|v| v.to_str().ok())
+            .unwrap_or_default()
+            .to_string()
+    };
+    for (uri, immutable) in [
+        (format!("/dumps/{name}/wikibase.nt.gz"), true),
+        (format!("/dumps/local/{name}/local.nq.gz"), true),
+        (format!("/dumps/local/bundle/{name}/bundle.cbor"), true),
+        ("/dumps/latest/wikibase.nt.gz".to_string(), false),
+        ("/dumps/local/latest/local.nq.gz".to_string(), false),
+        ("/dumps/local/bundle/latest/bundle.cbor".to_string(), false),
+        (format!("/dumps/{name}/manifest.json"), false),
+        ("/dumps/latest/manifest.json".to_string(), false),
+    ] {
+        let (status, h, _) = download(uri.clone()).await;
+        assert_eq!(status, StatusCode::OK, "{uri}");
+        let cache = cache_of(&h);
+        assert_eq!(cache.contains("immutable"), immutable, "{uri}: {cache}");
+        if !immutable {
+            assert_eq!(cache, "public, max-age=300", "{uri}");
+        }
+    }
+    let (status, _, _) = download("/dumps/../manifest.json".into()).await;
+    assert_ne!(status, StatusCode::OK);
+    // The public bundle of the `local` partition rides in the same dump (17 §1.1; 0013
+    // A81): listed, served file by file, and verifiable once downloaded.
+    assert_eq!(
+        latest["bundle"]["origin"],
+        format!("{HOST}/log/local"),
+        "{latest}"
+    );
+    assert!(
+        latest["bundle"]["records"].as_u64().unwrap() > 0,
+        "{latest}"
+    );
+    let (status, _, body) = download("/dumps/local/bundle/".into()).await;
+    assert_eq!(status, StatusCode::OK);
+    let bundles: Value = serde_json::from_slice(&body).unwrap();
+    assert_eq!(bundles["bundles"][0]["name"], name.as_str(), "{bundles}");
+    let (status, _, body) = download(format!("/dumps/local/bundle/{name}/")).await;
+    assert_eq!(status, StatusCode::OK);
+    let listing: Value = serde_json::from_slice(&body).unwrap();
+    let paths: Vec<String> = listing["files"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|f| f["path"].as_str().unwrap().to_string())
+        .collect();
+    assert!(
+        paths.iter().any(|p| p == "bundle.cbor") && paths.iter().any(|p| p == "keys.seg"),
+        "{paths:?}"
+    );
+    let fetched = std::env::temp_dir().join(format!("tsaccept-fetched-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&fetched);
+    for path in &paths {
+        let (status, _, bytes) = download(format!("/dumps/local/bundle/{name}/{path}")).await;
+        assert_eq!(status, StatusCode::OK, "{path}");
+        let to = fetched.join(path);
+        std::fs::create_dir_all(to.parent().unwrap()).unwrap();
+        std::fs::write(&to, bytes).unwrap();
+    }
+    let reports = triplespace_cli::log_bundle::verify(&triplespace_cli::log_bundle::Verify {
+        bundle: fetched.clone(),
+        level: triplespace_cli::log_bundle::VerifyLevel::Bodies,
+        records: false,
+        keys: None,
+    })
+    .await
+    .unwrap();
+    assert_eq!(reports.len(), 1);
+    assert!(reports[0].1.is_clean(), "{:?}", reports[0].1.problems);
+    let _ = std::fs::remove_dir_all(&fetched);
+    let (status, _, _) = download(format!("/dumps/local/bundle/{name}/..%2Fmanifest.json")).await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "nothing outside the bundle");
+    let _ = std::fs::remove_dir_all(&dumps);
+
+    // 7d. The log's own copies (0006 §6, §9.1, §9.2, §9.3; 0103 §1): sign every partition's head, write
+    // the operator's backup bundle, and verify it; a byte changed in it is caught.
+    let signing = Checkpoint {
+        database: database.clone(),
+        key_file: key_file.clone(),
+        tenant: None,
+    };
+    let signed = log_bundle::checkpoint(&signing).await.unwrap();
+    assert!(signed.checkpoints > 0, "{signed:?}");
+    assert_eq!(
+        log_bundle::checkpoint(&signing).await.unwrap().checkpoints,
+        0,
+        "nothing new to sign"
+    );
+    let bundle = std::env::temp_dir().join(format!("tsaccept-bundle-{}", std::process::id()));
+    let _ = std::fs::remove_dir_all(&bundle);
+    let parts = log_bundle::export(&Export {
+        database: database.clone(),
+        scope: Scope::Backup,
+        tenant: None,
+        out: bundle.clone(),
+        // No backup key set here: the log alone (0103 A7).
+        without_private: true,
+    })
+    .await
+    .unwrap();
+    assert!(
+        parts
+            .iter()
+            .any(|p| p.origin == format!("{HOST}/log/local")),
+        "{parts:?}"
+    );
+    assert!(
+        parts.iter().any(|p| p.name == "accounts"),
+        "a backup carries `private` partitions"
+    );
+    let check = Verify {
+        bundle: bundle.clone(),
+        level: VerifyLevel::Bodies,
+        records: false,
+        keys: None,
+    };
+    let reports = log_bundle::verify(&check).await.unwrap();
+    for (p, r) in &reports {
+        assert!(r.is_clean(), "{}: {:?}", p.origin, r.problems);
+    }
+    let local = reports
+        .iter()
+        .find(|(p, _)| p.origin == format!("{HOST}/log/local"))
+        .unwrap();
+    assert!(
+        local.1.checkpoints > 0 && local.1.records > 0,
+        "{:?}",
+        local.1
+    );
+    // Change one byte near the end of the local partition's first segment.
+    let seg = bundle
+        .join(format!("{:016x}", local.0.partition))
+        .join("00000000.seg");
+    let mut bytes = std::fs::read(&seg).unwrap();
+    let at = bytes.len() - 8;
+    bytes[at] ^= 0x01;
+    std::fs::write(&seg, bytes).unwrap();
+    // Caught either as the bundle is opened (a body that no longer matches its header) or
+    // as a problem in the report.
+    let caught = match log_bundle::verify(&check).await {
+        Err(_) => true,
+        Ok(reports) => reports.iter().any(|(_, r)| !r.is_clean()),
+    };
+    assert!(caught, "the changed byte is caught");
+    // The transfer scope is not built; the export scope is one tenant's.
+    for (scope, tenant) in [
+        (Scope::Transfer, Some(TENANT.to_string())),
+        (Scope::Export, None),
+    ] {
+        let refused = log_bundle::export(&Export {
+            database: database.clone(),
+            scope,
+            tenant,
+            out: bundle.join("refused"),
+            without_private: false,
+        })
+        .await;
+        assert!(refused.is_err(), "{scope:?}");
+    }
+    let _ = std::fs::remove_dir_all(&bundle);
+
+    // 7e. The record and proof routes (0012 §5; 0006 §9.4; 17 §1.1), checked as a verifying reader
+    // checks them: the checkpoint against the key chain, a record's leaf against it by an
+    // inclusion proof, a range by the multi-proof, and the tree's growth by consistency.
+    {
+        use base64::Engine as _;
+        use scatter_integrity::checkpoint::SignedCheckpoint;
+        use scatter_integrity::keys::KeyChain;
+        use scatter_integrity::proof::{verify_consistency, verify_inclusion};
+        use scatter_log::hash::Hash;
+        use scatter_log::record::Record;
+        let b64 = |v: &Value| -> Vec<u8> {
+            base64::engine::general_purpose::STANDARD
+                .decode(v.as_str().unwrap())
+                .unwrap()
+        };
+        let hash = |v: &Value| -> Hash { b64(v).try_into().unwrap() };
+        let json_of = |body: &[u8]| -> Value { serde_json::from_slice(body).unwrap() };
+        let api = "/w/rest.php/triplespace/v0";
+        let p = local.0.partition;
+        let origin = format!("{HOST}/log/local");
+        let (status, _, note) = download("/.well-known/tlog/local/checkpoint".into()).await;
+        assert_eq!(status, StatusCode::OK);
+        let signed = SignedCheckpoint::parse(&note).unwrap();
+        let (size, root) = (signed.checkpoint.size, signed.checkpoint.root);
+        assert!(size > 1, "{size}");
+        let (status, headers, seq) = download("/.well-known/tlog/keys".into()).await;
+        assert_eq!(status, StatusCode::OK);
+        assert_eq!(headers[header::CONTENT_TYPE], "application/cbor-seq");
+        let mut keys = Vec::new();
+        let mut left = seq.as_slice();
+        while !left.is_empty() {
+            let (v, used) = scatter_log::cbor::decode_prefix(left).unwrap();
+            keys.push(Record::from_value(&v).unwrap());
+            left = &left[used..];
+        }
+        let chain = KeyChain::from_records(&keys).unwrap();
+        signed.verify(&origin, &chain.verifiers(&origin)).unwrap();
+        let (_, _, same) = download(format!("/.well-known/tlog/local/checkpoint/{size}")).await;
+        assert_eq!(same, note, "the checkpoint by its size");
+        // One record, its proof, and the checkpoint that first covers it.
+        let (status, _, body) = download(format!("{api}/record/{p}/0")).await;
+        assert_eq!(status, StatusCode::OK);
+        let rec = json_of(&body);
+        let leaf0 = hash(&rec["leaf"]);
+        let decoded = Record::decode(&b64(&rec["record"])).unwrap();
+        assert_eq!(
+            decoded.leaf(),
+            leaf0,
+            "the bytes are the record the leaf commits to"
+        );
+        assert_eq!(rec["partition"], p.to_string());
+        assert!(rec["header"]["payload_type"].is_string(), "{rec}");
+        let (_, headers, cbor) =
+            download_as(format!("{api}/record/{p}/0"), "application/cbor").await;
+        assert_eq!(headers[header::CONTENT_TYPE], "application/cbor");
+        assert_eq!(Record::decode(&cbor).unwrap().leaf(), leaf0);
+        let (status, _, body) =
+            download(format!("{api}/record/{p}/0/proof?checkpoint={size}")).await;
+        assert_eq!(status, StatusCode::OK);
+        let proof = json_of(&body);
+        let path: Vec<Hash> = proof["audit_path"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(hash)
+            .collect();
+        verify_inclusion(&leaf0, 0, size, &path, &root).unwrap();
+        let (status, _, first) = download(format!("{api}/record/{p}/0/checkpoint")).await;
+        assert_eq!(status, StatusCode::OK);
+        assert!(SignedCheckpoint::parse(&first).unwrap().checkpoint.size > 0);
+        // A range against the same checkpoint: every leaf verifies through the shared nodes.
+        let to = size.min(20);
+        let (status, _, body) = download(format!(
+            "{api}/record/proofs?partition={p}&checkpoint={size}&from=0&to={to}"
+        ))
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        let multi = json_of(&body);
+        let nodes: Vec<Hash> = multi["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|n| hash(&n["hash"]))
+            .collect();
+        for proof in multi["proofs"].as_array().unwrap() {
+            let i = proof["leaf_index"].as_u64().unwrap();
+            let (_, _, body) = download(format!("{api}/record/{p}/{i}")).await;
+            let leaf = hash(&json_of(&body)["leaf"]);
+            let path: Vec<Hash> = proof["path"]
+                .as_array()
+                .unwrap()
+                .iter()
+                .map(|at| nodes[usize::try_from(at.as_u64().unwrap()).unwrap()])
+                .collect();
+            verify_inclusion(&leaf, i, size, &path, &root)
+                .unwrap_or_else(|e| panic!("record {i}: {e}"));
+        }
+        // The tree of one leaf grew into the checkpoint's.
+        let (status, _, body) = download(format!(
+            "/.well-known/tlog/local/consistency?from=1&to={size}"
+        ))
+        .await;
+        assert_eq!(status, StatusCode::OK);
+        let grew: Vec<Hash> = json_of(&body)["consistency"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(hash)
+            .collect();
+        verify_consistency(1, size, &leaf0, &root, &grew).unwrap();
+        // An `internal` partition is not published: no checkpoint, no record.
+        let log_partition = reports
+            .iter()
+            .find(|(p, _)| p.origin == format!("{HOST}/log/log"))
+            .unwrap()
+            .0
+            .partition;
+        let (status, _, _) = download("/.well-known/tlog/log/checkpoint".into()).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        let (status, _, _) = download(format!("{api}/record/{log_partition}/0")).await;
+        assert_eq!(status, StatusCode::NOT_FOUND);
+        let (status, _, _) = download(format!("{api}/record/{p}/{size}0")).await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "past the head");
+    }
+
+    // 7b. The feeds (0020 §1–2, §5): the bot's edits are recent changes and its
+    // contributions, the adoption and the mirror sync are jobs, and the REST feed
+    // carries the same rows in the shape of 16 §3.1.
+    let rc = c
+        .get("action=query&list=recentchanges&rcprop=title|ids|user|comment|flags|tags|timestamp|sizes&rclimit=50&format=json&formatversion=2")
+        .await;
+    let rows = rc["query"]["recentchanges"].as_array().unwrap();
+    assert!(rows.len() >= 6, "{rc}");
+    let alias_edit = rows
+        .iter()
+        .find(|r| {
+            r["comment"]
+                .as_str()
+                .is_some_and(|c| c.contains("aliases:en"))
+        })
+        .unwrap_or_else(|| panic!("the alias edit is in recent changes: {rc}"));
+    assert_eq!(alias_edit["title"], "Item:Q6");
+    assert_eq!(alias_edit["ns"], 120);
+    assert_eq!(alias_edit["user"], "Alice bot");
+    assert_eq!(alias_edit["type"], "edit");
+    assert_eq!(alias_edit["bot"], false, "no bot=1 was sent");
+    assert!(alias_edit["revid"].as_u64().unwrap() > 0);
+    assert!(alias_edit["timestamp"].as_str().unwrap().ends_with('Z'));
+    assert!(
+        rows.iter().all(|r| r["type"] != "sync"),
+        "mirror syncs are not recent changes"
+    );
+    let jobs: Vec<&Value> = rows.iter().filter(|r| r["type"] == "log").collect();
+    assert!(!jobs.is_empty(), "each job run is a log row: {rc}");
+    let newest = rows[0]["timestamp"].as_str().unwrap();
+    let oldest = rows[rows.len() - 1]["timestamp"].as_str().unwrap();
+    assert!(newest >= oldest, "newest first");
+
+    // Paging through `continue`, in MediaWiki's protocol.
+    let page = c
+        .get("action=query&list=recentchanges&rclimit=2&format=json&formatversion=2")
+        .await;
+    assert_eq!(page["query"]["recentchanges"].as_array().unwrap().len(), 2);
+    let token = page["continue"]["rccontinue"].as_str().unwrap().to_string();
+    assert_eq!(page["continue"]["continue"], "-||");
+    let page2 = c
+        .get(&format!(
+            "action=query&list=recentchanges&rclimit=2&rccontinue={}&format=json&formatversion=2",
+            enc(&token)
+        ))
+        .await;
+    assert_ne!(
+        page2["query"]["recentchanges"][0]["rcid"],
+        page["query"]["recentchanges"][0]["rcid"]
+    );
+
+    // Filters: only new rows (the adopted entities), and a window that excludes everything.
+    let new = c
+        .get("action=query&list=recentchanges&rcshow=new&rcprop=title|flags&rclimit=50&format=json&formatversion=2")
+        .await;
+    assert!(
+        new["query"]["recentchanges"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|r| r["new"] == true),
+        "{new}"
+    );
+    let none = c
+        .get("action=query&list=recentchanges&rcend=2000-01-01T00:00:00Z&rcstart=2000-01-02T00:00:00Z&format=json&formatversion=2")
+        .await;
+    assert_eq!(none["query"]["recentchanges"], json!([]));
+    let (status, err) = c
+        .call(
+            "GET",
+            "action=query&list=recentchanges&rcshow=bot|!bot&format=json",
+            None,
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(err["error"]["code"], "show", "{err}");
+
+    // Contributions.
+    let uc = c
+        .get(&format!(
+            "action=query&list=usercontribs&ucuser={}&uclimit=50&format=json&formatversion=2",
+            enc("Alice bot")
+        ))
+        .await;
+    let contribs = uc["query"]["usercontribs"].as_array().unwrap();
+    assert!(contribs.len() >= 5, "{uc}");
+    assert!(
+        contribs
+            .iter()
+            .all(|r| r["user"] == "Alice bot" && r["userid"] == 10)
+    );
+    assert!(contribs.iter().any(|r| r["title"] == "Item:Q6"));
+    let nobody = c
+        .get("action=query&list=usercontribs&ucuser=Nobody&format=json&formatversion=2")
+        .await;
+    assert_eq!(nobody["query"]["usercontribs"], json!([]));
+
+    // The log.
+    let le = c
+        .get("action=query&list=logevents&letype=job&lelimit=50&format=json&formatversion=2")
+        .await;
+    let events = le["query"]["logevents"].as_array().unwrap();
+    assert!(events.iter().any(|e| e["action"] == "finish"), "{le}");
+    assert!(events.iter().all(|e| e["type"] == "job"));
+
+    // The REST feed: the same rows, Triplespace's shape, and a target's history.
+    let (status, h, feed) = send(
+        &c.router,
+        "/w/rest.php/triplespace/v0/activity?limit=100",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{feed}");
+    assert!(h["cache-control"].to_str().unwrap().starts_with("public"));
+    assert_eq!(h["cache-tag"], "activity");
+    let feed_rows = feed["rows"].as_array().unwrap();
+    assert_eq!(feed_rows.len(), rows.len(), "{feed}");
+    let r = feed_rows
+        .iter()
+        .find(|r| {
+            r["summary"]["args"]
+                .as_str()
+                .is_some_and(|a| a.contains("aliases:en"))
+        })
+        .unwrap();
+    assert_eq!(r["kind"], "edit");
+    assert_eq!(r["source"], "local");
+    assert_eq!(r["target"]["title"], "Item:Q6");
+    assert_eq!(
+        r["target"]["label"]["value"], "Six & more",
+        "the current label"
+    );
+    assert_eq!(r["actor"]["name"], "Alice bot");
+    assert_eq!(r["actor"]["kind"], "bot");
+    assert_eq!(r["visibility"], json!([]));
+    assert!(r["links"]["diff"].as_str().unwrap().contains("diff="));
+    let (status, _, history) = send(
+        &c.router,
+        "/w/rest.php/triplespace/v0/activity?target=entity:domain:wikipedia.org&dir=newer",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{history}");
+    let hist = history["rows"].as_array().unwrap();
+    // The entity came from a load (a dump sync), which is one `job` row and never a row
+    // per entity (03 §4.6; 0013 §5.5); the local edit is a row.
+    assert!(
+        hist.iter().all(|r| r["kind"] != "sync") && hist.iter().any(|r| r["kind"] == "edit"),
+        "a loaded mirrored entity's history has the local edit and no sync rows: {history}"
+    );
+    assert!(
+        hist.iter()
+            .all(|r| r["target"]["id"] == "domain:wikipedia.org")
+    );
+    // The history route: the same rows under the entity's own path, the source switch,
+    // and the answers for an ID that is not there.
+    let (status, h, history) = send(
+        &c.router,
+        "/w/rest.php/triplespace/v0/entity/domain:wikipedia.org/history?dir=newer",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{history}");
+    assert_eq!(h["cache-tag"], "entity:domain:wikipedia.org");
+    assert_eq!(
+        history["set"],
+        json!({"kind": "entity", "id": "domain:wikipedia.org"})
+    );
+    assert_eq!(history["rows"], json!(hist));
+    let (_, _, local_only) = send(
+        &c.router,
+        "/w/rest.php/triplespace/v0/entity/Domain:wikipedia.org/history?source=local",
+        &[],
+    )
+    .await;
+    let rows = local_only["rows"].as_array().unwrap();
+    assert!(
+        !rows.is_empty() && rows.iter().all(|r| r["source"] == "local"),
+        "{local_only}"
+    );
+    assert_eq!(local_only["sources"], json!(["local"]));
+    let (_, _, q6) = send(
+        &c.router,
+        "/w/rest.php/triplespace/v0/entity/Q6/history",
+        &[],
+    )
+    .await;
+    assert!(
+        q6["rows"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|r| r["target"]["id"] == "Q6"),
+        "{q6}"
+    );
+    assert!(
+        q6["rows"].as_array().unwrap().len() >= 5,
+        "the bot's edits and the adoption"
+    );
+    let (status, _, none) = send(
+        &c.router,
+        "/w/rest.php/triplespace/v0/entity/Q404/history",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(none["code"], "entity-not-found");
+    let (status, _, bad_id) = send(
+        &c.router,
+        "/w/rest.php/triplespace/v0/entity/nope!/history",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(bad_id["code"], "invalid-entity-id");
+    // `prop=revisions` (18 §2.3): Q6's local revisions, newest first, and the content at
+    // an old one is the state as it then was (the fold of 0083 §4's stepping stone).
+    let rv = c
+        .get("action=query&prop=revisions&titles=Item:Q6&rvprop=ids|timestamp|user|comment|size|tags&rvlimit=50&format=json&formatversion=2")
+        .await;
+    let page = &rv["query"]["pages"][0];
+    assert_eq!(page["title"], "Item:Q6", "{rv}");
+    let revs = page["revisions"].as_array().unwrap();
+    assert!(revs.len() >= 5, "{rv}");
+    assert!(
+        revs.windows(2)
+            .all(|w| w[0]["revid"].as_u64() > w[1]["revid"].as_u64()),
+        "newest first"
+    );
+    assert!(revs.iter().any(|r| r["user"] == "Alice bot"));
+    let oldest = revs.last().unwrap();
+    // An adopted revision shows the source's own summary, with no `adopt` before it
+    // (0035 A12).
+    assert_eq!(
+        oldest["comment"], "/* wbeditentity-create-item:0| */ Six",
+        "{oldest}"
+    );
+    let old = c
+        .get(&format!(
+            "action=query&prop=revisions&revids={}&rvprop=ids|content&rvslots=main&format=json&formatversion=2",
+            oldest["revid"]
+        ))
+        .await;
+    let slot = &old["query"]["pages"][0]["revisions"][0]["slots"]["main"];
+    assert_eq!(slot["contentmodel"], "wikibase-item", "{old}");
+    let then: Value = serde_json::from_str(slot["content"].as_str().unwrap()).unwrap();
+    assert_eq!(then["id"], "Q6");
+    assert!(
+        then["labels"].get("fr").is_none(),
+        "the French label came later: {then}"
+    );
+    assert_eq!(then["lastrevid"], oldest["revid"]);
+    let now = c
+        .get("action=query&prop=revisions&titles=Item:Q6&rvprop=ids|content&rvslots=main&rvlimit=1&format=json&formatversion=2")
+        .await;
+    let latest: Value = serde_json::from_str(
+        now["query"]["pages"][0]["revisions"][0]["slots"]["main"]["content"]
+            .as_str()
+            .unwrap(),
+    )
+    .unwrap();
+    assert_eq!(latest["labels"]["fr"]["value"], "Six", "{latest}");
+    assert_eq!(latest["aliases"]["en"][0]["value"], "VI");
+    let rv_page_a = c
+        .get("action=query&prop=revisions&titles=Item:Q6&rvlimit=2&format=json&formatversion=2")
+        .await;
+    assert_eq!(
+        rv_page_a["query"]["pages"][0]["revisions"]
+            .as_array()
+            .unwrap()
+            .len(),
+        2
+    );
+    let token = rv_page_a["continue"]["rvcontinue"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let rv_page_b = c
+        .get(&format!("action=query&prop=revisions&titles=Item:Q6&rvlimit=2&rvcontinue={}&format=json&formatversion=2", enc(&token)))
+        .await;
+    assert_ne!(
+        rv_page_b["query"]["pages"][0]["revisions"][0]["revid"],
+        rv_page_a["query"]["pages"][0]["revisions"][0]["revid"]
+    );
+    let gone = c
+        .get("action=query&prop=revisions&titles=Item:Q404&format=json&formatversion=2")
+        .await;
+    assert_eq!(gone["query"]["pages"][0]["missing"], true, "{gone}");
+
+    // One change's structured diff (18 §5.1): the alias edit added `VI` in English, and
+    // nothing else; a comparison across the bot's edits; the mirror's `put`.
+    let alias_rev = q6["rows"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|r| {
+            r["summary"]["args"]
+                .as_str()
+                .is_some_and(|a| a.contains("aliases:en"))
+        })
+        .unwrap();
+    let (p, o) = (
+        alias_rev["record"]["partition"].as_u64().unwrap(),
+        alias_rev["record"]["offset"].as_u64().unwrap(),
+    );
+    let (status, h, change) = send(
+        &c.router,
+        &format!("/w/rest.php/triplespace/v0/entity/Q6/changes/{p}/{o}"),
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{change}");
+    assert_eq!(h["cache-tag"], "entity:Q6");
+    assert_eq!(change["source"], "local");
+    assert_eq!(change["revision"]["revid"], alias_rev["revid"]);
+    assert_eq!(change["revision"]["actor"], format!("{lb}:10"));
+    assert_eq!(change["operation"]["op"], "add");
+    assert_eq!(change["diff"]["aliases"][0]["language"], "en");
+    assert_eq!(change["diff"]["aliases"][0]["added"], json!(["VI"]));
+    assert_eq!(change["diff"]["labels"], json!([]));
+    assert_eq!(change["diff"]["claims"], json!([]));
+    assert!(change["previous"]["revid"].as_u64().unwrap() < alias_rev["revid"].as_u64().unwrap());
+    assert!(change["effect"].is_null());
+    let first_rev = q6["rows"].as_array().unwrap().last().unwrap()["revid"]
+        .as_u64()
+        .unwrap();
+    let (status, _, cmp) = send(
+        &c.router,
+        &format!(
+            "/w/rest.php/triplespace/v0/entity/Q6/compare?from={first_rev}&to={}",
+            alias_rev["revid"]
+        ),
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{cmp}");
+    assert_eq!(cmp["from"]["op"], "adopt");
+    assert!(
+        cmp["diff"]["labels"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|l| l["language"] == "fr"),
+        "the French label the bot set: {cmp}"
+    );
+    assert!(
+        cmp["diff"]["claims"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|g| g["property"] == "P12"),
+        "the claim it changed: {cmp}"
+    );
+    let (status, _, err) = send(
+        &c.router,
+        "/w/rest.php/triplespace/v0/entity/Q6/compare?source=mirror/internetdomains&from=1&to=2",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(err["code"], "ts-compare-source");
+    let (status, _, err) = send(
+        &c.router,
+        "/w/rest.php/triplespace/v0/entity/Q6/compare?from=1&to=999999",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(err["code"], "revision-not-found");
+    // A load's mirror record has no activity row (03 §4.6), so no change view: found
+    // through its version cursor, it is not served here. Its history and changes belong to
+    // `view.entity_history` (03 §4.2), which is not built; the entity itself is served.
+    let row = conn
+        .query_one(
+            "SELECT p.partition, s.\"offset\" FROM view.entity_source s
+             JOIN log.partition p ON p.tenant IS NOT DISTINCT FROM nullif(s.tenant, '') AND p.name = s.graph
+             WHERE s.entity_id = 'domain:wikipedia.org' AND s.graph = 'mirror/internetdomains'",
+            &[],
+        )
+        .await
+        .unwrap();
+    let (partition, offset): (i64, i64) = (row.get(0), row.get(1));
+    let (status, _, err) = send(
+        &c.router,
+        &format!(
+            "/w/rest.php/triplespace/v0/entity/domain:wikipedia.org/changes/{}/{offset}",
+            partition.cast_unsigned()
+        ),
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "{err}");
+    assert_eq!(err["code"], "change-not-found");
+    let (status, _, err) = send(
+        &c.router,
+        &format!("/w/rest.php/triplespace/v0/entity/Q7/changes/{p}/{o}"),
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND, "another entity's record");
+    assert_eq!(err["code"], "change-not-found");
+    let (status, _, bad) = send(
+        &c.router,
+        "/w/rest.php/triplespace/v0/activity?target=nope",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(bad["code"], "bad-parameter");
+
+    // 8. Logout ends the session.
+    let out = c
+        .post(
+            "action=logout&format=json",
+            &format!("token={}", enc(&csrf)),
+        )
+        .await;
+    assert!(out.get("logout").is_some(), "{out}");
+    let ui = c.get("action=query&meta=userinfo&format=json").await;
+    assert_eq!(ui["query"]["userinfo"]["anon"], "");
+
+    // 9. The owner's password works for clientlogin.
+    let t = c
+        .get("action=query&meta=tokens&type=login&format=json")
+        .await;
+    let login_token = t["query"]["tokens"]["logintoken"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let cl = c.post("action=clientlogin&format=json", &format!("username=Alice&password=owner-secret-1234&logintoken={}&loginreturnurl=https://{HOST}/", enc(&login_token))).await;
+    assert_eq!(cl["clientlogin"]["status"], "PASS", "{cl}");
+    let ui = c
+        .get("action=query&meta=userinfo&uiprop=groups&format=json")
+        .await;
+    assert!(
+        ui["query"]["userinfo"]["groups"]
+            .as_array()
+            .unwrap()
+            .contains(&json!("owner")),
+        "{ui}"
+    );
+
+    // What the site reads in its first phase (0057 §5–6, §9; 0012 §5).
+    what_the_site_reads(&c.router, &database).await;
+
+    // 10. Everything the API wrote replays from the log.
+    let status = triplespace_cli::status::Target {
+        database: database.clone(),
+    };
+    triplespace_cli::status::rebuild(status)
+        .await
+        .expect("rebuild");
+    let r = c
+        .get("action=wbgetentities&ids=Q6|Q7|domain:wikipedia.org&format=json")
+        .await;
+    assert_eq!(r["entities"]["Q6"]["aliases"]["en"][0]["value"], "VI");
+    assert_eq!(r["entities"]["Q7"]["labels"]["en"]["value"], "Seven");
+    assert_eq!(
+        r["entities"]["domain:wikipedia.org"]["claims"]["P12"][0]["mainsnak"]["datavalue"]["value"],
+        "an assertion of ours"
+    );
+}
+
+/// Sends a request with no credentials, or with the headers given, and returns the
+/// status, the headers and the body.
+async fn send(
+    router: &Router,
+    uri: &str,
+    extra: &[(&str, String)],
+) -> (StatusCode, axum::http::HeaderMap, Value) {
+    let mut req = Request::builder().uri(uri).header(header::HOST, HOST);
+    for (k, v) in extra {
+        req = req.header(*k, v.as_str());
+    }
+    let response = router
+        .clone()
+        .oneshot(req.body(Body::empty()).unwrap())
+        .await
+        .unwrap();
+    let status = response.status();
+    let headers = response.headers().clone();
+    let bytes = response.into_body().collect().await.unwrap().to_bytes();
+    let body = serde_json::from_slice(&bytes).unwrap_or(Value::Null);
+    (status, headers, body)
+}
+
+#[allow(clippy::too_many_lines)]
+async fn what_the_site_reads(router: &Router, database: &str) {
+    // siteinfo: the API level, and the shipped theme until one is set (0086 §5).
+    let siteinfo = "/w/api.php?action=query&meta=siteinfo&siprop=triplespace&format=json";
+    let (status, h, body) = send(router, siteinfo, &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    assert_eq!(
+        body["query"]["triplespace"]["api_version"],
+        json!(triplespace_api_action::API_VERSION)
+    );
+    let theme = &body["query"]["triplespace"]["theme"];
+    assert_eq!(theme["palette"], "parchment");
+    assert_eq!(theme["typeset"], "default26");
+    assert_eq!(theme["choice"], "any");
+    // The catalogue's order is the registry's (`encyclopedia` first since its palette
+    // arrived); find each palette by name.
+    let palette = |name: &str| {
+        theme["palettes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|p| p["name"] == name)
+            .unwrap_or_else(|| panic!("{name} is offered"))
+            .clone()
+    };
+    assert_eq!(
+        palette("parchment")["light"]["color-progressive"],
+        "#2B559E"
+    );
+    // The colour-vision palettes are parchment's alternates (0094), and their old names
+    // are no palettes.
+    assert_eq!(
+        palette("parchment")["alternate"]["rg"]["light"]["color-error"],
+        "#A84300"
+    );
+    assert!(
+        !theme["palettes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|p| p["name"] == "parchment-by")
+    );
+    assert!(palette("encyclopedia")["light"].is_object());
+    let typeset = |name: &str| {
+        theme["typesets"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .find(|t| t["name"] == name)
+            .unwrap_or_else(|| panic!("{name} is offered"))
+            .clone()
+    };
+    assert_eq!(typeset("hyperlegible")["accessibility"], true);
+    assert_ne!(typeset("basic")["accessibility"], true);
+    assert!(
+        h["cache-control"]
+            .to_str()
+            .unwrap()
+            .starts_with("public, max-age=60"),
+        "siteinfo alone is stable: {h:?}"
+    );
+
+    // The wiki's palette, set in its config, is what siteinfo reports.
+    let farm = triplespace_cli::common::farm_at(database).await.unwrap();
+    let (store, pipeline) = triplespace_cli::common::store(database, &farm).unwrap();
+    let mut cx = scatter_projection::Backend::begin(&store).await.unwrap();
+    let config = scatter_ingest::store::IngestStore::partition(&store, &mut cx, TENANT, "config")
+        .await
+        .unwrap()
+        .expect("the tenant has a config partition");
+    let d = triplespace_cli::common::draft(
+        scatter_log::registry::PAYLOAD_CONFIG,
+        "site:theme.palette",
+        &json!({"kind": "site", "name": "theme.palette", "value": "encyclopedia"}),
+        &format!(
+            "{}:7",
+            triplespace_cli::common::issuer_at(database, TENANT)
+                .await
+                .unwrap()
+        ),
+        None,
+        triplespace_cli::common::now(),
+    )
+    .unwrap();
+    scatter_ingest::write::append_projected(
+        &store,
+        &pipeline,
+        &mut cx,
+        config,
+        d,
+        scatter_projection::Budget::NONE,
+    )
+    .await
+    .unwrap();
+    scatter_projection::Backend::commit(&store, cx)
+        .await
+        .unwrap();
+    let (_, _, body) = send(router, siteinfo, &[]).await;
+    assert_eq!(
+        body["query"]["triplespace"]["theme"]["palette"],
+        "encyclopedia"
+    );
+
+    // An anonymous entity read is public, tagged and revalidates to 304.
+    let get = "/w/api.php?action=wbgetentities&ids=Q6|domain:wikipedia.org&format=json";
+    let (status, h, _) = send(router, get, &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    let cc = h["cache-control"].to_str().unwrap();
+    assert!(cc.starts_with("public, max-age=0, s-maxage=60"), "{cc}");
+    assert_eq!(h["cache-tag"], "entity:Q6, entity:domain:wikipedia.org");
+    let etag = h["etag"].to_str().unwrap().to_string();
+    let (status, h2, _) = send(router, get, &[("if-none-match", etag.clone())]).await;
+    assert_eq!(status, StatusCode::NOT_MODIFIED);
+    assert_eq!(h2["etag"].to_str().unwrap(), etag);
+
+    // With credentials it is private, and carries no tags.
+    let (_, h, _) = send(
+        router,
+        get,
+        &[("authorization", "Bearer nonsense.key".into())],
+    )
+    .await;
+    assert_eq!(h["cache-control"], "private, no-cache");
+    assert!(h.get("cache-tag").is_none());
+
+    // The data document caches the same way.
+    let doc = "/wiki/Special:EntityData/Q6.json";
+    let (status, h, _) = send(router, doc, &[]).await;
+    assert_eq!(status, StatusCode::OK);
+    assert!(h["cache-control"].to_str().unwrap().contains("s-maxage=60"));
+    let etag = h["etag"].to_str().unwrap().to_string();
+    let (status, _, _) = send(router, doc, &[("if-none-match", etag)]).await;
+    assert_eq!(status, StatusCode::NOT_MODIFIED);
+
+    // Provenance: a local item adopted from Librarybase.
+    let (status, h, p) = send(
+        router,
+        "/w/rest.php/triplespace/v0/entity/Q6/provenance",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{p}");
+    assert_eq!(p["id"], "Q6");
+    assert_eq!(p["type"], "item");
+    assert_eq!(p["minted_by"]["kind"], "tenant");
+    assert_eq!(p["minted_by"]["adopted_from"], "https://librarybase.org/");
+    assert_eq!(p["graphs"][0]["graph"], "local");
+    assert_eq!(p["graphs"][0]["history"], "full");
+    // The test removed Q6's one statement earlier, so no graph dominates.
+    assert_eq!(p["graphs"][0]["statements"], 0);
+    assert!(p.get("dominant").is_none());
+    assert_eq!(h["cache-tag"], "entity:Q6");
+
+    // A Domain: the mirror's record and the tenant's assertion, side by side.
+    let (status, _, p) = send(
+        router,
+        "/rest.php/triplespace/v0/entity/domain:wikipedia.org/provenance",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{p}");
+    assert_eq!(p["minted_by"], json!({"kind": "keyed", "type": "domain"}));
+    let graphs: Vec<&str> = p["graphs"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|g| g["graph"].as_str().unwrap())
+        .collect();
+    assert_eq!(graphs, ["local", "mirror/internetdomains"]);
+    let mirror = &p["graphs"][1];
+    assert!(mirror.get("upstream_version").is_some(), "{mirror}");
+    // The upstream is a MediaWiki that publishes revision IDs: its revision has a page.
+    assert_eq!(
+        mirror["upstream_url"],
+        format!(
+            "https://internetdomains.wiki/w/index.php?oldid={}",
+            mirror["upstream_version"].as_str().unwrap()
+        ),
+        "{mirror}"
+    );
+    assert_eq!(mirror["history"], "latest");
+    assert!(mirror.get("job").is_some(), "the sync job: {mirror}");
+    // The record names the item the provider mapped onto the key (05 §4.2; 0002 A44).
+    assert_eq!(mirror["upstream_id"], "Q11", "{mirror}");
+    assert_eq!(
+        mirror["upstream_iri"], "https://internetdomains.wiki/entity/Q11",
+        "{mirror}"
+    );
+    assert!(p["graphs"][0].get("upstream_id").is_none(), "{p}");
+    // One statement each; a tie goes to the earlier graph, local first.
+    assert_eq!(p["dominant"], "local");
+    assert!(
+        p["statements"]
+            .as_object()
+            .unwrap()
+            .values()
+            .any(|s| s["graphs"] == json!(["local"])),
+        "the tenant's own statement on the Domain: {p}"
+    );
+
+    the_page_bundle_and_bulk_labels(router).await;
+
+    // Missing and malformed IDs.
+    let (status, _, e) = send(
+        router,
+        "/w/rest.php/triplespace/v0/entity/Q999999/provenance",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_FOUND);
+    assert_eq!(e["code"], "entity-not-found");
+    let (status, _, e) = send(
+        router,
+        "/w/rest.php/triplespace/v0/entity/not-an-id/provenance",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST);
+    assert_eq!(e["code"], "invalid-entity-id");
+}
+
+/// The two routes an entity page is drawn from (0012 §5, A70): the page bundle and the
+/// bulk labels, against the instance `what_the_site_reads` has prepared.
+#[allow(clippy::too_many_lines, clippy::many_single_char_names)]
+async fn the_page_bundle_and_bulk_labels(router: &Router) {
+    // The page bundle (0012 §5, A70): the entity as `wbgetentities` serves it and its
+    // provenance, in one response, cached as the entity is.
+    let (_, _, whole) = send(
+        router,
+        "/w/api.php?action=wbgetentities&ids=Q6|domain:wikipedia.org&format=json",
+        &[],
+    )
+    .await;
+    let (_, _, q6_provenance) = send(
+        router,
+        "/w/rest.php/triplespace/v0/entity/Q6/provenance",
+        &[],
+    )
+    .await;
+    let (status, h, b) = send(router, "/w/rest.php/triplespace/v0/entity/Q6/page", &[]).await;
+    assert_eq!(status, StatusCode::OK, "{b}");
+    assert_eq!(b["id"], "Q6");
+    assert_eq!(b["entity"], whole["entities"]["Q6"], "{b}");
+    assert_eq!(b["provenance"], q6_provenance, "{b}");
+    assert!(
+        b.get("visibility").is_none() && b.get("redirects").is_none(),
+        "{b}"
+    );
+    assert_eq!(h["cache-tag"], "entity:Q6");
+    assert!(
+        h["cache-control"]
+            .to_str()
+            .unwrap()
+            .starts_with("public, max-age=0, s-maxage=60")
+    );
+    let etag = h["etag"].to_str().unwrap().to_string();
+    let (status, _, _) = send(
+        router,
+        "/w/rest.php/triplespace/v0/entity/Q6/page",
+        &[("if-none-match", etag)],
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_MODIFIED);
+    // A key-mapped provider's own item ID answers with the keyed entity, and says so.
+    let (status, _, b) = send(router, "/rest.php/triplespace/v0/entity/XDQ11/page", &[]).await;
+    assert_eq!(status, StatusCode::OK, "{b}");
+    assert_eq!(b["id"], "domain:wikipedia.org");
+    assert_eq!(
+        b["entity"], whole["entities"]["domain:wikipedia.org"],
+        "{b}"
+    );
+    assert_eq!(
+        b["redirects"],
+        json!({"from": "XDQ11", "to": "domain:wikipedia.org"})
+    );
+    assert_eq!(
+        b["provenance"]["graphs"][1]["graph"],
+        "mirror/internetdomains"
+    );
+    // A keyed ID no graph holds is an empty entity, as `wbgetentities` serves it.
+    let (status, _, b) = send(
+        router,
+        "/rest.php/triplespace/v0/entity/domain:nothing-here.example/page",
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{b}");
+    assert_eq!(
+        b["entity"]["labels"]["mul"]["value"],
+        "nothing-here.example"
+    );
+    for (path, status, code) in [
+        ("Q999999", StatusCode::NOT_FOUND, "entity-not-found"),
+        ("not-an-id", StatusCode::BAD_REQUEST, "invalid-entity-id"),
+    ] {
+        let (s, _, e) = send(
+            router,
+            &format!("/w/rest.php/triplespace/v0/entity/{path}/page"),
+            &[],
+        )
+        .await;
+        assert_eq!((s, e["code"].as_str()), (status, Some(code)), "{e}");
+    }
+    // An absent entity's answer is public for a caller with no credential, tagged so
+    // that creating the entity purges it; with one it is private.
+    let (s, h, _) = send(
+        router,
+        "/w/rest.php/triplespace/v0/entity/Q999999/page",
+        &[],
+    )
+    .await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+    assert!(h["cache-control"].to_str().unwrap().starts_with("public"));
+    assert_eq!(h["cache-tag"], "entity:Q999999");
+    let (s, h, _) = send(
+        router,
+        "/w/rest.php/triplespace/v0/entity/Q999999/page",
+        &[("authorization", "Bearer nonsense.key".into())],
+    )
+    .await;
+    assert_eq!(s, StatusCode::NOT_FOUND);
+    assert_eq!(h["cache-control"], "private, no-cache");
+
+    // Bulk labels (0012 §5, A70): each ID's label in the chain given, keyed as given.
+    let labels = "/w/rest.php/triplespace/v0/labels";
+    let (status, h, l) = send(
+        router,
+        &format!(
+            "{labels}?ids=Q6|P12|Item:Q6|domain:wikipedia.org|XDQ11|domain:nothing-here.example|Q999999&language=fr|mul|en"
+        ),
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{l}");
+    assert_eq!(l["language"], json!(["fr", "mul", "en"]));
+    assert_eq!(
+        l["labels"]["Q6"], whole["entities"]["Q6"]["labels"]["fr"],
+        "the first language of the chain: {l}"
+    );
+    assert_eq!(l["labels"]["Item:Q6"], l["labels"]["Q6"], "{l}");
+    assert_eq!(
+        l["labels"]["P12"],
+        json!({"language": "en", "value": "note"}),
+        "{l}"
+    );
+    // A Domain's derived label is its `mul` label, before the mirror's English one.
+    assert_eq!(
+        l["labels"]["domain:wikipedia.org"],
+        json!({"language": "mul", "value": "wikipedia.org"}),
+        "{l}"
+    );
+    assert_eq!(
+        l["labels"]["XDQ11"], l["labels"]["domain:wikipedia.org"],
+        "{l}"
+    );
+    assert_eq!(
+        l["labels"]["domain:nothing-here.example"]["value"], "nothing-here.example",
+        "{l}"
+    );
+    assert!(l["labels"].get("Q999999").is_none(), "{l}");
+    // Public, by its URL alone, with no tag per entity.
+    assert!(
+        h["cache-control"]
+            .to_str()
+            .unwrap()
+            .starts_with("public, max-age=0, s-maxage=60")
+    );
+    assert!(h.get("cache-tag").is_none());
+    let etag = h["etag"].to_str().unwrap().to_string();
+    // The chain is the caller's: English first reads the mirror's label.
+    let (_, _, l) = send(
+        router,
+        &format!("{labels}?ids=domain:wikipedia.org&language=en|mul"),
+        &[],
+    )
+    .await;
+    assert_eq!(
+        l["labels"]["domain:wikipedia.org"],
+        json!({"language": "en", "value": "Wikipedia"}),
+        "{l}"
+    );
+    let (status, _, _) = send(
+        router,
+        &format!(
+            "{labels}?ids=Q6|P12|Item:Q6|domain:wikipedia.org|XDQ11|domain:nothing-here.example|Q999999&language=fr|mul|en"
+        ),
+        &[("if-none-match", etag)],
+    )
+    .await;
+    assert_eq!(status, StatusCode::NOT_MODIFIED);
+    // A thousand IDs in one call, and no more.
+    let many = |n: usize| {
+        (1..=n)
+            .map(|i| format!("Q{i}"))
+            .collect::<Vec<_>>()
+            .join("|")
+    };
+    let (status, _, l) = send(
+        router,
+        &format!("{labels}?ids={}&language=en", many(1000)),
+        &[],
+    )
+    .await;
+    assert_eq!(status, StatusCode::OK, "{l}");
+    assert_eq!(l["labels"]["Q6"]["language"], "en", "{l}");
+    for (query, code) in [
+        (format!("ids={}&language=en", many(1001)), "toomanyvalues"),
+        ("language=en".to_string(), "param-missing"),
+        ("ids=Q6".to_string(), "param-missing"),
+        ("ids=not-an-id&language=en".to_string(), "invalid-entity-id"),
+        ("ids=Q6&language=en;drop".to_string(), "invalid-language"),
+    ] {
+        let (s, _, e) = send(router, &format!("{labels}?{query}"), &[]).await;
+        assert_eq!(
+            (s, e["code"].as_str()),
+            (StatusCode::BAD_REQUEST, Some(code)),
+            "{e}"
+        );
+    }
+}

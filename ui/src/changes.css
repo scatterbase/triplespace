@@ -1,0 +1,561 @@
+/*
+ * Special:RecentChanges and Special:Contributions (ADR 0010 §7, 0020 §4; chapter 19
+ * §3.9): the filter form, the sync strip, the changes table grouped by day, and the pager.
+ * Logical properties throughout.
+ */
+
+/* The page takes the width it is given: the changes table fills it. */
+.ts-changes {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-100, 1rem );
+}
+
+.ts-changes-form {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: var( --spacing-100, 1rem ) var( --spacing-150, 1.5rem );
+	padding: var( --spacing-75, 0.75rem ) var( --spacing-100, 1rem );
+	border: 1px solid var( --border-color-muted, #dadde3 );
+	border-radius: var( --border-radius-base, 2px );
+	background-color: var( --background-color-neutral-subtle, #f8f9fa );
+}
+
+/* The row kinds take a row of their own; the selects and the button share the next.
+ * `ts-form-group` and `ts-form-field` are Plain's `forms.html` items (0097 A8); the
+ * `ts-changes-form__` names are the built-in drawing's, kept until group 12 of the skin
+ * migration switches (19 §5.10). */
+
+.ts-form-group,
+.ts-changes-form__kinds {
+	display: flex;
+	flex-wrap: wrap;
+	flex-basis: 100%;
+	gap: var( --spacing-50, 0.5rem ) var( --spacing-100, 1rem );
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.ts-form-group legend,
+.ts-changes-form__kinds legend {
+	flex-basis: 100%;
+	padding: 0;
+	margin-bottom: var( --spacing-25, 0.25rem );
+	font-weight: bold;
+}
+
+.ts-form-group .cdx-checkbox--inline,
+.ts-changes-form__kinds .cdx-checkbox--inline {
+	margin-inline-end: 0;
+}
+
+.ts-form-field,
+.ts-changes-form__field {
+	display: inline-flex;
+	flex-direction: column;
+	gap: var( --spacing-25, 0.25rem );
+	min-width: 10rem;
+}
+
+.ts-form-field > span,
+.ts-changes-form__field > span {
+	font-weight: bold;
+}
+
+.ts-changes-form > .cdx-button {
+	align-self: flex-end;
+}
+
+.ts-changes__strip {
+	margin: 0;
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+/* The rows are one table (`ts-changes__table`): a column per field, so a row with no
+ * size, user or summary leaves its cell empty and the fields still line up. Each day is
+ * a row group headed by its date. On a narrow screen the table scrolls in its wrapper,
+ * not the page. */
+.ts-changes__scroll {
+	max-width: 100%;
+	overflow-x: auto;
+}
+
+.ts-changes__table {
+	width: 100%;
+	border-collapse: collapse;
+	line-height: var( --line-height-medium, 1.5 );
+}
+
+.ts-change__head {
+	padding: var( --spacing-25, 0.25rem ) var( --spacing-50, 0.5rem );
+	border-bottom: 2px solid var( --border-color-base, #a2a9b1 );
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+	font-weight: bold;
+	text-align: start;
+	white-space: nowrap;
+}
+
+.ts-change__head--size {
+	text-align: end;
+}
+
+.ts-changes__day {
+	padding: var( --spacing-100, 1rem ) var( --spacing-50, 0.5rem ) var( --spacing-25, 0.25rem );
+	font-size: var( --font-size-medium, 1rem );
+	font-weight: bold;
+	text-align: start;
+}
+
+.ts-change__cell {
+	padding: var( --spacing-25, 0.25rem ) var( --spacing-50, 0.5rem );
+	border-top: 1px solid var( --border-color-muted, #dadde3 );
+	vertical-align: baseline;
+	text-align: start;
+}
+
+/* The short fields keep to one line; the page and summary take the rest and wrap. */
+.ts-change__cell--compare,
+.ts-change__cell--time,
+.ts-change__cell--origin,
+.ts-change__cell--flags,
+.ts-change__cell--size,
+.ts-change__cell--user {
+	width: 1%;
+	white-space: nowrap;
+}
+
+.ts-change__cell--size {
+	text-align: end;
+}
+
+/* `break-word`, not `anywhere`: it breaks a long title only when the title cannot fit
+ * its line, and does not let the table shrink the column to a few letters. */
+.ts-change__cell--target,
+.ts-change__cell--summary {
+	overflow-wrap: break-word;
+}
+
+/* The page takes a quarter of a wide table, so that its size and user stay near it and
+ * the summary takes what is left. */
+.ts-change__cell--target {
+	width: 25%;
+}
+
+.ts-change__cell--target .ts-change__part + .ts-change__part {
+	margin-inline-start: var( --spacing-50, 0.5rem );
+}
+
+.ts-change:hover > .ts-change__cell {
+	background-color: var( --background-color-interactive-subtle, #f8f9fa );
+}
+
+/* The undelete page keeps a plain list. */
+.ts-changes__list {
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+/* Links in a row are underlined to be told apart from the text around them (WCAG
+ * 1.4.1; axe's link-in-text-block), as is the strip's link. */
+.ts-changes__strip a,
+.ts-change a {
+	text-decoration: underline;
+}
+
+.ts-change__time {
+	font-family: var( --font-family-monospace, monospace );
+	font-size: var( --font-size-small, 0.875rem );
+	color: var( --color-subtle, #54595d );
+}
+
+/* An account as a change's target: a person icon before the name (ADR 0095 §3). */
+.ts-change__account {
+	display: inline-flex;
+	align-items: center;
+	gap: var( --spacing-25, 0.25rem );
+}
+
+.ts-change__account-icon {
+	flex: none;
+	fill: var( --color-subtle, #54595d );
+}
+
+.ts-change__id {
+	font-size: var( --font-size-small, 0.875rem );
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-change__flag {
+	font-weight: bold;
+	text-decoration: none;
+}
+
+.ts-change__flag--new {
+	color: var( --color-success, #177860 );
+}
+
+.ts-change__flag--bot {
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-change__delta {
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-change__delta--pos {
+	color: var( --color-success, #177860 );
+}
+
+.ts-change__delta--neg {
+	color: var( --color-destructive, #bf3c2c );
+}
+
+.ts-change__summary {
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-change__auto {
+	font-style: italic;
+}
+
+/* An automatic comment (a section, or what Wikibase said the edit did) reads apart from
+   the editor's own words, as MediaWiki's does. */
+.ts-change__autocomment,
+.ts-change__autocomment a {
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-change__comment a {
+	text-decoration: underline;
+}
+
+.ts-change__comment {
+	color: var( --color-base, #202122 );
+}
+
+.ts-change__hidden {
+	color: var( --color-subtle, #54595d );
+	font-style: italic;
+}
+
+/* The tags follow the summary in its cell. */
+.ts-change__tags {
+	display: inline-flex;
+	margin-inline-start: var( --spacing-50, 0.5rem );
+	flex-wrap: wrap;
+	gap: var( --spacing-25, 0.25rem );
+}
+
+.ts-change__tag {
+	padding: 0 var( --spacing-25, 0.25rem );
+	border: 1px solid var( --border-color-muted, #dadde3 );
+	border-radius: var( --border-radius-pill, 9999px );
+	font-size: var( --font-size-x-small, 0.75rem );
+	color: var( --color-subtle, #54595d );
+}
+
+/* The History tab (chapter 19 §3.3–3.5): the source switch reuses the search filter's
+ * row of links; the note about a mirror's retained states sits above the list. */
+.ts-history {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-100, 1rem );
+}
+
+.ts-history__note {
+	margin: 0;
+	padding: var( --spacing-50, 0.5rem ) var( --spacing-75, 0.75rem );
+	border-inline-start: 4px solid var( --border-color-notice, #72777d );
+	background-color: var( --background-color-neutral-subtle, #f8f9fa );
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-history__note p {
+	margin: 0;
+}
+
+/* The diff page (chapter 19 §3.8): keyed lists and statement groups as tables with a
+ * before and an after column, marks on the changed cells, the view switch, and the
+ * "About this edit" panel beside the content. */
+.ts-diff {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-100, 1rem );
+}
+
+.ts-diff__head,
+.ts-diff__nav,
+.ts-diff__sync {
+	margin: 0;
+}
+
+.ts-diff__revisions {
+	border-collapse: collapse;
+}
+
+.ts-diff__revisions th {
+	padding-inline-end: var( --spacing-75, 0.75rem );
+	text-align: start;
+}
+
+.ts-diff__body {
+	display: grid;
+	grid-template-columns: minmax( 0, 1fr );
+	gap: var( --spacing-150, 1.5rem );
+}
+
+@media ( min-width: 60rem ) {
+	.ts-diff__body {
+		grid-template-columns: minmax( 0, 1fr ) 18rem;
+	}
+}
+
+.ts-diff__main {
+	min-width: 0;
+}
+
+.ts-diff__section {
+	margin: 0;
+}
+
+.ts-diff__heading {
+	margin: var( --spacing-100, 1rem ) 0 var( --spacing-50, 0.5rem );
+	font-family: inherit;
+	font-size: var( --font-size-medium, 1rem );
+	font-weight: bold;
+}
+
+/* A sync's summary table. */
+.ts-diff__table {
+	width: 100%;
+	border-collapse: collapse;
+	table-layout: fixed;
+}
+
+.ts-diff__table th,
+.ts-diff__table td {
+	padding: var( --spacing-25, 0.25rem ) var( --spacing-50, 0.5rem );
+	border: 1px solid var( --border-color-muted, #dadde3 );
+	vertical-align: top;
+	text-align: start;
+	overflow-wrap: anywhere;
+}
+
+.ts-diff__table thead th {
+	background-color: var( --background-color-neutral-subtle, #f8f9fa );
+}
+
+.ts-diff__key {
+	width: 8rem;
+	font-weight: normal;
+}
+
+/* An entity's diff as Wikibase draws one (0010 §6): two columns, the older state on the
+   left and the newer on the right, each with a narrow column for its − or + marker, as
+   a page's diff has. A change is told apart by its marker, a border and a background,
+   never by colour alone. */
+.ts-wbdiff {
+	width: 100%;
+	border-collapse: separate;
+	border-spacing: var( --spacing-25, 0.25rem ) 2px;
+	table-layout: fixed;
+}
+
+.ts-wbdiff__col-marker {
+	width: 2ch;
+}
+
+.ts-wbdiff__col-content {
+	width: 50%;
+}
+
+.ts-wbdiff__title {
+	padding-block-end: var( --spacing-50, 0.5rem );
+	font-weight: normal;
+	text-align: center;
+	vertical-align: top;
+}
+
+.ts-wbdiff__lineno {
+	padding-block-start: var( --spacing-75, 0.75rem );
+	font-weight: bold;
+	overflow-wrap: anywhere;
+}
+
+.ts-wbdiff__key {
+	font-weight: normal;
+}
+
+.ts-wbdiff__marker {
+	font-weight: bold;
+	text-align: end;
+	vertical-align: top;
+}
+
+.ts-wbdiff__marker::before {
+	content: attr( data-marker );
+}
+
+.ts-wbdiff .ts-diff__cell {
+	padding: var( --spacing-25, 0.25rem ) var( --spacing-50, 0.5rem );
+	border: 1px solid var( --border-color-muted, #dadde3 );
+	border-inline-start-width: 4px;
+	border-radius: var( --border-radius-base, 2px );
+	vertical-align: top;
+	overflow-wrap: anywhere;
+}
+
+.ts-wbdiff .ts-diff__cell--added {
+	border-color: var( --border-color-progressive--focus, #36c );
+}
+
+.ts-wbdiff .ts-diff__cell--removed {
+	border-color: var( --border-color-warning, #ab7f2a );
+}
+
+.ts-wbdiff .ts-diff__cell--same {
+	background-color: var( --background-color-neutral-subtle, #f8f9fa );
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-wbdiff .ts-diff__cell--empty {
+	border: 0;
+}
+
+.ts-wbdiff__change {
+	padding: 0 2px;
+	border-radius: var( --border-radius-base, 2px );
+	font-weight: bold;
+	text-decoration: none;
+}
+
+ins.ts-wbdiff__change {
+	background-color: var( --background-color-progressive-subtle, #eaf3ff );
+}
+
+del.ts-wbdiff__change {
+	background-color: var( --background-color-warning-subtle, #fdf2d5 );
+}
+
+.ts-wbdiff__notice {
+	padding: var( --spacing-100, 1rem );
+	color: var( --color-subtle, #54595d );
+	text-align: center;
+}
+
+.ts-diff__statement .ts-qualifiers,
+.ts-diff__statement .ts-references {
+	margin-block-start: var( --spacing-25, 0.25rem );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-diff__changeset {
+	margin: 0;
+	padding: var( --spacing-75, 0.75rem );
+	border: 1px solid var( --border-color-muted, #dadde3 );
+	background-color: var( --background-color-neutral-subtle, #f8f9fa );
+	font-size: var( --font-size-small, 0.875rem );
+	overflow: auto;
+}
+
+.ts-diff__about {
+	align-self: start;
+	padding: var( --spacing-75, 0.75rem ) var( --spacing-100, 1rem );
+	border: 1px solid var( --border-color-muted, #dadde3 );
+	border-radius: var( --border-radius-base, 2px );
+	background-color: var( --background-color-neutral-subtle, #f8f9fa );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-diff__about h3 {
+	margin: 0 0 var( --spacing-50, 0.5rem );
+	font-family: inherit;
+	font-size: var( --font-size-medium, 1rem );
+}
+
+.ts-diff__about dl {
+	margin: 0;
+}
+
+.ts-diff__about dt {
+	font-weight: bold;
+}
+
+.ts-diff__about dd {
+	margin: 0 0 var( --spacing-50, 0.5rem );
+}
+
+.ts-oldid__links {
+	margin: 0;
+}
+
+/*
+ * A history's compare form (ADR 0010 §5.6): the radio buttons for the older and the newer
+ * side, side by side in the first column, and the button above the rows.
+ */
+.ts-change__pick {
+	margin: 0 0.15em;
+	vertical-align: middle;
+}
+
+.ts-change__pick--new:only-child {
+	margin-inline-start: calc( 1.3em + 0.3em );
+}
+
+.ts-history__compare-actions {
+	margin-block-end: var( --spacing-50, 0.5rem );
+}
+
+/* A row's menu (19 §3.4): a disclosure whose links open in the row, so that the table's
+   scroll box never clips them. */
+.ts-change__cell--menu {
+	width: 1%;
+	text-align: end;
+	white-space: nowrap;
+}
+
+.ts-change__menu > summary {
+	list-style: none;
+}
+
+.ts-change__menu > summary::-webkit-details-marker {
+	display: none;
+}
+
+.ts-change__menu-items {
+	margin: var( --spacing-25, 0.25rem ) 0 0;
+	padding: 0;
+	list-style: none;
+	text-align: start;
+}
+
+/* The action is a short field; a long one wraps. */
+.ts-change__cell--action {
+	max-width: 16rem;
+	overflow-wrap: break-word;
+}
+
+/* A history's filter panel (19 §3.3): a disclosure above the rows, open while a filter
+   is on. */
+.ts-history__filter {
+	margin-block-end: var( --spacing-75, 0.75rem );
+}
+
+.ts-history__filter > summary {
+	color: var( --color-progressive, #36c );
+	cursor: pointer;
+}
+
+.ts-history__filter > .ts-changes-form {
+	margin-block-start: var( --spacing-50, 0.5rem );
+}
+
+.ts-history__filter-clear {
+	margin-inline-start: var( --spacing-75, 0.75rem );
+}

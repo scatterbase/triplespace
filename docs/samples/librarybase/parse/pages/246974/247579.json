@@ -1,0 +1,56 @@
+{
+ "categories": [],
+ "displaytitle": "<span class=\"mw-page-title-namespace\">Template</span><span class=\"mw-page-title-separator\">:</span><span class=\"mw-page-title-main\">Welcome</span>",
+ "externallinks": [],
+ "images": [],
+ "iwlinks": [],
+ "langlinks": [],
+ "links": [
+  {
+   "exists": true,
+   "ns": 3,
+   "title": "User talk:Harej"
+  },
+  {
+   "exists": true,
+   "ns": 4,
+   "title": "Project:Consensus"
+  },
+  {
+   "exists": true,
+   "ns": 4,
+   "title": "Project:Principles"
+  },
+  {
+   "exists": true,
+   "ns": 4,
+   "title": "Project:Provenance"
+  },
+  {
+   "exists": true,
+   "ns": 4,
+   "title": "Project:Scope"
+  }
+ ],
+ "pageid": 246974,
+ "parsewarnings": [],
+ "properties": {
+  "unexpectedUnconnectedPage": -10
+ },
+ "revid": 247579,
+ "sections": [
+  {
+   "anchor": "Welcome_to_Librarybase!",
+   "byteoffset": 0,
+   "fromtitle": "Template:Welcome",
+   "index": "1",
+   "level": "2",
+   "line": "Welcome to Librarybase!",
+   "number": "1",
+   "toclevel": 1
+  }
+ ],
+ "showtoc": false,
+ "templates": [],
+ "title": "Template:Welcome"
+}

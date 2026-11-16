@@ -1,0 +1,48 @@
+[package]
+name = "triplespace-api-rest"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "The triplespace/v0 REST API (ADR 0012 §5): data only Triplespace has, under rest.php/triplespace/v0, with its OpenAPI contract"
+publish = false
+
+[dependencies]
+scatter-blob.workspace = true
+triplespace-api-action.workspace = true
+triplespace-api-ingest.workspace = true
+scatter-ingest.workspace = true
+scatter-threads.workspace = true
+deadpool-postgres.workspace = true
+scatter-projection.workspace = true
+scatter-integrity.workspace = true
+triplespace-accounts.workspace = true
+scatter-actors.workspace = true
+serde.workspace = true
+triplespace-projections.workspace = true
+triplespace-notify.workspace = true
+scatter-mail.workspace = true
+base64.workspace = true
+scatter-log.workspace = true
+scatter-log-postgres.workspace = true
+triplespace-rdf.workspace = true
+scatter-wikibase-changeset.workspace = true
+scatter-wikibase-model.workspace = true
+scatter-wikibase-resolve.workspace = true
+scatter-providers.workspace = true
+axum.workspace = true
+serde_json.workspace = true
+tokio-postgres.workspace = true
+tokio = { workspace = true, features = ["sync", "rt"] }
+futures-util.workspace = true
+toml.workspace = true
+url.workspace = true
+percent-encoding.workspace = true
+
+[dev-dependencies]
+tokio = { workspace = true, features = ["macros", "rt", "time"] }
+
+[lints]
+workspace = true

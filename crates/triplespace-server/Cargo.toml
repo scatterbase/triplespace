@@ -1,0 +1,68 @@
+[package]
+name = "triplespace-server"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "The Triplespace server binary: the Action API over axum, with the deployment settings of 0056 §10"
+publish = false
+
+[[bin]]
+name = "triplespace-server"
+path = "src/main.rs"
+
+[features]
+# The process allocator (0033 §2, A24); off for the system allocator, for heap tools.
+default = ["mimalloc"]
+mimalloc = ["dep:mimalloc"]
+
+[dependencies]
+mimalloc = { workspace = true, optional = true }
+triplespace-api-action.workspace = true
+triplespace-api-rest.workspace = true
+triplespace-accounts.workspace = true
+triplespace-cli.workspace = true
+triplespace-db.workspace = true
+triplespace-client.workspace = true
+triplespace-ui.workspace = true
+triplespace-projections.workspace = true
+triplespace-notify.workspace = true
+triplespace-api-ingest.workspace = true
+scatter-blob.workspace = true
+scatter-mail.workspace = true
+tokio-postgres.workspace = true
+ed25519-dalek.workspace = true
+axum.workspace = true
+clap.workspace = true
+anyhow.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "net", "time", "sync"] }
+
+[dev-dependencies]
+futures-util.workspace = true
+bytes.workspace = true
+scatter-mediawiki-xml.workspace = true
+base64.workspace = true
+scatter-challenge.workspace = true
+scatter-actors.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "net", "io-util"] }
+scatter-projection.workspace = true
+scatter-ingest.workspace = true
+scatter-providers.workspace = true
+scatter-threads.workspace = true
+scatter-log.workspace = true
+scatter-log-postgres.workspace = true
+scatter-wikibase-changeset.workspace = true
+scatter-integrity.workspace = true
+tower.workspace = true
+http-body-util.workspace = true
+serde_json.workspace = true
+url.workspace = true
+flate2.workspace = true
+
+[build-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

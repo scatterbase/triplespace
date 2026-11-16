@@ -1,0 +1,53 @@
+# The fuzz targets of chapter 22 §4.9 (0033 §15): cargo-fuzz over libFuzzer, on a nightly
+# toolchain. Its own workspace, outside the crate map of docs/registry/crates.toml: it is
+# not a crate of the product, so `cargo xtask deps`, `cargo build --workspace` and
+# cargo-deny never see it, and it reaches the crates under test by path.
+#
+#   fuzz/run.sh <target> [seconds]     seed the corpus from the repo's fixtures, then run
+#   cargo +nightly fuzz list           the targets
+#
+# .github/workflows/fuzz.yml runs every target nightly, never on a pull request.
+[package]
+name = "triplespace-fuzz"
+version = "0.0.0"
+edition = "2021"
+license = "GPL-3.0-or-later"
+publish = false
+
+[package.metadata]
+cargo-fuzz = true
+
+[workspace]
+
+[dependencies]
+libfuzzer-sys = "0.4"
+scatter-log = { path = "../crates/scatter-log" }
+scatter-pages = { path = "../crates/scatter-pages", features = ["markdown"] }
+scatter-wikitext = { path = "../crates/scatter-wikitext" }
+
+# The wikitext parser and renderer of 0008 §8 over any text (0033 §9.1).
+[[bin]]
+name = "wikitext"
+path = "fuzz_targets/wikitext.rs"
+test = false
+doc = false
+bench = false
+
+# The markdown path of 0008 §5 and 0019 §5: comrak, wiki links, then the sanitizer (0033 §9.2).
+[[bin]]
+name = "markdown"
+path = "fuzz_targets/markdown.rs"
+test = false
+doc = false
+bench = false
+
+# The strict CBOR decoder and the header, body and record readers of 0006 §2–3 and §5.
+[[bin]]
+name = "cbor_record"
+path = "fuzz_targets/cbor_record.rs"
+test = false
+doc = false
+bench = false
+
+[profile.release]
+debug = 1

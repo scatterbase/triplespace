@@ -1,0 +1,592 @@
+# Provider registry.  ADR 0000 §3, 0002 §4, 0015 §2 and §5, 0022 §2, 0044 §2.
+#
+# code         Two-letter code that prefixes entity IDs minted by the provider (WDQ42).
+# slug         Lower-case name used in graph names (mirror/{slug}) and in the API.
+# number       Provider number for the revision-ID range: revid = number << 40 | n (0015 §2).
+#              0 is the instance itself and is never assigned. 4194304–8388607 (2^22 to 2^23 − 1) are
+#              never assigned here either: each tenant assigns them to its entity sources (0078 §4).
+# issuer       The issuer (issuers.toml) that the provider's revisions attribute actors to,
+#              or the provider itself for providers without individual actors (0007 §6).
+# revision_ids true if the provider publishes revision IDs; then n is the upstream revision ID,
+#              otherwise n is the mirror record's offset.
+# adapter      The crate that implements the provider's adapter (0002 §8.4), one per provider (0002 A28).
+#              Every MediaWiki+Wikibase provider names scatter-adapter-wikibase, parameterised by its
+#              entry (0091 §1).
+# adapter_config
+#              The adapter's own settings, never credentials. For a key-mapped Wikibase provider (0091 §2):
+#                [[provider.adapter_config.key_map]], one rule per class of mapped item, with
+#                  identity_property  the upstream property whose value is the key, by upstream ID (P1)
+#                  key_type           the keyed type mapped onto (keyed-types.toml)
+#                  key_scheme         for key_type = "notation", the scheme (notation-schemes.toml)
+#                  class              optional: the rule applies only to items with this upstream class
+#                                     as a direct value of class_property
+#                class_property     the wiki's "instance of", required when a rule names a class
+#                identity_property_on_mapped
+#                                   "drop" (default) or "keep"
+# actor_model  "individual" (default): the provider's revisions name actors, attributed through the
+#              issuer; "provider-only": no per-change attribution, every change is attributed to the
+#              provider's own actor record (0007 §6 as amended by 0007 A18, 0037 §1). Explicit, because
+#              issuer == slug is not the test: OpenStreetMap has that and has changeset authors (0002 A28).
+# sync_deltas  "summary" (default) or "full": whether a sync's observed change set stores the per-field
+#              delta beside its summary (0012 §2.2, 0012 A58).
+# deletion     "tombstone" (default): an upstream deletion is a tombstone that applies the retention
+#              policy (0002 §5); "clear": a `put` of the empty state that clears the mirror's contribution,
+#              for a provider whose IDs are never reused (0002 A29, 0036 §2: OpenStreetMap).
+# trust        For a provider that publishes a tlog checkpoint (a Triplespace instance, Scatterbase):
+#              "verified" (default for scatter-adapter-triplespace) checks every mirrored batch against
+#              the provider's checkpoint and key chain; "stream" mirrors without proofs (0022 §2).
+# keys         The provider's key-chain URL, {base}/.well-known/tlog/keys, required when trust = "verified".
+# chip_color, chip_background
+#              The provider chip's text and background colours in the site, #RRGGBB, both or neither
+#              (0010 §2). The text must meet 4.5:1 on the background; the site checks it and shows a
+#              neutral chip where it does not. Each provider's pair differs from the others in hue, and
+#              from the Local and Best value chips the site draws itself.
+# chip_color_dark, chip_background_dark
+#              Optional. The chip's colours in a dark variant (0086 §2), where swapping chip_color and
+#              chip_background, the default, does not suit; the same 4.5:1 check applies.
+#
+# Each [[provider.type]] gives one entity type the provider mints:
+#   code             One-letter type code; the entity ID prefix is provider.code + type.code.
+#   entity_type      The Wikibase entity type of the mirrored entity.
+#   upstream_prefix  What the provider's own IDs start with, for rewriting (Q123 <-> WDQ123).
+#   iri              Canonical concept IRI template; {upstream_id} is the provider's own ID.
+#   namespace        The Triplespace namespace (namespaces.toml) whose pages host the type.
+#
+# Codes and numbers are never reused (README).
+
+version = 1
+
+# Reserved codes (0044 §2). A type letter written three times, QQQ5, is the tenant-relative form of
+# a local ID, so a doubled letter is never a provider code. All twenty-six are reserved, so a type
+# letter added later already has its form. scatter-providers rejects a provider that takes one.
+reserved_codes = ["AA", "BB", "CC", "DD", "EE", "FF", "GG", "HH", "II", "JJ", "KK", "LL", "MM", "NN", "OO", "PP", "QQ", "RR", "SS", "TT", "UU", "VV", "WW", "XX", "YY", "ZZ"]
+
+# id_grammar   How the part after the three-letter prefix is formed (0017 §2): "digits" (default,
+#              canonical as given), "uuid" (RFC 4122 text form, canonical lowercase), "gdelt-record"
+#              (14 digits, `-`, optional `T`, digits) or "token" (uppercase letters, digits and
+#              underscores, starting with a letter; 0037 §2). May be set on a provider or, overriding it,
+#              on a single type.
+# pages        true for a provider whose pages a page repository serves (0052 §1). Such a provider may
+#              mint no entities: it then has no code and no [[provider.type]], and its number ranges the
+#              page IDs and revision IDs of its pages (0052 §6). `rest` is its MediaWiki REST base (0053 §1).
+#              scatter-providers does not accept a codeless entry yet, so English Wikipedia's entry
+#              (slug enwiki, number 9, issuer enwiki) is a pending allocation (README) rather than a row here.
+# remote       For a `pages` provider: the host and site whose remote keys name its pages (0110 §8),
+#              "wikimedia:enwiki". When absent it is derived from the hosts' site lists (hosts.toml) by
+#              the host of the provider's API endpoint. Pending (README): scatter-providers rejects it yet.
+# key_mapped   On a type: upstream entities of this type are written under a keyed type's keys
+#              (0009 §9) instead of prefixed IDs. The type code stays reserved.
+
+# ---------------------------------------------------------------------------
+# Wikidata
+# ---------------------------------------------------------------------------
+[[provider]]
+code = "WD"
+slug = "wikidata"
+name = "Wikidata"
+chip_color = "#1F5139"
+chip_background = "#E3EEE8"
+number = 1
+issuer = "wikidatawiki"
+revision_ids = true
+article_path = "https://www.wikidata.org/wiki/"
+api = "https://www.wikidata.org/w/api.php"
+entity_data = "https://www.wikidata.org/wiki/Special:EntityData/"
+adapter = "scatter-adapter-wikibase"                            # any MediaWiki+Wikibase; the adapter is parameterised by this entry (0091 §1)
+actor_model = "individual"
+agent_iri = "http://www.wikidata.org/entity/Q2013"    # the provider as a prov:Organization (0007 §6)
+
+  [[provider.type]]
+  code = "Q"
+  entity_type = "item"
+  upstream_prefix = "Q"
+  iri = "http://www.wikidata.org/entity/{upstream_id}"
+  namespace = "Item"
+
+  [[provider.type]]
+  code = "P"
+  entity_type = "property"
+  upstream_prefix = "P"
+  iri = "http://www.wikidata.org/entity/{upstream_id}"
+  namespace = "Property"
+
+  [[provider.type]]
+  code = "L"
+  entity_type = "lexeme"
+  upstream_prefix = "L"
+  iri = "http://www.wikidata.org/entity/{upstream_id}"
+  namespace = "Lexeme"             # implemented by 0066
+
+  [[provider.type]]
+  code = "M"
+  entity_type = "mediainfo"
+  upstream_prefix = "M"
+  iri = "https://commons.wikimedia.org/entity/{upstream_id}"
+  namespace = "File"               # a MediaInfo entity is the `mediainfo` slot of a File page, not a namespace of its own (0041 §6–7)
+  # Commons is the source of this type under Wikidata's provider (0065 §2). The per-type source fields
+  # 0065 §5 adds to scatter-providers are a pending allocation (README) until the crate accepts them:
+  #   api = "https://commons.wikimedia.org/w/api.php"
+  #   entity_data = "https://commons.wikimedia.org/wiki/Special:EntityData/"
+  #   dumps = "https://dumps.wikimedia.org/commonswiki/entities/"
+
+  [[provider.type]]
+  code = "E"
+  entity_type = "entityschema"
+  upstream_prefix = "E"
+  iri = "http://www.wikidata.org/entity/{upstream_id}"
+  namespace = "EntitySchema"       # 0064 §1: read from namespace 640 pages, not the entity dumps
+
+# ---------------------------------------------------------------------------
+# Librarybase
+# ---------------------------------------------------------------------------
+[[provider]]
+code = "LB"
+slug = "librarybase"
+name = "Librarybase"
+chip_color = "#5A2C7A"
+chip_background = "#EFE6F5"
+number = 2
+issuer = "librarybase"
+revision_ids = true
+article_path = "https://librarybase.org/wiki/"
+api = "https://librarybase.org/w/api.php"
+adapter = "scatter-adapter-wikibase"                            # any MediaWiki+Wikibase; the adapter is parameterised by this entry (0091 §1)
+actor_model = "individual"
+
+  [[provider.type]]
+  code = "Q"
+  entity_type = "item"
+  upstream_prefix = "Q"
+  iri = "https://librarybase.org/entity/{upstream_id}"
+  namespace = "Item"
+
+  [[provider.type]]
+  code = "P"
+  entity_type = "property"
+  upstream_prefix = "P"
+  iri = "https://librarybase.org/entity/{upstream_id}"
+  namespace = "Property"
+
+# ---------------------------------------------------------------------------
+# OpenAlex
+# ---------------------------------------------------------------------------
+[[provider]]
+code = "OA"
+slug = "openalex"
+name = "OpenAlex"
+chip_color = "#6B2A2A"
+chip_background = "#F6E5E2"
+number = 3
+issuer = "openalex"
+revision_ids = false             # no revision history; n is the mirror record's offset (0015 §2)
+api = "https://api.openalex.org/"
+adapter = "scatter-adapter-openalex"
+actor_model = "provider-only"
+# agent_iri: OpenAlex's Wikidata item, as a prov:Organization (0007 §6) — to be set when confirmed
+
+  [[provider.type]]
+  code = "W"
+  entity_type = "item"
+  upstream_prefix = "W"
+  iri = "https://openalex.org/{upstream_id}"
+  namespace = "Item"
+  label = "Work"
+
+  [[provider.type]]
+  code = "A"
+  entity_type = "item"
+  upstream_prefix = "A"
+  iri = "https://openalex.org/{upstream_id}"
+  namespace = "Item"
+  label = "Author"
+
+  [[provider.type]]
+  code = "S"
+  entity_type = "item"
+  upstream_prefix = "S"
+  iri = "https://openalex.org/{upstream_id}"
+  namespace = "Item"
+  label = "Source"
+
+  [[provider.type]]
+  code = "I"
+  entity_type = "item"
+  upstream_prefix = "I"
+  iri = "https://openalex.org/{upstream_id}"
+  namespace = "Item"
+  label = "Institution"
+
+  [[provider.type]]
+  code = "T"
+  entity_type = "item"
+  upstream_prefix = "T"
+  iri = "https://openalex.org/{upstream_id}"
+  namespace = "Item"
+  label = "Topic"
+
+  # Keywords are mapped by key onto the `keyword` keyed type (0017 §5), as 0009 §9 maps
+  # internetdomains.wiki items onto Domains. No OAK entity is ever minted; the code stays reserved.
+  [[provider.type]]
+  code = "K"
+  entity_type = "keyword"
+  key_mapped = true
+  upstream_prefix = "keywords/"
+  iri = "https://openalex.org/keywords/{upstream_id}"
+  label = "Keyword"
+
+  [[provider.type]]
+  code = "P"
+  entity_type = "item"
+  upstream_prefix = "P"
+  iri = "https://openalex.org/{upstream_id}"
+  namespace = "Item"
+  label = "Publisher"
+
+  [[provider.type]]
+  code = "F"
+  entity_type = "item"
+  upstream_prefix = "F"
+  iri = "https://openalex.org/{upstream_id}"
+  namespace = "Item"
+  label = "Funder"
+
+  [[provider.type]]
+  code = "G"
+  entity_type = "item"
+  upstream_prefix = "G"
+  iri = "https://openalex.org/{upstream_id}"
+  namespace = "Item"
+  label = "Award"
+
+# ---------------------------------------------------------------------------
+# MusicBrainz
+# ---------------------------------------------------------------------------
+# MusicBrainz IDs (MBIDs) are UUIDs, so the provider has id_grammar = "uuid": the entity ID is
+# the three-letter prefix followed by the MBID verbatim, lowercase, e.g.
+# MBAb10bbbfc-cf9e-42e0-be17-e2c3e1d2600d (0017 §6).
+[[provider]]
+code = "MB"
+slug = "musicbrainz"
+name = "MusicBrainz"
+chip_color = "#6A2150"
+chip_background = "#F5E3EE"
+number = 4
+issuer = "musicbrainz"
+revision_ids = false             # no per-entity revision IDs; n is the mirror record's offset (0015 §2)
+api = "https://musicbrainz.org/ws/2/"
+adapter = "scatter-adapter-musicbrainz"
+actor_model = "provider-only"
+id_grammar = "uuid"
+
+  [[provider.type]]
+  code = "A"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/artist/{upstream_id}"
+  namespace = "Item"
+  label = "Artist"
+
+  [[provider.type]]
+  code = "G"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/release-group/{upstream_id}"
+  namespace = "Item"
+  label = "Release group"
+
+  [[provider.type]]
+  code = "R"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/release/{upstream_id}"
+  namespace = "Item"
+  label = "Release"
+
+  [[provider.type]]
+  code = "C"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/recording/{upstream_id}"
+  namespace = "Item"
+  label = "Recording"
+
+  [[provider.type]]
+  code = "W"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/work/{upstream_id}"
+  namespace = "Item"
+  label = "Work"
+
+  [[provider.type]]
+  code = "L"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/label/{upstream_id}"
+  namespace = "Item"
+  label = "Label"
+
+  [[provider.type]]
+  code = "D"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/area/{upstream_id}"
+  namespace = "Item"
+  label = "Area"
+
+  [[provider.type]]
+  code = "P"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/place/{upstream_id}"
+  namespace = "Item"
+  label = "Place"
+
+  [[provider.type]]
+  code = "E"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/event/{upstream_id}"
+  namespace = "Item"
+  label = "Event"
+
+  [[provider.type]]
+  code = "S"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/series/{upstream_id}"
+  namespace = "Item"
+  label = "Series"
+
+  [[provider.type]]
+  code = "I"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/instrument/{upstream_id}"
+  namespace = "Item"
+  label = "Instrument"
+
+  [[provider.type]]
+  code = "N"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://musicbrainz.org/genre/{upstream_id}"
+  namespace = "Item"
+  label = "Genre"
+
+  # url entities are not mirrored as items; they become URL-valued statements on the entity
+  # that links them.
+
+# ---------------------------------------------------------------------------
+# internetdomains.wiki (Internet Domains Wikibase)
+# ---------------------------------------------------------------------------
+# Key-mapped provider (0009 §9): a domain item with one valid identity value is written under its
+# Domain key (domain:{key}) and never appears as an XDQ subject; the upstream ID becomes an alias.
+# Items with no identity value (registrars, organizations, classes) stay ordinary foreign items
+# as XDQ{n}; properties are XDP{n}. An invalid or duplicate identity value is rejected and the item
+# stays a foreign XDQ item. The identity property is adapter configuration, not part of the ID scheme.
+[[provider]]
+code = "XD"
+slug = "internetdomains"
+name = "Internet Domains Wikibase"
+chip_color = "#0F4C5C"
+chip_background = "#DFF0F2"
+number = 5
+issuer = "internetdomains"
+revision_ids = true
+article_path = "https://internetdomains.wiki/wiki/"
+api = "https://internetdomains.wiki/w/api.php"
+adapter = "scatter-adapter-wikibase"    # any MediaWiki+Wikibase; the adapter is parameterised by this entry (0091 §1)
+actor_model = "individual"
+# The wiki was domains.wikibase.cloud before it moved to internetdomains.wiki (0018 §4); the
+# slug and every internetdomains:{id} actor key are stable across the move.
+
+  # Adapter configuration (0009 §9; 0091 §2): one key-map rule with no class, so it applies to
+  # every item. P1 is a string property holding the domain name.
+  [[provider.adapter_config.key_map]]
+  identity_property = "P1"
+  key_type = "domain"              # keyed-types.toml
+
+  [provider.adapter_config]
+  # On a mapped item P1 is dropped from the mirrored state: the key is the value. It is kept on
+  # unmapped or rejected items, where it is ordinary data.
+  identity_property_on_mapped = "drop"
+
+  [[provider.type]]
+  code = "Q"
+  entity_type = "item"
+  upstream_prefix = "Q"
+  iri = "https://internetdomains.wiki/entity/{upstream_id}"
+  namespace = "Item"               # key-mapped items live in the Domain namespace instead; only unmapped items are XDQ
+
+  [[provider.type]]
+  code = "P"
+  entity_type = "property"
+  upstream_prefix = "P"
+  iri = "https://internetdomains.wiki/entity/{upstream_id}"
+  namespace = "Property"
+
+# ---------------------------------------------------------------------------
+# OpenStreetMap (map data) — ADR 0036
+# ---------------------------------------------------------------------------
+# Nodes, ways and relations from the planet file, replication diffs and the API. Each type has its
+# own ID space (node 1 and way 1 are unrelated), so the type code is what keeps IDs apart:
+# OSN123, OSW123, OSR123. IDs are bare digits and never reused. Tags are not entities here: they
+# become statements that refer to notations in the osm scheme or fall back to text (0036 §4, 0048 §6).
+# The OSM wiki's Wikibase is a separate provider (OW, below), not a type of this one (0036 §1).
+[[provider]]
+code = "OS"
+slug = "openstreetmap"
+name = "OpenStreetMap"
+chip_color = "#3D4F12"
+chip_background = "#ECF1DC"
+number = 6
+issuer = "openstreetmap"
+revision_ids = false             # versions are per object and changesets are not global revisions; n is the mirror record's offset (0015 §2)
+article_path = "https://www.openstreetmap.org/"
+api = "https://api.openstreetmap.org/api/0.6/"
+adapter = "scatter-adapter-openstreetmap"
+actor_model = "individual"
+deletion = "clear"
+# agent_iri: OpenStreetMap's Wikidata item, as a prov:Organization (0007 §6) — to be set when confirmed
+
+  [[provider.type]]
+  code = "N"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://www.openstreetmap.org/node/{upstream_id}"
+  namespace = "Item"
+  label = "Node"
+
+  [[provider.type]]
+  code = "W"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://www.openstreetmap.org/way/{upstream_id}"
+  namespace = "Item"
+  label = "Way"
+
+  [[provider.type]]
+  code = "R"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://www.openstreetmap.org/relation/{upstream_id}"
+  namespace = "Item"
+  label = "Relation"
+
+# ---------------------------------------------------------------------------
+# OpenStreetMap Wiki data items — ADR 0036
+# ---------------------------------------------------------------------------
+# The Wikibase at wiki.openstreetmap.org that documents OSM keys and tags: items are instances of
+# Q7 (OpenStreetMap key) or Q2 (OpenStreetMap tag). Mirrored like any Wikibase, and key-mapped
+# like internetdomains.wiki (0009 §9): a key or tag item with one valid identity value is written
+# as the notation osm:{key} (keyed-types.toml, notation-schemes.toml; 0048 §6) and never appears as an OWQ subject. What remains
+# (the classes Q2 and Q7, value-type items such as Q8, the wiki's own properties) is OWQ and OWP.
+[[provider]]
+code = "OW"
+slug = "osmwiki"
+name = "OpenStreetMap Wiki data items"
+chip_color = "#5C3A1E"
+chip_background = "#F2E8DE"
+number = 7
+issuer = "osmwiki"
+revision_ids = true
+article_path = "https://wiki.openstreetmap.org/wiki/"
+api = "https://wiki.openstreetmap.org/w/api.php"
+adapter = "scatter-adapter-wikibase"    # any MediaWiki+Wikibase; the adapter is parameterised by this entry (0091 §1)
+actor_model = "individual"
+# The concept base URI below is what Sophox uses; confirm it against Special:EntityData before the first load.
+
+  # Adapter configuration (0036 §3; 0091 §2). One rule per class of mapped item. The class and the
+  # identity property are the wiki's own IDs (Q7, P16); an item of the class with exactly one valid
+  # identity value is mapped, as in 0009 §9, and one with none is reported. A rule matches an item's
+  # direct class, a value of class_property (below).
+  [[provider.adapter_config.key_map]]
+  class = "Q7"                     # OpenStreetMap key
+  identity_property = "P16"        # permanent key ID; the wiki states it never changes
+  key_type = "notation"
+  key_scheme = "osm"               # the key is osm:{identity value} (0048 §6)
+
+  [[provider.adapter_config.key_map]]
+  class = "Q2"                     # OpenStreetMap tag
+  identity_property = "P19"        # permanent tag ID, key=value
+  key_type = "notation"
+  key_scheme = "osm"
+
+  [provider.adapter_config]
+  class_property = "P2"            # the wiki's "instance of" (0091 §2), which the class rules above match
+  identity_property_on_mapped = "drop"
+  # Concept links (0036 §5): statements on the mapped entity, never same-as. notation has clusters = false.
+  concept_link_properties = ["P7", "P12"]     # Wikidata equivalent, Wikidata concept
+  # Properties marked DEPRECATED upstream are skipped.
+  skip_deprecated_properties = true
+
+  [[provider.type]]
+  code = "Q"
+  entity_type = "item"
+  upstream_prefix = "Q"
+  iri = "https://wiki.openstreetmap.org/entity/{upstream_id}"
+  namespace = "Item"               # mapped key and tag items live in the Notation namespace instead; only unmapped items are OWQ
+
+  [[provider.type]]
+  code = "P"
+  entity_type = "property"
+  upstream_prefix = "P"
+  iri = "https://wiki.openstreetmap.org/entity/{upstream_id}"
+  namespace = "Property"
+
+# ---------------------------------------------------------------------------
+# GDELT — ADR 0037
+# ---------------------------------------------------------------------------
+# The GDELT 2.0 event, mention and GKG files, published every 15 minutes. GDELT mints no IRIs and
+# no IDs for actors, people or places; the four types below are the things it does identify.
+# The canonical IRIs are Triplespace's, under scatter.red (0037 §2). The adapter mirrors a
+# configured subset, not the whole feed (0037 §5).
+[[provider]]
+code = "GD"
+slug = "gdelt"
+name = "GDELT"
+chip_color = "#3A3F4A"
+chip_background = "#E8E9EC"
+number = 8
+issuer = "gdelt"
+revision_ids = false             # append-only files; n is the mirror record's offset (0015 §2)
+article_path = "https://www.gdeltproject.org/"
+api = "http://data.gdeltproject.org/gdeltv2/"
+adapter = "scatter-adapter-gdelt"
+actor_model = "provider-only"
+# agent_iri: GDELT's Wikidata item, as a prov:Organization (0007 §6) — to be set when confirmed
+
+  [[provider.type]]
+  code = "E"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://scatter.red/gdelt/event/{upstream_id}"
+  namespace = "Item"
+  label = "Event"                # GlobalEventID
+
+  [[provider.type]]
+  code = "D"
+  entity_type = "item"
+  upstream_prefix = ""
+  id_grammar = "gdelt-record"    # GKGRECORDID: YYYYMMDDHHMMSS-n, or YYYYMMDDHHMMSS-Tn for a translated record
+  iri = "https://scatter.red/gdelt/document/{upstream_id}"
+  namespace = "Item"
+  label = "Document"
+
+  [[provider.type]]
+  code = "C"
+  entity_type = "item"
+  upstream_prefix = ""
+  iri = "https://scatter.red/gdelt/cameo/{upstream_id}"
+  namespace = "Item"
+  label = "CAMEO event code"     # the code as GDELT prints it, leading zeros kept (0311)
+
+  [[provider.type]]
+  code = "T"
+  entity_type = "item"
+  upstream_prefix = ""
+  id_grammar = "token"
+  iri = "https://scatter.red/gdelt/theme/{upstream_id}"
+  namespace = "Item"
+  label = "GKG theme"            # TAX_FNCACT_MAYOR

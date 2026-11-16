@@ -1,0 +1,8 @@
+== 2025-10-25 Orb Blended ==
+The virtual machine "Orb Blended" in my workstation cluster was created to experiment with blending the Wikidata Query Service with other datasets in a single Blazegraph instance. Work started earlier, but this is the first journal.
+
+For the last few weeks it has been building the Wikidata Query Service. I have paused it at file 4470 since I am taking the system down. [[User:Harej|Harej]] ([[User talk:Harej|talk]]) 18:25, 25 October 2025 (UTC)
+
+Resuming build. [[User:Harej|Harej]] ([[User talk:Harej|talk]]) 03:49, 28 October 2025 (UTC)
+
+* 2025-11-08: Rebuild took too long; have to start again. Downloading dump from November 3. If I can't complete the build by December 3, I am not sure Blazegraph is still viable.

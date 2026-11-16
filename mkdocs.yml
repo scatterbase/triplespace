@@ -1,0 +1,66 @@
+# The documentation site (0109; 24 §16), built by Read the Docs (.readthedocs.yaml) from docs/.
+# The navigation and the generated pages (the home page, As built, the REST reference) come from
+# tools/docs_site.py at build time and are never committed (0109 §2): this file holds only the
+# site's settings.
+site_name: Triplespace
+site_description: Wikibase reimagined as an append-only log, in Rust
+site_url: https://triplespace.readthedocs.io/
+repo_url: https://github.com/scatterbase/triplespace
+repo_name: scatterbase/triplespace
+edit_uri: edit/main/docs/
+docs_dir: docs
+copyright: The documentation is CC0-1.0; the samples keep their own licences.
+
+exclude_docs: |
+  samples/
+  *.py
+  *.whl
+  __pycache__/
+  audits/
+  decisions/TEMPLATE.md
+
+hooks:
+  - tools/docs_site.py
+
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - search.highlight
+    - search.suggest
+    - content.action.edit
+    - content.code.copy
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      toggle:
+        icon: material/brightness-7
+        name: Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      toggle:
+        icon: material/brightness-4
+        name: Light mode
+
+markdown_extensions:
+  - tables
+  - admonition
+  - attr_list
+  - footnotes
+  - toc:
+      permalink: true
+  - pymdownx.superfences
+  - pymdownx.details
+
+validation:
+  nav:
+    omitted_files: info
+  links:
+    not_found: warn
+    anchors: info
+    absolute_links: info
+    unrecognized_links: info

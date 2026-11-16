@@ -1,0 +1,63 @@
+<div class="mw-parser-output"><p><b>InternetArchiveBot</b> has been operated by the Internet Archive since 2015, based on the earlier Cyberpower II. James Hare has been supporting the InternetArchiveBot effort since February 2020.
+</p>
+<h2><span class="mw-headline" id="Versions">Versions</span></h2>
+<ul><li>InternetArchiveBot 1:&#160;?</li>
+<li>InternetArchiveBot 2: The current version, flexibly supports many different kinds of wikis
+<ul><li>Cycles through each wiki in alphabetical order</li>
+<li>Supports all manner of wiki templates (or lack thereof)</li></ul></li>
+<li>InternetArchiveBot 3: The future
+<ul><li>Event-centric workflow: link found dead, usage throughout wikis searched, replaced</li></ul></li></ul>
+<h2><span class="mw-headline" id="Tracking_deployments">Tracking deployments</span></h2>
+<p>Goal: move out of Airtable. Track deployment information in Librarybase.
+</p><p>Needed data fields:
+</p>
+<ul><li>Wiki database code (<a href="/wiki/Property:P34" title="Property:P34">P34</a>)</li>
+<li>Wiki full name (<a href="/wiki/Property:P35" title="Property:P35">P35 title</a>)</li>
+<li>Status (<a href="/wiki/Property:P36" title="Property:P36">P36</a>)
+<ul><li>Item type: <a href="/wiki/Item:Q246911" title="Item:Q246911">bot deployment status (Q246911)</a>
+<ul><li><a href="/wiki/Item:Q246913" title="Item:Q246913">Defined in Management Interface (Q246913)</a></li>
+<li><a href="/wiki/Item:Q246914" title="Item:Q246914">Deployment Candidate (Q246914)</a></li>
+<li><a href="/wiki/Item:Q246912" title="Item:Q246912">Pending Approval Request (Q246912)</a></li>
+<li><a href="/wiki/Item:Q246915" title="Item:Q246915">Seeking Bot Approval (Q246915)</a></li>
+<li><a href="/wiki/Item:Q246916" title="Item:Q246916">Stalled Request (Q246916)</a></li>
+<li><a href="/wiki/Item:Q246917" title="Item:Q246917">Issues (Q246917)</a></li>
+<li><a href="/wiki/Item:Q246918" title="Item:Q246918">Stalled Test (Q246918)</a></li>
+<li><a href="/wiki/Item:Q246919" title="Item:Q246919">Test Operation (Q246919)</a></li>
+<li><a href="/wiki/Item:Q246920" title="Item:Q246920">Ongoing Operation (Q246920)</a></li>
+<li><a href="/wiki/Item:Q246921" title="Item:Q246921">Shelved (Q246921)</a></li></ul></li></ul></li>
+<li>Host (<a href="/wiki/Property:P37" title="Property:P37">P37</a>)
+<ul><li><a href="/wiki/Item:Q246922" title="Item:Q246922">Wikimedia (Q246922)</a></li>
+<li><a href="/wiki/Item:Q246923" title="Item:Q246923">Miraheze (Q246923)</a></li>
+<li><a href="/wiki/Item:Q246924" title="Item:Q246924">Weird Gloop (Q246924)</a></li>
+<li><a href="/wiki/Item:Q246925" title="Item:Q246925">independent wiki (Q246925)</a></li></ul></li>
+<li>Wiki family (<a href="/wiki/Property:P38" title="Property:P38">P38</a>)
+<ul><li><a href="/wiki/Item:Q246926" title="Item:Q246926">Wikipedia (Q246926)</a></li>
+<li><a href="/wiki/Item:Q246927" title="Item:Q246927">Wiktionary (Q246927)</a></li>
+<li><a href="/wiki/Item:Q246928" title="Item:Q246928">Wikisource (Q246928)</a></li>
+<li><a href="/wiki/Item:Q246929" title="Item:Q246929">Wikinews (Q246929)</a></li>
+<li><a href="/wiki/Item:Q246930" title="Item:Q246930">Wikiquote (Q246930)</a></li>
+<li><a href="/wiki/Item:Q246931" title="Item:Q246931">Wikiversity (Q246931)</a></li>
+<li><a href="/wiki/Item:Q246932" title="Item:Q246932">Wikivoyage (Q246932)</a></li>
+<li><a href="/wiki/Item:Q246933" title="Item:Q246933">Wikibooks (Q246933)</a></li></ul></li>
+<li>official website (<a href="/wiki/Property:P41" title="Property:P41">P41</a>)</li>
+<li>InternetArchiveBot approval status (<a href="/wiki/Property:P39" title="Property:P39">P39</a>)
+<ul><li>Item type: <a href="/wiki/Item:Q246934" title="Item:Q246934">bot approval status (Q246934)</a>
+<ul><li><a href="/wiki/Item:Q246935" title="Item:Q246935">Local approval for fixing links (Q246935)</a></li>
+<li><a href="/wiki/Item:Q246936" title="Item:Q246936">Local approval for linking to books (Q246936)</a></li>
+<li><a href="/wiki/Item:Q246937" title="Item:Q246937">Global approval for fixing links (Q246937)</a></li></ul></li></ul></li>
+<li>InternetArchiveBot approval request link (<a href="/wiki/Property:P40" title="Property:P40">P40</a>)</li>
+<li>Some way to document whether a wiki allows global bots or not
+<ul><li>I think that is implied with having a P39 of "global approval"</li></ul></li></ul>
+<p>Updates:
+</p>
+<ul><li>Tracking Librarybase IDs in Airtable. Next task is to update existing records that already have Librarybase entries, and create new items for those that don't. <a href="/wiki/User:Harej" title="User:Harej">Harej</a> (<a href="/wiki/User_talk:Harej" title="User talk:Harej">talk</a>) 03:35, 23 October 2025 (UTC)</li></ul>
+<h2><span class="mw-headline" id="Deployments">Deployments</span></h2>
+<ul><li>Wikimedia
+<ul><li>Ongoing</li></ul></li>
+<li>Miraheze
+<ul><li>On a handful of wikis, broken on a few wikis due to those wikis changing domain names</li>
+<li>OAuth grants are broken as well</li>
+<li><b>Idea:</b> account creator script that uses a limited-scope bot password to log in as InternetArchiveBot and force local account creation for a specified wiki</li></ul></li>
+<li>Weird Gloop
+<ul><li>Only four wikis</li>
+<li>The reason we're not deployed there is because they want to be able to have dry runs that show the edits without actually making them</li></ul></li></ul></div>

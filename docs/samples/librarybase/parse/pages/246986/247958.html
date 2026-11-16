@@ -1,0 +1,46 @@
+<div class="mw-parser-output"><p>Central documentation for the technical infrastructure of Librarybase
+</p>
+<h2><span class="mw-headline" id="2025-10-15_Migration_part_1">2025-10-15 Migration part 1</span></h2>
+<ul><li>Goal: migrate Librarybase off of station1001 onto a VM on data1001
+<ul><li>New VM-based setup</li>
+<li>Need to clear station1001 to install Proxmox</li></ul></li>
+<li>Export current environment
+<ul><li>Dump volumes
+<ul><li>shared</li>
+<li>mediawiki-mysql-data</li>
+<li>query-service-data</li>
+<li>elasticsearch-data</li>
+<li>quickstatements-data</li></ul></li>
+<li>For redundancy, create regular SQL and TTL dumps</li>
+<li>Commit Librarybase directory to private GitHub repository</li></ul></li>
+<li>Set up librarybase-stage VM on data1001 and migrate exports to it
+<ul><li>Start with Debian 13 template</li>
+<li>Storage: 1 TB</li>
+<li>RAM: 64 GB</li>
+<li>CPU... start with 8 cores, go up from there</li></ul></li>
+<li>Import Docker volumes</li>
+<li>Set up Librarybase directory and build images</li>
+<li>Verified:
+<ul><li>WIki loads</li>
+<li>Editing and saving pages</li>
+<li>Searching</li></ul></li></ul>
+<p>Librarybase up and running on stage VM. This is where I am leaving off for now. <a href="/wiki/User:Harej" title="User:Harej">Harej</a> (<a href="/wiki/User_talk:Harej" title="User talk:Harej">talk</a>) 04:14, 16 October 2025 (UTC)
+</p>
+<h2><span id="2025-10-.3F.3F_Migration_part_2"></span><span class="mw-headline" id="2025-10-??_Migration_part_2">2025-10-?? Migration part 2</span></h2>
+<ul><li>Modify domain name to stage.librarybase.org (and other subdomains)</li>
+<li>Verify new setup works
+<ul><li>Wiki loads</li>
+<li>Editing and saving pages</li>
+<li>Updating items, with changes reflected in SPARQL query service</li>
+<li>Uploading files, if I decide to enable that</li>
+<li>Indexing and searching</li>
+<li>QuickStatements</li></ul></li>
+<li>Shut down librarybase-stage; clone and create librarybase-prod-1</li>
+<li>Configure static IP address on librarybase-prod-1</li>
+<li>Configure librarybase-prod-1 to use regular domain names</li>
+<li>Adjust orb-proxy configuration to point to Librarybase on new VM</li>
+<li>Launch services on librarybase-prod-1</li>
+<li>Adjust Librarybase DNS to point to data1001</li>
+<li>Once WRDB is migrated and WMF rsync is re-established on the new dumps server, shut down and cancel data1</li>
+<li>Future projects:
+<ul><li>Load balancing with librarybase-prod-2 (which will serve as the DB replica and secondary query service)</li></ul></li></ul></div>

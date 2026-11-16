@@ -1,0 +1,18 @@
+# Vendored from crates.io parse-wiki-text-2 0.2.0 (see vendor.toml and PATCHES.md).
+# `scatter-wikitext` depends on it by path, which makes it a workspace member; it does not
+# take the workspace's lints or edition, and `cargo xtask deps` skips it as vendored code.
+[package]
+authors = [
+	"Fredrik Portström <https://portstrom.com>",
+	"Sören Meier <s@renmeier.ch>"
+]
+description = "Parse wiki text from Mediawiki into a tree of elements"
+edition = "2021"
+license-file = "LICENSE"
+name = "parse-wiki-text-2"
+readme = "readme.md"
+repository = "https://github.com/soerenmeier/parse-wiki-text-2"
+version = "0.2.0"
+rust-version = "1.95"
+publish = false
+

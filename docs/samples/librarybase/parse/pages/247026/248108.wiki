@@ -1,0 +1,22 @@
+== 2025-10-25 Orb Blended ==
+The virtual machine "Orb Blended" in my workstation cluster was created to experiment with blending the Wikidata Query Service with other datasets in a single Blazegraph instance. Work started earlier, but this is the first journal.
+
+For the last few weeks it has been building the Wikidata Query Service. I have paused it at file 4470 since I am taking the system down. [[User:Harej|Harej]] ([[User talk:Harej|talk]]) 18:25, 25 October 2025 (UTC)
+
+* Resuming build. [[User:Harej|Harej]] ([[User talk:Harej|talk]]) 03:49, 28 October 2025 (UTC)
+* 2025-11-08: Rebuild took too long; have to start again. Downloading dump from November 3. If I can't complete the build by December 3, I am not sure Blazegraph is still viable.
+* 2025-12-06: Rebuild of dataset is complete; local up-to-date copy of WDQS on dev1001.
+* Started to gzip data.jnl in preparation to upload to fileserver and as a backup before experimenting with adding more data sources. [[User:Harej|Harej]] ([[User talk:Harej|talk]]) 02:00, 7 December 2025 (UTC)
+
+== 2026-01-22 Rebuild ==
+Updater is running into numerous issues on both my workstation and the server, so I am downloading wikidata-20260112-all-BETA.ttl.gz to my workstation for a rebuild. [[User:Harej|Harej]] ([[User talk:Harej|talk]]) 22:33, 22 January 2026 (UTC)
+
+Munge process produced 4940 bundles; now ingesting into Blazegraph. [[User:Harej|Harej]] ([[User talk:Harej|talk]]) 23:25, 24 January 2026 (UTC)
+
+== 2026-04 Rebuild ==
+The last rebuild attempt, on my workstation, failed because it took too long to build the database. By the time it was finished, the data was more than 30 days old and could not be synced with recent changes. Trying again, directly on the production server (station1001), with wikidata-'''20260330'''-all-BETA.ttl.gz, only three days old as of writing.
+
+* 2026-04-02: Direct rsync from WMF dump server to orb-wdqs
+* 2026-04-02: Begin munge process
+* 2026-04-04 15:23 (UTC): Begin loading of '''4971''' bundles
+* 2026-04-09 22:28 (UTC): Completed 1657 (one-third of) files

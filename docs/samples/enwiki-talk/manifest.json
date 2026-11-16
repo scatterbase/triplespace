@@ -1,0 +1,159 @@
+{
+ "api": "https://en.wikipedia.org/w/api.php",
+ "sitename": "Wikipedia",
+ "generator": "MediaWiki 1.47.0-wmf.24",
+ "dumps": {
+  "current": {
+   "file": "current.xml",
+   "fetched": "2026-10-21T03:30:05Z"
+  },
+  "history": {
+   "file": "history.xml.gz",
+   "fetched": "2026-10-21T03:32:07Z"
+  }
+ },
+ "missing": [],
+ "pages": [
+  {
+   "pageid": 7777688,
+   "ns": 1,
+   "title": "Talk:Barack Obama/Archive 1",
+   "revid": 1060719815,
+   "timestamp": "2021-12-17T07:21:34Z",
+   "revisions": 1,
+   "dump": "current",
+   "discussiontools": {
+    "file": "discussiontools/7777688-1060719815.json",
+    "headings": 24,
+    "comments": 86
+   }
+  },
+  {
+   "pageid": 78453606,
+   "ns": 1,
+   "title": "Talk:Barack Obama/Archive 84",
+   "revid": 1334286385,
+   "timestamp": "2026-01-22T17:04:17Z",
+   "revisions": 1,
+   "dump": "current",
+   "discussiontools": {
+    "file": "discussiontools/78453606-1334286385.json",
+    "headings": 31,
+    "comments": 77
+   }
+  },
+  {
+   "pageid": 1511946,
+   "ns": 1,
+   "title": "Talk:Gdańsk/Vote",
+   "revid": 1089047270,
+   "timestamp": "2022-05-21T16:20:08Z",
+   "revisions": 1,
+   "dump": "current",
+   "discussiontools": {
+    "file": "discussiontools/1511946-1089047270.json",
+    "headings": 93,
+    "comments": 0
+   }
+  },
+  {
+   "pageid": 15832,
+   "ns": 1,
+   "title": "Talk:Jesus/Archive 1",
+   "revid": 1037710864,
+   "timestamp": "2021-08-08T07:19:20Z",
+   "revisions": 1,
+   "dump": "current",
+   "discussiontools": {
+    "file": "discussiontools/15832-1037710864.json",
+    "headings": 5,
+    "comments": 1
+   }
+  },
+  {
+   "pageid": 80394571,
+   "ns": 1,
+   "title": "Talk:Jesus/Archive 139",
+   "revid": 1379906783,
+   "timestamp": "2026-10-12T16:06:00Z",
+   "revisions": 1,
+   "dump": "current",
+   "discussiontools": {
+    "file": "discussiontools/80394571-1379906783.json",
+    "headings": 50,
+    "comments": 417
+   }
+  },
+  {
+   "pageid": 84153605,
+   "ns": 3,
+   "title": "User talk:Jimbo Wales/Archive 256",
+   "revid": 1379920767,
+   "timestamp": "2026-10-12T18:00:25Z",
+   "revisions": 1,
+   "dump": "current",
+   "discussiontools": {
+    "file": "discussiontools/84153605-1379920767.json",
+    "headings": 27,
+    "comments": 320
+   }
+  },
+  {
+   "pageid": 5137507,
+   "ns": 4,
+   "title": "Wikipedia:Administrators' noticeboard/Incidents",
+   "revid": 1381262876,
+   "timestamp": "2026-10-21T03:20:09Z",
+   "revisions": 1,
+   "dump": "current",
+   "discussiontools": {
+    "file": "discussiontools/5137507-1381262876.json",
+    "headings": 71,
+    "comments": 1316
+   }
+  },
+  {
+   "pageid": 2535910,
+   "ns": 4,
+   "title": "Wikipedia:Reference desk/Science",
+   "revid": 1381256424,
+   "timestamp": "2026-10-21T02:06:43Z",
+   "revisions": 1,
+   "dump": "current",
+   "discussiontools": {
+    "file": "discussiontools/2535910-1381256424.json",
+    "headings": 33,
+    "comments": 134
+   }
+  },
+  {
+   "pageid": 84360069,
+   "ns": 4,
+   "title": "Wikipedia:Requests for adminship/Vermont",
+   "revid": 1379264812,
+   "timestamp": "2026-10-08T23:31:17Z",
+   "revisions": 1,
+   "dump": "current",
+   "discussiontools": {
+    "file": "discussiontools/84360069-1379264812.json",
+    "headings": 59,
+    "comments": 1087
+   }
+  },
+  {
+   "pageid": 1213293,
+   "ns": 3,
+   "title": "User talk:Harej",
+   "revid": 1380056661,
+   "timestamp": "2026-10-13T14:30:36Z",
+   "revisions": 4677,
+   "dump": "history",
+   "discussiontools": {
+    "file": "discussiontools/1213293-1380056661.json",
+    "headings": 3,
+    "comments": 2
+   }
+  }
+ ],
+ "discussiontools_props": "transcludedfrom|threaditemshtml"
+}

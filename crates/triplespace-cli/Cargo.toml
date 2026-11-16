@@ -1,0 +1,64 @@
+[package]
+name = "triplespace-cli"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "The Triplespace command line: instance creation, adoption, syncs, projection rebuilds"
+publish = false
+
+[[bin]]
+name = "triplespace"
+path = "src/main.rs"
+
+[features]
+# The process allocator (0033 §2, A24); off for the system allocator, for heap tools.
+default = ["mimalloc"]
+mimalloc = ["dep:mimalloc"]
+
+[dependencies]
+mimalloc = { workspace = true, optional = true }
+scatter-challenge.workspace = true
+scatter-log.workspace = true
+scatter-integrity.workspace = true
+scatter-log-postgres.workspace = true
+scatter-projection.workspace = true
+scatter-ingest.workspace = true
+scatter-adapter-wikibase.workspace = true
+scatter-adapter-mediawiki.workspace = true
+triplespace-upstream.workspace = true
+scatter-wikibase-changeset.workspace = true
+scatter-wikibase-model.workspace = true
+scatter-providers.workspace = true
+scatter-actors.workspace = true
+scatter-pages.workspace = true
+scatter-titles.workspace = true
+scatter-talk.workspace = true
+scatter-talk-import.workspace = true
+scatter-mediawiki-xml.workspace = true
+scatter-threads.workspace = true
+triplespace-db.workspace = true
+triplespace-projections.workspace = true
+triplespace-rdf.workspace = true
+triplespace-api-ingest.workspace = true
+futures-util.workspace = true
+sha2.workspace = true
+bytes.workspace = true
+triplespace-accounts.workspace = true
+triplespace-notify.workspace = true
+clap.workspace = true
+dialoguer.workspace = true
+dotenvy.workspace = true
+anyhow.workspace = true
+tokio = { workspace = true, features = ["macros", "rt-multi-thread", "time"] }
+tokio-postgres.workspace = true
+ed25519-dalek.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+getrandom.workspace = true
+url.workspace = true
+
+[lints]
+workspace = true

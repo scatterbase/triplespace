@@ -1,0 +1,270 @@
+/*
+ * Special:WikiSettings, Special:InstanceSettings and Special:Preferences (ADR 0085 §4–5),
+ * and the Appearance menu (§6). A page is one section per group; a row is a setting's
+ * label, origin chip and key, its help, and its value or control.
+ */
+
+.ts-settings__section {
+	margin-block: var( --spacing-200, 2rem );
+	scroll-margin-top: var( --spacing-100, 1rem );
+}
+
+.ts-settings__section > h2 {
+	margin-block: 0 var( --spacing-75, 0.75rem );
+	border-bottom: 1px solid var( --border-color-subtle, #c8ccd1 );
+}
+
+.ts-setting {
+	max-width: 48rem;
+	padding-block: var( --spacing-75, 0.75rem );
+	border-bottom: 1px solid var( --border-color-muted, #dadde3 );
+}
+
+.ts-setting__head {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: baseline;
+	gap: var( --spacing-50, 0.5rem );
+}
+
+.ts-setting__label {
+	font-weight: var( --font-weight-bold, 700 );
+}
+
+.ts-setting__key {
+	color: var( --color-subtle, #54595d );
+	font-family: var( --font-family-monospace, monospace );
+	font-size: var( --font-size-x-small, 0.75rem );
+}
+
+.ts-setting__help,
+.ts-setting__note {
+	margin-block: var( --spacing-25, 0.25rem );
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-setting__value {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var( --spacing-50, 0.5rem );
+	margin-top: var( --spacing-50, 0.5rem );
+}
+
+.ts-setting__value .cdx-text-input,
+.ts-setting__value .cdx-text-area {
+	flex: 1 1 20rem;
+}
+
+.ts-setting__origin {
+	border: 1px solid var( --border-color-subtle, #c8ccd1 );
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-setting__origin--own {
+	border-color: var( --border-color-progressive, #36c );
+	color: var( --color-progressive, #36c );
+}
+
+.ts-setting__origin--locked,
+.ts-setting__origin--capped {
+	border-color: var( --border-color-warning, #ab7f2a );
+	color: var( --color-warning, #886425 );
+}
+
+.ts-settings__switches {
+	margin: 0;
+}
+
+.ts-settings__switches dd {
+	margin: var( --spacing-50, 0.5rem ) 0 0;
+}
+
+.ts-settings__save {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-end;
+	gap: var( --spacing-75, 0.75rem );
+	max-width: 48rem;
+	margin-top: var( --spacing-100, 1rem );
+}
+
+.ts-settings__save .cdx-field {
+	flex: 1 1 20rem;
+	margin: 0;
+}
+
+/* The Appearance menu (§6): a panel of selects. Without JavaScript, a reader who is not
+   logged in is told the page follows the device; with it, a change applies and is kept at
+   once, so the signed-in form's Apply button is only for pages without JavaScript. */
+
+.ts-appearance__panel {
+	min-width: 16rem;
+	padding: var( --spacing-75, 0.75rem );
+}
+
+.ts-appearance__controls {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-75, 0.75rem );
+}
+
+.ts-appearance__controls .cdx-field {
+	margin: 0;
+}
+
+.ts-appearance__controls .cdx-select {
+	width: 100%;
+}
+
+/* Colour mode, contrast and text size: a row of icon buttons of which one is chosen,
+   drawn as Codex's toggle button group. They are radio buttons, so the form works
+   without JavaScript; each is named by its visually hidden label and titled with it. */
+
+.ts-choice-group {
+	min-width: 0;
+	margin: 0;
+	padding: 0;
+	border: 0;
+}
+
+.ts-choice-group__legend {
+	margin-bottom: var( --spacing-25, 0.25rem );
+	padding: 0;
+	font-weight: var( --font-weight-bold, 700 );
+}
+
+.ts-choice-group__options {
+	display: flex;
+}
+
+.ts-choice-group__option {
+	position: relative;
+	display: inline-flex;
+	flex: 1 1 0;
+	align-items: center;
+	justify-content: center;
+	min-width: var( --min-size-interactive-pointer, 32px );
+	min-height: var( --min-size-interactive-pointer, 32px );
+	margin-inline-start: -1px;
+	border: 1px solid var( --border-color-interactive, #72777d );
+	background-color: var( --background-color-interactive-subtle, #f8f9fa );
+	color: var( --color-base, #202122 );
+	cursor: pointer;
+}
+
+.ts-choice-group__option:first-child {
+	margin-inline-start: 0;
+	border-start-start-radius: var( --border-radius-base, 2px );
+	border-end-start-radius: var( --border-radius-base, 2px );
+}
+
+.ts-choice-group__option:last-child {
+	border-start-end-radius: var( --border-radius-base, 2px );
+	border-end-end-radius: var( --border-radius-base, 2px );
+}
+
+.ts-choice-group__option:hover {
+	background-color: var( --background-color-interactive-subtle--hover, #eaecf0 );
+}
+
+.ts-choice-group__option:has( :checked ) {
+	z-index: 1;
+	border-color: var( --border-color-progressive--active, #233566 );
+	background-color: var( --background-color-progressive--active, #233566 );
+	color: var( --color-inverted-fixed, #fff );
+}
+
+.ts-choice-group__option:has( :focus-visible ) {
+	z-index: 2;
+	outline: 2px solid var( --outline-color-progressive--focus, #36c );
+	outline-offset: 1px;
+}
+
+.ts-choice-group__input {
+	position: absolute;
+	opacity: 0;
+	pointer-events: none;
+}
+
+.ts-choice-group__icon {
+	display: inline-flex;
+	line-height: 0;
+}
+
+.ts-choice-group__icon svg {
+	fill: currentcolor;
+}
+
+/* On Special:Preferences the same groups name each choice beside its icon, and a choice
+   of a few is a row of radio buttons. */
+
+.ts-choice-group__options--row {
+	display: inline-flex;
+	flex-wrap: wrap;
+}
+
+.ts-choice-group__option--named {
+	flex: 0 1 auto;
+	gap: var( --spacing-35, 0.375rem );
+	padding: var( --spacing-25, 0.25rem ) var( --spacing-75, 0.75rem );
+}
+
+.ts-radios {
+	display: inline-flex;
+	flex-wrap: wrap;
+	gap: var( --spacing-25, 0.25rem ) var( --spacing-100, 1rem );
+}
+
+/* With JavaScript the tabs are panes: one group in view at a time (pref-tabs.js). */
+
+.ts-preferences--panes .ts-settings__section[ hidden ] {
+	display: none;
+}
+
+.ts-appearance__nojs {
+	margin: 0;
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.client-js .ts-appearance__nojs,
+.client-nojs .ts-appearance__form--browser .ts-appearance__controls,
+.client-js .ts-appearance__form--account:not( .ts-appearance__form--unsaved ) .ts-appearance__apply {
+	display: none;
+}
+
+/* The notification matrix (19 §2.6): reasons down, channels across, a checkbox a cell. */
+
+.ts-matrix {
+	margin-block-end: var( --spacing-100, 1rem );
+	border-collapse: collapse;
+}
+
+.ts-matrix__caption {
+	padding-block-end: var( --spacing-50, 0.5rem );
+	font-weight: var( --font-weight-bold, 700 );
+	text-align: start;
+}
+
+.ts-matrix__help {
+	display: block;
+	color: var( --color-subtle, #54595d );
+	font-weight: normal;
+}
+
+.ts-matrix th,
+.ts-matrix td {
+	padding: var( --spacing-35, 0.375rem ) var( --spacing-75, 0.75rem );
+	border-block-end: 1px solid var( --border-color-muted, #dadde3 );
+	text-align: start;
+}
+
+.ts-matrix tbody th {
+	font-weight: normal;
+}
+
+.ts-matrix .ts-matrix__channel,
+.ts-matrix .ts-matrix__cell {
+	text-align: center;
+}

@@ -1,0 +1,222 @@
+---
+source: crates/triplespace-ui/tests/entity.rs
+assertion_line: 62
+expression: main_of(&html)
+---
+<main class="ts-page" id="content">
+	<p class="ts-page__identity">
+<span class="ts-chip ts-chip--local">Q6</span> <span>Item</span> <span aria-hidden="true">·</span> <span>Adopted from https://librarybase.org/</span> <span aria-hidden="true">·</span> <a href="https://librarybase.org/entity/Q6" class="external" rel="noopener" dir="ltr">librarybase.org/entity/Q6 ↗</a>
+</p>
+	<h1 class="ts-page__title">Six &amp; more</h1>
+	<div class="ts-terms" data-region="terms">
+<p class="ts-terms__description">a number</p>
+<p class="ts-terms__aliases">Also known as <span>6 · half dozen</span>
+</p>
+</div>
+	<nav class="ts-tabs" aria-label="Page">
+		<a class="ts-tabs__link" href="/wiki/Item:Q6" aria-current="page">Statements</a>
+		<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=identifiers">Identifiers</a>
+		<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=sitelinks">Sitelinks</a>
+		<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=labels">Labels in other languages</a>
+		<a class="ts-tabs__link" href="/wiki/Item:Q6?action=history">History</a>
+		<a class="ts-tabs__link" href="/wiki/Special:WhatLinksHere/Item:Q6">Links here</a>
+		<a class="ts-tabs__link" href="/wiki/Item_talk:Q6">Discussion</a>
+	</nav>
+	<div class="ts-page__body">
+		<div class="ts-entity" data-region="statements">
+<div class="ts-entity__main">
+<h2 class="ts-visually-hidden">Statements</h2>
+<section class="ts-group ts-group--chips" id="P2" data-region="statements/P2" data-shape="chips">
+<div class="ts-group__property">
+<a href="/wiki/Property:P2" title="P2">instance of</a>
+<span class="ts-group__count">3 values</span>
+</div>
+<div class="ts-group__body">
+<ul class="ts-chips">
+<li class="ts-chips__item" id="Q6$00000002-0000-0000-0000-000000000000">
+<span class="ts-statement__main">
+<a href="/wiki/Item:Q2" title="Q2">number</a>
+</span> <span class="ts-chip ts-chip--best" title="Queries and infoboxes return only this value">Best value</span>
+</li>
+</ul>
+<details class="ts-fold">
+<summary>1 other value</summary>
+<ul class="ts-chips">
+<li class="ts-chips__item" id="Q6$00000003-0000-0000-0000-000000000000">
+<span class="ts-statement__main">
+<a href="/wiki/Item:Q1" title="Q1">city</a>
+</span>
+</li>
+</ul>
+</details>
+<details class="ts-fold ts-fold--deprecated">
+<summary>1 deprecated</summary>
+<ol class="ts-group__values">
+<li class="ts-statement ts-statement--deprecated" id="Q6$00000004-0000-0000-0000-000000000000">
+<div class="ts-statement__value">
+<span class="ts-statement__main">
+<a href="/wiki/Item:Q3" title="Q3">Example Gazette</a>
+</span>
+</div>
+</li>
+</ol>
+</details>
+</div>
+</section>
+<section class="ts-group ts-group--single" id="P3" data-region="statements/P3" data-shape="single">
+<div class="ts-group__property">
+<a href="/wiki/Property:P3" title="P3">population</a>
+</div>
+<div class="ts-group__body">
+<div class="ts-statement ts-statement--headline" id="Q6$00000005-0000-0000-0000-000000000000">
+<div class="ts-statement__value">
+<span class="ts-statement__main">
+<span class="ts-number">3,898,747</span>±10 <span class="ts-unit">
+<a href="/wiki/Item:Q5" title="Q5">inhabitant</a>
+</span>
+</span> <span class="ts-fns">
+<a class="ts-fn" href="#ts-ref-1" aria-label="Source 1">1</a>
+</span>
+</div>
+<dl class="ts-qualifiers">
+<div class="ts-qualifiers__row">
+<dt>
+<a href="/wiki/Property:P9" title="P9">point in time</a>
+</dt>
+<dd>
+<span class="ts-time">2020</span>
+</dd>
+</div>
+</dl>
+</div>
+</div>
+</section>
+<section class="ts-group ts-group--single" id="P4" data-region="statements/P4" data-shape="single">
+<div class="ts-group__property">
+<a href="/wiki/Property:P4" title="P4">inception</a>
+</div>
+<div class="ts-group__body">
+<div class="ts-statement ts-statement--headline" id="Q6$00000006-0000-0000-0000-000000000000">
+<div class="ts-statement__value">
+<span class="ts-statement__main">
+<span class="ts-time">11 March 1952</span>
+</span>
+</div>
+</div>
+</div>
+</section>
+<section class="ts-group ts-group--single" id="P5" data-region="statements/P5" data-shape="single">
+<div class="ts-group__property">
+<a href="/wiki/Property:P5" title="P5">coordinate location</a>
+</div>
+<div class="ts-group__body">
+<div class="ts-statement ts-statement--headline" id="Q6$00000007-0000-0000-0000-000000000000">
+<div class="ts-statement__value">
+<span class="ts-statement__main">
+<span class="ts-number">34°3′N, 118°15′W</span>
+</span>
+</div>
+</div>
+</div>
+</section>
+<section class="ts-group ts-group--single" id="P6" data-region="statements/P6" data-shape="single">
+<div class="ts-group__property">
+<a href="/wiki/Property:P6" title="P6">official website</a>
+</div>
+<div class="ts-group__body">
+<div class="ts-statement ts-statement--headline" id="Q6$00000008-0000-0000-0000-000000000000">
+<div class="ts-statement__value">
+<span class="ts-statement__main">
+<a href="https://six.example/" class="external" rel="nofollow ugc noopener" dir="ltr">https://six.example/</a>
+</span>
+</div>
+</div>
+</div>
+</section>
+<section class="ts-group ts-group--single" id="P8" data-region="statements/P8" data-shape="single">
+<div class="ts-group__property">
+<a href="/wiki/Property:P8" title="P8">native label</a>
+</div>
+<div class="ts-group__body">
+<div class="ts-statement ts-statement--headline" id="Q6$00000010-0000-0000-0000-000000000000">
+<div class="ts-statement__value">
+<span class="ts-statement__main">
+<span lang="ar" dir="auto">ستة</span> <span class="ts-subtle">(ar)</span>
+</span>
+</div>
+</div>
+</div>
+</section>
+<section class="ts-group ts-group--single" id="P10" data-region="statements/P10" data-shape="single">
+<div class="ts-group__property">
+<a href="/wiki/Property:P10" title="P10">stated in</a>
+</div>
+<div class="ts-group__body">
+<div class="ts-statement ts-statement--headline" id="Q6$00000011-0000-0000-0000-000000000000">
+<div class="ts-statement__value">
+<span class="ts-statement__main">
+<span class="ts-special-value">unknown value</span>
+</span>
+</div>
+</div>
+</div>
+</section>
+<section class="ts-group ts-group--single" id="P12" data-region="statements/P12" data-shape="single">
+<div class="ts-group__property">
+<a href="/wiki/Property:P12" title="P12">note</a>
+</div>
+<div class="ts-group__body">
+<div class="ts-statement ts-statement--headline" id="Q6$00000001-0000-0000-0000-000000000000">
+<div class="ts-statement__value">
+<span class="ts-statement__main">
+<bdi>six</bdi>
+</span>
+</div>
+</div>
+</div>
+</section>
+<section class="ts-endnotes" aria-labelledby="ts-endnotes-title">
+<h2 class="ts-endnotes__title" id="ts-endnotes-title">References</h2>
+<ol class="ts-endnotes__list">
+<li id="ts-ref-1">
+<dl class="ts-snaks">
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:P10" title="P10">stated in</a>
+</dt>
+<dd>
+<a href="/wiki/Item:Q3" title="Q3">Example Gazette</a>
+</dd>
+</div>
+<div class="ts-snaks__row">
+<dt>
+<a href="/wiki/Property:P11" title="P11">reference URL</a>
+</dt>
+<dd>
+<a href="https://example.org/census" class="external" rel="nofollow ugc noopener" dir="ltr">https://example.org/census</a>
+</dd>
+</div>
+</dl>
+<p class="ts-endnotes__cited">Cited for <bdi>
+<a href="#P3">population</a>
+</bdi>
+</p>
+</li>
+</ol>
+</section>
+</div>
+<aside class="ts-sources" aria-labelledby="ts-sources-title">
+<h2 class="ts-sources__title" id="ts-sources-title">Where this comes from</h2>
+<section class="ts-sources__graph">
+<h3>
+<span class="ts-chip ts-chip--local">Local</span> This instance</h3>
+<p>11 statements</p>
+<p class="ts-subtle">Synced 4 October 2026 · upstream revision 916</p>
+</section>
+<p class="ts-sources__actions">
+<a href="/wiki/Special:EntityData/Q6.json">Download as JSON</a>
+</p>
+</aside>
+</div>
+	</div>
+</main>

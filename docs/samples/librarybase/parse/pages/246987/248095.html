@@ -1,0 +1,69 @@
+<div class="mw-parser-output"><div id="toc" class="toc" role="navigation" aria-labelledby="mw-toc-heading"><input type="checkbox" role="button" id="toctogglecheckbox" class="toctogglecheckbox" style="display:none" /><div class="toctitle" lang="en" dir="ltr"><h2 id="mw-toc-heading">Contents</h2><span class="toctogglespan"><label class="toctogglelabel" for="toctogglecheckbox"></label></span></div>
+<ul>
+<li class="toclevel-1 tocsection-1"><a href="#Introduction"><span class="tocnumber">1</span> <span class="toctext">Introduction</span></a></li>
+<li class="toclevel-1 tocsection-2"><a href="#Generations"><span class="tocnumber">2</span> <span class="toctext">Generations</span></a></li>
+<li class="toclevel-1 tocsection-3"><a href="#Longer_term_challenges"><span class="tocnumber">3</span> <span class="toctext">Longer term challenges</span></a></li>
+<li class="toclevel-1 tocsection-4"><a href="#2025-10-16_WRDB_migration"><span class="tocnumber">4</span> <span class="toctext">2025-10-16 WRDB migration</span></a></li>
+<li class="toclevel-1 tocsection-5"><a href="#2025-10-25_Downloading_dump_for_Gen3V2"><span class="tocnumber">5</span> <span class="toctext">2025-10-25 Downloading dump for Gen3V2</span></a></li>
+</ul>
+</div>
+
+<h2><span class="mw-headline" id="Introduction">Introduction</span></h2>
+<p><b>Wikipedia Citations Database</b> is an effort supported by Internet Archive to build a comprehensive, historical database of each citation to appear on Wikipedia.
+</p><p>While methodologies of similar projects have focused on extracting standardized identifiers or easy-to-extract references, this project instead seeks to build a <i>complete</i> database, based on analyzing the structure.
+</p>
+<h2><span class="mw-headline" id="Generations">Generations</span></h2>
+<ul><li>WCD Generation 1: Wikibase instance on Wikibase Cloud. Importing data was painfully slow, and it was decided Wikibase was not a good format for the data we were trying to store. The dataset produced is lost and was not very interesting or useful.</li>
+<li>WCD Generation 2: <a rel="nofollow" class="external text" href="https://github.com/internetarchive/iari">IARI</a>; Postgres-based, but was extremely difficult to work with. Parts of it are used to support the Internet Archive Reference Explorer.</li>
+<li>WCD Generation 3: The latest attempt, using <a rel="nofollow" class="external text" href="https://github.com/internetarchive/wiki-references-extractor">wiki-references-extractor</a> and <a rel="nofollow" class="external text" href="https://github.com/internetarchive/wiki-references-db">wiki-references-db</a> (WRDB). WRDB is a core component of the broader WCD project.
+<ul><li>Version 1: <a rel="nofollow" class="external free" href="https://wikipediacitations.scatter.red">https://wikipediacitations.scatter.red</a>
+<ul><li>Partial build of English Wikipedia</li>
+<li>Has issues dealing with broken wikitext</li></ul></li>
+<li>Version 2:
+<ul><li>Rather than build an entire database upfront, have it be possible to analyze a <b>page URL</b> at a <b>point in time</b>. This will allow us to prove the extraction mechanisms are working without resorting to building an entire database first
+<ul><li>Available as <a rel="nofollow" class="external text" href="https://wikipediacitations-now.scatter.red">Wikipedia Citations Now</a></li></ul></li>
+<li>Be able to tell what part of the article a reference is from (in-line vs. endnote, etc.)</li>
+<li>JSON representation of template parameters so you don't have to parse them out of the template</li>
+<li>Use LLM to parse the article in general. Maybe have an option to select between classical parsing and LLM-based extraction.
+<ul><li>Use basic mwparserfromhell extraction as first step. If a user comes across an entry and it looks broken, offer option to re-generate report with AI. User can then accept alternative.</li></ul></li>
+<li>In data model, associate references with revision id; then, associate revision IDs with timestamps in another table</li></ul></li></ul></li></ul>
+<h2><span class="mw-headline" id="Longer_term_challenges">Longer term challenges</span></h2>
+<ul><li>Sometimes, Wikipedia includes statements from Wikidata, and those statements from Wikidata have citations, but they would not show up in revision text.
+<ul><li>Would this require cross-referencing with rendered HTML output?</li>
+<li>Or a "citations database plus" that includes the Wikidata item? (Wikipedia editors would probably like this for quickly comparing citations between Wikipedia article and Wikidata item.)</li></ul></li></ul>
+<h2><span class="mw-headline" id="2025-10-16_WRDB_migration">2025-10-16 WRDB migration</span></h2>
+<p>WRDB is the Postgres database of citation strings at the core of the WCD effort.
+</p><p>Migration away from station1001 is underway. This started sooner but I am documenting my progress as of today.
+</p><p>Successfully transferred between station1001 and the new VM, wrdb-gen3v1, and just now, verified via md5sum.
+</p>
+<hr />
+<pre>jh@wrdb-gen3v1:/bulk/downloads$ md5sum 2024-10-wrdb.sql.gz
+<b>1819</b>ec7f76887e854903550ce1d<b>30ac6</b>&#160; 2024-10-wrdb.sql.gz
+</pre>
+<pre>jh@station1001:/opt/librarybase/wikibase$ md5sum ~/2024-10-wrdb.sql.gz
+<b>1819</b>ec7f76887e854903550ce1d<b>30ac6</b>  /home/jh/2024-10-wrdb.sql.gz
+</pre>
+<hr /><p>Downloading the English Wikipedia dump to my home workstation is going painfully slowly. I do not know why the download is only ~1.5MB/s. If I want to do a rebuild, my Plan B may be to instead set up a wrdb-gen3v2 on station1001 (rebuilt with Proxmox) and dedicate it to the rebuild. If I have a pre-process step that turns the dumps into a neat bundle of diffs, it should not require as much RAM to process (since I will no longer have to deal with XML in memory). I still want to do the WRDB rebuild on my workstation, but pre-processing on station1001 may give me a smaller file I can download. Once the pre-process is done I should have enough resources for a secondary copy of WDQS.
+</p><p>In the meantime, now that I have a database dump of WRDB on the wrdb-gen3v1 virtual machine, the next steps are:
+</p>
+<ol><li>Re-import into Postgres</li>
+<li>Re-start web service</li>
+<li>Change proxy to point to new web service</li>
+<li>Create process for on-demand update:
+<ol><li>User requests data for a certain article. There is a notice saying to check back later if the data is not up to date.</li>
+<li>Article is added to the update queue</li>
+<li>Process works through the update queue, getting all revisions since the most recent one in the database</li>
+<li>Each revision has references extracted and the database is updated</li>
+<li>To prevent excessive updates, if an article is already in the queue, it can't be re-added to the queue. And if an article was refreshed in the last hour, it is sent to the back of the queue.</li>
+<li>Eventually add a low-priority queue that cycles through English Wikipedia in alphabetical order so that there is always passive updating.</li></ol></li></ol>
+<p>On-demand updates for particular articles should tide me over until I have the opportunity to do a full rebuild.
+</p><p><b>Note:</b> I can't take down the current instance on station1001 until the new one is set up. Once the new one is set up, that's the final service before I can begin setting up Proxmox on station1001.
+</p>
+<h2><span class="mw-headline" id="2025-10-25_Downloading_dump_for_Gen3V2">2025-10-25 Downloading dump for Gen3V2</span></h2>
+<p>Downloading paused for re-networking. To resume:
+</p>
+<pre>rsync -avP -e "ssh -J jh@154.29.79.171" jh@10.0.1.8:/bulk/public/wikimedia/enwiki/20250901/enwiki-20250901-pages-meta-history*.xml-p*.bz2 ./
+</pre>
+<p>Downloading resumed. <a href="/wiki/User:Harej" title="User:Harej">Harej</a> (<a href="/wiki/User_talk:Harej" title="User talk:Harej">talk</a>) 03:47, 28 October 2025 (UTC)
+</p><p>Download came to a stop on the orb-blended VM I used because it filled up. So I created a new VM, wrdb-gen3v2, moved the files to that, and resumed the download there. <a href="/wiki/User:Harej" title="User:Harej">Harej</a> (<a href="/wiki/User_talk:Harej" title="User talk:Harej">talk</a>) 00:16, 3 November 2025 (UTC)
+</p></div>

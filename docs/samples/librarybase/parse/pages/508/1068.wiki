@@ -1,0 +1,4 @@
+The '''Librarybase Query Service''' is Librarybase's SPARQL endpoint, running Blazegraph like other Wikibases.
+
+* [https://query.librarybase.org Query service front-end interface]
+* [https://query.librarybase.org/proxy/wdqs/bigdata/namespace/wdq/sparql API endpoint]

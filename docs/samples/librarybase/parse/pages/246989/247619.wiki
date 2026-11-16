@@ -1,0 +1,14 @@
+'''"EveryMediaWiki"''' is a project to bring back WikiApiary as a Wikibase.
+
+== Purposes ==
+
+* Proof of concept of Wikibase federation: Librarybase using not just Wikidata but also Miraheze Communities, and Wikibase World as remote sources
+* Tracking InternetArchiveBot deployments
+* Tracking MediaWiki extension usage
+* The other useful things WikiApiary did
+
+== Goals ==
+
+* Repurpose the WikiApiary crawlers to write to Librarybase instead
+* Develop a new frontend for exploring the MediaWiki instances tracked in Librarybase
+* Acquire the WikiApiary domain name and repurpose it for the new frontend

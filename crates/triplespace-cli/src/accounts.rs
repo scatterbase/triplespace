@@ -1,0 +1,419 @@
+//! `triplespace password set`, `triplespace subsidiary create|key|keys|revoke` (0007 §3;
+//! 0024 §1–2, §4): the owner's password and the bot accounts a client logs in as.
+//! Secrets come from files or the environment, never the command line (0033 §12).
+
+use std::path::{Path, PathBuf};
+use std::time::{Duration, SystemTime};
+
+use anyhow::{Context, Result, bail};
+use clap::{Args, Subcommand};
+use scatter_actors::actor::ActorRecord;
+use scatter_actors::key::ActorKey;
+use scatter_actors::membership::Membership;
+use scatter_ingest::store::{IngestStore, Sequence};
+use scatter_ingest::write::append_projected;
+use scatter_projection::{Backend, Budget, Pipeline};
+use tokio_postgres::GenericClient;
+use triplespace_accounts::{keys, logins, password};
+use triplespace_api_ingest::PgIngest;
+use triplespace_projections::PgCx;
+use triplespace_projections::actors::payload;
+
+use crate::common::{connect, draft, farm_of, now, store};
+
+/// Reads a secret: the file named, else the environment variable, else an error.
+pub fn secret_from(file: Option<&Path>, env_var: &str) -> Result<String> {
+    if let Some(p) = file {
+        let text = std::fs::read_to_string(p)
+            .with_context(|| format!("read secret file {}", p.display()))?;
+        return Ok(text.trim_end_matches(['\r', '\n']).to_string());
+    }
+    if let Ok(v) = std::env::var(env_var) {
+        return Ok(v);
+    }
+    bail!("no secret: pass a file, or set {env_var}")
+}
+
+/// An account on a tenant, by name or by number.
+pub(crate) async fn actor_key<C: GenericClient>(
+    client: &C,
+    tenant: &str,
+    name: Option<&str>,
+    id: Option<u64>,
+) -> Result<(String, Option<String>)> {
+    match (name, id) {
+        (_, Some(id)) => {
+            let issuer = triplespace_projections::tenants::issuer_of(client, tenant)
+                .await?
+                .with_context(|| format!("tenant `{tenant}` is not registered"))?;
+            let key = ActorKey::numeric(&issuer, id).to_string();
+            let row = client
+                .query_opt(
+                    "SELECT name FROM view.actor WHERE tenant = $1 AND actor_key = $2",
+                    &[&tenant, &key],
+                )
+                .await?
+                .with_context(|| format!("no account `{key}` on `{tenant}`"))?;
+            Ok((key, row.get(0)))
+        }
+        (Some(name), None) => {
+            let name = scatter_actors::actor::normalize_name(name);
+            let row = client
+                .query_opt(
+                    "SELECT actor_key FROM view.actor WHERE tenant = $1 AND name = $2",
+                    &[&tenant, &name],
+                )
+                .await?
+                .with_context(|| format!("no account named `{name}` on `{tenant}`"))?;
+            Ok((row.get(0), Some(name)))
+        }
+        (None, None) => bail!("name the account with --name or --id"),
+    }
+}
+
+/// `password set`.
+#[derive(Debug, Args)]
+pub struct PasswordSet {
+    /// The Postgres URL.
+    #[arg(long, env = "TRIPLESPACE_DATABASE_URL")]
+    pub database: String,
+    /// The tenant slug.
+    #[arg(long)]
+    pub tenant: String,
+    /// The account's name.
+    #[arg(long)]
+    pub name: Option<String>,
+    /// The account's user ID.
+    #[arg(long)]
+    pub id: Option<u64>,
+    /// A file holding the password (else `TRIPLESPACE_PASSWORD`).
+    #[arg(long)]
+    pub password_file: Option<PathBuf>,
+}
+
+/// Sets an account's password (0089 §3): the hash in `private.password`, keyed by the
+/// account's login; an account bound to no login gets one, named after it, first
+/// (0089 §15). Returns whether the login had no password before.
+#[allow(clippy::too_many_arguments)]
+pub async fn set_password(
+    store: &PgIngest,
+    pipeline: &Pipeline<PgIngest>,
+    cx: &mut PgCx,
+    tenant: &str,
+    actor_key: &str,
+    account_name: &str,
+    password_text: &str,
+    attested_by: &str,
+    now: u64,
+) -> Result<bool> {
+    let login = if let Some(l) = logins::login_of(cx.conn(), tenant, actor_key).await? {
+        l
+    } else {
+        // Under `login.external_required` no login is made from a password (0101 §1).
+        if logins::external_required(cx.conn()).await? {
+            anyhow::bail!(
+                "`{account_name}` has no login, and this instance creates a login only from an external identity (login.external_required); the person signs in with one instead"
+            );
+        }
+        let l = triplespace_api_ingest::accounts::create_login(
+            store,
+            pipeline,
+            cx,
+            tenant,
+            account_name,
+            attested_by,
+            now,
+        )
+        .await?;
+        triplespace_api_ingest::accounts::bind_account(
+            store,
+            pipeline,
+            cx,
+            tenant,
+            actor_key,
+            l,
+            attested_by,
+            now,
+        )
+        .await?;
+        l
+    };
+    let had = password::has(cx.conn(), login).await?;
+    password::set(cx.conn(), login, password_text).await?;
+    Ok(!had)
+}
+
+/// Runs `password set`.
+pub async fn run_password_set(args: PasswordSet) -> Result<()> {
+    let text = secret_from(args.password_file.as_deref(), "TRIPLESPACE_PASSWORD")?;
+    let client = connect(&args.database).await?;
+    let (key, name) = actor_key(&client, &args.tenant, args.name.as_deref(), args.id).await?;
+    let farm = farm_of(&client).await?;
+    let (store, pipeline) = store(&args.database, &farm)?;
+    let mut cx = store.begin().await?;
+    let fresh = set_password(
+        &store,
+        &pipeline,
+        &mut cx,
+        &args.tenant,
+        &key,
+        name.as_deref().unwrap_or(&key),
+        &text,
+        &farm.operator().to_string(),
+        now(),
+    )
+    .await?;
+    store.commit(cx).await?;
+    println!(
+        "password {} for {key} ({})",
+        if fresh { "set" } else { "replaced" },
+        name.unwrap_or_default()
+    );
+    Ok(())
+}
+
+/// `subsidiary …`.
+#[derive(Debug, Subcommand)]
+pub enum Subsidiary {
+    /// Create a subsidiary account for an operator (0024 §2).
+    Create(SubsidiaryCreate),
+    /// Issue an API key for a subsidiary; the secret is printed once (0024 §4).
+    Key(SubsidiaryKey),
+    /// List a subsidiary's keys.
+    Keys(SubsidiaryTarget),
+    /// Revoke a key and every session it opened.
+    Revoke(SubsidiaryRevoke),
+}
+
+/// Common arguments naming a subsidiary.
+#[derive(Debug, Args)]
+pub struct SubsidiaryTarget {
+    /// The Postgres URL.
+    #[arg(long, env = "TRIPLESPACE_DATABASE_URL")]
+    pub database: String,
+    /// The tenant slug.
+    #[arg(long)]
+    pub tenant: String,
+    /// The subsidiary's name.
+    #[arg(long)]
+    pub name: String,
+}
+
+/// `subsidiary create`.
+#[derive(Debug, Args)]
+pub struct SubsidiaryCreate {
+    /// The subsidiary.
+    #[command(flatten)]
+    pub target: SubsidiaryTarget,
+    /// The operator's name (a primary account of the tenant).
+    #[arg(long)]
+    pub operator: Option<String>,
+    /// The operator's user ID.
+    #[arg(long)]
+    pub operator_id: Option<u64>,
+    /// Groups to add the new account to (`bot`).
+    #[arg(long = "group")]
+    pub groups: Vec<String>,
+}
+
+/// `subsidiary key`.
+#[derive(Debug, Args)]
+pub struct SubsidiaryKey {
+    /// The subsidiary.
+    #[command(flatten)]
+    pub target: SubsidiaryTarget,
+    /// The key's label; `{name}@{label}` is the bot-password login name.
+    #[arg(long)]
+    pub label: String,
+    /// Grants (`editentity`, `highvolume`, …); `basic` is always included.
+    #[arg(long = "grant")]
+    pub grants: Vec<String>,
+    /// Days until the key expires; never by default.
+    #[arg(long)]
+    pub expires_days: Option<u64>,
+    /// Print the issued key as one JSON object (`key_id`, `login`, `secret`, `bearer`)
+    /// instead of the prose, for scripts.
+    #[arg(long)]
+    pub json: bool,
+}
+
+/// `subsidiary revoke`.
+#[derive(Debug, Args)]
+pub struct SubsidiaryRevoke {
+    /// The subsidiary.
+    #[command(flatten)]
+    pub target: SubsidiaryTarget,
+    /// The key ID.
+    #[arg(long)]
+    pub key_id: String,
+}
+
+/// Creates a subsidiary: the actor record (kind `bot`, with its operator) in the tenant's
+/// `actors` partition, and its memberships. Returns the new actor key.
+#[allow(clippy::too_many_arguments)]
+pub async fn create_subsidiary(
+    store: &PgIngest,
+    pipeline: &Pipeline<PgIngest>,
+    cx: &mut PgCx,
+    tenant: &str,
+    name: &str,
+    operator: &str,
+    groups: &[String],
+    attested_by: &str,
+    now: u64,
+) -> Result<String> {
+    let operator_key = ActorKey::parse(operator).map_err(|e| anyhow::anyhow!("{e}"))?;
+    let record = ActorRecord::subsidiary(name, operator_key);
+    // An OAuth issuer's `{label}-` is reserved for the names its usernames derive
+    // (0102 §2): a subsidiary never sits on one.
+    if let Some(i) = scatter_actors::issuer::IssuerRegistry::default_registry().reserving(name) {
+        bail!(
+            "names beginning with `{}-` are reserved for accounts signed in through {}",
+            i.oauth
+                .as_ref()
+                .map_or(i.name.as_str(), |o| o.label.as_str()),
+            i.name
+        );
+    }
+    let taken = cx
+        .conn()
+        .query_opt(
+            "SELECT 1 FROM view.actor WHERE tenant = $1 AND name = $2",
+            &[&tenant, &scatter_actors::actor::normalize_name(name)],
+        )
+        .await?;
+    if taken.is_some() {
+        bail!("`{name}` is already an account on `{tenant}`");
+    }
+    let issuer = triplespace_projections::tenants::issuer_of(cx.conn(), tenant)
+        .await?
+        .with_context(|| format!("tenant `{tenant}` is not registered"))?;
+    let id = store.next_id(cx, tenant, &Sequence::User).await?;
+    let key = ActorKey::numeric(&issuer, id);
+    record
+        .validate(&key)
+        .map_err(|e| anyhow::anyhow!("subsidiary record: {e}"))?;
+    let actors = store
+        .partition(cx, tenant, "actors")
+        .await?
+        .with_context(|| format!("`{tenant}` has no actors partition"))?;
+    let mut d = draft(
+        payload::ACTOR,
+        &key.to_string(),
+        &serde_json::to_value(&record)?,
+        attested_by,
+        Some("subsidiary create"),
+        now,
+    )?;
+    d.logid = Some(store.next_id(cx, tenant, &Sequence::Log).await?);
+    append_projected(store, pipeline, cx, actors, d, Budget::NONE).await?;
+    for g in groups {
+        let mut m = draft(
+            payload::MEMBERSHIP,
+            &key.to_string(),
+            &serde_json::to_value(Membership::add(g, None))?,
+            attested_by,
+            Some("subsidiary create"),
+            now,
+        )?;
+        m.logid = Some(store.next_id(cx, tenant, &Sequence::Log).await?);
+        append_projected(store, pipeline, cx, actors, m, Budget::NONE).await?;
+    }
+    Ok(key.to_string())
+}
+
+/// Runs a `subsidiary` command.
+pub async fn run_subsidiary(cmd: Subsidiary) -> Result<()> {
+    match cmd {
+        Subsidiary::Create(args) => {
+            let client = connect(&args.target.database).await?;
+            let (operator, _) = actor_key(
+                &client,
+                &args.target.tenant,
+                args.operator.as_deref(),
+                args.operator_id,
+            )
+            .await?;
+            let farm = farm_of(&client).await?;
+            let (store, pipeline) = store(&args.target.database, &farm)?;
+            let mut cx = store.begin().await?;
+            let key = create_subsidiary(
+                &store,
+                &pipeline,
+                &mut cx,
+                &args.target.tenant,
+                &args.target.name,
+                &operator,
+                &args.groups,
+                &operator,
+                now(),
+            )
+            .await?;
+            store.commit(cx).await?;
+            println!("subsidiary {key} \"{}\" of {operator}", args.target.name);
+            println!(
+                "  next   triplespace subsidiary key --tenant {} --name \"{}\" --label <label> --grant editentity",
+                args.target.tenant, args.target.name
+            );
+            Ok(())
+        }
+        Subsidiary::Key(args) => {
+            let client = connect(&args.target.database).await?;
+            let (key, _) =
+                actor_key(&client, &args.target.tenant, Some(&args.target.name), None).await?;
+            let expires = args
+                .expires_days
+                .map(|d| SystemTime::now() + Duration::from_secs(d * 24 * 60 * 60));
+            let issued = keys::issue(&client, &key, &args.label, &args.grants, expires).await?;
+            let login = format!("{}@{}", args.target.name, args.label);
+            let secret = issued.bearer.split_once('.').map_or("", |(_, s)| s);
+            if args.json {
+                println!(
+                    "{}",
+                    serde_json::json!({
+                        "key_id": issued.key_id,
+                        "login": login,
+                        "secret": secret,
+                        "bearer": issued.bearer,
+                    })
+                );
+                return Ok(());
+            }
+            println!("key {} issued for {key}", issued.key_id);
+            println!("  login   lgname={login}");
+            println!("  secret  {secret}");
+            println!("  bearer  Authorization: Bearer {}", issued.bearer);
+            println!("  shown once; store it now");
+            Ok(())
+        }
+        Subsidiary::Keys(args) => {
+            let client = connect(&args.database).await?;
+            let (key, _) = actor_key(&client, &args.tenant, Some(&args.name), None).await?;
+            for k in keys::list(&client, &key).await? {
+                println!(
+                    "{:<24} {:<16} {:<32} {}",
+                    k.key_id,
+                    k.label,
+                    k.grants.join(","),
+                    if k.revoked_at.is_some() {
+                        "revoked"
+                    } else {
+                        "live"
+                    }
+                );
+            }
+            Ok(())
+        }
+        Subsidiary::Revoke(args) => {
+            let client = connect(&args.target.database).await?;
+            let (key, _) =
+                actor_key(&client, &args.target.tenant, Some(&args.target.name), None).await?;
+            if keys::revoke(&client, &key, &args.key_id).await? {
+                println!("key {} revoked", args.key_id);
+            } else {
+                println!("key {} was not live", args.key_id);
+            }
+            Ok(())
+        }
+    }
+}

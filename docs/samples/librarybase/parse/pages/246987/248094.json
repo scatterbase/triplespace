@@ -1,0 +1,77 @@
+{
+ "categories": [],
+ "displaytitle": "<span class=\"mw-page-title-namespace\">Project</span><span class=\"mw-page-title-separator\">:</span><span class=\"mw-page-title-main\">Analytics/WCD</span>",
+ "externallinks": [
+  "https://github.com/internetarchive/iari",
+  "https://github.com/internetarchive/wiki-references-extractor",
+  "https://github.com/internetarchive/wiki-references-db",
+  "https://wikipediacitations-now.scatter.red",
+  "https://wikipediacitations.scatter.red"
+ ],
+ "images": [],
+ "iwlinks": [],
+ "langlinks": [],
+ "links": [
+  {
+   "exists": true,
+   "ns": 2,
+   "title": "User:Harej"
+  },
+  {
+   "exists": true,
+   "ns": 3,
+   "title": "User talk:Harej"
+  }
+ ],
+ "pageid": 246987,
+ "parsewarnings": [],
+ "properties": {
+  "unexpectedUnconnectedPage": -4
+ },
+ "revid": 248094,
+ "sections": [
+  {
+   "anchor": "Introduction",
+   "byteoffset": 0,
+   "fromtitle": "Project:Analytics/WCD",
+   "index": "1",
+   "level": "2",
+   "line": "Introduction",
+   "number": "1",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Generations",
+   "byteoffset": 404,
+   "fromtitle": "Project:Analytics/WCD",
+   "index": "2",
+   "level": "2",
+   "line": "Generations",
+   "number": "2",
+   "toclevel": 1
+  },
+  {
+   "anchor": "2025-10-16_WRDB_migration",
+   "byteoffset": 2259,
+   "fromtitle": "Project:Analytics/WCD",
+   "index": "3",
+   "level": "2",
+   "line": "2025-10-16 WRDB migration",
+   "number": "3",
+   "toclevel": 1
+  },
+  {
+   "anchor": "2025-10-25_Downloading_dump_for_Gen3V2",
+   "byteoffset": 4804,
+   "fromtitle": "Project:Analytics/WCD",
+   "index": "4",
+   "level": "2",
+   "line": "2025-10-25 Downloading dump for Gen3V2",
+   "number": "4",
+   "toclevel": 1
+  }
+ ],
+ "showtoc": true,
+ "templates": [],
+ "title": "Project:Analytics/WCD"
+}

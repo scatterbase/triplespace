@@ -1,0 +1,499 @@
+//! The shared state: the pool, the write store and its pipeline, the token secret, the
+//! farm, and the deployment settings of 0056 §10.
+
+use std::sync::Arc;
+
+use deadpool_postgres::Pool;
+use scatter_projection::{Pipeline, QueueLag, Ran, Worker};
+use scatter_providers::Registry;
+use triplespace_accounts::Secret;
+use triplespace_accounts::oauth::{HttpUpstream, Upstream};
+use triplespace_api_ingest::PgIngest;
+use triplespace_db::pool::Pools;
+use triplespace_projections::{EntityProjection, Farm, PgBackend, milestone_pipeline};
+
+use crate::forwarded::{KeyCache, TrustList};
+
+/// `server.mode` (0056 §10).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Mode {
+    /// Refuses insecure settings; serves only registered hosts.
+    Production,
+    /// Starts anyway, marks `siprop=triplespace` with `insecure: true`, and may serve an
+    /// unregistered host as the fallback tenant.
+    Development,
+}
+
+impl Mode {
+    /// Parses `production` or `development`.
+    #[must_use]
+    pub fn parse(s: &str) -> Option<Self> {
+        match s {
+            "production" => Some(Self::Production),
+            "development" => Some(Self::Development),
+            _ => None,
+        }
+    }
+}
+
+/// What the server is configured with.
+#[derive(Debug, Clone)]
+pub struct Config {
+    /// The mode.
+    pub mode: Mode,
+    /// Proxies whose `X-Forwarded-*` headers are trusted, as the operator wrote them:
+    /// addresses and CIDR ranges (0057 §10).
+    pub trusted_proxies: Vec<String>,
+    /// In development mode, the tenant an unregistered host is served as.
+    pub dev_tenant: Option<String>,
+    /// The farm.
+    pub farm: Farm,
+    /// The auth host, `server.auth_base` (0089 §1): required once there is a second
+    /// tenant, and never a tenant base or the farm base.
+    pub auth_base: Option<String>,
+    /// `MediaWiki`-compatible `generator` string.
+    pub generator: String,
+    /// The binary's `version.json` (0077 §15), which its build script writes; `None` in
+    /// tests, which then report a stub build.
+    pub version: Option<&'static str>,
+}
+
+/// What the handlers know of the instance's mail (0100 §5; 16 §5.7): whether it sends
+/// any, from which address, and the secret its webhook is authenticated with. The
+/// transport itself belongs to the delivery worker, not to the handlers.
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct MailSettings {
+    /// `mail.transport`: `none`, `log`, `smtp` or `postmark`.
+    pub transport: String,
+    /// `mail.from`: the instance's one sender address; `None` with `none`.
+    pub from: Option<String>,
+    /// The secret Postmark's webhook presents as its HTTP Basic password
+    /// (`mail.postmark.webhook_secret_file`).
+    pub postmark_webhook_secret: Option<String>,
+}
+
+impl MailSettings {
+    /// Whether the instance sends mail: a transport other than `none` with a sender.
+    #[must_use]
+    pub fn sends(&self) -> bool {
+        !self.transport.is_empty() && self.transport != "none" && self.from.is_some()
+    }
+}
+
+/// The state behind every handler.
+#[derive(Clone)]
+pub struct App {
+    inner: Arc<Inner>,
+}
+
+struct Inner {
+    pools: Pools,
+    store: PgIngest,
+    /// The write store over the accounts service's pool: writes to the accounts partition.
+    accounts_store: PgIngest,
+    /// The write store over the notifier's pool: addressing writes inboxes.
+    notify_store: PgIngest,
+    pipeline: Pipeline<PgIngest>,
+    worker: Worker<PgIngest>,
+    order: EntityProjection,
+    secret: Secret,
+    config: Config,
+    trust: TrustList,
+    forwarder_keys: KeyCache,
+    nothing_hidden: crate::pages::NothingHidden,
+    build: crate::version::BuildInfo,
+    probes: crate::version::Probes,
+    upstream: Arc<dyn Upstream>,
+    /// The mail settings, set once by the server after the transport is built.
+    mail: std::sync::OnceLock<MailSettings>,
+    dumps_dir: std::sync::OnceLock<std::path::PathBuf>,
+    /// The blob store, set once by the server where it keeps one.
+    blobs: std::sync::OnceLock<scatter_blob::BlobStore>,
+    /// Each tenant's table of names (0078 §3), leaked for the adapters' `'static`
+    /// borrows and rebuilt when the tenant's `entity-source` records move.
+    registries: std::sync::Mutex<std::collections::HashMap<String, (i64, &'static Registry)>>,
+}
+
+impl App {
+    /// Builds the state over the server's pools ([`Pools`]; a single pool serves every
+    /// part). An entry of `trusted_proxies` that is not an address or a CIDR range is an
+    /// error.
+    pub fn new(pools: impl Into<Pools>, secret: Secret, config: Config) -> Result<Self, String> {
+        let agent = format!(
+            "Triplespace/{} (+{})",
+            env!("CARGO_PKG_VERSION"),
+            config.farm.base.trim_end_matches('/')
+        );
+        let upstream = HttpUpstream::new(&agent).map_err(|e| e.to_string())?;
+        Self::with_upstream(pools, secret, config, Arc::new(upstream))
+    }
+
+    /// Builds the state with what flows ask of the world outside (0088 §2, §8): the
+    /// providers and source wikis. [`Self::new`] reaches them over HTTP; tests put a
+    /// fake here.
+    pub fn with_upstream(
+        pools: impl Into<Pools>,
+        secret: Secret,
+        config: Config,
+        upstream: Arc<dyn Upstream>,
+    ) -> Result<Self, String> {
+        let pools = pools.into();
+        let pool = pools.server.clone();
+        let trust = TrustList::parse(&config.trusted_proxies)
+            .map_err(|e| format!("trusted proxies: {e}"))?;
+        let store = PgIngest::new(PgBackend::new(pool.clone()));
+        let accounts_store = PgIngest::new(PgBackend::new(pools.accounts.clone()));
+        let notify_store = PgIngest::new(PgBackend::new(pools.notify.clone()));
+        let registry = Registry::default_registry();
+        let pipeline = milestone_pipeline(
+            scatter_actors::issuer::IssuerRegistry::default_registry().clone(),
+            config.farm.clone(),
+        )
+        .and_then(triplespace_notify::with_addressing)
+        .map_err(|e| e.to_string())?;
+        // The worker: every projection's fan-out, then the tier-3 consumers (03 §6.1).
+        let worker = Worker::new()
+            .with_all(pipeline.consumers())
+            .and_then(|w| w.with(Arc::new(triplespace_projections::reports::ReportConsumer)))
+            .map_err(|e| e.to_string())?;
+        // Mirror order: every registered provider, registry order (the tenant's opt-in
+        // order is a later refinement, 0018 §6).
+        let slugs: Vec<&str> = registry
+            .providers()
+            .iter()
+            .map(|p| p.slug.as_str())
+            .collect();
+        let order = EntityProjection::new(&slugs, registry);
+        let build = crate::version::BuildInfo::parse(config.version);
+        Ok(Self {
+            inner: Arc::new(Inner {
+                pools,
+                store,
+                accounts_store,
+                notify_store,
+                pipeline,
+                worker,
+                order,
+                secret,
+                config,
+                trust,
+                forwarder_keys: KeyCache::default(),
+                nothing_hidden: crate::pages::NothingHidden::default(),
+                build,
+                probes: crate::version::Probes::default(),
+                upstream,
+                mail: std::sync::OnceLock::new(),
+                dumps_dir: std::sync::OnceLock::new(),
+                blobs: std::sync::OnceLock::new(),
+                registries: std::sync::Mutex::new(std::collections::HashMap::new()),
+            }),
+        })
+    }
+
+    /// The public API's pool, `ts_server` (0013 §4): it cannot read `private`, nor the
+    /// accounts partition through `log.record`.
+    #[must_use]
+    pub fn pool(&self) -> &Pool {
+        &self.inner.pools.server
+    }
+
+    /// The accounts service's pool, `ts_accounts`: what reads or writes `private` on an
+    /// account's behalf (credentials, sessions, preferences, the watch set), and writes to
+    /// the accounts partition.
+    #[must_use]
+    pub fn accounts_pool(&self) -> &Pool {
+        &self.inner.pools.accounts
+    }
+
+    /// The notifier's pool, `ts_notify`: addressing, inboxes and delivery.
+    #[must_use]
+    pub fn notify_pool(&self) -> &Pool {
+        &self.inner.pools.notify
+    }
+
+    /// Every pool.
+    #[must_use]
+    pub fn pools(&self) -> &Pools {
+        &self.inner.pools
+    }
+
+    /// The write store, over the public API's pool.
+    #[must_use]
+    pub fn store(&self) -> &PgIngest {
+        &self.inner.store
+    }
+
+    /// The write store over the accounts service's pool (0013 §4, A99): what appends to an
+    /// accounts partition, which the public API's role may not write (0013 A98).
+    #[must_use]
+    pub fn accounts_store(&self) -> &PgIngest {
+        &self.inner.accounts_store
+    }
+
+    /// The write store over the notifier's pool: addressing, which writes inboxes.
+    #[must_use]
+    pub fn notify_store(&self) -> &PgIngest {
+        &self.inner.notify_store
+    }
+
+    /// The pipeline.
+    #[must_use]
+    pub fn pipeline(&self) -> &Pipeline<PgIngest> {
+        &self.inner.pipeline
+    }
+
+    /// Brings the asynchronous projection steps up to date (0013 §7: what the write path
+    /// does not apply inline), which today is addressing ([`triplespace_notify`]). Addressing
+    /// reads membership and block records, in `actors` partitions; thread records, in
+    /// `pages`; and the ACL records that hide a post or delete a thread, in a tenant's
+    /// `log`. Only those partitions are replayed; every other partition's addressing
+    /// position is moved to its head in one statement. Cheap when nothing is behind: one
+    /// query. Returns the records read.
+    ///
+    /// # Errors
+    ///
+    /// The store's or a projection's error.
+    pub async fn catch_up_async(&self) -> Result<u64, String> {
+        // Addressing writes inboxes in `private`: the notifier's pool (0013 §4, A99).
+        let mut client = self.notify_pool().get().await.map_err(|e| e.to_string())?;
+        let behind: Vec<(i64, String)> = client
+            .query(
+                "SELECT p.partition, p.name FROM log.partition p
+                 LEFT JOIN ops.projection_state s
+                   ON s.projection = 'addressing' AND s.partition = p.partition
+                 WHERE p.next_offset > coalesce(s.applied_offset, 0)",
+                &[],
+            )
+            .await
+            .map_err(|e| e.to_string())?
+            .iter()
+            .map(|r| (r.get(0), r.get(1)))
+            .collect();
+        if behind.is_empty() {
+            return Ok(0);
+        }
+        let addressed = |name: &str| matches!(name, "actors" | "pages" | "log");
+        let skipped: Vec<i64> = behind
+            .iter()
+            .filter(|(_, name)| !addressed(name))
+            .map(|(p, _)| *p)
+            .collect();
+        if !skipped.is_empty() {
+            client
+                .execute(
+                    "INSERT INTO ops.projection_state (projection, partition, applied_offset)
+                     SELECT 'addressing', p.partition, p.next_offset FROM log.partition p
+                     WHERE p.partition = ANY($1)
+                     ON CONFLICT (projection, partition)
+                     DO UPDATE SET applied_offset = EXCLUDED.applied_offset, updated_at = now()",
+                    &[&skipped],
+                )
+                .await
+                .map_err(|e| e.to_string())?;
+        }
+        let tx = client.transaction().await.map_err(|e| e.to_string())?;
+        let log = scatter_log_postgres::PgLog::new(&*tx);
+        let mut read = 0;
+        for (p, name) in &behind {
+            if addressed(name) {
+                read += self
+                    .pipeline()
+                    .catch_up(
+                        self.notify_store(),
+                        &log,
+                        scatter_log_postgres::ids::partition_from_db(*p),
+                        500,
+                    )
+                    .await
+                    .map_err(|e| e.to_string())?
+                    .records;
+            }
+        }
+        tx.rollback().await.map_err(|e| e.to_string())?;
+        Ok(read)
+    }
+
+    /// The worker over the work queue (03 §6.1): every projection's queued fan-out and
+    /// the tier-3 consumers, reports among them.
+    #[must_use]
+    pub fn worker(&self) -> &Worker<PgIngest> {
+        &self.inner.worker
+    }
+
+    /// One pass of the worker: at most one batch per tenant per consumer. The server's
+    /// worker tasks call this in a loop; a test calls it to bring the queues up to date.
+    ///
+    /// # Errors
+    ///
+    /// The store's; a consumer's failures are in the result.
+    pub async fn work_once(&self) -> Result<Ran, String> {
+        self.inner
+            .worker
+            .run_once(self.store())
+            .await
+            .map_err(|e| e.to_string())
+    }
+
+    /// The worker until every queue is empty or `limit` items are applied.
+    ///
+    /// # Errors
+    ///
+    /// The store's.
+    pub async fn work_until_idle(&self, limit: usize) -> Result<Ran, String> {
+        self.inner
+            .worker
+            .run_until_idle(self.store(), limit)
+            .await
+            .map_err(|e| e.to_string())
+    }
+
+    /// What waits in every queue, by consumer and tenant: the lag `GET /version` reports.
+    ///
+    /// # Errors
+    ///
+    /// The store's.
+    pub async fn queue_lag(&self) -> Result<Vec<QueueLag>, String> {
+        use scatter_projection::Backend as _;
+        let store = self.store();
+        let mut cx = store.begin().await.map_err(|e| e.to_string())?;
+        let lag = store
+            .queue_lag(&mut cx, self.inner.worker.max_attempts)
+            .await
+            .map_err(|e| e.to_string())?;
+        store.rollback(cx).await.map_err(|e| e.to_string())?;
+        Ok(lag)
+    }
+
+    /// The mirror order for resolution.
+    #[must_use]
+    pub fn order(&self) -> &EntityProjection {
+        &self.inner.order
+    }
+
+    /// The token secret.
+    #[must_use]
+    pub fn secret(&self) -> &Secret {
+        &self.inner.secret
+    }
+
+    /// The mail settings (0100 §5): what the server set, or no mail at all.
+    #[must_use]
+    pub fn mail(&self) -> MailSettings {
+        self.inner.mail.get().cloned().unwrap_or_default()
+    }
+
+    /// Sets the mail settings, once, as the server does after building the transport. A
+    /// second call changes nothing.
+    pub fn set_mail(&self, settings: MailSettings) {
+        let _ = self.inner.mail.set(settings);
+    }
+
+    /// Sets `dumps.dir`, the directory `triplespace dump` writes into and `{base}/dumps/`
+    /// serves from, once. A second call changes nothing.
+    pub fn set_dumps_dir(&self, dir: std::path::PathBuf) {
+        let _ = self.inner.dumps_dir.set(dir);
+    }
+
+    /// `dumps.dir`, if set.
+    #[must_use]
+    pub fn dumps_dir(&self) -> Option<&std::path::Path> {
+        self.inner.dumps_dir.get().map(std::path::PathBuf::as_path)
+    }
+
+    /// Sets the blob store (03 §8), where a queued export's file is kept (0104 A9), once.
+    /// A second call changes nothing.
+    pub fn set_blobs(&self, blobs: scatter_blob::BlobStore) {
+        let _ = self.inner.blobs.set(blobs);
+    }
+
+    /// The blob store, if this server keeps one.
+    #[must_use]
+    pub fn blobs(&self) -> Option<&scatter_blob::BlobStore> {
+        self.inner.blobs.get()
+    }
+
+    /// The settings.
+    #[must_use]
+    pub fn config(&self) -> &Config {
+        &self.inner.config
+    }
+
+    /// The provider registry.
+    #[must_use]
+    pub fn registry(&self) -> &'static Registry {
+        Registry::default_registry()
+    }
+
+    /// A tenant's table of names (0078 §3): the registry with the tenant's entity
+    /// sources. The registry itself for a tenant that declares none. One indexed query
+    /// per call tells whether the cached table is current.
+    ///
+    /// # Errors
+    ///
+    /// If the store fails, or a declared source clashes with the registry.
+    pub async fn registry_for<C: scatter_log_postgres::PgClient>(
+        &self,
+        client: &C,
+        tenant: &str,
+    ) -> Result<&'static Registry, String> {
+        let frontier: Option<i64> = client
+            .query_one(
+                "SELECT max(\"offset\") FROM view.registry WHERE tenant = $1 AND kind = $2",
+                &[&tenant, &triplespace_projections::entity_sources::KIND],
+            )
+            .await
+            .map_err(|e| e.to_string())?
+            .get(0);
+        let Some(frontier) = frontier else {
+            return Ok(Registry::default_registry());
+        };
+        if let Ok(cache) = self.inner.registries.lock()
+            && let Some((at, r)) = cache.get(tenant)
+            && *at == frontier
+        {
+            return Ok(r);
+        }
+        let built = triplespace_projections::entity_sources::registry_for(client, tenant).await?;
+        let leaked: &'static Registry = Box::leak(Box::new(built));
+        if let Ok(mut cache) = self.inner.registries.lock() {
+            cache.insert(tenant.to_string(), (frontier, leaked));
+        }
+        Ok(leaked)
+    }
+
+    /// The proxies trusted by address (0057 §10).
+    #[must_use]
+    pub fn trust(&self) -> &TrustList {
+        &self.inner.trust
+    }
+
+    /// The cache of forwarder key checks.
+    #[must_use]
+    pub fn forwarder_keys(&self) -> &KeyCache {
+        &self.inner.forwarder_keys
+    }
+
+    /// The hidden-set L0 cache ([`crate::pages::hidden`]).
+    #[must_use]
+    pub fn nothing_hidden(&self) -> &crate::pages::NothingHidden {
+        &self.inner.nothing_hidden
+    }
+
+    /// This binary's build and components (0077 §15).
+    #[must_use]
+    pub fn build(&self) -> &crate::version::BuildInfo {
+        &self.inner.build
+    }
+
+    /// What login flows ask of providers and source wikis (0088 §2, §8).
+    #[must_use]
+    pub fn upstream(&self) -> &dyn Upstream {
+        self.inner.upstream.as_ref()
+    }
+
+    /// The services' last known states (0077 §4).
+    #[must_use]
+    pub fn probes(&self) -> &crate::version::Probes {
+        &self.inner.probes
+    }
+}

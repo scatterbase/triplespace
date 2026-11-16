@@ -1,0 +1,202 @@
+/* The Protect form, Special:UserRights, Special:ProtectedPages, Special:Block and the
+   Visibility section (ADR 0056 §13; chapter 19 §6.3). */
+
+.ts-protect-page,
+.ts-userrights,
+.ts-renameuser-page,
+.ts-block-page,
+.ts-protectedpages {
+	max-width: 42rem;
+}
+
+.ts-protect__row,
+.ts-protect .cdx-field,
+.ts-userrights .cdx-field,
+.ts-renameuser .cdx-field,
+.ts-block .cdx-field {
+	margin-bottom: var( --spacing-100, 1rem );
+}
+
+.ts-protect__talk {
+	margin-top: var( --spacing-50, 0.5rem );
+}
+
+.ts-protect__enclosing {
+	margin-bottom: var( --spacing-150, 1.5rem );
+	padding: var( --spacing-75, 0.75rem ) var( --spacing-100, 1rem );
+	border: 1px solid var( --border-color-subtle, #c8ccd1 );
+	border-radius: var( --border-radius-base, 2px );
+}
+
+.ts-protect__enclosing h2 {
+	margin-top: 0;
+	font-size: var( --font-size-medium, 1rem );
+}
+
+.ts-protect__actions,
+.ts-userrights__actions,
+.ts-renameuser__actions,
+.ts-block__actions {
+	display: flex;
+	align-items: center;
+	gap: var( --spacing-75, 0.75rem );
+	margin-top: var( --spacing-150, 1.5rem );
+}
+
+.ts-userrights__set {
+	margin-bottom: var( --spacing-150, 1.5rem );
+	padding: var( --spacing-75, 0.75rem ) var( --spacing-100, 1rem );
+	border: 1px solid var( --border-color-subtle, #c8ccd1 );
+	border-radius: var( --border-radius-base, 2px );
+}
+
+.ts-userrights__group {
+	margin: var( --spacing-25, 0.25rem ) 0;
+}
+
+.ts-control__note {
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-userrights__links,
+.ts-block__links {
+	margin-top: var( --spacing-150, 1.5rem );
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-block__option {
+	margin: var( --spacing-75, 0.75rem ) 0;
+}
+
+.ts-protectedpages__table {
+	width: 100%;
+	margin-bottom: var( --spacing-150, 1.5rem );
+	border-collapse: collapse;
+}
+
+.ts-protectedpages__table th,
+.ts-protectedpages__table td {
+	padding: var( --spacing-50, 0.5rem );
+	border-bottom: 1px solid var( --border-color-subtle, #c8ccd1 );
+	text-align: start;
+}
+
+.ts-set {
+	margin-bottom: var( --spacing-150, 1.5rem );
+	padding: var( --spacing-75, 0.75rem ) var( --spacing-100, 1rem );
+	border: 1px solid var( --border-color-subtle, #c8ccd1 );
+	border-radius: var( --border-radius-base, 2px );
+}
+
+.ts-set h3 {
+	margin-top: 0;
+}
+
+.ts-set__restrictions {
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-set__members li {
+	display: flex;
+	align-items: center;
+	gap: var( --spacing-50, 0.5rem );
+}
+
+.ts-set__remove {
+	display: inline;
+}
+
+.ts-set__add,
+.ts-set__retire,
+.ts-set__new {
+	margin-top: var( --spacing-100, 1rem );
+}
+
+.ts-settings__visibility {
+	margin: var( --spacing-100, 1rem ) 0;
+	padding: var( --spacing-75, 0.75rem ) var( --spacing-100, 1rem );
+	border: 1px solid var( --border-color-subtle, #c8ccd1 );
+	border-radius: var( --border-radius-base, 2px );
+}
+
+.ts-settings__visibility .cdx-radio {
+	display: block;
+	margin: var( --spacing-25, 0.25rem ) 0;
+}
+
+/* The deleted page's view, the Delete and Undelete forms, and Special:BlockList. */
+.ts-deleted {
+	max-width: 42rem;
+}
+
+.ts-deleted__banner {
+	margin-bottom: var( --spacing-100, 1rem );
+}
+
+.ts-deleted__content {
+	margin: var( --spacing-100, 1rem ) 0;
+	padding: var( --spacing-75, 0.75rem ) var( --spacing-100, 1rem );
+	border: 1px dashed var( --border-color-subtle, #c8ccd1 );
+	border-radius: var( --border-radius-base, 2px );
+}
+
+.ts-deleted__source {
+	overflow-x: auto;
+	white-space: pre-wrap;
+}
+
+.ts-blocklist__table {
+	width: 100%;
+	border-collapse: collapse;
+}
+
+.ts-blocklist__table th,
+.ts-blocklist__table td {
+	padding: var( --spacing-50, 0.5rem );
+	border-bottom: 1px solid var( --border-color-subtle, #c8ccd1 );
+	text-align: start;
+	vertical-align: top;
+}
+
+.ts-blocklist__hidden {
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-undelete__ask {
+	margin-bottom: var( --spacing-100, 1rem );
+}
+
+/* A link inside a line of text is told apart by its underline, not its colour alone. */
+.ts-undelete__list a {
+	text-decoration: underline;
+}
+
+/* The page's overflow menu beside the tabs, and the Restricted pill of the identity line
+   (chapter 19 §1.3). It is at the end of the tabs; where the watch menu is there, that
+   takes the free space and More follows it. Its button is the size of the watch menu's. */
+.ts-tabs__more {
+	margin-inline-start: auto;
+	align-self: center;
+}
+
+.ts-watch + .ts-tabs__more {
+	margin-inline-start: 0;
+}
+
+.ts-chip--restricted {
+	border-color: var( --border-color-warning, #ab7f2a );
+	background-color: var( --background-color-warning-subtle, #fdf2d5 );
+	color: var( --color-warning, #886425 );
+}
+
+.ts-visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect( 0, 0, 0, 0 );
+	white-space: nowrap;
+}

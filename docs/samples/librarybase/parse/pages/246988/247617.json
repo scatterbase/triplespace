@@ -1,0 +1,50 @@
+{
+ "categories": [],
+ "displaytitle": "<span class=\"mw-page-title-namespace\">Project</span><span class=\"mw-page-title-separator\">:</span><span class=\"mw-page-title-main\">Analytics/IABot</span>",
+ "externallinks": [],
+ "images": [],
+ "iwlinks": [],
+ "langlinks": [],
+ "links": [],
+ "pageid": 246988,
+ "parsewarnings": [],
+ "properties": {
+  "unexpectedUnconnectedPage": -4
+ },
+ "revid": 247617,
+ "sections": [
+  {
+   "anchor": "Generations",
+   "byteoffset": 198,
+   "fromtitle": "Project:Analytics/IABot",
+   "index": "1",
+   "level": "2",
+   "line": "Generations",
+   "number": "1",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Tracking_deployments",
+   "byteoffset": 567,
+   "fromtitle": "Project:Analytics/IABot",
+   "index": "2",
+   "level": "2",
+   "line": "Tracking deployments",
+   "number": "2",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Deployments",
+   "byteoffset": 1423,
+   "fromtitle": "Project:Analytics/IABot",
+   "index": "3",
+   "level": "2",
+   "line": "Deployments",
+   "number": "3",
+   "toclevel": 1
+  }
+ ],
+ "showtoc": false,
+ "templates": [],
+ "title": "Project:Analytics/IABot"
+}

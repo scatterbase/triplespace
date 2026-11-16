@@ -1,0 +1,12 @@
+
+* navigation
+** mainpage|mainpage-description
+** Special:NewItem|New item
+** Special:NewProperty|New property
+** Special:ListProperties|All properties
+** recentchanges-url|recentchanges
+** randompage-url|randompage
+** helppage|help-mediawiki
+* SEARCH
+* TOOLBOX
+* LANGUAGES

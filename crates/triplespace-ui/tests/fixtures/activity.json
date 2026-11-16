@@ -1,0 +1,72 @@
+{
+  "rows": [
+    {
+      "kind": "edit", "time": "2026-10-02T14:05:11Z", "source": "local",
+      "record": {"partition": 4098, "offset": 9}, "revid": 907,
+      "target": {"kind": "entity", "id": "Q6", "entity_type": "item", "page_id": 1, "ns": 120, "title": "Item:Q6",
+                 "url": "https://librarybase.org/wiki/Item:Q6", "label": {"value": "Six & more", "language": "en"}},
+      "actor": {"key": "librarybase:10", "name": "Alice bot", "kind": "bot", "iri": "https://librarybase.org/actor/librarybase:10"},
+      "operator": "librarybase:7",
+      "summary": {"op": "add", "args": "aliases:en", "text": "/* add:aliases:en */"},
+      "tags": [], "flags": {"minor": false, "bot": false, "new": false}, "patrolled": false,
+      "size": 412, "delta": 20, "visibility": [],
+      "links": {"diff": "https://librarybase.org/w/index.php?title=Item%3AQ6&diff=907", "history": "https://librarybase.org/w/index.php?title=Item%3AQ6&action=history"}
+    },
+    {
+      "kind": "edit", "time": "2026-10-02T14:04:02Z", "source": "local",
+      "record": {"partition": 4098, "offset": 8}, "revid": 906,
+      "target": {"kind": "entity", "id": "P2", "entity_type": "property", "page_id": 3, "ns": 122, "title": "Property:P2",
+                 "url": "https://librarybase.org/wiki/Property:P2", "label": {"value": "instance of", "language": "en"}},
+      "actor": {"hidden": true},
+      "summary": {"op": "add", "args": "labels:fr", "text": "/* add:labels:fr */ corrigé"},
+      "comment": "corrigé",
+      "tags": [], "flags": {"minor": true, "bot": false, "new": false}, "patrolled": true,
+      "size": 200, "delta": -5, "visibility": ["user"],
+      "links": {}
+    },
+    {
+      "kind": "erased", "time": "2026-10-02T13:59:40Z", "source": "local",
+      "record": {"partition": 4098, "offset": 7}, "revid": 905,
+      "actor": {}, "summary": {}, "tags": [], "flags": {"minor": false, "bot": false, "new": false},
+      "patrolled": false, "visibility": ["content", "comment", "user"], "links": {}
+    },
+    {
+      "kind": "sync", "time": "2026-10-02T12:00:00Z", "source": "mirror/internetdomains",
+      "record": {"partition": 8194, "offset": 41}, "revid": 1099511627817,
+      "target": {"kind": "entity", "id": "domain:wikipedia.org", "entity_type": "domain", "page_id": 5, "ns": 210, "title": "Domain:wikipedia.org",
+                 "url": "https://librarybase.org/wiki/Domain:wikipedia.org"},
+      "actor": {"key": "librarybase:7", "name": "Alice", "kind": "registered"},
+      "job": 7,
+      "summary": {"op": "put", "text": "/* put */"},
+      "tags": ["bulk"], "flags": {"minor": false, "bot": true, "new": false}, "patrolled": false,
+      "size": 400, "delta": 20, "changes": {"labels": {"de": "added"}}, "visibility": [],
+      "links": {"job": "https://librarybase.org/wiki/Special:Jobs/7"}
+    },
+    {
+      "kind": "job", "time": "2026-10-02T12:00:00Z", "source": "log",
+      "record": {"partition": 8195, "offset": 6}, "logid": 12,
+      "target": {"kind": "job", "id": "7", "ns": -1, "title": "Special:Jobs/7", "url": "https://librarybase.org/wiki/Special:Jobs/7"},
+      "actor": {"key": "librarybase:7", "name": "Alice", "kind": "registered"},
+      "job": 7,
+      "summary": {"op": "job/finish", "text": "/* job/finish */"},
+      "tags": [], "flags": {"minor": false, "bot": false, "new": false}, "patrolled": false,
+      "log": {"type": "job", "action": "finish", "params": {"written": 3}}, "visibility": [],
+      "links": {"job": "https://librarybase.org/wiki/Special:Jobs/7"}
+    },
+    {
+      "kind": "edit", "time": "2026-10-01T09:30:00Z", "source": "local",
+      "record": {"partition": 4098, "offset": 1}, "revid": 900,
+      "target": {"kind": "entity", "id": "Q6", "entity_type": "item", "page_id": 1, "ns": 120, "title": "Item:Q6",
+                 "url": "https://librarybase.org/wiki/Item:Q6", "label": {"value": "Six & more", "language": "en"}},
+      "actor": {"key": "librarybase:7", "name": "Alice", "kind": "registered"},
+      "job": 8,
+      "summary": {"op": "adopt", "text": "/* adopt */"},
+      "tags": ["job:8", "adopt"], "flags": {"minor": false, "bot": true, "new": true}, "patrolled": true,
+      "size": 392, "visibility": [],
+      "links": {"job": "https://librarybase.org/wiki/Special:Jobs/8"}
+    }
+  ],
+  "set": "everything",
+  "kinds": ["edit", "log", "job"],
+  "next": "1700000000000000|4098|1"
+}

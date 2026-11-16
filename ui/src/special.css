@@ -1,0 +1,453 @@
+/* Special pages' own lists: AllPages and PrefixIndex (0047 §4.4). */
+
+.ts-allpages {
+	columns: 3 14em;
+	column-gap: var( --spacing-200, 2rem );
+	margin: var( --spacing-100, 1rem ) 0;
+	padding-inline-start: var( --spacing-125, 1.25rem );
+}
+
+.ts-allpages li {
+	break-inside: avoid;
+}
+
+/* A redirect is listed in italics, as MediaWiki lists it. */
+.ts-allpages__redirect {
+	font-style: italic;
+}
+
+/* The report pages (0047 §4): a numbered list, red links for titles that do not exist. */
+.ts-report {
+	margin: var( --spacing-100, 1rem ) 0;
+	padding-inline-start: var( --spacing-250, 2.5rem );
+}
+
+/* A row's link sits beside its value in plain text, so it is underlined as well as
+   coloured (WCAG 1.4.1). */
+.ts-report a {
+	text-decoration: underline;
+}
+
+.ts-report a.new {
+	color: var( --color-link-red, #bf3c2c );
+}
+
+.ts-report__note,
+.ts-report__state {
+	color: var( --color-subtle, #54595d );
+}
+
+/* A running job's progress bar (Codex's, indeterminate), under what it says it is doing. */
+.ts-job__progress {
+	max-width: 24rem;
+	margin-block-end: var( --spacing-100, 1rem );
+}
+
+/* The grid of Special:CreateManyEntities and of a Table page's editor (ADR 0106 §6;
+   0045 §6), ruled as a spreadsheet is: a header row and a leading header column on a
+   tinted ground, cells edited where they stand, the focused cell ringed. A Table page's
+   drawn table is ruled the same way, so reading and editing look alike. */
+.ts-sheet {
+	overflow-x: auto;
+	max-height: 70vh;
+	margin: 0.75rem 0;
+	border: 1px solid var( --border-color-base );
+	background: var( --background-color-base );
+}
+
+.ts-sheet__table,
+.ts-table__grid {
+	width: 100%;
+	border-collapse: separate;
+	border-spacing: 0;
+	font-size: 0.9375rem;
+}
+
+.ts-sheet__table th,
+.ts-sheet__table td,
+.ts-table__grid th,
+.ts-table__grid td {
+	padding: 0;
+	border-right: 1px solid var( --border-color-subtle );
+	border-bottom: 1px solid var( --border-color-subtle );
+	text-align: start;
+	vertical-align: top;
+}
+
+.ts-table__grid {
+	border-top: 1px solid var( --border-color-base );
+	border-left: 1px solid var( --border-color-base );
+}
+
+.ts-table__grid th,
+.ts-table__grid td {
+	padding: 0.3125rem 0.5rem;
+}
+
+.ts-sheet__table thead th,
+.ts-table__grid thead th {
+	position: sticky;
+	top: 0;
+	z-index: 2;
+	padding: 0.3125rem 0.5rem;
+	border-bottom-color: var( --border-color-base );
+	background: var( --background-color-neutral );
+	font-weight: bold;
+	white-space: nowrap;
+}
+
+.ts-sheet__table .ts-sheet__lead,
+.ts-sheet__table .ts-sheet__corner,
+.ts-table__grid tbody th {
+	position: sticky;
+	left: 0;
+	z-index: 1;
+	padding: 0.3125rem 0.5rem;
+	border-right-color: var( --border-color-base );
+	background: var( --background-color-neutral );
+	color: var( --color-subtle );
+	font-weight: normal;
+	white-space: nowrap;
+}
+
+.ts-sheet__table .ts-sheet__corner {
+	z-index: 3;
+}
+
+.ts-sheet__heading--active,
+.ts-sheet__row--active .ts-sheet__lead {
+	background: var( --background-color-progressive-subtle );
+	color: var( --color-base );
+}
+
+.ts-sheet__sub,
+.ts-sheet__note,
+.ts-table__sub {
+	display: block;
+	color: var( --color-subtle );
+	font-size: 0.75rem;
+	font-weight: normal;
+}
+
+.ts-sheet__note {
+	padding: 0 0.5rem 0.1875rem;
+}
+
+.ts-sheet__cell {
+	min-width: 8rem;
+	background: var( --background-color-base );
+}
+
+.ts-sheet__input {
+	display: block;
+	box-sizing: border-box;
+	width: 100%;
+	margin: 0;
+	padding: 0.3125rem 0.5rem;
+	border: 0;
+	border-radius: 0;
+	background: transparent;
+	color: var( --color-base );
+	font: inherit;
+}
+
+.ts-sheet__input:focus {
+	outline: 2px solid var( --border-color-progressive--focus );
+	outline-offset: -2px;
+}
+
+.ts-sheet__fixed {
+	display: block;
+	padding: 0.3125rem 0.5rem;
+}
+
+.ts-sheet__cell--changed {
+	background: var( --background-color-progressive-subtle );
+}
+
+.ts-sheet__cell--readonly {
+	background: var( --background-color-neutral-subtle );
+	color: var( --color-subtle );
+}
+
+.ts-sheet__status-cell {
+	padding: 0.25rem 0.5rem;
+	white-space: nowrap;
+}
+
+.ts-sheet__table .ts-sheet__status-cell {
+	padding: 0.25rem 0.5rem;
+}
+
+.ts-sheet__status,
+.ts-table__state {
+	padding: 0 0.375rem;
+	border: 1px solid var( --border-color-subtle );
+	border-radius: 1rem;
+	font-size: 0.8125rem;
+}
+
+.ts-sheet__status--invalid,
+.ts-sheet__status--ambiguous,
+.ts-sheet__status--conflict {
+	border-color: var( --border-color-error );
+	color: var( --color-error );
+}
+
+.ts-sheet__status--matches {
+	border-color: var( --border-color-progressive );
+	color: var( --color-progressive );
+}
+
+.ts-sheet__row--invalid .ts-sheet__lead,
+.ts-sheet__row--ambiguous .ts-sheet__lead,
+.ts-sheet__row--conflict .ts-sheet__lead {
+	box-shadow: inset 3px 0 0 var( --border-color-error );
+}
+
+.ts-sheet__problem-row td {
+	background: var( --background-color-error-subtle );
+}
+
+.ts-sheet__problems {
+	margin: 0;
+	padding: 0.1875rem 0.5rem 0.1875rem 1.5rem;
+	color: var( --color-error );
+	font-size: 0.8125rem;
+}
+
+.ts-sheet__menu,
+.ts-sheet__remove {
+	margin-inline-start: 0.25rem;
+	padding: 0 0.3125rem;
+	border: 0;
+	border-radius: 2px;
+	background: transparent;
+	color: var( --color-subtle );
+	font: inherit;
+	line-height: 1.2;
+	cursor: pointer;
+}
+
+.ts-sheet__menu:hover,
+.ts-sheet__remove:hover,
+.ts-sheet__menu:focus,
+.ts-sheet__remove:focus {
+	background: var( --background-color-interactive );
+	color: var( --color-base );
+}
+
+/* The table with the buttons that make it grow (0106 A9): one as tall as the table to
+   the right of its last column, one as wide beneath its last row. */
+.ts-sheet__frame--grows {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	min-width: max-content;
+}
+
+.ts-sheet__add {
+	display: flex;
+	gap: 0.375rem;
+	align-items: center;
+	justify-content: center;
+	padding: 0.375rem 0.625rem;
+	border: 0;
+	background: var( --background-color-neutral-subtle );
+	color: var( --color-progressive );
+	font: inherit;
+	font-weight: bold;
+	cursor: pointer;
+}
+
+.ts-sheet__add:hover,
+.ts-sheet__add:focus-visible {
+	background: var( --background-color-progressive-subtle );
+}
+
+.ts-sheet__add:focus-visible {
+	outline: 2px solid var( --border-color-progressive--focus );
+	outline-offset: -2px;
+}
+
+.ts-sheet__add--column {
+	position: sticky;
+	right: 0;
+	z-index: 2;
+	min-width: 2.25rem;
+	border-left: 1px solid var( --border-color-base );
+}
+
+.ts-sheet__add--row {
+	grid-column: 1 / -1;
+	position: sticky;
+	bottom: 0;
+	left: 0;
+	z-index: 2;
+	justify-content: flex-start;
+	border-top: 1px solid var( --border-color-base );
+}
+
+.ts-sheet__after {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem 1.5rem;
+	align-items: baseline;
+}
+
+.ts-sheet__after p {
+	margin: 0;
+}
+
+/* A locked cell (0106 §6): the statement every item shares, shown where a row has none
+   of its own, with the button that unlocks it for the row. */
+.ts-sheet__locked {
+	display: inline-block;
+	padding: 0.3125rem 0.5rem;
+	color: var( --color-subtle );
+}
+
+.ts-sheet__heading--locked {
+	color: var( --color-subtle );
+}
+
+.ts-sheet__lock {
+	margin-inline-end: 0.25rem;
+	color: var( --color-subtle );
+}
+
+.ts-sheet__unlock,
+.ts-sheet__chip {
+	margin: 0 0.25rem;
+	padding: 0 0.375rem;
+	border: 1px solid var( --border-color-subtle );
+	border-radius: 1rem;
+	background: var( --background-color-base );
+	color: var( --color-subtle );
+	font: inherit;
+	font-size: 0.8125rem;
+	line-height: 1.5;
+	cursor: pointer;
+}
+
+.ts-sheet__unlock {
+	border-color: transparent;
+	background: transparent;
+}
+
+.ts-sheet__chip--set {
+	border-color: var( --border-color-progressive );
+	color: var( --color-progressive );
+}
+
+.ts-sheet__unlock:hover,
+.ts-sheet__unlock:focus-visible,
+.ts-sheet__chip:hover,
+.ts-sheet__chip:focus-visible {
+	border-color: var( --border-color-progressive );
+	background: var( --background-color-progressive-subtle );
+	color: var( --color-progressive );
+}
+
+/* The statements on every item and the reference on every statement, as lists. */
+.ts-sheet-lines {
+	margin: 1rem 0;
+	padding: 0;
+	border: 0;
+}
+
+.ts-sheet-lines__legend {
+	padding: 0;
+	font-weight: bold;
+}
+
+.ts-sheet-lines__none,
+.ts-sheet-lines__type {
+	color: var( --color-subtle );
+	font-size: 0.875rem;
+}
+
+.ts-sheet-lines__none {
+	margin: 0.25rem 0 0.5rem;
+}
+
+.ts-sheet-lines__list {
+	margin: 0.5rem 0;
+	padding: 0;
+	list-style: none;
+}
+
+.ts-sheet-lines__line {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	align-items: center;
+	margin: 0.375rem 0;
+}
+
+.ts-sheet-lines__line .cdx-lookup,
+.ts-sheet-lines__value {
+	flex: 1 1 14rem;
+	max-width: 24rem;
+}
+
+.ts-sheet__own .ts-sheet-lines {
+	flex: 1 1 100%;
+	margin: 0;
+}
+
+.ts-createfrom__links {
+	margin-top: 1.5rem;
+}
+
+.ts-sheet__bar,
+.ts-sheet__panel,
+.ts-sheet__actions {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	align-items: center;
+	margin: 0.5rem 0;
+}
+
+.ts-sheet__panel {
+	padding: 0.5rem;
+	border: 1px solid var( --border-color-subtle );
+	border-radius: 2px;
+	background: var( --background-color-neutral-subtle );
+}
+
+.ts-sheet__summary {
+	font-weight: bold;
+}
+
+.ts-sheet__summary--stale {
+	color: var( --color-subtle );
+	font-weight: normal;
+}
+
+.ts-sheet__notice--error {
+	color: var( --color-error );
+}
+
+.ts-sheet-map__short {
+	width: 5rem;
+}
+
+.ts-sheet-map__sample {
+	max-width: 24rem;
+	color: var( --color-subtle );
+}
+
+.ts-table__edit {
+	margin: 0.5rem 0;
+}
+
+.ts-table__more {
+	color: var( --color-subtle );
+	font-size: 0.8125rem;
+}
+
+.ts-table__row--staged td,
+.ts-table__row--missing td {
+	background: var( --background-color-neutral-subtle );
+}

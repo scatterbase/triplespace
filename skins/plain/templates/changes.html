@@ -1,0 +1,78 @@
+{#- The changes table and the filter form of the feeds (0010 §7; 19 §3.9; 16 §6.1), over
+    the models of `triplespace_ui::special::changes`: recent changes, contributions, the
+    log, new pages, the watchlist and every history tab draw their rows with these. -#}
+{%- import "codex.html" as codex -%}
+{%- import "forms.html" as forms -%}
+
+{#- An account, as a target or as the actor (0095 §3). -#}
+{%- macro account(a) -%}
+{%- if a.kind == "operator" %}<span class="ts-change__part">{{ codex.chip(a.badge) }}</span>
+{%- else %}<span class="ts-change__part{% if a.target %} ts-change__account{% endif %}"{% if a.title %} title="{{ a.title }}"{% endif %}>{% if a.icon is not none %}<svg class="ts-change__account-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M12 11a6 6 0 016 6v2H2v-2a6 6 0 016-6z"/><circle cx="10" cy="5" r="4"/></svg><span class="ts-visually-hidden">{{ a.icon }} </span>{% endif %}<a href="{{ a.href }}" class="{% if a.target %}ts-change__target{% else %}ts-change__actor{% endif %}">{{ a.shown }}</a></span>{% if a.key %}<span class="ts-change__part ts-change__id ts-mono">{{ a.key }}</span>{% endif %}
+{%- endif -%}
+{%- endmacro -%}
+
+{#- A row's target. -#}
+{%- macro target(t) -%}
+{%- if t.kind == "account" %}{{ account(t.account) }}
+{%- elif t.kind == "id" %}<span class="ts-mono">{{ t.id }}</span>
+{%- elif t.kind == "job" %}<span class="ts-change__part"><a href="{{ t.href }}" class="ts-change__target">{{ t.text }}</a></span>
+{%- elif t.kind == "labelled" %}<span class="ts-change__part"><a href="{{ t.href }}" class="ts-change__target"><span{% if t.lang %} lang="{{ t.lang }}" dir="auto"{% endif %}>{{ t.label }}</span></a></span><span class="ts-change__part ts-change__id ts-mono">{{ t.id }}</span>
+{%- else %}<span class="ts-change__part"><a href="{{ t.href }}" class="ts-change__target">{{ t.text }}</a></span>{% endif -%}
+{%- endmacro -%}
+
+{#- A summary's parts (`triplespace_ui::comment`): automatic comments apart, wiki links
+    as links. A diff's header draws its summary with this. -#}
+{%- macro comment(parts) -%}
+{% for p in parts %}{% if p.kind == "auto" %}<span class="ts-change__autocomment">{% if p.href %}<a href="{{ p.href }}">{{ p.text }}</a>{% else %}{{ p.text }}{% endif %}{% if p.more %}:{% endif %}</span>{% if p.more %} {% endif %}{% elif p.kind == "link" %}<a href="{{ p.href }}">{{ p.text }}</a>{% else %}{{ p.text }}{% endif %}{% endfor %}
+{%- endmacro -%}
+
+{#- A row's summary. -#}
+{%- macro summary(s) -%}
+{%- if s.hidden %}<span class="ts-change__hidden">{{ s.hidden }}</span>
+{%- else -%}
+{%- if s.moved %}<span class="ts-change__auto">{{ s.moved }}</span>{% endif -%}
+{%- if s.comment %}{% if s.moved %} {% endif %}<span class="ts-change__comment">{% for p in s.comment %}{% if p.kind == "auto" %}<span class="ts-change__autocomment">{% if p.href %}<a href="{{ p.href }}">{{ p.text }}</a>{% else %}{{ p.text }}{% endif %}{% if p.more %}:{% endif %}</span>{% if p.more %} {% endif %}{% elif p.kind == "link" %}<a href="{{ p.href }}">{{ p.text }}</a>{% else %}{{ p.text }}{% endif %}{% endfor %}</span>{% endif -%}
+{%- endif -%}
+{%- endmacro -%}
+
+{#- One row. The target, the actor and the summary are drawn inline, not through the
+    macros above, since a feed draws hundreds of rows and each macro call costs. -#}
+{%- macro row(r) -%}
+<tr class="ts-change ts-change--{{ r.kind }}{% if r.unseen %} ts-change--unseen{% endif %}">{% if r.pick is not none %}<td class="ts-change__cell ts-change__cell--compare">{% if r.pick.old %}<input class="ts-change__pick" type="radio" name="oldid" value="{{ r.pick.old.revid }}" aria-label="{{ r.pick.old.label }}"{% if r.pick.old.checked %} checked{% endif %}>{% endif %}{% if r.pick.new %}<input class="ts-change__pick ts-change__pick--new" type="radio" name="diff" value="{{ r.pick.new.revid }}" aria-label="{{ r.pick.new.label }}"{% if r.pick.new.checked %} checked{% endif %}>{% endif %}</td>{% endif %}<td class="ts-change__cell ts-change__cell--time">{% if r.diff %}<a href="{{ r.diff }}" class="ts-change__diff"><time class="ts-change__time" datetime="{{ r.datetime }}">{{ r.time }}</time></a>{% else %}<time class="ts-change__time" datetime="{{ r.datetime }}">{{ r.time }}</time>{% endif %}</td><td class="ts-change__cell ts-change__cell--origin"><span class="{{ r.origin.classes }}"{% if r.origin.title %} title="{{ r.origin.title }}"{% endif %}>{{ r.origin.text }}</span></td>
+{%- if r.erased %}<td class="ts-change__cell ts-change__hidden" colspan="{{ r.erased[0] }}">{{ r.erased[1] }}</td></tr>
+{%- else -%}
+<td class="ts-change__cell ts-change__cell--flags">{% for f in r.flags %}<abbr class="ts-change__flag ts-change__flag--{{ f.class }}" title="{{ f.title }}">{{ f.text }}</abbr>{% endfor %}</td>
+<td class="ts-change__cell ts-change__cell--target">
+{%- if r.target -%}
+{%- set t = r.target -%}
+{%- if t.kind == "account" %}{{ account(t.account) }}
+{%- elif t.kind == "id" %}<span class="ts-mono">{{ t.id }}</span>
+{%- elif t.kind == "job" %}<span class="ts-change__part"><a href="{{ t.href }}" class="ts-change__target">{{ t.text }}</a></span>
+{%- elif t.kind == "labelled" %}<span class="ts-change__part"><a href="{{ t.href }}" class="ts-change__target"><span{% if t.lang %} lang="{{ t.lang }}" dir="auto"{% endif %}>{{ t.label }}</span></a></span><span class="ts-change__part ts-change__id ts-mono">{{ t.id }}</span>
+{%- else %}<span class="ts-change__part"><a href="{{ t.href }}" class="ts-change__target">{{ t.text }}</a></span>{% endif -%}
+{%- endif -%}
+</td>
+<td class="ts-change__cell ts-change__cell--size">{% if r.size %}<span class="ts-change__delta{% if r.size.class %} ts-change__delta--{{ r.size.class }}{% endif %}" dir="ltr">{{ r.size.text }}</span>{% endif %}</td>
+<td class="ts-change__cell ts-change__cell--user">{% if r.actor.kind == "hidden" %}<span class="ts-change__part ts-change__hidden">{{ r.actor.text }}</span>{% elif r.actor.kind == "account" %}{% set a = r.actor.account %}{% if a.kind == "operator" %}<span class="ts-change__part"><span class="{{ a.badge.classes }}"{% if a.badge.title %} title="{{ a.badge.title }}"{% endif %}>{{ a.badge.text }}</span></span>{% else %}<span class="ts-change__part"{% if a.title %} title="{{ a.title }}"{% endif %}><a href="{{ a.href }}" class="ts-change__actor">{{ a.shown }}</a></span>{% if a.key %}<span class="ts-change__part ts-change__id ts-mono">{{ a.key }}</span>{% endif %}{% endif %}{% endif %}</td>
+{%- set s = r.summary -%}
+<td class="ts-change__cell ts-change__cell--action">{% if s.auto %}<span class="ts-change__auto">{{ s.auto }}</span>{% endif %}</td>
+<td class="ts-change__cell ts-change__cell--summary">
+{%- if s.hidden %}<span class="ts-change__summary"><span class="ts-change__hidden">{{ s.hidden }}</span></span>
+{%- elif s.moved or s.comment %}<span class="ts-change__summary">{% if s.moved %}<span class="ts-change__auto">{{ s.moved }}</span>{% endif %}{% if s.comment %}{% if s.moved %} {% endif %}<span class="ts-change__comment">{% for p in s.comment %}{% if p.kind == "auto" %}<span class="ts-change__autocomment">{% if p.href %}<a href="{{ p.href }}">{{ p.text }}</a>{% else %}{{ p.text }}{% endif %}{% if p.more %}:{% endif %}</span>{% if p.more %} {% endif %}{% elif p.kind == "link" %}<a href="{{ p.href }}">{{ p.text }}</a>{% else %}{{ p.text }}{% endif %}{% endfor %}</span>{% endif %}</span>{% endif -%}
+{%- if r.tags %}<span class="ts-change__tags">{% for t in r.tags %}<span class="ts-change__tag">{{ t }}</span>{% endfor %}</span>{% endif -%}
+{%- if r.job %} <a class="ts-change__job" href="{{ r.job.href }}">{{ r.job.text }}</a>{% endif -%}
+</td>{% if r.menu_cell %}<td class="ts-change__cell ts-change__cell--menu">{% if r.menu %}<details class="ts-change__menu"><summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet cdx-button--size-small cdx-button--icon-only" aria-label="{{ r.menu.label }}" title="{{ r.menu.label }}"><svg class="ts-header__icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><circle cx="3" cy="10" r="2"/><circle cx="10" cy="10" r="2"/><circle cx="17" cy="10" r="2"/></svg></summary><ul class="ts-change__menu-items">{% for i in r.menu.items %}<li><a href="{{ i.href }}">{{ i.label }}</a></li>{% endfor %}</ul></details>{% endif %}</td>{% endif %}</tr>
+{%- endif -%}
+{%- endmacro -%}
+
+{#- The rows as one table, a row group per day headed by its date. -#}
+{%- macro list(l) -%}
+<div class="ts-changes__scroll"><table class="ts-changes__table"><thead><tr>{% for c in l.columns %}<th scope="col" class="ts-change__head ts-change__head--{{ c[0] }}">{{ c[1] }}</th>{% endfor %}</tr></thead>
+{%- for d in l.days %}<tbody><tr class="ts-changes__dayrow"><th scope="rowgroup" colspan="{{ l.columns|length }}" class="ts-changes__day">{{ d.date }}</th></tr>{% for r in d.rows %}{{ row(r) }}{% endfor %}</tbody>{% endfor -%}
+</table></div>
+{%- endmacro -%}
+
+{#- The filter form. -#}
+{%- macro form(f) -%}
+<form class="ts-changes-form" action="/w/index.php" method="get" aria-label="{{ f.label }}"><input type="hidden" name="title" value="{{ f.title }}"><input type="hidden" name="filtered" value="1">{% for i in f.items %}{{ forms.item(i) }}{% endfor %} <button class="cdx-button cdx-button--action-progressive cdx-button--weight-primary" type="submit">{{ f.apply }}</button></form>
+{%- endmacro -%}

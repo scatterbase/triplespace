@@ -1,0 +1,344 @@
+//! `GET /entity/{id}/provenance` (0003 §6; 0012 §5): where an entity and each of its
+//! statements come from.
+//!
+//! Served from what the serving tables hold today: the graphs that hold a record for the
+//! entity, with their statement counts, sync state and history policy; the dominant
+//! graph, the one asserting the most statements (a tie goes to the earlier graph, local
+//! first; none when no graph asserts any); the graphs that
+//! assert each statement of the resolved view, with the member statements; the local
+//! corrections; who minted the ID; retention; the canonical ID. The parts of 0012 §5
+//! whose projections are not built yet (cluster members, constraint results, the backlink
+//! count) are absent rather than empty, so a client can tell the difference.
+
+use std::time::{SystemTime, UNIX_EPOCH};
+
+use axum::extract::{Extension, Path, State};
+use axum::http::{HeaderMap, Method, StatusCode, header};
+use axum::response::{IntoResponse, Response};
+use scatter_providers::Registry;
+use scatter_wikibase_model::id::{EntityId, IdForm, StatementId};
+use scatter_wikibase_model::statement::Rank;
+use scatter_wikibase_resolve::Correction;
+use serde_json::{Map, Value, json};
+use triplespace_api_action::App;
+
+use crate::entity_route;
+use triplespace_api_action::entity_json::iso8601;
+use triplespace_api_action::forwarded::Origin;
+use triplespace_api_action::http_cache::{self, Class};
+use triplespace_api_action::tenant::Tenant;
+use triplespace_projections::read::{self, Current, Standing};
+
+/// A REST error: `{"code": …, "message": …}` with a status.
+fn error(status: StatusCode, code: &str, message: impl Into<String>) -> Response {
+    let body = json!({"code": code, "message": message.into()}).to_string();
+    let mut r = (
+        status,
+        [
+            (header::CONTENT_TYPE, "application/json; charset=utf-8"),
+            (header::CACHE_CONTROL, "private, no-cache"),
+        ],
+        body,
+    )
+        .into_response();
+    if status == StatusCode::NOT_FOUND {
+        // A missing entity and a confidential one answer alike (0056 §5).
+        r.headers_mut().insert(
+            header::VARY,
+            header::HeaderValue::from_static("Accept, Accept-Language"),
+        );
+    }
+    r
+}
+
+fn micros(t: SystemTime) -> u64 {
+    u64::try_from(t.duration_since(UNIX_EPOCH).map_or(0, |d| d.as_micros())).unwrap_or(0)
+}
+
+fn rank_name(r: Rank) -> &'static str {
+    match r {
+        Rank::Preferred => "preferred",
+        Rank::Normal => "normal",
+        Rank::Deprecated => "deprecated",
+    }
+}
+
+/// Who minted the ID: the tenant (and the wiki it was adopted from), a provider, or no
+/// one, for a keyed ID that names the thing itself (0017 §1).
+async fn minted_by(
+    app: &App,
+    client: &tokio_postgres::Client,
+    tenant: &Tenant,
+    id: &EntityId,
+) -> Result<Value, tokio_postgres::Error> {
+    Ok(match id.form() {
+        IdForm::Local => {
+            let adopted: Option<String> = client
+                .query_opt(
+                    "SELECT config->>'adopted_from' FROM view.registry
+                     WHERE tenant = '' AND kind = 'tenant' AND code = $1",
+                    &[&tenant.slug],
+                )
+                .await?
+                .and_then(|r| r.get(0));
+            let mut v = json!({"kind": "tenant", "tenant": tenant.slug});
+            if let Some(a) = adopted {
+                v["adopted_from"] = json!(a);
+            }
+            v
+        }
+        IdForm::Foreign => match app.registry().parse_foreign_id(id.as_str()) {
+            Ok(f) => json!({
+                "kind": "provider",
+                "provider": f.provider().slug,
+                "code": f.provider().code,
+                "upstream_id": f.upstream_id(),
+            }),
+            Err(_) => json!({"kind": "provider"}),
+        },
+        IdForm::Keyed => {
+            // A source's entity (0078 §2): the tenant's source minted it.
+            let registry = app
+                .registry_for(client, &tenant.slug)
+                .await
+                .unwrap_or_else(|_| app.registry());
+            match registry.parse_foreign_id(id.as_str()) {
+                Ok(f) if f.provider().source => json!({
+                    "kind": "source",
+                    "source": f.provider().slug,
+                    "upstream_id": f.upstream_id(),
+                    "iri": f.concept_iri().as_str(),
+                }),
+                _ => json!({
+                    "kind": "keyed",
+                    "type": id.as_str().split(':').next().unwrap_or(""),
+                }),
+            }
+        }
+    })
+}
+
+/// The page of each graph's upstream revision, in `standing.graphs` order: for a mirror
+/// or source graph whose provider is a MediaWiki that publishes revision IDs.
+fn upstream_urls(registry: &Registry, standing: &Standing) -> Vec<Option<String>> {
+    standing
+        .graphs
+        .iter()
+        .map(|g| {
+            let v = g.upstream_version.as_deref()?;
+            let slug = g
+                .graph
+                .strip_prefix("mirror/")
+                .or_else(|| g.graph.strip_prefix("source/"))?;
+            registry
+                .by_slug(slug)
+                .filter(|p| p.mirror_graph() == g.graph)?
+                .revision_url(v)
+        })
+        .collect()
+}
+
+/// The response body. `urls` are [`upstream_urls`]; `registry` names the item a
+/// key-mapped provider's graph mapped onto a keyed subject.
+fn body(
+    id: &EntityId,
+    current: Option<&Current>,
+    standing: &Standing,
+    minted: &Value,
+    urls: &[Option<String>],
+    registry: &Registry,
+) -> Value {
+    let mut graphs = Vec::new();
+    let mut dominant: Option<(String, usize)> = None;
+    for (i, g) in standing.graphs.iter().enumerate() {
+        let contribution =
+            current.and_then(|c| c.contributions.iter().find(|k| k.graph == g.graph));
+        let statements = contribution.map_or(0, |k| k.entity.all_statements().count());
+        if statements > dominant.as_ref().map_or(0, |d| d.1) {
+            dominant = Some((g.graph.clone(), statements));
+        }
+        let mut row = json!({
+            "graph": g.graph,
+            "statements": statements,
+            "synced_at": iso8601(micros(g.synced_at)),
+        });
+        if let Some(v) = &g.upstream_version {
+            row["upstream_version"] = json!(v);
+        }
+        if let Some(Some(u)) = urls.get(i) {
+            row["upstream_url"] = json!(u);
+        }
+        // A key-mapped provider's record under a keyed subject names the item it was
+        // mapped from (05 §4.2), which the entity page lists among the identifiers and
+        // RDF names the graph's statements after (0002 A44).
+        if let Some(item) = contribution.and_then(|k| k.upstream_id.as_deref()) {
+            row["upstream_id"] = json!(item);
+            let iri = registry
+                .providers()
+                .iter()
+                .find(|p| p.mirror_graph() == g.graph)
+                .and_then(|p| scatter_providers::UpstreamRef::mapped(p, item))
+                .and_then(|u| u.concept_iri(registry));
+            if let Some(iri) = iri {
+                row["upstream_iri"] = json!(iri);
+            }
+        }
+        if let Some(j) = g.job_id {
+            row["job"] = json!(j);
+        }
+        if let Some(h) = &g.history {
+            row["history"] = json!(h);
+        }
+        graphs.push(row);
+    }
+    let mut statements = Map::new();
+    let mut corrections = Map::new();
+    if let Some(c) = current {
+        for (s, p) in c
+            .resolved
+            .entity
+            .all_statements()
+            .zip(&c.resolved.statements)
+        {
+            if let Some(sid) = &s.id {
+                statements.insert(
+                    sid.as_str().to_string(),
+                    json!({
+                        "graphs": p.graphs,
+                        "members": p.members.iter().map(StatementId::as_str).collect::<Vec<_>>(),
+                    }),
+                );
+            }
+        }
+        for (sid, corr) in &c.corrections {
+            corrections.insert(
+                sid.as_str().to_string(),
+                match corr {
+                    Correction::Rank(r) => json!({"rank": rank_name(*r)}),
+                    Correction::Suppress => json!({"suppressed": true}),
+                },
+            );
+        }
+    }
+    let mut out = json!({
+        "id": id.as_str(),
+        "canonical": standing.canonical_id.clone().unwrap_or_else(|| id.as_str().to_string()),
+        "minted_by": minted,
+        "graphs": graphs,
+        "statements": statements,
+        "corrections": corrections,
+    });
+    if let Some(c) = current {
+        out["type"] = json!(c.resolved.entity.entity_type.name());
+        out["page_id"] = json!(c.page_id);
+        out["lastrevid"] = json!(c.lastrevid);
+        if c.modified > 0 {
+            out["modified"] = json!(iso8601(c.modified));
+        }
+    } else if let Some((t, _)) = id.as_str().split_once(':') {
+        out["type"] = json!(t);
+    }
+    if let Some((g, _)) = dominant {
+        out["dominant"] = json!(g);
+    }
+    if let Some(t) = standing.first_seen {
+        out["first_seen"] = json!(iso8601(micros(t)));
+    }
+    if let Some(r) = &standing.retention {
+        out["retention"] = json!(r);
+    }
+    out
+}
+
+/// The provenance of an entity the caller may read, with the state it was read from,
+/// which the page bundle serves beside it (0012 A70).
+pub(crate) async fn assemble(
+    app: &App,
+    client: &tokio_postgres::Client,
+    tenant: &Tenant,
+    id: &EntityId,
+) -> Result<(Value, Option<Current>), String> {
+    let current = read::current(client, app.order(), &tenant.slug, id).await?;
+    let standing = read::standing(client, &tenant.slug, id).await?;
+    let minted = minted_by(app, client, tenant, id)
+        .await
+        .map_err(|e| e.to_string())?;
+    let registry = app
+        .registry_for(client, &tenant.slug)
+        .await
+        .unwrap_or_else(|_| app.registry());
+    let urls = upstream_urls(registry, &standing);
+    let body = body(id, current.as_ref(), &standing, &minted, &urls, registry);
+    Ok((body, current))
+}
+
+/// The handler.
+pub async fn handle(
+    State(app): State<App>,
+    Extension(origin): Extension<Origin>,
+    method: Method,
+    headers: HeaderMap,
+    Path(id_text): Path<String>,
+) -> Response {
+    let internal = |e: &dyn std::fmt::Display| {
+        error(StatusCode::INTERNAL_SERVER_ERROR, "internal", e.to_string())
+    };
+    let client = match app.pool().get().await {
+        Ok(c) => c,
+        Err(e) => return internal(&e),
+    };
+    // Does the entity exist for this viewer? The one answer every entity route gives
+    // (`entity_route::resolve`): a restricted, deleted or private tenant's entity is not
+    // found (09 §5.3).
+    let r = match entity_route::resolve(&app, &client, &origin, &headers, &id_text).await {
+        Ok(r) => r,
+        Err(r) => return r,
+    };
+    let (tenant, id, credentialed) = (r.tenant, r.id, r.credentialed);
+    let body = match assemble(&app, &client, &tenant, &id).await {
+        Ok((body, _)) => body.to_string(),
+        Err(e) => return internal(&e),
+    };
+    let class = Class::Public.permitted(&method, credentialed, false, false);
+    http_cache::respond(
+        &headers,
+        StatusCode::OK,
+        "application/json; charset=utf-8",
+        body,
+        class,
+        &[format!("entity:{}", id.as_str())],
+    )
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const OPENAPI: &str = include_str!("../../../docs/api/triplespace-v0.openapi.json");
+
+    #[test]
+    fn the_contract_names_the_route_and_the_body_meets_it() {
+        let doc: Value = serde_json::from_str(OPENAPI).expect("the OpenAPI document parses");
+        assert!(doc["paths"].get("/entity/{id}/provenance").is_some());
+        let required: Vec<&str> = doc["components"]["schemas"]["Provenance"]["required"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap())
+            .collect();
+        let id = EntityId::parse("domain:example.org").unwrap();
+        let b = body(
+            &id,
+            None,
+            &Standing::default(),
+            &json!({"kind": "keyed", "type": "domain"}),
+            &[],
+            Registry::default_registry(),
+        );
+        for key in required {
+            assert!(b.get(key).is_some(), "the body lacks `{key}`: {b}");
+        }
+        assert_eq!(b["type"], "domain");
+        assert!(b.get("dominant").is_none());
+    }
+}

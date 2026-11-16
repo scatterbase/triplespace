@@ -1,0 +1,72 @@
+==API==
+https://dashboards.pubpeer.com/docs/api#/operations/partner
+
+Relevant parameters:
+* <code>page</code>: start with <code>1</code> then iterate based on whether there are more results
+* <code>per_page</code>: set at maximum value <code>300</code>
+* <code>sort</code>: 
+* <s><code>published_at</code></s>: concerns when the document was ''published''; I only care about ''comments''
+
+==Resources==
+* Wikimedia Cloud Services
+** Toolforge: project "pubpeer"
+*** Don't think it's being used for anything
+** Cloud VPS: project "wikicite"
+*** VM wikicite-refsdb-proc-1.wikicite.eqiad1.wikimedia.cloud
+*** Trove DB: ouqdvgrbzf3.svc.trove.eqiad1.wikimedia.cloud
+
+==Process==
+=== Data collection and indexing ===
+; PubPeer Data (index_pubpeer.py)
+* '''Initial Seed:'''
+** Starts from 2000-01-01
+** Uses an initial large date window (2000-01-01 to 2014-12-31) followed by 30-day increments
+** API query handles pagination (per_page: 300) and automatically reduces the time window if the result set hits the 10,000-record limit to ensure no data is missed
+* '''Subsequent Builds:'''
+** Triggered via <code>python index_pubpeer.py --update</code>
+** Identifies the latest_comment_date from the local database and starts fetching from that date to the present
+* '''Database Updates:'''
+** Updates the pubpeer_articles table
+** Fields: id_pubpeer (URL), id_doi, id_pubmed, id_arxiv, title (truncated to 250 chars), and time_last_comment
+; Wikipedia Citations (index_citations.py)
+* '''Process:'''
+** Pulls current external links from Wikimedia Cloud DB Replicas for DOI (org.doi.), PubMed (gov.nih.nlm.ncbi.pubmed.), and arXiv (org.arxiv.)
+** Restricted to Main (0) and Draft (118) namespaces
+** Matches these links against the local pubpeer_articles table
+* '''Database Updates:'''
+** '''wikipedia table:''' Stores language_code, mw_page_id, mw_page_title, and mw_talk_page_id. Page titles are refreshed during each run
+** '''citations table:''' Maps id_pubpeer to id_wiki_page
+** '''Stale Data:''' Automatically removes citations from the local database if the link has been removed from Wikipedia
+
+=== Reporting and wiki updates ===
+* '''Wiki Maintenance:'''
+** Automatically handles page moves and deletions via sync_wikipedia_titles.py before updating reports
+* '''Report Generation (report.py):'''
+** '''Alerts Report:''' Lists new citations (time_last_updated_table IS NULL) or existing citations with new comments (time_last_comment > time_last_updated_table)
+** '''Most Affected Report:''' Lists Wikipedia articles with the highest number of unique PubPeer-commented citations
+** '''Article List Reports:''' Large table and alphabetical subpages (/By article/A, etc.) listing all matched citations
+** '''Frequency Report:''' Aggregates by PubPeer article to show which research is most cited across Wikipedia
+* '''User Interactions (Dismissals):''' (pending working implementation)
+** The bot reads the current wiki report and compares it to its previous version
+** If an editor removes a row from a wiki table, the bot marks that citation as dismissed = TRUE in the database and stops reporting it
+
+=== Database Schema (schema.sql) ===
+* '''wikipedia:''' id, language_code, mw_page_id, mw_page_title, mw_talk_page_id, librarybase_id
+* '''pubpeer_articles:''' id_pubpeer, id_doi, id_pubmed, id_arxiv, title, time_last_comment
+* '''citations:'''
+** Links articles to wiki pages
+** cited_id_type: 1 (DOI), 2 (PubMed), 3 (arXiv)
+*** 0 is reserved for "other"
+** time_last_updated_table: Tracks when the wiki report last included this citation
+** time_last_talk_page_post: (Reserved for future talk page notifications)
+** dismissed: Boolean flag for editor-driven dismissals
+
+=== Post-Implementation Status ===
+* '''Talk Page Notifications:''' Code includes fields for tracking (time_last_talk_page_post), but the active workflow currently focuses on centralized reports (Wikipedia:PubPeer/*) rather than automated talk page posting
+* '''Frequency of Runs:''' Designed to be run periodically (e.g., via cron) using the --update flag for index_pubpeer.py
+* '''Dismissals Not Recognized:''' The logic to recognize user removals of report entries does not work yet and has been disabled.
+
+== 2026-01-19 Observation ==
+Example edit: https://en.wikipedia.org/w/index.php?title=Wikipedia:PubPeer/By_article/Z&diff=prev&oldid=1333802277
+
+Sometimes, an article will have multiple PubPeer IDs, with different sets of comments on each. This causes the report generation process to be confused. Should probably canonize on a different identifier.

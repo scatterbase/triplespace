@@ -1,0 +1,247 @@
+# 0057. The web tier
+
+- **Status:** Proposed
+- **Date:** 2026-10-03
+- **Updated:** 2026-11-15 (A10)
+- **Author:** James Hare / Claude Opus
+- **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0025](0025-oauth-server.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0056](0056-security-model.md)
+- **Uses:** [0003](0003-statement-ui.md), [0039](0039-files-and-media.md), [0045](0045-table-content-model.md), [0047](0047-special-pages.md), [0053](0053-mirrored-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
+
+## Context
+
+[0034](0034-frontend-stack.md) renders every page on the server, in `triplespace-ui`, and embeds the frontend's assets in the one binary. Its §1.5 has the renderer call "the API crates' handler layer in-process", so rendering lives inside `triplespace-server` and scales with it. [0033](0033-backend-stack.md) §1 makes one binary and Postgres the whole of a small instance.
+
+An instance that serves readers at volume, or that must stay up while one machine fails, wants page rendering on machines of its own: rendering is CPU-bound and stateless in principle, while the API holds database pools, the write path and the evaluator of [0056](0056-security-model.md). Rendering in-process ties the two together.
+
+Four facts constrain how they come apart:
+
+1. **Sessions are per tenant host** (0056 §1): `HttpOnly`, `SameSite=Lax` cookies and a CSRF token on every write. A UI on another origin would need credentialed CORS and cookies scoped across hosts, which 0056 does not allow.
+2. **Every response is redacted for its viewer** ([0012](0012-api-requirements.md) §1.5), and 0012 §1.4 already requires that the UI use only the public API.
+3. **0034 §5's fragment routes** sit under `rest.php/triplespace/v0`, though the web tier would own their renderers, and `GET /page/{id}/render` there collides with the render manifest of [0042](0042-template-expansion-and-parsoid.md) §12.
+4. **The server's proxy trust** (0056 §10 line 5) names trusted proxies, but the first server does not yet check the peer address against them, and does not read `X-Forwarded-For`. A web tier in front of the server is such a proxy, and in a shared Kubernetes cluster its addresses are the whole pod range.
+
+The implementation plan is the project document `web-frontend-plan.md` of 2026-10-03, whose decisions this ADR records.
+
+### Direction
+
+James's direction, from the design discussion of 2026-10-03:
+
+- **"I want a stateless web frontend that I can deploy separately from the Triplespace server (e.g. in a high availability setup). The frontend interacts with the API."**
+- **"Yes, same host for UI and server. The in-process option for triplespace-server is good. Web servers can cache public API responses in memory or on a specified Valkey server."**
+- **"Let's do option D."** Asked where fragments are served from: a prefix of the web tier's own, under `rest.php/triplespace/v0` with a proxy rule, by the API server, or as MediaWiki's `action=render` on the page's own URL with a region parameter (D).
+- **"Your recommendation for Q2 and Q4 are good. For Q3, it should be TLS unless it's an address on a private network or something like "api.svc" where it's an internal address."** Q2 was the OAuth consent page (§13); Q4 the stability of region names (§8).
+- **"Your recommended solution for Q1 is good, including for 0042. I like the resolved address rule for Q3."** Q1 was how the response cache meets `action=purge` and erasure (§5, §14).
+- **"I think address trust by default with keys as an option is good."** Asked how the API should decide whose `X-Forwarded-For` to believe (§10).
+
+## Decision
+
+### 1. Principles (amends 0034 §1)
+
+*Changed by A4.*
+
+*Current text: [20](../architecture/20-web-tier.md) §1.1.*
+
+### 2. Two ways to run the site (amends 0033 §1, §17; extends 0033 §12; amends 0034 §2, §8)
+
+*Current text: [20](../architecture/20-web-tier.md) §1.2.*
+
+### 3. The routing table
+
+*Changed by A8.*
+
+*Current text: [20](../architecture/20-web-tier.md) §2.1.*
+
+### 4. Talking to the API
+
+*Changed by A4.*
+
+*Current text: [20](../architecture/20-web-tier.md) §2.2.*
+
+### 5. The response cache (extends 0014 §2)
+
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §10.2.*
+
+### 6. A page's own cacheability (extends 0014 §6)
+
+*Changed by A4, A5, A9.*
+
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §10.3, §12.4.*
+
+### 7. Forms without JavaScript (extends 0012 §4)
+
+*Changed by A6, A7.*
+
+*Current text: [20](../architecture/20-web-tier.md) §3.1.*
+
+### 8. Fragments: `action=render` on the page's own URL (amends 0034 §5, §11; extends 0010 §12, §13)
+
+*Changed by A4, A9, A10.*
+
+*Current text: [20](../architecture/20-web-tier.md) §3.2.*
+
+### 9. Independent deployment (extends 0012 §4)
+
+*Changed by A9.*
+
+*Current text: [20](../architecture/20-web-tier.md) §4.*
+
+### 10. Proxy trust and the deployment boundary (amends 0056 §10; extends 0056 §15; extends 0015 §3)
+
+*Changed by A1, A2.*
+
+*Current text: [20](../architecture/20-web-tier.md) §5.1, §5.2, §5.5.*
+
+### 11. Health and observability (uses 0033 §13)
+
+*Changed by A10.*
+
+*Current text: [22](../architecture/22-crates-and-stack.md) §4.7.*
+
+### 12. Crates (amends 0005 §2, Consequences; extends 0005 §3, §7)
+
+*Current text: [22](../architecture/22-crates-and-stack.md) §1.2, §2.1, §3.1.*
+
+### 13. The OAuth pages (amends 0025 §1, §3, §5, §8, §9)
+
+*Current text: [07](../architecture/07-actors-and-accounts.md) §2.4, §7.2, §7.4.*
+
+### 14. Purging (amends 0042 §10, §14)
+
+*Current text: [11](../architecture/11-rendering-templates-and-modules.md) §4.6.*
+
+## Alternatives considered
+
+- **A separate UI origin** (`ui.example.org`). Clean to deploy, but it needs credentialed CORS and session cookies across hosts, which 0056 §1 rules out, and it doubles every tenant's hostnames.
+- **The web tier only, with no embedded site.** Every instance would then need two processes and a proxy that splits paths, against 0033 §1's small instance.
+- **The web tier reading Postgres replicas directly.** Fast, but it puts the web tier inside the boundary of 0056 §10 with the whole of `view` readable, and it would duplicate the evaluator and redaction that the API applies.
+- **Fragments under a prefix of the web tier's own** (`/ui/fragment/…`). Workable, but it invents a URL scheme where MediaWiki already has one.
+- **Fragments under `rest.php/triplespace/v0`, with a proxy rule sending them to the web tier.** One namespace served by two tiers, with a regular expression in every proxy's configuration, and an OpenAPI contract describing routes the API does not serve.
+- **Fragments rendered by the API server.** During a rolling deploy a fragment and the page it lands in come from different releases, and the API binary takes on the templates and the Codex builder.
+- **A response cache that honours `s-maxage`, like a proxy.** Cheaper per request, but beneath a CDN that is purged by tag it undoes the purge: the CDN's next miss is answered from the stale copy and cached again.
+- **Pushing purges to every web replica.** Saves the revalidation round trip, but couples the web tier to the instance's Valkey and its purge path, and a replica that misses a message while reconnecting serves stale pages. Kept as Q5.
+- **Forwarder keys as the only proxy trust.** Robust on shared networks, but unfamiliar to operators who expect a trusted-proxy list, and unnecessary where only the instance's services share the network.
+
+## Consequences
+
+- **Page rendering scales on its own.** Web replicas are added or removed without touching the API, the database or the sessions.
+- **A small instance is unchanged:** one binary, Postgres, and the site served by the server.
+- **Redaction cannot diverge between the site and the API,** because the site is an API client with the viewer's credentials; a third-party client can show everything the site shows (0012 §1.4).
+- **Each page costs several internal round trips** that the in-process design of 0034 avoided, and the response cache saves work rather than round trips. Parallel calls, batched `action=query` and HTTP/2 keep-alive are the mitigations.
+- **No cache beneath the CDN can undo a purge or an erasure,** because the web tier revalidates everything a purge can change.
+- **The web tier's statelessness is checked, not promised:** by the dependency rule of §12 and by running the end-to-end suite across two replicas with no affinity.
+- **Fragments keep MediaWiki's address.** A MediaWiki tool calling `action=render` on a document page gets what it expects, and REST v0 loses its three `…/render` routes.
+- **Proxy trust by address must be fixed in the first server** before any proxy, web tier or not, is put in front of it.
+- **OAuth flows survive an API pool,** because their pending state is no longer held in one process.
+
+## Open questions
+
+- **Q1.** ~~**Purging the response cache by tag.** When `web.cache` is the instance's L1 Valkey, the erasure path of 0014 §5 could delete `web:` entries by tag and lift the `max_ttl` bound; whether that is worth the coupling.~~ *Settled by §5 and §14: the cache is not purged; every use revalidates, except responses whose `max-age` the API sets because no purge can change them, capped at 60 seconds; a plain purge bumps the render epoch (Direction). Pushing purges is Q5.*
+- **Q2.** ~~**The OAuth consent page.** It is HTML the authorization server serves ([0025](0025-oauth-server.md) §1). Whether it moves to the web tier as a special page that posts the decision back to the API, as MediaWiki's `Special:OAuth/authorize` does.~~ *Settled by §13: it moves, with the device and consumer pages, over request handles (Direction).*
+- **Q3.** ~~**Transport security between the tiers.** Whether the web tier reaches `web.api` over plain HTTP/2 on a private network or TLS inside it, and whether `instance check` should require the latter.~~ *Settled by §4: TLS unless the API's host resolves only to internal addresses (Direction). Trust by certificate is Q6.*
+- **Q4.** ~~**`action=render` regions as a contract.** Whether the region names of §8 are documented for third parties with a stability promise, or stay internal to the site.~~ *Settled by §8: the names are a contract, the markup is not (Direction).*
+- **Q5. Pushing purges to the web tier.** If revalidation round trips show up in measurements, the API could publish purged tags on a Valkey channel that every web replica follows; whether that is worth the coupling and the risk of a missed message.
+- **Q6. Trusting proxies by certificate.** Where a service mesh gives each workload a certificate (Envoy's `x-forwarded-client-cert`), the API could trust a hop by its certificate identity, as a third option beside addresses and forwarder keys.
+
+## References
+
+- [Manual:Parameters to index.php](https://www.mediawiki.org/wiki/Manual:Parameters_to_index.php), for `action=render` and `action=purge`
+- [Manual:$wgCdnServers](https://www.mediawiki.org/wiki/Manual:$wgCdnServers), MediaWiki's list of trusted proxies, which the right-to-left rule of §10 follows
+- [Caddy: `trusted_proxies`](https://caddyserver.com/docs/caddyfile/options#trusted-proxies) and [`reverse_proxy` headers](https://caddyserver.com/docs/caddyfile/directives/reverse_proxy#headers)
+- [RFC 7239](https://www.rfc-editor.org/rfc/rfc7239), the `Forwarded` header, which has the same trust question
+- Project document `web-frontend-plan.md` (2026-10-03), the implementation plan
+
+## Amendment log
+
+### A1. Right-to-left reading is defence in depth
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design discussion of 2026-10-09
+- **Change:** extends §10
+- **Summary:** The right-to-left reading of forwarded headers is the API's defence when [0056](0056-security-model.md) §10 line 6 does not hold, that is, when the edge has not stripped the client's inbound `X-Forwarded-*` before appending its own. A conforming edge produces `X-Forwarded-For: C, E`; the example in §10, with the forged `F` surviving, shows defence in depth, not the expected input. (PENDING F18)
+
+### A2. The web tier may hold its cache's Valkey password
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design discussion of 2026-10-09
+- **Change:** amends §10
+- **Summary:** This ADR (the newer) stands over [0056](0056-security-model.md) §10 line 12 (0056 A11): the web tier may hold, beyond the forwarder key, the password of the Valkey its response cache uses (§5), which may be the instance's L1 Valkey; "no credential of the instance's beyond an optional forwarder key" is qualified by that one, and 0056 §10 line 12 is qualified the same way. (PENDING F19)
+
+Replaced text (§10):
+
+> - **The web tier in the boundary.** It holds no credential of the instance's beyond an optional forwarder key and reads no store of it, so 0056 §10 lines 1, 2 and 4 do not apply to it and line 3 applies only to its cache's Valkey (§5).
+
+### A3. Current text relocated to the architecture chapters
+
+- **Date:** 2026-10-09
+- **Source:** [0050](0050-adr-format.md) §14
+- **Change:** relocates §1–§14
+- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [11](../architecture/11-rendering-templates-and-modules.md), [20](../architecture/20-web-tier.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+
+### A4. The page budget: the in-process transport and exact `Cache-Tag`s
+
+- **Date:** 2026-10-09
+- **Source:** Direct: James, design review of 2026-10-09
+- **Change:** amends §1, §6; extends §4, §8
+- **Summary:** A page has a budget of four API calls to first byte, met by a bulk-labels route and a `GET /entity/{id}/page` bundle ([0012](0012-api-requirements.md), [0010](0010-site-ui.md)) and, in the embedded server, by the in-process transport: with `server.ui = embedded` a page's sub-requests enter the API router as `tower` calls, the session is resolved once when the page request arrives and the principal is handed to every sub-request, and the sub-requests are exempt from the `read` rate counter, which counts the page itself, so a page of four calls costs one count; visibility, ACLs and redaction run on every sub-request as over HTTP, and `triplespace-web` has no such exemption. A composed page's `Cache-Tag`s are exact and bounded: a tag for each of its subjects and for every page in its render manifest, and nothing else; label dependencies are not tagged, since a large item draws labels from thousands of entities and a tag per label source would exceed every proxy's header limit and let a mirror sync purge the whole site, so label staleness is bounded by `s-maxage`. The About panel of an entity page has a response of its own with its own short `max-age`, since its counters change without the entity's version changing. The ledger names §2; the sections that carry the text are §1, §4, §6 and §8. (REVIEW G41)
+
+Replaced text ([20](../architecture/20-web-tier.md) §1.1, as it stood):
+
+> 4. **One code path, two transports.** The same `triplespace-ui` router serves pages from `triplespace-web`, over HTTP, and from `triplespace-server`, over an in-process call into the API's own router (§1.2). Both send the same requests through the same middleware.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §10.3, as it stood):
+
+> - **Its `Cache-Tag`** is the union of theirs, so the purges of §9.6 reach it.
+
+Replaced text ([03](../architecture/03-storage-caches-and-search.md) §12.4, as it stood):
+
+> a page the web tier composes carries the union of its components' tags (§10.3).
+
+### A5. The response cache keys by the negotiated language
+
+- **Date:** 2026-10-17
+- **Source:** [0085](0085-settings-and-preferences.md) §2.2
+- **Change:** extends §6
+- **Summary:** With the interface language negotiated from `Accept-Language`, the web tier's public cache keys a composed page by the negotiated interface language, not by the raw header, so negotiation does not split the cache by every browser's header; `Vary: Accept-Language` stays for downstream proxies. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §10.3.
+
+### A6. An act a challenge guards needs JavaScript
+
+- **Date:** 2026-10-17
+- **Source:** [0087](0087-account-registration-and-challenges.md) §5
+- **Change:** amends §7
+- **Summary:** Creating an account, filing an account request, an anonymous save that would create a temporary account, and a login after repeated failures work without JavaScript only where no challenge applies. Where one does, the act is refused with an explanation, never queued, as James directed: the page says what the wiki asks of the browser and why, and that the person may turn JavaScript on, ask an administrator to create the account, or wait out a failed-login window. The chapter text is [20](../architecture/20-web-tier.md) §3.1.
+
+Replaced text ([20](../architecture/20-web-tier.md) §3.1, as it stood):
+
+> Reading, logging in and out, creating an account, the account pages, page source editing and search work without JavaScript ([0034](0034-frontend-stack.md) §4).
+
+### A7. The issuer flow stays on the API
+
+- **Date:** 2026-10-18
+- **Source:** [0088](0088-external-identity-providers.md) §5
+- **Change:** extends §7
+- **Summary:** The browser posts an issuer's button straight to the API's `POST /auth/{issuer}/start`, the provider returns to the API's callback, and the API redirects to the `returnto` the web tier passed, so the provider's code never reaches the web tier. The chapter text is [20](../architecture/20-web-tier.md) §3.1.
+
+### A8. Routing at the auth base
+
+- **Date:** 2026-10-18
+- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §1
+- **Change:** extends §3
+- **Summary:** At the auth base the routing table is unchanged in shape: the API answers its authentication modules and the `/auth/` routes, the web tier the auth host's four special pages and the site's assets, and every other path is a 404 in a plain frame, since the auth host holds no wiki. The chapter text is [20](../architecture/20-web-tier.md) §2.1.
+
+### A9. The skin in the build ID; `api_version` as a semantic version
+
+- **Date:** 2026-10-29
+- **Source:** [0097](0097-versioning-and-skins.md) §5, §15
+- **Change:** extends §6, §8; amends §9
+- **Summary:** The build ID that a composed page's `ETag` hashes and that a component sends as `X-Triplespace-UI-Build` names the skin that drew the page and its version as well as the binary's build, so a skin upgrade or a change of skin is build skew. `api_version` becomes `MAJOR.MINOR.PATCH`, the integer before being its minor at major 0, and the web tier is ready only against the major it was built for at no lower a minor; a new REST major is served at a new base path. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §10.3 and [20](../architecture/20-web-tier.md) §3.2 and §4.
+
+Replaced text (§9):
+
+> - **The API's version.** `meta=siteinfo&siprop=triplespace` reports `api_version`, beside the capability list it already carries ([18](../architecture/18-api.md)). The web tier hides what the API lacks ([0012](0012-api-requirements.md) §1.4) and reports itself not ready below the minimum `api_version` it was built for.
+
+### A10. Stopping on `SIGTERM`, and the build ID a component sends
+
+- **Date:** 2026-11-15
+- **Source:** Direct: Claude, while building two of the gaps the implementation-claims audit found in the web tier (SCA-288), 2026-11-15; unconfirmed
+- **Change:** extends §8, §11
+- **Summary:** Two parts of this ADR are built as written, with these calls. (1) §11: on `SIGTERM` the web tier stops accepting, finishes what is in flight, and exits with status 0, as it already did on an interrupt; `triplespace-server` stops the same way, since an orchestrator sends it the same signal whether or not it serves the site. (2) §8, A9: the build ID a component is handed and sends back as `X-Triplespace-UI-Build` is `{binary's build}+{skin} {version}`, the one a page's `ETag` already hashed; until now a component was handed the binary's build alone, so a region request was never skew for a change of skin. Chapter text: 22 §4.7; 20 §3.2.

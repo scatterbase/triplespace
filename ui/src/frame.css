@@ -1,0 +1,365 @@
+/*
+ * The page frame of ADR 0010 §2: the global header, the page header (identity line, title,
+ * tabs), the content and the footer. Built from Codex design tokens (ADR 0034 §1.4), so a
+ * theme reaches it as it reaches Codex's own components.
+ */
+
+/* The `hidden` attribute hides, whatever display a component's class gives the element
+   (Codex's `.cdx-button` is `inline-flex`, which beats the browser's own rule). The edit
+   buttons stay hidden until their editor is wired (ADR 0003 §8), so neither a reader
+   without JavaScript nor a quick click before the editor loads meets a dead button. Both
+   site stylesheets import this file straight after Codex's, so it wins at the same
+   specificity. */
+[ hidden ] {
+	display: none;
+}
+
+body {
+	margin: 0;
+	background-color: var( --background-color-neutral-subtle, #f8f9fa );
+	color: var( --color-base, #202122 );
+	font-family: var( --font-family-base, sans-serif );
+	font-size: var( --font-size-medium, 1rem );
+	line-height: var( --line-height-medium, 1.625rem );
+}
+
+a {
+	color: var( --color-progressive, #36c );
+	text-decoration: none;
+}
+
+a:hover {
+	color: var( --color-progressive--hover, #3056a9 );
+	text-decoration: underline;
+}
+
+a:visited {
+	color: var( --color-visited, #6a60b0 );
+}
+
+h1,
+h2,
+h3 {
+	font-family: var( --font-family-heading-main, serif );
+	font-weight: var( --font-weight-normal, 400 );
+}
+
+:focus-visible {
+	outline: 2px solid var( --outline-color-progressive--focus, #36c );
+	outline-offset: 2px;
+}
+
+/* Hidden by clipping rather than by moving it off screen, which would widen a right-to-left
+   page. */
+.ts-skip {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	overflow: hidden;
+	clip: rect( 0, 0, 0, 0 );
+	white-space: nowrap;
+}
+
+.ts-skip:focus {
+	width: auto;
+	height: auto;
+	clip: auto;
+	inset-inline-start: var( --size-100, 1rem );
+	top: var( --size-50, 0.5rem );
+	z-index: 10;
+	padding: var( --size-50, 0.5rem ) var( --size-100, 1rem );
+	background-color: var( --background-color-base, #fff );
+}
+
+/* The frame column. The header's contents, the page and the footer all sit in it, so the
+   site name, the title, the content and the footer share one start edge and one end edge
+   however wide the window. The header's bar alone runs the full width. */
+
+:root {
+	--ts-frame-width: 80rem;
+	--ts-frame-gutter: var( --size-250, 2.5rem );
+}
+
+.ts-header__inner,
+.ts-page,
+.ts-footer {
+	max-width: var( --ts-frame-width );
+	margin-inline: auto;
+	padding-inline: var( --ts-frame-gutter );
+}
+
+/* The global header */
+
+.ts-header {
+	border-bottom: 1px solid var( --border-color-muted, #dadde3 );
+	background-color: var( --background-color-base, #fff );
+}
+
+.ts-header__inner {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var( --size-75, 0.75rem ) var( --size-125, 1.25rem );
+	padding-block: var( --size-75, 0.75rem );
+}
+
+.ts-header__site {
+	color: var( --color-base, #202122 );
+	font-family: var( --font-family-heading-main, serif );
+	font-size: var( --font-size-xx-large, 1.5rem );
+	font-weight: 500;
+}
+
+.ts-header__site:visited {
+	color: var( --color-base, #202122 );
+}
+
+.ts-header__search {
+	flex: 1 1 var( --size-2400, 24rem );
+	min-width: 0;
+	max-width: var( --size-3200, 32rem );
+}
+
+/* The suggesting search box (19 §5.3), which takes the form's place once it is used:
+   the field and its button in one row, as the plain form draws them. */
+.ts-typeahead {
+	display: flex;
+	align-items: stretch;
+}
+
+.ts-typeahead__box {
+	flex: 1 1 auto;
+	min-width: 0;
+}
+
+.ts-typeahead__button {
+	flex: none;
+	margin-inline-start: -1px;
+	border-start-start-radius: 0;
+	border-end-start-radius: 0;
+}
+
+.ts-header__nav {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --size-25, 0.25rem ) var( --size-100, 1rem );
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.ts-header__nav-link,
+.ts-header__nav-link:visited {
+	color: var( --color-neutral, #404244 );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-header__end {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var( --size-25, 0.25rem ) var( --size-75, 0.75rem );
+	margin-inline-start: auto;
+}
+
+/* A menu that works without JavaScript: a disclosure */
+
+.ts-menu {
+	position: relative;
+}
+
+.ts-menu > summary {
+	list-style: none;
+}
+
+.ts-menu > summary::-webkit-details-marker {
+	display: none;
+}
+
+/* The New and Appearance menus are icon buttons, named by aria-label and titled. */
+
+.ts-header__icon {
+	fill: currentcolor;
+}
+
+.ts-menu__items {
+	position: absolute;
+	right: 0;
+	z-index: 5;
+	min-width: var( --size-1200, 12rem );
+	margin: var( --size-25, 0.25rem ) 0 0;
+	padding: var( --size-25, 0.25rem ) 0;
+	list-style: none;
+	border: 1px solid var( --border-color-subtle, #c8ccd1 );
+	border-radius: var( --border-radius-base, 2px );
+	background-color: var( --background-color-base, #fff );
+}
+
+.ts-menu__link,
+.ts-menu__link:visited {
+	display: block;
+	padding: var( --size-50, 0.5rem ) var( --size-100, 1rem );
+	color: var( --color-base, #202122 );
+}
+
+.ts-menu__link:hover {
+	background-color: var( --background-color-interactive--hover, #dadde3 );
+	text-decoration: none;
+}
+
+/* The page header */
+
+.ts-page {
+	padding-block: var( --size-200, 2rem );
+}
+
+.ts-page__identity {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --size-50, 0.5rem );
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-page__title {
+	margin: var( --size-25, 0.25rem ) 0 var( --size-75, 0.75rem );
+	font-size: 2.5rem;
+	line-height: 1.15;
+}
+
+.ts-tabs {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --size-25, 0.25rem );
+	/* No overflow here: the Watch for… and More menus are children and must pop out. */
+	white-space: nowrap;
+	margin: 0 0 var( --size-150, 1.5rem );
+	padding: 0;
+	list-style: none;
+	border-bottom: 1px solid var( --border-color-subtle, #c8ccd1 );
+}
+
+.ts-tabs__link,
+.ts-tabs__link:visited {
+	display: block;
+	padding: var( --size-50, 0.5rem ) var( --size-100, 1rem );
+	border-bottom: 2px solid transparent;
+	color: var( --color-neutral, #404244 );
+}
+
+.ts-tabs__link[ aria-current='page' ] {
+	border-bottom-color: var( --border-color-progressive, #36c );
+	color: var( --color-progressive, #36c );
+}
+
+.ts-footer {
+	padding-block: var( --size-150, 1.5rem );
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+@media ( max-width: 640px ) {
+	:root {
+		--ts-frame-gutter: var( --size-100, 1rem );
+	}
+
+	.ts-header__search {
+		flex-basis: 100%;
+	}
+
+	.ts-header__end {
+		margin-inline-start: 0;
+	}
+}
+
+/* The signed-in viewer's name, where the account menu has nothing to offer yet */
+
+.ts-header__user {
+	padding: 0 var( --spacing-75, 0.75rem );
+	color: var( --color-base, #202122 );
+	font-weight: bold;
+}
+
+/* The generated main page */
+
+.ts-home {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-100, 1rem );
+	max-width: 40rem;
+}
+
+.ts-home p {
+	margin: 0;
+}
+
+.ts-home__lead {
+	font-size: var( --font-size-x-large, 1.25rem );
+}
+
+.ts-home__hint,
+.ts-home__generated {
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-home__generated {
+	padding-top: var( --spacing-100, 1rem );
+	border-top: 1px solid var( --border-color-muted, #dadde3 );
+}
+
+/* Special:SpecialPages */
+
+.ts-specialpages {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-75, 0.75rem );
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.ts-specialpages p {
+	margin: 0;
+}
+
+.ts-specialpages__description {
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+/* The site's forms: logging in and out, and creating an entity */
+
+.ts-account-form {
+	max-width: 24rem;
+}
+
+.ts-new-entity {
+	max-width: 36rem;
+}
+
+.ts-new-entity > .cdx-message {
+	margin-bottom: var( --spacing-100, 1rem );
+}
+
+.ts-new-statements .cdx-checkbox:last-child {
+	margin-bottom: 0;
+}
+
+.ts-form {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-100, 1rem );
+}
+
+.ts-form p {
+	margin: 0;
+}
+
+.ts-form .cdx-field {
+	margin: 0;
+}
+
+.ts-account-form > .cdx-message {
+	margin-bottom: var( --spacing-100, 1rem );
+}

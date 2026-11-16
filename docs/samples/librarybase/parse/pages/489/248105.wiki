@@ -1,0 +1,5 @@
+Welcome to '''Librarybase, the collaborative card catalog of everything'''.
+
+Librarybase is a project to organize, refine, and distribute metadata, as a complement to other projects like [[Item:Q2|Wikidata]] or [[Item:Q253|OpenAlex]]. The motivations behind the project are further described at [[Project:Principles]].
+
+{{cwbn}}

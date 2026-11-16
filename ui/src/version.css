@@ -1,0 +1,16 @@
+/* Special:Version (ADR 0077). */
+
+/* Links in the credit line and the licence notice are underlined, so that they are told
+   from the text around them by more than colour. */
+.ts-version__credits a {
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 0.15em;
+}
+
+/* Licence texts keep their line breaks, and wrap rather than scroll on a narrow screen. */
+.ts-version__license {
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+	font-size: var( --font-size-small, 0.875rem );
+}

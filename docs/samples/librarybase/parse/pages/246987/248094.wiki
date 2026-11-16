@@ -1,0 +1,60 @@
+== Introduction ==
+'''Wikipedia Citations Database''' is an effort supported by Internet Archive to build a comprehensive, historical database of each citation to appear on Wikipedia.
+
+While methodologies of similar projects have focused on extracting standardized identifiers or easy-to-extract references, this project instead seeks to build a ''complete'' database, based on analyzing the structure.
+
+== Generations ==
+
+* WCD Generation 1: Wikibase instance on Wikibase Cloud. Importing data was painfully slow, and it was decided Wikibase was not a good format for the data we were trying to store. The dataset produced is lost and was not very interesting or useful.
+* WCD Generation 2: [https://github.com/internetarchive/iari IARI]; Postgres-based, but was extremely difficult to work with. Parts of it are used to support the Internet Archive Reference Explorer.
+* WCD Generation 3: The latest attempt, using [https://github.com/internetarchive/wiki-references-extractor wiki-references-extractor] and [https://github.com/internetarchive/wiki-references-db wiki-references-db] (WRDB). WRDB is a core component of the broader WCD project.
+** Version 1: https://wikipediacitations.scatter.red
+*** Partial build of English Wikipedia
+*** Has issues dealing with broken wikitext
+** Version 2: 
+*** Rather than build an entire database upfront, have it be possible to analyze a '''page URL''' at a '''point in time'''. This will allow us to prove the extraction mechanisms are working without resorting to building an entire database first
+**** Available as [https://wikipediacitations-now.scatter.red Wikipedia Citations Now]
+*** Be able to tell what part of the article a reference is from (in-line vs. endnote, etc.)
+*** JSON representation of template parameters so you don't have to parse them out of the template
+*** Use LLM to parse the article in general. Maybe have an option to select between classical parsing and LLM-based extraction.
+**** Use basic mwparserfromhell extraction as first step. If a user comes across an entry and it looks broken, offer option to re-generate report with AI. User can then accept alternative.
+*** In data model, associate references with revision id; then, associate revision IDs with timestamps in another table
+
+== 2025-10-16 WRDB migration ==
+WRDB is the Postgres database of citation strings at the core of the WCD effort.
+
+Migration away from station1001 is underway. This started sooner but I am documenting my progress as of today.
+
+Successfully transferred between station1001 and the new VM, wrdb-gen3v1, and just now, verified via md5sum.
+----
+ jh@wrdb-gen3v1:/bulk/downloads$ md5sum 2024-10-wrdb.sql.gz
+ '''1819'''ec7f76887e854903550ce1d'''30ac6'''  2024-10-wrdb.sql.gz
+
+ jh@station1001:/opt/librarybase/wikibase$ md5sum ~/2024-10-wrdb.sql.gz
+ '''1819'''ec7f76887e854903550ce1d'''30ac6'''  /home/jh/2024-10-wrdb.sql.gz
+----Downloading the English Wikipedia dump to my home workstation is going painfully slowly. I do not know why the download is only ~1.5MB/s. If I want to do a rebuild, my Plan B may be to instead set up a wrdb-gen3v2 on station1001 (rebuilt with Proxmox) and dedicate it to the rebuild. If I have a pre-process step that turns the dumps into a neat bundle of diffs, it should not require as much RAM to process (since I will no longer have to deal with XML in memory). I still want to do the WRDB rebuild on my workstation, but pre-processing on station1001 may give me a smaller file I can download. Once the pre-process is done I should have enough resources for a secondary copy of WDQS.
+
+In the meantime, now that I have a database dump of WRDB on the wrdb-gen3v1 virtual machine, the next steps are:
+
+# Re-import into Postgres
+# Re-start web service
+# Change proxy to point to new web service
+# Create process for on-demand update:
+## User requests data for a certain article. There is a notice saying to check back later if the data is not up to date.
+## Article is added to the update queue
+## Process works through the update queue, getting all revisions since the most recent one in the database
+## Each revision has references extracted and the database is updated
+## To prevent excessive updates, if an article is already in the queue, it can't be re-added to the queue. And if an article was refreshed in the last hour, it is sent to the back of the queue.
+## Eventually add a low-priority queue that cycles through English Wikipedia in alphabetical order so that there is always passive updating.
+
+On-demand updates for particular articles should tide me over until I have the opportunity to do a full rebuild.
+
+'''Note:''' I can't take down the current instance on station1001 until the new one is set up. Once the new one is set up, that's the final service before I can begin setting up Proxmox on station1001.
+
+== 2025-10-25 Downloading dump for Gen3V2 ==
+Downloading paused for re-networking. To resume:
+ rsync -avP -e "ssh -J jh@154.29.79.171" jh@10.0.1.8:/bulk/public/wikimedia/enwiki/20250901/enwiki-20250901-pages-meta-history*.xml-p*.bz2 ./
+
+Downloading resumed. [[User:Harej|Harej]] ([[User talk:Harej|talk]]) 03:47, 28 October 2025 (UTC)
+
+Download came to a stop on the orb-blended VM I used because it filled up. So I created a new VM, wrdb-gen3v2, moved the files to that, and resumed the download there. [[User:Harej|Harej]] ([[User talk:Harej|talk]]) 00:16, 3 November 2025 (UTC)

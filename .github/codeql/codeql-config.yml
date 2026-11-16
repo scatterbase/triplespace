@@ -1,0 +1,13 @@
+# CodeQL's configuration (used by .github/workflows/codeql.yml). Test code is left out: it
+# holds the hard-coded passwords, panic messages naming accounts and SHA-256 of fixed inputs
+# that the security queries flag by heuristic, with nothing to fix. Source code is scanned
+# whole.
+name: Triplespace
+paths-ignore:
+  - "**/tests/**"
+  - "**/benches/**"
+  - fuzz
+  - ui/e2e
+  - ui/**/*.test.*
+  - docs/samples
+  - node_modules

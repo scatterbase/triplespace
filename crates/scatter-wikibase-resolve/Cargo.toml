@@ -1,0 +1,20 @@
+[package]
+name = "scatter-wikibase-resolve"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Reconciliation across source graphs and statement fusion: the resolved view of one entity"
+publish = false
+
+[dependencies]
+scatter-wikibase-model.workspace = true
+scatter-normalize.workspace = true
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

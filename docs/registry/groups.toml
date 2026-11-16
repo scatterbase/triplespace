@@ -1,0 +1,205 @@
+# Default groups, permissions and graph ACLs.  ADR 0016 §2–4, 0019 §12, 0020 §7, 0021 §9, 0022 §12, 0023 §11, 0024 §11, 0025 §10, 0030 §12 and §5 (tags), 0039 §21, 0047 §12, 0087 §6–7.
+#
+# Permissions are MediaWiki right names where MediaWiki has one, Wikibase's for entities,
+# and ts-* for what only Triplespace does. Scatterbase's five (view, edit, delete,
+# view_deleted, block_user) map onto read, edit, delete, deletedhistory+deletedtext, block.
+#
+# An actor's effective permissions are the union over its groups, minus what active blocks
+# remove. There is no group-level revocation. `universe` is reported to MediaWiki clients
+# as `*`. `owner` holds every permission, including any added later, and reads everything but the
+# suppression group's; it is a bootstrap role, which a tenant may leave empty (0016 A37, A38).
+#
+# ACLs restrict a permission on a target to a group; evaluation is conjunctive over the
+# target and its enclosures (0016 §4). Since 0023, ACLs also restrict `read`: deletion,
+# revision-hiding, suppression and hiding a username are read ACLs whose group is the
+# deletion or suppression group named in site config (defaults sysop, suppress).
+# Only graph ACLs are listed here; the rest are moderation records in the tenant log.
+#
+# A [[group]] may also carry (09 §3.2; 0016 A35–A38):
+#   includes = [...]  group names, or "*" for every group but owner and the suppression group,
+#                     whose read restrictions its members pass; reading only, one level deep
+#   adds, removes, adds_self, removes_self = [...]  groups its members may add others to, remove
+#                     others from, join or leave themselves; never owner or a group holding
+#                     userrights or ts-config
+#   within = ["namespace:N", "set:N"]  where its permissions hold; a scoped group may hold only
+#                     the permissions listed as `targeted` below
+#   notify_joins = true  announce each new member to the group's members (off unless set)
+# A tenant's `group` config records take the same fields.
+
+version = 1
+
+# ---------------------------------------------------------------------------
+# Permissions (0016 §2). Listed so that a typo in a group is a build error.
+# ---------------------------------------------------------------------------
+[permissions]
+mediawiki = [
+  "read", "edit", "createpage", "move", "editcontentmodel",
+  "delete", "undelete", "deletedhistory", "deletedtext", "deleterevision", "deletelogentry",
+  "suppressrevision", "viewsuppressed", "hideuser",
+  "protect", "block", "userrights", "renameuser", "import", "importupload", "bot",
+  "viewmywatchlist", "editmywatchlist",          # 0020 §7
+  "editmyoptions", "viewmyprivateinfo",          # 0021 §9
+  "patrol", "autopatrol", "browsearchive",       # 0023 §11
+  "createaccount", "noratelimit",                # 0024 §11: createaccount creates a subsidiary account; 0024 A13: and governs self-registration
+  "skipcaptcha",                                 # 0087 §7: ConfirmEdit's exemption from every challenge trigger
+  "confirmaccount",                              # 0087 §6: ConfirmAccount's review of account requests
+  "abusefilter-view", "abusefilter-log", "abusefilter-view-private", "abusefilter-log-private",   # 0030 §12
+  "abusefilter-log-detail", "abusefilter-modify", "abusefilter-modify-restricted", "abusefilter-revert",
+  "abusefilter-bypass",
+  "mwoauthproposeconsumer", "mwoauthupdateownconsumer", "mwoauthmanageconsumer",   # 0025 §10
+  "mwoauthmanagemygrants", "mwoauthviewprivate",
+  "changetags", "managechangetags",              # 0030 §5 as amended 2026-09-27: apply a registered tag; manage the tag registry
+  "upload", "reupload", "reupload-own", "reupload-shared", "upload_by_url", "movefile",   # 0039 §21
+  "nuke",                                         # 0047 §12: Special:Nuke (the Nuke extension's right)
+  "suppressredirect", "delete-redirect", "move-subpages", "move-rootuserpages", "move-categorypages",   # 0051 §8
+  "editinterface",                                # 0095 §4: edit, create and move pages of the Interface namespace
+]
+wikibase = ["item-term", "property-term", "item-redirect", "item-merge", "property-create"]
+triplespace = [
+  "ts-link", "ts-linkproperty", "ts-retain", "ts-convert", "ts-runjob", "ts-revertjob", "ts-viewrejects",
+  "ts-erase", "ts-viewerasures", "ts-unlink", "ts-config", "ts-keys", "ts-backup-keys",
+  "ts-editpost",                                 # 0019 §12: edit another actor's post
+  "ts-transferaccount",                          # 0024 §11: move a subsidiary to another operator
+  "ts-takedown", "ts-expunge", "ts-viewtakedown",   # 0039 §21: operator removal of files; evaluated on the primary tenant only
+  "ts-viewoperator",                             # 0040 §9: see which operator carried out an instance act; an instance right
+  "ts-primary",                                  # 0046 §8: offer the primary role to another tenant; an instance right, owner only
+  "ts-viewip",                                   # 0007 §3: see an address in the abuse-handling store; an account request's (0087 §6)
+]
+# The permissions that act on a page, entity or thread: all a scoped group may hold (09 §3.2;
+# 0016 A36). Every other permission acts on the tenant, an account or the instance.
+targeted = [
+  "read", "edit", "createpage", "move", "editcontentmodel",
+  "delete", "undelete", "deletedhistory", "deletedtext", "deleterevision", "deletelogentry",
+  "suppressrevision", "viewsuppressed", "protect", "patrol", "autopatrol",
+  "suppressredirect", "delete-redirect", "move-subpages", "move-rootuserpages", "move-categorypages",
+  "upload", "reupload", "reupload-own", "movefile",
+  "item-term", "property-term", "item-redirect", "item-merge", "property-create",
+  "ts-link", "ts-linkproperty", "ts-retain", "ts-convert", "ts-editpost",
+]
+
+# ---------------------------------------------------------------------------
+# Groups (0016 §3)
+# ---------------------------------------------------------------------------
+[[group]]
+name = "universe"
+mediawiki_name = "*"
+implicit = "everyone"
+permissions = ["read", "abusefilter-view", "abusefilter-log",
+               "createaccount"]   # 0024 A13, 0056 A10: self-registration; a private tenant, or one closing registration, removes it
+
+[[group]]
+name = "temp"
+implicit = "temporary-accounts"     # 0007 §3; empty this list to require login
+permissions = ["edit", "createpage"]
+
+[[group]]
+name = "user"
+implicit = "registered-accounts"
+permissions = [
+  "edit", "createpage", "editcontentmodel",
+  "delete-redirect", "move-subpages", "move-rootuserpages", "move-categorypages",   # 0051 §8, MediaWiki's defaults
+  "item-term", "property-term", "item-redirect", "item-merge",
+  "property-create",                                                              # 0016 A32: Wikibase's default; a tenant reserves it by removing it here in its config
+  "viewmywatchlist", "editmywatchlist", "editmyoptions", "viewmyprivateinfo",   # 0020 §7, 0021 §9
+  "mwoauthmanagemygrants",                                                        # 0025 §10: revoke one's own authorizations
+  "changetags",                                                                   # 0030 §5 as amended: apply a registered tag, subject to the tag's group
+]
+# A subsidiary with status `pending` (0025 §3) does not receive this implicit membership;
+# a bureaucrat grants `user` (or `bot`) explicitly with userrights to approve it.
+
+[[group]]
+name = "autoconfirmed"
+implicit = "threshold"              # age and edit count from site config; values are open (0016)
+permissions = ["move", "ts-link", "patrol", "mwoauthproposeconsumer", "mwoauthupdateownconsumer",   # 0025 §10
+               "upload", "reupload", "reupload-own", "movefile"]                                                     # 0039 §21
+
+[[group]]
+name = "autopatrolled"              # assigned with userrights (0023 §11)
+permissions = ["autopatrol"]
+
+[[group]]
+name = "bot"                        # the bot flag: granted by a bureaucrat to a subsidiary account after review (0024 §2).
+permissions = ["bot", "ts-runjob", "autopatrol", "suppressredirect", "skipcaptcha"]   # skipcaptcha: ConfirmEdit's default (0087 §7); its rate limits are the `bot` row of the site rate-limit table (0024 §5); suppressredirect per 0051 §8
+
+[[group]]
+name = "federated"                  # 0022 §8: surrogates for fediverse actors replying to federated talk pages.
+implicit = "federated-actors"       # Holds nothing; a tenant admits it to one talk namespace by an ACL restricting `edit`
+permissions = []                    # to a group that includes it. It can never create a thread or touch an entity.
+
+[[group]]
+name = "propertycreator"
+permissions = ["property-create", "ts-linkproperty"]   # ts-linkproperty: 0016 A32
+
+[[group]]
+name = "sysop"
+permissions = [
+  "delete", "undelete", "deletedhistory", "deletedtext", "browsearchive", "deleterevision", "deletelogentry",
+  "protect", "block", "import", "importupload", "property-create", "ts-linkproperty", "autopatrol", "noratelimit",
+  "ts-retain", "ts-convert", "ts-runjob", "ts-revertjob", "ts-viewrejects",
+  "ts-viewerasures", "ts-unlink", "ts-editpost",
+  "abusefilter-view-private", "abusefilter-log-private", "abusefilter-log-detail", "abusefilter-modify", "abusefilter-revert",
+  "mwoauthviewprivate",                          # 0025 §10
+  "managechangetags",                            # 0030 §5 as amended: the tag registry
+  "reupload-shared",                             # 0039 §21: shadow a foreign repository's file
+  "nuke",                                        # 0047 §12: Special:Nuke
+  "suppressredirect",                            # 0051 §8: move without leaving a redirect
+  "skipcaptcha",                                 # 0087 §7: ConfirmEdit's default
+  "ts-viewip",                                   # 0007 §3: addresses in the abuse-handling store
+  "editinterface",                               # 0095 §4: Interface pages, as MediaWiki's sysop holds it
+]
+
+[[group]]
+name = "bureaucrat"
+permissions = ["userrights", "renameuser", "ts-config", "ts-transferaccount", "abusefilter-modify-restricted", "mwoauthmanageconsumer",   # 0025 §10: consumer approval is instance-level
+               "confirmaccount"]   # 0087 §6: ConfirmAccount's default
+
+[[group]]
+name = "suppress"
+permissions = ["suppressrevision", "viewsuppressed", "hideuser", "ts-erase"]
+
+[[group]]
+name = "owner"
+all_permissions = true              # including ts-keys and ts-primary; on the primary tenant, owner is the instance's owner (0046 §1)
+minimum_members = 0                 # 0016 A37: a bootstrap role; the last member may leave once nothing needs it, and the CLI restores it
+membership_changed_by = "owner"
+includes = ["*"]                    # 0016 A37: reads every confidential target but the suppression group's
+
+[[group]]
+name = "read-all"                   # 0016 A37, A38: reads everything but the suppression group's, may do nothing more; empty by default
+permissions = []
+includes = ["*"]
+
+# ---------------------------------------------------------------------------
+# Default graph ACLs (0016 §4). Written to config when an instance is created.
+# ---------------------------------------------------------------------------
+[[acl]]
+target = "graph:local"
+edit = "universe"                   # no restriction beyond the permission itself
+
+[[acl]]
+target = "graph:pages"
+edit = "universe"
+
+[[acl]]
+target = "graph:mirror/{provider}"
+edit = "bot"                        # only sync jobs write to a mirror (0002 §2)
+
+[[acl]]
+target = "graph:actors/{provider}"
+edit = "bot"
+
+[[acl]]
+target = "graph:log/{provider}"
+edit = "bot"
+
+[[acl]]
+target = "graph:config"
+edit = "bureaucrat"                 # key: records additionally need ts-keys (0015 §3)
+
+[[acl]]
+target = "graph:actors"
+edit = "system"                     # account management only; rights and block records need userrights / block
+
+[[acl]]
+target = "graph:accounts"
+edit = "system"                     # the login system only (0007 §8)

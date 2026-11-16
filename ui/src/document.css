@@ -1,0 +1,449 @@
+/*
+ * Document pages (ADR 0008; chapter 19 §3.1–3.2): the rendered wikitext, its categories,
+ * and the edit form with its preview and conflict view. The rendered HTML keeps
+ * MediaWiki's class names (`mw-parser-output`, `wikitable`, `toc`, `new`), so these rules
+ * style what the API's renderer writes. Logical properties throughout.
+ */
+
+.ts-document {
+	max-width: 64rem;
+	line-height: 1.6;
+	overflow-wrap: break-word;
+}
+
+.ts-document__content h2 {
+	margin-block: 1.25em 0.4em;
+	padding-block-end: 0.2em;
+	border-block-end: 1px solid var( --border-color-muted, #dadde3 );
+	font-size: 1.5em;
+	font-weight: normal;
+}
+
+.ts-document__content h3 {
+	margin-block: 1em 0.3em;
+	font-size: 1.2em;
+}
+
+.ts-document__content h4,
+.ts-document__content h5,
+.ts-document__content h6 {
+	margin-block: 0.9em 0.3em;
+	font-size: 1em;
+}
+
+.ts-document__content p {
+	margin-block: 0.5em;
+}
+
+.ts-document__content ul,
+.ts-document__content ol {
+	margin-block: 0.3em;
+	padding-inline-start: 1.6em;
+}
+
+.ts-document__content dd {
+	margin-inline-start: 1.6em;
+}
+
+.ts-document__content pre {
+	padding: var( --spacing-75, 0.75rem );
+	border: 1px solid var( --border-color-muted, #dadde3 );
+	background-color: var( --background-color-neutral-subtle, #f8f9fa );
+	white-space: pre-wrap;
+	overflow-x: auto;
+}
+
+.ts-document__content blockquote {
+	margin-inline: 1.6em 0;
+	padding-inline-start: var( --spacing-75, 0.75rem );
+	border-inline-start: 4px solid var( --border-color-muted, #dadde3 );
+}
+
+/*
+ * Links in rendered content, wikitext or Markdown, on any page that draws it (a document,
+ * a diff, a post, a preview). They sit in running text, so they are underlined as well as
+ * coloured: a link's colour is not 3:1 against the text around it in every palette, and
+ * colour alone may not tell them apart (WCAG 1.4.1; ADR 0086 A12).
+ */
+.mw-parser-output a,
+.ts-markdown a {
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 0.15em;
+}
+
+/*
+ * Links that follow text on the same line, in the About this page panel ("… by Alice",
+ * "… (diff)"), on Special:WhatLinksHere's lead line and on a thread action's form, are
+ * underlined too, for the same reason (WCAG 1.4.1; axe's link-in-text-block).
+ */
+.ts-about__fact a,
+.ts-whatlinkshere__intro a,
+.ts-thread-action__intro a {
+	text-decoration: underline;
+	text-decoration-thickness: 1px;
+	text-underline-offset: 0.15em;
+}
+
+/* A red link: a page that does not exist yet, in Codex's red-link colour. */
+.mw-parser-output a.new,
+.ts-markdown a.new {
+	color: var( --color-link-red, #bf3c2c );
+}
+
+.ts-document__content table {
+	max-width: 100%;
+	overflow-x: auto;
+}
+
+.ts-document__content .wikitable {
+	margin-block: 1em;
+	border-collapse: collapse;
+	border: 1px solid var( --border-color-base, #a2a9b1 );
+	background-color: var( --background-color-neutral-subtle, #f8f9fa );
+}
+
+.ts-document__content .wikitable > tr > th,
+.ts-document__content .wikitable > tr > td,
+.ts-document__content .wikitable > * > tr > th,
+.ts-document__content .wikitable > * > tr > td {
+	padding: 0.2em 0.4em;
+	border: 1px solid var( --border-color-base, #a2a9b1 );
+}
+
+.ts-document__content .wikitable > tr > th,
+.ts-document__content .wikitable > * > tr > th {
+	background-color: var( --background-color-interactive-subtle, #eaecf0 );
+	text-align: center;
+}
+
+.ts-document__content .toc {
+	display: inline-block;
+	margin-block: 0.5em;
+	padding: var( --spacing-50, 0.5rem ) var( --spacing-75, 0.75rem );
+	border: 1px solid var( --border-color-muted, #dadde3 );
+	background-color: var( --background-color-neutral-subtle, #f8f9fa );
+}
+
+.ts-document__content .toc ul {
+	padding-inline-start: 1em;
+	list-style: none;
+}
+
+.ts-document__content .toctogglecheckbox,
+.ts-document__content .toctogglespan {
+	display: none;
+}
+
+.ts-document__content .tocnumber {
+	padding-inline-end: 0.4em;
+	color: var( --color-subtle, #54595d );
+}
+
+/* A redirect's own page (`?redirect=no`). */
+.ts-document__content .redirectMsg,
+.ts-document__content .redirectText {
+	margin-block: 0.5em;
+	padding: 0;
+	list-style: none;
+}
+
+.ts-document__redirected,
+.ts-document__old {
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-catlinks {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --spacing-25, 0.25rem ) var( --spacing-50, 0.5rem );
+	margin-block-start: var( --spacing-150, 1.5rem );
+	padding: var( --spacing-50, 0.5rem ) var( --spacing-75, 0.75rem );
+	border: 1px solid var( --border-color-muted, #dadde3 );
+	background-color: var( --background-color-neutral-subtle, #f8f9fa );
+}
+
+.ts-catlinks__list {
+	display: contents;
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+.ts-catlinks__item:not( :last-child )::after {
+	content: ' |';
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-edit-document {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-100, 1rem );
+	max-width: 64rem;
+}
+
+.ts-editform__text {
+	width: 100%;
+	min-block-size: 20em;
+	font-family: var( --font-family-monospace, monospace );
+	font-size: 0.875rem;
+	line-height: 1.5;
+}
+
+.ts-editform__preview {
+	padding: var( --spacing-100, 1rem );
+	border: 1px solid var( --border-color-muted, #dadde3 );
+}
+
+.ts-editform__preview > h2,
+.ts-editform__current > h2 {
+	margin-block: 0 var( --spacing-50, 0.5rem );
+	font-size: 1.2em;
+}
+
+.ts-editform__cancel {
+	align-self: center;
+}
+
+/*
+ * Page diffs (chapter 19 §3.8): MediaWiki's diff table, with its class names, as
+ * action=compare writes its rows. A changed line is told apart by its marker column
+ * (+ and −) and its border as well as its colour; changed words are bold.
+ */
+.ts-page-diff {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-100, 1rem );
+	max-width: 80rem;
+}
+
+.ts-page-diff__table {
+	width: 100%;
+	border-collapse: separate;
+	border-spacing: var( --spacing-25, 0.25rem ) 1px;
+	table-layout: fixed;
+}
+
+.ts-page-diff__table col.diff-marker {
+	width: 2ch;
+}
+
+.ts-page-diff__table col.diff-content {
+	width: 50%;
+}
+
+.ts-page-diff__table .diff-otitle,
+.ts-page-diff__table .diff-ntitle {
+	padding-block-end: var( --spacing-50, 0.5rem );
+	font-weight: normal;
+	text-align: center;
+	vertical-align: top;
+}
+
+.ts-page-diff__table .diff-lineno {
+	padding-block-start: var( --spacing-50, 0.5rem );
+	font-weight: bold;
+}
+
+.ts-page-diff__table .diff-marker {
+	text-align: end;
+	vertical-align: top;
+	font-weight: bold;
+}
+
+.ts-page-diff__table .diff-marker::before {
+	content: attr( data-marker );
+}
+
+.ts-page-diff__table .diff-context,
+.ts-page-diff__table .diff-addedline,
+.ts-page-diff__table .diff-deletedline {
+	padding: var( --spacing-25, 0.25rem ) var( --spacing-50, 0.5rem );
+	border: 1px solid var( --border-color-muted, #dadde3 );
+	border-inline-start-width: 4px;
+	border-radius: var( --border-radius-base, 2px );
+	vertical-align: top;
+	font-family: var( --font-family-monospace, monospace );
+	font-size: 0.875rem;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.ts-page-diff__table .diff-context {
+	background-color: var( --background-color-neutral-subtle, #f8f9fa );
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-page-diff__table .diff-addedline {
+	border-color: var( --border-color-progressive--focus, #36c );
+}
+
+.ts-page-diff__table .diff-deletedline {
+	border-color: var( --border-color-warning, #ab7f2a );
+}
+
+.ts-page-diff__table .diffchange {
+	padding: 0 2px;
+	border-radius: var( --border-radius-base, 2px );
+	font-weight: bold;
+	text-decoration: none;
+}
+
+.ts-page-diff__table ins.diffchange {
+	background-color: var( --background-color-progressive-subtle, #eaf3ff );
+}
+
+.ts-page-diff__table del.diffchange {
+	background-color: var( --background-color-warning-subtle, #fdf2d5 );
+}
+
+.ts-page-diff__table .diff-notice {
+	padding: var( --spacing-100, 1rem );
+	text-align: center;
+}
+
+.ts-page-diff__revision,
+.ts-page-diff__user,
+.ts-page-diff__comment,
+.ts-page-diff__nav {
+	margin-block: var( --spacing-25, 0.25rem );
+}
+
+.ts-page-diff__heading {
+	margin-block: var( --spacing-150, 1.5rem ) var( --spacing-50, 0.5rem );
+	font-size: 1.25em;
+}
+
+/*
+ * The diff's tools (ADR 0010 §6): the view switch, the context links and the permalink
+ * field, in one wrapping row above the table.
+ */
+.ts-page-diff__tools {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	gap: var( --spacing-50, 0.5rem ) var( --spacing-150, 1.5rem );
+}
+
+.ts-page-diff__context {
+	margin: 0;
+}
+
+.ts-page-diff__permalink {
+	display: flex;
+	align-items: center;
+	gap: var( --spacing-50, 0.5rem );
+	margin-inline-start: auto;
+}
+
+.ts-page-diff__permalink .cdx-text-input {
+	min-width: 16rem;
+}
+
+.ts-page-diff__permalink .cdx-text-input__input {
+	font-family: var( --font-family-monospace, monospace );
+}
+
+/* Side by side: each revision rendered in its half of the table. */
+.ts-page-diff__column {
+	padding: var( --spacing-50, 0.5rem ) var( --spacing-75, 0.75rem );
+	border: 1px solid var( --border-color-muted, #dadde3 );
+	border-radius: var( --border-radius-base, 2px );
+	vertical-align: top;
+	line-height: 1.6;
+	overflow-wrap: break-word;
+	overflow-x: auto;
+}
+
+/*
+ * The inline layout (MediaWiki's difftype=inline): one column, shown in place of the
+ * table's rows on a narrow screen. Removed and added text are struck through and
+ * underlined, and each changed line carries its marker, so colour is never the only cue.
+ */
+.ts-page-diff__inline {
+	display: none;
+	font-family: var( --font-family-monospace, monospace );
+	font-size: 0.875rem;
+}
+
+.ts-page-diff__inline .mw-diff-inline-header {
+	margin-block: var( --spacing-75, 0.75rem ) var( --spacing-25, 0.25rem );
+	font-family: var( --font-family-system-sans, sans-serif );
+	font-weight: bold;
+}
+
+.ts-page-diff__inline .mw-diff-inline-context,
+.ts-page-diff__inline .mw-diff-inline-added,
+.ts-page-diff__inline .mw-diff-inline-deleted,
+.ts-page-diff__inline .mw-diff-inline-changed {
+	position: relative;
+	padding: var( --spacing-25, 0.25rem ) var( --spacing-50, 0.5rem );
+	padding-inline-start: 2ch;
+	border-inline-start: 4px solid transparent;
+	white-space: pre-wrap;
+	overflow-wrap: anywhere;
+}
+
+.ts-page-diff__inline [ data-marker ]::before {
+	content: attr( data-marker );
+	position: absolute;
+	inset-inline-start: 0.5ch;
+	font-weight: bold;
+}
+
+.ts-page-diff__inline .mw-diff-inline-context {
+	color: var( --color-subtle, #54595d );
+}
+
+.ts-page-diff__inline .mw-diff-inline-added {
+	border-inline-start-color: var( --border-color-progressive--focus, #36c );
+	background-color: var( --background-color-progressive-subtle, #eaf3ff );
+}
+
+.ts-page-diff__inline .mw-diff-inline-deleted {
+	border-inline-start-color: var( --border-color-warning, #ab7f2a );
+	background-color: var( --background-color-warning-subtle, #fdf2d5 );
+}
+
+.ts-page-diff__inline .mw-diff-inline-changed {
+	border-inline-start-color: var( --border-color-base, #a2a9b1 );
+}
+
+.ts-page-diff__inline ins {
+	background-color: var( --background-color-progressive-subtle, #eaf3ff );
+	text-decoration: underline;
+}
+
+.ts-page-diff__inline del {
+	background-color: var( --background-color-warning-subtle, #fdf2d5 );
+	text-decoration: line-through;
+}
+
+.ts-page-diff__inline .diffchange {
+	font-weight: bold;
+}
+
+@media ( max-width: 40rem ) {
+	.ts-page-diff__table:has( + .ts-page-diff__inline ) tbody {
+		display: none;
+	}
+
+	.ts-page-diff__inline {
+		display: block;
+	}
+
+	/* The two revisions' headers, one above the other. */
+	.ts-page-diff__table,
+	.ts-page-diff__table thead,
+	.ts-page-diff__table thead tr,
+	.ts-page-diff__table .diff-otitle,
+	.ts-page-diff__table .diff-ntitle {
+		display: block;
+		width: 100%;
+	}
+
+	.ts-page-diff__table .diff-otitle,
+	.ts-page-diff__table .diff-ntitle {
+		text-align: start;
+	}
+}

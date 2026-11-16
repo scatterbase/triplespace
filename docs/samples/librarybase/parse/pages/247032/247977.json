@@ -1,0 +1,52 @@
+{
+ "categories": [],
+ "displaytitle": "<span class=\"mw-page-title-namespace\">Project</span><span class=\"mw-page-title-separator\">:</span><span class=\"mw-page-title-main\">Analytics/PubPeer</span>",
+ "externallinks": [
+  "https://dashboards.pubpeer.com/docs/api#/operations/partner"
+ ],
+ "images": [],
+ "iwlinks": [],
+ "langlinks": [],
+ "links": [],
+ "pageid": 247032,
+ "parsewarnings": [],
+ "properties": {
+  "unexpectedUnconnectedPage": -4
+ },
+ "revid": 247977,
+ "sections": [
+  {
+   "anchor": "API",
+   "byteoffset": 0,
+   "fromtitle": "Project:Analytics/PubPeer",
+   "index": "1",
+   "level": "2",
+   "line": "API",
+   "number": "1",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Resources",
+   "byteoffset": 389,
+   "fromtitle": "Project:Analytics/PubPeer",
+   "index": "2",
+   "level": "2",
+   "line": "Resources",
+   "number": "2",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Process",
+   "byteoffset": 515,
+   "fromtitle": "Project:Analytics/PubPeer",
+   "index": "3",
+   "level": "2",
+   "line": "Process",
+   "number": "3",
+   "toclevel": 1
+  }
+ ],
+ "showtoc": false,
+ "templates": [],
+ "title": "Project:Analytics/PubPeer"
+}

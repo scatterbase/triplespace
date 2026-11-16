@@ -1,0 +1,511 @@
+{
+    "entities": {
+        "Q8": {
+            "pageid": 20,
+            "ns": 120,
+            "title": "Item:Q8",
+            "lastrevid": 26,
+            "modified": "2026-09-25T01:07:15Z",
+            "type": "item",
+            "id": "Q8",
+            "labels": {
+                "en": {
+                    "language": "en",
+                    "value": "Douglas Adams (test)"
+                },
+                "de": {
+                    "language": "de",
+                    "value": "Douglas Adams"
+                }
+            },
+            "descriptions": {
+                "en": {
+                    "language": "en",
+                    "value": "English author and humorist"
+                }
+            },
+            "aliases": {
+                "en": [
+                    {
+                        "language": "en",
+                        "value": "DNA"
+                    }
+                ]
+            },
+            "claims": {
+                "P1": [
+                    {
+                        "mainsnak": {
+                            "snaktype": "value",
+                            "property": "P1",
+                            "hash": "7c8cb8226a0845691900e67b6b69d41e6e2baf44",
+                            "datavalue": {
+                                "value": "Douglas No\u00ebl Adams",
+                                "type": "string"
+                            },
+                            "datatype": "string"
+                        },
+                        "type": "statement",
+                        "qualifiers": {
+                            "P4": [
+                                {
+                                    "snaktype": "value",
+                                    "property": "P4",
+                                    "hash": "0f5efecf52db4e0a0e5d435600299c6592d92143",
+                                    "datavalue": {
+                                        "value": {
+                                            "time": "+1952-03-11T00:00:00Z",
+                                            "timezone": 0,
+                                            "before": 0,
+                                            "after": 0,
+                                            "precision": 11,
+                                            "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+                                        },
+                                        "type": "time"
+                                    },
+                                    "datatype": "time"
+                                }
+                            ]
+                        },
+                        "qualifiers-order": [
+                            "P4"
+                        ],
+                        "id": "Q8$C13E7A23-11E7-4C91-A799-3D1806B65444",
+                        "rank": "preferred",
+                        "references": [
+                            {
+                                "hash": "eaf0a11b92f297234266b31f9331c3ebcfe09c1e",
+                                "snaks": {
+                                    "P8": [
+                                        {
+                                            "snaktype": "value",
+                                            "property": "P8",
+                                            "hash": "8431a820c81c3daf0b98bcafd51cf09b834f5e4d",
+                                            "datavalue": {
+                                                "value": "https://example.org/source",
+                                                "type": "string"
+                                            },
+                                            "datatype": "url"
+                                        }
+                                    ],
+                                    "P4": [
+                                        {
+                                            "snaktype": "value",
+                                            "property": "P4",
+                                            "hash": "0f5efecf52db4e0a0e5d435600299c6592d92143",
+                                            "datavalue": {
+                                                "value": {
+                                                    "time": "+1952-03-11T00:00:00Z",
+                                                    "timezone": 0,
+                                                    "before": 0,
+                                                    "after": 0,
+                                                    "precision": 11,
+                                                    "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+                                                },
+                                                "type": "time"
+                                            },
+                                            "datatype": "time"
+                                        }
+                                    ]
+                                },
+                                "snaks-order": [
+                                    "P8",
+                                    "P4"
+                                ]
+                            }
+                        ]
+                    },
+                    {
+                        "mainsnak": {
+                            "snaktype": "value",
+                            "property": "P1",
+                            "hash": "95776b6b6e9d5fc8274fd3029bda079b338a581d",
+                            "datavalue": {
+                                "value": "D. N. Adams",
+                                "type": "string"
+                            },
+                            "datatype": "string"
+                        },
+                        "type": "statement",
+                        "id": "Q8$83C9AED4-5D15-4C27-A289-506A732D3101",
+                        "rank": "deprecated"
+                    }
+                ],
+                "P2": [
+                    {
+                        "mainsnak": {
+                            "snaktype": "value",
+                            "property": "P2",
+                            "hash": "1fa75381e3bd9253ba0ef08d92830adf043d7717",
+                            "datavalue": {
+                                "value": {
+                                    "entity-type": "item",
+                                    "numeric-id": 3,
+                                    "id": "Q3"
+                                },
+                                "type": "wikibase-entityid"
+                            },
+                            "datatype": "wikibase-item"
+                        },
+                        "type": "statement",
+                        "id": "Q8$8276AFFB-450C-4646-BF0B-CEEBE3835EA3",
+                        "rank": "normal"
+                    },
+                    {
+                        "mainsnak": {
+                            "snaktype": "novalue",
+                            "property": "P2",
+                            "hash": "64baea7b9db49c64f5daf05ddf5162faa28d5e86",
+                            "datatype": "wikibase-item"
+                        },
+                        "type": "statement",
+                        "id": "Q8$1003D6A3-C163-4E53-9334-A89C1866BFB8",
+                        "rank": "normal"
+                    }
+                ],
+                "P3": [
+                    {
+                        "mainsnak": {
+                            "snaktype": "value",
+                            "property": "P3",
+                            "hash": "22f505fa0e2d552ae299590695c934f86ac558c1",
+                            "datavalue": {
+                                "value": {
+                                    "entity-type": "property",
+                                    "numeric-id": 1,
+                                    "id": "P1"
+                                },
+                                "type": "wikibase-entityid"
+                            },
+                            "datatype": "wikibase-property"
+                        },
+                        "type": "statement",
+                        "id": "Q8$9304920D-369C-416E-BB9F-79CDBD7904D8",
+                        "rank": "normal"
+                    }
+                ],
+                "P4": [
+                    {
+                        "mainsnak": {
+                            "snaktype": "value",
+                            "property": "P4",
+                            "hash": "0f5efecf52db4e0a0e5d435600299c6592d92143",
+                            "datavalue": {
+                                "value": {
+                                    "time": "+1952-03-11T00:00:00Z",
+                                    "timezone": 0,
+                                    "before": 0,
+                                    "after": 0,
+                                    "precision": 11,
+                                    "calendarmodel": "http://www.wikidata.org/entity/Q1985727"
+                                },
+                                "type": "time"
+                            },
+                            "datatype": "time"
+                        },
+                        "type": "statement",
+                        "id": "Q8$B6DF0432-1A81-43C4-8EAD-F68642A547BF",
+                        "rank": "normal"
+                    },
+                    {
+                        "mainsnak": {
+                            "snaktype": "value",
+                            "property": "P4",
+                            "hash": "4aac8131acef59854ef9ce03bf0d31007c1436e8",
+                            "datavalue": {
+                                "value": {
+                                    "time": "+1500-00-00T00:00:00Z",
+                                    "timezone": 0,
+                                    "before": 0,
+                                    "after": 0,
+                                    "precision": 9,
+                                    "calendarmodel": "http://www.wikidata.org/entity/Q1985786"
+                                },
+                                "type": "time"
+                            },
+                            "datatype": "time"
+                        },
+                        "type": "statement",
+                        "id": "Q8$637F67EA-9626-47D7-B1EF-A913258450DE",
+                        "rank": "normal"
+                    },
+                    {
+                        "mainsnak": {
+                            "snaktype": "somevalue",
+                            "property": "P4",
+                            "hash": "ede91cc55952400386a2401405bb09e446b1867b",
+                            "datatype": "time"
+                        },
+                        "type": "statement",
+                        "id": "Q8$1D2AD30E-661B-4261-8031-D87FFD783EAE",
+                        "rank": "normal"
+                    }
+                ],
+                "P5": [
+                    {
+                        "mainsnak": {
+                            "snaktype": "value",
+                            "property": "P5",
+                            "hash": "dd13838cd81427acf966967f7f078d9ab4c8f7e8",
+                            "datavalue": {
+                                "value": {
+                                    "amount": "+1.96",
+                                    "unit": "http://localhost:8080/entity/Q3",
+                                    "upperBound": "+1.97",
+                                    "lowerBound": "+1.95"
+                                },
+                                "type": "quantity"
+                            },
+                            "datatype": "quantity"
+                        },
+                        "type": "statement",
+                        "id": "Q8$254B0E6E-A1D4-41EB-8A7C-94DEBF913758",
+                        "rank": "normal"
+                    },
+                    {
+                        "mainsnak": {
+                            "snaktype": "value",
+                            "property": "P5",
+                            "hash": "f892be15dc1fbc23afb2c14586dc956333687437",
+                            "datavalue": {
+                                "value": {
+                                    "amount": "+42",
+                                    "unit": "1"
+                                },
+                                "type": "quantity"
+                            },
+                            "datatype": "quantity"
+                        },
+                        "type": "statement",
+                        "id": "Q8$E0E86D20-DDC4-4922-B811-04C4F3A6EC1B",
+                        "rank": "normal"
+                    }
+                ],
+                "P6": [
+                    {
+                        "mainsnak": {
+                            "snaktype": "value",
+                            "property": "P6",
+                            "hash": "3336a2afcf77f3f544e6f616b7dbaf832a97f337",
+                            "datavalue": {
+                                "value": {
+                                    "latitude": 51.5,
+                                    "longitude": -0.1275,
+                                    "altitude": null,
+                                    "precision": 0.0001,
+                                    "globe": "http://www.wikidata.org/entity/Q2"
+                                },
+                                "type": "globecoordinate"
+                            },
+                            "datatype": "globe-coordinate"
+                        },
+                        "type": "statement",
+                        "id": "Q8$0B486371-73D2-4BBC-BAA5-6E1EC2CD8A09",
+                        "rank": "normal"
+                    }
+                ],
+                "P7": [
+                    {
+                        "mainsnak": {
+                            "snaktype": "value",
+                            "property": "P7",
+                            "hash": "98950efc6df412a3b2c331a5ae19757e8df4da56",
+                            "datavalue": {
+                                "value": {
+                                    "text": "Douglas Adams",
+                                    "language": "en"
+                                },
+                                "type": "monolingualtext"
+                            },
+                            "datatype": "monolingualtext"
+                        },
+                        "type": "statement",
+                        "id": "Q8$DE87B377-3A7A-438E-AD7E-9CFDDFFD18DC",
+                        "rank": "normal"
+                    }
+                ],
+                "P8": [
+                    {
+                        "mainsnak": {
+                            "snaktype": "value",
+                            "property": "P8",
+                            "hash": "da69b59b34ae3e88967400ae2f1c43ed816dc472",
+                            "datavalue": {
+                                "value": "https://douglasadams.com/",
+                                "type": "string"
+                            },
+                            "datatype": "url"
+                        },
+                        "type": "statement",
+                        "id": "Q8$8C0DF4A9-864F-4B30-A460-B543B17AA580",
+                        "rank": "normal"
+                    }
+                ],
+                "P9": [
+                    {
+                        "mainsnak": {
+                            "snaktype": "value",
+                            "property": "P9",
+                            "hash": "9b95a97cda8182e4c73ae62ee3bed59fed82f469",
+                            "datavalue": {
+                                "value": "n80076765",
+                                "type": "string"
+                            },
+                            "datatype": "external-id"
+                        },
+                        "type": "statement",
+                        "id": "Q8$7F4D913D-2B05-4B21-B980-5F3AE0AE99D8",
+                        "rank": "normal"
+                    }
+                ],
+                "P13": [
+                    {
+                        "mainsnak": {
+                            "snaktype": "value",
+                            "property": "P13",
+                            "hash": "0b557e6980c68bf75db8432d5dfaf8866bb5a14c",
+                            "datavalue": {
+                                "value": "1952-03-11",
+                                "type": "string"
+                            },
+                            "datatype": "edtf"
+                        },
+                        "type": "statement",
+                        "id": "Q8$A8C2D6D3-55A9-44B1-B8F0-E75F0B37C8B2",
+                        "rank": "normal"
+                    },
+                    {
+                        "mainsnak": {
+                            "snaktype": "value",
+                            "property": "P13",
+                            "hash": "a9f337dd44132b34e34065644a94cf860e1e58f7",
+                            "datavalue": {
+                                "value": "1985-04-12T23:20:30Z",
+                                "type": "string"
+                            },
+                            "datatype": "edtf"
+                        },
+                        "type": "statement",
+                        "id": "Q8$B122C1BC-5D64-4902-AB36-AD175D8E29EE",
+                        "rank": "normal"
+                    },
+                    {
+                        "mainsnak": {
+                            "snaktype": "value",
+                            "property": "P13",
+                            "hash": "e9d46ea37eaf5ac9ce400c37e26c3e8f4bb0dde4",
+                            "datavalue": {
+                                "value": "1985-04-12T23:20:30+04:00",
+                                "type": "string"
+                            },
+                            "datatype": "edtf"
+                        },
+                        "type": "statement",
+                        "id": "Q8$0E3D6A32-6807-4A21-93EB-CC925DDA33A2",
+                        "rank": "normal"
+                    },
+                    {
+                        "mainsnak": {
+                            "snaktype": "value",
+                            "property": "P13",
+                            "hash": "296fafc5d26bc40f076813dcdd57a162654d1702",
+                            "datavalue": {
+                                "value": "2004-06~",
+                                "type": "string"
+                            },
+                            "datatype": "edtf"
+                        },
+                        "type": "statement",
+                        "id": "Q8$4AA2A24C-CC31-48F2-B8BE-5177352DCEE5",
+                        "rank": "normal"
+                    },
+                    {
+                        "mainsnak": {
+                            "snaktype": "value",
+                            "property": "P13",
+                            "hash": "91f030e1f096427dcc5d3f278d5ac8f79a34ead3",
+                            "datavalue": {
+                                "value": "1964/2008",
+                                "type": "string"
+                            },
+                            "datatype": "edtf"
+                        },
+                        "type": "statement",
+                        "id": "Q8$6B2E9562-7E09-4816-969B-95DE98BF43E3",
+                        "rank": "normal"
+                    },
+                    {
+                        "mainsnak": {
+                            "snaktype": "value",
+                            "property": "P13",
+                            "hash": "ec1506b77b06c1835936670491f5e83be2a0c771",
+                            "datavalue": {
+                                "value": "[1667,1668,1670..1672]",
+                                "type": "string"
+                            },
+                            "datatype": "edtf"
+                        },
+                        "type": "statement",
+                        "id": "Q8$5F5C351A-24B3-421C-8603-11D405BA2E59",
+                        "rank": "normal"
+                    },
+                    {
+                        "mainsnak": {
+                            "snaktype": "value",
+                            "property": "P13",
+                            "hash": "609a768e44e41ced74c7568ef56024e77059ee7a",
+                            "datavalue": {
+                                "value": "2001-21",
+                                "type": "string"
+                            },
+                            "datatype": "edtf"
+                        },
+                        "type": "statement",
+                        "id": "Q8$A303B50C-7481-4FE6-BDAC-D11CF9688AA8",
+                        "rank": "normal"
+                    },
+                    {
+                        "mainsnak": {
+                            "snaktype": "value",
+                            "property": "P13",
+                            "hash": "ccaf4f8c7f71fbcf54b15bfd2d3ec8f9d61d627b",
+                            "datavalue": {
+                                "value": "19XX",
+                                "type": "string"
+                            },
+                            "datatype": "edtf"
+                        },
+                        "type": "statement",
+                        "id": "Q8$1C93AF61-71DC-4B16-9A98-D5D38516BE76",
+                        "rank": "normal"
+                    },
+                    {
+                        "mainsnak": {
+                            "snaktype": "value",
+                            "property": "P13",
+                            "hash": "3eca79fe8f920469c652204af3a72586f1fb30b5",
+                            "datavalue": {
+                                "value": "1984?-06-02",
+                                "type": "string"
+                            },
+                            "datatype": "edtf"
+                        },
+                        "type": "statement",
+                        "id": "Q8$0F421EAC-6342-4208-BB13-96E7821B550A",
+                        "rank": "normal"
+                    }
+                ]
+            },
+            "sitelinks": {
+                "testwiki": {
+                    "site": "testwiki",
+                    "title": "Douglas Adams",
+                    "badges": [
+                        "Q2"
+                    ],
+                    "url": "http://127.0.0.1:8080/index.php/Douglas_Adams"
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,47 @@
+Central documentation for the technical infrastructure of Librarybase
+
+== 2025-10-15 Migration part 1 ==
+
+* Goal: migrate Librarybase off of station1001 onto a VM on data1001
+** New VM-based setup
+** Need to clear station1001 to install Proxmox
+* Export current environment
+** Dump volumes
+*** shared
+*** mediawiki-mysql-data
+*** query-service-data
+*** elasticsearch-data
+*** quickstatements-data
+** For redundancy, create regular SQL and TTL dumps
+** Commit Librarybase directory to private GitHub repository
+* Set up librarybase-stage VM on data1001 and migrate exports to it
+** Start with Debian 13 template
+** Figure out how large storage volume needs to be
+** RAM... start with 16 GB, go up from there
+** CPU... start with 8 cores, go up from there
+* Import Docker volumes
+* Set up Librarybase directory and build images
+* Verified:
+** WIki loads
+** Editing and saving pages
+** Searching
+Librarybase up and running on stage VM. This is where I am leaving off for now. [[User:Harej|Harej]] ([[User talk:Harej|talk]]) 04:14, 16 October 2025 (UTC)
+
+== 2025-10-16 Migration part 2 ==
+* Modify domain name to stage.librarybase.org (and other subdomains)
+* Verify new setup works
+** Wiki loads
+** Editing and saving pages
+** Updating items, with changes reflected in SPARQL query service
+** Uploading files, if I decide to enable that
+** Indexing and searching
+** QuickStatements
+* Shut down librarybase-stage; clone and create librarybase-prod-1
+* Configure static IP address on librarybase-prod-1
+* Configure librarybase-prod-1 to use regular domain names
+* Adjust orb-proxy configuration to point to Librarybase on new VM
+* Launch services on librarybase-prod-1
+* Adjust Librarybase DNS to point to data1001
+* Once WRDB is migrated and WMF rsync is re-established on the new dumps server, shut down and cancel data1
+* Future projects:
+** Load balancing with librarybase-prod-2 (which will serve as the DB replica and secondary query service)

@@ -1,0 +1,42 @@
+{
+ "categories": [],
+ "displaytitle": "<span class=\"mw-page-title-namespace\">Project</span><span class=\"mw-page-title-separator\">:</span><span class=\"mw-page-title-main\">Bulk imports</span>",
+ "externallinks": [
+  "https://domains.wikibase.cloud"
+ ],
+ "images": [],
+ "iwlinks": [],
+ "langlinks": [],
+ "links": [],
+ "pageid": 11,
+ "parsewarnings": [],
+ "properties": {
+  "unexpectedUnconnectedPage": -4
+ },
+ "revid": 19,
+ "sections": [
+  {
+   "anchor": "Seeder_bot",
+   "byteoffset": 356,
+   "fromtitle": "Project:Bulk_imports",
+   "index": "1",
+   "level": "2",
+   "line": "Seeder bot",
+   "number": "1",
+   "toclevel": 1
+  },
+  {
+   "anchor": "Proposed_projects",
+   "byteoffset": 633,
+   "fromtitle": "Project:Bulk_imports",
+   "index": "2",
+   "level": "2",
+   "line": "Proposed projects",
+   "number": "2",
+   "toclevel": 1
+  }
+ ],
+ "showtoc": false,
+ "templates": [],
+ "title": "Project:Bulk imports"
+}

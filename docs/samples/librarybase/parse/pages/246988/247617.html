@@ -1,0 +1,57 @@
+<div class="mw-parser-output"><p><b>InternetArchiveBot</b> has been operated by the Internet Archive since 2015, based on the earlier Cyberpower II. James Hare has been supporting the InternetArchiveBot effort since February 2020.
+</p>
+<h2><span class="mw-headline" id="Generations">Generations</span></h2>
+<ul><li>InternetArchiveBot 1:&#160;?</li>
+<li>InternetArchiveBot 2: The current version, flexibly supports many different kinds of wikis
+<ul><li>Cycles through each wiki in alphabetical order</li>
+<li>Supports all manner of wiki templates (or lack thereof)</li></ul></li>
+<li>InternetArchiveBot 3: The future
+<ul><li>Event-centric workflow: link found dead, usage throughout wikis searched, replaced</li></ul></li></ul>
+<h2><span class="mw-headline" id="Tracking_deployments">Tracking deployments</span></h2>
+<p>Goal: move out of Airtable. Track deployment information in Librarybase.
+</p><p>Needed data fields:
+</p>
+<ul><li>Wiki database code</li>
+<li>Wiki full name</li>
+<li>Status
+<ul><li>Defined in Management Interface</li>
+<li>Deployment Candidate</li>
+<li>Pending Approval Request</li>
+<li>Seeking Bot Approval</li>
+<li>Stalled Request</li>
+<li>Issues</li>
+<li>Stalled Test</li>
+<li>Test Operation</li>
+<li>Ongoing Operation</li>
+<li>Shelved</li></ul></li>
+<li>Wiki host (like Wikibase World has)
+<ul><li>Wikimedia</li>
+<li>Miraheze</li>
+<li>Weird Gloop</li>
+<li>independent wiki</li></ul></li>
+<li>Wiki family
+<ul><li>Wikipedia</li>
+<li>Wiktionary</li>
+<li>Wikisource</li>
+<li>Wikinews</li>
+<li>Wikiquote</li>
+<li>Wikiversity</li>
+<li>Wikivoyage</li>
+<li>Wikibooks</li></ul></li>
+<li>URL</li>
+<li>InternetArchiveBot approval status
+<ul><li>Local approval for fixing links</li>
+<li>Local approval for linking to books</li>
+<li>Global approval for fixing links</li></ul></li>
+<li>InternetArchiveBot approval request link</li>
+<li>Some way to document whether a wiki allows global bots or not</li></ul>
+<h2><span class="mw-headline" id="Deployments">Deployments</span></h2>
+<ul><li>Wikimedia
+<ul><li>Ongoing</li></ul></li>
+<li>Miraheze
+<ul><li>On a handful of wikis, broken on a few wikis due to those wikis changing domain names</li>
+<li>OAuth grants are broken as well</li>
+<li><b>Idea:</b> account creator script that uses a limited-scope bot password to log in as InternetArchiveBot and force local account creation for a specified wiki</li></ul></li>
+<li>Weird Gloop
+<ul><li>Only four wikis</li>
+<li>The reason we're not deployed there is because they want to be able to have dry runs that show the edits without actually making them</li></ul></li></ul></div>

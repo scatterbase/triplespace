@@ -1,0 +1,9 @@
+---
+source: crates/triplespace-ui/tests/entity.rs
+expression: "html.replace(\"><\", \">\\n<\")"
+---
+<div class="ts-terms" data-region="terms">
+<p class="ts-terms__description">a number</p>
+<p class="ts-terms__aliases">Also known as <span>6 · half dozen</span>
+</p>
+</div>
