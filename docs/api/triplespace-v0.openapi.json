@@ -2215,7 +2215,7 @@
       "get": {
         "operationId": "getTenancy",
         "summary": "The farm, the primary tenant, the tenancy policy and the tenant list",
-        "description": "Served at the farm base only: the farm's slug, code (derived from the instance's founding record) and base; the primary tenant's slug; the tenancy policy, its switches and the preset whose values they all are, if any; and the tenant list that Special:Tenants shows, each tenant with its slug, issuer code (`issuer`, the code its actor keys carry), host, base, name (its `site.name`) and status. At a tenant base the request is refused with `ts-instance-policy` (ADR 0028 §11, 0046 §9, 0079 §7).",
+        "description": "Served at the farm base only: the farm's slug, code (derived from the instance's founding record) and base; the primary tenant's slug; the tenancy policy, its switches and the preset whose values they all are, if any; and the tenant list that Special:Tenants shows, each tenant with its slug, issuer code (`issuer`, the code its actor keys carry), host, base, name (its `site.name`), status and, for a deleted tenant, when it is erased; and the open offers of the primary role. At a tenant base the request is refused with `ts-instance-policy` (ADR 0028 §11, 0046 §9, 0079 §7).",
         "parameters": [
           {
             "name": "If-None-Match",
@@ -6727,7 +6727,7 @@
       "get": {
         "operationId": "listTenantRequests",
         "summary": "Every tenant request, newest first, with its state",
-        "description": "At the farm base, for holders of `ts-createtenant` (ADR 0111 §7): each request with `pending`, `created`, or `refused` with the refusal's code and comment. Not cached.",
+        "description": "At the farm base, for holders of `ts-createtenant` (ADR 0111 §7): each request with its `act` and `pending`, `created`, `done` (an act carried out), or `refused` with the refusal's code and comment. Not cached.",
         "responses": {
           "200": {
             "description": "The requests.",
@@ -6782,7 +6782,7 @@
       "post": {
         "operationId": "fileTenantRequest",
         "summary": "File a tenant request",
-        "description": "At the farm base, for holders of `ts-createtenant` (ADR 0111 §2, §7): files a `tenant/request` as the caller and announces it with `NOTIFY ts_tenant_request`; the provisioner carries it out or refuses it (§4). Only the shape is checked here. A session's write carries its CSRF token.",
+        "description": "At the farm base, for holders of `ts-createtenant` (ADR 0111 §2, §7): files a `tenant/request` as the caller and announces it with `NOTIFY ts_tenant_request`; the provisioner carries it out or refuses it (§4). Only the shape is checked here. A session's write carries its CSRF token. With `act` it files a freeze, unfreeze, deletion or cancelled deletion of the tenant named by `slug` instead; whether the tenant is in a state that allows it is the provisioner's to check (`ts-tenant-state`, `ts-primary-tenant`).",
         "requestBody": {
           "required": true,
           "content": {
@@ -6790,9 +6790,7 @@
               "schema": {
                 "type": "object",
                 "required": [
-                  "slug",
-                  "base",
-                  "owner_name"
+                  "slug"
                 ],
                 "properties": {
                   "slug": {
@@ -6815,6 +6813,17 @@
                   },
                   "token": {
                     "type": "string"
+                  },
+                  "act": {
+                    "type": "string",
+                    "enum": [
+                      "create",
+                      "freeze",
+                      "unfreeze",
+                      "delete",
+                      "undelete"
+                    ],
+                    "description": "What the request asks for (ADR 0111 §10); `create`, the default, needs `base` and `owner_name`, the others only the slug."
                   }
                 }
               }
@@ -7048,6 +7057,282 @@
           },
           "409": {
             "description": "`ts-invitation-not-created` or `ts-invitation-bound`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenancy/primary/offer": {
+      "post": {
+        "operationId": "offerPrimaryRole",
+        "summary": "Offer the primary role to another tenant",
+        "description": "At the farm base, for a member of `owner` on the primary tenant (`ts-primary`; ADR 0046 §5, 0111 A3): appends a `primary/offer` naming the tenant, open for seven days. A session's write carries its CSRF token.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "tenant"
+                ],
+                "properties": {
+                  "tenant": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "token": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The offer.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "offer": {
+                      "$ref": "#/components/schemas/PrimaryOffer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`ts-instance-policy`: not the farm base; `ts-tenant-invalid`: no such active tenant, or the primary itself; `badbody`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied`: no `ts-primary`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "`misdirected`: not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenancy/primary/withdraw": {
+      "post": {
+        "operationId": "withdrawPrimaryOffer",
+        "summary": "Withdraw an open offer of the primary role",
+        "description": "At the farm base, for holders of `ts-primary` (ADR 0046 §5): appends a `primary/withdraw` whose target is the offer.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "offer"
+                ],
+                "properties": {
+                  "offer": {
+                    "type": "integer"
+                  },
+                  "token": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Withdrawn.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "withdrawn": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`ts-instance-policy`: not the farm base.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied`: no `ts-primary`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-no-offer`: no such open offer.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "`misdirected`: not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenancy/acceptance": {
+      "get": {
+        "operationId": "listOffersHere",
+        "summary": "The open offers of the primary role to this tenant",
+        "description": "On any tenant (ADR 0046 §5, 0111 A3).",
+        "responses": {
+          "200": {
+            "description": "The offers.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "offers": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/PrimaryOffer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "`misdirected`: not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "acceptPrimaryRole",
+        "summary": "Accept the primary role for this tenant",
+        "description": "On the tenant offered the role, for a member of its `owner` group (ADR 0046 §5, 0111 §10, A3): files a tenant request with `act = accept-primary` citing the offer and announces it with `NOTIFY ts_tenant_request`; the provisioner checks the offer is still open and appends the new `primary` record. A session's write carries its CSRF token.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "offer"
+                ],
+                "properties": {
+                  "offer": {
+                    "type": "integer"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "token": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Filed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "request": {
+                      "$ref": "#/components/schemas/TenantRequest"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`badbody`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied`: not a member of this tenant's `owner` group.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "`misdirected`: not a tenant of this instance.",
             "content": {
               "application/json": {
                 "schema": {
@@ -9329,12 +9614,28 @@
                 "status": {
                   "type": "string",
                   "enum": [
-                    "active"
+                    "active",
+                    "frozen",
+                    "deleted"
                   ],
-                  "description": "Freezing and deleting tenants come later; every listed tenant is active."
+                  "description": "A frozen or deleted tenant is read-only (ADR 0111 §10)."
+                },
+                "erase_after": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "description": "For a deleted tenant, when the provisioner erases it, microseconds since the epoch; until then the deletion can be cancelled."
                 }
               }
             }
+          },
+          "offers": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/PrimaryOffer"
+            },
+            "description": "The open offers of the primary role."
           }
         }
       },
@@ -10630,8 +10931,7 @@
           "id",
           "state",
           "slug",
-          "base",
-          "owner_name"
+          "act"
         ],
         "properties": {
           "id": {
@@ -10643,6 +10943,7 @@
             "enum": [
               "pending",
               "created",
+              "done",
               "refused"
             ]
           },
@@ -10667,7 +10968,10 @@
             "type": "string"
           },
           "base": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "name": {
             "type": [
@@ -10676,7 +10980,10 @@
             ]
           },
           "owner_name": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "owner_login_source": {
             "type": [
@@ -10694,7 +11001,10 @@
                   "ts-not-entitled",
                   "ts-tenant-invalid",
                   "ts-auth-base-required",
-                  "ts-owner-no-login"
+                  "ts-owner-no-login",
+                  "ts-tenant-state",
+                  "ts-primary-tenant",
+                  "ts-no-offer"
                 ]
               },
               "why": {
@@ -10704,6 +11014,55 @@
                 ]
               }
             }
+          },
+          "act": {
+            "type": "string",
+            "enum": [
+              "create",
+              "freeze",
+              "unfreeze",
+              "delete",
+              "undelete",
+              "accept-primary"
+            ],
+            "description": "What the request asks for (ADR 0111 §10)."
+          },
+          "offer": {
+            "type": [
+              "integer",
+              "null"
+            ],
+            "description": "For `accept-primary`, the offer's offset in the instance `log`."
+          }
+        }
+      },
+      "PrimaryOffer": {
+        "type": "object",
+        "description": "An open offer of the primary role (ADR 0046 §5).",
+        "required": [
+          "id",
+          "tenant",
+          "expires"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "The offer's offset in the instance `log`."
+          },
+          "tenant": {
+            "type": "string",
+            "description": "The slug of the tenant offered the role."
+          },
+          "expires": {
+            "type": "integer",
+            "description": "When the offer lapses, microseconds since the epoch."
+          },
+          "actor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "Who made it."
           }
         }
       }

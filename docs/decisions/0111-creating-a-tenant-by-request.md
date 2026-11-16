@@ -1,8 +1,8 @@
 # 0111. Creating a tenant by request
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-11-16
-- **Updated:** 2026-11-16 (A2)
+- **Updated:** 2026-11-16 (A3)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0015](0015-record-format-and-partition-registry.md), [0079](0079-derived-issuer-codes.md), [0089](0089-the-auth-host-and-instance-logins.md)
 
@@ -173,3 +173,23 @@ Replaced text: 08 §1.4, 03 §1.2.
   Chapter text: 08 §1.4; 03 §4.16; 18 §3.2 (`routes.toml`).
 
 Replaced text: 08 §1.4.
+
+### A3. Calls made building freezing, deleting and the primary role's acceptance
+
+- **Date:** 2026-11-16
+- **Source:** Direct: Claude, while building freezing, deleting and accepting the primary role by request (SCA-423), 2026-11-16; unconfirmed
+- **Change:** amends §10
+- **Summary:** The calls made building §10:
+  - **The acts are one request with an `act`:** `freeze`, `unfreeze`, `delete`, `undelete` (cancelling a deletion within its grace period) and `accept-primary`, beside `create`, which a request without one means. Each is filed by a holder of `ts-createtenant` except the acceptance, and each is done when the `tenant:` record, or for the acceptance the `primary` record, names it; a refusal gains `ts-tenant-state` (the tenant's status does not allow the act), `ts-primary-tenant` and `ts-no-offer`. No new right was made: the operator who may create a wiki may freeze or delete one.
+  - **The status is a field of the `tenant:` record,** `active`, `frozen`, `deleted` with `erase_after`, or `erased`, which the provisioner appends with the request as authority; the list of tenants leaves out an erased one.
+  - **Two more functions owned by the database owner,** `log.set_frozen(partition, frozen)` and `log.drop_tenant_storage(tenant)`, which `ts_provision` may execute, since adding a trigger to a record table and dropping one need its owner.
+  - **The freeze writes no final checkpoint;** the export that begins a move writes it, since a tenant frozen and never moved needs none.
+  - **A write to a frozen tenant answers `readonly`,** MediaWiki's code for a wiki in read-only mode, `503` on REST, and `meta=siteinfo` reports `readonly`.
+  - **Erasure writes no `erase` records** over the partitions it then drops, since dropping them takes those records too; the `tenant/erase` record in the instance `log` is its authority and what remains. It deletes the tenant's rows in `view`, `ops` and `private` first. The provisioner looks for tenants past their grace on each pass.
+  - **The offer and its withdrawal are `primary/offer` and `primary/withdraw` log events** in the instance `log`, keyed `primary`, written by the server for a holder of `ts-primary` (`POST /tenancy/primary/offer` and `…/withdraw`); an offer is open until it expires, is withdrawn or is accepted.
+  - **The acceptance is on `Special:Tenants` at the offered tenant's base,** which there shows only the open offers to that tenant, and `GET` and `POST /tenancy/acceptance`; the Tenancy tab of `Special:WikiSettings` does not offer it yet.
+  - **Not built yet:** the `primary/transfer` event projected from the new `primary` record, and `primary accept` at the CLI, which creates the new primary's subsidiaries.
+
+  Chapter text: 08 §6.3, §6.6, §7.5, §8.6; 03 §1.2; 19 §6.11; 18 §3.2 (`routes.toml`); 16 §2.3 (`log-events.toml`).
+
+Replaced text: 08 §6.3, §6.6, §8.6.

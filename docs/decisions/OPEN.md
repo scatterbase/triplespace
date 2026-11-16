@@ -111,6 +111,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0106 A11](0106-create-entities-grid-and-drafts.md#a11-keeping-a-table-runs-past-500-rows-locked-columns-and-reference-chips-found-while-building) | 2026-11-16 | Keeping a table, runs past 500 rows, locked columns and reference chips, found while building |
 | [0111 A1](0111-creating-a-tenant-by-request.md#a1-calls-made-building-the-provisioner) | 2026-11-16 | Calls made building the provisioner |
 | [0111 A2](0111-creating-a-tenant-by-request.md#a2-calls-made-building-the-requests-api-page-and-invitation) | 2026-11-16 | Calls made building the requests' API, page and invitation |
+| [0111 A3](0111-creating-a-tenant-by-request.md#a3-calls-made-building-freezing-deleting-and-the-primary-roles-acceptance) | 2026-11-16 | Calls made building freezing, deleting and the primary role's acceptance |
 
 ## Open questions
 
@@ -213,7 +214,7 @@ Every unsettled question in every ADR (24 §8), with its first sentence. Settle 
 | [0028 Q4](0028-tenancy-policy.md) | Name registry at scale | : a unique index over every account name on a farm of thousands of tenants is one large index; whether it should be per farm issuer only, with tenant names checked against it on creation. |
 | [0028 Q5](0028-tenancy-policy.md) | Templates for non-config state | , such as a default set of project pages for a new tenant, which are page records rather than configuration. |
 | [0028 Q6](0028-tenancy-policy.md) | Reader lists on discussion | , if a provider tenant wants to share data but not threads (today `discussion.share` is all or nothing). |
-| [0028 Q7](0028-tenancy-policy.md) | The grace period | for a deleted tenant (§5), and whether its former referrers should be told before erasure. |
+| [0028 Q8](0028-tenancy-policy.md) |  | (Rest of Q7.) Whether a deleted tenant's former referrers should be told before it is erased (§5). |
 | [0029 Q2](0029-resolver-namespaces.md) | Resolvers across tenants | Whether a resolver at the farm base should search every tenant's identifiers under a `search.farm_wide` policy (0028 §9). |
 | [0029 Q3](0029-resolver-namespaces.md) | Resolving to non-canonical members | When the entity found is a non-canonical cluster member, the redirect goes to the canonical entity (0004 §4); whether the page should say so. |
 | [0029 Q4](0029-resolver-namespaces.md) | Grammar strictness for DOI | The suffix may contain almost any character; whether to accept everything after `10.xxxx/` or apply Crossref's practical limits. |
@@ -289,8 +290,6 @@ Every unsettled question in every ADR (24 §8), with its first sentence. Settle 
 | [0045 Q3](0045-table-content-model.md) | Values as of a time | `revid` gives the definition as of a revision but current values. |
 | [0045 Q7](0045-table-content-model.md) | A faster lane for people | Whether a large paste by a person should count against a class other than `edit`, or whether rate limits as they stand are the right brake. |
 | [0046 Q1](0046-primary-tenant.md) | Instance groups separate from the primary tenant's groups | Whether instance rights should be granted by instance-scope group records rather than by the primary tenant's own groups, so that a community wiki can be primary without its bureaucrats approving consumers. |
-| [0046 Q3](0046-primary-tenant.md) | Two owners for a transfer | Whether offering the role should, like expunge (0040 Q1), need two members of `owner`. |
-| [0046 Q4](0046-primary-tenant.md) | Offer expiry default | Seven days is a placeholder. |
 | [0047 Q1](0047-special-pages.md) | The external-links table | Its shape (MediaWiki's `externallinks` stores reversed domains for prefix search) decides `LinkSearch`, `list=exturlusage`, and edit-filter variables over added links. |
 | [0047 Q3](0047-special-pages.md) | Global Nuke | Whether a global group at the farm base (0028 §3) may nuke a farm account across every tenant it is linked to, as one job per tenant or as an instance act (0040). |
 | [0047 Q5](0047-special-pages.md) | Mute | Whether `Special:Mute` and user-level muting of notifications (0021) and email should exist at all. |

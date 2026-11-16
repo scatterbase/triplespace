@@ -54,19 +54,61 @@ pub struct Ask {
     pub adopt: Option<String>,
     /// The owner's user ID: the source wiki's with `adopt`, else 1.
     pub owner_id: Option<u64>,
+    /// What is asked for (0111 §10): [`act::CREATE`] when empty.
+    pub act: String,
+    /// For [`act::ACCEPT_PRIMARY`], the offer accepted: its offset in the instance `log`.
+    pub offer: Option<u64>,
+}
+
+/// The acts a request asks for (0111 §1, §10; 08 §1.4).
+pub mod act {
+    /// Create a tenant.
+    pub const CREATE: &str = "create";
+    /// Freeze a tenant read-only, as for a move (08 §6.3).
+    pub const FREEZE: &str = "freeze";
+    /// Lift a freeze.
+    pub const UNFREEZE: &str = "unfreeze";
+    /// Delete a tenant: read-only for the grace period, then erased (08 §6.6).
+    pub const DELETE: &str = "delete";
+    /// Cancel a deletion within its grace period.
+    pub const UNDELETE: &str = "undelete";
+    /// Accept the primary role offered to the tenant (08 §7.5).
+    pub const ACCEPT_PRIMARY: &str = "accept-primary";
+    /// Every act.
+    pub const ALL: [&str; 6] = [CREATE, FREEZE, UNFREEZE, DELETE, UNDELETE, ACCEPT_PRIMARY];
 }
 
 impl Ask {
+    /// The act, [`act::CREATE`] when none is named.
+    #[must_use]
+    pub fn act(&self) -> &str {
+        if self.act.is_empty() {
+            act::CREATE
+        } else {
+            &self.act
+        }
+    }
+
+    /// A request for `act` on an existing tenant.
+    #[must_use]
+    pub fn on(act: &str, slug: &str) -> Self {
+        Self {
+            slug: slug.to_string(),
+            act: act.to_string(),
+            ..Self::default()
+        }
+    }
+
     /// The request's log event at `time`.
     #[must_use]
     pub fn event(&self, time: u64) -> serde_json::Value {
         json!({
             "type": "tenant", "action": "request", "time": time, "target": null,
-            "params": {"slug": self.slug, "base": self.base},
+            "params": {"slug": self.slug, "base": self.base, "act": self.act()},
             "request": {
-                "slug": self.slug, "base": self.base, "name": self.name,
+                "act": self.act(), "slug": self.slug, "base": self.base, "name": self.name,
                 "owner_name": self.owner_name, "owner_login_source": self.owner_login_source,
-                "adopt": self.adopt, "owner_id": self.owner_id,
+                "adopt": self.adopt, "owner_id": self.owner_id, "offer": self.offer,
             },
         })
     }
@@ -82,12 +124,14 @@ impl Ask {
         };
         Some(Self {
             slug: text("slug")?,
-            base: text("base")?,
+            base: text("base").unwrap_or_default(),
             name: text("name"),
             owner_name: text("owner_name").unwrap_or_else(|| "Owner".into()),
             owner_login_source: text("owner_login_source"),
             adopt: text("adopt"),
             owner_id: r.get("owner_id").and_then(serde_json::Value::as_u64),
+            act: text("act").unwrap_or_else(|| act::CREATE.into()),
+            offer: r.get("offer").and_then(serde_json::Value::as_u64),
         })
     }
 
@@ -100,6 +144,15 @@ impl Ask {
     pub fn check_shape(&self) -> Result<(), String> {
         if self.slug.is_empty() || self.slug.len() > 64 {
             return Err("`slug` is required, at most 64 characters".into());
+        }
+        if !act::ALL.contains(&self.act()) {
+            return Err(format!("`act` is one of {}", act::ALL.join(", ")));
+        }
+        if self.act() == act::ACCEPT_PRIMARY && self.offer.is_none() {
+            return Err("accepting the primary role names the `offer`".into());
+        }
+        if self.act() != act::CREATE {
+            return Ok(());
         }
         if self.base.is_empty() || self.base.len() > 256 {
             return Err("`base` is required, at most 256 characters".into());
@@ -140,31 +193,17 @@ pub async fn file(
     reason: Option<&str>,
     now: u64,
 ) -> Result<Filed, IngestError> {
-    let partition = store
-        .partition(cx, "", "log")
-        .await?
-        .ok_or_else(|| IngestError::Store("the instance has no `log` partition".into()))?;
-    let logid = store.next_id(cx, "", &Sequence::Log).await?;
-    let draft = Draft {
-        appended_at: now,
-        payload_type: PAYLOAD_LOGEVENT.into(),
-        key: Some(key(&ask.slug)),
-        revid: None,
-        logid: Some(logid),
-        page_id: None,
-        body: Body::core(
-            &Value::from_json(&ask.event(now)),
-            &reason.map_or(Value::Null, Value::text),
-            &Value::map(vec![(Value::text("actor"), Value::text(actor))]),
-        )
-        .map_err(|e| IngestError::Store(format!("body: {e}")))?,
-    };
-    let (record, _) = append_projected(store, pipeline, cx, partition, draft, Budget::NONE).await?;
-    Ok(Filed {
-        partition,
-        offset: record.header().offset,
-        leaf: record.header().leaf(),
-    })
+    append_instance_log(
+        store,
+        pipeline,
+        cx,
+        &key(&ask.slug),
+        &ask.event(now),
+        actor,
+        reason,
+        now,
+    )
+    .await
 }
 
 /// What became of a request.
@@ -174,6 +213,8 @@ pub enum State {
     Pending,
     /// The tenant was created.
     Created,
+    /// Another act was carried out.
+    Done,
     /// Refused: the code, and why.
     Refused {
         /// The refusal's code, `params.reason`.
@@ -190,6 +231,7 @@ impl State {
         match self {
             Self::Pending => "pending",
             Self::Created => "created",
+            Self::Done => "done",
             Self::Refused { .. } => "refused",
         }
     }
@@ -228,6 +270,8 @@ impl Entry {
             "name": self.ask.name,
             "owner_name": self.ask.owner_name,
             "owner_login_source": self.ask.owner_login_source,
+            "act": self.ask.act(),
+            "offer": self.ask.offer,
         });
         if let State::Refused { code, why } = &self.state {
             v["refusal"] = json!({"code": code, "why": why});
@@ -343,30 +387,40 @@ pub async fn list<C: GenericClient>(client: &C) -> Result<Vec<Entry>, String> {
         }
     }
     for e in &mut entries {
-        if e.state == State::Pending && created_for(client, &e.ask.slug, e.filed.offset).await? {
-            e.state = State::Created;
+        if e.state == State::Pending && done_for(client, &e.ask, e.filed.offset).await? {
+            e.state = if e.ask.act() == act::CREATE {
+                State::Created
+            } else {
+                State::Done
+            };
         }
     }
     Ok(entries)
 }
 
-/// Whether a `tenant:` record under `slug` in the instance `config` names `offset` as the
-/// request it carries out.
+/// Whether the request at `offset` was carried out: a record in the instance `config` that
+/// names it in `request`, a `tenant:` record under its slug, or for an acceptance the
+/// `primary` record (0111 §4, §10).
 ///
 /// # Errors
 ///
 /// The database's, or an undecodable record.
-pub async fn created_for<C: GenericClient>(
+pub async fn done_for<C: GenericClient>(
     client: &C,
-    slug: &str,
+    ask: &Ask,
     offset: u64,
 ) -> Result<bool, String> {
+    let config_key = if ask.act() == act::ACCEPT_PRIMARY {
+        "primary".to_string()
+    } else {
+        key(&ask.slug)
+    };
     let rows = client
         .query(
             "SELECT header, body FROM log.record WHERE partition = $1 AND key = $2",
             &[
                 &scatter_log_postgres::ids::partition_to_db(CONFIG_PARTITION),
-                &key(slug),
+                &config_key,
             ],
         )
         .await
@@ -391,4 +445,201 @@ pub fn refusal_event(filed: &Filed, code: &str, time: u64) -> serde_json::Value 
         "target": {"kind": "record", "partition": filed.partition, "offset": filed.offset},
         "params": {"reason": code},
     })
+}
+
+/// How long an offer of the primary role stays open (0046 §5, A11): seven days.
+pub const OFFER_DAYS: u64 = 7;
+
+/// An offer of the primary role (0046 §5; 08 §7.5): a `primary/offer` log event in the
+/// instance `log`, keyed `primary`, attested by the `owner` of the primary tenant who made
+/// it, naming the offered tenant and when it expires.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Offer {
+    /// Its offset in the instance `log`, its ID.
+    pub offset: u64,
+    /// The offered tenant's slug.
+    pub tenant: String,
+    /// When it expires, microseconds since the epoch.
+    pub expires: u64,
+    /// Who made it.
+    pub actor: Option<String>,
+}
+
+#[allow(clippy::too_many_arguments)]
+async fn append_instance_log(
+    store: &PgIngest,
+    pipeline: &Pipeline<PgIngest>,
+    cx: &mut PgCx,
+    key: &str,
+    event: &serde_json::Value,
+    actor: &str,
+    reason: Option<&str>,
+    now: u64,
+) -> Result<Filed, IngestError> {
+    let partition = store
+        .partition(cx, "", "log")
+        .await?
+        .ok_or_else(|| IngestError::Store("the instance has no `log` partition".into()))?;
+    let logid = store.next_id(cx, "", &Sequence::Log).await?;
+    let draft = Draft {
+        appended_at: now,
+        payload_type: PAYLOAD_LOGEVENT.into(),
+        key: Some(key.to_string()),
+        revid: None,
+        logid: Some(logid),
+        page_id: None,
+        body: Body::core(
+            &Value::from_json(event),
+            &reason.map_or(Value::Null, Value::text),
+            &Value::map(vec![(Value::text("actor"), Value::text(actor))]),
+        )
+        .map_err(|e| IngestError::Store(format!("body: {e}")))?,
+    };
+    let (record, _) = append_projected(store, pipeline, cx, partition, draft, Budget::NONE).await?;
+    Ok(Filed {
+        partition,
+        offset: record.header().offset,
+        leaf: record.header().leaf(),
+    })
+}
+
+/// Offers the primary role to `tenant`, as `actor`, open for [`OFFER_DAYS`].
+///
+/// # Errors
+///
+/// The store's or a projection's.
+#[allow(clippy::too_many_arguments)]
+pub async fn offer(
+    store: &PgIngest,
+    pipeline: &Pipeline<PgIngest>,
+    cx: &mut PgCx,
+    tenant: &str,
+    actor: &str,
+    reason: Option<&str>,
+    now: u64,
+) -> Result<Filed, IngestError> {
+    let expires = now + OFFER_DAYS * 86_400 * 1_000_000;
+    let event = json!({
+        "type": "primary", "action": "offer", "time": now, "target": null,
+        "params": {"tenant": tenant, "expires": expires},
+    });
+    append_instance_log(store, pipeline, cx, "primary", &event, actor, reason, now).await
+}
+
+/// Withdraws the open offer at `offset`, as `actor`.
+///
+/// # Errors
+///
+/// The store's or a projection's.
+pub async fn withdraw(
+    store: &PgIngest,
+    pipeline: &Pipeline<PgIngest>,
+    cx: &mut PgCx,
+    offer: &Filed,
+    actor: &str,
+    now: u64,
+) -> Result<Filed, IngestError> {
+    let event = json!({
+        "type": "primary", "action": "withdraw", "time": now,
+        "target": {"kind": "record", "partition": offer.partition, "offset": offer.offset},
+        "params": {},
+    });
+    append_instance_log(store, pipeline, cx, "primary", &event, actor, None, now).await
+}
+
+/// The open offers of the primary role: neither withdrawn, expired nor accepted, oldest
+/// first. `now` in microseconds.
+///
+/// # Errors
+///
+/// The database's, or an undecodable record.
+pub async fn open_offers<C: GenericClient>(client: &C, now: u64) -> Result<Vec<Offer>, String> {
+    let Some(partition) = client
+        .query_opt(
+            "SELECT partition FROM log.partition WHERE tenant IS NULL AND name = 'log'",
+            &[],
+        )
+        .await
+        .map_err(|e| e.to_string())?
+        .map(|r| scatter_log_postgres::ids::partition_from_db(r.get(0)))
+    else {
+        return Ok(Vec::new());
+    };
+    let rows = client
+        .query(
+            "SELECT \"offset\", header, body FROM log.record
+             WHERE partition = $1 AND key = 'primary' ORDER BY \"offset\"",
+            &[&scatter_log_postgres::ids::partition_to_db(partition)],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+    let mut offers = Vec::new();
+    let mut closed = std::collections::BTreeSet::new();
+    for row in &rows {
+        let record = record_of(row.get(1), row.get(2))?;
+        let Some(event) = json_of(&record)? else {
+            continue;
+        };
+        let offset = u64::try_from(row.get::<_, i64>(0)).map_err(|e| e.to_string())?;
+        match event.get("action").and_then(serde_json::Value::as_str) {
+            Some("offer") => {
+                let params = event.get("params");
+                let field = |k: &str| params.and_then(|p| p.get(k));
+                offers.push(Offer {
+                    offset,
+                    tenant: field("tenant")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or_default()
+                        .to_string(),
+                    expires: field("expires")
+                        .and_then(serde_json::Value::as_u64)
+                        .unwrap_or(0),
+                    actor: attested(&record).actor,
+                });
+            }
+            Some("withdraw") => {
+                if let Some(o) = event
+                    .get("target")
+                    .and_then(|t| t.get("offset"))
+                    .and_then(serde_json::Value::as_u64)
+                {
+                    closed.insert(o);
+                }
+            }
+            _ => {}
+        }
+    }
+    // An offer a `primary` record names as accepted is closed too.
+    let accepted = client
+        .query(
+            "SELECT header, body FROM log.record WHERE partition = $1 AND key = 'primary'",
+            &[&scatter_log_postgres::ids::partition_to_db(
+                CONFIG_PARTITION,
+            )],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+    for row in &accepted {
+        let record = record_of(row.get(0), row.get(1))?;
+        if let Some(v) = json_of(&record)?
+            && let Some(o) = v.get("offer").and_then(serde_json::Value::as_u64)
+        {
+            closed.insert(o);
+        }
+    }
+    Ok(offers
+        .into_iter()
+        .filter(|o| !closed.contains(&o.offset) && o.expires > now)
+        .collect())
+}
+
+/// Microseconds since the epoch, now.
+#[must_use]
+pub fn now_micros() -> u64 {
+    u64::try_from(
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .map_or(0, |d| d.as_micros()),
+    )
+    .unwrap_or(u64::MAX)
 }

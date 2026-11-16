@@ -66,15 +66,31 @@ impl ApiError {
     /// `internal_api_error_*` for a failure of ours.
     #[must_use]
     pub fn internal(e: impl std::fmt::Display) -> Self {
-        Self::new("internal_api_error", format!("[internal] {e}"))
+        let text = e.to_string();
+        // A frozen or deleted tenant's record tables refuse every insert (0111 §10, A3):
+        // MediaWiki's answer for a wiki that takes no writes.
+        if is_frozen(&text) {
+            return Self::new("readonly", "The wiki is currently in read-only mode.");
+        }
+        Self::new("internal_api_error", format!("[internal] {text}"))
     }
 
     /// The error as the response body.
     #[must_use]
     pub fn to_value(&self) -> Value {
         let mut e = Map::new();
-        e.insert("code".into(), Value::String(self.code.clone()));
-        e.insert("info".into(), Value::String(self.info.clone()));
+        // Whatever a module called the failure, a write a frozen tenant refused is
+        // `readonly` (0111 A3).
+        if is_frozen(&self.info) {
+            e.insert("code".into(), Value::String("readonly".into()));
+            e.insert(
+                "info".into(),
+                Value::String("The wiki is currently in read-only mode.".into()),
+            );
+        } else {
+            e.insert("code".into(), Value::String(self.code.clone()));
+            e.insert("info".into(), Value::String(self.info.clone()));
+        }
         for (k, v) in &self.extra {
             e.insert(k.clone(), v.clone());
         }
@@ -217,4 +233,10 @@ impl IntoResponse for ApiResponse {
         }
         r
     }
+}
+
+/// Whether an error is a frozen tenant's refusal of a write (`log.refuse_frozen`).
+#[must_use]
+pub fn is_frozen(error: &str) -> bool {
+    error.contains("ts-tenant-frozen") || error.contains("TSFRZ")
 }

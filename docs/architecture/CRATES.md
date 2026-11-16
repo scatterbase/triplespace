@@ -574,4 +574,4 @@ Binaries. `triplespace-server` serves the site itself under `server.ui = embedde
 
 **As built** (`triplespace-server`, from its `//!` docs and `implements` claims): `triplespace-server`: the Action API and the `triplespace/v0` REST API over axum (0033 §3; 0056 §10), and the site embedded unless `--ui off` (0057 §1.4). Claims no section in full yet.
 
-**As built** (`triplespace-cli`, from its `//!` docs and `implements` claims): `triplespace`: the command line (0005 §2; 0033 §13), as a library so the acceptance tests drive the same code the binary runs. Claims 0008 §9.3, 0089 §15 (A3), 0091 §1, 0091 §4, 0101 §2, 0104 §10, 0105 §2 (A2), 0107 §1 (A1), 0111 §1, 0111 §2 (A1), 0111 §3 (A1), 0111 §4 (A1), 0111 §6.
+**As built** (`triplespace-cli`, from its `//!` docs and `implements` claims): `triplespace`: the command line (0005 §2; 0033 §13), as a library so the acceptance tests drive the same code the binary runs. Claims 0008 §9.3, 0089 §15 (A3), 0091 §1, 0091 §4, 0101 §2, 0104 §10, 0105 §2 (A2), 0107 §1 (A1), 0111 §1, 0111 §2 (A1), 0111 §3 (A1), 0111 §4 (A1), 0111 §6, 0111 §10 (A3).

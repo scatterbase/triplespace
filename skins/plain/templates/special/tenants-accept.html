@@ -1,0 +1,6 @@
+{#- Special:Tenants on a wiki the primary role is offered to, for a member of its owner
+    group (0046 §5; 08 §7.5): each open offer, and Accept the primary role. -#}
+{%- import "codex.html" as codex -%}
+<div class="ts-tenants-accept">{% for n in notices %}{{ codex.message(n) }}{% endfor -%}
+<p>{{ accept.intro }}</p>
+{%- for o in accept.offers %}<form class="ts-tenants__accept" method="post" action="{{ accept.action }}"><input type="hidden" name="token" value="{{ accept.token }}"><input type="hidden" name="accept" value="{{ o.id }}"><p>{{ o.text }}</p>{{ codex.button(accept.submit) }}</form>{% endfor %}</div>

@@ -155,6 +155,10 @@ rest_operations! {
     get "/tenancy/requests" => tenancy_requests::list;
     get "/tenancy/requests/{id}" => tenancy_requests::get;
     post "/tenancy/requests/{id}/invitation" => tenancy_requests::invite;
+    post "/tenancy/primary/offer" => tenancy_requests::offer;
+    post "/tenancy/primary/withdraw" => tenancy_requests::withdraw;
+    post "/tenancy/acceptance" => tenancy_requests::accept;
+    get "/tenancy/acceptance" => tenancy_requests::offers_here;
     get "/auth/invitation" => invitation::get;
     post "/auth/invitation" => invitation::post;
     get "/backup-keys" => backup_keys::get;

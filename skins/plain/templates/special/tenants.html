@@ -6,7 +6,7 @@
 <div class="ts-tenants-page">{% for n in notices %}{{ codex.message(n) }}{% endfor -%}
 <p>{{ intro }}</p>
 <table class="cdx-table__table ts-tenants"><thead><tr>{% for c in columns %}<th scope="col">{{ c }}</th>{% endfor %}</tr></thead><tbody>
-{%- for t in rows %}<tr><td><a href="{{ t.base }}">{{ t.name }}</a>{% if t.primary %} <span class="ts-tenants__primary">{{ primary_label }}</span>{% endif %}</td><td><code>{{ t.slug }}</code></td><td>{{ t.host }}</td><td><code>{{ t.issuer }}</code></td></tr>{% endfor %}</tbody></table>
+{%- for t in rows %}<tr><td><a href="{{ t.base }}">{{ t.name }}</a>{% if t.primary %} <span class="ts-tenants__primary">{{ primary_label }}</span>{% endif %}</td><td><code>{{ t.slug }}</code></td><td>{{ t.host }}</td><td><code>{{ t.issuer }}</code></td><td>{{ t.status }}{% for a in t.actions %} <form class="ts-tenants__act" method="post" action="{{ action }}"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="act" value="{{ a.act }}"><input type="hidden" name="slug" value="{{ t.slug }}"><button class="cdx-button" type="submit">{{ a.label }}</button></form>{% endfor %}</td></tr>{% endfor %}</tbody></table>
 {%- if form %}
 <h2>{{ form.heading }}</h2>{{ codex.message(form.intro) }}
 <form class="ts-tenants__create" method="post" action="{{ form.action }}"><input type="hidden" name="token" value="{{ form.token }}">{{ codex.field(form.slug) }}{{ codex.field(form.base) }}{{ codex.field(form.name) }}{{ codex.field(form.owner_name) }}<div class="cdx-field"><span class="cdx-checkbox"><input class="cdx-checkbox__input" type="checkbox" id="ts-tenants-own-login" name="own_login" value="1"{% if form.own_login_checked %} checked{% endif %}><span class="cdx-checkbox__icon"></span><label class="cdx-checkbox__label cdx-label" for="ts-tenants-own-login"><span class="cdx-label__label__text">{{ form.own_login }}</span></label></span><div class="cdx-field__help-text">{{ form.own_login_help }}</div></div>{{ codex.field(form.reason) }}<div class="ts-tenants__actions">{{ codex.button(form.submit) }}</div></form>
@@ -16,4 +16,9 @@
 {%- if requests.nothing %}<p class="ts-empty">{{ requests.nothing }}</p>
 {%- else %}<table class="cdx-table__table ts-tenant-requests"><thead><tr>{% for c in requests.columns %}<th scope="col">{{ c }}</th>{% endfor %}<th scope="col"></th></tr></thead><tbody>
 {%- for r in requests.rows %}<tr class="ts-tenant-request--{{ r.state }}"><td><code>{{ r.slug }}</code> {{ r.base }}</td><td>{{ r.state_label }}</td><td>{{ r.detail }}</td><td>{% if r.invite %}<form method="post" action="{{ r.invite.action }}"><input type="hidden" name="token" value="{{ r.invite.token }}"><input type="hidden" name="invite" value="{{ r.invite.id }}">{{ codex.button(r.invite.submit) }}</form>{% endif %}</td></tr>{% endfor %}</tbody></table>{% endif %}
+{%- endif %}
+{%- if offer %}
+<h2>{{ offer.heading }}</h2><p>{{ offer.intro }}</p>
+{%- if offer.choices %}<form class="ts-tenants__offer" method="post" action="{{ action }}"><input type="hidden" name="token" value="{{ token }}"><select class="cdx-select" name="offer_to">{% for c in offer.choices %}<option value="{{ c[0] }}">{{ c[1] }} ({{ c[0] }})</option>{% endfor %}</select> {{ codex.button(offer.submit) }}</form>{% endif %}
+{%- if offer.open %}<ul class="ts-tenants__offers">{% for o in offer.open %}<li>{{ o.text }} <form class="ts-tenants__act" method="post" action="{{ action }}"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="withdraw" value="{{ o.id }}"><button class="cdx-button" type="submit">{{ o.withdraw }}</button></form></li>{% endfor %}</ul>{% endif %}
 {%- endif %}</div>

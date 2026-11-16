@@ -25,8 +25,25 @@ pub struct TenantRow {
     pub base: String,
     /// The wiki's name.
     pub name: String,
-    /// `active`.
+    /// `active`, `frozen` or `deleted`.
     pub status: String,
+    /// For a deleted tenant, when it is erased, microseconds.
+    #[serde(default)]
+    pub erase_after: Option<u64>,
+}
+
+/// An open offer of the primary role.
+#[derive(Debug, Clone, Default, PartialEq, Eq, Deserialize)]
+pub struct PrimaryOffer {
+    /// Its ID.
+    pub id: u64,
+    /// The offered tenant.
+    pub tenant: String,
+    /// When it expires, microseconds.
+    pub expires: u64,
+    /// Who made it.
+    #[serde(default)]
+    pub actor: Option<String>,
 }
 
 /// `GET /tenancy`: the farm, the primary tenant and the tenants.
@@ -38,6 +55,9 @@ pub struct Tenancy {
     pub primary: Option<String>,
     /// The tenants.
     pub tenants: Vec<TenantRow>,
+    /// The open offers of the primary role.
+    #[serde(default)]
+    pub offers: Vec<PrimaryOffer>,
 }
 
 /// A refusal of a tenant request.
@@ -81,6 +101,10 @@ pub struct TenantRequest {
     /// The refusal, for a refused request.
     #[serde(default)]
     pub refusal: Option<RequestRefusal>,
+    /// What it asks for: `create`, `freeze`, `unfreeze`, `delete`, `undelete`,
+    /// `accept-primary`.
+    #[serde(default)]
+    pub act: Option<String>,
 }
 
 /// What a form files.
@@ -100,6 +124,8 @@ pub struct TenantAsk {
     pub reason: String,
     /// The CSRF token.
     pub token: String,
+    /// The act; empty for `create`.
+    pub act: String,
 }
 
 /// An invitation just issued: its code, shown once, and the address to send.
@@ -211,6 +237,7 @@ impl Client {
                     "name": optional(&ask.name), "owner_name": ask.owner_name.trim(),
                     "owner_login_source": optional(&ask.owner_login_source),
                     "reason": optional(&ask.reason), "token": ask.token,
+                    "act": optional(&ask.act),
                 }),
             )
             .await?;
@@ -294,5 +321,98 @@ impl Client {
             Saved::Ok(i) => Saved::Ok(i.invitation.username),
             Saved::Refused(e) => Saved::Refused(e),
         })
+    }
+}
+
+impl Client {
+    /// A write at `path` with a JSON body; `202` counts as saved, as `200` does.
+    async fn tenancy_write(
+        &self,
+        incoming: &Incoming,
+        path: &str,
+        body: &Value,
+    ) -> Result<Saved<Value>, ClientError> {
+        let r = self
+            .send_json(incoming, Method::POST, &format!("{BASE}{path}"), body)
+            .await?;
+        if r.status == StatusCode::ACCEPTED {
+            let v = serde_json::from_slice(&r.body)
+                .map_err(|e| ClientError::Unexpected(format!("{path}: {e}")))?;
+            return Ok(Saved::Ok(v));
+        }
+        saved::<Value>(&r, path)
+    }
+
+    /// `POST /tenancy/primary/offer` (0046 §5).
+    ///
+    /// # Errors
+    ///
+    /// The API away or unreadable; a refusal is in the `Saved`.
+    pub async fn offer_primary(
+        &self,
+        incoming: &Incoming,
+        tenant: &str,
+        token: &str,
+    ) -> Result<Saved<Value>, ClientError> {
+        self.tenancy_write(
+            incoming,
+            "/tenancy/primary/offer",
+            &serde_json::json!({"tenant": tenant, "token": token}),
+        )
+        .await
+    }
+
+    /// `POST /tenancy/primary/withdraw`.
+    ///
+    /// # Errors
+    ///
+    /// The API away or unreadable; a refusal is in the `Saved`.
+    pub async fn withdraw_primary_offer(
+        &self,
+        incoming: &Incoming,
+        offer: u64,
+        token: &str,
+    ) -> Result<Saved<Value>, ClientError> {
+        self.tenancy_write(
+            incoming,
+            "/tenancy/primary/withdraw",
+            &serde_json::json!({"offer": offer, "token": token}),
+        )
+        .await
+    }
+
+    /// `POST /tenancy/acceptance` (08 §7.5): on the offered tenant.
+    ///
+    /// # Errors
+    ///
+    /// The API away or unreadable; a refusal is in the `Saved`.
+    pub async fn accept_primary(
+        &self,
+        incoming: &Incoming,
+        offer: u64,
+        token: &str,
+    ) -> Result<Saved<Value>, ClientError> {
+        self.tenancy_write(
+            incoming,
+            "/tenancy/acceptance",
+            &serde_json::json!({"offer": offer, "token": token}),
+        )
+        .await
+    }
+
+    /// `GET /tenancy/acceptance`: the open offers of the primary role naming this tenant.
+    ///
+    /// # Errors
+    ///
+    /// The API's refusal, or the API away or unreadable.
+    pub async fn offers_here(&self, incoming: &Incoming) -> Result<Vec<PrimaryOffer>, ClientError> {
+        #[derive(Deserialize)]
+        struct Offers {
+            offers: Vec<PrimaryOffer>,
+        }
+        let r = self
+            .get(incoming, &format!("{BASE}/tenancy/acceptance"))
+            .await?;
+        Ok(read::<Offers>(&r, "offers")?.offers)
     }
 }

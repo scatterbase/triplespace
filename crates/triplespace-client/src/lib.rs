@@ -82,7 +82,9 @@ pub use rights::{
     UserGroups,
 };
 pub use search::{Hit, Hits, PageHit, PageHits};
-pub use tenancy::{Invitation, InvitationInfo, Tenancy, TenantAsk, TenantRequest, TenantRow};
+pub use tenancy::{
+    Invitation, InvitationInfo, PrimaryOffer, Tenancy, TenantAsk, TenantRequest, TenantRow,
+};
 pub use theme::ThemeInfo;
 pub use threads::{
     Attached, Listed, Listing, NewThreadOn, PostForm, PostView, ThreadChange, ThreadView, Written,

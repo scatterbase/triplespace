@@ -876,12 +876,22 @@ sources = "[0111](../decisions/0111-creating-a-tenant-by-request.md) §5, A2"
 
 [[route]]
 routes = ["POST /tenancy/requests", "GET /tenancy/requests", "GET /tenancy/requests/{id}", "POST /tenancy/requests/{id}/invitation"]
-purpose = "Farm base. `POST` files a tenant request, `{slug, base, name, owner_name, owner_login_source}`, for holders of `ts-createtenant`, and answers `202` with its ID; `GET` lists requests, or reads one, with its state: `pending`, `created` with the tenant's slug, or `refused` with the reason. `POST …/invitation` issues the owner's invitation for a created tenant whose request named no owner login source, replacing an unused one, and answers the code once ([08](08-tenants-and-instances.md) §1.4)"
-sources = "[0111](../decisions/0111-creating-a-tenant-by-request.md) §7"
+purpose = "Farm base. `POST` files a tenant request, `{slug, base, name, owner_name, owner_login_source}`, for holders of `ts-createtenant`, and answers `202` with its ID; with `act` (`freeze`, `unfreeze`, `delete` or `undelete`) and the slug alone it files that act on the tenant instead ([0111](../decisions/0111-creating-a-tenant-by-request.md) §10). `GET` lists requests, or reads one, with its act and state: `pending`, `created` with the tenant's slug, `done`, or `refused` with the reason. `POST …/invitation` issues the owner's invitation for a created tenant whose request named no owner login source, replacing an unused one, and answers the code once ([08](08-tenants-and-instances.md) §1.4)"
+sources = "[0111](../decisions/0111-creating-a-tenant-by-request.md) §7, §10"
+
+[[route]]
+routes = ["POST /tenancy/primary/offer", "POST /tenancy/primary/withdraw"]
+purpose = "Farm base, for a member of `owner` on the primary tenant (`ts-primary`). `offer` with `{tenant, reason}` appends a `primary/offer` naming an active tenant other than the primary, open for seven days; `withdraw` with `{offer}` withdraws an open one. `offer` answers the offer, `withdraw` its ID; `ts-tenant-invalid` for a tenant that is not active or is the primary, `ts-no-offer` for an offer not open ([08](08-tenants-and-instances.md) §7.5)"
+sources = "[0046](../decisions/0046-primary-tenant.md) §5; [0111](../decisions/0111-creating-a-tenant-by-request.md) A3"
+
+[[route]]
+routes = ["GET /tenancy/acceptance", "POST /tenancy/acceptance"]
+purpose = "On a tenant offered the primary role. `GET` lists the open offers naming this tenant; `POST` with `{offer}`, for a member of its `owner` group, files the acceptance, a tenant request with `act = accept-primary`, and answers `202` with its ID ([08](08-tenants-and-instances.md) §7.5)"
+sources = "[0046](../decisions/0046-primary-tenant.md) §5; [0111](../decisions/0111-creating-a-tenant-by-request.md) §10, A3"
 
 [[route]]
 routes = ["GET /tenancy"]
-purpose = "Farm base. The tenancy policy, including the farm slug, the farm code and the primary tenant's slug, and the `tenants` array (slug, issuer code as `issuer`, host, name, which is its `site.name`, status), the tenant list `Special:Tenants` shows (§1.2)"
+purpose = "Farm base. The tenancy policy, including the farm slug, the farm code and the primary tenant's slug, and the `tenants` array (slug, issuer code as `issuer`, host, name, which is its `site.name`, status: `active`, `frozen` or `deleted`, with `erase_after` for a deleted one), and the open offers of the primary role as `offers`; the tenants are the list `Special:Tenants` shows (§1.2)"
 sources = "[0028](../decisions/0028-tenancy-policy.md) §11; [0046](../decisions/0046-primary-tenant.md) §9"
 
 [[route]]

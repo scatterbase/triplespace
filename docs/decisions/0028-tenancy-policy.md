@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-16 (A25)
+- **Updated:** 2026-11-16 (A26)
 - **Author:** James Hare / Claude Fable
 - **Uses:** [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0027](0027-preferences-and-portability.md)
 
@@ -96,7 +96,8 @@ MediaWiki's answer to the second is CentralAuth: one global account, local accou
 - **Q4. Name registry at scale**: a unique index over every account name on a farm of thousands of tenants is one large index; whether it should be per farm issuer only, with tenant names checked against it on creation.
 - **Q5. Templates for non-config state**, such as a default set of project pages for a new tenant, which are page records rather than configuration.
 - **Q6. Reader lists on discussion**, if a provider tenant wants to share data but not threads (today `discussion.share` is all or nothing).
-- **Q7. The grace period** for a deleted tenant (§5), and whether its former referrers should be told before erasure.
+- **Q7. The grace period.** *Settled by A26 in part.*
+- **Q8.** (Rest of Q7.) Whether a deleted tenant's former referrers should be told before it is erased (§5).
 
 ## References
 
@@ -311,5 +312,14 @@ Replaced text: 08 §3.5, §3.6.
 - **Source:** 0111 §10
 - **Change:** amends §5
 - **Summary:** An operator deletes a tenant by filing a request in the instance `log`, which the provisioner carries out as it carries out a tenant request; the grace period and the erasure job after it are unchanged. Chapter text: 08 §6.6.
+
+Replaced text: 08 §6.6.
+
+### A26. A deleted tenant is kept for 90 days, a setting
+
+- **Date:** 2026-11-16
+- **Source:** Direct: James, design discussion of 2026-11-16
+- **Change:** amends §5
+- **Summary:** A deleted tenant is kept, frozen, for 90 days before it is erased, and the period is an instance setting, `tenants.delete_grace_days`. An operator may cancel the deletion until then. §5 left the period to `site` configuration and Q7 left its length open; whether former referrers are told before erasure is Q8. Chapter text: 08 §6.6; 23 (`settings.toml`).
 
 Replaced text: 08 §6.6.

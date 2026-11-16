@@ -136,11 +136,18 @@ visible_to = "Everyone; without reason or notice when `confidential`"
 sources = "0011 §6.1; 0039 §16"
 
 [[event]]
-events = ["tenant/request", "tenant/refuse"]
-from = "A tenant request in the instance `log`, filed by an operator of the primary tenant, and the refusal the provisioner appends when a check fails, whose target is the request ([08](08-tenants-and-instances.md) §1.4)"
-parameters = "`tenant/request`: the slug and the base; `tenant/refuse`: `reason`, the refusal's code"
+events = ["tenant/request", "tenant/refuse", "tenant/erase"]
+from = "A tenant request in the instance `log`, filed by an operator of the primary tenant, or by an owner of a tenant offered the primary role accepting it; the refusal the provisioner appends when a check fails, whose target is the request; and the record of a deleted tenant's erasure, which the provisioner appends when the grace period has passed, before dropping its partitions ([08](08-tenants-and-instances.md) §1.4, §6.6)"
+parameters = "`tenant/request`: the slug, the base when it creates a wiki, and `act`: `create`, `freeze`, `unfreeze`, `delete`, `undelete` or `accept-primary`, with `offer`, the offer's offset; `tenant/refuse`: `reason`, the refusal's code; `tenant/erase`: the slug"
 visible_to = "Everyone who may read the farm base's log"
-sources = "0111 §2, §4"
+sources = "0111 §2, §4, §10, A3"
+
+[[event]]
+events = ["primary/offer", "primary/withdraw"]
+from = "An offer of the primary role in the instance `log`, by a member of `owner` on the primary tenant, naming the tenant offered, and its withdrawal, whose target is the offer ([08](08-tenants-and-instances.md) §7.5)"
+parameters = "`primary/offer`: `tenant`, the slug offered, and `expires`, in microseconds since the epoch; `primary/withdraw`: none"
+visible_to = "Everyone who may read the farm base's log"
+sources = "0046 §5; 0111 A3"
 
 [[event]]
 events = ["takedown/expunge"]

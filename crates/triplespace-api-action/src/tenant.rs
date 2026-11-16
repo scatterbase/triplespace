@@ -25,6 +25,9 @@ pub struct Tenant {
     pub public_base: String,
     /// The host the request came on.
     pub host: String,
+    /// Whether it takes writes: neither frozen nor deleted (0111 §10). A write to a tenant
+    /// that does not is refused by its record tables and answered `readonly`.
+    pub writable: bool,
 }
 
 /// The host of a request: `X-Forwarded-Host` from a trusted proxy (0057 §10), else `Host`.
@@ -92,6 +95,7 @@ fn served(t: &TenantEntry, public_base: String, host: String) -> Tenant {
         base: t.base.clone(),
         public_base,
         host,
+        writable: t.writable(),
     }
 }
 
