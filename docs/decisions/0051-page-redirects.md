@@ -90,7 +90,7 @@ James's direction, from the design discussion of 2026-10-01, was for the mirrori
 ### A1. A redirect is followed only to a readable target
 
 - **Date:** 2026-10-01
-- **Source:** [0056](0056-security-model.md) §6
+- **Source:** 0056 §6
 - **Change:** extends §2
 - **Summary:** Following requires `read` on the target; otherwise the redirect page is served as itself, with the target a red link.
 
@@ -117,14 +117,14 @@ Replaced text: §3 of this ADR.
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design discussion of 2026-10-09
 - **Change:** corrects §6
-- **Summary:** The four redirect reports are index-backed and live: their backing is the `index` row of [0047](0047-special-pages.md) §4.3, a keyset-paged query over `view.redirect` and its indexes, with no rows of their own, not a `projection` report. (PENDING F22)
+- **Summary:** The four redirect reports are index-backed and live: their backing is the `index` row of 0047 §4.3, a keyset-paged query over `view.redirect` and its indexes, with no rows of their own, not a `projection` report. (PENDING F22)
 
 Replaced text: §6 of this ADR.
 
 ### A5. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§9
 
 ### A6. A redirect is left only where the old title may hold `wikitext`
@@ -132,9 +132,9 @@ Replaced text: §6 of this ADR.
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** corrects §3
-- **Summary:** A move leaves a redirect only where the old title may hold `wikitext`, since only a `wikitext` page can be a redirect (§1): in namespace 0, User, Project, File, Template and Category, and at the `/doc` titles of Module, Table, Query and Scope. Where the old title cannot hold `wikitext` (a Table page moved to another Table title, a Scope, a Query, a Module's code page, a sprint subpage) the move behaves as `noredirect` without needing `suppressredirect`, and the `move/move` event says so with `noredirect: true`. The ledger names §2, but the text it corrects is §3's, which this entry names; §2 says nothing about moves. Chapter text: [10](../architecture/10-pages-and-content-models.md) §2.5. (REVIEW G43)
+- **Summary:** A move leaves a redirect only where the old title may hold `wikitext`, since only a `wikitext` page can be a redirect (§1): in namespace 0, User, Project, File, Template and Category, and at the `/doc` titles of Module, Table, Query and Scope. Where the old title cannot hold `wikitext` (a Table page moved to another Table title, a Scope, a Query, a Module's code page, a sprint subpage) the move behaves as `noredirect` without needing `suppressredirect`, and the `move/move` event says so with `noredirect: true`. The ledger names §2, but the text it corrects is §3's, which this entry names; §2 says nothing about moves. Chapter text: 10 §2.5. (REVIEW G43)
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §2.5.
+Replaced text: 10 §2.5.
 
 ### A7. The move record names the redirect it left
 
@@ -143,9 +143,9 @@ Replaced text: [10](../architecture/10-pages-and-content-models.md) §2.5.
 - **Change:** amends §3
 - **Summary:** A `move` record carries, beside the new title, the page ID of the redirect the move left at the old title, when it left one; the ID is minted before the move record is appended, and the redirect's `create` that follows in the same transaction takes it. The move's `move/move` event is projected from the move record alone, so without the field it could not say whether a redirect was left or which page it is (16 §2.3 asks for both): the alternatives were a projection that patches the move's row when the redirect's `create` arrives next, or a per-row lookup at read time, and both make a fact of the log recoverable only by reconstructing the transaction, and lose it if the `create` is erased. A `move` record without the field, every one written before this entry included, left no redirect. The old title in the event is read from the page's own history, the latest `create` or `move` before the record, rather than stored. Folded into 10 §2.5 and the record table of 10 §3.2.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §2.5.
+Replaced text: 10 §2.5.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §3.2.
+Replaced text: 10 §3.2.
 
 ### A8. `action=move`: the calls made building it
 

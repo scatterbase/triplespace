@@ -105,7 +105,7 @@ James's direction, from the design discussion of 2026-10-16 and 2026-10-17:
 - **Date:** 2026-10-18
 - **Source:** Direct: James, design discussion of 2026-10-18
 - **Change:** amends §1
-- **Summary:** Where a palette's or type set's name comes to collide across levels, the colliding record is renamed rather than the change refused, which settles Q8. James's direction: "if an instance has a pre-existing palette or type set "foo", and a tenant with their own "foo" wants to be imported, the conflict would resolve by keying the name to the tenant e.g. "foo~tenantname". If an instance wants to introduce a new palette or type set with a name in use by a tenant, it is blocked until the instance renames it with the key or gives it a new name altogether." James then chose, on 2026-10-18: the key is the tenant's slug, and a keyed name stays with the tenant when it leaves; when the instance takes a name a tenant uses, it is the tenant's record that is keyed and the instance takes the bare name; `registry sync` keys a colliding instance or tenant record, the instance's with the farm slug, rather than being refused; and keying in a tenant is a written provision that rewrites every reference to the record in the same act (`theme.palette` and `theme.typeset`, `extends`, and readers' `ui.palette` and `ui.typeset`). Claude proposed reserving `~` for keying, `key=tenants` as the way an instance write keys the tenants' records, and a job record listing the renames as the authority, which also maps the preferences of accounts reclaimed after a join. The join is in [08](../architecture/08-tenants-and-instances.md) §6.3 ([0018](0018-tenants.md) A30) and the written act in [08](../architecture/08-tenants-and-instances.md) §8.6 ([0040](0040-instance-prerogatives.md) A8).
+- **Summary:** Where a palette's or type set's name comes to collide across levels, the colliding record is renamed rather than the change refused, which settles Q8. James's direction: "if an instance has a pre-existing palette or type set "foo", and a tenant with their own "foo" wants to be imported, the conflict would resolve by keying the name to the tenant e.g. "foo~tenantname". If an instance wants to introduce a new palette or type set with a name in use by a tenant, it is blocked until the instance renames it with the key or gives it a new name altogether." James then chose, on 2026-10-18: the key is the tenant's slug, and a keyed name stays with the tenant when it leaves; when the instance takes a name a tenant uses, it is the tenant's record that is keyed and the instance takes the bare name; `registry sync` keys a colliding instance or tenant record, the instance's with the farm slug, rather than being refused; and keying in a tenant is a written provision that rewrites every reference to the record in the same act (`theme.palette` and `theme.typeset`, `extends`, and readers' `ui.palette` and `ui.typeset`). Claude proposed reserving `~` for keying, `key=tenants` as the way an instance write keys the tenants' records, and a job record listing the renames as the authority, which also maps the preferences of accounts reclaimed after a join. The join is in 08 §6.3 (0018 A30) and the written act in 08 §8.6 (0040 A8).
 
 Replaced text: §1 of this ADR.
 
@@ -139,14 +139,14 @@ Replaced text: §1 of this ADR.
 ### A5. A fallback layer for every script
 
 - **Date:** 2026-10-28
-- **Source:** [0093](0093-fallback-typefaces.md) §1, §2, §3, §4
+- **Source:** 0093 §1, §2, §3, §4
 - **Change:** extends §1, §3, §5, §7
 - **Summary:** A type set may name a shipped fallback layer, whose typefaces fill its stacks for the scripts its own lack. The text is in git (`tools/adr.py log 0086 A5 --diff`).
 
 ### A6. Colour-vision palettes become keyed alternates
 
 - **Date:** 2026-10-28
-- **Source:** [0094](0094-accessibility-alternates.md) §1, §2, §3, §4, §5, §6, §7
+- **Source:** 0094 §1, §2, §3, §4, §5, §6, §7
 - **Change:** amends §1, §2, §4, §5; extends §7
 - **Summary:** Colour-vision accessibility becomes alternates of any palette, turned on with `ui.vision`, in place of the palettes `parchment-rg` and `parchment-by`, whose colours become `parchment`'s alternates and whose names are retired and read as `parchment` with the alternate. The text as it stood is in git (`tools/adr.py log 0086 A6 --diff`).
 
@@ -155,14 +155,14 @@ Replaced text: §1 of this ADR; §2 of this ADR; §4 of this ADR; §5 of this AD
 ### A7. The token contract is Codex's
 
 - **Date:** 2026-10-29
-- **Source:** [0097](0097-versioning-and-skins.md) §14
+- **Source:** 0097 §14
 - **Change:** extends §5
-- **Summary:** The token contract's version is the release of Codex's design tokens the binary pins; the binary owns the choice, skins declare the token major they need, and a Codex major that renames or removes tokens is a product major unless the binary maps the old names. The chapter text is [19](../architecture/19-site-ui.md) §5.9.
+- **Summary:** The token contract's version is the release of Codex's design tokens the binary pins; the binary owns the choice, skins declare the token major they need, and a Codex major that renames or removes tokens is a product major unless the binary maps the old names. The chapter text is 19 §5.9.
 
 ### A8. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-30
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§7
 
 ### A9. Theming: loose ends from building it

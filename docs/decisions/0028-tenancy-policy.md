@@ -111,7 +111,7 @@ MediaWiki's answer to the second is CentralAuth: one global account, local accou
 ### A1. Crate table
 
 - **Date:** 2026-09-27
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §14
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries `scatter-adapter-triplespace` and every change this section listed (0005 A24).
 
@@ -120,7 +120,7 @@ Replaced text: §14 of this ADR.
 ### A2. The adapter verifies the local graph
 
 - **Date:** 2026-09-27
-- **Source:** [0022](0022-federation.md) §2
+- **Source:** 0022 §2
 - **Change:** amends §5
 - **Summary:** The adapter bootstraps from the provider's local-graph source dump rather than its Wikibase-compatible dump, follows the stream filtered to `source = local`, rewrites references to the reader's own entities back to bare IDs, and verifies each batch against the provider's checkpoint and key chain unless the provider is registered `trust = stream`.
 
@@ -129,21 +129,21 @@ Replaced text: §5 of this ADR.
 ### A3. Farm-wide filters
 
 - **Date:** 2026-09-27
-- **Source:** [0030](0030-edit-filters.md) §8
+- **Source:** 0030 §8
 - **Change:** extends §1
 - **Summary:** The `filters.global` switch; global filters run on every tenant before its own. §1 had been given the row in place. This settled Q1.
 
 ### A4. Takedowns are an operator rule
 
 - **Date:** 2026-09-30
-- **Source:** [0039](0039-files-and-media.md) §10
+- **Source:** 0039 §10
 - **Change:** extends §8
 - **Summary:** File takedowns and expunges are a second operator rule every preset has: they apply to every tenant, no tenant can override them, and they are made through the primary tenant or a global group.
 
 ### A5. Instance acts
 
 - **Date:** 2026-09-30
-- **Source:** [0040](0040-instance-prerogatives.md) §5–6
+- **Source:** 0040 §5–6
 - **Change:** amends §2, §5, §8
 - **Summary:** By section:
   - §2: The actor records a farm-account rename or vanish writes into each linked tenant are instance prerogatives: attributed to the instance operator, signed by the instance key, citing the farm account's record in `actors/{farm}` as authority. A tenant bureaucrat cannot rename a linked account away from its farm name while shared names are on.
@@ -155,14 +155,14 @@ Replaced text: §5 of this ADR.
 ### A6. The wikitext ceiling
 
 - **Date:** 2026-09-30
-- **Source:** [0042](0042-template-expansion-and-parsoid.md) §2
+- **Source:** 0042 §2
 - **Change:** extends §1
 - **Summary:** A switch `wikitext.ceiling` (`subset`, `expansion`, `lua`; `lua` in every preset) caps how much of template expansion and Lua a tenant may turn on.
 
 ### A7. The primary tenant
 
 - **Date:** 2026-09-30
-- **Source:** [0046](0046-primary-tenant.md) §5–7
+- **Source:** 0046 §5–7
 - **Change:** amends §2, §5, §10
 - **Summary:** By section:
   - §2: The **farm slug** is the instance's own slug: chosen at `instance create`, distinct from every tenant slug (the primary tenant's included) and never changed. Farm account IRIs are `{farm base}/instance/user/{id}`, and the farm partitions' graph IRIs are under `{farm base}/instance/graph/`.
@@ -174,14 +174,14 @@ Replaced text: §2 of this ADR; §10 of this ADR.
 ### A8. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §1–14
 - **Summary:** A1–A7 were folded into the Decision. The open questions were numbered. §12's "`NULL` tenant" reads as the empty-string tenant, which 0013 A11 decided for every earlier ADR. No decision changed. Before this, A2 and A4–A7 were blockquotes, and A3 had been written in place. The file before conversion is commit `0b26a3a`.
 
 ### A9. `security.restrictions`, and cross-tenant reads are anonymous
 
 - **Date:** 2026-10-01
-- **Source:** [0056](0056-security-model.md) §6, §11
+- **Source:** 0056 §6, §11
 - **Change:** extends §1; amends §5
 - **Summary:** The policy gains `security.restrictions` (`none`, `tenant`, `any`; `any` in `isolated` and `enterprise`, `none` in `community`), which decides whether tenants may restrict `read` beyond moderation. Q2 is settled: an ACL may name a global group where the policy has them. The text is in git (`tools/adr.py log 0028 A9 --diff`).
 
@@ -190,7 +190,7 @@ Replaced text: §5 of this ADR.
 ### A10. The query store
 
 - **Date:** 2026-10-04
-- **Source:** [0059](0059-query-service.md) §4
+- **Source:** 0059 §4
 - **Change:** extends §12
 - **Summary:** One query store per instance, every public tenant's graphs under their names, tenant isolation by dataset at query time; `store` isolation per tenant as an embedded store, selected by the `isolated` preset. Private tenants are in no store.
 
@@ -199,108 +199,108 @@ Replaced text: §5 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §5
-- **Summary:** `provider-readers` is **tenant** scope, a record in the provider tenant's own `config` ([0015](0015-record-format-and-partition-registry.md) §3, §5); the 0028 row of [0013](0013-postgres-storage.md) §5.6 says so instead of listing it beside the instance-level `tenancy` and `template` kinds. The row's verb is `corrects`, but §5 already places the record in the provider tenant's own `config` and nothing in this ADR says otherwise, so here it is an extension that states the scope outright; the correction lands in 0013. (PENDING A5)
+- **Summary:** `provider-readers` is **tenant** scope, a record in the provider tenant's own `config` (0015 §3, §5); the 0028 row of 0013 §5.6 says so instead of listing it beside the instance-level `tenancy` and `template` kinds. The row's verb is `corrects`, but §5 already places the record in the provider tenant's own `config` and nothing in this ADR says otherwise, so here it is an extension that states the scope outright; the correction lands in 0013. (PENDING A5)
 
 ### A12. The farm partitions are the instance's
 
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §2
-- **Summary:** A tenant has one `source/{name}` partition per entity source ([0078](0078-entity-sources.md) §4) beside the partitions [0018](0018-tenants.md) §2 lists, and the instance has the farm partitions of §2, `actors/{farm}`, `accounts/{farm}` and `log/{farm}`; 0018 §2's fixed count of six partitions goes, and §2's three instance partitions are part of the count 0018 §2 now gives. (PENDING C6)
+- **Summary:** A tenant has one `source/{name}` partition per entity source (0078 §4) beside the partitions 0018 §2 lists, and the instance has the farm partitions of §2, `actors/{farm}`, `accounts/{farm}` and `log/{farm}`; 0018 §2's fixed count of six partitions goes, and §2's three instance partitions are part of the count 0018 §2 now gives. (PENDING C6)
 
 ### A13. `query.isolation` is a tenancy switch
 
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §1
-- **Summary:** `query.isolation` is a row of §1's switch table: `isolated = store`, the shared presets (`community`, `enterprise`) `dataset`. `store` with a `remote` query backend is refused only on a farm; on a single-tenant instance the remote store holds one tenant's graphs and satisfies `store` ([0059](0059-query-service.md) §4). The row's verb is `amends`, but §1's table merely lacks the row that §12 already refers to, and no sentence of this ADR contradicts it, so here it is an extension. (PENDING C9)
+- **Summary:** `query.isolation` is a row of §1's switch table: `isolated = store`, the shared presets (`community`, `enterprise`) `dataset`. `store` with a `remote` query backend is refused only on a farm; on a single-tenant instance the remote store holds one tenant's graphs and satisfies `store` (0059 §4). The row's verb is `amends`, but §1's table merely lacks the row that §12 already refers to, and no sentence of this ADR contradicts it, so here it is an extension. (PENDING C9)
 
 ### A14. The farm-base global interface is the Action API
 
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §11
-- **Summary:** The farm-base global group and block interface is the Action API: `action=globalblock`, `list=globalblocks` and the global-group modules. No REST routes are claimed from [0016](0016-permissions-and-access-control.md) §7; the farm-base REST routes are `GET /tenancy`, `GET /farm/users/{id}` and `GET /activity?set=farm` only. (PENDING E37)
+- **Summary:** The farm-base global group and block interface is the Action API: `action=globalblock`, `list=globalblocks` and the global-group modules. No REST routes are claimed from 0016 §7; the farm-base REST routes are `GET /tenancy`, `GET /farm/users/{id}` and `GET /activity?set=farm` only. (PENDING E37)
 
 Replaced text: §11 of this ADR.
 
 ### A15. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§14
 
 ### A16. The farm issuer's code is the farm code
 
 - **Date:** 2026-10-09
-- **Source:** [0079](0079-derived-issuer-codes.md) §4, §7
+- **Source:** 0079 §4, §7
 - **Change:** amends §2; extends §11
-- **Summary:** The farm issuer's code is the farm code derived from the instance's founding record ([0079](0079-derived-issuer-codes.md) §4), so farm accounts are `{farm code}:{id}` (§2). `GET /tenancy` includes the farm code, and its `tenants` array gives each tenant's issuer code as `issuer` (§11).
+- **Summary:** The farm issuer's code is the farm code derived from the instance's founding record (0079 §4), so farm accounts are `{farm code}:{id}` (§2). `GET /tenancy` includes the farm code, and its `tenants` array gives each tenant's issuer code as `issuer` (§11).
 
-Replaced text: §2, in [08](../architecture/08-tenants-and-instances.md) §3.5.
+Replaced text: §2, in 08 §3.5.
 
 ### A17. Who may read whom, by issuer code
 
 - **Date:** 2026-10-09
-- **Source:** [0080](0080-tenants-as-entity-sources.md) §2, §5
+- **Source:** 0080 §2, §5
 - **Change:** amends §5
-- **Summary:** `providers.between_tenants` governs entity sources that name a tenant of the same instance: under `operator` only the operator may write one (or set `files.share` and `pages.share`); under `opt-in` any tenant may name any public tenant of the instance. A source naming a tenant elsewhere is an ordinary entity source. `provider-readers` lists name tenants by issuer code, since the record travels with the provider. Chapter text: [08](../architecture/08-tenants-and-instances.md) §4.2, §4.4.
+- **Summary:** `providers.between_tenants` governs entity sources that name a tenant of the same instance: under `operator` only the operator may write one (or set `files.share` and `pages.share`); under `opt-in` any tenant may name any public tenant of the instance. A source naming a tenant elsewhere is an ordinary entity source. `provider-readers` lists name tenants by issuer code, since the record travels with the provider. Chapter text: 08 §4.2, §4.4.
 
-Replaced text: §5, in [08](../architecture/08-tenants-and-instances.md) §4.2; §5, in [08](../architecture/08-tenants-and-instances.md) §4.4.
+Replaced text: §5, in 08 §4.2; §5, in 08 §4.4.
 
 ### A18. Every preset computes shared rows under the instance policy
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §1
-- **Summary:** Under every preset the shared rows of `view` (`tenant = ''`) are computed under one named instance policy record, the instance `reconcile` record of [0082](0082-source-form-and-the-shared-view.md) §5: provider order among registry providers, tier-2 link properties, normalizer overrides, the constraint roles and the languages that populate shared `view.term` are instance configuration. A tenant on a farm may narrow (hide a provider from its own view, restrict its own display languages, add link properties and an order for its own entity sources) but may not reorder shared providers, change a shared normalizer or rebind a shared role; a tenant-scope write that tries is refused with `ts-instance-policy`, whichever preset is in force, and the presets say so. 0082 §5 names this ADR for that sentence without a row in its table, so it is logged here as a direct decision; the fold is in [08](../architecture/08-tenants-and-instances.md) §5.1. (REVIEW G1)
+- **Summary:** Under every preset the shared rows of `view` (`tenant = ''`) are computed under one named instance policy record, the instance `reconcile` record of 0082 §5: provider order among registry providers, tier-2 link properties, normalizer overrides, the constraint roles and the languages that populate shared `view.term` are instance configuration. A tenant on a farm may narrow (hide a provider from its own view, restrict its own display languages, add link properties and an order for its own entity sources) but may not reorder shared providers, change a shared normalizer or rebind a shared role; a tenant-scope write that tries is refused with `ts-instance-policy`, whichever preset is in force, and the presets say so. 0082 §5 names this ADR for that sentence without a row in its table, so it is logged here as a direct decision; the fold is in 08 §5.1. (REVIEW G1)
 
 ### A19. Presets are copied on create and synced
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §1
-- **Summary:** The three presets of `docs/registry/tenancy.toml` follow the copy-on-create rule: an instance's `config` starts as a copy of the registry, so `instance create --tenancy {preset}` writes the preset's switches as `tenancy:{switch}` records; `triplespace-cli registry sync` appends records for registry entries newer than the instance's under the instance attestation, and `instance check` warns when the instance is behind the registry its binary carries. Every config record's content carries its kind's `schema` integer, `view.registry` stores the entry opaquely with its schema number, and an unknown kind or schema is projected opaquely and never fails replay, so a `tenancy` switch a later release adds reaches an existing farm through `registry sync` and an older binary can replay a newer log. The ledger named §3 (global groups); the presets are §1's, and no sentence of its chapter text ([08](../architecture/08-tenants-and-instances.md) §5.1) is contradicted. The rule is stated in [23](../architecture/23-configuration-and-registry.md) §1.1 and §4.1. (REVIEW G36)
+- **Summary:** The three presets of `docs/registry/tenancy.toml` follow the copy-on-create rule: an instance's `config` starts as a copy of the registry, so `instance create --tenancy {preset}` writes the preset's switches as `tenancy:{switch}` records; `triplespace-cli registry sync` appends records for registry entries newer than the instance's under the instance attestation, and `instance check` warns when the instance is behind the registry its binary carries. Every config record's content carries its kind's `schema` integer, `view.registry` stores the entry opaquely with its schema number, and an unknown kind or schema is projected opaquely and never fails replay, so a `tenancy` switch a later release adds reaches an existing farm through `registry sync` and an older binary can replay a newer log. The ledger named §3 (global groups); the presets are §1's, and no sentence of its chapter text (08 §5.1) is contradicted. The rule is stated in 23 §1.1 and §4.1. (REVIEW G36)
 
 ### A20. A private tenant under `store` isolation has a query service
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §12
-- **Summary:** A private tenant has no graphs in the shared query store, but with `query.isolation = store` it has a query service of its own: its embedded store is fed from its own deltas, computed in the form the `tenant` ACL's group may read (nothing under any finer restriction) in place of a public form that would be empty, and the service answers only principals that satisfy that ACL, through `Special:Query`, the MCP tools and compiled queries. What a private tenant lacks is the public endpoint, the stream and the dump, and nothing else; this settles [0059](0059-query-service.md) Q1. A hosting instance needs no `tenant` restriction to keep tenants apart ([0056](0056-security-model.md) §4). The ledger named §3; the sentence this contradicts is §12's, in [03](../architecture/03-storage-caches-and-search.md) §13, and the service itself is described in [08](../architecture/08-tenants-and-instances.md) §9.1. (REVIEW G39)
+- **Summary:** A private tenant has no graphs in the shared query store, but with `query.isolation = store` it has a query service of its own: its embedded store is fed from its own deltas, computed in the form the `tenant` ACL's group may read (nothing under any finer restriction) in place of a public form that would be empty, and the service answers only principals that satisfy that ACL, through `Special:Query`, the MCP tools and compiled queries. What a private tenant lacks is the public endpoint, the stream and the dump, and nothing else; this settles 0059 Q1. A hosting instance needs no `tenant` restriction to keep tenants apart (0056 §4). The ledger named §3; the sentence this contradicts is §12's, in 03 §13, and the service itself is described in 08 §9.1. (REVIEW G39)
 
-Replaced text: [03](../architecture/03-storage-caches-and-search.md) §13.
+Replaced text: 03 §13.
 
 ### A21. Instance defaults for `site` settings are evaluated
 
 - **Date:** 2026-10-17
-- **Source:** [0085](0085-settings-and-preferences.md) §2.1, §4
+- **Source:** 0085 §2.1, §4
 - **Change:** amends §8; amends §11
-- **Summary:** A `site` template is no longer written into a new tenant. It is the instance's default for the setting, read whenever a tenant without a record of its own resolves it, so a change to it reaches every such tenant at once; templates of every other kind are still provisions written at creation, and locked templates are still written into every tenant as prerogatives. The chapter text is [08](../architecture/08-tenants-and-instances.md) §5.3 and §8.6, [23](../architecture/23-configuration-and-registry.md) §1.4 and §3.1, and [19](../architecture/19-site-ui.md) §2.8 and §6.11.
+- **Summary:** A `site` template is no longer written into a new tenant. It is the instance's default for the setting, read whenever a tenant without a record of its own resolves it, so a change to it reaches every such tenant at once; templates of every other kind are still provisions written at creation, and locked templates are still written into every tenant as prerogatives. The chapter text is 08 §5.3 and §8.6, 23 §1.4 and §3.1, and 19 §2.8 and §6.11.
 
-Replaced text: [08](../architecture/08-tenants-and-instances.md) §5.3; [19](../architecture/19-site-ui.md) §6.11.
+Replaced text: 08 §5.3; 19 §6.11.
 
-Replaced text: [18](../architecture/18-api.md) §1.2.
+Replaced text: 18 §1.2.
 
 ### A22. Approval on a farm account's first visit
 
 - **Date:** 2026-10-17
-- **Source:** [0087](0087-account-registration-and-challenges.md) §6
+- **Source:** 0087 §6
 - **Change:** extends §2
-- **Summary:** A tenant with `account.approval` on does not create a tenant account on a farm account's first visit: it files an account request whose credential is the farm subject, and creates, binds and links the account when a holder of `confirmaccount` approves it. Farm signup itself is not challenged, since the farm has no passwords. The chapter text is [08](../architecture/08-tenants-and-instances.md) §3.6.
+- **Summary:** A tenant with `account.approval` on does not create a tenant account on a farm account's first visit: it files an account request whose credential is the farm subject, and creates, binds and links the account when a holder of `confirmaccount` approves it. Farm signup itself is not challenged, since the farm has no passwords. The chapter text is 08 §3.6.
 
 ### A23. Farm accounts bind to logins
 
 - **Date:** 2026-10-18
-- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §4, §13
+- **Source:** 0089 §4, §13
 - **Change:** amends §2
-- **Summary:** Farm identity is identity, not authentication. Farm signup is on the auth host, and is not challenged because creating the login was. The chapter text is [08](../architecture/08-tenants-and-instances.md) §3.5 and §3.6.
+- **Summary:** Farm identity is identity, not authentication. Farm signup is on the auth host, and is not challenged because creating the login was. The chapter text is 08 §3.5 and §3.6.
 
-Replaced text: [08](../architecture/08-tenants-and-instances.md) §3.5, §3.6.
+Replaced text: 08 §3.5, §3.6.
 
 ### A24. Tenancy-switch reads are checked against the switch table
 
 - **Date:** 2026-11-09
-- **Source:** [0108](0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) §2
+- **Source:** 0108 §2
 - **Change:** extends §1
-- **Summary:** Every read of a switch goes through the settings snapshot's `switch` or the policy's `get`, which report it to the probe; CI fails a run that read a name which is neither a switch `tenancy.toml` lists nor the ceiling of a `bound = "ceiling"` setting. The `tenancy:locked` list is not a switch. Chapter text: [08](../architecture/08-tenants-and-instances.md) §5.1.
+- **Summary:** Every read of a switch goes through the settings snapshot's `switch` or the policy's `get`, which report it to the probe; CI fails a run that read a name which is neither a switch `tenancy.toml` lists nor the ceiling of a `bound = "ceiling"` setting. The `tenancy:locked` list is not a switch. Chapter text: 08 §5.1.

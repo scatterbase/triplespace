@@ -133,15 +133,15 @@ James's direction, from the design discussion of 2026-10-18:
 ### A1. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-30
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§17
 
 ### A2. Email addresses
 
 - **Date:** 2026-11-05
-- **Source:** [0100](0100-email-addresses-and-verification-codes.md) §1, §3, §6
+- **Source:** 0100 §1, §3, §6
 - **Change:** extends §2, §7
-- **Summary:** A login holds email addresses, up to `email.max_addresses`, one verified address being its primary ([07](../architecture/07-actors-and-accounts.md) §2.9). The auth host's `Special:Account` gains an **Email addresses** section, and the auth base the `/auth/email` routes.
+- **Summary:** A login holds email addresses, up to `email.max_addresses`, one verified address being its primary (07 §2.9). The auth host's `Special:Account` gains an **Email addresses** section, and the auth base the `/auth/email` routes.
 
 ### A3. Logins built: names, the password table and the migration command
 
@@ -153,20 +153,20 @@ James's direction, from the design discussion of 2026-10-18:
 ### A4. Requiring an external sign-in method
 
 - **Date:** 2026-11-06
-- **Source:** [0101](0101-requiring-an-external-sign-in-method.md) §1, §2, §3
+- **Source:** 0101 §1, §2, §3
 - **Change:** amends §8; extends §2, §7, §15
 - **Summary:** Under `login.external_required` a login is created only from an external identity: `Special:CreateAccount` and `action=createaccount` refuse a password with `ts-external-required`, for oneself, for another and under `account.approval`, and `password set` makes no login for an account without one. Every login then holds at least one identity (§2), the auth host's `Special:CreateAccount` shows the issuers' buttons alone and `Special:Account` disables the last identity's **Remove** (§7), and `logins check` reports what enacting the requirement waits on (§15).
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.8.
+Replaced text: 07 §2.8.
 
 ### A5. Strict names
 
 - **Date:** 2026-11-06
-- **Source:** [0102](0102-strict-names-from-the-provider.md) §1
+- **Source:** 0102 §1
 - **Change:** amends §6
-- **Summary:** Under `login.names = provider` nothing is chosen on the first visit: the account is created with the name derived from the login's external identity, `{label}-{username}`, on every tenant alike ([07](../architecture/07-actors-and-accounts.md) §2.10).
+- **Summary:** Under `login.names = provider` nothing is chosen on the first visit: the account is created with the name derived from the login's external identity, `{label}-{username}`, on every tenant alike (07 §2.10).
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.8.
+Replaced text: 07 §2.8.
 
 ### A6. A login logs in anywhere on its instance; whether that makes an account is the instance's policy
 

@@ -111,7 +111,7 @@ James's direction is to make the relation structural: a bot is a **subsidiary ac
 ### A1. Crate table
 
 - **Date:** 2026-09-27
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §13
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A20).
 
@@ -120,7 +120,7 @@ Replaced text: §13 of this ADR.
 ### A2. OAuth tokens and pending subsidiaries
 
 - **Date:** 2026-09-27
-- **Source:** [0025](0025-oauth-server.md) §3–4
+- **Source:** 0025 §3–4
 - **Change:** extends §1, §2; amends §4
 - **Summary:** A subsidiary created in an OAuth authorization is `pending` until a bureaucrat approves it; tokens are subsidiary credentials like keys, and their grants intersect the permissions as a key's do; keys carry no tag, since a label is private state. §2 and §4 had been given the clauses in place. This settled Q1 and Q3.
 
@@ -131,28 +131,28 @@ Replaced text: not recorded; §4 had spoken of keys alone, and the sentence on t
 - **Date:** 2026-09-27
 - **Source:** Direct: James, decisions of 2026-09-27 (evening)
 - **Change:** extends §4; amends §12
-- **Summary:** Client signing keys (decision 4). Beside its API keys, a subsidiary may hold one or more **signing keys**: Ed25519 keypairs the operator generates, whose public half is registered as a `scatter:v0/key` record in the `actors` partition ([0015](0015-record-format-and-partition-registry.md) §1, as amended) and whose private half the instance never sees. The operator registers, rotates and revokes them from the subsidiary's keys section and `POST /account/subsidiaries/{name}/signing-keys`; registration and revocation project as `key/register` and `key/revoke` log events ([0011](0011-logs.md) §6.1), public like the operator relation. A write submitted with a `signature` (as a field of the change set or page operation, or an `X-Triplespace-Signature` header on a REST write) is verified against the actor's current key before the append, and the record's attestation part carries it. A signature never grants anything and is never required by default; `site` configuration may require one for the `bot` group (`signing.require_for_bot`), which is what an instance that wants third-party-verifiable bot attribution turns on. History rows and "About this edit" ([0010](0010-site-ui.md) §5–6) show a *signed* mark with the key ID, and the record and proof routes ([0012](0012-api-requirements.md) §5) return the signature so a third party can check it against the export bundle. `triplespace-cli` and the reference SDK produce the canonical CBOR of the content and comment parts and sign it; Pywikibot does not, and works unsigned. Primary accounts hold no signing key, for the reason they hold no API key: a person's edits are attributed by session, a program's by credential. §12's attestation half is therefore no longer open. The bootstrap login for `owner` (decision 1) is the built-in `password` issuer recorded as 0007 A3: a primary account still holds no key or token; a password is a binding. This settled Q4.
+- **Summary:** Client signing keys (decision 4). Beside its API keys, a subsidiary may hold one or more **signing keys**: Ed25519 keypairs the operator generates, whose public half is registered as a `scatter:v0/key` record in the `actors` partition (0015 §1, as amended) and whose private half the instance never sees. The operator registers, rotates and revokes them from the subsidiary's keys section and `POST /account/subsidiaries/{name}/signing-keys`; registration and revocation project as `key/register` and `key/revoke` log events (0011 §6.1), public like the operator relation. A write submitted with a `signature` (as a field of the change set or page operation, or an `X-Triplespace-Signature` header on a REST write) is verified against the actor's current key before the append, and the record's attestation part carries it. A signature never grants anything and is never required by default; `site` configuration may require one for the `bot` group (`signing.require_for_bot`), which is what an instance that wants third-party-verifiable bot attribution turns on. History rows and "About this edit" (0010 §5–6) show a *signed* mark with the key ID, and the record and proof routes (0012 §5) return the signature so a third party can check it against the export bundle. `triplespace-cli` and the reference SDK produce the canonical CBOR of the content and comment parts and sign it; Pywikibot does not, and works unsigned. Primary accounts hold no signing key, for the reason they hold no API key: a person's edits are attributed by session, a program's by credential. §12's attestation half is therefore no longer open. The bootstrap login for `owner` (decision 1) is the built-in `password` issuer recorded as 0007 A3: a primary account still holds no key or token; a password is a binding. This settled Q4.
 
 Replaced text: §12 of this ADR.
 
 ### A4. File rate classes
 
 - **Date:** 2026-09-30
-- **Source:** [0039](0039-files-and-media.md) §15
+- **Source:** 0039 §15
 - **Change:** extends §5
 - **Summary:** Three classes for files, with MediaWiki's names: `upload`, `renderfile` (thumbnails rendered on a miss) and `renderfile-nonstandard`.
 
 ### A5. The parse class
 
 - **Date:** 2026-09-30
-- **Source:** [0042](0042-template-expansion-and-parsoid.md) §16
+- **Source:** 0042 §16
 - **Change:** extends §5
 - **Summary:** A class `parse` counts expansions a client asks for directly: `action=parse` with `text`, `action=expandtemplates` and server preview. Default 60 / 600 per minute.
 
 ### A6. Instance-job subsidiaries follow the primary role
 
 - **Date:** 2026-09-30
-- **Source:** [0046](0046-primary-tenant.md) §5, §8
+- **Source:** 0046 §5, §8
 - **Change:** amends §1
 - **Summary:** An instance job needs a subsidiary of an account on the tenant that is primary when the job is submitted (`ts-runjob` is an instance right for such jobs). When the role is transferred, `triplespace-cli primary accept` creates sync subsidiaries on the new primary; jobs already running finish under theirs.
 
@@ -161,7 +161,7 @@ Replaced text: §1 of this ADR.
 ### A7. The export class and a sysop row for jobs
 
 - **Date:** 2026-10-01
-- **Source:** [0047](0047-special-pages.md) §8, §12
+- **Source:** 0047 §8, §12
 - **Change:** amends §5
 - **Summary:** A class `export` counts exports (default 30 / 300 per hour for `user` / `bot`). The `job` class gains a `sysop` row, 10 per hour, so that an administrator who is not a bot can start a Nuke or a job revert.
 
@@ -170,14 +170,14 @@ Replaced text: §5 of this ADR.
 ### A8. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §1–13
 - **Summary:** A1–A7 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A3's signing keys and A4–A7 were blockquotes, and A2 had been written in place. The file before conversion is commit `0b26a3a`.
 
 ### A9. The `fork` rate class
 
 - **Date:** 2026-10-01
-- **Source:** [0054](0054-forking-a-mirrored-page.md) §8
+- **Source:** 0054 §8
 - **Change:** extends §5
 - **Summary:** Forks started count in a new class, 5 per hour for `user` and 100 for `bot`; the seeding runs under the repository's fetch budget, not the user's.
 
@@ -191,7 +191,7 @@ Replaced text: §5 of this ADR.
 ### A11. The `query` rate class
 
 - **Date:** 2026-10-04
-- **Source:** [0059](0059-query-service.md) §6
+- **Source:** 0059 §6
 - **Change:** extends §5
 - **Summary:** A `query` class, 30 / 300 per minute, counting SPARQL queries started and on-demand scope refreshes. Concurrency is bounded instance-wide by `query.max_concurrent` (0059 §6), which is not a rate limit.
 
@@ -200,7 +200,7 @@ Replaced text: §5 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §5
-- **Summary:** Rate-limit counters are `rl:{class}:{key}` here and in [0014](0014-caches-and-search.md) §4 alike, the key being the actor key or, for anonymous requests, the IP; §5 had written the form as `rl:{class}:{actor key}` and 0014 §4 differently. (PENDING C4)
+- **Summary:** Rate-limit counters are `rl:{class}:{key}` here and in 0014 §4 alike, the key being the actor key or, for anonymous requests, the IP; §5 had written the form as `rl:{class}:{actor key}` and 0014 §4 differently. (PENDING C4)
 
 Replaced text: §5 of this ADR.
 
@@ -209,7 +209,7 @@ Replaced text: §5 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §11
-- **Summary:** `createaccount` governs self-registration and creating an account for another, as in MediaWiki, and so also creating a subsidiary (§2); its default group is `universe`, and a private tenant removes it from `universe` ([0056](0056-security-model.md) §3 stands). §11's `autoconfirmed` default goes. A subsidiary a new user creates is `pending` until approved ([0025](0025-oauth-server.md) §3), which is what kept the right from needing a threshold. (PENDING C12)
+- **Summary:** `createaccount` governs self-registration and creating an account for another, as in MediaWiki, and so also creating a subsidiary (§2); its default group is `universe`, and a private tenant removes it from `universe` (0056 §3 stands). §11's `autoconfirmed` default goes. A subsidiary a new user creates is `pending` until approved (0025 §3), which is what kept the right from needing a threshold. (PENDING C12)
 
 Replaced text: §11 of this ADR.
 
@@ -218,22 +218,22 @@ Replaced text: §11 of this ADR.
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design discussion of 2026-10-09
 - **Change:** amends §5
-- **Summary:** ActivityPub fan-out has its own rate class, `federation`, counted per instance against the delivery queue (`ops.delivery`, [0021](0021-notifications.md) §8) and never against the posting actor; it joins the class table, and the `notify` class keeps only the requests an actor initiates ([0022](0022-federation.md) §7, 0022 A8). The counters sentence, which keyed every class by actor or IP, no longer holds for this class. (PENDING F13)
+- **Summary:** ActivityPub fan-out has its own rate class, `federation`, counted per instance against the delivery queue (`ops.delivery`, 0021 §8) and never against the posting actor; it joins the class table, and the `notify` class keeps only the requests an actor initiates (0022 §7, 0022 A8). The counters sentence, which keyed every class by actor or IP, no longer holds for this class. (PENDING F13)
 
 Replaced text (§5): the counters sentence as A12 quotes it.
 
 ### A15. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§13
 
 ### A16. `read` is counted lazily, and `maxlag` includes composition lag
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §1
+- **Source:** 0083 §1
 - **Change:** extends §5
-- **Summary:** The `read` rate class is counted for authenticated principals only once a per-process count of their reads has passed a fraction of the limit, and never for a response served from L0 or L1, so the cost of the class on a cached page is nothing; anonymous reads are counted by IP as before. The chapter also has inbound `maxlag` answer for the larger of replica lag and the tenant's local-partition composition lag ([0084](0084-wikibase-writes-against-the-resolved-view.md) §5), not for the actor's rate. (REVIEW G15)
+- **Summary:** The `read` rate class is counted for authenticated principals only once a per-process count of their reads has passed a fraction of the limit, and never for a response served from L0 or L1, so the cost of the class on a cached page is nothing; anonymous reads are counted by IP as before. The chapter also has inbound `maxlag` answer for the larger of replica lag and the tenant's local-partition composition lag (0084 §5), not for the actor's rate. (REVIEW G15)
 
 ### A17. Hand-made subsidiaries are never pending; the sync subsidiaries start in `bot`
 
@@ -242,45 +242,45 @@ Replaced text (§5): the counters sentence as A12 quotes it.
 - **Change:** corrects §2, §11; extends §1
 - **Summary:** `pending` is an OAuth-only status: a subsidiary created on the OAuth consent page is pending until approved, and a subsidiary created by hand from `Special:Account` or `POST /account/subsidiaries` is a member of `user` from its first record, whoever its operator is and however new their account; "a subsidiary a new user creates is pending until approved" is struck. The MCP requirement is the `basic` grant, which every key and token carries. `triplespace-cli instance create` creates the instance's sync subsidiaries beside `local:1` and puts them in the `bot` group at creation, as `primary accept` does on a transfer. `view.actor` gains `editcount` and `created_at`, maintained by the activity projection from local `edit` rows, erased included and job rows excluded, from which the implicit `autoconfirmed` group is computed. (REVIEW G40)
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §4.2, §4.3; [09](../architecture/09-security-and-moderation.md) §8.4.
+Replaced text: 07 §4.2, §4.3; 09 §8.4.
 
 ### A18. `editentity` and `createeditmovepage` cover `property-create`; `editentity` covers `ts-linkproperty`
 
 - **Date:** 2026-10-09
-- **Source:** [0016](0016-permissions-and-access-control.md) A32
+- **Source:** 0016 A32
 - **Change:** amends §4
 - **Summary:** With `property-create` held by `user` by default (0016 A32), a key needs a grant that covers it for a client to create properties. `editentity` covers it, so a key made for entity editing (the client compatibility suite's `editentity` and `highvolume`) creates properties as a session does; `createeditmovepage` covers it too, as Wikibase's grant of that name does, so a Pywikibot user's usual grants behave as on a stock Wikibase. `editentity` also covers `ts-linkproperty`, as it covers `ts-link`; a key still exercises it only where the account holds it.
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §5.3.
+Replaced text: 07 §5.3.
 
 ### A19. The `createaccount` class; anonymous requests are counted by IPv6 /64
 
 - **Date:** 2026-10-17
-- **Source:** [0087](0087-account-registration-and-challenges.md) §4
+- **Source:** 0087 §4
 - **Change:** extends §5; corrects §5
-- **Summary:** A `createaccount` class counts accounts created and account requests filed by the caller's address key, whoever the caller is: 6 per day for every group, as MediaWiki's `$wgAccountCreationThrottle` is set on Wikimedia wikis, with `noratelimit` exempt; over it, `action=createaccount` answers `acct_creation_throttle_hit`. **Correction:** §5 keyed an anonymous request's counters on its IP address, which for IPv6 limits nothing, since a host commonly holds a whole /64 and can rotate through it. The chapter text is [07](../architecture/07-actors-and-accounts.md) §6.2 and §6.3.
+- **Summary:** A `createaccount` class counts accounts created and account requests filed by the caller's address key, whoever the caller is: 6 per day for every group, as MediaWiki's `$wgAccountCreationThrottle` is set on Wikimedia wikis, with `noratelimit` exempt; over it, `action=createaccount` answers `acct_creation_throttle_hit`. **Correction:** §5 keyed an anonymous request's counters on its IP address, which for IPv6 limits nothing, since a host commonly holds a whole /64 and can rotate through it. The chapter text is 07 §6.2 and §6.3.
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §6.3.
+Replaced text: 07 §6.3.
 
 ### A20. Long-window counters without a shared cache are kept in Postgres
 
 - **Date:** 2026-10-18
-- **Source:** [0087](0087-account-registration-and-challenges.md) A1
+- **Source:** 0087 A1
 - **Change:** amends §5
-- **Summary:** An instance without a shared cache still counts most classes in process, approximately, but the `createaccount` counter and 0087's two `badlogin` counters, whose windows are a day and ten minutes, are kept in Postgres in `private.rate_event`, so that spreading attempts over the replicas of a pool or waiting for a restart does not reset them. The chapter text is [07](../architecture/07-actors-and-accounts.md) §6.3.
+- **Summary:** An instance without a shared cache still counts most classes in process, approximately, but the `createaccount` counter and 0087's two `badlogin` counters, whose windows are a day and ten minutes, are kept in Postgres in `private.rate_event`, so that spreading attempts over the replicas of a pool or waiting for a restart does not reset them. The chapter text is 07 §6.3.
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §6.3.
+Replaced text: 07 §6.3.
 
 ### A21. Reserved prefixes
 
 - **Date:** 2026-11-06
-- **Source:** [0102](0102-strict-names-from-the-provider.md) §2
+- **Source:** 0102 §2
 - **Change:** extends §2
-- **Summary:** A subsidiary's name may not begin with an offered issuer's reserved prefix (`{label}-`), so that under strict names no bot can sit on a name a provider username would produce (`ts-name-reserved`; [07](../architecture/07-actors-and-accounts.md) §2.10).
+- **Summary:** A subsidiary's name may not begin with an offered issuer's reserved prefix (`{label}-`), so that under strict names no bot can sit on a name a provider username would produce (`ts-name-reserved`; 07 §2.10).
 
 ### A22. Rate-limit classes for mirrored pages
 
 - **Date:** 2026-11-16
-- **Source:** [0053](0053-mirrored-pages.md) §11
+- **Source:** 0053 §11
 - **Change:** extends §5
-- **Summary:** The `upstream` rate-limit class also counts live history fetches of a mirrored page, and the `parse` class a reader who forces a foreign-page fetch with `action=purge`. This records an extension made when 0053 was written, on 2026-10-01: its heading has said so since then and the chapter text has carried it, but this log had no entry. No text changes with this entry. Chapter text: [07](../architecture/07-actors-and-accounts.md) §6.2.
+- **Summary:** The `upstream` rate-limit class also counts live history fetches of a mirrored page, and the `parse` class a reader who forces a foreign-page fetch with `action=purge`. This records an extension made when 0053 was written, on 2026-10-01: its heading has said so since then and the chapter text has carried it, but this log had no entry. No text changes with this entry. Chapter text: 07 §6.2.

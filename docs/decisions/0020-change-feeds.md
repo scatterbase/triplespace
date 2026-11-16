@@ -80,7 +80,7 @@ One constraint is fixed by James: **whether a user is watching something is priv
 ### A1. Crate table
 
 - **Date:** 2026-09-27
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §8
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A16).
 
@@ -89,21 +89,21 @@ Replaced text: §8 of this ADR.
 ### A2. Notifications
 
 - **Date:** 2026-09-27
-- **Source:** [0021](0021-notifications.md) §2, §7
+- **Source:** 0021 §2, §7
 - **Change:** extends §3, §5
 - **Summary:** `private.watch` gains `notify`, which delivers a watched target's changes as notifications; `uiprop=hasmsg` is defined there. The SQL had been given the column in place. This settled Q1.
 
 ### A3. Patrolling
 
 - **Date:** 2026-09-27
-- **Source:** [0023](0023-moderation.md) §6
+- **Source:** 0023 §6
 - **Change:** extends §1
 - **Summary:** A `patrolled` filter on every feed. This settled Q2.
 
 ### A4. Rate limits
 
 - **Date:** 2026-09-27
-- **Source:** [0024](0024-subsidiary-accounts.md) §5
+- **Source:** 0024 §5
 - **Change:** amends §7
 - **Summary:** Streams and Atom fetches are rate-limited in the `stream` and `atom` classes. This settled the rate-limit half of Q5.
 
@@ -112,7 +112,7 @@ Replaced text: §7 of this ADR.
 ### A5. Preferences and portability
 
 - **Date:** 2026-09-27
-- **Source:** [0027](0027-preferences-and-portability.md) §1, §3–4
+- **Source:** 0027 §1, §3–4
 - **Change:** amends §3
 - **Summary:** The four auto-watch flags move into the preference store, with `autowatch.notify`; the watch set is portable in the user data bundle and the private extract of a move; the period window is the `feeds.period` preference. This settled Q3 and the period half of Q5.
 
@@ -121,30 +121,30 @@ Replaced text: §3 of this ADR.
 ### A6. Farm-wide feeds and the stream across instances
 
 - **Date:** 2026-09-27
-- **Source:** [0028](0028-tenancy-policy.md) §5, §9
+- **Source:** 0028 §5, §9
 - **Change:** extends §2, §5; amends §4
-- **Summary:** An all-tenants target set, served at the farm base under `feeds.farm_wide`. Cross-instance provider-to-tenant sync follows the stream, filtered to `source = local` and verified ([0022](0022-federation.md) §2); same-instance reading is direct. This settled Q4.
+- **Summary:** An all-tenants target set, served at the farm base under `feeds.farm_wide`. Cross-instance provider-to-tenant sync follows the stream, filtered to `source = local` and verified (0022 §2); same-instance reading is direct. This settled Q4.
 
 Replaced text: §4 of this ADR.
 
 ### A7. The filter log is a feed
 
 - **Date:** 2026-09-27
-- **Source:** [0030](0030-edit-filters.md) §6
+- **Source:** 0030 §6
 - **Change:** extends §2
 - **Summary:** Filter hits are a target set, delivered as a page, Atom or stream like any feed.
 
 ### A8. The SPARQL Update stream
 
 - **Date:** 2026-09-27
-- **Source:** [0032](0032-sparql-update-stream.md) §6
+- **Source:** 0032 §6
 - **Change:** extends §4
 - **Summary:** The activity stream is for consumers of change sets and events. A triplestore that wants to follow the resolved view as triples uses the SPARQL Update stream, `GET /updates/stream`, which shares this route's transport and `Last-Event-ID` discipline and carries `DELETE DATA`/`INSERT DATA` bodies instead of activity rows.
 
 ### A9. Boards
 
 - **Date:** 2026-10-01
-- **Source:** [0049](0049-boards.md) §7
+- **Source:** 0049 §7
 - **Change:** amends §2
 - **Summary:** A talk page's one-target set includes every thread attached to it, home or listing, and a board's is the board and its threads. A thread that is listed or detached joins or leaves the set at query time, as a moved one does.
 
@@ -153,14 +153,14 @@ Replaced text: §2 of this ADR.
 ### A10. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §1–8
 - **Summary:** A1–A9 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A8 and A9 were blockquotes, A2's column had been added in place, and the other entries were recorded in the header, the open questions or other ADRs. The file before conversion is commit `0b26a3a`.
 
 ### A11. Scopes as target sets and watches
 
 - **Date:** 2026-10-04
-- **Source:** [0060](0060-scopes.md) §7
+- **Source:** 0060 §7
 - **Change:** extends §2, §3
 - **Summary:** A Scope target set, joined against `view.scope_member` and bounded by `scopes.max_members`; `scope` and `rows` watch kinds, expanded at query time.
 
@@ -169,7 +169,7 @@ Replaced text: §3, in part of this ADR.
 ### A12. Followed talk pages
 
 - **Date:** 2026-10-06
-- **Source:** [0069](0069-synchronized-talk-pages.md) §8
+- **Source:** 0069 §8
 - **Change:** extends §2
 - **Summary:** A talk page that follows upstream includes the followed page's `put` rows in its one-target set; a foreign thread is a target of its own.
 
@@ -178,51 +178,51 @@ Replaced text: §3, in part of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §3
-- **Summary:** `notify` is refused on a `scope` or `rows` watch, with the error `ts-watch-notify-unsupported`: those watches are feed filters that expand at query time, not subscriptions to a target, so the generalization of DiscussionTools' topic subscription stops at the four target kinds that name one thing (`entity`, `page`, `thread`, `actor`). [0060](0060-scopes.md) §7 says the same of its side. (PENDING E31)
+- **Summary:** `notify` is refused on a `scope` or `rows` watch, with the error `ts-watch-notify-unsupported`: those watches are feed filters that expand at query time, not subscriptions to a target, so the generalization of DiscussionTools' topic subscription stops at the four target kinds that name one thing (`entity`, `page`, `thread`, `actor`). 0060 §7 says the same of its side. (PENDING E31)
 
 Replaced text: §3 of this ADR.
 
 ### A14. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§8
 
 ### A15. The stream's resume token is a vector of per-partition high-water marks
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §7
+- **Source:** 0083 §7
 - **Change:** amends §4; extends §1
-- **Summary:** A page and a stream carry the same rows in different orders. The stream is therefore ordered by commit, and its resume token is a vector of per-partition high-water marks, `{partition: offset, …}`, since within a partition offsets are commit-ordered under the append lock; `Last-Event-ID` carries that vector, opaquely encoded, and the continuation token of a page carries the sort key, the two never interchanged. Chapter text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.4. (REVIEW G14)
+- **Summary:** A page and a stream carry the same rows in different orders. The stream is therefore ordered by commit, and its resume token is a vector of per-partition high-water marks, `{partition: offset, …}`, since within a partition offsets are commit-ordered under the append lock; `Last-Event-ID` carries that vector, opaquely encoded, and the continuation token of a page carries the sort key, the two never interchanged. Chapter text: 16 §4.4. (REVIEW G14)
 
-Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.4.
+Replaced text: 16 §4.4.
 
 ### A16. A history's sync rows come from `view.entity_history`
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §2
-- **Summary:** A history and a watchlist draw a mirrored entity's sync rows from `view.entity_history (tenant, canonical_id, time, partition, offset, kind, member)`, the one backing of a mirrored entity's history, written by composition; upstream log events are rows of it and never of `view.activity`. The ledger names [0013](0013-postgres-storage.md) §5, [0011](0011-logs.md) §3 and [0010](0010-site-ui.md) §3; the fold also changed §2's chapter text ([16](../architecture/16-logs-feeds-and-notifications.md) §4.2), so it is logged here. (REVIEW G42)
+- **Summary:** A history and a watchlist draw a mirrored entity's sync rows from `view.entity_history (tenant, canonical_id, time, partition, offset, kind, member)`, the one backing of a mirrored entity's history, written by composition; upstream log events are rows of it and never of `view.activity`. The ledger names 0013 §5, 0011 §3 and 0010 §3; the fold also changed §2's chapter text (16 §4.2), so it is logged here. (REVIEW G42)
 
-Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.2.
+Replaced text: 16 §4.2.
 
 ### A17. `private.watch` gains a target index for the addressing projection
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §3
-- **Summary:** `private.watch` gains `CREATE INDEX watch_target ON private.watch (target_kind, target_id) WHERE notify`, which exists for one reader: the addressing projection, which for every activity row must find every account that watches the row's target, its cluster members or its paired talk page with `notify` set, without scanning across accounts; the watchlist itself is read by account through the primary key. The ledger names §6; the watch table's DDL is §3's text ([16](../architecture/16-logs-feeds-and-notifications.md) §4.3), and §6's ([03](../architecture/03-storage-caches-and-search.md) §4.6) is unchanged. (REVIEW G47)
+- **Summary:** `private.watch` gains `CREATE INDEX watch_target ON private.watch (target_kind, target_id) WHERE notify`, which exists for one reader: the addressing projection, which for every activity row must find every account that watches the row's target, its cluster members or its paired talk page with `notify` set, without scanning across accounts; the watchlist itself is read by account through the primary key. The ledger names §6; the watch table's DDL is §3's text (16 §4.3), and §6's (03 §4.6) is unchanged. (REVIEW G47)
 
 ### A18. The watch set, built
 
 - **Date:** 2026-10-25
 - **Source:** Direct: James, design discussion of 2026-10-25
 - **Change:** amends §3, §5
-- **Summary:** `private.watch` is built (migration `0021_watch`), with `action=watch`, `action=setnotificationtimestamp`, `prop=info` `watched` and `notificationtimestamp`, `list=watchlist`, `list=watchlistraw`, `GET /activity?set=watchlist`, the `/watchlist` routes, the `watchlist` parameter of the writes and the site's star, **Watch for…** menu, `Special:Watchlist` and `Special:EditWatchlist`. James chose: the star plus a **Watch for…** disclosure ("Star plus a 'Watch for…' menu"), the seen marks in this round, and the Atom feed with its token, and `scope` and `rows` watches, left for later. Settled in the building, for James to confirm: a row stores its target in `view.activity`'s numbering, with a new kind, `title` (`{ns}:{title}` in the subject namespace), for a title with no page yet, which covers the page once there is one; a page the watcher may not see is watched as its title, so watching it answers as watching a page to come, and a page ID they may not see is refused as missing; what a page is watched as (an entity's page and talk page as the entity; a user page, user talk page and a thread homed there as the user; a talk page as its subject); `seen` is the newest change seen, a change being unseen when newer than `seen` or the watch's addition and not the holder's own, and visiting a watched page marks it seen; `setnotificationtimestamp` only moves `seen` to now; `wlallrev` off shows a page's newest change within each page of results; the `watchlist` parameter applies to `action=edit`, Wikibase's writes and the thread routes (body fields `watchlist`, `watchlistexpiry`), not yet to `action=move`; `action=watch` takes Triplespace's `tsnotify`, and `prop=info` reports `ts-notify`. Chapter text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.3; [18](../architecture/18-api.md) §2.3, §2.4, §3.2.
+- **Summary:** `private.watch` is built (migration `0021_watch`), with `action=watch`, `action=setnotificationtimestamp`, `prop=info` `watched` and `notificationtimestamp`, `list=watchlist`, `list=watchlistraw`, `GET /activity?set=watchlist`, the `/watchlist` routes, the `watchlist` parameter of the writes and the site's star, **Watch for…** menu, `Special:Watchlist` and `Special:EditWatchlist`. James chose: the star plus a **Watch for…** disclosure ("Star plus a 'Watch for…' menu"), the seen marks in this round, and the Atom feed with its token, and `scope` and `rows` watches, left for later. Settled in the building, for James to confirm: a row stores its target in `view.activity`'s numbering, with a new kind, `title` (`{ns}:{title}` in the subject namespace), for a title with no page yet, which covers the page once there is one; a page the watcher may not see is watched as its title, so watching it answers as watching a page to come, and a page ID they may not see is refused as missing; what a page is watched as (an entity's page and talk page as the entity; a user page, user talk page and a thread homed there as the user; a talk page as its subject); `seen` is the newest change seen, a change being unseen when newer than `seen` or the watch's addition and not the holder's own, and visiting a watched page marks it seen; `setnotificationtimestamp` only moves `seen` to now; `wlallrev` off shows a page's newest change within each page of results; the `watchlist` parameter applies to `action=edit`, Wikibase's writes and the thread routes (body fields `watchlist`, `watchlistexpiry`), not yet to `action=move`; `action=watch` takes Triplespace's `tsnotify`, and `prop=info` reports `ts-notify`. Chapter text: 16 §4.3; 18 §2.3, §2.4, §3.2.
 
-Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.3.
+Replaced text: 16 §4.3.
 
-Replaced text: [18](../architecture/18-api.md) §2.3, §2.4, §3.2.
+Replaced text: 18 §2.3, §2.4, §3.2.
 
 ### A19. A deleted target's changes leave the lists
 
@@ -236,13 +236,13 @@ Replaced text: [18](../architecture/18-api.md) §2.3, §2.4, §3.2.
 - **Date:** 2026-11-09
 - **Source:** Direct: Claude, while checking the module catalogue against the code, 2026-11-09; unconfirmed
 - **Change:** corrects §5
-- **Summary:** The module catalogue named `action=unwatch` beside `action=watch`; MediaWiki has no such module (mediawiki-compat.md lists `watch` alone), and unwatching is `action=watch` with `unwatch`, which is served. The row now names `action=watch` only. Chapter text: [18](../architecture/18-api.md) §2.3 (`action-api.toml`).
+- **Summary:** The module catalogue named `action=unwatch` beside `action=watch`; MediaWiki has no such module (mediawiki-compat.md lists `watch` alone), and unwatching is `action=watch` with `unwatch`, which is served. The row now names `action=watch` only. Chapter text: 18 §2.3 (`action-api.toml`).
 
-Replaced text: [18](../architecture/18-api.md) §2.3, `action-api.toml`.
+Replaced text: 18 §2.3, `action-api.toml`.
 
 ### A21. A feed filters by what an entity edit changed
 
 - **Date:** 2026-11-09
 - **Source:** Direct: James, design discussion of 2026-11-09
 - **Change:** extends §1
-- **Summary:** `GET /activity` and the history routes take `changed`: the parts a local change set touched, `labels`, `descriptions`, `aliases`, `sitelinks`, `claims`, `statements`, `references` or `qualifiers`, each optionally with a language, site or property after a colon, several with `|` as alternatives. It is matched against the row's stored summary arguments, so a row that records none matches nothing, and a removed statement, recorded by its ID, is not found by property. James approved the parameter as an API change made for the history's filter panel ([0010](0010-site-ui.md) A56). The feed's tag filter, already served, is named in the chapter. Chapter text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.1.
+- **Summary:** `GET /activity` and the history routes take `changed`: the parts a local change set touched, `labels`, `descriptions`, `aliases`, `sitelinks`, `claims`, `statements`, `references` or `qualifiers`, each optionally with a language, site or property after a colon, several with `|` as alternatives. It is matched against the row's stored summary arguments, so a row that records none matches nothing, and a removed statement, recorded by its ID, is not found by property. James approved the parameter as an API change made for the history's filter panel (0010 A56). The feed's tag filter, already served, is named in the chapter. Chapter text: 16 §4.1.

@@ -98,7 +98,7 @@ James's direction, from the design discussion of 2026-09-30: an instance preroga
 ### A1. Crate table
 
 - **Date:** 2026-09-30
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §11
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A40).
 
@@ -107,56 +107,56 @@ Replaced text: §11 of this ADR.
 ### A2. The primary tenant
 
 - **Date:** 2026-09-30
-- **Source:** [0046](0046-primary-tenant.md) §1, §6–8
+- **Source:** 0046 §1, §6–8
 - **Change:** amends §2, §4, §9
 - **Summary:** By section:
   - §2: The operator's IRI is `{farm base}/instance/operator`. The farm slug in its actor key is defined in 0046 §6: the instance's own slug, distinct from every tenant's, and never changed.
   - §4: "An actor of the primary tenant" means an actor of the tenant that held the role when the authority record was appended, as the history of the `primary` record shows, and `verify` checks it so. An authority record attested by an operator of a former primary tenant stays valid after a transfer.
-  - §9: Three more instance rights: `ts-primary` (offering the primary role; `owner` only), `mwoauthmanageconsumer` (approving OAuth consumers, [0025](0025-oauth-server.md) §2) and `ts-runjob` for instance jobs. An instance right is evaluated on the tenant that is primary at the time of the act.
+  - §9: Three more instance rights: `ts-primary` (offering the primary role; `owner` only), `mwoauthmanageconsumer` (approving OAuth consumers, 0025 §2) and `ts-runjob` for instance jobs. An instance right is evaluated on the tenant that is primary at the time of the act.
 
 Replaced text: §2 of this ADR; §4 of this ADR; §9 of this ADR.
 
 ### A3. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §2, §4, §9, §11
 - **Summary:** A1–A2 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A2 was three blockquotes, and A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
 
 ### A4. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§11
 
 ### A5. The operator's key carries the farm code
 
 - **Date:** 2026-10-09
-- **Source:** [0079](0079-derived-issuer-codes.md) §4
+- **Source:** 0079 §4
 - **Change:** amends §2, §3, §7
-- **Summary:** The operator actor's key is `instance:{farm code}`, where the farm code is derived from the instance's founding record ([0079](0079-derived-issuer-codes.md) §4), not the farm slug, which no longer appears in any key. The attestation's `actor` field, log projections and contributions use that key.
+- **Summary:** The operator actor's key is `instance:{farm code}`, where the farm code is derived from the instance's founding record (0079 §4), not the farm slug, which no longer appears in any key. The attestation's `actor` field, log projections and contributions use that key.
 
-Replaced text: §2, in [08](../architecture/08-tenants-and-instances.md) §8.2; §3, in [08](../architecture/08-tenants-and-instances.md) §8.3; §7, in [16](../architecture/16-logs-feeds-and-notifications.md) §2.1 and [19](../architecture/19-site-ui.md) §2.5, §6.11.
+Replaced text: §2, in 08 §8.2; §3, in 08 §8.3; §7, in 16 §2.1 and 19 §2.5, §6.11.
 
 ### A6. The founding attestation
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §3
-- **Summary:** The record at offset 0 of any `config` partition carries a third attestation form beside the actor attestation and the instance attestation: the **founding attestation**, with no actor, a signature by the key the record registers (self-certifying), and, for a tenant's founding record, the authority `(instance config, 0)`, the instance's own founding record, which itself has no authority at all. The issuer or farm code is derived from the founding record's leaf afterwards ([0079](0079-derived-issuer-codes.md)). Offsets 1 and 2 of the instance `config`, the `tenant:` and `primary` records, are attested by `instance:{farm code}` with the founding record as authority. A single-tenant instance therefore needs no authority record and no `ts-prerogative` path to exist before its first entity. The fold is in [08](../architecture/08-tenants-and-instances.md) §8.3, with §2.2, §3.2 and §7.2; nothing is contradicted. (REVIEW G22)
+- **Summary:** The record at offset 0 of any `config` partition carries a third attestation form beside the actor attestation and the instance attestation: the **founding attestation**, with no actor, a signature by the key the record registers (self-certifying), and, for a tenant's founding record, the authority `(instance config, 0)`, the instance's own founding record, which itself has no authority at all. The issuer or farm code is derived from the founding record's leaf afterwards (0079). Offsets 1 and 2 of the instance `config`, the `tenant:` and `primary` records, are attested by `instance:{farm code}` with the founding record as authority. A single-tenant instance therefore needs no authority record and no `ts-prerogative` path to exist before its first entity. The fold is in 08 §8.3, with §2.2, §3.2 and §7.2; nothing is contradicted. (REVIEW G22)
 
 ### A7. `site` templates write nothing
 
 - **Date:** 2026-10-17
-- **Source:** [0085](0085-settings-and-preferences.md) §2.1
+- **Source:** 0085 §2.1
 - **Change:** amends §6
-- **Summary:** Tenant creation provisions templates of every kind but `site`: a `site` template is the instance's evaluated default for the setting and is never written into the tenant, so it is no instance act. Locked templates are unchanged. The chapter row is [08](../architecture/08-tenants-and-instances.md) §8.6.
+- **Summary:** Tenant creation provisions templates of every kind but `site`: a `site` template is the instance's evaluated default for the setting and is never written into the tenant, so it is no instance act. Locked templates are unchanged. The chapter row is 08 §8.6.
 
-Replaced text: [08](../architecture/08-tenants-and-instances.md) §8.6.
+Replaced text: 08 §8.6.
 
 ### A8. Keying a palette or type set
 
 - **Date:** 2026-10-18
-- **Source:** [0086](0086-theming.md) A1
+- **Source:** 0086 A1
 - **Change:** extends §6
-- **Summary:** A new written act: the instance renames a tenant's palette or type set to `{name}~{slug}` when the tenant joins, when the instance takes the name with `key=tenants`, or when `registry sync` adds it, rewriting the tenant's references in the same act. It is a provision, so the tenant may rename the record again; its authority is a job record in the instance `log` that lists the renames. The chapter row is [08](../architecture/08-tenants-and-instances.md) §8.6.
+- **Summary:** A new written act: the instance renames a tenant's palette or type set to `{name}~{slug}` when the tenant joins, when the instance takes the name with `key=tenants`, or when `registry sync` adds it, rewriting the tenant's references in the same act. It is a provision, so the tenant may rename the record again; its authority is a job record in the instance `log` that lists the renames. The chapter row is 08 §8.6.

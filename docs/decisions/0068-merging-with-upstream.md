@@ -83,12 +83,12 @@ James's direction, from the design discussions of 2026-10-04 and 2026-10-05:
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design discussion of 2026-10-09
 - **Change:** amends §4
-- **Summary:** [0069](0069-synchronized-talk-pages.md), the newer, stands: a following fork sends a `talk`-destination proposal through 0069 §6 now, gated by 0069 §6's switch; this section's "later phase" applies to page proposals only. (PENDING F3)
+- **Summary:** 0069, the newer, stands: a following fork sends a `talk`-destination proposal through 0069 §6 now, gated by 0069 §6's switch; this section's "later phase" applies to page proposals only. (PENDING F3)
 
 Replaced text: §4 of this ADR.
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§7

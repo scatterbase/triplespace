@@ -81,7 +81,7 @@ The instance already has every part of this. [0013](0013-postgres-storage.md) §
 ### A1. Crate table
 
 - **Date:** 2026-09-27
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §9
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A25).
 
@@ -90,14 +90,14 @@ Replaced text: §9 of this ADR.
 ### A2. Main-namespace titles resolve last
 
 - **Date:** 2026-09-29
-- **Source:** [0038](0038-page-metadata-and-categories.md) §8
+- **Source:** 0038 §8
 - **Change:** extends §6
 - **Summary:** With the main namespace implemented, `/resolve` tries main-namespace titles last, after every form above. A bare ID still reaches its entity first; a main-namespace page with the same title is returned in an `also` field.
 
 ### A3. Namespace kinds name models
 
 - **Date:** 2026-09-30
-- **Source:** [0041](0041-content-models.md) §4
+- **Source:** 0041 §4
 - **Change:** amends §2
 - **Summary:** The kinds beside `resolver` are now `pages`, `reserved` and `virtual`: entity view, document, composite and thread namespaces are `pages` namespaces told apart by content model. `resolver` stays a kind, because a resolver namespace holds no pages and so has no model.
 
@@ -106,28 +106,28 @@ Replaced text: §2 of this ADR.
 ### A4. Special pages for the item form and disambiguation
 
 - **Date:** 2026-10-01
-- **Source:** [0047](0047-special-pages.md) §5, §9
+- **Source:** 0047 §5, §9
 - **Change:** extends §3
 - **Summary:** The item form is `Special:NewItem` with `statement={property}:{key}` filled in, and the disambiguation page uses `Special:ItemDisambiguation`'s layout.
 
 ### A5. Notation scheme names
 
 - **Date:** 2026-10-01
-- **Source:** [0048](0048-notation.md) §2
+- **Source:** 0048 §2
 - **Change:** extends §2, §6
 - **Summary:** Scheme names join the one namespace of keyed-type and resolver names, and `/resolve` tries a notation key after keyed IDs and before resolver strings.
 
 ### A6. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §1–9
 - **Summary:** A1–A5 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A2–A4 were blockquotes, and A5 was recorded only in 0048. The file before conversion is commit `0b26a3a`.
 
 ### A7. Entity sources
 
 - **Date:** 2026-10-08
-- **Source:** [0078](0078-entity-sources.md) §3, §5
+- **Source:** 0078 §3, §5
 - **Change:** extends §2, §6
 - **Summary:** Registry provider slugs and, per tenant, the tenant's entity-source names join the one namespace of keyed-type, resolver and notation scheme names; `wikidata:Q42` is an input form of `WDQ42`. A source may not take a registry name, and a registry name added later is shadowed on a tenant whose source has it. An entity source's namespace is a `resolver` namespace with its own lookup. `/resolve` tries source IDs with the other entity IDs.
 
@@ -136,7 +136,7 @@ Replaced text: §2 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §2
-- **Summary:** Drop "as Thread talk is": `Thread talk` has been `virtual` since [0049](0049-boards.md) §2, so it is no longer the example of a `reserved` talk namespace. A resolver's paired talk namespace stays `reserved` and empty. (PENDING E14)
+- **Summary:** Drop "as Thread talk is": `Thread talk` has been `virtual` since 0049 §2, so it is no longer the example of a `reserved` talk namespace. A resolver's paired talk namespace stays `reserved` and empty. (PENDING E14)
 
 Replaced text: §2 of this ADR.
 
@@ -145,14 +145,14 @@ Replaced text: §2 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §6
-- **Summary:** The `/resolve` order of [0012](0012-api-requirements.md) §5 folds §6's step: a string that normalizes to a notation key ([0048](0048-notation.md) §2) resolves, as the one exception to the bare-key rule; any other bare string that normalizes to a valid key of a resolver is returned as a suggestion, not resolved. The order stays entity IDs (source IDs among them), keyed-type IDs, notation keys, resolver-prefixed strings, main-namespace titles. (PENDING E40)
+- **Summary:** The `/resolve` order of 0012 §5 folds §6's step: a string that normalizes to a notation key (0048 §2) resolves, as the one exception to the bare-key rule; any other bare string that normalizes to a valid key of a resolver is returned as a suggestion, not resolved. The order stays entity IDs (source IDs among them), keyed-type IDs, notation keys, resolver-prefixed strings, main-namespace titles. (PENDING E40)
 
 Replaced text: §6 of this ADR.
 
 ### A10. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§9
 
 ### A11. A DOI is percent-decoded only when written as a URI
@@ -160,7 +160,7 @@ Replaced text: §6 of this ADR.
 - **Date:** 2026-11-06
 - **Source:** Direct: James, choosing between the fixes for the DOI normalizer's idempotence, 2026-11-06; Claude wrote the details while building it, unconfirmed
 - **Change:** amends §1
-- **Summary:** The normalizer percent-decoded every input, so the key was not a fixed point: `10.1000/%2541` became `10.1000/%41` and then `10.1000/A`. James chose to decode only URL forms; a bare DOI is taken as written, so a `%` in it is a character of the DOI, as the DOI Handbook allows. Two details are Claude's, for James to confirm: the `doi:` prefix counts as a URI form and is decoded too, and a bare DOI with `%` that was decoded before (`10.1000/%58yz` was `10.1000/xyz`) now keeps it, which changes the stored key of any such value at the next rebuild. Folded at [06](../architecture/06-statements-and-properties.md) §3.1.
+- **Summary:** The normalizer percent-decoded every input, so the key was not a fixed point: `10.1000/%2541` became `10.1000/%41` and then `10.1000/A`. James chose to decode only URL forms; a bare DOI is taken as written, so a `%` in it is a character of the DOI, as the DOI Handbook allows. Two details are Claude's, for James to confirm: the `doi:` prefix counts as a URI form and is decoded too, and a bare DOI with `%` that was decoded before (`10.1000/%58yz` was `10.1000/xyz`) now keeps it, which changes the stored key of any such value at the next rebuild. Folded at 06 §3.1.
 
-Replaced text: [06](../architecture/06-statements-and-properties.md) §3.1.
+Replaced text: 06 §3.1.
 

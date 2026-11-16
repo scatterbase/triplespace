@@ -123,7 +123,7 @@ James's direction, from the design discussion of 2026-09-30:
 ### A1. Crate table
 
 - **Date:** 2026-09-30
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §17
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries `triplespace-scribunto` and every change this section listed (0005 A43).
 
@@ -132,21 +132,21 @@ Replaced text: §17 of this ADR.
 ### A2. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §17
 - **Summary:** A1 was folded into the Decision. The open questions were numbered, and §14's heading now says it extends 0005 §3, as 0005 A43 records. No decision changed. Before this, A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
 
 ### A3. `getContent` may not widen
 
 - **Date:** 2026-10-01
-- **Source:** [0056](0056-security-model.md) §6
+- **Source:** 0056 §6
 - **Change:** extends §5
 - **Summary:** `mw.title.getContent` and `exists` treat a page the rendering page may not include, under the flow rule, as missing.
 
 ### A4. `mw.wikibase.lexeme`
 
 - **Date:** 2026-10-05
-- **Source:** [0066](0066-lexemes.md) §9
+- **Source:** 0066 §9
 - **Change:** extends §7
 - **Summary:** The lexeme library, as WikibaseLexeme documents it; Q4 settled.
 
@@ -155,7 +155,7 @@ Replaced text: §17 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §3
-- **Summary:** [0008](0008-namespaces-and-document-pages.md) §5's exclusion now covers `css` and `javascript` only: `sanitized-css` is implemented ([0055](0055-templatestyles-templatedata-and-page-properties.md) §1; [0041](0041-content-models.md) A7). §3's paragraph reads "the other two stay excluded" (`css`, `javascript`) and points at 0055 §1 for `sanitized-css`. (PENDING E18)
+- **Summary:** 0008 §5's exclusion now covers `css` and `javascript` only: `sanitized-css` is implemented (0055 §1; 0041 A7). §3's paragraph reads "the other two stay excluded" (`css`, `javascript`) and points at 0055 §1 for `sanitized-css`. (PENDING E18)
 
 Replaced text: §3 of this ADR.
 
@@ -164,38 +164,38 @@ Replaced text: §3 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §11
-- **Summary:** The count of misses §11 says `render_state` keeps is a named column, `unheld_misses integer`, of `view.render_state` ([0042](0042-template-expansion-and-parsoid.md) §10, A15). (PENDING E23)
+- **Summary:** The count of misses §11 says `render_state` keeps is a named column, `unheld_misses integer`, of `view.render_state` (0042 §10, A15). (PENDING E23)
 
 ### A7. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§17
 
 ### A8. Usage invalidation is a tier-3 consumer of composition
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §3
+- **Source:** 0083 §3
 - **Change:** amends §10
-- **Summary:** Invalidation no longer hangs off "when an entity's `resolved_version` changes": the composer emits "entity X, tenant T, composed to version N" after each composed row commits, and the entity-usage consumer reads those events in its own queue, with its own rate and lag, never inside the appending or composing transaction. The consumer is off while no tenant on the instance has `wikitext.expansion` on, and off during bootstrap and bulk modes until the operator turns it on; its lag is reported on its own page, and a page's render may be behind an entity by that lag. Chapter text: [11](../architecture/11-rendering-templates-and-modules.md) §7.9, §4.4. (REVIEW G10)
+- **Summary:** Invalidation no longer hangs off "when an entity's `resolved_version` changes": the composer emits "entity X, tenant T, composed to version N" after each composed row commits, and the entity-usage consumer reads those events in its own queue, with its own rate and lag, never inside the appending or composing transaction. The consumer is off while no tenant on the instance has `wikitext.expansion` on, and off during bootstrap and bulk modes until the operator turns it on; its lag is reported on its own page, and a page's render may be behind an entity by that lag. Chapter text: 11 §7.9, §4.4. (REVIEW G10)
 
-Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §7.9, §4.4.
+Replaced text: 11 §7.9, §4.4.
 
 ### A9. The Interface namespace
 
 - **Date:** 2026-10-28
-- **Source:** [0095](0095-the-interface-namespace.md) §2
+- **Source:** 0095 §2
 - **Change:** amends §5
 - **Summary:** `mw.message` reads messages under the wiki's Interface pages (0095 §2).
 
-Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §7.5.
+Replaced text: 11 §7.5.
 
 ### A10. No commercial licence
 
 - **Date:** 2026-11-07
 - **Source:** Direct: James, design discussion of 2026-11-07
 - **Change:** amends §14
-- **Summary:** The `scatter-*` crates are no longer offered under a commercial licence ([0005](0005-crate-organization.md) A114), so the vendored Lua is no longer kept out of them for that reason. `triplespace-scribunto` stays where it is, and the Lua vendored into it keeps its upstream licences.
+- **Summary:** The `scatter-*` crates are no longer offered under a commercial licence (0005 A114), so the vendored Lua is no longer kept out of them for that reason. `triplespace-scribunto` stays where it is, and the Lua vendored into it keeps its upstream licences.
 
-Replaced text: [22](../architecture/22-crates-and-stack.md) §3.3.
+Replaced text: 22 §3.3.
 

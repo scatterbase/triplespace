@@ -124,36 +124,36 @@ James's direction, from the design discussion of 2026-11-12 to 2026-11-15:
 - **Date:** 2026-11-16
 - **Source:** Direct: James, design discussion of 2026-11-16
 - **Change:** amends §1
-- **Summary:** Settles Q2. A remote key's labels are editable, as a keyword's are, and a stored label always wins. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.11.
+- **Summary:** Settles Q2. A remote key's labels are editable, as a keyword's are, and a stored label always wins. Chapter text: 04 §3.11.
 
-Replaced text: [04](../architecture/04-entities-and-identifiers.md) §3.11.
+Replaced text: 04 §3.11.
 
 ### A2. A host may name a title alias
 
 - **Date:** 2026-11-16
 - **Source:** Direct: James, design discussion of 2026-11-16
 - **Change:** extends §2, §6
-- **Summary:** Settles Q3. A host entry may carry `alias`, a title form that normalizes to the canonical `Remote:` title and takes no namespace number: `Wikimedia:enwiki-p12` is `Remote:wikimedia:enwiki-p12`. An alias colliding with a namespace name or alias or a site-alias interwiki prefix on the tenant is refused. Wikimedia's alias is `Wikimedia`; its interwiki prefix points to the Foundation's governance wiki, and the alias's talk titles avoid the interwiki prefix that `Remote talk:wikimedia:…` begins with. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.12; [10](../architecture/10-pages-and-content-models.md) §1.4.
+- **Summary:** Settles Q3. A host entry may carry `alias`, a title form that normalizes to the canonical `Remote:` title and takes no namespace number: `Wikimedia:enwiki-p12` is `Remote:wikimedia:enwiki-p12`. An alias colliding with a namespace name or alias or a site-alias interwiki prefix on the tenant is refused. Wikimedia's alias is `Wikimedia`; its interwiki prefix points to the Foundation's governance wiki, and the alias's talk titles avoid the interwiki prefix that `Remote talk:wikimedia:…` begins with. Chapter text: 04 §3.12; 10 §1.4.
 
 ### A3. Tenants may declare hosts
 
 - **Date:** 2026-11-16
 - **Source:** Direct: James, design discussion of 2026-11-16
 - **Change:** amends §2, §3
-- **Summary:** Settles Q4. Besides registry hosts, a tenant may declare a host as a `remote-host` config record, on the entity-source pattern: its name joins the tenant's table of names under the sources' rules, its keys mean something only on that tenant, its IRIs are under the tenant's base, its site grammar is a built-in one, and it can be promoted to the registry, keeping its keys' form and recording each old IRI as `owl:sameAs` the new. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.11, §3.12; [05](../architecture/05-providers-and-ingest.md) §6.2, §6.3; [23](../architecture/23-configuration-and-registry.md) §2.2.
+- **Summary:** Settles Q4. Besides registry hosts, a tenant may declare a host as a `remote-host` config record, on the entity-source pattern: its name joins the tenant's table of names under the sources' rules, its keys mean something only on that tenant, its IRIs are under the tenant's base, its site grammar is a built-in one, and it can be promoted to the registry, keeping its keys' form and recording each old IRI as `owl:sameAs` the new. Chapter text: 04 §3.11, §3.12; 05 §6.2, §6.3; 23 §2.2.
 
-Replaced text: [04](../architecture/04-entities-and-identifiers.md) §3.12, §3.11, the Grammar row; [05](../architecture/05-providers-and-ingest.md) §6.2.
+Replaced text: 04 §3.12, §3.11, the Grammar row; 05 §6.2.
 
 ### A4. The `revision-of` role
 
 - **Date:** 2026-11-16
 - **Source:** Direct: James, design discussion of 2026-11-16
 - **Change:** extends §1
-- **Summary:** Settles Q6. Which page a remote revision key belongs to is said by a statement whose property plays the role `revision-of`, asserted by ingests on the revision key with the page key as value; on a tenant that serves the site it is to be projected as well, once synced pages' projected statements exist. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.11; [06](../architecture/06-statements-and-properties.md) §1.2.
+- **Summary:** Settles Q6. Which page a remote revision key belongs to is said by a statement whose property plays the role `revision-of`, asserted by ingests on the revision key with the page key as value; on a tenant that serves the site it is to be projected as well, once synced pages' projected statements exist. Chapter text: 04 §3.11; 06 §1.2.
 
 ### A5. Remote is an umbrella over keyed types
 
 - **Date:** 2026-11-16
 - **Source:** Direct: James, design discussion of 2026-11-16
 - **Change:** extends §3
-- **Summary:** Settles Q8 with James's justification: Remote is an umbrella over what would be one keyed type per host, and what qualifies those things as keyed is that they are self-validating in identity, which is the test any new keyed type must pass. 0048's rule stands for terms. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.9.
+- **Summary:** Settles Q8 with James's justification: Remote is an umbrella over what would be one keyed type per host, and what qualifies those things as keyed is that they are self-validating in identity, which is the test any new keyed type must pass. 0048's rule stands for terms. Chapter text: 04 §3.9.

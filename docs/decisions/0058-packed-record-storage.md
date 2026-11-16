@@ -134,12 +134,12 @@ James's direction, from the design discussion of 2026-10-04:
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §8
-- **Summary:** Tenant deletion is [0028](0028-tenancy-policy.md) §5 and [0040](0040-instance-prerogatives.md) §6, not 0039 §9's reclaim: a tenant's partitions are dropped after its `erase` records are written, and only then can the domain's child table go with them. §8 cited the wrong ADR and did not say when the drop happens. (PENDING C8)
+- **Summary:** Tenant deletion is 0028 §5 and 0040 §6, not 0039 §9's reclaim: a tenant's partitions are dropped after its `erase` records are written, and only then can the domain's child table go with them. §8 cited the wrong ADR and did not say when the drop happens. (PENDING C8)
 
 Replaced text: §8 of this ADR.
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§12

@@ -82,31 +82,31 @@ James's direction, 2026-10-30, after the catalogue moves:
 - **Date:** 2026-10-30
 - **Source:** Direct: James, review of 2026-10-30
 - **Change:** extends §3
-- **Summary:** Everything that waits on a decision is one generated, committed page, `docs/decisions/OPEN.md`: every open question across the ADRs with its first sentence, every unconfirmed log entry (moved there from INDEX, which keeps the counts), and the registry's pending allocations. What waits on work stays a command, `coverage.py --todo`, which now leads with the code's not-built-yet comments, because it changes with every code commit. The fold is in [24](../architecture/24-documentation.md) §13.
+- **Summary:** Everything that waits on a decision is one generated, committed page, `docs/decisions/OPEN.md`: every open question across the ADRs with its first sentence, every unconfirmed log entry (moved there from INDEX, which keeps the counts), and the registry's pending allocations. What waits on work stays a command, `coverage.py --todo`, which now leads with the code's not-built-yet comments, because it changes with every code commit. The fold is in 24 §13.
 
-Replaced text: [24](../architecture/24-documentation.md) §13.
+Replaced text: 24 §13.
 
 ### A2. What other documents say is built comes from the code
 
 - **Date:** 2026-11-09
 - **Source:** Direct: Claude, while building the crate map's as-built view and the status tables James asked for in discussion of 2026-11-09; confirmed by James, 2026-11-09
 - **Change:** extends §2, §5
-- **Summary:** The status is written from the code outside the ADRs too. The crate map's generated views show what the code says beside the design: the table in [22](../architecture/22-crates-and-stack.md) §2.1 gains a *Built* column (whether each crate is in the workspace), and each entry of `CRATES.md` ends with an *As built* paragraph, the first paragraph of the crate's `//!` docs and the sections its src claims, from the new `coverage.py --crates`. The `contents` field of `crates.toml` is unchanged: it is the current text of the ADRs' Crates trailers, so it stays the design. A document that relies on parts of the design names them in a status table, whose last column `coverage.py --blocks --write` writes from the code and `check.sh` checks; `docs/testing/real-dumps.md`'s hand-kept list of what the code can and cannot do, a remnant of the working notes §5 retired, which had gone stale (it called 0013 §9 bootstrap mode and `verify` unbuilt), is the first replaced. The fold is in [24](../architecture/24-documentation.md) §15 and [22](../architecture/22-crates-and-stack.md) §2.1.
+- **Summary:** The status is written from the code outside the ADRs too. The crate map's generated views show what the code says beside the design: the table in 22 §2.1 gains a *Built* column (whether each crate is in the workspace), and each entry of `CRATES.md` ends with an *As built* paragraph, the first paragraph of the crate's `//!` docs and the sections its src claims, from the new `coverage.py --crates`. The `contents` field of `crates.toml` is unchanged: it is the current text of the ADRs' Crates trailers, so it stays the design. A document that relies on parts of the design names them in a status table, whose last column `coverage.py --blocks --write` writes from the code and `check.sh` checks; `docs/testing/real-dumps.md`'s hand-kept list of what the code can and cannot do, a remnant of the working notes §5 retired, which had gone stale (it called 0013 §9 bootstrap mode and `verify` unbuilt), is the first replaced. The fold is in 24 §15 and 22 §2.1.
 
 ### A3. Product scripts under tools/ are source
 
 - **Date:** 2026-11-09
 - **Source:** Direct: James, design discussion of 2026-11-09
 - **Change:** extends §1
-- **Summary:** A script under `tools/` that is part of the product rather than a check of it says so near its top, "Product code (24 §15)", and `coverage.py` reads it as src, so it can carry an `implements` claim; every other script there is still a test. The documentation site's hooks (`tools/docs_site.py`, 0109) are the first. Settles 0109 Q2. Chapter text: [24](../architecture/24-documentation.md) §15.
+- **Summary:** A script under `tools/` that is part of the product rather than a check of it says so near its top, "Product code (24 §15)", and `coverage.py` reads it as src, so it can carry an `implements` claim; every other script there is still a test. The documentation site's hooks (`tools/docs_site.py`, 0109) are the first. Settles 0109 Q2. Chapter text: 24 §15.
 
-Replaced text: [24](../architecture/24-documentation.md) §15.
+Replaced text: 24 §15.
 
 ### A4. A claim's entry is read from the log
 
 - **Date:** 2026-11-16
 - **Source:** Direct: James, review of pull request #262, 2026-11-16
 - **Change:** amends §1
-- **Summary:** [0050](0050-adr-format.md) A10 retires the `*Changed by …*` lines. Whether a section has been changed, and by which entry a claim must be current, is read from the log's Change lines; the rule is otherwise as it was, and `coverage.py` reports the same status for every ADR. Chapter text: [24](../architecture/24-documentation.md) §15.
+- **Summary:** 0050 A10 retires the `*Changed by …*` lines. Whether a section has been changed, and by which entry a claim must be current, is read from the log's Change lines; the rule is otherwise as it was, and `coverage.py` reports the same status for every ADR. Chapter text: 24 §15.
 
-Replaced text: [24](../architecture/24-documentation.md) §15.
+Replaced text: 24 §15.

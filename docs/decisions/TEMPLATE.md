@@ -100,8 +100,8 @@ Every change is folded, extensions included: no callouts.
 ### A1. Short title of the change
 
 - **Date:** YYYY-MM-DD
-- **Source:** [NNNN](NNNN-slug.md) §N  <!-- or: Direct: James, design discussion of YYYY-MM-DD -->
+- **Source:** NNNN §N  <!-- plain, as every citation in the log is (24 §9); or: Direct: James, design discussion of YYYY-MM-DD -->
 - **Change:** amends §2; extends §3  <!-- amends, extends, supersedes, corrects, retitles, consolidates -->
 - **Summary:** What changed and why, in a few sentences, with the chapter sections it changed. For a direct decision, the decision in full.
 
-Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.5.
+Replaced text: 03 §4.5.

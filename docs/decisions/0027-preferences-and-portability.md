@@ -83,7 +83,7 @@ This ADR does three things: it names every kind of private state and puts prefer
 ### A1. Crate table
 
 - **Date:** 2026-09-27
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §9
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A23).
 
@@ -92,7 +92,7 @@ Replaced text: §9 of this ADR.
 ### A2. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §9
 - **Summary:** The open questions were numbered and §9 became a stub. No decision changed; nothing had amended this ADR. The file before conversion is commit `0b26a3a`.
 
@@ -108,7 +108,7 @@ Replaced text: none; §2 gains two sentences.
 ### A4. Upstream grants
 
 - **Date:** 2026-10-05
-- **Source:** [0067](0067-proposals.md) §6
+- **Source:** 0067 §6
 - **Change:** extends §2
 - **Summary:** `private.upstream_grant` is re-established, not carried.
 
@@ -122,7 +122,7 @@ Replaced text: none; §2 gains two sentences.
 ### A6. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§9
 
 ### A7. The preference registry is copied on create and synced
@@ -130,48 +130,48 @@ Replaced text: none; §2 gains two sentences.
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §1
-- **Summary:** `docs/registry/preferences.toml` is a registry file like the others, and the rule of the review's copy-on-create decision applies to it: an instance's `config` starts as a copy of the registry, `triplespace-cli registry sync` appends records for registry entries newer than the instance's under the instance attestation, `instance check` warns when the instance is behind the registry its binary carries, every config record's content carries its kind's `schema` integer, and `view.registry` stores an entry opaquely with its schema number, so an unknown kind or schema is projected opaquely and never fails replay. A preference key a later release registers therefore reaches an existing instance through `registry sync`, and an instance's own defaults (`preferences.defaults`) and added keys are records beside the copied ones. The ledger named §2 (private state and portability); the registry is §1's, which the finding (F-07-6, at [07](../architecture/07-actors-and-accounts.md) §8.1) names, and no sentence of §1's chapter text is contradicted; the rule itself is stated in [23](../architecture/23-configuration-and-registry.md) §1.1 and §4.1. (REVIEW G36)
+- **Summary:** `docs/registry/preferences.toml` is a registry file like the others, and the rule of the review's copy-on-create decision applies to it: an instance's `config` starts as a copy of the registry, `triplespace-cli registry sync` appends records for registry entries newer than the instance's under the instance attestation, `instance check` warns when the instance is behind the registry its binary carries, every config record's content carries its kind's `schema` integer, and `view.registry` stores an entry opaquely with its schema number, so an unknown kind or schema is projected opaquely and never fails replay. A preference key a later release registers therefore reaches an existing instance through `registry sync`, and an instance's own defaults (`preferences.defaults`) and added keys are records beside the copied ones. The ledger named §2 (private state and portability); the registry is §1's, which the finding (F-07-6, at 07 §8.1) names, and no sentence of §1's chapter text is contradicted; the rule itself is stated in 23 §1.1 and §4.1. (REVIEW G36)
 
 ### A8. Preference resolution, `follows` and `browser`, and Special:Preferences
 
 - **Date:** 2026-10-17
-- **Source:** [0085](0085-settings-and-preferences.md) §1, §2.2, §5
+- **Source:** 0085 §1, §2.2, §5
 - **Change:** amends §1; amends §7
-- **Summary:** A preference resolves to the account's own value, then `preferences.defaults` (the tenant's map merged key by key over the instance's default for it), then the registry default. `Special:Preferences` becomes a page of its own with a tab per group, the notification matrix among them, instead of a section of `Special:Account`. Q4 is settled by [0085](0085-settings-and-preferences.md) §6. The chapter text is [07](../architecture/07-actors-and-accounts.md) §8.1 and [19](../architecture/19-site-ui.md) §2.4 and §2.6.
+- **Summary:** A preference resolves to the account's own value, then `preferences.defaults` (the tenant's map merged key by key over the instance's default for it), then the registry default. `Special:Preferences` becomes a page of its own with a tab per group, the notification matrix among them, instead of a section of `Special:Account`. Q4 is settled by 0085 §6. The chapter text is 07 §8.1 and 19 §2.4 and §2.6.
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §8.1; [19](../architecture/19-site-ui.md) §2.4; [23](../architecture/23-configuration-and-registry.md) §3.2.
+Replaced text: 07 §8.1; 19 §2.4; 23 §3.2.
 
 ### A9. Client credentials never leave
 
 - **Date:** 2026-10-18
-- **Source:** [0088](0088-external-identity-providers.md) §3
+- **Source:** 0088 §3
 - **Change:** extends §2
-- **Summary:** `private.oauth_client` is "never leaves": a consumer belongs to the host it was registered for. `private.binding` follows the bindings, which do not travel; `private.oauth_flow` is ephemeral. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §4.16.
+- **Summary:** `private.oauth_client` is "never leaves": a consumer belongs to the host it was registered for. `private.binding` follows the bindings, which do not travel; `private.oauth_flow` is ephemeral. The chapter text is 03 §4.16.
 
 ### A10. Email addresses leave the bundle
 
 - **Date:** 2026-11-05
-- **Source:** [0100](0100-email-addresses-and-verification-codes.md) §9
+- **Source:** 0100 §9
 - **Change:** amends §2, §3
-- **Summary:** Email addresses belong to the instance login, which no tenant owns ([0100](0100-email-addresses-and-verification-codes.md) §1), so they are no longer an account's portable contact details: the user data bundle's `contacts` holds the fediverse handle alone, and a tenant move or an import carries no address.
+- **Summary:** Email addresses belong to the instance login, which no tenant owns (0100 §1), so they are no longer an account's portable contact details: the user data bundle's `contacts` holds the fediverse handle alone, and a tenant move or an import carries no address.
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §8.3, §8.4.
+Replaced text: 07 §8.3, §8.4.
 
 ### A11. The private extract is sealed with the rest of the transfer
 
 - **Date:** 2026-11-07
-- **Source:** [0103](0103-export-transfer-and-backup.md) §3
+- **Source:** 0103 §3
 - **Change:** amends §4
-- **Summary:** The private extract no longer travels apart from the bundle: the whole transfer is sealed to the receiving instance's key, the extract with it, and the binding digest's secret still passes operator to operator. Chapter text: [07](../architecture/07-actors-and-accounts.md) §8.5.
+- **Summary:** The private extract no longer travels apart from the bundle: the whole transfer is sealed to the receiving instance's key, the extract with it, and the binding digest's secret still passes operator to operator. Chapter text: 07 §8.5.
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §8.5.
+Replaced text: 07 §8.5.
 
 ### A12. A recovered move carries restricted content
 
 - **Date:** 2026-11-07
-- **Source:** [0103](0103-export-transfer-and-backup.md) §7
+- **Source:** 0103 §7
 - **Change:** amends §4
-- **Summary:** A non-cooperative move was limited to the public bundle. It still carries no private extract, but a `recovered` continuation also carries the tenant's restricted content (0103 §7). Chapter text: [07](../architecture/07-actors-and-accounts.md) §8.5.
+- **Summary:** A non-cooperative move was limited to the public bundle. It still carries no private extract, but a `recovered` continuation also carries the tenant's restricted content (0103 §7). Chapter text: 07 §8.5.
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §8.5.
+Replaced text: 07 §8.5.
 

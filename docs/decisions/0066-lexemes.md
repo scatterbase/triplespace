@@ -94,14 +94,14 @@ James's direction, from the design discussion of 2026-10-05:
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §4
-- **Summary:** Merging two local lexemes is a `redirect`, as for items ([0004](0004-identity-clusters-and-equivalence.md) §2, unchanged): the source's forms and senses move to the target with new part numbers and each part leaves a redirect; no cluster is formed within the local namespace. (PENDING B7)
+- **Summary:** Merging two local lexemes is a `redirect`, as for items (0004 §2, unchanged): the source's forms and senses move to the target with new part numbers and each part leaves a redirect; no cluster is formed within the local namespace. (PENDING B7)
 
 Replaced text: §4 of this ADR.
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§10
 
 ### A3. The part suffix belongs to the lexeme entity type, not to a grammar

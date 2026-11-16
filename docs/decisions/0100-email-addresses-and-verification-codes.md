@@ -113,7 +113,7 @@ None.
 - **Date:** 2026-11-06
 - **Source:** Direct: Claude, while building the email addresses of SCA-279, 2026-11-06; unconfirmed
 - **Change:** extends §1, §7
-- **Summary:** [0089](0089-the-auth-host-and-instance-logins.md) §2's instance logins and `private.login` are not built, so an address cannot yet be keyed by a login ID. `private.email.login` holds the login's identifier as text, and until logins exist that identifier is the actor key of the account whose session adds the address; on a single-tenant instance, where the tenant's base is the auth base, that is one login per person. The `/auth/email` routes and the Email addresses section are served on the tenant's host, as `GET /account` is, rather than at a separate auth base, and a request by API key is refused (`permissiondenied`): addresses are managed in a session of the login. The migration of 0089 §15 rekeys the rows from actor keys to login IDs when it is built. The alternative, building logins first, would have put the email work behind a larger one that nothing else in SCA-279 needs.
+- **Summary:** 0089 §2's instance logins and `private.login` are not built, so an address cannot yet be keyed by a login ID. `private.email.login` holds the login's identifier as text, and until logins exist that identifier is the actor key of the account whose session adds the address; on a single-tenant instance, where the tenant's base is the auth base, that is one login per person. The `/auth/email` routes and the Email addresses section are served on the tenant's host, as `GET /account` is, rather than at a separate auth base, and a request by API key is refused (`permissiondenied`): addresses are managed in a session of the login. The migration of 0089 §15 rekeys the rows from actor keys to login IDs when it is built. The alternative, building logins first, would have put the email work behind a larger one that nothing else in SCA-279 needs.
 
 ### A2. The Postmark transport, built with bounce and complaint handling
 
@@ -122,25 +122,25 @@ None.
 - **Change:** amends §5; extends §1, §7, §8, §10, §11
 - **Summary:** The first HTTP mail API is built, as §5 planned: `mail.transport = postmark` sends one JSON request per message with the server token from `mail.postmark.token_file`, through `reqwest` (a new edge of `scatter-mail`); `200` is accepted, `429` and `5xx` temporary, `422` with an API error code and `401`, `413`, `415` permanent. Codes and security notices go on `mail.postmark.stream` (`outbound`); notifications and digests on `mail.postmark.notification_stream` (`broadcast`), a broadcast stream the operator creates, because Postmark's terms keep bulk mail off the transactional stream. Postmark's bounce and spam-complaint webhooks post to `POST /mail/postmark`, authenticated by the HTTP Basic password `mail.postmark.webhook_secret_file` holds, since Postmark signs nothing. **What a bounce does to an address**, the decision SCA-296 asked for: a hard bounce or a complaint marks the address *undeliverable* on every login that holds it verified, with the reason and time (two columns of `private.email`); the address keeps its verification and its primary role, nothing more is sent to it, and the page says so beside it. The holder clears the mark by confirming the address again with a new code; after a complaint the page suggests removing it, since Postmark will refuse it for good. This was chosen over removing the address (a lost primary, with no word to the holder) and over a warning alone (every digest would then cost sender reputation); it is reversible by the holder and needs no operator. A transient or soft bounce changes nothing. `ops.delivery` gained a `failed` flag beside the attempts, so a permanent failure keeps its row and error until expiry without being retried.
 
-Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.7.
+Replaced text: 16 §5.7.
 
 ### A3. Addresses keyed by the login
 
 - **Date:** 2026-11-06
 - **Source:** Direct: Claude, while building instance logins, 2026-11-06; unconfirmed
 - **Change:** amends §1, §7 (A1)
-- **Summary:** Instance logins exist ([0089](0089-the-auth-host-and-instance-logins.md) A3), so an address's row names the login by its ID, as §1 always said, and A1's interim keying by actor key is over; the `login` column stays text and holds the decimal ID. What A1 said of where the routes are served stands for the reason 0089 §12 gives: on a single-tenant instance the tenant's base is the auth base. A request by API key is still refused.
+- **Summary:** Instance logins exist (0089 A3), so an address's row names the login by its ID, as §1 always said, and A1's interim keying by actor key is over; the `login` column stays text and holds the decimal ID. What A1 said of where the routes are served stands for the reason 0089 §12 gives: on a single-tenant instance the tenant's base is the auth base. A request by API key is still refused.
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.9.
+Replaced text: 07 §2.9.
 
 ### A4. Messages link to the tenant's Special:Account until the auth host serves it
 
 - **Date:** 2026-11-16
 - **Source:** Direct: Claude, while fixing SCA-422, 2026-11-16; unconfirmed
 - **Change:** amends §4; extends §2
-- **Summary:** The security notice of §4, and the verification and held-elsewhere messages of §2, linked to `Special:Account` on the auth base whenever one was set. The auth host serves only `/healthz` until its pages are built ([0089](0089-the-auth-host-and-instance-logins.md) §7), so on every instance with more than one tenant the link was a 404. Until the auth host serves `Special:Account`, every message about the login links to `Special:Account` on the tenant the message was sent from, where the addresses are managed today (A3); the link moves to the auth host with its pages.
+- **Summary:** The security notice of §4, and the verification and held-elsewhere messages of §2, linked to `Special:Account` on the auth base whenever one was set. The auth host serves only `/healthz` until its pages are built (0089 §7), so on every instance with more than one tenant the link was a 404. Until the auth host serves `Special:Account`, every message about the login links to `Special:Account` on the tenant the message was sent from, where the addresses are managed today (A3); the link moves to the auth host with its pages.
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.9.
+Replaced text: 07 §2.9.
 
 ## References
 

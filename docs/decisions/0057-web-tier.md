@@ -138,21 +138,21 @@ James's direction, from the design discussion of 2026-10-03:
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design discussion of 2026-10-09
 - **Change:** extends §10
-- **Summary:** The right-to-left reading of forwarded headers is the API's defence when [0056](0056-security-model.md) §10 line 6 does not hold, that is, when the edge has not stripped the client's inbound `X-Forwarded-*` before appending its own. A conforming edge produces `X-Forwarded-For: C, E`; the example in §10, with the forged `F` surviving, shows defence in depth, not the expected input. (PENDING F18)
+- **Summary:** The right-to-left reading of forwarded headers is the API's defence when 0056 §10 line 6 does not hold, that is, when the edge has not stripped the client's inbound `X-Forwarded-*` before appending its own. A conforming edge produces `X-Forwarded-For: C, E`; the example in §10, with the forged `F` surviving, shows defence in depth, not the expected input. (PENDING F18)
 
 ### A2. The web tier may hold its cache's Valkey password
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design discussion of 2026-10-09
 - **Change:** amends §10
-- **Summary:** This ADR (the newer) stands over [0056](0056-security-model.md) §10 line 12 (0056 A11): the web tier may hold, beyond the forwarder key, the password of the Valkey its response cache uses (§5), which may be the instance's L1 Valkey; "no credential of the instance's beyond an optional forwarder key" is qualified by that one, and 0056 §10 line 12 is qualified the same way. (PENDING F19)
+- **Summary:** This ADR (the newer) stands over 0056 §10 line 12 (0056 A11): the web tier may hold, beyond the forwarder key, the password of the Valkey its response cache uses (§5), which may be the instance's L1 Valkey; "no credential of the instance's beyond an optional forwarder key" is qualified by that one, and 0056 §10 line 12 is qualified the same way. (PENDING F19)
 
 Replaced text: §10 of this ADR.
 
 ### A3. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§14
 
 ### A4. The page budget: the in-process transport and exact `Cache-Tag`s
@@ -160,48 +160,48 @@ Replaced text: §10 of this ADR.
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §1, §6; extends §4, §8
-- **Summary:** A page has a budget of four API calls to first byte, met by a bulk-labels route and a `GET /entity/{id}/page` bundle ([0012](0012-api-requirements.md), [0010](0010-site-ui.md)) and, in the embedded server, by the in-process transport: with `server.ui = embedded` a page's sub-requests enter the API router as `tower` calls, the session is resolved once when the page request arrives and the principal is handed to every sub-request, and the sub-requests are exempt from the `read` rate counter, which counts the page itself, so a page of four calls costs one count; visibility, ACLs and redaction run on every sub-request as over HTTP, and `triplespace-web` has no such exemption. A composed page's `Cache-Tag`s are exact and bounded: a tag for each of its subjects and for every page in its render manifest, and nothing else; label dependencies are not tagged, since a large item draws labels from thousands of entities and a tag per label source would exceed every proxy's header limit and let a mirror sync purge the whole site, so label staleness is bounded by `s-maxage`. The About panel of an entity page has a response of its own with its own short `max-age`, since its counters change without the entity's version changing. The ledger names §2; the sections that carry the text are §1, §4, §6 and §8. (REVIEW G41)
+- **Summary:** A page has a budget of four API calls to first byte, met by a bulk-labels route and a `GET /entity/{id}/page` bundle (0012, 0010) and, in the embedded server, by the in-process transport: with `server.ui = embedded` a page's sub-requests enter the API router as `tower` calls, the session is resolved once when the page request arrives and the principal is handed to every sub-request, and the sub-requests are exempt from the `read` rate counter, which counts the page itself, so a page of four calls costs one count; visibility, ACLs and redaction run on every sub-request as over HTTP, and `triplespace-web` has no such exemption. A composed page's `Cache-Tag`s are exact and bounded: a tag for each of its subjects and for every page in its render manifest, and nothing else; label dependencies are not tagged, since a large item draws labels from thousands of entities and a tag per label source would exceed every proxy's header limit and let a mirror sync purge the whole site, so label staleness is bounded by `s-maxage`. The About panel of an entity page has a response of its own with its own short `max-age`, since its counters change without the entity's version changing. The ledger names §2; the sections that carry the text are §1, §4, §6 and §8. (REVIEW G41)
 
-Replaced text: [20](../architecture/20-web-tier.md) §1.1; [03](../architecture/03-storage-caches-and-search.md) §10.3, §12.4.
+Replaced text: 20 §1.1; 03 §10.3, §12.4.
 
 ### A5. The response cache keys by the negotiated language
 
 - **Date:** 2026-10-17
-- **Source:** [0085](0085-settings-and-preferences.md) §2.2
+- **Source:** 0085 §2.2
 - **Change:** extends §6
-- **Summary:** With the interface language negotiated from `Accept-Language`, the web tier's public cache keys a composed page by the negotiated interface language, not by the raw header, so negotiation does not split the cache by every browser's header; `Vary: Accept-Language` stays for downstream proxies. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §10.3.
+- **Summary:** With the interface language negotiated from `Accept-Language`, the web tier's public cache keys a composed page by the negotiated interface language, not by the raw header, so negotiation does not split the cache by every browser's header; `Vary: Accept-Language` stays for downstream proxies. The chapter text is 03 §10.3.
 
 ### A6. An act a challenge guards needs JavaScript
 
 - **Date:** 2026-10-17
-- **Source:** [0087](0087-account-registration-and-challenges.md) §5
+- **Source:** 0087 §5
 - **Change:** amends §7
-- **Summary:** Creating an account, filing an account request, an anonymous save that would create a temporary account, and a login after repeated failures work without JavaScript only where no challenge applies. Where one does, the act is refused with an explanation, never queued, as James directed: the page says what the wiki asks of the browser and why, and that the person may turn JavaScript on, ask an administrator to create the account, or wait out a failed-login window. The chapter text is [20](../architecture/20-web-tier.md) §3.1.
+- **Summary:** Creating an account, filing an account request, an anonymous save that would create a temporary account, and a login after repeated failures work without JavaScript only where no challenge applies. Where one does, the act is refused with an explanation, never queued, as James directed: the page says what the wiki asks of the browser and why, and that the person may turn JavaScript on, ask an administrator to create the account, or wait out a failed-login window. The chapter text is 20 §3.1.
 
-Replaced text: [20](../architecture/20-web-tier.md) §3.1.
+Replaced text: 20 §3.1.
 
 ### A7. The issuer flow stays on the API
 
 - **Date:** 2026-10-18
-- **Source:** [0088](0088-external-identity-providers.md) §5
+- **Source:** 0088 §5
 - **Change:** extends §7
-- **Summary:** The browser posts an issuer's button straight to the API's `POST /auth/{issuer}/start`, the provider returns to the API's callback, and the API redirects to the `returnto` the web tier passed, so the provider's code never reaches the web tier. The chapter text is [20](../architecture/20-web-tier.md) §3.1.
+- **Summary:** The browser posts an issuer's button straight to the API's `POST /auth/{issuer}/start`, the provider returns to the API's callback, and the API redirects to the `returnto` the web tier passed, so the provider's code never reaches the web tier. The chapter text is 20 §3.1.
 
 ### A8. Routing at the auth base
 
 - **Date:** 2026-10-18
-- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §1
+- **Source:** 0089 §1
 - **Change:** extends §3
-- **Summary:** At the auth base the routing table is unchanged in shape: the API answers its authentication modules and the `/auth/` routes, the web tier the auth host's four special pages and the site's assets, and every other path is a 404 in a plain frame, since the auth host holds no wiki. The chapter text is [20](../architecture/20-web-tier.md) §2.1.
+- **Summary:** At the auth base the routing table is unchanged in shape: the API answers its authentication modules and the `/auth/` routes, the web tier the auth host's four special pages and the site's assets, and every other path is a 404 in a plain frame, since the auth host holds no wiki. The chapter text is 20 §2.1.
 
 ### A9. The skin in the build ID; `api_version` as a semantic version
 
 - **Date:** 2026-10-29
-- **Source:** [0097](0097-versioning-and-skins.md) §5, §15
+- **Source:** 0097 §5, §15
 - **Change:** extends §6, §8; amends §9
-- **Summary:** The build ID that a composed page's `ETag` hashes and that a component sends as `X-Triplespace-UI-Build` names the skin that drew the page and its version as well as the binary's build, so a skin upgrade or a change of skin is build skew. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §10.3 and [20](../architecture/20-web-tier.md) §3.2 and §4.
+- **Summary:** The build ID that a composed page's `ETag` hashes and that a component sends as `X-Triplespace-UI-Build` names the skin that drew the page and its version as well as the binary's build, so a skin upgrade or a change of skin is build skew. The chapter text is 03 §10.3 and 20 §3.2 and §4.
 
-Replaced text: [20](../architecture/20-web-tier.md) §4.
+Replaced text: 20 §4.
 
 ### A10. Stopping on `SIGTERM`, and the build ID a component sends
 

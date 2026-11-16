@@ -115,7 +115,7 @@ James's direction, from the design discussion of 2026-09-30:
 ### A1. Crate table
 
 - **Date:** 2026-09-30
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §12
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A41).
 
@@ -124,21 +124,21 @@ Replaced text: §12 of this ADR.
 ### A2. The `Scribunto` model
 
 - **Date:** 2026-09-30
-- **Source:** [0043](0043-lua-modules.md) §3
+- **Source:** 0043 §3
 - **Change:** extends §3
 - **Summary:** `Scribunto` (Scribunto's ID, origin Scribunto): source text, slot `main`, format `text/plain`, direct editing yes, the default in Module (828) by Scribunto's title rules.
 
 ### A3. The `triplespace-table` model
 
 - **Date:** 2026-09-30
-- **Source:** [0045](0045-table-content-model.md) §3
+- **Source:** 0045 §3
 - **Change:** extends §3
 - **Summary:** `triplespace-table` (origin Triplespace): source text, slot `main`, format `application/json`, direct editing yes, the default in Table (218). Its content is a definition naming entities and properties; the grid is generated from the entities.
 
 ### A4. `triplespace-osm-tag` becomes `triplespace-notation`
 
 - **Date:** 2026-10-01
-- **Source:** [0048](0048-notation.md) §1, §7
+- **Source:** 0048 §1, §7
 - **Change:** amends §3
 - **Summary:** `triplespace-osm-tag` is replaced by `triplespace-notation`, entity type `notation`, the default in Notation (216). The rest of its row is unchanged. Q2 names `wikibase-notation` in place of `wikibase-osm-tag`.
 
@@ -149,28 +149,28 @@ Replaced text: Open questions of this ADR.
 ### A5. The `triplespace-board` model
 
 - **Date:** 2026-10-01
-- **Source:** [0049](0049-boards.md) §3
+- **Source:** 0049 §3
 - **Change:** extends §3
 - **Summary:** `triplespace-board` (origin Triplespace): source text, slot `main`, format `application/json`, direct editing yes, the default in Board (310). Its content is a definition; the thread listing is generated.
 
 ### A6. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §3, §12
 - **Summary:** A1–A5 were folded into the Decision: the three added models are rows of §3's table, with a paragraph on the two definition models. The open questions were numbered. No decision changed. Before this, A2–A5 were blockquotes, and A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
 
 ### A7. `sanitized-css`
 
 - **Date:** 2026-10-01
-- **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §1
+- **Source:** 0055 §1
 - **Change:** extends §3
 - **Summary:** TemplateStyles' model joins the table as a text model, `text/css`, directly editable, validated by the `scatter-css` sanitizer at save; the default for `.css` titles in Template and allowed in Project for the site-styles page. 0008 §5's exclusion now covers `css` and `javascript` only.
 
 ### A8. The `triplespace-scope` model
 
 - **Date:** 2026-10-04
-- **Source:** [0060](0060-scopes.md) §3
+- **Source:** 0060 §3
 - **Change:** extends §3
 - **Summary:** `triplespace-scope` (origin Triplespace): source text, slot `main`, format `application/json`, direct editing yes, the default in Scope (312). Its content is a definition; the member list is projected.
 
@@ -179,28 +179,28 @@ Replaced text: §3, in part of this ADR.
 ### A9. The `triplespace-sprint` model
 
 - **Date:** 2026-10-04
-- **Source:** [0061](0061-sprints-and-tasks.md) §3
+- **Source:** 0061 §3
 - **Change:** extends §3
 - **Summary:** `triplespace-sprint` (origin Triplespace): source text, slot `main`, format `application/json`, direct editing yes; allowed on `Project` subpages, default nowhere. Its content is a definition; the task board is projected.
 
 ### A10. The `triplespace-sparql` model
 
 - **Date:** 2026-10-05
-- **Source:** [0063](0063-query-namespace.md) §3
+- **Source:** 0063 §3
 - **Change:** extends §3
 - **Summary:** `triplespace-sparql` (origin Triplespace): text, `application/json`, direct editing, the default in Query (124). A parameterized query; the result table is computed.
 
 ### A11. The `EntitySchema` model
 
 - **Date:** 2026-10-05
-- **Source:** [0064](0064-entityschema-and-validation.md) §3
+- **Source:** 0064 §3
 - **Change:** extends §3
 - **Summary:** `EntitySchema` moves from reserved to implemented as an entity model for the `entityschema` type, the default in 640. Q6 is settled.
 
 ### A12. Captions
 
 - **Date:** 2026-10-05
-- **Source:** [0065](0065-mediainfo-captions-and-commons.md) §1
+- **Source:** 0065 §1
 - **Change:** amends §7
 - **Summary:** Labels and descriptions on `M` IDs are captions, accepted and stored as the File page's terms; aliases and sitelinks stay refused.
 
@@ -209,7 +209,7 @@ Replaced text: §7 of this ADR.
 ### A13. The `wikibase-lexeme` model
 
 - **Date:** 2026-10-05
-- **Source:** [0066](0066-lexemes.md) §3
+- **Source:** 0066 §3
 - **Change:** extends §3
 - **Summary:** `wikibase-lexeme` moves from reserved to implemented as the entity model for `lexeme`, the default in 146.
 
@@ -218,7 +218,7 @@ Replaced text: §7 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §2
-- **Summary:** The models reserved and not implemented are `css`, `javascript`, `unknown` and `wikibase-query`; `wikibase-lexeme` and `EntitySchema` are implemented ([0066](0066-lexemes.md) §3, [0064](0064-entityschema-and-validation.md) §3; A11, A13), so §2's list no longer names them. (PENDING E16)
+- **Summary:** The models reserved and not implemented are `css`, `javascript`, `unknown` and `wikibase-query`; `wikibase-lexeme` and `EntitySchema` are implemented (0066 §3, 0064 §3; A11, A13), so §2's list no longer names them. (PENDING E16)
 
 Replaced text: §2 of this ADR.
 
@@ -227,28 +227,28 @@ Replaced text: §2 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §3
-- **Summary:** The namespace catalogue ([0008](0008-namespaces-and-document-pages.md) §2 as amended; chapter 10 §1.4) is the one place that says where a model is allowed. §3's "Default in" column carries defaults only, and its "allowed in" notes go. (PENDING E17)
+- **Summary:** The namespace catalogue (0008 §2 as amended; chapter 10 §1.4) is the one place that says where a model is allowed. §3's "Default in" column carries defaults only, and its "allowed in" notes go. (PENDING E17)
 
 Replaced text: §3 of this ADR.
 
 ### A16. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§12
 
 ### A17. A talk page's revision content and diff
 
 - **Date:** 2026-10-25
-- **Source:** Direct: James, design discussion of 2026-10-25 (recorded as [0019](0019-discussions.md) A29)
+- **Source:** Direct: James, design discussion of 2026-10-25 (recorded as 0019 A29)
 - **Change:** extends §3, §5
-- **Summary:** The composite source gains a serialization and a diff: a talk page's content as of a revision is a read-only wikitext rendering of the threads attached to it now, each as it stood after the revision, and its diff is the line diff of that text. `triplespace-talk` gains the format `text/x-wiki`. Chapter text: [10](../architecture/10-pages-and-content-models.md) §4.3, §4.4.
+- **Summary:** The composite source gains a serialization and a diff: a talk page's content as of a revision is a read-only wikitext rendering of the threads attached to it now, each as it stood after the revision, and its diff is the line diff of that text. `triplespace-talk` gains the format `text/x-wiki`. Chapter text: 10 §4.3, §4.4.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §4.3 and §4.4.
+Replaced text: 10 §4.3 and §4.4.
 
 ### A18. The `triplespace-remote` model
 
 - **Date:** 2026-11-15
-- **Source:** [0110](0110-remote-pages-and-revisions.md) §6
+- **Source:** 0110 §6
 - **Change:** extends §3
-- **Summary:** `triplespace-remote` is the entity model of the `remote` keyed type, default in namespace 314. Chapter text: [10](../architecture/10-pages-and-content-models.md) §4.4.
+- **Summary:** `triplespace-remote` is the entity model of the `remote` keyed type, default in namespace 314. Chapter text: 10 §4.4.

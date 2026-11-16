@@ -122,7 +122,7 @@ Four scenarios were used to test the design:
 ### A1. Conversion joins a cluster
 
 - **Date:** 2026-09-25
-- **Source:** [0004](0004-identity-clusters-and-equivalence.md) §5, §9
+- **Source:** 0004 §5, §9
 - **Change:** extends §6; amends §8.2
 - **Summary:** `convert` is a `same-as` link in which the local member is canonical, so §6's behaviour follows from the cluster rules. A local `redirect` now records only a merge within one namespace; its same-as meaning moves to the new `same-as` operation, beside `different-from` and `equivalent-property`. 0004's amendment of 2026-09-27 lets a local `redirect` of properties cross namespaces. 0004 §4–§9 also settled Q2 and §5 settled Q3.
 
@@ -131,7 +131,7 @@ Replaced text: §8.2 of this ADR.
 ### A2. Key-mapped providers
 
 - **Date:** 2026-09-26
-- **Source:** [0009](0009-keyed-entity-types-and-domain.md) §9
+- **Source:** 0009 §9
 - **Change:** amends §4, §5
 - **Summary:** For an item a key-mapped provider maps onto a keyed entity, the canonical IRI is the key's, with `owl:sameAs` from the upstream item IRI. Retention works differently for keyed entities: an upstream deletion clears the mirror's contribution with an empty `put`, `cascade` and `orphan` do not apply, and `retain` still applies.
 
@@ -144,7 +144,7 @@ Replaced text: the `tombstone` and the `cascade` and `orphan` policies, which th
 ### A3. Upstream hiding, and jobs in the local log
 
 - **Date:** 2026-09-26
-- **Source:** [0011](0011-logs.md) §5, §6.3
+- **Source:** 0011 §5, §6.3
 - **Change:** amends §5, §8.3
 - **Summary:** Retention does not keep fields upstream hides for privacy or legal reasons; once a retained entity is local data, hiding within it is a local decision. A job record is appended to the local log with an instance-minted job ID, and further records under that key mark its finish, failure or revert.
 
@@ -153,28 +153,28 @@ Replaced text: §8.3 of this ADR.
 ### A4. Mirror metadata that survives compaction
 
 - **Date:** 2026-09-26
-- **Source:** [0012](0012-api-requirements.md) §2.2
+- **Source:** 0012 §2.2
 - **Change:** extends §8.2
 - **Summary:** A `put` carries `prev_upstream`, `first_seen`, `size`, `prev_size`, a `changes` summary and, where the provider sets `sync_deltas: full`, a statement-level `delta`.
 
 ### A5. Bootstrap mode in Postgres
 
 - **Date:** 2026-09-26
-- **Source:** [0013](0013-postgres-storage.md) §9
+- **Source:** 0013 §9
 - **Change:** extends §8.6
 - **Summary:** Writers `COPY` records in parallel from offset blocks into tables with primary keys only; leaf hashes, segment subtrees, indexes and projections follow in order, and checkpoints are signed last. 0013 §5.2 also settled Q8.
 
 ### A6. Upstream revision records
 
 - **Date:** 2026-09-26
-- **Source:** [0015](0015-record-format-and-partition-registry.md) §4
+- **Source:** 0015 §4
 - **Change:** extends §5, §8.3
 - **Summary:** Backfilled, dumped or streamed upstream revisions are upstream revision records, identified by upstream revision ID; content is a `put` carrying it. 0015's amendment of 2026-09-27 makes a `retain` backfill fetch every revision's content by default, from the API or an operator-supplied history dump; §5 recorded this in place, without a note. 0015 §4 and §5 also settled Q1 and Q10.
 
 ### A7. ID rewriting by grammar
 
 - **Date:** 2026-09-27
-- **Source:** [0017](0017-entity-id-grammar.md) §2
+- **Source:** 0017 §2
 - **Change:** amends §4
 - **Summary:** ID rewriting strips or adds the prefix and canonicalizes the rest by the type's ID grammar.
 
@@ -183,14 +183,14 @@ Replaced text: §4 of this ADR.
 ### A8. Tenants as providers
 
 - **Date:** 2026-09-27
-- **Source:** [0018](0018-tenants.md) §5
+- **Source:** 0018 §5
 - **Change:** extends §4
 - **Summary:** A tenant with a code is a provider whose partition other tenants read directly; IDs are rewritten on read, and the reading tenant's IRI is an alias of the provider tenant's. 0018 §7 also settled Q7.
 
 ### A9. Jobs run as subsidiaries
 
 - **Date:** 2026-09-27
-- **Source:** [0024](0024-subsidiary-accounts.md) §6
+- **Source:** 0024 §6
 - **Change:** amends §8.3
 - **Summary:** A job's actor is the subsidiary that submitted it; its operator is read from the actor record.
 
@@ -201,63 +201,63 @@ Replaced text: §8.3 of this ADR.
 - **Date:** 2026-09-27
 - **Source:** Direct: James, review of 2026-09-27
 - **Change:** extends §6
-- **Summary:** The first local statement, qualifier or reference that uses a mirrored property (`WDP31`, say) sets that property's retention policy to `retain`, with a `retention/set` log event ([0011](0011-logs.md) §6.1) whose performer is the editor and whose comment says why. An upstream deletion then materializes the property's last state into the local graph, as §5 already provides, so its label, description and data type survive and every local statement using it keeps rendering, validating and exporting unchanged; the property page says "Deleted on Wikidata on {date}" from the provider log (0011 §9). If upstream later **changes the data type** of a retained property, the new mirrored state conflicts with the retained one: the retained type wins for the tenant's existing statements, new statements are validated against it, and the conflict is listed for maintenance beside the corrections of §7 so an editor can convert or retire the property with `equivalent-property` ([0004](0004-identity-clusters-and-equivalence.md) §6). Adapter mappings onto a retyped property stop and are reported, as 0004 §6 says. A tenant may turn the automatic `retain` off in `site` configuration (`retention.auto_properties`) and accept dangling statements, which is Wikidata's own behaviour after a property deletion. This settled the second half of Q6.
+- **Summary:** The first local statement, qualifier or reference that uses a mirrored property (`WDP31`, say) sets that property's retention policy to `retain`, with a `retention/set` log event (0011 §6.1) whose performer is the editor and whose comment says why. An upstream deletion then materializes the property's last state into the local graph, as §5 already provides, so its label, description and data type survive and every local statement using it keeps rendering, validating and exporting unchanged; the property page says "Deleted on Wikidata on {date}" from the provider log (0011 §9). If upstream later **changes the data type** of a retained property, the new mirrored state conflicts with the retained one: the retained type wins for the tenant's existing statements, new statements are validated against it, and the conflict is listed for maintenance beside the corrections of §7 so an editor can convert or retire the property with `equivalent-property` (0004 §6). Adapter mappings onto a retyped property stop and are reported, as 0004 §6 says. A tenant may turn the automatic `retain` off in `site` configuration (`retention.auto_properties`) and accept dangling statements, which is Wikidata's own behaviour after a property deletion. This settled the second half of Q6.
 
 ### A11. Triplespace providers
 
 - **Date:** 2026-09-27
-- **Source:** [0022](0022-federation.md) §2
+- **Source:** 0022 §2
 - **Change:** extends §8.4
 - **Summary:** For a provider that is itself a Triplespace instance, the adapter reads the provider's `local` graph only, rewrites references to the reader's own entities back to bare local IDs, and verifies each batch against the provider's checkpoint and key chain by default; a provider registered `trust = stream` is read like any other source.
 
 ### A12. Edit filters in bulk jobs
 
 - **Date:** 2026-09-27
-- **Source:** [0030](0030-edit-filters.md) §7
+- **Source:** 0030 §7
 - **Change:** extends §8.5
 - **Summary:** Filters apply to each operation of a bulk job in the `local` partition; `disallow` sends the operation to the rejects file with the filter named, and the job continues.
 
 ### A13. Sitelinks are URLs
 
 - **Date:** 2026-09-27
-- **Source:** [0026](0026-sitelinks.md) §4
+- **Source:** 0026 §4
 - **Change:** amends §3
-- **Summary:** Sitelinks are URLs and their site is their host. The rule becomes: union by normalized URL; where two graphs give one host different URLs for an entity, the local graph wins, then the provider order; badges are the union; a denied host ([0026](0026-sitelinks.md) §3) is left out of the resolved view.
+- **Summary:** Sitelinks are URLs and their site is their host. The rule becomes: union by normalized URL; where two graphs give one host different URLs for an entity, the local graph wins, then the provider order; badges are the union; a denied host (0026 §3) is left out of the resolved view.
 
 Replaced text: §3 of this ADR.
 
 ### A14. The hash guard
 
 - **Date:** 2026-09-28
-- **Source:** Direct: James, decision of 2026-09-28 (the hash guard, [0006](0006-log-integrity-and-erasure.md) §2)
+- **Source:** Direct: James, decision of 2026-09-28 (the hash guard, 0006 §2)
 - **Change:** extends §8.4
-- **Summary:** A `put` carries upstream's snak and reference hashes only where they differ from the instance's own recomputation; the ingester compares every one, keeps a differing hash in place and counts it on the job ([0006](0006-log-integrity-and-erasure.md) §2, as amended 2026-09-28).
+- **Summary:** A `put` carries upstream's snak and reference hashes only where they differ from the instance's own recomputation; the ingester compares every one, keeps a differing hash in place and counts it on the job (0006 §2, as amended 2026-09-28).
 
 ### A15. Adoption
 
 - **Date:** 2026-09-28
-- **Source:** [0035](0035-adopting-a-wikibase.md) §3
+- **Source:** 0035 §3
 - **Change:** extends §8.2, §8.5
 - **Summary:** One further local operation, `adopt`, writes an entity's whole state as its first local record under the ID the source wiki minted. It is accepted only from an adoption job on a tenant that is that wiki continuing on Triplespace, on a `local` partition that holds no other entity records; it never updates, and re-running it skips what is present. It is the one whole-entity write to the local graph.
 
 ### A16. Special:Corrections
 
 - **Date:** 2026-09-30
-- **Source:** [0047](0047-special-pages.md) §6
+- **Source:** 0047 §6
 - **Change:** extends §7
 - **Summary:** The set is served as `Special:Corrections`, filterable by state, kind and upstream graph, with **Retire** for redundant corrections and an export per upstream graph.
 
 ### A17. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §3–9
 - **Summary:** A1–A16 were folded into the Decision, the unnumbered scenario section became §9, the open questions were numbered, and two consequences that called settled questions open were struck. No decision changed. Before this, A10, A11, A13, A14, A15 and A16 were blockquotes; the content-by-default sentence of A6 had been written into §5 without a note; and the other entries were recorded only in this ADR's header or in other ADRs. The file before conversion is commit `0b26a3a`.
 
 ### A18. IRIs minted here for a provider that publishes none
 
 - **Date:** 2026-10-01
-- **Source:** [0037](0037-gdelt-provider.md) §2
+- **Source:** 0037 §2
 - **Change:** amends §4
 - **Summary:** GDELT publishes no IRIs, so its entities' canonical IRIs are minted under `https://scatter.red/gdelt/…`. 0037 §2 (2026-09-28) said it amended §4; nothing was written here until 0037's conversion to the 0050 format.
 
@@ -275,7 +275,7 @@ Replaced text: §8.2 of this ADR; §8.5 of this ADR.
 ### A20. Proposals retire redundant corrections
 
 - **Date:** 2026-10-05
-- **Source:** [0067](0067-proposals.md) §5
+- **Source:** 0067 §5
 - **Change:** amends §7
 - **Summary:** A redundant correction that followed a proposal is retired automatically under `upstream.retire_adopted`; the list of fixes to report upstream is now the proposals feature.
 
@@ -284,14 +284,14 @@ Replaced text: §7 of this ADR.
 ### A21. Shallow mirroring
 
 - **Date:** 2026-10-07
-- **Source:** [0070](0070-shallow-entity-mirroring.md) §1
+- **Source:** 0070 §1
 - **Change:** extends §8.4
 - **Summary:** A referenced subset of a provider is kept current without a dump, entity by entity, as whole-state `put`s; a later dump sync continues from it.
 
 ### A22. Derived graphs
 
 - **Date:** 2026-10-07
-- **Source:** [0071](0071-derived-statements-from-mirrored-pages.md) §1, §7
+- **Source:** 0071 §1, §7
 - **Change:** extends §2; amends §3
 - **Summary:** A tenant has one derived graph per extraction source, written only by that source's extraction job, holding statements derived from pages. Derived graphs are sources; for labels, descriptions and rank they rank after the local graph and before the mirrors.
 
@@ -311,7 +311,7 @@ Replaced text: §5 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §8.2
-- **Summary:** Re-running `adopt` skips an entity whose content hash matches what is already present and rejects one whose content differs, as [0035](0035-adopting-a-wikibase.md) §3 says; it does not silently skip every entity that is present. (PENDING E3)
+- **Summary:** Re-running `adopt` skips an entity whose content hash matches what is already present and rejects one whose content differs, as 0035 §3 says; it does not silently skip every entity that is present. (PENDING E3)
 
 Replaced text: §8.2 of this ADR.
 
@@ -320,7 +320,7 @@ Replaced text: §8.2 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §8.2
-- **Summary:** `adopt` is "the one whole-entity write that needs no base revision", not the one whole-entity write to the local graph: `create-or-add` with `overwrite` and an explicit base revision still replaces a matched entity's state, as §8.2's table says. [0035](0035-adopting-a-wikibase.md) §3 is corrected the same way. (PENDING E4)
+- **Summary:** `adopt` is "the one whole-entity write that needs no base revision", not the one whole-entity write to the local graph: `create-or-add` with `overwrite` and an explicit base revision still replaces a matched entity's state, as §8.2's table says. 0035 §3 is corrected the same way. (PENDING E4)
 
 Replaced text: §8.2 of this ADR.
 
@@ -338,7 +338,7 @@ Replaced text: §8.7 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §8.3
-- **Summary:** Instance jobs, such as the shallow-mirror fetches of [0040](0040-instance-prerogatives.md) §6, are excepted from "every job's actor is a subsidiary": their actor is the instance (0040 §2). Every other job's actor is still a subsidiary account, so its operator is known. [0070](0070-shallow-entity-mirroring.md) §3 is amended the same way. (PENDING E6)
+- **Summary:** Instance jobs, such as the shallow-mirror fetches of 0040 §6, are excepted from "every job's actor is a subsidiary": their actor is the instance (0040 §2). Every other job's actor is still a subsidiary account, so its operator is known. 0070 §3 is amended the same way. (PENDING E6)
 
 Replaced text: §8.3 of this ADR.
 
@@ -347,7 +347,7 @@ Replaced text: §8.3 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §4
-- **Summary:** `adapter` is one field per provider entry in `providers.toml`, not a record per type code; and `actor_model` (`individual` or `provider-only`) is an explicit provider field, since `issuer == slug` is not the test (OSM has authors). [0037](0037-gdelt-provider.md) §1 and the TOML schema are amended the same way. (PENDING E8)
+- **Summary:** `adapter` is one field per provider entry in `providers.toml`, not a record per type code; and `actor_model` (`individual` or `provider-only`) is an explicit provider field, since `issuer == slug` is not the test (OSM has authors). 0037 §1 and the TOML schema are amended the same way. (PENDING E8)
 
 Replaced text: §4 of this ADR.
 
@@ -356,60 +356,60 @@ Replaced text: §4 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §5
-- **Summary:** [0036](0036-openstreetmap-providers.md) stands: a provider may opt into the keyed-style clear, a `put` of the empty state, in place of a tombstone for an upstream deletion, by the registry flag `deletion = clear`; OSM sets it. §5 gains the option, and 0036 §2 cites 0002 §5 for it rather than [0009](0009-keyed-entity-types-and-domain.md) §9. (PENDING E9)
+- **Summary:** 0036 stands: a provider may opt into the keyed-style clear, a `put` of the empty state, in place of a tombstone for an upstream deletion, by the registry flag `deletion = clear`; OSM sets it. §5 gains the option, and 0036 §2 cites 0002 §5 for it rather than 0009 §9. (PENDING E9)
 
 Replaced text: §5 of this ADR.
 
 ### A30. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§9
 
 ### A31. The resolved view is in source form; the provider order is the instance's
 
 - **Date:** 2026-10-09
-- **Source:** [0082](0082-source-form-and-the-shared-view.md) §1, §3, §5
+- **Source:** 0082 §1, §3, §5
 - **Change:** amends §3, §6
-- **Summary:** The resolved view keeps every ID as the graph that asserted it wrote it; identity clusters rewrite nothing, the canonical ID is an attribute of the cluster, the fused body is composed once per cluster, and the form a consumer sees is decided on the way out. Conversion (§6) no longer makes the foreign ID an alias that "resolves to" the local ID: the two are members of one cluster, a request for either returns the fused body under the requested ID with the local member as `canonical`, nothing stored is rewritten, and the fused body is emitted in RDF under both IRIs. The chapter folds §6 at [05](../architecture/05-providers-and-ingest.md) §2.3, which 0082's table did not list. Chapter text: [05](../architecture/05-providers-and-ingest.md) §1.4, §2.3. (REVIEW G1, G3, G5)
+- **Summary:** The resolved view keeps every ID as the graph that asserted it wrote it; identity clusters rewrite nothing, the canonical ID is an attribute of the cluster, the fused body is composed once per cluster, and the form a consumer sees is decided on the way out. Conversion (§6) no longer makes the foreign ID an alias that "resolves to" the local ID: the two are members of one cluster, a request for either returns the fused body under the requested ID with the local member as `canonical`, nothing stored is rewritten, and the fused body is emitted in RDF under both IRIs. The chapter folds §6 at 05 §2.3, which 0082's table did not list. Chapter text: 05 §1.4, §2.3. (REVIEW G1, G3, G5)
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §1.4, §2.3.
+Replaced text: 05 §1.4, §2.3.
 
 ### A32. Three write modes, graph state and bulk append into a live partition
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §1, §4, §5
+- **Source:** 0083 §1, §4, §5
 - **Change:** amends §8.6; extends §7, §8, §8.2, §8.5
-- **Summary:** An interactive write is one appending transaction under the partition lock, which covers the append alone (normalization, filters, the base check, ID allocation, the append, the graph state and the activity row); composition and everything derived from it run after commit. Bootstrap mode is for an empty partition; a third mode, bulk append, is for a partition that is already live: a job takes the lock once per block, `COPY`s the block, folds its leaves from the in-memory frontier, writes the block's graph states and commits, with composition set-based per block and the consumers of composition off for the job's duration. The `put` skip is evaluated in bulk against `view.entity_source` before a block is written, and a `stream` job is one transaction per block, not per entity. A provider added to a live instance is loaded in bootstrap mode and then composed against the existing `view` (catch-up). The local graph's current state for a foreign entity, the accumulation of local assertions (§7), is held in `view.graph_state`, written in tier 1 and read by composition and the delta as the old state. The chapter carries the modes at [05](../architecture/05-providers-and-ingest.md) §3.7 and §3.10. (REVIEW G8, G11, G12)
+- **Summary:** An interactive write is one appending transaction under the partition lock, which covers the append alone (normalization, filters, the base check, ID allocation, the append, the graph state and the activity row); composition and everything derived from it run after commit. Bootstrap mode is for an empty partition; a third mode, bulk append, is for a partition that is already live: a job takes the lock once per block, `COPY`s the block, folds its leaves from the in-memory frontier, writes the block's graph states and commits, with composition set-based per block and the consumers of composition off for the job's duration. The `put` skip is evaluated in bulk against `view.entity_source` before a block is written, and a `stream` job is one transaction per block, not per entity. A provider added to a live instance is loaded in bootstrap mode and then composed against the existing `view` (catch-up). The local graph's current state for a foreign entity, the accumulation of local assertions (§7), is held in `view.graph_state`, written in tier 1 and read by composition and the delta as the old state. The chapter carries the modes at 05 §3.7 and §3.10. (REVIEW G8, G11, G12)
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §3.7.
+Replaced text: 05 §3.7.
 
 ### A33. Wikibase writes map onto the operations by ownership; the base check is per graph
 
 - **Date:** 2026-10-09
-- **Source:** [0084](0084-wikibase-writes-against-the-resolved-view.md) §1, §2, §3, §5
+- **Source:** 0084 §1, §2, §3, §5
 - **Change:** amends §7, §8.2
-- **Summary:** A Wikibase write submitted through the Action or REST API is diffed against the tenant's resolved view and reduced to the local-graph operations by whether what it touches is local-owned or mirror-owned: a new statement, term or sitelink is `add`; a changed rank, term or sitelink on mirrored content, or a removal of it, is `override`; a removal of local content is `remove`; `clear` removes every local assertion and touches no mirror graph. `override` may change a rank, a term or a sitelink of another graph's assertion, or suppress it, never its value: a value change on a statement a mirror graph owns is refused with `ts-foreign-statement`, naming the graph and the two alternatives (suppress and add, or propose upstream), so a correction (§7) is never a changed value under the mirrored statement's own ID. The base check is per source graph: a base in the local partition is checked against the local partition's newest record for the key; a base in a mirror partition asserts only that the key still has no local record, and a mirror advancing is never a conflict; a stale local base is accepted with `wikibase-conflict-patched` when the change set touches nothing a later local record touched, else `editconflict`. Chapter text: [05](../architecture/05-providers-and-ingest.md) §2.5, §3.2. (REVIEW G16, G17)
+- **Summary:** A Wikibase write submitted through the Action or REST API is diffed against the tenant's resolved view and reduced to the local-graph operations by whether what it touches is local-owned or mirror-owned: a new statement, term or sitelink is `add`; a changed rank, term or sitelink on mirrored content, or a removal of it, is `override`; a removal of local content is `remove`; `clear` removes every local assertion and touches no mirror graph. `override` may change a rank, a term or a sitelink of another graph's assertion, or suppress it, never its value: a value change on a statement a mirror graph owns is refused with `ts-foreign-statement`, naming the graph and the two alternatives (suppress and add, or propose upstream), so a correction (§7) is never a changed value under the mirrored statement's own ID. The base check is per source graph: a base in the local partition is checked against the local partition's newest record for the key; a base in a mirror partition asserts only that the key still has no local record, and a mirror advancing is never a conflict; a stale local base is accepted with `wikibase-conflict-patched` when the change set touches nothing a later local record touched, else `editconflict`. Chapter text: 05 §2.5, §3.2. (REVIEW G16, G17)
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §2.5, §3.2.
+Replaced text: 05 §2.5, §3.2.
 
 ### A34. Retention is applied per tenant by the entity projection; `cascade` is never a default
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §5, §9
-- **Summary:** A mirror tombstone carries nothing about retention: it is one record in a shared partition, and retention is per tenant per entity. When the tombstone lands, the entity projection applies each reading tenant's policy for the entity, per overlay, as a record in that tenant's partition attested by the instance under an authority record, with a `retention/apply` log event, as a tier-3 job after the tombstone's composition and never inside the sync's transaction; under `retain` that record carries the materialized state into the tenant's local graph, under `cascade` it retracts the tenant's assertions, under `orphan` it writes the hiding. The compaction exemption is any tenant's `retain` row, instance-wide. The shipped default of `retention.default` is `orphan`; `cascade` is never a default, and a tenant that wants it sets it. A fetch miss for an entity with no `entity_source` row writes no record: the referring value renders unresolved (folded at [05](../architecture/05-providers-and-ingest.md) §5.5, under [0070](0070-shallow-entity-mirroring.md) §3). Scenarios A and B (§9) now read per tenant. (REVIEW G28)
+- **Summary:** A mirror tombstone carries nothing about retention: it is one record in a shared partition, and retention is per tenant per entity. When the tombstone lands, the entity projection applies each reading tenant's policy for the entity, per overlay, as a record in that tenant's partition attested by the instance under an authority record, with a `retention/apply` log event, as a tier-3 job after the tombstone's composition and never inside the sync's transaction; under `retain` that record carries the materialized state into the tenant's local graph, under `cascade` it retracts the tenant's assertions, under `orphan` it writes the hiding. The compaction exemption is any tenant's `retain` row, instance-wide. The shipped default of `retention.default` is `orphan`; `cascade` is never a default, and a tenant that wants it sets it. A fetch miss for an entity with no `entity_source` row writes no record: the referring value renders unresolved (folded at 05 §5.5, under 0070 §3). Scenarios A and B (§9) now read per tenant. (REVIEW G28)
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §1.6, §2.1.
+Replaced text: 05 §1.6, §2.1.
 
 ### A35. Deterministic statement IDs hash the identifying qualifiers
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §4, §8.4
-- **Summary:** A statement ID for a source that publishes none (OpenAlex) is a hash, as a name-based UUID, of the main snak and the qualifiers the adapter declares **identifying** for that property (an authorship's position, institution and award), never of score-like qualifiers, so that it stays stable across re-imports and two authorships on one work do not collide. "Derived from the entity, property and value" is withdrawn in §8.4 and in the OpenAlex entry of §4 ([05](../architecture/05-providers-and-ingest.md) §8.4). (REVIEW G27)
+- **Summary:** A statement ID for a source that publishes none (OpenAlex) is a hash, as a name-based UUID, of the main snak and the qualifiers the adapter declares **identifying** for that property (an authorship's position, institution and award), never of score-like qualifiers, so that it stays stable across re-imports and two authorships on one work do not collide. "Derived from the entity, property and value" is withdrawn in §8.4 and in the OpenAlex entry of §4 (05 §8.4). (REVIEW G27)
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §3.4, §8.4.
+Replaced text: 05 §3.4, §8.4.
 
 ### A36. The version cursor is the ingester's state; `snapshot` sweeps by `seen_job`
 
@@ -423,32 +423,32 @@ Replaced text: [05](../architecture/05-providers-and-ingest.md) §3.4, §8.4.
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §4
-- **Summary:** Registry provider numbers are below 2^12 and entity-source numbers are assigned per tenant from 2^12 to 2^13 − 1 (4096–8191), so that `number << 40 | n` stays below 2^53 for `n` below 2^40 and every ID a client sees is exact in a JavaScript number; the range 2^22 to 2^23 − 1 is withdrawn. A provider's code, number, slug and per-type IRI templates are never changed once allocated. The provider catalogue ([05](../architecture/05-providers-and-ingest.md) §8.1) holds both; the ledger names [0015](0015-record-format-and-partition-registry.md) §5 and [0078](0078-entity-sources.md) §4, and the chapter's provenance places the catalogue text under §4 here. (REVIEW G20, G32)
+- **Summary:** Registry provider numbers are below 2^12 and entity-source numbers are assigned per tenant from 2^12 to 2^13 − 1 (4096–8191), so that `number << 40 | n` stays below 2^53 for `n` below 2^40 and every ID a client sees is exact in a JavaScript number; the range 2^22 to 2^23 − 1 is withdrawn. A provider's code, number, slug and per-type IRI templates are never changed once allocated. The provider catalogue (05 §8.1) holds both; the ledger names 0015 §5 and 0078 §4, and the chapter's provenance places the catalogue text under §4 here. (REVIEW G20, G32)
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §8.1.
+Replaced text: 05 §8.1.
 
 ### A38. Adapters rewrite value IDs and never map onto a tenant's properties
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §8.4; extends §4
-- **Summary:** An adapter rewrites IDs wherever an entity ID occurs, the `unit` of a quantity, the `globe` of a coordinate and the `calendarmodel` of a time included, so that the stored form carries prefixed IDs and the content hash is over that form. An adapter maps a non-Wikibase source onto registry-provider properties where one fits and otherwise onto the provider's own **property type**, a `[[provider.type]]` row with `entity_type = "property"` whose properties the adapter mints under deterministic IDs with its mapping version; never onto a tenant's properties, and never created on first import. The bindings an adapter reads by role are the instance-scope `role` record's, never a tenant's. The provider catalogue (§4, [05](../architecture/05-providers-and-ingest.md) §8.1, §8.4, §8.8, §8.11) gains the property type; the ledger names [0004](0004-identity-clusters-and-equivalence.md) §6 and §7, and the chapter's provenance places the adapter text under §8.4 here. (REVIEW G21, G26)
+- **Summary:** An adapter rewrites IDs wherever an entity ID occurs, the `unit` of a quantity, the `globe` of a coordinate and the `calendarmodel` of a time included, so that the stored form carries prefixed IDs and the content hash is over that form. An adapter maps a non-Wikibase source onto registry-provider properties where one fits and otherwise onto the provider's own **property type**, a `[[provider.type]]` row with `entity_type = "property"` whose properties the adapter mints under deterministic IDs with its mapping version; never onto a tenant's properties, and never created on first import. The bindings an adapter reads by role are the instance-scope `role` record's, never a tenant's. The provider catalogue (§4, 05 §8.1, §8.4, §8.8, §8.11) gains the property type; the ledger names 0004 §6 and §7, and the chapter's provenance places the adapter text under §8.4 here. (REVIEW G21, G26)
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §3.4.
+Replaced text: 05 §3.4.
 
 ### A39. A provider that is a tenant of this instance is never synced
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §4
-- **Summary:** Whether a registry provider such as Librarybase (`LB`) is a remote wiki to sync or a tenant here is instance configuration read from the registry's `issuer`: an instance one of whose tenants is the provider's issuer refuses every sync job for that provider and reads the tenant's `local` partition as the provider's graph, and an instance that had been mirroring the provider before adopting it freezes the mirror partition as a precondition of the adoption. The ledger names [0018](0018-tenants.md) §5, [0080](0080-tenants-as-entity-sources.md) §3 and [0070](0070-shallow-entity-mirroring.md) §7; the Librarybase entry of the provider catalogue ([05](../architecture/05-providers-and-ingest.md) §8.3) is under §4 here. (REVIEW G31)
+- **Summary:** Whether a registry provider such as Librarybase (`LB`) is a remote wiki to sync or a tenant here is instance configuration read from the registry's `issuer`: an instance one of whose tenants is the provider's issuer refuses every sync job for that provider and reads the tenant's `local` partition as the provider's graph, and an instance that had been mirroring the provider before adopting it freezes the mirror partition as a precondition of the adoption. The ledger names 0018 §5, 0080 §3 and 0070 §7; the Librarybase entry of the provider catalogue (05 §8.3) is under §4 here. (REVIEW G31)
 
 ### A40. One adapter for every Wikibase provider
 
 - **Date:** 2026-10-26
-- **Source:** [0091](0091-one-wikibase-adapter.md) §1, §4
+- **Source:** 0091 §1, §4
 - **Change:** amends §4, §8.4
-- **Summary:** Adapters are one per kind of upstream, not one per provider type: every MediaWiki+Wikibase provider is read by `scatter-adapter-wikibase` (formerly `scatter-adapter-wikidata`), parameterised by its registry entry, so registering a Wikibase provider needs no code; a provider whose upstream is not a Wikibase keeps an adapter of its own, and the `adapter` field (A28) names which. Chapter text: [05](../architecture/05-providers-and-ingest.md) §3.4, §8.1, §8.3.
+- **Summary:** Adapters are one per kind of upstream, not one per provider type: every MediaWiki+Wikibase provider is read by `scatter-adapter-wikibase` (formerly `scatter-adapter-wikidata`), parameterised by its registry entry, so registering a Wikibase provider needs no code; a provider whose upstream is not a Wikibase keeps an adapter of its own, and the `adapter` field (A28) names which. Chapter text: 05 §3.4, §8.1, §8.3.
 
 Replaced text: 05 §3.4 of this ADR; 05 §8.1 of this ADR; 05 §8.1, the Adapter column of `WD`, `LB` and `OW` of this ADR; 05 §8.1, the Adapter column of `XD` of this ADR; 05 §8.3 of this ADR.
 
@@ -457,18 +457,18 @@ Replaced text: 05 §3.4 of this ADR; 05 §8.1 of this ADR; 05 §8.1, the Adapter
 - **Date:** 2026-11-07
 - **Source:** Direct: Claude, while building `scatter-wikibase-rdf` (SCA-301), 2026-11-07; confirmed by James, 2026-11-08
 - **Change:** extends §4
-- **Summary:** §4 gave Wikidata's predicates as the example of upstream IRIs kept, and the provider registry records a concept IRI template but no predicate base. The renderer derives one: where a foreign property's concept IRI is `{upstream base}entity/{upstream ID}`, as every Wikibase's is, its predicates are `{upstream base}prop/direct/{upstream ID}` and the rest of Wikibase's family; a foreign property whose template has any other shape, which no registered provider has today, has its predicates under the instance's base by its prefixed ID (`{base}prop/direct/XXP1`). A registry field for the predicate base was the alternative, needless while every provider of properties is a Wikibase. Chapter text: [05](../architecture/05-providers-and-ingest.md) §1.5.
+- **Summary:** §4 gave Wikidata's predicates as the example of upstream IRIs kept, and the provider registry records a concept IRI template but no predicate base. The renderer derives one: where a foreign property's concept IRI is `{upstream base}entity/{upstream ID}`, as every Wikibase's is, its predicates are `{upstream base}prop/direct/{upstream ID}` and the rest of Wikibase's family; a foreign property whose template has any other shape, which no registered provider has today, has its predicates under the instance's base by its prefixed ID (`{base}prop/direct/XXP1`). A registry field for the predicate base was the alternative, needless while every provider of properties is a Wikibase. Chapter text: 05 §1.5.
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §1.5.
+Replaced text: 05 §1.5.
 
 ### A42. A foreign property's predicates follow Wikibase's rule
 
 - **Date:** 2026-11-07
 - **Source:** Direct: James, design discussion of 2026-11-07
 - **Change:** amends §4
-- **Summary:** A41 derived a foreign property's predicates only from a template ending `entity/{upstream_id}` and named every other foreign property under the instance's base. Shown that Wikibase itself (`RdfVocabulary::getConceptUriBase`) takes the concept base, drops a trailing `entity/` if there is one and appends `prop/`, James chose that rule exactly, so that a Wikibase with a concept base of another shape is read with the predicates it publishes. Only a template with something after the ID, which no Wikibase can have, falls back to the instance's base. Every registered provider with properties (Wikidata, Librarybase, Internet Domains, the OpenStreetMap wiki) has the `entity/` form, so no IRI written today changes. Chapter text: [05](../architecture/05-providers-and-ingest.md) §1.5.
+- **Summary:** A41 derived a foreign property's predicates only from a template ending `entity/{upstream_id}` and named every other foreign property under the instance's base. Shown that Wikibase itself (`RdfVocabulary::getConceptUriBase`) takes the concept base, drops a trailing `entity/` if there is one and appends `prop/`, James chose that rule exactly, so that a Wikibase with a concept base of another shape is read with the predicates it publishes. Only a template with something after the ID, which no Wikibase can have, falls back to the instance's base. Every registered provider with properties (Wikidata, Librarybase, Internet Domains, the OpenStreetMap wiki) has the `entity/` form, so no IRI written today changes. Chapter text: 05 §1.5.
 
-Replaced text ([05](../architecture/05-providers-and-ingest.md) §1.5, as it stood):
+Replaced text (05 §1.5, as it stood):
 
 > A foreign property's predicates are derived from its concept IRI: where that is `{upstream base}entity/{upstream ID}`, as every Wikibase's is, they are `{upstream base}prop/direct/{upstream ID}` and the rest of Wikibase's family; any other property is named under the instance's base by its prefixed ID ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) A41).
 
@@ -477,16 +477,16 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §1.5, as it sto
 - **Date:** 2026-11-07
 - **Source:** Direct: James, design discussion of 2026-11-07
 - **Change:** amends §4
-- **Summary:** §4 said nodes from upstream keep upstream's IRIs, with Wikidata's statement nodes as the example, and that the local graph's statements about a foreign entity are named under the instance's base, but nothing said which statements of the resolved view are upstream's. James chose the rule that an upstream node keeps its IRI exactly while it says what upstream says: a statement whose every member a mirror or entity-source graph asserts, with no local correction on any member, is named as its upstream names it, statement, reference and value nodes alike, with the hashes taken over upstream's ID forms; every other statement, including a mirrored one under a rank override, is the instance's. The alternative, upstream's IRI whenever a mirror asserts the statement, would give one node two ranks in a store fed by the upstream and the tenant, the merge 02 §4.3's skolem IRIs are designed to keep clean. A correction therefore moves a statement to a new IRI, which the update stream carries as a delete and an insert. `Special:EntityData` renders from the resolved view with the resolver's per-statement provenance to apply it. Chapter text: [05](../architecture/05-providers-and-ingest.md) §1.5.
+- **Summary:** §4 said nodes from upstream keep upstream's IRIs, with Wikidata's statement nodes as the example, and that the local graph's statements about a foreign entity are named under the instance's base, but nothing said which statements of the resolved view are upstream's. James chose the rule that an upstream node keeps its IRI exactly while it says what upstream says: a statement whose every member a mirror or entity-source graph asserts, with no local correction on any member, is named as its upstream names it, statement, reference and value nodes alike, with the hashes taken over upstream's ID forms; every other statement, including a mirrored one under a rank override, is the instance's. The alternative, upstream's IRI whenever a mirror asserts the statement, would give one node two ranks in a store fed by the upstream and the tenant, the merge 02 §4.3's skolem IRIs are designed to keep clean. A correction therefore moves a statement to a new IRI, which the update stream carries as a delete and an insert. `Special:EntityData` renders from the resolved view with the resolver's per-statement provenance to apply it. Chapter text: 05 §1.5.
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §1.5.
+Replaced text: 05 §1.5.
 
 ### A44. Statements fused from two mirrors, and key-mapped statements
 
 - **Date:** 2026-11-07
 - **Source:** Direct: Claude, while building upstream statement nodes (SCA-301), 2026-11-07; confirmed by James, 2026-11-08
 - **Change:** extends §4
-- **Summary:** Two cases A43 leaves open. (1) A statement two mirrors both assert (Wikidata and Librarybase, say) takes the first member's ID in provider order, as the resolver already gives it, and is named under that provider's base; its references, combined from both, are named and hashed under the same provider, so a reference only the second mirror carries gets a node the first does not have. Naming each reference by the mirror that carries it would be exact and needs the resolver to keep per-reference provenance. (2) A key-mapped provider's statement is stored with the keyed entity's ID (`domain:wikipedia.org$…`), not the upstream item's (`XDQ11$…`), so its upstream statement IRI (`https://internetdomains.wiki/entity/statement/Q11-…`) cannot be derived from it; it is named under the instance's base. Naming it upstream's way needs the adapter to keep the upstream item ID beside the statement, or a lookup of the item the keyed entity was mapped from (05 §4.1). Chapter text: [05](../architecture/05-providers-and-ingest.md) §1.5.
+- **Summary:** Two cases A43 leaves open. (1) A statement two mirrors both assert (Wikidata and Librarybase, say) takes the first member's ID in provider order, as the resolver already gives it, and is named under that provider's base; its references, combined from both, are named and hashed under the same provider, so a reference only the second mirror carries gets a node the first does not have. Naming each reference by the mirror that carries it would be exact and needs the resolver to keep per-reference provenance. (2) A key-mapped provider's statement is stored with the keyed entity's ID (`domain:wikipedia.org$…`), not the upstream item's (`XDQ11$…`), so its upstream statement IRI (`https://internetdomains.wiki/entity/statement/Q11-…`) cannot be derived from it; it is named under the instance's base. Naming it upstream's way needs the adapter to keep the upstream item ID beside the statement, or a lookup of the item the keyed entity was mapped from (05 §4.1). Chapter text: 05 §1.5.
 
 ### A45. A key-mapped statement keeps its upstream item, and is named after it
 
@@ -495,27 +495,27 @@ Replaced text: [05](../architecture/05-providers-and-ingest.md) §1.5.
 - **Change:** amends §4
 - **Summary:** A44 (2) named a key-mapped provider's statements under the instance's base, since a statement ID carries the keyed entity's ID and not the upstream item's. James overturned it: the upstream item is kept and the statement named after it, and the item is listed among the entity's identifiers. The item was already in the record: a key-mapped `put` carries `upstream_id`, the owner item, beside the keyed state (05 §4.2), and every statement of a keyed entity from one provider's record is that item's, so nothing was added to the statement model and no canonical encoding changed. What was missing was the carry-through: the resolved view keeps each contribution's upstream item; the renderer names a key-mapped statement's statement, reference and value nodes under the provider's base as A43 names a `WDQ…` statement's, with the item from the first member's graph where two graphs assert it (A44 case 1); the provenance route reports `upstream_id` and `upstream_iri` for such a graph; and the entity page's Identifiers tab lists the upstream item, linked, before the identifier statements. The limits are Q13. Chapter text: 05 §1.5; 18 §3.2 (`GraphState`); 19 §2.
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §1.5.
+Replaced text: 05 §1.5.
 
 ### A46. A job is reverted record by record, and a batch is a job the submitter keys
 
 - **Date:** 2026-11-08
-- **Source:** [0104](0104-batches-and-the-job-runner.md) §1, §3
+- **Source:** 0104 §1, §3
 - **Change:** amends §8.3
-- **Summary:** Reverting a job no longer appends one inverse change set: it is a job of its own, mode `revert`, that appends the inverse of each record the job wrote, in reverse order, attributed to the reverter, skipping and listing any record changed since; and a batch, a job opened by the first write naming a value hashed with the tenant and the operator, is one more kind of local job. Chapter text: [05](../architecture/05-providers-and-ingest.md) §3.3; [16](../architecture/16-logs-feeds-and-notifications.md) §2.2.
+- **Summary:** Reverting a job no longer appends one inverse change set: it is a job of its own, mode `revert`, that appends the inverse of each record the job wrote, in reverse order, attributed to the reverter, skipping and listing any record changed since; and a batch, a job opened by the first write naming a value hashed with the tenant and the operator, is one more kind of local job. Chapter text: 05 §3.3; 16 §2.2.
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §3.3.
+Replaced text: 05 §3.3.
 
 ### A47. A table of new items
 
 - **Date:** 2026-11-08
-- **Source:** [0104](0104-batches-and-the-job-runner.md) §11
+- **Source:** 0104 §11
 - **Change:** extends §8.5
-- **Summary:** `Special:CreateEntities` is the editor's form of local bulk creation: a pasted or uploaded table, a column per term or property and a row per item, every row checked before anything is written, created as one keyed batch of interactive `create`s. Chapter text: [05](../architecture/05-providers-and-ingest.md) §3.5; [21](../architecture/21-special-pages.md) §6.6.
+- **Summary:** `Special:CreateEntities` is the editor's form of local bulk creation: a pasted or uploaded table, a column per term or property and a row per item, every row checked before anything is written, created as one keyed batch of interactive `create`s. Chapter text: 05 §3.5; 21 §6.6.
 
 ### A48. An edit that only repeats a statement writes nothing
 
 - **Date:** 2026-11-09
 - **Source:** Direct: Claude, while fixing an empty revision written by `wbcreateclaim`, 2026-11-09; unconfirmed
 - **Change:** extends §8.5
-- **Summary:** `wbcreateclaim` with a value the entity already had appended an `add` that merged onto the existing statement: a record and a revision that changed nothing, an activity row whose diff was empty, and `"claim": null` in the answer. The difference between two states of an entity, which every interactive entity edit is written from, now leaves out a new statement that the `add` would merge onto one the local graph holds and the edit keeps, where it brings no reference that one lacks; an edit with nothing else in it appends nothing, as an edit with no difference already did. `wbcreateclaim` then answers with the existing statement under its own GUID and the current `lastrevid`, still with `success: 1`, and with a warning in MediaWiki's `warnings` block, under `wbcreateclaim`, that the entity already has the statement, naming its GUID (James, design discussion of 2026-11-09: a warning rather than an error or a flag). A statement only a mirror asserts is still added to the local graph, and one that brings a new reference is still written, the reference merged on. Wikibase would have made a second, duplicate statement; merging is this section's rule. Chapter text: [05](../architecture/05-providers-and-ingest.md) §3.5.
+- **Summary:** `wbcreateclaim` with a value the entity already had appended an `add` that merged onto the existing statement: a record and a revision that changed nothing, an activity row whose diff was empty, and `"claim": null` in the answer. The difference between two states of an entity, which every interactive entity edit is written from, now leaves out a new statement that the `add` would merge onto one the local graph holds and the edit keeps, where it brings no reference that one lacks; an edit with nothing else in it appends nothing, as an edit with no difference already did. `wbcreateclaim` then answers with the existing statement under its own GUID and the current `lastrevid`, still with `success: 1`, and with a warning in MediaWiki's `warnings` block, under `wbcreateclaim`, that the entity already has the statement, naming its GUID (James, design discussion of 2026-11-09: a warning rather than an error or a flag). A statement only a mirror asserts is still added to the local graph, and one that brings a new reference is still written, the reference merged on. Wikibase would have made a second, duplicate statement; merging is this section's rule. Chapter text: 05 §3.5.

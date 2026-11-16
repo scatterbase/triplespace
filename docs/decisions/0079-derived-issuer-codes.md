@@ -104,10 +104,10 @@ James's direction, from the design discussion of 2026-10-09:
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §2, §4
-- **Summary:** The record at offset 0 of any `config` partition carries a third attestation form, the founding attestation: no actor, a signature by the key the record registers (self-certifying), and for a tenant the authority `(instance config, 0)`; the issuer or farm code is derived from its leaf afterwards. Offsets 1 and 2 of the instance `config` are attested by `instance:{farm code}` with the founding record as authority. The form itself is [0015](0015-record-format-and-partition-registry.md) §1's; the chapters hold it in [01](../architecture/01-log-and-records.md) §2.4 and [08](../architecture/08-tenants-and-instances.md) §2.4, §7.2 and §8.3. The text is in git (`tools/adr.py log 0079 A1 --diff`). (REVIEW G22)
+- **Summary:** The record at offset 0 of any `config` partition carries a third attestation form, the founding attestation: no actor, a signature by the key the record registers (self-certifying), and for a tenant the authority `(instance config, 0)`; the issuer or farm code is derived from its leaf afterwards. Offsets 1 and 2 of the instance `config` are attested by `instance:{farm code}` with the founding record as authority. The form itself is 0015 §1's; the chapters hold it in 01 §2.4 and 08 §2.4, §7.2 and §8.3. The text is in git (`tools/adr.py log 0079 A1 --diff`). (REVIEW G22)
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-30
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§9

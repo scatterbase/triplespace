@@ -98,7 +98,7 @@ The two halves share a stance. Triplespace federates **facts and speech, not ide
 ### A1. Crate table
 
 - **Date:** 2026-09-27
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §13
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries `triplespace-federation` and every change this section listed (0005 A18).
 
@@ -110,7 +110,7 @@ Replaced text: §13 of this ADR.
 - **Source:** Direct: James, decisions of 2026-09-27 (evening)
 - **Change:** amends §8; extends §1, §2
 - **Summary:** By section:
-  - §8: Inbound protocol details (decision 13). *Signatures:* the inbox accepts draft-cavage HTTP Signatures with a mandatory `Digest`, which is what every Mastodon-compatible server sends; RFC 9421 signatures and FEP-8b32 object-integrity proofs are implemented in `scatter-activitypub` behind `site` switches (`federation.accept_rfc9421`, `federation.accept_fep8b32`, both off) and turned on when the fediverse turns, with no change to the inbox path; outbound stays cavage until Mastodon accepts 9421 ([0021](0021-notifications.md) §5). *Replay:* every accepted activity's `id` is recorded in `ops.ap_inbox_seen` for `federation.replay_window` (default seven days) and a repeat is acknowledged with 202 and dropped; a request whose `Date` lies outside ±`federation.clock_skew` (default twelve hours) is rejected; inbound activities are verified on receipt and then handled through the `ops` queue, so a burst never blocks the request path. *Promotion:* a `federated` surrogate is never merged into a local account. A local account that proves control of the remote actor, by the instance finding a `rel="me"` link from the remote profile to its user page, may add it as a public **account link** under [0007](0007-actor-identity.md) §7, the same act as linking a Wikidata account; the surrogate stays the actor of every post it made, and contributions and history show "also {remote} here" as for any linked account. Attribution never moves, which is the invariant every inclusion proof relies on.
+  - §8: Inbound protocol details (decision 13). *Signatures:* the inbox accepts draft-cavage HTTP Signatures with a mandatory `Digest`, which is what every Mastodon-compatible server sends; RFC 9421 signatures and FEP-8b32 object-integrity proofs are implemented in `scatter-activitypub` behind `site` switches (`federation.accept_rfc9421`, `federation.accept_fep8b32`, both off) and turned on when the fediverse turns, with no change to the inbox path; outbound stays cavage until Mastodon accepts 9421 (0021 §5). *Replay:* every accepted activity's `id` is recorded in `ops.ap_inbox_seen` for `federation.replay_window` (default seven days) and a repeat is acknowledged with 202 and dropped; a request whose `Date` lies outside ±`federation.clock_skew` (default twelve hours) is rejected; inbound activities are verified on receipt and then handled through the `ops` queue, so a burst never blocks the request path. *Promotion:* a `federated` surrogate is never merged into a local account. A local account that proves control of the remote actor, by the instance finding a `rel="me"` link from the remote profile to its user page, may add it as a public **account link** under 0007 §7, the same act as linking a Wikidata account; the surrogate stays the actor of every post it made, and contributions and history show "also {remote} here" as for any linked account. Attribution never moves, which is the invariant every inclusion proof relies on.
   - §1, §2: Verification depth (decision 14): every record, always; no `sample` trust mode. The cost is kept low by a multi-proof, `GET /record/proofs?checkpoint=&from=&to=`, which returns the inclusion proofs of a range of records against one checkpoint with their shared upper path sent once, so a batch of N costs one checkpoint, one consistency proof and O(N log N) hashes. §1 had been given the route in place.
 
 Replaced text: §8 of this ADR; §2 of this ADR.
@@ -118,28 +118,28 @@ Replaced text: §8 of this ADR; §2 of this ADR.
 ### A3. Boards
 
 - **Date:** 2026-10-01
-- **Source:** [0049](0049-boards.md) §10
+- **Source:** 0049 §10
 - **Change:** extends §6, §7
 - **Summary:** Boards (310) may be federated as talk pages are. A thread listed on a page whose `Group` is federated is announced by that `Group` too, with every later post; removing the listing sends `Undo` of the `Announce`. Inbound replies are governed by the thread's home.
 
 ### A4. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §1–13
 - **Summary:** A1–A3 were folded into the Decision. The open questions were numbered. The header's note that a placeholder of the same date was replaced is dropped. No decision changed. Before this, A2's §8 part and A3 were blockquotes. The file before conversion is commit `0b26a3a`.
 
 ### A5. Page repositories on `Special:Providers`
 
 - **Date:** 2026-10-01
-- **Source:** [0053](0053-mirrored-pages.md) §3, §5
+- **Source:** 0053 §3, §5
 - **Change:** extends §11
 - **Summary:** `Special:Providers` lists page repositories with their index date, event lag and mirror sync lag beside the data providers.
 
 ### A6. Pins and foreign threads
 
 - **Date:** 2026-10-06
-- **Source:** [0069](0069-synchronized-talk-pages.md) §4, §8
+- **Source:** 0069 §4, §8
 - **Change:** extends §7
 - **Summary:** A `Group`'s `featured` collection is its pinned threads; foreign threads are never announced.
 
@@ -148,7 +148,7 @@ Replaced text: §8 of this ADR; §2 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §10
-- **Summary:** The delivery queue is one `ops` table, named `ops.delivery` by [0021](0021-notifications.md) §8 (0021 A12), and §10 uses that name in place of `private.ap_outbox_queue`, which named a `private` table for what was already the `ops` queue. (PENDING A8)
+- **Summary:** The delivery queue is one `ops` table, named `ops.delivery` by 0021 §8 (0021 A12), and §10 uses that name in place of `private.ap_outbox_queue`, which named a `private` table for what was already the `ops` queue. (PENDING A8)
 
 Replaced text: §10 of this ADR.
 
@@ -157,27 +157,27 @@ Replaced text: §10 of this ADR.
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design discussion of 2026-10-09
 - **Change:** amends §7
-- **Summary:** ActivityPub fan-out has its own rate class, `federation`, counted per instance against the delivery queue and never against the posting actor; the `notify` class of [0024](0024-subsidiary-accounts.md) §5 stays for requests an actor initiates. A post to a well-followed `Group` therefore cannot exhaust its author's limits. (PENDING F13)
+- **Summary:** ActivityPub fan-out has its own rate class, `federation`, counted per instance against the delivery queue and never against the posting actor; the `notify` class of 0024 §5 stays for requests an actor initiates. A post to a well-followed `Group` therefore cannot exhaust its author's limits. (PENDING F13)
 
 Replaced text: §7 of this ADR.
 
 ### A9. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§13
 
 ### A10. The chain of custody on the key chain endpoint and in the adapter
 
 - **Date:** 2026-10-09
-- **Source:** [0081](0081-recovery-keys-and-continuations.md) §7, §9
+- **Source:** 0081 §7, §9
 - **Change:** extends §1, §2
 - **Summary:** `/.well-known/tlog/keys` serves a tenant's `recovery-key`, `continuation` and `continuation-cancel` records with its key records (§1). The Triplespace adapter follows a `recovered` continuation after its delay with no cancel, stops on an `unauthorized` one or a fork until an administrator accepts with a `provider/accept-continuation` event, and follows nothing silently (§2).
 
 ### A11. The verified sync resumes from the stream's per-partition token
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §7
+- **Source:** 0083 §7
 - **Change:** extends §2
 - **Summary:** The activity stream's resume token is a vector of per-partition high-water marks, since offsets are commit-ordered under the append lock, and the adapter of §2 resumes from that token when it follows the provider's stream filtered to `source = local`, so that a reader never misses a record that committed late; `(time, partition, offset)` stays the display order of paged lists. (REVIEW G14)
 
@@ -186,13 +186,13 @@ Replaced text: §7 of this ADR.
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §2, §10; extends §1
-- **Summary:** An instance publishes, beside the local-graph source dump, the export bundle of its `local` partition (segments with headers and bodies, checkpoints, manifests and the key records a verifier needs); a `verified` reader bootstraps from the bundle, which carries the canonical record bytes the leaf hashes commit to, and a `stream` reader from the source dump. The activity stream filtered to `source = local` may carry each row's record header and body (`bodies=1`), so the steady-state path fetches no records one by one and `GET /record/{partition}/{offset}` fills gaps only. A `delete/statement` event joins the log-event catalogue, telling a reading instance to drop a statement its provider hid. The skolem hash of blank nodes is over the statement UUID, never the entity part, with the snak role, property and index, reference snaks hashing the reference hash, fixed in `wikibase-compat.md` ([0032](0032-sparql-update-stream.md) §7). The ledger names §11; its chapter text ([18](../architecture/18-api.md) §3.2) is unchanged, and §1 gained the bundle and the `bodies` parameter. (REVIEW G48)
+- **Summary:** An instance publishes, beside the local-graph source dump, the export bundle of its `local` partition (segments with headers and bodies, checkpoints, manifests and the key records a verifier needs); a `verified` reader bootstraps from the bundle, which carries the canonical record bytes the leaf hashes commit to, and a `stream` reader from the source dump. The activity stream filtered to `source = local` may carry each row's record header and body (`bodies=1`), so the steady-state path fetches no records one by one and `GET /record/{partition}/{offset}` fills gaps only. A `delete/statement` event joins the log-event catalogue, telling a reading instance to drop a statement its provider hid. The skolem hash of blank nodes is over the statement UUID, never the entity part, with the snak role, property and index, reference snaks hashing the reference hash, fixed in `wikibase-compat.md` (0032 §7). The ledger names §11; its chapter text (18 §3.2) is unchanged, and §1 gained the bundle and the `bodies` parameter. (REVIEW G48)
 
-Replaced text: [17](../architecture/17-federation-and-publication.md) §1.2; [03](../architecture/03-storage-caches-and-search.md) §4.2.
+Replaced text: 17 §1.2; 03 §4.2.
 
 ### A13. The `/.well-known/tlog/` routes as built
 
 - **Date:** 2026-11-07
 - **Source:** Direct: Claude, while building the record and proof routes (SCA-302), 2026-11-07; confirmed by James, 2026-11-08
 - **Change:** extends §1
-- **Summary:** Calls made building the checkpoint, manifest, consistency and key-chain routes of §1. (1) A partition is named by its name on the tenant, as its origin line has it, so a name may hold `/`; the path is read from its end (`…/checkpoint`, `…/checkpoint/{size}`, `…/segment/{n}`, `…/consistency`). Only a partition published to the caller is served, as on the record routes ([0012](0012-api-requirements.md) A85). (2) `GET /.well-known/tlog/keys` serves the instance's `key:` records, the chain that signs every checkpoint, as a CBOR sequence (RFC 8742) of canonical records; the tenant's `recovery-key`, `continuation` and `continuation-cancel` records ([0081](0081-recovery-keys-and-continuations.md) §9) are not written by anything yet, and join the sequence when they are. (3) A consistency proof is served between any two tree sizes up to the head, not only between stored checkpoints, on a `logged` partition; a `hashed` partition has segment manifests and nothing else here. (4) Proofs are computed from the stored interior nodes of `log.merkle_node`. Chapter text: [17](../architecture/17-federation-and-publication.md) §1.1.
+- **Summary:** Calls made building the checkpoint, manifest, consistency and key-chain routes of §1. (1) A partition is named by its name on the tenant, as its origin line has it, so a name may hold `/`; the path is read from its end (`…/checkpoint`, `…/checkpoint/{size}`, `…/segment/{n}`, `…/consistency`). Only a partition published to the caller is served, as on the record routes (0012 A85). (2) `GET /.well-known/tlog/keys` serves the instance's `key:` records, the chain that signs every checkpoint, as a CBOR sequence (RFC 8742) of canonical records; the tenant's `recovery-key`, `continuation` and `continuation-cancel` records (0081 §9) are not written by anything yet, and join the sequence when they are. (3) A consistency proof is served between any two tree sizes up to the head, not only between stored checkpoints, on a `logged` partition; a `hashed` partition has segment manifests and nothing else here. (4) Proofs are computed from the stored interior nodes of `log.merkle_node`. Chapter text: 17 §1.1.

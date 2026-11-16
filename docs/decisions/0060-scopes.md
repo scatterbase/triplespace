@@ -105,28 +105,28 @@ James's direction, from the design discussion of 2026-10-04:
 ### A1. The scope builder
 
 - **Date:** 2026-10-05
-- **Source:** [0062](0062-workspaces.md) §5
+- **Source:** 0062 §5
 - **Change:** extends §8
 - **Summary:** The scope page gains a Builder tab: by example (shared statements with counts), facets and split, pickers for the other kinds, set algebra as chips, and a live count and sample through the preview route.
 
 ### A2. The `saved` kind
 
 - **Date:** 2026-10-05
-- **Source:** [0063](0063-query-namespace.md) §6
+- **Source:** 0063 §6
 - **Change:** extends §4
 - **Summary:** A scope over a saved query's result with parameters.
 
 ### A3. Schemas and the `conforms` kind
 
 - **Date:** 2026-10-05
-- **Source:** [0064](0064-entityschema-and-validation.md) §5–6
+- **Source:** 0064 §5–6
 - **Change:** extends §4
 - **Summary:** `schemas` on a definition binds entity schemas to the scope's members; `conforms` selects by the report.
 
 ### A4. Form and sense subjects
 
 - **Date:** 2026-10-05
-- **Source:** [0066](0066-lexemes.md) §5
+- **Source:** 0066 §5
 - **Change:** extends §4
 - **Summary:** Lexeme parts as subject types.
 
@@ -139,7 +139,7 @@ Replaced text (§4, in part):
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §10
-- **Summary:** The scope listing key `sc:` (with `tp:` of [0049](0049-boards.md) §12 and `sp:` of [0061](0061-sprints-and-tasks.md) §11) carries a **listing version**, the maximum activity ID over the listing's members, computed in Postgres at read time, in place of purges on ordinary writes; [0014](0014-caches-and-search.md) §1 principles 1 and 4 hold unchanged. Tag purges remain for erasure and hiding. (PENDING B4)
+- **Summary:** The scope listing key `sc:` (with `tp:` of 0049 §12 and `sp:` of 0061 §11) carries a **listing version**, the maximum activity ID over the listing's members, computed in Postgres at read time, in place of purges on ordinary writes; 0014 §1 principles 1 and 4 hold unchanged. Tag purges remain for erasure and hiding. (PENDING B4)
 
 Replaced text: §10 of this ADR.
 
@@ -162,23 +162,23 @@ Replaced text: §5 of this ADR.
 ### A8. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§11
 
 ### A9. Membership is a tier-3 consumer; `view.scope_trigger`; the initial computation is a job
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §3, §6
+- **Source:** 0083 §3, §6
 - **Change:** amends §5, §10; extends §4
-- **Summary:** The scope projection no longer runs in step 7 of 0013 §7 within a fan-out budget: it is a tier-3 consumer of composition events, in its own queue with its own rate and lag, never inside the appending or composing transaction, off during bootstrap and bulk modes. A truncated scope is "the first N found, refilled by a job when it falls below N"; it is a full operand only where it can be probed (`statement`, `category`, `ids`, `conforms`), and an `intersection` or `difference` whose non-probeable operand (`query`, `saved`, `column`, `pages_of`, `entities_of`) is truncated is refused at save with `ts-scope-truncated-operand`; a scope whose operand becomes truncated later is marked `stale`. Chapter text: [15](../architecture/15-structured-pages.md) §1.4; [03](../architecture/03-storage-caches-and-search.md) §4.15. (REVIEW G10)
+- **Summary:** The scope projection no longer runs in step 7 of 0013 §7 within a fan-out budget: it is a tier-3 consumer of composition events, in its own queue with its own rate and lag, never inside the appending or composing transaction, off during bootstrap and bulk modes. A truncated scope is "the first N found, refilled by a job when it falls below N"; it is a full operand only where it can be probed (`statement`, `category`, `ids`, `conforms`), and an `intersection` or `difference` whose non-probeable operand (`query`, `saved`, `column`, `pages_of`, `entities_of`) is truncated is refused at save with `ts-scope-truncated-operand`; a scope whose operand becomes truncated later is marked `stale`. Chapter text: 15 §1.4; 03 §4.15. (REVIEW G10)
 
-Replaced text: [15](../architecture/15-structured-pages.md) §1.4.
+Replaced text: 15 §1.4.
 
-Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.15.
+Replaced text: 03 §4.15.
 
 ### A10. Constant expansion in compiled SPARQL
 
 - **Date:** 2026-10-09
-- **Source:** [0082](0082-source-form-and-the-shared-view.md) §7
+- **Source:** 0082 §7
 - **Change:** extends §11
 - **Summary:** `scatter-scope` gains the expansion of entity constants in compiled SPARQL to the cluster's member set through the query service's rewriting layer, with property paths left untouched, so a `query` scope written with any member of a cluster finds the same subjects. (REVIEW G4)

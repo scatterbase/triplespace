@@ -100,7 +100,7 @@ James's direction, from the design discussion of 2026-09-30: the role is **trans
 ### A1. Crate table
 
 - **Date:** 2026-09-30
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §10
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A46).
 
@@ -109,14 +109,14 @@ Replaced text: §10 of this ADR.
 ### A2. Special pages at a shared farm base
 
 - **Date:** 2026-09-30
-- **Source:** [0047](0047-special-pages.md) §3
+- **Source:** 0047 §3
 - **Change:** extends §7
 - **Summary:** Where the farm base is also a tenant's base, a special page with a tenant and an instance form, such as `Special:Log` or `Special:Jobs`, shows both, with a `scope` filter; the registry's names are unique, so nothing else collides.
 
 ### A3. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §7, §10
 - **Summary:** A1–A2 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A2 was a blockquote, and A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
 
@@ -125,38 +125,38 @@ Replaced text: §10 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §8
-- **Summary:** Jobs run under subsidiaries: `ts-runjob` defaults to `bot` everywhere, not only for instance jobs; [0016](0016-permissions-and-access-control.md) §2 drops `sysop` from it, and an administrator runs a job by creating or approving a subsidiary they operate ([0047](0047-special-pages.md) §12's `sysop` job rate row goes). James: "administrators should be able to run jobs under subsidiaries", read as this. The row's verb is `amends`, but §8 already gives `ts-runjob` for instance jobs the `bot` default and nothing in it is contradicted, so for this ADR it is logged as `extends`: §8's row is now the general rule, stated once for instance jobs. (PENDING C14)
+- **Summary:** Jobs run under subsidiaries: `ts-runjob` defaults to `bot` everywhere, not only for instance jobs; 0016 §2 drops `sysop` from it, and an administrator runs a job by creating or approving a subsidiary they operate (0047 §12's `sysop` job rate row goes). James: "administrators should be able to run jobs under subsidiaries", read as this. The row's verb is `amends`, but §8 already gives `ts-runjob` for instance jobs the `bot` default and nothing in it is contradicted, so for this ADR it is logged as `extends`: §8's row is now the general rule, stated once for instance jobs. (PENDING C14)
 
 ### A5. The tenant list
 
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §9
-- **Summary:** The tenant list is the `tenants` array of `GET /tenancy` at the farm base, one entry per tenant with `slug`, `host`, `name` and `status`, and `Special:Tenants` is its page ([0018](0018-tenants.md) §11). §9's `/tenancy` and `Special:Tenants` entries carry the farm slug, the primary tenant and the offers on top of that list. (PENDING E33)
+- **Summary:** The tenant list is the `tenants` array of `GET /tenancy` at the farm base, one entry per tenant with `slug`, `host`, `name` and `status`, and `Special:Tenants` is its page (0018 §11). §9's `/tenancy` and `Special:Tenants` entries carry the farm slug, the primary tenant and the offers on top of that list. (PENDING E33)
 
 ### A6. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§10
 
 ### A7. The farm code
 
 - **Date:** 2026-10-09
-- **Source:** [0079](0079-derived-issuer-codes.md) §4, §7
+- **Source:** 0079 §4, §7
 - **Change:** amends §5, §6; extends §9
 - **Summary:** The farm slug stays the instance's readable name, chosen at `instance create --farm-slug` and never changed, but it is in no key. The **farm code**, derived from the instance's founding record (its first `key:` record, at offset 0 of the instance `config` partition) as a tenant's issuer code is, is what the operator's actor key `instance:{farm code}`, the farm issuer's code and the farm partition names carry, so that an instance act stays attributed to the instance that made it whatever other instance shares its slug (§6). A primary transfer leaves the operator's key unchanged (§5). `siprop=triplespace` and `GET /tenancy` at the farm base report the farm code beside the farm slug (§9).
 
-Replaced text: §6, in [08](../architecture/08-tenants-and-instances.md) §1.2; §5, in [08](../architecture/08-tenants-and-instances.md) §7.5.
+Replaced text: §6, in 08 §1.2; §5, in 08 §7.5.
 
 ### A8. Accept moves to Special:WikiSettings
 
 - **Date:** 2026-10-17
-- **Source:** [0085](0085-settings-and-preferences.md) §4
+- **Source:** 0085 §4
 - **Change:** amends §9
-- **Summary:** `Special:Tenancy` is merged into the settings pages, so an `owner` of a tenant offered the primary role sees **Accept** on `Special:Tenants` and on the Tenancy tab of their own tenant's `Special:WikiSettings`. The chapter text is [19](../architecture/19-site-ui.md) §2.8 and §6.11.
+- **Summary:** `Special:Tenancy` is merged into the settings pages, so an `owner` of a tenant offered the primary role sees **Accept** on `Special:Tenants` and on the Tenancy tab of their own tenant's `Special:WikiSettings`. The chapter text is 19 §2.8 and §6.11.
 
-Replaced text: [19](../architecture/19-site-ui.md) §6.11.
+Replaced text: 19 §6.11.
 
 ### A9. The instance `log` stays `internal` as a whole
 

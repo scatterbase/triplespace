@@ -146,15 +146,15 @@ Replaced text: §9 of this ADR.
 ### A4. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§12
 
 ### A5. Stopping splits comments too
 
 - **Date:** 2026-10-20
-- **Source:** [0090](0090-converting-talk-pages-comment-by-comment.md) §10
+- **Source:** 0090 §10
 - **Change:** amends §7
-- **Summary:** **Stop following** runs the conversion as it now stands, so each section's comments become posts, attributed to their authors, rather than one post per section. Chapter text: [13](../architecture/13-mirrored-pages.md) §5.11.
+- **Summary:** **Stop following** runs the conversion as it now stands, so each section's comments become posts, attributed to their authors, rather than one post per section. Chapter text: 13 §5.11.
 
-Replaced text: [13](../architecture/13-mirrored-pages.md) §5.11.
+Replaced text: 13 §5.11.
 

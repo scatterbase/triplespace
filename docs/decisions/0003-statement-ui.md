@@ -102,28 +102,28 @@ Triplespace does not come with MediaWiki's editing UI ([0000](0000-init.md), Con
 ### A1. Fused statements and linked properties
 
 - **Date:** 2026-09-25
-- **Source:** [0004](0004-identity-clusters-and-equivalence.md) §6, §8
+- **Source:** 0004 §6, §8
 - **Change:** extends §6, §7
 - **Summary:** The provenance response lists every member statement of a fused statement and its graph. Adapters name their local targets by role. A role map may name either of two properties linked by `equivalent-property`.
 
 ### A2. Where shape pins live
 
 - **Date:** 2026-09-27
-- **Source:** [0027](0027-preferences-and-portability.md) §5
+- **Source:** 0027 §5
 - **Change:** extends §3
 - **Summary:** A viewer's pin is the `shapes.pins` preference; a tenant-wide pin is a `view-pin` config record. This settled Q2.
 
 ### A3. Resolvers bound by role
 
 - **Date:** 2026-09-27
-- **Source:** [0029](0029-resolver-namespaces.md) §1
+- **Source:** 0029 §1
 - **Change:** extends §7
 - **Summary:** A resolver namespace is bound to a property by a role, such as `doi`, or to sitelinks.
 
 ### A4. Constraints
 
 - **Date:** 2026-09-27
-- **Source:** [0031](0031-property-constraints.md) §1, §3, §6
+- **Source:** 0031 §1, §3, §6
 - **Change:** extends §6, §7; amends §9
 - **Summary:** The constraint vocabulary is bound by roles. A violating value carries a constraint marker in its value cell, drawn only where there is a violation. The provenance response gains a `constraints` list per statement, so the statement UI needs one request. The constraints-as-hints rule of §7 stands.
 
@@ -132,35 +132,35 @@ Replaced text: §9 of this ADR.
 ### A5. OpenStreetMap roles
 
 - **Date:** 2026-09-28
-- **Source:** [0036](0036-openstreetmap-providers.md) §4
+- **Source:** 0036 §4
 - **Change:** extends §7
 - **Summary:** `osm-tag`, `osm-tag-text` and `osm-key` are registered with the other roles; the OpenStreetMap adapter's key map names properties by role.
 
 ### A6. GDELT roles
 
 - **Date:** 2026-09-28
-- **Source:** [0037](0037-gdelt-provider.md) §3–4
+- **Source:** 0037 §3–4
 - **Change:** extends §7
 - **Summary:** GDELT documents and events carry their statements by role: `document-url`, `published`, `source-domain`, `theme`, `location`, the tone roles, `event-type`, `event-date`, `event-actor`, `mentioned-in` and the rest.
 
 ### A7. Page and thread roles
 
 - **Date:** 2026-09-29
-- **Source:** [0038](0038-page-metadata-and-categories.md) §2, §9
+- **Source:** 0038 §2, §9
 - **Change:** extends §2, §7
-- **Summary:** Three roles are added. `subject-page` and `subject-thread` name the items that stand for a document page and a thread as values of Wikidata's *allowed entity types* constraint (Q52004125). `thread-status` names the `string` property that carries a thread's projected status. The statement UI also serves page statements, with the page as subject, in the Page data tab of [0010](0010-site-ui.md) §2.
+- **Summary:** Three roles are added. `subject-page` and `subject-thread` name the items that stand for a document page and a thread as values of Wikidata's *allowed entity types* constraint (Q52004125). `thread-status` names the `string` property that carries a thread's projected status. The statement UI also serves page statements, with the page as subject, in the Page data tab of 0010 §2.
 
 ### A8. The notation-scheme role
 
 - **Date:** 2026-10-01
-- **Source:** [0048](0048-notation.md) §4
+- **Source:** 0048 §4
 - **Change:** extends §7
 - **Summary:** A new role, `notation-scheme`, names the `string` property whose values restrict which schemes a `wikibase-notation` property accepts. A value in another scheme is refused on the write path.
 
 ### A9. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §2–9
 - **Summary:** A1–A8 were folded into the Decision, the open questions were numbered, and the consequence that named the `scatter.wiki` vocabulary was struck. No decision changed. Before this, A7 was a blockquote under §7, and the other entries were recorded only in this ADR's header or in other ADRs. The file before conversion is commit `0b26a3a`.
 
@@ -176,60 +176,60 @@ Replaced text: §9 of this ADR.
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design discussion of 2026-10-09
 - **Change:** extends §6
-- **Summary:** The entity page has the "About this page" panel of [0010](0010-site-ui.md) §4 beside its "Where this comes from" panel; the scope count ([0060](0060-scopes.md) §8) and the proposal count ([0067](0067-proposals.md) §7) sit in the "About this page" panel. 0010 §4 is extended the same way. (PENDING F16)
+- **Summary:** The entity page has the "About this page" panel of 0010 §4 beside its "Where this comes from" panel; the scope count (0060 §8) and the proposal count (0067 §7) sit in the "About this page" panel. 0010 §4 is extended the same way. (PENDING F16)
 
 ### A12. The prototype is `triplespace-ui`
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design discussion of 2026-10-09
 - **Change:** supersedes §10
-- **Summary:** The prototype is `triplespace-ui` with `scatter-wasm`, server-rendered Rust ([0034](0034-frontend-stack.md) §3, §13), built and tested against live Wikidata as §10 says; the fixture list and the audit step stay. The closing paragraph goes: the prototype does not live in `ui/`, and there is no "later Rust implementation" distinct from it. 0010 §13 is superseded the same way. (PENDING F17)
+- **Summary:** The prototype is `triplespace-ui` with `scatter-wasm`, server-rendered Rust (0034 §3, §13), built and tested against live Wikidata as §10 says; the fixture list and the audit step stay. The closing paragraph goes: the prototype does not live in `ui/`, and there is no "later Rust implementation" distinct from it. 0010 §13 is superseded the same way. (PENDING F17)
 
 Replaced text: §10 of this ADR.
 
 ### A13. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§10
 
 ### A14. The `role` kind has an instance-scope record
 
 - **Date:** 2026-10-09
-- **Source:** [0082](0082-source-form-and-the-shared-view.md) §5.2
+- **Source:** 0082 §5.2
 - **Change:** amends §7
-- **Summary:** A role binding is no longer only tenant configuration: the `role` config kind has an instance-scope record beside the tenant records. The chapter folds this at [06](../architecture/06-statements-and-properties.md) §1 and §1.2, whose provenance is §7 here; 0082's table did not list this ADR, and was extended. The ledger's G21 (prefixed `unit`, `globe` and `calendarmodel`) is folded under [0004](0004-identity-clusters-and-equivalence.md) §7, not here. Chapter text: [06](../architecture/06-statements-and-properties.md) §1, §1.2. (REVIEW G1, G26)
+- **Summary:** A role binding is no longer only tenant configuration: the `role` config kind has an instance-scope record beside the tenant records. The chapter folds this at 06 §1 and §1.2, whose provenance is §7 here; 0082's table did not list this ADR, and was extended. The ledger's G21 (prefixed `unit`, `globe` and `calendarmodel`) is folded under 0004 §7, not here. Chapter text: 06 §1, §1.2. (REVIEW G1, G26)
 
-Replaced text: [06](../architecture/06-statements-and-properties.md) §1, §1.2.
+Replaced text: 06 §1, §1.2.
 
 ### A15. The UI asks for the local form and fetches labels by cluster
 
 - **Date:** 2026-10-09
-- **Source:** [0082](0082-source-form-and-the-shared-view.md) §3, §6
+- **Source:** 0082 §3, §6
 - **Change:** extends §2
-- **Summary:** Every request the UI makes carries `prefer=local`, so a value whose cluster has an exact local match is shown and linked as `Q9` rather than `WDQ5`, and an ID with no local match is shown as stored; the stored graph is never rewritten, and a reader who follows a link in either form reaches the same entity. The chapter folds this at [19](../architecture/19-site-ui.md) §4.2, whose provenance is §2 here; 0082's table was extended. Chapter text: [19](../architecture/19-site-ui.md) §4.2. (REVIEW G5, G7)
+- **Summary:** Every request the UI makes carries `prefer=local`, so a value whose cluster has an exact local match is shown and linked as `Q9` rather than `WDQ5`, and an ID with no local match is shown as stored; the stored graph is never rewritten, and a reader who follows a link in either form reaches the same entity. The chapter folds this at 19 §4.2, whose provenance is §2 here; 0082's table was extended. Chapter text: 19 §4.2. (REVIEW G5, G7)
 
 ### A16. Replacing a mirrored value is suppress-and-add; conflicts are against the local graph
 
 - **Date:** 2026-10-09
-- **Source:** [0084](0084-wikibase-writes-against-the-resolved-view.md) §3, §5
+- **Source:** 0084 §3, §5
 - **Change:** amends §8
-- **Summary:** Correcting a mirrored value's rank or a mirrored term writes a local-graph `override`; replacing a mirrored value is refused by the API with `ts-foreign-statement`, and the editor never shows the refusal: editing the value of a statement whose source chip is a mirror's opens as **Replace here**, one action that suppresses the mirrored statement and adds the local one in one change set, with the new statement's GUID, the row keeping its place with a "Corrected here" chip, and **Propose upstream** beside it. Each save's `baserevid` is the entity's newest local revision; a mirror advancing since the edit began is never a conflict, and if the local graph has changed the pending rows are applied to the current data as the API patches around a stale base (`wikibase-conflict-patched`), with only the clashing cells marked. The chapter folds this at [19](../architecture/19-site-ui.md) §4.7, whose provenance is §8 here; 0084's table was extended. (REVIEW G16, G17)
+- **Summary:** Correcting a mirrored value's rank or a mirrored term writes a local-graph `override`; replacing a mirrored value is refused by the API with `ts-foreign-statement`, and the editor never shows the refusal: editing the value of a statement whose source chip is a mirror's opens as **Replace here**, one action that suppresses the mirrored statement and adds the local one in one change set, with the new statement's GUID, the row keeping its place with a "Corrected here" chip, and **Propose upstream** beside it. Each save's `baserevid` is the entity's newest local revision; a mirror advancing since the edit began is never a conflict, and if the local graph has changed the pending rows are applied to the current data as the API patches around a stale base (`wikibase-conflict-patched`), with only the clashing cells marked. The chapter folds this at 19 §4.7, whose provenance is §8 here; 0084's table was extended. (REVIEW G16, G17)
 
-Replaced text: [19](../architecture/19-site-ui.md) §4.7.
+Replaced text: 19 §4.7.
 
 ### A17. References are a tab's endnotes; the upstream revision is linked
 
 - **Date:** 2026-10-27
 - **Source:** Direct: James, design discussion of 2026-10-27
 - **Change:** amends §5, §9; extends §6
-- **Summary:** James asked that references be deduplicated and presented at the bottom as endnotes, to reduce duplication. Each distinct reference that a tab's statement groups cite, a deprecated value's included, is numbered once in the order it first appears down the tab and listed under **References** at the foot of the tab (Statements and Identifiers each have their own), with the groups that cite it; a row's markers link to those entries. A group's footer keeps "Cited by all N values", with the shared reference's marker, and the count of values without a source; it no longer lists references. A group rendered alone carries the numbers its tab gives it, and the editor swaps in the whole tab after a save. He also asked that the upstream revision named in "Where this comes from" link to that revision: the provenance response gives `upstream_url`, the provider's `index.php?oldid=` page, where the provider is a MediaWiki that publishes revision IDs ([0012](0012-api-requirements.md) A80). The chapter folds this at [19](../architecture/19-site-ui.md) §4.5, §4.6 and §4.8, whose provenance is §5, §6 and §9 here.
+- **Summary:** James asked that references be deduplicated and presented at the bottom as endnotes, to reduce duplication. Each distinct reference that a tab's statement groups cite, a deprecated value's included, is numbered once in the order it first appears down the tab and listed under **References** at the foot of the tab (Statements and Identifiers each have their own), with the groups that cite it; a row's markers link to those entries. A group's footer keeps "Cited by all N values", with the shared reference's marker, and the count of values without a source; it no longer lists references. A group rendered alone carries the numbers its tab gives it, and the editor swaps in the whole tab after a save. He also asked that the upstream revision named in "Where this comes from" link to that revision: the provenance response gives `upstream_url`, the provider's `index.php?oldid=` page, where the provider is a MediaWiki that publishes revision IDs (0012 A80). The chapter folds this at 19 §4.5, §4.6 and §4.8, whose provenance is §5, §6 and §9 here.
 
-Replaced text: [19](../architecture/19-site-ui.md) §4.5, §4.8.
+Replaced text: 19 §4.5, §4.8.
 
 ### A18. The `revision-of` role
 
 - **Date:** 2026-11-16
 - **Source:** Direct: James, design discussion of 2026-11-16
 - **Change:** extends §7
-- **Summary:** `revision-of` names the `wikibase-remote` property that says which page a remote revision key belongs to ([0110](0110-remote-pages-and-revisions.md) A4). Chapter text: [06](../architecture/06-statements-and-properties.md) §1.2.
+- **Summary:** `revision-of` names the `wikibase-remote` property that says which page a remote revision key belongs to (0110 A4). Chapter text: 06 §1.2.

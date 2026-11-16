@@ -96,14 +96,14 @@ James's direction, from the design discussions of 2026-10-04 and 2026-10-05:
 ### A1. Page proposals
 
 - **Date:** 2026-10-05
-- **Source:** [0068](0068-merging-with-upstream.md) §3
+- **Source:** 0068 §3
 - **Change:** extends §1, §3
 - **Summary:** The page kind's payload and destination are defined by 0068.
 
 ### A2. The grant serves talk pages
 
 - **Date:** 2026-10-06
-- **Source:** [0069](0069-synchronized-talk-pages.md) §5
+- **Source:** 0069 §5
 - **Change:** extends §6
 - **Summary:** The upstream grant and client are built with 0069, whose upstream replies and sections are their first use; `proposals.push` stays off until this section is implemented.
 
@@ -112,7 +112,7 @@ James's direction, from the design discussions of 2026-10-04 and 2026-10-05:
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design discussion of 2026-10-09
 - **Change:** amends §3
-- **Summary:** A proposal's kind, destination, base, payload, omitted and flags are **page metadata of the thread page**, set by the `propose` operation and projected to `view.proposal`; they are not fields of `create`, whose `target` stays the thread's home ([0019](0019-discussions.md) §4). (PENDING F7)
+- **Summary:** A proposal's kind, destination, base, payload, omitted and flags are **page metadata of the thread page**, set by the `propose` operation and projected to `view.proposal`; they are not fields of `create`, whose `target` stays the thread's home (0019 §4). (PENDING F7)
 
 Replaced text: §3 of this ADR.
 
@@ -121,7 +121,7 @@ Replaced text: §3 of this ADR.
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design discussion of 2026-10-09
 - **Change:** amends §5
-- **Summary:** On a proposal thread `declined` may be set only by the proposer or a holder of `edit` on the subject's talk page; any other `declined` post is refused with `ts-proposal-status`. [0019](0019-discussions.md) §6 notes the exception. (PENDING F8)
+- **Summary:** On a proposal thread `declined` may be set only by the proposer or a holder of `edit` on the subject's talk page; any other `declined` post is refused with `ts-proposal-status`. 0019 §6 notes the exception. (PENDING F8)
 
 Replaced text: §5 of this ADR.
 
@@ -130,46 +130,46 @@ Replaced text: §5 of this ADR.
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design discussion of 2026-10-09
 - **Change:** amends §6
-- **Summary:** A publication ([0074](0074-publishing-a-scope-to-an-external-wiki.md) §4) runs under a subsidiary account that holds its credential (PENDING C14); §6's rule is scoped to proposals: the instance never pushes a proposal under its own name. (PENDING F14)
+- **Summary:** A publication (0074 §4) runs under a subsidiary account that holds its credential (PENDING C14); §6's rule is scoped to proposals: the instance never pushes a proposal under its own name. (PENDING F14)
 
 Replaced text: §6 of this ADR.
 
 ### A6. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§9
 
 ### A7. Retirement is an `ops` job, never a projection step
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §6
+- **Source:** 0083 §6
 - **Change:** amends §5
-- **Summary:** No projection has side effects during replay: the proposal projection writes `view.proposal.state` and nothing else, so a rebuild re-derives every state and re-runs no retirement. "Retires each redundant assertion at once" is withdrawn. The ledger and 0083's table named §9; the text they amend is §5's ([14](../architecture/14-discussions.md) §5.4), and the crate table did not change. Chapter text: [14](../architecture/14-discussions.md) §5.4. (REVIEW G13)
+- **Summary:** No projection has side effects during replay: the proposal projection writes `view.proposal.state` and nothing else, so a rebuild re-derives every state and re-runs no retirement. "Retires each redundant assertion at once" is withdrawn. The ledger and 0083's table named §9; the text they amend is §5's (14 §5.4), and the crate table did not change. Chapter text: 14 §5.4. (REVIEW G13)
 
-Replaced text: [14](../architecture/14-discussions.md) §5.4.
+Replaced text: 14 §5.4.
 
 ### A8. `private.upstream_grant` stores the tokens, encrypted
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** corrects §6
-- **Summary:** `private.upstream_grant` holds `access_token` and `refresh_token` encrypted at rest with the key handling of `private.publication_credential`, never hashes: the instance is the OAuth *client* here and must present the access token to the wiki and the refresh token to its token endpoint. Hashes are kept only where the instance is the server, in [0025](0025-oauth-server.md) §8's token tables. (REVIEW G47)
+- **Summary:** `private.upstream_grant` holds `access_token` and `refresh_token` encrypted at rest with the key handling of `private.publication_credential`, never hashes: the instance is the OAuth *client* here and must present the access token to the wiki and the refresh token to its token endpoint. Hashes are kept only where the instance is the server, in 0025 §8's token tables. (REVIEW G47)
 
-Replaced text: [17](../architecture/17-federation-and-publication.md) §3.2.
+Replaced text: 17 §3.2.
 
 ### A9. Upstream grants are revoked from Special:Account
 
 - **Date:** 2026-10-17
-- **Source:** [0085](0085-settings-and-preferences.md) §5
+- **Source:** 0085 §5
 - **Change:** amends §6
-- **Summary:** `Special:Preferences` is now a page of preference keys, so an upstream grant, a credential the instance holds for the person at a destination wiki, is listed and revoked in the Connected applications section of `Special:Account`. The chapter text is [17](../architecture/17-federation-and-publication.md) §3.2 and [19](../architecture/19-site-ui.md) §2.4.
+- **Summary:** `Special:Preferences` is now a page of preference keys, so an upstream grant, a credential the instance holds for the person at a destination wiki, is listed and revoked in the Connected applications section of `Special:Account`. The chapter text is 17 §3.2 and 19 §2.4.
 
-Replaced text: [17](../architecture/17-federation-and-publication.md) §3.2.
+Replaced text: 17 §3.2.
 
 ### A10. Upstream grants sealed under the instance sealing key
 
 - **Date:** 2026-10-18
-- **Source:** [0088](0088-external-identity-providers.md) §3
+- **Source:** 0088 §3
 - **Change:** extends §6
-- **Summary:** The encryption at rest of `private.upstream_grant` (A8) is XChaCha20-Poly1305 under the instance sealing key, a subkey of the signing seed (`ts-seal-v1`), with the table and owner as associated data. The login client of [0088](0088-external-identity-providers.md) is the instance's other OAuth client; the two never share a consumer. The chapter text is [07](../architecture/07-actors-and-accounts.md) §2.7 and §7.7.
+- **Summary:** The encryption at rest of `private.upstream_grant` (A8) is XChaCha20-Poly1305 under the instance sealing key, a subkey of the signing seed (`ts-seal-v1`), with the table and owner as associated data. The login client of 0088 is the instance's other OAuth client; the two never share a consumer. The chapter text is 07 §2.7 and §7.7.

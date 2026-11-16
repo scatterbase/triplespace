@@ -152,11 +152,11 @@ The retired verbs map onto these. **refines, specifies, narrows**: `amends` if i
 ### A9. Articles, categories and page statements
 
 - **Date:** 2026-09-29
-- **Source:** [0038](0038-page-metadata-and-categories.md) §1, §3, §4, §8, §11
+- **Source:** 0038 §1, §3, §4, §8, §11
 - **Change:** amends §2, §8, §10; extends §4
-- **Summary:** What changed and why, in a few sentences. Chapter text: [10](../architecture/10-pages-and-content-models.md) §4.3.
+- **Summary:** What changed and why, in a few sentences. Chapter text: 10 §4.3.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §4.3.
+Replaced text: 10 §4.3.
 ```
 
 - **IDs are `A1`, `A2`, …,** assigned in the order entries are appended, and never renumbered. An entry is never edited, except to correct a typo or a broken link, and twice by 0050: by A5, which replaced quoted text that git holds with the sections' names and shortened summaries that restated the chapter, by A6, which shortened the *Replaced text* lines and removed the summaries of the `relocates` entries, and by A9, which removed the quotes A5's pass had left under lines it had already converted.
@@ -164,7 +164,7 @@ Replaced text: [10](../architecture/10-pages-and-content-models.md) §4.3.
 - **A decision made while building is logged by the agent that made it,** in the same change as the code, with Source `Direct: Claude, while building <what>, YYYY-MM-DD; unconfirmed`. It is decided like any other entry (§1.1) and folded like any other; the word *unconfirmed* is what the index (§13) lists it by. James confirms it by editing the Source line (`Direct: James, confirmed YYYY-MM-DD; Claude's call while building …`) or overturns it with a new entry. Notes outside the ADRs are not where such calls are kept.
 - **Change** uses the verbs of §5.
 - **Summary** says what changed and why: the reason, anything the change withdraws or corrects, and the chapter sections it changed (*Chapter text: …*). It does not restate the chapter text, which the diff shows. For a direct decision it holds the decision, its reasons, its consequences and each call it made, and leaves out only detail the fold states; an unconfirmed entry is kept whole until James confirms it, since he confirms it by reading it. An entry from another ADR need not repeat that ADR's reasons. An entry whose commit does not hold the change (see below) keeps its summary whole. A `relocates` entry (§5) has no Summary: every one says the same thing, which is that the Decision's current text moved to the chapter sections its pointers name, that the ADR kept its headings, provenance lines, Context, Consequences, Open questions and log, and that no decision changed; `tools/adr.py log NNNN An --diff` shows the text as it stood in the ADR.
-- **Replaced text** names the sections whose text the change removed or contradicted, as they stood before the entry, and nothing more: *Replaced text: [10](…) §4.3.* The entry is written in the same change as the fold, so the commit that adds the entry's heading holds the text, and its parent holds the text as it stood. `tools/adr.py log NNNN An --before` prints those sections as they stood and `--diff` what the change did to them, word by word. The tool finds the commit each time, so no entry records a hash, uncommitted work needs none, and a rebase changes nothing; when the commit also carries other entries, or only gave an older entry its heading, the tool says so.
+- **Replaced text** names the sections whose text the change removed or contradicted, as they stood before the entry, and nothing more: *Replaced text: 10 §4.3.* The entry is written in the same change as the fold, so the commit that adds the entry's heading holds the text, and its parent holds the text as it stood. `tools/adr.py log NNNN An --before` prints those sections as they stood and `--diff` what the change did to them, word by word. The tool finds the commit each time, so no entry records a hash, uncommitted work needs none, and a rebase changes nothing; when the commit also carries other entries, or only gave an older entry its heading, the tool says so.
 - **Text is quoted only where git does not hold it:** text edited before the repository held it (entries dated before 2026-09-27, or edited in place before the 0050 conversion of 2026-10-01), or a file `adr.py` does not read, such as a registry file. Such text is quoted verbatim, headed by the section it stood in (*Replaced text (10 §4.3, as it stood):*).
 - **The log is where history is recorded, and git holds the text it names.** It is read through `tools/adr.py log NNNN [An] [--before | --diff]`, so its size costs a reader nothing until the history is wanted.
 
@@ -206,6 +206,7 @@ A consequence the change adds is appended as a new bullet. Consequences are not 
 - **Inside an ADR, a bare `§N`, `An` or `Qn` means that ADR.** A reference to any other ADR names it, every time. Inside a chapter, a bare `§N` means that chapter.
 - **A relation outside a heading names both ends.** Write "0049 §2 amends 0008 §2", never "(§2 amends §2)". In a heading the section itself is the subject, so only the object is named.
 - **The first mention of another ADR in each section is a link:** `[0008](0008-namespaces-and-document-pages.md) §2` from an ADR, `[0008](../decisions/0008-namespaces-and-document-pages.md) §2` from a chapter.
+- **In the Amendment log a citation is plain,** `0038 §1`, `10 §4.3`, never a link: the log is read through `tools/adr.py log`, which prints citations plain in any case, and the checker verifies that each ADR, chapter and section named on a Source or Replaced text line or in a Chapter text list exists. A link stays where it is not such a citation: to a file that is neither an ADR nor a chapter, to a chapter named without a section, and inside quoted text, which is verbatim.
 - **`NNNN §N` always means the current text.** To cite text as it was, cite the entry that replaced it: "0008 A6". Dated forms ("as amended 2026-09-27"), sources without a number and placeholders (`§…`) are not used.
 - **Code cites ADR sections**, as `0013 §7` or `0013 §7 rule 2` in a comment, to say what it is about; it claims a section built with `implements 0013 §7 (A41)` (§15). `tools/coverage.py` reads both and `tools/adr.py code 0013 §7` lists them.
 

@@ -154,7 +154,7 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 ### A1. Crate names
 
 - **Date:** 2026-09-26
-- **Source:** [0005](0005-crate-organization.md) §2, revision of 2026-09-26
+- **Source:** 0005 §2, revision of 2026-09-26
 - **Change:** amends §13
 - **Summary:** `scatter-markdown` was folded into `scatter-pages`; the crate names in §13 read as their new homes.
 
@@ -163,7 +163,7 @@ Replaced text: §13 of this ADR.
 ### A2. The activity projection in Postgres
 
 - **Date:** 2026-09-26
-- **Source:** [0013](0013-postgres-storage.md) §5.5, §10
+- **Source:** 0013 §5.5, §10
 - **Change:** amends §13
 - **Summary:** The activity projection is `view.activity`, written by `triplespace-projections`, which absorbs `triplespace-activity`.
 
@@ -172,7 +172,7 @@ Replaced text: §13 of this ADR.
 ### A3. Global revision IDs
 
 - **Date:** 2026-09-26
-- **Source:** [0013](0013-postgres-storage.md) §6; [0015](0015-record-format-and-partition-registry.md) §2
+- **Source:** 0013 §6; 0015 §2
 - **Change:** amends §5.2, §12
 - **Summary:** Local and mirror records have global revision IDs, so rows may show revision numbers and `oldid=N` and `Special:Diff/N` work for both. This settled Q3.
 
@@ -181,7 +181,7 @@ Replaced text: §5.2 of this ADR; §12 of this ADR.
 ### A4. One search, two indexes
 
 - **Date:** 2026-09-26
-- **Source:** [0014](0014-caches-and-search.md) §7
+- **Source:** 0014 §7
 - **Change:** amends §3
 - **Summary:** Entity labels and page text are two indexes queried together.
 
@@ -190,7 +190,7 @@ Replaced text: §3 of this ADR.
 ### A5. Groups, protection and erasure reasons
 
 - **Date:** 2026-09-26
-- **Source:** [0016](0016-permissions-and-access-control.md) §6–7
+- **Source:** 0016 §6–7
 - **Change:** amends §5.2; extends §2, §12
 - **Summary:** The overflow menu gains **Protect…**; group, rights, block and protection pages appear where MediaWiki users expect them; an erased row's reason class is visible to holders of `ts-viewerasures`. 0016 §5–6 also settled Q5 and Q8.
 
@@ -201,12 +201,12 @@ Replaced text: §5.2 of this ADR.
 - **Date:** 2026-09-27
 - **Source:** Direct: James, review of 2026-09-27
 - **Change:** extends §10
-- **Summary:** A local account name follows MediaWiki's username grammar exactly, so that imported attributions, CentralAuth names and Pywikibot round-trip: Unicode letters, digits and spaces; none of `@ # : / < > [ ] | { }`, control characters or leading, trailing or doubled spaces; at most 255 bytes; normalized to NFC with underscores read as spaces and the first letter uppercased. **Uniqueness is case-insensitive**, as the `actor_local_name` index of [0013](0013-postgres-storage.md) §5.4 already has it. **A name is never reused.** Every name a local account has ever held, whether renamed away or vanished from, stays reserved as a *name tombstone*, so that `[[User:OldName]]` in old page text or a post can never come to name a different person; the only way to have a name is to have always had it. Because a vanished account's names are erased from the log ([0007](0007-actor-identity.md) §4), the tombstone is not a projection: it is a keyed hash of the lower-cased name in `private.name_tombstone` ([0013](0013-postgres-storage.md) §5.6), written when a name is released, holding no actor key and no plaintext, and revealing nothing but that a candidate name is reserved, which the "name taken" check reveals anyway. `Special:CreateAccount` and `renameuser` refuse a tombstoned name with `ts-name-reserved`. The subsidiary conventions of [0024](0024-subsidiary-accounts.md) §2 and [0025](0025-oauth-server.md) §3 apply on top of this grammar, and the farm name registry of [0028](0028-tenancy-policy.md) §2 is this rule applied across tenants, tombstones included. This settled Q10.
+- **Summary:** A local account name follows MediaWiki's username grammar exactly, so that imported attributions, CentralAuth names and Pywikibot round-trip: Unicode letters, digits and spaces; none of `@ # : / < > [ ] | { }`, control characters or leading, trailing or doubled spaces; at most 255 bytes; normalized to NFC with underscores read as spaces and the first letter uppercased. **Uniqueness is case-insensitive**, as the `actor_local_name` index of 0013 §5.4 already has it. **A name is never reused.** Every name a local account has ever held, whether renamed away or vanished from, stays reserved as a *name tombstone*, so that `[[User:OldName]]` in old page text or a post can never come to name a different person; the only way to have a name is to have always had it. Because a vanished account's names are erased from the log (0007 §4), the tombstone is not a projection: it is a keyed hash of the lower-cased name in `private.name_tombstone` (0013 §5.6), written when a name is released, holding no actor key and no plaintext, and revealing nothing but that a candidate name is reserved, which the "name taken" check reveals anyway. `Special:CreateAccount` and `renameuser` refuse a tombstoned name with `ts-name-reserved`. The subsidiary conventions of 0024 §2 and 0025 §3 apply on top of this grammar, and the farm name registry of 0028 §2 is this rule applied across tenants, tombstones included. This settled Q10.
 
 ### A7. Keyed IDs in the search box
 
 - **Date:** 2026-09-27
-- **Source:** [0017](0017-entity-id-grammar.md) §1, §4
+- **Source:** 0017 §1, §4
 - **Change:** amends §3
 - **Summary:** Keyed IDs carry their type prefix; a bare key pasted into the search box is offered as its keyed ID.
 
@@ -215,7 +215,7 @@ Replaced text: §3 of this ADR.
 ### A8. Contributions across tenants
 
 - **Date:** 2026-09-27
-- **Source:** [0018](0018-tenants.md) §8
+- **Source:** 0018 §8
 - **Change:** amends §8
 - **Summary:** Contributions are per tenant account; `Special:GlobalContributions` follows linked accounts; a foreign actor's page shows what the instance holds and never fetches upstream. This settled Q4.
 
@@ -224,63 +224,63 @@ Replaced text: §8 of this ADR.
 ### A9. Discussions
 
 - **Date:** 2026-09-27
-- **Source:** [0019](0019-discussions.md) §8
+- **Source:** 0019 §8
 - **Change:** extends §2
 - **Summary:** Subject pages get a Talk tab with the thread count; thread and talk pages are new page kinds. This settled Q11.
 
 ### A10. Feeds
 
 - **Date:** 2026-09-27
-- **Source:** [0020](0020-change-feeds.md) §4
+- **Source:** 0020 §4
 - **Change:** extends §7, §11, §12
 - **Summary:** Each feed has a page, an Atom form and a stream; `Special:Watchlist` is labelled Private; the Atom token is shown and resettable in `Special:Account`. With 0021, this settled Q1.
 
 ### A11. Notifications
 
 - **Date:** 2026-09-27
-- **Source:** [0021](0021-notifications.md) §6
+- **Source:** 0021 §6
 - **Change:** extends §2, §11, §12
 - **Summary:** The bell in the global header; `Special:Notifications`; a Notifications section of `Special:Account`; a notify toggle beside the watch star; the persistent banner for an unread talk message.
 
 ### A12. Federation
 
 - **Date:** 2026-09-27
-- **Source:** [0022](0022-federation.md) §6, §11
+- **Source:** 0022 §6, §11
 - **Change:** extends §2, §11
 - **Summary:** `Special:Providers`; a `verified` chip on mirrored entities; a Fediverse section of `Special:Account`; the talk page's handle; the vanish page says copies delivered elsewhere may persist, which §11 had been given in place.
 
 ### A13. Moderation
 
 - **Date:** 2026-09-27
-- **Source:** [0023](0023-moderation.md) §9
+- **Source:** 0023 §9
 - **Change:** extends §2, §5.2, §7
 - **Summary:** **Protect…** and **Delete…** in the overflow menu; the view of a deleted page; RevisionDelete checkboxes and suppression in history; the patrol marker and filter; the log and moderation special pages. 0023 §6 also settled Q2.
 
 ### A14. Subsidiaries
 
 - **Date:** 2026-09-27
-- **Source:** [0024](0024-subsidiary-accounts.md) §9
+- **Source:** 0024 §9
 - **Change:** extends §8, §11
 - **Summary:** A Subsidiaries section of `Special:Account`, Public, with each subsidiary's keys Private; a subsidiary's page names its operator; contributions headers name operators and list subsidiaries.
 
 ### A15. Connected applications
 
 - **Date:** 2026-09-27
-- **Source:** [0025](0025-oauth-server.md) §5
+- **Source:** 0025 §5
 - **Change:** extends §11
 - **Summary:** A Connected applications section of `Special:Account`, Private, with Revoke; `Special:OAuthConsumers` and `Special:PendingSubsidiaries`, which §12's table had been given in place.
 
 ### A16. Sitelinks by host
 
 - **Date:** 2026-09-27
-- **Source:** [0026](0026-sitelinks.md) §9
+- **Source:** 0026 §9
 - **Change:** extends §2
 - **Summary:** The Sitelinks tab groups links by host, each a Domain chip; adding a link takes a URL; a denied host is refused with the list named.
 
 ### A17. Preferences and your data
 
 - **Date:** 2026-09-27
-- **Source:** [0027](0027-preferences-and-portability.md) §7
+- **Source:** 0027 §7
 - **Change:** amends §11
 - **Summary:** The Preferences section becomes the home of every preference key; a Your data section, Private, offers download and import; the Leave section suggests downloading first.
 
@@ -289,28 +289,28 @@ Replaced text: §11 of this ADR.
 ### A18. Resolver keys
 
 - **Date:** 2026-09-27
-- **Source:** [0029](0029-resolver-namespaces.md) §7
+- **Source:** 0029 §7
 - **Change:** extends §3
 - **Summary:** A resolver key in the search box lands on the item it resolves to, or on a disambiguation page in the site frame.
 
 ### A19. Edit filters
 
 - **Date:** 2026-09-27
-- **Source:** [0030](0030-edit-filters.md) §10
+- **Source:** 0030 §10
 - **Change:** extends §7, §12
 - **Summary:** `Special:EditFilter`, `Special:EditFilterLog` and `Special:Tags`; a refused write shows the filter's public message; filter tags are chips.
 
 ### A20. Constraints
 
 - **Date:** 2026-09-27
-- **Source:** [0031](0031-property-constraints.md) §7
+- **Source:** 0031 §7
 - **Change:** extends §2, §12
 - **Summary:** The property page gains a Constraints tab; `Special:ConstraintReport` uses the site frame.
 
 ### A21. Server rendering
 
 - **Date:** 2026-09-27
-- **Source:** [0034](0034-frontend-stack.md) §1–6
+- **Source:** 0034 §1–6
 - **Change:** amends §4, §13
 - **Summary:** Pages render on the server with Codex markup; editors load `scatter-wasm` for live preview. This settled Q6, and the responsive-site half of Q7.
 
@@ -319,7 +319,7 @@ Replaced text: §4 of this ADR.
 ### A22. Articles, categories and page data
 
 - **Date:** 2026-09-29
-- **Source:** [0038](0038-page-metadata-and-categories.md) §3, §7, §8
+- **Source:** 0038 §3, §7, §8
 - **Change:** amends §4; extends §1, §2, §3
 - **Summary:** As noted under each section before the migration:
   - §1: A frame's tabs show data only about what its identity line names. A page's statements are never drawn in its item's frame, or the reverse; crossing from one to the other is a link in the identity line.
@@ -332,21 +332,21 @@ Replaced text: §4 of this ADR.
 ### A23. File pages
 
 - **Date:** 2026-09-30
-- **Source:** [0039](0039-files-and-media.md) §18
+- **Source:** 0039 §18
 - **Change:** extends §2, §5.1
 - **Summary:** A file page's frame shows the file, its version history, its usage and metadata, and, for a taken-down version, the operator's notice in place of the file. Histories (§5) interleave uploads with text and statement revisions.
 
 ### A24. Instance acts in history
 
 - **Date:** 2026-09-30
-- **Source:** [0040](0040-instance-prerogatives.md) §7
+- **Source:** 0040 §7
 - **Change:** extends §5.2
 - **Summary:** A row for an instance act shows the instance operator as its actor, an **Instance action** label, the public reason and a link to `Special:InstanceAction/{partition}/{offset}` at the farm base.
 
 ### A25. The Format selector
 
 - **Date:** 2026-09-30
-- **Source:** [0041](0041-content-models.md) §10
+- **Source:** 0041 §10
 - **Change:** amends §4
 - **Summary:** The Format selector and the model shown beside the title appear only for text models, and the selector only where the namespace allows more than one model.
 
@@ -355,7 +355,7 @@ Replaced text: §4 of this ADR.
 ### A26. Template expansion
 
 - **Date:** 2026-09-30
-- **Source:** [0042](0042-template-expansion-and-parsoid.md) §7, §15
+- **Source:** 0042 §7, §15
 - **Change:** amends §4
 - **Summary:** With expansion on, templates are expanded before rendering and only constructs outside the subset render as chips; a missing template is a red link. Pages that need expansion preview through `action=parse` on the server. The About panel gains "Templates used" and the limit report; a Template page gains "Pages that use this template".
 
@@ -364,7 +364,7 @@ Replaced text: the chip rule quoted under A22, which applies only with expansion
 ### A27. Special pages
 
 - **Date:** 2026-09-30
-- **Source:** [0047](0047-special-pages.md) §1, §5, §9
+- **Source:** 0047 §1, §5, §9
 - **Change:** extends §2, §3, §12
 - **Summary:** As noted under each section before the migration:
   - §2: **Special pages** links to `Special:SpecialPages`, the index of every page `docs/registry/special-pages.toml` marks served, grouped, and filtered by the viewer's rights. The **New** menu opens `Special:NewItem` and `Special:NewProperty` for entities, and the edit form for pages.
@@ -374,35 +374,35 @@ Replaced text: the chip rule quoted under A22, which applies only with expansion
 ### A28. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §1–13
 - **Summary:** A1–A27 were folded into the Decision, the open questions were numbered, Q7's open half became Q12, and the consequence that hid revision numbers was struck. No decision changed. Before this, A6 and A22–A27 were blockquotes; A12 and A15 had been written into §11 and §12 in place; the other entries were recorded only in this ADR's header or in other ADRs. The file before conversion is commit `0b26a3a`.
 
 ### A29. Origin chips and Other versions
 
 - **Date:** 2026-10-01
-- **Source:** [0052](0052-page-repositories-and-title-inheritance.md) §5
+- **Source:** 0052 §5
 - **Change:** extends §2
 - **Summary:** A page served by a page repository carries an origin chip and an identity line naming the upstream revision and licence; a title with alternates gains the Other versions menu; the Edit tab of an inherited page is the fork form.
 
 ### A30. Forks in the frame and the About panel
 
 - **Date:** 2026-10-01
-- **Source:** [0054](0054-forking-a-mirrored-page.md) §2, §6–7
+- **Source:** 0054 §2, §6–7
 - **Change:** extends §2, §4
 - **Summary:** The fork's identity line, the About panel's fork information and controls, the fork banner on the edit form, and the redirect notice of 0051 §2.
 
 ### A31. Templates in the editor, display titles
 
 - **Date:** 2026-10-01
-- **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §5–6
+- **Source:** 0055 §5–6
 - **Change:** extends §4
 - **Summary:** Insert template… and the parameter popup from TemplateData; `displaytitle` as the heading and the disambiguation mark from page properties.
 
 ### A32. The web tier and `action=render`
 
 - **Date:** 2026-10-03
-- **Source:** [0057](0057-web-tier.md) §1, §2, §8, §14
+- **Source:** 0057 §1, §2, §8, §14
 - **Change:** extends §12, §13
 - **Summary:** `index.php?title={title}&action=render` returns a page's content without the frame, as in MediaWiki, and `region` selects part of it; the site's components fetch regions this way after a save. `action=purge` is MediaWiki's confirmation form. `triplespace-ui` may run in the server or in a separate, stateless web tier, and in either reaches the instance only through the public API.
 
@@ -411,7 +411,7 @@ Replaced text: the chip rule quoted under A22, which applies only with expansion
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design discussion of 2026-10-09
 - **Change:** corrects §2
-- **Summary:** §2's tabs table is the one tabs table for the site: the thread row gains Page data, and the document-page row keeps Talk; [0038](0038-page-metadata-and-categories.md) §7 refers to this table instead of carrying its own. (PENDING F15)
+- **Summary:** §2's tabs table is the one tabs table for the site: the thread row gains Page data, and the document-page row keeps Talk; 0038 §7 refers to this table instead of carrying its own. (PENDING F15)
 
 Replaced text: §2 of this ADR.
 
@@ -420,102 +420,102 @@ Replaced text: §2 of this ADR.
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design discussion of 2026-10-09
 - **Change:** extends §4
-- **Summary:** The entity page has the "About this page" panel of §4 beside its "Where this comes from" panel ([0003](0003-statement-ui.md) §6); the scope count ([0060](0060-scopes.md) §8) and the proposal count ([0067](0067-proposals.md) §7) sit in it. (PENDING F16)
+- **Summary:** The entity page has the "About this page" panel of §4 beside its "Where this comes from" panel (0003 §6); the scope count (0060 §8) and the proposal count (0067 §7) sit in it. (PENDING F16)
 
 ### A35. The prototype is `triplespace-ui`
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design discussion of 2026-10-09
 - **Change:** supersedes §13
-- **Summary:** The `ui/` prototype of [0003](0003-statement-ui.md) §10 is superseded: the prototype is `triplespace-ui` with `scatter-wasm`, server-rendered Rust ([0034](0034-frontend-stack.md) §3, §13). The fixture list and audit step of 0003 §10 stay; "later Rust implementation" and "lives in `ui/`" go, and §13's frontend bullet no longer extends a `ui/` prototype. (PENDING F17)
+- **Summary:** The `ui/` prototype of 0003 §10 is superseded: the prototype is `triplespace-ui` with `scatter-wasm`, server-rendered Rust (0034 §3, §13). The fixture list and audit step of 0003 §10 stay; "later Rust implementation" and "lives in `ui/`" go, and §13's frontend bullet no longer extends a `ui/` prototype. (PENDING F17)
 
 Replaced text: §13 of this ADR.
 
 ### A36. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§13
 
 ### A37. The search box accepts any cluster member and lands in the local form
 
 - **Date:** 2026-10-09
-- **Source:** [0082](0082-source-form-and-the-shared-view.md) §2, §3
+- **Source:** 0082 §2, §3
 - **Change:** amends §3
-- **Summary:** The title resolver the search box uses accepts any member of an identity cluster, so `WDQ42` and the local `Q9` it is clustered with land on the same entity page, shown in the site's local form; a non-canonical member no longer "lands on its canonical entity", since the page is served under whichever ID was asked for with values rewritten to the local preference. Search results are one per cluster, the member the local preference selects. 0082's table named §9 (Jobs); the fold is at [19](../architecture/19-site-ui.md) §2.1, whose provenance is §3 here, and the table and the ledger row were corrected. (REVIEW G4, G5)
+- **Summary:** The title resolver the search box uses accepts any member of an identity cluster, so `WDQ42` and the local `Q9` it is clustered with land on the same entity page, shown in the site's local form; a non-canonical member no longer "lands on its canonical entity", since the page is served under whichever ID was asked for with values rewritten to the local preference. Search results are one per cluster, the member the local preference selects. 0082's table named §9 (Jobs); the fold is at 19 §2.1, whose provenance is §3 here, and the table and the ledger row were corrected. (REVIEW G4, G5)
 
-Replaced text: [19](../architecture/19-site-ui.md) §2.1.
+Replaced text: 19 §2.1.
 
 ### A38. An entity's history has one backing, `view.entity_history`
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §5.4, §13; extends §5, §5.1
-- **Summary:** The history of an entity is read from `view.entity_history (tenant, canonical_id, time, partition, offset, kind, member)`, which composition writes: one row per record in any source partition keyed to the entity or a member of its cluster, and one per upstream log event keyed to a member, each with its kind and the member. The page is one keyset query over that index, served by `GET /entity/{id}/history`; nothing is merged from `log.record` or `view.activity` at request time, and upstream log events are rows of it, not of `view.activity`. Under `full`, or for a retained entity, every observed state and every backfilled upstream revision is a row of it too, so "read from the log" is withdrawn; document page histories, recent changes and contributions stay on `view.activity`. The default mirrored provider log is `delete/*` and `protect/*`, the backfill covers held entities only, and `create/create` is derived from the first upstream revision ([0011](0011-logs.md) §3). The ledger named §3 (Search); the folds are at [19](../architecture/19-site-ui.md) §3.3, §3.5 and §5.2, whose provenance is §5, §5.1, §5.4 and §13 here, and the ledger row was corrected. (REVIEW G42)
+- **Summary:** The history of an entity is read from `view.entity_history (tenant, canonical_id, time, partition, offset, kind, member)`, which composition writes: one row per record in any source partition keyed to the entity or a member of its cluster, and one per upstream log event keyed to a member, each with its kind and the member. The page is one keyset query over that index, served by `GET /entity/{id}/history`; nothing is merged from `log.record` or `view.activity` at request time, and upstream log events are rows of it, not of `view.activity`. Under `full`, or for a retained entity, every observed state and every backfilled upstream revision is a row of it too, so "read from the log" is withdrawn; document page histories, recent changes and contributions stay on `view.activity`. The default mirrored provider log is `delete/*` and `protect/*`, the backfill covers held entities only, and `create/create` is derived from the first upstream revision (0011 §3). The ledger named §3 (Search); the folds are at 19 §3.3, §3.5 and §5.2, whose provenance is §5, §5.1, §5.4 and §13 here, and the ledger row was corrected. (REVIEW G42)
 
-Replaced text: [19](../architecture/19-site-ui.md) §3.5, §5.2.
+Replaced text: 19 §3.5, §5.2.
 
 ### A39. The About panel is its own response; counts are counters
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §4
-- **Summary:** The "About this page" panel is its own API response with its own short `max-age`, independent of the page's or entity's `ETag`, because its numbers change when referrers, scopes and proposals change and the subject does not; its counts (`ref_count`, the revision counts) are counter columns maintained in batches by the projections, never counted on view, and a count above `ui.count_threshold` is shown as "10,000+". The page budget this belongs to, four API calls to first byte met by the bulk-labels route and the `GET /entity/{id}/page` bundle, is [0012](0012-api-requirements.md) §5 and [0057](0057-web-tier.md) §2. The ledger named §2 and §9; the fold is at [19](../architecture/19-site-ui.md) §3.1, whose provenance is §4 here, and the ledger row was corrected. (REVIEW G41)
+- **Summary:** The "About this page" panel is its own API response with its own short `max-age`, independent of the page's or entity's `ETag`, because its numbers change when referrers, scopes and proposals change and the subject does not; its counts (`ref_count`, the revision counts) are counter columns maintained in batches by the projections, never counted on view, and a count above `ui.count_threshold` is shown as "10,000+". The page budget this belongs to, four API calls to first byte met by the bulk-labels route and the `GET /entity/{id}/page` bundle, is 0012 §5 and 0057 §2. The ledger named §2 and §9; the fold is at 19 §3.1, whose provenance is §4 here, and the ledger row was corrected. (REVIEW G41)
 
 ### A40. A foreign actor's contributions are what `view.activity` holds
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §8
-- **Summary:** `Special:Contributions/{issuer}:{id}` for a foreign actor lists what `view.activity` holds for that actor: page revisions imported with that attribution and the rows of this tenant's log that name the actor. Upstream revision records in `log/{provider}` are not indexed by actor, so they are not listed, and the page says so ("This instance does not index Wikidata's revisions by user"). For an actor of another tenant on the same instance the view is complete, since that tenant's `view.activity` indexes every record; for a Wikidata account it is only what reached this tenant's activity rows. The ledger names [0047](0047-special-pages.md) §2 and §4; the fold is at [19](../architecture/19-site-ui.md) §2.5, whose provenance is §8 here, and the ledger row was extended. (REVIEW G50)
+- **Summary:** `Special:Contributions/{issuer}:{id}` for a foreign actor lists what `view.activity` holds for that actor: page revisions imported with that attribution and the rows of this tenant's log that name the actor. Upstream revision records in `log/{provider}` are not indexed by actor, so they are not listed, and the page says so ("This instance does not index Wikidata's revisions by user"). For an actor of another tenant on the same instance the view is complete, since that tenant's `view.activity` indexes every record; for a Wikidata account it is only what reached this tenant's activity rows. The ledger names 0047 §2 and §4; the fold is at 19 §2.5, whose provenance is §8 here, and the ledger row was extended. (REVIEW G50)
 
-Replaced text: [19](../architecture/19-site-ui.md) §2.5.
+Replaced text: 19 §2.5.
 
 ### A41. The Appearance button, and the account page without preferences
 
 - **Date:** 2026-10-17
-- **Source:** [0085](0085-settings-and-preferences.md) §5, §6
+- **Source:** 0085 §5, §6
 - **Change:** extends §2; amends §11
-- **Summary:** The global header gains an **Appearance** button for every viewer, which writes the account's appearance preferences when signed in and keeps them in the browser otherwise ([19](../architecture/19-site-ui.md) §1.2, §2.7). Preferences leave `Special:Account` for a page of their own, `Special:Preferences` ([19](../architecture/19-site-ui.md) §2.6); the account page keeps the account itself, its Notifications section becomes **Contacts** (the email address and fediverse handle), and the settings of a wiki and of the instance get pages of their own, `Special:WikiSettings` and `Special:InstanceSettings` ([19](../architecture/19-site-ui.md) §2.8).
+- **Summary:** The global header gains an **Appearance** button for every viewer, which writes the account's appearance preferences when signed in and keeps them in the browser otherwise (19 §1.2, §2.7). Preferences leave `Special:Account` for a page of their own, `Special:Preferences` (19 §2.6); the account page keeps the account itself, its Notifications section becomes **Contacts** (the email address and fediverse handle), and the settings of a wiki and of the instance get pages of their own, `Special:WikiSettings` and `Special:InstanceSettings` (19 §2.8).
 
-Replaced text: [19](../architecture/19-site-ui.md) §2.4.
+Replaced text: 19 §2.4.
 
 ### A42. Provider chips in the dark variants
 
 - **Date:** 2026-10-17
-- **Source:** [0086](0086-theming.md) §2
+- **Source:** 0086 §2
 - **Change:** amends §2
-- **Summary:** A provider chip's colours come from the provider registry for the light variants; in the dark variants the two colours swap, which keeps their contrast exactly, unless the registry gives `chip_color_dark` and `chip_background_dark`. The chapter row is [19](../architecture/19-site-ui.md) §1.5.
+- **Summary:** A provider chip's colours come from the provider registry for the light variants; in the dark variants the two colours swap, which keeps their contrast exactly, unless the registry gives `chip_color_dark` and `chip_background_dark`. The chapter row is 19 §1.5.
 
-Replaced text: [19](../architecture/19-site-ui.md) §1.5.
+Replaced text: 19 §1.5.
 
 ### A43. The registration form's challenge, honeypot and requests
 
 - **Date:** 2026-10-17
-- **Source:** [0087](0087-account-registration-and-challenges.md) §5, §6
+- **Source:** 0087 §5, §6
 - **Change:** extends §10
-- **Summary:** `Special:CreateAccount` solves a challenge in a Web Worker while the person types, where the tenant lists the `createaccount` trigger, and explains without JavaScript what the wiki asks and what to do instead; it carries a honeypot field in every configuration, checked by the web tier; and under `account.approval` it files a request, with `Special:RequestAccount` as its alias. `Special:ConfirmAccounts` is where holders of `confirmaccount` review requests. The chapter text is [19](../architecture/19-site-ui.md) §2.3.
+- **Summary:** `Special:CreateAccount` solves a challenge in a Web Worker while the person types, where the tenant lists the `createaccount` trigger, and explains without JavaScript what the wiki asks and what to do instead; it carries a honeypot field in every configuration, checked by the web tier; and under `account.approval` it files a request, with `Special:RequestAccount` as its alias. `Special:ConfirmAccounts` is where holders of `confirmaccount` review requests. The chapter text is 19 §2.3.
 
 ### A44. Issuer buttons and the pending identity
 
 - **Date:** 2026-10-18
-- **Source:** [0088](0088-external-identity-providers.md) §6
+- **Source:** 0088 §6
 - **Change:** extends §10
-- **Summary:** `Special:UserLogin`'s issuer buttons are forms posting to `/auth/{issuer}/start`, so they work without JavaScript; the first login's `Special:CreateAccount` names the provider, asks for no password and shows no challenge; a person may also type a name there and press an issuer's button. The box offering a public link is not shown until the linking flow is built. The chapter text is [19](../architecture/19-site-ui.md) §2.3 and §2.4.
+- **Summary:** `Special:UserLogin`'s issuer buttons are forms posting to `/auth/{issuer}/start`, so they work without JavaScript; the first login's `Special:CreateAccount` names the provider, asks for no password and shows no challenge; a person may also type a name there and press an issuer's button. The box offering a public link is not shown until the linking flow is built. The chapter text is 19 §2.3 and §2.4.
 
 ### A45. Logging in through the auth host
 
 - **Date:** 2026-10-18
-- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §6, §7, §8, §13
+- **Source:** 0089 §6, §7, §8, §13
 - **Change:** amends §10, §11
-- **Summary:** A tenant's `Special:UserLogin` offers one **Log in** button, which goes to the auth host and back. Farm signup is on the auth host. The chapter text is [19](../architecture/19-site-ui.md) §2.3 and §2.4.
+- **Summary:** A tenant's `Special:UserLogin` offers one **Log in** button, which goes to the auth host and back. Farm signup is on the auth host. The chapter text is 19 §2.3 and §2.4.
 
-Replaced text: [19](../architecture/19-site-ui.md) §2.3, §2.4.
+Replaced text: 19 §2.3, §2.4.
 
 ### A46. The Interface namespace
 
 - **Date:** 2026-10-28
-- **Source:** [0095](0095-the-interface-namespace.md) §3
+- **Source:** 0095 §3
 - **Change:** extends §7
 - **Summary:** In lists of changes an account as a target is marked with a person icon and linked to its contributions, its key left out for an account of this wiki, and the instance's own key is a Server Operator badge (0095 §3).
 
@@ -564,9 +564,9 @@ Replaced text: [19](../architecture/19-site-ui.md) §2.3, §2.4.
 - **Date:** 2026-11-05
 - **Source:** Direct: Claude, while building the page's remaining tabs and panels (SCA-166), 2026-11-05; unconfirmed
 - **Change:** extends §2, §4
-- **Summary:** Folded into [19](../architecture/19-site-ui.md) §1.3, §3.1 and §3.2. The calls:
+- **Summary:** Folded into 19 §1.3, §3.1 and §3.2. The calls:
   - A document page's tabs are Read, Edit, History, **Links here** and **Discussion**; an entity's end with the same two. Links here is `Special:WhatLinksHere/{title}`, served from `list=backlinks` over the links projection; a free title has it too, for its wanted links. Talk reads **Discussion**, MediaWiki's label, and is left out where the page or entity does not exist, since its talk page does not exist either. The thread count on the tab is not shown yet.
-  - Until the counter columns of [03](../architecture/03-storage-caches-and-search.md) §4.2 exist, **About this page** is drawn from one `prop=info|revisions` request (`inprop=protection`; the first revision by `rvdir=newer`): created (when, by whom), last edited (when, with a link to the diff), size, content model, the page's own protection, and the category count, with links to the history and Links here. The revision counts by origin, the backlink count, the page-statement count and the scopes are left out, and a panel whose request fails is left out rather than failing the page.
+  - Until the counter columns of 03 §4.2 exist, **About this page** is drawn from one `prop=info|revisions` request (`inprop=protection`; the first revision by `rvdir=newer`): created (when, by whom), last edited (when, with a link to the diff), size, content model, the page's own protection, and the category count, with links to the history and Links here. The revision counts by origin, the backlink count, the page-statement count and the scopes are left out, and a panel whose request fails is left out rather than failing the page.
   - The **Format** selector is built for a page being created: the edit's `contentmodel`, offering the namespace's text models that `action=edit` edits directly, the namespace's default first, and only where there is more than one; `?action=edit&model=` preselects one, as on MediaWiki. Changing an existing page's model (`action=changecontentmodel`) is not built yet.
   - The edit form edits every text model `action=edit` edits directly, not only wikitext, so a page created as Markdown can be edited again; its preview is `action=parse` in its model.
   - Line-marked edit conflicts are not for milestone 1: the current text shown under the form stays the way to merge. The Page data tab waits on the statement UI for pages (0038 §7).
@@ -576,61 +576,61 @@ Replaced text: [19](../architecture/19-site-ui.md) §2.3, §2.4.
 - **Date:** 2026-11-06
 - **Source:** Direct: Claude, while building the search box's page titles, 2026-11-06; confirmed by James, 2026-11-06
 - **Change:** extends §3
-- **Summary:** Folded into [19](../architecture/19-site-ui.md) §2.1. The calls, made so that the one box finds pages before the full search exists:
+- **Summary:** Folded into 19 §2.1. The calls, made so that the one box finds pages before the full search exists:
   - `Special:Search` finds document pages by title through `list=prefixsearch`, as a group of their own, **Pages**, after items, properties and domains; `ns0=1` asks for pages alone, the main namespace's number standing for every namespace that holds pages, since a page namespace is not a kind of its own on the results page.
   - The site asks `list=prefixsearch` for every namespace that holds pages (`psnamespace=*`), not MediaWiki's default of the main namespace, since a tenant's pages may all be Project pages; text that begins with a namespace prefix searches that namespace alone, as in MediaWiki. The match is a case-insensitive prefix of the title; an exact title leads, then shorter titles before longer. The entity namespaces are never searched by title: entities are found by their labels.
-  - The exact title of a document page, however cased, is a **Go to** like an ID's, tried after the entity forms so that `Q42` is the item first ([0029](0029-resolver-namespaces.md) §6): the header's box goes straight to the page, and the results page offers it above the results, as MediaWiki's **Go** does. "Page titled Q42" beside an entity's **Go to** ([0038](0038-page-metadata-and-categories.md) §8) is not built yet.
+  - The exact title of a document page, however cased, is a **Go to** like an ID's, tried after the entity forms so that `Q42` is the item first (0029 §6): the header's box goes straight to the page, and the results page offers it above the results, as MediaWiki's **Go** does. "Page titled Q42" beside an entity's **Go to** (0038 §8) is not built yet.
   - Page text is not searched yet: that waits on its index (A4).
 
 ### A52. A tombstone yields to the provider under strict names
 
 - **Date:** 2026-11-06
-- **Source:** [0102](0102-strict-names-from-the-provider.md) §3
+- **Source:** 0102 §3
 - **Change:** amends §10
-- **Summary:** Upstream is canonical under strict names: a name tombstone yields to the issuer that named it attesting a different subject, since the provider has already reassigned the name ([19](../architecture/19-site-ui.md) §2.3; [07](../architecture/07-actors-and-accounts.md) §2.10). Every other tombstone holds as before.
+- **Summary:** Upstream is canonical under strict names: a name tombstone yields to the issuer that named it attesting a different subject, since the provider has already reassigned the name (19 §2.3; 07 §2.10). Every other tombstone holds as before.
 
-Replaced text: [19](../architecture/19-site-ui.md) §2.3.
+Replaced text: 19 §2.3.
 
 ### A53. Name tombstones and `renameuser`: the calls made building them
 
 - **Date:** 2026-11-07
 - **Source:** Direct: Claude, while building name tombstones and `renameuser`, 2026-11-07; unconfirmed
 - **Change:** extends §10
-- **Summary:** Four calls made while building ([19](../architecture/19-site-ui.md) §2.3; [03](../architecture/03-storage-caches-and-search.md) §5). (1) `private.name_tombstone` keeps the schema of [0013](0013-postgres-storage.md) §5.6 with one column more, `issuer`: the OAuth issuer whose username the released name was derived from, recorded where the name carries the issuer's reserved prefix and the account's login holds an identity of that issuer, and null otherwise; it is what lets the tombstone yield to that issuer alone under strict names (A52; [0102](0102-strict-names-from-the-provider.md) §3) while holding no name and no actor key. (2) The keyed hash is taken over the tenant and the lower-cased name, so the table has no tenant column and a row says nothing about where the name was held; the hash is HMAC-SHA256 under a subkey of the instance secret, as the email codes' are. (3) A rename that changes only the case of a name leaves no tombstone, since the account keeps the name. (4) `action=renameuser` takes MediaWiki's `user` or `userid`, `newuser` and `reason` with the `csrf` token and answers `{"renameuser": {"from", "to", "userid"}}`; `movepages` and `suppressredirect` are accepted and ignored, since a user page is not moved; the `renameuser/renameuser` event it projects from the new actor record carries no name in its parameters, so that a vanish leaves no past name in the log, and `instance: true` where the performer is the instance operator. The vanish of [0007](0007-actor-identity.md) §4 is not built; when it is, it leaves its tombstone through the same primitive.
+- **Summary:** Four calls made while building (19 §2.3; 03 §5). (1) `private.name_tombstone` keeps the schema of 0013 §5.6 with one column more, `issuer`: the OAuth issuer whose username the released name was derived from, recorded where the name carries the issuer's reserved prefix and the account's login holds an identity of that issuer, and null otherwise; it is what lets the tombstone yield to that issuer alone under strict names (A52; 0102 §3) while holding no name and no actor key. (2) The keyed hash is taken over the tenant and the lower-cased name, so the table has no tenant column and a row says nothing about where the name was held; the hash is HMAC-SHA256 under a subkey of the instance secret, as the email codes' are. (3) A rename that changes only the case of a name leaves no tombstone, since the account keeps the name. (4) `action=renameuser` takes MediaWiki's `user` or `userid`, `newuser` and `reason` with the `csrf` token and answers `{"renameuser": {"from", "to", "userid"}}`; `movepages` and `suppressredirect` are accepted and ignored, since a user page is not moved; the `renameuser/renameuser` event it projects from the new actor record carries no name in its parameters, so that a vanish leaves no past name in the log, and `instance: true` where the performer is the instance operator. The vanish of 0007 §4 is not built; when it is, it leaves its tombstone through the same primitive.
 
 ### A54. The job page rejects, reverts record by record, and closes
 
 - **Date:** 2026-11-08
-- **Source:** [0104](0104-batches-and-the-job-runner.md) §3, §9
+- **Source:** 0104 §3, §9
 - **Change:** amends §9
-- **Summary:** **Revert this job…** appends the inverse of each record the job wrote as a job of mode `revert`, attributed to the reverter, listing records changed since; it needs `ts-revertjob`. The page gains **Reject this batch…** (a reason, `job/reject`, the revert offered in the same step), **Close** for a keyed batch's submitter, a queued job's place in the queue, and a batch's hash and operator. Chapter text: [19](../architecture/19-site-ui.md) §3.10.
+- **Summary:** **Revert this job…** appends the inverse of each record the job wrote as a job of mode `revert`, attributed to the reverter, listing records changed since; it needs `ts-revertjob`. The page gains **Reject this batch…** (a reason, `job/reject`, the revert offered in the same step), **Close** for a keyed batch's submitter, a queued job's place in the queue, and a batch's hash and operator. Chapter text: 19 §3.10.
 
-Replaced text: [19](../architecture/19-site-ui.md) §3.10.
+Replaced text: 19 §3.10.
 
 ### A55. Feed rows: the action's own column, summaries parsed as MediaWiki's, and a row menu
 
 - **Date:** 2026-11-09
 - **Source:** Direct: James, tickets SCA-203 and SCA-232, and design discussion of 2026-11-09 (the menu's addresses); the rest Claude, while building them, 2026-11-09; unconfirmed
 - **Change:** extends §5.2
-- **Summary:** James asked that a row's log variant have its own column beside the summary, that `/* … */` read apart from the rest as MediaWiki's does, and that wikitext in a summary be parsed as far as MediaWiki parses it (SCA-203); and that each row have a menu of moderation links with its target and actor filled in (SCA-232). He confirmed that **Protect** and **Delete** use the addresses the page's own menu uses, `?action=protect` and `?action=delete`, not `Special:Protect/{page}`. Calls made in the building: the column is headed *Action* and holds the operation with its arguments, a log event's type and action, or a thread record in words; an automatic comment on a page links to the section it names; Wikibase's automatic comments, which adopted revisions keep, are said in words from `ts-summary-*` messages and shown as written where there is none; only wiki links are parsed, without a lookup, so a link to a missing page is not marked; a diff's header draws its summary the same way; the menu is a disclosure in a last column drawn only for a viewer who holds `block`, `protect` or `delete`, opening in the row; thanks and rollback are left out until they exist. Chapter text: [19](../architecture/19-site-ui.md) §3.4.
+- **Summary:** James asked that a row's log variant have its own column beside the summary, that `/* … */` read apart from the rest as MediaWiki's does, and that wikitext in a summary be parsed as far as MediaWiki parses it (SCA-203); and that each row have a menu of moderation links with its target and actor filled in (SCA-232). He confirmed that **Protect** and **Delete** use the addresses the page's own menu uses, `?action=protect` and `?action=delete`, not `Special:Protect/{page}`. Calls made in the building: the column is headed *Action* and holds the operation with its arguments, a log event's type and action, or a thread record in words; an automatic comment on a page links to the section it names; Wikibase's automatic comments, which adopted revisions keep, are said in words from `ts-summary-*` messages and shown as written where there is none; only wiki links are parsed, without a lookup, so a link to a missing page is not marked; a diff's header draws its summary the same way; the menu is a disclosure in a last column drawn only for a viewer who holds `block`, `protect` or `delete`, opening in the row; thanks and rollback are left out until they exist. Chapter text: 19 §3.4.
 
 ### A56. A history has the feeds' filter panel
 
 - **Date:** 2026-11-09
 - **Source:** Direct: James, ticket SCA-227, and design discussion of 2026-11-09 (the `changed` parameter); the rest Claude, while building it, 2026-11-09; confirmed by James, 2026-11-13
 - **Change:** extends §5
-- **Summary:** A page's or an entity's history gets the filter panel recent changes has: by user, by tag, between two dates, without bot edits, without minor edits; and an entity's by what changed, with a language, site or property ([0020](0020-change-feeds.md) A21). Calls made in the building: the panel is a disclosure, open while a filter is on; the parameters are `user`, `tagfilter`, `from`, `to`, `hidebots`, `hideminor`, `changed` and `changedkey`; *Statements* stands for the parts `claims`, `statements`, `references` and `qualifiers`. Not built: hiding reverted edits, which needs a reverted change tag that nothing writes yet; combining consecutive edits by one actor; and telling a page's text edits from its statement edits. Chapter text: [19](../architecture/19-site-ui.md) §3.3.
+- **Summary:** A page's or an entity's history gets the filter panel recent changes has: by user, by tag, between two dates, without bot edits, without minor edits; and an entity's by what changed, with a language, site or property (0020 A21). Calls made in the building: the panel is a disclosure, open while a filter is on; the parameters are `user`, `tagfilter`, `from`, `to`, `hidebots`, `hideminor`, `changed` and `changedkey`; *Statements* stands for the parts `claims`, `statements`, `references` and `qualifiers`. Not built: hiding reverted edits, which needs a reverted change tag that nothing writes yet; combining consecutive edits by one actor; and telling a page's text edits from its statement edits. Chapter text: 19 §3.3.
 
 ### A57. An entity's diff is two columns, as Wikibase draws one
 
 - **Date:** 2026-11-09
 - **Source:** Direct: James, ticket SCA-195 ("Make entity diffing look more like Wikidata's"); the layout Claude, while building it, 2026-11-09; unconfirmed
 - **Change:** extends §6
-- **Summary:** The diff of an entity is drawn as one table of two columns, older left and newer right, each part headed on both sides ("Labels / fr", "Property / population"), with − and + markers, in place of a section per part with *Key*, *Before* and *After* columns. Calls made in the building: a changed statement is shown whole on both sides, not broken into rank, qualifier and reference rows as Wikibase breaks it; unchanged statements of a changed property stay as context, as §6 has it; the revisions head the columns, and for one change the left heads with the links to the previous revision; the colours are the page diff's. The change-set and sync views are as they were. Chapter text: [19](../architecture/19-site-ui.md) §3.8.
+- **Summary:** The diff of an entity is drawn as one table of two columns, older left and newer right, each part headed on both sides ("Labels / fr", "Property / population"), with − and + markers, in place of a section per part with *Key*, *Before* and *After* columns. Calls made in the building: a changed statement is shown whole on both sides, not broken into rank, qualifier and reference rows as Wikibase breaks it; unchanged statements of a changed property stay as context, as §6 has it; the revisions head the columns, and for one change the left heads with the links to the previous revision; the colours are the page diff's. The change-set and sync views are as they were. Chapter text: 19 §3.8.
 
 ### A58. What the tenancy policy shows in the frame and on the account page
 
 - **Date:** 2026-11-16
-- **Source:** [0028](0028-tenancy-policy.md) §11
+- **Source:** 0028 §11
 - **Change:** extends §2, §11
-- **Summary:** The identity line of a mirrored provider-tenant entity is the same under every tenancy preset, and on a farm the account page shows the farm account and every linked tenant account, labelled Public. This records an extension made when 0028 was written, on 2026-09-27: its heading has said so since then and the chapter text has carried it, but this log had no entry. No text changes with this entry. Chapter text: [19](../architecture/19-site-ui.md) §1.3, §2.4.
+- **Summary:** The identity line of a mirrored provider-tenant entity is the same under every tenancy preset, and on a farm the account page shows the farm account and every linked tenant account, labelled Public. This records an extension made when 0028 was written, on 2026-09-27: its heading has said so since then and the chapter text has carried it, but this log had no entry. No text changes with this entry. Chapter text: 19 §1.3, §2.4.

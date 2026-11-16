@@ -126,7 +126,7 @@ James's direction, from the design discussion of 2026-10-17:
 ### A1. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-30
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§9
 
 ### A2. Settings: the calls made building the backend slice
@@ -144,16 +144,16 @@ James's direction, from the design discussion of 2026-10-17:
 ### A3. Setting reads are checked against the registry
 
 - **Date:** 2026-11-09
-- **Source:** [0107](0107-settings-and-log-events-checked-against-the-running-code.md) §2
+- **Source:** 0107 §2
 - **Change:** extends §1
-- **Summary:** Every read of a setting by key goes through `Snapshot::resolve`, which reports the key to the probe; CI fails a run that read a key `settings.toml` does not register. Listing every setting reports nothing. Chapter text: [23](../architecture/23-configuration-and-registry.md) §3.1.
+- **Summary:** Every read of a setting by key goes through `Snapshot::resolve`, which reports the key to the probe; CI fails a run that read a key `settings.toml` does not register. Listing every setting reports nothing. Chapter text: 23 §3.1.
 
 ### A4. Preferences: controls that suit their keys, and tabs as panes
 
 - **Date:** 2026-11-09
 - **Source:** Direct: James, ticket SCA-276; which control each key takes Claude, while building it, 2026-11-09; unconfirmed
 - **Change:** extends §5
-- **Summary:** James asked that with JavaScript the tabs of `Special:Preferences` be separate panes, and that a preference be a drop-down, radio buttons or, best, a graphical selector where possible (SCA-276). Calls made in the building: colour mode, contrast and text size are the Appearance menu's icon buttons with each choice named; a choice of up to five values that always has a value is radio buttons, and one that may have none keeps its select; `feeds.period` and `rc.limit` are selects of the feeds' own values, keeping a value that is none of them; `ui.skin` is a select of the skins the wiki offers, its empty choice resetting the key; the languages, the time zone and the JSON keys stay as they were, there being no list of languages or zones to offer; the pane in view is the one the address names, else the one a save answered, else the first. Chapter text: [19](../architecture/19-site-ui.md) §2.6.
+- **Summary:** James asked that with JavaScript the tabs of `Special:Preferences` be separate panes, and that a preference be a drop-down, radio buttons or, best, a graphical selector where possible (SCA-276). Calls made in the building: colour mode, contrast and text size are the Appearance menu's icon buttons with each choice named; a choice of up to five values that always has a value is radio buttons, and one that may have none keeps its select; `feeds.period` and `rc.limit` are selects of the feeds' own values, keeping a value that is none of them; `ui.skin` is a select of the skins the wiki offers, its empty choice resetting the key; the languages, the time zone and the JSON keys stay as they were, there being no list of languages or zones to offer; the pane in view is the one the address names, else the one a save answered, else the first. Chapter text: 19 §2.6.
 
 ### A5. A setting's history is the log narrowed to it
 

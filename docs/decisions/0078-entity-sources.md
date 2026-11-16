@@ -117,24 +117,24 @@ James's direction, from the design discussion of 2026-10-07 and 2026-10-08:
 ### A1. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§12
 
 ### A2. Tenant sources
 
 - **Date:** 2026-10-09
-- **Source:** [0080](0080-tenants-as-entity-sources.md) §1, §2, §3, §4, §8
+- **Source:** 0080 §1, §2, §3, §4, §8
 - **Change:** extends §1, §4, §10; amends §8, §9
 - **Summary:** An `entity-source` record may name a Triplespace tenant by its issuer code (`tenant`) with its current `base`; its types, licence and endpoints are read from the provider (§1). On the same instance a tenant source has no partition and no fetch job: the provider's `local` partition is read directly (§4). Across tenants, a reader's source matches by `tenant` code before IRI template, and a source naming a promoted tenant becomes the provider's ID (§8). A tenant source is bound by its code rather than its templates, may not name a tenant that the registry has, and is promoted when a registry entry's `issuer` is its code (§9). `GET /entity-sources` gives `tenant` and `base` (§10).
 
-Replaced text: §8, in [05](../architecture/05-providers-and-ingest.md) §6.7; §9, in [05](../architecture/05-providers-and-ingest.md) §6.8.
+Replaced text: §8, in 05 §6.7; §9, in 05 §6.8.
 
 ### A3. The cross-tenant rewrite is the response rewriting layer
 
 - **Date:** 2026-10-09
-- **Source:** [0082](0082-source-form-and-the-shared-view.md) §3
+- **Source:** 0082 §3
 - **Change:** extends §8
-- **Summary:** The rewrite that carries a provider's reference to a source entity across a tenant boundary is the read-side rewrite of IDs between tenants, the same layer that rewrites a response to the consumer's preferred form with exact matches only ([04](../architecture/04-entities-and-identifiers.md) §4.12); the provider's records are never changed, and the four rules of §8 are applied by that layer. 0082's table and heading say `amends`, but §8's text contradicts nothing in this: the rules stand, and only their home is named, so it is logged as `extends`. (REVIEW G5)
+- **Summary:** The rewrite that carries a provider's reference to a source entity across a tenant boundary is the read-side rewrite of IDs between tenants, the same layer that rewrites a response to the consumer's preferred form with exact matches only (04 §4.12); the provider's records are never changed, and the four rules of §8 are applied by that layer. 0082's table and heading say `amends`, but §8's text contradicts nothing in this: the rules stand, and only their home is named, so it is logged as `extends`. (REVIEW G5)
 
 ### A4. Entity-source numbers are 2^12 to 2^13 − 1
 
@@ -143,29 +143,29 @@ Replaced text: §8, in [05](../architecture/05-providers-and-ingest.md) §6.7; �
 - **Change:** amends §4
 - **Summary:** Every ID a client sees is below 2^53, so that it survives a JavaScript number and every JSON parser. Registry provider numbers are below 2^12, and entity-source numbers are assigned per tenant from 2^12 to 2^13 − 1 (4096–8191), not from 2^22 to 2^23 − 1, so `number << 40 | n` stays under 2^53 for `n` below 2^40; the registry keeps the 4,095 numbers below the range. (REVIEW G20)
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §6.4.
+Replaced text: 05 §6.4.
 
 ### A5. A source without events follows its recent changes, and may be loaded
 
 - **Date:** 2026-10-26
-- **Source:** [0092](0092-following-recent-changes.md) §1, §4
+- **Source:** 0092 §1, §4
 - **Change:** amends §4
-- **Summary:** A source with an `api` and no `events` is followed by its recent changes, with the daily sweep behind, instead of by the sweep alone. Its partition is written by its own jobs: the fetch job, and loads, which are a dump sync from a dump the operator supplies (`sync --tenant {slug} --source {name}`) or a crawl of its entity namespaces; the actor is the tenant's sync subsidiary. A source still records no upstream actors (Q1 stays open), as befits a passive relay. Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.5, §6.4.
+- **Summary:** A source with an `api` and no `events` is followed by its recent changes, with the daily sweep behind, instead of by the sweep alone. Its partition is written by its own jobs: the fetch job, and loads, which are a dump sync from a dump the operator supplies (`sync --tenant {slug} --source {name}`) or a crawl of its entity namespaces; the actor is the tenant's sync subsidiary. A source still records no upstream actors (Q1 stays open), as befits a passive relay. Chapter text: 05 §5.5, §6.4.
 
 Replaced text: 05 §5.5 of this ADR; 05 §6.4 of this ADR.
 
 ### A6. What separates a keyed ID from a source ID
 
 - **Date:** 2026-11-15
-- **Source:** [0110](0110-remote-pages-and-revisions.md) §3
+- **Source:** 0110 §3
 - **Change:** amends §2
-- **Summary:** The line between keyed IDs and source IDs is drawn by what makes the ID valid, not by who minted it: a remote key's number was minted by a host, yet the key is valid by its form alone on every instance, while a source ID means something only where the source is declared. Chapter text: [05](../architecture/05-providers-and-ingest.md) §6.2.
+- **Summary:** The line between keyed IDs and source IDs is drawn by what makes the ID valid, not by who minted it: a remote key's number was minted by a host, yet the key is valid by its form alone on every instance, while a source ID means something only where the source is declared. Chapter text: 05 §6.2.
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §6.2.
+Replaced text: 05 §6.2.
 
 ### A7. Tenant remote hosts join the table of names
 
 - **Date:** 2026-11-16
 - **Source:** Direct: James, design discussion of 2026-11-16
 - **Change:** extends §3
-- **Summary:** A host a tenant declares for its remote keys ([0110](0110-remote-pages-and-revisions.md) A3) joins the tenant's table of names under the rules a source's name follows. Chapter text: [05](../architecture/05-providers-and-ingest.md) §6.3.
+- **Summary:** A host a tenant declares for its remote keys (0110 A3) joins the tenant's table of names under the rules a source's name follows. Chapter text: 05 §6.3.

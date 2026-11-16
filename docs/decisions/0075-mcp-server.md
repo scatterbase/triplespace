@@ -91,7 +91,7 @@ Replaced text: §5 of this ADR.
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§7
 
 ### A3. The chapter says `basic`
@@ -99,7 +99,7 @@ Replaced text: §5 of this ADR.
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** corrects §5
-- **Summary:** The MCP requirement on a non-public tenant is the `basic` grant, which every API key and OAuth token carries; A1 recorded this, and the chapter text still said "the `read` grant" until this review. The rest of the row (hand-made subsidiaries are never `pending`, `instance create` puts the sync subsidiaries in `bot`, `view.actor` gains `editcount` and `created_at`, `autoconfirmed` is an implicit group) is [0024](0024-subsidiary-accounts.md) §2's and [0016](0016-permissions-and-access-control.md) §3's. The ledger names §4, which is the resources section and unchanged. (REVIEW G40)
+- **Summary:** The MCP requirement on a non-public tenant is the `basic` grant, which every API key and OAuth token carries; A1 recorded this, and the chapter text still said "the `read` grant" until this review. The rest of the row (hand-made subsidiaries are never `pending`, `instance create` puts the sync subsidiaries in `bot`, `view.actor` gains `editcount` and `created_at`, `autoconfirmed` is an implicit group) is 0024 §2's and 0016 §3's. The ledger names §4, which is the resources section and unchanged. (REVIEW G40)
 
-Replaced text: [09](../architecture/09-security-and-moderation.md) §8.11.
+Replaced text: 09 §8.11.
 

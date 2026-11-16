@@ -156,15 +156,15 @@ Replaced text: §4 of this ADR.
 ### A3. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§15
 
 ### A4. Contract versions and skins
 
 - **Date:** 2026-10-29
-- **Source:** [0097](0097-versioning-and-skins.md) §7
+- **Source:** 0097 §7
 - **Change:** extends §6
-- **Summary:** Beside the product version, `Special:Version` and `GET /version` give the version of each contract the instance serves (record format and payload majors, `api_version`, the template contract, the Codex token release, each message bundle) and each installed skin with its version, licence and requirements, with any skin not loaded and the reason. The chapter text is [21](../architecture/21-special-pages.md) §5.6.
+- **Summary:** Beside the product version, `Special:Version` and `GET /version` give the version of each contract the instance serves (record format and payload majors, `api_version`, the template contract, the Codex token release, each message bundle) and each installed skin with its version, licence and requirements, with any skin not loaded and the reason. The chapter text is 21 §5.6.
 
 ### A5. Licence files over REST
 
@@ -187,9 +187,9 @@ Replaced text: §4 of this ADR.
 - **Date:** 2026-11-07
 - **Source:** Direct: James, design discussion of 2026-11-07
 - **Change:** amends §2, §3, §6
-- **Summary:** With the commercial licence withdrawn ([0005](0005-crate-organization.md) A114), a contributor entry no longer carries the date of a contributor licence agreement, the sentence after the licence notice says only that the embedded documentation and registry data are CC0 (the message `ts-version-cc0` replaces `ts-version-dual-and-cc0`), and a `scatter-*` crate is no longer marked as also available commercially (`ts-version-commercial-mark` and the manifest's `commercial` field are removed).
+- **Summary:** With the commercial licence withdrawn (0005 A114), a contributor entry no longer carries the date of a contributor licence agreement, the sentence after the licence notice says only that the embedded documentation and registry data are CC0 (the message `ts-version-cc0` replaces `ts-version-dual-and-cc0`), and a `scatter-*` crate is no longer marked as also available commercially (`ts-version-commercial-mark` and the manifest's `commercial` field are removed).
 
-Replaced text: [21](../architecture/21-special-pages.md) §5.2, §5.3; [22](../architecture/22-crates-and-stack.md) §7.2.
+Replaced text: 21 §5.2, §5.3; 22 §7.2.
 
 ### A8. The licence header on built JavaScript and CSS
 

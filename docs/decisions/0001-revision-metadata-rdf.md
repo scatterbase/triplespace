@@ -94,7 +94,7 @@ Under [0000](0000-init.md), the append-only log is the source of truth and RDF i
 ### A1. The main graph becomes a resolved view
 
 - **Date:** 2026-09-24
-- **Source:** [0002](0002-source-graphs-and-mass-ingest.md) §3
+- **Source:** 0002 §3
 - **Change:** amends §2
 - **Summary:** The main graph is computed by applying a reconciliation policy over the source graphs. It is still Wikibase-shaped, still what is exported to QLever, and still rebuildable from the log; the source graphs may be exported too.
 
@@ -103,7 +103,7 @@ Replaced text: §2 of this ADR.
 ### A2. One vocabulary under scatter.red
 
 - **Date:** 2026-09-25
-- **Source:** [0005](0005-crate-organization.md) §5
+- **Source:** 0005 §5
 - **Change:** amends §2, §5, §6
 - **Summary:** Triplespace's terms move to `https://scatter.red/terms/v0/`, the namespace Scatterbase already uses, with the prefix `scatter:`. The illustrative `sw:` becomes `scatter:`. `v0` makes no stability promise; `v1` is the commitment of this ADR's Consequences, made for both products at once. Content-derived identifiers that are the same everywhere may stay under `scatter.red`. This settled Q1, and makes the vocabulary consequence hold for the new namespace.
 
@@ -114,7 +114,7 @@ Replaced text: every `sw:` prefix, now `scatter:` (`sw:addedIn`, `sw:Revision`, 
 ### A3. Erasure from the log
 
 - **Date:** 2026-09-25
-- **Source:** [0006](0006-log-integrity-and-erasure.md) §7
+- **Source:** 0006 §7
 - **Change:** amends §4
 - **Summary:** A legal takedown that requires data to leave the log is the `erase` record: headers stay, bodies are destroyed. Before the migration this was recorded only in 0006.
 
@@ -123,14 +123,14 @@ Replaced text: §4 of this ADR.
 ### A4. Actor vocabulary
 
 - **Date:** 2026-09-25
-- **Source:** [0007](0007-actor-identity.md) §9
+- **Source:** 0007 §9
 - **Change:** extends §6
 - **Summary:** SIOC, FOAF and PROV-O for accounts, holders and delegation; `scatter:TemporaryAccount`, `scatter:AnonymousActor`, `scatter:ImportedActor` and `scatter:attributionHidden` minted. 0007 §2 and §5 also settled Q3.
 
 ### A5. Log events in RDF
 
 - **Date:** 2026-09-26
-- **Source:** [0011](0011-logs.md) §8
+- **Source:** 0011 §8
 - **Change:** amends §6
 - **Summary:** Log events are projected into the metadata graph only, typed as Activity Streams activities where one fits and as `scatter:` subclasses of `as:Activity` where none does. Merges are removed from the list of log events: a Wikibase merge is its revisions and the redirect.
 
@@ -139,7 +139,7 @@ Replaced text: §6 of this ADR.
 ### A6. RDF becomes an output, not the read path
 
 - **Date:** 2026-09-26
-- **Source:** [0013](0013-postgres-storage.md) §8
+- **Source:** 0013 §8
 - **Change:** amends §2
 - **Summary:** The resolved view, source graphs and metadata graph stream as N-Quads from Postgres; no intermediate quad store is needed. A Wikibase-compatible dump holds the resolved view only; a full dump, the instance's own export, carries both. The application's history, attribution, diffs and moderation views come from `view.activity` and the records. The consumers column of §2 was restated accordingly.
 
@@ -148,42 +148,42 @@ Replaced text: §2 of this ADR.
 ### A7. Document nodes for foreign entities
 
 - **Date:** 2026-09-26
-- **Source:** [0015](0015-record-format-and-partition-registry.md) §6
+- **Source:** 0015 §6
 - **Change:** extends §1
 - **Summary:** Every entity has a document node under the instance's base, whatever minted its ID; a foreign entity's also points upstream with `pav:importedFrom`, `pav:hasCurrentVersion` and the retrieving job. 0015 §5 also settled Q2.
 
 ### A8. Posts and threads
 
 - **Date:** 2026-09-27
-- **Source:** [0019](0019-discussions.md) §7
+- **Source:** 0019 §7
 - **Change:** extends §1, §6
 - **Summary:** Threads, posts and talk pages are Activity Streams nodes in the metadata graph. A post's revision node is its record IRI, with the AS2 properties added.
 
 ### A9. Hiding is a record
 
 - **Date:** 2026-09-27
-- **Source:** [0023](0023-moderation.md) §5
+- **Source:** 0023 §5
 - **Change:** extends §4
 - **Summary:** Hiding a revision's content, comment or attestation is a `record` ACL with `parts`, setting the visibility bits the API and the projections carry. Before the migration this was recorded only in 0023.
 
 ### A10. Where change tags live
 
 - **Date:** 2026-09-27
-- **Source:** [0030](0030-edit-filters.md) §5
+- **Source:** 0030 §5
 - **Change:** extends §6
 - **Summary:** Change tags are stored in a record's attestation part.
 
 ### A11. The SPARQL Update stream
 
 - **Date:** 2026-09-27
-- **Source:** [0032](0032-sparql-update-stream.md) §1, §7
+- **Source:** 0032 §1, §7
 - **Change:** extends §2, §3
 - **Summary:** Each published graph is also published as a stream of SPARQL 1.1 Update requests that continues from a dump. Blank nodes are skolemized in the stream and in a second dump form; the plain dump of §3 is unchanged.
 
 ### A12. Page statements in the main graph
 
 - **Date:** 2026-09-29
-- **Source:** [0038](0038-page-metadata-and-categories.md) §11
+- **Source:** 0038 §11
 - **Change:** amends §3
 - **Summary:** Statements about document pages and threads are output in the main graph, in Wikibase's statement shape, with the page node `{base}/page/{page ID}` as subject. This adds subjects, not vocabulary: every predicate is Wikibase's or schema.org's.
 
@@ -192,14 +192,14 @@ Replaced text: §3 of this ADR.
 ### A13. Content model on every revision
 
 - **Date:** 2026-09-30
-- **Source:** [0041](0041-content-models.md) §10
+- **Source:** 0041 §10
 - **Change:** extends §6
 - **Summary:** Every revision node carries `sw:contentModel`, whatever the page: entity revisions their entity type's model, thread revisions `triplespace-thread`, and statement revisions of File pages `wikibase-mediainfo`.
 
 ### A14. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §1–6
 - **Summary:** A1–A13 were folded into the Decision, the open questions were numbered, and two consequences that A2 and A6 made false were struck. No decision changed. Before this, A12 and A13 were blockquotes under §3 and §6, and the other entries were recorded only in this ADR's header or in other ADRs. The file before conversion is commit `0b26a3a`.
 
@@ -208,14 +208,14 @@ Replaced text: §3 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §6
-- **Summary:** The list in §6 of terms minted under `scatter:` is illustrative, not a catalogue: `scatter-vocab` is the catalogue of record for Triplespace's own vocabulary, and a term is defined there, not by appearing in §6. The same holds for the actor-class terms [0007](0007-actor-identity.md) §9 lists. (PENDING A21)
+- **Summary:** The list in §6 of terms minted under `scatter:` is illustrative, not a catalogue: `scatter-vocab` is the catalogue of record for Triplespace's own vocabulary, and a term is defined there, not by appearing in §6. The same holds for the actor-class terms 0007 §9 lists. (PENDING A21)
 
 Replaced text: §6 of this ADR.
 
 ### A16. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§6
 
 ### A17. The record IRI names a post revision or a log event
@@ -223,37 +223,37 @@ Replaced text: §6 of this ADR.
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §1
-- **Summary:** `{base}/record/{partition}/{offset}` is the IRI of a post's revision node here and of a local log event in [0011](0011-logs.md) §8; a record is one or the other by its payload type, so the two never collide, and each section now says so. (PENDING T2)
+- **Summary:** `{base}/record/{partition}/{offset}` is the IRI of a post's revision node here and of a local log event in 0011 §8; a record is one or the other by its payload type, so the two never collide, and each section now says so. (PENDING T2)
 
 ### A18. The fused body is emitted under every member of a cluster
 
 - **Date:** 2026-10-09
-- **Source:** [0082](0082-source-form-and-the-shared-view.md) §4
+- **Source:** 0082 §4
 - **Change:** extends §1
-- **Summary:** In the resolved view a cluster's fused statements are emitted under every member's concept IRI, with `owl:sameAs` between the members and the redirect-form `owl:sameAs` from each non-canonical member to the canonical one, so a query that reaches `wd:Q5` through a value and asks for its label or statements succeeds without rewriting; the duplication is bounded by the cluster's size, never by what references it. Each member's document node still carries `schema:about` pointing at the current canonical concept IRI. The dump and the stream carry the same, in source form ([0082](0082-source-form-and-the-shared-view.md) §1). The chapter folds this at [02](../architecture/02-graphs-rdf-and-query.md) §2.1 and §5, whose provenance is §1 here; 0082's table named §2, and was corrected. (REVIEW G6)
+- **Summary:** In the resolved view a cluster's fused statements are emitted under every member's concept IRI, with `owl:sameAs` between the members and the redirect-form `owl:sameAs` from each non-canonical member to the canonical one, so a query that reaches `wd:Q5` through a value and asks for its label or statements succeeds without rewriting; the duplication is bounded by the cluster's size, never by what references it. Each member's document node still carries `schema:about` pointing at the current canonical concept IRI. The dump and the stream carry the same, in source form (0082 §1). The chapter folds this at 02 §2.1 and §5, whose provenance is §1 here; 0082's table named §2, and was corrected. (REVIEW G6)
 
 ### A19. EDTF values are written as their raw literal only, for now
 
 - **Date:** 2026-11-07
 - **Source:** Direct: James, design discussion of 2026-11-07
 - **Change:** extends §3
-- **Summary:** WikibaseEDTF writes each `edtf` value as an `xsd:edtf` literal and also as the `xsd:dateTime` values and `wikibase:TimeValue` nodes it derives, with the defects [wikibase-compat.md](../api/wikibase-compat.md) §6.4 lists: negative years one off, UTC offsets not applied, `19XX` read as 1900, intervals dropped. The contract's §7 left copying them to a decision. Asked, James chose to write the raw literal only, with `wikibase:propertyType wikibase:Edtf`, and to add the derived dates once it is decided whether to copy the defects or to correct them. Until then Triplespace's output differs from a Wikibase running the extension by those derived triples alone. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §4.2.
+- **Summary:** WikibaseEDTF writes each `edtf` value as an `xsd:edtf` literal and also as the `xsd:dateTime` values and `wikibase:TimeValue` nodes it derives, with the defects [wikibase-compat.md](../api/wikibase-compat.md) §6.4 lists: negative years one off, UTC offsets not applied, `19XX` read as 1900, intervals dropped. The contract's §7 left copying them to a decision. Asked, James chose to write the raw literal only, with `wikibase:propertyType wikibase:Edtf`, and to add the derived dates once it is decided whether to copy the defects or to correct them. Until then Triplespace's output differs from a Wikibase running the extension by those derived triples alone. Chapter text: 02 §4.2.
 
 ### A20. `Special:EntityData` serves `.ttl` and `.nt` in the dump flavor
 
 - **Date:** 2026-11-07
 - **Source:** Direct: Claude, while building `scatter-wikibase-rdf` (SCA-301), 2026-11-07; confirmed by James, 2026-11-08
 - **Change:** extends §3
-- **Summary:** `Special:EntityData/{id}.ttl` and `.nt` serve the entity's triples as `dumpRdf.php`'s full flavor writes them, rendered from the same document the `.json` form serves, so they answer for the same reader, resolve the same aliases and are missing in the same cases; other extensions (`.rdf`, `.jsonld`, `.n3`) answer 406. Wikibase's own default RDF flavor also writes stubs for the entities and properties a statement mentions (their labels and predicate declarations); those are left out, and `?flavor=` is not read. The concept URI `/entity/{id}` chooses the extension of its 303 by `Accept` (JSON, Turtle or N-Triples), with `Vary: Accept`. IRIs are written under the tenant's registered base, not the development-mode base a request may see. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §4.2.
+- **Summary:** `Special:EntityData/{id}.ttl` and `.nt` serve the entity's triples as `dumpRdf.php`'s full flavor writes them, rendered from the same document the `.json` form serves, so they answer for the same reader, resolve the same aliases and are missing in the same cases; other extensions (`.rdf`, `.jsonld`, `.n3`) answer 406. Wikibase's own default RDF flavor also writes stubs for the entities and properties a statement mentions (their labels and predicate declarations); those are left out, and `?flavor=` is not read. The concept URI `/entity/{id}` chooses the extension of its 303 by `Accept` (JSON, Turtle or N-Triples), with `Vary: Accept`. IRIs are written under the tenant's registered base, not the development-mode base a request may see. Chapter text: 02 §4.2.
 
 ### A21. `Special:EntityData` takes Wikibase's flavors, `full` by default
 
 - **Date:** 2026-11-07
 - **Source:** Direct: James, design discussion of 2026-11-07
 - **Change:** amends §3
-- **Summary:** A20 served the `dump` flavor for every request and ignored `flavor=`. Shown Wikibase's code (`EntityDataSerializationService::getFlavor`, `RdfBuilder`, the stub builders), James chose to serve its flavors as it does: `simple`, `long`, `dump` and `full`, by its `RdfProducer` flags, with `full` for an absent or empty `flavor=`, which adds after the entity a stub for every property a written snak uses and every entity a value names; an unknown flavor is a 400 naming the four; `.json` ignores the parameter. Wikibase's flags also put `cc:license` and `schema:softwareVersion` on the document node under every flavor, which `dumpRdf.php` leaves to its header; both are written. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §4.2.
+- **Summary:** A20 served the `dump` flavor for every request and ignored `flavor=`. Shown Wikibase's code (`EntityDataSerializationService::getFlavor`, `RdfBuilder`, the stub builders), James chose to serve its flavors as it does: `simple`, `long`, `dump` and `full`, by its `RdfProducer` flags, with `full` for an absent or empty `flavor=`, which adds after the entity a stub for every property a written snak uses and every entity a value names; an unknown flavor is a 400 naming the four; `.json` ignores the parameter. Wikibase's flags also put `cc:license` and `schema:softwareVersion` on the document node under every flavor, which `dumpRdf.php` leaves to its header; both are written. Chapter text: 02 §4.2.
 
-Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §4.2, as it stood):
+Replaced text (02 §4.2, as it stood):
 
 > **`Special:EntityData` serves the entity's RDF** as `.ttl` and `.nt`: the triples of the dump flavor, rendered from the document `.json` serves, without the stubs for mentioned entities that Wikibase's default flavor adds. The concept URI `/entity/{id}` redirects to the form `Accept` prefers ([0001](../decisions/0001-revision-metadata-rdf.md) A20). `scatter-wikibase-rdf` renders both, and will render the dumps of §4.1.
 
@@ -262,14 +262,14 @@ Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §4.2, as it sto
 - **Date:** 2026-11-07
 - **Source:** Direct: Claude, while building `Special:EntityData`'s `full` flavor (SCA-301), 2026-11-07; confirmed by James, 2026-11-08
 - **Change:** extends §3
-- **Summary:** Three calls made building A21. (1) Each mentioned ID is read through the same path as `Special:EntityData/{id}.json`, one read per mention, so a stub honours read restrictions, aliases (written as `owl:sameAs` to the target, then the target's stub, as Wikibase's `addEntityRedirect` does) and deletion; a batched read would be faster for an entity that mentions hundreds of others and can replace it without changing the output. (2) Wikibase writes stubs in the request's language fallback chain (`getFetchLanguageCodes`); Triplespace has no fallback chains, so stubs use the reader's `label-languages` preference, else `uselang` or their `language`, then English. (3) A stub's type triple is written for items and properties only, as the entity's own is; lexemes, MediaInfo and the keyed types get labels and descriptions only, until their node types are written (0066 §6, 0065, 0048 §5). Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §4.2.
+- **Summary:** Three calls made building A21. (1) Each mentioned ID is read through the same path as `Special:EntityData/{id}.json`, one read per mention, so a stub honours read restrictions, aliases (written as `owl:sameAs` to the target, then the target's stub, as Wikibase's `addEntityRedirect` does) and deletion; a batched read would be faster for an entity that mentions hundreds of others and can replace it without changing the output. (2) Wikibase writes stubs in the request's language fallback chain (`getFetchLanguageCodes`); Triplespace has no fallback chains, so stubs use the reader's `label-languages` preference, else `uselang` or their `language`, then English. (3) A stub's type triple is written for items and properties only, as the entity's own is; lexemes, MediaInfo and the keyed types get labels and descriptions only, until their node types are written (0066 §6, 0065, 0048 §5). Chapter text: 02 §4.2.
 
 ### A23. The metadata graph is exportable, in the full dump only
 
 - **Date:** 2026-11-07
-- **Source:** [0103](0103-export-transfer-and-backup.md) §5
+- **Source:** 0103 §5
 - **Change:** amends §2
-- **Summary:** The metadata graph was kept out of external stores to keep the external contract simple, not for secrecy. Its export policy is now `public`: the full dump, an export served at `{base}/dumps/`, carries it in its visible form, naming surrogates by IRI only; the Wikibase-compatible dump still never does, by its own definition. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §1.5.
+- **Summary:** The metadata graph was kept out of external stores to keep the external contract simple, not for secrecy. Its export policy is now `public`: the full dump, an export served at `{base}/dumps/`, carries it in its visible form, naming surrogates by IRI only; the Wikibase-compatible dump still never does, by its own definition. Chapter text: 02 §1.5.
 
-Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §1.5.
+Replaced text: 02 §1.5.
 

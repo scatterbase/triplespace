@@ -236,6 +236,40 @@ questions = {name: parse_questions(texts[name]) for name in new_format}
 def adr_nums(s):
     return set(re.findall(r"\((\d{4})-[^)]+\.md\)", s))
 
+PLAIN_ADR = re.compile(r"(?<![\w§.\-/])(\d{4})(?![\w\-])")
+
+def source_adrs(s):
+    """The ADRs a log entry's Source names. In the Amendment log a citation is plain, `0038 §1`
+    (24 §9); a link is still read."""
+    return adr_nums(s) | set(PLAIN_ADR.findall(s))
+
+def log_citation_problems(body):
+    """Plain citations on an entry's Source and Replaced text lines and in its Chapter text list
+    (24 §6, §9): the ADR or chapter exists, and so does each section named straight after it."""
+    out = []
+    lines = [l for l in body.split("\n") if l.startswith("- **Source:**") or l.startswith("Replaced text")]
+    lines += [l.split("Chapter text:", 1)[1] for l in body.split("\n") if l.startswith("- **Summary:**") and "Chapter text:" in l]
+    for line in lines:
+        if line.startswith("- **Source:** Direct"):
+            continue
+        line = re.sub(r"\[[^\]]*\]\([^)]*\)", lambda m: " " * len(m.group(0)), line)   # links are check 1 and 2
+        for m in re.finditer(r"(?<![\w§.\-/])(\d{4}|\d{2}) ((?:§\d+(?:\.\d+)*(?:[–-]§?\d+(?:\.\d+)*)?(?:, | and )?)+)", line):
+            doc, cited = m.group(1), re.findall(r"\d+(?:\.\d+)*", m.group(2))
+            if len(doc) == 4:
+                have = secs.get(num2file.get(doc))
+                what = doc
+            else:
+                paths = glob.glob(os.path.join(ROOT, "architecture", doc + "-*.md"))
+                have = set(re.findall(r"^#{2,4} (\d+(?:\.\d+)*)\.?\s", chapter_text(paths[0]), re.M)) if paths else None
+                what = "chapter " + doc
+            if have is None:
+                out.append(f"cites {what}, which does not exist")
+                continue
+            for c in cited:
+                if c not in have:
+                    out.append(f"cites {what} §{c}, which does not exist")
+    return out
+
 def settlers(note):
     """The sources of '*Settled by X and Y: answer*' are what comes before the colon (0050 §10)."""
     return re.split(r": ", note, maxsplit=1)[0]
@@ -339,8 +373,12 @@ for name in sorted(new_format):
             if v not in ("consolidates", "retitles", "relocates"):
                 for s in ss:
                     touched[s].add(n)
-        if not f.get("Source", "").startswith("Direct") and not adr_nums(f.get("Source", "")):
-            P.append(f"A{n}: Source is neither an ADR link nor 'Direct: …'")
+        if not f.get("Source", "").startswith("Direct") and not source_adrs(f.get("Source", "")):
+            P.append(f"A{n}: Source is neither an ADR nor 'Direct: …'")
+        for prob in log_citation_problems(e["body"]):
+            P.append(f"A{n} {prob}")
+        if re.search(r"^(?!>).*\[(\d{4})\]\(\1-[^)#\s]*\.md\)", strip_fences(e["body"]), re.M):
+            P.append(f"A{n} links an ADR: in the Amendment log a citation is plain, `0038 §1` (24 §9)")
 
     # provenance lines ↔ log
     for level, head, body in decision_sections(text):
@@ -433,7 +471,7 @@ for name, text in texts.items():
     if name in new_format:
         srcs = set()
         for e in logs[name].values():
-            srcs |= adr_nums(e["fields"].get("Source", ""))
+            srcs |= source_adrs(e["fields"].get("Source", ""))
         for q in questions[name].values():
             for m in re.finditer(r"\*Settled by ([^*]*)\*", q):
                 srcs |= adr_nums(settlers(m.group(1)))

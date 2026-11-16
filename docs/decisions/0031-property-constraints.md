@@ -83,7 +83,7 @@ The instance has two advantages over Wikidata here. It **mirrors** Wikidata's pr
 ### A1. Crate table
 
 - **Date:** 2026-09-27
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §9
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries `scatter-wikibase-constraints` and every change this section listed (0005 A27).
 
@@ -92,7 +92,7 @@ Replaced text: §9 of this ADR.
 ### A2. Reports default to the local graph
 
 - **Date:** 2026-10-01
-- **Source:** [0047](0047-special-pages.md) §4.2
+- **Source:** 0047 §4.2
 - **Change:** amends §3
 - **Summary:** The source-graph filter defaults to the local graph, as every report does. Widening it is live, since `view.constraint_violation` already covers the resolved view.
 
@@ -101,7 +101,7 @@ Replaced text: §3 of this ADR.
 ### A3. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §3, §9
 - **Summary:** A1–A2 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A2 was a blockquote. The file before conversion is commit `0b26a3a`.
 
@@ -117,30 +117,30 @@ Replaced text: §1 of this ADR.
 ### A5. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§9
 
 ### A6. Shared-row violations under the instance role bindings
 
 - **Date:** 2026-10-09
-- **Source:** [0082](0082-source-form-and-the-shared-view.md) §5, §5.2
+- **Source:** 0082 §5, §5.2
 - **Change:** amends §4; extends §1
-- **Summary:** The `role` config kind has an instance-scope record beside the tenant records, bound in the instance's policy record (`reconcile:default`). A tenant does not rebind a role the instance record binds: a tenant-scope write that tries is refused with `ts-instance-policy`, and a tenant whose bindings differ gets overlay rows for what the difference touches, which on a Wikidata mirror is everything, so in practice a tenant on a farm does not rebind the constraint roles. On an instance whose record leaves the roles unbound, nothing is checked on shared rows. §1's chapter text ([06](../architecture/06-statements-and-properties.md) §2.1) is unchanged, so for §1 this is an extension; 0082's table gives the §1 row as `amends`. (REVIEW G1)
+- **Summary:** The `role` config kind has an instance-scope record beside the tenant records, bound in the instance's policy record (`reconcile:default`). A tenant does not rebind a role the instance record binds: a tenant-scope write that tries is refused with `ts-instance-policy`, and a tenant whose bindings differ gets overlay rows for what the difference touches, which on a Wikidata mirror is everything, so in practice a tenant on a farm does not rebind the constraint roles. On an instance whose record leaves the roles unbound, nothing is checked on shared rows. §1's chapter text (06 §2.1) is unchanged, so for §1 this is an extension; 0082's table gives the §1 row as `amends`. (REVIEW G1)
 
-Replaced text: [06](../architecture/06-statements-and-properties.md) §2.4.
+Replaced text: 06 §2.4.
 
 ### A7. The constraint projection is a consumer of composition, scoped
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §3
+- **Source:** 0083 §3
 - **Change:** amends §2
-- **Summary:** The constraint projection is a tier-3 consumer of "entity X, tenant T, composed to version N" events, with its own queue, rate and lag, in nobody's transaction, off during bootstrap and bulk modes until the operator turns it on; it is view-derived, rebuilt by a scan of the composed rows and never by a log replay. `constraints.scope` is a `site` setting: `local` (the default: local-graph statements and entities in the tenant's overlay), `overlay`, or `all`, and `all` is a batch job with progress, never a per-event step. A constraint-statement change on a mirrored property enqueues a batch rather than a scan. `type` and `value type` are checked with the L0 class cache, and a `P279` change does not invalidate stored results until the next composition of each subject. Bootstrap leaves the projection off. This settles Q2. Chapter text: [06](../architecture/06-statements-and-properties.md) §2, §2.2. (REVIEW G10)
+- **Summary:** The constraint projection is a tier-3 consumer of "entity X, tenant T, composed to version N" events, with its own queue, rate and lag, in nobody's transaction, off during bootstrap and bulk modes until the operator turns it on; it is view-derived, rebuilt by a scan of the composed rows and never by a log replay. `constraints.scope` is a `site` setting: `local` (the default: local-graph statements and entities in the tenant's overlay), `overlay`, or `all`, and `all` is a batch job with progress, never a per-event step. A constraint-statement change on a mirrored property enqueues a batch rather than a scan. `type` and `value type` are checked with the L0 class cache, and a `P279` change does not invalidate stored results until the next composition of each subject. Bootstrap leaves the projection off. This settles Q2. Chapter text: 06 §2, §2.2. (REVIEW G10)
 
-Replaced text: [06](../architecture/06-statements-and-properties.md) §2, §2.2.
+Replaced text: 06 §2, §2.2.
 
 ### A8. Adapters read the instance role record
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §1
-- **Summary:** Adapters never map onto a tenant's properties. A provider that needs vocabulary of its own has a provider property type in the registry (a `[[provider.type]]` row with `entity_type = "property"`, its letter allocated when the adapter is built), minted by the adapter under deterministic IDs with the mapping versioned with the adapter; the `role` config kind's instance-scope record (A6) is what adapters and shared-row consumers read, so a role bound to a mirrored property means one property on every tenant and the constraint checker and the adapters agree on it. The sentence "otherwise onto a local property … the adapter can create them on first import" is struck from [0004](0004-identity-clusters-and-equivalence.md) §6. §1's chapter text is unchanged; the fold is in [06](../architecture/06-statements-and-properties.md) §1 and [04](../architecture/04-entities-and-identifiers.md) §4.6. (REVIEW G26)
+- **Summary:** Adapters never map onto a tenant's properties. A provider that needs vocabulary of its own has a provider property type in the registry (a `[[provider.type]]` row with `entity_type = "property"`, its letter allocated when the adapter is built), minted by the adapter under deterministic IDs with the mapping versioned with the adapter; the `role` config kind's instance-scope record (A6) is what adapters and shared-row consumers read, so a role bound to a mirrored property means one property on every tenant and the constraint checker and the adapters agree on it. The sentence "otherwise onto a local property … the adapter can create them on first import" is struck from 0004 §6. §1's chapter text is unchanged; the fold is in 06 §1 and 04 §4.6. (REVIEW G26)

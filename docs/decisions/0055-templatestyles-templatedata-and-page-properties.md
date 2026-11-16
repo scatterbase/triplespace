@@ -101,58 +101,58 @@ James's direction, from the design discussion of 2026-10-01, was that the ADR se
 ### A1. Workspace roles as page properties
 
 - **Date:** 2026-10-05
-- **Source:** [0062](0062-workspaces.md) §2
+- **Source:** 0062 §2
 - **Change:** extends §6
 - **Summary:** `workspace.{role}` page properties, set by `{{#workspace:}}` and stored by the refresh job.
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§9
 
 ### A3. `view.page_prop` has two row classes with one writer each
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §6
+- **Source:** 0083 §6
 - **Change:** amends §6
-- **Summary:** `view.page_prop` gains `from_render boolean`, joining the primary key `(page_id, name, from_render)`, and names the writer of each row: the page projection writes the rows the stored text sets, synchronously when it applies the record; the refresh job writes the rows a render sets, with `from_render = true`. `view.page_link` and `view.page_category` carry the same column under the same rule ([0038](0038-page-metadata-and-categories.md), [0042](0042-template-expansion-and-parsoid.md) A17). Chapter text: [10](../architecture/10-pages-and-content-models.md) §5.5. (REVIEW G13)
+- **Summary:** `view.page_prop` gains `from_render boolean`, joining the primary key `(page_id, name, from_render)`, and names the writer of each row: the page projection writes the rows the stored text sets, synchronously when it applies the record; the refresh job writes the rows a render sets, with `from_render = true`. `view.page_link` and `view.page_category` carry the same column under the same rule (0038, 0042 A17). Chapter text: 10 §5.5. (REVIEW G13)
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §5.5.
+Replaced text: 10 §5.5.
 
 ### A4. Night-mode selectors are kept
 
 - **Date:** 2026-10-17
-- **Source:** [0086](0086-theming.md) §6
+- **Source:** 0086 §6
 - **Change:** amends §2
-- **Summary:** A selector whose first compound is `html` with only the classes `skin-theme-clientpref-night`, `skin-theme-clientpref-os` or `skin-theme-clientpref-day` keeps that compound before the `.mw-parser-output` prefix, as TemplateStyles does, so content written for Wikipedia's night mode works under the dark variants of [0086](0086-theming.md); every other selector escaping the prefix still matches nothing. The chapter row is [11](../architecture/11-rendering-templates-and-modules.md) §6.2.
+- **Summary:** A selector whose first compound is `html` with only the classes `skin-theme-clientpref-night`, `skin-theme-clientpref-os` or `skin-theme-clientpref-day` keeps that compound before the `.mw-parser-output` prefix, as TemplateStyles does, so content written for Wikipedia's night mode works under the dark variants of 0086; every other selector escaping the prefix still matches nothing. The chapter row is 11 §6.2.
 
-Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §6.2.
+Replaced text: 11 §6.2.
 
 ### A5. Sheets are served as stylesheets
 
 - **Date:** 2026-10-20
 - **Source:** Direct: James, review of 2026-10-20
 - **Change:** amends §3, §4
-- **Summary:** The site serves each TemplateStyles sheet as a same-origin stylesheet instead of an inline `<style>` element: the sheet is pure CSS, already sanitized and scoped, and the site's Content Security Policy refuses `<style>` elements ([0034](0034-frontend-stack.md) A13), which left both this ADR's elements and those of mirrored Wikipedia HTML unstyled. The HTML the site shows carries, where the element stood, a `<link rel="stylesheet">` with the same `data-mw-deduplicate` key, so order and deduplication are as before. The key is MediaWiki's, `TemplateStyles:r{revid}`, with `/{wrapper}` where a wrapper is given and the repository's name before a foreign sheet's revision; §3's `r{hash}` had left what it hashed unsaid. Addressing by revision rather than by a hash of the content needs no table of sheets, can be rebuilt from the log at any time, and lets an erasure or a deletion of the sheet's revision end its serving, which a copy kept by content would outlive. The API serves `/w/styles/`, the site styles of §4 included, whose address had not been among the API's paths; a sheet is served immutable, with its page's visibility. The chapter text is [11](../architecture/11-rendering-templates-and-modules.md) §6.3–6.4, with [09](../architecture/09-security-and-moderation.md) §1.4, [13](../architecture/13-mirrored-pages.md) §2.2, [18](../architecture/18-api.md) §2.3 and [20](../architecture/20-web-tier.md) §2.1.
+- **Summary:** The site serves each TemplateStyles sheet as a same-origin stylesheet instead of an inline `<style>` element: the sheet is pure CSS, already sanitized and scoped, and the site's Content Security Policy refuses `<style>` elements (0034 A13), which left both this ADR's elements and those of mirrored Wikipedia HTML unstyled. The HTML the site shows carries, where the element stood, a `<link rel="stylesheet">` with the same `data-mw-deduplicate` key, so order and deduplication are as before. The key is MediaWiki's, `TemplateStyles:r{revid}`, with `/{wrapper}` where a wrapper is given and the repository's name before a foreign sheet's revision; §3's `r{hash}` had left what it hashed unsaid. Addressing by revision rather than by a hash of the content needs no table of sheets, can be rebuilt from the log at any time, and lets an erasure or a deletion of the sheet's revision end its serving, which a copy kept by content would outlive. The API serves `/w/styles/`, the site styles of §4 included, whose address had not been among the API's paths; a sheet is served immutable, with its page's visibility. The chapter text is 11 §6.3–6.4, with 09 §1.4, 13 §2.2, 18 §2.3 and 20 §2.1.
 
-Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §6.3.
+Replaced text: 11 §6.3.
 
 ### A6. The Interface namespace
 
 - **Date:** 2026-10-28
-- **Source:** [0095](0095-the-interface-namespace.md) §2
+- **Source:** 0095 §2
 - **Change:** amends §4
 - **Summary:** The site styles stay one Project page; the Interface namespace now holds plain-text messages, so there is still no `MediaWiki:Common.css` (0095 §1, §2).
 
-Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §6.4.
+Replaced text: 11 §6.4.
 
 ### A7. No commercial licence
 
 - **Date:** 2026-11-07
 - **Source:** Direct: James, design discussion of 2026-11-07
 - **Change:** amends §2
-- **Summary:** `scatter-css` is still written from the specification and TemplateStyles' documented rules rather than translated from its PHP, but the reason given, original code under the shared crates' licence, lapsed when the commercial licence was withdrawn ([0005](0005-crate-organization.md) A114). Asked the same day, James kept the rule.
+- **Summary:** `scatter-css` is still written from the specification and TemplateStyles' documented rules rather than translated from its PHP, but the reason given, original code under the shared crates' licence, lapsed when the commercial licence was withdrawn (0005 A114). Asked the same day, James kept the rule.
 
-Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §6.2.
+Replaced text: 11 §6.2.
 

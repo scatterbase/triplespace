@@ -96,14 +96,14 @@ James's direction, from the design review of 2026-10-09:
 - **Date:** 2026-10-16
 - **Source:** Direct: James, review of the activity-feeds pull requests, 2026-10-15
 - **Change:** amends §4
-- **Summary:** Migration `0010_revision_state` creates both tables and the `revision_state` projection (step 1, `Step::Registry`) writes them in the appending transaction for the `local` partition: the key's `graph_state` row is read, the record's operation applied, the row written back with `version` bumped and the record's offset as the graph's latest, and the state after the revision inserted into `entity_revision` under the record's revision ID. `entity_revision` carries `entity_id`, `partition` and `"offset"` beyond §4's `(tenant, revid, state)`: the record is the row's natural second key (a diff page resolves a revision through its `{partition, offset}`, [0012](0012-api-requirements.md) A74), and the state before a revision is the row at the previous offset the stored state's `offsets` list names, so a partially filled table never pairs a revision with a stale "before". The stored form is `LocalState`'s storage JSON — the local assertions, corrections, retention, redirect, conversion and the offsets folded — as bytes, uncompressed for now; it is a serving table's cell, re-derived by a rebuild, and nothing hashes it. `read::current` reads the `graph_state` row and the one record at its offset where the state is one whole record, else folds. A1's fold ends as the primary path and stays as the fallback: a database migrated to the tables keeps answering for revisions appended before the migration, and a key with no `graph_state` row is seeded from its earlier records on its next write rather than started at that write, so a rebuild is an optimization, not a prerequisite. The `pages` partition joins when the pages stack writes to it; `derived/*` and `source/*` join with their writers; compression of `state` is open until the rows are measured.
+- **Summary:** Migration `0010_revision_state` creates both tables and the `revision_state` projection (step 1, `Step::Registry`) writes them in the appending transaction for the `local` partition: the key's `graph_state` row is read, the record's operation applied, the row written back with `version` bumped and the record's offset as the graph's latest, and the state after the revision inserted into `entity_revision` under the record's revision ID. `entity_revision` carries `entity_id`, `partition` and `"offset"` beyond §4's `(tenant, revid, state)`: the record is the row's natural second key (a diff page resolves a revision through its `{partition, offset}`, 0012 A74), and the state before a revision is the row at the previous offset the stored state's `offsets` list names, so a partially filled table never pairs a revision with a stale "before". The stored form is `LocalState`'s storage JSON — the local assertions, corrections, retention, redirect, conversion and the offsets folded — as bytes, uncompressed for now; it is a serving table's cell, re-derived by a rebuild, and nothing hashes it. `read::current` reads the `graph_state` row and the one record at its offset where the state is one whole record, else folds. A1's fold ends as the primary path and stays as the fallback: a database migrated to the tables keeps answering for revisions appended before the migration, and a key with no `graph_state` row is seeded from its earlier records on its next write rather than started at that write, so a rebuild is an optimization, not a prerequisite. The `pages` partition joins when the pages stack writes to it; `derived/*` and `source/*` join with their writers; compression of `state` is open until the rows are measured.
 
 Replaced text: §4 of this ADR.
 
 ### A3. Expansion has no setting
 
 - **Date:** 2026-10-20
-- **Source:** [0042](0042-template-expansion-and-parsoid.md) A19
+- **Source:** 0042 A19
 - **Change:** amends §3, §6
 - **Summary:** `wikitext.expansion` is withdrawn, so entity usage is idle while no page uses an entity rather than while no tenant has expansion on, and the one-writer-per-row-class rule loses its clause about turning expansion off. The row classes and their writers are unchanged.
 
@@ -114,12 +114,12 @@ Replaced text: §3 of this ADR; §6 of this ADR.
 - **Date:** 2026-10-29
 - **Source:** Direct: James, design discussion of 2026-10-29
 - **Change:** extends §3, §6
-- **Summary:** The review of what runs synchronously found that no projection emitted fan-out, that nothing in a running instance consumed `ops.projection_work`, and that the first tier-3 consumer built (reports, [0047](0047-special-pages.md) §4.3) had a worker of its own that removed items before applying them and ran rebuilds inside a reader's request. James asked for a reusable worker as the first step of taking inessential work off the write path. §6 now states it: one queue and one generic worker for every projection's fan-out and every tier-3 consumer; a tenant's work for a consumer leased and applied by one worker at a time, in order; items removed in the unit of work that applied them; failed attempts recorded and bounded, the failed items reported rather than retried forever; several workers as tasks of the serving process, or a process of their own; reads that show lag and never do the work; lag reported per consumer and tenant in `GET /version`. The report consumer is the first on it; the projections' fan-out is on it the day one of them emits any. Open: a bulk mode that turns consumers off (§5) and the division of the synchronous steps themselves, which this worker is the prerequisite for.
+- **Summary:** The review of what runs synchronously found that no projection emitted fan-out, that nothing in a running instance consumed `ops.projection_work`, and that the first tier-3 consumer built (reports, 0047 §4.3) had a worker of its own that removed items before applying them and ran rebuilds inside a reader's request. James asked for a reusable worker as the first step of taking inessential work off the write path. §6 now states it: one queue and one generic worker for every projection's fan-out and every tier-3 consumer; a tenant's work for a consumer leased and applied by one worker at a time, in order; items removed in the unit of work that applied them; failed attempts recorded and bounded, the failed items reported rather than retried forever; several workers as tasks of the serving process, or a process of their own; reads that show lag and never do the work; lag reported per consumer and tenant in `GET /version`. The report consumer is the first on it; the projections' fan-out is on it the day one of them emits any. Open: a bulk mode that turns consumers off (§5) and the division of the synchronous steps themselves, which this worker is the prerequisite for.
 
 ### A5. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-30
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§8
 
 ### A6. Bulk append's blocks are bootstrap's blocks, not an `ops.bootstrap_block` table
@@ -127,13 +127,13 @@ Replaced text: §3 of this ADR; §6 of this ADR.
 - **Date:** 2026-11-08
 - **Source:** Direct: James, review of bootstrap mode's concurrent blocks, 2026-11-08
 - **Change:** corrects §5
-- **Summary:** §5 pointed at `ops.bootstrap_block` as the shape of a bulk-append block. That table was 0013 §9's coordinator hand-out of offset blocks; it was never built, and [0013](0013-postgres-storage.md) A82 replaced it with a coordinator that assigns each block its offsets in memory and commits blocks in order. A bulk-append block is the same unit, a run of records written together, so §5 now names bootstrap's blocks (05 §3.8) instead of the table. Nothing in bulk append changes, and bulk append itself is still unbuilt.
+- **Summary:** §5 pointed at `ops.bootstrap_block` as the shape of a bulk-append block. That table was 0013 §9's coordinator hand-out of offset blocks; it was never built, and 0013 A82 replaced it with a coordinator that assigns each block its offsets in memory and commits blocks in order. A bulk-append block is the same unit, a run of records written together, so §5 now names bootstrap's blocks (05 §3.8) instead of the table. Nothing in bulk append changes, and bulk append itself is still unbuilt.
 
-Replaced text: [03](../architecture/03-storage-caches-and-search.md) §6.2; [05](../architecture/05-providers-and-ingest.md) §3.10.
+Replaced text: 03 §6.2; 05 §3.10.
 
 ### A7. The runner is background tasks of the server
 
 - **Date:** 2026-11-08
-- **Source:** [0104](0104-batches-and-the-job-runner.md) §4
+- **Source:** 0104 §4
 - **Change:** extends §5
-- **Summary:** The worker §5 names is built as background tasks of `triplespace-server`, one per partition a job writes, claiming `ops.job_queue` under the database's row lock, running the job as the command line would, a block at a time, and writing its finish or fail record; a job whose process died is found by the next claim and marked interrupted, and queued again when resumable. Chapter text: [16](../architecture/16-logs-feeds-and-notifications.md) §2.2.
+- **Summary:** The worker §5 names is built as background tasks of `triplespace-server`, one per partition a job writes, claiming `ops.job_queue` under the database's row lock, running the job as the command line would, a block at a time, and writing its finish or fail record; a job whose process died is found by the next claim and marked interrupted, and queued again when resumable. Chapter text: 16 §2.2.

@@ -73,14 +73,14 @@ James's direction, from the design discussion of 2026-10-05:
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §1, §4
-- **Summary:** Caption triples (`rdfs:label`, `schema:description` per language) are emitted on the page node `{base}/page/{page ID}` ([0038](0038-page-metadata-and-categories.md) §11, [0041](0041-content-models.md) §7); there is no "`M` node". (PENDING E24)
+- **Summary:** Caption triples (`rdfs:label`, `schema:description` per language) are emitted on the page node `{base}/page/{page ID}` (0038 §11, 0041 §7); there is no "`M` node". (PENDING E24)
 
 Replaced text: §1 of this ADR; §4 of this ADR.
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§5
 
 ### A3. Captions are term operations; `M` and `WDM` are an ordinary cluster; a local File page is required
@@ -88,11 +88,11 @@ Replaced text: §1 of this ADR; §4 of this ADR.
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §1, §2, §4
-- **Summary:** The `terms` operation is withdrawn: captions are written with the same `add`, `remove` and `override` operations a change set uses for any term, on the subject `M{page ID}`, in the page's change set in `pages`; a caption on a local file is an `add`, replacing or clearing a Commons caption on a foreign file is an `override` or `remove` of the mirrored term; `wbsetlabel` and `wbsetdescription` on an `M` ID become those operations by the module mapping of [0084](0084-wikibase-writes-against-the-resolved-view.md) §2, which the chapter cites for that step. Local annotation of a foreign file requires a local File page, a `create` with no upload, keyed by that page's `M` ID; the ranged-ID overlay is dropped, and a foreign file no local page describes has no local statements. A local `M` and the `WDM` it mirrors are an ordinary identity cluster with a fixed canonical, the `WDM` member, formed by the file lookup when the local page is created, never re-pointed by a `same-as` or `different-from` record, and dissolved when the page is deleted or the file stops being the repository's; the two resolve and rewrite in responses as any cluster members do, and `wbgetentities&ids=M{page ID}` says `canonical: "WDM123"` rather than `foreign`. `mediainfo.mirror = on-demand` enqueues a fetch through `ops.entity_fetch` with reason `read`, and the page or statement renders without the statements until the fetch lands. Page subjects use one key form across `view`: `M{page ID}` for a File page, the decimal page ID otherwise. (REVIEW G44)
+- **Summary:** The `terms` operation is withdrawn: captions are written with the same `add`, `remove` and `override` operations a change set uses for any term, on the subject `M{page ID}`, in the page's change set in `pages`; a caption on a local file is an `add`, replacing or clearing a Commons caption on a foreign file is an `override` or `remove` of the mirrored term; `wbsetlabel` and `wbsetdescription` on an `M` ID become those operations by the module mapping of 0084 §2, which the chapter cites for that step. Local annotation of a foreign file requires a local File page, a `create` with no upload, keyed by that page's `M` ID; the ranged-ID overlay is dropped, and a foreign file no local page describes has no local statements. A local `M` and the `WDM` it mirrors are an ordinary identity cluster with a fixed canonical, the `WDM` member, formed by the file lookup when the local page is created, never re-pointed by a `same-as` or `different-from` record, and dissolved when the page is deleted or the file stops being the repository's; the two resolve and rewrite in responses as any cluster members do, and `wbgetentities&ids=M{page ID}` says `canonical: "WDM123"` rather than `foreign`. `mediainfo.mirror = on-demand` enqueues a fetch through `ops.entity_fetch` with reason `read`, and the page or statement renders without the statements until the fetch lands. Page subjects use one key form across `view`: `M{page ID}` for a File page, the decimal page ID otherwise. (REVIEW G44)
 
-Replaced text: [12](../architecture/12-files-and-media.md) §8.4.
+Replaced text: 12 §8.4.
 
-Replaced text: [12](../architecture/12-files-and-media.md) §6.6.
+Replaced text: 12 §6.6.
 
-Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.3.
+Replaced text: 03 §4.3.
 

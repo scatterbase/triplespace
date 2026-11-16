@@ -98,7 +98,7 @@ James's direction, from the design discussion of 2026-10-04:
 ### A1. Save as Query page
 
 - **Date:** 2026-10-05
-- **Source:** [0063](0063-query-namespace.md) §5
+- **Source:** 0063 §5
 - **Change:** extends §6
 - **Summary:** `Special:Query` saves its text as a `Query:` page.
 
@@ -114,7 +114,7 @@ James's direction, from the design discussion of 2026-10-04:
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §2, §4
-- **Summary:** `store` with `remote` is refused only on a farm; on a single-tenant instance the remote store holds one tenant's graphs and so satisfies `store`. `query.isolation` is a row of [0028](0028-tenancy-policy.md) §1's switch table: the `isolated` preset sets `store`, the shared presets `dataset`. (PENDING C9)
+- **Summary:** `store` with `remote` is refused only on a farm; on a single-tenant instance the remote store holds one tenant's graphs and so satisfies `store`. `query.isolation` is a row of 0028 §1's switch table: the `isolated` preset sets `store`, the shared presets `dataset`. (PENDING C9)
 
 Replaced text: §2 of this ADR; §4 of this ADR.
 
@@ -123,7 +123,7 @@ Replaced text: §2 of this ADR; §4 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §2
-- **Summary:** `query.backend`, `query.path` and `query.endpoint` are deployment configuration ([0033](0033-backend-stack.md) §12), not `site` records. (PENDING D5)
+- **Summary:** `query.backend`, `query.path` and `query.endpoint` are deployment configuration (0033 §12), not `site` records. (PENDING D5)
 
 ### A5. `triplespace-query` is a surfaces-layer crate
 
@@ -137,37 +137,37 @@ Replaced text: §8 of this ADR.
 ### A6. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§8
 
 ### A7. The rewriting layer, and one shared resolved graph
 
 - **Date:** 2026-10-09
-- **Source:** [0082](0082-source-form-and-the-shared-view.md) §2, §5
+- **Source:** 0082 §2, §5
 - **Change:** extends §2, §3, §4
-- **Summary:** Both backends sit behind one rewriting layer: where a query constant names an entity that is a member of a cluster, the planner expands the constant to the member set (`lb:Q9` becomes `VALUES ?v { lb:Q9 wd:Q5 … }`), one indexed lookup against `view.cluster_member` per constant with L0 in front of it, before the query reaches the store; property paths are not expanded, neither backend does `owl:sameAs` reasoning, and a query that needs the closure writes it; result bindings are rewritten to the request's preferred form through the concept-IRI template on the way out. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §7.2, §7.3; [08](../architecture/08-tenants-and-instances.md) §9.1. (REVIEW G1, G4)
+- **Summary:** Both backends sit behind one rewriting layer: where a query constant names an entity that is a member of a cluster, the planner expands the constant to the member set (`lb:Q9` becomes `VALUES ?v { lb:Q9 wd:Q5 … }`), one indexed lookup against `view.cluster_member` per constant with L0 in front of it, before the query reaches the store; property paths are not expanded, neither backend does `owl:sameAs` reasoning, and a query that needs the closure writes it; result bindings are rewritten to the request's preferred form through the concept-IRI template on the way out. Chapter text: 02 §7.2, §7.3; 08 §9.1. (REVIEW G1, G4)
 
 ### A8. A private tenant keeps its query service under `store` isolation
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §4
-- **Summary:** A private tenant has no graphs in the shared store and, under `dataset`, no query service; under `store` it has one: its own embedded store is fed from its own deltas, computed in the form the `tenant` ACL's group may read (nothing under any finer restriction) in place of a public form that would be empty, and the service answers only principals that satisfy that ACL, through `/sparql`, `Special:Query`, the MCP tools and compiled queries. What a private tenant lacks is the public endpoint, the stream and the dump, and nothing else. A hosting instance needs no `tenant` restriction ([0056](0056-security-model.md) A15). Settles Q1. (REVIEW G39)
+- **Summary:** A private tenant has no graphs in the shared store and, under `dataset`, no query service; under `store` it has one: its own embedded store is fed from its own deltas, computed in the form the `tenant` ACL's group may read (nothing under any finer restriction) in place of a public form that would be empty, and the service answers only principals that satisfy that ACL, through `/sparql`, `Special:Query`, the MCP tools and compiled queries. What a private tenant lacks is the public endpoint, the stream and the dump, and nothing else. A hosting instance needs no `tenant` restriction (0056 A15). Settles Q1. (REVIEW G39)
 
-Replaced text: [08](../architecture/08-tenants-and-instances.md) §9.1.
+Replaced text: 08 §9.1.
 
 ### A9. The embedded backend is the small profile's
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §2
-- **Summary:** The embedded store is the small profile's backend ([0013](0013-postgres-storage.md) §11): the service refuses to start it above a configured triple count, and the Wikidata-scale profile requires `query.backend = remote`. The rest of the row is other ADRs': dumps are taken from a replica under `pg_export_snapshot()` with parallel workers sharing the snapshot ([0013](0013-postgres-storage.md) §8, in [02](../architecture/02-graphs-rdf-and-query.md) §4.1), and `term_prefix` is kept as schema and not read by the large profile ([0013](0013-postgres-storage.md) §11). The ledger names §7, whose text ([22](../architecture/22-crates-and-stack.md) §4.7) did not change. (REVIEW G49)
+- **Summary:** The embedded store is the small profile's backend (0013 §11): the service refuses to start it above a configured triple count, and the Wikidata-scale profile requires `query.backend = remote`. The rest of the row is other ADRs': dumps are taken from a replica under `pg_export_snapshot()` with parallel workers sharing the snapshot (0013 §8, in 02 §4.1), and `term_prefix` is kept as schema and not read by the large profile (0013 §11). The ledger names §7, whose text (22 §4.7) did not change. (REVIEW G49)
 
-Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §7.2.
+Replaced text: 02 §7.2.
 
 ### A10. A rebuild truncates `rdf_delta`; epochs are per tenant
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §7
+- **Source:** 0083 §7
 - **Change:** extends §3
 - **Summary:** A `view` rebuild truncates `rdf_delta` and increments the epoch before the embedded store is emptied and reloaded from a fresh `full` dump; the delta is stored, not recomputed. Because epochs are per tenant (`ops.tenant_epoch`), a tenant's provider change reloads that tenant's graphs and no other's. (REVIEW G14)

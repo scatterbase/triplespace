@@ -97,7 +97,8 @@ a decision always means editing a chapter section and citing the ADR section in 
 - Citations: link the first mention of another ADR in each section,
   `[0008](0008-namespaces-and-document-pages.md) §2` from an ADR,
   `[0008](../decisions/0008-namespaces-and-document-pages.md) §2` from a chapter. Name both ends
-  of a relation outside a heading ("0049 §2 amends 0008 §2"). Never use dated forms ("as amended
+  of a relation outside a heading ("0049 §2 amends 0008 §2"). In the Amendment log every citation
+  is plain (`0038 §1`, `10 §4.3`), never a link (24 §9). Never use dated forms ("as amended
   2026-09-27") or placeholders (`§…`).
 
 ## Changing an existing ADR: fold, log, mark, answer (24 §4)
@@ -112,7 +113,7 @@ For each target ADR *Y*:
    *Y*'s sections) and Summary: what changed and why, and the chapter sections it changed, not
    a restatement of them. Open the Summary with what was decided, not with the state it
    replaced, so that its first sentence (two for a direct decision) stands for the entry. Name the chapter sections whose text the change removed or
-   contradicted, `Replaced text: [03](../architecture/03-….md) §4.5.`; the commit holds the text and
+   contradicted, `Replaced text: 03 §4.5.`; the commit holds the text and
    `tools/adr.py log NNNN An --before` prints it, so quote it only where git does not (24 §6). IDs are contiguous and never edited.
 3. **Mark.** Write nothing under the section headings: the entry's Change line is what says it
    changed them (`tools/adr.py show NNNN §N` prints the entries). Strike any Consequence the change falsifies

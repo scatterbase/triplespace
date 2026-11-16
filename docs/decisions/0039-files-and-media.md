@@ -159,7 +159,7 @@ James's direction, from the design discussion of 2026-09-30:
 ### A1. Crate table
 
 - **Date:** 2026-09-30
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §23
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries the three new crates and every change this section listed (0005 A39).
 
@@ -168,7 +168,7 @@ Replaced text: §23 of this ADR.
 ### A2. Reclamation and expunge are instance prerogatives
 
 - **Date:** 2026-09-30
-- **Source:** [0040](0040-instance-prerogatives.md) §6
+- **Source:** 0040 §6
 - **Change:** amends §9, §10
 - **Summary:** The erasures that reclamation and expunge write into a tenant's `pages` carry the instance attestation of 0040 §3, with the reclamation job record or the `expunge` record in the instance `log` as authority. This replaced the exception to 0018 §4 this ADR first made for files alone; §9, §10 and the consequence were written to it in place.
 
@@ -177,7 +177,7 @@ Replaced text: not recorded; 0040's change was written into §9, §10 and the Co
 ### A3. File is a `pages` namespace with uploads and a `mediainfo` slot
 
 - **Date:** 2026-09-30
-- **Source:** [0041](0041-content-models.md) §4, §6–7
+- **Source:** 0041 §4, §6–7
 - **Change:** amends §1
 - **Summary:** The `file` kind is gone: File (6) is a `pages` namespace with the `wikitext` model and `uploads = true`. A File page also has a second slot, `mediainfo` (model `wikibase-mediainfo`), which presents its statements as the MediaInfo entity `M{page ID}` over the Wikibase Action API.
 
@@ -186,35 +186,35 @@ Replaced text: §1 of this ADR.
 ### A4. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §1–23
 - **Summary:** A1–A3 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A3 was a blockquote, A2 was written in place with no note, and A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
 
 ### A5. File redirects
 
 - **Date:** 2026-10-01
-- **Source:** [0051](0051-page-redirects.md) §4
+- **Source:** 0051 §4
 - **Change:** extends §1
 - **Summary:** A File page may be a redirect; the file lookup follows it one hop before trying repositories, and `movefile` leaves one.
 
 ### A6. Images in mirrored pages
 
 - **Date:** 2026-10-01
-- **Source:** [0053](0053-mirrored-pages.md) §2, §9
+- **Source:** 0053 §2, §9
 - **Change:** extends §11
 - **Summary:** Images in a page repository's HTML are served by the tenant's file repositories in their modes, with an allow-list for images that are no repository's file; the attribution rule applies to whole mirrored pages.
 
 ### A7. Copying a fork's files
 
 - **Date:** 2026-10-01
-- **Source:** [0054](0054-forking-a-mirrored-page.md) §7
+- **Source:** 0054 §7
 - **Change:** extends §14
 - **Summary:** A separate job copies the files a forked page uses as `import` uploads, on request, under `upload` and `reupload-shared`.
 
 ### A8. Commons' MediaInfo on foreign files
 
 - **Date:** 2026-10-05
-- **Source:** [0065](0065-mediainfo-captions-and-commons.md) §2
+- **Source:** 0065 §2
 - **Change:** extends §11
 - **Summary:** `WDM` mirrored on demand and shown as the foreign file's page data; Q7 settled.
 
@@ -223,63 +223,63 @@ Replaced text: §1 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §11
-- **Summary:** `repo.cache_ttl` is a per-repository field of the `page-repo`/`file-repo` record, not a setting beside it, with a per-kind default: 7 days for files, one hour for template source and page bundles ([0042](0042-template-expansion-and-parsoid.md) §11; [0052](0052-page-repositories-and-title-inheritance.md) §1). §11's `proxy` row names the field as a field of the `file-repo` record with the 7-day default. (PENDING C20)
+- **Summary:** `repo.cache_ttl` is a per-repository field of the `page-repo`/`file-repo` record, not a setting beside it, with a per-kind default: 7 days for files, one hour for template source and page bundles (0042 §11; 0052 §1). §11's `proxy` row names the field as a field of the `file-repo` record with the 7-day default. (PENDING C20)
 
 Replaced text: §11 of this ADR.
 
 ### A10. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§23
 
 ### A11. Byte destruction is an `ops` job, never a projection step
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §6
+- **Source:** 0083 §6
 - **Change:** amends §9; extends §20
-- **Summary:** No projection has side effects during replay. `view.blob` is a pure count: when an erasure brings a count to zero, the projection enqueues an `ops` job for the scope and hash, keyed by them so that a repeat is a no-op, and the job takes a lock on the hash, re-checks the count at the live head, and only then deletes the object and its thumbnails and purges the hash's L2 tags. The job runs at once, so the bytes of an erased version are gone within its latency; a projection rebuild re-derives `view.blob` and re-runs no job, since the `ops` queue is not a projection target, and a count a rebuild finds at zero for an object still present is reported by `verify` as an orphan, not deleted. 0083's table names §20 (storage), whose chapter row in [03](../architecture/03-storage-caches-and-search.md) §4.9 is extended; the sentence contradicted is §9's, in [12](../architecture/12-files-and-media.md) §5.3, so a row for §9 is added. (REVIEW G13)
+- **Summary:** No projection has side effects during replay. `view.blob` is a pure count: when an erasure brings a count to zero, the projection enqueues an `ops` job for the scope and hash, keyed by them so that a repeat is a no-op, and the job takes a lock on the hash, re-checks the count at the live head, and only then deletes the object and its thumbnails and purges the hash's L2 tags. The job runs at once, so the bytes of an erased version are gone within its latency; a projection rebuild re-derives `view.blob` and re-runs no job, since the `ops` queue is not a projection target, and a count a rebuild finds at zero for an object still present is reported by `verify` as an orphan, not deleted. 0083's table names §20 (storage), whose chapter row in 03 §4.9 is extended; the sentence contradicted is §9's, in 12 §5.3, so a row for §9 is added. (REVIEW G13)
 
-Replaced text: [12](../architecture/12-files-and-media.md) §5.3.
+Replaced text: 12 §5.3.
 
 ### A12. Foreign files: a local page to annotate, an ordinary cluster, cached existence and bounded usage
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §11, §12, §13
-- **Summary:** Annotating a foreign file locally requires a **local File page**, a page `create` with the description text and no upload, which takes a page ID from the tenant's sequence and whose `M{page ID}` keys every local statement and caption on the file; the overlay keyed by a ranged page ID is dropped, and a foreign file no local page describes has no local statements (§11). The local `M` entity and the `WDM` it mirrors are an **ordinary identity cluster with a fixed canonical**, formed by the file lookup when a local File page is created for a title a Commons repository serves, the canonical always the `WDM` member, never re-pointed by `same-as` or `different-from` and dissolved only when the page is deleted or the file stops being the repository's; a hand-written `same-as` on an `M` ID is still refused (§11). `mediainfo.mirror = on-demand` enqueues a fetch through `ops.entity_fetch` and the page or statement renders without the statements until the fetch lands; nothing waits on Commons inside a read or a write (§11). `commonsMedia` existence is cached per (repository, name) in L1 with the repository's `cache_ttl`, the uncached names of a change set are validated in one batched request, and a job may declare `validate_media = defer`, its failures tracked as constraint-style rows beside the statement; an interactive write whose batch cannot reach the repository is refused with `upstream-unavailable`, a deferred job's is recorded (§12). This settles Q6. The ledger's rows name §10 and §14, whose chapter text did not change; the folds are in [12](../architecture/12-files-and-media.md) §6.4, §6.5, §6.6, §7.1 and §7.3, which hold §11, §12 and §13. (REVIEW G44, G45)
+- **Summary:** Annotating a foreign file locally requires a **local File page**, a page `create` with the description text and no upload, which takes a page ID from the tenant's sequence and whose `M{page ID}` keys every local statement and caption on the file; the overlay keyed by a ranged page ID is dropped, and a foreign file no local page describes has no local statements (§11). The local `M` entity and the `WDM` it mirrors are an **ordinary identity cluster with a fixed canonical**, formed by the file lookup when a local File page is created for a title a Commons repository serves, the canonical always the `WDM` member, never re-pointed by `same-as` or `different-from` and dissolved only when the page is deleted or the file stops being the repository's; a hand-written `same-as` on an `M` ID is still refused (§11). `mediainfo.mirror = on-demand` enqueues a fetch through `ops.entity_fetch` and the page or statement renders without the statements until the fetch lands; nothing waits on Commons inside a read or a write (§11). `commonsMedia` existence is cached per (repository, name) in L1 with the repository's `cache_ttl`, the uncached names of a change set are validated in one batched request, and a job may declare `validate_media = defer`, its failures tracked as constraint-style rows beside the statement; an interactive write whose batch cannot reach the repository is refused with `upstream-unavailable`, a deferred job's is recorded (§12). This settles Q6. The ledger's rows name §10 and §14, whose chapter text did not change; the folds are in 12 §6.4, §6.5, §6.6, §7.1 and §7.3, which hold §11, §12 and §13. (REVIEW G44, G45)
 
-Replaced text: [12](../architecture/12-files-and-media.md) §6.4, §6.5, §6.6.
+Replaced text: 12 §6.4, §6.5, §6.6.
 
-Replaced text: [12](../architecture/12-files-and-media.md) §7.1, §7.3.
+Replaced text: 12 §7.1, §7.3.
 
 ### A13. Site assets are the one exception to the access check
 
 - **Date:** 2026-10-17
-- **Source:** [0085](0085-settings-and-preferences.md) §8
+- **Source:** 0085 §8
 - **Change:** amends §7
-- **Summary:** A **site asset**, a file version a setting uses for a basic site function (the logo, the favicon, a theme's typeface), is served to anyone, a private tenant's outsiders included, at `{media base}/asset/{h}/{name}`, because and only while a setting of type `site-asset` names it. The setting pins the version by SHA-1 and is written with `ts-config` by someone who can read it; a hidden, suppressed or taken-down version is never served; the file page and `Special:WikiSettings` show what is exposed. SVG is accepted from trusted `ts-config` holders, and needs a sanitizer before untrusted tenants are hosted ([0085](0085-settings-and-preferences.md) Q5). Every other byte stays behind the access check. The chapter text is [12](../architecture/12-files-and-media.md) §4.1, §4.2 and §4.5.
+- **Summary:** A **site asset**, a file version a setting uses for a basic site function (the logo, the favicon, a theme's typeface), is served to anyone, a private tenant's outsiders included, at `{media base}/asset/{h}/{name}`, because and only while a setting of type `site-asset` names it. The setting pins the version by SHA-1 and is written with `ts-config` by someone who can read it; a hidden, suppressed or taken-down version is never served; the file page and `Special:WikiSettings` show what is exposed. SVG is accepted from trusted `ts-config` holders, and needs a sanitizer before untrusted tenants are hosted (0085 Q5). Every other byte stays behind the access check. The chapter text is 12 §4.1, §4.2 and §4.5.
 
-Replaced text: [12](../architecture/12-files-and-media.md) §4.1.
+Replaced text: 12 §4.1.
 
 ### A14. Font and icon file types
 
 - **Date:** 2026-10-17
-- **Source:** [0086](0086-theming.md) §3
+- **Source:** 0086 §3
 - **Change:** extends §5
-- **Summary:** WOFF2 and WOFF join the permitted file types, served as attachments on the media routes and as site assets when a type set names them; ICO joins them for `site.icon` ([0085](0085-settings-and-preferences.md) §7). The registry entries are in `docs/registry/file-types.toml`; the chapter text is [12](../architecture/12-files-and-media.md) §4.5.
+- **Summary:** WOFF2 and WOFF join the permitted file types, served as attachments on the media routes and as site assets when a type set names them; ICO joins them for `site.icon` (0085 §7). The registry entries are in `docs/registry/file-types.toml`; the chapter text is 12 §4.5.
 
 ### A15. Staging keys, commit retries and reserved scope names
 
 - **Date:** 2026-11-07
 - **Source:** Direct: Claude, while building `scatter-blob`'s filesystem backend (SCA-299), 2026-11-07; confirmed by James, 2026-11-08
 - **Change:** extends §3, §4
-- **Summary:** Three calls the crate needed that §3 and §4 did not make. A streamed write whose caller names no stash key is staged under a store-generated `stash/tmp-{pid}-{nanos}-{n}` key, left for the orphan sweep on a crash. A commit (copy-if-absent, then stash deletion) retried after its stash object is gone succeeds when the `sha256/` address holds an object and is not-found only when neither exists, so the two steps need no transaction. Scope names beginning with `_` are reserved for the instance's own scopes, so `_instance` can never collide with a tenant slug. Also: the `fs` backend creates a missing root directory and removes a shard directory emptied by a deletion. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §8 and [12](../architecture/12-files-and-media.md) §2.
+- **Summary:** Three calls the crate needed that §3 and §4 did not make. A streamed write whose caller names no stash key is staged under a store-generated `stash/tmp-{pid}-{nanos}-{n}` key, left for the orphan sweep on a crash. A commit (copy-if-absent, then stash deletion) retried after its stash object is gone succeeds when the `sha256/` address holds an object and is not-found only when neither exists, so the two steps need no transaction. Scope names beginning with `_` are reserved for the instance's own scopes, so `_instance` can never collide with a tenant slug. Also: the `fs` backend creates a missing root directory and removes a shard directory emptied by a deletion. The chapter text is 03 §8 and 12 §2.
 
 ### A16. A fifth kind of key: what a job wrote
 
 - **Date:** 2026-11-13
 - **Source:** Direct: James, 2026-11-13, chose the blob store for a queued export's file; the layout is Claude's, while building it; unconfirmed
 - **Change:** extends §3
-- **Summary:** §3's layout had four kinds of key, none for bytes that are neither an upload nor derived from one, which a queued export's file is ([0104](0104-batches-and-the-job-runner.md) A9). The calls made: (1) **`{scope}/job/{id}/{name}`** holds what a job of the runner's wrote for its submitter to fetch, `{id}` the job's ID in decimal and `{name}` one segment (`export.xml`, `export.cbor`); (2) such an object is not content-addressed: it is written once, by a streamed write to its key that leaves nothing there if its source fails, and is never read by hash, so `verify` and the orphan sweep, which reason from `upload` records, leave `job/` alone; (3) it is removed by age, by whoever wrote it: the export job removes a tenant's job output older than `export.keep_days` before it writes its own, and a fetch of an expired file removes it and answers that it is gone; (4) `scatter-blob` gains the key, its prefixes and the streamed write at a key, shared with Scatterbase like the rest of the layout.
+- **Summary:** §3's layout had four kinds of key, none for bytes that are neither an upload nor derived from one, which a queued export's file is (0104 A9). The calls made: (1) **`{scope}/job/{id}/{name}`** holds what a job of the runner's wrote for its submitter to fetch, `{id}` the job's ID in decimal and `{name}` one segment (`export.xml`, `export.cbor`); (2) such an object is not content-addressed: it is written once, by a streamed write to its key that leaves nothing there if its source fails, and is never read by hash, so `verify` and the orphan sweep, which reason from `upload` records, leave `job/` alone; (3) it is removed by age, by whoever wrote it: the export job removes a tenant's job output older than `export.keep_days` before it writes its own, and a fetch of an expired file removes it and answers that it is gone; (4) `scatter-blob` gains the key, its prefixes and the streamed write at a key, shared with Scatterbase like the rest of the layout.
 

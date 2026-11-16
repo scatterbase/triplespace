@@ -98,19 +98,19 @@ James's direction, from the design discussions of 2026-10-04 and 2026-10-05:
 ### A1. `#query`
 
 - **Date:** 2026-10-05
-- **Source:** [0063](0063-query-namespace.md) §6
+- **Source:** 0063 §6
 - **Change:** extends §3
 - **Summary:** A block rendering a saved query's result with parameters.
 
 ### A2. `#conformance`
 
 - **Date:** 2026-10-05
-- **Source:** [0064](0064-entityschema-and-validation.md) §6
+- **Source:** 0064 §6
 - **Change:** extends §3
 - **Summary:** A block rendering a schema's conformance over a scope.
 
 ### A3. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§10

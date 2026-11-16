@@ -118,7 +118,7 @@ James's direction, from the design discussion of 2026-10-01:
 ### A1. Crate table
 
 - **Date:** 2026-10-01
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §15
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A49).
 
@@ -127,14 +127,14 @@ Replaced text: §15 of this ADR.
 ### A2. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §15
 - **Summary:** A1 was folded into the Decision. The open questions were numbered. No decision changed. Before this, A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
 
 ### A3. Scopes
 
 - **Date:** 2026-10-04
-- **Source:** [0060](0060-scopes.md) §6
+- **Source:** 0060 §6
 - **Change:** amends §4, §14
 - **Summary:** The `scope` key is accepted at board definition version 2 and takes a scope page or an inline kind of 0060 §4, meaning the threads attached to the talk pages of the selected subjects, or the board kinds `thread_statement` (this ADR's former `statement`) and `boards`. `subjects` is 0060's `statement`; `mentions` is withdrawn for 0060 Q2's `links`. Q2 is settled in part; Q7 holds the rest.
 
@@ -143,7 +143,7 @@ Replaced text: §14, in part of this ADR; §4 of this ADR; §14 of this ADR.
 ### A4. Pinned threads
 
 - **Date:** 2026-10-06
-- **Source:** [0069](0069-synchronized-talk-pages.md) §4
+- **Source:** 0069 §4
 - **Change:** extends §6, §8, §12, §13
 - **Summary:** The `pin` and `unpin` operations, and `pinned` on `create`, pin a thread on one of its attachments; pinned threads come first, in pin order, exempt from the age rule; `thread.max_pinned` (default 3); `view.thread_attachment.pinned`; the rights of `attach`. A detach or a move without `keep` ends the pin. Q3 settled.
 
@@ -152,12 +152,12 @@ Replaced text: §14, in part of this ADR; §4 of this ADR; §14 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §12
-- **Summary:** The `tp:` listing key, like the `sc:` and `sp:` listing keys of [0060](0060-scopes.md) §10 and [0061](0061-sprints-and-tasks.md) §11, carries a **listing version**: the maximum activity ID over the listing's members, computed in Postgres at read time. This replaces the tag purge of the `tp:` listing on every record on a thread; [0014](0014-caches-and-search.md) §1 principles 1 and 4 hold unchanged. Tag purges remain for erasure and hiding. (PENDING B4)
+- **Summary:** The `tp:` listing key, like the `sc:` and `sp:` listing keys of 0060 §10 and 0061 §11, carries a **listing version**: the maximum activity ID over the listing's members, computed in Postgres at read time. This replaces the tag purge of the `tp:` listing on every record on a thread; 0014 §1 principles 1 and 4 hold unchanged. Tag purges remain for erasure and hiding. (PENDING B4)
 
 Replaced text: §12 of this ADR.
 
 ### A6. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§15

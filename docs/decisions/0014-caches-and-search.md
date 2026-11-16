@@ -100,7 +100,7 @@ MediaWiki's search is CirrusSearch, which Wikimedia now runs on OpenSearch after
 ### A1. Crate table
 
 - **Date:** 2026-09-26
-- **Source:** [0005](0005-crate-organization.md) §2, revision of 2026-09-26
+- **Source:** 0005 §2, revision of 2026-09-26
 - **Change:** supersedes §9
 - **Summary:** 0005 §2 became the one crate table CI checks, and carries `triplespace-cache` and `triplespace-search` (0005 A9). The paragraph on mappings and pure document building, which followed the table, moved to §7 at conversion.
 
@@ -109,7 +109,7 @@ Replaced text: §9 of this ADR.
 ### A2. Prefixed IDs in search documents
 
 - **Date:** 2026-09-27
-- **Source:** [0017](0017-entity-id-grammar.md) §4
+- **Source:** 0017 §4
 - **Change:** amends §7
 - **Summary:** The `id` field of a search document carries the prefixed ID form; the `key` field keeps the bare key.
 
@@ -118,7 +118,7 @@ Replaced text: §7 of this ADR.
 ### A3. Additions gathered in §10
 
 - **Date:** 2026-09-27
-- **Source:** [0018](0018-tenants.md) §6; [0019](0019-discussions.md) §11; [0020](0020-change-feeds.md) §5; [0021](0021-notifications.md) §2; [0023](0023-moderation.md) §2, §5, §10; [0024](0024-subsidiary-accounts.md) §4–5; [0025](0025-oauth-server.md) §5, §8; [0028](0028-tenancy-policy.md) §9, §12; [0030](0030-edit-filters.md) §11; [0031](0031-property-constraints.md) §5; [0032](0032-sparql-update-stream.md) §5–6
+- **Source:** 0018 §6; 0019 §11; 0020 §5; 0021 §2; 0023 §2, §5, §10; 0024 §4–5; 0025 §5, §8; 0028 §9, §12; 0030 §11; 0031 §5; 0032 §5–6
 - **Change:** amends §1, §5; extends §10
 - **Summary:** The third-pass review of 2026-09-27 gathered into §10 what 0018 through 0032 add to the layers: tenant-aware keys and per-provider and per-tenant indexes (0018, which amends §4 and §7); thread keys and documents (0019); watchlists, inboxes and account routes never cached (0020, 0021, 0024, 0025); inbox and delta rows deleted on erasure (0021, 0032); deletion and hiding through the purge path, `view.acl` in L0, and statement and property read ACLs in the public form (0023); rate-limit classes and key-bearing sessions (0024); OAuth codes in Valkey and token-bearing sessions (0025); farm-wide search and the farm-account join (0028); filter rules and throttles (0030); parsed constraints (0031). Deletion and hiding by ACL falsified §1's claim that only erasure and upstream hiding reach caches; §1 and §5 were not corrected until this conversion.
 
@@ -127,21 +127,21 @@ Replaced text: §1 of this ADR; §5 of this ADR.
 ### A4. Page categories and statements in search
 
 - **Date:** 2026-09-29
-- **Source:** [0038](0038-page-metadata-and-categories.md) §12
+- **Source:** 0038 §12
 - **Change:** extends §7
 - **Summary:** `pages` gains `categories` (for `incategory:`) and `statement_keywords` over the page's statements (for `haswbstatement:`).
 
 ### A5. Files
 
 - **Date:** 2026-09-30
-- **Source:** [0039](0039-files-and-media.md) §7, §19–20
+- **Source:** 0039 §7, §19–20
 - **Change:** extends §6, §7, §10
 - **Summary:** Media serving with long `s-maxage` and tag purges; file fields in `pages`; file keys, `file_block` in L0, and file Cache-Tags. §10 had been given its Files paragraph in place.
 
 ### A6. Content model IDs
 
 - **Date:** 2026-09-30
-- **Source:** [0041](0041-content-models.md) §10
+- **Source:** 0041 §10
 - **Change:** amends §7
 - **Summary:** `content_model` holds content model registry IDs; threads are `triplespace-thread`.
 
@@ -150,7 +150,7 @@ Replaced text: none in the body; `content_model` had no stated vocabulary.
 ### A7. The render epoch and rendered text
 
 - **Date:** 2026-09-30
-- **Source:** [0042](0042-template-expansion-and-parsoid.md) §10, §17
+- **Source:** 0042 §10, §17
 - **Change:** amends §3, §4; extends §5, §7, §10
 - **Summary:** By section:
   - §3, §4: A rendered page's version also carries its **render epoch**, bumped when anything the render read changes, and its lifetime is capped by the render's `expires_at`. The `p:` key becomes `p:{pageid}:{gen}:{offset}:{epoch}:{renderer}:{lang}`.
@@ -162,42 +162,42 @@ Replaced text: §3 of this ADR; §4 of this ADR.
 ### A8. Data modules
 
 - **Date:** 2026-09-30
-- **Source:** [0043](0043-lua-modules.md) §6
+- **Source:** 0043 §6
 - **Change:** extends §10
 - **Summary:** `ld:` keys for parsed data modules. §10 had been given them in place, in its Rendering paragraph.
 
 ### A9. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §1–10
 - **Summary:** A1–A8 were folded into the Decision. The open questions were numbered. §9's mappings paragraph moved to §7. No decision changed. Before this, A4, A6 and the §3 part of A7 were blockquotes; A5, A8 and A7's §10 paragraph had been written into §10 in place; A2, A3 and A7's §7 part were recorded only in other ADRs and, for A3, in §10. The file before conversion is commit `0b26a3a`.
 
 ### A10. Redirect titles in search
 
 - **Date:** 2026-10-01
-- **Source:** [0051](0051-page-redirects.md) §5
+- **Source:** 0051 §5
 - **Change:** extends §7
 - **Summary:** A redirect's title is indexed on its target's document in `redirect_titles`; redirect pages are documents of their own only when broken or external.
 
 ### A11. Bundles and the mirrored-page indexes
 
 - **Date:** 2026-10-01
-- **Source:** [0053](0053-mirrored-pages.md) §4, §7
+- **Source:** 0053 §4, §7
 - **Change:** extends §4, §7
 - **Summary:** `fp:` keys hold a page repository's rewritten bundles; a repository in `mirror` mode has one shared `pages-{repo}` index, searched beside the tenant's `pages` index under `search.inherited`; in `proxy` mode foreign pages are not indexed and the suggester reads the title index.
 
 ### A12. Sanitized CSS and short descriptions
 
 - **Date:** 2026-10-01
-- **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §2, §6
+- **Source:** 0055 §2, §6
 - **Change:** extends §4, §7
 - **Summary:** `css:` keys hold the sanitized form of `sanitized-css` pages; the `pages` index gains `short_description`.
 
 ### A13. Caches and the index keyed by visibility
 
 - **Date:** 2026-10-01
-- **Source:** [0056](0056-security-model.md) §7, §8
+- **Source:** 0056 §7, §8
 - **Change:** amends §1, §4, §7
 - **Summary:** Shared caches hold the form for a visibility set, keyed by it, so that a private wiki caches as a public one does; the public form is the empty set's entry and the only one L2 may hold. The L1 keys gain a `{vis}` segment with the tenant's visibility epoch. The text is in git (`tools/adr.py log 0014 A13 --diff`).
 
@@ -213,21 +213,21 @@ Replaced text: §1 of this ADR; §4 of this ADR; §7 of this ADR.
 ### A15. The web tier's cache and composed pages
 
 - **Date:** 2026-10-03
-- **Source:** [0057](0057-web-tier.md) §5, §6
+- **Source:** 0057 §5, §6
 - **Change:** extends §2, §6
 - **Summary:** The web tier may cache public API responses to its credential-free requests, in memory or in a named Valkey. It cannot be purged, and it sits beneath a CDN that can, so it revalidates every use, keeping without revalidation only responses whose `max-age` the API sets because no purge, erasure or moderation can change them, for at most 60 seconds; it never honours `s-maxage`. A page it composes is public only if all its inputs were, with an `ETag` and `Cache-Tag` derived from theirs.
 
 ### A16. The fragment cache
 
 - **Date:** 2026-10-04
-- **Source:** [0058](0058-packed-record-storage.md) §11
+- **Source:** 0058 §11
 - **Change:** extends §10
 - **Summary:** Packed storage adds an L0 fragment cache: immutable fragments by domain and ref, and the refs known to be shared in the domain's current epoch. Erasure gains a seventh step, the fragment sweep and the cache drop that follows it.
 
 ### A17. Lexemes, schemas and captions in search
 
 - **Date:** 2026-10-05
-- **Source:** [0066](0066-lexemes.md) §5; [0064](0064-entityschema-and-validation.md) §7; [0065](0065-mediainfo-captions-and-commons.md) §1
+- **Source:** 0066 §5; 0064 §7; 0065 §1
 - **Change:** extends §7
 - **Summary:** Lexeme documents and the three lexeme search types; schema terms and text; captions as File page terms.
 
@@ -236,14 +236,14 @@ Replaced text: §1 of this ADR; §4 of this ADR; §7 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §10
-- **Summary:** The L1 key list of §10 gains the `sc:` rows of [0060](0060-scopes.md) §10 and the `sp:` rows of [0061](0061-sprints-and-tasks.md) §11, the scope and sprint listings. (PENDING A11)
+- **Summary:** The L1 key list of §10 gains the `sc:` rows of 0060 §10 and the `sp:` rows of 0061 §11, the scope and sprint listings. (PENDING A11)
 
 ### A19. Where session state lives
 
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §2
-- **Summary:** Session state lives in Valkey when a shared cache is configured and in `private` otherwise ([0025](0025-oauth-server.md) §8; A14), so §2 no longer states Valkey as the one home of sessions; [0013](0013-postgres-storage.md) §4's "sessions' secrets" means that fallback. (PENDING A12)
+- **Summary:** Session state lives in Valkey when a shared cache is configured and in `private` otherwise (0025 §8; A14), so §2 no longer states Valkey as the one home of sessions; 0013 §4's "sessions' secrets" means that fallback. (PENDING A12)
 
 Replaced text: §2 of this ADR.
 
@@ -252,7 +252,7 @@ Replaced text: §2 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §10
-- **Summary:** Listing keys (`tp:`, `sc:`, `sp:`) carry a **listing version**, the maximum activity ID over the listing's members, computed in Postgres at read time, in place of tag purges on ordinary writes and in place of the talk page's latest revision ID; §1's principles 1 and 4 hold unchanged. Tag purges remain for erasure and hiding. The same holds in [0049](0049-boards.md) §12, [0069](0069-synchronized-talk-pages.md) §10, [0060](0060-scopes.md) §10 and [0061](0061-sprints-and-tasks.md) §11. (PENDING B4)
+- **Summary:** Listing keys (`tp:`, `sc:`, `sp:`) carry a **listing version**, the maximum activity ID over the listing's members, computed in Postgres at read time, in place of tag purges on ordinary writes and in place of the talk page's latest revision ID; §1's principles 1 and 4 hold unchanged. Tag purges remain for erasure and hiding. The same holds in 0049 §12, 0069 §10, 0060 §10 and 0061 §11. (PENDING B4)
 
 Replaced text: §10 of this ADR.
 
@@ -261,7 +261,7 @@ Replaced text: §10 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §10
-- **Summary:** Rule: every key whose value depends on what the viewer may read carries `{vis}` ([0056](0056-security-model.md) §7), and §10's key list marks each key. Classification, to confirm: carry `{vis}`: `e:`, `t:`, `prov:`, `p:`, `d:`, `sug:`, `css:`, `post:`, `th:`, `tp:`, `fi:`, `rf:`, `ld:`, `sc:`, `sp:`; do not: `s:`, `rl:`, `up:`, `fp:` (a repository bundle is public upstream content). The thread keys of §10, which lacked the segment, gain it. (PENDING B5)
+- **Summary:** Rule: every key whose value depends on what the viewer may read carries `{vis}` (0056 §7), and §10's key list marks each key. Classification, to confirm: carry `{vis}`: `e:`, `t:`, `prov:`, `p:`, `d:`, `sug:`, `css:`, `post:`, `th:`, `tp:`, `fi:`, `rf:`, `ld:`, `sc:`, `sp:`; do not: `s:`, `rl:`, `up:`, `fp:` (a repository bundle is public upstream content). The thread keys of §10, which lacked the segment, gain it. (PENDING B5)
 
 Replaced text: §10 of this ADR.
 
@@ -270,33 +270,33 @@ Replaced text: §10 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §4
-- **Summary:** Rate-limit counters are `rl:{class}:{key}`, the class being a rate-limit class of [0024](0024-subsidiary-accounts.md) §5 and the key the actor key or, for anonymous requests, the IP; 0024 §5 is corrected to the same form. (PENDING C4)
+- **Summary:** Rate-limit counters are `rl:{class}:{key}`, the class being a rate-limit class of 0024 §5 and the key the actor key or, for anonymous requests, the IP; 0024 §5 is corrected to the same form. (PENDING C4)
 
 Replaced text: §4 of this ADR.
 
 ### A23. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§10
 
 ### A24. Source form in the cache, the index and the fallback
 
 - **Date:** 2026-10-09
-- **Source:** [0082](0082-source-form-and-the-shared-view.md) §1, §2, §3, §5.1, §6
+- **Source:** 0082 §1, §2, §3, §5.1, §6
 - **Change:** amends §3, §7, §8, §10; extends §4
-- **Summary:** L1 holds the internal form once per entity version, and the layer that rewrites entity IDs to the consumer's preferred form runs after the cache, on a hit on the way out, so there is one `e:` entry per version and `ETag` is the version of the stored form; `resolved_version` is new on every composition, including one caused by another member of the entity's cluster, and never by a referrer's change. A tenant document replaces the shared one in the index: the overlay projection sets `tenant_overlaid` on the shared document and a tenant's query excludes shared documents that name it, so no post-query dedup is needed. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §9.3, §11.1, §11.3, §11.4, §11.6, §12.1, §12.5. (REVIEW G3, G4, G5, G2, G7)
+- **Summary:** L1 holds the internal form once per entity version, and the layer that rewrites entity IDs to the consumer's preferred form runs after the cache, on a hit on the way out, so there is one `e:` entry per version and `ETag` is the version of the stored form; `resolved_version` is new on every composition, including one caused by another member of the entity's cluster, and never by a referrer's change. A tenant document replaces the shared one in the index: the overlay projection sets `tenant_overlaid` on the shared document and a tenant's query excludes shared documents that name it, so no post-query dedup is needed. Chapter text: 03 §9.3, §11.1, §11.3, §11.4, §11.6, §12.1, §12.5. (REVIEW G3, G4, G5, G2, G7)
 
-Replaced text: [03](../architecture/03-storage-caches-and-search.md) §9.3, §11.1, §11.3, §11.4, §11.6, §12.1, §12.5.
+Replaced text: 03 §9.3, §11.1, §11.3, §11.4, §11.6, §12.1, §12.5.
 
 ### A25. The composer writes L1; the indexer is a tier-3 consumer; the cache epoch
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §1, §2, §3, §6
+- **Source:** 0083 §1, §2, §3, §6
 - **Change:** amends §3, §7; extends §4, §10
-- **Summary:** Read-your-writes follows from the write path's after-commit slot: the composer composes the written entity after commit, takes its new version, writes the resolved JSON into L1 and returns the body, so L1 is written by the composer after commit and never by the write path before it, and a rolled-back transaction leaves nothing in the cache. Every L1 key begins with an instance-wide cache epoch, `c{epoch}:`, a counter in `ops` that every projection rebuild bumps, distinct from a tenant's visibility epoch and the stream epochs; §12.1 writes the keys without it. The `read` rate class is counted for authenticated principals only once a per-process count passes a fraction of the limit, and never for a response served from L0 or L1. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §9.3, §11.3. (REVIEW G9, G10, G13, G15)
+- **Summary:** Read-your-writes follows from the write path's after-commit slot: the composer composes the written entity after commit, takes its new version, writes the resolved JSON into L1 and returns the body, so L1 is written by the composer after commit and never by the write path before it, and a rolled-back transaction leaves nothing in the cache. Every L1 key begins with an instance-wide cache epoch, `c{epoch}:`, a counter in `ops` that every projection rebuild bumps, distinct from a tenant's visibility epoch and the stream epochs; §12.1 writes the keys without it. The `read` rate class is counted for authenticated principals only once a per-process count passes a fraction of the limit, and never for a response served from L0 or L1. Chapter text: 03 §9.3, §11.3. (REVIEW G9, G10, G13, G15)
 
-Replaced text: [03](../architecture/03-storage-caches-and-search.md) §9.3, §11.3.
+Replaced text: 03 §9.3, §11.3.
 
 ### A26. The public `{vis}` form carries the tenant epoch; enclosures, not groups, are stored
 
@@ -305,7 +305,7 @@ Replaced text: [03](../architecture/03-storage-caches-and-search.md) §9.3, §11
 - **Change:** amends §4, §5, §7, §10
 - **Summary:** The `{vis}` segment's empty-set form is `-{epoch}` on a tenant key, so that a public entry cached before a namespace restriction lapses with it, and plain `-` on a shared key, which carries no tenant epoch because a shared row is under no tenant's namespace. Only a `namespace` or `tenant` `read` ACL bumps the tenant's visibility epoch; a `set` change bumps the generation of the members it touched. A stored search document or feed row holds `read_enclosures`, a reference to the enclosures its target is under, never a group list, and the groups those enclosures require are evaluated at serve time from L0, so a change on an enclosure rewrites no document; the per-tenant indexes are where `read_enclosures` is non-empty. The required privacy test is that an entry cached under the empty set before a namespace restriction is not served after it. (REVIEW G38)
 
-Replaced text: [03](../architecture/03-storage-caches-and-search.md) §9.4, §9.6, §11.5, §12.1.
+Replaced text: 03 §9.4, §9.6, §11.5, §12.1.
 
 ### A27. Cache tags are exact and bounded
 
@@ -314,23 +314,23 @@ Replaced text: [03](../architecture/03-storage-caches-and-search.md) §9.4, §9.
 - **Change:** amends §5, §6, §10
 - **Summary:** A composed page carries exact `Cache-Tag`s for its subjects and its render-manifest pages only; label dependencies are not tagged, since a large item draws labels from thousands of entities, and label staleness is accepted up to `s-maxage`. An anonymous API response is tagged for the entities and pages it is about, not every one it drew on. The About panel of an entity page has its own response and `max-age`, since its counters change without the entity's version changing; the page budget of four API calls to first byte, the bulk-labels route and the `GET /entity/{id}/page` bundle that meet it are in chapters 18 and 20. (REVIEW G41)
 
-Replaced text: [03](../architecture/03-storage-caches-and-search.md) §9.6, §10.3, §12.4.
+Replaced text: 03 §9.6, §10.3, §12.4.
 
 ### A28. Address keys, the `createaccount` class and challenge keys
 
 - **Date:** 2026-10-17
-- **Source:** [0087](0087-account-registration-and-challenges.md) §3, §4
+- **Source:** 0087 §3, §4
 - **Change:** extends §4
-- **Summary:** Rate-limit counters key an anonymous request on its address key, the IPv4 address or the IPv6 /64 ([0024](0024-subsidiary-accounts.md) A19); the `createaccount` class joins the counters; `ch:{tenant}:{mac}` marks a challenge spent until it expires, and `ch:{tenant}:bad:{key}` and `ch:{tenant}:badu:{actor}` count failed `password` logins for the `badlogin` trigger. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §12.1 and §12.3.
+- **Summary:** Rate-limit counters key an anonymous request on its address key, the IPv4 address or the IPv6 /64 (0024 A19); the `createaccount` class joins the counters; `ch:{tenant}:{mac}` marks a challenge spent until it expires, and `ch:{tenant}:bad:{key}` and `ch:{tenant}:badu:{actor}` count failed `password` logins for the `badlogin` trigger. The chapter text is 03 §12.1 and §12.3.
 
-Replaced text: [03](../architecture/03-storage-caches-and-search.md) §12.1, §12.3.
+Replaced text: 03 §12.1, §12.3.
 
 ### A29. Central sessions and login codes in L1
 
 - **Date:** 2026-10-18
-- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §5, §9
+- **Source:** 0089 §5, §9
 - **Change:** amends §4
-- **Summary:** `s:{session}` also records the login a session holds and, for a tenant session, the central session it came from. `sc:{central session}` lists the tenant sessions a central session opened, so that logging out everywhere ends them; `authr:{handle hash}` holds a tenant's request at the auth host for ten minutes, and `authc:{code hash}` a login code for 60 seconds. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §12.1.
+- **Summary:** `s:{session}` also records the login a session holds and, for a tenant session, the central session it came from. `sc:{central session}` lists the tenant sessions a central session opened, so that logging out everywhere ends them; `authr:{handle hash}` holds a tenant's request at the auth host for ten minutes, and `authc:{code hash}` a login code for 60 seconds. The chapter text is 03 §12.1.
 
-Replaced text: [03](../architecture/03-storage-caches-and-search.md) §12.1.
+Replaced text: 03 §12.1.
 

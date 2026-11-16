@@ -104,7 +104,7 @@ James's direction, 2026-10-30, on the review:
 - **Change:** consolidates §5
 - **Summary:** 24 §11 now names the registry file behind each catalogue that has moved (the crate map, the REST routes, the permissions, the log events: 0005 A111, 0012 A82, 0016 A40, 0011 A35) and the two still in prose. The decision is unchanged. The last commit before this entry is `0e67cce`.
 
-Replaced text: [24](../architecture/24-documentation.md) §11.
+Replaced text: 24 §11.
 
 ### A3. What a catalogue move logs
 
@@ -113,20 +113,20 @@ Replaced text: [24](../architecture/24-documentation.md) §11.
 - **Change:** amends §5
 - **Summary:** 24 §11 no longer names each moved catalogue or an order (the registry README lists the files and the section each generates into; the Action API modules moved too, 0012 A83), and it says what a move logs: one `consolidates` entry in the ADR that owns the chapter section, quoting any chapter prose the move rewrote and naming the last commit that carried the table, rather than an entry in every ADR the table cites. That is what the five moves did (0005 A111, 0012 A82–A83, 0016 A40, 0011 A35).
 
-Replaced text: [24](../architecture/24-documentation.md) §11, as it stood after A2.
+Replaced text: 24 §11, as it stood after A2.
 
 ### A4. Catalogues are checked against the running code
 
 - **Date:** 2026-11-09
-- **Source:** [0105](0105-catalogues-checked-against-the-running-code.md) §1
+- **Source:** 0105 §1
 - **Change:** extends §5
-- **Summary:** A catalogue the code acts on is also checked against the running code, both ways: the code reports the names it uses, and a script names those the file lacks (unlisted) and the entries no run used (not observed). Permissions are first. Chapter text: [24](../architecture/24-documentation.md) §11.
+- **Summary:** A catalogue the code acts on is also checked against the running code, both ways: the code reports the names it uses, and a script names those the file lacks (unlisted) and the entries no run used (not observed). Permissions are first. Chapter text: 24 §11.
 
 ### A5. `Changes` joins the retired header fields; a pointer section keeps no Changed-by line
 
 - **Date:** 2026-11-16
 - **Source:** Direct: James, review of pull request #262, 2026-11-16
 - **Change:** amends §1, §3
-- **Summary:** [0050](0050-adr-format.md) A10 retires the `Changes` header and the `*Changed by …*` lines, both read from the logs. §3's list of retired, derivable fields gains `Changes`, and §1's account of what a pointer section keeps no longer names a provenance line. Chapter text: [24](../architecture/24-documentation.md) §2.2, §3.2.
+- **Summary:** 0050 A10 retires the `Changes` header and the `*Changed by …*` lines, both read from the logs. §3's list of retired, derivable fields gains `Changes`, and §1's account of what a pointer section keeps no longer names a provenance line. Chapter text: 24 §2.2, §3.2.
 
-Replaced text: [24](../architecture/24-documentation.md) §2.2, §3.2.
+Replaced text: 24 §2.2, §3.2.

@@ -79,7 +79,7 @@ This ADR replaces the one grammar of 0009 §3 with three, each declared in the r
 ### A1. Crate table
 
 - **Date:** 2026-09-27
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §7
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A13).
 
@@ -88,21 +88,21 @@ Replaced text: §7 of this ADR.
 ### A2. DOI is a resolver
 
 - **Date:** 2026-09-27
-- **Source:** [0029](0029-resolver-namespaces.md) §1–2
+- **Source:** 0029 §1–2
 - **Change:** extends §5
 - **Summary:** A DOI is a value an entity carries, not a subject: `doi` is a resolver namespace, not a keyed type, and resolver names share the keyed-type namespace. This settled Q6 and falsified the consequence that `doi:` needed only its grammar, normalizer and IRI.
 
 ### A3. Keyed types can be case-sensitive
 
 - **Date:** 2026-09-28
-- **Source:** [0036](0036-openstreetmap-providers.md) §3
+- **Source:** 0036 §3
 - **Change:** extends §5
 - **Summary:** A third keyed type, `osm-tag`, with no normalizer: OSM keys and tags are exact strings. Superseded by A8, which made them notations in the `osm` scheme.
 
 ### A4. Two grammars, set per type
 
 - **Date:** 2026-09-28
-- **Source:** [0037](0037-gdelt-provider.md) §2
+- **Source:** 0037 §2
 - **Change:** amends §2
 - **Summary:** `gdelt-record` and `token` join `digits` and `uuid`; `id_grammar` may be set on a single type, overriding the provider's; the `digits` grammar keeps leading zeros where upstream has them, since a CAMEO code is `0311`. The `digits` row had been edited in place (commit `7a038f5`).
 
@@ -115,44 +115,44 @@ Replaced text (§2):
 ### A5. MediaInfo IDs
 
 - **Date:** 2026-09-30
-- **Source:** [0041](0041-content-models.md) §7
+- **Source:** 0041 §7
 - **Change:** extends §1
 - **Summary:** `M` and digits, a local-form ID, names the statements of the File page with that page ID (WikibaseMediaInfo's contract). It is derived, not minted: never in `view.entity`, never in a cluster, never the value of an entity data type.
 
 ### A6. Tenant-relative IDs
 
 - **Date:** 2026-09-30
-- **Source:** [0044](0044-tenant-relative-ids.md) §1–2
+- **Source:** 0044 §1–2
 - **Change:** extends §1, §2
 - **Summary:** By section:
-  - §1: A type letter written three times and the rest of a local ID, `QQQ5`, is an **input form** of the local ID on the tenant that reads it. It is canonicalized to `Q5` wherever IDs are accepted and never stored or returned, except as Lua output under a remapped letter ([0043](0043-lua-modules.md) §8).
+  - §1: A type letter written three times and the rest of a local ID, `QQQ5`, is an **input form** of the local ID on the tenant that reads it. It is canonicalized to `Q5` wherever IDs are accepted and never stored or returned, except as Lua output under a remapped letter (0043 §8).
   - §2: The provider codes `AA` through `ZZ` are reserved and never allocated, so that the tenant-relative form is unambiguous.
 
 ### A7. Notation
 
 - **Date:** 2026-10-01
-- **Source:** [0048](0048-notation.md) §1
+- **Source:** 0048 §1
 - **Change:** extends §3, §5
 - **Summary:** The `notation` keyed type, whose key carries a scheme, replaces 0036's `osm-tag`; a keyed type's key may therefore contain a scheme name and a colon before the string.
 
 ### A8. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §1–7
 - **Summary:** A1–A7 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A5 and A6 were blockquotes, A4 had been edited in place, and the other entries were recorded only in other ADRs. The file before conversion is commit `0b26a3a`.
 
 ### A9. Lexeme part IDs
 
 - **Date:** 2026-10-05
-- **Source:** [0066](0066-lexemes.md) §4
+- **Source:** 0066 §4
 - **Change:** extends §1
 - **Summary:** A sub-entity suffix on `L` only: `-F` or `-S` and digits, in the local, foreign and input forms. No other letter takes a suffix.
 
 ### A10. Entity sources
 
 - **Date:** 2026-10-08
-- **Source:** [0078](0078-entity-sources.md) §2–3
+- **Source:** 0078 §2–3
 - **Change:** amends §1
 - **Summary:** A fifth form, the **source** ID, `{name}:{upstream ID}` (`mhc:Q1`): a foreign ID in the colon shape, minted by an entity source a tenant declares, and meaning that source only on that tenant. Colon forms are told apart by the kind of their prefix in the tenant's table of names. Registry provider slugs join that table, and `wikidata:Q42` is an input form of `WDQ42`.
 
@@ -161,15 +161,15 @@ Replaced text: §1 of this ADR.
 ### A11. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§7
 
 ### A12. Any member of a cluster is accepted wherever an entity ID is accepted
 
 - **Date:** 2026-10-09
-- **Source:** [0082](0082-source-form-and-the-shared-view.md) §1, §2
+- **Source:** 0082 §1, §2
 - **Change:** extends §1
-- **Summary:** The three ID forms of §1 are what the store holds, in source form: the stored form of an entity keeps the IDs its source wrote, and the UUID of a statement GUID stays its identity while the entity part is a property of the response. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §2.1, §5.2. (REVIEW G3, G4)
+- **Summary:** The three ID forms of §1 are what the store holds, in source form: the stored form of an entity keeps the IDs its source wrote, and the UUID of a statement GUID stays its identity while the entity part is a property of the response. Chapter text: 04 §2.1, §5.2. (REVIEW G3, G4)
 
 ### A13. A statement ID's UUID part is Wikibase's shape, not a UUID
 

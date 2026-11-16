@@ -119,7 +119,7 @@ James's direction, from the design discussion of 2026-09-29:
 ### A1. Crate table
 
 - **Date:** 2026-09-29
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §15
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A38).
 
@@ -128,14 +128,14 @@ Replaced text: §15 of this ADR.
 ### A2. Uploads in the page's history
 
 - **Date:** 2026-09-30
-- **Source:** [0039](0039-files-and-media.md) §2
+- **Source:** 0039 §2
 - **Change:** extends §1
 - **Summary:** A file page's uploads are records in the same partition, keyed by the page ID, so text revisions, statement revisions and file versions share one history.
 
 ### A3. File pages' statements as MediaInfo entities
 
 - **Date:** 2026-09-30
-- **Source:** [0041](0041-content-models.md) §6–7
+- **Source:** 0041 §6–7
 - **Change:** amends §1, §13
 - **Summary:** By section:
   - §1: On **File pages** the statements have the MediaInfo ID `M{page ID}` and are read and written through `wbgetentities` and the Wikibase statement modules, as on Commons, because tools written for Structured Data on Commons expect that contract. They appear in the `mediainfo` slot (`wikibase-mediainfo`) in `prop=revisions`. Terms and sitelinks on `M` IDs are refused with `not-supported` until page terms are settled. Statements on every other page stay as written here: no entity ID and no Action API.
@@ -146,7 +146,7 @@ Replaced text: §1 of this ADR; §13 of this ADR.
 ### A4. Categories from expanded text
 
 - **Date:** 2026-09-30
-- **Source:** [0042](0042-template-expansion-and-parsoid.md) §9
+- **Source:** 0042 §9
 - **Change:** amends §3
 - **Summary:** While a tenant's `wikitext.expansion` is on, membership is read from the **expanded** text: categories that templates emit count, `<includeonly>` categories reach transcluding pages, and expansion adds MediaWiki's tracking categories for its own conditions. The paragraph above holds for tenants with expansion off. The consequence that template-emitted categories are frozen at import was struck for tenants with expansion on.
 
@@ -155,35 +155,35 @@ Replaced text: §3 of this ADR.
 ### A5. Boards carry statements
 
 - **Date:** 2026-10-01
-- **Source:** [0049](0049-boards.md) §1
+- **Source:** 0049 §1
 - **Change:** extends §1
 - **Summary:** Boards (310) carry page statements, as document pages do. They describe the board, not its threads.
 
 ### A6. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §1–15
 - **Summary:** A1–A5 were folded into the Decision. The open questions were numbered, and §11's heading, which said it extended 0032, now says it uses 0032 §2, as the Related line already said. No decision changed. Before this, A2–A5 were blockquotes, and A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
 
 ### A7. Sitelinks cannot target inherited titles
 
 - **Date:** 2026-10-01
-- **Source:** [0052](0052-page-repositories-and-title-inheritance.md) §6
+- **Source:** 0052 §6
 - **Change:** extends §6
 - **Summary:** A title whose primary is a page repository's page is refused as a sitelink target with `ts-sitelink-foreign`, because the page ID a sitelink stores changes when the title is forked.
 
 ### A8. Short descriptions in RDF
 
 - **Date:** 2026-10-01
-- **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §6
+- **Source:** 0055 §6
 - **Change:** extends §11
 - **Summary:** The page node gains `schema:description` from the `wikibase-shortdesc` page property, where set. Page terms (Q4) stay open.
 
 ### A9. Captions
 
 - **Date:** 2026-10-05
-- **Source:** [0065](0065-mediainfo-captions-and-commons.md) §1
+- **Source:** 0065 §1
 - **Change:** amends §1
 - **Summary:** File pages' change sets may carry labels and descriptions (captions) through a `terms` operation; Q4 settled for File pages, the rest as Q7.
 
@@ -192,7 +192,7 @@ Replaced text: §1 of this ADR.
 ### A10. `proposal-state`
 
 - **Date:** 2026-10-05
-- **Source:** [0067](0067-proposals.md) §5
+- **Source:** 0067 §5
 - **Change:** extends §9
 - **Summary:** A second projected thread statement, from the proposal projection.
 
@@ -201,7 +201,7 @@ Replaced text: §1 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §1
-- **Summary:** Only aliases and sitelinks on `M` IDs are refused with `not-supported` ([0065](0065-mediainfo-captions-and-commons.md) §1). Labels and descriptions on an `M` ID are captions, accepted since A9, so §1's sentence that terms and sitelinks are refused "until page terms are settled" was wrong about something already decided. (PENDING E11)
+- **Summary:** Only aliases and sitelinks on `M` IDs are refused with `not-supported` (0065 §1). Labels and descriptions on an `M` ID are captions, accepted since A9, so §1's sentence that terms and sitelinks are refused "until page terms are settled" was wrong about something already decided. (PENDING E11)
 
 Replaced text: §1 of this ADR.
 
@@ -210,38 +210,38 @@ Replaced text: §1 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §1
-- **Summary:** A proposal's kind, destination, base, payload, omitted and flags are **page metadata of the thread page**, set by the `propose` operation and projected to `view.proposal`; they are not fields of the thread's `create`, whose `target` stays the thread's home ([0067](0067-proposals.md) §3; [0019](0019-discussions.md) §4). For this ADR the decision adds to §1's account of what a thread page carries and contradicts nothing in it, so the row's `amends` is logged here as `extends`. (PENDING F7)
+- **Summary:** A proposal's kind, destination, base, payload, omitted and flags are **page metadata of the thread page**, set by the `propose` operation and projected to `view.proposal`; they are not fields of the thread's `create`, whose `target` stays the thread's home (0067 §3; 0019 §4). For this ADR the decision adds to §1's account of what a thread page carries and contradicts nothing in it, so the row's `amends` is logged here as `extends`. (PENDING F7)
 
 ### A13. One tabs table
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design discussion of 2026-10-09
 - **Change:** corrects §7
-- **Summary:** [0010](0010-site-ui.md) §2 is the one tabs table: Page data on the thread row, Talk on the document-page row. §7 refers to it instead of carrying a second table, which had lost Talk from the document-page row. (PENDING F15)
+- **Summary:** 0010 §2 is the one tabs table: Page data on the thread row, Talk on the document-page row. §7 refers to it instead of carrying a second table, which had lost Talk from the document-page row. (PENDING F15)
 
 Replaced text: §7 of this ADR.
 
 ### A14. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§15
 
 ### A15. Two row classes of `view.page_category`, one writer each
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §6
+- **Source:** 0083 §6
 - **Change:** amends §3
-- **Summary:** With expansion on, membership is read from the expanded text *as well as* the stored text, and the two readings are two row classes of `view.page_category` with one writer each, as the links projection has: every row carries `from_render`; the page projection writes the memberships the stored text declares, with `from_render = false`, when it applies the record; the refresh job of [0042](0042-template-expansion-and-parsoid.md) §10 writes those the expanded text adds, with `from_render = true`. Each writer owns its class exclusively, a category page lists the union, the refresh job never deletes a row it did not write, and turning `wikitext.expansion` off truncates the render-owned rows alone, leaving every membership the text itself declares. 0083's table names §2 (asserted and projected statements); the chapter section that changed, [10](../architecture/10-pages-and-content-models.md) §5.3, holds §3, so the row is corrected. (REVIEW G13)
+- **Summary:** With expansion on, membership is read from the expanded text *as well as* the stored text, and the two readings are two row classes of `view.page_category` with one writer each, as the links projection has: every row carries `from_render`; the page projection writes the memberships the stored text declares, with `from_render = false`, when it applies the record; the refresh job of 0042 §10 writes those the expanded text adds, with `from_render = true`. Each writer owns its class exclusively, a category page lists the union, the refresh job never deletes a row it did not write, and turning `wikitext.expansion` off truncates the render-owned rows alone, leaving every membership the text itself declares. 0083's table names §2 (asserted and projected statements); the chapter section that changed, 10 §5.3, holds §3, so the row is corrected. (REVIEW G13)
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §5.3.
+Replaced text: 10 §5.3.
 
 ### A16. Help pages carry statements
 
 - **Date:** 2026-10-29
-- **Source:** [0096](0096-adopting-any-mediawiki.md) §3
+- **Source:** 0096 §3
 - **Change:** extends §1
-- **Summary:** Help (12) is a document namespace (0096 §3), so its pages carry statements, as Project's do. The chapter text is [06](../architecture/06-statements-and-properties.md) §5.1.
+- **Summary:** Help (12) is a document namespace (0096 §3), so its pages carry statements, as Project's do. The chapter text is 06 §5.1.
 
 ### A17. A page title names a page; an entity's page is in its namespace
 

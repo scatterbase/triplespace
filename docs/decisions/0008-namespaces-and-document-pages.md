@@ -133,7 +133,7 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 ### A1. The crate table moves to 0005
 
 - **Date:** 2026-09-26
-- **Source:** [0005](0005-crate-organization.md) §2, revision of 2026-09-26
+- **Source:** 0005 §2, revision of 2026-09-26
 - **Change:** supersedes §11
 - **Summary:** 0005 §2 became the one crate table CI checks. `scatter-markdown` was folded into `scatter-pages` as a feature, and `scatter-keyed` into `scatter-normalize`.
 
@@ -142,7 +142,7 @@ Replaced text: §11 of this ADR.
 ### A2. Entity IDs canonicalize by their grammar
 
 - **Date:** 2026-09-27
-- **Source:** [0017](0017-entity-id-grammar.md) §2
+- **Source:** 0017 §2
 - **Change:** amends §3
 - **Summary:** The `entity-id` normalizer uppercases only the prefix and applies the type's ID grammar to the rest, so case-sensitive UUID IDs survive. Until the migration, nothing in this ADR recorded the change. 0017's header attributed it to 0017 §4, but the text is in 0017 §2.
 
@@ -151,7 +151,7 @@ Replaced text: §3 of this ADR.
 ### A3. Discussions
 
 - **Date:** 2026-09-27
-- **Source:** [0019](0019-discussions.md) §2, §3, §5
+- **Source:** 0019 §2, §3, §5
 - **Change:** amends §2; extends §1, §3, §5, §8, §10
 - **Summary:** Talk namespaces are now of kind `composite`: the talk page of a subject is the set of threads attached to it. Threads themselves are pages in a new `Thread` namespace of kind `thread`, whose number is pending registration.
   Not noted here before the migration: 0019 §3 and §5 also gave threads minted titles, gave the `markdown` model wiki links and HTML sanitized to §8's allow-list, and made links in posts `page_link` rows. A11 later replaced the `composite` and `thread` kinds with models.
@@ -161,7 +161,7 @@ Replaced text: §2 of this ADR.
 ### A4. Deletion becomes an ACL
 
 - **Date:** 2026-09-27
-- **Source:** [0023](0023-moderation.md) §4
+- **Source:** 0023 §4
 - **Change:** amends §4
 - **Summary:** `delete` and `undelete` are no longer page operations. Deletion is a `read` ACL on the page, written to the tenant `log` partition, and undeletion retires it; the effects described here are unchanged. The `page` payload type carries `create`, `edit` and `move` only.
 
@@ -170,7 +170,7 @@ Replaced text: §4 of this ADR.
 ### A5. The `resolver` kind
 
 - **Date:** 2026-09-27
-- **Source:** [0029](0029-resolver-namespaces.md) §2
+- **Source:** 0029 §2
 - **Change:** extends §1, §3
 - **Summary:** A `resolver` namespace holds no pages and no records. Every title in it is a key, normalized by the resolver's normalizer, and viewing the title performs a lookup. Its talk number is `reserved`. Before the migration this was recorded only in this ADR's header.
 
@@ -181,29 +181,29 @@ Replaced text: §4 of this ADR.
 - **Change:** amends §2
 - **Summary:** Three rules replace the sentence below and settle the main-namespace question (Q3):
   1. **Every number MediaWiki core or any Wikibase extension uses is reserved.** It is listed in `docs/registry/namespaces.toml` with kind `reserved`, is never given another meaning, and is not implemented unless an ADR says so. The reserved set: Media (−2), the main namespace (0), File (6), MediaWiki (8), Template (10), Help (12), Category (14), Query (124) and Lexeme (146). The main namespace stays reserved and empty; help content goes in `Project` as before.
-  2. **Talk namespaces exist only for implemented subject namespaces.** They work as §2 and [0019](0019-discussions.md) §2 describe, at the next odd number, and are `composite`. A reserved-and-not-implemented namespace has no talk namespace enabled: Talk (1), File talk (7) and the rest are not registered.
-  3. **Triplespace's own namespaces take 210–219, and resolver prefixes ([0029](0029-resolver-namespaces.md)) take 220–229.** Allocated now: Domain 210/211 ([0009](0009-keyed-entity-types-and-domain.md) §11), Keyword 212/213 ([0017](0017-entity-id-grammar.md) §5), Thread 214/215 ([0019](0019-discussions.md) §3), OSM 216/217 ([0036](0036-openstreetmap-providers.md) §3), DOI 220/221 and URL 222/223 ([0029](0029-resolver-namespaces.md)). The ranges are registered on mediawiki.org's Extension default namespaces page, which as of 2026-09-27 lists nothing between 204 and 240. Allocation is a change to `namespaces.toml`, under the registry's rules ([0015](0015-record-format-and-partition-registry.md) §5).
+  2. **Talk namespaces exist only for implemented subject namespaces.** They work as §2 and 0019 §2 describe, at the next odd number, and are `composite`. A reserved-and-not-implemented namespace has no talk namespace enabled: Talk (1), File talk (7) and the rest are not registered.
+  3. **Triplespace's own namespaces take 210–219, and resolver prefixes (0029) take 220–229.** Allocated now: Domain 210/211 (0009 §11), Keyword 212/213 (0017 §5), Thread 214/215 (0019 §3), OSM 216/217 (0036 §3), DOI 220/221 and URL 222/223 (0029). The ranges are registered on mediawiki.org's Extension default namespaces page, which as of 2026-09-27 lists nothing between 204 and 240. Allocation is a change to `namespaces.toml`, under the registry's rules (0015 §5).
 
 Replaced text: §2 of this ADR.
 
 ### A7. Adopted wikis keep page IDs
 
 - **Date:** 2026-09-28
-- **Source:** [0035](0035-adopting-a-wikibase.md) §4
+- **Source:** 0035 §4
 - **Change:** extends §9
 - **Summary:** When the source is the wiki the tenant adopted, imported pages keep their source page IDs, supplied in header field 9 as adopted entities' are, and the page-ID floor set at adoption already covers them.
 
 ### A8. OSM namespaces
 
 - **Date:** 2026-09-28
-- **Source:** [0036](0036-openstreetmap-providers.md) §3
+- **Source:** 0036 §3
 - **Change:** extends §2
 - **Summary:** OSM and OSM talk were allocated 216/217. A18 renamed them.
 
 ### A9. Articles, categories and page statements
 
 - **Date:** 2026-09-29
-- **Source:** [0038](0038-page-metadata-and-categories.md) §1, §3, §4, §8, §11
+- **Source:** 0038 §1, §3, §4, §8, §11
 - **Change:** amends §2, §4, §8, §10
 - **Summary:** As noted under each section before the migration:
   - §2: Two reserved numbers are implemented, as rule 1 allows. The main namespace (0) is a `document` namespace for articles, with Talk (1) enabled; an unprefixed title in a link is a main-namespace title, and entities are linked with their namespace. Category (14) is a `document` namespace for category description pages, `wikitext` only, with Category talk (15) enabled.
@@ -216,7 +216,7 @@ Replaced text: §2, from A6 rule 1 of this ADR; §4 of this ADR; §8 and §10 of
 ### A10. Files and media
 
 - **Date:** 2026-09-30
-- **Source:** [0039](0039-files-and-media.md) §1, §13, §14
+- **Source:** 0039 §1, §13, §14
 - **Change:** extends §1, §2, §3, §8, §9
 - **Summary:** As noted under each section before the migration:
   - §2: Three more reserved numbers are implemented: File (6) is a `file` namespace, a document namespace whose pages may also carry uploads, with File talk (7) enabled; Media (−2) is `virtual` and resolves to a file's current bytes.
@@ -227,7 +227,7 @@ Replaced text: §2, from A6 rule 1 of this ADR; §4 of this ADR; §8 and §10 of
 ### A11. Namespaces name models, not kinds
 
 - **Date:** 2026-09-30
-- **Source:** [0041](0041-content-models.md) §1–5
+- **Source:** 0041 §1–5
 - **Change:** amends §1, §3, §5
 - **Summary:** As noted under each section before the migration:
   - §1: Every page has a content model, and a namespace entry names its allowed models and default model. The kind now says only whether the namespace holds pages: `pages`, `reserved`, `virtual` or `resolver`. Entity views, document pages, file pages, threads and talk pages are all `pages` namespaces; what they are made of is their model (`wikibase-item`, `wikitext`, `triplespace-thread`, `triplespace-talk` and so on), and a File namespace adds the `uploads` flag. `entity_types` leaves the entry, since the model names the entity type.
@@ -239,7 +239,7 @@ Replaced text: §1 of this ADR; §3 of this ADR; §5 of this ADR.
 ### A12. Template expansion
 
 - **Date:** 2026-09-30
-- **Source:** [0042](0042-template-expansion-and-parsoid.md) §1, §3, §7–9, §13
+- **Source:** 0042 §1, §3, §7–9, §13
 - **Change:** amends §8, §9; extends §2, §10
 - **Summary:** As noted under each section before the migration:
   - §2: A reserved number can be implemented conditionally, by a setting named in its `namespaces.toml` entry (`enabled_by`). Template (10), with Template talk (11), is a `pages` namespace while the tenant's `wikitext.expansion` is on; Module (828) and Module talk (829), Scribunto's numbers, now registered, while `wikitext.lua` is on. Turning a setting off keeps the namespace's pages readable and refuses writes with `ts-namespace-disabled`.
@@ -252,7 +252,7 @@ Replaced text: §8 of this ADR; §9 of this ADR.
 ### A13. Lua modules
 
 - **Date:** 2026-09-30
-- **Source:** [0043](0043-lua-modules.md) §2–3
+- **Source:** 0043 §2–3
 - **Change:** amends §5; extends §2
 - **Summary:** As noted under each section before the migration:
   - §2: A reserved number can be implemented conditionally, by a setting named in its `namespaces.toml` entry (`enabled_by`). Template (10), with Template talk (11), is a `pages` namespace while the tenant's `wikitext.expansion` is on; Module (828) and Module talk (829), Scribunto's numbers, now registered, while `wikitext.lua` is on. Turning a setting off keeps the namespace's pages readable and refuses writes with `ts-namespace-disabled`.
@@ -263,21 +263,21 @@ Replaced text: §5 of this ADR.
 ### A14. Tenant-relative IDs in titles
 
 - **Date:** 2026-09-30
-- **Source:** [0044](0044-tenant-relative-ids.md) §5
+- **Source:** 0044 §5
 - **Change:** extends §3
 - **Summary:** The `entity-id` normalizer accepts tenant-relative IDs: `Item:QQQ5` normalizes to `Item:Q5`.
 
 ### A15. Table namespaces
 
 - **Date:** 2026-09-30
-- **Source:** [0045](0045-table-content-model.md) §2
+- **Source:** 0045 §2
 - **Change:** extends §2
 - **Summary:** Table (218) and Table talk (219), the last free pair in 210–219. Table pages hold `triplespace-table` definitions, with `wikitext` for `/doc` subpages as in Module.
 
 ### A16. Import and export forms
 
 - **Date:** 2026-09-30
-- **Source:** [0047](0047-special-pages.md) §8
+- **Source:** 0047 §8
 - **Change:** extends §9
 - **Summary:** `Special:Import` is the form that starts this job, after showing the census. `Special:Export` writes MediaWiki XML of pages and local entities, the counterpart of this import, and a verifiable `records` format.
 
@@ -291,7 +291,7 @@ Replaced text: §5 of this ADR.
 ### A18. Notation namespaces
 
 - **Date:** 2026-10-01
-- **Source:** [0048](0048-notation.md) §7
+- **Source:** 0048 §7
 - **Change:** amends §2
 - **Summary:** 216 and 217 are renamed from OSM and OSM talk to Notation and Notation talk. They hold the same pages, OSM keys and tags, now as notations in the `osm` scheme (`Notation:osm:amenity=cafe`), and will hold other schemes' notations as schemes are added.
 
@@ -300,18 +300,18 @@ Replaced text: the names OSM and OSM talk for 216/217, in A6 rule 3 and A8.
 ### A19. Boards, and talk namespaces that forward
 
 - **Date:** 2026-10-01
-- **Source:** [0049](0049-boards.md) §2
+- **Source:** 0049 §2
 - **Change:** amends §2; extends §1, §3
 - **Summary:** As noted under each section before the migration:
   - §2: Board (310) and Board talk (311), the first pair of the second block. Board talk is `virtual` and **forwards** to Board: every title in it resolves to the same title in 310, because a board is its own talk page. Thread talk (215) changes from `reserved` to forwarding to Thread (214) for the same reason.
   - §3: A `virtual` namespace with `forwards_to` resolves every title to the same title in the namespace it names, as a permanent redirect: `Board talk:X` to `Board:X`, `Thread talk:X` to `Thread:X`. Forwarding titles have no page IDs.
 
-Replaced text: Thread talk (215) as `reserved` and empty, from [0019](0019-discussions.md) §3 (A3).
+Replaced text: Thread talk (215) as `reserved` and empty, from 0019 §3 (A3).
 
 ### A20. Consolidated under 0050
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §1–5, §8–11
 - **Summary:** A1–A19 were folded into the Decision text, the open questions were numbered, and falsified consequences were struck. No decision changed. Before this, the amendments were blockquotes under the sections they changed, which A3–A19 now quote, and A2, A5 and A8 were recorded only in other ADRs. The file before consolidation is commit `dc4774a`.
 
@@ -336,7 +336,7 @@ Replaced text (§2). The table as it stood, with rows 1, 210 and 211 already edi
 ### A21. Page redirects
 
 - **Date:** 2026-10-01
-- **Source:** [0051](0051-page-redirects.md) §1–3, §5
+- **Source:** 0051 §1–3, §5
 - **Change:** amends §4; extends §3, §8, §10
 - **Summary:** A `wikitext` page whose text begins with `#REDIRECT [[Target]]` is a redirect; the resolver follows one hop unless told `redirect=no`; a move leaves a redirect page at the old title by default, so a move is one record on the moved page and a `create` of a second; links to redirects carry `mw-redirect`; the links projection records a redirect's target. Q8 settled.
 
@@ -345,7 +345,7 @@ Replaced text: §4 of this ADR.
 ### A22. Page repositories and title inheritance
 
 - **Date:** 2026-10-01
-- **Source:** [0052](0052-page-repositories-and-title-inheritance.md) §3–4
+- **Source:** 0052 §3–4
 - **Change:** amends §3; extends §8, §10
 - **Summary:** A `pages` title resolves to the primary of its stack: the local page, else the first page repository in `pages.repos` that serves the namespace and has the title. Links to inherited titles are ordinary links carrying `ts-inherited`; links into namespaces no repository serves leave the wiki; the links projection records links to inherited titles by title.
 
@@ -354,14 +354,14 @@ Replaced text: §3 of this ADR.
 ### A23. Forks, and talk pages imported as threads
 
 - **Date:** 2026-10-01
-- **Source:** [0054](0054-forking-a-mirrored-page.md) §1, §5
+- **Source:** 0054 §1, §5
 - **Change:** extends §4, §9
 - **Summary:** A `create` may carry `forked_from`, naming the repository, page and revision a fork was taken from. A wikitext talk page in an import is converted into closed threads on the subject's talk page, split by level-two heading.
 
 ### A24. `sanitized-css` is supported
 
 - **Date:** 2026-10-01
-- **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §1
+- **Source:** 0055 §1
 - **Change:** amends §5
 - **Summary:** The exclusion of style models is narrowed to `css` and `javascript`, which reach the browser as written. `sanitized-css`, TemplateStyles' model, is implemented behind a sanitizer that scopes every sheet to rendered content.
 
@@ -370,14 +370,14 @@ Replaced text: §5 of this ADR.
 ### A25. Scope
 
 - **Date:** 2026-10-04
-- **Source:** [0060](0060-scopes.md) §2
+- **Source:** 0060 §2
 - **Change:** extends §2
 - **Summary:** Scope (312) and Scope talk (313), the second pair of the 310–319 block, with the `/doc` rule of Table.
 
 ### A26. Sprints in Project
 
 - **Date:** 2026-10-04
-- **Source:** [0061](0061-sprints-and-tasks.md) §2
+- **Source:** 0061 §2
 - **Change:** extends §2
 - **Summary:** `Project` (4) allows `triplespace-sprint`, for subpages only; the default stays `wikitext`.
 
@@ -386,7 +386,7 @@ Replaced text: §2, the Project row of this ADR.
 ### A27. Query
 
 - **Date:** 2026-10-05
-- **Source:** [0063](0063-query-namespace.md) §2
+- **Source:** 0063 §2
 - **Change:** amends §2
 - **Summary:** Query (124) moves from `reserved` to `pages` with model `triplespace-sparql`, keeping Wikibase's meaning for the number; Query talk (125) is added.
 
@@ -395,14 +395,14 @@ Replaced text: §2 of this ADR.
 ### A28. EntitySchema
 
 - **Date:** 2026-10-05
-- **Source:** [0064](0064-entityschema-and-validation.md) §2
+- **Source:** 0064 §2
 - **Change:** extends §2
 - **Summary:** EntitySchema (640) and EntitySchema talk (641), the extension's numbers, hosting the `entityschema` entity type.
 
 ### A29. Lexeme
 
 - **Date:** 2026-10-05
-- **Source:** [0066](0066-lexemes.md) §2
+- **Source:** 0066 §2
 - **Change:** amends §2
 - **Summary:** Lexeme (146) moves from `reserved` to `pages` with model `wikibase-lexeme`; Lexeme talk (147) is added.
 
@@ -411,14 +411,14 @@ Replaced text: §2 of this ADR.
 ### A30. The `follow` operation
 
 - **Date:** 2026-10-06
-- **Source:** [0069](0069-synchronized-talk-pages.md) §7
+- **Source:** 0069 §7
 - **Change:** extends §4
 - **Summary:** A fork's page records gain `follow`, a null revision recording whether the fork's talk page follows the repository's or has been forked.
 
 ### A31. A tenant range, and entity-source namespaces
 
 - **Date:** 2026-10-08
-- **Source:** [0078](0078-entity-sources.md) §5
+- **Source:** 0078 §5
 - **Change:** extends §2, §3
 - **Summary:** Rule 4: a tenant's own namespaces take 3000 and above, or 100–199 except registered numbers, and an adopted wiki keeps its numbers; other numbers are refused with `ts-namespace-number`, and names that equal another namespace's or an interwiki prefix with `ts-namespace-name-taken`. Until now nothing said which numbers a tenant's namespaces may take. An entity source's namespace is a `resolver` namespace with the source's ID normalizer and the source's lookup.
 
@@ -429,137 +429,137 @@ Replaced text: §2 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §2
-- **Summary:** In the Project row of §2's table, `triplespace-sprint` is a model *allowed* on Project subpages; the default model of a Project subpage stays `wikitext`, as [0061](0061-sprints-and-tasks.md) §2 says. The row read as though subpages defaulted to the sprint model. (PENDING E12)
+- **Summary:** In the Project row of §2's table, `triplespace-sprint` is a model *allowed* on Project subpages; the default model of a Project subpage stays `wikitext`, as 0061 §2 says. The row read as though subpages defaulted to the sprint model. (PENDING E12)
 
 Replaced text: §2 of this ADR.
 
 ### A33. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1, §2, §3, §4, §5, §6, §7, §8, §9, §10, §12
 
 ### A34. Revision states per page record; one writer per row class of the links projection
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §4, §6
+- **Source:** 0083 §4, §6
 - **Change:** extends §4; amends §10
-- **Summary:** The state after every revision of a page is stored once, per revision: the appending transaction writes the page's state after each `pages` record, the text and the fold of its statement change sets, to `view.entity_revision (tenant, revid, state)`, beside the current state in `view.graph_state`, so that `oldid=`, `action=compare`, `Special:PermanentLink` and export read one row rather than folding the page's history (§4). The same holds for `view.page_category` and `view.page_prop` ([0038](0038-page-metadata-and-categories.md) §2, [0055](0055-templatestyles-templatedata-and-page-properties.md) §6). 0083's table did not list this ADR; the chapter cites 0083 §4 at [10](../architecture/10-pages-and-content-models.md) §3.2 and §6 at §5.2, and the table was extended. Chapter text: [10](../architecture/10-pages-and-content-models.md) §5.2. (REVIEW G11, G13)
+- **Summary:** The state after every revision of a page is stored once, per revision: the appending transaction writes the page's state after each `pages` record, the text and the fold of its statement change sets, to `view.entity_revision (tenant, revid, state)`, beside the current state in `view.graph_state`, so that `oldid=`, `action=compare`, `Special:PermanentLink` and export read one row rather than folding the page's history (§4). The same holds for `view.page_category` and `view.page_prop` (0038 §2, 0055 §6). 0083's table did not list this ADR; the chapter cites 0083 §4 at 10 §3.2 and §6 at §5.2, and the table was extended. Chapter text: 10 §5.2. (REVIEW G11, G13)
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §5.2.
+Replaced text: 10 §5.2.
 
 ### A35. Page IDs are per tenant; a mirrored entity's page ID is provider-ranged
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §4
-- **Summary:** Page IDs are per tenant: a tenant's own pages take IDs from the tenant's own sequence, which starts at 1, stays below 2^40 and never reuses a number, and `view.entity`'s unique key on a page ID is `(tenant, page_id)`. A mirrored entity's page ID is provider-ranged, `provider_number << 40 | upstream page ID` where the provider publishes one and `provider_number << 40 | mirror offset` otherwise, computed by the writer with no allocation; `log."instance.page_id"` is not used for entities. A page served by a page repository takes a provider-ranged page ID the same way. "Minted by the instance in sequence" is withdrawn. The ledger named §3 (titles); the chapter states page identity at [10](../architecture/10-pages-and-content-models.md) §3.1, whose provenance is §4, and the ledger row was corrected. (REVIEW G18)
+- **Summary:** Page IDs are per tenant: a tenant's own pages take IDs from the tenant's own sequence, which starts at 1, stays below 2^40 and never reuses a number, and `view.entity`'s unique key on a page ID is `(tenant, page_id)`. A mirrored entity's page ID is provider-ranged, `provider_number << 40 | upstream page ID` where the provider publishes one and `provider_number << 40 | mirror offset` otherwise, computed by the writer with no allocation; `log."instance.page_id"` is not used for entities. A page served by a page repository takes a provider-ranged page ID the same way. "Minted by the instance in sequence" is withdrawn. The ledger named §3 (titles); the chapter states page identity at 10 §3.1, whose provenance is §4, and the ledger row was corrected. (REVIEW G18)
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §3.1.
+Replaced text: 10 §3.1.
 
 ### A36. A move leaves a redirect only where the old title may hold `wikitext`
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** corrects §4
-- **Summary:** A move leaves a redirect at the old title only where the old title may hold `wikitext`, since only a `wikitext` page can be a redirect: in namespace 0, User, Project, File, Template and Category, and at the `/doc` titles of Module, Table, Query and Scope. Where the old title cannot hold `wikitext`, the move behaves as `noredirect` without needing `suppressredirect`, and the `move/move` event says so with `noredirect: true`. Entity, keyed-type, Thread and Board namespaces disallow `move` altogether; a thread's title follows its subject through the thread's own `rename` record, which is not a move. The ledger named §3; the fold is at [10](../architecture/10-pages-and-content-models.md) §2.5, whose provenance is §4 here beside [0051](0051-page-redirects.md) §3, and the ledger row was corrected. (REVIEW G43)
+- **Summary:** A move leaves a redirect at the old title only where the old title may hold `wikitext`, since only a `wikitext` page can be a redirect: in namespace 0, User, Project, File, Template and Category, and at the `/doc` titles of Module, Table, Query and Scope. Where the old title cannot hold `wikitext`, the move behaves as `noredirect` without needing `suppressredirect`, and the `move/move` event says so with `noredirect: true`. Entity, keyed-type, Thread and Board namespaces disallow `move` altogether; a thread's title follows its subject through the thread's own `rename` record, which is not a move. The ledger named §3; the fold is at 10 §2.5, whose provenance is §4 here beside 0051 §3, and the ledger row was corrected. (REVIEW G43)
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §2.5.
+Replaced text: 10 §2.5.
 
 ### A37. The Project namespace's local name follows the site's name, and keeps the old one
 
 - **Date:** 2026-10-17
-- **Source:** [0085](0085-settings-and-preferences.md) §7
+- **Source:** 0085 §7
 - **Change:** amends §7
-- **Summary:** The local name of the Project namespace is `site.name` unless the tenant's `namespace` record fixes it. When the site is renamed and the local name followed it, the old name becomes an alias of the namespace in the same change set, so links through it still resolve; a fixed local name, `Project` included, is untouched and gains no alias, as James decided: an old project name is kept only if it was the namespace's name. The chapter text is [10](../architecture/10-pages-and-content-models.md) §3.5.
+- **Summary:** The local name of the Project namespace is `site.name` unless the tenant's `namespace` record fixes it. When the site is renamed and the local name followed it, the old name becomes an alias of the namespace in the same change set, so links through it still resolve; a fixed local name, `Project` included, is untouched and gains no alias, as James decided: an old project name is kept only if it was the namespace's name. The chapter text is 10 §3.5.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §3.5.
+Replaced text: 10 §3.5.
 
 ### A38. An adopted wiki's pages come in its adoption job
 
 - **Date:** 2026-10-19
-- **Source:** [0035](0035-adopting-a-wikibase.md) A13
+- **Source:** 0035 A13
 - **Change:** amends §9
-- **Summary:** When the source is the wiki the tenant adopted, its pages are imported within the adoption job, not by a job of their own. They keep their source page IDs in field 9 and, revision by revision, their source revision IDs in field 7, so that an `oldid` link into the source's pages resolves as one into its entities does, and a revision the source hid is imported as an adopted entity revision is. The chapter text is [10](../architecture/10-pages-and-content-models.md) §6.
+- **Summary:** When the source is the wiki the tenant adopted, its pages are imported within the adoption job, not by a job of their own. They keep their source page IDs in field 9 and, revision by revision, their source revision IDs in field 7, so that an `oldid` link into the source's pages resolves as one into its entities does, and a revision the source hid is imported as an adopted entity revision is. The chapter text is 10 §6.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §6.
+Replaced text: 10 §6.
 
 ### A39. Inline HTML follows MediaWiki's Sanitizer allow-list
 
 - **Date:** 2026-10-19
 - **Source:** Direct: James, review of 2026-10-19
 - **Change:** amends §8
-- **Summary:** MediaWiki's Sanitizer is the authority for the HTML wikitext may write: its allow-list of tags, the attributes each tag keeps (the common set of `id`, `class`, `style`, `lang`, `dir`, `title`, ARIA, RDFa and microdata attributes and `data-*`, plus each tag's own, such as `colspan` on cells and `start` on lists), and its check of `style`. The subset's row had listed only `class`, `id` and a sanitized `style`; [11](../architecture/11-rendering-templates-and-modules.md) §1.2 already named the Sanitizer, and the built-in renderer implements it. The chapter text is [10](../architecture/10-pages-and-content-models.md) §5.1.
+- **Summary:** MediaWiki's Sanitizer is the authority for the HTML wikitext may write: its allow-list of tags, the attributes each tag keeps (the common set of `id`, `class`, `style`, `lang`, `dir`, `title`, ARIA, RDFa and microdata attributes and `data-*`, plus each tag's own, such as `colspan` on cells and `start` on lists), and its check of `style`. The subset's row had listed only `class`, `id` and a sanitized `style`; 11 §1.2 already named the Sanitizer, and the built-in renderer implements it. The chapter text is 10 §5.1.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §5.1.
+Replaced text: 10 §5.1.
 
 ### A40. The edit base is MediaWiki's
 
 - **Date:** 2026-10-19
 - **Source:** Direct: James, review of 2026-10-19
 - **Change:** amends §4
-- **Summary:** An `edit` of a document page takes its base as MediaWiki's `action=edit` does: from `baserevid`, else from `basetimestamp`, read as the page's latest record at that time, else the page's latest record, so a client that sends neither edits whatever is current instead of being refused. A stale base is `editconflict`; `createonly` on an existing page is `articleexists`, and `nocreate` on a missing one `missingtitle`. A base remains required for `move`. Clients written for MediaWiki (Pywikibot, mwclient, the site's own edit form) send `baserevid` or `basetimestamp`, so the change loses no conflict a client was asking to have detected. The chapter text is [10](../architecture/10-pages-and-content-models.md) §3.2.
+- **Summary:** An `edit` of a document page takes its base as MediaWiki's `action=edit` does: from `baserevid`, else from `basetimestamp`, read as the page's latest record at that time, else the page's latest record, so a client that sends neither edits whatever is current instead of being refused. A stale base is `editconflict`; `createonly` on an existing page is `articleexists`, and `nocreate` on a missing one `missingtitle`. A base remains required for `move`. Clients written for MediaWiki (Pywikibot, mwclient, the site's own edit form) send `baserevid` or `basetimestamp`, so the change loses no conflict a client was asking to have detected. The chapter text is 10 §3.2.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §3.2.
+Replaced text: 10 §3.2.
 
 ### A41. An adopted wiki's templates come as pages; its talk pages wait for threads
 
 - **Date:** 2026-10-19
 - **Source:** Direct: James, review of 2026-10-19
 - **Change:** amends §9
-- **Summary:** Adoption brings the adopted wiki's Template pages as ordinary pages with their history, whatever the tenant's `wikitext.expansion`, rather than flattening templates into an extra revision: while expansion is off the pages stay readable and nothing transcludes them ([11](../architecture/11-rendering-templates-and-modules.md) §1.3), and a tenant that wants them rendered turns expansion on, as Librarybase does. Talk pages, which become threads, are not imported until that conversion exists; they and pages in reserved namespaces are counted `deferred` in the adoption's report. The chapter text is [10](../architecture/10-pages-and-content-models.md) §6.
+- **Summary:** Adoption brings the adopted wiki's Template pages as ordinary pages with their history, whatever the tenant's `wikitext.expansion`, rather than flattening templates into an extra revision: while expansion is off the pages stay readable and nothing transcludes them (11 §1.3), and a tenant that wants them rendered turns expansion on, as Librarybase does. Talk pages, which become threads, are not imported until that conversion exists; they and pages in reserved namespaces are counted `deferred` in the adoption's report. The chapter text is 10 §6.
 
-Replaced text: none; the two sentences are added to [10](../architecture/10-pages-and-content-models.md) §6's paragraph on an adopted wiki.
+Replaced text: none; the two sentences are added to 10 §6's paragraph on an adopted wiki.
 
 ### A42. Page links are recorded by title
 
 - **Date:** 2026-10-20
 - **Source:** Direct: James, review of 2026-10-20
 - **Change:** corrects §10
-- **Summary:** The links projection records a link to a page by the target's namespace number and title, never by page ID, whether or not a page has the title, as MediaWiki's `pagelinks` does: `view.page_link` rows of `target_kind` 6 (`TITLE`) with `target_id` `{ns}:{title}`. A link to an entity is recorded by its ID (`target_kind` 1). So creating a page needs no rewrite of the links to it, and a move leaves links on the old title, which its redirect serves. §10's "after resolution" and the backlink sentences read as if links to existing pages were held by page ID, and chapter 03 kept `page_link` targets current through title-index maintenance; neither was the design the projection implements. The chapter text is [10](../architecture/10-pages-and-content-models.md) §5.2, with the schema comment and the redirect paragraph of [03](../architecture/03-storage-caches-and-search.md) §4.5 and §4.7.
+- **Summary:** The links projection records a link to a page by the target's namespace number and title, never by page ID, whether or not a page has the title, as MediaWiki's `pagelinks` does: `view.page_link` rows of `target_kind` 6 (`TITLE`) with `target_id` `{ns}:{title}`. A link to an entity is recorded by its ID (`target_kind` 1). So creating a page needs no rewrite of the links to it, and a move leaves links on the old title, which its redirect serves. §10's "after resolution" and the backlink sentences read as if links to existing pages were held by page ID, and chapter 03 kept `page_link` targets current through title-index maintenance; neither was the design the projection implements. The chapter text is 10 §5.2, with the schema comment and the redirect paragraph of 03 §4.5 and §4.7.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §5.2, the paragraph's first sentence; [03](../architecture/03-storage-caches-and-search.md) §4.7.
+Replaced text: 10 §5.2, the paragraph's first sentence; 03 §4.7.
 
 ### A43. An adopted wiki's talk pages are converted, comment by comment
 
 - **Date:** 2026-10-20
-- **Source:** [0090](0090-converting-talk-pages-comment-by-comment.md) §10
+- **Source:** 0090 §10
 - **Change:** amends §9
-- **Summary:** Adoption converts the adopted wiki's talk pages to threads within the job, with their history read from the dump to attribute each comment and their actors the adopted actors, so they are no longer counted `deferred`; talk pages in a content model other than wikitext still are. Chapter text: [10](../architecture/10-pages-and-content-models.md) §6.
+- **Summary:** Adoption converts the adopted wiki's talk pages to threads within the job, with their history read from the dump to attribute each comment and their actors the adopted actors, so they are no longer counted `deferred`; talk pages in a content model other than wikitext still are. Chapter text: 10 §6.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §6.
+Replaced text: 10 §6.
 
 ### A44. The Interface namespace
 
 - **Date:** 2026-10-28
-- **Source:** [0095](0095-the-interface-namespace.md) §1
+- **Source:** 0095 §1
 - **Change:** amends §2
 - **Summary:** Namespace 8 holds pages: plain-text interface messages and names of IDs, shown under the local name Interface while keeping the canonical name MediaWiki, with its talk namespace 9 (0095 §1). It is no longer reserved.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §1.4.
+Replaced text: 10 §1.4.
 
 ### A45. Messages from Interface pages
 
 - **Date:** 2026-10-28
-- **Source:** [0095](0095-the-interface-namespace.md) §7 (A1)
+- **Source:** 0095 §7 (A1)
 - **Change:** extends §9
 - **Summary:** An adopted wiki's MediaWiki-namespace pages come as Interface pages, each revision as `text`; pages of other models are ignored and counted (0095 §7).
 
 ### A46. An adopted wiki's namespaces are registered
 
 - **Date:** 2026-10-29
-- **Source:** [0096](0096-adopting-any-mediawiki.md) §2
+- **Source:** 0096 §2
 - **Change:** extends §2
 - **Summary:** An adopted wiki keeps its namespace numbers through the adoption job, which registers each number the registry does not list as a tenant `namespace` record, with its talk number, and renames or archives into Project one whose name is taken (0096 §2). Rule 4 says so.
 
 ### A47. The Help namespace
 
 - **Date:** 2026-10-29
-- **Source:** [0096](0096-adopting-any-mediawiki.md) §3
+- **Source:** 0096 §3
 - **Change:** amends §2
 - **Summary:** Namespace 12 holds pages: Help, a document namespace that works as Project does, with Help talk at 13 (0096 §3). Its local name does not follow the site name, and it allows neither `triplespace-sprint` nor `sanitized-css`. It is no longer reserved, and help content no longer has to go in Project.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §1.4.
+Replaced text: 10 §1.4.
 
 ### A48. Importing onto an existing title follows MediaWiki; entity pages only from the adopted wiki
 
@@ -573,7 +573,7 @@ Replaced text: [10](../architecture/10-pages-and-content-models.md) §1.4.
 - **Date:** 2026-11-08
 - **Source:** Direct: Claude, while building the MediaWiki XML import (SCA-303), 2026-11-08; confirmed by James, 2026-11-08
 - **Change:** extends §9, §9.1, §9.2, §9.4, §9.6, §9.7
-- **Summary:** Calls made building §9 (A48; [0005](0005-crate-organization.md) A119, A121; [0047](0047-special-pages.md) A36). (1) §9 is split into §9.1–§9.7, so that each part can be claimed on its own; the split changes no text. (2) No job runner exists ([0083](0083-write-path-in-three-tiers.md) §5), so `action=import` runs the job on the request path, as `POST /export` streams on it (0047 A35), and `Special:Import` shows the job's report in place of `Special:Jobs/{id}`; the job's `start` and `finish` records are written as any job's, with mode `import`. (3) The newest revision by timestamp becomes current in an append-only log by a restoring edit: when the file's revisions all go behind the revision the page already had as current, the job appends that revision again under its own attestation with a fixed summary; a held revision is compared by its shown time and MediaWiki's SHA-1 of its text. (4) An imported revision's shown time is its `source_time`, as an adopted one's is: `shown_time` no longer requires the record's revision ID to equal the source's, which only adoption keeps. (5) An imported author's prefix is `imported` for an upload, or `interwikiprefix` where given, and the site alias for a page fetched from another wiki; a surrogate's raw value is `{prefix}>{name}`, chaining as MediaWiki's do (`wiki>librarybase>Name` after a round trip). Which registered issuer a source is comes from the surface (`triplespace import --issuer`); `action=import` passes none, so every named author of an upload is a surrogate. (6) The census is a pure function in `scatter-ingest` with the scan of a text injected, `scatter-wikitext-expand`'s `census` over its registry, since the ingester depends on no wikitext crate; it classes the file's pages as the surface's reader does, scans the latest revision of each page the job imports or converts, tells a current-revision export apart (one revision per page while revisions name parents), and the surface fills in which titles already exist. (7) The reader classes pages by the adoption job's acceptance rules (A41, A43; [0095](0095-the-interface-namespace.md) A1): the MediaWiki namespace's messages as Interface pages, other models there ignored, reserved namespaces deferred; the first revision of a page is a `create` under the page's current title and each later one an `edit`, with the model when it changed. (8) The talk conversion of [0090](0090-converting-talk-pages-comment-by-comment.md) §10 moves from `triplespace-cli` to `triplespace-api-ingest`, shared by adoption, the command and the API (0005 A121); for an import a user talk page's home is its user's surrogate, and a subject page in any namespace is found by its local title, where the adoption code looked for a prefixed title and found none outside the main namespace. (9) The flattening bot of §9.1 step 3, files (§9.5) and a board for a project-wide discussion page (§9.6) are not built; `namespace` and `rootpage` are accepted and warned about. Chapter text: 10 §6.1–§6.7; 21 §4.3.
+- **Summary:** Calls made building §9 (A48; 0005 A119, A121; 0047 A36). (1) §9 is split into §9.1–§9.7, so that each part can be claimed on its own; the split changes no text. (2) No job runner exists (0083 §5), so `action=import` runs the job on the request path, as `POST /export` streams on it (0047 A35), and `Special:Import` shows the job's report in place of `Special:Jobs/{id}`; the job's `start` and `finish` records are written as any job's, with mode `import`. (3) The newest revision by timestamp becomes current in an append-only log by a restoring edit: when the file's revisions all go behind the revision the page already had as current, the job appends that revision again under its own attestation with a fixed summary; a held revision is compared by its shown time and MediaWiki's SHA-1 of its text. (4) An imported revision's shown time is its `source_time`, as an adopted one's is: `shown_time` no longer requires the record's revision ID to equal the source's, which only adoption keeps. (5) An imported author's prefix is `imported` for an upload, or `interwikiprefix` where given, and the site alias for a page fetched from another wiki; a surrogate's raw value is `{prefix}>{name}`, chaining as MediaWiki's do (`wiki>librarybase>Name` after a round trip). Which registered issuer a source is comes from the surface (`triplespace import --issuer`); `action=import` passes none, so every named author of an upload is a surrogate. (6) The census is a pure function in `scatter-ingest` with the scan of a text injected, `scatter-wikitext-expand`'s `census` over its registry, since the ingester depends on no wikitext crate; it classes the file's pages as the surface's reader does, scans the latest revision of each page the job imports or converts, tells a current-revision export apart (one revision per page while revisions name parents), and the surface fills in which titles already exist. (7) The reader classes pages by the adoption job's acceptance rules (A41, A43; 0095 A1): the MediaWiki namespace's messages as Interface pages, other models there ignored, reserved namespaces deferred; the first revision of a page is a `create` under the page's current title and each later one an `edit`, with the model when it changed. (8) The talk conversion of 0090 §10 moves from `triplespace-cli` to `triplespace-api-ingest`, shared by adoption, the command and the API (0005 A121); for an import a user talk page's home is its user's surrogate, and a subject page in any namespace is found by its local title, where the adoption code looked for a prefixed title and found none outside the main namespace. (9) The flattening bot of §9.1 step 3, files (§9.5) and a board for a project-wide discussion page (§9.6) are not built; `namespace` and `rootpage` are accepted and warned about. Chapter text: 10 §6.1–§6.7; 21 §4.3.
 
 ### A50. The import reviewed: the issuer rule, the imported chip, times in UTC
 
@@ -582,14 +582,14 @@ Replaced text: [10](../architecture/10-pages-and-content-models.md) §1.4.
 - **Change:** amends §9.1; extends §9.6, §9.7
 - **Summary:** James confirmed A49, with (2) understood as temporary until the job runner exists, and decided three things. (1) **Which issuer a source is.** A page fetched from another wiki by site alias resolves a registered issuer by the alias, as an issuer's code or one of its providers' slugs, or by the alias's host, which the registry names in an issuer's users API or actor IRIs; an uploaded file resolves one only where `interwikiprefix` names an issuer's code outright, since the file itself is not to be trusted with real accounts, which is why MediaWiki keeps uploads under `prefix>Name`; `triplespace import` resolves `--issuer`, else `--source`, the same way. A registered issuer's accounts keep their numeric keys, and the file's named accounts get actor records with their names where the tenant has none, as adoption records the adopted wiki's accounts (0035 §5); a name the file does not list as an account, and every author of an unregistered source, stays an `imported` surrogate, chaining as before. (2) **An imported or adopted revision is marked as such.** The activity projection keeps the source revision ID and time of a page record that has them, the APIs serve them as `upstream` on activity, revision and diff rows, and the history row and the diff's header carry an **Imported** chip in place of Local, naming the upstream revision and the job in its tooltip, with the job named beside it and linked once `Special:Jobs/{n}` exists; rows projected before this show it after `triplespace rebuild`. (3) **Times are UTC.** A revision's shown source time is kept on the condition that exports write every timestamp in UTC, which the exporter does with `Z`, and that an import reads any offset a file writes into UTC, which the parser does. Chapter text: 10 §6.1, §6.6; 19 §3.4.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §6.1.
+Replaced text: 10 §6.1.
 
 ### A51. Link marks: repeated links, and a redirect's target in its title
 
 - **Date:** 2026-11-09
 - **Source:** Direct: James, ticket SCA-226; how they are switched and written Claude, while building them, 2026-11-09; confirmed by James, 2026-11-13
 - **Change:** extends §8
-- **Summary:** Internal links gain two marks as CSS hooks, unstyled by Plain: `ts-repeat` on the second and later links to one page within a rendering, and a redirect's target in the link's `title`. Calls made in the building: the marks are an option of the renderer's configuration (`link_marks`), off by default so that `scatter-wikitext`'s output stays MediaWiki's and its goldens hold, and on for the site; fragments do not make a link a different target; the title reads "Old name → New name", the target read from `view.redirect`. Not built: `ts-discussed`, which needs thread status in the links projection, and the assessment class, which needs the view model's assessment field (SCA-222). Chapter text: [10](../architecture/10-pages-and-content-models.md) §5.2.
+- **Summary:** Internal links gain two marks as CSS hooks, unstyled by Plain: `ts-repeat` on the second and later links to one page within a rendering, and a redirect's target in the link's `title`. Calls made in the building: the marks are an option of the renderer's configuration (`link_marks`), off by default so that `scatter-wikitext`'s output stays MediaWiki's and its goldens hold, and on for the site; fragments do not make a link a different target; the title reads "Old name → New name", the target read from `view.redirect`. Not built: `ts-discussed`, which needs thread status in the links projection, and the assessment class, which needs the view model's assessment field (SCA-222). Chapter text: 10 §5.2.
 
 ### A52. The wording of a redirect link's title is an interface message
 
@@ -601,6 +601,6 @@ Replaced text: [10](../architecture/10-pages-and-content-models.md) §6.1.
 ### A53. Remote and Remote talk, 314 and 315
 
 - **Date:** 2026-11-15
-- **Source:** [0110](0110-remote-pages-and-revisions.md) §6
+- **Source:** 0110 §6
 - **Change:** extends §2
-- **Summary:** 314 is `Remote`, the namespace of the `remote` keyed type, with normalizer `remote` and model `triplespace-remote`; 315 is its talk namespace. 316–319 stay free. Chapter text: [10](../architecture/10-pages-and-content-models.md) §1.4.
+- **Summary:** 314 is `Remote`, the namespace of the `remote` keyed type, with normalizer `remote` and model `triplespace-remote`; 315 is its talk namespace. 316–319 stay free. Chapter text: 10 §1.4.

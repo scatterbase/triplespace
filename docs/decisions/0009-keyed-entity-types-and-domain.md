@@ -101,7 +101,7 @@ Domains are also a bulk-ingest target. Citation data carries URLs, and every URL
 ### A1. The crate table moves to 0005
 
 - **Date:** 2026-09-26
-- **Source:** [0005](0005-crate-organization.md) §2, revision of 2026-09-26
+- **Source:** 0005 §2, revision of 2026-09-26
 - **Change:** supersedes §12
 - **Summary:** 0005 §2 became the one crate table CI checks; `scatter-keyed` was folded into `scatter-normalize`, which builds for wasm and depends on `idna`.
 
@@ -110,7 +110,7 @@ Replaced text: §12 of this ADR.
 ### A2. Keyed IDs carry their type
 
 - **Date:** 2026-09-27
-- **Source:** [0017](0017-entity-id-grammar.md) §1, §3, §5
+- **Source:** 0017 §1, §3, §5
 - **Change:** amends §3, §4, §9, §10; extends §1, §5, §8
 - **Summary:** A keyed ID is the type's name, a colon and the key: `domain:en.wikipedia.org`. This replaces the disjointness argument of §3; titles are unchanged, and a bare key is not an ID. Keyword is a second keyed type, with an editable display rule; keywords never join identity clusters; OpenAlex keywords are mapped by key.
 
@@ -119,21 +119,21 @@ Replaced text: §1 of this ADR; §3 of this ADR; §4 of this ADR; §9 of this AD
 ### A3. Sitelinks and Domains
 
 - **Date:** 2026-09-27
-- **Source:** [0026](0026-sitelinks.md) §5
+- **Source:** 0026 §5
 - **Change:** extends §5
 - **Summary:** Every sitelink's host is a valid Domain key; a sitelink does not make the Domain present; the host index lets the Domain page count the entities that link there.
 
 ### A4. A second key-mapped provider
 
 - **Date:** 2026-09-28
-- **Source:** [0036](0036-openstreetmap-providers.md) §5
+- **Source:** 0036 §5
 - **Change:** extends §9
 - **Summary:** The OpenStreetMap wiki's tag items are mapped by key, as internetdomains.wiki's domain items are.
 
 ### A5. Namespaces name models
 
 - **Date:** 2026-09-30
-- **Source:** [0041](0041-content-models.md) §3–4
+- **Source:** 0041 §3–4
 - **Change:** amends §11
 - **Summary:** The `Domain` namespace is a `pages` namespace with the model `triplespace-domain`, and `Domain talk` uses `triplespace-talk`.
 
@@ -142,14 +142,14 @@ Replaced text: §11 of this ADR.
 ### A6. Notations
 
 - **Date:** 2026-10-01
-- **Source:** [0048](0048-notation.md) §3, §6
+- **Source:** 0048 §3, §6
 - **Change:** extends §8, §9
 - **Summary:** Notations never join identity clusters; the OpenStreetMap wiki's items map onto notations in the `osm` scheme, with `key_scheme` in the key map.
 
 ### A7. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §1–12
 - **Summary:** A1–A6 were folded into the Decision, the open questions were numbered, and the partly struck Q3 was split, its open half becoming Q8. No decision changed. Before this, every entry was recorded only in this ADR's header or in other ADRs, apart from the `composite` talk namespace, written into §11 in place. The file before conversion is commit `0b26a3a`.
 
@@ -165,21 +165,21 @@ Replaced text: §11 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §1
-- **Summary:** A keyed-type registry entry also records `clusters`, whether entities of the type may join identity clusters (default true; false for Keyword and Notation, which [0004](0004-identity-clusters-and-equivalence.md) §1 keeps out of clusters), and `label`, the type's display name. (PENDING A14)
+- **Summary:** A keyed-type registry entry also records `clusters`, whether entities of the type may join identity clusters (default true; false for Keyword and Notation, which 0004 §1 keeps out of clusters), and `label`, the type's display name. (PENDING A14)
 
 ### A10. A Domain's document node carries the prefixed ID
 
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §6
-- **Summary:** A Domain's document node is `{base}/wiki/Special:EntityData/{id}` with the prefixed ID, `domain:en.wikipedia.org`, as [0017](0017-entity-id-grammar.md) §1 requires for every keyed ID, not the bare key; 0017 §3's list of the 0009 sections it updated gains §6. (PENDING A15)
+- **Summary:** A Domain's document node is `{base}/wiki/Special:EntityData/{id}` with the prefixed ID, `domain:en.wikipedia.org`, as 0017 §1 requires for every keyed ID, not the bare key; 0017 §3's list of the 0009 sections it updated gains §6. (PENDING A15)
 
 Replaced text: §6 of this ADR.
 
 ### A11. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§12
 
 ### A12. Surrogates are allocated under a lock in the appending transaction
@@ -189,36 +189,36 @@ Replaced text: §6 of this ADR.
 - **Change:** amends §7
 - **Summary:** A surrogate is allocated in the appending transaction under an advisory lock on `(keyed_type, key)`, so two writers meeting a new key cannot mint two surrogates for it; the mapping record is appended in the same transaction as the first record that uses the surrogate, rather than "before" it; a bulk job reserves a block of surrogates up front, as it reserves ID blocks, so a key-mapped bootstrap of millions of keys is not millions of serialized appends; and the mapping is erased only when no live record in any partition of the instance is keyed to the surrogate, so one tenant's erasure never strips the key from another tenant's assertions. (REVIEW G29)
 
-Replaced text: [04](../architecture/04-entities-and-identifiers.md) §3.4.
+Replaced text: 04 §3.4.
 
 ### A13. Merge aliases, and what a sync does when a key moves
 
 - **Date:** 2026-10-12
 - **Source:** Direct: James, choices of 2026-10-12 after the internetdomains.wiki sync test (stage 2 of the real-dump test plan)
 - **Change:** extends §9
-- **Summary:** The mapping index holds, beside each key's owner, the items upstream merged into the owner, as aliases of the key; the `put` under the key carries them as `upstream_aliases`, and the newest `put` under a key decides its rows. When an item becomes mapped, the foreign item it was is tombstoned; when an item merged into a mapped item had a foreign item, that is tombstoned too. A merge between two unmapped items is an ordinary mirror `redirect`, written once. A key whose owner a sync saw but which no item claims any longer is cleared with a `put` of the empty state, and the snapshot sweep clears keyed entities rather than tombstoning them, leaving one already cleared alone. A state re-written because the mapping moved, at an upstream revision already recorded, claims no revision ID; its version names the revision. The table and text are in [05](../architecture/05-providers-and-ingest.md) §3.4 and §4.2, the index in [03](../architecture/03-storage-caches-and-search.md), the record field in [payloads.md](../api/payloads.md) §3.1.
+- **Summary:** The mapping index holds, beside each key's owner, the items upstream merged into the owner, as aliases of the key; the `put` under the key carries them as `upstream_aliases`, and the newest `put` under a key decides its rows. When an item becomes mapped, the foreign item it was is tombstoned; when an item merged into a mapped item had a foreign item, that is tombstoned too. A merge between two unmapped items is an ordinary mirror `redirect`, written once. A key whose owner a sync saw but which no item claims any longer is cleared with a `put` of the empty state, and the snapshot sweep clears keyed entities rather than tombstoning them, leaving one already cleared alone. A state re-written because the mapping moved, at an upstream revision already recorded, claims no revision ID; its version names the revision. The table and text are in 05 §3.4 and §4.2, the index in [03](../architecture/03-storage-caches-and-search.md), the record field in [payloads.md](../api/payloads.md) §3.1.
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §4.2.
+Replaced text: 05 §4.2.
 
 ### A14. How an upstream alias answers
 
 - **Date:** 2026-10-16
 - **Source:** Direct: James, reading `Item:XDQ1` on his instance, 2026-10-16
 - **Change:** extends §9
-- **Summary:** §9 and [05](../architecture/05-providers-and-ingest.md) §4.1 have the prefixed upstream ID of a mapped item resolve to the Domain through the mapping index; this fixes the shape. An entity read by such an ID (`wbgetentities`, `Special:EntityData`, the REST entity routes) that `view.entity` does not hold is looked up in `view.keyed_map` by provider slug and upstream ID (the tenant's row first, then the instance's), and when the map holds it the answer is the keyed entity under its own ID with Wikibase's `redirects: {from, to}` beside it, as an upstream merge would answer — the alias is the ID of an item that no longer exists as a subject (§9, A13). The site sends `Item:XDQ9` to the Domain page with a `302`, keeping the query. An ID the map does not hold stays an ordinary foreign item, or `missing`. `triplespace_projections::read::mapped_alias` is the one lookup.
+- **Summary:** §9 and 05 §4.1 have the prefixed upstream ID of a mapped item resolve to the Domain through the mapping index; this fixes the shape. An entity read by such an ID (`wbgetentities`, `Special:EntityData`, the REST entity routes) that `view.entity` does not hold is looked up in `view.keyed_map` by provider slug and upstream ID (the tenant's row first, then the instance's), and when the map holds it the answer is the keyed entity under its own ID with Wikibase's `redirects: {from, to}` beside it, as an upstream merge would answer — the alias is the ID of an item that no longer exists as a subject (§9, A13). The site sends `Item:XDQ9` to the Domain page with a `302`, keeping the query. An ID the map does not hold stays an ordinary foreign item, or `missing`. `triplespace_projections::read::mapped_alias` is the one lookup.
 
 ### A15. Key maps are rules in the registry entry
 
 - **Date:** 2026-10-26
-- **Source:** [0091](0091-one-wikibase-adapter.md) §2, §3, §5
+- **Source:** 0091 §2, §3, §5
 - **Change:** amends §9, §12
-- **Summary:** A key map is a list of `[[provider.adapter_config.key_map]]` rules, each naming an identity property by its upstream ID (not by role), a keyed type and optionally a class, with `class_property` and `identity_property_on_mapped` beside them; internetdomains.wiki's is one rule with no class, and the flat fields are retired. `scatter-adapter-internetdomains` is retired into `scatter-adapter-wikibase`. Chapter text: [05](../architecture/05-providers-and-ingest.md) §4.1, §8.6; [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.
+- **Summary:** A key map is a list of `[[provider.adapter_config.key_map]]` rules, each naming an identity property by its upstream ID (not by role), a keyed type and optionally a class, with `class_property` and `identity_property_on_mapped` beside them; internetdomains.wiki's is one rule with no class, and the flat fields are retired. `scatter-adapter-internetdomains` is retired into `scatter-adapter-wikibase`. Chapter text: 05 §4.1, §8.6; 22 §2.1, §2.2.
 
 Replaced text: 05 §4.1 of this ADR; 05 §8.6 of this ADR; 22 §2.1, the row of this ADR.
 
 ### A16. The `remote` keyed type
 
 - **Date:** 2026-11-15
-- **Source:** [0110](0110-remote-pages-and-revisions.md) §1
+- **Source:** 0110 §1
 - **Change:** extends §1
-- **Summary:** A fourth keyed type, `remote`, names a page or revision on a site that a registered host runs, by the host, the site's name, `p` or `r`, and the number the host gave it: `remote:wikimedia:enwiki-p12`. Its normalizer reads nothing but the key. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.1, §3.11.
+- **Summary:** A fourth keyed type, `remote`, names a page or revision on a site that a registered host runs, by the host, the site's name, `p` or `r`, and the number the host gave it: `remote:wikimedia:enwiki-p12`. Its normalizer reads nothing but the key. Chapter text: 04 §3.1, §3.11.

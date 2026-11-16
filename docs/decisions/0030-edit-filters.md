@@ -103,7 +103,7 @@ James named two dimensions, **abusive statements** and **abusive page contents**
 ### A1. Crate table
 
 - **Date:** 2026-09-27
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §13
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries `scatter-filter` and every change this section listed (0005 A26).
 
@@ -112,7 +112,7 @@ Replaced text: §13 of this ADR.
 ### A2. Property constraints report, filters gate
 
 - **Date:** 2026-09-27
-- **Source:** [0031](0031-property-constraints.md) §1, §8
+- **Source:** 0031 §1, §8
 - **Change:** extends §2
 - **Summary:** Data-dependent rules are property constraints, soft recommendations that never gate a write. This settled Q1.
 
@@ -122,7 +122,7 @@ Replaced text: §13 of this ADR.
 - **Source:** Direct: James, decisions of 2026-09-27 (evening)
 - **Change:** amends §5; extends §2, §4
 - **Summary:** By section:
-  - §5: The tag registry (decision 2). A user-defined tag is a tenant `config` record of kind `tag` ([0015](0015-record-format-and-partition-registry.md) §3): its name is the key, and the content holds a description, an `active` flag and the group whose members may apply it by hand with `action=tag`. The prefixes `job:`, `oauth:`, `filter:` and `mw-` are reserved for the paths that write them and cannot be registered. `managetags/*` events project from the records and `tag/update` from manual application ([0011](0011-logs.md) §6.1); `list=tags` and `Special:Tags` read the registry; a filter's `tag` action names a registered, active tag. The right is `managechangetags` (`sysop`); applying a tag by hand needs `changetags`, held by `user`, subject to the tag's own group. A filter record may set `hit_retention` (decision 15): a daily sweep erases its hit records older than that whose actions were only `log` or `tag`; hits that warned, refused, throttled, blocked or degrouped are never swept.
+  - §5: The tag registry (decision 2). A user-defined tag is a tenant `config` record of kind `tag` (0015 §3): its name is the key, and the content holds a description, an `active` flag and the group whose members may apply it by hand with `action=tag`. The prefixes `job:`, `oauth:`, `filter:` and `mw-` are reserved for the paths that write them and cannot be registered. `managetags/*` events project from the records and `tag/update` from manual application (0011 §6.1); `list=tags` and `Special:Tags` read the registry; a filter's `tag` action names a registered, active tag. The right is `managechangetags` (`sysop`); applying a tag by hand needs `changetags`, held by `user`, subject to the tag's own group. A filter record may set `hit_retention` (decision 15): a daily sweep erases its hit records older than that whose actions were only `log` or `tag`; hits that warned, refused, throttled, blocked or degrouped are never swept.
   - §2: No graph reads in filters, ever (decision 15): the bound of §2 is permanent, and 0031's question about violations touching patrolling closes the same way.
   - §4: Every enabled filter evaluates every write and every match is a hit, as AbuseFilter does; the write is refused once, naming the first disallowing filter's message (decision 15).
 
@@ -131,14 +131,14 @@ Replaced text: §2 of this ADR.
 ### A4. The upload context
 
 - **Date:** 2026-09-30
-- **Source:** [0039](0039-files-and-media.md) §5
+- **Source:** 0039 §5
 - **Change:** extends §2
 - **Summary:** A third context, `upload`, with AbuseFilter's file variables and `file_sha256`; `action` is `upload` or `stashupload`.
 
 ### A5. Global filters in the instance log
 
 - **Date:** 2026-09-30
-- **Source:** [0040](0040-instance-prerogatives.md) §6
+- **Source:** 0040 §6
 - **Change:** amends §8
 - **Summary:** Global filters are records in the **instance `log`**, not the primary tenant's, since the instance now has a log of its own; evaluation order is unchanged. A `block` or `degroup` a global filter appends to a tenant's `actors` is an instance prerogative, binding for its duration: a tenant unblock lifts only the tenant's own block. Hits are unchanged: they stay in the tenant's `log`, attested by the actor whose write was hit.
 
@@ -147,7 +147,7 @@ Replaced text: §8 of this ADR.
 ### A6. Link variables from expanded text
 
 - **Date:** 2026-09-30
-- **Source:** [0042](0042-template-expansion-and-parsoid.md) §17
+- **Source:** 0042 §17
 - **Change:** amends §2
 - **Summary:** With expansion on, `added_links` and `removed_links` come from the expanded text, computed only when an enabled filter reads them.
 
@@ -156,28 +156,28 @@ Replaced text: §2 of this ADR.
 ### A7. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §1–13
 - **Summary:** A1–A6 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A3's tag registry and A4–A6 were blockquotes, the rest of A3 struck questions with notes, and A2 a struck question. The file before conversion is commit `0b26a3a`.
 
 ### A8. Redirect variables
 
 - **Date:** 2026-10-01
-- **Source:** [0051](0051-page-redirects.md) §9
+- **Source:** 0051 §9
 - **Change:** extends §2
 - **Summary:** `old_redirect` and `new_redirect` in the page context.
 
 ### A9. Fork variables
 
 - **Date:** 2026-10-01
-- **Source:** [0054](0054-forking-a-mirrored-page.md) §2
+- **Source:** 0054 §2
 - **Change:** extends §2
 - **Summary:** `fork`, `fork_repo` and `fork_revid` in the page context, so a tenant can gate or tag forks.
 
 ### A10. Upstream posts
 
 - **Date:** 2026-10-06
-- **Source:** [0069](0069-synchronized-talk-pages.md) §5
+- **Source:** 0069 §5
 - **Change:** extends §2
 - **Summary:** The text context covers a reply or section about to be sent upstream, as `action = upstream-post` with `upstream_repo`.
 
@@ -186,19 +186,19 @@ Replaced text: §2 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §2, §5, §12
-- **Summary:** The right that seeing an IP in the abuse-handling store of [0007](0007-actor-identity.md) §3 requires is named, so the permission catalogue can list it: `ts-viewip` *(new)*, default `sysop`, James to confirm. §2's `ip` variable, §5's hit page and §12's closing sentence all refer to that store's right without naming it; they now name `ts-viewip`, and §12's table gains its row. (PENDING D4)
+- **Summary:** The right that seeing an IP in the abuse-handling store of 0007 §3 requires is named, so the permission catalogue can list it: `ts-viewip` *(new)*, default `sysop`, James to confirm. §2's `ip` variable, §5's hit page and §12's closing sentence all refer to that store's right without naming it; they now name `ts-viewip`, and §12's table gains its row. (PENDING D4)
 
 ### A12. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§13
 
 ### A13. Filters are a step of tier 1; job writes are opted into
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §1
+- **Source:** 0083 §1
 - **Change:** amends §7; extends §1, §2, §5
-- **Summary:** Edit filters stay in the appending transaction, as a step of tier 1, since a filter is a function of the written record and the actor and nothing composes while it runs (§1). The `rate` variable is computed lazily, read from the counters only when an enabled filter's rule names it (§2). The `read` rate class of [0024](0024-subsidiary-accounts.md) §5 is counted for authenticated principals only once a per-process count passes a fraction of the limit, and never for a response served from L0 or L1. 0083's table gives this change as `extends 0030 §7`; the chapter text of §7 said every filter applied to every operation of a job unless it exempted the job's group, which the default now contradicts, so it is logged as an amendment. (REVIEW G8, G15)
+- **Summary:** Edit filters stay in the appending transaction, as a step of tier 1, since a filter is a function of the written record and the actor and nothing composes while it runs (§1). The `rate` variable is computed lazily, read from the counters only when an enabled filter's rule names it (§2). The `read` rate class of 0024 §5 is counted for authenticated principals only once a per-process count passes a fraction of the limit, and never for a response served from L0 or L1. 0083's table gives this change as `extends 0030 §7`; the chapter text of §7 said every filter applied to every operation of a job unless it exempted the job's group, which the default now contradicts, so it is logged as an amendment. (REVIEW G8, G15)
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §3.6.
+Replaced text: 05 §3.6.

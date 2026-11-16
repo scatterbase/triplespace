@@ -112,7 +112,7 @@ James's direction, from the design discussion of 2026-10-01:
 ### A1. Followed talk pages
 
 - **Date:** 2026-10-06
-- **Source:** [0069](0069-synchronized-talk-pages.md) §1, §2
+- **Source:** 0069 §1, §2
 - **Change:** extends §1, §5
 - **Summary:** A followed talk page's bundle carries DiscussionTools' thread items; it is mirrored in `pages/{repo}` whatever the `mode`, with `threads` in the content part (numbers, name hashes, comment structure), comment authors in the attestation part, and the changed threads listed per `put`.
 
@@ -121,7 +121,7 @@ James's direction, from the design discussion of 2026-10-01:
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §8
-- **Summary:** In `proxy` mode `view.foreign_page` indexes the **L1** (Valkey) cache, where [0014](0014-caches-and-search.md) §4 keys the bundle `fp:` (§4), not L2; a row is dropped when its L1 entry is evicted. The 0053 row of [0013](0013-postgres-storage.md) §5.6 is corrected the same way. (PENDING A7)
+- **Summary:** In `proxy` mode `view.foreign_page` indexes the **L1** (Valkey) cache, where 0014 §4 keys the bundle `fp:` (§4), not L2; a row is dropped when its L1 entry is evicted. The 0053 row of 0013 §5.6 is corrected the same way. (PENDING A7)
 
 Replaced text: §8 of this ADR.
 
@@ -130,7 +130,7 @@ Replaced text: §8 of this ADR.
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design discussion of 2026-10-09
 - **Change:** corrects §4
-- **Summary:** The repository field is named `repo.cache_ttl` everywhere, in [0052](0052-page-repositories-and-title-inheritance.md) §1 (0052 A3) and in §4's L1 row and prose alike, the field PENDING C20 makes per-repository with a per-kind default (one hour for page bundles); §4 named it `cache_ttl` in three places and `repo.cache_ttl` in one. (PENDING F1)
+- **Summary:** The repository field is named `repo.cache_ttl` everywhere, in 0052 §1 (0052 A3) and in §4's L1 row and prose alike, the field PENDING C20 makes per-repository with a per-kind default (one hour for page bundles); §4 named it `cache_ttl` in three places and `repo.cache_ttl` in one. (PENDING F1)
 
 Replaced text: §4 of this ADR.
 
@@ -139,12 +139,12 @@ Replaced text: §4 of this ADR.
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design discussion of 2026-10-09
 - **Change:** extends §9
-- **Summary:** A foreign page is hidden as a local page is deleted: the Delete action, held by an administrator (`delete`), writes the `read` ACL §9 describes, and [0052](0052-page-repositories-and-title-inheritance.md) §5 (0052 A4) lists Delete on a foreign page with that meaning. The ledger row's verb is amends, but §9 already says hiding is that ACL and names no action or right, so this entry extends it. (PENDING F2)
+- **Summary:** A foreign page is hidden as a local page is deleted: the Delete action, held by an administrator (`delete`), writes the `read` ACL §9 describes, and 0052 §5 (0052 A4) lists Delete on a foreign page with that meaning. The ledger row's verb is amends, but §9 already says hiding is that ACL and names no action or right, so this entry extends it. (PENDING F2)
 
 ### A5. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§12
 
 ### A6. The thread numbers a sync job mints go in the attestation map
@@ -152,27 +152,27 @@ Replaced text: §4 of this ADR.
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §5
-- **Summary:** Server-filled values never enter a client-signed part. The `n` of each foreign thread is a value the sync job mints when it writes the talk page's `put`, so it is carried in the record's attestation map, `threads: [{hash, n}]` beside the actor and the job, and not in the content part, whose `threads` mapping keeps the section hashes, indexes and comment hashes only; the signature is over the content and comment parts as submitted. A rebuild reproduces every `n` from the attestation maps. The same rule puts a thread's minted talk-page ID and suffixed title in the attestation map ([0019](0019-discussions.md)). (REVIEW G23)
+- **Summary:** Server-filled values never enter a client-signed part. The `n` of each foreign thread is a value the sync job mints when it writes the talk page's `put`, so it is carried in the record's attestation map, `threads: [{hash, n}]` beside the actor and the job, and not in the content part, whose `threads` mapping keeps the section hashes, indexes and comment hashes only; the signature is over the content and comment parts as submitted. A rebuild reproduces every `n` from the attestation maps. The same rule puts a thread's minted talk-page ID and suffixed title in the attestation map (0019). (REVIEW G23)
 
-Replaced text: [13](../architecture/13-mirrored-pages.md) §2.5, §5.4.
+Replaced text: 13 §2.5, §5.4.
 
 ### A7. A tenant-independent rewrite, a serve-time tenant pass, and one writer per `pages/{repo}`
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §2, §4, §5
-- **Summary:** With page repositories instance-level ([0052](0052-page-repositories-and-title-inheritance.md) A7), the stored HTML rewrite is tenant-independent: one bundle per page per repository, whose single DOM pass rewrites every wiki link to the local-form URL of the same title in the repository's namespace (carrying `data-ts-ns`) and every image to its `File:` title with no byte URL, and leaves to a cheap tenant pass applied at serve time what only a tenant can decide: which of the repository's namespaces the tenant inherits (a link into one it does not becomes the repository's URL with `class="extiw"`), which file repository serves each `File:` title and in which mode, and the frame, site styles and link classes. The stored form is one per instance, held once in `proxy` mode and recorded once in `mirror` mode, so a tenant joining or leaving a repository rewrites nothing; the L1 key is the instance's with no tenant segment, a tenant's shorter `cache_ttl` revalidates the shared entry sooner and a longer one is served from it. `pages/{repo}` has one writer, the repository's sync job: an on-demand fetch, a purge, a talk-page fetch after a send and a tenant's first read all enqueue work for the job rather than writing, so the job's lock is the partition's order and foreign-thread numbers are allocated per provider under it; the next `n` is one more than the highest the partition holds, and no sequence outside the log is needed. (REVIEW G37)
+- **Summary:** With page repositories instance-level (0052 A7), the stored HTML rewrite is tenant-independent: one bundle per page per repository, whose single DOM pass rewrites every wiki link to the local-form URL of the same title in the repository's namespace (carrying `data-ts-ns`) and every image to its `File:` title with no byte URL, and leaves to a cheap tenant pass applied at serve time what only a tenant can decide: which of the repository's namespaces the tenant inherits (a link into one it does not becomes the repository's URL with `class="extiw"`), which file repository serves each `File:` title and in which mode, and the frame, site styles and link classes. The stored form is one per instance, held once in `proxy` mode and recorded once in `mirror` mode, so a tenant joining or leaving a repository rewrites nothing; the L1 key is the instance's with no tenant segment, a tenant's shorter `cache_ttl` revalidates the shared entry sooner and a longer one is served from it. `pages/{repo}` has one writer, the repository's sync job: an on-demand fetch, a purge, a talk-page fetch after a send and a tenant's first read all enqueue work for the job rather than writing, so the job's lock is the partition's order and foreign-thread numbers are allocated per provider under it; the next `n` is one more than the highest the partition holds, and no sequence outside the log is needed. (REVIEW G37)
 
-Replaced text: [13](../architecture/13-mirrored-pages.md) §2.2.
+Replaced text: 13 §2.2.
 
-Replaced text: [13](../architecture/13-mirrored-pages.md) §2.4, §2.5, §5.4.
+Replaced text: 13 §2.4, §2.5, §5.4.
 
 ### A8. `ops.repo_cursor` holds every follower
 
 - **Date:** 2026-10-26
-- **Source:** [0092](0092-following-recent-changes.md) §3
+- **Source:** 0092 §3
 - **Change:** amends §6, §8
-- **Summary:** A page repository without `events` is followed by polling its `list=recentchanges` over its served namespaces (with `loginfo`, for moves), each row handled as an event, rather than polled vaguely or left to its TTL; it may log in with a bot password for higher limits. `ops.repo_cursor` is keyed by `(tenant, kind, name)`, where `kind` is `repo`, `provider` or `source`, so that one table holds a page repository's stream position, a provider's and a tenant's source's; it gains a recent-changes poll's columns (`rc_time`, `rc_continue`, `rc_seen`). A repository's row is `('', 'repo', {repo})`. Chapter text: [13](../architecture/13-mirrored-pages.md) §2.7; [03](../architecture/03-storage-caches-and-search.md) §4.12, §4.16.
+- **Summary:** A page repository without `events` is followed by polling its `list=recentchanges` over its served namespaces (with `loginfo`, for moves), each row handled as an event, rather than polled vaguely or left to its TTL; it may log in with a bot password for higher limits. `ops.repo_cursor` is keyed by `(tenant, kind, name)`, where `kind` is `repo`, `provider` or `source`, so that one table holds a page repository's stream position, a provider's and a tenant's source's; it gains a recent-changes poll's columns (`rc_time`, `rc_continue`, `rc_seen`). A repository's row is `('', 'repo', {repo})`. Chapter text: 13 §2.7; 03 §4.12, §4.16.
 
 Replaced text: 13 §2.7 of this ADR; 03 §4.12 of this ADR.
 

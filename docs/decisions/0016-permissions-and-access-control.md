@@ -89,7 +89,7 @@ The two agree on the shape: users, groups, memberships, named permissions, and r
 ### A1. Crate table
 
 - **Date:** 2026-09-26
-- **Source:** [0005](0005-crate-organization.md) §2, revision of 2026-09-26
+- **Source:** 0005 §2, revision of 2026-09-26
 - **Change:** supersedes §9
 - **Summary:** 0005 §2 became the one crate table CI checks, and carries every change this section listed (0005 A11).
 
@@ -98,7 +98,7 @@ Replaced text: §9 of this ADR.
 ### A2. Threads
 
 - **Date:** 2026-09-27
-- **Source:** [0019](0019-discussions.md) §12
+- **Source:** 0019 §12
 - **Change:** extends §2; amends §4
 - **Summary:** `ts-editpost`, and the thread operations under the existing rights. A talk page encloses the threads attached to it. The enclosure clause had been written into §4 in place.
 
@@ -107,28 +107,28 @@ Replaced text: not recorded. 0016 was revised in place before the repository's h
 ### A3. Watchlists
 
 - **Date:** 2026-09-27
-- **Source:** [0020](0020-change-feeds.md) §7
+- **Source:** 0020 §7
 - **Change:** extends §2
 - **Summary:** `viewmywatchlist` and `editmywatchlist`.
 
 ### A4. Preferences and contacts
 
 - **Date:** 2026-09-27
-- **Source:** [0021](0021-notifications.md) §9
+- **Source:** 0021 §9
 - **Change:** extends §2
 - **Summary:** `editmyoptions` and `viewmyprivateinfo`.
 
 ### A5. Federation
 
 - **Date:** 2026-09-27
-- **Source:** [0022](0022-federation.md) §8, §12
+- **Source:** 0022 §8, §12
 - **Change:** extends §2, §3
 - **Summary:** The `federated` group, holding no permissions; `ts-config` and `protect` for federation settings and inbound replies. §3 had been given the group in place.
 
 ### A6. Moderation
 
 - **Date:** 2026-09-27
-- **Source:** [0023](0023-moderation.md) §1–3, §11
+- **Source:** 0023 §1–3, §11
 - **Change:** amends §4, §8; extends §2
 - **Summary:** ACLs restrict `read` as well as write permissions, which is what deletion, revision-hiding, suppression and username-hiding are. Two target kinds are added, `record` (with a `parts` list) and `actor`. The record is the payload type `scatter:v0/acl`, not a config kind: graph ACLs are appended to `config`; every other target's ACL is a moderation record in the tenant `log` partition, so that suppressions stay out of public dumps. Writing a `read` ACL needs `delete`, `deleterevision`, `suppressrevision` or `hideuser` by target, as 0023 §11 lists. §11 adds `patrol`, `autopatrol` and the `autopatrolled` group. 0023's amendment of 2026-09-27 added the `statement` and `property` targets, whose rows §4 had been given in place. This settled Q1 and Q4.
 
@@ -137,7 +137,7 @@ Replaced text: §4 of this ADR.
 ### A7. Subsidiaries
 
 - **Date:** 2026-09-27
-- **Source:** [0024](0024-subsidiary-accounts.md) §3, §5, §11
+- **Source:** 0024 §3, §5, §11
 - **Change:** amends §2, §3; extends §2
 - **Summary:** An operator's blocks reach their subsidiaries, and the ownership rules gain the operator's; a key's grants intersect the permissions; `createaccount`, `ts-transferaccount` and `noratelimit`. Rate limits are site configuration by action class, which settled Q3.
 
@@ -146,7 +146,7 @@ Replaced text: §3 of this ADR.
 ### A8. OAuth
 
 - **Date:** 2026-09-27
-- **Source:** [0025](0025-oauth-server.md) §3, §10
+- **Source:** 0025 §3, §10
 - **Change:** extends §2; amends §3
 - **Summary:** The `mwoauth*` permissions; a `pending` subsidiary does not receive implicit `user`. §3 had been given the `pending` clause in place.
 
@@ -155,7 +155,7 @@ Replaced text: not recorded. 0016 was revised in place before the repository's h
 ### A9. Global groups and blocks
 
 - **Date:** 2026-09-27
-- **Source:** [0028](0028-tenancy-policy.md) §3–4
+- **Source:** 0028 §3–4
 - **Change:** amends §3
 - **Summary:** A tenant account's effective permissions include the global groups, and subtract the global blocks, of the farm account it is publicly linked to.
 
@@ -164,7 +164,7 @@ Replaced text: the block rule as A7 quotes it.
 ### A10. Edit filters
 
 - **Date:** 2026-09-27
-- **Source:** [0030](0030-edit-filters.md) §12
+- **Source:** 0030 §12
 - **Change:** extends §2
 - **Summary:** The `abusefilter-*` rights. This settled Q5.
 
@@ -180,7 +180,7 @@ Replaced text: not recorded. 0016 was revised in place before the repository's h
 ### A12. Adopted owners
 
 - **Date:** 2026-09-28
-- **Source:** [0035](0035-adopting-a-wikibase.md) §5
+- **Source:** 0035 §5
 - **Change:** amends §3
 - **Summary:** On a tenant that adopts an existing Wikibase, `instance create --adopt {source} --owner {user_id}` creates the owner under the source's user ID instead of `local:1`, with the same password binding, and sets the user-ID floor; "`local:1`" here reads as "the owner account".
 
@@ -189,14 +189,14 @@ Replaced text: §3 of this ADR.
 ### A13. Files
 
 - **Date:** 2026-09-30
-- **Source:** [0039](0039-files-and-media.md) §10, §21
+- **Source:** 0039 §10, §21
 - **Change:** extends §2, §6
 - **Summary:** The file rights and the operator rights `ts-takedown`, `ts-expunge` and `ts-viewtakedown`, evaluated on the primary tenant; erasures the instance makes follow §6's rule. §2 had been given three rows in place.
 
 ### A14. Instance rights
 
 - **Date:** 2026-09-30
-- **Source:** [0040](0040-instance-prerogatives.md) §7, §9
+- **Source:** 0040 §7, §9
 - **Change:** extends §2, §6
 - **Summary:** By section:
   - §2: **Instance rights** authorize instance acts and are evaluated only on the primary tenant or through a global group at the farm base: `ts-keys`, `ts-config` at the farm base, `abusefilter-modify` for global filters, `userrights`, `block` and `renameuser` on farm accounts, `ts-takedown` and `ts-expunge`. A new right, `ts-viewoperator` (`owner`), reveals which operator carried out an instance act.
@@ -205,7 +205,7 @@ Replaced text: §3 of this ADR.
 ### A15. The primary tenant
 
 - **Date:** 2026-09-30
-- **Source:** [0046](0046-primary-tenant.md) §1, §8
+- **Source:** 0046 §1, §8
 - **Change:** amends §3; extends §2
 - **Summary:** `instance create` creates `owner` on the **primary tenant**, and that group is the instance's `owner`: the one that holds `ts-keys` and `ts-primary`. A tenant created later has an `owner` of its own, which is that wiki's owner and exercises no instance right there. `ts-primary`, `mwoauthmanageconsumer` and `ts-runjob` for instance jobs join the instance rights. §2 had been given the `ts-primary` row in place.
 
@@ -214,14 +214,14 @@ Replaced text: the `owner` paragraph as A12 quotes it.
 ### A16. Nuke
 
 - **Date:** 2026-10-01
-- **Source:** [0047](0047-special-pages.md) §12
+- **Source:** 0047 §12
 - **Change:** extends §2
 - **Summary:** `nuke`, MediaWiki's right from the Nuke extension, runs `Special:Nuke`; default `sysop`, and part of the `delete` grant.
 
 ### A17. Boards
 
 - **Date:** 2026-10-01
-- **Source:** [0049](0049-boards.md) §7
+- **Source:** 0049 §7
 - **Change:** amends §4
 - **Summary:** A talk page or board encloses the threads whose **home** it is. A thread only listed on it is not enclosed by it; the page's `edit` ACL governs what may be listed there.
 
@@ -230,28 +230,28 @@ Replaced text: §4 of this ADR.
 ### A18. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §2–9
 - **Summary:** A1–A17 were folded into the Decision; the permissions later ADRs add are indexed in one table in §2, which points to the ADR that specifies each. The open questions were numbered. No decision changed. Before this, A6, A12, A13 (in part), A14, A15 (in part), A16 and A17 were blockquotes; A2, A5, A8, A11, A13 and A15 had also been written in place; the other entries were recorded only in other ADRs. The file before conversion is commit `0b26a3a`.
 
 ### A19. Redirect rights
 
 - **Date:** 2026-10-01
-- **Source:** [0051](0051-page-redirects.md) §8
+- **Source:** 0051 §8
 - **Change:** extends §2
 - **Summary:** `suppressredirect`, `delete-redirect`, `move-subpages`, `move-rootuserpages` and `move-categorypages`, with MediaWiki's default groups.
 
 ### A20. Forking needs no new right
 
 - **Date:** 2026-10-01
-- **Source:** [0054](0054-forking-a-mirrored-page.md) §8
+- **Source:** 0054 §8
 - **Change:** extends §2
 - **Summary:** A fork is an edit: `createpage` and `edit` on the title, with the history, dependency and talk-page seeding part of what saving means, and `import` not required. Copying a fork's files needs the upload rights.
 
 ### A21. Confidential `read` restrictions, the tenant and set targets
 
 - **Date:** 2026-10-01
-- **Source:** [0056](0056-security-model.md) §3, §4, §13
+- **Source:** 0056 §3, §4, §13
 - **Change:** amends §2, §4; extends §4, §7
 - **Summary:** `protect` may restrict `read`: a confidential restriction, distinct from the moderation kind that deletion and suppression set, which keeps the target live for its group and absent for everyone else; the setting actor must be a member of the group named. Two ACL targets are added: `tenant`, the root of enclosure and a tenant's visibility, and `set`, a grouping of pages, entities and threads by ID that only `protect` can change. The REST routes for both are in 0056 §13.
 
@@ -278,14 +278,14 @@ Replaced text: §1 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §2
-- **Summary:** The table of permissions added by later ADRs gains `browsearchive` in the Moderation row ([0023](0023-moderation.md) §11) and `managechangetags` and `changetags` in the Edit filters row ([0030](0030-edit-filters.md) §5), and the instance-rights list gains `ts-viewoperator` ([0040](0040-instance-prerogatives.md) §9). `docs/registry/groups.toml` already carries all four. (PENDING C11)
+- **Summary:** The table of permissions added by later ADRs gains `browsearchive` in the Moderation row (0023 §11) and `managechangetags` and `changetags` in the Edit filters row (0030 §5), and the instance-rights list gains `ts-viewoperator` (0040 §9). `docs/registry/groups.toml` already carries all four. (PENDING C11)
 
 ### A25. Jobs run under subsidiaries
 
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §2
-- **Summary:** Jobs run under subsidiaries: `ts-runjob` defaults to `bot` everywhere, and §2 drops `sysop` from its default groups. An administrator runs a job by creating or approving a subsidiary they operate ([0024](0024-subsidiary-accounts.md) §3); 0047 §12's `sysop` job rate row goes with it (0047's log). James: "administrators should be able to run jobs under subsidiaries", read as this. (PENDING C14)
+- **Summary:** Jobs run under subsidiaries: `ts-runjob` defaults to `bot` everywhere, and §2 drops `sysop` from its default groups. An administrator runs a job by creating or approving a subsidiary they operate (0024 §3); 0047 §12's `sysop` job rate row goes with it (0047's log). James: "administrators should be able to run jobs under subsidiaries", read as this. (PENDING C14)
 
 Replaced text: §2 of this ADR.
 
@@ -303,7 +303,7 @@ Replaced text: §4 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §2, §5
-- **Summary:** `deletedhistory` and `deletedtext` are reported to MediaWiki clients by members of the deletion group and gate no evaluation of their own: what may still be seen is decided by the `read` ACL's group ([0023](0023-moderation.md) §11). §5's answer to 0010's "see hidden usernames" is therefore membership in the deletion group, not `deletedhistory`. (PENDING C16)
+- **Summary:** `deletedhistory` and `deletedtext` are reported to MediaWiki clients by members of the deletion group and gate no evaluation of their own: what may still be seen is decided by the `read` ACL's group (0023 §11). §5's answer to 0010's "see hidden usernames" is therefore membership in the deletion group, not `deletedhistory`. (PENDING C16)
 
 Replaced text: §2 of this ADR; §5 of this ADR.
 
@@ -312,12 +312,12 @@ Replaced text: §2 of this ADR; §5 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §7
-- **Summary:** `DELETE /acl/{kind}/{id}` under `triplespace/v0` retires an ACL, beside the `GET` and `PUT` of §7; [0023](0023-moderation.md) §8 already assumes it. (PENDING E38)
+- **Summary:** `DELETE /acl/{kind}/{id}` under `triplespace/v0` retires an ACL, beside the `GET` and `PUT` of §7; 0023 §8 already assumes it. (PENDING E38)
 
 ### A29. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§9
 
 ### A30. `autoconfirmed` is an implicit group computed from `view.actor`; `pending` is OAuth-only
@@ -327,53 +327,53 @@ Replaced text: §2 of this ADR; §5 of this ADR.
 - **Change:** corrects §3
 - **Summary:** `autoconfirmed` is an implicit group, like `user`: no membership record is written for it, and an account is a member once `view.actor.created_at` and `view.actor.editcount` meet the age and edit-count thresholds set in `site` configuration; `editcount` is maintained by the activity projection from the account's local `edit` rows, erased ones included and job rows excluded, so a bot's job writes do not confirm its operator. Hand-made subsidiaries are never pending: `pending` is a status only an OAuth authorization sets, the MCP requirement is the `basic` grant, and `instance create` puts the sync subsidiaries in `bot`. (REVIEW G40)
 
-Replaced text: [09](../architecture/09-security-and-moderation.md) §3.1.
+Replaced text: 09 §3.1.
 
 ### A31. Global groups are copied from the registry at `instance create` and kept by `registry sync`
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §3
-- **Summary:** An instance's `config` starts as a copy of the registry, the default groups of §3 included: `instance create` appends a config record for every registry entry, `triplespace-cli registry sync` appends records for registry entries newer than the instance's under the instance attestation, and `instance check` warns when the instance is behind; every config record carries a per-kind `schema` integer and `view.registry` projects an unknown kind or schema opaquely. The ledger's verb is amends; §3's chapter text ([09](../architecture/09-security-and-moderation.md) §3.1–§3.6) says nothing about how the shipped groups reach an instance's log, so this entry extends; the contradicted text is [0015](0015-record-format-and-partition-registry.md) §3's and §5's, logged there as 0015 A58. (REVIEW G36)
+- **Summary:** An instance's `config` starts as a copy of the registry, the default groups of §3 included: `instance create` appends a config record for every registry entry, `triplespace-cli registry sync` appends records for registry entries newer than the instance's under the instance attestation, and `instance check` warns when the instance is behind; every config record carries a per-kind `schema` integer and `view.registry` projects an unknown kind or schema opaquely. The ledger's verb is amends; §3's chapter text (09 §3.1–§3.6) says nothing about how the shipped groups reach an instance's log, so this entry extends; the contradicted text is 0015 §3's and §5's, logged there as 0015 A58. (REVIEW G36)
 
 ### A32. `property-create` is held by `user` by default; `ts-linkproperty` links properties
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, review of `Special:NewProperty` on 2026-10-09
 - **Change:** amends §2, §5
-- **Summary:** `property-create` is granted to `user` by default, as a stock Wikibase grants it, so a registered account can create properties through `wbeditentity` and `Special:NewProperty`, and Wikibase clients (WikibaseIntegrator, WikidataIntegrator, Pywikibot) that create properties work unchanged. `propertycreator` and `sysop` keep it, so a tenant that wants Wikidata's arrangement removes it from `user` in its configuration. What changes predicates for every consumer stays restricted: `equivalent-property` links and the cross-namespace property redirect of [0004](0004-identity-clusters-and-equivalence.md) A4 move from `property-create` to a new right, `ts-linkproperty`, held by `propertycreator` and `sysop` (0004 A22). `wbeditentity` with `new=property` enforces it, which it had not before. A key exercises `property-create` through the `editentity` or `createeditmovepage` grant, and `ts-linkproperty` through `editentity` ([0024](0024-subsidiary-accounts.md) A18).
+- **Summary:** `property-create` is granted to `user` by default, as a stock Wikibase grants it, so a registered account can create properties through `wbeditentity` and `Special:NewProperty`, and Wikibase clients (WikibaseIntegrator, WikidataIntegrator, Pywikibot) that create properties work unchanged. `propertycreator` and `sysop` keep it, so a tenant that wants Wikidata's arrangement removes it from `user` in its configuration. What changes predicates for every consumer stays restricted: `equivalent-property` links and the cross-namespace property redirect of 0004 A4 move from `property-create` to a new right, `ts-linkproperty`, held by `propertycreator` and `sysop` (0004 A22). `wbeditentity` with `new=property` enforces it, which it had not before. A key exercises `property-create` through the `editentity` or `createeditmovepage` grant, and `ts-linkproperty` through `editentity` (0024 A18).
 
-Replaced text: [09](../architecture/09-security-and-moderation.md) §2.2, §2.4.
+Replaced text: 09 §2.2, §2.4.
 
 ### A33. `ts-config` covers the settings routes and pages
 
 - **Date:** 2026-10-17
-- **Source:** [0085](0085-settings-and-preferences.md) §3
+- **Source:** 0085 §3
 - **Change:** extends §2
-- **Summary:** `ts-config` is the right that writes `site` settings, instance defaults and locks through `PATCH /settings` and the settings pages, as it is for every config record, unless a setting's registry entry names a stronger right; reading settings needs only what reading the tenant needs. The chapter row is [09](../architecture/09-security-and-moderation.md) §2.2.
+- **Summary:** `ts-config` is the right that writes `site` settings, instance defaults and locks through `PATCH /settings` and the settings pages, as it is for every config record, unless a setting's registry entry names a stronger right; reading settings needs only what reading the tenant needs. The chapter row is 09 §2.2.
 
 ### A34. `confirmaccount` and `skipcaptcha`; closing registration
 
 - **Date:** 2026-10-17
-- **Source:** [0087](0087-account-registration-and-challenges.md) §1, §6, §7
+- **Source:** 0087 §1, §6, §7
 - **Change:** extends §2
-- **Summary:** Two permissions under their MediaWiki extensions' names and defaults: `confirmaccount` (ConfirmAccount; `bureaucrat`), reviewing account requests and, under `account.approval`, creating an account for another at once; and `skipcaptcha` (ConfirmEdit; `bot`, `sysop`), exemption from every challenge trigger. A tenant closes registration by taking `createaccount` from `universe`, as a private tenant does; `groups.toml` moves `createaccount` from `autoconfirmed` to `universe`, as [0024](0024-subsidiary-accounts.md) A13 decided. The chapter rows are [09](../architecture/09-security-and-moderation.md) §2.2.
+- **Summary:** Two permissions under their MediaWiki extensions' names and defaults: `confirmaccount` (ConfirmAccount; `bureaucrat`), reviewing account requests and, under `account.approval`, creating an account for another at once; and `skipcaptcha` (ConfirmEdit; `bot`, `sysop`), exemption from every challenge trigger. A tenant closes registration by taking `createaccount` from `universe`, as a private tenant does; `groups.toml` moves `createaccount` from `autoconfirmed` to `universe`, as 0024 A13 decided. The chapter rows are 09 §2.2.
 
-Replaced text: [09](../architecture/09-security-and-moderation.md) §2.2.
+Replaced text: 09 §2.2.
 
 ### A35. A group may include others
 
 - **Date:** 2026-10-22
 - **Source:** Direct: James, design discussion of 2026-10-22
 - **Change:** extends §3
-- **Summary:** A `group` record may carry `includes`, a list of group names or `"*"` for every group but `owner`. Its members count as members of each included group in every ACL test, `read` included, and receive none of their permissions. Inclusion is one level deep, so there are no chains or cycles. Changing `includes` needs `userrights` as well as `ts-config`, because it changes who may read, and notifies the members of each newly included group that a confidential restriction names. This is how a tenant gives one class of accounts, such as auditors, access to every department's restricted pages without the software granting anyone a bypass ([0056](0056-security-model.md) A18).
+- **Summary:** A `group` record may carry `includes`, a list of group names or `"*"` for every group but `owner`. Its members count as members of each included group in every ACL test, `read` included, and receive none of their permissions. Inclusion is one level deep, so there are no chains or cycles. Changing `includes` needs `userrights` as well as `ts-config`, because it changes who may read, and notifies the members of each newly included group that a confidential restriction names. This is how a tenant gives one class of accounts, such as auditors, access to every department's restricted pages without the software granting anyone a bypass (0056 A18).
 
 ### A36. Delegated membership and scoped groups
 
 - **Date:** 2026-10-22
 - **Source:** Direct: James, design discussion of 2026-10-22
 - **Change:** extends §3
-- **Summary:** So that a department can run its own administrators and its own membership without anyone holding `userrights`, which reaches every group ([0056](0056-security-model.md) A18). (1) **Delegated membership,** after MediaWiki's `$wgAddGroups`, `$wgRemoveGroups`, `$wgGroupsAddToSelf` and `$wgGroupsRemoveFromSelf`: a `group` record may carry `adds` and `removes`, lists of groups its members may add others to and remove others from, and `adds_self` and `removes_self`, the groups they may join or leave themselves, empty unless set; adding and removing are listed apart. None of the four may name `owner` or a group holding `userrights` or `ts-config`. (2) **Scoped groups:** a `group` record may carry `within`, namespaces and sets; its permissions hold only on targets those enclose, so department administrators fail closed where restricting unscoped groups space by space fails open. A scoped group may hold only permissions that act on a page, entity or thread. Membership in it counts everywhere in ACL tests. A move needs the permission at both ends. `meta=userinfo` reports scoped permissions under `ts-scopedrights`, apart from `rights`. The scope lives on the group, not on the membership, so that a tenant's delegation reads in one place and pairs with the add lists (`hr-admins` scoped to the HR set, adding to `hr`); a scope per membership was considered and not taken. Changing any of these fields needs `userrights` as well as `ts-config`. Every membership written under them projects and notifies as one written under `userrights` does.
+- **Summary:** So that a department can run its own administrators and its own membership without anyone holding `userrights`, which reaches every group (0056 A18). (1) **Delegated membership,** after MediaWiki's `$wgAddGroups`, `$wgRemoveGroups`, `$wgGroupsAddToSelf` and `$wgGroupsRemoveFromSelf`: a `group` record may carry `adds` and `removes`, lists of groups its members may add others to and remove others from, and `adds_self` and `removes_self`, the groups they may join or leave themselves, empty unless set; adding and removing are listed apart. None of the four may name `owner` or a group holding `userrights` or `ts-config`. (2) **Scoped groups:** a `group` record may carry `within`, namespaces and sets; its permissions hold only on targets those enclose, so department administrators fail closed where restricting unscoped groups space by space fails open. A scoped group may hold only permissions that act on a page, entity or thread. Membership in it counts everywhere in ACL tests. A move needs the permission at both ends. `meta=userinfo` reports scoped permissions under `ts-scopedrights`, apart from `rights`. The scope lives on the group, not on the membership, so that a tenant's delegation reads in one place and pairs with the add lists (`hr-admins` scoped to the HR set, adding to `hr`); a scope per membership was considered and not taken. Changing any of these fields needs `userrights` as well as `ts-config`. Every membership written under them projects and notifies as one written under `userrights` does.
 
 ### A37. `owner` reads everything and is a bootstrap role; `auditor`; inclusion is for reading
 
@@ -382,7 +382,7 @@ Replaced text: [09](../architecture/09-security-and-moderation.md) §2.2.
 - **Change:** amends §3
 - **Summary:** `owner` holds every permission by definition and, James decided, reads everything by definition too, consistent with it being the all-powerful role. That makes it a **bootstrap role**: a mature deployment whose own groups cover every right it uses may have no owner at all, and `owner` is then restored only from the command line. In full: (1) `"*"` in `includes` means every group but `owner` and the tenant's suppression group, which a tenant may add by name. (2) Inclusion counts only when a `read` restriction is evaluated, never for other ACLs, the lock-out or permissions, so an including group reads what the included groups read and changes nothing more (narrowing A35). (3) `owner` ships with `includes = ["*"]`: its members read every confidential target but not what the suppression group alone may, and set, change or lift a confidential restriction only for a group they have joined. (4) A new default group, `auditor`, holds no permissions, includes `"*"`, and is empty until someone is added. (5) `owner` may lose its last member when every permission the tenant's groups use, `userrights` included, is held by another group with a current member, and on the primary tenant `ts-keys` and `ts-primary` are too or are left to the CLI; with no member, `owner` is restored only by `triplespace-cli`, an instance act. This reverses A11's "`owner` stays a group with at least one member"; `instance.owner_of_record` is unaffected.
 
-Replaced text: [09](../architecture/09-security-and-moderation.md) §3.1, §3.2, §3.4, §3.6.
+Replaced text: 09 §3.1, §3.2, §3.4, §3.6.
 
 ### A38. `read-all`; the instance rights may be held by no group; joins notify only where a group says so
 
@@ -391,31 +391,31 @@ Replaced text: [09](../architecture/09-security-and-moderation.md) §3.1, §3.2,
 - **Change:** amends §3
 - **Summary:** (1) The group A37 named `auditor` is `read-all`, a more literal name. (2) The guard on retiring `owner` counts only rights some group but `owner` holds, as James confirmed. `ts-keys` and `ts-primary` may be granted to a group, likely a very exclusive one, or to none, and then are exercised from the command line alone, which is also how new owners are appointed and how the rights are granted again; a mature deployment may prefer that. (3) A join notifies only where the joined group's record sets `notify_joins = true`, as a channel announces who joined it; it is off unless set, every shipped group leaves it off, `read-all` among them, and inclusion passes no notification on. The public `rights/rights` log event is what makes a membership accountable.
 
-Replaced text ([09](../architecture/09-security-and-moderation.md) §3.1, as it stood):
+Replaced text (09 §3.1, as it stood):
 
 > `autopatrolled`, `federated` and `auditor`. `auditor` holds no permissions and `includes` every group but `owner` and the suppression group (§3.2), so its members read every confidential target and may do nothing more with it; it is empty until someone is added to it, as any group is ([0016](0016-permissions-and-access-control.md) A37).
 
-Replaced text: [09](../architecture/09-security-and-moderation.md) §3.2, §3.3.
+Replaced text: 09 §3.2, §3.3.
 
-Replaced text ([09](../architecture/09-security-and-moderation.md) §3.6, as it stood):
+Replaced text (09 §3.6, as it stood):
 
 > and on the primary tenant the instance rights `ts-keys` and `ts-primary` are too, or are left to the CLI. With no member, `owner` is restored only from the command line (`triplespace-cli`), which is an instance act and recorded as one (08) ([0016](0016-permissions-and-access-control.md) A37).
 
 ### A39. The Interface namespace
 
 - **Date:** 2026-10-28
-- **Source:** [0095](0095-the-interface-namespace.md) §4
+- **Source:** 0095 §4
 - **Change:** extends §2
 - **Summary:** MediaWiki's `editinterface` joins the permission catalogue, held by `sysop`, for pages of the Interface namespace (0095 §4).
 
 ### A40. The permission catalogue is a registry file
 
 - **Date:** 2026-10-30
-- **Source:** [0098](0098-pointers-from-birth.md) §5
+- **Source:** 0098 §5
 - **Change:** consolidates §2
 - **Summary:** The table of 09 §2.2 moved into `docs/registry/permissions.toml` (what each permission allows, its sources, and the *(new)* mark); its *Granted by default to* column is now derived from `groups.toml`, which the chapter already named as authoritative, so the two cannot disagree. The move surfaced one difference: `ts-runjob` is granted to `bot` and `sysop` in `groups.toml` where the chapter said `bot`; the registry stands. Eight permissions no group grants (`ts-keys`, `ts-primary`, the takedown and expunge rights, `ts-viewoperator`, `abusefilter-bypass`, `upload_by_url`) are marked `ungranted` with the holder the chapter named (owner only, the farm's global groups, or none). `architecture/catalogues.py` generates the table and checks both directions. No decision changed. The last commit in which the chapter carried the table is `0e67cce`.
 
-Replaced text: [09](../architecture/09-security-and-moderation.md) §2.2, the lead.
+Replaced text: 09 §2.2, the lead.
 
 ### A41. Group records over REST, and `sysop` runs jobs
 
@@ -452,20 +452,20 @@ Replaced text: [09](../architecture/09-security-and-moderation.md) §2.2, the le
 ### A43. `ts-revertjob` rejects a batch
 
 - **Date:** 2026-11-08
-- **Source:** [0104](0104-batches-and-the-job-runner.md) §5
+- **Source:** 0104 §5
 - **Change:** extends §2
-- **Summary:** `ts-revertjob` also rejects a batch or a running job, after which writes naming the batch are refused, and the revert it allows is record by record. Who holds it is unchanged. Chapter text: [09](../architecture/09-security-and-moderation.md) §2.2 (`permissions.toml`).
+- **Summary:** `ts-revertjob` also rejects a batch or a running job, after which writes naming the batch are refused, and the revert it allows is record by record. Who holds it is unchanged. Chapter text: 09 §2.2 (`permissions.toml`).
 
 ### A44. The server reports the permissions it checks
 
 - **Date:** 2026-11-09
-- **Source:** [0105](0105-catalogues-checked-against-the-running-code.md) §2
+- **Source:** 0105 §2
 - **Change:** extends §2
-- **Summary:** Every check of whether an actor holds a permission reports its name to an observer the process may install; `triplespace-server --probe-permissions FILE` installs one that appends each name once, and CI compares the names with the catalogue and `groups.toml` (`tools/permission_report.py`), as a report until it is made strict. Chapter text: [09](../architecture/09-security-and-moderation.md) §2.2.
+- **Summary:** Every check of whether an actor holds a permission reports its name to an observer the process may install; `triplespace-server --probe-permissions FILE` installs one that appends each name once, and CI compares the names with the catalogue and `groups.toml` (`tools/permission_report.py`), as a report until it is made strict. Chapter text: 09 §2.2.
 
 ### A45. Page repositories' permissions
 
 - **Date:** 2026-11-16
-- **Source:** [0052](0052-page-repositories-and-title-inheritance.md) §9
+- **Source:** 0052 §9
 - **Change:** extends §2
-- **Summary:** The permission catalogue's rows for reading, editing and configuration name what page repositories add: viewing a foreign page, forking one, and the repository settings. This records an extension made when 0052 was written, on 2026-10-01: its heading has said so since then and the chapter text has carried it, but this log had no entry. No text changes with this entry. Chapter text: [09](../architecture/09-security-and-moderation.md) §2.2.
+- **Summary:** The permission catalogue's rows for reading, editing and configuration name what page repositories add: viewing a foreign page, forking one, and the repository settings. This records an extension made when 0052 was written, on 2026-10-01: its heading has said so since then and the chapter text has carried it, but this log had no entry. No text changes with this entry. Chapter text: 09 §2.2.

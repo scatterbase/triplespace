@@ -107,14 +107,14 @@ Four constraints follow from how MediaWiki treats accounts:
 ### A1. Upstream renames
 
 - **Date:** 2026-09-26
-- **Source:** [0011](0011-logs.md) §6.2
+- **Source:** 0011 §6.2
 - **Change:** extends §4
 - **Summary:** An upstream `renameuser` updates the foreign actor's record and is kept in the provider log without names, so past names are never kept in a graph that is not compacted.
 
 ### A2. Identity is per tenant
 
 - **Date:** 2026-09-27
-- **Source:** [0018](0018-tenants.md) §4
+- **Source:** 0018 §4
 - **Change:** amends §1; extends §3, §8
 - **Summary:** Each tenant is an issuer, coded by its slug; `local` reads as the current tenant's issuer. Bindings map a provider subject to a tenant account and live in the tenant's `accounts` partition. Attribution keeps the account and tenant an edit was made under.
 
@@ -125,91 +125,91 @@ Replaced text: §1 of this ADR.
 - **Date:** 2026-09-27
 - **Source:** Direct: James, decisions of 2026-09-27 (evening)
 - **Change:** extends §1, §3
-- **Summary:** One issuer is operated by the instance itself, `password`, registered in `issuers.toml` with `builtin = true`. Its subject for a local user is that user's own ID, so a password login is the binding `(password, 42) → local:42`, and the hash lives in `private.password` ([0013](0013-postgres-storage.md) §4), never in the log. It is an identity provider and nothing else: no actor is ever attributed to it, and it appears on `Special:UserLogin` ([0010](0010-site-ui.md) §10) as one button among the issuers. Whether it accepts logins is the `site` setting `login.password`; `triplespace-cli instance create` turns it on and sets the first administrator's password ([0016](0016-permissions-and-access-control.md) §3), and an instance that registers an external provider may turn it off or leave it as a fallback. This is the single-user fallback Scatterbase asks for, and it settles how an instance with no external identity provider is administered ([0024](0024-subsidiary-accounts.md), open questions). It reverses the choice above only to this extent: the instance consumes providers, and is one, for its own users, never for other sites ([0025](0025-oauth-server.md) leaves OpenID Connect open). The issuer table had been given a `password` row in place.
+- **Summary:** One issuer is operated by the instance itself, `password`, registered in `issuers.toml` with `builtin = true`. Its subject for a local user is that user's own ID, so a password login is the binding `(password, 42) → local:42`, and the hash lives in `private.password` (0013 §4), never in the log. It is an identity provider and nothing else: no actor is ever attributed to it, and it appears on `Special:UserLogin` (0010 §10) as one button among the issuers. Whether it accepts logins is the `site` setting `login.password`; `triplespace-cli instance create` turns it on and sets the first administrator's password (0016 §3), and an instance that registers an external provider may turn it off or leave it as a fallback. This is the single-user fallback Scatterbase asks for, and it settles how an instance with no external identity provider is administered (0024, open questions). It reverses the choice above only to this extent: the instance consumes providers, and is one, for its own users, never for other sites (0025 leaves OpenID Connect open). The issuer table had been given a `password` row in place.
 
 ### A4. The watch set is private state
 
 - **Date:** 2026-09-27
-- **Source:** [0020](0020-change-feeds.md) §3
+- **Source:** 0020 §3
 - **Change:** extends §8
 - **Summary:** A watch is a row in the `private` schema, not a record, under the rules §8 and 0013 §4 set for private state.
 
 ### A5. Inboxes and contacts are private state
 
 - **Date:** 2026-09-27
-- **Source:** [0021](0021-notifications.md) §3, §5
+- **Source:** 0021 §3, §5
 - **Change:** extends §8
 - **Summary:** Inboxes, contact details and the notifier's key are private state.
 
 ### A6. Fediverse actors and rel="me"
 
 - **Date:** 2026-09-27
-- **Source:** [0022](0022-federation.md) §6, §8
+- **Source:** 0022 §6, §8
 - **Change:** extends §4, §5, §7
 - **Summary:** A `federated` actor kind for fediverse repliers, a surrogate whose record holds the remote actor IRI; and `rel="me"` links for public account links of an account that has opted in as a fediverse actor. Both had been written into §4, §5 and §7 in place.
 
 ### A7. Hiding is an ACL
 
 - **Date:** 2026-09-27
-- **Source:** [0023](0023-moderation.md) §5
+- **Source:** 0023 §5
 - **Change:** extends §4
 - **Summary:** The `hidden` status is set by an `actor` ACL restricted to `suppress`.
 
 ### A8. Subsidiary accounts
 
 - **Date:** 2026-09-27
-- **Source:** [0024](0024-subsidiary-accounts.md) §1–2, §4
+- **Source:** 0024 §1–2, §4
 - **Change:** extends §3, §4, §6
 - **Summary:** A bot is a subsidiary account whose actor record names its operator; `retired` joins the statuses; a job's actor is always a subsidiary; API keys are the credentials of subsidiaries only; a primary account with subsidiaries vanishes only after transferring or retiring them. §4 and §6 had been edited in place to say so.
 
 ### A9. The pending status
 
 - **Date:** 2026-09-27
-- **Source:** [0025](0025-oauth-server.md) §3
+- **Source:** 0025 §3
 - **Change:** extends §4
 - **Summary:** A subsidiary created in an OAuth authorization is `pending` until approved. §4 had been edited in place.
 
 ### A10. Portability of private state
 
 - **Date:** 2026-09-27
-- **Source:** [0027](0027-preferences-and-portability.md) §2, §4
+- **Source:** 0027 §2, §4
 - **Change:** extends §4, §8
 - **Summary:** Private state is classified by whether it moves with a person; the account page suggests downloading one's data before a vanish.
 
 ### A11. Farm identity
 
 - **Date:** 2026-09-27
-- **Source:** [0028](0028-tenancy-policy.md) §2
+- **Source:** 0028 §2
 - **Change:** extends §1, §3, §4, §7, §8
 - **Summary:** The farm may be an issuer whose accounts edit nothing; tenant accounts are created from them under shared names and publicly linked, with consent given once at signup; renames and vanishing cascade from the farm account.
 
 ### A12. Adopted accounts
 
 - **Date:** 2026-09-28
-- **Source:** [0035](0035-adopting-a-wikibase.md) §4–5
+- **Source:** 0035 §4–5
 - **Change:** extends §3
-- **Summary:** On a tenant that adopts an existing Wikibase, the sequence starts past the source's highest user ID, and the source's accounts are written as `{slug}:{id}` actor records under their own numbers, without bindings, reclaimable as [0018](0018-tenants.md) §10 describes.
+- **Summary:** On a tenant that adopts an existing Wikibase, the sequence starts past the source's highest user ID, and the source's accounts are written as `{slug}:{id}` actor records under their own numbers, without bindings, reclaimable as 0018 §10 describes.
 
 ### A13. The instance as an actor
 
 - **Date:** 2026-09-30
-- **Source:** [0040](0040-instance-prerogatives.md) §2
+- **Source:** 0040 §2
 - **Change:** extends §1
 - **Summary:** A reserved issuer, `instance`, with actor model `provider-only`: the instance as operator, actor key `instance:{farm slug}`, IRI `{farm base}/operator`. It is the actor of every instance act written into a tenant; the person who carried the act out is recorded only on the act's authority record.
 
 ### A14. Instance-scope IRIs
 
 - **Date:** 2026-09-30
-- **Source:** [0046](0046-primary-tenant.md) §7
+- **Source:** 0046 §7
 - **Change:** amends §1; extends §2
-- **Summary:** Instance-scope IRIs are under `{farm base}/instance/`: the operator actor is `{farm base}/instance/operator`, and a farm account ([0028](0028-tenancy-policy.md) §2) is `{farm base}/instance/user/{id}`, so neither collides with a tenant's IRIs when the farm base is a tenant's base.
+- **Summary:** Instance-scope IRIs are under `{farm base}/instance/`: the operator actor is `{farm base}/instance/operator`, and a farm account (0028 §2) is `{farm base}/instance/user/{id}`, so neither collides with a tenant's IRIs when the farm base is a tenant's base.
 
 Replaced text: the operator IRI `{farm base}/operator` of A13.
 
 ### A15. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §1–8
 - **Summary:** A1–A14 were folded into the Decision and the open questions were numbered. No decision changed. Before this, A3, A12, A13 and A14 were blockquotes; A3, A6, A8 and A9 had also been written into the text in place, without a note; the other entries were recorded only in other ADRs. The file before conversion is commit `0b26a3a`.
 
@@ -225,7 +225,7 @@ Replaced text: the operator IRI `{farm base}/operator` of A13.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §9
-- **Summary:** The list in §9 of terms minted under `scatter:` is illustrative, not a catalogue: `scatter-vocab` is the catalogue of record for Triplespace's own vocabulary, and a term is defined there, not by appearing in §9 or in [0001](0001-revision-metadata-rdf.md) §6, which is amended the same way. (PENDING A21)
+- **Summary:** The list in §9 of terms minted under `scatter:` is illustrative, not a catalogue: `scatter-vocab` is the catalogue of record for Triplespace's own vocabulary, and a term is defined there, not by appearing in §9 or in 0001 §6, which is amended the same way. (PENDING A21)
 
 Replaced text: §9 of this ADR.
 
@@ -234,7 +234,7 @@ Replaced text: §9 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §6
-- **Summary:** A provider without individual actors has one actor record, of kind `provider`, in `actors/{provider}`, with agent type `prov:Organization`, written when the provider is registered; every attestation, OpenAlex's mirror records included, names an actor key. "No actor records are kept for such providers" becomes this. The job's own actor stays separate, as §6 says. [0013](0013-postgres-storage.md) §5.4 is amended the same way. (PENDING C1)
+- **Summary:** A provider without individual actors has one actor record, of kind `provider`, in `actors/{provider}`, with agent type `prov:Organization`, written when the provider is registered; every attestation, OpenAlex's mirror records included, names an actor key. "No actor records are kept for such providers" becomes this. The job's own actor stays separate, as §6 says. 0013 §5.4 is amended the same way. (PENDING C1)
 
 Replaced text: §6 of this ADR.
 
@@ -243,84 +243,84 @@ Replaced text: §6 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §3
-- **Summary:** Seeing an IP address in the abuse-handling operational store requires a named right, so that the permission catalogue can list it and [0030](0030-edit-filters.md) §2, §5 and §12 can cite it. Proposed: `ts-viewip` *(new)*, default `sysop`; James to confirm the name and default. (PENDING D4)
+- **Summary:** Seeing an IP address in the abuse-handling operational store requires a named right, so that the permission catalogue can list it and 0030 §2, §5 and §12 can cite it. Proposed: `ts-viewip` *(new)*, default `sysop`; James to confirm the name and default. (PENDING D4)
 
 ### A20. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§10
 
 ### A21. Tenant and farm issuer codes are derived
 
 - **Date:** 2026-10-09
-- **Source:** [0079](0079-derived-issuer-codes.md) §1, §2, §6
+- **Source:** 0079 §1, §2, §6
 - **Change:** amends §1, §3
-- **Summary:** A tenant's issuer code is derived from its founding record, and the farm's is the farm code ([0079](0079-derived-issuer-codes.md) §1–2, §4): 26 characters of base32 that no registry allocates. Chapter text: [07](../architecture/07-actors-and-accounts.md) §1.1, §2.1.
+- **Summary:** A tenant's issuer code is derived from its founding record, and the farm's is the farm code (0079 §1–2, §4): 26 characters of base32 that no registry allocates. Chapter text: 07 §1.1, §2.1.
 
-Replaced text: §1, in [07](../architecture/07-actors-and-accounts.md) §1.1; §3, in [07](../architecture/07-actors-and-accounts.md) §2.1.
+Replaced text: §1, in 07 §1.1; §3, in 07 §2.1.
 
 ### A22. The actor key lives in the attestation part, never in the header
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** corrects §1
-- **Summary:** An actor key is what the attestation part of a record carries; a record's header never names the actor responsible for it, and carries an actor key only as the key of an actor record, whose subject the actor is. "It is what log headers carry" is struck. `view.activity`'s issuer index filters on the tenant's issuer code. The spelling of issuer codes is settled by [0079](0079-derived-issuer-codes.md). (REVIEW G19)
+- **Summary:** An actor key is what the attestation part of a record carries; a record's header never names the actor responsible for it, and carries an actor key only as the key of an actor record, whose subject the actor is. "It is what log headers carry" is struck. `view.activity`'s issuer index filters on the tenant's issuer code. The spelling of issuer codes is settled by 0079. (REVIEW G19)
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §1.1.
+Replaced text: 07 §1.1.
 
 ### A23. `editcount` and `created_at` on `view.actor`; `autoconfirmed` is implicit
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §4
-- **Summary:** `view.actor` gains two columns that are not from actor records: `created_at`, the time of the actor's first record, and `editcount`, maintained by the activity projection from the actor's local `edit` rows, erased ones included and job rows excluded; `autoconfirmed` is an implicit group computed from them. The ledger names [0024](0024-subsidiary-accounts.md) §2, [0016](0016-permissions-and-access-control.md) §3, [0075](0075-mcp-server.md) §4 and [0013](0013-postgres-storage.md) §5; the chapter states the columns at [07](../architecture/07-actors-and-accounts.md) §1.3, whose provenance is §4 here, and the ledger row was extended. (REVIEW G40)
+- **Summary:** `view.actor` gains two columns that are not from actor records: `created_at`, the time of the actor's first record, and `editcount`, maintained by the activity projection from the actor's local `edit` rows, erased ones included and job rows excluded; `autoconfirmed` is an implicit group computed from them. The ledger names 0024 §2, 0016 §3, 0075 §4 and 0013 §5; the chapter states the columns at 07 §1.3, whose provenance is §4 here, and the ledger row was extended. (REVIEW G40)
 
 ### A24. Registration, challenges and approval
 
 - **Date:** 2026-10-17
-- **Source:** [0087](0087-account-registration-and-challenges.md) §1, §2, §3, §6, §7
+- **Source:** 0087 §1, §2, §3, §6, §7
 - **Change:** extends §3
-- **Summary:** `createaccount` alone decides whether an account may be made; a person registers with the `password` issuer or by a first login through an external issuer. Registrations through an external issuer and bot-password logins are not challenged; `skipcaptcha` exempts its holder. With `account.approval` on, registering files a request in `private.account_request`, reviewed by holders of `confirmaccount` on ConfirmAccount's model; an account never approved never enters the log. The chapter text is [07](../architecture/07-actors-and-accounts.md) §2.3 and the new §2.6.
+- **Summary:** `createaccount` alone decides whether an account may be made; a person registers with the `password` issuer or by a first login through an external issuer. Registrations through an external issuer and bot-password logins are not challenged; `skipcaptcha` exempts its holder. With `account.approval` on, registering files a request in `private.account_request`, reviewed by holders of `confirmaccount` on ConfirmAccount's model; an account never approved never enters the log. The chapter text is 07 §2.3 and the new §2.6.
 
 ### A25. External identity providers
 
 - **Date:** 2026-10-18
-- **Source:** [0088](0088-external-identity-providers.md) §1, §2, §4, §6
+- **Source:** 0088 §1, §2, §4, §6
 - **Change:** extends §1, §3
-- **Summary:** An issuer that serves login through OAuth carries an `oauth` table (endpoints, `subject` as `central` or `local`, where to register a consumer), first on `wikimedia-central`; Miraheze is deferred. The instance is a confidential OAuth 2.0 client with PKCE, registered for identity only, which keeps no provider token. A tenant offers an issuer when a client credential resolves for it and `login.issuers` lists it; a first login keeps the identity as the session's pending identity until an account is created for it. The chapter text is [07](../architecture/07-actors-and-accounts.md) §1.1 and the new §2.7.
+- **Summary:** An issuer that serves login through OAuth carries an `oauth` table (endpoints, `subject` as `central` or `local`, where to register a consumer), first on `wikimedia-central`; Miraheze is deferred. The instance is a confidential OAuth 2.0 client with PKCE, registered for identity only, which keeps no provider token. A tenant offers an issuer when a client credential resolves for it and `login.issuers` lists it; a first login keeps the identity as the session's pending identity until an account is created for it. The chapter text is 07 §1.1 and the new §2.7.
 
 ### A26. Instance logins
 
 - **Date:** 2026-10-18
-- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §2, §3, §4
+- **Source:** 0089 §2, §3, §4
 - **Change:** amends §3
-- **Summary:** A person authenticates to the instance as an **instance login**, not as a tenant account. `login` is a built-in issuer. Logins are created and used on the auth host, and a person chooses a tenant account's public name on the first visit. The chapter text is [07](../architecture/07-actors-and-accounts.md) §2.1, §2.2, §2.6 and the new §2.8.
+- **Summary:** A person authenticates to the instance as an **instance login**, not as a tenant account. `login` is a built-in issuer. Logins are created and used on the auth host, and a person chooses a tenant account's public name on the first visit. The chapter text is 07 §2.1, §2.2, §2.6 and the new §2.8.
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.1, §2.2, §2.6.
+Replaced text: 07 §2.1, §2.2, §2.6.
 
 ### A27. A surrogate's actor key is `actor:{n}`
 
 - **Date:** 2026-10-19
 - **Source:** Direct: James, design discussion of 2026-10-19
 - **Change:** amends §5; extends §1
-- **Summary:** A surrogate is minted by its tenant, in sequence, from the tenant's `actor_surrogate` sequence, and its actor key is `actor:{n}`. Like `local`, the code `actor` is never registered, reads as the current tenant's, and is reserved in the shared namespace of slugs and issuer codes; the key's IRI is `{base}/actor/{n}`, and outside the tenant a surrogate is named by that IRI. Its actor record, of kind `anonymous`, `imported` or `federated` with the `raw` value, is in the tenant's `actors` partition, keyed by the key. Before this, a surrogate had an IRI and no key, and tenant issuers accept only numeric subjects. The chapter text is [07](../architecture/07-actors-and-accounts.md) §1.1 and §1.4; the sequence is logged as [0013](0013-postgres-storage.md) A68.
+- **Summary:** A surrogate is minted by its tenant, in sequence, from the tenant's `actor_surrogate` sequence, and its actor key is `actor:{n}`. Like `local`, the code `actor` is never registered, reads as the current tenant's, and is reserved in the shared namespace of slugs and issuer codes; the key's IRI is `{base}/actor/{n}`, and outside the tenant a surrogate is named by that IRI. Its actor record, of kind `anonymous`, `imported` or `federated` with the `raw` value, is in the tenant's `actors` partition, keyed by the key. Before this, a surrogate had an IRI and no key, and tenant issuers accept only numeric subjects. The chapter text is 07 §1.1 and §1.4; the sequence is logged as 0013 A68.
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §1.4.
+Replaced text: 07 §1.4.
 
 ### A28. Strict names: derived names, reserved prefixes and provider renames
 
 - **Date:** 2026-11-06
-- **Source:** [0102](0102-strict-names-from-the-provider.md) §2, §3
+- **Source:** 0102 §2, §3
 - **Change:** extends §4
-- **Summary:** Under strict names an account's name is derived from its login's external identity as `{label}-{username}`; every offered issuer's prefix is reserved against hand-made names; and a rename upstream renames the account on every tenant at the next login, as an instance act ([07](../architecture/07-actors-and-accounts.md) §2.10).
+- **Summary:** Under strict names an account's name is derived from its login's external identity as `{label}-{username}`; every offered issuer's prefix is reserved against hand-made names; and a rename upstream renames the account on every tenant at the next login, as an instance act (07 §2.10).
 
 ### A29. `private` is backed up only; exports never carry a surrogate's raw value
 
 - **Date:** 2026-11-07
-- **Source:** [0103](0103-export-transfer-and-backup.md) §2, §6
+- **Source:** 0103 §2, §6
 - **Change:** amends §8; extends §5
-- **Summary:** A private graph is never in an export or a transfer, and only the operator's backups carry it (0103 §2); and RDF, dumps, the stream and federation name a surrogate by its IRI alone, never the raw value an actor record keeps for it, an upstream IP address among them (0103 §6). Chapter text: [07](../architecture/07-actors-and-accounts.md) §1.6, §1.4.
+- **Summary:** A private graph is never in an export or a transfer, and only the operator's backups carry it (0103 §2); and RDF, dumps, the stream and federation name a surrogate by its IRI alone, never the raw value an actor record keeps for it, an upstream IP address among them (0103 §6). Chapter text: 07 §1.6, §1.4.
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §1.6.
+Replaced text: 07 §1.6.
 

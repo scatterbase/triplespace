@@ -108,15 +108,15 @@ Replaced text: §4 of this ADR.
 ### A3. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§9
 
 ### A4. Validation runs in tier 3 only, under a binding cap
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §3, §6
+- **Source:** 0083 §3, §6
 - **Change:** amends §5
-- **Summary:** Validation against a bound schema is a tier-3 consumer that follows the scope projection, consuming composition events in its own queue, outside every transaction, with its own lag shown on the schema page beside "checked at"; it never runs inline in a write or in a fan-out budget, and only the ad hoc check of §6 runs on request. The ledger names §9; the crate table did not change. Chapter text: [15](../architecture/15-structured-pages.md) §6.4. (REVIEW G10)
+- **Summary:** Validation against a bound schema is a tier-3 consumer that follows the scope projection, consuming composition events in its own queue, outside every transaction, with its own lag shown on the schema page beside "checked at"; it never runs inline in a write or in a fan-out budget, and only the ad hoc check of §6 runs on request. The ledger names §9; the crate table did not change. Chapter text: 15 §6.4. (REVIEW G10)
 
-Replaced text: [15](../architecture/15-structured-pages.md) §6.4.
+Replaced text: 15 §6.4.
 

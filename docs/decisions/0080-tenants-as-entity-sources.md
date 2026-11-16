@@ -97,17 +97,17 @@ James's direction, from the design discussion of 2026-10-09:
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §1
-- **Summary:** Every ID a client sees is below 2^53: registry provider numbers are below 2^12 and a tenant assigns its entity-source numbers, a tenant source's included, from 2^12 to 2^13 − 1, so `number << 40 | n` stays under 2^53 for `n` below 2^40. The range itself is [0078](0078-entity-sources.md) A4's; §1 says only that a tenant source's `number` comes from it. (REVIEW G20)
+- **Summary:** Every ID a client sees is below 2^53: registry provider numbers are below 2^12 and a tenant assigns its entity-source numbers, a tenant source's included, from 2^12 to 2^13 − 1, so `number << 40 | n` stays under 2^53 for `n` below 2^40. The range itself is 0078 A4's; §1 says only that a tenant source's `number` comes from it. (REVIEW G20)
 
 ### A2. The registry binding is enforced by the hosting instance
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §3
-- **Summary:** An instance refuses a sync job for a provider whose registry `issuer` is a tenant of this instance, since the tenant's `local` partition is the source and a mirror of it would be a stale copy, and refuses to adopt or import a tenant under a code for which it holds a live mirror partition until that partition has been frozen: its `entity_source` rows dropped and composition switched to reading the tenant's `local`. The sync refusal is also logged on [0070](0070-shallow-entity-mirroring.md) §7 (0070 A6); the chapters hold it in [08](../architecture/08-tenants-and-instances.md) §4.1 and [05](../architecture/05-providers-and-ingest.md) §5.9 and §8.3. (REVIEW G31)
+- **Summary:** An instance refuses a sync job for a provider whose registry `issuer` is a tenant of this instance, since the tenant's `local` partition is the source and a mirror of it would be a stale copy, and refuses to adopt or import a tenant under a code for which it holds a live mirror partition until that partition has been frozen: its `entity_source` rows dropped and composition switched to reading the tenant's `local`. The sync refusal is also logged on 0070 §7 (0070 A6); the chapters hold it in 08 §4.1 and 05 §5.9 and §8.3. (REVIEW G31)
 
 ### A3. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-30
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§9

@@ -119,7 +119,7 @@ James's direction, from the design discussion of 2026-10-07:
 ### A1. Entity sources
 
 - **Date:** 2026-10-08
-- **Source:** [0078](0078-entity-sources.md) §4
+- **Source:** 0078 §4
 - **Change:** extends §2.1, §3, §10
 - **Summary:** A tenant's entity source takes `entities.mirror` and `entities.closure` under its name, with `linked` as the default where it has an `api` and `off` where it does not, and an empty closure list. Its fetch is a tenant job per source, writing to `source/{name}`, following the source's events if any and otherwise the sweep. `ops.entity_fetch` gains a `tenant` column.
 
@@ -135,49 +135,49 @@ Replaced text: §10 of this ADR.
 ### A3. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§11
 
 ### A4. `view.term` holds the instance's languages, for shallow and full mirrors alike
 
 - **Date:** 2026-10-09
-- **Source:** [0082](0082-source-form-and-the-shared-view.md) §6
+- **Source:** 0082 §6
 - **Change:** amends §4, §6
-- **Summary:** `view.term` holds rows for local entities, for entities in any tenant overlay, and for mirrored entities in the instance's term languages only: `entities.term_languages` is instance configuration for the shared rows, set in the instance policy record, and a tenant's setting of the same name only narrows the languages its own display offers. Settles Q2. Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.8, §5.6. (REVIEW G7)
+- **Summary:** `view.term` holds rows for local entities, for entities in any tenant overlay, and for mirrored entities in the instance's term languages only: `entities.term_languages` is instance configuration for the shared rows, set in the instance policy record, and a tenant's setting of the same name only narrows the languages its own display offers. Settles Q2. Chapter text: 05 §5.8, §5.6. (REVIEW G7)
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §5.8.
+Replaced text: 05 §5.8.
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §5.6.
+Replaced text: 05 §5.6.
 
 ### A5. A fetch miss for an unknown entity writes no record
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §3
-- **Summary:** Only an entity already in the set, one with a `view.entity_source` row for the provider, that upstream reports missing becomes a `tombstone`. A fetch miss for an entity with no `entity_source` row writes no record: a typo'd or never-existing ID is not a deletion, nothing is tombstoned and no retention policy runs; the referring value renders unresolved, and the queue row is dropped. The rest of the row (a mirror tombstone carries nothing about retention; each tenant's policy is applied per overlay as a tenant-partition record under the instance attestation with a `retention/apply` event; the compaction exemption is any tenant's `retain` row; `cascade` is never a default) is [0002](0002-source-graphs-and-mass-ingest.md) §5's. The ledger names §5 too, whose text did not change. (REVIEW G28)
+- **Summary:** Only an entity already in the set, one with a `view.entity_source` row for the provider, that upstream reports missing becomes a `tombstone`. A fetch miss for an entity with no `entity_source` row writes no record: a typo'd or never-existing ID is not a deletion, nothing is tombstoned and no retention policy runs; the referring value renders unresolved, and the queue row is dropped. The rest of the row (a mirror tombstone carries nothing about retention; each tenant's policy is applied per overlay as a tenant-partition record under the instance attestation with a `retention/apply` event; the compaction exemption is any tenant's `retain` row; `cascade` is never a default) is 0002 §5's. The ledger names §5 too, whose text did not change. (REVIEW G28)
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §5.5.
+Replaced text: 05 §5.5.
 
 ### A6. A provider that is a tenant of this instance is never synced
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §7
-- **Summary:** The instance refuses a sync job, shallow or full, for a provider whose registry `issuer` is a tenant of this instance: that tenant's `local` partition is the provider's graph, read directly. The companion rule, that an instance refuses to adopt a tenant under a code with a live mirror partition until that partition is frozen, is [0080](0080-tenants-as-entity-sources.md) A2's. (REVIEW G31)
+- **Summary:** The instance refuses a sync job, shallow or full, for a provider whose registry `issuer` is a tenant of this instance: that tenant's `local` partition is the provider's graph, read directly. The companion rule, that an instance refuses to adopt a tenant under a code with a live mirror partition until that partition is frozen, is 0080 A2's. (REVIEW G31)
 
 ### A7. Moving to `all` is a bulk append into the live partition
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §5
+- **Source:** 0083 §5
 - **Change:** extends §7
 - **Summary:** The dump sync that continues from the shallow records skips every entity whose cursor is current in bulk per block, evaluated against `view.entity_source` before a block is written, and writes the rest as a bulk append into the live partition: the partition lock once per block, tier 2 composing the block set-based. (REVIEW G12)
 
 ### A8. A provider without events is followed by its recent changes
 
 - **Date:** 2026-10-26
-- **Source:** [0092](0092-following-recent-changes.md) §1–§5, §7
+- **Source:** 0092 §1–§5, §7
 - **Change:** extends §3, §5, §7, §9; amends §10
-- **Summary:** A provider or entity source with an `api` and no `events` is followed by polling `list=recentchanges`, as the Wikidata Query Service's updater did: deduped by `rcid`, coalesced by title, read by time near the present, with a tail pass, every `follow.interval`. Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.5, §5.7, §5.9; [03](../architecture/03-storage-caches-and-search.md) §4.12; [18](../architecture/18-api.md) §3.2.
+- **Summary:** A provider or entity source with an `api` and no `events` is followed by polling `list=recentchanges`, as the Wikidata Query Service's updater did: deduped by `rcid`, coalesced by title, read by time near the present, with a tail pass, every `follow.interval`. Chapter text: 05 §5.5, §5.7, §5.9; 03 §4.12; 18 §3.2.
 
 Replaced text: 05 §5.7 of this ADR; 03 §4.12 of this ADR; 18 §3.2 of this ADR.
 

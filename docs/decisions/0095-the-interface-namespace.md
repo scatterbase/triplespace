@@ -99,12 +99,12 @@ Replaced text: §1 of this ADR; §2 of this ADR; §6 of this ADR.
 ### A3. Messages come in bundles
 
 - **Date:** 2026-10-29
-- **Source:** [0097](0097-versioning-and-skins.md) §13
+- **Source:** 0097 §13
 - **Change:** extends §2
 - **Summary:** The site's messages are the binary's bundle and each skin's, a skin's keys carrying its name as a prefix, so an override names one bundle's key; switching skins leaves the overrides of the old skin's keys in place and inert.
 
 ### A4. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-30
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§8

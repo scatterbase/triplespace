@@ -100,5 +100,5 @@ James's direction, from the design discussion of 2026-10-07:
 ### A1. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§8

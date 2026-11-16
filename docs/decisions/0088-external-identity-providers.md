@@ -106,7 +106,7 @@ James's direction, from the design discussion of 2026-10-18:
 ### A1. The auth host and instance logins
 
 - **Date:** 2026-10-18
-- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §3, §4, §5, §6, §7, §10, §14, §16
+- **Source:** 0089 §3, §4, §5, §6, §7, §10, §14, §16
 - **Change:** amends §3, §4, §5, §6, §7, §8, §9
 - **Summary:** External identities authenticate instance logins, on the auth host, and no longer tenant accounts. `private.oauth_client` has one row per issuer for the whole instance: the per-tenant rows and the instance default they overrode are withdrawn with the CLI's `--tenant`, and the callback the operator registers is the auth host's. A bound identity authenticates its login; an unbound one becomes the auth host's pending identity, from which a login is created. On a tenant, a login with no account is answered by an account request, by vouching where the central session was authenticated through the vouching issuer, or as the session's pending login, from which the account is created with `createpreservestate`. Sign-in methods are added and removed on the auth host, and `private.binding` indexes both a login's identities and each tenant account's binding to its login. The text is in git (`tools/adr.py log 0088 A1 --diff`).
 
@@ -115,24 +115,24 @@ Replaced text: §3 of this ADR; §4 of this ADR; §5 of this ADR; §6 of this AD
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-30
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§10
 
 ### A3. Requiring an external sign-in method
 
 - **Date:** 2026-11-06
-- **Source:** [0101](0101-requiring-an-external-sign-in-method.md) §1, §2
+- **Source:** 0101 §1, §2
 - **Change:** amends §7; extends §4
 - **Summary:** An instance may require every login to hold an external identity (`login.external_required`). Under it, removing a login's last external identity is refused with `ts-external-required` whether or not the login has a password, where before only the last way to log in of any kind was refused; and the save that enacts it is refused with `ts-external-required-unmet` until the auth host offers an issuer, every login holds an identity and no credential is still keyed by a tenant account.
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.7.
+Replaced text: 07 §2.7.
 
 ### A4. One identity per login under strict names
 
 - **Date:** 2026-11-06
-- **Source:** [0102](0102-strict-names-from-the-provider.md) §4
+- **Source:** 0102 §4
 - **Change:** amends §7
-- **Summary:** Under strict names a login holds exactly one external identity, the one its names derive from; adding a second answers `ts-strict-identity` ([07](../architecture/07-actors-and-accounts.md) §2.7, §2.10).
+- **Summary:** Under strict names a login holds exactly one external identity, the one its names derive from; adding a second answers `ts-strict-identity` (07 §2.7, §2.10).
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.7.
+Replaced text: 07 §2.7.
 

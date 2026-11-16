@@ -91,7 +91,7 @@ James's direction, from the design discussion of 2026-10-01:
 ### A1. Crate table
 
 - **Date:** 2026-10-01
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §8
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A48).
 
@@ -100,7 +100,7 @@ Replaced text: §8 of this ADR.
 ### A2. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §8
 - **Summary:** A1 was folded into the Decision. The open questions were numbered, and the list this ADR kept under "Amendments to earlier ADRs" (quoted below) was replaced by the generated table. No decision changed. Before this, A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
 
@@ -109,19 +109,19 @@ Replaced text: Amendments to earlier ADRs of this ADR.
 ### A3. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§8
 
 ### A4. A remote key is not a notation
 
 - **Date:** 2026-11-15
-- **Source:** [0110](0110-remote-pages-and-revisions.md) §3
+- **Source:** 0110 §3
 - **Change:** extends §3
-- **Summary:** The table of mechanisms that give strings an identity gains a fifth row, the remote key, which names a page or revision itself rather than a term for it, as a Domain names its domain. Host names, like scheme names, are allocated in the registry only. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.9.
+- **Summary:** The table of mechanisms that give strings an identity gains a fifth row, the remote key, which names a page or revision itself rather than a term for it, as a Domain names its domain. Host names, like scheme names, are allocated in the registry only. Chapter text: 04 §3.9.
 
 ### A5. The test for a keyed type
 
 - **Date:** 2026-11-16
 - **Source:** Direct: James, design discussion of 2026-11-16
 - **Change:** extends §3
-- **Summary:** A new keyed type must name something self-validating in identity, so the key alone says what it names; a vocabulary of terms stays a notation scheme. Remote is one keyed type standing for what would be one per host ([0110](0110-remote-pages-and-revisions.md) A5). Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.9.
+- **Summary:** A new keyed type must name something self-validating in identity, so the key alone says what it names; a vocabulary of terms stays a notation scheme. Remote is one keyed type standing for what would be one per host (0110 A5). Chapter text: 04 §3.9.

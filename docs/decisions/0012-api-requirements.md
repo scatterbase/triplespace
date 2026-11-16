@@ -110,7 +110,7 @@ This ADR sets the rules for filling both gaps, and lists what the UI needs from 
 ### A1. Crate names
 
 - **Date:** 2026-09-26
-- **Source:** [0005](0005-crate-organization.md) §2, revision of 2026-09-26
+- **Source:** 0005 §2, revision of 2026-09-26
 - **Change:** supersedes §9
 - **Summary:** 0005 §2 became the one crate table CI checks; `triplespace-activity` was absorbed by `triplespace-projections`.
 
@@ -119,7 +119,7 @@ Replaced text: §9 of this ADR.
 ### A2. Global IDs are Postgres sequences
 
 - **Date:** 2026-09-26
-- **Source:** [0013](0013-postgres-storage.md) §6
+- **Source:** 0013 §6
 - **Change:** amends §2.1
 - **Summary:** The revision, log and page IDs are Postgres sequences, taken in the appending transaction; blocks come from the bootstrap coordinator. This settled Q1, with 0015 §2, and falsified the consequence that the IDs block this ADR.
 
@@ -128,7 +128,7 @@ Replaced text: §2.1 of this ADR.
 ### A3. Caching and search
 
 - **Date:** 2026-09-26
-- **Source:** [0014](0014-caches-and-search.md) §1, §5–6, §8
+- **Source:** 0014 §1, §5–6, §8
 - **Change:** amends §8; extends §4
 - **Summary:** Shared caches hold only the public form, for a short `s-maxage`, and only erasure purges; authenticated responses are `private, no-cache`. `siprop=triplespace` reports the search backend. The privacy test also covers cache entries and search documents.
 
@@ -137,16 +137,16 @@ Replaced text: §8 of this ADR.
 ### A4. Global IDs in the header
 
 - **Date:** 2026-09-26
-- **Source:** [0015](0015-record-format-and-partition-registry.md) §1–2, §4
+- **Source:** 0015 §1–2, §4
 - **Change:** amends §2.1, §4; extends §6
-- **Summary:** The sequences are Postgres sequences, one set per tenant ([0018](0018-tenants.md) §2), taken in the appending transaction and written into header fields 7–9. Mirror records *do* carry a revision ID, provider-ranged (`provider_number << 40 | n`), computed by the writer, so that `lastrevid`, `baserevid` and `schema:version` are defined for an entity with no local revision; the requirement above is amended accordingly. Erasure is per part, and each erased part sets its own hidden flag. The live fetch of §6 reads backfilled upstream revisions from their records.
+- **Summary:** The sequences are Postgres sequences, one set per tenant (0018 §2), taken in the appending transaction and written into header fields 7–9. Mirror records *do* carry a revision ID, provider-ranged (`provider_number << 40 | n`), computed by the writer, so that `lastrevid`, `baserevid` and `schema:version` are defined for an entity with no local revision; the requirement above is amended accordingly. Erasure is per part, and each erased part sets its own hidden flag. The live fetch of §6 reads backfilled upstream revisions from their records.
 
 Replaced text: §2.1 of this ADR; §4 of this ADR.
 
 ### A5. Permissions
 
 - **Date:** 2026-09-26
-- **Source:** [0016](0016-permissions-and-access-control.md) §2, §6–7
+- **Source:** 0016 §2, §6–7
 - **Change:** amends §8; extends §3, §4, §5
 - **Summary:** Groups hold the rights of §8, and `docs/registry/groups.toml` is the registry of record; the permission modules and the `/acl` routes are added; an erasure's reason class is visible to `ts-viewerasures`. This settled Q8.
 
@@ -155,7 +155,7 @@ Replaced text: §8 of this ADR.
 ### A6. Bare keys are not IDs
 
 - **Date:** 2026-09-27
-- **Source:** [0017](0017-entity-id-grammar.md) §1
+- **Source:** 0017 §1
 - **Change:** amends §5
 - **Summary:** `GET /resolve` offers a bare string that normalizes to a keyed type's key as a suggestion, since it is not an ID.
 
@@ -164,7 +164,7 @@ Replaced text: §5 of this ADR.
 ### A7. Tenants
 
 - **Date:** 2026-09-27
-- **Source:** [0018](0018-tenants.md) §2, §8, §11
+- **Source:** 0018 §2, §8, §11
 - **Change:** amends §2.1; extends §4, §5
 - **Summary:** The ID sequences are per tenant. The host selects the tenant; instance-level routes, including mirror sync jobs, are served at the farm base. This settled Q3: contributions cover the records the instance holds, never fetched live.
 
@@ -173,91 +173,91 @@ Replaced text: §2.1 of this ADR.
 ### A8. Thread routes
 
 - **Date:** 2026-09-27
-- **Source:** [0019](0019-discussions.md) §9
+- **Source:** 0019 §9
 - **Change:** extends §4, §5
 - **Summary:** The thread routes, and a refusal of `action=edit` on thread and talk titles, then with `ts-structured`.
 
 ### A9. Watchlists and the change stream
 
 - **Date:** 2026-09-27
-- **Source:** [0020](0020-change-feeds.md) §4–5
+- **Source:** 0020 §4–5
 - **Change:** extends §4, §5
 - **Summary:** MediaWiki's watchlist modules, the feed parameters of `GET /activity`, `GET /activity/stream` and the `/watchlist` routes. This settled Q5 and Q6.
 
 ### A10. Notifications
 
 - **Date:** 2026-09-27
-- **Source:** [0021](0021-notifications.md) §7
+- **Source:** 0021 §7
 - **Change:** extends §4, §5
 - **Summary:** Echo's modules, the `/inbox` and `/notifications` routes.
 
 ### A11. Verified sync
 
 - **Date:** 2026-09-27
-- **Source:** [0022](0022-federation.md) §1, §11
+- **Source:** 0022 §1, §11
 - **Change:** extends §5
 - **Summary:** `/dumps/local/`, `/.well-known/tlog/`, provider verification. §5 had been given this row in place, among the holder-only routes.
 
 ### A12. Moderation
 
 - **Date:** 2026-09-27
-- **Source:** [0023](0023-moderation.md) §8
+- **Source:** 0023 §8
 - **Change:** extends §3, §4, §5, §8
 - **Summary:** The protection, deletion, hiding and patrol modules; `record` and `actor` ACL kinds; the patrol route; `patrolled` in the activity row; a privacy-test case per ACL target kind.
 
 ### A13. Subsidiaries, keys and rate limits
 
 - **Date:** 2026-09-27
-- **Source:** [0024](0024-subsidiary-accounts.md) §4–5, §8
+- **Source:** 0024 §4–5, §8
 - **Change:** extends §4, §5, §6, §8
 - **Summary:** Bot-password login for subsidiaries, keys and rate-limit reporting, the subsidiary routes, and signatures returned by the record routes. The `clientlogin` row had been given the `action=login` clause in place. This settled the rate-limit half of Q7.
 
 ### A14. The OAuth server
 
 - **Date:** 2026-09-27
-- **Source:** [0025](0025-oauth-server.md) §1, §9
+- **Source:** 0025 §1, §9
 - **Change:** extends §4, §5
 - **Summary:** The OAuth 2.0 endpoints, consumer and authorization routes. §5 had been given the endpoint row in place, among the holder-only routes.
 
 ### A15. Sitelinks
 
 - **Date:** 2026-09-27
-- **Source:** [0026](0026-sitelinks.md) §7
+- **Source:** 0026 §7
 - **Change:** extends §4, §5
 - **Summary:** `wbsetsitelink` by host or URL, sitelink routes.
 
 ### A16. Preferences and portability
 
 - **Date:** 2026-09-27
-- **Source:** [0027](0027-preferences-and-portability.md) §6
+- **Source:** 0027 §6
 - **Change:** extends §4, §5
 - **Summary:** `action=options` over registered keys, and the account routes for preferences, export and import.
 
 ### A17. Resolvers
 
 - **Date:** 2026-09-27
-- **Source:** [0029](0029-resolver-namespaces.md) §6
+- **Source:** 0029 §6
 - **Change:** extends §4, §5
 - **Summary:** `/resolve` tries resolver keys, `/resolvers` routes, and `resolver` and `key` in `wbgetentities`.
 
 ### A18. Edit filters
 
 - **Date:** 2026-09-27
-- **Source:** [0030](0030-edit-filters.md) §5, §9
+- **Source:** 0030 §5, §9
 - **Change:** extends §3, §4, §5
 - **Summary:** The AbuseFilter-shaped modules and filter routes; the activity row's `tags` get a source, and the row gains `filters`.
 
 ### A19. Constraints
 
 - **Date:** 2026-09-27
-- **Source:** [0031](0031-property-constraints.md) §6
+- **Source:** 0031 §6
 - **Change:** extends §4, §5
 - **Summary:** `wbcheckconstraints` and the report routes; the provenance response gains `constraints`.
 
 ### A20. The SPARQL Update stream
 
 - **Date:** 2026-09-27
-- **Source:** [0032](0032-sparql-update-stream.md) §6
+- **Source:** 0032 §6
 - **Change:** extends §5
 - **Summary:** `/updates/stream`, `/updates`, `/updates/cursor` and the batch files under `/dumps/updates/`. §5 had been given this row in place, among the holder-only routes.
 
@@ -271,28 +271,28 @@ Replaced text: §2.1 of this ADR.
 ### A22. Adopted entities
 
 - **Date:** 2026-09-28
-- **Source:** [0035](0035-adopting-a-wikibase.md) §6
+- **Source:** 0035 §6
 - **Change:** extends §5
 - **Summary:** The provenance routes report an adopted entity's or page's source wiki, adoption job and `source_revid`.
 
 ### A23. Page statements and categories
 
 - **Date:** 2026-09-29
-- **Source:** [0038](0038-page-metadata-and-categories.md) §8, §13
+- **Source:** 0038 §8, §13
 - **Change:** extends §4, §5
 - **Summary:** Page statements (`/page/{pageid}/statements`, following the Wikibase REST API's statement routes), categories, category members and category mappings. In the Action API: `prop=categories`, `list=categorymembers`, `prop=categoryinfo` and `list=allcategories`. `/resolve` tries main-namespace titles last.
 
 ### A24. Files
 
 - **Date:** 2026-09-30
-- **Source:** [0039](0039-files-and-media.md) §17
+- **Source:** 0039 §17
 - **Change:** extends §4, §5, §8
 - **Summary:** The file modules (`action=upload`, `action=filerevert`, `prop=imageinfo`, `meta=filerepoinfo` and the rest), the `/file` and `/blob` routes, and the farm-base `/takedowns` routes.
 
 ### A25. Content models
 
 - **Date:** 2026-09-30
-- **Source:** [0041](0041-content-models.md) §8–9
+- **Source:** 0041 §8–9
 - **Change:** extends §4, §5
 - **Summary:** As noted under each section before the migration:
   - §4: Every page has a content model: `meta=siteinfo` reports `defaultcontentmodel` where it is not `wikitext`, and `siprop=triplespace` gains `contentmodels`; `prop=info` and `prop=revisions` report a model for every page; `rvslots` takes `main` and, on File pages, `mediainfo`. `action=edit` on a non-text model is refused with `no-direct-editing`, and `action=changecontentmodel` uses MediaWiki's `changecontentmodel-nodirectediting`, `changecontentmodel-cannotbeused` and `nochanges`.
@@ -301,7 +301,7 @@ Replaced text: §2.1 of this ADR.
 ### A26. Template expansion and rendering
 
 - **Date:** 2026-09-30
-- **Source:** [0042](0042-template-expansion-and-parsoid.md) §12, §14
+- **Source:** 0042 §12, §14
 - **Change:** extends §4, §5
 - **Summary:** As noted under each section before the migration:
   - §4: `action=expandtemplates`; expansion, `prop=templates` and the limit report in `action=parse`; `prop=templates`, `prop=transcludedin`, `list=embeddedin` and `list=alltransclusions`; `magicwords`, `functionhooks`, `extensiontags`, `variables` and `doubleunderscores` in `meta=siteinfo`; `inprop=linkclasses`; `meta=allmessages`; and, with Lua, `prop=wbentityusage`, `list=wblistentityusage` and `wikibase_item` in `prop=pageprops`.
@@ -310,63 +310,63 @@ Replaced text: §2.1 of this ADR.
 ### A27. Lua
 
 - **Date:** 2026-09-30
-- **Source:** [0043](0043-lua-modules.md) §16
+- **Source:** 0043 §16
 - **Change:** extends §4
 - **Summary:** `prop=wbentityusage`, `list=wblistentityusage` and `wikibase_item` in `prop=pageprops`.
 
 ### A28. Tables
 
 - **Date:** 2026-09-30
-- **Source:** [0045](0045-table-content-model.md) §10
+- **Source:** 0045 §10
 - **Change:** extends §5
 - **Summary:** Tables: `GET /table/{pageid}/rows` (the grid's rows, paged, with resolved cells), `POST /table/{pageid}/rows/{id}` (one row's cell edits as one change set) and `GET /table/{pageid}/export`.
 
 ### A29. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §2–9
 - **Summary:** A1–A28 were folded into the Decision; the additions of later ADRs are indexed in two tables, one in §4 and one in §5, which point to the ADR that specifies each module or route. The open questions were numbered; Q7, partly struck, was struck whole, and its rest is Q9. No decision changed. Before this, A2 and A4 were one blockquote, A23–A28 were blockquotes, A11, A13–A14, A20 and A21 had been edited in place without a note, and the other entries were recorded only in other ADRs. The file before conversion is commit `0b26a3a`.
 
 ### A30. Redirects
 
 - **Date:** 2026-10-01
-- **Source:** [0051](0051-page-redirects.md) §7
+- **Source:** 0051 §7
 - **Change:** extends §4, §5
 - **Summary:** MediaWiki's redirect parameters and modules, and `redirect_to` and `redirected_from` in REST.
 
 ### A31. Page repositories
 
 - **Date:** 2026-10-01
-- **Source:** [0052](0052-page-repositories-and-title-inheritance.md) §6
+- **Source:** 0052 §6
 - **Change:** extends §4, §5
 - **Summary:** `origin` in `prop=info` and page summaries, provider-ranged page IDs, `tsorigin=all`, `ts-foreign-page`, `page_repos` in siteinfo, and `GET /page/stack/{title}`.
 
 ### A32. Mirrored pages
 
 - **Date:** 2026-10-01
-- **Source:** [0053](0053-mirrored-pages.md) §10
+- **Source:** 0053 §10
 - **Change:** extends §4, §5
 - **Summary:** Parse, revision content, purge, HTML and render routes for inherited pages, and `GET /repo/{name}`.
 
 ### A33. Forks
 
 - **Date:** 2026-10-01
-- **Source:** [0054](0054-forking-a-mirrored-page.md) §11
+- **Source:** 0054 §11
 - **Change:** extends §4, §5
 - **Summary:** `tsfork` on `action=edit`, seeded revisions in the revision modules, `forkedfrom`, and the fork routes.
 
 ### A34. TemplateData and page properties
 
 - **Date:** 2026-10-01
-- **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §5–6
+- **Source:** 0055 §5–6
 - **Change:** extends §4
 - **Summary:** `action=templatedata`, `prop=pageprops`, `list=pageswithprop`, `prop=description` and `inprop=displaytitle`, served from `view.page_prop`.
 
 ### A35. Absence, and the security model's test cases
 
 - **Date:** 2026-10-01
-- **Source:** [0056](0056-security-model.md) §5, §13, §15
+- **Source:** 0056 §5, §13, §15
 - **Change:** extends §4, §8
 - **Summary:** A target under a confidential `read` restriction is absent for principals outside its group, not redacted: the missing-target answer from every route, and omission from every list, count and log. The privacy test gains 0056 §15's cases, and `instance check`'s failures. `action=protect` takes `read=`; `list=protectedsets` is added.
 
@@ -380,140 +380,140 @@ Replaced text: §2.1 of this ADR.
 ### A37. `api_version` and same-origin `returnto`
 
 - **Date:** 2026-10-03
-- **Source:** [0057](0057-web-tier.md) §7, §9
+- **Source:** 0057 §7, §9
 - **Change:** extends §4, §5
 - **Summary:** The API side of 0057's web tier: `siprop=triplespace` reports `api_version`, so a web tier deployed apart from the API can check it; `returnto` is honoured only on the request's own origin, so login forms can return the user without opening a redirect; the OAuth routes gain 0057 §13's request handle for the consent and device pages.
 
 ### A38. The theme in `siteinfo`
 
 - **Date:** 2026-10-03
-- **Source:** [0034](0034-frontend-stack.md) §1
+- **Source:** 0034 §1
 - **Change:** extends §4
 - **Summary:** `siprop=triplespace` reports `theme`, the tenant's `ui.theme` token values, so the site, which reaches the instance only through the API, can serve the tenant's theme. An outsider of a private tenant is not given it, since 0056 §13 gives an outsider only the name, language and privacy of the wiki; its landing page uses Codex's own values.
 
 ### A39. SPARQL queries
 
 - **Date:** 2026-10-04
-- **Source:** [0059](0059-query-service.md) §6
+- **Source:** 0059 §6
 - **Change:** extends §5
 - **Summary:** `/sparql` implements the SPARQL 1.1 Protocol for queries over the tenant's dataset, with the cursor and truncation headers, and `/sparql/prefixes` serves the pre-declared prefix set.
 
 ### A40. Scope routes
 
 - **Date:** 2026-10-04
-- **Source:** [0060](0060-scopes.md) §8
+- **Source:** 0060 §8
 - **Change:** extends §5
 - **Summary:** The scope routes: count and cursor, paged members, export, refresh, and the scopes a subject is in; `list=scopemembers` and the `rcscope` feed parameter in the Action API.
 
 ### A41. Sprint routes
 
 - **Date:** 2026-10-04
-- **Source:** [0061](0061-sprints-and-tasks.md) §10
+- **Source:** 0061 §10
 - **Change:** extends §5
 - **Summary:** The sprint routes: counts and window, paged tasks, leaderboard, claim and release, and the open tasks about a subject; `list=sprinttasks` in the Action API.
 
 ### A42. Workspace routes
 
 - **Date:** 2026-10-05
-- **Source:** [0062](0062-workspaces.md) §8
+- **Source:** 0062 §8
 - **Change:** extends §5
 - **Summary:** Scope preview and facets for the builder; a workspace's roles and components; creation from a kit; the kit list.
 
 ### A43. Query page routes
 
 - **Date:** 2026-10-05
-- **Source:** [0063](0063-query-namespace.md) §7
+- **Source:** 0063 §7
 - **Change:** extends §5
 - **Summary:** Running a `Query:` page with parameters, and its parameter schema.
 
 ### A44. EntitySchema routes and modules
 
 - **Date:** 2026-10-05
-- **Source:** [0064](0064-entityschema-and-validation.md) §7
+- **Source:** 0064 §7
 - **Change:** extends §5
 - **Summary:** The schema entity, its report, the ad hoc check, the schemas bound to an entity, and the Action API modules on `E`.
 
 ### A45. MediaInfo terms
 
 - **Date:** 2026-10-05
-- **Source:** [0065](0065-mediainfo-captions-and-commons.md) §4
+- **Source:** 0065 §4
 - **Change:** extends §5
 - **Summary:** Term modules accepted on `M`; `WDM` through `wbgetentities`; the file's resolved MediaInfo route.
 
 ### A46. Lexeme modules and routes
 
 - **Date:** 2026-10-05
-- **Source:** [0066](0066-lexemes.md) §8
+- **Source:** 0066 §8
 - **Change:** extends §5
 - **Summary:** WikibaseLexeme's modules, lexeme search types, and the lexeme and part REST routes.
 
 ### A47. Proposal routes
 
 - **Date:** 2026-10-05
-- **Source:** [0067](0067-proposals.md) §7
+- **Source:** 0067 §7
 - **Change:** extends §5
 - **Summary:** Opening, reading, exporting, pushing and withdrawing proposals; a subject's proposals.
 
 ### A48. Merge routes
 
 - **Date:** 2026-10-05
-- **Source:** [0068](0068-merging-with-upstream.md) §6
+- **Source:** 0068 §6
 - **Change:** extends §5
 - **Summary:** Merge previews in either direction, pulls, re-follow, and `tsmerge`.
 
 ### A49. Followed talk pages and pins
 
 - **Date:** 2026-10-06
-- **Source:** [0069](0069-synchronized-talk-pages.md) §9
+- **Source:** 0069 §9
 - **Change:** extends §5
 - **Summary:** Routes for foreign threads, upstream replies and sections, pins and a fork's talk-follow state; DiscussionTools modules on followed talk titles.
 
 ### A50. Shallow mirroring routes
 
 - **Date:** 2026-10-07
-- **Source:** [0070](0070-shallow-entity-mirroring.md) §9
+- **Source:** 0070 §9
 - **Change:** extends §5
 - **Summary:** Mirror status and manual fetch per provider; `mirror` in `siprop=providers`.
 
 ### A51. Extraction routes
 
 - **Date:** 2026-10-07
-- **Source:** [0071](0071-derived-statements-from-mirrored-pages.md) §13
+- **Source:** 0071 §13
 - **Change:** extends §5
 - **Summary:** Extraction sources, runs, orphans and unmapped strings; the derivations of a page and of an entity.
 
 ### A52. Publication routes
 
 - **Date:** 2026-10-07
-- **Source:** [0074](0074-publishing-a-scope-to-an-external-wiki.md) §8
+- **Source:** 0074 §8
 - **Change:** extends §5
 - **Summary:** A publication's status and a manual run.
 
 ### A53. The MCP endpoint
 
 - **Date:** 2026-10-07
-- **Source:** [0075](0075-mcp-server.md) §6
+- **Source:** 0075 §6
 - **Change:** extends §5
 - **Summary:** `{base}/mcp` per tenant, reported in `siteinfo` and the REST root.
 
 ### A54. Dataset routes
 
 - **Date:** 2026-10-07
-- **Source:** [0076](0076-dataset-publication.md) §3, §6
+- **Source:** 0076 §3, §6
 - **Change:** extends §5
 - **Summary:** Referrers by property, dataset descriptions, scope dumps, lookup by URL, and the schema.org profile of `Special:EntityData`.
 
 ### A55. Special:Version
 
 - **Date:** 2026-10-07
-- **Source:** [0077](0077-special-version.md) §10
+- **Source:** 0077 §10
 - **Change:** extends §4, §5
 - **Summary:** `GET /version`; `siprop=extensions` lists only extensions whose modules are served, `siprop=libraries` the third-party components, `general.dbtype` and `dbversion` PostgreSQL subject to `version.services`, and `siprop=triplespace` the build.
 
 ### A56. Entity sources
 
 - **Date:** 2026-10-08
-- **Source:** [0078](0078-entity-sources.md) §10
+- **Source:** 0078 §10
 - **Change:** extends §5
 - **Summary:** `GET /entity-sources`, public, lists the tenant's entity sources with their IRI templates; siteinfo gains `entity_sources`; source IDs work in `wbgetentities` and `/resolve`; the shallow-mirroring routes take a source's name where they take a provider code.
 
@@ -522,7 +522,7 @@ Replaced text: §2.1 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §8
-- **Summary:** Public caches are purged by erasure, and also by deletion or hiding by `read` ACL ([0023](0023-moderation.md) §5, [0014](0014-caches-and-search.md) §5); "only erasure purges them" was wrong about what 0014 §5 and 0023 already decided. (PENDING C17)
+- **Summary:** Public caches are purged by erasure, and also by deletion or hiding by `read` ACL (0023 §5, 0014 §5); "only erasure purges them" was wrong about what 0014 §5 and 0023 already decided. (PENDING C17)
 
 Replaced text: §8 of this ADR.
 
@@ -538,7 +538,7 @@ Replaced text: §8 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §5
-- **Summary:** There is no `list=threads` module; `origin=` is a parameter of `GET /page/{id}/threads` only, so the followed-talk-pages row of §5's index no longer names `thorigin` on `list=threads` ([0069](0069-synchronized-talk-pages.md) §9 is corrected the same way). (PENDING E34)
+- **Summary:** There is no `list=threads` module; `origin=` is a parameter of `GET /page/{id}/threads` only, so the followed-talk-pages row of §5's index no longer names `thorigin` on `list=threads` (0069 §9 is corrected the same way). (PENDING E34)
 
 Replaced text: §5 of this ADR.
 
@@ -547,7 +547,7 @@ Replaced text: §5 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §5
-- **Summary:** `GET /page/{id}/history`, the activity rows (§3) of a document page or thread, is defined in §5's page table, from [0019](0019-discussions.md) §7; 0019 §9 stops calling it unchanged. (PENDING E36)
+- **Summary:** `GET /page/{id}/history`, the activity rows (§3) of a document page or thread, is defined in §5's page table, from 0019 §7; 0019 §9 stops calling it unchanged. (PENDING E36)
 
 ### A61. The index of later routes moves to chapter 18
 
@@ -563,242 +563,242 @@ Replaced text: §5 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §5
-- **Summary:** The order `/resolve` tries folds in [0029](0029-resolver-namespaces.md) §6's step: a string that normalizes to a notation key ([0048](0048-notation.md) §2) resolves, as the one exception to the bare-key rule; any other bare key of a keyed type is a suggestion, since bare keys are not IDs ([0017](0017-entity-id-grammar.md) §1). (PENDING E40)
+- **Summary:** The order `/resolve` tries folds in 0029 §6's step: a string that normalizes to a notation key (0048 §2) resolves, as the one exception to the bare-key rule; any other bare key of a keyed type is a suggestion, since bare keys are not IDs (0017 §1). (PENDING E40)
 
 Replaced text: §5 of this ADR.
 
 ### A63. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§9
 
 ### A64. Any cluster member is accepted; responses are rewritten to the request's form
 
 - **Date:** 2026-10-09
-- **Source:** [0082](0082-source-form-and-the-shared-view.md) §2, §3
+- **Source:** 0082 §2, §3
 - **Change:** amends §4; extends §5
-- **Summary:** The API side of 0082's source form: every entry point accepts any member of an identity cluster and normalizes it before anything runs, and a layer on the way out rewrites IDs to the consumer's preferred form (`prefer`), using exact matches only. Chapter text: [18](../architecture/18-api.md) §1.4, §1.6, §2.3, §3.1. (REVIEW G4, G5)
+- **Summary:** The API side of 0082's source form: every entry point accepts any member of an identity cluster and normalizes it before anything runs, and a layer on the way out rewrites IDs to the consumer's preferred form (`prefer`), using exact matches only. Chapter text: 18 §1.4, §1.6, §2.3, §3.1. (REVIEW G4, G5)
 
-Replaced text: [18](../architecture/18-api.md) §2.3.
+Replaced text: 18 §2.3.
 
 ### A65. Revision states are rows; the stream's resume token is per partition
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §4, §7
+- **Source:** 0083 §4, §7
 - **Change:** amends §7; extends §2.1, §2.3, §4
-- **Summary:** The API side of 0083's revision state: a past state is one row of `view.entity_revision`, with nothing replayed, and rendering as of a revision is exact for local content and current for mirrored contributions, since mirror states are not kept under `latest`. "From the tenant's view as of that offset where the log holds it, and current otherwise" is withdrawn. The activity stream's `Last-Event-ID` is a vector of per-partition high-water marks. 0083's table said `amends` for §4; nothing there was contradicted, so §4 is extended here and the table was corrected. Chapter text: [18](../architecture/18-api.md) §2.3. (REVIEW G11, G14)
+- **Summary:** The API side of 0083's revision state: a past state is one row of `view.entity_revision`, with nothing replayed, and rendering as of a revision is exact for local content and current for mirrored contributions, since mirror states are not kept under `latest`. "From the tenant's view as of that offset where the log holds it, and current otherwise" is withdrawn. The activity stream's `Last-Event-ID` is a vector of per-partition high-water marks. 0083's table said `amends` for §4; nothing there was contradicted, so §4 is extended here and the table was corrected. Chapter text: 18 §2.3. (REVIEW G11, G14)
 
-Replaced text: [18](../architecture/18-api.md) §5.2.
+Replaced text: 18 §5.2.
 
 ### A66. Wikibase writes against the resolved view; `lastrevid`, the base check, patching and `maxlag`
 
 - **Date:** 2026-10-09
-- **Source:** [0084](0084-wikibase-writes-against-the-resolved-view.md) §1, §2, §3, §4, §5
+- **Source:** 0084 §1, §2, §3, §4, §5
 - **Change:** amends §2.1, §4; extends §2
-- **Summary:** The API side of 0084: a `wb*` write, or a REST write that maps to one, is diffed against the tenant's resolved view before a change set is built, so echoed mirrored content is dropped and only what is local-owned is written; a value change on a mirror-owned statement is refused with `ts-foreign-statement`. `lastrevid` is the entity's newest local revision when it has one, the base check is per source graph, and a stale local base that touches nothing a later edit touched is patched rather than refused. "The check runs against the newest record for the key across the source partitions" is withdrawn from §2.1 ([01](../architecture/01-log-and-records.md) §2.5). Chapter text: [18](../architecture/18-api.md) §2.5. (REVIEW G16, G17)
+- **Summary:** The API side of 0084: a `wb*` write, or a REST write that maps to one, is diffed against the tenant's resolved view before a change set is built, so echoed mirrored content is dropped and only what is local-owned is written; a value change on a mirror-owned statement is refused with `ts-foreign-statement`. `lastrevid` is the entity's newest local revision when it has one, the base check is per source graph, and a stale local base that touches nothing a later edit touched is patched rather than refused. "The check runs against the newest record for the key across the source partitions" is withdrawn from §2.1 (01 §2.5). Chapter text: 18 §2.5. (REVIEW G16, G17)
 
-Replaced text: [01](../architecture/01-log-and-records.md) §2.5; [18](../architecture/18-api.md) §1.5, §2.3.
+Replaced text: 01 §2.5; 18 §1.5, §2.3.
 
 ### A67. Page IDs are per tenant; a mirrored entity's is provider-ranged
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §2.1
-- **Summary:** A local page ID is taken from the tenant's own sequence the first time a key is written in a tenant partition, stays below 2^40, and is repeated in field 9 by every later record for the key; a mirrored entity's page ID is `provider_number << 40 | upstream page ID` where the provider publishes one and `provider_number << 40 | mirror offset` otherwise, computed by the writer with no allocation, so `log."instance.page_id"` is not used for entities, and `view.entity`'s unique key on the page ID is `(tenant, page_id)`; bootstrap writers of a tenant partition take page IDs in blocks. The ledger names [0013](0013-postgres-storage.md) §6, [0015](0015-record-format-and-partition-registry.md) §2, [0052](0052-page-repositories-and-title-inheritance.md) §6 and [0008](0008-namespaces-and-document-pages.md) §4; the sentence stood at [01](../architecture/01-log-and-records.md) §2.5, whose provenance is §2.1 here, and the ledger row was extended. (REVIEW G18)
+- **Summary:** A local page ID is taken from the tenant's own sequence the first time a key is written in a tenant partition, stays below 2^40, and is repeated in field 9 by every later record for the key; a mirrored entity's page ID is `provider_number << 40 | upstream page ID` where the provider publishes one and `provider_number << 40 | mirror offset` otherwise, computed by the writer with no allocation, so `log."instance.page_id"` is not used for entities, and `view.entity`'s unique key on the page ID is `(tenant, page_id)`; bootstrap writers of a tenant partition take page IDs in blocks. The ledger names 0013 §6, 0015 §2, 0052 §6 and 0008 §4; the sentence stood at 01 §2.5, whose provenance is §2.1 here, and the ledger row was extended. (REVIEW G18)
 
-Replaced text: [01](../architecture/01-log-and-records.md) §2.5.
+Replaced text: 01 §2.5.
 
 ### A68. Every ID a client sees is below 2^53
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §2.1; extends §2
-- **Summary:** Registry provider numbers are below 2^12, and a tenant assigns its entity-source numbers from 2^12 to 2^13 − 1, so `number << 40 | n` stays under 2^53 for every `n` below 2^40 and a ranged `revid` or `pageid` survives a JavaScript `Number` and every JSON parser, which `formatversion=2` has no string form to protect; the range 2^22 to 2^23 − 1 is withdrawn. The ledger names [0078](0078-entity-sources.md) §4, [0015](0015-record-format-and-partition-registry.md) §2 and §5 and [0080](0080-tenants-as-entity-sources.md) §1; the range stood at [01](../architecture/01-log-and-records.md) §2.5 (§2.1 here) and the rule is restated at [18](../architecture/18-api.md) §1.3 (§2), and the ledger row was extended. (REVIEW G20)
+- **Summary:** Registry provider numbers are below 2^12, and a tenant assigns its entity-source numbers from 2^12 to 2^13 − 1, so `number << 40 | n` stays under 2^53 for every `n` below 2^40 and a ranged `revid` or `pageid` survives a JavaScript `Number` and every JSON parser, which `formatversion=2` has no string form to protect; the range 2^22 to 2^23 − 1 is withdrawn. The ledger names 0078 §4, 0015 §2 and §5 and 0080 §1; the range stood at 01 §2.5 (§2.1 here) and the rule is restated at 18 §1.3 (§2), and the ledger row was extended. (REVIEW G20)
 
-Replaced text: [01](../architecture/01-log-and-records.md) §2.5.
+Replaced text: 01 §2.5.
 
 ### A69. Every tenant-partition record takes a `logid` at append
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §2.1
-- **Summary:** A log ID is assigned to every record in `local`, `pages`, the tenant `log` and the tenant `actors` partitions at append, whether or not the log-event catalogue projects that record as an event, so that the rule is a function of the partition and never of what a later projection chooses to show. The ledger named [0011](0011-logs.md) §2; the rule stands at [01](../architecture/01-log-and-records.md) §2.5, whose provenance is §2.1 here and [0015](0015-record-format-and-partition-registry.md) §2, and the ledger row was corrected. (REVIEW G24)
+- **Summary:** A log ID is assigned to every record in `local`, `pages`, the tenant `log` and the tenant `actors` partitions at append, whether or not the log-event catalogue projects that record as an event, so that the rule is a function of the partition and never of what a later projection chooses to show. The ledger named 0011 §2; the rule stands at 01 §2.5, whose provenance is §2.1 here and 0015 §2, and the ledger row was corrected. (REVIEW G24)
 
-Replaced text: [01](../architecture/01-log-and-records.md) §2.5.
+Replaced text: 01 §2.5.
 
 ### A70. The page bundle, bulk labels and bounded counts
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §5
-- **Summary:** An entity page reaches first byte within a budget of four API calls, met by two routes: `GET /labels?ids=&language=`, bulk labels for up to 1,000 entity and property IDs in the given language chain and nothing else, each ID resolved through its cluster, public form only and cacheable by language; and `GET /entity/{id}/page`, the page bundle of the entity JSON, the provenance response and the identity-line facts in one response, cached by `resolved_version`. The provenance response's backlink count is read from the `ref_count` counter column of `view.entity`, updated in batches and reported as a bounded count (`10000+`) above a threshold. The in-process transport resolves the session once per page and is exempt from rate counting ([0057](0057-web-tier.md) §2); the About panel has its own response and `max-age` ([0010](0010-site-ui.md) §4). (REVIEW G41)
+- **Summary:** An entity page reaches first byte within a budget of four API calls, met by two routes: `GET /labels?ids=&language=`, bulk labels for up to 1,000 entity and property IDs in the given language chain and nothing else, each ID resolved through its cluster, public form only and cacheable by language; and `GET /entity/{id}/page`, the page bundle of the entity JSON, the provenance response and the identity-line facts in one response, cached by `resolved_version`. The provenance response's backlink count is read from the `ref_count` counter column of `view.entity`, updated in batches and reported as a bounded count (`10000+`) above a threshold. The in-process transport resolves the session once per page and is exempt from rate counting (0057 §2); the About panel has its own response and `max-age` (0010 §4). (REVIEW G41)
 
 ### A71. `GET /entity/{id}/history` reads `view.entity_history`
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §5
-- **Summary:** `GET /entity/{id}/history` returns the entity's history as activity rows read from `view.entity_history`, the one backing of a mirrored entity's history: every record in any source partition and every upstream log event keyed to any member of its cluster, in one keyset query; nothing is merged from `view.activity`, which holds no upstream log event, and `list=logevents` with `leprovider` reads a provider's events from the same table. The ledger names [0013](0013-postgres-storage.md) §5, [0011](0011-logs.md) §4 and §9 and [0010](0010-site-ui.md) §5 and §13; the route is [18](../architecture/18-api.md) §3.2 (§5 here), and the ledger row was extended. (REVIEW G42)
+- **Summary:** `GET /entity/{id}/history` returns the entity's history as activity rows read from `view.entity_history`, the one backing of a mirrored entity's history: every record in any source partition and every upstream log event keyed to any member of its cluster, in one keyset query; nothing is merged from `view.activity`, which holds no upstream log event, and `list=logevents` with `leprovider` reads a provider's events from the same table. The ledger names 0013 §5, 0011 §4 and §9 and 0010 §5 and §13; the route is 18 §3.2 (§5 here), and the ledger row was extended. (REVIEW G42)
 
-Replaced text: [18](../architecture/18-api.md) §3.2.
+Replaced text: 18 §3.2.
 
 ### A72. `siteinfo` is a function of configuration; live counters move to their routes
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** corrects §4; extends §5
-- **Summary:** Every `siprop` is computed from the tenant's registry and settings and cached by (registry offset, tenant, visibility); no part of it counts rows or reads a queue. The live numbers move to where they belong: the instance-wide hash-mismatch count and projection lag to `GET /version`, a provider's set size, queue length and stream lag to `GET /provider/{code}/mirror`, and a page repository's index date, event lag and mirrored-page count to `GET /repo/{name}`, all maintained as counters and never by `COUNT(*)`; `hash_mismatches`, `index_as_of`, `event_lag` and `mirrored_pages` leave `siprop=triplespace`. `private.watch` gains `watch_target (target_kind, target_id) WHERE notify` and `private.upstream_grant` stores encrypted tokens, not hashes, under [0020](0020-change-feeds.md) §6 and [0022](0022-federation.md) §8. Chapter text: [18](../architecture/18-api.md) §2.2. (REVIEW G47)
+- **Summary:** Every `siprop` is computed from the tenant's registry and settings and cached by (registry offset, tenant, visibility); no part of it counts rows or reads a queue. The live numbers move to where they belong: the instance-wide hash-mismatch count and projection lag to `GET /version`, a provider's set size, queue length and stream lag to `GET /provider/{code}/mirror`, and a page repository's index date, event lag and mirrored-page count to `GET /repo/{name}`, all maintained as counters and never by `COUNT(*)`; `hash_mismatches`, `index_as_of`, `event_lag` and `mirrored_pages` leave `siprop=triplespace`. `private.watch` gains `watch_target (target_kind, target_id) WHERE notify` and `private.upstream_grant` stores encrypted tokens, not hashes, under 0020 §6 and 0022 §8. Chapter text: 18 §2.2. (REVIEW G47)
 
-Replaced text: [18](../architecture/18-api.md) §2.2.
+Replaced text: 18 §2.2.
 
 ### A73. `rckind`, and `source`, `job` and `operator` on the feed modules
 
 - **Date:** 2026-10-15
 - **Source:** Direct: James, review of the first activity-feeds pull request, 2026-10-15
 - **Change:** extends §4
-- **Summary:** `list=recentchanges`, `list=usercontribs` and `list=logevents` are three target sets over the one feed query of [0020](0020-change-feeds.md) §1, and their rows carry what the query already holds: `rcprop`, `ucprop` and `leprop` gain `source` (the graph), `job` and `operator`, the values §4 had given `prop=revisions` alone, so a bot that reads recent changes learns a row's graph and job without a second call; and `rckind=edit|sync|log|job|erased` selects the row kinds of `view.activity` directly, which is how a client asks for the mirror syncs that `rctype` leaves out, since `rctype=external` keeps its Wikibase-client meaning. The chapter rows are [18](../architecture/18-api.md) §2.3.
+- **Summary:** `list=recentchanges`, `list=usercontribs` and `list=logevents` are three target sets over the one feed query of 0020 §1, and their rows carry what the query already holds: `rcprop`, `ucprop` and `leprop` gain `source` (the graph), `job` and `operator`, the values §4 had given `prop=revisions` alone, so a bot that reads recent changes learns a row's graph and job without a second call; and `rckind=edit|sync|log|job|erased` selects the row kinds of `view.activity` directly, which is how a client asks for the mirror syncs that `rctype` leaves out, since `rctype=external` keeps its Wikibase-client meaning. The chapter rows are 18 §2.3.
 
-Replaced text: [18](../architecture/18-api.md) §2.3.
+Replaced text: 18 §2.3.
 
 ### A74. `rvprop=record` names a revision's record
 
 - **Date:** 2026-10-16
 - **Source:** Direct: James, review of the activity-feeds pull requests, 2026-10-15
 - **Change:** extends §4
-- **Summary:** `prop=revisions` gains `rvprop=record`, which returns the revision's `{partition, offset}`. A diff is a record ([0083](0083-write-path-in-three-tiers.md) §4; [18](../architecture/18-api.md) §5.1), and the site addresses a diff by revision ID as MediaWiki does (`?diff={revid}`), so the site resolves the ID to the record through this field with one `prop=revisions` call rather than a route of its own. MediaWiki clients never ask for it. The chapter row is [18](../architecture/18-api.md) §2.3.
+- **Summary:** `prop=revisions` gains `rvprop=record`, which returns the revision's `{partition, offset}`. A diff is a record (0083 §4; 18 §5.1), and the site addresses a diff by revision ID as MediaWiki does (`?diff={revid}`), so the site resolves the ID to the record through this field with one `prop=revisions` call rather than a route of its own. MediaWiki clients never ask for it. The chapter row is 18 §2.3.
 
 ### A75. Settings routes, the site's identity in `siteinfo`, and its cache key
 
 - **Date:** 2026-10-17
-- **Source:** [0085](0085-settings-and-preferences.md) §2.1, §3, §7
+- **Source:** 0085 §2.1, §3, §7
 - **Change:** amends §4; extends §5
-- **Summary:** The API side of 0085's settings: `general.sitename`, `general.lang` and `general.logo` report the `site.*` settings instead of fixed values; `siteinfo` is cached by the instance's registry offset too, because a tenant's settings resolve through the instance's defaults; REST v0 gains the settings routes, with instance settings at the farm base only, so a single-tenant instance keeps the two apart. Chapter text: [18](../architecture/18-api.md) §2.2, §3.2.
+- **Summary:** The API side of 0085's settings: `general.sitename`, `general.lang` and `general.logo` report the `site.*` settings instead of fixed values; `siteinfo` is cached by the instance's registry offset too, because a tenant's settings resolve through the instance's defaults; REST v0 gains the settings routes, with instance settings at the farm base only, so a single-tenant instance keeps the two apart. Chapter text: 18 §2.2, §3.2.
 
-Replaced text: [18](../architecture/18-api.md) §2.2, §3.2.
+Replaced text: 18 §2.2, §3.2.
 
 ### A76. `siprop=triplespace` reports palettes and type sets
 
 - **Date:** 2026-10-17
-- **Source:** [0086](0086-theming.md) §5
+- **Source:** 0086 §5
 - **Change:** amends §4; extends §5
-- **Summary:** The API side of 0086's theming: `siprop=triplespace` reports the palettes and type sets a tenant offers in place of `ui.theme`'s token map, and REST v0 gains routes to list and manage them. Chapter text: [18](../architecture/18-api.md) §2.2, §3.2.
+- **Summary:** The API side of 0086's theming: `siprop=triplespace` reports the palettes and type sets a tenant offers in place of `ui.theme`'s token map, and REST v0 gains routes to list and manage them. Chapter text: 18 §2.2, §3.2.
 
-Replaced text: [18](../architecture/18-api.md) §2.2.
+Replaced text: 18 §2.2.
 
 ### A77. Challenges in AuthManager and write modules; account requests
 
 - **Date:** 2026-10-17
-- **Source:** [0087](0087-account-registration-and-challenges.md) §2, §6, §9
+- **Source:** 0087 §2, §6, §9
 - **Change:** amends §4; extends §5
-- **Summary:** The API side of 0087's registration: where a challenge trigger applies, account creation, login and a write that would create a temporary account answer `ts-challenge-required` until a challenge is solved; account creation is throttled and, with `account.approval` on, waits for approval; REST gains the request routes. Chapter text: [18](../architecture/18-api.md) §1.5, §2.2, §2.3, §3.2.
+- **Summary:** The API side of 0087's registration: where a challenge trigger applies, account creation, login and a write that would create a temporary account answer `ts-challenge-required` until a challenge is solved; account creation is throttled and, with `account.approval` on, waits for approval; REST gains the request routes. Chapter text: 18 §1.5, §2.2, §2.3, §3.2.
 
-Replaced text: [18](../architecture/18-api.md) §2.3.
+Replaced text: 18 §2.3.
 
 ### A78. External issuers in AuthManager and the `/auth` routes
 
 - **Date:** 2026-10-18
-- **Source:** [0088](0088-external-identity-providers.md) §5, §7
+- **Source:** 0088 §5, §7
 - **Change:** extends §4; amends §5
-- **Summary:** The API side of 0088's external identity providers, through MediaWiki's AuthManager flow: each issuer is an authentication request answered with a redirect, an identity with no account restarts into `createaccount`, and `unlinkaccount` refuses to remove the last way to log in. `POST /auth/pending/create` is withdrawn in favour of `createaccount`. Chapter text: [18](../architecture/18-api.md) §2.2, §2.3, §3.2.
+- **Summary:** The API side of 0088's external identity providers, through MediaWiki's AuthManager flow: each issuer is an authentication request answered with a redirect, an identity with no account restarts into `createaccount`, and `unlinkaccount` refuses to remove the last way to log in. `POST /auth/pending/create` is withdrawn in favour of `createaccount`. Chapter text: 18 §2.2, §2.3, §3.2.
 
-Replaced text: [18](../architecture/18-api.md) §3.2.
+Replaced text: 18 §3.2.
 
 ### A79. The auth host's API
 
 - **Date:** 2026-10-18
-- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §5, §7, §9, §10, §11, §16
+- **Source:** 0089 §5, §7, §9, §10, §11, §16
 - **Change:** amends §4; extends §5
-- **Summary:** The API side of 0089's auth host: at the auth base the Action API offers only its authentication modules, acting on instance logins; on a tenant with an auth host, login opens a tenant session only, and the credential modules answer `ts-auth-host`, since credentials live on the auth host. Chapter text: [18](../architecture/18-api.md) §2.2, §2.3, §3.2.
+- **Summary:** The API side of 0089's auth host: at the auth base the Action API offers only its authentication modules, acting on instance logins; on a tenant with an auth host, login opens a tenant session only, and the credential modules answer `ts-auth-host`, since credentials live on the auth host. Chapter text: 18 §2.2, §2.3, §3.2.
 
-Replaced text: [18](../architecture/18-api.md) §2.2, §2.3, §3.2.
+Replaced text: 18 §2.2, §2.3, §3.2.
 
 ### A80. The provenance response links the upstream revision
 
 - **Date:** 2026-10-27
-- **Source:** [0003](0003-statement-ui.md) A17 (Direct: James, design discussion of 2026-10-27)
+- **Source:** 0003 A17 (Direct: James, design discussion of 2026-10-27)
 - **Change:** extends §5
-- **Summary:** Each graph of `GET /entity/{id}/provenance` carries `upstream_url`, the page of its upstream revision, where the provider is a MediaWiki that publishes revision IDs. Chapter text: [18](../architecture/18-api.md) §3.2.
+- **Summary:** Each graph of `GET /entity/{id}/provenance` carries `upstream_url`, the page of its upstream revision, where the provider is a MediaWiki that publishes revision IDs. Chapter text: 18 §3.2.
 
 ### A81. The Interface namespace
 
 - **Date:** 2026-10-28
-- **Source:** [0095](0095-the-interface-namespace.md) §5
+- **Source:** 0095 §5
 - **Change:** extends §4
 - **Summary:** `siprop=triplespace` reports the wiki's interface overrides and names, `interface` (0095 §5).
 
 ### A82. The route catalogue is a registry file
 
 - **Date:** 2026-10-30
-- **Source:** [0098](0098-pointers-from-birth.md) §5
+- **Source:** 0098 §5
 - **Change:** consolidates §5
 - **Summary:** The table of 18 §3.2 moved into `docs/registry/routes.toml` (route, purpose, sources), with the method shorthand of some rows (`GET`, `PUT`, `DELETE /acl/set/{id}`) expanded to one `METHOD /path` each. `architecture/catalogues.py` generates the table, derives its new *Built* column from the OpenAPI contract, and fails when the contract serves a route the catalogue lacks. That check found four built routes no ADR section names: `GET`/`PUT`/`DELETE /group/{name}` (delegated administration, 0016 A38), `GET /acl/empty-groups` (0056 Q4), `GET /purges` (the purge queue, 0056 §9) and `GET /version/licenses/{id}` (0077 §12); they are catalogued with those citations and the note that no ADR section names them yet. `GET /entity/{id}/page` and `GET /labels` had no source cell; they are A70's. No decision changed. The last commit in which the chapter carried the table is `0e67cce`.
 
-Replaced text: [18](../architecture/18-api.md) §3.2, the lead.
+Replaced text: 18 §3.2, the lead.
 
 ### A83. The Action API catalogue is a registry file
 
 - **Date:** 2026-10-30
-- **Source:** [0098](0098-pointers-from-birth.md) §5
+- **Source:** 0098 §5
 - **Change:** consolidates §4
 - **Summary:** The three tables of 18 §2.3 moved into `docs/registry/action-api.toml` (kind, modules, what changes, sources); `architecture/catalogues.py` generates them and derives a *Built* column from the module lists `action=paraminfo` serves (`ACTION_MODULES` and `QUERY_MODULES` in `triplespace-api-action`). The "statement modules" row now names its eight `wb*` modules. No decision changed. The last commit in which the chapter carried the tables is `0e67cce`.
 
-Replaced text: [18](../architecture/18-api.md) §2.3, the lead.
+Replaced text: 18 §2.3, the lead.
 
 ### A84. The record and proof routes' shapes
 
 - **Date:** 2026-11-07
 - **Source:** Direct: James, design discussion of 2026-11-07
 - **Change:** extends §5
-- **Summary:** Asked how to build the record and proof routes of §5 and 17 §1.1 (SCA-302), James chose: `GET /record/{partition}/{offset}` returns JSON wrapping the record's canonical CBOR, with the header decoded and the parts and signature beside it, rather than the bytes alone or JSON alone; inclusion and consistency proofs use the RFC 6962/9162 shapes in JSON (`leaf_index`, `tree_size`, `audit_path`), rather than a format of Triplespace's own; and the multi-proof `GET /record/proofs` is built now in its simple form, every node the range's proofs need sent once with each leaf's path as positions in that list, rather than deferred or compressed further. Chapter text: [17](../architecture/17-federation-and-publication.md) §1.1; [18](../architecture/18-api.md) §3.2.
+- **Summary:** Asked how to build the record and proof routes of §5 and 17 §1.1 (SCA-302), James chose: `GET /record/{partition}/{offset}` returns JSON wrapping the record's canonical CBOR, with the header decoded and the parts and signature beside it, rather than the bytes alone or JSON alone; inclusion and consistency proofs use the RFC 6962/9162 shapes in JSON (`leaf_index`, `tree_size`, `audit_path`), rather than a format of Triplespace's own; and the multi-proof `GET /record/proofs` is built now in its simple form, every node the range's proofs need sent once with each leaf's path as positions in that list, rather than deferred or compressed further. Chapter text: 17 §1.1; 18 §3.2.
 
 ### A85. What the record routes show, and to whom
 
 - **Date:** 2026-11-07
 - **Source:** Direct: Claude, while building the record and proof routes (SCA-302), 2026-11-07; confirmed by James, 2026-11-08
 - **Change:** extends §5
-- **Summary:** Calls made building the routes of A84. (1) A partition is served only when it is published to the caller: the tenant's own, export policy `public`, of no graph a confidential restriction hides from the caller; any other answers `partition-not-found`, as one that does not exist. The instance's own partitions, at the farm base, are not served yet. (2) A record is shown in the export scope's form for the caller ([0103](0103-export-transfer-and-backup.md) §1; [0006](0006-log-integrity-and-erasure.md) A31), decided by the same reader with the caller's rights: a target the caller may not read gives its parts as commitments, a confidential target's record is its leaf alone with every other field null, as a compacted record is ([0103](0103-export-transfer-and-backup.md) A1), and a revision-deleted part is withheld even from a caller who may read it elsewhere, since the routes serve the published form and the reader decides by the row's visibility bits alone. (3) Partition IDs are decimal strings in JSON, being 64 random bits; hashes and bytes are base64. (4) The multi-proof covers at most 1000 records. (5) A `hashed` partition has no checkpoint or proof routes (`no-checkpoints`); its record route works. (6) Responses are cacheable as `Public`, not `Stable`, since a checkpoint of a given size may gain witness cosignatures. Chapter text: [17](../architecture/17-federation-and-publication.md) §1.1; [18](../architecture/18-api.md) §3.2.
+- **Summary:** Calls made building the routes of A84. (1) A partition is served only when it is published to the caller: the tenant's own, export policy `public`, of no graph a confidential restriction hides from the caller; any other answers `partition-not-found`, as one that does not exist. The instance's own partitions, at the farm base, are not served yet. (2) A record is shown in the export scope's form for the caller (0103 §1; 0006 A31), decided by the same reader with the caller's rights: a target the caller may not read gives its parts as commitments, a confidential target's record is its leaf alone with every other field null, as a compacted record is (0103 A1), and a revision-deleted part is withheld even from a caller who may read it elsewhere, since the routes serve the published form and the reader decides by the row's visibility bits alone. (3) Partition IDs are decimal strings in JSON, being 64 random bits; hashes and bytes are base64. (4) The multi-proof covers at most 1000 records. (5) A `hashed` partition has no checkpoint or proof routes (`no-checkpoints`); its record route works. (6) Responses are cacheable as `Public`, not `Stable`, since a checkpoint of a given size may gain witness cosignatures. Chapter text: 17 §1.1; 18 §3.2.
 
 ### A86. `batch=` on every write, and the job routes
 
 - **Date:** 2026-11-08
-- **Source:** [0104](0104-batches-and-the-job-runner.md) §6
+- **Source:** 0104 §6
 - **Change:** extends §4 and §5
-- **Summary:** The API side of 0104's batches: every write takes `batch=` and answers with the job's ID, a write naming a rejected batch is refused with `ts-batch-rejected`, and REST gains the job list and the reject and close routes. Chapter text: [18](../architecture/18-api.md) §2.3 (`action-api.toml`), §3.2 (`routes.toml`).
+- **Summary:** The API side of 0104's batches: every write takes `batch=` and answers with the job's ID, a write naming a rejected batch is refused with `ts-batch-rejected`, and REST gains the job list and the reject and close routes. Chapter text: 18 §2.3 (`action-api.toml`), §3.2 (`routes.toml`).
 
 ### A87. Every module served is catalogued; routes and modules are checked against the running code
 
 - **Date:** 2026-11-09
-- **Source:** [0108](0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) §1
+- **Source:** 0108 §1
 - **Change:** amends §4; extends §5
-- **Summary:** The module catalogue lists every module the Action API serves, unchanged ones included, and CI fails a run that serves a module or route its catalogue lacks. Chapter text: [18](../architecture/18-api.md) §2.3, §3.2.
+- **Summary:** The module catalogue lists every module the Action API serves, unchanged ones included, and CI fails a run that serves a module or route its catalogue lacks. Chapter text: 18 §2.3, §3.2.
 
-Replaced text: [18](../architecture/18-api.md) §2.3.
+Replaced text: 18 §2.3.
 
 ### A88. A catalogue row is built when everything it names is served
 
 - **Date:** 2026-11-09
 - **Source:** Direct: James, design discussion of 2026-11-09
 - **Change:** amends §4, §5
-- **Summary:** The *Built* column of the module and route catalogues ticks a row only when every module or route the row names is served, not when any one is: a row naming `action=linkaccount` beside two modules not served is not built. Chapter text: [18](../architecture/18-api.md) §2.3, §3.2.
+- **Summary:** The *Built* column of the module and route catalogues ticks a row only when every module or route the row names is served, not when any one is: a row naming `action=linkaccount` beside two modules not served is not built. Chapter text: 18 §2.3, §3.2.
 
-Replaced text: [18](../architecture/18-api.md) §2.3, §3.2.
+Replaced text: 18 §2.3, §3.2.
 
 ### A89. A route served through a more general one is built
 
 - **Date:** 2026-11-09
 - **Source:** Direct: Claude, while building the route catalogue's Built column, 2026-11-09; unconfirmed
 - **Change:** amends §5
-- **Summary:** A catalogue route is served when the contract serves it or a more general route whose parameter takes its literal segment: `GET /acl/set/{id}` is served by `GET /acl/{kind}/{id}`, which the router routes it to and which reads `set` as a target kind. The three set-ACL routes had read as unbuilt. Chapter text: [18](../architecture/18-api.md) §3.2.
+- **Summary:** A catalogue route is served when the contract serves it or a more general route whose parameter takes its literal segment: `GET /acl/set/{id}` is served by `GET /acl/{kind}/{id}`, which the router routes it to and which reads `set` as a target kind. The three set-ACL routes had read as unbuilt. Chapter text: 18 §3.2.
 
-Replaced text: [18](../architecture/18-api.md) §3.2.
+Replaced text: 18 §3.2.
 
 ### A90. An action that changes nothing warns
 
 - **Date:** 2026-11-09
 - **Source:** Direct: James, design discussion of 2026-11-09 ("The warning should apply anywhere an action results in a no op where it normally wouldn't"); which modules that is Claude, while building it, 2026-11-09; unconfirmed
 - **Change:** extends §4
-- **Summary:** An Action API module that would normally append a record, and writes nothing because what it was asked for is already so, succeeds with a warning under its own name in the `warnings` block, giving the reason and "Nothing was written." Calls made in the building: the modules are the twelve Wikibase write modules (an edit that leaves the entity as it is, [0002](0002-source-graphs-and-mass-ingest.md) A48 included), `action=edit` (beside `nochange`), `action=protect`, `action=revisiondelete` and `action=userrights`; a module that already refuses the case as MediaWiki does keeps its error; `action=watch`, `action=options`, `action=echomarkread`, `action=echomarkseen` and `action=setnotificationtimestamp`, whose effect is private state and idempotent by nature, do not warn; re-protecting a page with the settings it has, and adding a group a user already holds, still write their records and so are not no-ops. The REST routes are unchanged. Chapter text: [18](../architecture/18-api.md) §1.5.
+- **Summary:** An Action API module that would normally append a record, and writes nothing because what it was asked for is already so, succeeds with a warning under its own name in the `warnings` block, giving the reason and "Nothing was written." Calls made in the building: the modules are the twelve Wikibase write modules (an edit that leaves the entity as it is, 0002 A48 included), `action=edit` (beside `nochange`), `action=protect`, `action=revisiondelete` and `action=userrights`; a module that already refuses the case as MediaWiki does keeps its error; `action=watch`, `action=options`, `action=echomarkread`, `action=echomarkseen` and `action=setnotificationtimestamp`, whose effect is private state and idempotent by nature, do not warn; re-protecting a page with the settings it has, and adding a group a user already holds, still write their records and so are not no-ops. The REST routes are unchanged. Chapter text: 18 §1.5.
 
 ### A91. A69's log ID rule holds for records appended from the change that builds it
 
@@ -824,13 +824,13 @@ Replaced text: [18](../architecture/18-api.md) §3.2.
 ### A94. The special pages' modules and routes
 
 - **Date:** 2026-11-16
-- **Source:** [0047](0047-special-pages.md) §11
+- **Source:** 0047 §11
 - **Change:** extends §4, §5
-- **Summary:** The Action API gains what the special pages need: `action=query&export`, the query-page modules for the served reports, and the Wikibase-compatibility forms over the existing `wb*` modules. The REST API gains the export, Nuke and report routes. This records an extension made when 0047 was written, on 2026-09-30: its heading has said so since then and the chapter text has carried it, but this log had no entry. No text changes with this entry. Chapter text: [18](../architecture/18-api.md) §2.2, §2.3, §3.2.
+- **Summary:** The Action API gains what the special pages need: `action=query&export`, the query-page modules for the served reports, and the Wikibase-compatibility forms over the existing `wb*` modules. The REST API gains the export, Nuke and report routes. This records an extension made when 0047 was written, on 2026-09-30: its heading has said so since then and the chapter text has carried it, but this log had no entry. No text changes with this entry. Chapter text: 18 §2.2, §2.3, §3.2.
 
 ### A95. The farm's modules and routes
 
 - **Date:** 2026-11-16
-- **Source:** [0028](0028-tenancy-policy.md) §11
+- **Source:** 0028 §11
 - **Change:** extends §4, §5
-- **Summary:** The Action API gains, at the farm base, `action=globalblock`, `meta=globaluserinfo`, `list=globalallusers` and `list=globalblocks` with CentralAuth's meaning, and `meta=siteinfo&siprop=triplespace` reports the tenancy preset and switches. The REST API gains `GET /tenancy` and `GET /farm/users/{id}`. This records an extension made when 0028 was written, on 2026-09-27: its heading has said so since then and the chapter text has carried it, but this log had no entry. No text changes with this entry. Chapter text: [18](../architecture/18-api.md) §1.2, §2.2, §2.3, §3.2.
+- **Summary:** The Action API gains, at the farm base, `action=globalblock`, `meta=globaluserinfo`, `list=globalallusers` and `list=globalblocks` with CentralAuth's meaning, and `meta=siteinfo&siprop=triplespace` reports the tenancy preset and switches. The REST API gains `GET /tenancy` and `GET /farm/users/{id}`. This records an extension made when 0028 was written, on 2026-09-27: its heading has said so since then and the chapter text has carried it, but this log had no entry. No text changes with this entry. Chapter text: 18 §1.2, §2.2, §2.3, §3.2.

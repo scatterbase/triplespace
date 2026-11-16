@@ -91,7 +91,7 @@ Three choices James made in review shape the rest: the stream is **selectable pe
 ### A1. Crate table
 
 - **Date:** 2026-09-27
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §9
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A28). The paragraph on the local quad store as a consumer, which followed the table, moved to §6 at conversion.
 
@@ -109,14 +109,14 @@ Replaced text: not recorded; the sections were revised in place before the repos
 ### A3. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §1–9
 - **Summary:** A1–A2 were folded into the Decision. The open questions were numbered. §9's quad-store paragraph moved to §6. No decision changed. Before this, A2 was four struck questions with notes. The file before conversion is commit `0b26a3a`.
 
 ### A4. The query service
 
 - **Date:** 2026-10-04
-- **Source:** [0059](0059-query-service.md) §1
+- **Source:** 0059 §1
 - **Change:** extends §6
 - **Summary:** The local quad store, a consumer of `view.rdf_delta`, now has one reader: the query service of 0059, which answers compiled queries and raw SPARQL from it. Nothing about the stream or its deltas changes.
 
@@ -125,14 +125,14 @@ Replaced text: not recorded; the sections were revised in place before the repos
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §2
-- **Summary:** `scatter-wikibase-rdf` renders the resolved-view and source-graph (`resolved`, `local`, `mirror/{provider}`) sides of a delta; `triplespace-rdf` renders the metadata-graph sides, since the revision, actor, event and provenance nodes are its vocabulary ([0013](0013-postgres-storage.md) §8). §2 had named `scatter-wikibase-rdf` for every side. (PENDING A19)
+- **Summary:** `scatter-wikibase-rdf` renders the resolved-view and source-graph (`resolved`, `local`, `mirror/{provider}`) sides of a delta; `triplespace-rdf` renders the metadata-graph sides, since the revision, actor, event and provenance nodes are its vocabulary (0013 §8). §2 had named `scatter-wikibase-rdf` for every side. (PENDING A19)
 
 Replaced text: §2 of this ADR.
 
 ### A6. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§9
 
 ### A7. The sync client's marker triple
@@ -140,67 +140,67 @@ Replaced text: §2 of this ADR.
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §6
-- **Summary:** Beside committing its cursor to its state file, `sparql-sync` writes a marker triple `<{base}/.well-known/query> scatter:cursor "{epoch}:{seq}"` in the store's default graph after each batch, which the query service reads to check the endpoint's position ([0059](0059-query-service.md) §2). The two were compatible but §6 did not say so. (PENDING T1)
+- **Summary:** Beside committing its cursor to its state file, `sparql-sync` writes a marker triple `<{base}/.well-known/query> scatter:cursor "{epoch}:{seq}"` in the store's default graph after each batch, which the query service reads to check the endpoint's position (0059 §2). The two were compatible but §6 did not say so. (PENDING T1)
 
 ### A8. Source form: one delta per member, the fused body under every member
 
 - **Date:** 2026-10-09
-- **Source:** [0082](0082-source-form-and-the-shared-view.md) §1, §3, §4, §5
+- **Source:** 0082 §1, §3, §4, §5
 - **Change:** amends §2; extends §1, §3, §4
-- **Summary:** The internal graph is in source form: the dump and the stream carry the IDs each source wrote, and the response-time rewriting of entity IDs to a consumer's preferred form never applies to either (§1); `rdf_delta.entity_id` is in source form (§3). In RDF the fused body is emitted under every member's concept IRI with `owl:sameAs` between the members, in the dump and in the stream alike. The shared deltas of §4 are computed under the instance's policy record, and the shared query store holds the same shape: one shared resolved graph and an overlay graph per tenant. 0082's table names §2 and §4; the chapters also cite 0082 §3 for §1's text and 0082 §1 for §3's column comment, which are extensions. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §6.2. (REVIEW G1, G3, G5, G6)
+- **Summary:** The internal graph is in source form: the dump and the stream carry the IDs each source wrote, and the response-time rewriting of entity IDs to a consumer's preferred form never applies to either (§1); `rdf_delta.entity_id` is in source form (§3). In RDF the fused body is emitted under every member's concept IRI with `owl:sameAs` between the members, in the dump and in the stream alike. The shared deltas of §4 are computed under the instance's policy record, and the shared query store holds the same shape: one shared resolved graph and an overlay graph per tenant. 0082's table names §2 and §4; the chapters also cite 0082 §3 for §1's text and 0082 §1 for §3's column comment, which are extensions. Chapter text: 02 §6.2. (REVIEW G1, G3, G5, G6)
 
-Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §6.2.
+Replaced text: 02 §6.2.
 
 ### A9. The delta is a tier-3 consumer; one sequencer; per-tenant epochs
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §3, §7
+- **Source:** 0083 §3, §7
 - **Change:** amends §2, §3, §5; extends §6
-- **Summary:** The delta is computed by a tier-3 consumer of composition events behind the `site` setting `updates.enabled` (default off), with its own queue, rate and lag, in no write's transaction and off during bootstrap and bulk modes; it reads the old state from `view.graph_state` (delta graphs) and the previous composed row, and the new state from the composed row, and it is not computed in any write or any composition (§2). `rdf_delta` is indexed by `(partition, "offset")` so the erasure purge reaches metadata-only rows (§5). 0083's table gives a row for §4 (by §7); the chapter section that holds §4, [08](../architecture/08-tenants-and-instances.md) §10.5, cites 0082 §5 and not 0083, so the row is corrected to §6, whose chapter text ([02](../architecture/02-graphs-rdf-and-query.md) §6.4) cites 0083 §7. (REVIEW G10, G14)
+- **Summary:** The delta is computed by a tier-3 consumer of composition events behind the `site` setting `updates.enabled` (default off), with its own queue, rate and lag, in no write's transaction and off during bootstrap and bulk modes; it reads the old state from `view.graph_state` (delta graphs) and the previous composed row, and the new state from the composed row, and it is not computed in any write or any composition (§2). `rdf_delta` is indexed by `(partition, "offset")` so the erasure purge reaches metadata-only rows (§5). 0083's table gives a row for §4 (by §7); the chapter section that holds §4, 08 §10.5, cites 0082 §5 and not 0083, so the row is corrected to §6, whose chapter text (02 §6.4) cites 0083 §7. (REVIEW G10, G14)
 
-Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §6.2.
+Replaced text: 02 §6.2.
 
-Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.11.
+Replaced text: 03 §4.11.
 
-Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §6.3.
+Replaced text: 02 §6.3.
 
 ### A10. The skolem hash is over the statement UUID
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §7
-- **Summary:** The skolem IRI's hash is over the **statement UUID**, never the entity part of the statement ID, so the node is the same under every member ID the fused body is emitted under and whatever form a consumer asked for; the snak role (main snak, qualifier, reference); the property; and an index defined as the snak's position within its role on the statement. A reference snak hashes the reference hash in place of the index, so identical references share a node as they share a `ref:` IRI. The hash function and the byte layout of the preimage are fixed in `wikibase-compat.md`. The federation parts of the same row (bootstrap from the export bundle, record bodies on the stream for `source = local`, `verified_at_size` in `entity_source` only, a `delete/statement` event) are logged in [0022](0022-federation.md). (REVIEW G48)
+- **Summary:** The skolem IRI's hash is over the **statement UUID**, never the entity part of the statement ID, so the node is the same under every member ID the fused body is emitted under and whatever form a consumer asked for; the snak role (main snak, qualifier, reference); the property; and an index defined as the snak's position within its role on the statement. A reference snak hashes the reference hash in place of the index, so identical references share a node as they share a `ref:` IRI. The hash function and the byte layout of the preimage are fixed in `wikibase-compat.md`. The federation parts of the same row (bootstrap from the export bundle, record bodies on the stream for `source = local`, `verified_at_size` in `entity_source` only, a `delete/statement` event) are logged in 0022. (REVIEW G48)
 
-Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §4.3.
+Replaced text: 02 §4.3.
 
 ### A11. Dumps from a replica under one snapshot
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §1
-- **Summary:** A dump is taken from a replica under `pg_export_snapshot()`, with parallel workers sharing the one snapshot, so that every file of a dump describes one instant and the primary is not read; the stream a consumer follows from that dump is served from a replica too, since its single sequencer (A9) makes insert order commit order. The rest of the row — the embedded query backend is the small profile's and is refused above a configured triple count, the Wikidata profile requires `query.backend = remote`, `term_prefix` is kept as schema and not read by the large profile — is logged in [0059](0059-query-service.md), [0013](0013-postgres-storage.md) and [0033](0033-backend-stack.md). Nothing of §1's chapter text is contradicted; the dump rule is stated in [02](../architecture/02-graphs-rdf-and-query.md) §4.1. (REVIEW G49)
+- **Summary:** A dump is taken from a replica under `pg_export_snapshot()`, with parallel workers sharing the one snapshot, so that every file of a dump describes one instant and the primary is not read; the stream a consumer follows from that dump is served from a replica too, since its single sequencer (A9) makes insert order commit order. The rest of the row — the embedded query backend is the small profile's and is refused above a configured triple count, the Wikidata profile requires `query.backend = remote`, `term_prefix` is kept as schema and not read by the large profile — is logged in 0059, 0013 and 0033. Nothing of §1's chapter text is contradicted; the dump rule is stated in 02 §4.1. (REVIEW G49)
 
 ### A12. A dump reads the primary where there is no replica
 
 - **Date:** 2026-11-07
 - **Source:** Direct: James, design discussion of 2026-11-07
 - **Change:** amends §1
-- **Summary:** A11 took every dump from a replica so that the primary is never read. Single-node installs, Librarybase's among them, have none. Asked, James chose that `triplespace dump` reads the replica the operator names (`--replica`, `TRIPLESPACE_REPLICA_URL`) and otherwise the primary, under the same exported `REPEATABLE READ` snapshot either way, so a dump describes one instant wherever it is read and only the load's placement differs. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §4.1.
+- **Summary:** A11 took every dump from a replica so that the primary is never read. Single-node installs, Librarybase's among them, have none. Asked, James chose that `triplespace dump` reads the replica the operator names (`--replica`, `TRIPLESPACE_REPLICA_URL`) and otherwise the primary, under the same exported `REPEATABLE READ` snapshot either way, so a dump describes one instant wherever it is read and only the load's placement differs. Chapter text: 02 §4.1.
 
-Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §4.1.
+Replaced text: 02 §4.1.
 
 ### A13. The skolem hash is specified with the dumps
 
 - **Date:** 2026-11-07
 - **Source:** Direct: James, design discussion of 2026-11-07
 - **Change:** amends §7
-- **Summary:** §7 said the hash function and the preimage's byte layout were fixed in wikibase-compat.md, and they were not. Asked whether to leave the skolem form for the update stream or specify it with the dumps, James chose to specify it now and write the skolemized form beside the plain one: SHA-256 over the inputs §7 names, as lowercase hex, under `https://scatter.red/genid/`, the layout and a test vector in [wikibase-compat.md](../api/wikibase-compat.md) §5.7. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §4.3.
+- **Summary:** §7 said the hash function and the preimage's byte layout were fixed in wikibase-compat.md, and they were not. Asked whether to leave the skolem form for the update stream or specify it with the dumps, James chose to specify it now and write the skolemized form beside the plain one: SHA-256 over the inputs §7 names, as lowercase hex, under `https://scatter.red/genid/`, the layout and a test vector in [wikibase-compat.md](../api/wikibase-compat.md) §5.7. Chapter text: 02 §4.3.
 
-Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §4.3.
+Replaced text: 02 §4.3.
 
 ### A14. The skolem preimage: property IRIs, per-property indexes, references without the UUID
 
 - **Date:** 2026-11-07
 - **Source:** Direct: Claude, while building the skolemized dumps (SCA-301), 2026-11-07; confirmed by James, 2026-11-08
 - **Change:** extends §7
-- **Summary:** Five calls made writing the layout A13 asked for. (1) The property enters as its concept IRI, not its ID, so two instances that prefix one upstream property differently (a registry provider and a tenant source of the same Wikibase) agree. (2) The index is the snak's position among its property's snaks in the role, not among all the role's snaks, so adding a qualifier of another property does not rename an existing node. (3) A reference snak hashes the reference hash in place of the statement UUID, not of the index: with the UUID in it, two statements citing one reference would give its unknown value two nodes while sharing its `ref:` node, and a store fed both would hold a reference with two unknown values. (4) The UUID is upper-cased, as Wikibase writes it, since statement IDs compare without case. (5) The property's `owl:complementOf` restriction, Wikibase's other blank node, is skolemized from `novalue|{property IRI}`. The plain form labels each blank node with the same hash, so the two forms map one to one; a dump's two files show it. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §4.3; [wikibase-compat.md](../api/wikibase-compat.md) §5.7.
+- **Summary:** Five calls made writing the layout A13 asked for. (1) The property enters as its concept IRI, not its ID, so two instances that prefix one upstream property differently (a registry provider and a tenant source of the same Wikibase) agree. (2) The index is the snak's position among its property's snaks in the role, not among all the role's snaks, so adding a qualifier of another property does not rename an existing node. (3) A reference snak hashes the reference hash in place of the statement UUID, not of the index: with the UUID in it, two statements citing one reference would give its unknown value two nodes while sharing its `ref:` node, and a store fed both would hold a reference with two unknown values. (4) The UUID is upper-cased, as Wikibase writes it, since statement IDs compare without case. (5) The property's `owl:complementOf` restriction, Wikibase's other blank node, is skolemized from `novalue|{property IRI}`. The plain form labels each blank node with the same hash, so the two forms map one to one; a dump's two files show it. Chapter text: 02 §4.3; [wikibase-compat.md](../api/wikibase-compat.md) §5.7.

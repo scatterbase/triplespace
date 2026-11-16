@@ -118,7 +118,7 @@ James's direction, from the design discussion of 2026-10-01:
 ### A1. Merging and re-following
 
 - **Date:** 2026-10-05
-- **Source:** [0068](0068-merging-with-upstream.md) §2, §5
+- **Source:** 0068 §2, §5
 - **Change:** amends §6, §9
 - **Summary:** The upstream diff's base follows `merge` records; merging and proposing replace the manual edit; re-following is a setting. Q1 settled.
 
@@ -127,7 +127,7 @@ Replaced text: §6, in part of this ADR.
 ### A2. Following the talk page
 
 - **Date:** 2026-10-06
-- **Source:** [0069](0069-synchronized-talk-pages.md) §7
+- **Source:** 0069 §7
 - **Change:** amends §1, §5
 - **Summary:** Forking asks whether the talk page follows upstream (the default where the repository's `talk` is `sync`) or is forked; `forked_from` records `talk`, and the `follow` page operation changes it. The conversion of §5 runs at fork time only for **Fork the talk page**, and later on **Stop following**. The front matter thread is created pinned and open.
 
@@ -138,14 +138,14 @@ Replaced text: §5 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §8
-- **Summary:** "Copying files" (§7) needs `upload`, whose default is `autoconfirmed` ([0039](0039-files-and-media.md) §21), not `user`; §8's permissions table had the default wrong. `reupload-shared` stays as 0039 §21 has it. (PENDING C13)
+- **Summary:** "Copying files" (§7) needs `upload`, whose default is `autoconfirmed` (0039 §21), not `user`; §8's permissions table had the default wrong. `reupload-shared` stays as 0039 §21 has it. (PENDING C13)
 
 Replaced text: §8 of this ADR.
 
 ### A4. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§12
 
 ### A5. Seeding is metadata-only by default, with content for the last 100 revisions
@@ -153,29 +153,29 @@ Replaced text: §8 of this ADR.
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §3, §4, §5; extends §10
-- **Summary:** Every upstream revision is seeded as metadata (content, comment and attestation parts, no `text` part), so the history is complete as a list; the `text` part is seeded for the last `fork.content_revisions` (`site`, default 100) revisions only, which a tenant may raise up to the instance ceiling, and an article whose editors want its whole history diffable here asks the job for it explicitly. `fork.max_revisions` (default 20,000) becomes the per-job budget, the number of upstream revisions one job seeds, metadata included, beyond which the oldest are not seeded and the History tab links upstream. `view.upstream_revision` carries a `tenant` column leading its key, since two tenants may fork one article, and admits page subjects in the key form page subjects take across `view`. Chapter text: [13](../architecture/13-mirrored-pages.md) §3.4, §3.6, §5.13. (REVIEW G37)
+- **Summary:** Every upstream revision is seeded as metadata (content, comment and attestation parts, no `text` part), so the history is complete as a list; the `text` part is seeded for the last `fork.content_revisions` (`site`, default 100) revisions only, which a tenant may raise up to the instance ceiling, and an article whose editors want its whole history diffable here asks the job for it explicitly. `fork.max_revisions` (default 20,000) becomes the per-job budget, the number of upstream revisions one job seeds, metadata included, beyond which the oldest are not seeded and the History tab links upstream. `view.upstream_revision` carries a `tenant` column leading its key, since two tenants may fork one article, and admits page subjects in the key form page subjects take across `view`. Chapter text: 13 §3.4, §3.6, §5.13. (REVIEW G37)
 
-Replaced text: [13](../architecture/13-mirrored-pages.md) §3.4.
+Replaced text: 13 §3.4.
 
-Replaced text: [13](../architecture/13-mirrored-pages.md) §3.6.
+Replaced text: 13 §3.6.
 
-Replaced text: [13](../architecture/13-mirrored-pages.md) §5.13.
+Replaced text: 13 §5.13.
 
 ### A6. Comment by comment, attribution from history, and `all`
 
 - **Date:** 2026-10-20
-- **Source:** [0090](0090-converting-talk-pages-comment-by-comment.md) §1–§9, §11, §12
+- **Source:** 0090 §1–§9, §11, §12
 - **Change:** amends §3, §5, §12
-- **Summary:** The talk-page conversion keeps its threads and splits their posts: each comment becomes one wikitext post, its `inReplyTo` the post it answers, found by signatures (a user link and a timestamp in a format of the universal registry `talk-markup.toml`, or an undated signature) and indentation; headings below level two become heading posts, wrappers that close a whole section or subsection become wrapper posts, and a section that will not split falls back to one post as before, a page that will not divide to one post for the page. Each post records `signed_as` and `added_by` and is attributed to its author, resolved from both, which settles Q4; the conversion reads the talk page's whole history from `fork.history_source` for a line-level blame, keeps only each post's `added_by`, and attributes archives from the parent's history. Chapter text: [13](../architecture/13-mirrored-pages.md) §3.4, §5.12–§5.17; [22](../architecture/22-crates-and-stack.md) §2.1.
+- **Summary:** The talk-page conversion keeps its threads and splits their posts: each comment becomes one wikitext post, its `inReplyTo` the post it answers, found by signatures (a user link and a timestamp in a format of the universal registry `talk-markup.toml`, or an undated signature) and indentation; headings below level two become heading posts, wrappers that close a whole section or subsection become wrapper posts, and a section that will not split falls back to one post as before, a page that will not divide to one post for the page. Each post records `signed_as` and `added_by` and is attributed to its author, resolved from both, which settles Q4; the conversion reads the talk page's whole history from `fork.history_source` for a line-level blame, keeps only each post's `added_by`, and attributes archives from the parent's history. Chapter text: 13 §3.4, §5.12–§5.17; 22 §2.1.
 
-Replaced text: [13](../architecture/13-mirrored-pages.md) §3.4, §5.12 and §5.13; [22](../architecture/22-crates-and-stack.md) §2.1, the `scatter-adapter-mediawiki` row.
+Replaced text: 13 §3.4, §5.12 and §5.13; 22 §2.1, the `scatter-adapter-mediawiki` row.
 
 ### A7. Editors may write wikitext posts too
 
 - **Date:** 2026-10-25
-- **Source:** Direct: James, design discussion of 2026-10-24 (recorded as [0019](0019-discussions.md) A28)
+- **Source:** Direct: James, design discussion of 2026-10-24 (recorded as 0019 A28)
 - **Change:** amends §5
-- **Summary:** A tenant's `thread.markup` setting may make editors' posts wikitext ([0019](0019-discussions.md) A28), so `text/x-wiki` is no longer written only by imports. An import still writes every post as wikitext, whatever the setting, and keeps its text as it was, signatures included: the removal of a trailing signature applies to original posts only. Chapter text: [13](../architecture/13-mirrored-pages.md) §5.13.
+- **Summary:** A tenant's `thread.markup` setting may make editors' posts wikitext (0019 A28), so `text/x-wiki` is no longer written only by imports. An import still writes every post as wikitext, whatever the setting, and keeps its text as it was, signatures included: the removal of a trailing signature applies to original posts only. Chapter text: 13 §5.13.
 
-Replaced text: [13](../architecture/13-mirrored-pages.md) §5.13.
+Replaced text: 13 §5.13.
 

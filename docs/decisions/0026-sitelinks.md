@@ -90,7 +90,7 @@ Two constraints shape the rest. The **host of a URL is a Domain** ([0009](0009-k
 ### A1. Crate table
 
 - **Date:** 2026-09-27
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §10
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A22).
 
@@ -106,7 +106,7 @@ Replaced text: §10 of this ADR.
 ### A3. Links to the tenant's own pages
 
 - **Date:** 2026-09-29
-- **Source:** [0038](0038-page-metadata-and-categories.md) §6
+- **Source:** 0038 §6
 - **Change:** amends §1; extends §2
 - **Summary:** By section:
   - §1: A sitelink in the local graph whose host is one the tenant is served at is stored by page ID, not URL. Its URL and title are derived from the page's current title, so a move does not break it; a title with no page is refused with `ts-sitelink-no-page`.
@@ -117,7 +117,7 @@ Replaced text: §1 of this ADR.
 ### A4. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §1–2, §10
 - **Summary:** A1–A3 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A3 was two blockquotes and A2 a struck question with a note. The file before conversion is commit `0b26a3a`.
 
@@ -126,14 +126,14 @@ Replaced text: §1 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §8
-- **Summary:** For a page paired with an item ([0038](0038-page-metadata-and-categories.md) §6, §11) the `schema:Article` node is the page node `{base}/page/{id}`, also typed `schema:WebPage`, with the URL as `schema:url`; every other sitelink keeps wikibase-compat §5.2's shape, where the node is the page's URL. (PENDING A20)
+- **Summary:** For a page paired with an item (0038 §6, §11) the `schema:Article` node is the page node `{base}/page/{id}`, also typed `schema:WebPage`, with the URL as `schema:url`; every other sitelink keeps wikibase-compat §5.2's shape, where the node is the page's URL. (PENDING A20)
 
 Replaced text: §8 of this ADR.
 
 ### A6. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§10
 
 ### A7. One URL across entities: local wins, and the projection never fails
@@ -141,18 +141,18 @@ Replaced text: §8 of this ADR.
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §2, §4
-- **Summary:** Where two entities hold one normalized URL in different graphs, a local link on one and a mirrored link on the other, the local link wins: the mirrored link is dropped from the resolved view, `view.sitelink` keeps the one-item-per-URL invariant of §2, and the dropped link is listed for maintenance beside the corrections of [0002](0002-source-graphs-and-mass-ingest.md) §7 so an editor can see what upstream says; between two mirrored links the provider order decides. The sitelink projection never fails on such a conflict: a sync batch that brings a colliding link is applied and the collision is resolved by the rule, not reported as an error of the batch. A local write that would collide with a mirrored link on another item is refused at write naming that item, since the one-item-per-URL check reads the resolved view, so the rule only ever decides between what a sync brought and what a tenant already holds. The normalizer-change rule of the same row (a per-property rebuild job, the rendering version bumped, `value_key` rows carrying the normalizer version) is logged in [0004](0004-identity-clusters-and-equivalence.md) §7. The ledger named §5 (Sitelinks and Domains), whose chapter text did not change; the fold is in [06](../architecture/06-statements-and-properties.md) §4.2 and §4.5, which hold §2 and §4. Nothing is contradicted, so this is an extension. (REVIEW G33)
+- **Summary:** Where two entities hold one normalized URL in different graphs, a local link on one and a mirrored link on the other, the local link wins: the mirrored link is dropped from the resolved view, `view.sitelink` keeps the one-item-per-URL invariant of §2, and the dropped link is listed for maintenance beside the corrections of 0002 §7 so an editor can see what upstream says; between two mirrored links the provider order decides. The sitelink projection never fails on such a conflict: a sync batch that brings a colliding link is applied and the collision is resolved by the rule, not reported as an error of the batch. A local write that would collide with a mirrored link on another item is refused at write naming that item, since the one-item-per-URL check reads the resolved view, so the rule only ever decides between what a sync brought and what a tenant already holds. The normalizer-change rule of the same row (a per-property rebuild job, the rendering version bumped, `value_key` rows carrying the normalizer version) is logged in 0004 §7. The ledger named §5 (Sitelinks and Domains), whose chapter text did not change; the fold is in 06 §4.2 and §4.5, which hold §2 and §4. Nothing is contradicted, so this is an extension. (REVIEW G33)
 
 ### A8. A stray `%` does not gain an escape from a decoded digit
 
 - **Date:** 2026-11-06
 - **Source:** Direct: Claude, while fixing the URL normalizer's idempotence (CI run 42331701027), 2026-11-06; unconfirmed
 - **Change:** extends §1
-- **Summary:** Step 4 decodes escaped unreserved characters, and the hex digits are unreserved, so a `%` not followed by two hex digits could become an escape after one pass and change on the next (`%%30a` → `%0a` → `%0A`): the normalized form was not a fixed point. An escaped hex digit that would complete a triplet with such a stray `%` now stays encoded (`%%30a` is its own key). The call for James is that a malformed `%` is kept as written, as the WHATWG parser keeps it, rather than encoded as `%25` or refused. Folded at [06](../architecture/06-statements-and-properties.md) §4.1.
+- **Summary:** Step 4 decodes escaped unreserved characters, and the hex digits are unreserved, so a `%` not followed by two hex digits could become an escape after one pass and change on the next (`%%30a` → `%0a` → `%0A`): the normalized form was not a fixed point. An escaped hex digit that would complete a triplet with such a stray `%` now stays encoded (`%%30a` is its own key). The call for James is that a malformed `%` is kept as written, as the WHATWG parser keeps it, rather than encoded as `%25` or refused. Folded at 06 §4.1.
 
 ### A9. The site aliases are generated
 
 - **Date:** 2026-11-15
-- **Source:** [0110](0110-remote-pages-and-revisions.md) §5
+- **Source:** 0110 §5
 - **Change:** extends §2
-- **Summary:** `tools/sites_gen.py` writes `sites.toml` from Wikimedia's site matrix: every public wiki, closed and fishbowl wikis included and private wikis left out, with group `special` for the matrix's specials. The same entries are the `wikimedia` host's site list, from which remote keys take their links. Chapter text: [06](../architecture/06-statements-and-properties.md) §4.3.
+- **Summary:** `tools/sites_gen.py` writes `sites.toml` from Wikimedia's site matrix: every public wiki, closed and fishbowl wikis included and private wikis left out, with group `special` for the matrix's specials. The same entries are the `wikimedia` host's site list, from which remote keys take their links. Chapter text: 06 §4.3.

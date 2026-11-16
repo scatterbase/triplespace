@@ -62,7 +62,7 @@ James's direction, from the design discussion of 2026-09-30: **`QQQ`, `PPP` and 
 ### A1. Crate table
 
 - **Date:** 2026-09-30
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §6
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries both changes this section listed (0005 A44).
 
@@ -71,28 +71,28 @@ Replaced text: §6 of this ADR.
 ### A2. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §6
 - **Summary:** A1 was folded into the Decision. The open questions were numbered. No decision changed. Before this, A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
 
 ### A3. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§6
 
 ### A4. Naming a tenant's entity from elsewhere
 
 - **Date:** 2026-10-09
-- **Source:** [0080](0080-tenants-as-entity-sources.md) §7
+- **Source:** 0080 §7
 - **Change:** amends §1
 - **Summary:** A tenant's entity is named from elsewhere by its IRI, and on a tenant that reads it by that tenant's name for it: the registry code where there is one (`LBQ6`), otherwise the reader's source name (`lb:Q6`).
 
-Replaced text: §1, in [04](../architecture/04-entities-and-identifiers.md) §2.3.
+Replaced text: §1, in 04 §2.3.
 
 ### A5. Cluster members are normalized at every entry point and rewritten on the way out
 
 - **Date:** 2026-10-09
-- **Source:** [0082](0082-source-form-and-the-shared-view.md) §2, §3
+- **Source:** 0082 §2, §3
 - **Change:** extends §1, §3
 - **Summary:** The tenant-relative form is now one of two alternative forms every entry point normalizes to the internal form before anything executes: the other is any member of an identity cluster, accepted wherever an entity ID is accepted (API parameters, change sets, titles, the search box, `wbgetentities`, `GET /resolve`, SPARQL constants), with a lookup by a clustered ID expanded to the member set through `view.cluster_member`, property paths left unexpanded, and search results collapsed to one per cluster. On the way out, a rewriting layer turns entity IDs into the form the consumer prefers (`prefer`, a namespace order defaulting to the form of the IDs in the request; the site UI asks for local), using exact matches only, so the ID a response shows is the member of the entity's cluster that the preference selects, while storage keeps the ID the source wrote and dumps and the update stream carry the stored form. Nothing about the tenant-relative form itself changes. (REVIEW G4, G5)

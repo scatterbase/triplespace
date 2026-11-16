@@ -164,7 +164,7 @@ James's direction, from the design discussion of 2026-09-30:
 ### A1. Crate table
 
 - **Date:** 2026-09-30
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §19
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries the two new crates and every change this section listed (0005 A42).
 
@@ -173,28 +173,28 @@ Replaced text: §19 of this ADR.
 ### A2. Lua: the `wikitext.lua` setting and entity usage
 
 - **Date:** 2026-09-30
-- **Source:** [0043](0043-lua-modules.md) §1, §10
+- **Source:** 0043 §1, §10
 - **Change:** extends §2, §10
 - **Summary:** `wikitext.lua` (`off`, `on`; default `off`; requires `wikitext.expansion = on`) joins the settings of §2, and the manifest records an entity with the usage aspects of 0043 §10, kept in `view.entity_usage`. Both were written into §2 and §10 before this ADR was first committed, together with 0043 (commit `644c2b6`).
 
 ### A3. Report deltas and site statistics
 
 - **Date:** 2026-09-30
-- **Source:** [0047](0047-special-pages.md) §4.3, §13
+- **Source:** 0047 §4.3, §13
 - **Change:** extends §10
 - **Summary:** The refresh job applies report deltas (`view.report_entry`) in the same transaction as the `transclusion`, link, category and `entity_usage` rows it writes. Site statistics, a volatile input here, are read from `view.site_stats`.
 
 ### A4. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §10, §19
 - **Summary:** A1–A3 were folded into the Decision. The open questions were numbered, and the headings of §1, §11 and §17 now use the verbs of 0050 §3 (amends, uses). No decision changed. Before this, A3 was a blockquote, A2 was written in place with no note, and A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
 
 ### A5. Template repositories become page repositories
 
 - **Date:** 2026-10-01
-- **Source:** [0052](0052-page-repositories-and-title-inheritance.md) §1, §3
+- **Source:** 0052 §1, §3
 - **Change:** amends §2, §11
 - **Summary:** The `template-repo` config kind is retired into `page-repo`, a repository that may serve any `pages` namespace; `wikitext.template_repos` becomes `pages.repos` and `wikitext.share` becomes `pages.share`. §11's lookup is the title stack of 0052 §3 applied to transclusion, and is otherwise unchanged. Nothing had been written under the old names.
 
@@ -203,9 +203,9 @@ Replaced text: §2 of this ADR; §11 of this ADR.
 ### A6. TemplateStyles, TemplateData and page properties
 
 - **Date:** 2026-10-01
-- **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §3, §5–7
+- **Source:** 0055 §3, §5–7
 - **Change:** amends §5, §8.1; extends §4, §7, §9, §10
-- **Summary:** `templatestyles` and `templatedata` move from `chip` to `implemented`; `__DISAMBIG__` from `ignored` to `implemented`; `SHORTDESC` and `#REDIRECT` are registered; the page properties expansion returns are stored in `view.page_prop`; `action=templatedata` is served to Parsoid; stylesheets are manifest entries and have a tracking category. Q2 and Q3 settled by 0055; Q4 and Q5 by [0053](0053-mirrored-pages.md) §5–6.
+- **Summary:** `templatestyles` and `templatedata` move from `chip` to `implemented`; `__DISAMBIG__` from `ignored` to `implemented`; `SHORTDESC` and `#REDIRECT` are registered; the page properties expansion returns are stored in `view.page_prop`; `action=templatedata` is served to Parsoid; stylesheets are manifest entries and have a tracking category. Q2 and Q3 settled by 0055; Q4 and Q5 by 0053 §5–6.
 
 Replaced text: §5 of this ADR.
 
@@ -214,7 +214,7 @@ Replaced text: §8.1 of this ADR.
 ### A7. An include may not widen
 
 - **Date:** 2026-10-01
-- **Source:** [0056](0056-security-model.md) §6
+- **Source:** 0056 §6
 - **Change:** amends §3
 - **Summary:** Transclusion is subject to the flow rule: a page includes another only if the included page's `read` groups are a subset of the including page's; a refused include is a red link for every viewer. The §10 refresh on a `read` ACL change already re-evaluates it.
 
@@ -223,7 +223,7 @@ Replaced text: §3 of this ADR.
 ### A8. A plain purge re-renders
 
 - **Date:** 2026-10-03
-- **Source:** [0057](0057-web-tier.md) §14
+- **Source:** 0057 §14
 - **Change:** amends §10, §14
 - **Summary:** A plain `action=purge` on a local page bumps its render epoch, deletes its `p:` keys and purges its `Cache-Tag`, as MediaWiki's purge re-parses a page whose output depends on the clock or on expanded templates. The new epoch changes the page's `ETag`, which is how the web tier's revalidating cache and the CDN see it. Anyone who may read the page may purge it, as in MediaWiki.
 
@@ -232,14 +232,14 @@ Replaced text: §10 of this ADR; §14 of this ADR.
 ### A9. Blocks
 
 - **Date:** 2026-10-05
-- **Source:** [0062](0062-workspaces.md) §2–3
+- **Source:** 0062 §2–3
 - **Change:** extends §4, §5, §10
 - **Summary:** `ExpandHost` gains scope, table, sprint and board reads; the registry gains the `#workspace` declaration and eight block functions, flagged `scoped`; the manifest gains the scoped-block entry and `view.render_dep_scoped`, with refreshes enqueued by the scope and task projections.
 
 ### A10. `#query` and `#conformance`
 
 - **Date:** 2026-10-05
-- **Source:** [0063](0063-query-namespace.md) §6; [0064](0064-entityschema-and-validation.md) §6
+- **Source:** 0063 §6; 0064 §6
 - **Change:** extends §5
 - **Summary:** Two more scoped blocks: a saved query's result table, and a schema's conformance figures.
 
@@ -248,7 +248,7 @@ Replaced text: §10 of this ADR; §14 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §11
-- **Summary:** `repo.cache_ttl` is a per-repository field of the `page-repo`/`file-repo` record, not a setting beside it, with a per-kind default: 7 days for files ([0039](0039-files-and-media.md) §11), one hour for template source and page bundles ([0052](0052-page-repositories-and-title-inheritance.md) §1). §11's sentence on proxying names the field as a field of the `page-repo` record with the one-hour default. (PENDING C20)
+- **Summary:** `repo.cache_ttl` is a per-repository field of the `page-repo`/`file-repo` record, not a setting beside it, with a per-kind default: 7 days for files (0039 §11), one hour for template source and page bundles (0052 §1). §11's sentence on proxying names the field as a field of the `page-repo` record with the one-hour default. (PENDING C20)
 
 Replaced text: §11 of this ADR.
 
@@ -257,14 +257,14 @@ Replaced text: §11 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §5
-- **Summary:** Tags and behaviour switches the registry marks `implemented` are rendered by the built-in renderer whether or not `wikitext.expansion` is on; expansion gates templates, parser functions and variables, not the extension tags and switches of §5's table. [0033](0033-backend-stack.md) §9.1's chip list is pruned to what stays `chip`. The row's verb is `amends`, but §5 says nothing that this contradicts: its statuses describe what the expander does with each entry and are silent on the renderer with expansion off, so it is logged as `extends`. (PENDING E20)
+- **Summary:** Tags and behaviour switches the registry marks `implemented` are rendered by the built-in renderer whether or not `wikitext.expansion` is on; expansion gates templates, parser functions and variables, not the extension tags and switches of §5's table. 0033 §9.1's chip list is pruned to what stays `chip`. The row's verb is `amends`, but §5 says nothing that this contradicts: its statuses describe what the expander does with each entry and are silent on the renderer with expansion off, so it is logged as `extends`. (PENDING E20)
 
 ### A13. Template's models
 
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §3
-- **Summary:** The models of Template (10) are `wikitext` and `sanitized-css`, the latter by the `.css` suffix rule of [0055](0055-templatestyles-templatedata-and-page-properties.md) §1, which §3's table omitted after 0055 added it to [0041](0041-content-models.md) §3. (PENDING E21)
+- **Summary:** The models of Template (10) are `wikitext` and `sanitized-css`, the latter by the `.css` suffix rule of 0055 §1, which §3's table omitted after 0055 added it to 0041 §3. (PENDING E21)
 
 Replaced text: §3 of this ADR.
 
@@ -273,7 +273,7 @@ Replaced text: §3 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §3
-- **Summary:** While `wikitext.expansion` is off, 10 is `reserved` and 11 is registered but disabled, both in `namespaces.toml` with `enabled_by`, as [0043](0043-lua-modules.md) §2 already says for 828 and 829. §3 said 11 was not registered. (PENDING E22)
+- **Summary:** While `wikitext.expansion` is off, 10 is `reserved` and 11 is registered but disabled, both in `namespaces.toml` with `enabled_by`, as 0043 §2 already says for 828 and 829. §3 said 11 was not registered. (PENDING E22)
 
 Replaced text: §3 of this ADR.
 
@@ -282,22 +282,22 @@ Replaced text: §3 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §10
-- **Summary:** `view.render_state` gains `unheld_misses integer`, the count of unheld-entity misses that [0043](0043-lua-modules.md) §11 describes `render_state` as holding. (PENDING E23)
+- **Summary:** `view.render_state` gains `unheld_misses integer`, the count of unheld-entity misses that 0043 §11 describes `render_state` as holding. (PENDING E23)
 
 ### A16. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§19
 
 ### A17. Row classes with one writer each, and usage invalidation as a tier-3 consumer
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §3, §6
+- **Source:** 0083 §3, §6
 - **Change:** amends §9, §10
-- **Summary:** Every projection declares its class, log-replayed or view-derived, and the render tables are neither: `transclusion`, `render_state` and the render-owned rows are render-derived, rebuilt by re-rendering every `wikitext` page, a rebuild that truncates the render-owned rows, enqueues every page on `ops.render_refresh` and re-runs no job. Refresh trigger 3 is no longer "a change to an entity's `resolved_version`" but a composition event, "entity X composed to version N", consumed by the entity-usage consumer in its own queue, never inside the composing or appending transaction; the consumer checks `view.entity_usage` for the entity and every member of its cluster before diffing, is off while no tenant has `wikitext.expansion` on, and off during bootstrap and bulk modes. The chapter resolved what the ledger did not say: a page's source links are indexed as soon as its edit is projected, and only the links its templates emit wait for the refresh queue. Chapter text: [11](../architecture/11-rendering-templates-and-modules.md) §4.1, §4.3, §4.4. (REVIEW G10, G13)
+- **Summary:** Every projection declares its class, log-replayed or view-derived, and the render tables are neither: `transclusion`, `render_state` and the render-owned rows are render-derived, rebuilt by re-rendering every `wikitext` page, a rebuild that truncates the render-owned rows, enqueues every page on `ops.render_refresh` and re-runs no job. Refresh trigger 3 is no longer "a change to an entity's `resolved_version`" but a composition event, "entity X composed to version N", consumed by the entity-usage consumer in its own queue, never inside the composing or appending transaction; the consumer checks `view.entity_usage` for the entity and every member of its cluster before diffing, is off while no tenant has `wikitext.expansion` on, and off during bootstrap and bulk modes. The chapter resolved what the ledger did not say: a page's source links are indexed as soon as its edit is projected, and only the links its templates emit wait for the refresh queue. Chapter text: 11 §4.1, §4.3, §4.4. (REVIEW G10, G13)
 
-Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §4.1, §4.3, §4.4.
+Replaced text: 11 §4.1, §4.3, §4.4.
 
 ### A18. Dependency-induced epoch bumps serve stale
 
@@ -306,36 +306,36 @@ Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §4.1
 - **Change:** amends §10
 - **Summary:** An epoch bump that a dependency induces (a template or module edited, an entity recomposed, a `wikitext.*` setting changed) serves the old `p:` entry stale-while-revalidate and lets the refresh queue re-render the page in its own time, so a template edit on a mirror of Wikipedia re-renders its pages behind the readers rather than in front of them. Synchronous renders are bounded per tenant by a render pool, deployment configuration beside the Parsoid concurrency; a miss that finds the pool full is served stale where a stale entry exists and enqueued, and waits only where there is none. The page's own edit and `action=purge` keep "no stale": they delete the `p:` keys and the next read renders afresh, so read-your-writes holds for the editor; erasure, deletion and hiding of a dependency never serve stale either, whatever the pool's state. (REVIEW G46)
 
-Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §4.5.
+Replaced text: 11 §4.5.
 
 ### A19. Expansion is part of wikitext
 
 - **Date:** 2026-10-20
 - **Source:** Direct: James, review of 2026-10-20
 - **Change:** amends §1, §2, §3, §9, §13
-- **Summary:** `wikitext.expansion` is withdrawn. Template expansion is a feature of having `wikitext` pages, not a setting: a tenant with pages expands them, and a tenant with only entities has nothing to expand. The setting's off state described a wiki that has pages but no templates, which is not one MediaWiki's clients expect: Pywikibot checks every page save for `{{nobots}}` through `prop=templates&tlnamespace=10` and refuses a namespace siteinfo omits, so on such a tenant it could save no page at all. So Template (10) and Template talk (11) are `pages` namespaces on every tenant, without `enabled_by`; `subst:` always expands on save; links, categories and page properties are always read from the expanded text as well as the stored text; the template reports and `Special:ExpandTemplates` need no setting, and `ts-expansion-off` is withdrawn. The two row classes of `from_render` stay, since their reason is one writer per class, but "turning expansion off truncates the render-owned rows" goes with the setting. The import's flattening revision (§13) becomes the fallback for an export that lacks its templates, not a tenant's mode. `wikitext.lua` and `wikitext.renderer` are unchanged, and `wikitext.ceiling` keeps `expansion` and `lua` and now caps only Lua; a `subset` ceiling already written caps Lua as `expansion` does. A stored `wikitext.expansion` record is ignored, since the registry no longer resolves the key, so no tenant needs a migration. Chapters [11](../architecture/11-rendering-templates-and-modules.md) §1.1, §1.3, §2.3 and §4.1, [10](../architecture/10-pages-and-content-models.md) §1.4, §5.1, §5.3, §5.5 and §6, [23](../architecture/23-configuration-and-registry.md) §1.4, §3.2 and §3.4, and the sentences of [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [13](../architecture/13-mirrored-pages.md) §3.3, [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md) §3.1–3.2, [21](../architecture/21-special-pages.md) and [22](../architecture/22-crates-and-stack.md) that named the setting were rewritten; the registries `settings.toml`, `namespaces.toml`, `special-pages.toml`, `tenancy.toml`, `version.toml` and `wikitext-functions.toml` follow.
+- **Summary:** `wikitext.expansion` is withdrawn. Template expansion is a feature of having `wikitext` pages, not a setting: a tenant with pages expands them, and a tenant with only entities has nothing to expand. The setting's off state described a wiki that has pages but no templates, which is not one MediaWiki's clients expect: Pywikibot checks every page save for `{{nobots}}` through `prop=templates&tlnamespace=10` and refuses a namespace siteinfo omits, so on such a tenant it could save no page at all. So Template (10) and Template talk (11) are `pages` namespaces on every tenant, without `enabled_by`; `subst:` always expands on save; links, categories and page properties are always read from the expanded text as well as the stored text; the template reports and `Special:ExpandTemplates` need no setting, and `ts-expansion-off` is withdrawn. The two row classes of `from_render` stay, since their reason is one writer per class, but "turning expansion off truncates the render-owned rows" goes with the setting. The import's flattening revision (§13) becomes the fallback for an export that lacks its templates, not a tenant's mode. `wikitext.lua` and `wikitext.renderer` are unchanged, and `wikitext.ceiling` keeps `expansion` and `lua` and now caps only Lua; a `subset` ceiling already written caps Lua as `expansion` does. A stored `wikitext.expansion` record is ignored, since the registry no longer resolves the key, so no tenant needs a migration. Chapters 11 §1.1, §1.3, §2.3 and §4.1, 10 §1.4, §5.1, §5.3, §5.5 and §6, 23 §1.4, §3.2 and §3.4, and the sentences of [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), 13 §3.3, [18](../architecture/18-api.md), 19 §3.1–3.2, [21](../architecture/21-special-pages.md) and [22](../architecture/22-crates-and-stack.md) that named the setting were rewritten; the registries `settings.toml`, `namespaces.toml`, `special-pages.toml`, `tenancy.toml`, `version.toml` and `wikitext-functions.toml` follow.
 
-Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §1.1 and §1.3.
+Replaced text: 11 §1.1 and §1.3.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §6 step 3; [23](../architecture/23-configuration-and-registry.md) §3.2.
+Replaced text: 10 §6 step 3; 23 §3.2.
 
 ### A20. The Interface namespace
 
 - **Date:** 2026-10-28
-- **Source:** [0095](0095-the-interface-namespace.md) §2
+- **Source:** 0095 §2
 - **Change:** amends §5
 - **Summary:** Messages that `{{int:}}` reads are overridden by the wiki's Interface pages, the instance's under the wiki's (0095 §2); the namespace is no longer reserved.
 
-Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §2.3.
+Replaced text: 11 §2.3.
 
 ### A21. Messages from Interface pages
 
 - **Date:** 2026-10-28
-- **Source:** [0095](0095-the-interface-namespace.md) §8 (A1)
+- **Source:** 0095 §8 (A1)
 - **Change:** amends §5, §8.1, §14
 - **Summary:** `{{int:}}` expands the wiki's Interface page for the key in the wiki's language, with its arguments, and stays a chip where there is none; `meta=allmessages` answers from the Interface pages over the site's shipped messages (0095 §2, §8).
 
-Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §2.3, §3.1; [18](../architecture/18-api.md) §2.3.
+Replaced text: 11 §2.3, §3.1; 18 §2.3.
 
 ### A22. Which template drew a block
 
@@ -353,7 +353,7 @@ Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §2.3
 - **Date:** 2026-11-07
 - **Source:** Direct: James, design discussion of 2026-11-07
 - **Change:** amends §4
-- **Summary:** The expander's reason for being written from MediaWiki's behaviour rather than translated from its PHP, keeping the crate original code under the shared crates' dual licence, lapsed when the commercial licence was withdrawn ([0005](0005-crate-organization.md) A114). Asked the same day, James kept the rule.
+- **Summary:** The expander's reason for being written from MediaWiki's behaviour rather than translated from its PHP, keeping the crate original code under the shared crates' dual licence, lapsed when the commercial licence was withdrawn (0005 A114). Asked the same day, James kept the rule.
 
-Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §1.4.
+Replaced text: 11 §1.4.
 

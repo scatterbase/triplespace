@@ -87,7 +87,7 @@ There are three needs:
 ### A1. Keyed types rank first
 
 - **Date:** 2026-09-26
-- **Source:** [0009](0009-keyed-entity-types-and-domain.md) §8
+- **Source:** 0009 §8
 - **Change:** extends §1; amends §4
 - **Summary:** A keyed type is a namespace of its own. Keyed members rank first in a cluster, ahead of local members.
 
@@ -96,14 +96,14 @@ Replaced text: §4 of this ADR.
 ### A2. Keywords never cluster
 
 - **Date:** 2026-09-27
-- **Source:** [0017](0017-entity-id-grammar.md) §5
+- **Source:** 0017 §5
 - **Change:** extends §1
 - **Summary:** `same-as` with a keyword on either side is rejected at write time, and no tier-2 or tier-3 link may produce one. A keyword may carry an ordinary statement pointing at the concept it usually denotes.
 
 ### A3. Tenants: links and overlays
 
 - **Date:** 2026-09-27
-- **Source:** [0018](0018-tenants.md) §5–6
+- **Source:** 0018 §5–6
 - **Change:** extends §3
 - **Summary:** Tier-2 and tier-3 links come from shared graphs and are instance-wide; tier-1 links and `different-from` blocks are each tenant's own. A tenant's clusters are the shared clusters with its overlay applied. A provider tenant's `same-as` and `convert` records are tier-1 links for it and tier-2 links for everyone else. 0018 §7 also settled Q8.
 
@@ -119,49 +119,49 @@ Replaced text: §9 of this ADR.
 ### A5. Deleted members leave the cluster
 
 - **Date:** 2026-09-27
-- **Source:** [0023](0023-moderation.md) §4
+- **Source:** 0023 §4
 - **Change:** extends §4
 - **Summary:** A deleted local entity leaves its identity cluster, as a member tombstoned under `orphan` does; the next member becomes canonical. Its `same-as` and `different-from` records are kept but not applied, and apply again on undelete.
 
 ### A6. The url normalizer
 
 - **Date:** 2026-09-27
-- **Source:** [0026](0026-sitelinks.md) §1
+- **Source:** 0026 §1
 - **Change:** extends §7
 - **Summary:** The sitelink URL normalizer is the `url` data type's normalized key.
 
 ### A7. OpenStreetMap tags are not concepts
 
 - **Date:** 2026-09-28
-- **Source:** [0036](0036-openstreetmap-providers.md) §6
+- **Source:** 0036 §6
 - **Change:** extends §1
 - **Summary:** `osm-tag` entities never join an identity cluster. 0048 later moved the rule to notations of every scheme (A9).
 
 ### A8. Conflict and linking forms
 
 - **Date:** 2026-09-30
-- **Source:** [0047](0047-special-pages.md) §5–6
+- **Source:** 0047 §5–6
 - **Change:** extends §10
 - **Summary:** The review list is `Special:IdentityConflicts`, with these resolutions as row actions. `Special:LinkEntities` is the form for `same-as`, `different-from` and `equivalent-property`; `Special:MergeItems` writes a merging `redirect` within one namespace and refuses a merge across namespaces.
 
 ### A9. Notations never cluster
 
 - **Date:** 2026-10-01
-- **Source:** [0048](0048-notation.md) §3
+- **Source:** 0048 §3
 - **Change:** extends §1
 - **Summary:** No notation of any scheme joins an identity cluster, as A7 decided for OpenStreetMap tags and A2 for keywords.
 
 ### A10. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §1–10
 - **Summary:** A1–A9 were folded into the Decision and the open questions were numbered; the review decisions that settled Q1–Q4 and Q7 are A4. No decision changed. Before this, A4's §9 part and A8 were blockquotes, and the other entries were recorded only in this ADR's header, its open questions or other ADRs. The file before conversion is commit `0b26a3a`.
 
 ### A11. Lexeme parts
 
 - **Date:** 2026-10-05
-- **Source:** [0066](0066-lexemes.md) §4
+- **Source:** 0066 §4
 - **Change:** extends §1
 - **Summary:** Clusters hold lexemes; forms and senses never join one and keep their IDs across a cluster.
 
@@ -179,7 +179,7 @@ Replaced text: §1 of this ADR; §2 of this ADR; §4 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §4, §9
-- **Summary:** The `reconcile` record is tenant configuration ([0018](0018-tenants.md) §3), not "an instance's configuration": the provider order, link properties and normalizer overrides of §9 are set per tenant. The inference properties are the exception, which A14 states. The §4 sentence this corrects is the one A12 also replaced ("Each instance sets the order of the providers after them."); it is quoted under A12. (PENDING A17)
+- **Summary:** The `reconcile` record is tenant configuration (0018 §3), not "an instance's configuration": the provider order, link properties and normalizer overrides of §9 are set per tenant. The inference properties are the exception, which A14 states. The §4 sentence this corrects is the one A12 also replaced ("Each instance sets the order of the providers after them."); it is quoted under A12. (PENDING A17)
 
 Replaced text: §9 of this ADR.
 
@@ -188,70 +188,70 @@ Replaced text: §9 of this ADR.
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §3
-- **Summary:** The identifier properties that drive tier-3 inference are **instance** configuration, named in the instance `reconcile` record, so tier-3 links stay instance-wide (§3's farm rule). A tenant's `reconcile` may switch inference off for itself and set its provider order and link properties, but may not add inference properties. [0015](0015-record-format-and-partition-registry.md) §3 (`reconcile`) and 0018 §3 are amended the same way. Q2's settlement is extended accordingly. (PENDING B6)
+- **Summary:** The identifier properties that drive tier-3 inference are **instance** configuration, named in the instance `reconcile` record, so tier-3 links stay instance-wide (§3's farm rule). A tenant's `reconcile` may switch inference off for itself and set its provider order and link properties, but may not add inference properties. 0015 §3 (`reconcile`) and 0018 §3 are amended the same way. Q2's settlement is extended accordingly. (PENDING B6)
 
 Replaced text: §3 of this ADR.
 
 ### A15. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§10
 
 ### A16. Source form, rewriting in responses and the instance policy record
 
 - **Date:** 2026-10-09
-- **Source:** [0082](0082-source-form-and-the-shared-view.md) §1, §3, §4, §5, §5.1
+- **Source:** 0082 §1, §3, §4, §5, §5.1
 - **Change:** amends §3, §4, §5, §6, §9
-- **Summary:** The internal graph is in source form: the canonical ID is an attribute of the cluster, named by `view.cluster`, and never applied to data; statement subjects, entity values, `entity_ref`, `identifier`, the search documents, the dump and the stream keep the IDs their sources wrote, and nothing rewrites an ID in storage because a cluster formed, changed or dissolved. The form a consumer sees is a property of the response: a layer on the way out rewrites entity IDs, the entity part of statement GUIDs and `unit`, `globe` and `calendarmodel` to the consumer's preferred namespace order (`prefer`, defaulting to the form of the request; local for the site UI), using exact matches only (tier 1, tier 2 and `equivalent-property`, never tier-3 inference or anything a `different-from` split), after the cache, never inside literals; `wbgetentities` answers under the requested ID with a `canonical` field, and the Wikibase redirect shape is reserved for true redirects. So a converted `WDQ123` no longer "resolves to" `Q456` (§5); the two are one cluster, and a property `redirect` across namespaces makes the old ID an alias served under the new one (§9). The fused body treats an `equivalent-property` pair as one property, with stored predicates keeping their IDs (§6). 0082's table listed §3, §4 and §9; the chapter also folds §5 ([04](../architecture/04-entities-and-identifiers.md) §4.5) and §6 ([04](../architecture/04-entities-and-identifiers.md) §4.6), and the table was extended. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §4.3, §4.4, §4.5, §4.6, §4.10. (REVIEW G1, G2, G3, G5, G6)
+- **Summary:** The internal graph is in source form: the canonical ID is an attribute of the cluster, named by `view.cluster`, and never applied to data; statement subjects, entity values, `entity_ref`, `identifier`, the search documents, the dump and the stream keep the IDs their sources wrote, and nothing rewrites an ID in storage because a cluster formed, changed or dissolved. The form a consumer sees is a property of the response: a layer on the way out rewrites entity IDs, the entity part of statement GUIDs and `unit`, `globe` and `calendarmodel` to the consumer's preferred namespace order (`prefer`, defaulting to the form of the request; local for the site UI), using exact matches only (tier 1, tier 2 and `equivalent-property`, never tier-3 inference or anything a `different-from` split), after the cache, never inside literals; `wbgetentities` answers under the requested ID with a `canonical` field, and the Wikibase redirect shape is reserved for true redirects. So a converted `WDQ123` no longer "resolves to" `Q456` (§5); the two are one cluster, and a property `redirect` across namespaces makes the old ID an alias served under the new one (§9). The fused body treats an `equivalent-property` pair as one property, with stored predicates keeping their IDs (§6). 0082's table listed §3, §4 and §9; the chapter also folds §5 (04 §4.5) and §6 (04 §4.6), and the table was extended. Chapter text: 04 §4.3, §4.4, §4.5, §4.6, §4.10. (REVIEW G1, G2, G3, G5, G6)
 
-Replaced text: [04](../architecture/04-entities-and-identifiers.md) §4.3, §4.4.
+Replaced text: 04 §4.3, §4.4.
 
-Replaced text: [04](../architecture/04-entities-and-identifiers.md) §4.5, §4.6, §4.10.
+Replaced text: 04 §4.5, §4.6, §4.10.
 
 ### A17. Composition is a pure function run after commit
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §2
+- **Source:** 0083 §2
 - **Change:** extends §4
-- **Summary:** The fused body of a cluster is composed by the resolver as a deterministic function of the contributing graphs' states, the policy record's offset and the cluster map version, recorded on the composed row as `composed_from`; it runs after the write that changed one of them, never inside its transaction: inline for the written entity, in the composition worker for the other members of a changed cluster and the overlays of tenants that hold one, on miss on the read path, and set-based in bootstrap and bulk modes. 0083's table said `amends`; the chapter text under §4 ([04](../architecture/04-entities-and-identifiers.md) §4.4) said nothing about when or where composition ran, so nothing is contradicted and this entry extends. (REVIEW G9)
+- **Summary:** The fused body of a cluster is composed by the resolver as a deterministic function of the contributing graphs' states, the policy record's offset and the cluster map version, recorded on the composed row as `composed_from`; it runs after the write that changed one of them, never inside its transaction: inline for the written entity, in the composition worker for the other members of a changed cluster and the overlays of tenants that hold one, on miss on the read path, and set-based in bootstrap and bulk modes. 0083's table said `amends`; the chapter text under §4 (04 §4.4) said nothing about when or where composition ran, so nothing is contradicted and this entry extends. (REVIEW G9)
 
 ### A18. `wbmergeitems` between a local and a mirrored item is a `same-as`
 
 - **Date:** 2026-10-09
-- **Source:** [0084](0084-wikibase-writes-against-the-resolved-view.md) §2
+- **Source:** 0084 §2
 - **Change:** extends §9
-- **Summary:** A Wikibase write is reduced to the local-graph operations by ownership of what it touches, and `wbmergeitems` between a local and a mirrored item is a `same-as`, never a copy; between two foreign entities it is a `redirect`. The chapter carries the module table at [18](../architecture/18-api.md) §3. (REVIEW G16)
+- **Summary:** A Wikibase write is reduced to the local-graph operations by ownership of what it touches, and `wbmergeitems` between a local and a mirrored item is a `same-as`, never a copy; between two foreign entities it is a `redirect`. The chapter carries the module table at 18 §3. (REVIEW G16)
 
 ### A19. Adapters never map onto a tenant's properties
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §6
-- **Summary:** A mirror partition is an instance partition read by every tenant, a local `P12` means a different entity on each tenant, and an instance job cannot mint from a tenant's sequence; so no adapter writes a local property or item ID into a mirror graph, and none creates a local entity on import. A provider that needs vocabulary of its own has a provider **property type** in the registry, a `[[provider.type]]` row with `entity_type = "property"` under its code, its letter allocated when the adapter is built (OpenAlex already uses `P` for publishers; OpenStreetMap and GDELT likewise), with its properties minted by the adapter under deterministic IDs and the mapping versioned with the adapter. Enumerated values map onto Wikidata items where one fits, else onto a provider type of the provider's own. Where an adapter names a property by role, the binding it reads is the instance-scope `role` record's, never a tenant's ([0003](0003-statement-ui.md) A14). "Otherwise onto a local property", "the adapter can create them on first import" and "local properties that an adapter maps onto are protected from deletion" are struck. (REVIEW G26)
+- **Summary:** A mirror partition is an instance partition read by every tenant, a local `P12` means a different entity on each tenant, and an instance job cannot mint from a tenant's sequence; so no adapter writes a local property or item ID into a mirror graph, and none creates a local entity on import. A provider that needs vocabulary of its own has a provider **property type** in the registry, a `[[provider.type]]` row with `entity_type = "property"` under its code, its letter allocated when the adapter is built (OpenAlex already uses `P` for publishers; OpenStreetMap and GDELT likewise), with its properties minted by the adapter under deterministic IDs and the mapping versioned with the adapter. Enumerated values map onto Wikidata items where one fits, else onto a provider type of the provider's own. Where an adapter names a property by role, the binding it reads is the instance-scope `role` record's, never a tenant's (0003 A14). "Otherwise onto a local property", "the adapter can create them on first import" and "local properties that an adapter maps onto are protected from deletion" are struck. (REVIEW G26)
 
-Replaced text: [04](../architecture/04-entities-and-identifiers.md) §4.6.
+Replaced text: 04 §4.6.
 
 ### A20. `unit`, `globe` and `calendarmodel` are prefixed entity IDs
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §7
-- **Summary:** The `unit` of a quantity, the `globe` of a coordinate and the `calendarmodel` of a time are stored as prefixed entity IDs (`"unit": "WDQ11573"`, `"unit": "Q7"`, `"unit": "1"` unchanged for a dimensionless quantity), never as a concept IRI under some base; they are expanded through the current IRI template on output, the adapter rewrites them on ingest as it rewrites every other ID, the content hash is over the stored form, and they participate in `entity_ref` and in the response rewrite as entity values do. `wikibase-compat.md` §4 describes the serialization. The ledger also named [0003](0003-statement-ui.md) §7, which holds none of this text; the fold is at [04](../architecture/04-entities-and-identifiers.md) §4.7, and the ledger row was corrected. (REVIEW G21)
+- **Summary:** The `unit` of a quantity, the `globe` of a coordinate and the `calendarmodel` of a time are stored as prefixed entity IDs (`"unit": "WDQ11573"`, `"unit": "Q7"`, `"unit": "1"` unchanged for a dimensionless quantity), never as a concept IRI under some base; they are expanded through the current IRI template on output, the adapter rewrites them on ingest as it rewrites every other ID, the content hash is over the stored form, and they participate in `entity_ref` and in the response rewrite as entity values do. `wikibase-compat.md` §4 describes the serialization. The ledger also named 0003 §7, which holds none of this text; the fold is at 04 §4.7, and the ledger row was corrected. (REVIEW G21)
 
 ### A21. A normalizer change is a rebuild, not a rewrite
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §7
-- **Summary:** The normalized keys are stored beside the values in `view.value_key`, and each row carries the version of the normalizer that produced it. Changing a normalizer, whether a data type's, a property's override or a resolver's, enqueues a per-property rebuild job that recomputes the keys of every value of the affected properties and bumps the rendering version of the update stream, since the normalized (`wdtn:`) triples change lexical form; until the job completes, rows of the old version are compared by the old key. The sitelink half of the ledger row is under [0026](0026-sitelinks.md) §5. (REVIEW G33)
+- **Summary:** The normalized keys are stored beside the values in `view.value_key`, and each row carries the version of the normalizer that produced it. Changing a normalizer, whether a data type's, a property's override or a resolver's, enqueues a per-property rebuild job that recomputes the keys of every value of the affected properties and bumps the rendering version of the update stream, since the normalized (`wdtn:`) triples change lexical form; until the job completes, rows of the old version are compared by the old key. The sitelink half of the ledger row is under 0026 §5. (REVIEW G33)
 
 ### A22. Linking properties needs `ts-linkproperty`
 
 - **Date:** 2026-10-09
-- **Source:** [0016](0016-permissions-and-access-control.md) A32
+- **Source:** 0016 A32
 - **Change:** amends §9
-- **Summary:** A local property's `redirect` across namespaces (A4) needs `ts-linkproperty`, not `property-create`, which every registered account now holds by default; `equivalent-property` needs it too ([09](../architecture/09-security-and-moderation.md) §2.4). Both change predicates for every consumer, so the right stays with `propertycreator` and `sysop`.
+- **Summary:** A local property's `redirect` across namespaces (A4) needs `ts-linkproperty`, not `property-create`, which every registered account now holds by default; `equivalent-property` needs it too (09 §2.4). Both change predicates for every consumer, so the right stays with `propertycreator` and `sysop`.
 
-Replaced text: [04](../architecture/04-entities-and-identifiers.md) §4.10.
+Replaced text: 04 §4.10.
 
