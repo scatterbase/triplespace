@@ -298,6 +298,56 @@
 	margin: 0;
 }
 
+/* A locked cell (0106 §6): the statement every item shares, shown where a row has none
+   of its own, with the button that unlocks it for the row. */
+.ts-sheet__locked {
+	display: inline-block;
+	padding: 0.3125rem 0.5rem;
+	color: var( --color-subtle );
+}
+
+.ts-sheet__heading--locked {
+	color: var( --color-subtle );
+}
+
+.ts-sheet__lock {
+	margin-inline-end: 0.25rem;
+	color: var( --color-subtle );
+}
+
+.ts-sheet__unlock,
+.ts-sheet__chip {
+	margin: 0 0.25rem;
+	padding: 0 0.375rem;
+	border: 1px solid var( --border-color-subtle );
+	border-radius: 1rem;
+	background: var( --background-color-base );
+	color: var( --color-subtle );
+	font: inherit;
+	font-size: 0.8125rem;
+	line-height: 1.5;
+	cursor: pointer;
+}
+
+.ts-sheet__unlock {
+	border-color: transparent;
+	background: transparent;
+}
+
+.ts-sheet__chip--set {
+	border-color: var( --border-color-progressive );
+	color: var( --color-progressive );
+}
+
+.ts-sheet__unlock:hover,
+.ts-sheet__unlock:focus-visible,
+.ts-sheet__chip:hover,
+.ts-sheet__chip:focus-visible {
+	border-color: var( --border-color-progressive );
+	background: var( --background-color-progressive-subtle );
+	color: var( --color-progressive );
+}
+
 /* The statements on every item and the reference on every statement, as lists. */
 .ts-sheet-lines {
 	margin: 1rem 0;
@@ -338,6 +388,11 @@
 .ts-sheet-lines__value {
 	flex: 1 1 14rem;
 	max-width: 24rem;
+}
+
+.ts-sheet__own .ts-sheet-lines {
+	flex: 1 1 100%;
+	margin: 0;
 }
 
 .ts-createfrom__links {

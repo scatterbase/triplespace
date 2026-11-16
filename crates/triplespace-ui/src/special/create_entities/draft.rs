@@ -379,21 +379,77 @@ pub fn shared_lines(def: &Definition) -> Vec<Line> {
 /// refused row stays, with its reason. Rows are named by their position in the text the
 /// run read, which is their position among the staged rows.
 pub fn record(def: &mut Definition, written: &[(usize, String)], refused: &[(usize, String)]) {
+    let number = numbers(def);
+    let n_of = |position: usize| number.get(position.wrapping_sub(1)).copied();
+    let by_number = |rows: &[(usize, String)]| -> Vec<(u64, String)> {
+        rows.iter()
+            .filter_map(|(position, text)| Some((n_of(*position)?, text.clone())))
+            .collect()
+    };
+    record_numbered(def, &by_number(written), &by_number(refused), &[]);
+}
+
+/// The numbers of a table's staged rows, in order: row `p` of its text, counting from 1,
+/// is the row numbered `numbers[p - 1]`.
+#[must_use]
+pub fn numbers(def: &Definition) -> Vec<u64> {
+    def.staged
+        .as_ref()
+        .map(|s| s.rows.iter().map(|r| r.n).collect())
+        .unwrap_or_default()
+}
+
+/// The table with only the staged rows that wait for a run (0106 A11): those no run has
+/// refused and that are not left out.
+#[must_use]
+pub fn waiting(def: &Definition) -> Definition {
+    let mut out = def.clone();
+    if let Some(staged) = out.staged.as_mut() {
+        staged.rows.retain(|r| r.refused.is_none() && !r.skip);
+    }
+    out
+}
+
+/// The title a table is kept under without its namespace, as the form gives it: what
+/// cannot be in a title is replaced, and a `Table:` typed before it is taken off.
+#[must_use]
+pub fn kept_name(name: &str) -> String {
+    let name = name.trim();
+    let name = name
+        .get(..6)
+        .filter(|p| p.eq_ignore_ascii_case("table:"))
+        .map_or(name, |_| &name[6..]);
+    name.chars()
+        .map(|c| if "#<>[]|{}".contains(c) { '-' } else { c })
+        .collect::<String>()
+        .trim()
+        .trim_matches('/')
+        .to_string()
+}
+
+/// [`record`] with the rows named by their numbers, and the properties a run created,
+/// by position among those the table declares: a column of such a property becomes a
+/// column of the property itself, so that a later run does not create it again.
+pub fn record_numbered(
+    def: &mut Definition,
+    written: &[(u64, String)],
+    refused: &[(u64, String)],
+    properties: &[Option<String>],
+) {
+    for c in &mut def.columns {
+        if let Field::Statements(Property::New(i)) = &c.field
+            && let Some(Some(id)) = properties.get(*i)
+            && let Ok(id) = EntityId::parse(id)
+        {
+            c.field = Field::Statements(Property::Id(id));
+        }
+    }
     let Some(staged) = def.staged.as_mut() else {
         return;
     };
-    let number: Vec<u64> = staged.rows.iter().map(|r| r.n).collect();
-    let n_of = |position: usize| number.get(position.wrapping_sub(1)).copied();
-    let mut done: BTreeMap<u64, String> = BTreeMap::new();
-    for (position, id) in written {
-        if let Some(n) = n_of(*position) {
-            done.insert(n, id.clone());
-        }
-    }
-    for (position, why) in refused {
-        if let Some(n) = n_of(*position)
-            && let Some(r) = staged.rows.iter_mut().find(|r| r.n == n)
-        {
+    let done: BTreeMap<u64, String> = written.iter().cloned().collect();
+    for (n, why) in refused {
+        if let Some(r) = staged.rows.iter_mut().find(|r| r.n == *n) {
             r.refused = Some(why.clone());
         }
     }

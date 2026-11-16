@@ -13,6 +13,8 @@ export interface SheetHeader {
 	label: string;
 	sub?: string;
 	menu?: boolean;
+	/** Whether the column's cells are locked unless a row unlocks its own. */
+	locked?: boolean;
 }
 
 /** A row. */
@@ -30,4 +32,8 @@ export interface SheetRow {
 	readonly?: boolean[];
 	changed?: boolean[];
 	notes?: string[];
+	/** What a locked cell shows in place of its own value; null where it is not locked. */
+	locked?: ( string | null )[];
+	/** The number a cell's chip stands for; null where the cell has no chip. */
+	chips?: ( number | null )[];
 }

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-08
-- **Updated:** 2026-11-15 (A10)
+- **Updated:** 2026-11-16 (A11)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0045](0045-table-content-model.md), [0104](0104-batches-and-the-job-runner.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0043](0043-lua-modules.md), [0064](0064-entityschema-and-validation.md), [0073](0073-lines-links-and-url-patterns.md)
@@ -27,7 +27,7 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 1. The grid is an enhancement over the table's text (amends 0104 §11)
 
-*Changed by A2, A6, A9.*
+*Changed by A2, A6, A9, A11.*
 
 *Current text: [21](../architecture/21-special-pages.md) §6.6, §6.7.*
 
@@ -55,7 +55,7 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 6. Row status and cells by data type (uses 0003 §9 and 0073)
 
-*Changed by A1, A6, A7, A9, A10.*
+*Changed by A1, A6, A7, A9, A10, A11.*
 
 *Current text: [21](../architecture/21-special-pages.md) §6.7.*
 
@@ -73,7 +73,7 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 9. Drafts are tables with staged rows (amends 0045 §1; extends 0045 §4 and §7)
 
-*Changed by A1, A2, A3, A5, A9, A10.*
+*Changed by A1, A2, A3, A5, A9, A10, A11.*
 
 *Current text: [15](../architecture/15-structured-pages.md) §2.1, §2.3, §2.6, §2.7.*
 
@@ -196,4 +196,15 @@ Replaced text ([21](../architecture/21-special-pages.md) §6.8, as it stood):
 - **Source:** Direct: Claude, while building A9, 2026-11-15; confirmed by James, 2026-11-15
 - **Change:** extends §6, §7 and §9
 - **Summary:** (1) The file's page is `Special:CreateEntitiesFromFile`; with a table's title after it, it fills that draft, and a saved mapping (A6 (5)) applies there. It passes a table on by posting its text to `Special:CreateManyEntities` with `wpStep=open`, which shows the form holding it and checks and writes nothing. Without JavaScript the file is uploaded to the page, which tells commands from a table by the first line that says anything. (2) `Special:QuickStatements` reads `CREATE` and `LAST`, and also a command on an item's ID, as a row that adds to that item; on such a row a label or description is written with `!`, since the command sets the term whatever it was. Sources become the statement's own reference. A removal, a sitelink, `MERGE` and a target that is not an item are refused by line, and nothing opens until every line reads; qualifiers are left out and counted, as A6 (4) left them out of a file. A quantity's unit is read (`12U11573`). (3) A table saved by an import with no name given is named from the time, and takes a number after the name when a page already has it. A name the editor gave that a page already has is refused before anything is written. (4) The form's button writes only while nothing has changed since the check, anything typed beside the grid included; otherwise it checks again. (5) The statements on every item and the reference on every statement are lists beside the grid over their text boxes, a property and its value on each line, the reference's value given or read from a plain column: a step toward the locked columns and the reference block of §6, which are not built.
+
+### A11. Keeping a table, runs past 500 rows, locked columns and reference chips, found while building
+
+- **Date:** 2026-11-16
+- **Source:** Direct: Claude, while building the kept table, the runs of a larger table, the locked columns and the reference chips (SCA-333, SCA-334), 2026-11-16; unconfirmed
+- **Change:** extends §1 and §9; amends §6
+- **Summary:** What §6, §9 and A2 decided and the building had to settle. (1) **Keeping a table** is a tick beside the table's name. A table not yet saved is made as `Table:{title}`; a draft already saved is moved there before anything else, and the move leaves a redirect, since leaving none needs a right most editors lack. A name is required, and a table of its own is not asked again. (2) **Runs.** A table is checked whole, up to 5000 rows, the default of `tables.max_rows`. One run writes 500 rows. The first run writes what the confirmation carries; each later run reads the saved table, checks again the staged rows that no run has written or refused, and writes the next 500. The page sends the next run itself with JavaScript; without it the report carries a button. The batch is closed by the last run. (3) A row the check finds a problem in is recorded in the table as refused, with what was found, where it used to stay staged without a reason; such a row waits for no run. A property a run created becomes a column of that property in the table; before, importing the rest of a draft would have tried to create it again. (4) An import ends when a run writes and refuses nothing, so that a table whose rest cannot be written does not run for ever. (5) **Locked columns.** A statement on every item stands as a locked column at the grid's right edge. Unlocking a row's cell writes it into the table with the shared value; from then on the table has a column of the property, whose empty cells show the shared statement, locked, and emptying a cell locks it again. (6) **Reference chips.** A statement's own reference is opened from a chip on its cell and edited as a list; its `P…/ref:P…` columns are not columns of the grid, and **+ Add column** no longer offers one. (7) The statements on every item and the reference on every statement are still edited as the lists of A10 (5), not in the statement UI's group shape or with a shared-reference component: neither exists as a component the grid could use. A draft larger than `tables.max_rows` still waits on the queued batch.
+
+Replaced text ([21](../architecture/21-special-pages.md) §6.7, as it stood):
+
+> Until those are built, each of the two is a list beside the grid, over the text box the form posts (0106 A10): a line is a property, picked by search, and its value, an item picked by search where the property takes items; a line of the reference takes its value as given or from one of the table's plain columns.
 
