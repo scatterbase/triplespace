@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-26 (A15)
+- **Updated:** 2026-11-15 (A16)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
@@ -21,7 +21,7 @@ Domains are also a bulk-ingest target. Citation data carries URLs, and every URL
 
 ### 1. Keyed entity types
 
-*Changed by A2, A9.*
+*Changed by A2, A9, A16.*
 
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §3.1, §3.10.*
 
@@ -301,3 +301,10 @@ Replaced text (05 §8.6, as it stood):
 Replaced text (22 §2.1, the row, as it stood):
 
 > | | `scatter-adapter-internetdomains` | The key-mapped adapter for internetdomains.wiki ([0009](0009-keyed-entity-types-and-domain.md) §9, §12) | `scatter-wikibase-changeset`, `scatter-wikibase-model`, `scatter-providers`, `scatter-normalize` |
+
+### A16. The `remote` keyed type
+
+- **Date:** 2026-11-15
+- **Source:** [0110](0110-remote-pages-and-revisions.md) §1
+- **Change:** extends §1
+- **Summary:** A fourth keyed type, `remote`, names a page or revision on a site that a registered host runs, by the host, the site's name, `p` or `r`, and the number the host gave it: `remote:wikimedia:enwiki-p12`. Its normalizer reads nothing but the key. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.1, §3.11.

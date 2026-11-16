@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-13 (A52)
+- **Updated:** 2026-11-15 (A53)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [MediaWiki API contract](../api/mediawiki-compat.md)
@@ -30,7 +30,7 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 
 ### 2. Namespace numbering
 
-*Changed by A3, A6, A8, A9, A10, A12, A13, A15, A17, A18, A19, A25, A26, A27, A28, A29, A31, A32, A44, A46, A47.*
+*Changed by A3, A6, A8, A9, A10, A12, A13, A15, A17, A18, A19, A25, A26, A27, A28, A29, A31, A32, A44, A46, A47, A53.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §1.3, §1.4.*
 
@@ -737,3 +737,10 @@ Replaced text ([10](../architecture/10-pages-and-content-models.md) §6.1, as it
 - **Source:** Direct: James, design discussion of 2026-11-13
 - **Change:** extends §8
 - **Summary:** Confirming A51, James took one change to it: the title a link to a redirect carries, "Old name → New name", is an interface message with the two names as its parameters, not fixed text, so that a wiki whose language reads right to left, or that words it otherwise, can reorder it. The default wording is unchanged. Chapter text: 10 §5.2.
+
+### A53. Remote and Remote talk, 314 and 315
+
+- **Date:** 2026-11-15
+- **Source:** [0110](0110-remote-pages-and-revisions.md) §6
+- **Change:** extends §2
+- **Summary:** 314 is `Remote`, the namespace of the `remote` keyed type, with normalizer `remote` and model `triplespace-remote`; 315 is its talk namespace. 316–319 stay free. Chapter text: [10](../architecture/10-pages-and-content-models.md) §1.4.

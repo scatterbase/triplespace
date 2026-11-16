@@ -494,7 +494,28 @@ case = "first-letter"
 subpages = true
 defined_in = "0060 §2"
 
-# 314–319 unallocated.
+# Remote (0110 §6): pages and revisions on hosts' sites, titles Remote:wikimedia:enwiki-p12. Pending
+# (README): written as comments until scatter-normalize has the `remote` normalizer.
+# [[namespace]]
+# id = 314
+# canonical = "Remote"
+# kind = "pages"
+# content_models = ["triplespace-remote"]
+# default_model = "triplespace-remote"
+# normalizer = "remote"
+# case = "case-sensitive"
+# subpages = false
+# talk = 315
+# defined_in = "0110 §6"
+#
+# [[namespace]]
+# id = 315
+# canonical = "Remote talk"
+# kind = "pages"
+# content_models = ["triplespace-talk"]
+# default_model = "triplespace-talk"
+
+# 316–319 unallocated.
 
 # --- Resolver prefixes, second block: 320–329 (0008 §2, amended 2026-10-01) ----------------------
 # Unallocated. Used once 224–229 is taken.

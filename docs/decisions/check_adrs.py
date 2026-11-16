@@ -583,7 +583,8 @@ tbl_crates = set(re.findall(r'"((?:scatter|triplespace)-[a-z0-9-]+)"', "\n".join
 retired = set(re.findall(r'^name = "([^"]+)"', table, re.M))   # the [[retired]] entries
 # Content model IDs unique to Triplespace share the `triplespace-` prefix (0041 §2); they are not crates.
 _cm = os.path.join(ROOT, "registry", "content-models.toml")
-model_ids = set(re.findall(r'^id = "([^"]+)"', open(_cm, encoding="utf-8").read(), re.M)) if os.path.exists(_cm) else set()
+# Pending models are written as comments (registry/README.md, Pending allocations) and count too.
+model_ids = set(re.findall(r'^(?:#\s*)?id = "([^"]+)"', open(_cm, encoding="utf-8").read(), re.M)) if os.path.exists(_cm) else set()
 # Model IDs renamed before any data existed, still named in the ADRs that record the rename.
 model_ids |= {"triplespace-osm-tag"}  # 0048 §7: now triplespace-notation
 tbl_crates -= model_ids
