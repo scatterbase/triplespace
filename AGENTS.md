@@ -34,6 +34,7 @@ with `mkdocs build --strict`, so a broken link in `docs/` fails.
 - `changes NNNN` lists what an ADR changes: the log entries and settled questions that name it.
 - `questions NNNN` prints an ADR's open questions; `questions 0008 Q3 --before` prints a settled one as it was asked, from git.
 - `outline NN|NNNN` prints a document's headings.
+- The three that read git (`log … --before`, `log … --diff`, `questions … --before`) need a clone with full history; a shallow clone or a tar copy answers wrongly or not at all (`docs/testing/gotchas.md`).
 - `code 0013 §7` lists the code that cites a section.
 
 **Is it built? The code says (24 §15).** Two kinds of citation in code comments: `0013 §7` means the

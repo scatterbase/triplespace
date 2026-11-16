@@ -73,6 +73,11 @@ a decision always means editing a chapter section and citing the ADR section in 
   | `settles` | answers an open question | no | — |
   | `uses` | relies on it, changes nothing | no | — |
 
+  The checker holds a heading to its verb: every ADR a heading says it amends, extends, supersedes,
+  corrects or settles must have a log entry or settled question naming this ADR. If the section
+  only relies on the other ADR and changes none of its text, the verb is `uses`, and the ADR goes
+  in the header's `Uses`. *Replaced text* names the sections; it does not quote them.
+
   Do not use refines, specifies, adds, allocates, answers or builds on.
 - **The section's text goes into the chapters**, not under the heading. For each section, find or
   create the chapter section (`##`/`###`) that holds the subject, write the text there in the
@@ -109,8 +114,8 @@ For each target ADR *Y*:
    it states the current decision, citing the source in the sentence. Add the changing ADR's
    section to that chapter section's Sources line. Every change is folded, extensions included.
    Never use a blockquote callout such as `> **Amended by …**`.
-2. **Log.** Append `### An. Title` to *Y*'s Amendment log, with Date, Source, Change (verbs plus
-   *Y*'s sections) and Summary: what changed and why, and the chapter sections it changed, not
+2. **Log.** Append `### An. Title` to *Y*'s Amendment log, with Date, Source (plain: `0038 §1, §3`,
+   or `Direct: …`), Change (verbs plus *Y*'s sections) and Summary: what changed and why, and the chapter sections it changed, not
    a restatement of them. Open the Summary with what was decided, not with the state it
    replaced, so that its first sentence (two for a direct decision) stands for the entry. Name the chapter sections whose text the change removed or
    contradicted, `Replaced text: 03 §4.5.`; the commit holds the text and
@@ -125,8 +130,11 @@ For each target ADR *Y*:
    git holds the question (`tools/adr.py questions NNNN Q3 --before`) and the source states the
    answer; add `: answer` only where nothing else holds it (24 §8). This needs no log entry.
 
-Nothing is deleted. A section that no longer holds becomes a stub, *Superseded by NNNN §M (An).*,
-with its old text in the log entry. If a chapter section is split or renamed, rerun
+Nothing is deleted, though not everything stays in the file: a log entry names the text it
+replaced and a settled question keeps only its ID and title, because git holds the rest and
+`tools/adr.py` prints it (`log NNNN An --before`, `questions NNNN Qn --before`; both need a clone
+with full history, `docs/testing/gotchas.md`). A section that no longer holds becomes a stub,
+*Superseded by NNNN §M (An).*, and entry An names its old text. If a chapter section is split or renamed, rerun
 `pointers.py` for the ADRs it cites: refreshing a pointer is not logged.
 
 ## Chapters
@@ -180,7 +188,9 @@ failed. Each checker also runs alone from `docs/`, e.g. `python3 decisions/check
 exits 1 when it lists any problem.
 
 `check_adrs.py` covers: links and § citations; header order; heading verbs, and a heading's
-claim to amend or settle ↔ the target's log; log IDs and Replaced text; no `*Changed by*` line or `Changes` field; every Decision section
+claim to amend, extend, supersede, correct or settle ↔ the target's log; log IDs and Replaced text;
+plain citations in the log, each naming an ADR, chapter and section that exists; no `*Changed by*`
+line or `Changes` field; no struck question, and each settled one with its title; every Decision section
 a pointer or a stub, and each pointer's chapter section citing it back; `NNNN An` and `Qn`
 citations; crate names against chapter 22 §2.1; `Special:` names against `special-pages.toml`;
 agent names against `version.toml`; `INDEX.md` being current. `map.py` covers the chapters: every
