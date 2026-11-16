@@ -73,7 +73,7 @@ defined_in = "0048"
 # id_prefix = "remote:"
 # grammar = "a registered host's name, `:`, a site name in the host's site grammar, `-`, `p` or `r`, and a decimal number from 1 to 2^63 − 1 without leading zeros"
 # normalizer = "host name lowercased; site name by its grammar; the letter lowercased; nothing else"
-# display = "derived: the key without the host as the mul label; descriptions and aliases editable and reconciled like an item's"
+# display = "editable; without a stored label, the UI builds one: the synced title and site, else the number and site (0110 A1)"
 # clusters = false               # a page is not a concept (0110 §3)
 # defined_in = "0110"
 

@@ -62,7 +62,7 @@ Five kinds are defined by `scatter-log`: two because the log cannot start withou
 
 ### 2.2 The catalogue of Triplespace's kinds
 
-*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [0029](../decisions/0029-resolver-namespaces.md) §8; [0069](../decisions/0069-synchronized-talk-pages.md) §11; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5, §5.2; [0085](../decisions/0085-settings-and-preferences.md) §1, §7; [0086](../decisions/0086-theming.md) §1.*
+*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [0029](../decisions/0029-resolver-namespaces.md) §8; [0069](../decisions/0069-synchronized-talk-pages.md) §11; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5, §5.2; [0085](../decisions/0085-settings-and-preferences.md) §1, §7; [0086](../decisions/0086-theming.md) §1; [0110](../decisions/0110-remote-pages-and-revisions.md) A3.*
 
 The remaining kinds are Triplespace's, and each product declares its own. The scope column is [0015](../decisions/0015-record-format-and-partition-registry.md) §3's: where its table says nothing, the scope is the one its scope paragraph implies (§1.3).
 
@@ -104,6 +104,7 @@ The remaining kinds are Triplespace's, and each product declares its own. The sc
 | `publication` | The publication name | Tenant | A destination wiki, account, scope, rows, data pages and kits | [0074](../decisions/0074-publishing-a-scope-to-an-external-wiki.md) §1 |
 | `jsonld-context` | The profile name | Tenant | The schema.org types, property terms, intervals and identifiers of a JSON-LD profile | [0076](../decisions/0076-dataset-publication.md) §2 |
 | `entity-source` | The source's name | Tenant | An entity source: label, entity types with upstream prefixes, ID grammars and IRI templates, namespace, `api`, `entity_data`, `revision_ids`, `events`, `role`, licence, its assigned provider number and `promoted_to` | [0078](../decisions/0078-entity-sources.md) §1 |
+| `remote-host` | The host's name | Tenant | A host the tenant declares for its own remote keys: label, site grammar, site list, page and revision URL templates, alias ([04](04-entities-and-identifiers.md) §3.12) | [0110](../decisions/0110-remote-pages-and-revisions.md) A3 |
 
 A **file repository** is also a `config` record, of kind `file-repo`, keyed `file-repo:{name}`, either in a tenant's `config` or in the instance `config`, where a tenant refers to it by name; it can be supplied by a tenancy template ([0039](../decisions/0039-files-and-media.md) §11, in [12](12-files-and-media.md)).
 

@@ -28,7 +28,7 @@ Property IDs differ between Wikibases, so shape detection and the rank rules ref
 
 ### 1.2 Roles bound by other ADRs
 
-*Sources: [0003](../decisions/0003-statement-ui.md) §7.*
+*Sources: [0003](../decisions/0003-statement-ui.md) §7; [0110](../decisions/0110-remote-pages-and-revisions.md) A4.*
 
 Other ADRs bind further roles the same way:
 
@@ -38,7 +38,8 @@ Other ADRs bind further roles the same way:
 - `osm-tag`, `osm-tag-text` and `osm-key`, for OpenStreetMap keys and tags ([0036](../decisions/0036-openstreetmap-providers.md) §4, in [05](05-providers-and-ingest.md));
 - GDELT's document and event properties, such as `document-url`, `published`, `theme`, `event-type` and `mentioned-in` ([0037](../decisions/0037-gdelt-provider.md) §3–4, in [05](05-providers-and-ingest.md));
 - `subject-page` and `subject-thread`, the items that stand for a document page and a thread as values of Wikidata's *allowed entity types* constraint (Q52004125) (§5.3), and `thread-status`, the `string` property that carries a thread's projected status ([0038](../decisions/0038-page-metadata-and-categories.md) §9, in [14](14-discussions.md));
-- `notation-scheme`, the property that restricts which notation schemes a `wikibase-notation` property takes ([0048](../decisions/0048-notation.md) §4, in [04](04-entities-and-identifiers.md) §3.9).
+- `notation-scheme`, the property that restricts which notation schemes a `wikibase-notation` property takes ([0048](../decisions/0048-notation.md) §4, in [04](04-entities-and-identifiers.md) §3.9);
+- `revision-of`, the `wikibase-remote` property that says which page a remote revision key belongs to ([0110](../decisions/0110-remote-pages-and-revisions.md) A4, in [04](04-entities-and-identifiers.md) §3.11).
 
 ## 2. Property constraints
 

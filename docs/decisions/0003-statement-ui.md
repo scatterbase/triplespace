@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-27 (A17)
+- **Updated:** 2026-11-16 (A18)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [MediaWiki API contract](../api/mediawiki-compat.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
@@ -64,7 +64,7 @@ Triplespace does not come with MediaWiki's editing UI ([0000](0000-init.md), Con
 
 ### 7. Semantic roles
 
-*Changed by A1, A3, A4, A5, A6, A7, A8, A10, A14.*
+*Changed by A1, A3, A4, A5, A6, A7, A8, A10, A14, A18.*
 
 *Current text: [06](../architecture/06-statements-and-properties.md) §1.1, §1.2.*
 
@@ -265,3 +265,10 @@ Replaced text ([19](../architecture/19-site-ui.md) §4.8, as it stood):
 
 > | Group card | A header with the sort note, view switch, Add value button and menu; a body holding the shape; a footer with hoisted qualifiers and footnotes |
 > | Footnote marker | A numbered pill linking to its footnote |
+
+### A18. The `revision-of` role
+
+- **Date:** 2026-11-16
+- **Source:** Direct: James, design discussion of 2026-11-16
+- **Change:** extends §7
+- **Summary:** `revision-of` names the `wikibase-remote` property that says which page a remote revision key belongs to ([0110](0110-remote-pages-and-revisions.md) A4). Chapter text: [06](../architecture/06-statements-and-properties.md) §1.2.

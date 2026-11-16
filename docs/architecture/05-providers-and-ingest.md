@@ -618,11 +618,11 @@ The job's actor is the instance ([0040](../decisions/0040-instance-prerogatives.
 
 ### 6.2 Source IDs
 
-*Sources: [0078](../decisions/0078-entity-sources.md) §2; [0110](../decisions/0110-remote-pages-and-revisions.md) §3.*
+*Sources: [0078](../decisions/0078-entity-sources.md) §2; [0110](../decisions/0110-remote-pages-and-revisions.md) §3; [0110](../decisions/0110-remote-pages-and-revisions.md) A3.*
 
 **A source's entities have IDs of the form `{name}:{upstream ID}`:** `mhc:Q1`, `mhc:P31`. The rest is the source's own ID, verbatim, so the ID pastes into the source unchanged, as an MBID does ([0017](../decisions/0017-entity-id-grammar.md) §6).
 
-**A source ID is a foreign ID in the colon shape, not a keyed ID.** A keyed ID's key is valid by its form alone, the same on every instance and with nothing declared: a domain name, a phrase, a notation, or a host's page or revision number qualified by the host and the site ([04](04-entities-and-identifiers.md) §3.11, [0110](../decisions/0110-remote-pages-and-revisions.md) §3). A source's entity was minted by a provider the tenant declares, the source, and its ID means something only where the source is declared ([0009](../decisions/0009-keyed-entity-types-and-domain.md) §1). Everything §1 says of a foreign entity holds: the prefix records identity origin, the entity may have triples in the source's mirror partition (§6.4) and in the tenant's `local` graph, and the source is a namespace in [0004](../decisions/0004-identity-clusters-and-equivalence.md) §1's sense, so a cluster holds at most one of its entities. A source entity therefore needs no surrogate ([0009](../decisions/0009-keyed-entity-types-and-domain.md) §7): its log header key is its ID, as `WDQ42`'s is.
+**A source ID is a foreign ID in the colon shape, not a keyed ID.** A keyed ID's key is valid by its form alone, the same on every instance and with nothing declared: a domain name, a phrase, a notation, or a registry host's page or revision number qualified by the host and the site ([04](04-entities-and-identifiers.md) §3.11, [0110](../decisions/0110-remote-pages-and-revisions.md) §3). A remote key under a host a tenant declares is the exception, and is read as a source ID is: it means something only where the host is declared ([04](04-entities-and-identifiers.md) §3.12, [0110](../decisions/0110-remote-pages-and-revisions.md) A3). A source's entity was minted by a provider the tenant declares, the source, and its ID means something only where the source is declared ([0009](../decisions/0009-keyed-entity-types-and-domain.md) §1). Everything §1 says of a foreign entity holds: the prefix records identity origin, the entity may have triples in the source's mirror partition (§6.4) and in the tenant's `local` graph, and the source is a namespace in [0004](../decisions/0004-identity-clusters-and-equivalence.md) §1's sense, so a cluster holds at most one of its entities. A source entity therefore needs no surrogate ([0009](../decisions/0009-keyed-entity-types-and-domain.md) §7): its log header key is its ID, as `WDQ42`'s is.
 
 - **Parsing.** A colon form is told apart by the kind of its prefix in the tenant's table of names (§6.3). For a source, the rest must be the `upstream_prefix` of one declared type followed by a string in that type's grammar, which also gives the entity type. A source that declares `lexeme` takes the part suffix of [0017](../decisions/0017-entity-id-grammar.md) §1 (`mhc:L3-F1`).
 - **Canonical form.** The name in lowercase, and the rest by the type's grammar with its upstream prefix in uppercase: input `MHC:q1` is `mhc:Q1`. Input is case-insensitive, as for every ID ([0017](../decisions/0017-entity-id-grammar.md) §2).
@@ -632,12 +632,13 @@ The job's actor is the instance ([0040](../decisions/0040-instance-prerogatives.
 
 ### 6.3 One table of names per tenant
 
-*Sources: [0078](../decisions/0078-entity-sources.md) §3.*
+*Sources: [0078](../decisions/0078-entity-sources.md) §3; [0110](../decisions/0110-remote-pages-and-revisions.md) A3.*
 
 **Every colon prefix on a tenant is looked up in one table.** [0029](../decisions/0029-resolver-namespaces.md) §2 made keyed-type, resolver and notation scheme names one namespace in the registry. Two kinds join it:
 
 - **Registry provider slugs.** `wikidata:Q42` is an **input form** of `WDQ42` everywhere, canonicalized as `QQQ5` is ([0044](../decisions/0044-tenant-relative-ids.md) §1): never stored, never output. This is what §7.3 already does to an adopted wiki's federated IDs, extended to all input. A slug with no entity types (a page provider, [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §1) is reserved but forms no IDs.
 - **The tenant's entity sources**, on that tenant only. Two tenants may each have an `mhc` that names different graphs.
+- **The tenant's remote hosts** ([04](04-entities-and-identifiers.md) §3.12, [0110](../decisions/0110-remote-pages-and-revisions.md) A3), on that tenant only, under the same rules as its sources' names.
 
 **The rules are fixed, and none of them guesses:**
 

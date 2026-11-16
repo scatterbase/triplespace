@@ -499,12 +499,6 @@ Every unstruck question in every ADR (24 §8), with its first sentence. Settle o
 | [0104 Q2](0104-batches-and-the-job-runner.md) | Idle batches | A keyed batch stays open until its submitter closes it or it is rejected. |
 | [0104 Q3](0104-batches-and-the-job-runner.md) | The queue beyond one process | The runner claims queued jobs with the database's row locks, so several server processes could share the queue; nothing partitions the work between them yet, and a job that one process started is finished by that process… |
 | [0109 Q1](0109-the-documentation-site.md) | Rustdoc and the command line's reference | Both need the workspace compiled, which may not fit Read the Docs' build time. |
-| [0110 Q2](0110-remote-pages-and-revisions.md) | The label | The draft derives it from the key, as a notation's is. |
-| [0110 Q3](0110-remote-pages-and-revisions.md) | A namespace alias per host | The Direction's `Wikimedia:enwiki-p12` could be kept as a title form: a host entry naming an alias that reads as `Remote:wikimedia:…`. |
-| [0110 Q4](0110-remote-pages-and-revisions.md) | Who may register a host | The draft allows the registry only, because remote IDs and IRIs are shared by every instance, as scheme names are (0048 §2). |
-| [0110 Q6](0110-remote-pages-and-revisions.md) | A revision's page | Whether an ingest that names a revision should also state which page it belongs to (`remote:wikimedia:enwiki-r…` → `remote:wikimedia:enwiki-p12`), and by which role. |
-| [0110 Q7](0110-remote-pages-and-revisions.md) | Miraheze's site list | The candidate entry has the site grammar and link templates but no site list: a Miraheze wiki's domain is its subdomain of `miraheze.org` unless it has a custom one, so links need a list generated from Miraheze's own, as… |
-| [0110 Q8](0110-remote-pages-and-revisions.md) | Whether this ends 0048's rule of thumb | 0048 made Notation so that outside vocabularies stop costing a keyed type each. |
 
 ## Pending registry allocations
 
