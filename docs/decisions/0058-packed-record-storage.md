@@ -4,7 +4,6 @@
 - **Date:** 2026-10-04
 - **Updated:** 2026-10-09 (A2)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0033](0033-backend-stack.md), [0039](0039-files-and-media.md), [0056](0056-security-model.md), [Record and payload shapes](../api/payloads.md)
 
 ## Context
@@ -69,8 +68,6 @@ James's direction, from the design discussion of 2026-10-04:
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.8.*
 
 ### 8. Domains and tenants (uses 0018 §2, 0039 §4, 0056 §1)
-
-*Changed by A1.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §9.2.*
 
@@ -137,15 +134,12 @@ James's direction, from the design discussion of 2026-10-04:
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §8
-- **Summary:** Tenant deletion is [0028](0028-tenancy-policy.md) §5 and [0040](0040-instance-prerogatives.md) §6, not 0039 §9's reclaim: a tenant's partitions are dropped after its `erase` records are written, and only then can the domain's child table go with them. §8 cited the wrong ADR and did not say when the drop happens. (PENDING C8)
+- **Summary:** Tenant deletion is 0028 §5 and 0040 §6, not 0039 §9's reclaim: a tenant's partitions are dropped after its `erase` records are written, and only then can the domain's child table go with them. §8 cited the wrong ADR and did not say when the drop happens. (PENDING C8)
 
-Replaced text (§8):
-
-> When a tenant's partitions are dropped (reclaim, [0039](0039-files-and-media.md) §9), its domain's child table goes with them.
+Replaced text: §8 of this ADR.
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§12
-- **Summary:** The Decision's current text now lives in the architecture chapters [01](../architecture/01-log-and-records.md), [03](../architecture/03-storage-caches-and-search.md), [05](../architecture/05-providers-and-ingest.md), [08](../architecture/08-tenants-and-instances.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

@@ -3,7 +3,6 @@
 - **Status:** Accepted
 - **Date:** 2026-11-06
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0088](0088-external-identity-providers.md), [0089](0089-the-auth-host-and-instance-logins.md)
 - **Uses:** [0085](0085-settings-and-preferences.md), [0087](0087-account-registration-and-challenges.md), [0100](0100-email-addresses-and-verification-codes.md)
 
 ## Context

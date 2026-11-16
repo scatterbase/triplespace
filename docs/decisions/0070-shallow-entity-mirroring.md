@@ -4,7 +4,6 @@
 - **Date:** 2026-10-07
 - **Updated:** 2026-10-26 (A8)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0040](0040-instance-prerogatives.md), [0053](0053-mirrored-pages.md), [0065](0065-mediainfo-captions-and-commons.md), [0067](0067-proposals.md), [0071](0071-derived-statements-from-mirrored-pages.md)
 
 ## Context
@@ -34,8 +33,6 @@ James's direction, from the design discussion of 2026-10-07:
 
 #### 2.1 The setting
 
-*Changed by A1.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.2, §8.2.*
 
 #### 2.2 When `linked` fetches
@@ -52,31 +49,21 @@ James's direction, from the design discussion of 2026-10-07:
 
 ### 3. Fetching and records
 
-*Changed by A1, A2, A5, A8.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.5.*
 
 ### 4. Labels of entities not mirrored
-
-*Changed by A4.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.6.*
 
 ### 5. Keeping mirrored entities current (uses 0053 §6)
 
-*Changed by A8.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.7, §8.2.*
 
 ### 6. Terms of mirrored entities (extends 0013 §5.6)
 
-*Changed by A4.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.8.*
 
 ### 7. Becoming a full mirror
-
-*Changed by A6, A7, A8.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.9.*
 
@@ -86,13 +73,9 @@ James's direction, from the design discussion of 2026-10-07:
 
 ### 9. API and operations (extends 0012 §5)
 
-*Changed by A8.*
-
 *Current text: [18](../architecture/18-api.md) §2.2, §3.2.*
 
 ### 10. Storage (extends 0013 §5.6)
-
-*Changed by A1, A8.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.12, §5.*
 
@@ -117,10 +100,10 @@ James's direction, from the design discussion of 2026-10-07:
 ## Open questions
 
 - **Q1. Eviction.** An entity mirrored `on-demand` and no longer read or referenced stays forever. Whether to add a compaction-only eviction that is not a tombstone, and how it interacts with retention.
-- **Q2.** ~~**Terms under `all`.** Whether a full mirror writes `view.term` rows for every language, a configured subset, or none, with search delegated (the adoption-results note, §2).~~ *Settled by [0082](0082-source-form-and-the-shared-view.md) §6: the instance's term languages only, with the other languages read from the record through the label cache, search delegated to the index and no `term_prefix` on a full mirror.*
-- **Q3.** ~~**Other Wikibase providers.** The fetch path is Wikidata's API; whether a Wikibase Cloud provider or another Triplespace instance ([0022](0022-federation.md) §2) uses the same job with its own endpoint, and how a provider without an event stream is kept current beyond the sweep.~~ *Settled by [0078](0078-entity-sources.md) §4, in part: a Wikibase declared as a tenant's entity source uses the same job with its own endpoint, and without an event stream is kept current by the sweep alone.*
+- **Q2. Terms under `all`.** *Settled by [0082](0082-source-form-and-the-shared-view.md) §6.*
+- **Q3. Other Wikibase providers.** *Settled by [0078](0078-entity-sources.md) §4, in part.*
 - **Q4. Lexemes and forms under `linked`.** A form or sense ID as a value fetches its lexeme; whether that should be the default for `lexeme`.
-- **Q5.** ~~(Rest of Q3.) Whether a registry Wikibase provider other than Wikidata, or another Triplespace instance ([0022](0022-federation.md) §2), uses the same job with its own endpoint.~~ *Settled by [0092](0092-following-recent-changes.md) §1, for Wikibases: a registry Wikibase provider uses the same job with its own `api`, followed by its recent changes when it has no `events`; the rest is Q6.*
+- **Q5. (Rest of Q3.) Other registry Wikibase providers.** *Settled by [0092](0092-following-recent-changes.md) §1, for Wikibases.*
 - **Q6.** (Rest of Q5.) Whether another Triplespace instance ([0022](0022-federation.md) §2) uses the same job, or reads its log and checkpoints instead (0092 Q2).
 - **Q7. Terms of a full Wikidata mirror.** Whether mirror entities populate `view.term` at all before any full Wikidata mirror (`docs/testing/performance.md` §6). (From the working notes, 0099 §5.)
 
@@ -136,13 +119,11 @@ James's direction, from the design discussion of 2026-10-07:
 ### A1. Entity sources
 
 - **Date:** 2026-10-08
-- **Source:** [0078](0078-entity-sources.md) §4
+- **Source:** 0078 §4
 - **Change:** extends §2.1, §3, §10
 - **Summary:** A tenant's entity source takes `entities.mirror` and `entities.closure` under its name, with `linked` as the default where it has an `api` and `off` where it does not, and an empty closure list. Its fetch is a tenant job per source, writing to `source/{name}`, following the source's events if any and otherwise the sweep. `ops.entity_fetch` gains a `tenant` column.
 
-Replaced text (§10):
-
-> - `ops.entity_fetch (provider, entity_id, reason, enqueued, attempts)` with reasons `read`, `linked`, `closure`, `event`, `sweep`, `manual`; a unique key on `(provider, entity_id)` so a busy entity is fetched once.
+Replaced text: §10 of this ADR.
 
 ### A2. Instance jobs act as the instance
 
@@ -154,75 +135,49 @@ Replaced text (§10):
 ### A3. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§11
-- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [05](../architecture/05-providers-and-ingest.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
 
 ### A4. `view.term` holds the instance's languages, for shallow and full mirrors alike
 
 - **Date:** 2026-10-09
-- **Source:** [0082](0082-source-form-and-the-shared-view.md) §6
+- **Source:** 0082 §6
 - **Change:** amends §4, §6
-- **Summary:** `view.term` holds rows for local entities, for entities in any tenant overlay, and for mirrored entities in the instance's term languages only: `entities.term_languages` is instance configuration for the shared rows, set in the instance policy record, and a tenant's setting of the same name only narrows the languages its own display offers. A mirrored entity's other languages stay in the record at `entity_source.offset`, served to display through the L1 label cache of §4, which thus serves unmirrored entities and the languages `view.term` does not hold alike; a value shown under one member of a cluster may take its label from another member's rows, with precedence from the policy order. The same rule holds for a full mirror: the budget is rows ≈ mirrored entities × |instance languages| × term kinds, `wbsearchentities` at Wikidata scale is the search index, and `term_prefix` is never created on an instance holding a full mirror. Settles Q2. (REVIEW G7)
+- **Summary:** `view.term` holds rows for local entities, for entities in any tenant overlay, and for mirrored entities in the instance's term languages only: `entities.term_languages` is instance configuration for the shared rows, set in the instance policy record, and a tenant's setting of the same name only narrows the languages its own display offers. Settles Q2. Chapter text: 05 §5.8, §5.6. (REVIEW G7)
 
-Replaced text ([05](../architecture/05-providers-and-ingest.md) §5.8, as it stood):
+Replaced text: 05 §5.8.
 
-> **A mirrored entity's terms populate `view.term` in `entities.term_languages` only** (site setting; default: the tenant's content languages, `mul` and `en`). Its other languages stay in the record and are served by `wbgetentities`, which reads the record, but are not rows. A shallow mirror holds thousands or millions of entities, not 117 million, so the rows are affordable.
-
-> Not yet: what a full mirror (`all`) writes to `view.term` is an open question of [0070](0070-shallow-entity-mirroring.md).
-
-Replaced text ([05](../architecture/05-providers-and-ingest.md) §5.6, as it stood):
-
-> An entity that is mirrored reads its terms from `view.term` instead.
+Replaced text: 05 §5.6.
 
 ### A5. A fetch miss for an unknown entity writes no record
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §3
-- **Summary:** Only an entity already in the set, one with a `view.entity_source` row for the provider, that upstream reports missing becomes a `tombstone`. A fetch miss for an entity with no `entity_source` row writes no record: a typo'd or never-existing ID is not a deletion, nothing is tombstoned and no retention policy runs; the referring value renders unresolved, and the queue row is dropped. The rest of the row (a mirror tombstone carries nothing about retention; each tenant's policy is applied per overlay as a tenant-partition record under the instance attestation with a `retention/apply` event; the compaction exemption is any tenant's `retain` row; `cascade` is never a default) is [0002](0002-source-graphs-and-mass-ingest.md) §5's. The ledger names §5 too, whose text did not change. (REVIEW G28)
+- **Summary:** Only an entity already in the set, one with a `view.entity_source` row for the provider, that upstream reports missing becomes a `tombstone`. A fetch miss for an entity with no `entity_source` row writes no record: a typo'd or never-existing ID is not a deletion, nothing is tombstoned and no retention policy runs; the referring value renders unresolved, and the queue row is dropped. The rest of the row (a mirror tombstone carries nothing about retention; each tenant's policy is applied per overlay as a tenant-partition record under the instance attestation with a `retention/apply` event; the compaction exemption is any tenant's `retain` row; `cascade` is never a default) is 0002 §5's. The ledger names §5 too, whose text did not change. (REVIEW G28)
 
-Replaced text ([05](../architecture/05-providers-and-ingest.md) §5.5, as it stood):
-
-> - Each entity becomes a `put` with the same fields a dump sync writes. An upstream redirect becomes a `redirect`, and a missing entity a `tombstone`, as §3.4 says.
+Replaced text: 05 §5.5.
 
 ### A6. A provider that is a tenant of this instance is never synced
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §7
-- **Summary:** The instance refuses a sync job, shallow or full, for a provider whose registry `issuer` is a tenant of this instance: that tenant's `local` partition is the provider's graph, read directly. The companion rule, that an instance refuses to adopt a tenant under a code with a live mirror partition until that partition is frozen, is [0080](0080-tenants-as-entity-sources.md) A2's. (REVIEW G31)
+- **Summary:** The instance refuses a sync job, shallow or full, for a provider whose registry `issuer` is a tenant of this instance: that tenant's `local` partition is the provider's graph, read directly. The companion rule, that an instance refuses to adopt a tenant under a code with a live mirror partition until that partition is frozen, is 0080 A2's. (REVIEW G31)
 
 ### A7. Moving to `all` is a bulk append into the live partition
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §5
+- **Source:** 0083 §5
 - **Change:** extends §7
 - **Summary:** The dump sync that continues from the shallow records skips every entity whose cursor is current in bulk per block, evaluated against `view.entity_source` before a block is written, and writes the rest as a bulk append into the live partition: the partition lock once per block, tier 2 composing the block set-based. (REVIEW G12)
 
 ### A8. A provider without events is followed by its recent changes
 
 - **Date:** 2026-10-26
-- **Source:** [0092](0092-following-recent-changes.md) §1–§5, §7
+- **Source:** 0092 §1–§5, §7
 - **Change:** extends §3, §5, §7, §9; amends §10
-- **Summary:** A provider or entity source with an `api` and no `events` is followed by polling `list=recentchanges`, as the Wikidata Query Service's updater did: deduped by `rcid`, coalesced by title, read by time near the present, with a tail pass, every `follow.interval`. Each row or event only says a title changed; the job fetches the state and writes what it says. The position is a hint kept in `ops.repo_cursor`; the version cursor is the guarantee; a position older than the wiki's oldest recent change is a gap. A type at `all` is loaded by a dump sync or, without a dump, a crawl, and the load hands over to the follower at its newest timestamp. `GET /provider/{code}/mirror` reports the follower and the load. A follower or fetch job may log in with a bot password for `apihighlimits`; it is optional. Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.5, §5.7, §5.9; [03](../architecture/03-storage-caches-and-search.md) §4.12; [18](../architecture/18-api.md) §3.2.
+- **Summary:** A provider or entity source with an `api` and no `events` is followed by polling `list=recentchanges`, as the Wikidata Query Service's updater did: deduped by `rcid`, coalesced by title, read by time near the present, with a tail pass, every `follow.interval`. Chapter text: 05 §5.5, §5.7, §5.9; 03 §4.12; 18 §3.2.
 
-Replaced text (05 §5.7, as it stood):
+Replaced text: 05 §5.7 of this ADR; 03 §4.12 of this ADR; 18 §3.2 of this ADR.
 
-> **The set is followed by the provider's event stream, and checked by a sweep.**
-
-Replaced text (05 §5.7, as it stood):
-
-> with the same cursor table (`ops.repo_cursor`, keyed by provider), debounce and gap-closing by `list=recentchanges`.
-
-Replaced text (05 §5.7, as it stood):
-
-> - **Sweep.** Daily, the job asks `wbgetentities&props=info` for every entity in the set in batches of 50 and enqueues those whose `lastrevid` is newer than the cursor. The sweep catches anything the stream missed.
-
-Replaced text (03 §4.12, as it stood):
-
-> - `ops.repo_cursor` gains rows keyed by provider for the entity stream.
-
-Replaced text (18 §3.2, as it stood):
-
-> | `GET /provider/{code}/mirror` | Per type, the setting, the set size, the queue length and the stream lag, the live counters that `siprop=triplespace` does not carry (§2.2); a source's name in place of `{code}`, since lowercase source names and uppercase provider codes never clash | [0070](0070-shallow-entity-mirroring.md) §9; [0078](0078-entity-sources.md) §10 |

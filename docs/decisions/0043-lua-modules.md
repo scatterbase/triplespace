@@ -4,7 +4,6 @@
 - **Date:** 2026-09-30
 - **Updated:** 2026-11-07 (A10)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md)
 - **Uses:** [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0026](0026-sitelinks.md), [0038](0038-page-metadata-and-categories.md), [0044](0044-tenant-relative-ids.md)
 
 ## Context
@@ -35,8 +34,6 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 3. The `Scribunto` content model (extends 0041 §3; amends 0008 §5)
 
-*Changed by A5.*
-
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §7.3.*
 
 ### 4. The runtime: Lua 5.1 in a sandbox (extends 0033 §1)
@@ -45,8 +42,6 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 5. The Scribunto contract: Scribunto's Lua, Triplespace's host
 
-*Changed by A3, A9.*
-
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §7.5.*
 
 ### 6. Data modules (extends 0014 §4)
@@ -54,8 +49,6 @@ James's direction, from the design discussion of 2026-09-30:
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §7.6.*
 
 ### 7. Wikibase Client: `mw.wikibase`, `#property` and `#statements`
-
-*Changed by A4.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §2.2, §7.7.*
 
@@ -69,13 +62,9 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 10. Usage tracking and invalidation (extends 0042 §10)
 
-*Changed by A8.*
-
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §4.2, §4.4, §7.9.*
 
 ### 11. Entities the tenant does not hold
-
-*Changed by A6.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §7.10.*
 
@@ -89,8 +78,6 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 14. Licensing (extends 0033 §1 and 0005 §3)
 
-*Changed by A10.*
-
 *Current text: [22](../architecture/22-crates-and-stack.md) §1.2, §3.3.*
 
 ### 15. Conformance
@@ -102,8 +89,6 @@ James's direction, from the design discussion of 2026-09-30:
 *Current text: [18](../architecture/18-api.md) §2.2, §2.3.*
 
 ### 17. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
@@ -121,7 +106,7 @@ James's direction, from the design discussion of 2026-09-30:
 - **Q1. The debug console** (`action=scribunto-console`), and where its sessions live.
 - **Q2. Fetching unheld entities on demand** (§11): a bounded, rate-limited fetch into the mirror, against 0012 §6's rule that live fetches are never written to the log.
 - **Q3. `convertGrammar` and `gender` coverage,** which MediaWiki implements per language in code.
-- **Q4.** ~~**Lexemes.** `mw.wikibase.lexeme` waits for the Lexeme namespace (146) to be implemented.~~ *Settled by [0066](0066-lexemes.md) §9: provided as the extension documents it.*
+- **Q4. Lexemes.** *Settled by [0066](0066-lexemes.md) §9.*
 - **Q5. `mw.ext.data`** (Commons tabular and map data), which many Wikipedia modules use for lookup tables.
 - **Q6. LuaJIT** for speed, if a differential run shows it is safe for real modules.
 
@@ -138,43 +123,30 @@ James's direction, from the design discussion of 2026-09-30:
 ### A1. Crate table
 
 - **Date:** 2026-09-30
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §17
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries `triplespace-scribunto` and every change this section listed (0005 A43).
 
-Replaced text (§17):
-
-> | Crate | Change |
-> |---|---|
-> | `triplespace-scribunto` *(new)* | Pure; links Lua 5.1 through `mlua`. The interpreter and sandbox (§4); the vendored Scribunto and WikibaseClient Lua (§5, §7); the Rust side of their interfaces behind a host trait; the Lua-pattern matcher; data-module trees (§6); the ID translation of §8; Wikibase Client formatting, `#property` and `#statements` (§7); usage-aspect recording (§10). Depends on `scatter-wikitext-expand`, `scatter-wikibase-model`, `scatter-providers` and `mlua` |
-> | `scatter-wikitext-expand` | `#invoke` calls out through `ExpandHost`; `#property` and `#statements` are registered (§7) |
-> | `triplespace-render` | Implements the Lua host trait over the serving model; `view.entity_usage` and aspect-matched invalidation (§10); the unheld-entity expiry (§11). Gains a dependency on `triplespace-scribunto` |
-> | `triplespace-titles` | Module and Module talk, with the title rules of §2 |
-> | `triplespace-db` | The migration for `view.entity_usage` |
-> | `triplespace-cache` | `ld:` keys (§6) |
-> | `triplespace-api-action` | The modules of §16 |
-> | `scatter-pages` | The `Scribunto` model's registry entry and syntax check hook (§3) |
->
-> The workspace goes from fifty-one crates to fifty-two.
+Replaced text: §17 of this ADR.
 
 ### A2. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §17
 - **Summary:** A1 was folded into the Decision. The open questions were numbered, and §14's heading now says it extends 0005 §3, as 0005 A43 records. No decision changed. Before this, A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
 
 ### A3. `getContent` may not widen
 
 - **Date:** 2026-10-01
-- **Source:** [0056](0056-security-model.md) §6
+- **Source:** 0056 §6
 - **Change:** extends §5
 - **Summary:** `mw.title.getContent` and `exists` treat a page the rendering page may not include, under the flow rule, as missing.
 
 ### A4. `mw.wikibase.lexeme`
 
 - **Date:** 2026-10-05
-- **Source:** [0066](0066-lexemes.md) §9
+- **Source:** 0066 §9
 - **Change:** extends §7
 - **Summary:** The lexeme library, as WikibaseLexeme documents it; Q4 settled.
 
@@ -183,59 +155,47 @@ Replaced text (§17):
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §3
-- **Summary:** [0008](0008-namespaces-and-document-pages.md) §5's exclusion now covers `css` and `javascript` only: `sanitized-css` is implemented ([0055](0055-templatestyles-templatedata-and-page-properties.md) §1; [0041](0041-content-models.md) A7). §3's paragraph reads "the other two stay excluded" (`css`, `javascript`) and points at 0055 §1 for `sanitized-css`. (PENDING E18)
+- **Summary:** 0008 §5's exclusion now covers `css` and `javascript` only: `sanitized-css` is implemented (0055 §1; 0041 A7). §3's paragraph reads "the other two stay excluded" (`css`, `javascript`) and points at 0055 §1 for `sanitized-css`. (PENDING E18)
 
-Replaced text (§3):
-
-> **0008 §5's exclusion of executable models still stands for what it was about.** It excluded `css`, `javascript` and `sanitized-css` because they reach the reader's browser. A Lua module never does: it runs on the server, in a sandbox (§4), and what it returns is wikitext that goes through the expander and the sanitizer like any other. `Scribunto` is therefore allowed, and the other three stay excluded.
+Replaced text: §3 of this ADR.
 
 ### A6. `render_state.unheld_misses`
 
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §11
-- **Summary:** The count of misses §11 says `render_state` keeps is a named column, `unheld_misses integer`, of `view.render_state` ([0042](0042-template-expansion-and-parsoid.md) §10, A15). (PENDING E23)
+- **Summary:** The count of misses §11 says `render_state` keeps is a named column, `unheld_misses integer`, of `view.render_state` (0042 §10, A15). (PENDING E23)
 
 ### A7. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§17
-- **Summary:** The Decision's current text now lives in the architecture chapters [04](../architecture/04-entities-and-identifiers.md), [11](../architecture/11-rendering-templates-and-modules.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
 
 ### A8. Usage invalidation is a tier-3 consumer of composition
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §3
+- **Source:** 0083 §3
 - **Change:** amends §10
-- **Summary:** Invalidation no longer hangs off "when an entity's `resolved_version` changes": the composer emits "entity X, tenant T, composed to version N" after each composed row commits, and the entity-usage consumer reads those events in its own queue, with its own rate and lag, never inside the appending or composing transaction. For each event it first checks `view.entity_usage` for existence, by index, for the canonical ID and every member of its cluster, and does nothing further when no page uses any of them; only then does it classify the change from the structured diff of the previous and new composed rows and bump the epoch of the pages whose aspects match, served stale-while-revalidate meanwhile. The consumer is off while no tenant on the instance has `wikitext.expansion` on, and off during bootstrap and bulk modes until the operator turns it on; its lag is reported on its own page, and a page's render may be behind an entity by that lag. (REVIEW G10)
+- **Summary:** Invalidation no longer hangs off "when an entity's `resolved_version` changes": the composer emits "entity X, tenant T, composed to version N" after each composed row commits, and the entity-usage consumer reads those events in its own queue, with its own rate and lag, never inside the appending or composing transaction. The consumer is off while no tenant on the instance has `wikitext.expansion` on, and off during bootstrap and bulk modes until the operator turns it on; its lag is reported on its own page, and a page's render may be behind an entity by that lag. Chapter text: 11 §7.9, §4.4. (REVIEW G10)
 
-Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §7.9, as it stood):
-
-> **When an entity's `resolved_version` changes**, the change is classified from its structured diff ([0012](0012-api-requirements.md) §7, in [18](../architecture/18-api.md)): which languages' labels and descriptions, which properties' statements, which sitelinks, and whether it was a redirect or a change of cluster. Only pages whose aspects match get an epoch bump and a refresh. A label edit in German does not re-render pages that read only English labels.
-
-Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §4.4, as it stood):
-
-> 3. A change to an entity's `resolved_version`, for usage rows whose aspects the change touches (§7.9).
+Replaced text: 11 §7.9, §4.4.
 
 ### A9. The Interface namespace
 
 - **Date:** 2026-10-28
-- **Source:** [0095](0095-the-interface-namespace.md) §2
+- **Source:** 0095 §2
 - **Change:** amends §5
 - **Summary:** `mw.message` reads messages under the wiki's Interface pages (0095 §2).
 
-Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §7.5, as it stood):
-
-> | `mw.message` | MediaWiki core's messages shipped as data (§2.3); no overrides, since the MediaWiki namespace is reserved |
+Replaced text: 11 §7.5.
 
 ### A10. No commercial licence
 
 - **Date:** 2026-11-07
 - **Source:** Direct: James, design discussion of 2026-11-07
 - **Change:** amends §14
-- **Summary:** The `scatter-*` crates are no longer offered under a commercial licence ([0005](0005-crate-organization.md) A114), so the vendored Lua is no longer kept out of them for that reason. `triplespace-scribunto` stays where it is, and the Lua vendored into it keeps its upstream licences.
+- **Summary:** The `scatter-*` crates are no longer offered under a commercial licence (0005 A114), so the vendored Lua is no longer kept out of them for that reason. `triplespace-scribunto` stays where it is, and the Lua vendored into it keeps its upstream licences.
 
-Replaced text ([22](../architecture/22-crates-and-stack.md) §3.3, as it stood):
+Replaced text: 22 §3.3.
 
-> They cannot go into a `scatter-*` crate, because the shared crates are dual-licensed and Scatter holds copyright in every line of them. So the Lua runtime is a Triplespace crate, `triplespace-scribunto`, under GPL-3.0-or-later only and never dual-licensed. Scatterbase can use it on GPL terms, not on commercial ones ([0043](../decisions/0043-lua-modules.md) §14).

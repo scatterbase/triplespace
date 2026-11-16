@@ -4,7 +4,6 @@
 - **Date:** 2026-09-26
 - **Updated:** 2026-11-16 (A67)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md)
 - **Uses:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md)
 
 ## Context
@@ -23,43 +22,29 @@ Two smaller gaps are closed with them: the document node of a foreign entity on 
 
 ### 1. The body is a tree of erasable parts (amends 0006 §3 and §7)
 
-*Changed by A4, A5, A13, A14, A17, A18, A29, A31, A46, A52, A53.*
-
 *Current text: [01](../architecture/01-log-and-records.md) §2.3, §2.4, §5.1, §5.3, §8.1, §8.3.*
 
 ### 2. Global IDs live in the header (amends 0006 §3 and 0013 §6)
-
-*Changed by A3, A15, A23, A37, A48, A49, A50, A51, A62, A63, A64, A65, A66.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §2.2, §2.5, §5.3, §7.*
 
 ### 3. The `config` partition (amends 0005 §4.1; extends 0006 §4 and §6)
 
-*Changed by A3, A4, A5, A6, A8, A9, A10, A11, A12, A13, A16, A19, A20, A21, A23, A24, A26, A27, A28, A30, A31, A32, A33, A34, A35, A36, A37, A39, A40, A41, A42, A44, A47, A52, A54, A57, A58, A59, A60, A67.*
-
 *Current text: [23](../architecture/23-configuration-and-registry.md) §1.1, §1.2, §1.3, §1.4, §2.1, §2.2, §2.3, §2.4, §3.1, §3.2, §3.7, §5.2.*
 
 ### 4. Upstream revision records (amends 0002 §8.3 and 0011 §2, §3, §5, §8)
-
-*Changed by A14, A25.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §2.6, §5.4.*
 
 ### 5. Graph names and IRIs (settles 0001 Q2, 0002 Q1 and 0005 Q6)
 
-*Changed by A2, A3, A4, A5, A7, A9, A10, A11, A12, A16, A17, A19, A20, A21, A23, A24, A26, A31, A36, A37, A38, A43, A51, A55, A56, A58, A59, A61.*
-
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.2, §1.3, §1.4.*
 
-### 6. Document nodes for foreign entities (extends 0001 §1, 0002 §4 and 0009 §6)
-
-*Changed by A14.*
+### 6. Document nodes for foreign entities (extends 0001 §1 and 0002 §4; uses 0009 §6)
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §2.1, §5.6.*
 
 ### 7. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
@@ -77,10 +62,10 @@ Two smaller gaps are closed with them: the document node of a foreign entity on 
 
 ## Open questions
 
-- **Q1.** ~~**Content backfill by default.** Whether retaining an entity should fetch the content of every upstream revision, or only the metadata, given the cost noted in [0002](0002-source-graphs-and-mass-ingest.md) Consequences.~~ *Settled by A13: content by default, from the provider's API for modest sets and from a history dump the operator supplies for large ones; `--history metadata` opts out.*
+- **Q1. Content backfill by default.** *Settled by A13.*
 - **Q2. Whether `site` settings should each be a record,** or one record per settings group.
 - **Q3. Revision IDs beyond 2^40 upstream.** No provider is near it; if one ever is, its number is re-registered with a wider split, which is a format version.
-- **Q4.** ~~**Reason classes.** `upstream`, `legal` and `privacy` are now used; the full vocabulary and its visibility are settled in [0016](0016-permissions-and-access-control.md) §6.~~ *Settled by [0016](0016-permissions-and-access-control.md) §6: `legal`, `privacy`, `upstream` and `operational`, extensible in `site` configuration; the class and authority reference are visible to `ts-viewerasures` only.*
+- **Q4. Reason classes.** *Settled by [0016](0016-permissions-and-access-control.md) §6.*
 
 ## References
 
@@ -95,74 +80,52 @@ Two smaller gaps are closed with them: the document node of a foreign entity on 
 ### A1. Crate table
 
 - **Date:** 2026-09-26
-- **Source:** [0005](0005-crate-organization.md) §2, revision of 2026-09-26
+- **Source:** 0005 §2, revision of 2026-09-26
 - **Change:** supersedes §7
 - **Summary:** 0005 §2 became the one crate table CI checks, and carries every change this section listed (0005 A10).
 
-Replaced text (§7):
-
-> | Crate | Change |
-> |---|---|
-> | `scatter-log` | Body parts and part leaves (§1); header fields 7–9 and the provider-ranged revision ID (§2); the `config` payload type with kinds `key` and `graph` (§3); `erase` with `parts`, and `LogStore::erase_bodies` becomes `erase_parts`; `docs/registry/graphs.toml` embedded as the default registry (§5) |
-> | `scatter-log-postgres` | The `page_id` column; `erased` as a bitmask of parts; partial erasure as a body rewrite ([0013](0013-postgres-storage.md) §3) |
-> | `scatter-integrity` | `verify` per part (§1) |
-> | `scatter-providers` | Provider slugs and numbers; `docs/registry/providers.toml` embedded as the default registry (§5) |
-> | `scatter-actors` | `docs/registry/issuers.toml` embedded as the default issuer registry (§5) |
-> | `scatter-mwlog` | The `upstream-revision` payload type beside `logevent` (§4) |
-> | `scatter-adapter-wikidata` | Emits upstream revision records from history dumps, `prop=revisions` and the stream (§4) |
-> | `triplespace-projections` | The `upstream_revision` projection; the registry projection reads `config` (§3, §4) |
-> | `triplespace-rdf` | The IRI rules of §4–6 |
->
-> No crate is added.
+Replaced text: §7 of this ADR.
 
 ### A2. Providers registered
 
 - **Date:** 2026-09-27
-- **Source:** [0017](0017-entity-id-grammar.md) §6
+- **Source:** 0017 §6
 - **Change:** extends §5
 - **Summary:** MusicBrainz is registered in `providers.toml` with code `MB`, slug `musicbrainz` and provider number 4, by the allocation rule of §5; later providers follow. The registry file changed, not this text, until the conversion added a sentence.
 
 ### A3. Tenants
 
 - **Date:** 2026-09-27
-- **Source:** [0018](0018-tenants.md) §2–3, §5
+- **Source:** 0018 §2–3, §5
 - **Change:** amends §2, §3, §5
 - **Summary:** The ID sequences are per tenant, and the provider-ranged revision ID carries a tenant's revisions to other tenants. The config kinds split by instance and tenant scope, and a tenant's `config` carries the instance's key chain. Graph names are per tenant: each tenant has its own source partitions under its base, and the registry is keyed by (tenant, name). The `tenant` and `alias` kinds and the `providers` list had been given rows in place.
 
-Replaced text (§2):
-
-> They are assigned in the appending transaction, before the leaf hash is computed, so they are inside the Merkle tree. The rules of 0013 §6 stand for local records:
+Replaced text: §2 of this ADR.
 
 Replaced text: not recorded. 0015 was revised in place before the repository's history begins (commit `1e53c95`, 2026-09-27).
 
-Replaced text (§5):
-
-> **A graph's IRI is `{base}/graph/{name}`.** `{base}` is the instance's base URI: the origin that serves `/wiki/`, `/w/api.php` and `/entity/`, the same base that [0001](0001-revision-metadata-rdf.md) §5 gives instance data.
->
-> **Graph names are fixed by convention.** They are the partition names of [0013](0013-postgres-storage.md) §2, and the registry (§3, kind `graph`) stores both name and IRI:
+Replaced text: §5 of this ADR.
 
 ### A4. Threads
 
 - **Date:** 2026-09-27
-- **Source:** [0019](0019-discussions.md) §4, §6
+- **Source:** 0019 §4, §6
 - **Change:** extends §1, §3, §5
 - **Summary:** `scatter:v0/thread` declares a fourth part, the post text; §1 had been given the clause in place. With 0019's amendment of 2026-09-27, thread statuses are `config` records of kind `thread-status`, with defaults in `thread-statuses.toml`; both tables had been given rows in place.
 
 ### A5. Evidence and federation policy
 
 - **Date:** 2026-09-27
-- **Source:** [0022](0022-federation.md) §2, §8, §10
+- **Source:** 0022 §2, §8, §10
 - **Change:** amends §1; extends §3, §5
 - **Summary:** The attestation part may carry `evidence`, a signed remote activity. `federation-policy` is a config kind. `providers.toml` gains `trust` and a key-chain URL. The rows and the clause had been written in place.
 
-Replaced text (§1):
-
-> | 2 | **Attestation** | Who is responsible, and how: the actor key, the job ([0006](0006-log-integrity-and-erasure.md) §3), since [0030](0030-edit-filters.md) §5 the change tags, and since [0022](0022-federation.md) §8 an optional `evidence` field holding a signed remote activity | user |
+Replaced text: §1 of this ADR.
 
 ### A6. ACLs are a payload type
 
 - **Date:** 2026-09-27
-- **Source:** [0023](0023-moderation.md) §3
+- **Source:** 0023 §3
 - **Change:** amends §3
 - **Summary:** `acl` is the payload type `scatter:v0/acl`, in `config` for graph targets and in the tenant `log` for the rest, not a config kind. The row was removed and the note under the table written in place.
 
@@ -171,49 +134,49 @@ Replaced text: not recorded. 0015 was revised in place before the repository's h
 ### A7. Grants
 
 - **Date:** 2026-09-27
-- **Source:** [0024](0024-subsidiary-accounts.md) §4
+- **Source:** 0024 §4
 - **Change:** extends §5
 - **Summary:** `grants.toml` lists the API-key grants. The row had been added in place.
 
 ### A8. OAuth consumers
 
 - **Date:** 2026-09-27
-- **Source:** [0025](0025-oauth-server.md) §2
+- **Source:** 0025 §2
 - **Change:** extends §3
 - **Summary:** The `consumer` and `consumer-policy` kinds. The rows had been added in place.
 
 ### A9. Sitelinks
 
 - **Date:** 2026-09-27
-- **Source:** [0026](0026-sitelinks.md) §2–3
+- **Source:** 0026 §2–3
 - **Change:** extends §3, §5
 - **Summary:** The `site-alias` and `sitelink-policy` kinds, and `sites.toml`. The rows had been added in place.
 
 ### A10. Preferences
 
 - **Date:** 2026-09-27
-- **Source:** [0027](0027-preferences-and-portability.md) §1, §5
+- **Source:** 0027 §1, §5
 - **Change:** extends §3, §5
 - **Summary:** The `view-pin` kind, and `preferences.toml`. The rows had been added in place.
 
 ### A11. Tenancy policy
 
 - **Date:** 2026-09-27
-- **Source:** [0028](0028-tenancy-policy.md) §1–2, §5, §8
+- **Source:** 0028 §1–2, §5, §8
 - **Change:** extends §3, §5
 - **Summary:** The `tenancy`, `template` and `provider-readers` kinds; `scope` on `group`; `tenancy.toml`; the farm's three instance partitions `actors/{farm}`, `accounts/{farm}` and `log/{farm}`. The rows had been added in place; `scope` on `group` and the farm partitions were recorded only in 0028 until this conversion.
 
 ### A12. Resolvers
 
 - **Date:** 2026-09-27
-- **Source:** [0029](0029-resolver-namespaces.md) §1
+- **Source:** 0029 §1
 - **Change:** extends §3, §5
 - **Summary:** The `resolver` kind, and `resolvers.toml`. The rows had been added in place.
 
 ### A13. Change tags
 
 - **Date:** 2026-09-27
-- **Source:** [0030](0030-edit-filters.md) §5
+- **Source:** 0030 §5
 - **Change:** amends §1; extends §3
 - **Summary:** The attestation part carries the change tags. With 0030's amendment of 2026-09-27, a user-defined tag is a `config` record of kind `tag`. The clause and the row had been written in place.
 
@@ -225,14 +188,14 @@ Replaced text: the attestation row as A5 quotes it, before the change tags were 
 - **Source:** Direct: James, decisions of 2026-09-27 (evening)
 - **Change:** extends §1, §4, §6
 - **Summary:** By section:
-  - §1: Client signatures in the attestation part (decision 4). The attestation map may carry a **`signature`** field: `{key: <key ID>, alg: "ed25519", sig: <64 bytes>}`, a signature by the *actor's own key* over `H(0x05 ‖ H(0x03 ‖ content) ‖ H(0x03 ‖ comment))`, where `0x03` is the content hash of [0006](0006-log-integrity-and-erasure.md) §2 and `0x05` is a new domain tag that never appears in the header tree. The preimage is the canonical bytes of the two parts before the server salts them, so a client that produces canonical CBOR can sign what it submits and a verifier holding the record can check it; erasing either part makes the signature unverifiable, which 0006 §7 already accepts. **Keys are actor records:** a `scatter:v0/key` record in the tenant `actors` partition, keyed by the actor, whose content holds the key ID (the Base32z hash of the public key), algorithm, public key and validity; a later record rotates or revokes it. The server verifies a submitted signature against the actor's current key before appending and refuses a mismatch with `ts-bad-signature`; `verify` (0006 §9, level 2) checks every present signature against the key records in the bundle. Which actors may hold keys, and how they sign, is [0024](0024-subsidiary-accounts.md) §4 as amended: subsidiaries. The instance key (0006 §6) still signs every checkpoint; a client signature is in addition, never instead. This fills the slot 0006 §1 reserved and answers [0007](0007-actor-identity.md)'s keys question for Triplespace; Scatterbase's client and server signatures are the same field shape in its own part layout.
-  - §4: Content by default, from the API or a dump (decision 10). A `retain` backfill fetches **every upstream revision's content** as well as its metadata, so a rescued entity's whole history is diffable and exportable here and survives upstream deletion whole; `retain --history metadata` narrows it to `upstream-revision` records alone. The backfill job takes a **source**: `api`, the provider's revision API ([mediawiki-compat.md](../api/mediawiki-compat.md) §2.8, under the `upstream` rate class), which is the default and suits a modest set; or `dump:{path}`, a provider history dump the operator has on hand, which is what a mass rescue of Wikidata or another very large dataset uses. A bulk `retain` whose set exceeds `retention.api_max_entities` (`site`, default 10,000) is refused for `api` unless forced, so a million-entity rescue is not attempted one request at a time. Either source writes the same records; a `dump` job records the dump's identity as its source version ([0002](0002-source-graphs-and-mass-ingest.md) §8.3), and revisions newer than the dump are fetched from the API to close the gap. The automatic retention of properties ([0002](0002-source-graphs-and-mass-ingest.md) §6, as amended) uses the API, since a property's history is small. This settled Q1.
-  - §6: The document node is the stable handle (decision 12). In the resolved view, every member of a cluster keeps its own document node, and each carries `schema:about` pointing at the cluster's **current canonical** concept IRI ([0004](0004-identity-clusters-and-equivalence.md) §4), beside the redirect-form `owl:sameAs` between concept IRIs. A document node never moves, so `{base}/wiki/Special:EntityData/{id}` for any member ID is what external consumers are told to cite; the SPARQL Update stream ([0032](0032-sparql-update-stream.md)) rewrites the `schema:about` triple when the canonical member changes.
+  - §1: Client signatures in the attestation part (decision 4). The attestation map may carry a **`signature`** field: `{key: <key ID>, alg: "ed25519", sig: <64 bytes>}`, a signature by the *actor's own key* over `H(0x05 ‖ H(0x03 ‖ content) ‖ H(0x03 ‖ comment))`, where `0x03` is the content hash of 0006 §2 and `0x05` is a new domain tag that never appears in the header tree. The preimage is the canonical bytes of the two parts before the server salts them, so a client that produces canonical CBOR can sign what it submits and a verifier holding the record can check it; erasing either part makes the signature unverifiable, which 0006 §7 already accepts. **Keys are actor records:** a `scatter:v0/key` record in the tenant `actors` partition, keyed by the actor, whose content holds the key ID (the Base32z hash of the public key), algorithm, public key and validity; a later record rotates or revokes it. The server verifies a submitted signature against the actor's current key before appending and refuses a mismatch with `ts-bad-signature`; `verify` (0006 §9, level 2) checks every present signature against the key records in the bundle. Which actors may hold keys, and how they sign, is 0024 §4 as amended: subsidiaries. The instance key (0006 §6) still signs every checkpoint; a client signature is in addition, never instead. This fills the slot 0006 §1 reserved and answers 0007's keys question for Triplespace; Scatterbase's client and server signatures are the same field shape in its own part layout.
+  - §4: Content by default, from the API or a dump (decision 10). A `retain` backfill fetches **every upstream revision's content** as well as its metadata, so a rescued entity's whole history is diffable and exportable here and survives upstream deletion whole; `retain --history metadata` narrows it to `upstream-revision` records alone. The backfill job takes a **source**: `api`, the provider's revision API ([mediawiki-compat.md](../api/mediawiki-compat.md) §2.8, under the `upstream` rate class), which is the default and suits a modest set; or `dump:{path}`, a provider history dump the operator has on hand, which is what a mass rescue of Wikidata or another very large dataset uses. A bulk `retain` whose set exceeds `retention.api_max_entities` (`site`, default 10,000) is refused for `api` unless forced, so a million-entity rescue is not attempted one request at a time. Either source writes the same records; a `dump` job records the dump's identity as its source version (0002 §8.3), and revisions newer than the dump are fetched from the API to close the gap. The automatic retention of properties (0002 §6, as amended) uses the API, since a property's history is small. This settled Q1.
+  - §6: The document node is the stable handle (decision 12). In the resolved view, every member of a cluster keeps its own document node, and each carries `schema:about` pointing at the cluster's **current canonical** concept IRI (0004 §4), beside the redirect-form `owl:sameAs` between concept IRIs. A document node never moves, so `{base}/wiki/Special:EntityData/{id}` for any member ID is what external consumers are told to cite; the SPARQL Update stream (0032) rewrites the `schema:about` triple when the canonical member changes.
 
 ### A15. Adoption supplies page IDs
 
 - **Date:** 2026-09-28
-- **Source:** [0035](0035-adopting-a-wikibase.md) §4
+- **Source:** 0035 §4
 - **Change:** amends §2
 - **Summary:** An adoption job supplies the page ID of an adopted record, carrying the source wiki's page ID, and has set the sequence past it. The sentence had been edited in place.
 
@@ -243,46 +206,44 @@ Replaced text (§2):
 ### A16. Category mappings
 
 - **Date:** 2026-09-29
-- **Source:** [0038](0038-page-metadata-and-categories.md) §1, §5
+- **Source:** 0038 §1, §5
 - **Change:** extends §3, §5
 - **Summary:** The `category-mapping` kind; `scatter:v0/changeset` in the `pages` partition. The row had been added in place.
 
 ### A17. Files
 
 - **Date:** 2026-09-30
-- **Source:** [0039](0039-files-and-media.md) §2, §5, §10–11
+- **Source:** 0039 §2, §5, §10–11
 - **Change:** extends §1, §5
 - **Summary:** `scatter:v0/upload`, in `pages`, has the three standard parts. Its content part holds the SHA-256 of bytes kept outside the log, so erasing that part is what allows the bytes to be destroyed. The instance `log` partition, the `files/{repo}` partitions and `file-types.toml`; §5 had been given these rows in place.
 
 ### A18. The instance attestation
 
 - **Date:** 2026-09-30
-- **Source:** [0040](0040-instance-prerogatives.md) §3
+- **Source:** 0040 §3
 - **Change:** extends §1
 - **Summary:** The attestation part has a second form, the **instance attestation**, for records the instance writes into a tenant on its own authority: `actor` (`instance:{farm slug}`), `authority` (an instance record's partition, offset and leaf hash), `job`, `binding`, and a `signature` by the instance key. Only the server writes it; a submitted record carrying one is refused with `ts-prerogative`.
 
 ### A19. Template expansion
 
 - **Date:** 2026-09-30
-- **Source:** [0042](0042-template-expansion-and-parsoid.md) §2, §5, §11
+- **Source:** 0042 §2, §5, §11
 - **Change:** extends §3, §5
-- **Summary:** `site` settings `wikitext.expansion`, `wikitext.lua`, `wikitext.renderer`, `wikitext.template_repos` and `wikitext.share`, and, with [0043](0043-lua-modules.md) §8–9, `lua.ids` and `lua.client_site`. The registry of §5 gains `wikitext-functions.toml`. The `template-repo` kind; its row had been added in place.
+- **Summary:** `site` settings `wikitext.expansion`, `wikitext.lua`, `wikitext.renderer`, `wikitext.template_repos` and `wikitext.share`, and, with 0043 §8–9, `lua.ids` and `lua.client_site`. The registry of §5 gains `wikitext-functions.toml`. The `template-repo` kind; its row had been added in place.
 
 ### A20. The primary tenant
 
 - **Date:** 2026-09-30
-- **Source:** [0046](0046-primary-tenant.md) §2, §7
+- **Source:** 0046 §2, §7
 - **Change:** amends §5; extends §3
 - **Summary:** The `primary` config kind, whose row had been added in place; the `tenant` record loses its primary flag. Instance graph IRIs are `{farm base}/instance/graph/{name}` and instance origin lines `{farm host}/instance/log/{name}`, which was recorded only in 0046 until this conversion.
 
-Replaced text (§5):
-
-> **Checkpoint origin lines stay `{host}/log/{name}`** ([0006](0006-log-integrity-and-erasure.md) §6). They are a transparency-log convention, not a graph IRI, and the two are deliberately different.
+Replaced text: §5 of this ADR.
 
 ### A21. Special pages and reports
 
 - **Date:** 2026-10-01
-- **Source:** [0047](0047-special-pages.md) §1, §4.3
+- **Source:** 0047 §1, §4.3
 - **Change:** extends §3, §5
 - **Summary:** By section:
   - §3: An instance-scope kind `reports`, with code `default` or a tenant slug, holds which reports run as batch, their mirror-graph widenings, the batch schedule and the row limit. It is written with `ts-config` at the farm base.
@@ -291,118 +252,116 @@ Replaced text (§5):
 ### A22. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §1–7
 - **Summary:** A1–A21 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A14, A17 (in part), A18, A19 and A21 were blockquotes; most of the rows A3–A13, A16 and A20 name had been added to the tables of §3 and §5 in place; the rest were recorded only in other ADRs. The file before conversion is commit `0b26a3a`.
 
 ### A23. Page repositories
 
 - **Date:** 2026-10-01
-- **Source:** [0052](0052-page-repositories-and-title-inheritance.md) §1, §6
+- **Source:** 0052 §1, §6
 - **Change:** extends §2, §3, §5
 - **Summary:** The `page-repo` config kind replaces `template-repo`; `pages.repos` and `pages.share` join the `site` settings; a page a repository serves has a provider-ranged page ID, derived from its upstream page ID; a provider that mints no entities may have no code.
 
-Replaced text (§3):
-
-> | `template-repo` | The repository name | Tenant or instance scope: a foreign template repository, its kind (`tenant` or `mediawiki`), endpoint and cache lifetime | [0042](0042-template-expansion-and-parsoid.md) §11 |
+Replaced text: §3 of this ADR.
 
 ### A24. The `pages/{repo}` partition
 
 - **Date:** 2026-10-01
-- **Source:** [0053](0053-mirrored-pages.md) §5, §7, §9
+- **Source:** 0053 §5, §7, §9
 - **Change:** extends §3, §5
 - **Summary:** `graphs.toml` gains `pages/{repo}`, an instance mirror partition per page repository in `mirror` mode, with the payload type `scatter:v0/mirrored-page` and its five parts; `search.inherited` and `content.licence` join the `site` settings.
 
 ### A25. Upstream revision records with text
 
 - **Date:** 2026-10-01
-- **Source:** [0054](0054-forking-a-mirrored-page.md) §3
+- **Source:** 0054 §3
 - **Change:** extends §4
 - **Summary:** `scatter:v0/upstream-revision` may carry a fourth part, `text`, for a page revision seeded by a fork; such records are keyed by the fork's page ID in the tenant's `log` partition and take provider-ranged revision IDs.
 
 ### A26. `css-properties.toml` and the style settings
 
 - **Date:** 2026-10-01
-- **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §2, §4, §7
+- **Source:** 0055 §2, §4, §7
 - **Change:** extends §3, §5
 - **Summary:** The registry gains `css-properties.toml`, embedded by `scatter-css`; `wikitext.site_styles` and `templatestyles.max_bytes` join the `site` settings, and the `fork.*` settings of 0054 are listed with them.
 
 ### A27. Forwarder keys
 
 - **Date:** 2026-10-03
-- **Source:** [0057](0057-web-tier.md) §10
+- **Source:** 0057 §10
 - **Change:** extends §3
 - **Summary:** The instance `config` partition gains the `forwarder` kind: each forwarder key's ID, label and dates, so that issuing and revoking the keys that let a proxy vouch for a client's address is in the log. The secret's hash is kept in `private`.
 
 ### A28. Themes
 
 - **Date:** 2026-10-03
-- **Source:** [0034](0034-frontend-stack.md) §1
+- **Source:** 0034 §1
 - **Change:** extends §3
 - **Summary:** `ui.theme` joins the `site` settings: the Codex token values the instance or a tenant themes its site with.
 
 ### A29. The `scatter:v0/task` payload type
 
 - **Date:** 2026-10-04
-- **Source:** [0061](0061-sprints-and-tasks.md) §5
+- **Source:** 0061 §5
 - **Change:** extends §1
 - **Summary:** `scatter:v0/task`, in `pages`, three standard parts, keyed to the sprint page; operations `claim` and `release`. Added to `graphs.toml`.
 
 ### A30. Shallow mirroring settings
 
 - **Date:** 2026-10-07
-- **Source:** [0070](0070-shallow-entity-mirroring.md) §2.1
+- **Source:** 0070 §2.1
 - **Change:** extends §3
 - **Summary:** `entities.mirror`, `entities.closure`, `entities.closure_depth`, `entities.label_ttl` and `entities.term_languages` join the `site` settings.
 
 ### A31. Derived graphs and extraction sources
 
 - **Date:** 2026-10-07
-- **Source:** [0071](0071-derived-statements-from-mirrored-pages.md) §1–3
+- **Source:** 0071 §1–3
 - **Change:** extends §1, §3, §5
 - **Summary:** The four-part `scatter:v0/derivation` payload type; the `extraction` config kind; the `derived/{source}` graph, one per extraction source of a tenant. Added to `graphs.toml`.
 
 ### A32. Template mappings and value maps
 
 - **Date:** 2026-10-07
-- **Source:** [0072](0072-template-mappings.md) §2, §4
+- **Source:** 0072 §2, §4
 - **Change:** extends §3
 - **Summary:** The `template-mapping` and `value-map` config kinds.
 
 ### A33. Publications
 
 - **Date:** 2026-10-07
-- **Source:** [0074](0074-publishing-a-scope-to-an-external-wiki.md) §1
+- **Source:** 0074 §1
 - **Change:** extends §3
 - **Summary:** The `publication` config kind.
 
 ### A34. MCP settings
 
 - **Date:** 2026-10-07
-- **Source:** [0075](0075-mcp-server.md) §6
+- **Source:** 0075 §6
 - **Change:** extends §3
 - **Summary:** The `mcp.*` settings join the `site` settings.
 
 ### A35. JSON-LD profiles
 
 - **Date:** 2026-10-07
-- **Source:** [0076](0076-dataset-publication.md) §2
+- **Source:** 0076 §2
 - **Change:** extends §3
 - **Summary:** The `jsonld-context` config kind.
 
 ### A36. Special:Version
 
 - **Date:** 2026-10-07
-- **Source:** [0077](0077-special-version.md) §13, §14
+- **Source:** 0077 §13, §14
 - **Change:** extends §3, §5
 - **Summary:** The instance `site` settings `version.services` and `instance.source_url`; the registry file `version.toml`, embedded by `triplespace-api-rest`.
 
 ### A37. Entity sources
 
 - **Date:** 2026-10-08
-- **Source:** [0078](0078-entity-sources.md) §1, §4
+- **Source:** 0078 §1, §4
 - **Change:** extends §2, §3, §5
-- **Summary:** Provider numbers from 2^22 to 2^23 − 1 are left out of the registry and assigned per tenant to entity sources. A tenant-scope config kind, `entity-source`, keyed by the source's name. A tenant-scope graph per source, `source/{name}`, with the policies of `mirror/{provider}`.
+- **Summary:** Provider numbers from 2^22 to 2^23 − 1 are left out of the registry and assigned per tenant to entity sources. The text is in git (`tools/adr.py log 0015 A37 --diff`).
 
 ### A38. Policies for every reserved graph
 
@@ -416,42 +375,34 @@ Replaced text (§3):
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §3
-- **Summary:** The identifier properties that drive tier-3 inference are **instance** configuration, held in an instance `reconcile` record, so that tier-3 links stay instance-wide; a tenant's `reconcile` may switch inference off for itself and set provider order and link properties, but not add inference properties. `reconcile` therefore has both an instance record and tenant records, and §3's scope paragraph no longer leaves it to the tenants alone ([0004](0004-identity-clusters-and-equivalence.md) §3, [0018](0018-tenants.md) §3). (PENDING B6)
+- **Summary:** The identifier properties that drive tier-3 inference are **instance** configuration, held in an instance `reconcile` record, so that tier-3 links stay instance-wide; a tenant's `reconcile` may switch inference off for itself and set provider order and link properties, but not add inference properties. `reconcile` therefore has both an instance record and tenant records, and §3's scope paragraph no longer leaves it to the tenants alone (0004 §3, 0018 §3). (PENDING B6)
 
-Replaced text (§3):
-
-> | `reconcile` | `default` or a provider code | Provider order, an optional `order_by_type` override, link properties, identifier properties for inference, normalizer overrides, reconciliation rules | [0004](0004-identity-clusters-and-equivalence.md) §9 |
-
-> **Scope.** The kinds split by scope ([0018](0018-tenants.md) §3). The instance's `config` holds `key`, `graph`, `provider`, `issuer`, `keyed-type`, `tenant`, `alias`, `primary`, `tenancy`, `template`, `consumer` and `forwarder`, the instance lists of `sitelink-policy` and `federation-policy`, and global `group`s; each tenant's `config` holds the rest. A tenant's `config` begins with a `key:` record, the current instance key, and every `key:` record of the instance is appended to it as well, so a tenant's partitions verify from the tenant's bundle alone ([0018](0018-tenants.md) §2).
+Replaced text: §3 of this ADR.
 
 ### A40. The `config` partition has no fixed number
 
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §3
-- **Summary:** "Partition 0" is a designation, not an ID: the instance `config` partition is found by its registry name and has a random 64-bit ID like every other partition ([0018](0018-tenants.md) §2); offset 0 of it holds the first `key:` record. The same correction applies in 0018 §2. (PENDING C7)
+- **Summary:** "Partition 0" is a designation, not an ID: the instance `config` partition is found by its registry name and has a random 64-bit ID like every other partition (0018 §2); offset 0 of it holds the first `key:` record. The same correction applies in 0018 §2. (PENDING C7)
 
-Replaced text (§3):
-
-> **Order of the first records.** The `config` partition is partition 0. Its record at offset 0 is the instance's first `key:` record, as [0006](0006-log-integrity-and-erasure.md) §6 requires. Every other partition is created by a `graph:` record in `config`, appended before that partition's first record; that record is the "genesis record" 0006 §2 says names the partition's hash function. The `config` partition's own `graph:config` record follows its key record at offset 1.
+Replaced text: §3 of this ADR.
 
 ### A41. The instance kinds are listed once
 
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §3
-- **Summary:** §3's scope paragraph is the one list of instance-level config kinds, gaining `reports` and `page-repo` (tenant or instance) beside `forwarder`; [0013](0013-postgres-storage.md) §5.5 refers to it instead of carrying its own list. (PENDING C18)
+- **Summary:** §3's scope paragraph is the one list of instance-level config kinds, gaining `reports` and `page-repo` (tenant or instance) beside `forwarder`; 0013 §5.5 refers to it instead of carrying its own list. (PENDING C18)
 
-Replaced text (§3):
-
-> **Scope.** The kinds split by scope ([0018](0018-tenants.md) §3). The instance's `config` holds `key`, `graph`, `provider`, `issuer`, `keyed-type`, `tenant`, `alias`, `primary`, `tenancy`, `template`, `consumer` and `forwarder`, the instance lists of `sitelink-policy` and `federation-policy`, and global `group`s; each tenant's `config` holds the rest. A tenant's `config` begins with a `key:` record, the current instance key, and every `key:` record of the instance is appended to it as well, so a tenant's partitions verify from the tenant's bundle alone ([0018](0018-tenants.md) §2).
+Replaced text: §3 of this ADR.
 
 ### A42. `file-repo`
 
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §3
-- **Summary:** The kind table of §3 gains a `file-repo` row, tenant or instance scope: a mirrored file repository ([0039](0039-files-and-media.md) §11), logged there as a 0039 amendment. (PENDING C19)
+- **Summary:** The kind table of §3 gains a `file-repo` row, tenant or instance scope: a mirrored file repository (0039 §11), logged there as a 0039 amendment. (PENDING C19)
 
 ### A43. Four more registry files
 
@@ -470,53 +421,40 @@ Replaced text (§3):
 ### A45. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§7
-- **Summary:** The Decision's current text now lives in the architecture chapters [01](../architecture/01-log-and-records.md), [02](../architecture/02-graphs-rdf-and-query.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
 
 ### A46. The instance attestation names the farm code
 
 - **Date:** 2026-10-09
-- **Source:** [0079](0079-derived-issuer-codes.md) §4
+- **Source:** 0079 §4
 - **Change:** amends §1
-- **Summary:** The instance attestation's `actor` is `instance:{farm code}`, the farm code being derived from the instance's founding record ([0079](0079-derived-issuer-codes.md) §4).
+- **Summary:** The instance attestation's `actor` is `instance:{farm code}`, the farm code being derived from the instance's founding record (0079 §4).
 
-Replaced text (§1, in [01](../architecture/01-log-and-records.md) §2.4):
-
-> `actor` (`instance:{farm slug}`)
+Replaced text: §1, in 01 §2.4.
 
 ### A47. Chain-of-custody kinds and witness settings
 
 - **Date:** 2026-10-09
-- **Source:** [0081](0081-recovery-keys-and-continuations.md) §1, §9
+- **Source:** 0081 §1, §9
 - **Change:** extends §3
 - **Summary:** `scatter-log` defines three more config kinds, `recovery-key`, `continuation` and `continuation-cancel`, which carry a tenant's chain of custody. The tenant `site` settings `integrity.witnesses` and `integrity.witness_partitions`, and the instance setting `witness.enabled`, configure witnessing.
 
 ### A48. `lastrevid` is the newest local revision, and the base check is per source graph
 
 - **Date:** 2026-10-09
-- **Source:** [0084](0084-wikibase-writes-against-the-resolved-view.md) §5
+- **Source:** 0084 §5
 - **Change:** amends §2
-- **Summary:** `lastrevid` of an entity is the revision ID of its newest **local** record when the key has one, and otherwise the ranged ID of its newest mirror record; §2's "newest record in any source partition, chosen by append time" is withdrawn, since a client bases a write on local state. The base check is per source graph: a `baserevid` in the local partition is checked against the local partition's newest record for the key, one in a mirror partition asserts only that the key still has no local record, and a mirror advancing is never a conflict; an `override` naming a mirrored statement is checked by whether that statement still exists in the graph's current state. Wikibase's patch rule applies: a stale local base is accepted with `wikibase-conflict-patched` when the change set touches no statement UUID, term, alias or sitelink a later local record touched, else `editconflict` naming the current `lastrevid`; a compacted base is `editconflict`. Inbound `maxlag` is the larger of replica lag and the tenant's local-partition composition lag. (REVIEW G17)
+- **Summary:** The record side of 0084: `lastrevid` is the entity's newest **local** revision when it has one, since a client bases a write on local state, and §2's "newest record in any source partition, chosen by append time" is withdrawn. The base check is per source graph, a mirror advancing is never a conflict, and a stale local base is patched under Wikibase's rule rather than refused. Chapter text: 01 §2.5. (REVIEW G17)
 
-Replaced text ([01](../architecture/01-log-and-records.md) §2.5, as it stood):
-
-> - **`lastrevid`** of an entity is the revision ID of its newest record in any source partition, chosen by append time. For a purely mirrored entity that is its latest `put`; a local assertion about it takes over as the newest record.
-> - **`baserevid`** on a write to a foreign entity is decoded to (partition, offset), and the base-offset check of §7 runs against the newest record for the key across the source partitions, not only the local one. A base that names a state compaction has since replaced is an `editconflict`.
-
-Replaced text ([01](../architecture/01-log-and-records.md) §7, as it stood):
-
-> - The log rejects the change set if a newer record for the key exists in the partition. The Action API reports this as `editconflict`, and the REST API as HTTP 409.
-> - For a write to a foreign entity, `baserevid` is decoded to a partition and offset, and the check runs against the newest record for the key across the source partitions, not only the local one. A base that names a state compaction has since replaced is an `editconflict`.
->
-> The check needs an index from each key to its latest offset. For the local partition, this is the version cursor.
+Replaced text: 01 §2.5, §7.
 
 ### A49. The base check is a step of the appending transaction; `oldid` reads `view.entity_revision`
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §1, §4
+- **Source:** 0083 §1, §4
 - **Change:** extends §2
-- **Summary:** The base check is a step of tier 1, the appending transaction, made against the local graph alone, and it reads the local graph's current state from `view.graph_state`; `oldid=N` and `Special:Diff/N` with a local revision ID read that revision's state from `view.entity_revision`, one row per revision of the `local` and `pages` partitions, never a replay of the key's records. 0083's "Changes to other ADRs" did not list this ADR; chapter 01 §2.5 and §7 cite 0083 §1 and §4, so the entry is logged here. (REVIEW G8, G11)
+- **Summary:** The base check is a step of tier 1, made against the local graph's state in `view.graph_state`, and a revision's state is one row of `view.entity_revision`, never a replay. 0083's "Changes to other ADRs" did not list this ADR; chapter 01 §2.5 and §7 cite 0083 §1 and §4, so the entry is logged here. (REVIEW G8, G11)
 
 ### A50. A mirrored entity's page ID is provider-ranged
 
@@ -525,28 +463,16 @@ Replaced text ([01](../architecture/01-log-and-records.md) §7, as it stood):
 - **Change:** amends §2
 - **Summary:** A mirrored entity's page ID is `provider_number << 40 | upstream page ID` where the provider publishes one and `provider_number << 40 | mirror offset` otherwise, computed by the writer with no allocation; `log."instance.page_id"` is not used for entities; a local assertion about a mirrored entity repeats the ranged ID in its own field 9; a local page ID is taken from the tenant's own sequence the first time a key is written in a tenant partition, and the range below 2^40 is that sequence, so a ranged ID never collides with a local one and `view.entity`'s unique key on the page ID is `(tenant, page_id)`. (REVIEW G18)
 
-Replaced text ([01](../architecture/01-log-and-records.md) §2.5, as it stood):
-
-> **Page IDs are carried forward.** A page ID is taken from one sequence the first time a key is written in any partition — or supplied by an adoption job, which carries the source wiki's page ID and has set the sequence past it ([0035](../decisions/0035-adopting-a-wikibase.md) §4) — and every later record for that key, in every partition, repeats it in field 9.
->
-> **A page a page repository serves has a provider-ranged page ID,** `provider_number << 40 | upstream page ID`, derived and never minted, so that a foreign page has a stable `pageid` on every tenant without any write; in `mirror` mode the `pages/{repo}` records carry it in field 9 and the ranged upstream revision ID in field 7 ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6, [0053](../decisions/0053-mirrored-pages.md) §5). Local page IDs stay below 2^40.
+Replaced text: 01 §2.5.
 
 ### A51. Every ID a client sees is below 2^53
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §2, §5
-- **Summary:** Every ID a client sees is below 2^53, so that it survives a JavaScript `Number`: registry provider numbers are below 2^12, entity-source numbers are assigned per tenant from 2^12 to 2^13 − 1, and `number << 40 | n` therefore stays under 2^53 for `n` below 2^40; the revision-ID space is no longer described as 63 bits. The registry text that holds the number ranges is chapter 23 §4.1, whose provenance line cites [0077](0077-special-version.md) §14 and which cites §5 of this ADR inline; its replaced sentence is quoted under §5. (REVIEW G20)
+- **Summary:** Every ID a client sees is below 2^53, so that it survives a JavaScript `Number`: registry provider numbers are below 2^12, entity-source numbers are assigned per tenant from 2^12 to 2^13 − 1, and `number << 40 | n` therefore stays under 2^53 for `n` below 2^40; the revision-ID space is no longer described as 63 bits. The registry text that holds the number ranges is chapter 23 §4.1, whose provenance line cites 0077 §14 and which cites §5 of this ADR inline; its replaced sentence is quoted under §5. (REVIEW G20)
 
-Replaced text ([01](../architecture/01-log-and-records.md) §2.5, as it stood):
-
-> It is a number prefix instead. The revision-ID space is 63 bits, partitioned by **provider number**:
->
-> Provider number 0 is the instance itself, so local revision IDs are the plain sequence. Each provider has a number in the registry ([0015](../decisions/0015-record-format-and-partition-registry.md) §5). Numbers from 2^22 to 2^23 − 1 are never allocated in the registry: each tenant assigns them to its entity sources, and they are unique on their tenant only, which suffices because revision and page IDs are per tenant and no other tenant reads a source's records ([0078](../decisions/0078-entity-sources.md) §4).
-
-Replaced text ([23](../architecture/23-configuration-and-registry.md) §4.1, as it stood):
-
-> Provider number 0 is the current tenant and is never assigned; numbers 2^22 to 2^23 − 1 are the tenants', assigned at runtime to their entity sources, the one runtime allocation of a provider number ([0078](../decisions/0078-entity-sources.md) §4);
+Replaced text: 01 §2.5; 23 §4.1.
 
 ### A52. The founding attestation
 
@@ -560,36 +486,32 @@ Replaced text ([23](../architecture/23-configuration-and-registry.md) §4.1, as 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §1
-- **Summary:** A value the server mints into a record while appending it, such as a thread's talk-page ID and suffixed title or a sync job's `n`, is carried in the attestation map, never in a client-signed part, so that the content and comment parts stay the bytes the client submitted and a client signature over them verifies; the same holds for a decision the write path makes from another partition's state at append time (autopatrol, the operator of a transfer). The ledger's verb is amends; §1's chapter text ([01](../architecture/01-log-and-records.md) §2.3, §2.4) gained a sentence in the attestation row and a paragraph and contradicted nothing, so this entry extends; the contradicted text is [0019](0019-discussions.md) §2's, logged there. (REVIEW G23)
+- **Summary:** A value the server mints into a record while appending it, such as a thread's talk-page ID and suffixed title or a sync job's `n`, is carried in the attestation map, never in a client-signed part, so that the content and comment parts stay the bytes the client submitted and a client signature over them verifies; the same holds for a decision the write path makes from another partition's state at append time (autopatrol, the operator of a transfer). The ledger's verb is amends; §1's chapter text (01 §2.3, §2.4) gained a sentence in the attestation row and a paragraph and contradicted nothing, so this entry extends; the contradicted text is 0019 §2's, logged there. (REVIEW G23)
 
 ### A54. No genesis record outside `config`
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §3
-- **Summary:** Non-`config` partitions have no genesis record: a partition's name, hash function, segment exponent `k` and policies are its `graph:` record in `config`, appended before the partition's first record and carried by the export bundle; the partition's first record is an ordinary record at offset 0. In `config` itself the first record is the founding `key:` record (A52). `log.segment_manifest` is keyed `(partition, segment)`, a `hashed` partition has segment manifests only with its job-end checkpoint the last sealed manifest plus an unsigned head offset, and every record in `local`, `pages`, the tenant `log` and `actors` partitions takes a `logid` at append; those parts of the row are logged in [0013](0013-postgres-storage.md) A57 and [0006](0006-log-integrity-and-erasure.md). (REVIEW G24)
+- **Summary:** Non-`config` partitions have no genesis record: a partition's name, hash function, segment exponent `k` and policies are its `graph:` record in `config`, appended before the partition's first record and carried by the export bundle; the partition's first record is an ordinary record at offset 0. In `config` itself the first record is the founding `key:` record (A52). `log.segment_manifest` is keyed `(partition, segment)`, a `hashed` partition has segment manifests only with its job-end checkpoint the last sealed manifest plus an unsigned head offset, and every record in `local`, `pages`, the tenant `log` and `actors` partitions takes a `logid` at append; those parts of the row are logged in 0013 A57 and 0006. (REVIEW G24)
 
-Replaced text ([23](../architecture/23-configuration-and-registry.md) §1.2, as it stood):
-
-> Every other partition is created by a `graph:` record in `config`, appended before that partition's first record; that record is the "genesis record" 0006 §2 says names the partition's hash function.
+Replaced text: 23 §1.2.
 
 ### A55. Provider property types in the registry
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §5
-- **Summary:** Adapters never map onto a tenant's properties. A provider that needs vocabulary of its own has a provider property type in the registry, a `[[provider.type]]` row with `entity_type = "property"`, its letter allocated when the adapter is built (OpenAlex already uses `P` for publishers; OpenStreetMap and GDELT likewise), whose properties the adapter mints under deterministic IDs with the mapping versioned with the adapter; the `role` config kind has an instance-scope record that adapters and shared-row consumers read. The ledger's verb is amends; the struck sentence ("otherwise onto a local property … the adapter can create them on first import") is [0004](0004-identity-clusters-and-equivalence.md) §6's, and this ADR's registry text ([02](../architecture/02-graphs-rdf-and-query.md) §1.2–§1.4) contradicted nothing, so this entry extends. (REVIEW G26)
+- **Summary:** Adapters never map onto a tenant's properties. A provider that needs vocabulary of its own has a provider property type in the registry, a `[[provider.type]]` row with `entity_type = "property"`, its letter allocated when the adapter is built (OpenAlex already uses `P` for publishers; OpenStreetMap and GDELT likewise), whose properties the adapter mints under deterministic IDs with the mapping versioned with the adapter; the `role` config kind has an instance-scope record that adapters and shared-row consumers read. The ledger's verb is amends; the struck sentence ("otherwise onto a local property … the adapter can create them on first import") is 0004 §6's, and this ADR's registry text (02 §1.2–§1.4) contradicted nothing, so this entry extends. (REVIEW G26)
 
 ### A56. Registry corrections: the `XD` actor model, entity sources, and what never changes
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** corrects §5
-- **Summary:** The `XD` row's `actor_model` in `providers.toml` is `individual`; the registry README's "may add providers" becomes "may declare entity sources", since an instance declares entity sources and never adds a provider at runtime; and a provider's slug and per-type IRI templates join its code and number on the list of things never changed once allocated. The chapter text is [23](../architecture/23-configuration-and-registry.md) §4.1, whose provenance line cites [0077](0077-special-version.md) §14 and which cites §5 of this ADR inline. (REVIEW G32)
+- **Summary:** The `XD` row's `actor_model` in `providers.toml` is `individual`; the registry README's "may add providers" becomes "may declare entity sources", since an instance declares entity sources and never adds a provider at runtime; and a provider's slug and per-type IRI templates join its code and number on the list of things never changed once allocated. The chapter text is 23 §4.1, whose provenance line cites 0077 §14 and which cites §5 of this ADR inline. (REVIEW G32)
 
-Replaced text ([23](../architecture/23-configuration-and-registry.md) §4.1, as it stood):
-
-> They are defaults, not state: an instance's `config` partition starts from them and may diverge, adding providers, renaming groups or changing permissions, but may not reuse a provider code or number for something else, because IDs and revision IDs computed from them are shared between instances.
+Replaced text: 23 §4.1.
 
 ### A57. Every setting has a bound
 
@@ -598,88 +520,55 @@ Replaced text ([23](../architecture/23-configuration-and-registry.md) §4.1, as 
 - **Change:** amends §3
 - **Summary:** The settings catalogue gains a bound column: `tenant` (the tenant's record is the value), `tenant ≤ instance ceiling` (the ceiling a tenancy switch of the setting's own name, a record above it refused), or `instance` (the setting exists once in the instance `config`, and a tenant-scope record of that name is refused with `ts-instance-policy`). Pool sizes and intervals (`files.thumb_concurrency`, `repo.concurrency`, `repo.fetches_per_minute`, `updates.batch_interval`, `notifications.fediverse_interval`) are deployment configuration, never `site` records; budgets and limits (`projections.sync_budget`, `projections.sync_time`, `scopes.max_members`, `sprints.max_tasks`, `query.max_results`, `query.timeout`) are ceiling-bounded; `query.isolation` and `query.max_concurrent` are instance-only. (REVIEW G35)
 
-Replaced text ([23](../architecture/23-configuration-and-registry.md) §3.2, as it stood):
-
-> | `files.thumb_concurrency` | `site` (by rule, §3.1) | integer | — | Size of the thumbnail rendering pool | [0039](../decisions/0039-files-and-media.md) §6 |
-> | `notifications.fediverse_interval` | `site` (by rule, §3.1) | duration | five minutes | Bundling interval for fediverse delivery | [0021](../decisions/0021-notifications.md) §5 |
-> | `query.max_concurrent` | instance-wide | integer | 8 | Concurrent queries, beyond which a query waits up to its own timeout | [0059](../decisions/0059-query-service.md) §6 |
-> | `repo.concurrency` | `site` (by rule, §3.1) | integer | 4 | Per-repository concurrency cap on the upstream client | [0053](../decisions/0053-mirrored-pages.md) §1 |
-> | `repo.fetches_per_minute` | `site` (by rule, §3.1) | integer | 600 | Per-repository fetch budget | [0053](../decisions/0053-mirrored-pages.md) §1 |
-> | `updates.batch_interval` | `site` (by rule, §3.1) | duration | one hour | How often update batch files are written | [0032](../decisions/0032-sparql-update-stream.md) §6 |
-
-Replaced text ([23](../architecture/23-configuration-and-registry.md) §3.4, as it stood):
-
-> | `query.isolation` | `dataset`, `store` ([0059](../decisions/0059-query-service.md) §4) | `store` | `dataset` | `dataset` |
+Replaced text: 23 §3.2, §3.4.
 
 ### A58. Copy on create, `registry sync`, and the per-kind `schema` integer
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §3, §5
-- **Summary:** An instance's `config` starts as a copy of the registry: `instance create` appends a config record for every registry entry, so the log carries what the instance runs under and a reader of the log needs no binary to know it; `triplespace-cli registry sync` appends records, under the instance attestation, for registry entries newer than the instance's, and `instance check` warns when the instance is behind the registry its binary carries. Every config record's content carries a per-kind `schema` integer; `view.registry` stores the entry opaquely with its schema number, and an unknown kind or schema is projected opaquely and never fails replay. The ledger named §5 alone; the record shape and `view.registry` are §3's text ([23](../architecture/23-configuration-and-registry.md) §1.1), and the copy-on-create rule is in 23 §4.1, which cites §5 inline. (REVIEW G36)
+- **Summary:** An instance's `config` starts as a copy of the registry: `instance create` appends a config record for every registry entry, so the log carries what the instance runs under and a reader of the log needs no binary to know it; `triplespace-cli registry sync` appends records, under the instance attestation, for registry entries newer than the instance's, and `instance check` warns when the instance is behind the registry its binary carries. Every config record's content carries a per-kind `schema` integer; `view.registry` stores the entry opaquely with its schema number, and an unknown kind or schema is projected opaquely and never fails replay. The ledger named §5 alone; the record shape and `view.registry` are §3's text (23 §1.1), and the copy-on-create rule is in 23 §4.1, which cites §5 inline. (REVIEW G36)
 
-Replaced text ([23](../architecture/23-configuration-and-registry.md) §1.1, as it stood):
-
-> The content part holds the entry; the comment part holds the reason for the change; the attestation names who made it. A later record for the same key replaces the entry, and a record whose content is null retires it. `view.registry` is the projection of the latest record per key.
-
-Replaced text ([23](../architecture/23-configuration-and-registry.md) §4.1, as it stood):
-
-> They are defaults, not state: an instance's `config` partition starts from them and may diverge, adding providers, renaming groups or changing permissions, but may not reuse a provider code or number for something else, because IDs and revision IDs computed from them are shared between instances.
+Replaced text: 23 §1.1, §4.1.
 
 ### A59. The settings registry and the site's identity settings
 
 - **Date:** 2026-10-17
-- **Source:** [0085](0085-settings-and-preferences.md) §1, §2.1, §7
+- **Source:** 0085 §1, §2.1, §7
 - **Change:** amends §3; amends §5
-- **Summary:** `docs/registry/settings.toml` joins the registry of record: every `site` setting, a tenant's and the instance's, with its scope, bound, group, type, choices and default, copied into the instance `config` as records of a new instance kind, `setting`, and synced like every registry file. The settings catalogue of [23](../architecture/23-configuration-and-registry.md) §3.2–3.3 is generated from it, and the validator every writer calls reads it. A setting resolves to the tenant's record, the instance's default (an evaluated `template:site:{key}` record) or the registry default, under locks and ceilings, with its origin. Four settings name the wiki: `site.name`, `site.language`, `site.logo` and `site.icon`, the last two site assets. `preferences.toml` gains groups and the `follows` and `browser` fields. The chapter text is [02](../architecture/02-graphs-rdf-and-query.md) §1.4 and [23](../architecture/23-configuration-and-registry.md) §1.3, §1.4, §2.2, §3.1–3.3, §3.7, §4.1, §5.2 and §6.
+- **Summary:** `docs/registry/settings.toml` joins the registry of record, synced into the instance `config` as records of a new kind, `setting`; the settings catalogue is generated from it, and the one validator every writer calls reads it. Chapter text: 02 §1.4; 23 §1.3, §1.4, §2.2, §3.1–3.3, §3.7, §4.1, §5.2, §6.
 
-Replaced text ([23](../architecture/23-configuration-and-registry.md) §1.4, as it stood):
-
-> Any `site` setting can be provisioned into new tenants or locked this way, the `wikitext.*` settings among them.
-
-Replaced text ([23](../architecture/23-configuration-and-registry.md) §2.2, as it stood):
-
-> | `site` | A setting name | Tenant, and instance for the settings §3.3 lists | Site name, content languages, the recent-changes window, checkpoint cadence, and other scalar settings; the catalogue is §3 | [0006](0006-log-integrity-and-erasure.md) §6, [0010](0010-site-ui.md) §7 |
-
-Replaced text ([23](../architecture/23-configuration-and-registry.md) §3.7, as it stood):
-
-> A preference is a key–value pair owned by an account, registered in `docs/registry/preferences.toml` with a type, a default and a description, and is not a `site` setting; an instance sets its own defaults with `preferences.defaults` (§3.2).
-
-Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §1.4, as it stood):
-
-> | `preferences.toml` | The registered preference keys, types and defaults | [0027](0027-preferences-and-portability.md) §1 |
+Replaced text: 23 §1.4, §2.2, §3.7; 02 §1.4.
 
 ### A60. The `palette` and `typeset` kinds
 
 - **Date:** 2026-10-17
-- **Source:** [0086](0086-theming.md) §1
+- **Source:** 0086 §1
 - **Change:** extends §3
-- **Summary:** Two config kinds at instance or tenant scope, written with `ts-config`: `palette`, keyed `palette:{name}`, holding a palette's label, shape tokens, colour variants, the palette it extends and its accessibility mark, and `typeset`, keyed `typeset:{name}`, holding a type set's label, typeface roles, per-language stacks, typefaces and accessibility mark. `docs/registry/themes.toml` holds the shipped ones in the same shape. The chapter rows are [23](../architecture/23-configuration-and-registry.md) §2.2.
+- **Summary:** Two config kinds at instance or tenant scope, `palette` and `typeset`, with the shipped ones in `docs/registry/themes.toml` in the same shape. Chapter text: 23 §2.2.
 
 ### A61. The `logins` partition
 
 - **Date:** 2026-10-18
-- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §2
+- **Source:** 0089 §2
 - **Change:** extends §5
-- **Summary:** The instance gains a private source partition, `logins` (`full`, `logged`, never exported or projected), whose graph IRI is `{farm base}/instance/graph/logins`: one `scatter:v0/login` record per instance login, keyed `login:{n}`, and the `scatter:v0/binding` records of each login's external identities. `login` is a built-in issuer code in `issuers.toml`, and so reserved in the shared namespace of slugs and issuer codes. The chapter text is [02](../architecture/02-graphs-rdf-and-query.md) §1.2.
+- **Summary:** The instance gains a private source partition, `logins`, never exported or projected, holding one record per instance login and the bindings of its external identities; `login` becomes a built-in issuer code, and so a reserved slug. Chapter text: 02 §1.2.
 
 ### A62. Adopted revisions keep the source's revision IDs
 
 - **Date:** 2026-10-19
-- **Source:** [0035](0035-adopting-a-wikibase.md) A12
+- **Source:** 0035 A12
 - **Change:** amends §2
-- **Summary:** An adopted revision carries the source wiki's own revision ID in field 7, below the floor the adoption job set, in place of a number from the tenant's sequence, as an adopted record's page ID is supplied in field 9 (A15). The records come in the source's order within each page, so the revision ID no longer increases with append order across an adoption's history. The chapter text is [01](../architecture/01-log-and-records.md) §2.5.
+- **Summary:** An adopted revision carries the source wiki's own revision ID in field 7, as its page ID is carried in field 9 (A15), so revision IDs no longer increase with append order across an adoption's history. Chapter text: 01 §2.5.
 
-Replaced text ([01](../architecture/01-log-and-records.md) §2.5, as it stood):
-
-> - **The sequence increases with append order.** Gaps are acceptable.
+Replaced text: 01 §2.5.
 
 ### A63. What a format version means
 
 - **Date:** 2026-10-29
-- **Source:** [0097](0097-versioning-and-skins.md) §4
+- **Source:** 0097 §4
 - **Change:** extends §2
-- **Summary:** Every reader reads every record ever written. The header's format version is the header layout's major, and a payload type's tag carries the payload's major: a change older readers can ignore keeps the tag, one they cannot interpret takes a new tag, and both are read from then on. A new major ships first behind a switch, off by default, in a minor release, and the release that writes it by default is a product major. The chapter text is [01](../architecture/01-log-and-records.md) §2.2.
+- **Summary:** Every reader reads every record ever written: the header's format version and each payload type's tag carry a major, a change older readers cannot interpret takes a new tag, and a new major ships behind a switch before any release writes it by default. Chapter text: 01 §2.2.
 
 ### A64. A mirrored entity's upstream page ID is carried in the record's content
 
@@ -707,4 +596,4 @@ Replaced text ([01](../architecture/01-log-and-records.md) §2.5, as it stood):
 - **Date:** 2026-11-16
 - **Source:** Direct: James, design discussion of 2026-11-16
 - **Change:** extends §3
-- **Summary:** A tenant `config` record of kind `remote-host`, keyed by the host's name, declares a host for the tenant's own remote keys ([0110](0110-remote-pages-and-revisions.md) A3). Chapter text: [23](../architecture/23-configuration-and-registry.md) §2.2.
+- **Summary:** A tenant `config` record of kind `remote-host`, keyed by the host's name, declares a host for the tenant's own remote keys (0110 A3). Chapter text: 23 §2.2.

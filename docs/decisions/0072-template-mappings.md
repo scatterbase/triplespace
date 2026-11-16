@@ -4,7 +4,6 @@
 - **Date:** 2026-10-07
 - **Updated:** 2026-10-09 (A1)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0015](0015-record-format-and-partition-registry.md), [0038](0038-page-metadata-and-categories.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0042](0042-template-expansion-and-parsoid.md), [0051](0051-page-redirects.md), [0053](0053-mirrored-pages.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [0071](0071-derived-statements-from-mirrored-pages.md), [0073](0073-lines-links-and-url-patterns.md)
 
 ## Context
@@ -101,6 +100,5 @@ James's direction, from the design discussion of 2026-10-07:
 ### A1. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§8
-- **Summary:** The Decision's current text now lives in the architecture chapters [13](../architecture/13-mirrored-pages.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

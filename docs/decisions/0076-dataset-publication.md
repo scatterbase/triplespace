@@ -4,7 +4,6 @@
 - **Date:** 2026-10-07
 - **Updated:** 2026-10-09 (A2)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0006](0006-log-integrity-and-erasure.md), [0039](0039-files-and-media.md), [0053](0053-mirrored-pages.md), [0056](0056-security-model.md), [0060](0060-scopes.md), [0070](0070-shallow-entity-mirroring.md), [0071](0071-derived-statements-from-mirrored-pages.md), [0073](0073-lines-links-and-url-patterns.md), [0074](0074-publishing-a-scope-to-an-external-wiki.md), [0075](0075-mcp-server.md)
 
 ## Context
@@ -40,8 +39,6 @@ James's direction, from the design discussion of 2026-10-07:
 
 ### 4. Discovery
 
-*Changed by A1.*
-
 *Current text: [17](../architecture/17-federation-and-publication.md) §5.4.*
 
 ### 5. Looking up by URL
@@ -50,13 +47,9 @@ James's direction, from the design discussion of 2026-10-07:
 
 ### 6. Storage, operations and API (extends 0013 §5.6)
 
-*Changed by A1.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.15, §5; [18](../architecture/18-api.md) §3.2.*
 
 ### 7. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
@@ -94,21 +87,10 @@ James's direction, from the design discussion of 2026-10-07:
 - **Change:** corrects §4, §6, §7
 - **Summary:** Scopes are addressed by page ID, as every scope route is: `/scope/{pageid}/dumps`, `/scope/{pageid}/dumps/{file}`, `/scope/{pageid}/dataset.jsonld`, not `{title}`. The ledger row names §2 and §6; the `{title}` routes are in §4 and §6 (§2 has none), and the §7 crates row names them too, so this entry corrects §4, §6 and §7. (PENDING E35)
 
-Replaced text (§4):
-
-> - `GET /scope/{title}/dataset.jsonld` describes the scope as a schema.org `Dataset`: name and description from the scope page, `license` from the tenant's `content.licence` ([0053](0053-mirrored-pages.md) §9), `dateModified`, and one `DataDownload` per dump with `contentUrl`, `encodingFormat` and `contentSize`.
-
-Replaced text (§6):
-
-> - `GET /scope/{title}/dumps` lists the current dumps and their manifests; `GET /scope/{title}/dumps/{file}` serves one.
-
-Replaced text (§7):
-
-> | `triplespace-api-rest` | `/entity/{id}/referrers`, `/scope/{title}/dataset.jsonld`, `/scope/{title}/dumps`, `/jsonld/by-url` |
+Replaced text: §4 of this ADR; §6 of this ADR; §7 of this ADR.
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§7
-- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [17](../architecture/17-federation-and-publication.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

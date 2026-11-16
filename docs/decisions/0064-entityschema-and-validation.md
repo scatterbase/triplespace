@@ -4,7 +4,6 @@
 - **Date:** 2026-10-05
 - **Updated:** 2026-10-09 (A4)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0047](0047-special-pages.md), [0060](0060-scopes.md), [0061](0061-sprints-and-tasks.md), [0062](0062-workspaces.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0010](0010-site-ui.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0024](0024-subsidiary-accounts.md), [0031](0031-property-constraints.md), [0059](0059-query-service.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
 ## Context
@@ -35,13 +34,9 @@ James's direction, from the design discussion of 2026-10-05:
 
 ### 4. Validation: `scatter-shex`
 
-*Changed by A2.*
-
 *Current text: [15](../architecture/15-structured-pages.md) §6.3.*
 
 ### 5. Binding a schema to a scope, and the report (extends 0013 §5.6 and §7)
-
-*Changed by A4.*
 
 *Current text: [15](../architecture/15-structured-pages.md) §6.4.*
 
@@ -54,8 +49,6 @@ James's direction, from the design discussion of 2026-10-05:
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §11.1; [18](../architecture/18-api.md) §2.1, §2.3, §3.2, §6; [21](../architecture/21-special-pages.md) §6.4, §7, §8.*
 
 ### 8. RDF
-
-*Changed by A1.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §5.9.*
 
@@ -101,9 +94,7 @@ James's direction, from the design discussion of 2026-10-05:
 - **Change:** corrects §8
 - **Summary:** Entity schemas have no RDF: no terms on an entity node, no `wikibase:EntitySchema` type. [wikibase-compat.md](../api/wikibase-compat.md) §2's description already says so and stands. (PENDING B8)
 
-Replaced text (§8):
-
-> The schema's **terms** go on its entity node in the dump as any entity's do (`rdfs:label`, `schema:description`, `skos:altLabel`), typed `wikibase:EntitySchema`, under the entity IRI rules of [0015](0015-record-format-and-partition-registry.md) §5.
+Replaced text: §8 of this ADR.
 
 ### A2. Unsupported ShEx features: saved, not validated
 
@@ -112,24 +103,20 @@ Replaced text (§8):
 - **Change:** corrects §4
 - **Summary:** A schema using unsupported ShEx features (`IMPORT`, `EXTERNAL`, semantic actions, annotations other than `rdfs:label`/`rdfs:comment`, an undefined prefix) is saved and marked `unvalidatable`: "not validated", not "refused at save". (PENDING F12)
 
-Replaced text (§4):
-
-> **Refused at save**: `IMPORT`, `EXTERNAL`, semantic actions and annotations other than `rdfs:label`/`rdfs:comment`, and any prefix the tenant's dump does not define. A schema that uses them is saved but marked `unvalidatable`, with the reason on its page, since a mirrored Wikidata schema may use them and must still mirror.
+Replaced text: §4 of this ADR.
 
 ### A3. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§9
-- **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [15](../architecture/15-structured-pages.md), [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
 
 ### A4. Validation runs in tier 3 only, under a binding cap
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §3, §6
+- **Source:** 0083 §3, §6
 - **Change:** amends §5
-- **Summary:** Validation against a bound schema is a tier-3 consumer that follows the scope projection, consuming composition events in its own queue, outside every transaction, with its own lag shown on the schema page beside "checked at"; it never runs inline in a write or in a fan-out budget, and only the ad hoc check of §6 runs on request. Its triggers are the `schema:{id}` rows of `view.scope_trigger`. Binding a schema to a scope is refused at scope save with `ts-schema-binding-cap` when the sum over the tenant of bound-schema × scope size (each binding's scope `count`, or `scopes.max_members` for a scope not yet computed) would exceed `schemas.max_bound` (`site`, ceiling-bounded; default 1,000,000), unless an operator raises the ceiling; the refusal names the bindings that fill the cap. The projection is view-derived: a rebuild re-validates every bound subject from `view` as a job. The ledger names §9; the crate table did not change. (REVIEW G10)
+- **Summary:** Validation against a bound schema is a tier-3 consumer that follows the scope projection, consuming composition events in its own queue, outside every transaction, with its own lag shown on the schema page beside "checked at"; it never runs inline in a write or in a fan-out budget, and only the ad hoc check of §6 runs on request. The ledger names §9; the crate table did not change. Chapter text: 15 §6.4. (REVIEW G10)
 
-Replaced text ([15](../architecture/15-structured-pages.md) §6.4, as it stood):
+Replaced text: 15 §6.4.
 
-> **When it runs.** In step 7 of [0013](0013-postgres-storage.md) §7 after the scope projection ([03](../architecture/03-storage-caches-and-search.md) §6.1): a **subject's own write** re-validates the subject against every schema bound to a scope it is in, within the fan-out budget; **a scope's membership change** validates joining members and drops leaving ones; **a schema's revision** re-validates every member of every scope bound to it, as a job; and a periodic **`schemas.recheck`** job (default daily) re-validates subjects whose referenced nodes may have changed, which the subject's own write does not see. `schemas.max_subjects` (default `scopes.max_members`) bounds a schema's materialized report, truncated with the scope notice. The report writes no record and no activity row, as the constraint and scope projections do not.

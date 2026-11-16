@@ -4,7 +4,6 @@
 - **Date:** 2026-10-05
 - **Updated:** 2026-10-09 (A3)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0042](0042-template-expansion-and-parsoid.md), [0045](0045-table-content-model.md), [0047](0047-special-pages.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [0060](0060-scopes.md)
 - **Uses:** [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0031](0031-property-constraints.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0043](0043-lua-modules.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0059](0059-query-service.md), [0061](0061-sprints-and-tasks.md)
 
 ## Context
@@ -31,8 +30,6 @@ James's direction, from the design discussions of 2026-10-04 and 2026-10-05:
 *Current text: [15](../architecture/15-structured-pages.md) §4.2.*
 
 ### 3. Blocks (extends 0042 §5 and §10; settles 0045 Q5)
-
-*Changed by A1, A2.*
 
 *Current text: [15](../architecture/15-structured-pages.md) §4.3, §5.5.*
 
@@ -101,20 +98,19 @@ James's direction, from the design discussions of 2026-10-04 and 2026-10-05:
 ### A1. `#query`
 
 - **Date:** 2026-10-05
-- **Source:** [0063](0063-query-namespace.md) §6
+- **Source:** 0063 §6
 - **Change:** extends §3
 - **Summary:** A block rendering a saved query's result with parameters.
 
 ### A2. `#conformance`
 
 - **Date:** 2026-10-05
-- **Source:** [0064](0064-entityschema-and-validation.md) §6
+- **Source:** 0064 §6
 - **Change:** extends §3
 - **Summary:** A block rendering a schema's conformance over a scope.
 
 ### A3. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§10
-- **Summary:** The Decision's current text now lives in the architecture chapters [15](../architecture/15-structured-pages.md), [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.

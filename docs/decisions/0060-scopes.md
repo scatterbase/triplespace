@@ -4,7 +4,6 @@
 - **Date:** 2026-10-04
 - **Updated:** 2026-10-09 (A10)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0020](0020-change-feeds.md), [0041](0041-content-models.md), [0045](0045-table-content-model.md), [0049](0049-boards.md), [0056](0056-security-model.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0023](0023-moderation.md), [0026](0026-sitelinks.md), [0038](0038-page-metadata-and-categories.md), [0042](0042-template-expansion-and-parsoid.md), [0044](0044-tenant-relative-ids.md), [0059](0059-query-service.md)
 
 ## Context
@@ -39,13 +38,9 @@ James's direction, from the design discussion of 2026-10-04:
 
 ### 4. The definition
 
-*Changed by A2, A3, A4, A9.*
-
 *Current text: [15](../architecture/15-structured-pages.md) §1.3, §5.5.*
 
 ### 5. Membership is a projection
-
-*Changed by A7, A9.*
 
 *Current text: [15](../architecture/15-structured-pages.md) §1.4.*
 
@@ -55,13 +50,9 @@ James's direction, from the design discussion of 2026-10-04:
 
 ### 7. Feeds and watching (extends 0020 §2 and §3; settles 0045 Q4)
 
-*Changed by A6.*
-
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.2, §4.3, §5.2.*
 
 ### 8. The scope page, links and the API (extends 0012 §5)
-
-*Changed by A1.*
 
 *Current text: [18](../architecture/18-api.md) §2.3, §3.2; [19](../architecture/19-site-ui.md) §3.1, §6.9.*
 
@@ -71,13 +62,9 @@ James's direction, from the design discussion of 2026-10-04:
 
 ### 10. Storage, caches and search
 
-*Changed by A5, A9.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.15, §5, §6.1, §11.1, §12.1.*
 
 ### 11. Crates (amends 0005 §2)
-
-*Changed by A10.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
@@ -118,28 +105,28 @@ James's direction, from the design discussion of 2026-10-04:
 ### A1. The scope builder
 
 - **Date:** 2026-10-05
-- **Source:** [0062](0062-workspaces.md) §5
+- **Source:** 0062 §5
 - **Change:** extends §8
 - **Summary:** The scope page gains a Builder tab: by example (shared statements with counts), facets and split, pickers for the other kinds, set algebra as chips, and a live count and sample through the preview route.
 
 ### A2. The `saved` kind
 
 - **Date:** 2026-10-05
-- **Source:** [0063](0063-query-namespace.md) §6
+- **Source:** 0063 §6
 - **Change:** extends §4
 - **Summary:** A scope over a saved query's result with parameters.
 
 ### A3. Schemas and the `conforms` kind
 
 - **Date:** 2026-10-05
-- **Source:** [0064](0064-entityschema-and-validation.md) §5–6
+- **Source:** 0064 §5–6
 - **Change:** extends §4
 - **Summary:** `schemas` on a definition binds entity schemas to the scope's members; `conforms` selects by the report.
 
 ### A4. Form and sense subjects
 
 - **Date:** 2026-10-05
-- **Source:** [0066](0066-lexemes.md) §5
+- **Source:** 0066 §5
 - **Change:** extends §4
 - **Summary:** Lexeme parts as subject types.
 
@@ -152,11 +139,9 @@ Replaced text (§4, in part):
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §10
-- **Summary:** The scope listing key `sc:` (with `tp:` of [0049](0049-boards.md) §12 and `sp:` of [0061](0061-sprints-and-tasks.md) §11) carries a **listing version**, the maximum activity ID over the listing's members, computed in Postgres at read time, in place of purges on ordinary writes; [0014](0014-caches-and-search.md) §1 principles 1 and 4 hold unchanged. Tag purges remain for erasure and hiding. (PENDING B4)
+- **Summary:** The scope listing key `sc:` (with `tp:` of 0049 §12 and `sp:` of 0061 §11) carries a **listing version**, the maximum activity ID over the listing's members, computed in Postgres at read time, in place of purges on ordinary writes; 0014 §1 principles 1 and 4 hold unchanged. Tag purges remain for erasure and hiding. (PENDING B4)
 
-Replaced text (§10):
-
-> Cache keys: `sc:{page id}:{definition revid}:{computed_at}` for member pages, purged on recomputation; the scope page itself follows the page rules of [0014](0014-caches-and-search.md).
+Replaced text: §10 of this ADR.
 
 ### A6. `notify` refused on scope and rows watches
 
@@ -172,39 +157,28 @@ Replaced text (§10):
 - **Change:** corrects §5
 - **Summary:** `view.scope_member.kind` admits `form` and `sense` beside `entity` and `page`, as A4's form and sense subjects need; a lexeme part is keyed by its part ID. (PENDING F9)
 
-Replaced text (§5):
-
-> ```
->   kind     text   NOT NULL,                -- 'entity' | 'page'
-> ```
+Replaced text: §5 of this ADR.
 
 ### A8. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§11
-- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [15](../architecture/15-structured-pages.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
 
 ### A9. Membership is a tier-3 consumer; `view.scope_trigger`; the initial computation is a job
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §3, §6
+- **Source:** 0083 §3, §6
 - **Change:** amends §5, §10; extends §4
-- **Summary:** The scope projection no longer runs in step 7 of 0013 §7 within a fan-out budget: it is a tier-3 consumer of composition events, in its own queue with its own rate and lag, never inside the appending or composing transaction, off during bootstrap and bulk modes. A definition compiles at save to rows of `view.scope_trigger (tenant, trigger_kind, key, scope_page_id)` — `property:P31`, `category:{page}`, `table-row:{page}`, `sitelink`, `schema:{id}` — held in L0, so an event that matches no trigger is one hash probe and nothing more. The initial computation is always a job: the save compiles the triggers, writes `view.scope` with `computed_at` null and enqueues the computation; a rebuild is the same job for every scope of a tenant from `view`, the projection being view-derived. A truncated scope is "the first N found, refilled by a job when it falls below N"; it is a full operand only where it can be probed (`statement`, `category`, `ids`, `conforms`), and an `intersection` or `difference` whose non-probeable operand (`query`, `saved`, `column`, `pages_of`, `entities_of`) is truncated is refused at save with `ts-scope-truncated-operand`; a scope whose operand becomes truncated later is marked `stale`. Incremental scopes are current within the consumer's lag, shown beside `computed_at`. (REVIEW G10)
+- **Summary:** The scope projection no longer runs in step 7 of 0013 §7 within a fan-out budget: it is a tier-3 consumer of composition events, in its own queue with its own rate and lag, never inside the appending or composing transaction, off during bootstrap and bulk modes. A truncated scope is "the first N found, refilled by a job when it falls below N"; it is a full operand only where it can be probed (`statement`, `category`, `ids`, `conforms`), and an `intersection` or `difference` whose non-probeable operand (`query`, `saved`, `column`, `pages_of`, `entities_of`) is truncated is refused at save with `ts-scope-truncated-operand`; a scope whose operand becomes truncated later is marked `stale`. Chapter text: 15 §1.4; 03 §4.15. (REVIEW G10)
 
-Replaced text ([15](../architecture/15-structured-pages.md) §1.4, as it stood):
+Replaced text: 15 §1.4.
 
-> **Two speeds.** `ids`, `statement`, `category`, `column`, `pages_of`, `entities_of` and the set algebra over them are **incremental**: the scope projection runs in step 7 of [0013](0013-postgres-storage.md) §7 ([03](../architecture/03-storage-caches-and-search.md) §6.1), after the statement, category and page projections, and applies the effect of each write to the scopes it touches, found through the inverted index above and through `page_link` for the kinds that name a property, category or table. These scopes are current within the fan-out budget of 0013 §7, like referrers. `query` kinds, and any set algebra with a `query` operand, are **refreshed**: a job runs the compiled query at `scopes.refresh` (default 15 min) and whenever the definition is saved or a person asks (`POST /scope/{pageid}/refresh`, [18](../architecture/18-api.md) §3.2), and replaces the members in one transaction with the cursor the service reported. Which deltas affect an arbitrary query is not knowable, so these scopes are as fresh as the last refresh, and say so.
-
-> **The bound.** Members are materialized in a deterministic order, entity IDs then page IDs, each ascending, so that the prefix kept is stable between computations. When a computation yields more than `scopes.max_members`, the first `scopes.max_members` are kept and `truncated` is set. **The scope page, and every table, board, feed and watch that uses the scope, shows the notice**: "This scope has more than 100,000 members; the first 100,000 are shown." A truncated scope is still a full operand: `intersection` and `difference` are computed over the operands' complete sets where the operand is incremental, and by the query service where any operand is a query, and only the result is bounded. So `Scope:Humans` is useless to list and fine to intersect with.
-
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.15, as it stood):
-
-> - `view.scope` and `view.scope_member` as in [0060](0060-scopes.md) §5; the scope projection in step 7 of §6.1 and the refresh job in `ops` ([0060](0060-scopes.md) §10).
+Replaced text: 03 §4.15.
 
 ### A10. Constant expansion in compiled SPARQL
 
 - **Date:** 2026-10-09
-- **Source:** [0082](0082-source-form-and-the-shared-view.md) §7
+- **Source:** 0082 §7
 - **Change:** extends §11
 - **Summary:** `scatter-scope` gains the expansion of entity constants in compiled SPARQL to the cluster's member set through the query service's rewriting layer, with property paths left untouched, so a `query` scope written with any member of a cluster finds the same subjects. (REVIEW G4)

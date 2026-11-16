@@ -4,7 +4,6 @@
 - **Date:** 2026-10-09
 - **Updated:** 2026-10-30 (A1)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0079](0079-derived-issuer-codes.md)
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0021](0021-notifications.md), [0027](0027-preferences-and-portability.md), [0040](0040-instance-prerogatives.md), [0080](0080-tenants-as-entity-sources.md)
 
 ## Context
@@ -108,6 +107,5 @@ James's direction, from the design discussion of 2026-10-09:
 ### A1. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-30
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§10
-- **Summary:** The Decision's current text now lives in the architecture chapters [01](../architecture/01-log-and-records.md), [08](../architecture/08-tenants-and-instances.md), [17](../architecture/17-federation-and-publication.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.

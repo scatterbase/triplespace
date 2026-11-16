@@ -4,7 +4,6 @@
 - **Date:** 2026-10-06
 - **Updated:** 2026-10-20 (A5)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0030](0030-edit-filters.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [0067](0067-proposals.md), [0068](0068-merging-with-upstream.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0027](0027-preferences-and-portability.md), [0038](0038-page-metadata-and-categories.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0047](0047-special-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -53,8 +52,6 @@ James's direction, from the design discussion of 2026-10-06:
 
 ### 7. Forks: following the talk page or forking it (amends 0054 §1, §5; extends 0008 §4; settles 0068 Q2)
 
-*Changed by A3, A5.*
-
 *Current text: [13](../architecture/13-mirrored-pages.md) §3.1, §3.2, §4.4, §5.11, §5.12.*
 
 ### 8. Feeds, watches and notifications (extends 0020 §2; extends 0021 §2)
@@ -63,13 +60,9 @@ James's direction, from the design discussion of 2026-10-06:
 
 ### 9. API (extends 0012 §5)
 
-*Changed by A2.*
-
 *Current text: [18](../architecture/18-api.md) §2.3, §3.2.*
 
 ### 10. Storage (extends 0013 §5.6)
-
-*Changed by A1.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.8, §5, §11.1, §12.1.*
 
@@ -109,7 +102,7 @@ James's direction, from the design discussion of 2026-10-06:
 - **Q1. Continuing a foreign discussion locally.** Whether a local thread started from **Discuss here instead** should carry a structured reference to the foreign thread (`about: {repo, n}`), shown on both, rather than only a link in its text.
 - **Q2. Local actions on foreign threads.** Whether a foreign thread can be pinned, listed on a board ([0049](0049-boards.md) §5) or given thread statements here, which needs local records keyed by its ranged ID, as a foreign page's talk page already is.
 - **Q3. Sending a local thread upstream.** Whether a local thread can later be posted upstream as a new section, with its local replies quoted or summarised, and what becomes of the local thread.
-- **Q4.** ~~**Upstream closure markers.** Whether `{{archive top}}`, `{{closed rfc top}}` and similar templates, which close a discussion without archiving it, should map to a closed status, which needs a per-repository list of templates.~~ *Settled by [0090](0090-converting-talk-pages-comment-by-comment.md) §3 for converted threads: closing templates are listed in the universal `talk-markup.toml`, not per repository, and a wrapper enclosing a whole section becomes a closing post with `status: closed`.*
+- **Q4. Upstream closure markers.** *Settled by [0090](0090-converting-talk-pages-comment-by-comment.md) §3 for converted threads.*
 - **Q8.** (Rest of Q4.) Whether a followed foreign thread should show a closed status read from the same list.
 - **Q5. Editing front matter.** Whether a person holding a grant may edit upstream's section 0 through the instance, and whether WikiProject banners there could be read into page statements on the local page ([0038](0038-page-metadata-and-categories.md)).
 - **Q6. Re-following and local threads.** When a fork is re-followed ([0068](0068-merging-with-upstream.md) §5) and deleted, whether its local threads should move to the foreign page's talk page instead of being deleted by enclosure.
@@ -132,9 +125,7 @@ James's direction, from the design discussion of 2026-10-06:
 - **Change:** amends §10
 - **Summary:** Listing keys (`tp:`, `sc:`, `sp:`) carry a **listing version**, the maximum activity ID over the listing's members, computed in Postgres at read time, in place of tag purges on ordinary writes; 0014 §1 principles 1 and 4 hold unchanged. Tag purges remain for erasure and hiding. For this ADR: a `put` of a followed talk page no longer purges the `tp:` listings of the local talk pages that follow it by tag; the listing's version changes with the `put` instead. (PENDING B4)
 
-Replaced text (§10):
-
-> **Caches** ([0014](0014-caches-and-search.md) §7): a `put` of a followed talk page purges the `tp:` listing of every local talk page that follows it, by tag.
+Replaced text: §10 of this ADR.
 
 ### A2. No `list=threads`
 
@@ -143,9 +134,7 @@ Replaced text (§10):
 - **Change:** corrects §9
 - **Summary:** There is no `list=threads`; `origin=` is a parameter of `GET /page/{id}/threads` only. The Action API paragraph's `thorigin` on `list=threads` goes; the route table's `origin=local|upstream` filter stands. (PENDING E34)
 
-Replaced text (§9):
-
-> `list=threads` accepts `thorigin`.
+Replaced text: §9 of this ADR.
 
 ### A3. Talk-destination proposals on a following fork
 
@@ -157,17 +146,15 @@ Replaced text (§9):
 ### A4. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§12
-- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [13](../architecture/13-mirrored-pages.md), [14](../architecture/14-discussions.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
 
 ### A5. Stopping splits comments too
 
 - **Date:** 2026-10-20
-- **Source:** [0090](0090-converting-talk-pages-comment-by-comment.md) §10
+- **Source:** 0090 §10
 - **Change:** amends §7
-- **Summary:** **Stop following** runs the conversion as it now stands, so each section's comments become posts, attributed to their authors, rather than one post per section. Chapter text: [13](../architecture/13-mirrored-pages.md) §5.11.
+- **Summary:** **Stop following** runs the conversion as it now stands, so each section's comments become posts, attributed to their authors, rather than one post per section. Chapter text: 13 §5.11.
 
-Replaced text ([13](../architecture/13-mirrored-pages.md) §5.11, as it stood):
+Replaced text: 13 §5.11.
 
-> each section becomes a closed local thread homed on the fork's talk page, with `imported_from` now also carrying the section's name hash;

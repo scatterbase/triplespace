@@ -20,7 +20,7 @@ How the design is written down: the chapters of this directory, the ADRs of [`..
 - **Current:** the header, the Decision's headings and pointers, the Consequences, and the state of each open question. They say what holds now. Reading the Decision's pointers, and the chapter sections they name, gives the decision as it stands.
 - **Historical:** the Context, its Direction, and the Amendment log. They say what was known, wanted and changed, and they are never rewritten. References are only appended to.
 
-**Nothing is deleted.** Text that stops being current moves to the Amendment log (§6) or is struck through in place (§7, §8). A chapter's text is never deleted either: the log entry that removes it quotes it.
+**Nothing is deleted.** Text that stops being current moves to the Amendment log (§6) or is struck through in place (§7); a settled question keeps its ID and title, and the commit that settles it holds what it asked (§8). A chapter's text is never deleted either: the log entry that removes it names the sections it stood in, and the entry's commit holds it (§6).
 
 **What an ADR says is decided, whoever drafted it.** A section Claude proposed carries no mark and has the same standing as one James wrote, until a later change says otherwise. That change is an amendment like any other.
 
@@ -47,7 +47,6 @@ Fixed fields, in this order, one line each. Each value is a date, a status or a 
 | `Date` | The date the ADR was first written | Yes |
 | `Updated` | The date and ID of the latest log entry: `2026-10-01 (A20)` | Once there is a log |
 | `Author` | `James Hare / Claude …` | Yes |
-| `Changes` | Linked numbers, ascending: every ADR whose text this one changes | When non-empty |
 | `Uses` | Linked numbers and contract documents, ascending: what this ADR relies on without changing | When non-empty |
 
 **Status follows the code, and the code writes it.** `Proposed`, `Accepted` and `Accepted with proposed amendment (A7, A9)` are computed from the implementation claims in the code (§15) by `check_adrs.py --index`, which rewrites the header line; a hand-edited one is a check failure, like a stale index.
@@ -57,7 +56,7 @@ Fixed fields, in this order, one line each. Each value is a date, a status or a 
 - **`Accepted with proposed amendment (A7, A9)`** when every section is done or was changed after its claim; the status names the entries the code has not caught up with. The commit that re-checks the code against an entry and moves the claim's entry ID removes it from the list.
 - **`Superseded by NNNN`** and **`Withdrawn`** are decisions, not implementation: they are written by hand with the log entry that supersedes or withdraws the ADR, and the checker leaves them alone.
 
-**There is no field for what the ADR relies on in the other direction, and none for the chapters it points at.** What changes an ADR is its Amendment log; what it changes is `Changes` and its section headings; which chapters hold its text is read from its pointers. `INDEX.md` (§13) lists all three for every ADR, and the checker generates it. The retired fields `Amended by`, `Related`, `Revised` and `Chapters` are not written.
+**There is no field for what the ADR changes, none for what changes it, and none for the chapters it points at.** What changes an ADR is its Amendment log. What it changes is recorded where the change lands: the log entries and settled questions of the other ADRs name it as their source, and `tools/adr.py changes NNNN` lists them; its section headings say the same in brief (§3.1). Which chapters hold its text is read from its pointers. `INDEX.md` (§13) lists what changed each ADR and its chapters, and the checker generates it. The retired fields `Amended by`, `Related`, `Revised`, `Chapters` and `Changes` are not written.
 
 ### 2.3 Skeleton
 
@@ -91,13 +90,13 @@ An ADR in parts (0022) marks each part with a bold line before its first section
 - **Numbers are permanent.** A section is never renumbered and a number is never reused. A new section takes the next free number, even where it would fit better earlier.
 - **A section that no longer holds becomes a stub.** It keeps its heading. Its body is the line *Superseded by NNNN §M (An).*, with at most one sentence of pointer, and its old text is in the log entry. See 0008 §11.
 - **A heading names what the section changes in other ADRs**, with the verbs of §5: `### 2. Talk pages are composite (amends 0008 §2; extends 0008 §3)`.
-- **The first line of a changed section is its provenance line:** *Changed by A3, A6, A9.*, listing every log entry that changed it, in order. A section with no provenance line has not changed since it was written. A `consolidates` or `relocates` entry (§6) is not listed.
+- **Which entries changed a section is read from the log,** not written under the heading: they are the entries whose Change line names the section (§6), other than a `consolidates`, `retitles` or `relocates` entry. A section no entry names has not changed since it was written. `tools/adr.py show NNNN §N` prints them with the section (*Changed by A3, A6, A9.*), and `tools/coverage.py` reads them the same way (§15).
 
 ### 3.2 Every section is a pointer
 
 *Sources: [0050](../decisions/0050-adr-format.md) §14; [0098](../decisions/0098-pointers-from-birth.md) §1.*
 
-**A Decision section's text lives in the chapters, from the day the ADR is written.** The section keeps its heading, its number and its provenance line (§3.1), and its body is the one line
+**A Decision section's text lives in the chapters, from the day the ADR is written.** The section keeps its heading and its number, and its body is the one line
 
 ```
 *Current text: [03](03-storage-caches-and-search.md) §4.5; [18](18-api.md) §3.2.*
@@ -116,11 +115,11 @@ naming every chapter section whose provenance line (§10.2) cites it. The headin
 When an ADR, or a decision made directly, changes the text of ADR *Y*, the same change does four things to *Y*:
 
 1. **Fold.** Rewrite the affected text so that it states the current decision, in the chapter section that *Y*'s pointer names, in the same commit. Where a reader would want the detail, cite the source in the sentence: "Deletion is an ACL ([0023](../decisions/0023-moderation.md) §4)." Add the changing ADR's section to the chapter section's provenance line (§10.2).
-2. **Log.** Append an entry to *Y*'s Amendment log (§6). Text the change removes or contradicts goes into the entry as **Replaced text**, verbatim, quoted from the chapter section as it stood and cited as that chapter section.
-3. **Mark.** Add the entry's ID to the provenance line of each *Y* section it changed. Strike any consequence the change makes false (§7). If *Y* is `Accepted`, add the entry's ID to its status (§2.2). Set *Y*'s `Updated`.
-4. **Answer.** If the change settles an open question, strike the question and say what settled it (§8). Settling a question needs no log entry: the struck question is the record.
+2. **Log.** Append an entry to *Y*'s Amendment log (§6). The entry names the chapter sections whose text the change removes or contradicts as **Replaced text**; the commit that makes the change holds that text, so it is not quoted (§6).
+3. **Mark.** Strike any consequence the change makes false (§7). If *Y* is `Accepted`, add the entry's ID to its status (§2.2). Set *Y*'s `Updated`.
+4. **Answer.** If the change settles an open question, replace its text with what settled it, keeping its ID and title (§8). Settling a question needs no log entry: the settled question is the record.
 
-The changing ADR names *Y* in its header's `Changes` and in its section headings; the target's log entry names the changing section as its Source. The index (§13) derives both directions from these, so they are stated once each.
+The changing ADR names *Y* in its section headings; the target's log entry names the changing section as its Source, and that entry is the record: what an ADR changes is read from the entries and settled questions that name it (§2.2).
 
 **Every change is folded, whatever its kind.** An extension that contradicts nothing is folded and logged like an amendment, so a section always reads as one text. Blockquote callouts are not used for changes; a blockquote is for quotation.
 
@@ -153,21 +152,21 @@ The retired verbs map onto these. **refines, specifies, narrows**: `amends` if i
 ### A9. Articles, categories and page statements
 
 - **Date:** 2026-09-29
-- **Source:** [0038](0038-page-metadata-and-categories.md) §1, §3, §4, §8, §11
+- **Source:** 0038 §1, §3, §4, §8, §11
 - **Change:** amends §2, §8, §10; extends §4
-- **Summary:** One short paragraph: what changed and why.
+- **Summary:** What changed and why, in a few sentences. Chapter text: 10 §4.3.
 
-Replaced text ([10](../architecture/10-pages-and-content-models.md) §4.3, as it stood):
-
-> - Category links (`[[Category:…]]`) are listed as plain text at the foot of the page. No category pages exist.
+Replaced text: 10 §4.3.
 ```
 
-- **IDs are `A1`, `A2`, …,** assigned in the order entries are appended, and never renumbered. An entry is never edited, except to correct a typo or a broken link.
-- **Source** is another ADR's sections, or `Direct:` with who decided and on what occasion ("Direct: James, design discussion of 2026-10-01"). For a direct decision the Summary holds the decision in full, because nowhere else does.
+- **IDs are `A1`, `A2`, …,** assigned in the order entries are appended, and never renumbered. An entry is never edited, except to correct a typo or a broken link, and twice by 0050: by A5, which replaced quoted text that git holds with the sections' names and shortened summaries that restated the chapter, by A6, which shortened the *Replaced text* lines and removed the summaries of the `relocates` entries, and by A9, which removed the quotes A5's pass had left under lines it had already converted.
+- **Source** is another ADR's sections, or `Direct:` with who decided and on what occasion ("Direct: James, design discussion of 2026-10-01"). For a direct decision the Summary holds the decision itself, with who made it and why, because the fold says neither.
 - **A decision made while building is logged by the agent that made it,** in the same change as the code, with Source `Direct: Claude, while building <what>, YYYY-MM-DD; unconfirmed`. It is decided like any other entry (§1.1) and folded like any other; the word *unconfirmed* is what the index (§13) lists it by. James confirms it by editing the Source line (`Direct: James, confirmed YYYY-MM-DD; Claude's call while building …`) or overturns it with a new entry. Notes outside the ADRs are not where such calls are kept.
 - **Change** uses the verbs of §5.
-- **Replaced text** is the removed or contradicted text, quoted as it stood, headed by the chapter section it was taken from (*Replaced text (10 §4.3, as it stood):*), or by the ADR section for entries older than the chapters. Together with the current text, it lets every earlier state be read without git.
-- **The log is the only place history accumulates.** It is read through `tools/adr.py log NNNN [An]`, so its size costs a reader nothing until the history is wanted.
+- **Summary** says what changed and why: the reason, anything the change withdraws or corrects, and the chapter sections it changed (*Chapter text: …*). It does not restate the chapter text, which the diff shows. For a direct decision it holds the decision, its reasons, its consequences and each call it made, and leaves out only detail the fold states; an unconfirmed entry is kept whole until James confirms it, since he confirms it by reading it. An entry from another ADR need not repeat that ADR's reasons. An entry whose commit does not hold the change (see below) keeps its summary whole. A `relocates` entry (§5) has no Summary: every one says the same thing, which is that the Decision's current text moved to the chapter sections its pointers name, that the ADR kept its headings, provenance lines, Context, Consequences, Open questions and log, and that no decision changed; `tools/adr.py log NNNN An --diff` shows the text as it stood in the ADR.
+- **Replaced text** names the sections whose text the change removed or contradicted, as they stood before the entry, and nothing more: *Replaced text: 10 §4.3.* The entry is written in the same change as the fold, so the commit that adds the entry's heading holds the text, and its parent holds the text as it stood. `tools/adr.py log NNNN An --before` prints those sections as they stood and `--diff` what the change did to them, word by word. The tool finds the commit each time, so no entry records a hash, uncommitted work needs none, and a rebase changes nothing; when the commit also carries other entries, or only gave an older entry its heading, the tool says so.
+- **Text is quoted only where git does not hold it:** text edited before the repository held it (entries dated before 2026-09-27, or edited in place before the 0050 conversion of 2026-10-01), or a file `adr.py` does not read, such as a registry file. Such text is quoted verbatim, headed by the section it stood in (*Replaced text (10 §4.3, as it stood):*).
+- **The log is where history is recorded, and git holds the text it names.** It is read through `tools/adr.py log NNNN [An] [--before | --diff]`, so its size costs a reader nothing until the history is wanted.
 
 ## 7. Consequences
 
@@ -183,10 +182,11 @@ A consequence the change adds is appended as a new bullet. Consequences are not 
 
 *Sources: [0050](../decisions/0050-adr-format.md) §10.*
 
-- **Every open question has an ID,** `Q1`, `Q2`, …, written before the strike so that it stays readable: `- **Q3.** ~~**The main namespace.** …~~ *Settled by A6: …*`. IDs are permanent.
-- **A settled question is struck,** followed by *Settled by NNNN §N: answer.* or *Settled by An: answer.* for a direct decision. A question dropped without an answer is *Withdrawn: reason.*
-- **A question settled in part is struck whole,** and what remains open is appended as a new question that names the old one: `- **Q9.** (Rest of Q4.) …`. Partial strikes in the middle of a sentence are not used.
-- **An answer that later changes** is extended after the settlement, not rewritten (0008 Q3).
+- **Every open question has an ID and a title,** `- **Q3. The main namespace.** …`, with `Q1`, `Q2`, … assigned in order. IDs are permanent.
+- **A settled question keeps its ID and title and names what settled it:** `- **Q3. The main namespace.** *Settled by A6.*`, in the change that settles it. The source is an ADR or its section (*Settled by 0038 §8.*), a section of the same ADR (*Settled by §3.*) or, for a direct decision, the log entry that records it (*Settled by A6.*). The text it asked is not kept in the file and not struck through: the commit that settles it holds it, and `tools/adr.py questions NNNN Qn --before` prints the question as it was asked, finding the commit each time as §6 does.
+- **The answer is not restated** where the source states it, which the chapter section or the log entry does. It stays in the note, after a colon (*Settled by NNNN §N: answer.*), only where nothing else holds it: the source is not an ADR or a log entry (a registry change, a test vector, a decision in discussion that no entry records), or the answer has a detail the source's text lacks. A question dropped without an answer is *Withdrawn: reason.*, and the reason always stays, since only the note holds it.
+- **A question settled in part is settled whole,** and what remains open is appended as a new question that names the old one: `- **Q9.** (Rest of Q4.) …`.
+- **An answer that later changes** is extended after the settlement, not rewritten: *Settled by A6.* *Changed by 0038 §8 (A9).* (0008 Q3).
 
 ## 9. Citations
 
@@ -206,6 +206,7 @@ A consequence the change adds is appended as a new bullet. Consequences are not 
 - **Inside an ADR, a bare `§N`, `An` or `Qn` means that ADR.** A reference to any other ADR names it, every time. Inside a chapter, a bare `§N` means that chapter.
 - **A relation outside a heading names both ends.** Write "0049 §2 amends 0008 §2", never "(§2 amends §2)". In a heading the section itself is the subject, so only the object is named.
 - **The first mention of another ADR in each section is a link:** `[0008](0008-namespaces-and-document-pages.md) §2` from an ADR, `[0008](../decisions/0008-namespaces-and-document-pages.md) §2` from a chapter.
+- **In the Amendment log a citation is plain,** `0038 §1`, `10 §4.3`, never a link: the log is read through `tools/adr.py log`, which prints citations plain in any case, and the checker verifies that each ADR, chapter and section named on a Source or Replaced text line or in a Chapter text list exists. A link stays where it is not such a citation: to a file that is neither an ADR nor a chapter, to a chapter named without a section, and inside quoted text, which is verbatim.
 - **`NNNN §N` always means the current text.** To cite text as it was, cite the entry that replaced it: "0008 A6". Dated forms ("as amended 2026-09-27"), sources without a number and placeholders (`§…`) are not used.
 - **Code cites ADR sections**, as `0013 §7` or `0013 §7 rule 2` in a comment, to say what it is about; it claims a section built with `implements 0013 §7 (A41)` (§15). `tools/coverage.py` reads both and `tools/adr.py code 0013 §7` lists them.
 
@@ -257,9 +258,9 @@ The namespace table, the content-model table, the REST route table, the permissi
 2. Contiguous section numbers, every Decision subsection numbered, stubs present.
 3. Heading relations that use the verbs of §5 and resolve.
 4. Log IDs contiguous, the required fields present, and Replaced text where §5 requires it.
-5. Provenance lines that agree with the log, in both directions.
-6. The header's `Changes` agrees with the section headings, and every target in it has a log entry or a settled question naming this ADR as its source.
-7. Contiguous `Q` IDs, each struck question with a *Settled by* or *Withdrawn*.
+5. No `*Changed by …*` line under a Decision heading and no `Changes` header field, both being read from the logs; a stub's entry is one whose Change names the section.
+6. An ADR that a section heading says is amended, extended, superseded, corrected or settled has a log entry or a settled question naming this ADR as its source.
+7. Contiguous `Q` IDs; no question struck through; each settled question in the form of §8, with its title.
 8. `NNNN An` and `NNNN Qn` citations that resolve.
 9. No blockquote callout announces a change.
 10. **Every Decision section is a pointer or a stub**, the pointer names existing chapter sections, and each named section's provenance line cites the pointing ADR section (or its parent).
@@ -295,7 +296,7 @@ The namespace table, the content-model table, the REST route table, the permissi
 History, kept here so that the ADRs' older log entries can be read.
 
 - **2026-10-01 to 2026-10-07, the 0050 format.** 0008 was converted as a pilot; a mechanical pass gave the remaining ADRs titles, `Q` IDs, the six verbs and two-ended relations; then each ADR was converted in its own commit, every callout and dated self-amendment becoming a log entry, closing with a `consolidates` entry. 0005 §8 and 0013 §12, the two changelog sections, became stubs and their rows became log entries. The old-format checks were removed when no ADR used it.
-- **2026-10-08 and 2026-10-09, the chapters.** Chapters 00–23 were drafted from the ADRs as they then stood; the 116 inconsistencies the consolidation found were decided by James and logged as direct decisions in the owning ADRs (`docs/audits/architecture-consolidation-2026-10-08.md`); then each ADR's Decision text was replaced by pointers, logged with a `relocates` entry naming the last commit that carried the text.
+- **2026-10-08 and 2026-10-09, the chapters.** Chapters 00–23 were drafted from the ADRs as they then stood; the 116 inconsistencies the consolidation found were decided by James and logged as direct decisions in the owning ADRs (`docs/audits/architecture-consolidation-2026-10-08.md`); then each ADR's Decision text was replaced by pointers, logged with a `relocates` entry. Each entry named the last commit that carried the text until 0050 A5 removed the hashes; the commit is now found from git (§6).
 - **2026-10-30, pointers from birth.** The nineteen ADRs written after the relocation (0079–0097), which had carried their text beside the chapters' copy, were relocated the same way (commit `2e2a7c8` holds the text). 0050 was relocated into this chapter. The `Chapters` header and the "Changes to other ADRs" section, both derivable, were removed from every ADR by a mechanical pass that is not logged; `MAP.md` and the mapping tables of `map.py` were deleted in favour of the provenance lines; `pointers.py` was retired; and the index was slimmed. From then on an ADR is born as pointers.
 - **2026-10-30, later the same day: catalogues and status.** The crate map, the REST routes, the Action API modules, the permission catalogue and the log-event catalogue moved from chapter prose into registry files with generated tables (§11; 0005 A111, 0012 A82–A83, 0016 A40, 0011 A35), 22 §2.2's history narrative was retired (0005 A112), and the implementation status became the code's to carry (§15; 0099): the `implements` claim, the generated `Status` header, the index as status page, unconfirmed log entries for calls made while building, and the retirement of the working notes outside the repository.
 
@@ -306,7 +307,7 @@ History, kept here so that the ADRs' older log entries can be read.
 **The code carries the implementation status of the decisions it encodes.** Nothing else records what is built: not the ADR header, which is written from the code (§2.2), not a backlog, which is derived (§13), not a note. The record is two kinds of citation in code comments, read by `tools/coverage.py` from `crates/`, `xtask/`, `ui/src`, `ui/e2e` and `tools/`:
 
 - **About:** `0013 §7`, `0090 §5–6`, `03 §4.5`. The code is about the section. Evidence of work, not of completion; a comment whose sentence says the thing is not built yet ("not yet built", "deferred", "TODO") counts as that.
-- **A claim:** `implements 0013 §7 (A41)`. The section is built in full, as it stood at log entry A41. It is written once, at the code that completes the section, in src (library or binary code, a migration, or a script under `tools/` that says near its top it is "Product code (24 §15)", [0099](../decisions/0099-status-from-the-code.md) A3) and never in a test; every other script under `tools/` is a test. `implements 0013 §7.3 (A41)` and `implements 0013 §7 rule 2` claim a part; a section whose subsections are all claimed is claimed. A section never changed (no provenance line, §3.1) is claimed without an entry; one that has been changed must name the entry it is current to, so that a later change makes the claim stale rather than silently wrong. A claim on a chapter section, `implements 03 §6.1`, claims every ADR section its provenance line names: the current text is what was built.
+- **A claim:** `implements 0013 §7 (A41)`. The section is built in full, as it stood at log entry A41. It is written once, at the code that completes the section, in src (library or binary code, a migration, or a script under `tools/` that says near its top it is "Product code (24 §15)", [0099](../decisions/0099-status-from-the-code.md) A3) and never in a test; every other script under `tools/` is a test. `implements 0013 §7.3 (A41)` and `implements 0013 §7 rule 2` claim a part; a section whose subsections are all claimed is claimed. A section never changed (no log entry names it, §3.1) is claimed without an entry; one that has been changed must name the entry it is current to, so that a later change makes the claim stale rather than silently wrong. A claim on a chapter section, `implements 03 §6.1`, claims every ADR section its provenance line names: the current text is what was built.
 
 **A section is done** when a src claim covers it, a test cites it (about or claim), and no log entry changed it after the claim. It is *amended* when entries came after the claim: the code is re-checked against them and the claim's entry moved, or the code changed. It is *untested* when claimed with no test citing it, *partial* when claimed in part or only cited as about, *not built* when cited only as such, and *none* when nothing cites it. Trailer sections (§10.3) and stubs are left out: a trailer's subject is claimed under its home section, and the catalogues show their own *Built* columns from the contract and the code (§11).
 

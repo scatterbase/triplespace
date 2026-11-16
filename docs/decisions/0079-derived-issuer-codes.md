@@ -4,7 +4,6 @@
 - **Date:** 2026-10-09
 - **Updated:** 2026-10-30 (A2)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0035](0035-adopting-a-wikibase.md), [0040](0040-instance-prerogatives.md), [0046](0046-primary-tenant.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0022](0022-federation.md), [0027](0027-preferences-and-portability.md)
 
 ## Context
@@ -35,8 +34,6 @@ James's direction, from the design discussion of 2026-10-09:
 
 ### 2. The derivation (amends 0007 §1)
 
-*Changed by A1.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §1.1; [08](../architecture/08-tenants-and-instances.md) §1.2.*
 
 ### 3. The slug is a name (amends 0018 §1, §9 and §10)
@@ -44,8 +41,6 @@ James's direction, from the design discussion of 2026-10-09:
 *Current text: [08](../architecture/08-tenants-and-instances.md) §1.2, §6.1, §6.3.*
 
 ### 4. The farm code (amends 0015 §1, 0028 §2, 0040 §2, §3 and §7, and 0046 §5 and §6)
-
-*Changed by A1.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §2.4; [07](../architecture/07-actors-and-accounts.md) §1.1; [08](../architecture/08-tenants-and-instances.md) §1.2, §3.5, §7.5, §8.2, §8.3; [16](../architecture/16-logs-feeds-and-notifications.md) §2.1; [19](../architecture/19-site-ui.md) §2.5, §6.11.*
 
@@ -91,9 +86,9 @@ James's direction, from the design discussion of 2026-10-09:
 ## Open questions
 
 - **Q1. Renaming slugs.** With no key carrying a slug, whether a tenant's slug or the farm slug may be changed by `owner` beyond reassignment on arrival.
-- **Q2.** ~~**Provider codes for tenants.** A tenant that becomes a provider takes a two-letter code and a number from `providers.toml`, and those go into entity IDs (`EXQ9`) that cross instances. This is the same collision problem on the entity side.~~ *Settled by [0080](0080-tenants-as-entity-sources.md) §3: a tenant is read as an entity source named by issuer code, and a registry code is promotion.*
+- **Q2. Provider codes for tenants.** *Settled by [0080](0080-tenants-as-entity-sources.md) §3.*
 - **Q3. A short display form.** Whether the UI shows an abbreviated code where an actor key must be shown, as git abbreviates commit hashes.
-- **Q4.** ~~**Witnessing the founding record.** A code is only as discoverable as the founding record. Whether a checkpoint witness ([0006](0006-log-integrity-and-erasure.md)) should countersign it.~~ *Settled by [0081](0081-recovery-keys-and-continuations.md) §6: the founding record is witnessed with the first checkpoint of a witnessed `config` partition.*
+- **Q4. Witnessing the founding record.** *Settled by [0081](0081-recovery-keys-and-continuations.md) §6.*
 - **Q5. Admitting another tenant's actors and identity pools.** Letting a tenant admit actors of another tenant on the same instance (a bot, a secondary wiki, a network sharing one user pool), and attributing instance staff under the instance. Discussed on 2026-10-09 as a pool being a tenant, possibly contentless, that others admit. Not decided.
 
 ## References
@@ -109,11 +104,10 @@ James's direction, from the design discussion of 2026-10-09:
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §2, §4
-- **Summary:** The record at offset 0 of any `config` partition carries a third attestation form, the founding attestation: no actor, a signature by the key the record registers (self-certifying), and for a tenant the authority `(instance config, 0)`; the issuer or farm code is derived from its leaf afterwards. Offsets 1 and 2 of the instance `config` are attested by `instance:{farm code}` with the founding record as authority. A single-tenant instance therefore needs no authority record and no `ts-prerogative` path to exist before its first entity. The form itself is [0015](0015-record-format-and-partition-registry.md) §1's; the chapters hold it in [01](../architecture/01-log-and-records.md) §2.4 and [08](../architecture/08-tenants-and-instances.md) §2.4, §7.2 and §8.3. (REVIEW G22)
+- **Summary:** The record at offset 0 of any `config` partition carries a third attestation form, the founding attestation: no actor, a signature by the key the record registers (self-certifying), and for a tenant the authority `(instance config, 0)`; the issuer or farm code is derived from its leaf afterwards. Offsets 1 and 2 of the instance `config` are attested by `instance:{farm code}` with the founding record as authority. The form itself is 0015 §1's; the chapters hold it in 01 §2.4 and 08 §2.4, §7.2 and §8.3. The text is in git (`tools/adr.py log 0079 A1 --diff`). (REVIEW G22)
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-30
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§9
-- **Summary:** The Decision's current text now lives in the architecture chapters [01](../architecture/01-log-and-records.md), [07](../architecture/07-actors-and-accounts.md), [08](../architecture/08-tenants-and-instances.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.

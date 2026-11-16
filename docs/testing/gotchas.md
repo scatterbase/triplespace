@@ -146,6 +146,20 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
   also needs `npx playwright install chromium` once, and a Postgres admin URL
   (`postgres://jh@localhost/postgres`): it creates its own `tse2e` database.
 
+## Git history
+
+- `tools/adr.py log NNNN An --before` and `--diff`, and `questions NNNN Qn --before`, read the
+  repository's history (24 §6, §8): they
+  need a clone with full history. In a shallow clone (`git clone --depth`, a session's default
+  clone, Actions' default checkout) they name the wrong commit or find none, and the sandbox copy
+  unpacked from a tar has no history at all. Run them on James's checkout, or in a full clone;
+  `git clone --filter=blob:none` is fast and enough.
+- Amending in a shallow clone can drop the commit's parent. After a `git fetch --depth=1`, the
+  branch tip is a shallow boundary, and `git commit --amend` there writes a commit with no parent.
+  Pushed, it closes the branch's pull request, and GitHub will not reopen one after that. Before
+  pushing an amend, check that `git log --oneline -2` shows the parent; `git fetch --depth=50
+  origin main` restores the boundary, and `git commit-tree <tree> -p <parent>` rebuilds the commit.
+
 ## The code
 
 - An instance partition's `log.partition.tenant` is NULL, while the `view` tables write the

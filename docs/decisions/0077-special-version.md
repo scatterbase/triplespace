@@ -4,7 +4,6 @@
 - **Date:** 2026-10-07
 - **Updated:** 2026-11-15 (A8)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0033](0033-backend-stack.md), [0047](0047-special-pages.md)
 - **Uses:** [0005](0005-crate-organization.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0046](0046-primary-tenant.md), [0056](0056-security-model.md), [0057](0057-web-tier.md), [0059](0059-query-service.md), [0075](0075-mcp-server.md)
 
 ## Context
@@ -41,25 +40,17 @@ And on the first proposal, the same day:
 
 ### 1. One page, two forms (amends 0047 §9)
 
-*Changed by A1.*
-
 *Current text: [21](../architecture/21-special-pages.md) §5.1, §5.6, §8.*
 
 ### 2. The credit line, contributors and funders
-
-*Changed by A7.*
 
 *Current text: [21](../architecture/21-special-pages.md) §5.2.*
 
 ### 3. The licence notice and licence texts
 
-*Changed by A7, A8.*
-
 *Current text: [21](../architecture/21-special-pages.md) §5.3.*
 
 ### 4. Installed software and services
-
-*Changed by A1, A2.*
 
 *Current text: [21](../architecture/21-special-pages.md) §5.4.*
 
@@ -69,8 +60,6 @@ And on the first proposal, the same day:
 
 ### 6. Crates and third-party components
 
-*Changed by A4, A7.*
-
 *Current text: [21](../architecture/21-special-pages.md) §5.6; [22](../architecture/22-crates-and-stack.md) §7.2.*
 
 ### 7. Wikitext
@@ -78,8 +67,6 @@ And on the first proposal, the same day:
 *Current text: [21](../architecture/21-special-pages.md) §5.7.*
 
 ### 8. Inspired by
-
-*Changed by A1.*
 
 *Current text: [21](../architecture/21-special-pages.md) §5.8.*
 
@@ -89,13 +76,9 @@ And on the first proposal, the same day:
 
 ### 10. API (extends 0012 §4 and §5)
 
-*Changed by A5.*
-
 *Current text: [18](../architecture/18-api.md) §2.2, §3.2, §8.*
 
 ### 11. Features
-
-*Changed by A1, A6.*
 
 *Current text: [21](../architecture/21-special-pages.md) §5.10.*
 
@@ -137,7 +120,7 @@ And on the first proposal, the same day:
 
 - **Q1. Version probes for QLever and Parsoid.** Deferred by direction: both are shown without a version until a probe is chosen for each.
 - **Q2. JavaScript licence labels.** Whether to add LibreJS-style labels, a table of every script with its licence and source, beside the header comments of §3.
-- **Q3.** ~~**Agents and their ADRs.** Whether each agent's row should list the ADRs it wrote, which would put the Author lines' data into `version.toml` or the manifest.~~ *Withdrawn: the page names no ADRs (§1).*
+- **Q3. Agents and their ADRs.** *Withdrawn: the page names no ADRs (§1).*
 - **Q4. Translators.** If messages are translated on translatewiki.net, whether translators are credited on `Special:Version/Credits`, as MediaWiki credits them through each message file's `@metadata`.
 
 ## References
@@ -159,18 +142,7 @@ And on the first proposal, the same day:
 - **Change:** extends §1; amends §4, §8, §11
 - **Summary:** "I don't think it's necessary to mention ADRs directly in Special:Version." The page names no ADRs: the services table loses its "Specified in" column, features are no longer linked to their ADRs, and an `inspired_by` entry shows what was taken but not its ADR. The `adr` fields in `version.toml` stay, for maintainers. Showing QLever's and Parsoid's versions is deferred: both are shown without one (Q1). Q3 is withdrawn.
 
-Replaced text (§4):
-
-> | Version | Read by the registry's `version` probe for a service (`SHOW server_version` for PostgreSQL; Valkey's `INFO server`; OpenSearch's `GET /`), from the manifest for an embedded component (Oxigraph), or a fixed string (Lua 5.1) |
-> | Specified in | The ADR |
-
-Replaced text (§8):
-
-> **Extensions that leave no `origin`** in any registry, but from which Triplespace took something, carry `inspired_by` in `version.toml`: what was taken, and the ADR.
-
-Replaced text (§11):
-
-> **The tenant form shows the tenant's feature switches:** the value of each `[[feature]]` setting of scope `tenant` in `version.toml` (`content.licence`, `wikitext.expansion`, `wikitext.lua`, `wikitext.renderer`, `pages.repos`, `search.inherited`, `query.enabled`, `mcp.enabled` and `proposals.push`), each linked to its ADR.
+Replaced text: §4 of this ADR; §8 of this ADR; §11 of this ADR.
 
 ### A2. Services not configured are not shown
 
@@ -179,25 +151,20 @@ Replaced text (§11):
 - **Change:** amends §4
 - **Summary:** "If a service is not configured, it shouldn't be shown." §4 lists only the services the instance is configured to use and the embedded components in use; a configured service is `connected` or `unreachable`.
 
-Replaced text (§4):
-
-> **Then each service and embedded component** in `version.toml`'s `[[service]]` list, with:
->
-> | State | `connected`, `configured but unreachable`, or `not configured`. An embedded component shows `in use` or `not in use` |
+Replaced text: §4 of this ADR.
 
 ### A3. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§15
-- **Summary:** The Decision's current text now lives in the architecture chapters [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
 
 ### A4. Contract versions and skins
 
 - **Date:** 2026-10-29
-- **Source:** [0097](0097-versioning-and-skins.md) §7
+- **Source:** 0097 §7
 - **Change:** extends §6
-- **Summary:** Beside the product version, `Special:Version` and `GET /version` give the version of each contract the instance serves (record format and payload majors, `api_version`, the template contract, the Codex token release, each message bundle) and each installed skin with its version, licence and requirements, with any skin not loaded and the reason. The chapter text is [21](../architecture/21-special-pages.md) §5.6.
+- **Summary:** Beside the product version, `Special:Version` and `GET /version` give the version of each contract the instance serves (record format and payload majors, `api_version`, the template contract, the Codex token release, each message bundle) and each installed skin with its version, licence and requirements, with any skin not loaded and the reason. The chapter text is 21 §5.6.
 
 ### A5. Licence files over REST
 
@@ -220,19 +187,9 @@ Replaced text (§4):
 - **Date:** 2026-11-07
 - **Source:** Direct: James, design discussion of 2026-11-07
 - **Change:** amends §2, §3, §6
-- **Summary:** With the commercial licence withdrawn ([0005](0005-crate-organization.md) A114), a contributor entry no longer carries the date of a contributor licence agreement, the sentence after the licence notice says only that the embedded documentation and registry data are CC0 (the message `ts-version-cc0` replaces `ts-version-dual-and-cc0`), and a `scatter-*` crate is no longer marked as also available commercially (`ts-version-commercial-mark` and the manifest's `commercial` field are removed).
+- **Summary:** With the commercial licence withdrawn (0005 A114), a contributor entry no longer carries the date of a contributor licence agreement, the sentence after the licence notice says only that the embedded documentation and registry data are CC0 (the message `ts-version-cc0` replaces `ts-version-dual-and-cc0`), and a `scatter-*` crate is no longer marked as also available commercially (`ts-version-commercial-mark` and the manifest's `commercial` field are removed).
 
-Replaced text ([21](../architecture/21-special-pages.md) §5.2, as it stood):
-
-> Each has a name as its holder wishes to be credited, the date of the first merged contribution, and the date the contributor licence agreement was signed; nothing is merged without one (0005 §6). Git history is not read.
-
-Replaced text ([21](../architecture/21-special-pages.md) §5.3, as it stood):
-
-> Two more sentences follow: the `scatter-*` crates are also available from Scatter LLC under a commercial licence (0005 §6), and the documentation and registry data the binary embeds are dedicated to the public domain under CC0 1.0 (`docs/LICENSE`).
-
-Replaced text ([22](../architecture/22-crates-and-stack.md) §7.2, as it stood):
-
-> **Triplespace crates:** each workspace crate linked into the binary, with its version and licence. A `scatter-*` crate is marked as also available under a commercial licence (§3.3).
+Replaced text: 21 §5.2, §5.3; 22 §7.2.
 
 ### A8. The licence header on built JavaScript and CSS
 

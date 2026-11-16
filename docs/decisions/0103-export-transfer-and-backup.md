@@ -4,7 +4,6 @@
 - **Date:** 2026-11-07
 - **Updated:** 2026-11-13 (A13)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0027](0027-preferences-and-portability.md), [0056](0056-security-model.md)
 - **Uses:** [0039](0039-files-and-media.md), [0081](0081-recovery-keys-and-continuations.md)
 
 ## Context
@@ -34,8 +33,6 @@ James's direction, from the design discussion of 2026-11-07:
 
 ### 1. Three scopes: export, transfer and backup (amends 0006 §9)
 
-*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13.*
-
 *Current text: [01](../architecture/01-log-and-records.md) §8.2.*
 
 ### 2. Export policies say which scopes carry a partition (amends 0005 §4.1; amends 0007 §8; amends 0056 §6)
@@ -47,8 +44,6 @@ James's direction, from the design discussion of 2026-11-07:
 *Current text: [07](../architecture/07-actors-and-accounts.md) §8.5; [08](../architecture/08-tenants-and-instances.md) §6.2.*
 
 ### 4. Backups and rehosting carry everything (extends 0018 §10; amends 0023 §7)
-
-*Changed by A2, A3, A5, A6, A7, A8, A9, A10, A11, A12, A13.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §6.7; [09](../architecture/09-security-and-moderation.md) §6.5.*
 
@@ -82,8 +77,8 @@ James's direction, from the design discussion of 2026-11-07:
 
 ## Open questions
 
-- **Q1.** ~~**A transfer without the old operator.** A non-cooperative move (08 §6.3) takes its bundle "from backups or from the old instance's public exports". Whether a backup handed over by someone other than the old operator counts as a transfer, with the sealing of §3, or must be reduced to the export scope first, is left open.~~ *Settled by §7: what a non-cooperative move carries depends on its continuation's mode. A backup yields only the tenant's own partitions. An `unauthorized` continuation carries the export scope; a `recovered` one also the tenant's read-restricted and hidden parts, held sealed until the recovery delay passes uncancelled; suppressed and confidential parts never travel this way.*
-- **Q2.** ~~**The key `private` is encrypted to.** A2 encrypts a backup's `private` schema to a key the operator names; which kind of key (an instance key, a recovery key of [0081](0081-recovery-keys-and-continuations.md), or one of its own), the scheme, and how a restore is given the private key, are left open.~~ *Settled by A3: a backup key set of its own, any `k` of whose keys restore, `k` 1 by default.*
+- **Q1. A transfer without the old operator.** *Settled by §7.*
+- **Q2. The key `private` is encrypted to.** *Settled by A3.*
 
 ## References
 
@@ -97,29 +92,25 @@ James's direction, from the design discussion of 2026-11-07:
 - **Date:** 2026-11-07
 - **Source:** Direct: James, design discussion of 2026-11-07
 - **Change:** amends §1
-- **Summary:** §1 carried every part an anonymous reader may not read as its commitment, the header kept. A record's header names its key, payload type, time and revision, so for a target a confidential restriction hides, which is answered as a target that does not exist ([0056](0056-security-model.md) §5), the header itself would show that it exists. Asked, James chose that such a record is exported as its leaf alone, header included, as a compacted record is: the tree still folds and every other proof verifies, but nothing says what the offset held. Restricted and hidden targets keep their headers with their parts withheld. Chapter text: [01](../architecture/01-log-and-records.md) §8.
+- **Summary:** §1 carried every part an anonymous reader may not read as its commitment, the header kept. A record's header names its key, payload type, time and revision, so for a target a confidential restriction hides, which is answered as a target that does not exist (0056 §5), the header itself would show that it exists. Asked, James chose that such a record is exported as its leaf alone, header included, as a compacted record is: the tree still folds and every other proof verifies, but nothing says what the offset held. Restricted and hidden targets keep their headers with their parts withheld. Chapter text: 01 §8.
 
-Replaced text ([01](../architecture/01-log-and-records.md) §8, as it stood):
-
-> - an **export** publishes: a public bundle, a dump, the update stream, outbound federation. It holds only what the export policies of [02](../architecture/02-graphs-rdf-and-query.md) §1.1 allow, in its visible form: every part an anonymous reader may not read, hidden, suppressed, confidential or restricted, is carried as its commitment, as an erased part is, so every proof still verifies ([09](../architecture/09-security-and-moderation.md) §5.4);
+Replaced text: 01 §8.
 
 ### A2. A backup is the binary's own, with `private` encrypted
 
 - **Date:** 2026-11-12
 - **Source:** Direct: James, design discussion of 2026-11-12
 - **Change:** extends §1; amends §4
-- **Summary:** Rehosting was "a Postgres restore plus the rejects files and the `private` schema", which needs Postgres's tools and a role set-up by hand ([0013](0013-postgres-storage.md) A97). James decided, choosing among a snapshot copy, the log bundle and a hybrid: (1) **the backup is the log bundle by default**: it carries, beside every partition, the partition registry's rows, the `private` schema, the `ops` state no rebuild recovers, the rejects files and the file blobs, and a restore loads the log and rebuilds every projection; (2) **a snapshot backup is offered as well**: every table copied from one snapshot and restored without a rebuild, faster but not verifiable; (3) **`private` is encrypted to a key**, in either form (which key is Q2); (4) **a restore migrates forward** a backup written under an older schema; (5) the rejects files and blobs travel in the backup. A Postgres restore remains a way to rehost.
+- **Summary:** Rehosting was "a Postgres restore plus the rejects files and the `private` schema", which needs Postgres's tools and a role set-up by hand (0013 A97). James decided, choosing among a snapshot copy, the log bundle and a hybrid: (1) **the backup is the log bundle by default**: it carries, beside every partition, the partition registry's rows, the `private` schema, the `ops` state no rebuild recovers, the rejects files and the file blobs, and a restore loads the log and rebuilds every projection; (2) **a snapshot backup is offered as well**: every table copied from one snapshot and restored without a rebuild, faster but not verifiable; (3) **`private` is encrypted to a key**, in either form (which key is Q2); (4) **a restore migrates forward** a backup written under an older schema; (5) the rejects files and blobs travel in the backup. A Postgres restore remains a way to rehost.
 
-Replaced text ([08](../architecture/08-tenants-and-instances.md) §6.7, as it stood):
-
-> Rehosting an instance whole is a Postgres restore plus the rejects files and the `private` schema.
+Replaced text: 08 §6.7.
 
 ### A3. The backup key set
 
 - **Date:** 2026-11-12
 - **Source:** Direct: James, design discussion of 2026-11-12
 - **Change:** extends §1, §4
-- **Summary:** A2 left open which key a backup's `private` is encrypted to (Q2). James decided, among the instance key, a recovery key of [0081](0081-recovery-keys-and-continuations.md) and a key of its own: (1) **a dedicated backup key set**, which may hold several keys: each backup's data key is split into a share per key, any `k` of which rebuild it, each share sealed to its key, so that making a backup needs only the public halves and restoring one needs `k` holders, none of whom reveals a private key; (2) the set is registered or replaced by the instance's `owner`, or, where the instance has no owner account, by its operator through the command line; (3) **`k` defaults to 1**: any one key restores, however many the set holds, and the operator may raise it; (4) a new set applies to later backups only; an older backup keeps its set, and re-sealing it to a new one is a direct act of an operator with the old keys, which the instance cannot do itself.
+- **Summary:** A2 left open which key a backup's `private` is encrypted to (Q2). James decided, among the instance key, a recovery key of 0081 and a key of its own: (1) **a dedicated backup key set**, which may hold several keys: each backup's data key is split into a share per key, any `k` of which rebuild it, each share sealed to its key, so that making a backup needs only the public halves and restoring one needs `k` holders, none of whom reveals a private key; (2) the set is registered or replaced by the instance's `owner`, or, where the instance has no owner account, by its operator through the command line; (3) **`k` defaults to 1**: any one key restores, however many the set holds, and the operator may raise it; (4) a new set applies to later backups only; an older backup keeps its set, and re-sealing it to a new one is a direct act of an operator with the old keys, which the instance cannot do itself.
 
 ### A4. What a backup does with each `ops` table
 
@@ -189,4 +180,4 @@ Replaced text ([08](../architecture/08-tenants-and-instances.md) §6.7, as it st
 - **Date:** 2026-11-13
 - **Source:** Direct: Claude, fixing what a review of the backup and restore found, 2026-11-13; unconfirmed
 - **Change:** extends §1, §4
-- **Summary:** The calls made: (1) **`bundle.cbor` states each partition's size and root** as the bundle holds it, `size` and `root` beside its name, and opening a bundle holds the files to them, for `verify` and a restore alike: a bundle that lost a partition's last segment file, the end of one, or the partition's whole directory was otherwise a shorter log that read whole, unless a checkpoint happened to lie past the cut; a bundle from before this entry states neither and opens as before; (2) **the carried sections state each table file's length and SHA-256**, `digests` in `carried/manifest.cbor`: the carried tables are in the clear, and nothing else said a file was whole; the sealed files need none, their last chunk saying that it is the last (A8 (2)); (3) **no table is held whole**: a backup writes each carried and sealed table as its `COPY` arrives, sealing a chunk at a time, and syncs the file; a restore reads and loads each a piece at a time, in one unit of work for all of them; before, each table was held in memory two or three times over and sent to the database as one message, which fails near 1 GiB, and `job_queue` carries uploads; the sealed format is unchanged; (4) **a restore reads every carried and sealed file through before it touches the database**, so that a file cut short or changed, or shares that do not open the backup, are found then and not after the log is loaded and the projections rebuilt; (5) **a restore moves `private.login_id` past every login the log holds**: the sequence was set from `private.login`, which a restore without the sealed sections leaves empty, so that the next login was minted as 1 and its record keyed `login:1`, a key the restored `logins` partition already held; (6) a backup records the migrations the database's own `ops.migration` holds, with the checksums it holds them under, not the list the backing-up binary has ([0033](0033-backend-stack.md) A31), so that a backup of a database a newer binary migrated says so, and an older binary refuses to restore it (A11 (5)) before making anything in the database.
+- **Summary:** The calls made: (1) **`bundle.cbor` states each partition's size and root** as the bundle holds it, `size` and `root` beside its name, and opening a bundle holds the files to them, for `verify` and a restore alike: a bundle that lost a partition's last segment file, the end of one, or the partition's whole directory was otherwise a shorter log that read whole, unless a checkpoint happened to lie past the cut; a bundle from before this entry states neither and opens as before; (2) **the carried sections state each table file's length and SHA-256**, `digests` in `carried/manifest.cbor`: the carried tables are in the clear, and nothing else said a file was whole; the sealed files need none, their last chunk saying that it is the last (A8 (2)); (3) **no table is held whole**: a backup writes each carried and sealed table as its `COPY` arrives, sealing a chunk at a time, and syncs the file; a restore reads and loads each a piece at a time, in one unit of work for all of them; before, each table was held in memory two or three times over and sent to the database as one message, which fails near 1 GiB, and `job_queue` carries uploads; the sealed format is unchanged; (4) **a restore reads every carried and sealed file through before it touches the database**, so that a file cut short or changed, or shares that do not open the backup, are found then and not after the log is loaded and the projections rebuilt; (5) **a restore moves `private.login_id` past every login the log holds**: the sequence was set from `private.login`, which a restore without the sealed sections leaves empty, so that the next login was minted as 1 and its record keyed `login:1`, a key the restored `logins` partition already held; (6) a backup records the migrations the database's own `ops.migration` holds, with the checksums it holds them under, not the list the backing-up binary has (0033 A31), so that a backup of a database a newer binary migrated says so, and an older binary refuses to restore it (A11 (5)) before making anything in the database.

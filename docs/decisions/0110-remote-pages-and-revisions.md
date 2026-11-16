@@ -4,7 +4,6 @@
 - **Date:** 2026-11-15
 - **Updated:** 2026-11-16 (A5)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0026](0026-sitelinks.md), [0041](0041-content-models.md), [0048](0048-notation.md), [0052](0052-page-repositories-and-title-inheritance.md), [0078](0078-entity-sources.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0017](0017-entity-id-grammar.md), [0029](0029-resolver-namespaces.md), [0038](0038-page-metadata-and-categories.md), [0054](0054-forking-a-mirrored-page.md)
 
 ## Context
@@ -41,19 +40,13 @@ James's direction, from the design discussion of 2026-11-12 to 2026-11-15:
 
 ### 1. The `remote` keyed type (extends 0009 §1)
 
-*Changed by A1, A4.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §3.1, §3.11.*
 
 ### 2. Hosts
 
-*Changed by A2, A3.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §3.12.*
 
 ### 3. What a remote key names (extends 0048 §3; amends 0078 §2)
-
-*Changed by A3, A5.*
 
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §3.9, §3.11; [05](../architecture/05-providers-and-ingest.md) §6.2.*
 
@@ -66,8 +59,6 @@ James's direction, from the design discussion of 2026-11-12 to 2026-11-15:
 *Current text: [06](../architecture/06-statements-and-properties.md) §4.3.*
 
 ### 6. Namespace and content model (extends 0008 §2, 0041 §3)
-
-*Changed by A2.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §1.4, §4.4.*
 
@@ -105,18 +96,18 @@ James's direction, from the design discussion of 2026-11-12 to 2026-11-15:
 
 ## Open questions
 
-- **Q1.** ~~**The name.** `hosted`, `Hosted` and `wikibase-hosted` were working names. Others considered: `page` (taken in sense by Triplespace's own pages, and `Page:` is ProofreadPage's namespace 104 on Wikisource), `site` and `farm` (a wiki term, which a non-wiki host would not use).~~ *Settled by §1: James chose `remote` on 2026-11-16.*
-- **Q2.** ~~**The label.** Derived from the key, the page's title, or editable.~~ *Settled by A1: James decided on 2026-11-16 to build a label from the synced title, else the number and site, with a stored label overriding.*
-- **Q3.** ~~**A namespace alias per host.** Whether a host may name a title alias such as `Wikimedia:`.~~ *Settled by A2: James approved an optional `alias` per host on 2026-11-16, `Wikimedia` the first.*
-- **Q4.** ~~**Who may register a host.** The registry only, or instances too.~~ *Settled by A3: James approved on 2026-11-16 tenant-declared hosts on the entity-source pattern, with promotion to the registry.*
-- **Q5.** ~~**Remote keys and page repositories.** Whether `Remote:wikimedia:enwiki-p12` resolves to the served page on a tenant that serves the site, and where it lands when the page is forked.~~ *Settled by §8: James decided on 2026-11-16 that it goes to the synced copy when the tenant syncs the site and works as an entity page otherwise, and that a fork is a new page the key never names.*
-- **Q6.** ~~**A revision's page.** Whether and how an ingest states which page a revision belongs to.~~ *Settled by A4: James approved the `revision-of` role on 2026-11-16, projected later on synced sites.*
-- **Q7.** ~~**Miraheze's site list.** How a Miraheze wiki's links are found.~~ *Withdrawn: James deferred Miraheze support on 2026-11-16; it stays a commented candidate in `hosts.toml`.*
-- **Q8.** ~~**Whether this ends 0048's rule of thumb.**~~ *Settled by A5: James's justification of 2026-11-16, that Remote is an umbrella over keyed types whose things are self-validating in identity; 0048's rule stands for terms.*
-- **Q9.** ~~**Which repository serves a site.** Whether a page-repository record or the provider entry names the host and site a repository serves.~~ *Settled by §8: James accepted on 2026-11-16 a `remote` field on the provider entry, derived from the hosts' site lists where it is empty.*
-- **Q10.** ~~**Reaching the entity on a served site.** How the remote entity's statements are reached once `Remote:` shows the served page.~~ *Settled by §9: James decided on 2026-11-16 that a synced page's data is reached as its page statements.*
-- **Q11.** ~~**One set of data or two.** Whether a synced page's page statements are the remote entity's statements, stored on the remote key, or a second set keyed by the ranged page ID.~~ *Settled by §9: James confirmed on 2026-11-16 one set, on the remote key.*
-- **Q12.** ~~**Category projections on a synced page.** Whether a synced page's categories project page statements, given that they are not memberships in `view.page_category`.~~ *Settled by §9: James accepted on 2026-11-16 that projection waits on [0052](0052-page-repositories-and-title-inheritance.md) Q3; until then a synced page's page statements are asserted only.*
+- **Q1. The name.** *Settled by §1.*
+- **Q2. The label.** *Settled by A1.*
+- **Q3. A namespace alias per host.** *Settled by A2.*
+- **Q4. Who may register a host.** *Settled by A3.*
+- **Q5. Remote keys and page repositories.** *Settled by §8.*
+- **Q6. A revision's page.** *Settled by A4.*
+- **Q7. Miraheze's site list.** *Withdrawn: James deferred Miraheze support on 2026-11-16; it stays a commented candidate in `hosts.toml`.*
+- **Q8. Whether this ends 0048's rule of thumb.** *Settled by A5.*
+- **Q9. Which repository serves a site.** *Settled by §8.*
+- **Q10. Reaching the entity on a served site.** *Settled by §9.*
+- **Q11. One set of data or two.** *Settled by §9.*
+- **Q12. Category projections on a synced page.** *Settled by §9.*
 
 ## References
 
@@ -133,48 +124,36 @@ James's direction, from the design discussion of 2026-11-12 to 2026-11-15:
 - **Date:** 2026-11-16
 - **Source:** Direct: James, design discussion of 2026-11-16
 - **Change:** amends §1
-- **Summary:** Settles Q2. A remote key's labels are editable, as a keyword's are, and a stored label always wins. Without one the UI builds a label: on a tenant whose page repository indexes the site's titles, the current title and the site ("Judith Butler (from en.wikipedia.org)"); otherwise the number and the site ("page ID 148809 (from en.wikipedia.org)", or "(from enwiki)" where the site list gives no domain); in Wikibase JSON and RDF, which carry stored labels only, the key. An option to index titles without serving pages would supply titles too. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.11.
+- **Summary:** Settles Q2. A remote key's labels are editable, as a keyword's are, and a stored label always wins. Chapter text: 04 §3.11.
 
-Replaced text ([04](../architecture/04-entities-and-identifiers.md) §3.11, as it stood):
-
-> | Display | Derived: the key without the host as the `mul` label; `wbsetlabel` fails with `derived-label` as on a Domain (§3.6). Descriptions and aliases are stored and reconciled like an item's |
+Replaced text: 04 §3.11.
 
 ### A2. A host may name a title alias
 
 - **Date:** 2026-11-16
 - **Source:** Direct: James, design discussion of 2026-11-16
 - **Change:** extends §2, §6
-- **Summary:** Settles Q3. A host entry may carry `alias`, a title form that normalizes to the canonical `Remote:` title and takes no namespace number: `Wikimedia:enwiki-p12` is `Remote:wikimedia:enwiki-p12`. An alias colliding with a namespace name or alias or a site-alias interwiki prefix on the tenant is refused. Wikimedia's alias is `Wikimedia`; its interwiki prefix points to the Foundation's governance wiki, and the alias's talk titles avoid the interwiki prefix that `Remote talk:wikimedia:…` begins with. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.12; [10](../architecture/10-pages-and-content-models.md) §1.4.
+- **Summary:** Settles Q3. A host entry may carry `alias`, a title form that normalizes to the canonical `Remote:` title and takes no namespace number: `Wikimedia:enwiki-p12` is `Remote:wikimedia:enwiki-p12`. An alias colliding with a namespace name or alias or a site-alias interwiki prefix on the tenant is refused. Wikimedia's alias is `Wikimedia`; its interwiki prefix points to the Foundation's governance wiki, and the alias's talk titles avoid the interwiki prefix that `Remote talk:wikimedia:…` begins with. Chapter text: 04 §3.12; 10 §1.4.
 
 ### A3. Tenants may declare hosts
 
 - **Date:** 2026-11-16
 - **Source:** Direct: James, design discussion of 2026-11-16
 - **Change:** amends §2, §3
-- **Summary:** Settles Q4. Besides registry hosts, a tenant may declare a host as a `remote-host` config record, on the entity-source pattern: its name joins the tenant's table of names under the sources' rules, its keys mean something only on that tenant, its IRIs are under the tenant's base, its site grammar is a built-in one, and it can be promoted to the registry, keeping its keys' form and recording each old IRI as `owl:sameAs` the new. A key under a tenant host is therefore not valid by its form alone on every instance, and is read as a source ID is. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.11, §3.12; [05](../architecture/05-providers-and-ingest.md) §6.2, §6.3; [23](../architecture/23-configuration-and-registry.md) §2.2.
+- **Summary:** Settles Q4. Besides registry hosts, a tenant may declare a host as a `remote-host` config record, on the entity-source pattern: its name joins the tenant's table of names under the sources' rules, its keys mean something only on that tenant, its IRIs are under the tenant's base, its site grammar is a built-in one, and it can be promoted to the registry, keeping its keys' form and recording each old IRI as `owl:sameAs` the new. Chapter text: 04 §3.11, §3.12; 05 §6.2, §6.3; 23 §2.2.
 
-Replaced text ([04](../architecture/04-entities-and-identifiers.md) §3.12, as it stood):
-
-> **Hosts are allocated in the registry only, never by an instance or a tenant,** for the reason schemes are (§3.8): a remote ID and its IRI are shared by every instance, so two instances that gave one name to different hosts would describe different pages with one IRI. **A new host is a registry change; a new site grammar is code.** A host is not a provider (`providers.toml`, [05](../architecture/05-providers-and-ingest.md) §1.5): it mints nothing Triplespace stores or mirrors, and needs only a name, a grammar and its links.
-
-Replaced text ([04](../architecture/04-entities-and-identifiers.md) §3.11, the Grammar row, as it stood):
-
-> | Grammar | A registered host's name; `:`; a site name in the host's site grammar (§3.12), which never admits `-`; `-`; `p` or `r`; a decimal number from 1 to 2^63 − 1 with no leading zeros |
-
-Replaced text ([05](../architecture/05-providers-and-ingest.md) §6.2, as it stood):
-
-> A keyed ID's key is valid by its form alone, the same on every instance and with nothing declared: a domain name, a phrase, a notation, or a host's page or revision number qualified by the host and the site ([04](../architecture/04-entities-and-identifiers.md) §3.11, [0110](../decisions/0110-remote-pages-and-revisions.md) §3).
+Replaced text: 04 §3.12, §3.11, the Grammar row; 05 §6.2.
 
 ### A4. The `revision-of` role
 
 - **Date:** 2026-11-16
 - **Source:** Direct: James, design discussion of 2026-11-16
 - **Change:** extends §1
-- **Summary:** Settles Q6. Which page a remote revision key belongs to is said by a statement whose property plays the role `revision-of`, asserted by ingests on the revision key with the page key as value; on a tenant that serves the site it is to be projected as well, once synced pages' projected statements exist. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.11; [06](../architecture/06-statements-and-properties.md) §1.2.
+- **Summary:** Settles Q6. Which page a remote revision key belongs to is said by a statement whose property plays the role `revision-of`, asserted by ingests on the revision key with the page key as value; on a tenant that serves the site it is to be projected as well, once synced pages' projected statements exist. Chapter text: 04 §3.11; 06 §1.2.
 
 ### A5. Remote is an umbrella over keyed types
 
 - **Date:** 2026-11-16
 - **Source:** Direct: James, design discussion of 2026-11-16
 - **Change:** extends §3
-- **Summary:** Settles Q8 with James's justification: Remote is an umbrella over what would be one keyed type per host, and what qualifies those things as keyed is that they are self-validating in identity, which is the test any new keyed type must pass. 0048's rule stands for terms. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.9.
+- **Summary:** Settles Q8 with James's justification: Remote is an umbrella over what would be one keyed type per host, and what qualifies those things as keyed is that they are self-validating in identity, which is the test any new keyed type must pass. 0048's rule stands for terms. Chapter text: 04 §3.9.

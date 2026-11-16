@@ -4,7 +4,6 @@
 - **Date:** 2026-10-28
 - **Updated:** 2026-10-30 (A1)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0086](0086-theming.md)
 - **Uses:** [0034](0034-frontend-stack.md), [0077](0077-special-version.md)
 
 ## Context
@@ -79,6 +78,5 @@ James's direction, from the design discussion of 2026-10-28:
 ### A1. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-30
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§4
-- **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.

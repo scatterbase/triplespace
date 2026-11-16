@@ -4,7 +4,6 @@
 - **Date:** 2026-10-05
 - **Updated:** 2026-11-04 (A3)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0041](0041-content-models.md), [0043](0043-lua-modules.md), [0047](0047-special-pages.md), [0060](0060-scopes.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0023](0023-moderation.md), [0031](0031-property-constraints.md), [0032](0032-sparql-update-stream.md), [0035](0035-adopting-a-wikibase.md), [0045](0045-table-content-model.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
 ## Context
@@ -33,8 +32,6 @@ James's direction, from the design discussion of 2026-10-05:
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §5.1.*
 
 ### 4. IDs and clusters (extends 0017 §1; extends 0004 §1)
-
-*Changed by A1, A3.*
 
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §2.1, §2.2, §4.1, §4.10, §5.1.*
 
@@ -97,18 +94,15 @@ James's direction, from the design discussion of 2026-10-05:
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §4
-- **Summary:** Merging two local lexemes is a `redirect`, as for items ([0004](0004-identity-clusters-and-equivalence.md) §2, unchanged): the source's forms and senses move to the target with new part numbers and each part leaves a redirect; no cluster is formed within the local namespace. (PENDING B7)
+- **Summary:** Merging two local lexemes is a `redirect`, as for items (0004 §2, unchanged): the source's forms and senses move to the target with new part numbers and each part leaves a redirect; no cluster is formed within the local namespace. (PENDING B7)
 
-Replaced text (§4):
-
-> **Merging lexemes** (`Special:MergeLexemes`, §7) is `same-as` plus the conversion of [0004](0004-identity-clusters-and-equivalence.md) §5 when both are local, which is what WikibaseLexeme's merge does by hand: the source's forms and senses are appended to the target with new part numbers and the source becomes a redirect; here the source becomes a cluster member and its parts keep their IDs.
+Replaced text: §4 of this ADR.
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§10
-- **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [04](../architecture/04-entities-and-identifiers.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
 
 ### A3. The part suffix belongs to the lexeme entity type, not to a grammar
 

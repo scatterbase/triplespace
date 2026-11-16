@@ -4,7 +4,6 @@
 - **Date:** 2026-09-30
 - **Updated:** 2026-11-08 (A39)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0029](0029-resolver-namespaces.md), [0031](0031-property-constraints.md), [0042](0042-template-expansion-and-parsoid.md), [0046](0046-primary-tenant.md)
 - **Uses:** [0019](0019-discussions.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md)
 
 ## Context
@@ -43,19 +42,13 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 1. One registry of special pages (extends 0015 §5)
 
-*Changed by A9, A15, A19, A22, A23, A27, A28.*
-
 *Current text: [21](../architecture/21-special-pages.md) §1.1, §8.*
 
 ### 2. Names, aliases and section aliases
 
-*Changed by A19, A22.*
-
 *Current text: [21](../architecture/21-special-pages.md) §1.2.*
 
 ### 3. Where a page is served (extends 0018 §11 and 0046 §7)
-
-*Changed by A22, A24.*
 
 *Current text: [21](../architecture/21-special-pages.md) §1.3.*
 
@@ -69,19 +62,13 @@ James's direction, from the design discussion of 2026-09-30:
 
 #### 4.2 Local graphs by default
 
-*Changed by A18.*
-
 *Current text: [21](../architecture/21-special-pages.md) §2.2.*
 
 #### 4.3 Live projections by default; batch by configuration
 
-*Changed by A18.*
-
 *Current text: [21](../architecture/21-special-pages.md) §2.3.*
 
 #### 4.4 The reports
-
-*Changed by A3, A5, A16.*
 
 *Current text: [21](../architecture/21-special-pages.md) §2.4, §8.*
 
@@ -91,31 +78,21 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 5. Wikibase compatibility forms
 
-*Changed by A26, A39.*
-
 *Current text: [21](../architecture/21-special-pages.md) §3.1.*
 
 ### 6. Identity and correction pages
-
-*Changed by A11, A21.*
 
 *Current text: [21](../architecture/21-special-pages.md) §3.2.*
 
 ### 7. Special:Nuke
 
-*Changed by A20.*
-
 *Current text: [21](../architecture/21-special-pages.md) §4.1.*
 
 ### 8. Special:Export and Special:Import
 
-*Changed by A20, A30, A31.*
-
 *Current text: [21](../architecture/21-special-pages.md) §4.*
 
 #### 8.1 Special:Export
-
-*Changed by A32, A33, A34, A35, A37.*
 
 *Current text: [21](../architecture/21-special-pages.md) §4.2.*
 
@@ -125,19 +102,13 @@ James's direction, from the design discussion of 2026-09-30:
 
 #### 8.3 Special:Import
 
-*Changed by A36, A38.*
-
 *Current text: [21](../architecture/21-special-pages.md) §4.3.*
 
 ### 9. Other pages (extends 0010 §2, §3 and §12)
 
-*Changed by A4, A6, A7, A8, A9, A10, A11, A12, A25.*
-
 *Current text: [21](../architecture/21-special-pages.md) §5.1, §6.1, §8.*
 
 ### 10. Deferred, declined and reserved
-
-*Changed by A3, A5, A9.*
 
 *Current text: [21](../architecture/21-special-pages.md) §7, §8.*
 
@@ -147,19 +118,13 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 12. Permissions (extends 0016 §2)
 
-*Changed by A14.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.2, §8.6.*
 
 ### 13. Storage (amends 0013 §5 and §7)
 
-*Changed by A13, A20, A29.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.5, §4.10, §5, §6.1.*
 
 ### 14. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
@@ -176,9 +141,9 @@ James's direction, from the design discussion of 2026-09-30:
 ## Open questions
 
 - **Q1. The external-links table.** Its shape (MediaWiki's `externallinks` stores reversed domains for prefix search) decides `LinkSearch`, `list=exturlusage`, and edit-filter variables over added links.
-- **Q2.** ~~**A page-properties table.** It would serve `PagesWithProp`, `list=pageswithprop` and `prop=pageprops`.~~ *Settled by [0055](0055-templatestyles-templatedata-and-page-properties.md) §6: `view.page_prop`.*
+- **Q2. A page-properties table.** *Settled by [0055](0055-templatestyles-templatedata-and-page-properties.md) §6.*
 - **Q3. Global Nuke.** Whether a global group at the farm base ([0028](0028-tenancy-policy.md) §3) may nuke a farm account across every tenant it is linked to, as one job per tenant or as an instance act ([0040](0040-instance-prerogatives.md)).
-- **Q4.** ~~**Page statements in exports.** Whether to carry them in MediaWiki XML as an extra slot, which only Triplespace would read, or only in `records`.~~ *Settled by A32: `records` only; the XML stays a plain MediaWiki export.*
+- **Q4. Page statements in exports.** *Settled by A32.*
 - **Q5. Mute.** Whether `Special:Mute` and user-level muting of notifications ([0021](0021-notifications.md)) and email should exist at all.
 - **Q6. Reports over mirror graphs.** Which batch reports over a mirror are worth offering by default, for example mirrored properties without a local constraint, and whether their snapshots should be shared across tenants that mirror the same provider.
 - **Q7. Thresholds.** The defaults are placeholders: `nuke.confirm_threshold` (500) and the `reports` `batch_limit` (1,000). *The export thresholds, `export.sync_revisions` (5,000) and `export.max_history` (1,000), were kept by A34.*
@@ -198,326 +163,221 @@ James's direction, from the design discussion of 2026-09-30:
 ### A1. Crate table
 
 - **Date:** 2026-09-30
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §14
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A47).
 
-Replaced text (§14):
-
-> | Crate | Change |
-> |---|---|
-> | `triplespace-titles` | Embeds `special-pages.toml`. Resolves `Special:` names, aliases (case-folded) and section aliases, and applies the farm/tenant scope rules (§1–3). |
-> | `triplespace-projections` | The `report` and `site_stats` projections, the new `page` and `actor` columns, and the batch report runner (§4, §13) |
-> | `scatter-integrity` | Building and verifying a `records` export: a selection of records with inclusion proofs (§8) |
-> | `triplespace-api-action`, `triplespace-api-rest` | `specialpagealiases`, `list=querypage`, `export`, and the routes of §11 |
-> | `triplespace-server` | Serves the pages the registry marks `served`, including the forms of §5 and the pages of §6–9 |
-> | `triplespace-cli` | `verify --records` |
->
-> No crate is added.
+Replaced text: §14 of this ADR.
 
 ### A2. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §14–15
 - **Summary:** A1 was folded into the Decision. The open questions were numbered, and the list this ADR kept as §15, "Changes to other ADRs" (quoted below), was replaced by the generated table, so the Decision now ends at §14. No decision changed. Before this, A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
 
-Replaced text (§15):
-
-> - **[0002](0002-source-graphs-and-mass-ingest.md) §7 and [0004](0004-identity-clusters-and-equivalence.md) §10:** the correction list and the conflict list are `Special:Corrections` and `Special:IdentityConflicts` (§6).
-> - **[0005](0005-crate-organization.md) §2:** the crate changes listed above.
-> - **[0007](0007-actor-identity.md):** the open question on serving `Special:Redirect/user/{id}` locally is settled: it is served, with the other `Redirect` forms (§9).
-> - **[0008](0008-namespaces-and-document-pages.md) §9:** `Special:Import` is the form for the import job, and `Special:Export` its counterpart (§8).
-> - **[0010](0010-site-ui.md) §2, §3 and §12:** the Special pages link goes to `Special:SpecialPages`, the **New** menu to `NewItem` and `NewProperty`, and the full results page is `Special:Search`. The address table is now the registry.
-> - **[0013](0013-postgres-storage.md) §5.6 and §7:** the tables, columns and projection order of §13.
-> - **[0015](0015-record-format-and-partition-registry.md) §3 and §5, and [0016](0016-permissions-and-access-control.md) §2:** the `reports` config kind, a new registry file, and `nuke`.
-> - **[0018](0018-tenants.md) §11 and [0046](0046-primary-tenant.md) §7:** the scope rule of §3.
-> - **[0023](0023-moderation.md) §9 and §11:** `Special:Nuke` and `nuke`.
-> - **[0024](0024-subsidiary-accounts.md) §5:** the `export` class and the `sysop` row of the `job` class.
-> - **[0029](0029-resolver-namespaces.md) §3:** "Create an item with this DOI" opens `Special:NewItem` with the statement filled in.
-> - **[0031](0031-property-constraints.md) §3:** `ConstraintReport` defaults to the local graph.
-> - **[0042](0042-template-expansion-and-parsoid.md) §10:** the refresh job applies report deltas for the tables it writes (§4.3); `view.site_stats` serves the `NUMBEROF*` variables (§13).
+Replaced text: §15 of this ADR.
 
 ### A3. The redirect reports
 
 - **Date:** 2026-10-01
-- **Source:** [0051](0051-page-redirects.md) §6
+- **Source:** 0051 §6
 - **Change:** amends §10; extends §4.4
 - **Summary:** `ListRedirects`, `BrokenRedirects`, `DoubleRedirects` and `RandomRedirect` leave the deferred table and are served as index-backed reports over `view.redirect`.
 
-Replaced text (§10):
-
-> | `ListRedirects`, `BrokenRedirects`, `DoubleRedirects`, `RandomRedirect` | deferred | Page redirects ([0008](0008-namespaces-and-document-pages.md) Q8) |
+Replaced text: §10 of this ADR.
 
 ### A4. `Special:Fork`
 
 - **Date:** 2026-10-01
-- **Source:** [0054](0054-forking-a-mirrored-page.md) §2
+- **Source:** 0054 §2
 - **Change:** extends §9
 - **Summary:** A Triplespace page that forks an inherited title without an edit, restricted to `createpage`.
 
 ### A5. `PagesWithProp`
 
 - **Date:** 2026-10-01
-- **Source:** [0055](0055-templatestyles-templatedata-and-page-properties.md) §6
+- **Source:** 0055 §6
 - **Change:** amends §10; extends §4.4
 - **Summary:** `view.page_prop` exists, so `PagesWithProp` leaves the deferred table and is served over it. Q2 settled.
 
-Replaced text (§10):
-
-> | `PagesWithProp` | deferred | A page-properties table. 0042 §4 returns page properties, but none are stored. |
+Replaced text: §10 of this ADR.
 
 ### A6. `Special:Query`
 
 - **Date:** 2026-10-04
-- **Source:** [0059](0059-query-service.md) §6
+- **Source:** 0059 §6
 - **Change:** extends §9
 - **Summary:** `Special:Query`, the SPARQL editor over `/sparql`, served while `query.enabled` is on. Registered in `special-pages.toml` with `requires = "query.enabled"`.
 
 ### A7. `Special:CreateSprint`
 
 - **Date:** 2026-10-04
-- **Source:** [0061](0061-sprints-and-tasks.md) §9
+- **Source:** 0061 §9
 - **Change:** extends §9
 - **Summary:** `Special:CreateSprint`, restricted to `createpage`, registered in `special-pages.toml`.
 
 ### A8. `Special:CreateWorkspace`
 
 - **Date:** 2026-10-05
-- **Source:** [0062](0062-workspaces.md) §7
+- **Source:** 0062 §7
 - **Change:** extends §9
 - **Summary:** `Special:CreateWorkspace`, restricted to `createpage`, registered in `special-pages.toml`.
 
 ### A9. EntitySchema pages
 
 - **Date:** 2026-10-05
-- **Source:** [0064](0064-entityschema-and-validation.md) §7
+- **Source:** 0064 §7
 - **Change:** amends §10; extends §1, §9
 - **Summary:** The three EntitySchema pages move from reserved to served, with `CheckEntitySchema` added; §1's `reserved` status has no current members.
 
-Replaced text (§10):
-
-> - **`reserved`:** the name belongs to an entity type Triplespace has reserved but not implemented. These are Lexeme and EntitySchema ([0009](0009-keyed-entity-types-and-domain.md), [0041](0041-content-models.md)).
+Replaced text: §1 of this ADR.
 
 ### A10. Lexeme pages
 
 - **Date:** 2026-10-05
-- **Source:** [0066](0066-lexemes.md) §7
+- **Source:** 0066 §7
 - **Change:** extends §9
 - **Summary:** `NewLexeme` and `MergeLexemes` move from reserved to served.
 
 ### A11. Proposals and merging
 
 - **Date:** 2026-10-05
-- **Source:** [0067](0067-proposals.md) §4, §7; [0068](0068-merging-with-upstream.md) §6
+- **Source:** 0067 §4, §7; 0068 §6
 - **Change:** extends §6, §9
 - **Summary:** `Special:Corrections`' export becomes Propose; `Special:Proposals` is new; `Special:MergeUpstream` is new.
 
 ### A12. Special:Version
 
 - **Date:** 2026-10-07
-- **Source:** [0077](0077-special-version.md) §1
+- **Source:** 0077 §1
 - **Change:** amends §9
 - **Summary:** `Special:Version` gets its own row, pointing to 0077, which specifies its sections, subpages and sources; it is no longer described as built from the registry, configuration and i18n alone.
 
-Replaced text (§9):
-
-> | `Version`, `ApiSandbox`, `ApiHelp`, `AllMessages`, `NamespaceInfo`, `PasswordPolicies`, `ListDatatypes`, `AvailableBadges`, `MyLanguageFallbackChain`, `Blankpage` | From the registry, configuration and i18n |
+Replaced text: §9 of this ADR.
 
 ### A13. `tenant` is the slug
 
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** corrects §13
-- **Summary:** The `tenant` column of `view.report_entry`, `view.report_state` and `view.site_stats` is `tenant text NOT NULL DEFAULT ''`, the column as [0013](0013-postgres-storage.md) §5 (0013 A11) defines it for every `view` table, not `tenant bigint`. (PENDING A6)
+- **Summary:** The `tenant` column of `view.report_entry`, `view.report_state` and `view.site_stats` is `tenant text NOT NULL DEFAULT ''`, the column as 0013 §5 (0013 A11) defines it for every `view` table, not `tenant bigint`. (PENDING A6)
 
-Replaced text (§13):
-
-> CREATE TABLE view.report_entry (                -- §4.3: projection and batch reports
->   tenant bigint NOT NULL, report text NOT NULL, scope text NOT NULL DEFAULT 'local',  -- graph set (§4.2)
-
-> CREATE TABLE view.report_state (
->   tenant bigint NOT NULL, report text NOT NULL, scope text NOT NULL,
-
-> CREATE TABLE view.site_stats (                  -- §9: MediaWiki's site_stats
->   tenant bigint PRIMARY KEY,
+Replaced text: §13 of this ADR.
 
 ### A14. No `sysop` job rate row
 
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §12
-- **Summary:** Jobs run under subsidiaries: `ts-runjob` defaults to `bot` everywhere ([0016](0016-permissions-and-access-control.md) §2 drops `sysop`; [0046](0046-primary-tenant.md) §8), and an administrator runs a job, a Nuke or a job revert included, by creating or approving a subsidiary they operate. The `sysop` row this section added to the `job` rate class of [0024](0024-subsidiary-accounts.md) §5 goes with it. James: "administrators should be able to run jobs under subsidiaries", read as this. (PENDING C14)
+- **Summary:** Jobs run under subsidiaries: `ts-runjob` defaults to `bot` everywhere (0016 §2 drops `sysop`; 0046 §8), and an administrator runs a job, a Nuke or a job revert included, by creating or approving a subsidiary they operate. The `sysop` row this section added to the `job` rate class of 0024 §5 goes with it. James: "administrators should be able to run jobs under subsidiaries", read as this. (PENDING C14)
 
-Replaced text (§12):
-
-> The `job` rate class gains a `sysop` row, 10 per hour (amends [0024](0024-subsidiary-accounts.md) §5, which gave only `user` and `bot`). Without that row an administrator who is not a bot could not start a Nuke or a job revert.
+Replaced text: §12 of this ADR.
 
 ### A15. `listed`, `requires`, `note` and extension origins
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design discussion of 2026-10-09
 - **Change:** extends §1
-- **Summary:** The field table of §1 gains `listed` (whether `Special:SpecialPages` lists the page), `requires` (the setting the page is served under, as A6 used for `Special:Query`), both of which the registry file already carries, and `note`; and `origin` may be any extension's name as `version.toml` lists it ([0077](0077-special-version.md) §8), not only the names §1 enumerates. (PENDING F20)
+- **Summary:** The field table of §1 gains `listed` (whether `Special:SpecialPages` lists the page), `requires` (the setting the page is served under, as A6 used for `Special:Query`), both of which the registry file already carries, and `note`; and `origin` may be any extension's name as `version.toml` lists it (0077 §8), not only the names §1 enumerates. (PENDING F20)
 
 ### A16. `RandomRootpage`
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design discussion of 2026-10-09
 - **Change:** corrects §4.4
-- **Summary:** The report is `RandomRootpage`, the registry's spelling and MediaWiki's first English alias; §4.4 had `RandomRootPage`. `check_adrs.py` check 5 becomes case-sensitive on canonical names so the difference is caught ([0050](0050-adr-format.md) §14, check 15). (PENDING F21)
+- **Summary:** The report is `RandomRootpage`, the registry's spelling and MediaWiki's first English alias; §4.4 had `RandomRootPage`. `check_adrs.py` check 5 becomes case-sensitive on canonical names so the difference is caught (0050 §14, check 15). (PENDING F21)
 
-Replaced text (§4.4):
-
-> | `Random`, `RandomInCategory`, `RandomRootPage` | `view.page.random` (§13), as MediaWiki's `page_random` |
+Replaced text: §4.4 of this ADR.
 
 ### A17. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§14
-- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
 
 ### A18. Reports are a view-derived, tier-3 consumer of composition
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §3, §6
+- **Source:** 0083 §3, §6
 - **Change:** amends §4.2, §4.3
-- **Summary:** The `report` projection declares its class: it is view-derived, populated by a scan of the `view` tables it reads and never by a log replay, and "rebuild projection P for tenant T from `view`" is the named operation a batch-to-live switch uses. It is a tier-3 consumer: it consumes events — "entity X composed to version N" for entity reports, the page projection's and the refresh job's row changes for page reports — in its own queue, at its own rate, in no write's transaction, off during bootstrap and bulk modes until the operator turns it on. An entity report re-evaluates an entry only when the canonical's composed row changes and the cluster has a local member, found by an index on `cluster_id` restricted to local IDs, so a mirror's changes never fan through the report projection for clusters with no local member; a live entity report's freshness is bounded by composition lag, shown beside "computed at". "Step 5 of 0013 §7" and "the synchronous budget" are withdrawn; the refresh job's rows are events to the report projection like any other, not deltas it applies in the refresh transaction. (REVIEW G10, G13, G50)
+- **Summary:** The `report` projection declares its class: it is view-derived, populated by a scan of the `view` tables it reads and never by a log replay, and "rebuild projection P for tenant T from `view`" is the named operation a batch-to-live switch uses. It is a tier-3 consumer: it consumes events — "entity X composed to version N" for entity reports, the page projection's and the refresh job's row changes for page reports — in its own queue, at its own rate, in no write's transaction, off during bootstrap and bulk modes until the operator turns it on. "Step 5 of 0013 §7" and "the synchronous budget" are withdrawn; the refresh job's rows are events to the report projection like any other, not deltas it applies in the refresh transaction. Chapter text: 21 §2.2, §2.3. (REVIEW G10, G13, G50)
 
-Replaced text ([21](../architecture/21-special-pages.md) §2.2, as it stood):
-
-> - **Entity reports list local subjects.** The rows are local entities, and local assertions where a report is about statements. Conditions are evaluated on the **resolved view**, as a reader sees it. For example:
-
-Replaced text ([21](../architecture/21-special-pages.md) §2.3, as it stood):
-
-> | `projection` | Rows in `view.report_entry` ([03](../architecture/03-storage-caches-and-search.md) §4.10), maintained incrementally by the `report` projection as the tables it reads change | Live, at that projection's lag |
-
-> Changing a mode writes nothing into any tenant's partitions, so it is not an instance act ([0040](0040-instance-prerogatives.md) §1). When a report moves from live to batch, its next run fills its rows. When it moves from batch to live, the `report` projection rebuilds its rows for that tenant.
-
-> A batch report's page says when it was computed, as MediaWiki's cached reports do. `list=querypage` returns `cached`, `cachedtimestamp` and `maxresults` for it.
-
-> - The `report` projection runs after the tables it reads, in step 5 of [0013](0013-postgres-storage.md) §7 ([03](../architecture/03-storage-caches-and-search.md) §6.1). Each change to an input key recomputes only the entries that key affects. For example, a new `page_link` row to a missing title adds one to that title's `WantedPages` count.
-> - Report entries are **fan-out**, not part of a write's own rows. They are applied by the projection worker under 0013 §7's synchronous budget, and their lag is reported with the other projections'.
-> - Some inputs are written by the refresh job rather than by replay ([0042](0042-template-expansion-and-parsoid.md) §10): `transclusion`, `entity_usage`, and links and categories under expansion. For those, the refresh job applies the report deltas in the same transaction as the rows it writes.
-
-> - `projection` entries are a function of the `view` tables they read, and are rebuilt with them.
+Replaced text: 21 §2.2, §2.3.
 
 ### A19. A served page exists only once the build registers its handler
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** corrects §1, §2
-- **Summary:** `served` records a decision, not an implementation, and a served page exists in a build only once it registers a handler. At startup `triplespace-titles` intersects the registry's `served` set with the handlers the binary compiled; that intersection is what the instance reports as its special pages, in `siprop=specialpagealiases` and on `Special:SpecialPages`. A served page without a handler is reported, with the difference, on `server.admin_listen`, and a request for it gets MediaWiki's "no such special page" response, so a client never learns of a page the build cannot serve. The rest of the row (`private.watch`'s `watch_target` index, encrypted upstream grants, `siprop=triplespace` as a function of configuration with the live counters moved to `GET /version`, `/provider/{code}/mirror` and `/repo/{name}`) lands in [0020](0020-change-feeds.md), [0022](0022-federation.md) and [0012](0012-api-requirements.md). (REVIEW G47)
+- **Summary:** `served` records a decision, not an implementation, and a served page exists in a build only once it registers a handler. At startup `triplespace-titles` intersects the registry's `served` set with the handlers the binary compiled; that intersection is what the instance reports as its special pages, in `siprop=specialpagealiases` and on `Special:SpecialPages`. The rest of the row (`private.watch`'s `watch_target` index, encrypted upstream grants, `siprop=triplespace` as a function of configuration with the live counters moved to `GET /version`, `/provider/{code}/mirror` and `/repo/{name}`) lands in 0020, 0022 and 0012. Chapter text: 21 §1.1, §1.2. (REVIEW G47)
 
-Replaced text ([21](../architecture/21-special-pages.md) §1.1, as it stood):
-
-> - **`served`:** the instance serves the page. "Served" records a decision, not an implementation. Implementation is tracked in the milestones.
-
-Replaced text ([21](../architecture/21-special-pages.md) §1.2, as it stood):
-
-> **`siprop=specialpagealiases`** reports one entry per served page.
+Replaced text: 21 §1.1, §1.2.
 
 ### A20. Nuke by tag, and per-entity export folded by the export job
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §8; extends §7, §13
-- **Summary:** `view.activity.tags` gets a GIN index (`activity_tags`, [03](../architecture/03-storage-caches-and-search.md) §4.6), so a change-tag target's whole history is one index scan: Nuke's window over an account reads `view.activity` by actor, and over a tag reads it through that index. Per-revision entity export is folded by the export job, which reads one row of `view.entity_revision` per revision and folds it into the XML there, never on the request path; the revisions exported per entity are capped by `export.max_entity_history` (default 100; [23](../architecture/23-configuration-and-registry.md) §3), lower than `export.max_history` for pages, since each entity revision is a whole state rather than a text. The report half of the row (entity reports consume composition events, trigger only for a canonical with a local member, and show their composition lag) is A18's. The foreign-actor contributions view, bounded to `view.activity` with a note that upstream revisions are not indexed by actor, is [0010](0010-site-ui.md) §8's text ([19](../architecture/19-site-ui.md) §2.5), not this ADR's. (REVIEW G50)
+- **Summary:** `view.activity.tags` gets a GIN index (`activity_tags`, 03 §4.6), so a change-tag target's whole history is one index scan: Nuke's window over an account reads `view.activity` by actor, and over a tag reads it through that index. Per-revision entity export is folded by the export job, which reads one row of `view.entity_revision` per revision and folds it into the XML there, never on the request path; the revisions exported per entity are capped by `export.max_entity_history` (default 100; 23 §3), lower than `export.max_history` for pages, since each entity revision is a whole state rather than a text. The report half of the row (entity reports consume composition events, trigger only for a canonical with a local member, and show their composition lag) is A18's. The foreign-actor contributions view, bounded to `view.activity` with a note that upstream revisions are not indexed by actor, is 0010 §8's text (19 §2.5), not this ADR's. (REVIEW G50)
 
-Replaced text ([21](../architecture/21-special-pages.md) §4.2, as it stood):
-
-> - **Local entities** are exported as Wikibase exports entity pages. The model is `wikibase-item` or `wikibase-property`. Each revision is one local change set, and its text is the canonical JSON of the entity's **local-graph** state at that revision ([wikibase-compat.md](../api/wikibase-compat.md)). A MediaWiki Wikibase with free IDs can import them, which is the reverse of adoption ([0035](0035-adopting-a-wikibase.md); [05](../architecture/05-providers-and-ingest.md)).
+Replaced text: 21 §4.2.
 
 ### A21. `Special:LinkEntities` needs `ts-linkproperty` for `equivalent-property`
 
 - **Date:** 2026-10-09
-- **Source:** [0016](0016-permissions-and-access-control.md) A32
+- **Source:** 0016 A32
 - **Change:** amends §6
 - **Summary:** `Special:LinkEntities` needs `ts-link` for `same-as` and `different-from` and also `ts-linkproperty` for `equivalent-property`, the right that now gates linking properties.
 
-Replaced text ([21](../architecture/21-special-pages.md) §3.2, as it stood):
-
-> It needs `ts-link` and counts in the `link` rate class ([0024](../decisions/0024-subsidiary-accounts.md) §5).
+Replaced text: 21 §3.2.
 
 ### A22. Special:Preferences, Special:WikiSettings and Special:InstanceSettings
 
 - **Date:** 2026-10-17
-- **Source:** [0085](0085-settings-and-preferences.md) §4, §5
+- **Source:** 0085 §4, §5
 - **Change:** extends §1; amends §2; amends §3
-- **Summary:** The registry gains three served pages: `Preferences` (MediaWiki's name, scope `tenant`, restricted to `editmyoptions`, with `DisplayNotificationsConfiguration` as its section alias for the notifications tab), `WikiSettings` (scope `tenant`) and `InstanceSettings` (scope `farm`). `Preferences` stops being a section alias of `Account`, whose `ResetTokens` alias now leads to the watchlist token and whose email aliases lead to the new Contacts section. `Tenancy` keeps its name, unlisted, as a redirect to the Tenancy tabs of the two settings pages. The chapter text is [21](../architecture/21-special-pages.md) §1.2, §1.3 and §8.
+- **Summary:** The registry gains three served pages: `Preferences` (MediaWiki's name, scope `tenant`, restricted to `editmyoptions`, with `DisplayNotificationsConfiguration` as its section alias for the notifications tab), `WikiSettings` (scope `tenant`) and `InstanceSettings` (scope `farm`). `Preferences` stops being a section alias of `Account`, whose `ResetTokens` alias now leads to the watchlist token and whose email aliases lead to the new Contacts section. `Tenancy` keeps its name, unlisted, as a redirect to the Tenancy tabs of the two settings pages. The chapter text is 21 §1.2, §1.3 and §8.
 
-Replaced text ([21](../architecture/21-special-pages.md) §1.2, as it stood):
+Replaced text: 21 §1.2, §1.3, §8.
 
-> | `Preferences`, `ResetTokens`, `DisplayNotificationsConfiguration` | `Account#preferences`, `Account#preferences`, `Account#notifications` |
-
-Replaced text ([21](../architecture/21-special-pages.md) §1.2, as it stood):
-
-> | `ChangeEmail`, `Confirmemail`, `Invalidateemail` | `Account#notifications`, where the email address and its verification live ([0021](0021-notifications.md) §4, §6) |
-
-Replaced text ([21](../architecture/21-special-pages.md) §1.3, as it stood):
-
->   - `Tenancy`: the policy at the farm base, and a tenant's own view of it with 0046 §9's **Accept**.
-
-Replaced text ([21](../architecture/21-special-pages.md) §8, as it stood):
-
-> | `Account` |  | section aliases: `Preferences`→`#preferences`, `ResetTokens`→`#preferences`, `DisplayNotificationsConfiguration`→`#notifications`, `ChangeCredentials`→`#sign-in-methods`, `RemoveCredentials`→`#sign-in-methods`, `ChangePassword`→`#sign-in-methods`, `LinkAccounts`→`#sign-in-methods`, `UnlinkAccounts`→`#sign-in-methods`, `ChangeEmail`→`#notifications`, `Confirmemail`→`#notifications`, `Invalidateemail`→`#notifications`, `BotPasswords`→`#subsidiaries`, `OAuthManageMyGrants`→`#connected-applications` | `triplespace` | served | `tenant` | `users` |  |  | 0010 §11 | §1.2 |
-
-Replaced text ([21](../architecture/21-special-pages.md) §8, as it stood):
-
-> | `Tenancy` |  |  | `triplespace` | served | `both` | `instance` |  |  | 0028 §11, 0046 §9 | §1.3 |
-
-Replaced text ([21](../architecture/21-special-pages.md) §8, as it stood):
-
-> (189 pages: 169 served, 7 deferred, 13 declined, none reserved)
-
-Replaced text ([21](../architecture/21-special-pages.md) §8, as it stood):
+Replaced text (21 §8, as it stood):
 
 > Twenty-five served pages in the registry are specified by other ADRs and are not described in those sections or in this chapter; the catalogue marks them "—" and names their ADR: `Block`, `BlockList`, `DeletedContributions`, `ListGroupRights`, `Undelete` and `UserRights` ([09](09-security-and-moderation
 
 ### A23. Special:ConfirmAccounts, and RequestAccount as an alias
 
 - **Date:** 2026-10-17
-- **Source:** [0087](0087-account-registration-and-challenges.md) §6
+- **Source:** 0087 §6
 - **Change:** extends §1
-- **Summary:** The registry gains `ConfirmAccounts`, origin `ConfirmAccount`, served at tenant scope in the `users` group and restricted to `confirmaccount`; and `CreateAccount` gains the alias `RequestAccount`, ConfirmAccount's request form, which under `account.approval` is the same form. `version.toml` gains the `ConfirmAccount` extension, and `ConfirmEdit` with what Triplespace took from it. The chapter text is [21](../architecture/21-special-pages.md) §8.
+- **Summary:** The registry gains `ConfirmAccounts`, origin `ConfirmAccount`, served at tenant scope in the `users` group and restricted to `confirmaccount`; and `CreateAccount` gains the alias `RequestAccount`, ConfirmAccount's request form, which under `account.approval` is the same form. `version.toml` gains the `ConfirmAccount` extension, and `ConfirmEdit` with what Triplespace took from it. The chapter text is 21 §8.
 
-Replaced text ([21](../architecture/21-special-pages.md) §8, as it stood):
-
-> | `CreateAccount` |  |  | `mediawiki` | served | `tenant` | `login` |  |  | 0010 §10 | — |
-
-Replaced text ([21](../architecture/21-special-pages.md) §8, as it stood):
-
-> Every entry of `docs/registry/special-pages.toml` (192 pages: 172 served, 7 deferred, 13 declined, none reserved), in alphabetical order.
+Replaced text: 21 §8.
 
 ### A24. Pages at the auth base
 
 - **Date:** 2026-10-18
-- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §7
+- **Source:** 0089 §7
 - **Change:** extends §3
-- **Summary:** The auth base serves only the pages the registry marks `auth = true`, `UserLogin`, `CreateAccount`, `Account` and `UserLogout`, each in an auth form that acts on the instance login; every other page is a 404 there. Each is also a `tenant` page in its tenant form, and on a single-tenant instance without an auth host the tenant's base serves both forms as one. The field is pending until `triplespace-titles` accepts it. The chapter text is [21](../architecture/21-special-pages.md) §1.3.
+- **Summary:** The auth base serves only the pages the registry marks `auth = true`, `UserLogin`, `CreateAccount`, `Account` and `UserLogout`, each in an auth form that acts on the instance login; every other page is a 404 there. The field is pending until `triplespace-titles` accepts it. The chapter text is 21 §1.3.
 
 ### A25. Special:GoToComment
 
 - **Date:** 2026-10-20
-- **Source:** [0090](0090-converting-talk-pages-comment-by-comment.md) §9
+- **Source:** 0090 §9
 - **Change:** extends §9
-- **Summary:** `Special:GoToComment`, DiscussionTools' redirect page, is served with its meaning: it finds an imported post by its DiscussionTools name or ID and redirects to it through `Special:PermanentLink/{revid}`, listing the posts where several share a name. Origin `DiscussionTools`, scope `tenant`, group `redirects`; registered in `special-pages.toml`. Chapter text: [21](../architecture/21-special-pages.md) §6.1, §8.
+- **Summary:** `Special:GoToComment`, DiscussionTools' redirect page, is served with its meaning: it finds an imported post by its DiscussionTools name or ID and redirects to it through `Special:PermanentLink/{revid}`, listing the posts where several share a name. Origin `DiscussionTools`, scope `tenant`, group `redirects`; registered in `special-pages.toml`. Chapter text: 21 §6.1, §8.
 
-Replaced text ([21](../architecture/21-special-pages.md) §8, as it stood):
-
-> (193 pages: 173 served,
+Replaced text: 21 §8.
 
 ### A26. `NewProperty` offers the data types the API registers
 
 - **Date:** 2026-10-29
 - **Source:** Direct: James, design discussion of 2026-10-29
 - **Change:** amends §5
-- **Summary:** `Special:NewProperty` offered fifteen data types, those the entity pages had a name for, while `siteinfo`'s `wikibase-propertytypes` reported thirteen: Wikibase's twelve built-in types and `wikibase-domain` ([0009](0009-keyed-entity-types-and-domain.md)). The two extra were `math` and `musical-notation`, which Wikibase registers only with the Math and Score extensions, and which no ADR adopts: Triplespace validates neither TeX nor LilyPond, renders neither, and has no RDF type for them; the entity pages name them only so that mirrored Wikidata properties of those types display. James asked for the right answer and for the two lists to agree. `wikibase-propertytypes` is the authority, as it is in Wikibase, where it is the set a property may be created with: `NewProperty` offers exactly the registered types, and `Special:ListDatatypes` lists the same ones in the same order. A data type joins the list when an ADR adopts it and the API serves it.
+- **Summary:** `Special:NewProperty` offered fifteen data types, those the entity pages had a name for, while `siteinfo`'s `wikibase-propertytypes` reported thirteen: Wikibase's twelve built-in types and `wikibase-domain` (0009). The two extra were `math` and `musical-notation`, which Wikibase registers only with the Math and Score extensions, and which no ADR adopts: Triplespace validates neither TeX nor LilyPond, renders neither, and has no RDF type for them; the entity pages name them only so that mirrored Wikidata properties of those types display. James asked for the right answer and for the two lists to agree. `wikibase-propertytypes` is the authority, as it is in Wikibase, where it is the set a property may be created with: `NewProperty` offers exactly the registered types, and `Special:ListDatatypes` lists the same ones in the same order. A data type joins the list when an ADR adopts it and the API serves it.
 
-Replaced text ([21](../architecture/21-special-pages.md) §3.1, as it stood):
-
-> - `NewProperty` needs `property-create` and a `datatype`.
+Replaced text: 21 §3.1.
 
 ### A27. Special:SpecialPages lists by the registry's headings
 
@@ -533,34 +393,30 @@ Replaced text ([21](../architecture/21-special-pages.md) §3.1, as it stood):
 - **Change:** corrects §1
 - **Summary:** §1's text said the registry is embedded by `triplespace-titles`. The crate map (22 §2.1) gives the registry to `scatter-titles`, the pure crate that embeds the namespace registry and builds for `wasm32`, and `triplespace-titles` is the DB-backed resolver over it, not yet built; `scatter-titles` has embedded `special-pages.toml` since the grouped `Special:SpecialPages` (A27). The decision is unchanged; the chapter now names the crate that holds it. The chapter text is 21 §1.1.
 
-Replaced text ([21](../architecture/21-special-pages.md) §1.1, as it stood):
-
-> It is embedded by `triplespace-titles`, which already resolves titles in the `Special` namespace ([0008](../decisions/0008-namespaces-and-document-pages.md) §3).
+Replaced text: 21 §1.1.
 
 ### A29. `page_random` is derived from the page
 
 - **Date:** 2026-11-02
 - **Source:** Direct: Claude, while building rebuild equivalence for the Librarybase full-history adoption, 2026-11-02; confirmed by James, 2026-11-13
 - **Change:** amends §13
-- **Summary:** `view.page.random` is computed from the page, not drawn: the first 52 bits of the MD5 of `{tenant}:{page_id}`, as a fraction in [0, 1). A log-replayed projection is a function of the log ([03](../architecture/03-storage-caches-and-search.md) §6.1), and a value drawn when the row is created is a new value on every rebuild: the Librarybase rebuild of 2026-11-02 differed from the adopted views in every document page's `random`. The hash is uniform as MediaWiki's draw is, so `Special:Random` and `list=random` pick as evenly; the difference is that the value is reproducible, the same page always sorting to the same place. A source's own `page_random` is not in an XML export, so adoption could not keep it either way. Migration `0025_page_random` recomputes existing rows. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §4.5.
+- **Summary:** `view.page.random` is computed from the page, not drawn: the first 52 bits of the MD5 of `{tenant}:{page_id}`, as a fraction in [0, 1). A log-replayed projection is a function of the log (03 §6.1), and a value drawn when the row is created is a new value on every rebuild: the Librarybase rebuild of 2026-11-02 differed from the adopted views in every document page's `random`. The hash is uniform as MediaWiki's draw is, so `Special:Random` and `list=random` pick as evenly; the difference is that the value is reproducible, the same page always sorting to the same place. A source's own `page_random` is not in an XML export, so adoption could not keep it either way. Migration `0025_page_random` recomputes existing rows. The chapter text is 03 §4.5.
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.5, as it stood):
-
-> - `random double precision`: drawn at creation, as `page_random`.
+Replaced text: 03 §4.5.
 
 ### A30. The `records` export is one document, and leaves out what no checkpoint covers
 
 - **Date:** 2026-11-08
 - **Source:** Direct: James, design discussion of 2026-11-08
 - **Change:** extends §8
-- **Summary:** Asked how to build §8's `records` format (SCA-302), James chose: the export is one canonical-CBOR document carrying the checkpoints as signed notes, the key records, and per partition the records with their shared proof nodes once, rather than a bundle-shaped tree or JSON; a selected record newer than its partition's latest checkpoint is left out and listed as pending, rather than refusing the export or carrying it unproved, since checkpoints are signed by the instance's signer and not on request; and records are selected as the XML export selects pages, by title with or without history under the same caps, the records being the targets' rows in the tenant's `pages` and `local` partitions, rather than also by explicit record coordinates. Chapter text: [21](../architecture/21-special-pages.md) §4.2.
+- **Summary:** Asked how to build §8's `records` format (SCA-302), James chose: the export is one canonical-CBOR document carrying the checkpoints as signed notes, the key records, and per partition the records with their shared proof nodes once, rather than a bundle-shaped tree or JSON; a selected record newer than its partition's latest checkpoint is left out and listed as pending, rather than refusing the export or carrying it unproved, since checkpoints are signed by the instance's signer and not on request; and records are selected as the XML export selects pages, by title with or without history under the same caps, the records being the targets' rows in the tenant's `pages` and `local` partitions, rather than also by explicit record coordinates. Chapter text: 21 §4.2.
 
 ### A31. The `records` export as built
 
 - **Date:** 2026-11-08
 - **Source:** Direct: Claude, while building the `records` export (SCA-302), 2026-11-08; confirmed by James, 2026-11-08
 - **Change:** extends §8
-- **Summary:** Calls made building A30. (1) It is served by `POST /export` in the REST API with a JSON body (`format`, `pages` as a list or one title per line, `history`) and the media type `application/vnd.triplespace.records+cbor`; `Special:Export`, the XML format (`501 not-built`) and export jobs wait for SCA-300 and the job runner, so a selection over `export.sync_revisions` records is refused with `413 export-too-large`, and the `export` rate class is not applied yet. (2) The document's fields are `format` (`triplespace-records`), `version` (1), `created`, `keys`, `missing` and `partitions`, each partition with `partition`, `name`, `origin`, `checkpoint`, `nodes`, `records` (`offset`, `record` or `leaf`, `withheld`, `path`) and `pending`; it lives in `scatter-integrity::records` with its verifier, and the builder beside the bundle code in `triplespace-rdf`. (3) A title in an entity namespace names that local entity; `history` is off by default, as `Special:Export`'s `curonly` is on, is honoured only where `export.history` is, and is capped by `export.max_history` per page and `export.max_entity_history` per entity. (4) Records are shown as the export scope shows them to the caller, decided as the record route decides ([0012](0012-api-requirements.md) A85), so a revision-deleted part is withheld from every caller; a page or entity whose records would all be leaves alone, or which has none, is listed in `missing` with what was asked, as an absent one is, and the leaves are not carried. (5) `triplespace verify --records` checks each checkpoint against the key chain in the file, each leaf by its proof, each header against its partition and offset, and each withheld part as erased; it does not check the signatures inside attestations, since the actor key records they need are not carried. Chapter text: [21](../architecture/21-special-pages.md) §4.2.
+- **Summary:** Calls made building A30. (1) It is served by `POST /export` in the REST API with a JSON body (`format`, `pages` as a list or one title per line, `history`) and the media type `application/vnd.triplespace.records+cbor`; `Special:Export`, the XML format (`501 not-built`) and export jobs wait for SCA-300 and the job runner, so a selection over `export.sync_revisions` records is refused with `413 export-too-large`, and the `export` rate class is not applied yet. (2) The document's fields are `format` (`triplespace-records`), `version` (1), `created`, `keys`, `missing` and `partitions`, each partition with `partition`, `name`, `origin`, `checkpoint`, `nodes`, `records` (`offset`, `record` or `leaf`, `withheld`, `path`) and `pending`; it lives in `scatter-integrity::records` with its verifier, and the builder beside the bundle code in `triplespace-rdf`. (3) A title in an entity namespace names that local entity; `history` is off by default, as `Special:Export`'s `curonly` is on, is honoured only where `export.history` is, and is capped by `export.max_history` per page and `export.max_entity_history` per entity. (4) Records are shown as the export scope shows them to the caller, decided as the record route decides (0012 A85), so a revision-deleted part is withheld from every caller; a page or entity whose records would all be leaves alone, or which has none, is listed in `missing` with what was asked, as an absent one is, and the leaves are not carried. (5) `triplespace verify --records` checks each checkpoint against the key chain in the file, each leaf by its proof, each header against its partition and offset, and each withheld part as erased; it does not check the signatures inside attestations, since the actor key records they need are not carried. Chapter text: 21 §4.2.
 
 ### A32. Page statements travel in `records` only
 
@@ -595,7 +451,7 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.5, as i
 - **Date:** 2026-11-08
 - **Source:** Direct: Claude, while building the MediaWiki XML import (SCA-303), 2026-11-08; confirmed by James, 2026-11-08
 - **Change:** extends §8.3
-- **Summary:** Calls made building §8.3 over the import job ([0008](0008-namespaces-and-document-pages.md) A49). (1) `Special:Import` is offered under the `import` capability and restricted to the `import` right; it posts `multipart/form-data`, the first time for the census, which it shows with a confirmation, and the second time to import, showing the job's report with the job named, since `Special:Jobs/{id}` is not built. (2) The site keeps nothing between requests, so an uploaded file rides along the confirmation as a hidden base64 field when it is at most 2 MB and is asked for again otherwise; a page of another wiki is fetched again on confirmation. (3) `action=import` is MediaWiki's module: `xml` as a multipart upload (`importupload`), `interwikisource` a site alias of `sites.toml` with `interwikipage`, `fullhistory` and `templates` passed to that wiki's `Special:Export` at its article path, `interwikiprefix`, `summary` and `tags`; Triplespace adds `census`, which answers the census and writes nothing, and the response's `job` (the ID, the counts, the talk conversion, what was left out, the rejects) beside MediaWiki's `import` list, whose entries also say whether the page was created and how many revisions it already held. (4) An upload or a fetched export is at most 64 MB, and the server's request body limit, 2 MB by default, bounds an upload through the API until it is raised. (5) The Action API reads a `multipart/form-data` body for every module, its text fields as body parameters. Chapter text: 21 §4.3.
+- **Summary:** Calls made building §8.3 over the import job (0008 A49). (1) `Special:Import` is offered under the `import` capability and restricted to the `import` right; it posts `multipart/form-data`, the first time for the census, which it shows with a confirmation, and the second time to import, showing the job's report with the job named, since `Special:Jobs/{id}` is not built. (2) The site keeps nothing between requests, so an uploaded file rides along the confirmation as a hidden base64 field when it is at most 2 MB and is asked for again otherwise; a page of another wiki is fetched again on confirmation. (3) `action=import` is MediaWiki's module: `xml` as a multipart upload (`importupload`), `interwikisource` a site alias of `sites.toml` with `interwikipage`, `fullhistory` and `templates` passed to that wiki's `Special:Export` at its article path, `interwikiprefix`, `summary` and `tags`; Triplespace adds `census`, which answers the census and writes nothing, and the response's `job` (the ID, the counts, the talk conversion, what was left out, the rejects) beside MediaWiki's `import` list, whose entries also say whether the page was created and how many revisions it already held. (4) An upload or a fetched export is at most 64 MB, and the server's request body limit, 2 MB by default, bounds an upload through the API until it is raised. (5) The Action API reads a `multipart/form-data` body for every module, its text fields as body parameters. Chapter text: 21 §4.3.
 
 ### A37. The XML export writes the model each revision had
 
@@ -604,9 +460,7 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.5, as i
 - **Change:** amends §8.1
 - **Summary:** A35 (3) wrote every revision of a page with the page's current content model, since a page record carries no model of its own at each revision. James chose correctness: the exporter walks the page's records as it writes them, the `create`'s model and then each `edit`'s change, so a revision carries the model it had, and the `<format>` follows; where the records that set the model are withheld, the page's current model stands. A page's model changes rarely, and the records are read for the text anyway, so the walk costs nothing more. Chapter text: 21 §4.2.
 
-Replaced text ([21](../architecture/21-special-pages.md) §4.2, as it stood):
-
-> - **Pages.** Each page record is a `<revision>`, with its content model and format ([0041](../decisions/0041-content-models.md)): the page's current model for every revision, since a page record carries no model of its own at each revision; `<origin>` is the revision's own ID and `<sha1>` is computed over the text ([0047](../decisions/0047-special-pages.md) A35).
+Replaced text: 21 §4.2.
 
 ### A38. `import.max_upload`
 
@@ -618,6 +472,6 @@ Replaced text ([21](../architecture/21-special-pages.md) §4.2, as it stood):
 ### A39. `Special:CreateEntities`
 
 - **Date:** 2026-11-08
-- **Source:** [0104](0104-batches-and-the-job-runner.md) §11
+- **Source:** 0104 §11
 - **Change:** extends §5
-- **Summary:** Beside the Wikibase compatibility forms, a form of Triplespace's own: `Special:CreateEntities`, many items from one table, each row one `wbeditentity` through the same handler as `Special:NewItem`, under a batch, after a preview checks the rows. Registered in `special-pages.toml` under `wikibaserepo`, restricted to `createpage`. Chapter text: [21](../architecture/21-special-pages.md) §6.6.
+- **Summary:** Beside the Wikibase compatibility forms, a form of Triplespace's own: `Special:CreateEntities`, many items from one table, each row one `wbeditentity` through the same handler as `Special:NewItem`, under a batch, after a preview checks the rows. Registered in `special-pages.toml` under `wikibaserepo`, restricted to `createpage`. Chapter text: 21 §6.6.

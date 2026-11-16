@@ -4,7 +4,6 @@
 - **Date:** 2026-10-01
 - **Updated:** 2026-11-16 (A5)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0017](0017-entity-id-grammar.md), [0029](0029-resolver-namespaces.md), [0036](0036-openstreetmap-providers.md), [0037](0037-gdelt-provider.md), [0041](0041-content-models.md)
 - **Uses:** [0014](0014-caches-and-search.md), [0031](0031-property-constraints.md)
 
 ## Context
@@ -40,8 +39,6 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 3. What a notation is, and what it is not
 
-*Changed by A4, A5.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §3.6, §3.7, §3.9, §4.1.*
 
 ### 4. A property's scheme (extends 0003 §7)
@@ -61,8 +58,6 @@ James's direction, from the design discussion of 2026-10-01:
 *Current text: [23](../architecture/23-configuration-and-registry.md) §4.2, §4.3.*
 
 ### 8. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
@@ -96,57 +91,37 @@ James's direction, from the design discussion of 2026-10-01:
 ### A1. Crate table
 
 - **Date:** 2026-10-01
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §8
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A48).
 
-Replaced text (§8):
-
-> | Crate | Change |
-> |---|---|
-> | `scatter-normalize` | The `notation` keyed type; the scheme registry, embedding `docs/registry/notation-schemes.toml`; the four normalizers; the `osm-tag` and `text` grammars. The `osm-tag` grammar is the former `osm-tag` normalizer, unchanged |
-> | `scatter-wikibase-model` | The `notation` entity type and the `wikibase-notation` data type replace `osm-tag` and `wikibase-osm-tag` |
-> | `scatter-wikibase-rdf` | The `skos:notation` and `skos:inScheme` triples (§5) |
-> | `scatter-adapter-wikidata` | `key_scheme` in the key map (§6) |
-> | `triplespace-titles` | The `Notation` namespace; scheme names in the `/resolve` order (§2) |
-> | API crates | The `notation-scheme` check and `ts-notation-scheme` on the write path (§4) |
->
-> No crate is added.
+Replaced text: §8 of this ADR.
 
 ### A2. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §8
 - **Summary:** A1 was folded into the Decision. The open questions were numbered, and the list this ADR kept under "Amendments to earlier ADRs" (quoted below) was replaced by the generated table. No decision changed. Before this, A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
 
-Replaced text (Amendments to earlier ADRs):
-
-> - **[0003](0003-statement-ui.md) §7:** the `notation-scheme` role (§4).
-> - **[0005](0005-crate-organization.md) §2:** the rows of §8.
-> - **[0008](0008-namespaces-and-document-pages.md) §2:** 216/217 are Notation and Notation talk (§7).
-> - **[0017](0017-entity-id-grammar.md) §3 and §5:** a third keyed type whose key carries a scheme (§1).
-> - **[0029](0029-resolver-namespaces.md) §2:** scheme names share the namespace of keyed-type and resolver names (§2).
-> - **[0036](0036-openstreetmap-providers.md) §3–§7:** OSM keys and tags are notations in the `osm` scheme (§6).
-> - **[0041](0041-content-models.md) §3:** `triplespace-notation` replaces `triplespace-osm-tag` (§7).
+Replaced text: Amendments to earlier ADRs of this ADR.
 
 ### A3. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§8
-- **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [04](../architecture/04-entities-and-identifiers.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
 
 ### A4. A remote key is not a notation
 
 - **Date:** 2026-11-15
-- **Source:** [0110](0110-remote-pages-and-revisions.md) §3
+- **Source:** 0110 §3
 - **Change:** extends §3
-- **Summary:** The table of mechanisms that give strings an identity gains a fifth row, the remote key, which names a page or revision itself rather than a term for it, as a Domain names its domain. Host names, like scheme names, are allocated in the registry only. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.9.
+- **Summary:** The table of mechanisms that give strings an identity gains a fifth row, the remote key, which names a page or revision itself rather than a term for it, as a Domain names its domain. Host names, like scheme names, are allocated in the registry only. Chapter text: 04 §3.9.
 
 ### A5. The test for a keyed type
 
 - **Date:** 2026-11-16
 - **Source:** Direct: James, design discussion of 2026-11-16
 - **Change:** extends §3
-- **Summary:** A new keyed type must name something self-validating in identity, so the key alone says what it names; a vocabulary of terms stays a notation scheme. Remote is one keyed type standing for what would be one per host ([0110](0110-remote-pages-and-revisions.md) A5). Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.9.
+- **Summary:** A new keyed type must name something self-validating in identity, so the key alone says what it names; a vocabulary of terms stays a notation scheme. Remote is one keyed type standing for what would be one per host (0110 A5). Chapter text: 04 §3.9.

@@ -4,7 +4,6 @@
 - **Date:** 2026-09-28
 - **Updated:** 2026-10-09 (A7)
 - **Author:** James Hare / Claude Sonnet
-- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0017](0017-entity-id-grammar.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0009](0009-keyed-entity-types-and-domain.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0026](0026-sitelinks.md), [0029](0029-resolver-namespaces.md), [0036](0036-openstreetmap-providers.md), [0048](0048-notation.md)
 
 ## Context
@@ -28,25 +27,17 @@ The mechanisms these ADRs already provide fit the parts that are identifiable. P
 
 ### 1. One provider
 
-*Changed by A5, A7.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §8.1, §8.10.*
 
 ### 2. Types and IDs
-
-*Changed by A3.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §8.10.*
 
 ### 3. What a document becomes
 
-*Changed by A7.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §8.11.*
 
 ### 4. What an event becomes
-
-*Changed by A7.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §8.12.*
 
@@ -63,8 +54,6 @@ The mechanisms these ADRs already provide fit the parts that are identifiable. P
 *Current text: [05](../architecture/05-providers-and-ingest.md) §8.13.*
 
 ### 8. Registry and crates
-
-*Changed by A1, A2.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1; [23](../architecture/23-configuration-and-registry.md) §4.2.*
 
@@ -113,14 +102,14 @@ Replaced text (§8):
 ### A2. Crate table
 
 - **Date:** 2026-09-28
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** extends §8
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries `scatter-adapter-gdelt` and the `scatter-providers` additions (0005 A36); §8 keeps its registry notes and names 0005 §2 for the crate.
 
 ### A3. `osm-tag` becomes the `osm` scheme of Notation
 
 - **Date:** 2026-10-01
-- **Source:** [0048](0048-notation.md) §1, §6
+- **Source:** 0048 §1, §6
 - **Change:** amends §2
 - **Summary:** The keyed type `osm-tag`, named among the open-ended natural keys that keyed types are for, is now the `osm` scheme of the `notation` keyed type (0036 A2). The parenthesis was edited in place with a note, now folded.
 
@@ -131,7 +120,7 @@ Replaced text (§2):
 ### A4. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §2, §8
 - **Summary:** A1–A3 were folded into the Decision. The open questions were numbered, and the change this ADR makes to 0002 §4 (GDELT's canonical IRIs are minted here), which 0002 had not recorded, was written there as 0002 A18. No decision changed. Before this, A1 and A3 were in-place edits with notes, and A2 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
 
@@ -140,18 +129,17 @@ Replaced text (§2):
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §1
-- **Summary:** In `providers.toml`, `adapter` is one field per provider, naming the adapter crate (`scatter-adapter-gdelt` for `GD`), and `actor_model` (`individual` or `provider-only`) is an explicit provider field, because `issuer == slug` is not the test for it: OSM's issuer is its slug and it has individual authors ([0002](0002-source-graphs-and-mass-ingest.md) §4). The row's verb is `amends`, but §1 already states `actor_model = "provider-only"` and names the adapter crate, and nothing in it is contradicted, so here it is an extension: §1's registration gains the `adapter` field. (PENDING E8)
+- **Summary:** In `providers.toml`, `adapter` is one field per provider, naming the adapter crate (`scatter-adapter-gdelt` for `GD`), and `actor_model` (`individual` or `provider-only`) is an explicit provider field, because `issuer == slug` is not the test for it: OSM's issuer is its slug and it has individual authors (0002 §4). The row's verb is `amends`, but §1 already states `actor_model = "provider-only"` and names the adapter crate, and nothing in it is contradicted, so here it is an extension: §1's registration gains the `adapter` field. (PENDING E8)
 
 ### A6. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§8
-- **Summary:** The Decision's current text now lives in the architecture chapters [05](../architecture/05-providers-and-ingest.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
 
 ### A7. Roles bound in the instance record; identifying qualifiers in statement IDs
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §1, §3, §4
-- **Summary:** Adapters never map onto a tenant's properties. The roles a document (§3) and an event (§4) carry are bound in the instance-scope `role` record ([0082](0082-source-form-and-the-shared-view.md) §5.2), never a tenant's, to Wikidata properties or to properties of GDELT's own **property type**: a `[[provider.type]]` row with `entity_type = "property"`, its letter allocated when the adapter is built, whose properties the adapter mints under deterministic IDs with the mapping versioned with the adapter (§1, in [05](../architecture/05-providers-and-ingest.md) §8.1). Deterministic statement IDs for a source without IDs of its own hash the main snak and the qualifiers the adapter declares **identifying** for the property, never score-like ones such as mention confidence or tone, so that two mentions on one document do not collide and a re-import keeps every ID ([05](../architecture/05-providers-and-ingest.md) §3.4, where the rule is stated for every such adapter). Nothing in the chapter text of §1, §3 or §4 is contradicted. (REVIEW G26, G27)
+- **Summary:** Adapters never map onto a tenant's properties. The roles a document (§3) and an event (§4) carry are bound in the instance-scope `role` record (0082 §5.2), never a tenant's, to Wikidata properties or to properties of GDELT's own **property type**: a `[[provider.type]]` row with `entity_type = "property"`, its letter allocated when the adapter is built, whose properties the adapter mints under deterministic IDs with the mapping versioned with the adapter (§1, in 05 §8.1). Deterministic statement IDs for a source without IDs of its own hash the main snak and the qualifiers the adapter declares **identifying** for the property, never score-like ones such as mention confidence or tone, so that two mentions on one document do not collide and a re-import keeps every ID (05 §3.4, where the rule is stated for every such adapter). Nothing in the chapter text of §1, §3 or §4 is contradicted. (REVIEW G26, G27)

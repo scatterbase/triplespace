@@ -4,7 +4,6 @@
 - **Date:** 2026-10-26
 - **Updated:** 2026-10-30 (A2)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md), [0036](0036-openstreetmap-providers.md)
 - **Uses:** [0003](0003-statement-ui.md), [0017](0017-entity-id-grammar.md), [0035](0035-adopting-a-wikibase.md), [0048](0048-notation.md), [0070](0070-shallow-entity-mirroring.md), [0078](0078-entity-sources.md)
 
 ## Context
@@ -94,14 +93,10 @@ His choices in the same discussion:
 - **Change:** corrects Consequences
 - **Summary:** The implementation renamed the crate, retired `scatter-adapter-internetdomains` and moved internetdomains.wiki's key map to the rule form in one change, so the two consequences that described a gap between the registry, the crate map and the code no longer hold. The decision is unchanged.
 
-Replaced text (Consequences, as it stood):
-
-> - **The registry runs ahead of the code only where nothing reads it.** The four Wikibase entries' `adapter` fields name `scatter-adapter-wikibase` now, since no code reads the field. internetdomains.wiki's key map keeps its flat form until the adapter reads rules, because `scatter-adapter-internetdomains` and `scatter-providers`' tests read it today. The rule form, and `OW`'s `class_property`, are written as comments beside the entries and listed as a pending allocation in `docs/registry/README.md`.
-> - **`cargo xtask deps` reads the crate map in chapter 22**, which now names `scatter-adapter-wikibase`. It fails from this change until the crate is renamed, so the two land together.
+Replaced text: Consequences of this ADR.
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-30
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§5
-- **Summary:** The Decision's current text now lives in the architecture chapters [05](../architecture/05-providers-and-ingest.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.

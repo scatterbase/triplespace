@@ -4,7 +4,6 @@
 - **Date:** 2026-10-09
 - **Updated:** 2026-10-30 (A3)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0044](0044-tenant-relative-ids.md), [0052](0052-page-repositories-and-title-inheritance.md), [0078](0078-entity-sources.md), [0079](0079-derived-issuer-codes.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0022](0022-federation.md), [0056](0056-security-model.md)
 
 ## Context
@@ -32,8 +31,6 @@ James's direction, from the design discussion of 2026-10-09:
 
 ### 1. A tenant source (extends 0078 §1; amends 0078 §9)
 
-*Changed by A1.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §6.1, §6.8.*
 
 ### 2. Reading a tenant source (amends 0018 §5; extends 0078 §4)
@@ -41,8 +38,6 @@ James's direction, from the design discussion of 2026-10-09:
 *Current text: [05](../architecture/05-providers-and-ingest.md) §6.4; [08](../architecture/08-tenants-and-instances.md) §4.1, §4.4, §6.3.*
 
 ### 3. Registry codes for tenants are promotion (amends 0018 §5; extends 0078 §9)
-
-*Changed by A2.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §6.8; [08](../architecture/08-tenants-and-instances.md) §4.1.*
 
@@ -102,18 +97,17 @@ James's direction, from the design discussion of 2026-10-09:
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §1
-- **Summary:** Every ID a client sees is below 2^53: registry provider numbers are below 2^12 and a tenant assigns its entity-source numbers, a tenant source's included, from 2^12 to 2^13 − 1, so `number << 40 | n` stays under 2^53 for `n` below 2^40. The range itself is [0078](0078-entity-sources.md) A4's; §1 says only that a tenant source's `number` comes from it. (REVIEW G20)
+- **Summary:** Every ID a client sees is below 2^53: registry provider numbers are below 2^12 and a tenant assigns its entity-source numbers, a tenant source's included, from 2^12 to 2^13 − 1, so `number << 40 | n` stays under 2^53 for `n` below 2^40. The range itself is 0078 A4's; §1 says only that a tenant source's `number` comes from it. (REVIEW G20)
 
 ### A2. The registry binding is enforced by the hosting instance
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §3
-- **Summary:** An instance refuses a sync job for a provider whose registry `issuer` is a tenant of this instance, since the tenant's `local` partition is the source and a mirror of it would be a stale copy, and refuses to adopt or import a tenant under a code for which it holds a live mirror partition until that partition has been frozen: its `entity_source` rows dropped and composition switched to reading the tenant's `local`. The sync refusal is also logged on [0070](0070-shallow-entity-mirroring.md) §7 (0070 A6); the chapters hold it in [08](../architecture/08-tenants-and-instances.md) §4.1 and [05](../architecture/05-providers-and-ingest.md) §5.9 and §8.3. (REVIEW G31)
+- **Summary:** An instance refuses a sync job for a provider whose registry `issuer` is a tenant of this instance, since the tenant's `local` partition is the source and a mirror of it would be a stale copy, and refuses to adopt or import a tenant under a code for which it holds a live mirror partition until that partition has been frozen: its `entity_source` rows dropped and composition switched to reading the tenant's `local`. The sync refusal is also logged on 0070 §7 (0070 A6); the chapters hold it in 08 §4.1 and 05 §5.9 and §8.3. (REVIEW G31)
 
 ### A3. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-30
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§9
-- **Summary:** The Decision's current text now lives in the architecture chapters [04](../architecture/04-entities-and-identifiers.md), [05](../architecture/05-providers-and-ingest.md), [08](../architecture/08-tenants-and-instances.md), [13](../architecture/13-mirrored-pages.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.

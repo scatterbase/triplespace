@@ -4,7 +4,6 @@
 - **Date:** 2026-10-18
 - **Updated:** 2026-11-13 (A7)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0047](0047-special-pages.md), [0056](0056-security-model.md), [0057](0057-web-tier.md), [0087](0087-account-registration-and-challenges.md), [0088](0088-external-identity-providers.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0034](0034-frontend-stack.md), [0046](0046-primary-tenant.md), [0079](0079-derived-issuer-codes.md), [0085](0085-settings-and-preferences.md)
 
 ## Context
@@ -34,19 +33,13 @@ James's direction, from the design discussion of 2026-10-18:
 
 ### 2. Instance logins (amends 0007 §3; amends 0018 §4; extends 0015 §5; amends 0013 §4)
 
-*Changed by A2, A3, A4.*
-
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.2; [03](../architecture/03-storage-caches-and-search.md) §4.16, §12.1; [07](../architecture/07-actors-and-accounts.md) §2.1, §2.8; [08](../architecture/08-tenants-and-instances.md) §3.2.*
 
 ### 3. Sign-in methods belong to the login (amends 0088 §7; amends 0007 §3; amends 0013 §4)
 
-*Changed by A3, A7.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.1, §2.2, §2.7, §2.8.*
 
 ### 4. Tenant accounts bind to a login (amends 0007 §3; amends 0088 §6; amends 0028 §2)
-
-*Changed by A3.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.1, §2.8; [08](../architecture/08-tenants-and-instances.md) §3.2.*
 
@@ -56,19 +49,13 @@ James's direction, from the design discussion of 2026-10-18:
 
 ### 6. The first visit to a tenant (amends 0088 §6; amends 0010 §10; amends 0087 §6)
 
-*Changed by A5, A6.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.6, §2.7, §2.8; [19](../architecture/19-site-ui.md) §2.3.*
 
 ### 7. What the auth host serves (amends 0012 §4; extends 0047 §3; amends 0010 §10, §11)
 
-*Changed by A2, A4.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.8; [18](../architecture/18-api.md) §2.3; [19](../architecture/19-site-ui.md) §2.3, §2.4; [21](../architecture/21-special-pages.md) §1.3.*
 
 ### 8. Creating a login (amends 0087 §2, §4)
-
-*Changed by A4.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.6; [19](../architecture/19-site-ui.md) §2.3.*
 
@@ -97,8 +84,6 @@ James's direction, from the design discussion of 2026-10-18:
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.5; [08](../architecture/08-tenants-and-instances.md) §6.2, §6.4.*
 
 ### 15. Migration
-
-*Changed by A3, A4.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.8.*
 
@@ -131,7 +116,7 @@ James's direction, from the design discussion of 2026-10-18:
 
 ## Open questions
 
-- **Q1.** ~~**Who may create a login.** Every login is challenged, but an instance of private or closed wikis may want to close login creation itself, or require approval of logins as tenants approve accounts.~~ *Settled by A6: a login may log in on any tenant of its instance; what is gated is whether that makes an account there, which is the instance's policy, left to tenants or set as a default they override.*
+- **Q1. Who may create a login.** *Settled by A6.*
 - **Q2. Deleting a login.** What becomes of the tenant accounts bound to it: unbound and reclaimable, as after a move, or refusal while any remains.
 - **Q3. The farm base.** Whether a farm base that is no tenant's logs in through the auth host, and which account its session holds: the primary tenant's account of the login, which instance acts need ([0046](0046-primary-tenant.md) §6).
 - **Q4. A login's data.** What the user data bundle of [0027](0027-preferences-and-portability.md) §7 carries of a login, which no tenant owns.
@@ -148,16 +133,15 @@ James's direction, from the design discussion of 2026-10-18:
 ### A1. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-30
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§17
-- **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [20](../architecture/20-web-tier.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.
 
 ### A2. Email addresses
 
 - **Date:** 2026-11-05
-- **Source:** [0100](0100-email-addresses-and-verification-codes.md) §1, §3, §6
+- **Source:** 0100 §1, §3, §6
 - **Change:** extends §2, §7
-- **Summary:** A login holds email addresses, up to `email.max_addresses`, one verified address being its primary ([07](../architecture/07-actors-and-accounts.md) §2.9). The auth host's `Special:Account` gains an **Email addresses** section, and the auth base the `/auth/email` routes.
+- **Summary:** A login holds email addresses, up to `email.max_addresses`, one verified address being its primary (07 §2.9). The auth host's `Special:Account` gains an **Email addresses** section, and the auth base the `/auth/email` routes.
 
 ### A3. Logins built: names, the password table and the migration command
 
@@ -169,24 +153,20 @@ James's direction, from the design discussion of 2026-10-18:
 ### A4. Requiring an external sign-in method
 
 - **Date:** 2026-11-06
-- **Source:** [0101](0101-requiring-an-external-sign-in-method.md) §1, §2, §3
+- **Source:** 0101 §1, §2, §3
 - **Change:** amends §8; extends §2, §7, §15
 - **Summary:** Under `login.external_required` a login is created only from an external identity: `Special:CreateAccount` and `action=createaccount` refuse a password with `ts-external-required`, for oneself, for another and under `account.approval`, and `password set` makes no login for an account without one. Every login then holds at least one identity (§2), the auth host's `Special:CreateAccount` shows the issuers' buttons alone and `Special:Account` disables the last identity's **Remove** (§7), and `logins check` reports what enacting the requirement waits on (§15).
 
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.8, as it stood):
-
-> `Special:CreateAccount` creates a login, with a password under the `createaccount` challenge, or from an external identity bound to no login.
+Replaced text: 07 §2.8.
 
 ### A5. Strict names
 
 - **Date:** 2026-11-06
-- **Source:** [0102](0102-strict-names-from-the-provider.md) §1
+- **Source:** 0102 §1
 - **Change:** amends §6
-- **Summary:** Under `login.names = provider` nothing is chosen on the first visit: the account is created with the name derived from the login's external identity, `{label}-{username}`, on every tenant alike ([07](../architecture/07-actors-and-accounts.md) §2.10).
+- **Summary:** Under `login.names = provider` nothing is chosen on the first visit: the account is created with the name derived from the login's external identity, `{label}-{username}`, on every tenant alike (07 §2.10).
 
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.8, as it stood):
-
-> **On the first visit**, a login with no account on the tenant is answered as §2.7 says: an account request, then vouching, then the session's pending login, for which the person chooses a public name on `Special:CreateAccount`. The login name is offered as a button, and so is the username of the external identity that authenticated the login, each with the warning that the same name makes accounts easy to connect.
+Replaced text: 07 §2.8.
 
 ### A6. A login logs in anywhere on its instance; whether that makes an account is the instance's policy
 

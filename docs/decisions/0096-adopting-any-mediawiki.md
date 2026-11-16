@@ -4,7 +4,6 @@
 - **Date:** 2026-10-29
 - **Updated:** 2026-10-30 (A1)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0035](0035-adopting-a-wikibase.md), [0038](0038-page-metadata-and-categories.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0042](0042-template-expansion-and-parsoid.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [0063](0063-query-namespace.md), [0072](0072-template-mappings.md), [0077](0077-special-version.md), [0090](0090-converting-talk-pages-comment-by-comment.md)
 
 ## Context
@@ -118,6 +117,5 @@ And from the discussion of 2026-10-29:
 ### A1. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-30
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§6
-- **Summary:** The Decision's current text now lives in the architecture chapters [05](../architecture/05-providers-and-ingest.md), [06](../architecture/06-statements-and-properties.md), [10](../architecture/10-pages-and-content-models.md), [11](../architecture/11-rendering-templates-and-modules.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.

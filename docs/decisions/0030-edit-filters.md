@@ -4,7 +4,6 @@
 - **Date:** 2026-09-27
 - **Updated:** 2026-10-09 (A13)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
 - **Uses:** [0007](0007-actor-identity.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0029](0029-resolver-namespaces.md)
 
 ## Context
@@ -19,13 +18,9 @@ James named two dimensions, **abusive statements** and **abusive page contents**
 
 ### 1. A filter is a rule with actions, evaluated before append
 
-*Changed by A13.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §7.1.*
 
 ### 2. Three contexts and one actor
-
-*Changed by A2, A3, A4, A6, A8, A9, A10, A11, A13.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §7.2.*
 
@@ -35,13 +30,9 @@ James named two dimensions, **abusive statements** and **abusive page contents**
 
 ### 4. Actions
 
-*Changed by A3.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §7.4.*
 
 ### 5. Records: filters, hits and tags (extends 0011 §2, §6.1; amends 0015 §1)
-
-*Changed by A3, A11, A13.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.2, §7.5, §7.6; [16](../architecture/16-logs-feeds-and-notifications.md) §2.3.*
 
@@ -51,13 +42,9 @@ James named two dimensions, **abusive statements** and **abusive page contents**
 
 ### 7. Bulk jobs (extends 0002 §8.5)
 
-*Changed by A13.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.6.*
 
 ### 8. Farm-wide filters (extends 0028 §1)
-
-*Changed by A5.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §7.7.*
 
@@ -75,13 +62,9 @@ James named two dimensions, **abusive statements** and **abusive page contents**
 
 ### 12. Permissions (extends 0016 §2; settles 0016 Q5)
 
-*Changed by A11.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.2, §7.8.*
 
 ### 13. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
@@ -98,13 +81,13 @@ James named two dimensions, **abusive statements** and **abusive page contents**
 
 ## Open questions
 
-- **Q1.** ~~**Property constraints**: data-dependent rules that need the graph ("P31 values must be instances of Q5") are a reporting mechanism of their own, as on Wikidata, and the obvious next ADR.~~ *Settled by [0031](0031-property-constraints.md): soft recommendations, never a gate.*
-- **Q2.** ~~**Where tags are registered.** §5 makes a change tag "a short registered string" and relies on [0011](0011-logs.md) §7's `tag/*` log for management, but 0011 §4 does not mirror `tag/*` or `managetags/*` and §6.1 projects neither.~~ *Settled by A3: a tenant `config` record of kind `tag` ([0015](0015-record-format-and-partition-registry.md) §3), keyed by the tag name, holding a description, an `active` flag and the group that may apply it by hand. System tags (`job:*`, `oauth:*`, `filter:*`, `mw-*`) are reserved prefixes no record may claim and are written only by the paths that own them. `managetags/create`, `/delete`, `/activate` and `/deactivate` project from these records ([0011](0011-logs.md) §6.1); `action=tag` and `Special:Tags` write `tag/update` events and read them; `list=tags` lists them; a filter's `tag` action may name only a registered, active tag. Writing a `tag` record needs `managechangetags`, held by `sysop`, added to `groups.toml`.*
-- **Q3.** ~~**Lookups in v1**: whether a bounded `has_statement()` should ever enter the rule language, once constraints exist and the need is clearer.~~ *Settled by A3: no. A filter sees the change and the actor and nothing else; a rule that needs the graph is a constraint ([0031](0031-property-constraints.md)), which reports. The bound in §2 is permanent, and with it [0031](0031-property-constraints.md)'s question about violations touching patrolling is closed the same way.*
+- **Q1. Property constraints.** *Settled by [0031](0031-property-constraints.md).*
+- **Q2. Where tags are registered.** *Settled by A3: a tenant `config` record of kind `tag` ([0015](0015-record-format-and-partition-registry.md) §3), keyed by the tag name, holding a description, an `active` flag and the group that may apply it by hand. System tags (`job:*`, `oauth:*`, `filter:*`, `mw-*`) are reserved prefixes no record may claim and are written only by the paths that own them. `managetags/create`, `/delete`, `/activate` and `/deactivate` project from these records ([0011](0011-logs.md) §6.1); `action=tag` and `Special:Tags` write `tag/update` events and read them; `list=tags` lists them; a filter's `tag` action may name only a registered, active tag. Writing a `tag` record needs `managechangetags`, held by `sysop`, added to `groups.toml`.*
+- **Q3. Lookups in v1.** *Settled by A3.*
 - **Q4. Importing Wikidata's filters**: how far the `import` mapping can go for rules that regex `new_wikitext`.
 - **Q5. `ccnorm` and friends**: which of AbuseFilter's normalization functions to carry, and whether CEL's Unicode handling needs help.
-- **Q6.** ~~**Filter ordering and short-circuiting**: whether a `disallow` should stop later filters from evaluating (AbuseFilter continues, for logging).~~ *Settled by A3: every enabled filter evaluates every write and every match is a hit, as AbuseFilter does; the write is refused once, naming the first disallowing filter's message. Hit counts and the test tool therefore stay complete.*
-- **Q7.** ~~**Hit retention**: hits are records and never expire; whether a tenant may compact old hits of high-volume `log`-only filters.~~ *Settled by A3: a filter record may set `hit_retention`; a daily sweep erases ([0006](0006-log-integrity-and-erasure.md) §7, reason class `operational`) its hit records older than that whose actions were only `log` or `tag`, by the filter's key. Hits that warned, refused, throttled, blocked or degrouped are never swept. Headers remain, as erasure always leaves them.*
+- **Q6. Filter ordering and short-circuiting.** *Settled by A3.*
+- **Q7. Hit retention.** *Settled by A3.*
 - **Q8. Autopromote**: MediaWiki's `abusefilter-unblockautopromote` presumes autopromotion; whether `autoconfirmed` thresholds ([0016](0016-permissions-and-access-control.md) Q2) interact with filters.
 
 ## References
@@ -120,28 +103,16 @@ James named two dimensions, **abusive statements** and **abusive page contents**
 ### A1. Crate table
 
 - **Date:** 2026-09-27
-- **Source:** [0005](0005-crate-organization.md) §2
+- **Source:** 0005 §2
 - **Change:** supersedes §13
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries `scatter-filter` and every change this section listed (0005 A26).
 
-Replaced text (§13):
-
-> | Layer | Crate | Change |
-> |---|---|---|
-> | Wikibase | `scatter-filter` *(new)* | The `filter` and `filter-hit` payload types; the change-set, text and actor context types and their derivation from a change set, a page or thread operation and an actor state; the CEL environment with the AbuseFilter-compatible functions; compiled-rule evaluation and the action decision. Pure. Depends on `scatter-wikibase-changeset`, `scatter-pages`, `scatter-threads`, `scatter-normalize` and the CEL crate |
-> | Ingest | `scatter-ingest` | Per-operation filtering with rejects (§7) |
-> | Triplespace | `triplespace-projections` | `view.filter`, `view.filter_hit`; the filter-hits target set; the test job |
-> | | `triplespace-accounts` | The per-hit IP row in the abuse-handling store |
-> | | `triplespace-notify` | The `filter` reason |
-> | | `triplespace-api-action`, `triplespace-api-rest` | §9; the refusal errors on every write module; filter evaluation in the write path |
-> | | `triplespace-cli` | `filter test`, `filter import` |
->
-> The workspace goes from forty crates to forty-one.
+Replaced text: §13 of this ADR.
 
 ### A2. Property constraints report, filters gate
 
 - **Date:** 2026-09-27
-- **Source:** [0031](0031-property-constraints.md) §1, §8
+- **Source:** 0031 §1, §8
 - **Change:** extends §2
 - **Summary:** Data-dependent rules are property constraints, soft recommendations that never gate a write. This settled Q1.
 
@@ -151,68 +122,62 @@ Replaced text (§13):
 - **Source:** Direct: James, decisions of 2026-09-27 (evening)
 - **Change:** amends §5; extends §2, §4
 - **Summary:** By section:
-  - §5: The tag registry (decision 2). A user-defined tag is a tenant `config` record of kind `tag` ([0015](0015-record-format-and-partition-registry.md) §3): its name is the key, and the content holds a description, an `active` flag and the group whose members may apply it by hand with `action=tag`. The prefixes `job:`, `oauth:`, `filter:` and `mw-` are reserved for the paths that write them and cannot be registered. `managetags/*` events project from the records and `tag/update` from manual application ([0011](0011-logs.md) §6.1); `list=tags` and `Special:Tags` read the registry; a filter's `tag` action names a registered, active tag. The right is `managechangetags` (`sysop`); applying a tag by hand needs `changetags`, held by `user`, subject to the tag's own group. A filter record may set `hit_retention` (decision 15): a daily sweep erases its hit records older than that whose actions were only `log` or `tag`; hits that warned, refused, throttled, blocked or degrouped are never swept.
+  - §5: The tag registry (decision 2). A user-defined tag is a tenant `config` record of kind `tag` (0015 §3): its name is the key, and the content holds a description, an `active` flag and the group whose members may apply it by hand with `action=tag`. The prefixes `job:`, `oauth:`, `filter:` and `mw-` are reserved for the paths that write them and cannot be registered. `managetags/*` events project from the records and `tag/update` from manual application (0011 §6.1); `list=tags` and `Special:Tags` read the registry; a filter's `tag` action names a registered, active tag. The right is `managechangetags` (`sysop`); applying a tag by hand needs `changetags`, held by `user`, subject to the tag's own group. A filter record may set `hit_retention` (decision 15): a daily sweep erases its hit records older than that whose actions were only `log` or `tag`; hits that warned, refused, throttled, blocked or degrouped are never swept.
   - §2: No graph reads in filters, ever (decision 15): the bound of §2 is permanent, and 0031's question about violations touching patrolling closes the same way.
   - §4: Every enabled filter evaluates every write and every match is a hit, as AbuseFilter does; the write is refused once, naming the first disallowing filter's message (decision 15).
 
-Replaced text (§2):
-
-> A rule cannot read the graph: "the value of P31 must be an instance of Q5" is a property constraint, a separate reporting mechanism as on Wikidata, and is left to its own ADR (open questions). This bounds the cost of a filtered write to the cost of building the context from the record in hand.
+Replaced text: §2 of this ADR.
 
 ### A4. The upload context
 
 - **Date:** 2026-09-30
-- **Source:** [0039](0039-files-and-media.md) §5
+- **Source:** 0039 §5
 - **Change:** extends §2
 - **Summary:** A third context, `upload`, with AbuseFilter's file variables and `file_sha256`; `action` is `upload` or `stashupload`.
 
 ### A5. Global filters in the instance log
 
 - **Date:** 2026-09-30
-- **Source:** [0040](0040-instance-prerogatives.md) §6
+- **Source:** 0040 §6
 - **Change:** amends §8
 - **Summary:** Global filters are records in the **instance `log`**, not the primary tenant's, since the instance now has a log of its own; evaluation order is unchanged. A `block` or `degroup` a global filter appends to a tenant's `actors` is an instance prerogative, binding for its duration: a tenant unblock lifts only the tenant's own block. Hits are unchanged: they stay in the tenant's `log`, attested by the actor whose write was hit.
 
-Replaced text (§8):
-
-> Under `inherited`, filters in the **primary tenant's** `log` partition with `scope = global` run on every tenant before the tenant's own filters, in ID order, and a tenant cannot exclude them, as with global groups ([0028](0028-tenancy-policy.md) §3).
+Replaced text: §8 of this ADR.
 
 ### A6. Link variables from expanded text
 
 - **Date:** 2026-09-30
-- **Source:** [0042](0042-template-expansion-and-parsoid.md) §17
+- **Source:** 0042 §17
 - **Change:** amends §2
 - **Summary:** With expansion on, `added_links` and `removed_links` come from the expanded text, computed only when an enabled filter reads them.
 
-Replaced text (§2):
-
-> | `added_links`, `removed_links` | Resolved wiki links and mentions ([0008](0008-namespaces-and-document-pages.md) §10, [0019](0019-discussions.md) §5) |
+Replaced text: §2 of this ADR.
 
 ### A7. Converted to the 0050 format
 
 - **Date:** 2026-10-01
-- **Source:** [0050](0050-adr-format.md) §13
+- **Source:** 0050 §13
 - **Change:** consolidates §1–13
 - **Summary:** A1–A6 were folded into the Decision. The open questions were numbered. No decision changed. Before this, A3's tag registry and A4–A6 were blockquotes, the rest of A3 struck questions with notes, and A2 a struck question. The file before conversion is commit `0b26a3a`.
 
 ### A8. Redirect variables
 
 - **Date:** 2026-10-01
-- **Source:** [0051](0051-page-redirects.md) §9
+- **Source:** 0051 §9
 - **Change:** extends §2
 - **Summary:** `old_redirect` and `new_redirect` in the page context.
 
 ### A9. Fork variables
 
 - **Date:** 2026-10-01
-- **Source:** [0054](0054-forking-a-mirrored-page.md) §2
+- **Source:** 0054 §2
 - **Change:** extends §2
 - **Summary:** `fork`, `fork_repo` and `fork_revid` in the page context, so a tenant can gate or tag forks.
 
 ### A10. Upstream posts
 
 - **Date:** 2026-10-06
-- **Source:** [0069](0069-synchronized-talk-pages.md) §5
+- **Source:** 0069 §5
 - **Change:** extends §2
 - **Summary:** The text context covers a reply or section about to be sent upstream, as `action = upstream-post` with `upstream_repo`.
 
@@ -221,24 +186,19 @@ Replaced text (§2):
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** extends §2, §5, §12
-- **Summary:** The right that seeing an IP in the abuse-handling store of [0007](0007-actor-identity.md) §3 requires is named, so the permission catalogue can list it: `ts-viewip` *(new)*, default `sysop`, James to confirm. §2's `ip` variable, §5's hit page and §12's closing sentence all refer to that store's right without naming it; they now name `ts-viewip`, and §12's table gains its row. (PENDING D4)
+- **Summary:** The right that seeing an IP in the abuse-handling store of 0007 §3 requires is named, so the permission catalogue can list it: `ts-viewip` *(new)*, default `sysop`, James to confirm. §2's `ip` variable, §5's hit page and §12's closing sentence all refer to that store's right without naming it; they now name `ts-viewip`, and §12's table gains its row. (PENDING D4)
 
 ### A12. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§13
-- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [05](../architecture/05-providers-and-ingest.md), [09](../architecture/09-security-and-moderation.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
 
 ### A13. Filters are a step of tier 1; job writes are opted into
 
 - **Date:** 2026-10-09
-- **Source:** [0083](0083-write-path-in-three-tiers.md) §1
+- **Source:** 0083 §1
 - **Change:** amends §7; extends §1, §2, §5
-- **Summary:** Edit filters stay in the appending transaction, as a step of tier 1, since a filter is a function of the written record and the actor and nothing composes while it runs (§1). A filter's scope **excludes job writes by default** (`jobs = false`); a filter that opts in sees each operation of a bulk job in the `local` partition, unless it exempts the job's group, and `disallow` still sends the operation to the rejects file (§7). Hits from a job's writes aggregate into one hit record per (filter, job), carrying a count and the coordinates of the first N records matched, as the job's rejects file already summarizes refusals (§5). The `rate` variable is computed lazily, read from the counters only when an enabled filter's rule names it (§2). The `read` rate class of [0024](0024-subsidiary-accounts.md) §5 is counted for authenticated principals only once a per-process count passes a fraction of the limit, and never for a response served from L0 or L1. 0083's table gives this change as `extends 0030 §7`; the chapter text of §7 said every filter applied to every operation of a job unless it exempted the job's group, which the default now contradicts, so it is logged as an amendment. (REVIEW G8, G15)
+- **Summary:** Edit filters stay in the appending transaction, as a step of tier 1, since a filter is a function of the written record and the actor and nothing composes while it runs (§1). The `rate` variable is computed lazily, read from the counters only when an enabled filter's rule names it (§2). The `read` rate class of 0024 §5 is counted for authenticated principals only once a per-process count passes a fraction of the limit, and never for a response served from L0 or L1. 0083's table gives this change as `extends 0030 §7`; the chapter text of §7 said every filter applied to every operation of a job unless it exempted the job's group, which the default now contradicts, so it is logged as an amendment. (REVIEW G8, G15)
 
-Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.6, as it stood):
-
-> Filters ([09](../architecture/09-security-and-moderation.md)) apply to **each operation** of a bulk job in the `local` partition, in the job's stream, unless the filter exempts the job's group.
-
-> A job of a million operations under ten filters spends seconds on them.
+Replaced text: 05 §3.6.

@@ -2,9 +2,8 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-30
-- **Updated:** 2026-11-09 (A4)
+- **Updated:** 2026-11-16 (A5)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0050](0050-adr-format.md)
 - **Uses:** [0005](0005-crate-organization.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0016](0016-permissions-and-access-control.md), [0085](0085-settings-and-preferences.md)
 
 ## Context
@@ -31,8 +30,6 @@ James's direction, 2026-10-30, on the review:
 
 ### 1. Every Decision section is a pointer from birth (amends 0050 §5, §7, §14)
 
-*Changed by A1.*
-
 *Current text: [24](../architecture/24-documentation.md) §1, §3.2, §5.*
 
 ### 2. The chapters' provenance lines are the map (amends 0050 §14)
@@ -48,8 +45,6 @@ James's direction, 2026-10-30, on the review:
 *Current text: [24](../architecture/24-documentation.md) §12, §13.*
 
 ### 5. Catalogues are registry data (extends 0050 §6; uses 0005 §2–3, 0011 §6, 0012 §4, §5, 0016 §2)
-
-*Changed by A1, A3, A4.*
 
 *Current text: [24](../architecture/24-documentation.md) §11.*
 
@@ -81,9 +76,9 @@ James's direction, 2026-10-30, on the review:
 
 ## Open questions
 
-- **Q1.** ~~**Which catalogue moves first, and who reads it.** The crate map is read by `cargo xtask deps` from chapter 22 §2.1 today; moving it to `registry/crates.toml` changes that reader. The `view` schema, the route table and the permission catalogue have no code reader yet. Order and file names are open.~~ *Settled by A1: the crate map first, then permissions and log events; routes from OpenAPI; the `view` schema stays in prose for now (24 §11).*
-- **Q2.** ~~**`Updated`.** The header's `Updated` restates the last log entry's ID and date, and the checker holds them equal. It is the one derivable field this ADR keeps, because it is the first thing a reader looks at. Whether it goes too is open.~~ *Settled by A1: kept; it is checker-verified and the first thing a reader sees.*
-- **Q3.** ~~**Review of born-as-pointer ADRs.** Whether a pull request that adds an ADR should carry the assembled text (`adr.py show NNNN`) in its description, so that a reviewer on GitHub reads one document.~~ *Settled by A1: CI posts the assembled ADR (`adr.py show NNNN --full`) as a pull-request comment (24 §3.2).*
+- **Q1. Which catalogue moves first, and who reads it.** *Settled by A1.*
+- **Q2. `Updated`.** *Settled by A1.*
+- **Q3. Review of born-as-pointer ADRs.** *Settled by A1.*
 
 ## References
 
@@ -109,9 +104,7 @@ James's direction, 2026-10-30, on the review:
 - **Change:** consolidates §5
 - **Summary:** 24 §11 now names the registry file behind each catalogue that has moved (the crate map, the REST routes, the permissions, the log events: 0005 A111, 0012 A82, 0016 A40, 0011 A35) and the two still in prose. The decision is unchanged. The last commit before this entry is `0e67cce`.
 
-Replaced text ([24](../architecture/24-documentation.md) §11, as it stood):
-
-> **A catalogue is registry data, not prose.** A table whose rows are entries rather than argument — the crate map (22 §2.1), the `view` schema (03 §4), the REST routes and Action API modules (18 §2, §3), the permission catalogue (09), the log-event catalogue (16) — belongs in a registry file with a generated chapter table, so that the chapter stays readable and the code can read the same file. Each move is a `consolidates` entry in the ADRs whose sections the table cites: no decision changes. Until a catalogue has moved, its chapter table is the authority. The order: the crate map first (`registry/crates.toml`; `cargo xtask deps` reads the file rather than the chapter table), then the permission and log-event catalogues as registry files; the REST route table is generated from the OpenAPI file in `../api/` rather than a new registry file; the `view` schema stays in prose until it has a reader, since the migrations are already its source.
+Replaced text: 24 §11.
 
 ### A3. What a catalogue move logs
 
@@ -120,13 +113,20 @@ Replaced text ([24](../architecture/24-documentation.md) §11, as it stood):
 - **Change:** amends §5
 - **Summary:** 24 §11 no longer names each moved catalogue or an order (the registry README lists the files and the section each generates into; the Action API modules moved too, 0012 A83), and it says what a move logs: one `consolidates` entry in the ADR that owns the chapter section, quoting any chapter prose the move rewrote and naming the last commit that carried the table, rather than an entry in every ADR the table cites. That is what the five moves did (0005 A111, 0012 A82–A83, 0016 A40, 0011 A35).
 
-Replaced text ([24](../architecture/24-documentation.md) §11, as it stood after A2):
-
-> **A catalogue is registry data, not prose.** A table whose rows are entries rather than argument — the crate map (22 §2.1, `crates.toml`), the REST routes (18 §3.2, `routes.toml`, checked against the OpenAPI contract), the permission catalogue (09 §2.2, `permissions.toml` with `groups.toml`), the log-event catalogue (16 §2.3, `log-events.toml`), and still to move, the Action API modules (18 §2) and the `view` schema (03 §4) — belongs in a registry file with a generated chapter table, so that the chapter stays readable and the code can read the same file. Each move is a `consolidates` entry in the ADRs whose sections the table cites: no decision changes. Until a catalogue has moved, its chapter table is the authority. The order: the crate map first (`registry/crates.toml`; `cargo xtask deps` reads the file rather than the chapter table), then the permission and log-event catalogues as registry files; the REST route table is generated from the OpenAPI file in `../api/` rather than a new registry file; the `view` schema stays in prose until it has a reader, since the migrations are already its source.
+Replaced text: 24 §11, as it stood after A2.
 
 ### A4. Catalogues are checked against the running code
 
 - **Date:** 2026-11-09
-- **Source:** [0105](0105-catalogues-checked-against-the-running-code.md) §1
+- **Source:** 0105 §1
 - **Change:** extends §5
-- **Summary:** A catalogue the code acts on is also checked against the running code, both ways: the code reports the names it uses, and a script names those the file lacks (unlisted) and the entries no run used (not observed). Such a check starts as a report and becomes a CI failure once a run reports nothing unlisted. Permissions are first. Chapter text: [24](../architecture/24-documentation.md) §11.
+- **Summary:** A catalogue the code acts on is also checked against the running code, both ways: the code reports the names it uses, and a script names those the file lacks (unlisted) and the entries no run used (not observed). Permissions are first. Chapter text: 24 §11.
+
+### A5. `Changes` joins the retired header fields; a pointer section keeps no Changed-by line
+
+- **Date:** 2026-11-16
+- **Source:** Direct: James, review of pull request #262, 2026-11-16
+- **Change:** amends §1, §3
+- **Summary:** 0050 A10 retires the `Changes` header and the `*Changed by …*` lines, both read from the logs. §3's list of retired, derivable fields gains `Changes`, and §1's account of what a pointer section keeps no longer names a provenance line. Chapter text: 24 §2.2, §3.2.
+
+Replaced text: 24 §2.2, §3.2.

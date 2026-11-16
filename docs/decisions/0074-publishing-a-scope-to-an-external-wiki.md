@@ -4,7 +4,6 @@
 - **Date:** 2026-10-07
 - **Updated:** 2026-10-18 (A3)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0024](0024-subsidiary-accounts.md), [0027](0027-preferences-and-portability.md), [0040](0040-instance-prerogatives.md), [0060](0060-scopes.md), [0062](0062-workspaces.md), [0067](0067-proposals.md), [0070](0070-shallow-entity-mirroring.md), [0071](0071-derived-statements-from-mirrored-pages.md)
 
 ## Context
@@ -40,8 +39,6 @@ James's direction, from the design discussion of 2026-10-07:
 
 ### 4. Writing to the destination
 
-*Changed by A1.*
-
 *Current text: [17](../architecture/17-federation-and-publication.md) §4.4.*
 
 ### 5. Generated pages from kits (uses 0062 §6)
@@ -57,8 +54,6 @@ James's direction, from the design discussion of 2026-10-07:
 *Current text: [17](../architecture/17-federation-and-publication.md) §4.7.*
 
 ### 8. API, operations and storage (extends 0012 §5; extends 0013 §5.6)
-
-*Changed by A3.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.15, §5; [18](../architecture/18-api.md) §3.2.*
 
@@ -103,20 +98,17 @@ James's direction, from the design discussion of 2026-10-07:
 - **Change:** amends §4
 - **Summary:** A publication runs under a subsidiary account that holds its credential, as every job runs under a subsidiary (PENDING C14), not as an instance-run job; 0067 §6's rule is scoped to proposals ("never pushes a proposal under its own name"), so a publication writing under the account the destination granted does not breach it. (PENDING F14)
 
-Replaced text (§4):
-
-> - **The job is an instance-run job per publication** ([0040](0040-instance-prerogatives.md) §6), with `job/start` and checkpoints, so its runs, edit counts and conflicts are on its job page.
+Replaced text: §4 of this ADR.
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§9
-- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [17](../architecture/17-federation-and-publication.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
 
 ### A3. Publication credentials sealed under the instance sealing key
 
 - **Date:** 2026-10-18
-- **Source:** [0088](0088-external-identity-providers.md) §3
+- **Source:** 0088 §3
 - **Change:** extends §8
-- **Summary:** `private.publication_credential`'s secret is sealed with XChaCha20-Poly1305 under the instance sealing key, as OAuth client secrets are, with the table, tenant and publication as associated data. The chapter text is [22](../architecture/22-crates-and-stack.md) §4.4.
+- **Summary:** `private.publication_credential`'s secret is sealed with XChaCha20-Poly1305 under the instance sealing key, as OAuth client secrets are, with the table, tenant and publication as associated data. The chapter text is 22 §4.4.

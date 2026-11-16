@@ -4,7 +4,6 @@
 - **Date:** 2026-10-17
 - **Updated:** 2026-11-09 (A8)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0047](0047-special-pages.md), [0057](0057-web-tier.md)
 - **Uses:** [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0034](0034-frontend-stack.md), [0035](0035-adopting-a-wikibase.md), [0056](0056-security-model.md), [0085](0085-settings-and-preferences.md)
 
 ## Context
@@ -27,37 +26,25 @@ James's direction, from the design discussion of 2026-10-17:
 
 ### 1. Who may register (extends 0007 §3)
 
-*Changed by A2.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.6.*
 
 ### 2. Challenges and their triggers (extends 0007 §3; amends 0012 §4)
-
-*Changed by A3.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §12.3; [07](../architecture/07-actors-and-accounts.md) §2.3, §2.6; [18](../architecture/18-api.md) §1.5.*
 
 ### 3. The proof of work (extends 0013 §4; extends 0014 §4)
 
-*Changed by A1, A6, A8.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §5, §12.3; [07](../architecture/07-actors-and-accounts.md) §2.6.*
 
 ### 4. Difficulty, the throttle and addresses (extends 0024 §5; corrects 0024 §5; amends 0024 §5; extends 0013 §4)
-
-*Changed by A1, A3, A4.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §12.1, §12.3; [07](../architecture/07-actors-and-accounts.md) §6.2, §6.3.*
 
 ### 5. In the site, and without JavaScript (amends 0057 §7; extends 0010 §10)
 
-*Changed by A1, A7.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.6; [19](../architecture/19-site-ui.md) §2.3; [20](../architecture/20-web-tier.md) §3.1.*
 
 ### 6. Account requests and approval (extends 0010 §10; extends 0011 §6.1; extends 0012 §5; extends 0013 §4; extends 0016 §2; extends 0028 §2; extends 0047 §1)
-
-*Changed by A3.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §5; [07](../architecture/07-actors-and-accounts.md) §2.6; [08](../architecture/08-tenants-and-instances.md) §3.6; [09](../architecture/09-security-and-moderation.md) §2.2; [16](../architecture/16-logs-feeds-and-notifications.md) §2.3; [18](../architecture/18-api.md) §3.2; [19](../architecture/19-site-ui.md) §2.3; [21](../architecture/21-special-pages.md) §8.*
 
@@ -74,8 +61,6 @@ James's direction, from the design discussion of 2026-10-17:
 *Current text: [18](../architecture/18-api.md) §1.5, §2.2, §2.3.*
 
 ### 10. Crates (extends 0005 §2; amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
@@ -121,65 +106,25 @@ James's direction, from the design discussion of 2026-10-17:
 - **Date:** 2026-10-18
 - **Source:** Direct: James, design discussion of 2026-10-18
 - **Change:** amends §3, §5, §10; extends §4
-- **Summary:** Two decisions taken before building, with Q5 opened for the rest. **The browser's solver is JavaScript**, in a Web Worker, with a SHA-256 of its own, held to `scatter-challenge`'s test vectors by a unit test; solving with the crate compiled to WebAssembly was the plan, but the security policy's `script-src 'self'` forbids compiling WebAssembly, and `scatter-wasm` does not exist yet (Q5). **The `createaccount` and `badlogin` counts are kept in Postgres** where there is no shared cache, in `private.rate_event`, rather than in process, so that they hold across the replicas of an API pool and across restarts over windows of a day and ten minutes. James's direction: "Start with the JavaScript solver now. Add the per-address counts to Postgres per your recommendation." Claude proposed the table's shape, the per-account key of `badlogin`, and Q5. The chapter text is [07](../architecture/07-actors-and-accounts.md) §2.6 and §6.3, [03](../architecture/03-storage-caches-and-search.md) §5, [19](../architecture/19-site-ui.md) §2.3 and [22](../architecture/22-crates-and-stack.md) §2.1 and §2.2; [0005](0005-crate-organization.md) A98, [0013](0013-postgres-storage.md) A65 and [0024](0024-subsidiary-accounts.md) A20 record the changes to their sections.
+- **Summary:** Two decisions taken before building, with Q5 opened for the rest. **The browser's solver is JavaScript**, in a Web Worker, with a SHA-256 of its own, held to `scatter-challenge`'s test vectors by a unit test; solving with the crate compiled to WebAssembly was the plan, but the security policy's `script-src 'self'` forbids compiling WebAssembly, and `scatter-wasm` does not exist yet (Q5). **The `createaccount` and `badlogin` counts are kept in Postgres** where there is no shared cache, in `private.rate_event`, rather than in process, so that they hold across the replicas of an API pool and across restarts over windows of a day and ten minutes. James's direction: "Start with the JavaScript solver now. Add the per-address counts to Postgres per your recommendation." Claude proposed the table's shape, the per-account key of `badlogin`, and Q5. The chapter text is 07 §2.6 and §6.3, 03 §5, 19 §2.3 and 22 §2.1 and §2.2; 0005 A98, 0013 A65 and 0024 A20 record the changes to their sections.
 
-Replaced text (§3):
-
-> **SHA-256, not a memory-hard function.** A browser computes it with the same Rust code the server verifies with, compiled to WebAssembly (§5), and a server checks it in microseconds. Argon2id would narrow the advantage of a GPU, but in WebAssembly on a low-end phone it is slow and asks for tens of megabytes, which would make registration hardest for the readers with the least.
-
-Replaced text (§5):
-
-> in a Web Worker running the `scatter-challenge` solver from `scatter-wasm` as a third lazily loaded module.
-
-Replaced text (§10):
-
-> | `scatter-challenge` *(new)* | Layer 1, pure, builds for `wasm32`: the challenge string, its MAC given a key and a binding, the work function, the solver, and the test vectors. Shared with Scatterbase, which has the same problem at its own registration |
-> | `scatter-wasm` | A third lazily loaded module, the solver, for the Web Worker |
-> | `triplespace-accounts` | Issuing and checking challenges; the spent set, in Valkey or `private.challenge_spent`; the `badlogin` counters; `private.account_request`, approval and rejection, and the pending and rejected login answers |
-> | `triplespace-ui` | The worker and progress note; the `<noscript>` explanations; the honeypot field; the request form and `Special:ConfirmAccounts`; the open-request count |
-> | `triplespace-db` | `private.account_request` and `private.challenge_spent` |
+Replaced text: §3 of this ADR; §5 of this ADR; §10 of this ADR.
 
 ### A2. Registering through an external issuer
 
 - **Date:** 2026-10-18
-- **Source:** [0088](0088-external-identity-providers.md) §6
+- **Source:** 0088 §6
 - **Change:** extends §1
-- **Summary:** A first login through an external issuer keeps the identity as the session's pending identity; `createaccount` with `createpreservestate` and a name creates the account bound to it, with no password and no challenge, or under `account.approval` files a request whose credential is the issuer and subject. The chapter text is [07](../architecture/07-actors-and-accounts.md) §2.7.
+- **Summary:** A first login through an external issuer keeps the identity as the session's pending identity; `createaccount` with `createpreservestate` and a name creates the account bound to it, with no password and no challenge, or under `account.approval` files a request whose credential is the issuer and subject. The chapter text is 07 §2.7.
 
 ### A3. Challenges at the auth host
 
 - **Date:** 2026-10-18
-- **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §6, §8
+- **Source:** 0089 §6, §8
 - **Change:** amends §2, §4, §6
-- **Summary:** Passwords belong to instance logins, created and used on the auth host. The `createaccount` trigger guards creating a login with a password; `badlogin` guards a password login at the auth base and through `clientlogin` on a tenant, and its per-name counter counts by login, under the empty tenant, so failures everywhere add up. Creating a tenant account from a login is not challenged, since the login was challenged or vouched for when it was made, but the throttle counts it. On the auth host the triggers, the difficulty and the throttle resolve as the instance defaults of their settings, and the farm code stands in a challenge for the tenant's. An account request's credential is the login, or under farm identity the farm subject. The chapter text is [07](../architecture/07-actors-and-accounts.md) §2.6.
+- **Summary:** Passwords belong to instance logins, created and used on the auth host. Creating a tenant account from a login is not challenged, since the login was challenged or vouched for when it was made, but the throttle counts it. The chapter text is 07 §2.6.
 
-Replaced text (§2):
-
-> | `createaccount` | Creating an account, or filing a request for one (§6), with the built-in `password` issuer, through `action=createaccount` or `Special:CreateAccount` | ConfirmEdit's `createaccount` |
-
-Replaced text (§2):
-
-> | `badlogin` | `action=clientlogin` with the `password` issuer, once the caller's address has failed 3 times within 5 minutes or the named account has failed 20 times within 10 minutes | ConfirmEdit's `badlogin` and `badloginperuser`, with their defaults |
-
-Replaced text (§2):
-
-> **What triggers do not cover.** A registration through an external issuer is not challenged: the issuer has already decided who may hold an account there, and a tenant that does not trust an issuer's signups does not allow it for login.
-
-Replaced text (§2):
-
-> **One solution serves one act.** A challenge is issued for one trigger, one tenant and one session,
-
-Replaced text (§4):
-
-> The key is an address key, or for the per-account `badlogin` counter the account's case-folded name, so the table holds what the cache would hold
-
-Replaced text (§4):
-
-> and the two `badlogin` counters, by address key and by account,
-
-Replaced text (§6):
-
-> the credential the account will be created with (a password hash, or an issuer and subject)
+Replaced text: §2 of this ADR; §4 of this ADR; §6 of this ADR.
 
 ### A4. The account-creation limit is a setting
 
@@ -188,9 +133,7 @@ Replaced text (§6):
 - **Change:** amends §4
 - **Summary:** Different wikis need different registration limits, so the `createaccount` class's limit is the tenant setting `account.creation_limit` (default 6, the Wikimedia figure; 1 to 10000), beside the difficulty settings `challenge.bits` and `challenge.max_bits` that §4 already has; the window stays a day and `noratelimit` stays exempt. A test tenant sets all three low enough to run quickly and high enough to show the rise and the limit working (`tools/acl_check.sh` uses 10, 14 and 20).
 
-Replaced text (§4):
-
-> **`createaccount` is a rate-limit class** (07 §6.2), counting accounts created and requests filed (§6) by the caller's address key, whoever the caller is: 6 per day for every group, as on Wikimedia wikis, with `noratelimit` exempt as there.
+Replaced text: §4 of this ADR.
 
 New text:
 
@@ -199,9 +142,8 @@ New text:
 ### A5. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-30
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§10
-- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [20](../architecture/20-web-tier.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.
 
 ### A6. Registration: loose ends from building the challenge
 
@@ -215,17 +157,16 @@ New text:
 ### A7. Strict names on the first-visit page
 
 - **Date:** 2026-11-06
-- **Source:** [0102](0102-strict-names-from-the-provider.md) §1
+- **Source:** 0102 §1
 - **Change:** extends §5
-- **Summary:** Under strict names `Special:CreateAccount` on the first visit shows the derived name in place of the name field and says the name follows the account held with the provider ([19](../architecture/19-site-ui.md) §2.3).
+- **Summary:** Under strict names `Special:CreateAccount` on the first visit shows the derived name in place of the name field and says the name follows the account held with the provider (19 §2.3).
 
 ### A8. The challenge carries the tenant's slug
 
 - **Date:** 2026-11-09
 - **Source:** Direct: James, design discussion of 2026-11-09
 - **Change:** amends §3
-- **Summary:** The challenge string carries the tenant's slug, as the code does, not its issuer code: James confirmed the first call of A6 (its second, the difficulty, stays open). Chapter text: [07](../architecture/07-actors-and-accounts.md) §2.6.
+- **Summary:** The challenge string carries the tenant's slug, as the code does, not its issuer code: James confirmed the first call of A6 (its second, the difficulty, stays open). Chapter text: 07 §2.6.
 
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.6, as it stood):
+Replaced text: 07 §2.6.
 
-> A challenge is the string `1.{tenant code}.{trigger}.{bits}.{expires}.{salt}.{mac}`: the format version, the tenant's issuer code, the trigger,

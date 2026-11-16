@@ -4,7 +4,8 @@
 Format: chapter 24 of docs/architecture/ (ADRs 0050 and 0098). Copy to NNNN-slug.md. Delete these
 comments and any optional part you do not use.
 Header values are dates, statuses or lists of links, never sentences.
-Omit Updated until the first log entry; omit Changes and Uses when empty.
+Omit Updated until the first log entry; omit Uses when empty. There is no Changes field: what an ADR changes is read from the
+logs that name it (tools/adr.py changes NNNN).
 Status is written from the code by `check_adrs.py --index` (24 §2.2, §15): leave it Proposed and never edit it.
 It becomes Accepted when every Decision section has an `implements NNNN §N (An)` claim in src and a test citing it.
 The Decision's text does not go here. Write it into the chapter sections it belongs to, each with a
@@ -16,7 +17,6 @@ from docs/ to fill the pointers below, and `docs/check.sh --write` to regenerate
 - **Date:** YYYY-MM-DD
 - **Updated:** YYYY-MM-DD (An)
 - **Author:** James Hare / Claude …
-- **Changes:** [NNNN](NNNN-slug.md), [NNNN](NNNN-slug.md)
 - **Uses:** [NNNN](NNNN-slug.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
 ## Context
@@ -70,9 +70,11 @@ Each target gets a log entry (fold, log, mark: 24 §4) whose Source names this s
 - **Q1. Title.** …
 
 <!--
-Settled:   - **Q1.** ~~**Title.** …~~ *Settled by [NNNN](…) §N: answer.*
-Withdrawn: - **Q1.** ~~**Title.** …~~ *Withdrawn: reason.*
-Partly:    strike the whole question, then append - **Qn.** (Rest of Q1.) …
+Settled:   - **Q1. Title.** *Settled by [NNNN](…) §N.*      (or §N of this ADR, or An for a direct decision)
+           The question's text goes; git holds it (tools/adr.py questions NNNN Q1 --before). Add
+           ": answer" only where the source does not state it (24 §8).
+Withdrawn: - **Q1. Title.** *Withdrawn: reason.*
+Partly:    settle the whole question, then append - **Qn.** (Rest of Q1.) …
 -->
 
 ## References
@@ -86,8 +88,10 @@ Added when another ADR or a direct decision first changes this one. Append only.
 When a change lands here:
   1. Fold: rewrite the chapter section the pointer names so it says what holds now, citing the source,
      and add the changing section to that chapter section's Sources line.
-  2. Log: add the entry below, with any removed text quoted verbatim as Replaced text.
-  3. Mark: add the ID to the provenance line of each changed section:  *Changed by A1, A3.*
+  2. Log: add the entry below, naming the sections whose text the change removed as Replaced text;
+     the commit holds that text, so it is not quoted:
+     `tools/adr.py log NNNN An --before` prints it (24 §6).
+  3. Mark: nothing under the section heading; the log's Change line is what says an entry changed it.
   4. Strike consequences it falsifies, and settle questions it answers (questions need no entry).
   5. Update the header's Updated line; if the ADR is Accepted, add the entry to its status; run check.sh --write.
 Every change is folded, extensions included: no callouts.
@@ -96,10 +100,8 @@ Every change is folded, extensions included: no callouts.
 ### A1. Short title of the change
 
 - **Date:** YYYY-MM-DD
-- **Source:** [NNNN](NNNN-slug.md) §N  <!-- or: Direct: James, design discussion of YYYY-MM-DD -->
+- **Source:** NNNN §N  <!-- plain, as every citation in the log is (24 §9); or: Direct: James, design discussion of YYYY-MM-DD -->
 - **Change:** amends §2; extends §3  <!-- amends, extends, supersedes, corrects, retitles, consolidates -->
-- **Summary:** What changed and why, in a short paragraph. For a direct decision, the decision in full.
+- **Summary:** What changed and why, in a few sentences, with the chapter sections it changed. For a direct decision, the decision in full.
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.5, as it stood):
-
-> The text this change removed or contradicted, as it stood in the chapter.
+Replaced text: 03 §4.5.

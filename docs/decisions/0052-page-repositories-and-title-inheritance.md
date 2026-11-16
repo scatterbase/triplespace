@@ -2,9 +2,8 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-11-16 (A9)
+- **Updated:** 2026-11-16 (A10)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0038](0038-page-metadata-and-categories.md), [0042](0042-template-expansion-and-parsoid.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0026](0026-sitelinks.md), [0028](0028-tenancy-policy.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0043](0043-lua-modules.md), [0051](0051-page-redirects.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -39,8 +38,6 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 1. A page repository (amends 0042 §2 and §11; extends 0015 §3)
 
-*Changed by A1, A2, A3, A6, A7.*
-
 *Current text: [13](../architecture/13-mirrored-pages.md) §1.1.*
 
 ### 2. A title names a stack
@@ -57,19 +54,13 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 5. The frame: primary, origin and alternates (extends 0010 §2)
 
-*Changed by A4.*
-
 *Current text: [13](../architecture/13-mirrored-pages.md) §1.5.*
 
 ### 6. Identity: provider-ranged page IDs, and the API (extends 0015 §2 and 0013 §6; extends 0012 §4–5)
 
-*Changed by A8.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §5.3; [18](../architecture/18-api.md) §2.2, §2.3, §3.1, §3.2.*
 
 ### 7. Talk pages, statements, categories and feeds
-
-*Changed by A1, A9.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §1.7, §1.8.*
 
@@ -105,7 +96,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 ## Open questions
 
-- **Q1.** ~~**Local metadata on foreign pages.** Whether a title whose primary is foreign may carry local page statements, keyed by the ranged ID, and how a fork carries them across the change of page ID. The file-page precedent ([0039](0039-files-and-media.md) §11, "a local page for a foreign file") suggests yes.~~ *Settled by [0110](0110-remote-pages-and-revisions.md) §9: a foreign page with a remote key carries page statements, stored on the remote key; a fork is a new page and does not take them.*
+- **Q1. Local metadata on foreign pages.** *Settled by [0110](0110-remote-pages-and-revisions.md) §9.*
 - **Q2. Sitelinks to inherited titles.** Whether a sitelink may target a foreign primary by title rather than page ID, breaking when the title is forked, or whether forking should re-target it.
 - **Q3. Foreign category membership.** Whether a `Category:` page served by a repository should list the repository's members, fetched live or from the mirror, and whether mirrored pages' categories should join `view.page_category` in `mirror` mode.
 - **Q4. Watching foreign pages.** Whether a watch on an inherited title should deliver the repository's changes to the page, which needs the repository's events ([0053](0053-mirrored-pages.md) §6) to become activity rows or notifications.
@@ -125,58 +116,49 @@ James's direction, from the design discussion of 2026-10-01:
 ### A1. Followed talk pages
 
 - **Date:** 2026-10-06
-- **Source:** [0069](0069-synchronized-talk-pages.md) §1, §3
+- **Source:** 0069 §1, §3
 - **Change:** extends §1; amends §7
 - **Summary:** A `page-repo` gains `talk`: `link` (as before) or `sync`, under which the repository's talk pages are followed and their sections shown on the local talk page as foreign threads, with replies and new sections sent upstream by people holding a grant.
 
-Replaced text (§7):
-
-> Threads attach to `{kind: page, id: <the ranged page ID>}` ([0019](0019-discussions.md) §2), exactly as they attach to a mirrored entity, and the talk page offers a link to the repository's own talk page for readers who want that discussion.
+Replaced text: §7 of this ADR.
 
 ### A2. `repo.cache_ttl` is per repository, with a per-kind default
 
 - **Date:** 2026-10-08
 - **Source:** Direct: James, design discussion of 2026-10-08
 - **Change:** amends §1
-- **Summary:** `repo.cache_ttl` is a per-repository field of the `page-repo` record, as it is of the `file-repo` record ([0039](0039-files-and-media.md) §11), with a per-kind default: 7 days for files, one hour for template source and page bundles. The field was named `cache_ttl` here with a flat default of one hour. (PENDING C20)
+- **Summary:** `repo.cache_ttl` is a per-repository field of the `page-repo` record, as it is of the `file-repo` record (0039 §11), with a per-kind default: 7 days for files, one hour for template source and page bundles. The field was named `cache_ttl` here with a flat default of one hour. (PENDING C20)
 
-Replaced text (§1):
-
-> | `cache_ttl` | How long fetched source and bundles are held, default one hour, as [0042](0042-template-expansion-and-parsoid.md) §11 had it |
+Replaced text: §1 of this ADR.
 
 ### A3. The field is `repo.cache_ttl` here too
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design discussion of 2026-10-09
 - **Change:** corrects §1
-- **Summary:** The repository field is named `repo.cache_ttl` in §1 too, the field A2 (PENDING C20) makes per-repository; one name everywhere, as [0053](0053-mirrored-pages.md) §4 already has it for the L2 row. §1's table called it `cache_ttl`. (PENDING F1)
+- **Summary:** The repository field is named `repo.cache_ttl` in §1 too, the field A2 (PENDING C20) makes per-repository; one name everywhere, as 0053 §4 already has it for the L2 row. §1's table called it `cache_ttl`. (PENDING F1)
 
-Replaced text (§1):
-
-> | `cache_ttl` | How long fetched source and bundles are held, default one hour, as [0042](0042-template-expansion-and-parsoid.md) §11 had it |
+Replaced text: §1 of this ADR.
 
 ### A4. Delete on a foreign page hides it
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design discussion of 2026-10-09
 - **Change:** amends §5
-- **Summary:** A foreign page is hidden as a local page is deleted: the Delete action, held by an administrator (`delete`), writes the `read` ACL of [0053](0053-mirrored-pages.md) §9. §5 lists Delete among the actions offered on a foreign page, with that meaning; Move, Protect and Change content model stay unoffered, Protect… offering create-protection only as before. (PENDING F2)
+- **Summary:** A foreign page is hidden as a local page is deleted: the Delete action, held by an administrator (`delete`), writes the `read` ACL of 0053 §9. §5 lists Delete among the actions offered on a foreign page, with that meaning; Move, Protect and Change content model stay unoffered, Protect… offering create-protection only as before. (PENDING F2)
 
-Replaced text (§5):
-
-> Move, Delete, Protect and Change content model are not offered on a foreign page;
+Replaced text: §5 of this ADR.
 
 ### A5. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
-- **Source:** [0050](0050-adr-format.md) §14
+- **Source:** 0050 §14
 - **Change:** relocates §1–§10
-- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [04](../architecture/04-entities-and-identifiers.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [13](../architecture/13-mirrored-pages.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
 
 ### A6. Tenant repositories of unpromoted tenants
 
 - **Date:** 2026-10-09
-- **Source:** [0080](0080-tenants-as-entity-sources.md) §6
+- **Source:** 0080 §6
 - **Change:** extends §1
 - **Summary:** A `tenant` page repository whose tenant has no registry entry names the reading tenant's tenant source for it as its `provider`, declared first; the source supplies the number for ranged page IDs, the issuer and the IRIs.
 
@@ -185,35 +167,29 @@ Replaced text (§5):
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §1
-- **Summary:** Page repositories are instance-level, one per provider: a `page-repo` record lives in the instance `config` only, written by the operator or supplied by a tenancy template, so English Wikipedia is indexed, fetched, mirrored and rewritten once for every tenant that reads it. The record carries what is true of the repository whoever reads it (`provider`, `namespaces`, `mode`, `fetch`, `events`); tenants select repositories with `pages.repos`, which for each carries the tenant's own choices: a `namespaces` subset (never a superset), `shadowed`, `talk` and `cache_ttl`, the last being how long this tenant serves a fetched bundle before revalidating it, with the instance holding a bundle for the longest `cache_ttl` any tenant sets. A tenant naming a repository the instance has not registered is refused with `ts-repo-unknown`; a tenant that sets `pages.share` is registered by the operator as any other repository. The stored HTML rewrite, the serve-time tenant pass and the one writer of `pages/{repo}` are [0053](0053-mirrored-pages.md) A7; fork seeding is [0054](0054-forking-a-mirrored-page.md) A5. (REVIEW G37)
+- **Summary:** Page repositories are instance-level, one per provider: a `page-repo` record lives in the instance `config` only, written by the operator or supplied by a tenancy template, so English Wikipedia is indexed, fetched, mirrored and rewritten once for every tenant that reads it. The record carries what is true of the repository whoever reads it (`provider`, `namespaces`, `mode`, `fetch`, `events`); tenants select repositories with `pages.repos`, which for each carries the tenant's own choices: a `namespaces` subset (never a superset), `shadowed`, `talk` and `cache_ttl`, the last being how long this tenant serves a fetched bundle before revalidating it, with the instance holding a bundle for the longest `cache_ttl` any tenant sets. The stored HTML rewrite, the serve-time tenant pass and the one writer of `pages/{repo}` are 0053 A7; fork seeding is 0054 A5. Chapter text: 13 §1.1. (REVIEW G37)
 
-Replaced text ([13](../architecture/13-mirrored-pages.md) §1.1, as it stood):
-
-> **A page repository is a source of pages a tenant serves by title without holding them.** It generalises the template repository of [0042](0042-template-expansion-and-parsoid.md) §11 to any `pages` namespace, and it is configured as a file repository is ([0039](0039-files-and-media.md) §11, in [12](../architecture/12-files-and-media.md)): a `config` record of kind **`page-repo`**, keyed `page-repo:{name}`, in a tenant's `config` or in the instance `config`, where a tenant refers to it by name and a tenancy template may supply it ([0028](0028-tenancy-policy.md) §8, in [08](../architecture/08-tenants-and-instances.md)).
-
-> | `namespaces` | The repository's namespaces the tenant serves, by the repository's canonical names, with `main` for namespace 0. Each is served in the local namespace of the same canonical name. The default is `["Template", "Module"]`, which is what a template repository served; MDWiki's English Wikipedia entry is `["main", "Template", "Module", "Category"]` |
-> | `shadowed` | What becomes of this repository's page when a higher-ranked page exists under the same title: `offer` (default), it is offered as an alternate (§1.5); `hide`, it is not shown at all |
-> | `repo.cache_ttl` | How long fetched source and bundles are held, default one hour, as [0042](0042-template-expansion-and-parsoid.md) §11 had it |
-> | `talk` | `link` (default): a foreign page's talk page holds local threads and links to the repository's talk page (§1.7). `sync`: the repository's talk pages paired with the served namespaces are followed, mirrored whatever the `mode`, and their sections are shown as foreign threads (§5) |
-
-> `repo.cache_ttl` is a per-repository field of the `page-repo` or `file-repo` record, under that one name everywhere, with a default per kind: 7 days for files, one hour for template source and page bundles.
-
-> **The tenant's order is the inheritance.** The `site` setting **`pages.repos`** lists the repositories the tenant uses, by name, in order. It replaces `wikitext.template_repos`, and **`pages.share`** replaces `wikitext.share` ([0042](0042-template-expansion-and-parsoid.md) §2): a tenant that sets it may serve its pages to other tenants as a `tenant` repository.
+Replaced text: 13 §1.1.
 
 ### A8. A mirrored entity's page ID is provider-ranged too
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §6
-- **Summary:** A mirrored entity's page ID is provider-ranged exactly as a foreign page's is: `provider_number << 40 | upstream page ID` where the provider publishes one, `provider_number << 40 | mirror offset` otherwise, computed by the writer from the record with no allocation, so a bulk sync takes no page-ID sequence and every tenant reading the provider sees one number. `log."instance.page_id"` is not used for entities; the range below 2^40 is the tenant's own sequence; `view.entity`'s unique key on the page ID is `(tenant, page_id)`. The ledger's verb is `amends`, but §6 said nothing about entities' page IDs that this contradicts, so it is logged as `extends`; the contradicted text is [0013](0013-postgres-storage.md) §6's and [0015](0015-record-format-and-partition-registry.md) §2's. (REVIEW G18)
+- **Summary:** A mirrored entity's page ID is provider-ranged exactly as a foreign page's is: `provider_number << 40 | upstream page ID` where the provider publishes one, `provider_number << 40 | mirror offset` otherwise, computed by the writer from the record with no allocation, so a bulk sync takes no page-ID sequence and every tenant reading the provider sees one number. `log."instance.page_id"` is not used for entities; the range below 2^40 is the tenant's own sequence; `view.entity`'s unique key on the page ID is `(tenant, page_id)`. The ledger's verb is `amends`, but §6 said nothing about entities' page IDs that this contradicts, so it is logged as `extends`; the contradicted text is 0013 §6's and 0015 §2's. (REVIEW G18)
 
 ### A9. A foreign page with a remote key carries page statements
 
 - **Date:** 2026-11-16
-- **Source:** [0110](0110-remote-pages-and-revisions.md) §9
+- **Source:** 0110 §9
 - **Change:** amends §7
-- **Summary:** A page served from a repository whose site has a remote key carries page statements, stored on the remote key rather than the ranged page ID and edited in its Page data tab; they are the remote entity's statements, the same data whether or not the site is served. A fork is a new page and does not take them. A foreign page with no remote key still carries none. Chapter text: [13](../architecture/13-mirrored-pages.md) §1.7.
+- **Summary:** A page served from a repository whose site has a remote key carries page statements, stored on the remote key rather than the ranged page ID and edited in its Page data tab; they are the remote entity's statements, the same data whether or not the site is served. A fork is a new page and does not take them. A foreign page with no remote key still carries none. Chapter text: 13 §1.7.
 
-Replaced text ([13](../architecture/13-mirrored-pages.md) §1.7, as it stood):
+Replaced text: 13 §1.7.
 
-> **A foreign page carries no local statements.** Page statements are keyed by page ID in the tenant's `pages` partition ([0038](../decisions/0038-page-metadata-and-categories.md) §1), and a ranged ID could key them; but a page with local statements and no local text would be a third kind of entry, neither inherited nor forked, and the fork would have to carry the statements across a change of page ID. Local metadata about a foreign page waits for a decision on that shape. Until then, a fork is the way to say anything local about a page.
+### A10. Mirrored pages fill the title index
+
+- **Date:** 2026-11-16
+- **Source:** 0053 §3
+- **Change:** extends §8
+- **Summary:** `view.foreign_title`, the title index of a page repository, is filled by the mirroring of pages. This records an extension made when 0053 was written, on 2026-10-01: its heading has said so since then and the chapter text has carried it, but this log had no entry. No text changes with this entry. Chapter text: 03 §4.12, §5.

@@ -121,7 +121,7 @@ for name, text in texts.items():
 VERBS = {"amends", "extends", "supersedes", "corrects", "settles", "uses"}   # 0050 §7
 LOG_VERBS = {"amends", "extends", "supersedes", "corrects", "retitles", "consolidates", "relocates"}  # 0050 §8, §14
 NEEDS_REPLACED = {"amends", "supersedes", "corrects"}
-HEADER_ORDER = ["Status", "Date", "Updated", "Author", "Changes", "Uses"]  # 24 §2.2
+HEADER_ORDER = ["Status", "Date", "Updated", "Author", "Uses"]  # 24 §2.2
 STATUS_RE = re.compile(r"^(Proposed|Accepted|Accepted with proposed amendment \((A\d+)(, A\d+)*\)|Withdrawn|Superseded by \[?\d{4}\]?(\([^)]*\))?)$")
 
 def header_fields(text):
@@ -183,6 +183,10 @@ def parse_questions(text):
         qs[int(m.group(1))] = m.group(2)
     return qs
 
+def settled(q):
+    """A settled question names what settled it, or is withdrawn (24 §8)."""
+    return bool(re.search(r"\*(Settled by|Withdrawn)", q))
+
 def decision_sections(text):
     """Numbered ### and #### headings under ## Decision (or ## Part … blocks), with their bodies."""
     block = h2_block(text, "Decision")
@@ -232,6 +236,40 @@ questions = {name: parse_questions(texts[name]) for name in new_format}
 def adr_nums(s):
     return set(re.findall(r"\((\d{4})-[^)]+\.md\)", s))
 
+PLAIN_ADR = re.compile(r"(?<![\w§.\-/])(\d{4})(?![\w\-])")
+
+def source_adrs(s):
+    """The ADRs a log entry's Source names. In the Amendment log a citation is plain, `0038 §1`
+    (24 §9); a link is still read."""
+    return adr_nums(s) | set(PLAIN_ADR.findall(s))
+
+def log_citation_problems(body):
+    """Plain citations on an entry's Source and Replaced text lines and in its Chapter text list
+    (24 §6, §9): the ADR or chapter exists, and so does each section named straight after it."""
+    out = []
+    lines = [l for l in body.split("\n") if l.startswith("- **Source:**") or l.startswith("Replaced text")]
+    lines += [l.split("Chapter text:", 1)[1] for l in body.split("\n") if l.startswith("- **Summary:**") and "Chapter text:" in l]
+    for line in lines:
+        if line.startswith("- **Source:** Direct"):
+            continue
+        line = re.sub(r"\[[^\]]*\]\([^)]*\)", lambda m: " " * len(m.group(0)), line)   # links are check 1 and 2
+        for m in re.finditer(r"(?<![\w§.\-/])(\d{4}|\d{2}) ((?:§\d+(?:\.\d+)*(?:[–-]§?\d+(?:\.\d+)*)?(?:, | and )?)+)", line):
+            doc, cited = m.group(1), re.findall(r"\d+(?:\.\d+)*", m.group(2))
+            if len(doc) == 4:
+                have = secs.get(num2file.get(doc))
+                what = doc
+            else:
+                paths = glob.glob(os.path.join(ROOT, "architecture", doc + "-*.md"))
+                have = set(re.findall(r"^#{2,4} (\d+(?:\.\d+)*)\.?\s", chapter_text(paths[0]), re.M)) if paths else None
+                what = "chapter " + doc
+            if have is None:
+                out.append(f"cites {what}, which does not exist")
+                continue
+            for c in cited:
+                if c not in have:
+                    out.append(f"cites {what} §{c}, which does not exist")
+    return out
+
 def settlers(note):
     """The sources of '*Settled by X and Y: answer*' are what comes before the colon (0050 §10)."""
     return re.split(r": ", note, maxsplit=1)[0]
@@ -247,6 +285,8 @@ for name in sorted(new_format):
     for f in names:
         if f == "Chapters":
             P.append("header field 'Chapters' is retired: the chapters are read from the pointers (24 §2.2)")
+        elif f == "Changes":
+            P.append("header field 'Changes' is retired: what an ADR changes is read from the logs that name it (24 §2.2; tools/adr.py changes NNNN)")
         elif f not in HEADER_ORDER:
             P.append(f"header field '{f}' is not one of {HEADER_ORDER}")
     known = [f for f in names if f in HEADER_ORDER]
@@ -273,7 +313,7 @@ for name in sorted(new_format):
                 P.append(f"Status is '{fd['Status']}', but the code says '{said}' (24 §15): run check_adrs.py --index")
     if not re.match(r"^# \d{4}\. ", text):
         P.append("H1 is not '# NNNN. Title'")
-    for f in ("Changes", "Uses"):
+    for f in ("Uses",):
         nums = re.findall(r"\[(\d{4})\]", fd.get(f, ""))
         if nums != sorted(nums):
             P.append(f"{f} is not in ascending order")
@@ -318,10 +358,13 @@ for name in sorted(new_format):
     touched = collections.defaultdict(set)   # section -> {A ids} from the log
     for n, e in log.items():
         f = e["fields"]
-        for req in ("Date", "Source", "Change", "Summary"):
-            if req not in f:
-                P.append(f"A{n} lacks {req}")
         verbs = parse_change(f.get("Change", ""))
+        relocation = bool(verbs) and all(v == "relocates" for v, _ in verbs)   # 24 §6: no Summary
+        for req in ("Date", "Source", "Change", "Summary"):
+            if req not in f and not (req == "Summary" and relocation):
+                P.append(f"A{n} lacks {req}")
+            if req == "Summary" and relocation and req in f:
+                P.append(f"A{n} only relocates, so it has no Summary (24 §6)")
         for v, ss in verbs:
             if v not in LOG_VERBS:
                 P.append(f"A{n}: change verb '{v}' is not one of {sorted(LOG_VERBS)}")
@@ -330,8 +373,12 @@ for name in sorted(new_format):
             if v not in ("consolidates", "retitles", "relocates"):
                 for s in ss:
                     touched[s].add(n)
-        if not f.get("Source", "").startswith("Direct") and not adr_nums(f.get("Source", "")):
-            P.append(f"A{n}: Source is neither an ADR link nor 'Direct: …'")
+        if not f.get("Source", "").startswith("Direct") and not source_adrs(f.get("Source", "")):
+            P.append(f"A{n}: Source is neither an ADR nor 'Direct: …'")
+        for prob in log_citation_problems(e["body"]):
+            P.append(f"A{n} {prob}")
+        if re.search(r"^(?!>).*\[(\d{4})\]\(\1-[^)#\s]*\.md\)", strip_fences(e["body"]), re.M):
+            P.append(f"A{n} links an ADR: in the Amendment log a citation is plain, `0038 §1` (24 §9)")
 
     # provenance lines ↔ log
     for level, head, body in decision_sections(text):
@@ -340,15 +387,12 @@ for name in sorted(new_format):
             continue
         sec = m.group(1)
         first = next((l for l in body.split("\n") if l.strip()), "")
-        prov = re.match(r"^\*Changed by ((?:A\d+(?:, )?)+)\.\*$", first.strip())
+        if re.search(r"^\*Changed by ", body, re.M):
+            P.append(f"§{sec}: '*Changed by …*' lines are retired: the entries that changed a section are read from the log's Change lines (24 §3.1; tools/adr.py show {me} §{sec})")
         stub = re.match(r"^\*Superseded by .*\(A(\d+)\)\.\*$", first.strip())
-        listed = {int(x) for x in re.findall(r"A(\d+)", prov.group(1))} if prov else set()
-        if stub:
-            listed.add(int(stub.group(1)))
-        for a in listed - touched.get(sec, set()):
-            P.append(f"§{sec}: provenance names A{a}, whose Change does not name §{sec}" if a in log else f"§{sec}: provenance names A{a}, which is not in the log")
-        for a in touched.get(sec, set()) - listed:
-            P.append(f"§{sec}: A{a} changes it, but its provenance line does not say so")
+        if stub and int(stub.group(1)) not in touched.get(sec, set()):
+            a = int(stub.group(1))
+            P.append(f"§{sec}: the stub names A{a}, whose Change does not name §{sec}" if a in log else f"§{sec}: the stub names A{a}, which is not in the log")
     for s in touched:
         if s not in secs[name]:
             P.append(f"the log changes §{s}, which does not exist")
@@ -406,8 +450,10 @@ for name in sorted(new_format):
     if qids != list(range(1, len(qids) + 1)):
         P.append(f"open questions are not Q1..Qn: {qids}")
     for n, rest in qs.items():
-        if "~~" in rest and not re.search(r"\*(Settled by|Withdrawn)", rest):
-            P.append(f"Q{n} is struck but neither Settled by nor Withdrawn")
+        if "~~" in rest:
+            P.append(f"Q{n} is struck: a settled question keeps its ID and title and names what settled it, and git holds its text (24 §8)")
+        if settled(rest) and not re.match(r" [^*]+\*\* \*", rest):
+            P.append(f"Q{n} is settled but is not '**Q{n}. Title.** *Settled by …*' (24 §8)")
 
     # the retired section (24 §2.3): what an ADR changes is its header and headings; the targets' logs
     # and INDEX.md hold the inverse
@@ -425,12 +471,12 @@ for name, text in texts.items():
     if name in new_format:
         srcs = set()
         for e in logs[name].values():
-            srcs |= adr_nums(e["fields"].get("Source", ""))
+            srcs |= source_adrs(e["fields"].get("Source", ""))
         for q in questions[name].values():
             for m in re.finditer(r"\*Settled by ([^*]*)\*", q):
                 srcs |= adr_nums(settlers(m.group(1)))
         amended_by[name] = srcs
-        related[name] = set(re.findall(r"\[(\d{4})\]", header_field(text, "Changes") + header_field(text, "Uses")))
+        related[name] = set(re.findall(r"\[(\d{4})\]", header_field(text, "Uses")))
         continue
     ab = header_field(text, "Amended by")
     rel = header_field(text, "Related")
@@ -443,16 +489,27 @@ for a, bs in amended_by.items():
         if not bf:
             problems[a].append(f"Amended-by names unknown ADR {b}")
             continue
+        if bf in new_format:
+            continue   # what an ADR changes is derived from the logs that name it (24 §2.2)
         if a[:4] not in related[bf] and a[:4] not in amended_by[bf]:
             problems[bf].append(f"{a[:4]} lists {b} under Amended-by, but {b} does not list {a[:4]} under Related")
 
 # reverse: B's Related clause says it amends/settles/extends A -> A should list B as amender
 for b, text in texts.items():
     if b in new_format:
-        for a in set(re.findall(r"\[(\d{4})\]", header_field(text, "Changes"))):
+        # a heading that says it changes another ADR needs that ADR's log, or a settled question
+        # there, to name this one (24 §12 check 6)
+        claimed = set()
+        for level, head, body in decision_sections(text):
+            paren = re.search(r"\(([^()]*\d{4}[^()]*)\)\s*$", head)
+            for clause in re.split(r";", paren.group(1)) if paren else ():
+                clause = clause.strip()
+                if clause.split(" ")[0] in VERBS - {"uses"}:
+                    claimed |= set(re.findall(r"\b(\d{4})\b", clause))
+        for a in sorted(claimed - {b[:4]}):
             af = num2file.get(a)
             if af and b[:4] not in amended_by[af]:
-                problems[af].append(f"{b[:4]}'s Changes names {a}, but {a} does not list {b[:4]} under Amended-by or in its log")
+                problems[af].append(f"a heading of {b[:4]} says it changes {a}, but no log entry or settled question of {a} names {b[:4]}")
         continue
     rel = header_field(text, "Related")
     for m in re.finditer(r"\[(\d{4})[^\]]*\]\([^)]+\)\s*(\([^)]*\))?", rel):
@@ -481,12 +538,12 @@ def index_markdown():
         cs = (code_status or {}).get(me)
         built = f"{cs['done']}/{cs['total']}" if cs and cs["total"] else "—"
         qs = questions.get(name, {})
-        open_qs = sum(1 for q in qs.values() if "~~" not in q)
+        open_qs = sum(1 for q in qs.values() if not settled(q))
         unconf = [(n, e) for n, e in logs.get(name, {}).items() if "unconfirmed" in e["fields"].get("Source", "").lower()]
         for n, e in unconf:
             pending.append((me, name, n, e["fields"].get("Date", ""), e["title"]))
         for qn, qtext in sorted(qs.items()):
-            if "~~" not in qtext:
+            if not settled(qtext):
                 open_questions.append((me, name, qn, qtext.strip()))
         rows.append(f"| [{me}]({name}) | {title} | {fd.get('Status', '?')} | {built} | {open_qs or ''} | {len(unconf) or ''} | "
                     f"{upd.group(0) if upd else fd.get('Date', '—')} | {chs} | {', '.join(inbound) or '—'} |")
@@ -517,7 +574,7 @@ def open_markdown():
     else:
         out.append("None.")
     out += ["", "## Open questions", "",
-            "Every unstruck question in every ADR (24 §8), with its first sentence. Settle one in its ADR: strike it with *Settled by …* or *Withdrawn: …*.", ""]
+            "Every unsettled question in every ADR (24 §8), with its first sentence. Settle one in its ADR: replace its text with *Settled by …* or *Withdrawn: …*, keeping its ID and title.", ""]
     if open_questions:
         out += ["| Question | Title | What is open |", "|---|---|---|"]
         for me, fname, qn, text in open_questions:

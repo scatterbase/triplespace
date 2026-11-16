@@ -40,8 +40,11 @@ tools/adr.py show 03 §4.5                  # one chapter section
 tools/adr.py show 0013 §7                  # an ADR section, its pointer followed to the chapter text
 tools/adr.py show 0013 §7 --adr            # the ADR section as written
 tools/adr.py show 0013                     # an ADR's header and outline
-tools/adr.py log 0008 A6                   # one amendment, with the text it replaced
+tools/adr.py log 0008 A6                   # one amendment: what changed, why, and the sections it replaced
+tools/adr.py log 0008 A6 --before          # those sections as they stood, from git; --diff for what changed
+tools/adr.py changes 0038                  # what an ADR changes: the entries and settled questions naming it
 tools/adr.py questions 0090                # open questions
+tools/adr.py questions 0008 Q3 --before    # a settled question as it was asked, from git
 ```
 
 Add `--lines N` to `show` to cap a long section; `show 0098 --full` prints a whole ADR with its
@@ -52,14 +55,16 @@ chapter text. Chapter 24 is how the documents fit together.
 - **Chapter → ADR.** Each chapter section opens with *Sources: [0013] §7; [0032] §2.*: the ADR
   sections it was assembled from. Follow them for the reasoning.
 - **ADR → chapter.** A Decision section reading *Current text: [03] §4.5.* has its text in that
-  chapter section. Its heading, number and *Changed by An* line stay in the ADR.
+  chapter section. Its heading and number stay in the ADR; `tools/adr.py show NNNN §N`
+  prints the log entries that changed it.
 - **ADR → ADR.** `docs/decisions/INDEX.md` lists each ADR's status, last update, chapters and
-  what changes it; the header's `Changes` says what it changes.
+  what changes it; `tools/adr.py changes NNNN` lists what it changes.
 - **ADR section → chapter, in bulk.** `python3 docs/architecture/map.py --sections` prints every
   Decision section with the chapter sections that cite it. Every section is cited by some chapter
   (0050 and 0098, the process ADRs, by chapter 24); the only exceptions are the stubs.
-- **History of a passage.** The ADR's Amendment log quotes replaced text verbatim. Cite text as
-  it was by the entry that replaced it (`0008 A6`), never by date.
+- **History of a passage.** The ADR's Amendment log names the sections each entry replaced;
+  `tools/adr.py log 0008 A6 --before` prints them as they stood and `--diff` what the entry
+  changed, from git. Cite text as it was by the entry that replaced it (`0008 A6`), never by date.
 
 ## Citations
 
