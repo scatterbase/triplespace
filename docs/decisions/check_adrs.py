@@ -466,7 +466,7 @@ for b, text in texts.items():
             paren = re.search(r"\(([^()]*\d{4}[^()]*)\)\s*$", head)
             for clause in re.split(r";", paren.group(1)) if paren else ():
                 clause = clause.strip()
-                if clause.split(" ")[0] in VERBS - {"uses", "extends"}:   # an extension's entry is not enforced
+                if clause.split(" ")[0] in VERBS - {"uses"}:
                     claimed |= set(re.findall(r"\b(\d{4})\b", clause))
         for a in sorted(claimed - {b[:4]}):
             af = num2file.get(a)

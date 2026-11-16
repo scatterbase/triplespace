@@ -40,7 +40,7 @@ Two smaller gaps are closed with them: the document node of a foreign entity on 
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.2, §1.3, §1.4.*
 
-### 6. Document nodes for foreign entities (extends 0001 §1, 0002 §4 and 0009 §6)
+### 6. Document nodes for foreign entities (extends 0001 §1 and 0002 §4; uses 0009 §6)
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §2.1, §5.6.*
 

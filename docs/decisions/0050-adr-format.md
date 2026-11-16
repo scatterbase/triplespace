@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-11-16 (A10)
+- **Updated:** 2026-11-16 (A11)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0005](0005-crate-organization.md), [0013](0013-postgres-storage.md)
 
@@ -229,3 +229,12 @@ Replaced text: [24](../architecture/24-documentation.md) §6.
 - **Summary:** Two things an ADR stated twice are no longer written. The `*Changed by A3, A6.*` line under a section heading repeated the Change lines of the ADR's own log, and the checker held the two equal; the entries that changed a section are now read from the log, by `tools/coverage.py` for the status and by `tools/adr.py show NNNN §N` for a reader. The `Changes` header repeated, from the changing side, what the targets' log entries and settled questions record; `tools/adr.py changes NNNN` lists those. In 101 of 111 ADRs the header was exactly that list, and in the other ten it was shorter (0005's left out 38 ADRs whose logs name it), so the derived list is the fuller one. Removed in this change: 665 lines and 108 headers, 56 KB; `coverage.py`'s output is the same before and after. Section headings keep their verbs: `uses` is recorded nowhere else, and a log entry does not say which of its source's sections changed which target section. The checker now requires a heading's claim to amend, supersede, correct or settle to be matched by the target's log; a claim to extend is not enforced, because 17 headings claim an extension that the target never logged, which is left for a decision. An empty `*Changed by .*` line under 0011 §6 went with the rest. Chapter text: [24](../architecture/24-documentation.md) §2.2, §3.1, §3.2, §4, §12.
 
 Replaced text: [24](../architecture/24-documentation.md) §2.2, §3.1, §3.2, §4, §12.
+
+### A11. A heading's claim to extend is checked against the target's log
+
+- **Date:** 2026-11-16
+- **Source:** Direct: James, review of pull request #262, 2026-11-16
+- **Change:** amends §12
+- **Summary:** The checker requires a heading that says it extends another ADR to be matched by a log entry or settled question of that ADR, as A10 required for the other changing verbs. The 17 claims that had no match are resolved in this change. Eight were extensions the chapters already carried, and their entries are added: 0012 A94 and A95, 0010 A58, 0016 A45, 0052 A10, 0024 A22, 0013 A105 and A106; 0028 §11's heading now names the sections it extends. Nine were reliance, not change, and their headings now say `uses`: 0015 §6 (0009 §6), 0023 §5 (0006 Context), 0025 §4 (0030 §5), 0029 §5 (0026 §2), 0031 §2 (0004 §4, §7), 0032 §2 (0002 §2–3), 0032 §5 (0006 §7), 0053 §2 (0008 §8) and 0054 §3 (0035 §7); each target is in the ADR's `Uses`. A corrected heading is not logged in its own ADR. Chapter text: [24](../architecture/24-documentation.md) §12.
+
+Replaced text: [24](../architecture/24-documentation.md) §12.

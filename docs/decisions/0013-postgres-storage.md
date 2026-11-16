@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-15 (A104)
+- **Updated:** 2026-11-16 (A106)
 - **Author:** James Hare / Claude Fable
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
 
@@ -979,3 +979,17 @@ Replaced text: [03](../architecture/03-storage-caches-and-search.md) §1.2.
 - **Source:** Direct: James, 2026-11-15, on the vacuum settings proposed after the whole-Wikidata benchmark; the values are Claude's, while building it, unconfirmed
 - **Change:** extends §2
 - **Summary:** Postgres's autovacuum waits until a fifth of a table's rows are dead (a tenth for analyze), which on the Wikidata mirror is 24M rows of its record partition and 54M of `view.identifier`: compaction removed 710,000 superseded records in the day-close benchmark and the database still grew, because the space stays unusable until a vacuum. Every record partition, `log.merkle_node`, and the views that grow with a mirror (`view.identifier`, `view.term`, `view.entity`, `view.entity_source`, `view.activity`) are vacuumed after 1% of their rows are dead or newly inserted and analyzed after 0.5%, with a per-table cost limit of 2000, ten times the default, so that a vacuum of a table of hundreds of gigabytes finishes. `create_partition` gives each new partition these settings, and the migrations `scatter-log-postgres/0003_record_autovacuum` and `triplespace-db/0040_view_autovacuum` give them to existing tables. Storage parameters only: no table, index or projection changes. Chapter text: 03 §2.
+
+### A105. The sprint and task tables
+
+- **Date:** 2026-11-16
+- **Source:** [0061](0061-sprints-and-tasks.md) §6
+- **Change:** extends §5.6, §7
+- **Summary:** The `view` schema gains `sprint` and `task`, with their initial computation as an `ops` job, and sprints and tasks are among the consumers that run after composition. This records an extension made when 0061 was written, on 2026-10-04: its heading has said so since then and the chapter text has carried it, but this log had no entry. No text changes with this entry. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §5, §6.1.
+
+### A106. The tables of synchronized talk pages
+
+- **Date:** 2026-11-16
+- **Source:** [0069](0069-synchronized-talk-pages.md) §10
+- **Change:** extends §5.6
+- **Summary:** The `view` schema gains `foreign_thread` at instance scope and `pinned` on `thread_attachment`, and `ops` gains `upstream_post`, the send queue. This records an extension made when 0069 was written, on 2026-10-06: its heading has said so since then and the chapter text has carried it, but this log had no entry. No text changes with this entry. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §5.

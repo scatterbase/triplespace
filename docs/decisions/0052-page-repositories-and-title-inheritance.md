@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-11-16 (A9)
+- **Updated:** 2026-11-16 (A10)
 - **Author:** James Hare / Claude Fable
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0026](0026-sitelinks.md), [0028](0028-tenancy-policy.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0043](0043-lua-modules.md), [0051](0051-page-redirects.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
@@ -187,3 +187,9 @@ Replaced text: [13](../architecture/13-mirrored-pages.md) §1.1.
 
 Replaced text: [13](../architecture/13-mirrored-pages.md) §1.7.
 
+### A10. Mirrored pages fill the title index
+
+- **Date:** 2026-11-16
+- **Source:** [0053](0053-mirrored-pages.md) §3
+- **Change:** extends §8
+- **Summary:** `view.foreign_title`, the title index of a page repository, is filled by the mirroring of pages. This records an extension made when 0053 was written, on 2026-10-01: its heading has said so since then and the chapter text has carried it, but this log had no entry. No text changes with this entry. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §4.12, §5.

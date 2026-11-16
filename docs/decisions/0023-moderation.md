@@ -47,7 +47,7 @@ Patrolling is the odd one out, since it restricts nothing: it is a mark that a t
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §6.2.*
 
-### 5. What hiding does (extends 0001 §4, 0006 Context, 0015 §1; amends 0007 §4)
+### 5. What hiding does (extends 0001 §4 and 0015 §1; uses 0006 Context; amends 0007 §4)
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §6.3.*
 

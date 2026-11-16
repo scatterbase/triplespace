@@ -26,7 +26,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §2.1.*
 
-### 2. Rewriting the HTML (extends 0008 §8; uses 0039 §11)
+### 2. Rewriting the HTML (uses 0008 §8, 0039 §11)
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §2.2.*
 

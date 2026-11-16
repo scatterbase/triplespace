@@ -30,7 +30,7 @@ This ADR makes the instance an OAuth 2.0 authorization server under those two ru
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §1.3, §4.2, §4.3, §5.3, §7.4.*
 
-### 4. Attribution and the consumer tag (extends 0030 §5; settles 0024 Q3)
+### 4. Attribution and the consumer tag (uses 0030 §5; settles 0024 Q3)
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §4.6, §5, §7.5.*
 

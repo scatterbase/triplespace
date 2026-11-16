@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-09 (A44)
+- **Updated:** 2026-11-16 (A45)
 - **Author:** James Hare / Claude Fable
 - **Uses:** [MediaWiki API contract](../api/mediawiki-compat.md)
 
@@ -462,3 +462,10 @@ Replaced text: [09](../architecture/09-security-and-moderation.md) §2.2, the le
 - **Source:** [0105](0105-catalogues-checked-against-the-running-code.md) §2
 - **Change:** extends §2
 - **Summary:** Every check of whether an actor holds a permission reports its name to an observer the process may install; `triplespace-server --probe-permissions FILE` installs one that appends each name once, and CI compares the names with the catalogue and `groups.toml` (`tools/permission_report.py`), as a report until it is made strict. Chapter text: [09](../architecture/09-security-and-moderation.md) §2.2.
+
+### A45. Page repositories' permissions
+
+- **Date:** 2026-11-16
+- **Source:** [0052](0052-page-repositories-and-title-inheritance.md) §9
+- **Change:** extends §2
+- **Summary:** The permission catalogue's rows for reading, editing and configuration name what page repositories add: viewing a foreign page, forking one, and the repository settings. This records an extension made when 0052 was written, on 2026-10-01: its heading has said so since then and the chapter text has carried it, but this log had no entry. No text changes with this entry. Chapter text: [09](../architecture/09-security-and-moderation.md) §2.2.

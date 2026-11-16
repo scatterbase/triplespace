@@ -4,7 +4,7 @@
 - **Date:** 2026-09-27
 - **Updated:** 2026-10-09 (A8)
 - **Author:** James Hare / Claude Fable
-- **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0018](0018-tenants.md), [0020](0020-change-feeds.md), [0029](0029-resolver-namespaces.md), [Wikibase contract](../api/wikibase-compat.md)
+- **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0018](0018-tenants.md), [0020](0020-change-feeds.md), [0029](0029-resolver-namespaces.md), [Wikibase contract](../api/wikibase-compat.md)
 
 ## Context
 
@@ -20,7 +20,7 @@ The instance has two advantages over Wikidata here. It **mirrors** Wikidata's pr
 
 *Current text: [06](../architecture/06-statements-and-properties.md) §2.1.*
 
-### 2. Checking is a projection over the resolved view (extends 0004 §4, §7)
+### 2. Checking is a projection over the resolved view (uses 0004 §4, §7)
 
 *Current text: [06](../architecture/06-statements-and-properties.md) §2.2, §2.5.*
 

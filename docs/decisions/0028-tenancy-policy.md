@@ -62,7 +62,7 @@ MediaWiki's answer to the second is CentralAuth: one global account, local accou
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §6.5.*
 
-### 11. API and UI (extends 0012 and 0010)
+### 11. API and UI (extends 0012 §4, §5 and 0010 §2, §11)
 
 *Current text: [18](../architecture/18-api.md) §1.2, §2.2, §2.3, §3.2; [19](../architecture/19-site-ui.md) §1.3, §2.4, §2.8, §6.11.*
 

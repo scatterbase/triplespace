@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-06 (A21)
+- **Updated:** 2026-11-16 (A22)
 - **Author:** James Hare / Claude Fable
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
@@ -277,3 +277,10 @@ Replaced text: [07](../architecture/07-actors-and-accounts.md) §6.3.
 - **Source:** [0102](0102-strict-names-from-the-provider.md) §2
 - **Change:** extends §2
 - **Summary:** A subsidiary's name may not begin with an offered issuer's reserved prefix (`{label}-`), so that under strict names no bot can sit on a name a provider username would produce (`ts-name-reserved`; [07](../architecture/07-actors-and-accounts.md) §2.10).
+
+### A22. Rate-limit classes for mirrored pages
+
+- **Date:** 2026-11-16
+- **Source:** [0053](0053-mirrored-pages.md) §11
+- **Change:** extends §5
+- **Summary:** The `upstream` rate-limit class also counts live history fetches of a mirrored page, and the `parse` class a reader who forces a foreign-page fetch with `action=purge`. This records an extension made when 0053 was written, on 2026-10-01: its heading has said so since then and the chapter text has carried it, but this log had no entry. No text changes with this entry. Chapter text: [07](../architecture/07-actors-and-accounts.md) §6.2.

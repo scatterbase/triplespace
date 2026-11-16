@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-15 (A93)
+- **Updated:** 2026-11-16 (A95)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
@@ -820,3 +820,17 @@ Replaced text: [18](../architecture/18-api.md) §3.2.
 - **Source:** Direct: Claude, while bringing a signed-in entity page within four API calls (SCA-325), 2026-11-15; unconfirmed
 - **Change:** extends §5
 - **Summary:** A signed-in viewer's entity page now makes four API calls, where A92 left it at five and more with the watch star: `siteinfo`, the page bundle, the bulk labels, and one call for the session facts. That call is one `action=query` with `meta=userinfo|notifications`; on a page that shows the watch star it also carries `meta=tokens` (`watch` and `csrf`) and `prop=info` with `inprop=watched|notificationtimestamp` for the page's title, so the star's state, its form's token and the token that marks the page's changes seen come with it. The calls: (1) the frame makes this call on every page for a viewer with a credential, and only the entity page asks about a title with it; another page that shows the star still asks for it separately. (2) The API refuses a whole query when one part is not the viewer's to ask, as `meta=notifications` is not an anonymous viewer's, so a request whose cookie no longer names an account is asked again for `meta=userinfo` alone: a stale cookie costs a second call, not the page. (3) A part the API does not serve is absent and the page draws without it. (4) Marking a page's unseen changes seen remains a write of its own, made when there are any. `siteinfo` is counted among the four here; 19 §5.1 names the About panel's response as one of the four, which is not built. Chapter text: 19 §5.1.
+
+### A94. The special pages' modules and routes
+
+- **Date:** 2026-11-16
+- **Source:** [0047](0047-special-pages.md) §11
+- **Change:** extends §4, §5
+- **Summary:** The Action API gains what the special pages need: `action=query&export`, the query-page modules for the served reports, and the Wikibase-compatibility forms over the existing `wb*` modules. The REST API gains the export, Nuke and report routes. This records an extension made when 0047 was written, on 2026-09-30: its heading has said so since then and the chapter text has carried it, but this log had no entry. No text changes with this entry. Chapter text: [18](../architecture/18-api.md) §2.2, §2.3, §3.2.
+
+### A95. The farm's modules and routes
+
+- **Date:** 2026-11-16
+- **Source:** [0028](0028-tenancy-policy.md) §11
+- **Change:** extends §4, §5
+- **Summary:** The Action API gains, at the farm base, `action=globalblock`, `meta=globaluserinfo`, `list=globalallusers` and `list=globalblocks` with CentralAuth's meaning, and `meta=siteinfo&siprop=triplespace` reports the tenancy preset and switches. The REST API gains `GET /tenancy` and `GET /farm/users/{id}`. This records an extension made when 0028 was written, on 2026-09-27: its heading has said so since then and the chapter text has carried it, but this log had no entry. No text changes with this entry. Chapter text: [18](../architecture/18-api.md) §1.2, §2.2, §2.3, §3.2.

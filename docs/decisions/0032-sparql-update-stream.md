@@ -4,7 +4,7 @@
 - **Date:** 2026-09-27
 - **Updated:** 2026-11-07 (A14)
 - **Author:** James Hare / Claude Fable
-- **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [Wikibase contract](../api/wikibase-compat.md)
+- **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [Wikibase contract](../api/wikibase-compat.md)
 
 ## Context
 
@@ -22,7 +22,7 @@ Three choices James made in review shape the rest: the stream is **selectable pe
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §6.1.*
 
-### 2. The delta is computed when the view changes (extends 0002 §2–3 and 0013 §7)
+### 2. The delta is computed when the view changes (extends 0013 §7; uses 0002 §2–3)
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §6.2.*
 
@@ -34,7 +34,7 @@ Three choices James made in review shape the rest: the stream is **selectable pe
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §10.5.*
 
-### 5. Erasure and hiding reach the consumer, and the store (extends 0006 §7 and 0014 §5)
+### 5. Erasure and hiding reach the consumer, and the store (extends 0014 §5; uses 0006 §7)
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §6.3.*
 

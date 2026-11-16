@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-09 (A57)
+- **Updated:** 2026-11-16 (A58)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
@@ -627,3 +627,10 @@ Replaced text: [19](../architecture/19-site-ui.md) §3.10.
 - **Source:** Direct: James, ticket SCA-195 ("Make entity diffing look more like Wikidata's"); the layout Claude, while building it, 2026-11-09; unconfirmed
 - **Change:** extends §6
 - **Summary:** The diff of an entity is drawn as one table of two columns, older left and newer right, each part headed on both sides ("Labels / fr", "Property / population"), with − and + markers, in place of a section per part with *Key*, *Before* and *After* columns. Calls made in the building: a changed statement is shown whole on both sides, not broken into rank, qualifier and reference rows as Wikibase breaks it; unchanged statements of a changed property stay as context, as §6 has it; the revisions head the columns, and for one change the left heads with the links to the previous revision; the colours are the page diff's. The change-set and sync views are as they were. Chapter text: [19](../architecture/19-site-ui.md) §3.8.
+
+### A58. What the tenancy policy shows in the frame and on the account page
+
+- **Date:** 2026-11-16
+- **Source:** [0028](0028-tenancy-policy.md) §11
+- **Change:** extends §2, §11
+- **Summary:** The identity line of a mirrored provider-tenant entity is the same under every tenancy preset, and on a farm the account page shows the farm account and every linked tenant account, labelled Public. This records an extension made when 0028 was written, on 2026-09-27: its heading has said so since then and the chapter text has carried it, but this log had no entry. No text changes with this entry. Chapter text: [19](../architecture/19-site-ui.md) §1.3, §2.4.

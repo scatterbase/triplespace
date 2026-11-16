@@ -35,7 +35,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §3.2, §3.3.*
 
-### 3. History is seeded afterwards, from a RevisionChest store or the API (extends 0015 §4; extends 0035 §7; amends 0033 §10)
+### 3. History is seeded afterwards, from a RevisionChest store or the API (extends 0015 §4; uses 0035 §7; amends 0033 §10)
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §1.6, §3.4, §3.5.*
 

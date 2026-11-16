@@ -258,7 +258,7 @@ The namespace table, the content-model table, the REST route table, the permissi
 3. Heading relations that use the verbs of §5 and resolve.
 4. Log IDs contiguous, the required fields present, and Replaced text where §5 requires it.
 5. No `*Changed by …*` line under a Decision heading and no `Changes` header field, both being read from the logs; a stub's entry is one whose Change names the section.
-6. An ADR that a section heading says is amended, superseded, corrected or settled has a log entry or a settled question naming this ADR as its source.
+6. An ADR that a section heading says is amended, extended, superseded, corrected or settled has a log entry or a settled question naming this ADR as its source.
 7. Contiguous `Q` IDs; no question struck through; each settled question in the form of §8, with its title.
 8. `NNNN An` and `NNNN Qn` citations that resolve.
 9. No blockquote callout announces a change.

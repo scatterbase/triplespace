@@ -4,7 +4,7 @@
 - **Date:** 2026-09-27
 - **Updated:** 2026-11-06 (A11)
 - **Author:** James Hare / Claude Fable
-- **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
+- **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0023](0023-moderation.md), [0026](0026-sitelinks.md), [0028](0028-tenancy-policy.md)
 
 ## Context
 
@@ -32,7 +32,7 @@ The instance already has every part of this. [0013](0013-postgres-storage.md) §
 
 *Current text: [06](../architecture/06-statements-and-properties.md) §3.4.*
 
-### 5. A resolver bound to sitelinks (extends 0026 §2)
+### 5. A resolver bound to sitelinks (uses 0026 §2)
 
 *Current text: [06](../architecture/06-statements-and-properties.md) §3.5.*
 
