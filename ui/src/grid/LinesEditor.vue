@@ -100,7 +100,13 @@ const props = defineProps<{
 	api: Api;
 	/** The text box the list is written into. */
 	box: HTMLTextAreaElement;
-	kind: 'shared' | 'reference';
+	/**
+	 * Which list: the statements on every item, the reference on every statement, or
+	 * one statement's own reference.
+	 */
+	kind: 'shared' | 'reference' | 'own';
+	/** The list's legend; without one, the text box's label. */
+	legend?: string;
 	/** The table's plain columns, which a reference's value can be read from. */
 	columns: string[];
 }>();
@@ -121,7 +127,7 @@ const lines = ref<Line[]>( linesOf( props.box.value ).map( blank ) );
 
 // The text box's field, label and help together, which the list stands in for.
 const boxField = props.box.closest<HTMLElement>( '.cdx-field' ) ?? props.box;
-const legend = boxField.querySelector( 'label' )?.textContent?.trim() ?? '';
+const legend = props.legend ?? boxField.querySelector( 'label' )?.textContent?.trim() ?? '';
 
 // The columns a line can read: the table's plain ones, and the one it reads now.
 const offered = ( line: Line ): string[] => (

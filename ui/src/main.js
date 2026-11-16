@@ -21,6 +21,16 @@ initDiffNav( document, window );
 initBell( document, window );
 initPrefTabs( document, window );
 initTypeahead( document );
+// An import larger than one run goes on by itself (ADR 0106 A11): the report's form
+// that starts the next run is the page's own, and is sent for the editor.
+const next = document.querySelector( 'form.ts-createentities__continue' );
+if ( next ) {
+	const button = next.querySelector( 'button[type="submit"]' );
+	if ( button ) {
+		button.disabled = true;
+	}
+	next.submit();
+}
 if ( document.getElementById( 'ts-edit-data' ) ) {
 	import( './edit/index.ts' );
 }

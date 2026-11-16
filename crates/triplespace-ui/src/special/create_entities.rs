@@ -27,7 +27,7 @@
 //! through the same handler as `Special:NewItem`, under the batch value the form names
 //! (one is made up when left blank). The run is one job on `Special:Jobs` with Reject and
 //! Revert, and the report lists each row's item, or the API's refusal. A row that fails
-//! leaves the rest to go on. When the run ends the page closes its batch (0104 A11), so
+//! leaves the rest to go on. When the import ends the page closes its batch (0104 A11), so
 //! the job reads `closed` rather than `running`.
 //!
 //! The form needs a signed-in viewer with the right to create pages, which the API
@@ -45,9 +45,14 @@
 //! so that the form's one button checks the rows and then imports them (0106 A9); without
 //! it the check is a page of its own with the confirmation on it.
 //!
+//! **A table is kept** (0106 A2, A11) under a title of its own, `Table:{title}`, when the
+//! form asks: a new table is made there, and a draft is moved there. **A table larger
+//! than one run** (0106 A11) is written [`MAX_ROWS`] rows at a time: the first run writes
+//! what the confirmation carries, and each run after it reads the saved table.
+//!
 //! Not here yet: matching by a match-key identifier (0106 §5), which waits on the API
-//! serving the lookup; moving a draft to a title of its own (0106 A2); runs past
-//! [`MAX_ROWS`].
+//! serving the lookup; a draft larger than `tables.max_rows`, which waits on the queued
+//! batch.
 //!
 //! implements 0106 §2 (A4)
 //! implements 0106 §8 (A4)
@@ -78,14 +83,18 @@ use crate::frame::{Page, title_url};
 use crate::i18n::Messages;
 use crate::moderation::{GateModel, link_to};
 use crate::pages::{self, Context, Params, Peer};
-use crate::special::controls::{ControlModel, FieldRow};
+use crate::special::controls::{CheckRow, ControlModel, FieldRow};
 use crate::special::new_entity::{datatype_name, offered};
 
 /// The page's title.
 pub const TITLE: &str = "Special:CreateManyEntities";
 
-/// The most rows one run creates.
+/// The most rows one run writes; a larger table is written a run at a time (0106 A11).
 pub const MAX_ROWS: usize = 500;
+
+/// The most rows a table is checked with: a table's own limit (`tables.max_rows`'s
+/// default; 15 §2.3).
+pub const MAX_TABLE: usize = 5000;
 
 /// The most candidates a label's search is read for when looking for a match.
 const MATCH_CANDIDATES: u32 = 50;
@@ -103,6 +112,13 @@ pub struct Carried {
     /// The draft the table is kept in (0106 §9), where it is one.
     #[serde(default)]
     pub draft: Option<String>,
+    /// The rows the check found problems in, each with what it found: they stay staged
+    /// with that as the reason.
+    #[serde(default)]
+    pub left: Vec<(usize, String)>,
+    /// How many writable rows wait for a later run (0106 A11).
+    #[serde(default)]
+    pub more: usize,
 }
 
 // ---------------------------------------------------------------------------------------
@@ -132,8 +148,10 @@ pub struct CreateEntitiesPage {
     pub reference: FieldRow,
     /// The batch value.
     pub batch: FieldRow,
-    /// The name a new draft gets.
+    /// The name a new draft gets, or the title a draft is kept under.
     pub draft_name: Option<FieldRow>,
+    /// **Keep it as a table of its own** (0106 A2), where the table is not one already.
+    pub keep: Option<CheckRow>,
     /// The draft the table is kept in: its page, its title, and the field that carries it.
     pub draft: Option<DraftModel>,
     /// What the grid starts from (0034 §4; 21 §6.7): a JSON block, HTML.
@@ -233,12 +251,25 @@ pub struct ReportModel {
     pub properties: Vec<String>,
     /// The table the run's rows were kept in, and what is left staged in it.
     pub draft: Option<DraftModel>,
+    /// The run after this one, where rows wait for it (0106 A11).
+    pub next: Option<NextModel>,
     /// The column headings.
     pub headings: Vec<String>,
     /// The rows.
     pub rows: Vec<ReportRow>,
     /// Back to the form.
     pub again: (String, String),
+}
+
+/// The run after this one: how many rows wait, and the form that starts it.
+#[derive(Debug, Clone, Serialize)]
+pub struct NextModel {
+    /// How many rows are still to be written.
+    pub text: String,
+    /// The form's hidden fields.
+    pub hidden: Vec<(String, String)>,
+    /// **Write the next rows**.
+    pub submit: ButtonModel,
 }
 
 /// One row of the report.
@@ -258,6 +289,7 @@ pub struct ReportRow {
 
 /// What the form holds, as typed.
 #[derive(Debug, Clone, Default, PartialEq)]
+#[allow(clippy::struct_excessive_bools)]
 pub struct Typed {
     /// The pasted table.
     pub rows: String,
@@ -279,8 +311,10 @@ pub struct Typed {
     pub can_new: bool,
     /// The title of the draft the table is kept in.
     pub draft: String,
-    /// The name a new draft is to get.
+    /// The name a new draft is to get, or the title a draft is kept under.
     pub draft_name: String,
+    /// Whether the table is kept as `Table:{name}` and not as a draft (0106 A2).
+    pub keep: bool,
     /// What the confirmation carries.
     pub carried: Option<Carried>,
 }
@@ -311,6 +345,7 @@ impl Typed {
             can_new: false,
             draft: get("draft").trim().to_string(),
             draft_name: get("draftname").trim().to_string(),
+            keep: params.map.contains_key("keep"),
             carried,
         }
     }
@@ -320,6 +355,8 @@ impl Typed {
 #[allow(clippy::too_many_lines)]
 fn form_model(cx: &Context, typed: &Typed) -> CreateEntitiesPage {
     let m = &cx.m;
+    // A table not yet saved is named here; a draft is, to be kept under a title of its own.
+    let nameable = typed.draft.is_empty() || typed.draft.starts_with(draft::DRAFTS);
     let area = |id: &str, name: &str, value: &str, rows: usize| FieldRow {
         id: id.into(),
         label: m.get(id),
@@ -373,7 +410,7 @@ fn form_model(cx: &Context, typed: &Typed) -> CreateEntitiesPage {
             help: Some(m.get("ts-createentities-batch-help")),
             help_id: Some("ts-createentities-batch-help".into()),
         },
-        draft_name: typed.draft.is_empty().then(|| FieldRow {
+        draft_name: nameable.then(|| FieldRow {
             id: "ts-createentities-draftname".into(),
             label: m.get("ts-createentities-draftname"),
             class: None,
@@ -382,12 +419,27 @@ fn form_model(cx: &Context, typed: &Typed) -> CreateEntitiesPage {
                 name: "draftname".into(),
                 input_type: "text".into(),
                 inputmode: None,
-                value: typed.draft_name.clone(),
+                value: if typed.draft_name.is_empty() {
+                    // A draft's own name, to keep it under.
+                    typed.draft.rsplit('/').next().unwrap_or_default().into()
+                } else {
+                    typed.draft_name.clone()
+                },
                 required: false,
                 described_by: Some("ts-createentities-draftname-help".into()),
             },
             help: Some(m.get("ts-createentities-draftname-help")),
             help_id: Some("ts-createentities-draftname-help".into()),
+        }),
+        keep: nameable.then(|| CheckRow {
+            class: "ts-createentities__keep".into(),
+            control: ControlModel::check(
+                "ts-createentities-keep",
+                "keep",
+                typed.keep,
+                m.get("ts-createentities-keep"),
+            ),
+            help: m.get("ts-createentities-keep-help"),
         }),
         draft: (!typed.draft.is_empty()).then(|| DraftModel {
             text: m.get("ts-createentities-draft"),
@@ -726,6 +778,7 @@ async fn lookup_of(
 /// Saves the form's table as a draft (0106 §9; 15 §2.7): the Table page the form names,
 /// or a new one under the viewer's name, `Table:Drafts/{user}/{name}` (0106 A1). The
 /// title saved and the definition, or why not, as notices.
+#[allow(clippy::too_many_lines)]
 async fn store(
     site: &Site,
     cx: &mut Context,
@@ -761,6 +814,19 @@ async fn store(
     let lookup = lookup_of(site, cx, incoming, &read).await?;
     // A name nobody chose can be changed when a page already has it.
     let made_up = typed.draft.is_empty() && typed.draft_name.is_empty();
+    // Kept as a table of its own, `Table:{title}` (0106 A2): a new table is made there,
+    // and a draft is moved there with its history, before anything else.
+    let kept_title = if typed.keep {
+        let name = draft::kept_name(&typed.draft_name);
+        if name.is_empty() {
+            return Ok(Err(vec![error(
+                &cx.m.get("ts-createentities-keep-no-name"),
+            )]));
+        }
+        Some(format!("Table:{name}"))
+    } else {
+        None
+    };
     let (mut title, base) = if typed.draft.is_empty() {
         let name = if typed.draft_name.is_empty() {
             made_up_batch().replace(TITLE, "").trim().to_string()
@@ -768,11 +834,46 @@ async fn store(
             typed.draft_name.clone()
         };
         (
-            draft::title_for(cx.user.as_deref().unwrap_or_default(), &name),
+            kept_title
+                .unwrap_or_else(|| draft::title_for(cx.user.as_deref().unwrap_or_default(), &name)),
             None,
         )
     } else {
-        match stored(site, cx, incoming, &typed.draft).await? {
+        let mut from = typed.draft.clone();
+        if let Some(to) = kept_title.filter(|to| *to != typed.draft) {
+            use triplespace_client::settings::Saved;
+            let form = triplespace_client::rights::MoveForm {
+                from: &typed.draft,
+                to: &to,
+                reason: &cx.m.get("ts-createentities-keep-summary"),
+                noredirect: false,
+                subpages: false,
+            };
+            match site
+                .client()
+                .move_page(incoming, &form, &typed.token)
+                .await?
+            {
+                Saved::Ok(_) => from = to,
+                Saved::Refused(why) => {
+                    let why: Vec<String> = why
+                        .into_iter()
+                        .map(|r| {
+                            if r.message.is_empty() {
+                                r.code
+                            } else {
+                                r.message
+                            }
+                        })
+                        .collect();
+                    return Ok(Err(vec![error(
+                        &cx.m
+                            .with("ts-createentities-keep-failed", &[&to, &why.join(" ")]),
+                    )]));
+                }
+            }
+        }
+        match stored(site, cx, incoming, &from).await? {
             Ok(found) => (found.title.clone(), Some(found)),
             Err(why) => return Ok(Err(vec![error(&why)])),
         }
@@ -887,6 +988,9 @@ pub async fn post(
     if typed.step == "create" {
         return create(site, &mut cx, headers, &incoming, typed).await;
     }
+    if typed.step == "continue" {
+        return resume(site, &mut cx, headers, &incoming, typed).await;
+    }
     if typed.step == "open" {
         return open(site, &mut cx, headers, &incoming, typed, Vec::new()).await;
     }
@@ -985,30 +1089,34 @@ async fn matches_of(
     Ok(ids)
 }
 
-/// The preview: the table read, the properties looked up, each row planned, matched and
+/// What a check comes to: the form as it stands after it, the page with its preview,
+/// and what a run of it would write, unless something keeps any run from starting.
+type Checked = (Typed, CreateEntitiesPage, Option<Carried>);
+
+/// The check: the table read, the properties looked up, each row planned, matched and
 /// ordered; the table's text written back with what was found.
 #[allow(clippy::too_many_lines)]
-async fn preview(
+async fn check(
     site: &Site,
     cx: &mut Context,
     headers: &HeaderMap,
     incoming: &Incoming,
     mut typed: Typed,
-) -> Response {
+) -> Result<Checked, Response> {
     let mut rows = rows_of(&typed.rows);
     let tabbed = table::is_tabbed(&typed.rows);
     let mut model = form_model(cx, &typed);
     let m = &cx.m;
     if rows.len() < 2 {
         model.notices.push(error(&m.get("ts-createentities-empty")));
-        return answer(cx, headers, &typed, &model);
+        return Ok((typed, model, None));
     }
-    if rows.len() - 1 > MAX_ROWS {
+    if rows.len() - 1 > MAX_TABLE {
         model.notices.push(error(&m.with(
             "ts-createentities-too-many",
-            &[&(rows.len() - 1).to_string(), &MAX_ROWS.to_string()],
+            &[&(rows.len() - 1).to_string(), &MAX_TABLE.to_string()],
         )));
-        return answer(cx, headers, &typed, &model);
+        return Ok((typed, model, None));
     }
     let lang = cx.site.lang.clone();
     let mut notices = Vec::new();
@@ -1037,7 +1145,7 @@ async fn preview(
                 blocked = true;
                 notices.push(error(&m.get("ts-createentities-new-denied")));
             }
-            Err(e) => return pages::api_failed(cx, headers, &e),
+            Err(e) => return Err(pages::api_failed(cx, headers, &e)),
         }
         let known = offered(&cx.site);
         for i in 0..read.new.len() {
@@ -1090,7 +1198,7 @@ async fn preview(
 
     let lookup = match lookup_of(site, cx, incoming, &read).await {
         Ok(l) => l,
-        Err(e) => return pages::api_failed(cx, headers, &e),
+        Err(e) => return Err(pages::api_failed(cx, headers, &e)),
     };
     let m = &cx.m;
     let reads: Vec<&str> = read.reference.iter().filter_map(|l| l.column()).collect();
@@ -1226,7 +1334,7 @@ async fn preview(
                 p.target = Target::Ambiguous(ids);
             }
             Ok(_) => {}
-            Err(e) => return pages::api_failed(cx, headers, &e),
+            Err(e) => return Err(pages::api_failed(cx, headers, &e)),
         }
     }
     // The items added to, as they stand: for the terms that differ.
@@ -1253,7 +1361,7 @@ async fn preview(
                     }
                 }
             }
-            Err(e) => return pages::api_failed(cx, headers, &e),
+            Err(e) => return Err(pages::api_failed(cx, headers, &e)),
         }
     }
     let order = plan::order(m, &mut plans);
@@ -1291,11 +1399,36 @@ async fn preview(
         typed.batch.clone()
     };
     typed.batch.clone_from(&batch);
+    // One run writes at most `MAX_ROWS` rows, in the order in which every `row:` names a
+    // row already written; the rest wait for the runs after it (0106 A11).
+    let more = order.len().saturating_sub(MAX_ROWS);
+    if more > 0 {
+        notices.push(
+            Message::block(
+                MessageKind::Notice,
+                &m.with(
+                    "ts-createentities-more",
+                    &[&MAX_ROWS.to_string(), &more.to_string()],
+                ),
+            )
+            .model(),
+        );
+    }
     let carried = Carried {
-        plans: order.iter().map(|i| plans[*i].clone()).collect(),
+        plans: order
+            .iter()
+            .take(MAX_ROWS)
+            .map(|i| plans[*i].clone())
+            .collect(),
         new: read.new.clone(),
         lang: lang.clone(),
         draft: (!typed.draft.is_empty()).then(|| typed.draft.clone()),
+        left: plans
+            .iter()
+            .filter(|p| !p.errors.is_empty())
+            .map(|p| (p.n, p.errors.join(" ")))
+            .collect(),
+        more,
     };
     let mut hidden = vec![
         ("token".to_string(), typed.token.clone()),
@@ -1311,6 +1444,7 @@ async fn preview(
     for (k, v) in [
         ("draft", &typed.draft),
         ("draftname", &typed.draft_name),
+        ("keep", &String::from(if typed.keep { "1" } else { "" })),
         ("rows", &typed.rows),
         ("shared", &typed.shared),
         ("reference", &typed.reference),
@@ -1380,7 +1514,21 @@ async fn preview(
         cancel: format!("/wiki/{TITLE}"),
         cancel_label: m.get("ts-import-cancel"),
     });
-    answer(cx, headers, &typed, &model)
+    Ok((typed, model, (!blocked).then_some(carried)))
+}
+
+/// The check as the page or the grid is answered with it.
+async fn preview(
+    site: &Site,
+    cx: &mut Context,
+    headers: &HeaderMap,
+    incoming: &Incoming,
+    typed: Typed,
+) -> Response {
+    match check(site, cx, headers, incoming, typed).await {
+        Ok((typed, model, _)) => answer(cx, headers, &typed, &model),
+        Err(r) => r,
+    }
 }
 
 /// The check's answer: the page, or for the grid (`wpFormat=json`; 21 §6.7) the same
@@ -1441,9 +1589,7 @@ fn refusal(m: &Messages, code: &str, info: String) -> (String, bool) {
     (text, matches!(code, "badtoken" | "ts-batch-rejected"))
 }
 
-/// The run: the declared properties, then one `wbeditentity` per planned row, under the
-/// batch.
-#[allow(clippy::too_many_lines)]
+/// The first run of an import: the table saved, then its rows written.
 async fn create(
     site: &Site,
     cx: &mut Context,
@@ -1467,9 +1613,8 @@ async fn create(
     // A9): the draft it is kept in, or a new one, so that every run leaves a Table page.
     let summary =
         cx.m.with("ts-createentities-draft-import-summary", &[&batch]);
-    let kept: Option<(String, Definition)> = match store(site, cx, incoming, &typed, &summary).await
-    {
-        Ok(Ok(saved)) => Some(saved),
+    let (title, definition) = match store(site, cx, incoming, &typed, &summary).await {
+        Ok(Ok(saved)) => saved,
         Ok(Err(notices)) => {
             let mut model = form_model(cx, &typed);
             model.notices = notices;
@@ -1477,6 +1622,88 @@ async fn create(
         }
         Err(e) => return pages::api_failed(cx, headers, &e),
     };
+    let numbers = draft::numbers(&definition);
+    run(
+        site, cx, headers, incoming, &typed, &carried, batch, title, &numbers,
+    )
+    .await
+}
+
+/// A later run of an import larger than one run (0106 A11; 21 §6.6): the rows of the
+/// saved table that no run has written or refused, checked as the table was and
+/// written under the same batch. Nothing is carried from the run before it but the
+/// table's title and the batch value: the table as it is saved is what is read.
+async fn resume(
+    site: &Site,
+    cx: &mut Context,
+    headers: &HeaderMap,
+    incoming: &Incoming,
+    typed: Typed,
+) -> Response {
+    let found = match stored(site, cx, incoming, &typed.draft).await {
+        Ok(Ok(found)) => found,
+        Ok(Err(why)) => {
+            let mut model = form_model(cx, &Typed::default());
+            model.notices = vec![error(&why)];
+            return page(cx, headers, StatusCode::OK, &model);
+        }
+        Err(e) => return pages::api_failed(cx, headers, &e),
+    };
+    let waiting = draft::waiting(&found.definition);
+    let numbers = draft::numbers(&waiting);
+    let text = match draft::text(&waiting, &cx.site.lang) {
+        Ok(text) if !numbers.is_empty() => text,
+        // Nothing waits, or the table is not one this page reads: its page says which.
+        _ => return pages::see_other(&format!("/wiki/{}", title_url(&found.title)), &[]),
+    };
+    let ask = Typed {
+        rows: table::text_of(&text.rows, false),
+        shared: text.shared,
+        reference: text.reference,
+        batch: typed.batch.clone(),
+        token: typed.token.clone(),
+        draft: found.title.clone(),
+        ..Typed::default()
+    };
+    let batch = ask.batch.clone();
+    match check(site, cx, headers, incoming, ask).await {
+        Ok((ask, _, Some(carried))) if !batch.is_empty() => {
+            run(
+                site,
+                cx,
+                headers,
+                incoming,
+                &ask,
+                &carried,
+                batch,
+                found.title,
+                &numbers,
+            )
+            .await
+        }
+        // Something keeps the rest from being written: the form says what, with the
+        // rows that wait in it.
+        Ok((ask, model, _)) => answer(cx, headers, &ask, &model),
+        Err(r) => r,
+    }
+}
+
+/// A run: the declared properties, then one `wbeditentity` per planned row, under the
+/// batch; then the table at `title` records it, and the batch is closed, or the next
+/// run offered. `numbers` are the numbers of the table's staged rows, in the order of
+/// the text the plans were made from.
+#[allow(clippy::too_many_lines, clippy::too_many_arguments)]
+async fn run(
+    site: &Site,
+    cx: &mut Context,
+    headers: &HeaderMap,
+    incoming: &Incoming,
+    typed: &Typed,
+    carried: &Carried,
+    batch: String,
+    title: String,
+    numbers: &[u64],
+) -> Response {
     let mut job = None;
     let mut known = Known::default();
     let mut notices = Vec::new();
@@ -1613,10 +1840,96 @@ async fn create(
         }
         rows.push(row);
     }
-    // The run is over, so the page closes its batch (0104 A11): the job then reads
+    // The table records the run (15 §2.6, §2.7): written rows become listed rows, refused
+    // rows stay with their reason, and so do the rows the check found problems in. The
+    // entities are written by now; if this save fails, the report says so and names them.
+    let n_of = |position: usize| numbers.get(position.wrapping_sub(1)).copied();
+    let line = |r: &ReportRow| r.line.parse::<usize>().ok().and_then(n_of);
+    let written: Vec<(u64, String)> = rows
+        .iter()
+        .filter_map(|r| Some((line(r)?, r.created.as_ref()?.1.clone())))
+        .collect();
+    let mut refused: Vec<(u64, String)> = rows
+        .iter()
+        .filter_map(|r| Some((line(r)?, r.error.clone()?)))
+        .collect();
+    refused.extend(
+        carried
+            .left
+            .iter()
+            .filter_map(|(position, why)| Some((n_of(*position)?, why.clone()))),
+    );
+    let summary =
+        cx.m.with("ts-createentities-draft-import-summary", &[&batch]);
+    let mut draft_model = None;
+    // How many rows wait for the next run: those no run has written or refused.
+    let mut waits = 0;
+    let recorded = match stored(site, cx, incoming, &title).await {
+        Ok(Ok(mut base)) => {
+            draft::record_numbered(&mut base.definition, &written, &refused, &known.properties);
+            let left = base.definition.staged.as_ref().map_or(0, |s| s.rows.len());
+            waits = draft::numbers(&draft::waiting(&base.definition)).len();
+            save(
+                site,
+                incoming,
+                typed,
+                &title,
+                &base.definition,
+                Some(&base),
+                &summary,
+            )
+            .await
+            .map(|title| (title, left))
+            .map_err(|e| e.to_string())
+        }
+        Ok(Err(why)) => Err(why),
+        Err(e) => Err(e.to_string()),
+    };
+    match recorded {
+        Ok((title, left)) => {
+            draft_model = Some(DraftModel {
+                text: cx
+                    .m
+                    .with("ts-createentities-report-draft", &[&left.to_string()]),
+                href: format!("/wiki/{}", title_url(&title)),
+                title,
+            });
+        }
+        Err(why) => {
+            // What the table does not record, a later run would write again.
+            waits = 0;
+            notices.push(error(
+                &cx.m
+                    .with("ts-createentities-draft-not-recorded", &[&title, &why]),
+            ));
+        }
+    }
+    // The next run (0106 A11), while rows wait and this one got somewhere; a rejected
+    // batch has none.
+    let next =
+        (waits > 0 && !stopped && !(written.is_empty() && refused.is_empty())).then(|| NextModel {
+            text: cx
+                .m
+                .with("ts-createentities-report-next", &[&waits.to_string()]),
+            hidden: vec![
+                ("token".to_string(), typed.token.clone()),
+                ("wpStep".to_string(), "continue".to_string()),
+                ("batch".to_string(), batch.clone()),
+                ("draft".to_string(), title.clone()),
+            ],
+            submit: Button {
+                label: &cx.m.get("ts-createentities-continue"),
+                kind: "submit",
+                action: Action::Progressive,
+                weight: Weight::Primary,
+            }
+            .model(),
+        });
+    // The import is over, so the page closes its batch (0104 A11): the job then reads
     // `closed`, where a keyed batch otherwise stays `running` until its submitter closes
-    // it. A rejected batch is closed already (0104 §11).
-    if let Some(j) = job.filter(|_| !stopped) {
+    // it. A rejected batch is closed already (0104 §11), and one with a run to come
+    // stays open for it.
+    if let Some(j) = job.filter(|_| !stopped && next.is_none()) {
         use triplespace_client::settings::Saved;
         match site.client().close_job(incoming, j, &typed.token).await {
             Ok(Saved::Ok(_)) => {}
@@ -1627,55 +1940,6 @@ async fn create(
                 )
                 .model(),
             ),
-        }
-    }
-    // The draft records the run (15 §2.6, §2.7): written rows become listed rows, refused
-    // rows stay with their reason. The entities are written by now; if this save fails,
-    // the report says so and names them.
-    let mut draft_model = None;
-    if let Some((title, mut definition)) = kept {
-        let n = |r: &ReportRow| r.line.parse::<usize>().ok();
-        let written: Vec<(usize, String)> = rows
-            .iter()
-            .filter_map(|r| Some((n(r)?, r.created.as_ref()?.1.clone())))
-            .collect();
-        let refused: Vec<(usize, String)> = rows
-            .iter()
-            .filter_map(|r| Some((n(r)?, r.error.clone()?)))
-            .collect();
-        draft::record(&mut definition, &written, &refused);
-        let left = definition.staged.as_ref().map_or(0, |s| s.rows.len());
-        let summary =
-            cx.m.with("ts-createentities-draft-import-summary", &[&batch]);
-        let recorded = match stored(site, cx, incoming, &title).await {
-            Ok(Ok(base)) => save(
-                site,
-                incoming,
-                &typed,
-                &title,
-                &definition,
-                Some(&base),
-                &summary,
-            )
-            .await
-            .map_err(|e| e.to_string()),
-            Ok(Err(why)) => Err(why),
-            Err(e) => Err(e.to_string()),
-        };
-        match recorded {
-            Ok(title) => {
-                draft_model = Some(DraftModel {
-                    text: cx
-                        .m
-                        .with("ts-createentities-report-draft", &[&left.to_string()]),
-                    href: format!("/wiki/{}", title_url(&title)),
-                    title,
-                });
-            }
-            Err(why) => notices.push(error(
-                &cx.m
-                    .with("ts-createentities-draft-not-recorded", &[&title, &why]),
-            )),
         }
     }
     let m = &cx.m;
@@ -1699,6 +1963,7 @@ async fn create(
         }),
         properties,
         draft: draft_model,
+        next,
         headings: [
             "ts-createentities-col-line",
             "ts-createentities-col-item",

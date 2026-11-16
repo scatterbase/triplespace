@@ -78,7 +78,7 @@
 		<div
 			v-if="typeof panel === 'number'"
 			class="ts-sheet__panel">
-			<strong>{{ headers[ panel ] ? headers[ panel ].label : '' }}</strong>
+			<strong>{{ realHeaders[ panel ] ? realHeaders[ panel ].label : '' }}</strong>
 			<CdxButton type="button" @click="fillDown( panel as number )">
 				{{ t( 'ts-sheet-fill-down' ) }}
 			</CdxButton>
@@ -109,6 +109,20 @@
 				{{ t( 'ts-sheet-remove-column' ) }}
 			</CdxButton>
 		</div>
+		<div v-if="refFor" class="ts-sheet__panel ts-sheet__own">
+			<LinesEditor
+				:key="refVersion"
+				:data="data"
+				:api="api"
+				:box="refBox"
+				kind="own"
+				:legend="t( 'ts-sheet-ref-title', refFor.heading, String( refFor.r ) )"
+				:columns="[]"
+			/>
+			<CdxButton type="button" @click="refFor = null">
+				{{ t( 'ts-sheet-done' ) }}
+			</CdxButton>
+		</div>
 		<CellLookup
 			v-if="lookupFor"
 			:api="api"
@@ -127,10 +141,15 @@
 			:remove-label="( lead ) => t( 'ts-sheet-remove-row', lead )"
 			:add-column-label="t( 'ts-sheet-add-column' )"
 			:add-row-label="t( 'ts-sheet-add-row' )"
+			:unlock-label="( h, lead ) => t( 'ts-sheet-unlock', h, lead )"
+			:chip-label="( h, lead ) => t( 'ts-sheet-ref-chip', h, lead )"
+			:chip-text="chipText"
 			@edit="edit"
 			@paste="paste"
 			@fill="fillFromAbove"
-			@menu="( c ) => { panel = panel === c ? null : c; }"
+			@menu="menu"
+			@unlock="unlock"
+			@chip="openRef"
 			@remove="removeRow"
 			@focus="focused"
 			@add-column="panel = panel === 'add' ? null : 'add'"
@@ -188,6 +207,13 @@
 // it posts the confirmation the check answered with, which the page without this
 // script shows as a form of its own. The statements on every item and the reference on
 // every statement are edited as lists beside the grid, over their own text boxes.
+//
+// What the grid shows is a view of the table (0106 §6, A11). A statement every item
+// shares stands as a locked column at the right edge, or, where the table has a column
+// of its property, in that column's empty cells; a row unlocks its own cell, which
+// writes the cell into the table, where it replaces the shared statement for that row.
+// A statement's own reference, a `P…/ref:P…` column in the text, is not a column here:
+// a chip on the statement's cell opens it.
 import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue';
 import { CdxButton, CdxMessage } from '@wikimedia/codex';
 import EntityLookup from '../edit/EntityLookup.vue';
@@ -202,6 +228,7 @@ import { msg } from './data';
 import type { CreateData } from './data';
 import { apply, complete, emptyMapping } from './mapping';
 import type { Target } from './mapping';
+import { linesOf } from './lines';
 import { column, joinValues, rowRef, rowsOf, splitValues, textOf } from './text';
 
 const props = defineProps<{
@@ -251,7 +278,8 @@ const needsProperty = ( x: Target ): boolean => x === 'property' || x === 'refer
 const nameLabel = computed( () => t( adding.target === 'new' ? 'ts-sheet-new-label' : 'ts-sheet-plain-name' ) );
 
 const addable = computed<Target[]>( () => {
-	const offered: Target[] = [ 'property', 'label', 'description', 'aliases', 'reads', 'reference', 'id' ];
+	// A statement's own reference is opened from its cell, not added as a column.
+	const offered: Target[] = [ 'property', 'label', 'description', 'aliases', 'reads', 'id' ];
 	if ( props.data.canCreateProperty ) {
 		offered.splice( 1, 0, 'new' );
 	}
@@ -279,7 +307,10 @@ const columns = computed( () => table.value[ 0 ].map( ( h ) => column( h, props.
 const fresh = computed( () => ( result.value && !stale.value ? result.value : null ) );
 const outcome = computed( () => fresh.value?.confirm || fresh.value?.summary || '' );
 
-const headers = computed<SheetHeader[]>( () => columns.value.map( ( c, i ) => {
+// The labels of the entities the shared statements name, by ID.
+const names = ref<Record<string, string>>( {} );
+
+const realHeaders = computed<SheetHeader[]>( () => columns.value.map( ( c, i ) => {
 	const info = result.value?.columns?.[ i ];
 	switch ( c.kind ) {
 		case 'id':
@@ -290,7 +321,7 @@ const headers = computed<SheetHeader[]>( () => columns.value.map( ( c, i ) => {
 			return { label: t( `ts-sheet-target-${ c.kind }` ), sub: c.language, menu: true };
 		case 'property':
 			return {
-				label: info?.label ?? c.property ?? '',
+				label: info?.label || names.value[ ( c.property ?? '' ).toUpperCase() ] || c.property || '',
 				sub: [ c.property, info?.datatype ].filter( Boolean ).join( ' · ' ),
 				menu: true
 			};
@@ -327,8 +358,128 @@ function noteOf( cell: string, c: number ): string {
 	} ).filter( ( x ) => x !== '' ).join( '; ' );
 }
 
+// The statements every item shares, by property, as their list holds them.
+const sharedText = ref( sharedBox?.value ?? '' );
+const sharedOf = computed( () => {
+	const found = new Map<string, string>();
+	for ( const l of linesOf( sharedText.value ) ) {
+		if ( l.property !== '' && l.value !== '' ) {
+			const have = found.get( l.property );
+			found.set(
+				l.property,
+				have === undefined ? l.value : joinValues( [ ...splitValues( have ), l.value ] )
+			);
+		}
+	}
+	return found;
+} );
+
+/** An entity's labels, as `wbgetentities` answers them. */
+interface Named {
+	labels?: Record<string, { value: string }>;
+}
+
+// What a statement's chip says: how many values its own reference holds, or that it
+// can be given one.
+const chipText = ( n: string ): string => ( n === '0' ?
+	t( 'ts-sheet-ref-add' ) :
+	t( 'ts-sheet-ref-count', n ) );
+
+// The labels of the properties and items the shared statements name.
+async function nameShared(): Promise<void> {
+	const ids = [ ...sharedOf.value.entries() ]
+		.flatMap( ( [ p, v ] ) => [ p, ...splitValues( v ).map( ( x ) => x.toUpperCase() ) ] )
+		.filter( ( id ) => /^[A-Z]{0,3}[PQ]\d+$/.test( id ) && !( id in names.value ) );
+	if ( !ids.length ) {
+		return;
+	}
+	try {
+		const body = await props.api.get( {
+			action: 'wbgetentities',
+			ids: [ ...new Set( ids ) ].join( '|' ),
+			props: 'labels',
+			languages: props.data.uiLang ?? props.data.lang,
+			languagefallback: 1
+		} );
+		const found = ( body.entities ?? {} ) as Record<string, Named>;
+		const next = { ...names.value };
+		for ( const [ id, e ] of Object.entries( found ) ) {
+			next[ id ] = Object.values( e.labels ?? {} )[ 0 ]?.value ?? '';
+		}
+		names.value = next;
+	} catch {
+		// The IDs are shown as they are.
+	}
+}
+watch( sharedOf, () => {
+	nameShared().catch( () => {} );
+}, { immediate: true } );
+
+/** A column as the grid shows it: one of the table's, or a shared statement's. */
+type ViewColumn = { real: number } | { property: string; value: string };
+
+// What the grid shows: the table's columns but the references of single statements,
+// then a locked column for each shared statement the table has no column of.
+const view = computed<ViewColumn[]>( () => {
+	const out: ViewColumn[] = [];
+	const have = new Set<string>();
+	columns.value.forEach( ( c, i ) => {
+		if ( c.kind === 'reference' ) {
+			return;
+		}
+		if ( c.kind === 'property' && c.property ) {
+			have.add( c.property.toUpperCase() );
+		}
+		out.push( { real: i } );
+	} );
+	for ( const [ property, value ] of sharedOf.value ) {
+		if ( !have.has( property ) ) {
+			out.push( { property, value } );
+		}
+	}
+	return out;
+} );
+const realOf = ( c: number ): number | null => {
+	const v = view.value[ c ];
+	return v && 'real' in v ? v.real : null;
+};
+// The shared statement a column's empty cells show.
+const sharedAt = ( real: number ): string | null => {
+	const c = columns.value[ real ];
+	return c.kind === 'property' && c.property ? sharedOf.value.get( c.property.toUpperCase() ) ?? null : null;
+};
+const labelsOf = ( value: string ): string => splitValues( value )
+	.map( ( v ) => names.value[ v.toUpperCase() ] ?? '' ).filter( ( x ) => x !== '' ).join( '; ' );
+
+const headers = computed<SheetHeader[]>( () => view.value.map( ( v ) => ( 'real' in v ?
+	{ ...realHeaders.value[ v.real ], locked: sharedAt( v.real ) !== null } :
+	{ label: names.value[ v.property ] || v.property, sub: `${ v.property } · ${ t( 'ts-sheet-every-item' ) }`, locked: true } ) ) );
+
+// The columns that hold the references of a property's statements, by position.
+const refColumns = ( property: string ): number[] => columns.value
+	.map( ( c, i ) => ( c.kind === 'reference' && ( c.of ?? '' ).toUpperCase() === property.toUpperCase() ? i : -1 ) )
+	.filter( ( i ) => i >= 0 );
+
+// The chip of a statement's cell: how many values its own reference holds, where the
+// cell holds a statement to carry one.
+function chipOf( cells: string[], real: number ): number | null {
+	const c = columns.value[ real ];
+	if ( c.kind !== 'property' || !c.property ) {
+		return null;
+	}
+	const n = refColumns( c.property )
+		.reduce( ( sum, at ) => sum + splitValues( cells[ at ] ?? '' ).length, 0 );
+	return cells[ real ] !== '' || n > 0 ? n : null;
+}
+
 const all = computed<SheetRow[]>( () => table.value.slice( 1 ).map( ( cells, i ) => {
 	const found = fresh.value?.rows?.[ i ];
+	const locked = view.value.map( ( v ) => {
+		if ( !( 'real' in v ) ) {
+			return v.value;
+		}
+		return cells[ v.real ] === '' ? sharedAt( v.real ) : null;
+	} );
 	return {
 		key: String( i + 1 ),
 		lead: String( i + 1 ),
@@ -336,8 +487,12 @@ const all = computed<SheetRow[]>( () => table.value.slice( 1 ).map( ( cells, i )
 		kind: found?.kind,
 		problems: found?.errors,
 		removable: true,
-		cells,
-		notes: cells.map( ( cell, c ) => noteOf( cell, c ) )
+		cells: view.value.map( ( v ) => ( 'real' in v ? cells[ v.real ] : '' ) ),
+		notes: view.value.map( ( v, c ) => ( locked[ c ] !== null ?
+			labelsOf( locked[ c ] ?? '' ) :
+			noteOf( cells[ ( v as { real: number } ).real ], ( v as { real: number } ).real ) ) ),
+		locked,
+		chips: view.value.map( ( v ) => ( 'real' in v ? chipOf( cells, v.real ) : null ) )
 	};
 } ) );
 
@@ -347,7 +502,93 @@ const shown = computed( () => ( onlyProblems.value && fresh.value ?
 	all.value ) );
 
 function edit( key: string, c: number, value: string ): void {
-	table.value[ Number( key ) ][ c ] = value;
+	const real = realOf( c );
+	if ( real !== null ) {
+		table.value[ Number( key ) ][ real ] = value;
+		sync();
+	}
+}
+
+function menu( c: number ): void {
+	const real = realOf( c );
+	if ( real !== null ) {
+		panel.value = panel.value === real ? null : real;
+	}
+}
+
+// Unlocks a row's cell of a shared statement: the cell is written into the table with
+// the shared value, to be changed, and from then on replaces it for that row. Emptied
+// again, it is locked again.
+function unlock( key: string, c: number ): void {
+	const v = view.value[ c ];
+	if ( !v ) {
+		return;
+	}
+	let real: number;
+	let value: string;
+	if ( 'real' in v ) {
+		real = v.real;
+		value = sharedAt( real ) ?? '';
+	} else {
+		table.value[ 0 ].push( v.property );
+		normalize();
+		real = table.value[ 0 ].length - 1;
+		value = v.value;
+	}
+	table.value[ Number( key ) ][ real ] = value;
+	sync();
+}
+
+// A statement's own reference (0106 §8), which replaces the reference on every
+// statement: opened from its cell, and held in the table as `P…/ref:P…` columns.
+const refFor = ref<{ r: number; property: string; heading: string } | null>( null );
+const refVersion = ref( 0 );
+const refBox = props.form.ownerDocument.createElement( 'textarea' );
+
+function openRef( key: string, c: number ): void {
+	const real = realOf( c );
+	const property = real === null ? undefined : columns.value[ real ].property;
+	if ( real === null || !property ) {
+		return;
+	}
+	const r = Number( key );
+	refBox.value = refColumns( property ).flatMap( ( at ) => splitValues( table.value[ r ][ at ] ?? '' )
+		.map( ( v ) => `${ columns.value[ at ].property ?? '' }:${ v }` ) ).join( '\n' );
+	const heading = realHeaders.value[ real ].label;
+	refFor.value = { r, property: property.toUpperCase(), heading };
+	refVersion.value++;
+}
+
+// Writes the open reference into the row's `P…/ref:P…` cells, adding the columns it
+// needs and dropping those that no row uses any more.
+function writeRef(): void {
+	const at = refFor.value;
+	if ( !at || !table.value[ at.r ] ) {
+		return;
+	}
+	const values = new Map<string, string[]>();
+	for ( const l of linesOf( refBox.value ) ) {
+		if ( l.property !== '' && l.value !== '' ) {
+			values.set( l.property, [ ...( values.get( l.property ) ?? [] ), l.value ] );
+		}
+	}
+	for ( const i of refColumns( at.property ) ) {
+		const p = ( columns.value[ i ].property ?? '' ).toUpperCase();
+		table.value[ at.r ][ i ] = joinValues( values.get( p ) ?? [] );
+		values.delete( p );
+	}
+	for ( const [ p, list ] of values ) {
+		table.value[ 0 ].push( `${ at.property }/ref:${ p }` );
+		normalize();
+		table.value[ at.r ][ table.value[ 0 ].length - 1 ] = joinValues( list );
+	}
+	for ( let i = table.value[ 0 ].length - 1; i >= 0; i-- ) {
+		const unused = column( table.value[ 0 ][ i ], props.data.lang ).kind === 'reference' &&
+			table.value.slice( 1 ).every( ( row ) => ( row[ i ] ?? '' ) === '' );
+		if ( unused ) {
+			table.value.forEach( ( row ) => row.splice( i, 1 ) );
+		}
+	}
 	sync();
 }
 
@@ -357,6 +598,7 @@ function addRow(): void {
 }
 
 function removeRow( key: string ): void {
+	refFor.value = null;
 	table.value.splice( Number( key ), 1 );
 	if ( table.value.length === 1 ) {
 		table.value.push( table.value[ 0 ].map( () => '' ) );
@@ -364,16 +606,17 @@ function removeRow( key: string ): void {
 	sync();
 }
 
+// A pasted range goes into the columns as the grid shows them, from the cell on.
 function paste( key: string, c: number, cells: string[][] ): void {
-	const width = table.value[ 0 ].length;
 	cells.forEach( ( line, dr ) => {
 		const r = Number( key ) + dr;
 		while ( table.value.length <= r ) {
 			table.value.push( table.value[ 0 ].map( () => '' ) );
 		}
 		line.forEach( ( v, dc ) => {
-			if ( c + dc < width ) {
-				table.value[ r ][ c + dc ] = v.trim();
+			const real = realOf( c + dc );
+			if ( real !== null ) {
+				table.value[ r ][ real ] = v.trim();
 			}
 		} );
 	} );
@@ -382,8 +625,9 @@ function paste( key: string, c: number, cells: string[][] ): void {
 
 function fillFromAbove( key: string, c: number ): void {
 	const r = Number( key );
-	if ( r > 1 ) {
-		table.value[ r ][ c ] = table.value[ r - 1 ][ c ];
+	const real = realOf( c );
+	if ( r > 1 && real !== null ) {
+		table.value[ r ][ real ] = table.value[ r - 1 ][ real ];
 		sync();
 	}
 }
@@ -449,7 +693,8 @@ function addReference( lines: string[] ): void {
 }
 
 function focused( key: string, c: number ): void {
-	active.value = { r: Number( key ), c };
+	const real = realOf( c );
+	active.value = real === null ? null : { r: Number( key ), c: real };
 }
 
 // The cell a search stands beside: the focused one, in a column of items or of
@@ -461,7 +706,7 @@ const lookupFor = computed( () => {
 	}
 	const kind = columns.value[ a.c ]?.kind;
 	const datatype = result.value?.columns?.[ a.c ]?.datatype ?? columns.value[ a.c ]?.datatype;
-	const heading = headers.value[ a.c ].label;
+	const heading = realHeaders.value[ a.c ].label;
 	if ( datatype === 'quantity' ) {
 		const label = t( 'ts-sheet-find-unit', heading, String( a.r ) );
 		return { ...a, unit: true, several: false, label };
@@ -573,6 +818,9 @@ function submitted( e: SubmitEvent ): void {
 // What is typed within it either changes the table, which says so itself, or does not
 // (the filter, a column's find and replace).
 function changed( e: Event ): void {
+	if ( sharedBox && e.target === sharedBox ) {
+		sharedText.value = sharedBox.value;
+	}
 	if ( root.value && e.target instanceof Node && root.value.contains( e.target ) ) {
 		return;
 	}
@@ -584,6 +832,7 @@ onMounted( () => {
 	areaField.hidden = true;
 	props.form.addEventListener( 'submit', submitted );
 	props.form.addEventListener( 'input', changed );
+	refBox.addEventListener( 'input', writeRef );
 	// A page that came back from the server's own check shows its findings already.
 	if ( area.value.trim() !== '' && props.form.ownerDocument.querySelector( '.ts-createentities__preview' ) ) {
 		check().catch( () => {} );
@@ -593,6 +842,7 @@ onMounted( () => {
 onBeforeUnmount( () => {
 	props.form.removeEventListener( 'submit', submitted );
 	props.form.removeEventListener( 'input', changed );
+	refBox.removeEventListener( 'input', writeRef );
 	areaField.hidden = false;
 } );
 </script>

@@ -100,7 +100,7 @@ test.describe( 'with JavaScript', () => {
 		expect( await axe( page, '.ts-createentities__form' ) ).toEqual( [] );
 
 		// A change makes the check stale, and the button checks again.
-		await page.getByLabel( /, row 2$/ ).last().fill( 'row:1' );
+		await grid.getByRole( 'textbox', { name: /, row 2$/ } ).last().fill( 'row:1' );
 		await expect( form.getByRole( 'button', { name: 'Check the rows' } ) ).toBeVisible();
 
 		// A statement on every item, picked from a list where the text box was.
@@ -110,7 +110,38 @@ test.describe( 'with JavaScript', () => {
 		await page.getByRole( 'option', { name: /P11/ } ).first().click();
 		await form.getByLabel( 'Value of line 1' ).fill( 'https://example.org/every' );
 		await expect( page.locator( 'textarea[name="shared"]' ) ).toHaveValue( 'P11:https://example.org/every' );
+		// It stands as a locked column at the grid's edge, which a row unlocks for itself:
+		// the cell is then the table's own, and replaces the shared statement there.
+		await expect( grid.getByRole( 'columnheader', { name: /on every item/ } ) ).toBeVisible();
+		await expect( grid.locator( '.ts-sheet__locked' ) ).toHaveCount( 2 );
+		await grid.getByRole( 'button', { name: /^Change .* for row 2 alone$/ } ).click();
+		await grid.getByRole( 'textbox', { name: /, row 2$/ } ).last().fill( 'https://example.org/two' );
+		await expect( page.locator( 'textarea[name="rows"]' ) ).toHaveValue(
+			'label,description,aliases,P2,P11\nGrid item one,made in the grid,,Q2,\nGrid item two,pasted in,,row:1,https://example.org/two\n'
+		);
+		await expect( grid.locator( '.ts-sheet__locked' ) ).toHaveCount( 1 );
+
+		// A statement's own reference is opened from a chip on its cell, and is held in
+		// the text as a column the grid does not show.
+		const chip = grid.getByRole( 'button', { name: /Reference of .*, row 1$/ } ).first();
+		await expect( chip ).toHaveText( '+ ref' );
+		await chip.click();
+		const own = grid.locator( '.ts-sheet__own' );
+		await own.getByRole( 'button', { name: 'Add reference value' } ).click();
+		await own.getByRole( 'combobox', { name: 'Property of line 1' } ).fill( 'P11' );
+		await page.getByRole( 'option', { name: /P11/ } ).first().click();
+		await own.getByLabel( 'Value of line 1' ).fill( 'https://example.org/own' );
+		await expect( page.locator( 'textarea[name="rows"]' ) ).toHaveValue(
+			'label,description,aliases,P2,P11,P2/ref:P11\nGrid item one,made in the grid,,Q2,,https://example.org/own\nGrid item two,pasted in,,row:1,https://example.org/two,\n'
+		);
+		await expect( chip ).toHaveText( 'ref · 1' );
+		await expect( grid.getByRole( 'columnheader' ) ).toHaveCount( 7 );
+		expect( await axe( page, '.ts-createentities__form' ) ).toEqual( [] );
+		await own.getByRole( 'button', { name: 'Done' } ).click();
+
+		// The table is kept under a title of its own, not as a draft.
 		await form.getByLabel( 'Table name' ).fill( 'E2E grid run' );
+		await form.getByLabel( /^Keep it as a table of its own/ ).check();
 
 		// Checked again, the same button writes the rows: no page in between.
 		await form.getByRole( 'button', { name: 'Check the rows' } ).click();
@@ -118,11 +149,21 @@ test.describe( 'with JavaScript', () => {
 		await expect( page.getByText( '2 items created, 0 added to, 0 not written.' ) ).toBeVisible();
 		// The run left a Table page, and its job is closed, not running.
 		const kept = page.locator( '.ts-createentities__draft a' );
-		await expect( kept ).toHaveText( 'Table:Drafts/Alice/E2E grid run' );
+		await expect( kept ).toHaveText( 'Table:E2E grid run' );
 		await page.locator( '.ts-createentities a[href^="/wiki/Special:Jobs/"]' ).click();
 		await expect( page.locator( '#content' ) ).toContainText( 'Closed' );
-		await page.goto( '/wiki/Table:Drafts/Alice/E2E_grid_run' );
+		await page.goto( '/wiki/Table:E2E_grid_run' );
 		await expect( page.locator( '.ts-table__grid' ) ).toContainText( 'Grid item two' );
+		// The first item's statement carries its own reference; the second, its own value
+		// of the statement every item shares.
+		const ids = await page.locator( '.ts-table__grid tbody th a' ).allTextContents();
+		const got = await page.request.get( `/w/api.php?action=wbgetentities&ids=${ ids.join( '|' ) }&format=json&formatversion=2` );
+		const entities = Object.values( ( await got.json() ).entities );
+		const one = entities.find( ( e ) => e.labels.en.value === 'Grid item one' );
+		const two = entities.find( ( e ) => e.labels.en.value === 'Grid item two' );
+		expect( one.claims.P2[ 0 ].references[ 0 ].snaks.P11[ 0 ].datavalue.value ).toBe( 'https://example.org/own' );
+		expect( one.claims.P11[ 0 ].mainsnak.datavalue.value ).toBe( 'https://example.org/every' );
+		expect( two.claims.P11.map( ( c ) => c.mainsnak.datavalue.value ) ).toEqual( [ 'https://example.org/two' ] );
 	} );
 
 	test( 'an uploaded file is mapped into the grid', async ( { page } ) => {

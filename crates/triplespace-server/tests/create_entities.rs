@@ -246,9 +246,16 @@ impl Browser {
     /// Posts the confirmation a preview shows, with every field its form carries: the
     /// plans, the batch, and the table, which the run saves first (0106 A9).
     async fn confirm(&mut self, preview: &str) -> Got {
+        self.post_hidden(preview, "ts-createentities__confirm")
+            .await
+    }
+
+    /// Posts the form of class `class` on a page of `Special:CreateManyEntities`, with
+    /// its hidden fields.
+    async fn post_hidden(&mut self, preview: &str, class: &str) -> Got {
         let at = preview
-            .find("ts-createentities__confirm")
-            .unwrap_or_else(|| panic!("no confirmation in {preview}"));
+            .find(class)
+            .unwrap_or_else(|| panic!("no form {class} in {preview}"));
         let form = preview[at..].split("</form>").next().unwrap_or_default();
         let mut fields: Vec<(String, String)> = Vec::new();
         for input in form.split("<input type=\"hidden\" name=\"").skip(1) {
@@ -1021,6 +1028,21 @@ async fn a_table_is_validated_drawn_and_kept_as_a_draft() {
     assert!(page.body.contains("1 staged row"), "{}", page.body);
 }
 
+/// A Table page's definition, as it is stored.
+async fn stored_table(owner: &mut Browser, title: &str) -> Value {
+    let v = owner
+        .api(&format!(
+            "action=query&prop=revisions&titles={title}&rvprop=content&rvslots=main"
+        ))
+        .await;
+    serde_json::from_str(
+        v["query"]["pages"][0]["revisions"][0]["slots"]["main"]["content"]
+            .as_str()
+            .unwrap_or_default(),
+    )
+    .expect("the table is JSON")
+}
+
 /// The text of the form's table, as the page wrote it into its text box.
 fn table_in(body: &str) -> String {
     let at = body.find("name=\"rows\"").expect("the table's text box");
@@ -1206,4 +1228,195 @@ async fn a_file_and_quickstatements_open_as_the_table() {
             ["value"],
         "https://example.org/salem"
     );
+}
+
+// 0106 §9, A2, A11: a table is kept under a title of its own, a draft moved there with
+// its history; and a table larger than one run is written a run at a time, each run
+// after the first reading the saved table, under one batch that is closed at the end.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn a_table_is_kept_under_its_own_title_and_written_a_run_at_a_time() {
+    let Some((database, key_file)) = setup("tscreateentities_runs_test").await else {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    };
+    let site = site(&database, &key_file).await;
+    let mut owner = Browser {
+        router: site.clone(),
+        cookie: None,
+    };
+    owner.login("Owner", "owner-secret-1234").await;
+    let csrf =
+        owner.api("action=query&meta=tokens&type=csrf").await["query"]["tokens"]["csrftoken"]
+            .as_str()
+            .unwrap()
+            .to_string();
+    let p_kind = make(
+        &mut owner,
+        &csrf,
+        "property",
+        r#"{"labels":{"en":{"language":"en","value":"part of"}},"datatype":"wikibase-item"}"#,
+    )
+    .await;
+    let form = owner.get("/wiki/Special:CreateManyEntities").await;
+    assert!(form.body.contains("name=\"keep\""), "{}", form.body);
+    let token = Browser::field(&form.body, "token");
+
+    // 502 rows: one that cannot be written, and the last one naming the first and
+    // holding the only value of a property the table declares.
+    let rows: Vec<String> = (1..=502)
+        .map(|i| {
+            let (kind, founded) = match i {
+                7 => ("nonsense", ""),
+                502 => ("row:1", "1901"),
+                _ => ("", ""),
+            };
+            format!("Run item {i},{kind},{founded}\n")
+        })
+        .collect();
+    let table = format!("label,{p_kind},new:Founded@time\n{}", rows.concat());
+    let preview = owner
+        .post_form(
+            "/wiki/Special:CreateManyEntities",
+            &[
+                ("token", &token),
+                ("wpStep", "preview"),
+                ("rows", &table),
+                ("batch", "runs"),
+                ("draftname", "Table:Run items"),
+                ("keep", "1"),
+            ],
+        )
+        .await;
+    assert!(
+        preview.body.contains("Create 501 items, add to 0, skip 1"),
+        "{}",
+        preview.body
+    );
+    assert!(
+        preview.body.contains("One run writes 500 rows."),
+        "{}",
+        preview.body
+    );
+
+    // The first run: 500 rows, the table kept under its own title, the batch still open.
+    let first = owner.confirm(&preview.body).await;
+    let html = &first.body;
+    assert!(
+        html.contains("500 items created, 0 added to, 0 not written."),
+        "{html}"
+    );
+    assert!(html.contains("href=\"/wiki/Table:Run_items\""), "{html}");
+    assert!(
+        html.contains("1 row is still to be written, in the next run."),
+        "{html}"
+    );
+    let job = |database: String| async move {
+        let rows = query(
+            &database,
+            "SELECT status FROM view.job WHERE tenant = 'wiki' AND mode = 'batch'",
+        )
+        .await;
+        assert_eq!(rows.len(), 1, "one batch job");
+        rows[0].get::<_, String>(0)
+    };
+    assert_eq!(job(database.clone()).await, "running");
+    let kept = stored_table(&mut owner, "Table:Run_items").await;
+    assert_eq!(kept["rows"]["ids"].as_array().map(Vec::len), Some(500));
+    let staged = kept["staged"]["rows"].as_array().expect("staged rows");
+    assert_eq!(staged.len(), 2, "{staged:?}");
+    // The row with a problem stays with its reason; the property is a column of its own.
+    assert!(staged[0]["refused"].as_str().is_some(), "{staged:?}");
+    assert!(
+        staged[1].get("refused").is_none_or(Value::is_null),
+        "{staged:?}"
+    );
+    let founded = kept["columns"][2]["property"]
+        .as_str()
+        .expect("the created property")
+        .to_string();
+
+    // The next run reads the saved table: the last row, naming the first row's item.
+    let second = owner.post_hidden(html, "ts-createentities__continue").await;
+    let html = &second.body;
+    assert!(
+        html.contains("1 item created, 0 added to, 0 not written."),
+        "{html}"
+    );
+    assert!(!html.contains("ts-createentities__continue"), "{html}");
+    assert_eq!(job(database.clone()).await, "closed");
+    let kept = stored_table(&mut owner, "Table:Run_items").await;
+    let ids = kept["rows"]["ids"].as_array().expect("ids").clone();
+    assert_eq!(ids.len(), 501);
+    assert_eq!(kept["staged"]["rows"].as_array().map(Vec::len), Some(1));
+    let found = owner
+        .api("action=wbsearchentities&search=Run%20item%20502&language=en&type=item")
+        .await;
+    let last = found["search"][0]["id"]
+        .as_str()
+        .expect("the last row")
+        .to_string();
+    let e = owner.api(&format!("action=wbgetentities&ids={last}")).await;
+    let claims = &e["entities"][&last]["claims"];
+    assert!(
+        ids.contains(&claims[&p_kind][0]["mainsnak"]["datavalue"]["value"]["id"]),
+        "{claims}"
+    );
+    assert_eq!(
+        claims[&founded][0]["mainsnak"]["datavalue"]["value"]["time"],
+        "+1901-00-00T00:00:00Z"
+    );
+
+    // A draft already saved is moved to a title of its own, with its history.
+    let saved = owner
+        .post_form(
+            "/wiki/Special:CreateManyEntities",
+            &[
+                ("token", &token),
+                ("wpStep", "preview"),
+                ("wpSave", "1"),
+                ("rows", "label\nKept later\n"),
+                ("draftname", "later"),
+            ],
+        )
+        .await;
+    assert_eq!(saved.status, StatusCode::SEE_OTHER, "{}", saved.body);
+    let open = owner
+        .get("/wiki/Special:CreateManyEntities/Table:Drafts/Owner/later")
+        .await;
+    // The draft's own name is offered, to keep it under.
+    assert!(
+        open.body.contains("name=\"draftname\" value=\"later\""),
+        "{}",
+        open.body
+    );
+    let moved = owner
+        .post_form(
+            "/wiki/Special:CreateManyEntities",
+            &[
+                ("token", &token),
+                ("wpStep", "preview"),
+                ("wpSave", "1"),
+                ("draft", "Table:Drafts/Owner/later"),
+                ("rows", "label\nKept later\n"),
+                ("draftname", "Kept later"),
+                ("keep", "1"),
+            ],
+        )
+        .await;
+    assert_eq!(moved.status, StatusCode::SEE_OTHER, "{}", moved.body);
+    let kept = stored_table(&mut owner, "Table:Kept_later").await;
+    assert_eq!(kept["staged"]["rows"][0]["cells"][0], "Kept later");
+    let history = owner
+        .api("action=query&prop=revisions&titles=Table:Kept_later&rvprop=ids&rvlimit=10")
+        .await;
+    let revisions = history["query"]["pages"][0]["revisions"]
+        .as_array()
+        .map_or(0, Vec::len);
+    assert!(revisions >= 2, "{history}");
+    // A table of its own is not asked for a name again.
+    let open = owner
+        .get("/wiki/Special:CreateManyEntities/Table:Kept_later")
+        .await;
+    assert!(!open.body.contains("name=\"keep\""), "{}", open.body);
 }

@@ -7,6 +7,7 @@
 {%- if gate %}{{ codex.message(gate.notice) }}{% if gate.login %}<p><a href="{{ gate.login.href }}">{{ gate.login.label }}</a></p>{% endif -%}
 {%- elif report %}{% set r = report %}{% for n in notices %}{{ codex.message(n) }}{% endfor %}<h2>{{ r.title }}</h2><p>{{ r.summary }}{% if r.job %} <a href="{{ r.job[0] }}">{{ r.job[1] }}</a>{% endif %}</p>
 {%- if r.draft %}<p class="ts-createentities__draft">{{ r.draft.text }} <a href="{{ r.draft.href }}">{{ r.draft.title }}</a></p>{% endif %}
+{%- if r.next %}<form class="ts-createentities__continue" method="post" action="{{ action }}">{% for h in r.next.hidden %}<input type="hidden" name="{{ h[0] }}" value="{{ h[1] }}">{% endfor %}<p>{{ r.next.text }}</p><div class="ts-protect__actions">{{ codex.button(r.next.submit) }}</div></form>{% endif %}
 {%- if r.properties %}<ul class="ts-createentities__properties">{% for p in r.properties %}<li>{{ p }}</li>{% endfor %}</ul>{% endif %}
 <table class="cdx-table__table ts-createentities__report"><thead><tr>{% for h in r.headings %}<th scope="col">{{ h }}</th>{% endfor %}</tr></thead><tbody>
 {%- for row in r.rows %}<tr><td>{{ row.line }}</td><td>{{ row.shown }}</td><td>{% if row.created %}<a href="{{ row.created[0] }}">{{ row.created[1] }}</a>{% if row.note %} <span class="ts-createentities__note">{{ row.note }}</span>{% endif %}{% else %}<span class="ts-createentities__error">{{ row.error }}</span>{% endif %}</td></tr>{% endfor %}</tbody></table>
@@ -19,7 +20,7 @@
 {%- else %}<p>{{ intro }}</p>{% endif %}
 <form class="ts-createentities__form" method="post" action="{{ action }}"><input type="hidden" name="token" value="{{ token }}"><input type="hidden" name="wpStep" value="preview">
 {%- if draft %}<input type="hidden" name="draft" value="{{ draft.title }}"><p class="ts-createentities__draft">{{ draft.text }} <a href="{{ draft.href }}">{{ draft.title }}</a></p>{% endif %}
-{% if draft_name %}{{ forms.field(draft_name) }}{% endif %}{{ forms.field(rows) }}<p class="ts-createentities__from-file"><a href="{{ from_file[0] }}">{{ from_file[1] }}</a></p>{{ forms.field(shared) }}{{ forms.field(reference) }}{{ forms.field(batch) }}
+{% if draft_name %}{{ forms.field(draft_name) }}{% endif %}{% if keep %}{{ forms.check(keep) }}{% endif %}{{ forms.field(rows) }}<p class="ts-createentities__from-file"><a href="{{ from_file[0] }}">{{ from_file[1] }}</a></p>{{ forms.field(shared) }}{{ forms.field(reference) }}{{ forms.field(batch) }}
 {{ sheet_data_html|safe }}
 <div class="ts-protect__actions">{{ codex.button(submit) }}<button type="{{ save.kind }}" class="{{ save.classes }}" name="wpSave" value="1">{{ save.label }}</button></div></form>
 {%- endif %}</div>

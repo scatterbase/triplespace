@@ -57,6 +57,11 @@ export async function runCheck(
 			body.set( name, field.value );
 		}
 	}
+	// Whether the table is kept under a title of its own, which the confirmation carries.
+	const keep = form.elements.namedItem( 'keep' ) as HTMLInputElement | null;
+	if ( keep?.checked ) {
+		body.set( 'keep', '1' );
+	}
 	body.set( 'wpStep', 'preview' );
 	body.set( 'wpFormat', 'json' );
 	const r = await fetcher( form.getAttribute( 'action' ) ?? '', {

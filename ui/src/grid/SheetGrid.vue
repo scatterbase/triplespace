@@ -17,7 +17,13 @@
 							v-for="( h, c ) in headers"
 							:key="c"
 							scope="col"
-							:class="{ 'ts-sheet__heading--active': active && active.c === c }">
+							:class="headingClass( h, c )">
+							<CdxIcon
+								v-if="h.locked"
+								:icon="cdxIconLock"
+								size="small"
+								class="ts-sheet__lock"
+							/>
 							<span class="ts-sheet__heading">{{ h.label }}</span>
 							<button
 								v-if="h.menu"
@@ -59,8 +65,21 @@
 								:key="c"
 								class="ts-sheet__cell"
 								:class="cellClass( row, r, c )">
+								<template v-if="lockedAt( row, c ) !== null">
+									<span class="ts-sheet__fixed ts-sheet__locked">{{
+										lockedAt( row, c )
+									}}</span>
+									<button
+										type="button"
+										class="ts-sheet__unlock"
+										:aria-label="unlockName( c, row.lead )"
+										:title="unlockName( c, row.lead )"
+										@click="emit( 'unlock', row.key, c )">
+										<CdxIcon :icon="cdxIconLock" size="small" />
+									</button>
+								</template>
 								<span
-									v-if="row.readonly && row.readonly[ c ]"
+									v-else-if="row.readonly && row.readonly[ c ]"
 									class="ts-sheet__fixed">{{ cell }}</span>
 								<input
 									v-else
@@ -77,6 +96,16 @@
 								<span
 									v-if="row.notes && row.notes[ c ]"
 									class="ts-sheet__note">{{ row.notes[ c ] }}</span>
+								<button
+									v-if="chipAt( row, c ) !== null"
+									type="button"
+									class="ts-sheet__chip"
+									:class="{ 'ts-sheet__chip--set': hasChip( row, c ) }"
+									:aria-label="chipName( row, c )"
+									:title="chipName( row, c )"
+									@click="emit( 'chip', row.key, c )">
+									{{ chipWords( row, c ) }}
+								</button>
 							</td>
 						</tr>
 						<tr v-if="row.problems?.length" class="ts-sheet__problem-row">
@@ -123,9 +152,12 @@
 // above; pasting a range from a spreadsheet is reported whole. Where the page lets the
 // table grow, a button as tall as the table stands to the right of its last column, to
 // add a column, and one as wide stands beneath its last row, to add a row (0106 A9).
+// A cell can be locked: it shows a value it does not hold, the statement every item
+// shares, with a button that unlocks it for that row; and a cell can carry a chip, which
+// opens what belongs to it, a statement's own reference (0106 §6).
 import { computed, ref } from 'vue';
 import { CdxIcon } from '@wikimedia/codex';
-import { cdxIconAdd } from '@wikimedia/codex-icons';
+import { cdxIconAdd, cdxIconLock } from '@wikimedia/codex-icons';
 import type { SheetHeader, SheetRow, Words, Words2 } from './sheet';
 
 const props = defineProps<{
@@ -141,6 +173,11 @@ const props = defineProps<{
 	addColumnLabel?: string;
 	/** The label of the button that adds a row; without one, there is no such button. */
 	addRowLabel?: string;
+	/** The name of the button that unlocks a locked cell. */
+	unlockLabel?: Words2;
+	/** The name of a cell's chip, and what it shows for the number it is given. */
+	chipLabel?: Words2;
+	chipText?: Words;
 }>();
 
 const emit = defineEmits<{
@@ -152,6 +189,8 @@ const emit = defineEmits<{
 	focus: [ key: string, column: number ];
 	'add-column': [];
 	'add-row': [];
+	unlock: [ key: string, column: number ];
+	chip: [ key: string, column: number ];
 }>();
 
 const active = ref<{ r: number; c: number } | null>( null );
@@ -161,9 +200,27 @@ const headingOf = ( c: number ): string => props.headers[ c ]?.label ?? '';
 const statusClass = ( row: SheetRow ): string | undefined => ( row.kind ?
 	`ts-sheet__status--${ row.kind }` :
 	undefined );
+const unlockName = ( c: number, lead: string ): string | undefined => (
+	props.unlockLabel?.( headingOf( c ), lead )
+);
+const chipWords = ( row: SheetRow, c: number ): string => (
+	props.chipText?.( String( row.chips?.[ c ] ?? 0 ) ) ?? ''
+);
+// The chip's name begins with what it shows, as a name that is spoken must.
+const chipName = ( row: SheetRow, c: number ): string | undefined => {
+	const label = props.chipLabel?.( headingOf( c ), row.lead );
+	return label === undefined ? undefined : `${ chipWords( row, c ) }: ${ label }`;
+};
+const hasChip = ( row: SheetRow, c: number ): boolean => ( row.chips?.[ c ] ?? 0 ) > 0;
+const headingClass = ( h: SheetHeader, c: number ): Record<string, boolean> => ( {
+	'ts-sheet__heading--active': active.value !== null && active.value.c === c,
+	'ts-sheet__heading--locked': Boolean( h.locked )
+} );
+const lockedAt = ( row: SheetRow, c: number ): string | null => row.locked?.[ c ] ?? null;
+const chipAt = ( row: SheetRow, c: number ): number | null => row.chips?.[ c ] ?? null;
 const cellClass = ( row: SheetRow, r: number, c: number ): Record<string, boolean> => ( {
 	'ts-sheet__cell--changed': Boolean( row.changed?.[ c ] ),
-	'ts-sheet__cell--readonly': Boolean( row.readonly?.[ c ] ),
+	'ts-sheet__cell--readonly': Boolean( row.readonly?.[ c ] ) || lockedAt( row, c ) !== null,
 	'ts-sheet__cell--active': active.value !== null && active.value.r === r && active.value.c === c
 } );
 const rowClass = ( row: SheetRow, r: number ): Record<string, boolean> => ( {
