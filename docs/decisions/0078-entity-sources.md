@@ -193,9 +193,9 @@ Replaced text (05 §6.4, as it stood):
 ### A6. What separates a keyed ID from a source ID
 
 - **Date:** 2026-11-15
-- **Source:** [0110](0110-wikimedia-pages-and-revisions.md) §2
+- **Source:** [0110](0110-hosted-pages-and-revisions.md) §3
 - **Change:** amends §2
-- **Summary:** The line between keyed IDs and source IDs is drawn by what makes the ID valid, not by who minted it: a Wikimedia key's number was minted by a wiki, yet the key is valid by its form alone on every instance, while a source ID means something only where the source is declared. Chapter text: [05](../architecture/05-providers-and-ingest.md) §6.2.
+- **Summary:** The line between keyed IDs and source IDs is drawn by what makes the ID valid, not by who minted it: a hosted key's number was minted by a host, yet the key is valid by its form alone on every instance, while a source ID means something only where the source is declared. Chapter text: [05](../architecture/05-providers-and-ingest.md) §6.2.
 
 Replaced text ([05](../architecture/05-providers-and-ingest.md) §6.2, as it stood):
 

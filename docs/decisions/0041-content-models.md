@@ -294,9 +294,9 @@ Replaced text ([10](../architecture/10-pages-and-content-models.md) §4.3 and §
 >
 > | `triplespace-talk` | Triplespace | composite | main | — | No | Every enabled talk namespace | [0041](../decisions/0041-content-models.md) §3 |
 
-### A18. The `triplespace-wikimedia` model
+### A18. The `triplespace-hosted` model
 
 - **Date:** 2026-11-15
-- **Source:** [0110](0110-wikimedia-pages-and-revisions.md) §5
+- **Source:** [0110](0110-hosted-pages-and-revisions.md) §6
 - **Change:** extends §3
-- **Summary:** `triplespace-wikimedia` is the entity model of the `wikimedia` keyed type, default in namespace 314. Chapter text: [10](../architecture/10-pages-and-content-models.md) §4.4.
+- **Summary:** `triplespace-hosted` is the entity model of the `hosted` keyed type, default in namespace 314. Chapter text: [10](../architecture/10-pages-and-content-models.md) §4.4.

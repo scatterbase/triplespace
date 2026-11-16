@@ -60,20 +60,21 @@ display = "derived: the string, without the scheme, as the mul label; descriptio
 clusters = false                 # same-as with a notation is rejected, as with keywords (0017 §5, 0048 §3)
 defined_in = "0048"
 
-# Wikimedia (ADR 0110 §1): a page or revision on a Wikimedia wiki, by the wiki's database name and
-# MediaWiki's page or revision ID: wikimedia:enwiki-p12. Pending (README): scatter-normalize rejects a
-# keyed type it has no normalizer for, so the entry stays a comment until the normalizer is written.
+# Hosted (ADR 0110 §1): a page or revision on a site that a host runs, by the host (hosts.toml),
+# the site's name and the number the host gave it: hosted:wikimedia:enwiki-p12. Pending (README):
+# scatter-normalize rejects a keyed type it has no normalizer for, so the entry stays a comment
+# until the normalizer is written.
 # [[keyed_type]]
-# name = "wikimedia"
-# label = "Wikimedia page or revision"
-# namespace = "Wikimedia"
-# data_type = "wikibase-wikimedia"
-# iri = "https://scatter.red/wikimedia/{key}"
-# id_prefix = "wikimedia:"
-# grammar = "database name ([a-z][a-z0-9_]{0,63}), `-`, `p` or `r`, and a decimal number from 1 to 2^63 − 1 without leading zeros"
-# normalizer = "ASCII letters lowercased; nothing else"
-# display = "derived: the key as the mul label; descriptions and aliases editable and reconciled like an item's"
-# clusters = false               # a page is not a concept (0110 §2)
+# name = "hosted"
+# label = "Hosted page or revision"
+# namespace = "Hosted"
+# data_type = "wikibase-hosted"
+# iri = "https://scatter.red/hosted/{key}"
+# id_prefix = "hosted:"
+# grammar = "a registered host's name, `:`, a site name in the host's site grammar, `-`, `p` or `r`, and a decimal number from 1 to 2^63 − 1 without leading zeros"
+# normalizer = "host name lowercased; site name by its grammar; the letter lowercased; nothing else"
+# display = "derived: the key without the host as the mul label; descriptions and aliases editable and reconciled like an item's"
+# clusters = false               # a page is not a concept (0110 §3)
 # defined_in = "0110"
 
 # DOI is a resolver (resolvers.toml, 0029), not a keyed type: a DOI names a thing that already has

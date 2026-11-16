@@ -738,9 +738,9 @@ Replaced text ([10](../architecture/10-pages-and-content-models.md) §6.1, as it
 - **Change:** extends §8
 - **Summary:** Confirming A51, James took one change to it: the title a link to a redirect carries, "Old name → New name", is an interface message with the two names as its parameters, not fixed text, so that a wiki whose language reads right to left, or that words it otherwise, can reorder it. The default wording is unchanged. Chapter text: 10 §5.2.
 
-### A53. Wikimedia and Wikimedia talk, 314 and 315
+### A53. Hosted and Hosted talk, 314 and 315
 
 - **Date:** 2026-11-15
-- **Source:** [0110](0110-wikimedia-pages-and-revisions.md) §5
+- **Source:** [0110](0110-hosted-pages-and-revisions.md) §6
 - **Change:** extends §2
-- **Summary:** 314 is `Wikimedia`, the namespace of the `wikimedia` keyed type, with normalizer `wikimedia` and model `triplespace-wikimedia`; 315 is its talk namespace. 316–319 stay free. Chapter text: [10](../architecture/10-pages-and-content-models.md) §1.4.
+- **Summary:** 314 is `Hosted`, the namespace of the `hosted` keyed type, with normalizer `hosted` and model `triplespace-hosted`; 315 is its talk namespace. 316–319 stay free. Chapter text: [10](../architecture/10-pages-and-content-models.md) §1.4.

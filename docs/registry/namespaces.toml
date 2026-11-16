@@ -494,23 +494,23 @@ case = "first-letter"
 subpages = true
 defined_in = "0060 §2"
 
-# Wikimedia (0110 §5): pages and revisions on Wikimedia wikis, titles Wikimedia:enwiki-p12. Pending
-# (README): written as comments until scatter-normalize has the `wikimedia` normalizer.
+# Hosted (0110 §6): pages and revisions on hosts' sites, titles Hosted:wikimedia:enwiki-p12. Pending
+# (README): written as comments until scatter-normalize has the `hosted` normalizer.
 # [[namespace]]
 # id = 314
-# canonical = "Wikimedia"
+# canonical = "Hosted"
 # kind = "pages"
-# content_models = ["triplespace-wikimedia"]
-# default_model = "triplespace-wikimedia"
-# normalizer = "wikimedia"
+# content_models = ["triplespace-hosted"]
+# default_model = "triplespace-hosted"
+# normalizer = "hosted"
 # case = "case-sensitive"
 # subpages = false
 # talk = 315
-# defined_in = "0110 §5"
+# defined_in = "0110 §6"
 #
 # [[namespace]]
 # id = 315
-# canonical = "Wikimedia talk"
+# canonical = "Hosted talk"
 # kind = "pages"
 # content_models = ["triplespace-talk"]
 # default_model = "triplespace-talk"

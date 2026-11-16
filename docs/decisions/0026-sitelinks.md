@@ -181,6 +181,6 @@ Replaced text (§8):
 ### A9. The site aliases are generated
 
 - **Date:** 2026-11-15
-- **Source:** [0110](0110-wikimedia-pages-and-revisions.md) §4
+- **Source:** [0110](0110-hosted-pages-and-revisions.md) §5
 - **Change:** extends §2
-- **Summary:** `tools/sites_gen.py` writes `sites.toml` from Wikimedia's site matrix: every public wiki, closed and fishbowl wikis included and private wikis left out, with group `special` for the matrix's specials. The same entries give a Wikimedia key's database name its host. Chapter text: [06](../architecture/06-statements-and-properties.md) §4.3.
+- **Summary:** `tools/sites_gen.py` writes `sites.toml` from Wikimedia's site matrix: every public wiki, closed and fishbowl wikis included and private wikis left out, with group `special` for the matrix's specials. The same entries are the `wikimedia` host's site list, from which hosted keys take their links. Chapter text: [06](../architecture/06-statements-and-properties.md) §4.3.
