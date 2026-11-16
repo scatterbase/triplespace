@@ -107,8 +107,8 @@ MediaWiki's answer to the second is CentralAuth: one global account, local accou
 
 ## Open questions
 
-- **Q1.** ~~**Farm-level abuse filters** and other pre-save checks shared across tenants ([0016](0016-permissions-and-access-control.md) Q5), which the `enterprise` and `community` presets would both want.~~ *Settled by [0030](0030-edit-filters.md) §8: the `filters.global` switch; global filters are `scope = global` filters in the instance `log` ([0040](0040-instance-prerogatives.md) §6).*
-- **Q2.** ~~**Global groups and ACLs.** Whether a tenant ACL should be able to name a global group, so that a wiki can protect a page to "stewards only".~~ *Settled by [0056](0056-security-model.md) §11: yes, where `groups.global = inherited`; group names are one namespace on a farm, which `tenancy check` verifies, and no global group reads a private tenant unless that tenant's ACL names it.*
+- **Q1. Farm-level abuse filters.** *Settled by [0030](0030-edit-filters.md) §8.*
+- **Q2. Global groups and ACLs.** *Settled by [0056](0056-security-model.md) §11.*
 - **Q3. Home tenant selection** and whether the aggregated bell should be the default view or a switch.
 - **Q4. Name registry at scale**: a unique index over every account name on a farm of thousands of tenants is one large index; whether it should be per farm issuer only, with tenant names checked against it on creation.
 - **Q5. Templates for non-config state**, such as a default set of project pages for a new tenant, which are page records rather than configuration.

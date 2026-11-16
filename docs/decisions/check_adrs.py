@@ -183,6 +183,10 @@ def parse_questions(text):
         qs[int(m.group(1))] = m.group(2)
     return qs
 
+def settled(q):
+    """A settled question names what settled it, or is withdrawn (24 §8)."""
+    return bool(re.search(r"\*(Settled by|Withdrawn)", q))
+
 def decision_sections(text):
     """Numbered ### and #### headings under ## Decision (or ## Part … blocks), with their bodies."""
     block = h2_block(text, "Decision")
@@ -409,8 +413,10 @@ for name in sorted(new_format):
     if qids != list(range(1, len(qids) + 1)):
         P.append(f"open questions are not Q1..Qn: {qids}")
     for n, rest in qs.items():
-        if "~~" in rest and not re.search(r"\*(Settled by|Withdrawn)", rest):
-            P.append(f"Q{n} is struck but neither Settled by nor Withdrawn")
+        if "~~" in rest:
+            P.append(f"Q{n} is struck: a settled question keeps its ID and title and names what settled it, and git holds its text (24 §8)")
+        if settled(rest) and not re.match(r" [^*]+\*\* \*", rest):
+            P.append(f"Q{n} is settled but is not '**Q{n}. Title.** *Settled by …*' (24 §8)")
 
     # the retired section (24 §2.3): what an ADR changes is its header and headings; the targets' logs
     # and INDEX.md hold the inverse
@@ -484,12 +490,12 @@ def index_markdown():
         cs = (code_status or {}).get(me)
         built = f"{cs['done']}/{cs['total']}" if cs and cs["total"] else "—"
         qs = questions.get(name, {})
-        open_qs = sum(1 for q in qs.values() if "~~" not in q)
+        open_qs = sum(1 for q in qs.values() if not settled(q))
         unconf = [(n, e) for n, e in logs.get(name, {}).items() if "unconfirmed" in e["fields"].get("Source", "").lower()]
         for n, e in unconf:
             pending.append((me, name, n, e["fields"].get("Date", ""), e["title"]))
         for qn, qtext in sorted(qs.items()):
-            if "~~" not in qtext:
+            if not settled(qtext):
                 open_questions.append((me, name, qn, qtext.strip()))
         rows.append(f"| [{me}]({name}) | {title} | {fd.get('Status', '?')} | {built} | {open_qs or ''} | {len(unconf) or ''} | "
                     f"{upd.group(0) if upd else fd.get('Date', '—')} | {chs} | {', '.join(inbound) or '—'} |")
@@ -520,7 +526,7 @@ def open_markdown():
     else:
         out.append("None.")
     out += ["", "## Open questions", "",
-            "Every unstruck question in every ADR (24 §8), with its first sentence. Settle one in its ADR: strike it with *Settled by …* or *Withdrawn: …*.", ""]
+            "Every unsettled question in every ADR (24 §8), with its first sentence. Settle one in its ADR: replace its text with *Settled by …* or *Withdrawn: …*, keeping its ID and title.", ""]
     if open_questions:
         out += ["| Question | Title | What is open |", "|---|---|---|"]
         for me, fname, qn, text in open_questions:

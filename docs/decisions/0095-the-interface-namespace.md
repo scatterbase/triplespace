@@ -82,8 +82,8 @@ Asked what the namespace holds and how an account is marked, James chose (2026-1
 
 ## Open questions
 
-- **Q1.** ~~**Adopting a wiki's `MediaWiki:` pages**, which are `wikitext`: as overrides, which would also change messages the site uses, or deferred, as now.~~ *Settled by §7: James decided on 2026-10-28 that adoption brings them, and ignores those the instance cannot use.*
-- **Q2.** ~~**`meta=allmessages`**, MediaWiki's module for reading messages and overrides (`amcustomised`), which Parsoid and tools call.~~ *Settled by §8: served, over the site's shipped messages.*
+- **Q1. Adopting a wiki's `MediaWiki:` pages.** *Settled by §7.*
+- **Q2. `meta=allmessages`.** *Settled by §8.*
 
 ## References
 

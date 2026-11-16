@@ -81,14 +81,14 @@ Under [0000](0000-init.md), the append-only log is the source of truth and RDF i
 
 ## Open questions
 
-- **Q1.** ~~**Exact namespace IRI.** For example `https://scatter.wiki/ontology#` or `https://scatter.wiki/ns/`. Also the preferred prefix name, and whether it is versioned.~~ *Settled by [0005](0005-crate-organization.md) §5: `https://scatter.red/terms/v0/`, prefix `scatter:`, versioned; `scatter.wiki` is not used.*
-- **Q2.** ~~**Graph IRIs** for the main and metadata graphs, and whether they are per instance or fixed.~~ *Settled by [0015](0015-record-format-and-partition-registry.md) §5: `{base}/graph/{name}`, per instance (per tenant, [0018](0018-tenants.md) §2), with names fixed in `docs/registry/graphs.toml`; the main graph is `resolved`.*
-- **Q3.** ~~**Actor IRIs.**~~ *Settled by [0007](0007-actor-identity.md) §2 and §5.*
+- **Q1. Exact namespace IRI.** *Settled by [0005](0005-crate-organization.md) §5: `https://scatter.red/terms/v0/`, prefix `scatter:`, versioned; `scatter.wiki` is not used.*
+- **Q2. Graph IRIs.** *Settled by [0015](0015-record-format-and-partition-registry.md) §5.*
+- **Q3. Actor IRIs.** *Settled by [0007](0007-actor-identity.md) §2 and §5.*
   - ~~Pseudonymising anonymous IPs and temporary accounts.~~ *Temporary accounts are ordinary numeric actors; an upstream IP gets an instance-minted surrogate `{base}/actor/{n}` (0007 §5).*
   - ~~Referring to imported users (`imported>Name`).~~ *Resolved to the source issuer's numeric ID where the issuer is registered, else an `imported` surrogate (0007 §5).*
   - ~~Referring to users from foreign sources.~~ *`{article path}Special:Redirect/user/{id}` on the issuer's wiki (0007 §2).*
 - **Q4. How far to parse edit summaries.** Wikibase's summary keys and argument layouts form an unversioned convention. [0012](0012-api-requirements.md) §3 fixes the parsed shape (operation, arguments, automatic text, user comment) and [0015](0015-record-format-and-partition-registry.md) §1 makes the parsed form a projection of the comment part; which keys are recognised remains open.
-- **Q5.** ~~**What a "revision" is for data that never passed through MediaWiki.** This covers bulk ingest and foreign entities. The candidate is the log record or offset, with PAV import provenance.~~ *Settled by [0002](0002-source-graphs-and-mass-ingest.md) §8.3 (the entity's change within a job, with thin revision nodes pointing at the job) and [0015](0015-record-format-and-partition-registry.md) §4 (an observed or backfilled upstream revision is `Special:Redirect/revision/{revid}` on the provider; a state with no upstream revision ID is the record IRI `{base}/record/{partition}/{offset}`).*
+- **Q5. What a "revision" is for data that never passed through MediaWiki.** *Settled by [0002](0002-source-graphs-and-mass-ingest.md) §8.3 (the entity's change within a job, with thin revision nodes pointing at the job) and [0015](0015-record-format-and-partition-registry.md) §4 (an observed or backfilled upstream revision is `Special:Redirect/revision/{revid}` on the provider; a state with no upstream revision ID is the record IRI `{base}/record/{partition}/{offset}`).*
 - **Q6. Per-triple change sets in RDF.** Whether change sets should also be projected into RDF, following the Wikidata History Query Service model of per-revision additions and deletions graphs, or stay in the log only.
 - **Q7. Batched stub reads.** `Special:EntityData`'s full flavor reads each mentioned entity through the `.json` path, one read per mention (A22), so an entity that mentions hundreds of others does hundreds of reads. A batched read, honouring the same restrictions, aliases and deletions, would replace it without changing the output. James, 2026-11-08: worth looking into.
 

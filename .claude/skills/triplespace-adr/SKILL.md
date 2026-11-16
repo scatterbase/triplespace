@@ -117,8 +117,11 @@ For each target ADR *Y*:
    creating the line if needed. Strike any Consequence the change falsifies
    (`~~**Claim.** …~~ *Why (An).*`). Set *Y*'s `Updated: YYYY-MM-DD (An)`. If *Y* is Accepted,
    its status becomes `Accepted with proposed amendment (An)`.
-4. **Answer.** Strike any open question the change settles, and add *Settled by NNNN §N: answer.*
-   This needs no log entry.
+4. **Answer.** Replace the text of any open question the change settles with what settled it,
+   keeping its ID and title: `- **Q3. Title.** *Settled by [NNNN](…) §N.*` (or `§N` of the same
+   ADR, or `An` for a direct decision). Do not strike it through and do not restate the answer:
+   git holds the question (`tools/adr.py questions NNNN Q3 --before`) and the source states the
+   answer; add `: answer` only where nothing else holds it (24 §8). This needs no log entry.
 
 Nothing is deleted. A section that no longer holds becomes a stub, *Superseded by NNNN §M (An).*,
 with its old text in the log entry. If a chapter section is split or renamed, rerun

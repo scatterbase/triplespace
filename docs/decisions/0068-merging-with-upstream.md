@@ -69,7 +69,7 @@ James's direction, from the design discussions of 2026-10-04 and 2026-10-05:
 ## Open questions
 
 - **Q1. Section-level proposals.** Proposing one section of a fork rather than the whole page, which the destination's edit-request convention prefers and which a line merge can scope by heading.
-- **Q2.** ~~**Merging talk threads.** A fork's imported threads ([0054](0054-forking-a-mirrored-page.md) §5) and the upstream talk page diverge; whether a pull should import new upstream sections as threads.~~ *Settled by [0069](0069-synchronized-talk-pages.md) §7: no; a fork chooses to follow the upstream talk page, which then shows every new section as it is written, or to fork it, and may switch either way later.*
+- **Q2. Merging talk threads.** *Settled by [0069](0069-synchronized-talk-pages.md) §7.*
 - **Q3. Conflicts in dependencies.** A locally edited template with upstream changes needs its own merge; whether `Update dependencies` should open those merges in sequence.
 - **Q4. Partial re-follow.** A fork whose only difference is a local category or short description; whether those could survive as page statements on the mirror ([0052](0052-page-repositories-and-title-inheritance.md) Q1) so the fork can be re-followed.
 

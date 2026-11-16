@@ -101,7 +101,7 @@ James's direction, from the design discussion of 2026-09-30: the role is **trans
 ## Open questions
 
 - **Q1. Instance groups separate from the primary tenant's groups.** Whether instance rights should be granted by instance-scope group records rather than by the primary tenant's own groups, so that a community wiki can be primary without its bureaucrats approving consumers. Global groups already do this on farms with farm identity; the question is for farms without it.
-- **Q2.** ~~**Public dumps of the instance `log`.** Its job records and consumer events are public; its takedown and expunge records are not. Whether to give the instance `log` an export policy per payload type, or keep the whole partition `internal` and serve the public records only through the API.~~ *Settled by A9: the whole partition stays `internal`; its public records are served through the API and the feeds only.*
+- **Q2. Public dumps of the instance `log`.** *Settled by A9.*
 - **Q3. Two owners for a transfer.** Whether offering the role should, like expunge ([0040](0040-instance-prerogatives.md) Q1), need two members of `owner`.
 - **Q4. Offer expiry default.** Seven days is a placeholder.
 

@@ -176,9 +176,9 @@ James's direction, from the design discussion of 2026-09-30:
 ## Open questions
 
 - **Q1. The external-links table.** Its shape (MediaWiki's `externallinks` stores reversed domains for prefix search) decides `LinkSearch`, `list=exturlusage`, and edit-filter variables over added links.
-- **Q2.** ~~**A page-properties table.** It would serve `PagesWithProp`, `list=pageswithprop` and `prop=pageprops`.~~ *Settled by [0055](0055-templatestyles-templatedata-and-page-properties.md) §6: `view.page_prop`.*
+- **Q2. A page-properties table.** *Settled by [0055](0055-templatestyles-templatedata-and-page-properties.md) §6.*
 - **Q3. Global Nuke.** Whether a global group at the farm base ([0028](0028-tenancy-policy.md) §3) may nuke a farm account across every tenant it is linked to, as one job per tenant or as an instance act ([0040](0040-instance-prerogatives.md)).
-- **Q4.** ~~**Page statements in exports.** Whether to carry them in MediaWiki XML as an extra slot, which only Triplespace would read, or only in `records`.~~ *Settled by A32: `records` only; the XML stays a plain MediaWiki export.*
+- **Q4. Page statements in exports.** *Settled by A32.*
 - **Q5. Mute.** Whether `Special:Mute` and user-level muting of notifications ([0021](0021-notifications.md)) and email should exist at all.
 - **Q6. Reports over mirror graphs.** Which batch reports over a mirror are worth offering by default, for example mirrored properties without a local constraint, and whether their snapshots should be shared across tenants that mirror the same provider.
 - **Q7. Thresholds.** The defaults are placeholders: `nuke.confirm_threshold` (500) and the `reports` `batch_limit` (1,000). *The export thresholds, `export.sync_revisions` (5,000) and `export.max_history` (1,000), were kept by A34.*

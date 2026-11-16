@@ -111,14 +111,14 @@ This ADR sets the rules for filling both gaps, and lists what the UI needs from 
 
 ## Open questions
 
-- **Q1.** ~~**The global ID mechanism** (§2.1): a central allocator, IDs reserved in blocks for each partition, or another scheme.~~ *Settled by [0013](0013-postgres-storage.md) §6 (Postgres sequences per tenant, taken in the appending transaction; blocks from the bootstrap coordinator) and [0015](0015-record-format-and-partition-registry.md) §2 (in the header; provider-ranged for mirror records).*
+- **Q1. The global ID mechanism.** *Settled by [0013](0013-postgres-storage.md) §6 (Postgres sequences per tenant, taken in the appending transaction; blocks from the bootstrap coordinator) and [0015](0015-record-format-and-partition-registry.md) §2 (in the header; provider-ranged for mirror records).*
 - **Q2. The default for `sync_deltas`,** once ingest cost and storage have been measured.
-- **Q3.** ~~**Contributions of foreign actors:** whether `/actor/{key}/contributions` covers upstream edits that were backfilled or fetched live.~~ *Settled by [0018](0018-tenants.md) §8: backfilled and observed records the instance holds; never fetched live.* *Extended by [0010](0010-site-ui.md) A40: upstream revision records are not indexed by actor, so the view lists what reached `view.activity` for the actor and says so (REVIEW G50).*
-- **Q4.** ~~**The effect of a diff:** whether it should be "as of the change" wherever that can be computed, as it can for the local graph alone.~~ *Settled by [0083](0083-write-path-in-three-tiers.md) §4: as of the change for the local graph, each side one row of `view.entity_revision`, and for a mirror where the history policy kept the previous `put`; current otherwise, since mirror states are not reconstructable under `latest` (A65).*
-- **Q5.** ~~**A watchlist API,** which waits on the watchlist decision in [0010](0010-site-ui.md).~~ *Settled by [0020](0020-change-feeds.md) §5: MediaWiki's watchlist modules and the `/watchlist` routes.*
-- **Q6.** ~~**A change feed for downstream consumers.** Whether Triplespace offers an EventStreams-like stream, and whether it follows the same redaction and log model ([mediawiki-compat.md](../api/mediawiki-compat.md) §7).~~ *Settled by [0020](0020-change-feeds.md) §4: the everything feed as server-sent events, with the same redaction; [0022](0022-federation.md) §1 publishes it for verified sync.*
-- **Q7.** ~~**Rate limit values and cache lifetimes** for upstream fetches.~~ *Settled by [0024](0024-subsidiary-accounts.md) §5, in part: rate limits are site policy by action class, with `upstream` as one class; its default is a starting value. Cache lifetimes are Q9.*
-- **Q8.** ~~**Which groups hold which rights** (§8).~~ *Settled by [0016](0016-permissions-and-access-control.md) §2, and extended per ADR since; `docs/registry/groups.toml` is the registry of record.*
+- **Q3. Contributions of foreign actors.** *Settled by [0018](0018-tenants.md) §8.* *Extended by [0010](0010-site-ui.md) A40.*
+- **Q4. The effect of a diff.** *Settled by [0083](0083-write-path-in-three-tiers.md) §4.*
+- **Q5. A watchlist API,.** *Settled by [0020](0020-change-feeds.md) §5.*
+- **Q6. A change feed for downstream consumers.** *Settled by [0020](0020-change-feeds.md) §4.*
+- **Q7. Rate limit values and cache lifetimes.** *Settled by [0024](0024-subsidiary-accounts.md) §5, in part.*
+- **Q8. Which groups hold which rights.** *Settled by [0016](0016-permissions-and-access-control.md) §2, and extended per ADR since; `docs/registry/groups.toml` is the registry of record.*
 - **Q9. Cache lifetimes for upstream fetches.** (Rest of Q7.) A [0014](0014-caches-and-search.md) tuning item.
 
 ## References

@@ -98,10 +98,10 @@ James's direction, from the design discussion of 2026-11-08:
 
 ## Open questions
 
-- **Q1.** ~~**Conflicting terms on a matched row.** §5 leaves a differing label or description unwritten and marks it. Whether it should instead become an alias, or offer to overwrite, once real imports show which is wanted.~~ *Settled by A1: the term is flagged and the row waits until the editor says whether to keep the item's term, add the row's as an alias, or replace it.*
-- **Q2.** ~~**Drafts' place in the namespace.** Whether drafts should sit under a conventional prefix such as `Table:Drafts/{user}/…`, or anywhere in `Table`.~~ *Settled by A1: new drafts are created as `Table:Drafts/{user}/{name}`.*
-- **Q3.** ~~**Datatype proposals.** Which data types the proposal of §4 can infer beyond times, item IDs and identifier patterns, such as quantities with units or URLs.~~ *Settled by A1: those three to start; any other data type is chosen by hand.*
-- **Q4.** ~~**Transient drafts after import.** Whether a draft under `Table:Drafts/` that was never given a title should be deleted, or left for its creator, once all its rows are imported.~~ *Settled by A3: it stays, as the interface for further edits on the terms it set up; administrators may delete it, which destroys no data.*
+- **Q1. Conflicting terms on a matched row.** *Settled by A1.*
+- **Q2. Drafts' place in the namespace.** *Settled by A1.*
+- **Q3. Datatype proposals.** *Settled by A1.*
+- **Q4. Transient drafts after import.** *Settled by A3.*
 
 ## References
 

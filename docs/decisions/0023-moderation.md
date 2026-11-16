@@ -121,14 +121,14 @@ Patrolling is the odd one out, since it restricts nothing: it is a mark that a t
 
 ## Open questions
 
-- **Q1.** ~~**`statement` and `property` ACL targets** ([0016](0016-permissions-and-access-control.md) Q1) are unchanged: hiding one statement of a large local entity is not possible without them, only the whole record that added it.~~ *Settled by A2: both targets exist, with predicate as a second axis of enclosure.*
+- **Q1. `statement` and `property` ACL targets.** *Settled by A2.*
 - **Q2. Deleting a heavily referenced local entity.** Dangling values are Wikidata's behaviour, but an instance may want a warning, or a redirect, when an entity with many referrers is deleted.
-- **Q3.** ~~**Abuse filters and pre-save checks**, still neither permissions nor ACLs ([0016](0016-permissions-and-access-control.md) Q5).~~ *Settled by [0030](0030-edit-filters.md): edit filters, a third mechanism beside permissions and ACLs, evaluated in the appending transaction.*
+- **Q3. Abuse filters and pre-save checks.** *Settled by [0030](0030-edit-filters.md).*
 - **Q4. Reviewing threads.** Whether a post should be patrollable separately from the thread operation that carried it, and whether `thread-status` marks ([0019](0019-discussions.md) §6) should count as review.
 - **Q5. `autopatrolled` thresholds**, if an instance wants the group granted automatically as `autoconfirmed` is.
-- **Q6.** ~~**Unpatrol**, which MediaWiki lacks and some wikis want.~~ *Settled by A5: a `patrol/unpatrol` log event in the tenant `log`, keyed like `patrol/patrol` (§6) and written by holders of `patrol`; the projection sets `patrolled` false, and the newest of the two events for a record wins. `action=patrol` gains `unpatrol=1`; the row's action is "Mark as unpatrolled". [0030](0030-edit-filters.md) §4's `unpatrol` filter action, which withholds autopatrol as a write lands, is unchanged.*
+- **Q6. Unpatrol.** *Settled by A5.*
 - **Q7. Whether deletion should expire.** The record allows it; MediaWiki has no temporary deletion, and none is offered here.
-- **Q8.** ~~**Blocking and hiding across tenants** ([0018](0018-tenants.md) Q3): whether an `actor` ACL written by the primary tenant should apply to every tenant.~~ *Settled by [0028](0028-tenancy-policy.md) §4: an actor ACL on a farm account applies everywhere; a tenant's applies to its own account.*
+- **Q8. Blocking and hiding across tenants.** *Settled by [0028](0028-tenancy-policy.md) §4.*
 
 ## References
 

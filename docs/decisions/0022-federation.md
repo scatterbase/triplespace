@@ -95,10 +95,10 @@ The two halves share a stance. Triplespace federates **facts and speech, not ide
 
 ## Open questions
 
-- **Q1.** ~~**Inbound protocol details** (§8): signature versions, integrity proofs, replay protection, and promotion of a `federated` actor.~~ *Settled by A2: cavage now, with 9421 and FEP-8b32 behind switches; an activity-ID seen table with a `Date` window; link, never merge.*
-- **Q2.** ~~**Verification depth for very large providers**: whether to verify every record or sample under a `sample` trust mode with a stated rate.~~ *Settled by A2: every record, always; "verified" never means "probably". The cost is kept low by a **multi-proof**: `GET /record/proofs?checkpoint=&from=&to=` returns the inclusion proofs of a range of records against one checkpoint with their shared upper path sent once, so a batch of N costs one checkpoint, one consistency proof and O(N log N) hashes; a bootstrap from the source dump is verified the same way against the checkpoint the dump is stamped with ([0032](0032-sparql-update-stream.md) §6). The route joins §1's table and [0012](0012-api-requirements.md) §5; `scatter-integrity` produces and checks multi-proofs.*
+- **Q1. Inbound protocol details.** *Settled by A2.*
+- **Q2. Verification depth for very large providers.** *Settled by A2: every record, always; "verified" never means "probably". The cost is kept low by a **multi-proof**: `GET /record/proofs?checkpoint=&from=&to=` returns the inclusion proofs of a range of records against one checkpoint with their shared upper path sent once, so a batch of N costs one checkpoint, one consistency proof and O(N log N) hashes; a bootstrap from the source dump is verified the same way against the checkpoint the dump is stamped with ([0032](0032-sparql-update-stream.md) §6). The route joins §1's table and [0012](0012-api-requirements.md) §5; `scatter-integrity` produces and checks multi-proofs.*
 - **Q3. A Scatterbase adapter** as the payload mapping of §5.
-- **Q4.** ~~**Witnesses across federated instances** ([0006](0006-log-integrity-and-erasure.md) Q1): whether federation partners should cosign each other's checkpoints.~~ *Settled by [0081](0081-recovery-keys-and-continuations.md) §6: they may, since an instance can serve the tlog-witness API under `witness.enabled`.*
+- **Q4. Witnesses across federated instances.** *Settled by [0081](0081-recovery-keys-and-continuations.md) §6.*
 - **Q5. Entity data on ActivityPub**: whether an entity's document node should be an `as:Article` that announces its revisions, for readers who want to follow an item. Deliberately not done here.
 - **Q6. Followers as private state**: whether the follower list of a `Group` is public, as Mastodon shows it, or private as the notifier's is.
 

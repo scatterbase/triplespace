@@ -70,9 +70,11 @@ Each target gets a log entry (fold, log, mark: 24 §4) whose Source names this s
 - **Q1. Title.** …
 
 <!--
-Settled:   - **Q1.** ~~**Title.** …~~ *Settled by [NNNN](…) §N: answer.*
-Withdrawn: - **Q1.** ~~**Title.** …~~ *Withdrawn: reason.*
-Partly:    strike the whole question, then append - **Qn.** (Rest of Q1.) …
+Settled:   - **Q1. Title.** *Settled by [NNNN](…) §N.*      (or §N of this ADR, or An for a direct decision)
+           The question's text goes; git holds it (tools/adr.py questions NNNN Q1 --before). Add
+           ": answer" only where the source does not state it (24 §8).
+Withdrawn: - **Q1. Title.** *Withdrawn: reason.*
+Partly:    settle the whole question, then append - **Qn.** (Rest of Q1.) …
 -->
 
 ## References

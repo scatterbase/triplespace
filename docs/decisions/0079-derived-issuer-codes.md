@@ -91,9 +91,9 @@ James's direction, from the design discussion of 2026-10-09:
 ## Open questions
 
 - **Q1. Renaming slugs.** With no key carrying a slug, whether a tenant's slug or the farm slug may be changed by `owner` beyond reassignment on arrival.
-- **Q2.** ~~**Provider codes for tenants.** A tenant that becomes a provider takes a two-letter code and a number from `providers.toml`, and those go into entity IDs (`EXQ9`) that cross instances. This is the same collision problem on the entity side.~~ *Settled by [0080](0080-tenants-as-entity-sources.md) §3: a tenant is read as an entity source named by issuer code, and a registry code is promotion.*
+- **Q2. Provider codes for tenants.** *Settled by [0080](0080-tenants-as-entity-sources.md) §3.*
 - **Q3. A short display form.** Whether the UI shows an abbreviated code where an actor key must be shown, as git abbreviates commit hashes.
-- **Q4.** ~~**Witnessing the founding record.** A code is only as discoverable as the founding record. Whether a checkpoint witness ([0006](0006-log-integrity-and-erasure.md)) should countersign it.~~ *Settled by [0081](0081-recovery-keys-and-continuations.md) §6: the founding record is witnessed with the first checkpoint of a witnessed `config` partition.*
+- **Q4. Witnessing the founding record.** *Settled by [0081](0081-recovery-keys-and-continuations.md) §6.*
 - **Q5. Admitting another tenant's actors and identity pools.** Letting a tenant admit actors of another tenant on the same instance (a bot, a secondary wiki, a network sharing one user pool), and attributing instance staff under the instance. Discussed on 2026-10-09 as a pool being a tenant, possibly contentless, that others admit. Not decided.
 
 ## References

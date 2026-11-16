@@ -76,11 +76,11 @@ The instance has two advantages over Wikidata here. It **mirrors** Wikidata's pr
 ## Open questions
 
 - **Q1. Constraint types beyond Wikidata's**, such as a resolver-aware "resolves uniquely" check ([0029](0029-resolver-namespaces.md)) or a Domain-hierarchy check ([0009](0009-keyed-entity-types-and-domain.md)).
-- **Q2.** ~~**Checking mirrored entities at Wikidata scale**: whether to check every mirrored statement or only entities a tenant has touched, and how often to re-check as mirrors sync.~~ *Settled by [0083](0083-write-path-in-three-tiers.md) §3: `constraints.scope` is `local` by default (local-graph statements and the tenant's overlay), `overlay`, or `all`, and `all` is a batch job with progress, never a step the consumer takes per event; an entity is re-checked when it is composed, and a constraint change on a mirrored property enqueues a batch.*
+- **Q2. Checking mirrored entities at Wikidata scale.** *Settled by [0083](0083-write-path-in-three-tiers.md) §3.*
 - **Q3. Depth and cache limits** for the *type* check's class-chain walk.
 - **Q4. Suggested fixes**: whether a violation should offer a one-click correction where the fix is unambiguous (a *format* violation with a known normalization, say), which would be an edit like any other.
 - **Q5. Constraint via SPARQL** if a tenant runs a local quad store ([0013](0013-postgres-storage.md) §8).
-- **Q6.** ~~**Whether `mandatory` violations should influence patrolling** ([0023](0023-moderation.md) §6), for example by clearing autopatrol on the write that introduced one; that would be the first thing to read the graph on the write path, and is deliberately not done here.~~ *Settled by [0030](0030-edit-filters.md) A3: no. Nothing on the write path reads the graph; constraints report after the fact and a reviewer acts on the report.*
+- **Q6. Whether `mandatory` violations should influence patrolling.** *Settled by [0030](0030-edit-filters.md) A3.*
 
 ## References
 

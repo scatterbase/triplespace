@@ -86,12 +86,12 @@ Three choices James made in review shape the rest: the stream is **selectable pe
 ## Open questions
 
 - **Q1. Retention default and the epoch's lifetime.** Thirty days is a guess; the right value is the longest a consumer is expected to be down, measured against the table's size at Wikidata scale.
-- **Q2.** ~~**Metadata-graph volume under `full`.** Thin revision nodes for a Wikidata mirror ([0002](0002-source-graphs-and-mass-ingest.md) §8.3) are on the order of a billion triples; whether a `full` subscription should be able to exclude the mirror's revision nodes and keep only local ones is a `graphs=` refinement to decide from a consumer's actual need.~~ *Settled by A2: `metadata=local` by default, `metadata=all` on request, on the stream and the full dump alike.*
-- **Q3.** ~~**Batching within an event.** One event per delta row is simple and ordered; a consumer applying a million-entity sync one request at a time is slow.~~ *Settled by A2: one event per appending transaction.*
+- **Q2. Metadata-graph volume under `full`.** *Settled by A2.*
+- **Q3. Batching within an event.** *Settled by A2.*
 - **Q4. Other formats.** RDF Patch (Jena's delta format) and LDES both express the same delta; whether to offer either beside SPARQL Update, once a consumer asks.
 - **Q5. A farm-wide stream.** Whether a consumer may subscribe to every tenant's resolved view at the farm base, each event carrying its tenant, under the `feeds.farm_wide` policy of [0028](0028-tenancy-policy.md) §9.
-- **Q6.** ~~**The skolem hash input.** Statement ID, snak role, property and index are enough for uniqueness; whether the IRI should instead be content-derived, so that two instances skolemize a mirrored Wikidata blank node identically, as [0009](0009-keyed-entity-types-and-domain.md) §6 does for Domain IRIs.~~ *Settled by A2: content-derived, under `https://scatter.red/genid/`.*
-- **Q7.** ~~**Consumers verifying what they applied.** A consumer holds triples and no proofs. Whether an event should carry the record coordinates and checkpoint of the change that caused it, so a consumer could check a delta against `/record/` on demand, without turning this into the verified sync of 0022.~~ *Settled by A2: as event metadata in a comment line, never as triples; spot-checkable per event, unverifiable as a whole.*
+- **Q6. The skolem hash input.** *Settled by A2.*
+- **Q7. Consumers verifying what they applied.** *Settled by A2.*
 
 ## References
 

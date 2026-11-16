@@ -117,10 +117,10 @@ James's direction, from the design discussion of 2026-10-07:
 ## Open questions
 
 - **Q1. Eviction.** An entity mirrored `on-demand` and no longer read or referenced stays forever. Whether to add a compaction-only eviction that is not a tombstone, and how it interacts with retention.
-- **Q2.** ~~**Terms under `all`.** Whether a full mirror writes `view.term` rows for every language, a configured subset, or none, with search delegated (the adoption-results note, §2).~~ *Settled by [0082](0082-source-form-and-the-shared-view.md) §6: the instance's term languages only, with the other languages read from the record through the label cache, search delegated to the index and no `term_prefix` on a full mirror.*
-- **Q3.** ~~**Other Wikibase providers.** The fetch path is Wikidata's API; whether a Wikibase Cloud provider or another Triplespace instance ([0022](0022-federation.md) §2) uses the same job with its own endpoint, and how a provider without an event stream is kept current beyond the sweep.~~ *Settled by [0078](0078-entity-sources.md) §4, in part: a Wikibase declared as a tenant's entity source uses the same job with its own endpoint, and without an event stream is kept current by the sweep alone.*
+- **Q2. Terms under `all`.** *Settled by [0082](0082-source-form-and-the-shared-view.md) §6.*
+- **Q3. Other Wikibase providers.** *Settled by [0078](0078-entity-sources.md) §4, in part.*
 - **Q4. Lexemes and forms under `linked`.** A form or sense ID as a value fetches its lexeme; whether that should be the default for `lexeme`.
-- **Q5.** ~~(Rest of Q3.) Whether a registry Wikibase provider other than Wikidata, or another Triplespace instance ([0022](0022-federation.md) §2), uses the same job with its own endpoint.~~ *Settled by [0092](0092-following-recent-changes.md) §1, for Wikibases: a registry Wikibase provider uses the same job with its own `api`, followed by its recent changes when it has no `events`; the rest is Q6.*
+- **Q5. (Rest of Q3.) Other registry Wikibase providers.** *Settled by [0092](0092-following-recent-changes.md) §1, for Wikibases.*
 - **Q6.** (Rest of Q5.) Whether another Triplespace instance ([0022](0022-federation.md) §2) uses the same job, or reads its log and checkpoints instead (0092 Q2).
 - **Q7. Terms of a full Wikidata mirror.** Whether mirror entities populate `view.term` at all before any full Wikidata mirror (`docs/testing/performance.md` §6). (From the working notes, 0099 §5.)
 

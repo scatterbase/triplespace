@@ -74,11 +74,11 @@ One constraint is fixed by James: **whether a user is watching something is priv
 
 ## Open questions
 
-- **Q1.** ~~**Notifications.** Mentions, replies, new messages on one's talk page, email and digests: a feed with push delivery and per-user read state, deserving its own ADR now that the pull side exists.~~ *Settled by [0021](0021-notifications.md), which adds a `notify` flag to `private.watch`.*
-- **Q2.** ~~**Patrolling.**~~ *Settled by [0023](0023-moderation.md) §6: a `patrolled` filter on every feed.*
-- **Q3.** ~~**Preferences.** Where the rest of an account's preferences live; this ADR puts four in `private` beside the watch set.~~ *Settled by [0027](0027-preferences-and-portability.md) §1: one `private.preference` store with a registered key set; the four auto-watch flags move there.*
-- **Q4.** ~~**Provider-to-tenant sync over the stream** instead of by job ([0018](0018-tenants.md) §5).~~ *Settled by [0028](0028-tenancy-policy.md) §5 and [0022](0022-federation.md) §2: same-instance reading is direct; cross-instance reading is a sync job that follows the stream filtered to `source = local`, verified against the provider's checkpoints by default.*
-- **Q5.** ~~**Rate limits** on the stream and on Atom, and the default period window per feed.~~ *Settled by [0024](0024-subsidiary-accounts.md) §5 and [0027](0027-preferences-and-portability.md) §1: rate limits are the `stream` and `atom` classes; the period window is the `feeds.period` preference, with its default in `preferences.toml`; the default's value is tuning.*
+- **Q1. Notifications.** *Settled by [0021](0021-notifications.md), which adds a `notify` flag to `private.watch`.*
+- **Q2. Patrolling.** *Settled by [0023](0023-moderation.md) §6.*
+- **Q3. Preferences.** *Settled by [0027](0027-preferences-and-portability.md) §1.*
+- **Q4. Provider-to-tenant sync over the stream.** *Settled by [0028](0028-tenancy-policy.md) §5 and [0022](0022-federation.md) §2.*
+- **Q5. Rate limits.** *Settled by [0024](0024-subsidiary-accounts.md) §5 and [0027](0027-preferences-and-portability.md) §1.*
 - **Q6. Watching a namespace or a query.** Dynamic watch sets defined by a SPARQL query or a search, as some wikis have wanted.
 - **Q7. Related changes for keyed types.** Whether a domain's related set is its DNS parents and children ([0009](0009-keyed-entity-types-and-domain.md)).
 

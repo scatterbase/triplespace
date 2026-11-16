@@ -169,10 +169,10 @@ James's direction, from the design discussion of 2026-09-30:
 ## Open questions
 
 - **Q1. Cascading protection.** With transclusion, protecting a page without protecting its templates protects little. `cascade=1` is still refused ([0023](0023-moderation.md) §8); whether to implement it as an enclosure over `view.transclusion`.
-- **Q2.** ~~**TemplateStyles.** A `sanitized-css` model and a CSS sanitizer in Rust. 0008 §5 excluded it with the other style models; templates from Wikipedia depend on it.~~ *Settled by [0055](0055-templatestyles-templatedata-and-page-properties.md) §1–3: the `sanitized-css` model, the `scatter-css` sanitizer, and `<templatestyles>` implemented.*
-- **Q3.** ~~**Site styles.** Whether a tenant may have any site CSS, given 0008 §5's exclusion of `css`.~~ *Settled by [0055](0055-templatestyles-templatedata-and-page-properties.md) §4: one designated `sanitized-css` page, named by `wikitext.site_styles`, scoped to rendered content.*
-- **Q4.** ~~**Mirror mode for template repositories,** copying used foreign pages into an instance partition as 0039 §11's file mirrors do, for availability and verification.~~ *Settled by [0053](0053-mirrored-pages.md) §5: a page repository in `mirror` mode keeps its pages, templates and modules included, in the `pages/{repo}` instance partition.*
-- **Q5.** ~~**Push invalidation from Wikimedia repositories.** Following EventStreams `recentchange` for the repository's Template and Module namespaces, instead of waiting for `repo.cache_ttl`.~~ *Settled by [0053](0053-mirrored-pages.md) §6: a repository's `events` stream bumps the render epoch of every page whose manifest names a changed foreign template.*
+- **Q2. TemplateStyles.** *Settled by [0055](0055-templatestyles-templatedata-and-page-properties.md) §1–3.*
+- **Q3. Site styles.** *Settled by [0055](0055-templatestyles-templatedata-and-page-properties.md) §4.*
+- **Q4. Mirror mode for template repositories,.** *Settled by [0053](0053-mirrored-pages.md) §5.*
+- **Q5. Push invalidation from Wikimedia repositories.** *Settled by [0053](0053-mirrored-pages.md) §6.*
 - **Q6. Editing through Parsoid HTML.** VisualEditor-style editing needs Parsoid's HTML-to-wikitext direction, page bundles stored per revision, and TemplateData.
 - **Q7. Section editing of transcluded sections,** which MediaWiki numbers `T-1`.
 - **Q8. Language variants.** `languagevariants` is empty and LanguageConverter is not implemented.

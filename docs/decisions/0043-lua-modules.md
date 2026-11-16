@@ -121,7 +121,7 @@ James's direction, from the design discussion of 2026-09-30:
 - **Q1. The debug console** (`action=scribunto-console`), and where its sessions live.
 - **Q2. Fetching unheld entities on demand** (§11): a bounded, rate-limited fetch into the mirror, against 0012 §6's rule that live fetches are never written to the log.
 - **Q3. `convertGrammar` and `gender` coverage,** which MediaWiki implements per language in code.
-- **Q4.** ~~**Lexemes.** `mw.wikibase.lexeme` waits for the Lexeme namespace (146) to be implemented.~~ *Settled by [0066](0066-lexemes.md) §9: provided as the extension documents it.*
+- **Q4. Lexemes.** *Settled by [0066](0066-lexemes.md) §9.*
 - **Q5. `mw.ext.data`** (Commons tabular and map data), which many Wikipedia modules use for lookup tables.
 - **Q6. LuaJIT** for speed, if a differential run shows it is safe for real modules.
 

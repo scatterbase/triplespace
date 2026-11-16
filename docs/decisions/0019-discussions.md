@@ -110,14 +110,14 @@ Two goals from the earlier ADRs constrain the design. Every unit of contribution
 
 ## Open questions
 
-- **Q1.** ~~**Namespace numbers** for `Thread` and `Thread talk` (registry README, pending allocations).~~ *Settled by `docs/registry/namespaces.toml`, under the numbering policy of 0008 A6: 214/215.*
+- **Q1. Namespace numbers.** *Settled by `docs/registry/namespaces.toml`, under the numbering policy of 0008 A6.*
 - **Q2. Temporary accounts.** Whether a `temp` account gets a `User talk` page for messages, as MediaWiki gives one. [0021](0021-notifications.md) asks the same of their notifications.
-- **Q3.** ~~**Notifications**: whether `[[User:Example]]` in a post notifies that user, and what a reply to one's post delivers. Watching is settled by [0020](0020-change-feeds.md).~~ *Settled by [0021](0021-notifications.md) §2: `mention`, `reply`, `talk` and `thread-status` reasons.*
+- **Q3. Notifications.** *Settled by [0021](0021-notifications.md) §2.*
 - **Q4. DiscussionTools compatibility.** Whether to implement `discussiontoolsedit` and `discussiontoolspageinfo` on these records, and how far Convenient Discussions and similar scripts can be made to work.
-- **Q5.** ~~**Importing existing talk pages.** A Wikibase's `Item_talk:` and a project's `Project_talk:` pages are wikitext. One option is a job that splits a page by `==` heading into threads with one post each, attributed to the section's signatures where they parse and to an `imported` surrogate otherwise.~~ *Settled by [0054](0054-forking-a-mirrored-page.md) §5: split by level-two heading with the frontmatter first, one wikitext post per section attributed to the importer and the job, each thread created `archived` and dated from its earliest signature.*
-- **Q6.** ~~**Cross-tenant discussion.** Whether a tenant may show, read-only, another tenant's threads about an entity it mirrors from that tenant.~~ *Settled by [0028](0028-tenancy-policy.md) §6: by policy, read-only.*
-- **Q7.** ~~**Federation.** Inbox, outbox and actor keys, if ever.~~ *Settled by [0022](0022-federation.md) Part B: opt-in `Person` actors, talk pages as `Group` actors that `Announce` threads, inbound replies as posts by `federated` surrogates; the inbound protocol details stay open there.*
-- **Q8.** ~~**Limits.** The post size limit, the depth default, and rate limits on posting.~~ *Settled by [0024](0024-subsidiary-accounts.md) §5, as to where they live: the size limit and `thread.max_depth` are `site` settings (§5, §8); posting is rate-limited in the `edit` and `create` classes. The values are tuning.*
+- **Q5. Importing existing talk pages.** *Settled by [0054](0054-forking-a-mirrored-page.md) §5.*
+- **Q6. Cross-tenant discussion.** *Settled by [0028](0028-tenancy-policy.md) §6.*
+- **Q7. Federation.** *Settled by [0022](0022-federation.md) Part B.*
+- **Q8. Limits.** *Settled by [0024](0024-subsidiary-accounts.md) §5, as to where they live.*
 
 ## References
 

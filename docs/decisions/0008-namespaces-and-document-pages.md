@@ -140,14 +140,14 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 
 ## Open questions
 
-- **Q1.** ~~**Global revision IDs.** Log offsets are numbered per partition, but MediaWiki revision IDs are global. Either a global allocator issues revision IDs across partitions, or the API maps (partition, offset) pairs onto one sequence. This was already latent in [0001](0001-revision-metadata-rdf.md) and [0002](0002-source-graphs-and-mass-ingest.md).~~ *Settled by [0013](0013-postgres-storage.md) §6 and [0015](0015-record-format-and-partition-registry.md) §2: one sequence per tenant for revisions and one for log events, taken in the appending transaction and written into the header; mirror records take provider-ranged IDs.*
-- **Q2.** ~~**Page IDs for entity views.** `wbgetentities` with `props=info` returns a `pageid`, and a composed view has none. The options are minting one the first time an entity is written to, or returning none and accepting that some clients break.~~ *Settled by [0013](0013-postgres-storage.md) §6 and [0015](0015-record-format-and-partition-registry.md) §2: a page ID is taken from the one sequence the first time a key is written in any partition and carried forward in header field 9, so entity views and document pages share one `pageid` space.* *Extended by A35: the sequence is the tenant's own and serves local pages and local entities below 2^40; a mirrored entity's page ID is provider-ranged and computed by the writer, so the two still share one `pageid` space per tenant without an allocation.*
-- **Q3.** ~~**The main namespace.** Whether namespace 0 stays empty, becomes a document namespace, or hosts items as it does on Wikidata.~~ *Settled by A6: reserved and empty, like every namespace MediaWiki or Wikibase uses; its talk namespace is not enabled.* *Changed by [0038](0038-page-metadata-and-categories.md) §8 (A9): a `pages` namespace for articles, with Talk (1) enabled.*
-- **Q4.** ~~**Discussions.** Talk namespaces are reserved (§2). How discussions work is its own ADR.~~ *Settled by [0019](0019-discussions.md): talk namespaces are composite views over threads, and a thread is a page in the `Thread` namespace.*
-- **Q5.** ~~**Categories.** Whether category links should ever become data, for example as statements or as a list projection.~~ *Settled by [0038](0038-page-metadata-and-categories.md) §3 and §5: categories are defined only in wikitext and projected as a list; configured mappings turn membership into page statements.*
-- **Q6.** ~~**Page protection and permissions.** Who may create, move, delete and protect pages, beyond the owner rule in §6.~~ *Settled by [0016](0016-permissions-and-access-control.md) §5 (who) and [0023](0023-moderation.md) §1–4 (what protection and deletion are: ACLs on the page).*
-- **Q7.** ~~**Search.** Whether one search index covers entity labels and page text together, as `list=search` would expect.~~ *Settled by [0014](0014-caches-and-search.md) §7: two indexes (`entities`, `pages`), one query, with a Postgres fallback (§8).*
-- **Q8.** ~~**Page redirects.** Whether document pages may be redirects (`#REDIRECT [[…]]`), and whether a move leaves one for `Project` pages, where no erasable names are involved.~~ *Settled by [0051](0051-page-redirects.md) §1 and §3: a `wikitext` page whose text begins with a redirect line is a redirect, and a move leaves one everywhere except user renames and thread renames.*
+- **Q1. Global revision IDs.** *Settled by [0013](0013-postgres-storage.md) §6 and [0015](0015-record-format-and-partition-registry.md) §2.*
+- **Q2. Page IDs for entity views.** *Settled by [0013](0013-postgres-storage.md) §6 and [0015](0015-record-format-and-partition-registry.md) §2.* *Extended by A35.*
+- **Q3. The main namespace.** *Settled by A6.* *Changed by [0038](0038-page-metadata-and-categories.md) §8 (A9).*
+- **Q4. Discussions.** *Settled by [0019](0019-discussions.md).*
+- **Q5. Categories.** *Settled by [0038](0038-page-metadata-and-categories.md) §3 and §5.*
+- **Q6. Page protection and permissions.** *Settled by [0016](0016-permissions-and-access-control.md) §5 (who) and [0023](0023-moderation.md) §1–4 (what protection and deletion are.*
+- **Q7. Search.** *Settled by [0014](0014-caches-and-search.md) §7.*
+- **Q8. Page redirects.** *Settled by [0051](0051-page-redirects.md) §1 and §3.*
 
 ## References
 

@@ -126,13 +126,13 @@ Three terms are used precisely below:
 
 ## Open questions
 
-- **Q1.** ~~**Witnessing.** Whether to cosign checkpoints with external witnesses, and which ones.~~ *Settled by [0081](0081-recovery-keys-and-continuations.md) §6: yes, by any C2SP tlog-witness a tenant lists in `integrity.witnesses`, for its `config` partition by default and other partitions by choice.*
+- **Q1. Witnessing.** *Settled by [0081](0081-recovery-keys-and-continuations.md) §6.*
 - **Q2. Timestamp anchoring.** Whether checkpoints should be anchored externally, which is Scatterbase's TS product code.
-- **Q3.** ~~**Where checkpoints are served,** and whether the path is a well-known URL.~~ *Settled by [0022](0022-federation.md) §1: `{base}/.well-known/tlog/{partition}/checkpoint`, historical checkpoints and manifests beside it, and the key chain at `/.well-known/tlog/keys`.*
-- **Q4.** ~~**Defaults** for segment size (k) and checkpoint cadence (N and T). Cadence is a `site` setting since [0015](0015-record-format-and-partition-registry.md) §3; the values are still to be chosen.~~ *Settled by A34: k = 16, N = 4,096 records, T = 60 seconds.*
-- **Q5.** ~~**Reason classes.** Their vocabulary, and whether an `erase` record's reason is visible to everyone.~~ *Settled by [0016](0016-permissions-and-access-control.md) §6: `legal`, `privacy`, `upstream` ([0011](0011-logs.md) §5) and `operational`, extensible in `site` configuration; that a record was erased is public, the class and authority reference are visible to `ts-viewerasures`.*
+- **Q3. Where checkpoints are served,.** *Settled by [0022](0022-federation.md) §1.*
+- **Q4. Defaults.** *Settled by A34.*
+- **Q5. Reason classes.** *Settled by [0016](0016-permissions-and-access-control.md) §6.*
 - **Q6. Key compromise.** Revocation and recovery, shared with Scatterbase's identity work.
-- **Q7.** ~~**The Wikibase JSON to CBOR mapping.** In particular, which values stay strings and how snak hashes are carried.~~ *Settled by A7: structural and JSON-faithful; every string stays a string; snak and reference hashes and `numeric-id` are dropped and recomputed on output.*
+- **Q7. The Wikibase JSON to CBOR mapping.** *Settled by A7.*
 - **Q8. Prior-use acknowledgments for each term.** Whether they eventually move from the attestation into a log-level check shared by both products.
 
 ## References

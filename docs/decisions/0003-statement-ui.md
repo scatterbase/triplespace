@@ -99,9 +99,9 @@ Triplespace does not come with MediaWiki's editing UI ([0000](0000-init.md), Con
 
 ## Open questions
 
-- **Q1.** ~~**Thresholds.** The values in §3 (0.8 and 0.5 coverage; n ≥ 3 for Table, n ≥ 4 for Series, n > 25 for the full view) are starting guesses for the audit to replace.~~ *Settled by A10: the audit of 2026-10-04 kept every value (Direct).*
-- **Q2.** ~~**Where shape pins live.** One option is log records in a view-preferences graph; the other is instance configuration outside the log.~~ *Settled by [0027](0027-preferences-and-portability.md) §5: a viewer's pin is the `shapes.pins` preference; a tenant-wide pin is a `view-pin` config record.*
-- **Q3.** ~~**The provenance response's form.** It could be a new REST route for each entity, or an Action API `prop` module.~~ *Settled by [0012](0012-api-requirements.md) §5: `GET /entity/{id}/provenance` under `triplespace/v0`, extended by [0004](0004-identity-clusters-and-equivalence.md) §8 (member statements) and [0031](0031-property-constraints.md) §6 (constraint violations).*
+- **Q1. Thresholds.** *Settled by A10.*
+- **Q2. Where shape pins live.** *Settled by [0027](0027-preferences-and-portability.md) §5.*
+- **Q3. The provenance response's form.** *Settled by [0012](0012-api-requirements.md) §5.*
 - **Q4. Several preferred values in Series and Timeline.** It is not settled whether the headline shows all of them or only the most recent.
 - **Q5. Mixed units in one column,** such as km² and mi². The options are converting to a single unit or adding a unit column.
 - **Q6. Overlapping intervals in Timeline,** such as co-holders of an office or disputed periods. The options are stacked lanes or marked rows.

@@ -113,13 +113,13 @@ This ADR adds tenants, makes each tenant its own issuer of identity, lets a tena
 ## Open questions
 
 - **Q1. Partition count at farm scale,** and whether small tenants should share physical tables with the tenant in the key while keeping logical partitions. [0028](0028-tenancy-policy.md) §2 adds three instance partitions per farm.
-- **Q2.** ~~**Cross-tenant ACLs.** Whether a provider tenant may restrict which tenants read it, beyond public-or-private.~~ *Settled by [0028](0028-tenancy-policy.md) §5: reader lists, a `provider-readers` config record in the provider tenant's own `config`.*
-- **Q3.** ~~**Global blocks.** Whether the primary tenant may block an identity-provider subject across every tenant, as farms do.~~ *Settled by [0028](0028-tenancy-policy.md) §4: a block on a farm account, by policy; IP blocks are farm-wide under every preset.*
-- **Q4.** ~~**Deleting a tenant**, and what its former referrers see.~~ *Settled by [0028](0028-tenancy-policy.md) §5: a move with no destination; partitions kept read-only for a grace period, referrers see the last mirrored state with the provider marked gone, then erasure. The grace period's length is open there.*
+- **Q2. Cross-tenant ACLs.** *Settled by [0028](0028-tenancy-policy.md) §5.*
+- **Q3. Global blocks.** *Settled by [0028](0028-tenancy-policy.md) §4.*
+- **Q4. Deleting a tenant.** *Settled by [0028](0028-tenancy-policy.md) §5.*
 - **Q5. Overlay index cost** for a tenant that annotates a large share of a provider's entities.
-- **Q6.** ~~**Reclaim log event** name and parameters, and whether reclaiming should be reversible.~~ *Settled by A17 in part: `reclaim/reclaim`, projected from the reclaiming binding record in the tenant `log` and visible to everyone.*
+- **Q6. Reclaim log event.** *Settled by A17 in part.*
 - **Q7. The retention extract's integrity.** Records lifted from `hashed` partitions carry headers but not whole segments; the receiving instance re-appends them under its own key, which is the guarantee mirrors already have.
-- **Q8.** ~~(Rest of Q6.) The `reclaim/reclaim` event's parameters, and whether reclaiming should be reversible.~~ *Settled by [0088](0088-external-identity-providers.md) §8: one parameter, `method`, `manual` or `vouched`, on a `scatter:v0/reclaim` record.*
+- **Q8. (Rest of Q6.) The `reclaim/reclaim` event's parameters.** *Settled by [0088](0088-external-identity-providers.md) §8.*
 - **Q9.** (Rest of Q8.) Whether reclaiming should be reversible.
 
 ## References

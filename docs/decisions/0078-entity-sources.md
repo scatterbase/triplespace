@@ -113,7 +113,7 @@ James's direction, from the design discussion of 2026-10-07 and 2026-10-08:
 - **Q1. Upstream history.** Whether a source may mirror its edit history, which needs an issuer per source ([0007](0007-actor-identity.md) §1 already says another Wikibase or Miraheze wiki gets one, keyed by its wiki ID) and `log/{name}` and `actors/{name}` partitions of tenant scope.
 - **Q2. Verified sources.** A Triplespace instance as a source with `trust = verified` ([0022](0022-federation.md) §2) needs its key chain in the tenant's configuration.
 - **Q3. Collisions by construction.** Whether to reserve a syntactic space for tenant names, so that rule 2 of §3 can never apply.
-- **Q4.** ~~**Page repositories.** Whether a page repository's `provider` ([0052](0052-page-repositories-and-title-inheritance.md) §1) may name an entity source, so a tenant can serve an unregistered wiki's pages without a registry entry.~~ *Settled by [0080](0080-tenants-as-entity-sources.md) §6, for tenants: a `tenant` repository names the reader's tenant source; the rest is Q8.*
+- **Q4. Page repositories.** *Settled by [0080](0080-tenants-as-entity-sources.md) §6, for tenants.*
 - **Q5. Lua.** Whether [0043](0043-lua-modules.md) §8's letter remapping may map a letter to a source.
 - **Q6. Withholding granularity.** §8 withholds a whole statement when one qualifier or reference value is unbound. Whether to drop only that qualifier or reference instead.
 - **Q7. Sources that are not Wikibases.** Adapters for a source with a SPARQL endpoint or a dump but no Wikibase API.

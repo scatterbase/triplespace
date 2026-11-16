@@ -163,8 +163,8 @@ James's direction, from the design discussion of 2026-09-30:
 - **Q3. Perceptual hashing and hash lists.** A takedown blocks exact bytes only. Matching re-encoded copies (PDQ, PhotoDNA) and importing industry hash lists for illegal material are operator tools this ADR does not specify.
 - **Q4. More thumbnailers.** PDF and DjVu pages, video posters and transcoding (MediaWiki's TimedMediaHandler), audio waveforms, 3D models. Each needs a renderer that fits the licence and sandboxing rules.
 - **Q5. `files.reclaim_after`.** Whether 365 days is the right default, and whether an instance should be able to set reclamation per namespace or per reason.
-- **Q6.** ~~**Mirroring at Wikidata scale.** A full Wikidata mirror references millions of Commons files through P18 and similar properties; whether `used` should count mirrored statements by default, or only local use.~~ *Settled by A12: page usage plus the local graph's statements by default; a repository opts in to resolved-view usage with `mirror_usage = resolved`, and `view.value_key` carries media-type rows only when a repository is configured.*
-- **Q7.** ~~**MediaInfo.** If an instance mirrors Commons' MediaInfo entities (`WDM`, [0000](0000-init.md)), whether a foreign Commons file's page should show them as its page data.~~ *Settled by [0065](0065-mediainfo-captions-and-commons.md) §2: it does, overlaid with local corrections.*
+- **Q6. Mirroring at Wikidata scale.** *Settled by A12.*
+- **Q7. MediaInfo.** *Settled by [0065](0065-mediainfo-captions-and-commons.md) §2.*
 - **Q8. `geo-shape` and `tabular-data`**, which point at Commons' Data namespace rather than at files.
 - **Q9. Two-person expunge.** Whether `ts-expunge` should need a second operator's confirmation, given that it cannot be undone.
 

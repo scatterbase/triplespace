@@ -84,7 +84,7 @@ Two constraints shape the rest. The **host of a URL is a Domain** ([0009](0009-k
 - **Q1. Liveness.** Whether to check that a linked URL resolves, at write or periodically, and what to do when it stops.
 - **Q2. Titles for non-wiki links.** Whether to fetch a page's `<title>` for display, or leave the path as the title.
 - **Q3. Trailing slashes and case.** Whether hosts that treat `/Foo` and `/Foo/` alike should be foldable per host, and whether a site alias should declare case-insensitivity.
-- **Q4.** ~~**Links to other tenants and instances.** A sitelink to another tenant's entity page is better expressed as a cluster link ([0004](0004-identity-clusters-and-equivalence.md), [0018](0018-tenants.md) §5); whether to refuse it, or convert it, is open.~~ *Settled by A2: it is a plain sitelink, asserting nothing about identity, like a link to any page. An editor who means "this is Librarybase's Q6" writes `same-as` to `LBQ6`; the two are different statements and the UI does not convert one into the other.*
+- **Q4. Links to other tenants and instances.** *Settled by A2.*
 - **Q5. Language for non-aliased hosts**, so that `schema:inLanguage` can be emitted more often.
 - **Q6. Whether a sitelink should make its host's Domain present** (§5), for tenants that treat their linked sites as data.
 

@@ -116,10 +116,10 @@ James's direction, from the design discussion of 2026-10-01:
 
 ## Open questions
 
-- **Q1.** ~~**Merging upstream changes.** A three-way merge of upstream's diff since the fork onto the fork's current text, as a guided edit; and whether a tenant may choose to re-follow upstream for a fork nobody has changed.~~ *Settled by [0068](0068-merging-with-upstream.md) §2 and §5: `Special:MergeUpstream` and `fork.refollow`.*
+- **Q1. Merging upstream changes.** *Settled by [0068](0068-merging-with-upstream.md) §2 and §5.*
 - **Q2. Forking into another namespace.** Whether a repository's page may be forked under a different local title, which the stack's title identity does not allow today.
 - **Q3. Partial seeding by date.** Whether `fork.max_revisions` should be a span of years rather than a count, which is what readers of a history usually want.
-- **Q4.** ~~**Signature-level attribution.** Whether, where a section's signatures parse cleanly, the import should attribute the thread's opening post to the first signer under the repository's issuer, as 0019 Q5 suggested, instead of to the forker.~~ *Settled by [0090](0090-converting-talk-pages-comment-by-comment.md) §6: every comment is its own post, attributed to its author, resolved from its signature and the talk page's history.*
+- **Q4. Signature-level attribution.** *Settled by [0090](0090-converting-talk-pages-comment-by-comment.md) §6.*
 - **Q5. Forking across tenants.** A `tenant` repository's page is forked by the same job, reading the source tenant's records directly; whether the source tenant should be told, or its page linked back.
 - **Q6. Images in the fork's history.** Old revisions reference files that may no longer exist upstream; whether the file job should offer to fetch them from the repository's deleted-file archive where it is readable.
 

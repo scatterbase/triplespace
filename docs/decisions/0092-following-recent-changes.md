@@ -104,9 +104,9 @@ James's direction, from the design discussion of 2026-10-26:
 
 ## Open questions
 
-- **Q1.** ~~**Page repositories without events.** [0053](0053-mirrored-pages.md) §6 says such a repository "is polled or waits for its TTL", without saying how. Whether it uses this follower, over its served namespaces.~~ *Settled by §9: it does.*
-- **Q2.** ~~**Another Triplespace instance.** A provider that is a Triplespace instance publishes its log and checkpoints ([0022](0022-federation.md) §2), which serve better than recent changes. Whether its follower reads those instead.~~ *Withdrawn: [0022](0022-federation.md) §2 already answers it (17 §1.2; 16 §4.4). It follows the provider's activity stream filtered to `source = local`, verified against its checkpoints, never recent changes. Its position is the stream's per-partition resume token, kept in `ops.repo_cursor`'s `last_event_id` (§3).*
-- **Q3.** ~~**Higher limits.** `rclimit` and `wbgetentities` take 500 and 50 for anonymous clients. Whether the instance may log in to a provider with a bot account for `apihighlimits`, and where that credential lives.~~ *Settled by §10: it may, optionally, with a bot password sealed in `private`.*
+- **Q1. Page repositories without events.** *Settled by §9.*
+- **Q2. Another Triplespace instance.** *Withdrawn: [0022](0022-federation.md) §2 already answers it (17 §1.2; 16 §4.4). It follows the provider's activity stream filtered to `source = local`, verified against its checkpoints, never recent changes. Its position is the stream's per-partition resume token, kept in `ops.repo_cursor`'s `last_event_id` (§3).*
+- **Q3. Higher limits.** *Settled by §10.*
 
 ## References
 

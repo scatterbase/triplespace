@@ -20,7 +20,7 @@ How the design is written down: the chapters of this directory, the ADRs of [`..
 - **Current:** the header, the Decision's headings and pointers, the Consequences, and the state of each open question. They say what holds now. Reading the Decision's pointers, and the chapter sections they name, gives the decision as it stands.
 - **Historical:** the Context, its Direction, and the Amendment log. They say what was known, wanted and changed, and they are never rewritten. References are only appended to.
 
-**Nothing is deleted.** Text that stops being current moves to the Amendment log (§6) or is struck through in place (§7, §8). A chapter's text is never deleted either: the log entry that removes it names the sections it stood in, and the entry's commit holds it (§6).
+**Nothing is deleted.** Text that stops being current moves to the Amendment log (§6) or is struck through in place (§7); a settled question keeps its ID and title, and the commit that settles it holds what it asked (§8). A chapter's text is never deleted either: the log entry that removes it names the sections it stood in, and the entry's commit holds it (§6).
 
 **What an ADR says is decided, whoever drafted it.** A section Claude proposed carries no mark and has the same standing as one James wrote, until a later change says otherwise. That change is an amendment like any other.
 
@@ -118,7 +118,7 @@ When an ADR, or a decision made directly, changes the text of ADR *Y*, the same 
 1. **Fold.** Rewrite the affected text so that it states the current decision, in the chapter section that *Y*'s pointer names, in the same commit. Where a reader would want the detail, cite the source in the sentence: "Deletion is an ACL ([0023](../decisions/0023-moderation.md) §4)." Add the changing ADR's section to the chapter section's provenance line (§10.2).
 2. **Log.** Append an entry to *Y*'s Amendment log (§6). The entry names the chapter sections whose text the change removes or contradicts as **Replaced text**; the commit that makes the change holds that text, so it is not quoted (§6).
 3. **Mark.** Add the entry's ID to the provenance line of each *Y* section it changed. Strike any consequence the change makes false (§7). If *Y* is `Accepted`, add the entry's ID to its status (§2.2). Set *Y*'s `Updated`.
-4. **Answer.** If the change settles an open question, strike the question and say what settled it (§8). Settling a question needs no log entry: the struck question is the record.
+4. **Answer.** If the change settles an open question, replace its text with what settled it, keeping its ID and title (§8). Settling a question needs no log entry: the settled question is the record.
 
 The changing ADR names *Y* in its header's `Changes` and in its section headings; the target's log entry names the changing section as its Source. The index (§13) derives both directions from these, so they are stated once each.
 
@@ -183,10 +183,11 @@ A consequence the change adds is appended as a new bullet. Consequences are not 
 
 *Sources: [0050](../decisions/0050-adr-format.md) §10.*
 
-- **Every open question has an ID,** `Q1`, `Q2`, …, written before the strike so that it stays readable: `- **Q3.** ~~**The main namespace.** …~~ *Settled by A6: …*`. IDs are permanent.
-- **A settled question is struck,** followed by *Settled by NNNN §N: answer.* or *Settled by An: answer.* for a direct decision. A question dropped without an answer is *Withdrawn: reason.*
-- **A question settled in part is struck whole,** and what remains open is appended as a new question that names the old one: `- **Q9.** (Rest of Q4.) …`. Partial strikes in the middle of a sentence are not used.
-- **An answer that later changes** is extended after the settlement, not rewritten (0008 Q3).
+- **Every open question has an ID and a title,** `- **Q3. The main namespace.** …`, with `Q1`, `Q2`, … assigned in order. IDs are permanent.
+- **A settled question keeps its ID and title and names what settled it:** `- **Q3. The main namespace.** *Settled by A6.*`, in the change that settles it. The source is an ADR or its section (*Settled by 0038 §8.*), a section of the same ADR (*Settled by §3.*) or, for a direct decision, the log entry that records it (*Settled by A6.*). The text it asked is not kept in the file and not struck through: the commit that settles it holds it, and `tools/adr.py questions NNNN Qn --before` prints the question as it was asked, finding the commit each time as §6 does.
+- **The answer is not restated** where the source states it, which the chapter section or the log entry does. It stays in the note, after a colon (*Settled by NNNN §N: answer.*), only where nothing else holds it: the source is not an ADR or a log entry (a registry change, a test vector, a decision in discussion that no entry records), or the answer has a detail the source's text lacks. A question dropped without an answer is *Withdrawn: reason.*, and the reason always stays, since only the note holds it.
+- **A question settled in part is settled whole,** and what remains open is appended as a new question that names the old one: `- **Q9.** (Rest of Q4.) …`.
+- **An answer that later changes** is extended after the settlement, not rewritten: *Settled by A6.* *Changed by 0038 §8 (A9).* (0008 Q3).
 
 ## 9. Citations
 
@@ -259,7 +260,7 @@ The namespace table, the content-model table, the REST route table, the permissi
 4. Log IDs contiguous, the required fields present, and Replaced text where §5 requires it.
 5. Provenance lines that agree with the log, in both directions.
 6. The header's `Changes` agrees with the section headings, and every target in it has a log entry or a settled question naming this ADR as its source.
-7. Contiguous `Q` IDs, each struck question with a *Settled by* or *Withdrawn*.
+7. Contiguous `Q` IDs; no question struck through; each settled question in the form of §8, with its title.
 8. `NNNN An` and `NNNN Qn` citations that resolve.
 9. No blockquote callout announces a change.
 10. **Every Decision section is a pointer or a stub**, the pointer names existing chapter sections, and each named section's provenance line cites the pointing ADR section (or its parent).

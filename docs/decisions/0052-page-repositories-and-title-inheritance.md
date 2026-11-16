@@ -105,7 +105,7 @@ James's direction, from the design discussion of 2026-10-01:
 
 ## Open questions
 
-- **Q1.** ~~**Local metadata on foreign pages.** Whether a title whose primary is foreign may carry local page statements, keyed by the ranged ID, and how a fork carries them across the change of page ID. The file-page precedent ([0039](0039-files-and-media.md) §11, "a local page for a foreign file") suggests yes.~~ *Settled by [0110](0110-remote-pages-and-revisions.md) §9: a foreign page with a remote key carries page statements, stored on the remote key; a fork is a new page and does not take them.*
+- **Q1. Local metadata on foreign pages.** *Settled by [0110](0110-remote-pages-and-revisions.md) §9.*
 - **Q2. Sitelinks to inherited titles.** Whether a sitelink may target a foreign primary by title rather than page ID, breaking when the title is forked, or whether forking should re-target it.
 - **Q3. Foreign category membership.** Whether a `Category:` page served by a repository should list the repository's members, fetched live or from the mirror, and whether mirrored pages' categories should join `view.page_category` in `mirror` mode.
 - **Q4. Watching foreign pages.** Whether a watch on an inherited title should deliver the repository's changes to the page, which needs the repository's events ([0053](0053-mirrored-pages.md) §6) to become activity rows or notifications.

@@ -110,8 +110,8 @@ The backend stack is in 0033.
 
 ## Open questions
 
-- **Q1.** ~~Codex upgrade cadence, and whether to track the version bundled with a MediaWiki release.~~ *Settled by A8: the latest release, bumped deliberately in its own commit; MediaWiki's bundled version is not tracked.*
-- **Q2.** ~~Night mode: adopt Codex's dark-mode tokens when they are stable.~~ *Settled by [0086](0086-theming.md) §2: Codex's dark tokens are the base a palette's `dark` variant overlays, and `parchment` ships a walnut-brown dark variant.*
+- **Q1. Codex upgrade cadence.** *Settled by A8.*
+- **Q2. Night mode.** *Settled by [0086](0086-theming.md) §2.*
 - **Q3.** Whether the Rust Codex builder becomes a published crate other projects can use.
 - **Q4.** An interactive charting library for exploring a property's full view (0003), beyond the static SVGs.
 - **Q5.** Visual regression testing.

@@ -110,7 +110,7 @@ James's direction, from the design discussion of 2026-09-30:
 - **Q3. A MediaInfo IRI.** Whether the RDF should also give each File page's statements the entity IRI `{base}/entity/M{pageid}`, so that queries written for the Commons Query Service (`sdc:M…`) work unchanged.
 - **Q4. Adopting a wiki that ran WikibaseMediaInfo.** Importing its `mediainfo` slots as page statements on the adopted File pages ([0035](0035-adopting-a-wikibase.md), [0039](0039-files-and-media.md) §14).
 - **Q5. Mirrored Commons MediaInfo** (`WDM`) shown on foreign files, which [0039](0039-files-and-media.md) Q7 leaves open. With this ADR, a mirrored `WDM` entity would be the `mediainfo` slot of a foreign File page, not the page of a MediaInfo namespace.
-- **Q6.** ~~**EntitySchema's namespace.** This ADR reserves the `EntitySchema` model; by [0008](0008-namespaces-and-document-pages.md) §2 rule 1, its namespace numbers should be reserved in `namespaces.toml` too.~~ *Settled by [0064](0064-entityschema-and-validation.md) §2: 640 and 641 are implemented with the extension's meaning.*
+- **Q6. EntitySchema's namespace.** *Settled by [0064](0064-entityschema-and-validation.md) §2.*
 
 ## References
 

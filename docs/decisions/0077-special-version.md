@@ -137,7 +137,7 @@ And on the first proposal, the same day:
 
 - **Q1. Version probes for QLever and Parsoid.** Deferred by direction: both are shown without a version until a probe is chosen for each.
 - **Q2. JavaScript licence labels.** Whether to add LibreJS-style labels, a table of every script with its licence and source, beside the header comments of §3.
-- **Q3.** ~~**Agents and their ADRs.** Whether each agent's row should list the ADRs it wrote, which would put the Author lines' data into `version.toml` or the manifest.~~ *Withdrawn: the page names no ADRs (§1).*
+- **Q3. Agents and their ADRs.** *Withdrawn: the page names no ADRs (§1).*
 - **Q4. Translators.** If messages are translated on translatewiki.net, whether translators are credited on `Special:Version/Credits`, as MediaWiki credits them through each message file's `@metadata`.
 
 ## References

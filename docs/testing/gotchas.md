@@ -148,7 +148,8 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
 
 ## Git history
 
-- `tools/adr.py log NNNN An --before` and `--diff` read the repository's history (24 §6): they
+- `tools/adr.py log NNNN An --before` and `--diff`, and `questions NNNN Qn --before`, read the
+  repository's history (24 §6, §8): they
   need a clone with full history. In a shallow clone (`git clone --depth`, a session's default
   clone, Actions' default checkout) they name the wrong commit or find none, and the sandbox copy
   unpacked from a tar has no history at all. Run them on James's checkout, or in a full clone;

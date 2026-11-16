@@ -112,7 +112,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 
 ## Open questions
 
-Every unstruck question in every ADR (24 §8), with its first sentence. Settle one in its ADR: strike it with *Settled by …* or *Withdrawn: …*.
+Every unsettled question in every ADR (24 §8), with its first sentence. Settle one in its ADR: replace its text with *Settled by …* or *Withdrawn: …*, keeping its ID and title.
 
 | Question | Title | What is open |
 |---|---|---|

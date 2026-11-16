@@ -105,13 +105,13 @@ Four constraints follow from how MediaWiki treats accounts:
 
 ## Open questions
 
-- **Q1.** ~~**Erasing an attribution but keeping the content.** 0006 erases a whole body, so for a local change set it erases the payload and the attestation together. Right to vanish does not need this (§4), but a legal demand to cut the tie between an edit and even a numeric account would. A separate commitment for the attestation would allow it. That changes the record format, so it has to be decided before `scatter-log`'s first release.~~ *Settled by [0015](0015-record-format-and-partition-registry.md) §1: the body is a list of parts, each with its own salt and leaf; an `erase` with `parts: [attestation]` removes the actor and job and leaves the content and its IDs in place.*
+- **Q1. Erasing an attribution but keeping the content.** *Settled by [0015](0015-record-format-and-partition-registry.md) §1: the body is a list of parts, each with its own salt and leaf; an `erase` with `parts: [attestation]` removes the actor and job and leaves the content and its IDs in place.*
 - **Q2. Issuers in RDF.** Whether actor nodes should carry their issuer explicitly, for example `scatter:issuedBy`, or leave consumers to infer it from the IRI template.
 - **Q3. Linking beyond Wikimedia.** Other identity providers, such as ORCID, would need their own proof of control. ORCID also names the people that OpenAlex authors refer to, so that proof would come close to the rule in §7 against linking actors to content entities.
 - **Q4. Links between two foreign accounts.** Whether a user may link, say, a Wikidata account and a Miraheze account without either being local.
-- **Q5.** ~~**Keys.** Scatterbase registers client signing keys and needs to bind them to actors. Key registration, rotation and compromise recovery remain with the identity work the two products share ([0006](0006-log-integrity-and-erasure.md) §6).~~ *Settled by [0015](0015-record-format-and-partition-registry.md) §1 and [0024](0024-subsidiary-accounts.md) §4, in their amendments of 2026-09-27: a `scatter:v0/key` actor record registers, rotates and revokes an actor's Ed25519 public key, and a subsidiary may sign its writes into the attestation part. Compromise of the instance key remains open in 0006.*
-- **Q6.** ~~**Permissions.** Who may rename, hide or vanish local accounts, and who may remove a link.~~ *Settled by [0016](0016-permissions-and-access-control.md) §5: the holder for their own account; `renameuser`, `hideuser` and `ts-unlink` for others; nobody vanishes another's account. Hiding is an `actor` ACL since [0023](0023-moderation.md) §5.*
-- **Q7.** ~~**Serving `Special:Redirect/user/{id}` locally.** Whether the MediaWiki compatibility surface should serve it as an alias of `{base}/user/{id}`.~~ *Settled by [0047](0047-special-pages.md) §9: served, with `revision`, `page`, `file` and `logid`, resolved locally.*
+- **Q5. Keys.** *Settled by [0015](0015-record-format-and-partition-registry.md) §1 and [0024](0024-subsidiary-accounts.md) §4, in their amendments of 2026-09-27.*
+- **Q6. Permissions.** *Settled by [0016](0016-permissions-and-access-control.md) §5.*
+- **Q7. Serving `Special:Redirect/user/{id}` locally.** *Settled by [0047](0047-special-pages.md) §9.*
 
 ## References
 

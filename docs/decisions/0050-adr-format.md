@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-11-16 (A7)
+- **Updated:** 2026-11-16 (A8)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0026](0026-sitelinks.md), [0027](0027-preferences-and-portability.md), [0028](0028-tenancy-policy.md), [0029](0029-resolver-namespaces.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0032](0032-sparql-update-stream.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0035](0035-adopting-a-wikibase.md), [0036](0036-openstreetmap-providers.md), [0037](0037-gdelt-provider.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0044](0044-tenant-relative-ids.md), [0045](0045-table-content-model.md), [0046](0046-primary-tenant.md), [0047](0047-special-pages.md), [0048](0048-notation.md), [0049](0049-boards.md), [0051](0051-page-redirects.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [0056](0056-security-model.md), [0057](0057-web-tier.md), [0058](0058-packed-record-storage.md), [0059](0059-query-service.md), [0060](0060-scopes.md), [0061](0061-sprints-and-tasks.md), [0062](0062-workspaces.md), [0063](0063-query-namespace.md), [0064](0064-entityschema-and-validation.md), [0065](0065-mediainfo-captions-and-commons.md), [0066](0066-lexemes.md), [0067](0067-proposals.md), [0068](0068-merging-with-upstream.md), [0069](0069-synchronized-talk-pages.md), [0070](0070-shallow-entity-mirroring.md), [0071](0071-derived-statements-from-mirrored-pages.md), [0072](0072-template-mappings.md), [0073](0073-lines-links-and-url-patterns.md), [0074](0074-publishing-a-scope-to-an-external-wiki.md), [0075](0075-mcp-server.md), [0076](0076-dataset-publication.md), [0077](0077-special-version.md), [0078](0078-entity-sources.md), [0079](0079-derived-issuer-codes.md), [0080](0080-tenants-as-entity-sources.md), [0081](0081-recovery-keys-and-continuations.md), [0082](0082-source-form-and-the-shared-view.md), [0083](0083-write-path-in-three-tiers.md), [0084](0084-wikibase-writes-against-the-resolved-view.md), [0085](0085-settings-and-preferences.md), [0086](0086-theming.md), [0087](0087-account-registration-and-challenges.md), [0088](0088-external-identity-providers.md), [0089](0089-the-auth-host-and-instance-logins.md), [0090](0090-converting-talk-pages-comment-by-comment.md), [0091](0091-one-wikibase-adapter.md), [0092](0092-following-recent-changes.md), [0093](0093-fallback-typefaces.md), [0094](0094-accessibility-alternates.md), [0095](0095-the-interface-namespace.md), [0096](0096-adopting-any-mediawiki.md), [0097](0097-versioning-and-skins.md)
 - **Uses:** [0005](0005-crate-organization.md), [0013](0013-postgres-storage.md)
@@ -51,7 +51,7 @@ And later the same day, on implementation in part:
 
 ### 1. Current text and historical text
 
-*Changed by A1, A5.*
+*Changed by A1, A5, A8.*
 
 *Current text: [24](../architecture/24-documentation.md) §1.1.*
 
@@ -79,7 +79,7 @@ And later the same day, on implementation in part:
 
 ### 6. Changing an ADR: fold, log, mark
 
-*Changed by A1, A2, A5.*
+*Changed by A1, A2, A5, A8.*
 
 *Current text: [24](../architecture/24-documentation.md) §4, §11.*
 
@@ -101,6 +101,8 @@ And later the same day, on implementation in part:
 
 ### 10. Open questions
 
+*Changed by A8.*
+
 *Current text: [24](../architecture/24-documentation.md) §8.*
 
 ### 11. Citations
@@ -111,7 +113,7 @@ And later the same day, on implementation in part:
 
 ### 12. The checker
 
-*Changed by A1, A2, A4.*
+*Changed by A1, A2, A4, A8.*
 
 *Current text: [24](../architecture/24-documentation.md) §12, §13.*
 
@@ -149,11 +151,11 @@ And later the same day, on implementation in part:
 
 ## Open questions
 
-- **Q1.** ~~**Status.** Whether to start using `Accepted`, and when (at the merge that implements an ADR, or at milestone 1). Every ADR is Proposed by the decision of 2026-09-26, so this is James's call.~~ *Settled by §3: an ADR is Accepted once it is implemented in code (Direction).*
-- **Q2.** ~~**Extensions as callouts.** Whether a pure extension, which contradicts nothing, may stay a callout instead of being folded. It is cheaper, and the current text stays correct, but the reader has to assemble it again.~~ *Settled by §6: every change is folded, so the process is the same for all (Direction).*
-- **Q3.** ~~**Unconfirmed proposals.** Whether sections Claude proposed and James has not yet confirmed should carry a mark. The review of 2026-09-26 asked for 0018 §6 and §10 to be read first for this reason.~~ *Settled by §1: no mark; what an ADR says is decided until a later change says otherwise (Direction).*
-- **Q4.** ~~**The generated index.** Whether `INDEX.md` is committed and kept current by the checker, or built only in CI.~~ *Settled by §12: committed, regenerated with `--index`, and checked for staleness (Direction).*
-- **Q5.** ~~**Implemented in part.** Code already implements parts of 0006, 0009, 0017, 0048 and others (`scatter-normalize`, `scatter-providers`, `scatter-vocab`, `scatter-wikibase-model`), but none of them whole. Whether an ADR becomes `Accepted` when its first section is implemented or its last, or whether implementation is marked per section. The same question arises when an amendment lands on an ADR that is already `Accepted` and the new text is not yet implemented.~~ *Settled by §3: `Accepted` when implemented in full; an amendment not yet implemented makes it `Accepted with proposed amendment (An, …)` until it is (Direction).*
+- **Q1. Status.** *Settled by §3.*
+- **Q2. Extensions as callouts.** *Settled by §6.*
+- **Q3. Unconfirmed proposals.** *Settled by §1.*
+- **Q4. The generated index.** *Settled by §12.*
+- **Q5. Implemented in part.** *Settled by §3.*
 
 ## References
 
@@ -225,3 +227,12 @@ Replaced text: [24](../architecture/24-documentation.md) §6.
 - **Summary:** The account of the 2026-10-08 and 2026-10-09 migration said each `relocates` entry names the last commit that carried the text. A5 removed those hashes, so the sentence now says the entries named it until then and that the commit is found from git. No decision changed. Chapter text: [24](../architecture/24-documentation.md) §14.
 
 Replaced text: [24](../architecture/24-documentation.md) §14.
+
+### A8. A settled question keeps its ID and title; git holds what it asked
+
+- **Date:** 2026-11-16
+- **Source:** Direct: James, review of pull request #262, 2026-11-16
+- **Change:** amends §1, §6, §10, §12
+- **Summary:** A settled question is its ID, its title and what settled it, written in the change that settles it; it is no longer struck through with its text kept, because that commit holds the text, as 0050 A5 found for replaced text. `tools/adr.py questions NNNN Qn --before` prints the question as it was asked, finding the commit each time. The answer is not restated where the source states it (an ADR section, whose chapter text holds it, or a log entry); it stays in the note where nothing else holds it, and a withdrawal always keeps its reason. `check_adrs.py` and `OPEN.md` tell a settled question by its *Settled by* or *Withdrawn* note, and the checker rejects a struck question. Every settled question was converted in this change (230): 196 answers were cut to their source, as were 12 later extensions; 15 notes were already a bare source; 6 are withdrawals, kept whole; 5 are kept whole because their source is neither an ADR nor a log entry (0009 Q2 and Q3, 0033 Q2, 0108 Q1, 0109 Q2); and 8 answers are kept because they hold a code name or number that no chapter, registry or API document has (0001 Q1; 0004 Q1, Q4 and Q7; 0007 Q1; 0016 Q7; 0022 Q2; 0030 Q2). Six questions that had no title were given one from their opening words (0018 Q8, 0033 Q1 and Q2, 0034 Q1 and Q2, 0070 Q5). The three struck sub-items under 0001 Q3, which have no ID, are left as they are. Chapter text: [24](../architecture/24-documentation.md) §1.1, §4, §8, §12.
+
+Replaced text: [24](../architecture/24-documentation.md) §1.1, §4, §8, §12.

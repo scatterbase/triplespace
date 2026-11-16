@@ -101,12 +101,12 @@ Domains are also a bulk-ingest target. Citation data carries URLs, and every URL
 
 ## Open questions
 
-- **Q1.** ~~**Namespace number.** An unused subject and talk pair has to be chosen and registered on mediawiki.org's [Extension default namespaces](https://www.mediawiki.org/wiki/Extension_default_namespaces) page.~~ *Settled by [0008](0008-namespaces-and-document-pages.md) §2 (0008 A6): 210/211, in the 210–219 range. Filing the registration on mediawiki.org is a pending action in the registry README, not a decision.*
-- **Q2.** ~~**Provider code** for internetdomains.wiki's non-domain items, under the provider registry that is still open in [0000](0000-init.md).~~ *Settled by a registry change of 2026-09-28: `XD` (`XDQ` items, `XDP` properties), slug `internetdomains`, provider number 5, in `docs/registry/providers.toml` (registry commit, 2026-09-28).*
-- **Q3.** ~~**The identity property.** Which internetdomains.wiki property carries the domain name, and whether its values are stored as A-labels or U-labels.~~ *Settled by the provider's adapter configuration: `P1` (string), dropped from the mirrored state on mapped items. The form of its values is Q8.*
+- **Q1. Namespace number.** *Settled by [0008](0008-namespaces-and-document-pages.md) §2 (0008 A6).*
+- **Q2. Provider code.** *Settled by a registry change of 2026-09-28: `XD` (`XDQ` items, `XDP` properties), slug `internetdomains`, provider number 5, in `docs/registry/providers.toml` (registry commit, 2026-09-28).*
+- **Q3. The identity property.** *Settled by the provider's adapter configuration: `P1` (string), dropped from the mirrored state on mapped items. The form of its values is Q8.*
 - **Q4. Resolving duplicates locally.** Whether the instance may choose which upstream item maps to a key while a duplicate stays unresolved upstream, and with what operation.
 - **Q5. What `scatter.red` serves** at `https://scatter.red/domain/{key}`: nothing, a 303 redirect to an instance, or a small document.
-- **Q6.** ~~**The next keyed types.** DOI is the obvious candidate. Its normalizer exists ([0004](0004-identity-clusters-and-equivalence.md) §7), but its IRI would be `https://doi.org/{key}`, and a DOI can contain almost any character, so its key grammar and its ID disjointness need their own analysis.~~ *Settled by [0017](0017-entity-id-grammar.md) §5 (Keyword is the second keyed type; disjointness comes from the `type:` prefix) and [0029](0029-resolver-namespaces.md) §1 (DOI is a resolver, not a keyed type: it names a thing that already has an item). 0029's Consequences state the rule for the next identifier.*
+- **Q6. The next keyed types.** *Settled by [0017](0017-entity-id-grammar.md) §5 (Keyword is the second keyed type; disjointness comes from the `type:` prefix) and [0029](0029-resolver-namespaces.md) §1 (DOI is a resolver, not a keyed type.*
 - **Q7. Tier-2 link properties.** Which Wikidata properties, if any, should link Wikidata items to Domains.
 - **Q8. The identity property's form.** (Rest of Q3.) Whether `P1`'s values are stored as A-labels or U-labels.
 

@@ -72,10 +72,10 @@ This ADR replaces the one grammar of 0009 §3 with three, each declared in the r
 
 - **Q1. Keyword keys in scripts without word boundaries.** The normalizer produces one hyphen per run of whitespace or punctuation; a CJK phrase becomes its own key unchanged. Whether that is the right key, or whether keys should be transliterated or segmented, needs a look at OpenAlex's non-English keywords.
 - **Q2. Keyword score.** Which role carries OpenAlex's per-work keyword score, and whether it should be a qualifier or dropped.
-- **Q3.** ~~**Namespace numbers** for `Keyword` and `Keyword talk`, to be registered with Domain's.~~ *Settled by `docs/registry/namespaces.toml`, under the numbering policy of 0008 A6: 212/213.*
+- **Q3. Namespace numbers.** *Settled by `docs/registry/namespaces.toml`, under the numbering policy of 0008 A6.*
 - **Q4. MusicBrainz edit history.** Whether to mirror MusicBrainz edits as log events ([0011](0011-logs.md)), which would give its issuer numeric editors.
 - **Q5. A `slug` grammar.** No registered minted type needs one now that keywords are keyed; whether to define it in advance for a future provider.
-- **Q6.** ~~**DOI.** Its grammar, normalizer and whether its IRI is `https://doi.org/{key}` or `https://scatter.red/doi/{key}` ([0009](0009-keyed-entity-types-and-domain.md) Q6).~~ *Settled by [0029](0029-resolver-namespaces.md) §1: a resolver, not a keyed type; the `doi:` prefix is withdrawn, and resolver names share the keyed-type namespace.*
+- **Q6. DOI.** *Settled by [0029](0029-resolver-namespaces.md) §1.*
 
 ## References
 

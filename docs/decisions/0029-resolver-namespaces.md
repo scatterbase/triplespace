@@ -74,7 +74,7 @@ The instance already has every part of this. [0013](0013-postgres-storage.md) §
 
 ## Open questions
 
-- **Q1.** ~~**Namespace numbers.** `DOI` and `URL` are allocated; the 220–229 range holds three more pairs, so a sixth resolver needs a second range.~~ *Settled by the numbering policy of 0008 A17: the second resolver range is 320–329.*
+- **Q1. Namespace numbers.** *Settled by the numbering policy of 0008 A17.*
 - **Q2. Resolvers across tenants.** Whether a resolver at the farm base should search every tenant's identifiers under a `search.farm_wide` policy ([0028](0028-tenancy-policy.md) §9).
 - **Q3. Resolving to non-canonical members.** When the entity found is a non-canonical cluster member, the redirect goes to the canonical entity ([0004](0004-identity-clusters-and-equivalence.md) §4); whether the page should say so.
 - **Q4. Grammar strictness for DOI.** The suffix may contain almost any character; whether to accept everything after `10.xxxx/` or apply Crossref's practical limits.

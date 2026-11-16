@@ -135,10 +135,10 @@ James's direction, from the design discussion of 2026-10-03:
 
 ## Open questions
 
-- **Q1.** ~~**Purging the response cache by tag.** When `web.cache` is the instance's L1 Valkey, the erasure path of 0014 §5 could delete `web:` entries by tag and lift the `max_ttl` bound; whether that is worth the coupling.~~ *Settled by §5 and §14: the cache is not purged; every use revalidates, except responses whose `max-age` the API sets because no purge can change them, capped at 60 seconds; a plain purge bumps the render epoch (Direction). Pushing purges is Q5.*
-- **Q2.** ~~**The OAuth consent page.** It is HTML the authorization server serves ([0025](0025-oauth-server.md) §1). Whether it moves to the web tier as a special page that posts the decision back to the API, as MediaWiki's `Special:OAuth/authorize` does.~~ *Settled by §13: it moves, with the device and consumer pages, over request handles (Direction).*
-- **Q3.** ~~**Transport security between the tiers.** Whether the web tier reaches `web.api` over plain HTTP/2 on a private network or TLS inside it, and whether `instance check` should require the latter.~~ *Settled by §4: TLS unless the API's host resolves only to internal addresses (Direction). Trust by certificate is Q6.*
-- **Q4.** ~~**`action=render` regions as a contract.** Whether the region names of §8 are documented for third parties with a stability promise, or stay internal to the site.~~ *Settled by §8: the names are a contract, the markup is not (Direction).*
+- **Q1. Purging the response cache by tag.** *Settled by §5 and §14.*
+- **Q2. The OAuth consent page.** *Settled by §13.*
+- **Q3. Transport security between the tiers.** *Settled by §4.*
+- **Q4. `action=render` regions as a contract.** *Settled by §8.*
 - **Q5. Pushing purges to the web tier.** If revalidation round trips show up in measurements, the API could publish purged tags on a Valkey channel that every web replica follows; whether that is worth the coupling and the risk of a missed message.
 - **Q6. Trusting proxies by certificate.** Where a service mesh gives each workload a certificate (Envoy's `x-forwarded-client-cert`), the API could trust a hop by its certificate identity, as a third option beside addresses and forwarder keys.
 

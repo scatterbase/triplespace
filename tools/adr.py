@@ -11,6 +11,7 @@
   adr.py log 0008            an ADR's Amendment log; `log 0008 A6` for one entry
   adr.py log 0083 A6 --diff  what an entry changed, from git; --before for the text it replaced
   adr.py questions 0090      an ADR's open questions, settled ones marked
+  adr.py questions 0008 Q3 --before   a settled question as it was asked, from git
   adr.py code 0013 §7        the code that cites a section (file:line), from tools/coverage.py
 
 Four digits name an ADR, one or two a chapter. "§" is optional: `show 0013 7.1` works.
@@ -546,8 +547,51 @@ def cmd_questions(a):
     if kind != "adr":
         die("chapters carry no open questions; ask the ADRs they cite")
     q = h2(read(path).splitlines(), "Open questions")
+    if a.before and not a.question:
+        die("--before needs a question: `questions 0008 Q3 --before`")
+    if a.question:
+        qid = a.question.upper()
+        line = next((l for l in q if l.startswith(f"- **{qid}.")), None)
+        if line is None:
+            die(f"no {qid} in {os.path.basename(path)}'s open questions")
+        if a.before:
+            question_before(path, qid, line)
+            return
+        print(f"[{os.path.basename(path)}]")
+        print(line)
+        return
     print(f"[{os.path.basename(path)}]")
     print("\n".join(q[1:]).strip() or "(none)")
+
+
+SETTLED = re.compile(r"\*(Settled by|Withdrawn)")
+
+
+def question_before(path, qid, line):
+    """A settled question keeps its ID and title; the text it asked is in git (24 §8). It is the
+    latest version of the question's line that still carried the question: one that was struck
+    through (the form before 0050 A8), or one that was not yet settled. Found each time, so
+    nothing records a hash."""
+    adr = os.path.basename(path)[:4]
+    rel = os.path.relpath(path, ROOT)
+    if not SETTLED.search(line):
+        print(f"[{adr} {qid}] open: the question is in the file")
+        print(line)
+        return
+    pat = rf"^- \*\*{qid}\."
+    # The last commit first: a question settled in uncommitted work is still whole there.
+    for commit in ["HEAD"] + git("log", "--format=%H", "-G", pat, "--", rel).split():
+        rev = commit if commit == "HEAD" else (git("rev-parse", "--verify", "--quiet", f"{commit}^1", check=False) or "").strip()
+        if not rev:
+            break
+        _, text = file_at(rev, "adr", adr)
+        old = next((l for l in h2((text or "").splitlines(), "Open questions") if l.startswith(f"- **{qid}.")), None)
+        if old and ("~~" in old or not SETTLED.search(old)):
+            subject = git("log", "-1", "--format=%h %ad %s", "--date=short", commit).strip()
+            print(f"[{adr} {qid}] as it stood " + ("in the last commit, " if commit == "HEAD" else "before ") + subject)
+            print(old.replace("~~", ""))
+            return
+    die(f"no earlier text of {adr} {qid} in this clone's history (a shallow clone holds too little: docs/testing/gotchas.md)")
 
 
 DOC_LINK = re.compile(r"\[([^\]]+)\]\((?!https?:)[^)\s]*\.(?:md|toml|json)(?:#[^)\s]*)?\)")
@@ -600,6 +644,8 @@ def main():
     lg.set_defaults(fn=cmd_log)
     qu = sub.add_parser("questions", help="an ADR's open questions")
     qu.add_argument("doc")
+    qu.add_argument("question", nargs="?", help="one question, e.g. Q3")
+    qu.add_argument("--before", action="store_true", help="a settled question as it was asked, with its answer, from git")
     qu.set_defaults(fn=cmd_questions)
     co = sub.add_parser("code", help="code citing an ADR or chapter section (tools/coverage.py)")
     co.add_argument("doc")

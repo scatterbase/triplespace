@@ -82,8 +82,8 @@ James's direction, from the design discussion of 2026-11-07:
 
 ## Open questions
 
-- **Q1.** ~~**A transfer without the old operator.** A non-cooperative move (08 §6.3) takes its bundle "from backups or from the old instance's public exports". Whether a backup handed over by someone other than the old operator counts as a transfer, with the sealing of §3, or must be reduced to the export scope first, is left open.~~ *Settled by §7: what a non-cooperative move carries depends on its continuation's mode. A backup yields only the tenant's own partitions. An `unauthorized` continuation carries the export scope; a `recovered` one also the tenant's read-restricted and hidden parts, held sealed until the recovery delay passes uncancelled; suppressed and confidential parts never travel this way.*
-- **Q2.** ~~**The key `private` is encrypted to.** A2 encrypts a backup's `private` schema to a key the operator names; which kind of key (an instance key, a recovery key of [0081](0081-recovery-keys-and-continuations.md), or one of its own), the scheme, and how a restore is given the private key, are left open.~~ *Settled by A3: a backup key set of its own, any `k` of whose keys restore, `k` 1 by default.*
+- **Q1. A transfer without the old operator.** *Settled by §7.*
+- **Q2. The key `private` is encrypted to.** *Settled by A3.*
 
 ## References
 

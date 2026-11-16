@@ -148,11 +148,11 @@ James's direction, from the design discussion of 2026-10-20:
 ## Open questions
 
 - **Q1. Later edits as `edit` records.** In the research, 5.0% of comments had their signature line changed later by their author. Whether the conversion should append those versions as `edit` records on the post, rather than importing the latest text only.
-- **Q2.** ~~**Closures as statuses.** Whether a lifted wrapper should also set a status on its thread or heading post, with 0069's open question on closure templates.~~ *Settled by A1: a wrapper enclosing a whole section is a closing post with `status: closed`; any other wrapper is a collapsing post (§3).*
+- **Q2. Closures as statuses.** *Settled by A1.*
 - **Q3. Temporary accounts.** How `~2025-…` temporary accounts are named as foreign actors.
 - **Q4. Plain-text signatures.** `--MichaelTinkler` and similar, with no link, are found only through history today; whether the registry should recognise them where an account of that name exists.
 - **Q5. Archive titles.** Whether `Talk:X/Archive 5` should resolve on a converted talk page to the threads imported from it, so that `Talk:X/Archive 5#c-…` links keep working, not only the talk page's own.
-- **Q6.** ~~**Fixtures.** Whether Wikipedia text committed as test fixtures needs attribution beyond the dump's own contributors.~~ *Settled by A2: the fixtures' README names the wiki, the licence (CC BY-SA 4.0), each page and revision with a link to its history, and the changes made, which is the attribution the licence asks for; the fixtures are read at run time and compiled into nothing (§13).*
+- **Q6. Fixtures.** *Settled by A2.*
 - **Q7. Converting again.** How a talk page converted by an older splitter is re-converted when the splitter improves, without duplicating threads.
 
 ## References

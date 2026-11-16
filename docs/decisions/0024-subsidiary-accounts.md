@@ -104,10 +104,10 @@ James's direction is to make the relation structural: a bot is a **subsidiary ac
 
 ## Open questions
 
-- **Q1.** ~~**OAuth server for delegated tools.**~~ *Settled by [0025](0025-oauth-server.md): the tool acts as a subsidiary chosen or created at authorization, a created one is `pending` until a bureaucrat approves it, and its edits carry the `oauth:{slug}` tag; it never acts as the primary account.*
+- **Q1. OAuth server for delegated tools.** *Settled by [0025](0025-oauth-server.md).*
 - **Q2. Name patterns.** Whether to require a suffix by default, and what the rules for account names are ([0010](0010-site-ui.md) Q10, settled by 0010 A6).
-- **Q3.** ~~**Per-key change tags.** Whether the key's label should appear as a change tag on the edits it made, so an operator can tell which deployment did what. It would put the label, chosen by the operator, into records.~~ *Settled by [0025](0025-oauth-server.md) §4: keys carry no tag; a label is private state, and an operator who wants deployments told apart uses one subsidiary per deployment.*
-- **Q4.** ~~**Bootstrap login for `owner`.** [0016](0016-permissions-and-access-control.md) §3 has `triplespace-cli` create `local:1` as the sole member of `owner` and issue it "a login token", for an instance with no identity provider configured. §1 and §4 here say a primary account authenticates only through a binding and holds no key or token. The two have to be reconciled before the first `instance create`.~~ *Settled by A3, with the built-in `password` issuer of 0007 A3: a built-in `password` issuer, opt-in through `login.password`, whose binding for `local:1` the CLI creates. A primary account still holds no key or token; a password is a binding to an issuer the instance happens to run.*
+- **Q3. Per-key change tags.** *Settled by [0025](0025-oauth-server.md) §4.*
+- **Q4. Bootstrap login for `owner`.** *Settled by A3, with the built-in `password` issuer of 0007 A3.*
 - **Q5. Adminbots.** Whether a subsidiary may be added to `sysop` at all, or only to a narrower group, as some Wikimedia projects require.
 - **Q6. Key rotation.** Whether to enforce an expiry by default, and whether to notify the operator before one.
 - **Q7. Default limits** in §5, once measured against real bot and human editing rates.

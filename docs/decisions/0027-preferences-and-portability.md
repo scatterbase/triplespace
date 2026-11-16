@@ -79,7 +79,7 @@ This ADR does three things: it names every kind of private state and puts prefer
 - **Q1. The encryption scheme for the private extract**: age-style sealing to an X25519 key supplied for the move is the obvious choice, and the receiving instance's Ed25519 signing key must not be reused for it.
 - **Q2. Inbox in the self-service bundle by default**, or only on request, given its size and its references to records the new instance may not hold.
 - **Q3. Per-device preferences** (a phone and a desktop), which MediaWiki also lacks.
-- **Q4.** ~~**Anonymous preferences**, held in a cookie for readers who are not logged in, as MediaWiki's client-side preferences are.~~ *Settled by [0085](0085-settings-and-preferences.md) §6: held in the browser's storage, never a cookie, and only for keys marked `browser`.*
+- **Q4. Anonymous preferences.** *Settled by [0085](0085-settings-and-preferences.md) §6.*
 - **Q5. Retention of an unreclaimed account's extract**: the grace period of [0018](0018-tenants.md) §10 is not yet a number.
 - **Q6. Third-party import**: whether to read a MediaWiki `list=watchlistraw` dump or an Echo preference export directly, for people arriving from a Wikibase.
 

@@ -70,7 +70,7 @@ James's direction, from the design discussion of 2026-11-06, after 0101 was buil
 
 ## Open questions
 
-- **Q1.** ~~**A rename by hand.** Whether `renameuser` is refused under strict names, or allowed and overwritten at the next login; refusing is simpler and is what "nobody chooses a name" implies.~~ *Settled by A2: refused, with `ts-strict-name`; unconfirmed.*
+- **Q1. A rename by hand.** *Settled by A2.*
 - **Q2. Farm accounts.** What a farm account ([08](../architecture/08-tenants-and-instances.md) §3.5) is named under strict names: the same derived name is the natural answer, and the farm name registry then holds one name per login.
 - **Q3. A provider's username grammar.** Wikimedia's follows MediaWiki's, which the local grammar matches; a later provider ([0088](0088-external-identity-providers.md) Q1) may allow what the local grammar forbids, and would need a mapping or a refusal.
 - **Q4. The stale window.** Whether an instance may ask the provider's users API for the current name on a schedule, so that renames land before the next login, at the cost of a request per account.

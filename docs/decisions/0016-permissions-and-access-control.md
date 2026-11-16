@@ -87,13 +87,13 @@ The two agree on the shape: users, groups, memberships, named permissions, and r
 
 ## Open questions
 
-- **Q1.** ~~**`statement` and `property` ACL targets.** Whether a restriction on one statement, or on every statement of one property (Scatterbase's property-specific rule), is worth the evaluation cost on every local write.~~ *Settled by [0023](0023-moderation.md) §2: both exist; the cost is one indexed lookup per property touched.*
+- **Q1. `statement` and `property` ACL targets.** *Settled by [0023](0023-moderation.md) §2.*
 - **Q2. `autoconfirmed` thresholds** and whether they should follow Wikimedia's defaults. [0030](0030-edit-filters.md) asks the same of autopromotion.
-- **Q3.** ~~**Rate limits and throttles** (`$wgRateLimits`), which are operational state rather than permissions, and where they are configured.~~ *Settled by [0024](0024-subsidiary-accounts.md) §5: `site` configuration by action class and group, counted in Valkey.*
-- **Q4.** ~~**Patrolling and `autopatrol`**, which wait on [0010](0010-site-ui.md)'s patrolling decision.~~ *Settled by [0023](0023-moderation.md) §6 and §11.*
-- **Q5.** ~~**Abuse filters** and other pre-save checks, which are neither permissions nor ACLs.~~ *Settled by [0030](0030-edit-filters.md): edit filters, evaluated in the appending transaction after permissions and ACLs.*
-- **Q6.** ~~**Whether `owner` should be a single account rather than a group** on instances that want a legal owner of record.~~ *Settled by A11: `owner` stays a group with at least one member, which key rotation and continuity need. An instance that wants a named legal owner sets `instance.owner_of_record` in `site` configuration to one of its members; it is shown on `Special:Version` and in `siprop=triplespace` and grants nothing.*
-- **Q7.** ~~**Group membership privacy.** MediaWiki exposes group membership publicly; whether an instance may hide `suppress` membership, as Wikimedia hides some, would need a private group flag.~~ *Settled by A11: no. Every membership is public, as `list=users&usprop=groups` and the `rights/rights` event ([0011](0011-logs.md) §6.1) promise; an instance that wants a discreet suppression team keeps it small.*
+- **Q3. Rate limits and throttles.** *Settled by [0024](0024-subsidiary-accounts.md) §5.*
+- **Q4. Patrolling and `autopatrol`.** *Settled by [0023](0023-moderation.md) §6 and §11.*
+- **Q5. Abuse filters.** *Settled by [0030](0030-edit-filters.md).*
+- **Q6. Whether `owner` should be a single account rather than a group.** *Settled by A11.*
+- **Q7. Group membership privacy.** *Settled by A11: no. Every membership is public, as `list=users&usprop=groups` and the `rights/rights` event ([0011](0011-logs.md) §6.1) promise; an instance that wants a discreet suppression team keeps it small.*
 
 ## References
 

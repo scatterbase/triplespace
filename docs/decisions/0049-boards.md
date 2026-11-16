@@ -114,8 +114,8 @@ James's direction, from the design discussion of 2026-10-01:
 ## Open questions
 
 - **Q1. `Group` handles for boards.** 0022 §6 addresses a talk page's `Group` by its subject's title. A board's title is free text, and could match an entity ID or a username.
-- **Q2.** ~~**Scopes** (§14): which kinds come first, whether a scoped board's members are announced and notify watchers as listed ones do, and the bound on a scope's size for feeds (`feeds.related_limit`, [0020](0020-change-feeds.md) §2).~~ *Settled by [0060](0060-scopes.md) §6: the kinds are 0060 §4's plus `thread_statement` and `boards`, and the bound is `scopes.max_members`; the announcement question is Q7.*
-- **Q3.** ~~**Pinned threads.** Whether a board's definition may name threads to show first, as an announcements board needs.~~ *Settled by [0069](0069-synchronized-talk-pages.md) §4: not in the definition; `pin` and `unpin` records pin a thread on any one of its attachments, talk pages and boards alike.*
+- **Q2. Scopes.** *Settled by [0060](0060-scopes.md) §6.*
+- **Q3. Pinned threads.** *Settled by [0069](0069-synchronized-talk-pages.md) §4.*
 - **Q4. Detaching one's own thread.** Whether a thread's author may remove their thread from a listing without `move`.
 - **Q5. Board moderators.** Whether a board needs a group of its own beyond what ACLs on it express.
 - **Q6. DiscussionTools** (0019 Q4): which page a `discussiontoolspageinfo` call on a listing page reports for a listed thread.

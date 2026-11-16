@@ -95,14 +95,14 @@ James's direction, from the design discussion of 2026-10-16 and 2026-10-17:
 
 ## Open questions
 
-- **Q1.** ~~**Named variants beyond the four**, such as a palette for a colour-vision deficiency, and how a reader would choose one.~~ *Withdrawn: James chose accessibility palettes on 2026-10-17 (§2).*
+- **Q1. Named variants beyond the four.** *Withdrawn: James chose accessibility palettes on 2026-10-17 (§2).*
 - **Q2. TemplateStyles' exact rule** for `html`-prefixed selectors, to be checked against css-sanitizer's source so §6 keeps what TemplateStyles keeps and no more.
-- **Q3.** ~~**A type set for readers with dyslexia**, and which typeface, given the mixed evidence for dyslexia-specific typefaces and their licences.~~ *Settled by §3: James chose on 2026-10-17 to ship `opendyslexic` first; further options are Q7.*
-- **Q4.** ~~**Bundling Atkinson Hyperlegible**: the licence of the files added to the build is to be confirmed as OFL-1.1 when they are added, and Atkinson Hyperlegible Next considered.~~ *Withdrawn: James confirmed on 2026-10-17 that Atkinson Hyperlegible is under the SIL OFL 1.1.*
+- **Q3. A type set for readers with dyslexia.** *Settled by §3.*
+- **Q4. Bundling Atkinson Hyperlegible.** *Withdrawn: James confirmed on 2026-10-17 that Atkinson Hyperlegible is under the SIL OFL 1.1.*
 - **Q5. Personal palettes**, written by a reader for themselves, deferred by James.
 - **Q6. Verifying a font's licence** against the licence fields inside the font file, rather than trusting the record's declaration.
 - **Q7. Further type sets for readers with dyslexia**, such as Lexend, and whether a type set may set letter, word and line spacing, which the British Dyslexia Association's style guide stresses more than the typeface.
-- **Q8.** ~~**A name taken by another level later**: a release whose `themes.toml` adds a name an instance or tenant already uses, or a tenant joining an instance that uses one of its names. Proposed: `registry sync` and the join are refused with the colliding records named, so the operator renames them first, since renaming a record silently would change what `theme.palette` and readers' preferences mean.~~ *Settled by A1: the colliding tenant's record is keyed `{name}~{slug}`, or the instance's with the farm slug when the registry takes its name, with every reference rewritten in the same act; an instance write of a name a tenant uses is refused until it keys the tenant's or chooses another name.*
+- **Q8. A name taken by another level later.** *Settled by A1.*
 
 ## References
 

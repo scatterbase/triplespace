@@ -42,6 +42,7 @@ tools/adr.py show 0013 §7 --adr            # the ADR section as written
 tools/adr.py show 0013                     # an ADR's header and outline
 tools/adr.py log 0008 A6                   # one amendment, with the text it replaced
 tools/adr.py questions 0090                # open questions
+tools/adr.py questions 0008 Q3 --before    # a settled question as it was asked, from git
 ```
 
 Add `--lines N` to `show` to cap a long section; `show 0098 --full` prints a whole ADR with its

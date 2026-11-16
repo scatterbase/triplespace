@@ -99,14 +99,14 @@ James's direction, from the design discussion of 2026-09-30:
 
 ## Open questions
 
-- **Q1.** ~~**Query scopes.** Further kinds of `rows`, in rough order of cost: every entity with a given statement (`P31` = `Q5`), served from the statement indexes; the members of a category ([0038](0038-page-metadata-and-categories.md) §3); the entities in a column of another table; a restricted query language. All under `tables.max_rows`. A query scope also removes §7's two-write problem: an entity created with the right statements appears in the table by itself.~~ *Settled by [0060](0060-scopes.md) §6: `rows` takes every scope kind and a named scope; the two-write problem is gone for any kind but `ids`.*
+- **Q1. Query scopes.** *Settled by [0060](0060-scopes.md) §6.*
 - **Q2. More column kinds:** a qualifier of a property's statements; a rank filter; references; a computed column (a count, a constraint status).
 - **Q3. Values as of a time.** `revid` gives the definition as of a revision but current values. Showing a table's values as they were needs entity states as of a time.
-- **Q4.** ~~**Watching a table's rows,** as a watch option that expands to them, if related changes proves not to be enough.~~ *Settled by [0060](0060-scopes.md) §7: a `rows` watch kind expands the table's rows as a scope.*
-- **Q5.** ~~**Tables in wikitext and Lua.** Transcluding `{{Table:Journals}}` into a page, or reading a table from a module, with usage tracking through the render manifest ([0042](0042-template-expansion-and-parsoid.md) §10).~~ *Settled by [0062](0062-workspaces.md) §3: the `#table` block and `mw.ext.triplespace.table`, tracked by the scoped-block manifest entry.*
-- **Q6.** ~~**`M` IDs as rows.** File pages' statements ([0041](0041-content-models.md) §7) would make tables useful for Commons-style curation; term columns would be read-only until captions are settled.~~ *Settled by [0065](0065-mediainfo-captions-and-commons.md) §3: `M` and `WDM` rows, with captions in term columns and a `thumb` column.*
+- **Q4. Watching a table's rows,.** *Settled by [0060](0060-scopes.md) §7.*
+- **Q5. Tables in wikitext and Lua.** *Settled by [0062](0062-workspaces.md) §3.*
+- **Q6. `M` IDs as rows.** *Settled by [0065](0065-mediainfo-captions-and-commons.md) §3.*
 - **Q7. A faster lane for people.** Whether a large paste by a person should count against a class other than `edit`, or whether rate limits as they stand are the right brake.
-- **Q8.** ~~**The next namespace block** for Triplespace-specific namespaces, now that 210–219 is full.~~ *Settled by the numbering policy of 0008 A17: 310–319.*
+- **Q8. The next namespace block.** *Settled by the numbering policy of 0008 A17.*
 
 ## References
 

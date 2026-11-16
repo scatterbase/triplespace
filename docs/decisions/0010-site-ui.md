@@ -163,17 +163,17 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 
 ## Open questions
 
-- **Q1.** ~~**Watchlists and notifications.** [0000](0000-init.md) lists watchlists among what Triplespace must rebuild or delegate. It is not settled whether a watch on an entity also covers its mirror syncs.~~ *Settled by [0020](0020-change-feeds.md) §2–3 and [0021](0021-notifications.md): a watch covers syncs by default, and notifications are 0021's.*
-- **Q2.** ~~**Patrolling.** Whether local edits get patrol status, and how that interacts with job rows.~~ *Settled by [0023](0023-moderation.md) §6: MediaWiki-shaped; a job is patrolled as one row.*
-- **Q3.** ~~**Global revision IDs** ([0008](0008-namespaces-and-document-pages.md)). They decide how diff URLs look, and whether rows show revision numbers.~~ *Settled by [0013](0013-postgres-storage.md) §6 and [0015](0015-record-format-and-partition-registry.md) §2; `oldid=N` and `Special:Diff/N` work for local and mirror revisions alike, and rows may show revision numbers.*
-- **Q4.** ~~**Contributions of foreign actors.** Whether `Special:Contributions` should list, for a Wikidata account, the upstream edits the instance has observed or backfilled.~~ *Settled by [0018](0018-tenants.md) §8: what the instance holds, and no more; the page says so and never fetches upstream.*
-- **Q5.** ~~**Visibility of erasure reasons** ([0006](0006-log-integrity-and-erasure.md), open questions).~~ *Settled by [0016](0016-permissions-and-access-control.md) §6: the gap row is public; the reason class is for `ts-viewerasures`.*
-- **Q6.** ~~**Rendering.** Whether pages are rendered on the server, in a client app, or both. Reading pages should work without JavaScript.~~ *Settled by [0034](0034-frontend-stack.md) §1–5: on the server, with Codex markup; JavaScript only where editing needs it.*
-- **Q7.** ~~**Mobile layouts.** None of the pages has a narrow-screen layout yet.~~ *Settled by [0034](0034-frontend-stack.md) §2, in part: one responsive site on Codex's breakpoints, with no separate mobile site. Detailed layouts are Q12.*
-- **Q8.** ~~**Permissions.** Who may revert a job, see hidden usernames, erase, or run `retain` from the history page.~~ *Settled by [0016](0016-permissions-and-access-control.md) §5: `ts-revertjob`, `deletedhistory`, `ts-erase`, `ts-retain`.*
-- **Q9.** ~~**Upstream fetch budget.** Cache lifetime, per-user and per-instance rate limits, and whether any provider other than Wikidata supports the fold.~~ *Settled by [0024](0024-subsidiary-accounts.md) §5 and [0015](0015-record-format-and-partition-registry.md) §5: rate limits are the `upstream` class; the cache lifetime is a [0014](0014-caches-and-search.md) tuning value; which providers support the fold is a registry flag per provider (`revision_ids`), set as each adapter is written.*
-- **Q10.** ~~**Rules for local account names.** Which characters are allowed, how names are normalized, and how names that collide with names held by a vanished account are handled. [0024](0024-subsidiary-accounts.md) §2, [0025](0025-oauth-server.md) and [0028](0028-tenancy-policy.md) §2 all defer to this.~~ *Settled by A6: MediaWiki's grammar verbatim, case-insensitive uniqueness, and no name ever reused, by name tombstones in the actor projection.*
-- **Q11.** ~~**Discussions.** Talk namespaces are reserved ([0008](0008-namespaces-and-document-pages.md) §2), and their UI comes with that ADR.~~ *Settled by [0019](0019-discussions.md) §8.*
+- **Q1. Watchlists and notifications.** *Settled by [0020](0020-change-feeds.md) §2–3 and [0021](0021-notifications.md).*
+- **Q2. Patrolling.** *Settled by [0023](0023-moderation.md) §6.*
+- **Q3. Global revision IDs.** *Settled by [0013](0013-postgres-storage.md) §6 and [0015](0015-record-format-and-partition-registry.md) §2; `oldid=N` and `Special:Diff/N` work for local and mirror revisions alike, and rows may show revision numbers.*
+- **Q4. Contributions of foreign actors.** *Settled by [0018](0018-tenants.md) §8.*
+- **Q5. Visibility of erasure reasons.** *Settled by [0016](0016-permissions-and-access-control.md) §6.*
+- **Q6. Rendering.** *Settled by [0034](0034-frontend-stack.md) §1–5.*
+- **Q7. Mobile layouts.** *Settled by [0034](0034-frontend-stack.md) §2, in part.*
+- **Q8. Permissions.** *Settled by [0016](0016-permissions-and-access-control.md) §5.*
+- **Q9. Upstream fetch budget.** *Settled by [0024](0024-subsidiary-accounts.md) §5 and [0015](0015-record-format-and-partition-registry.md) §5.*
+- **Q10. Rules for local account names.** *Settled by A6.*
+- **Q11. Discussions.** *Settled by [0019](0019-discussions.md) §8.*
 - **Q12. Detailed mobile layouts.** (Rest of Q7.) Narrow-screen layouts for the pages of this ADR.
 
 ## References

@@ -52,8 +52,8 @@ James's direction, from the design discussion of 2026-11-09:
 
 ## Open questions
 
-- **Q1.** ~~**Routes and modules.** The route and Action API catalogues already derive a *Built* column from the OpenAPI contract and the paraminfo lists. Whether the probe should also report the routes and modules a run served, which would make "built" mean "answered in a test run" rather than "declared".~~ *Settled by [0108](0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) §1: yes; the server reports the routes and modules it serves, and the module catalogue lists every module served.*
-- **Q2.** ~~**Tenancy switches.** The bug the first run found was a tenancy switch read as a setting. Whether the probe should also report the tenancy switches a run reads, compared with `tenancy.toml`.~~ *Settled by [0108](0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) §2: yes; tenancy-switch reads are reported and checked against `tenancy.toml`.*
+- **Q1. Routes and modules.** *Settled by [0108](0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) §1.*
+- **Q2. Tenancy switches.** *Settled by [0108](0108-routes-modules-and-tenancy-switches-checked-against-the-running-code.md) §2.*
 
 ## References
 

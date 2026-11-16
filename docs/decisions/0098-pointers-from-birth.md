@@ -81,9 +81,9 @@ James's direction, 2026-10-30, on the review:
 
 ## Open questions
 
-- **Q1.** ~~**Which catalogue moves first, and who reads it.** The crate map is read by `cargo xtask deps` from chapter 22 §2.1 today; moving it to `registry/crates.toml` changes that reader. The `view` schema, the route table and the permission catalogue have no code reader yet. Order and file names are open.~~ *Settled by A1: the crate map first, then permissions and log events; routes from OpenAPI; the `view` schema stays in prose for now (24 §11).*
-- **Q2.** ~~**`Updated`.** The header's `Updated` restates the last log entry's ID and date, and the checker holds them equal. It is the one derivable field this ADR keeps, because it is the first thing a reader looks at. Whether it goes too is open.~~ *Settled by A1: kept; it is checker-verified and the first thing a reader sees.*
-- **Q3.** ~~**Review of born-as-pointer ADRs.** Whether a pull request that adds an ADR should carry the assembled text (`adr.py show NNNN`) in its description, so that a reviewer on GitHub reads one document.~~ *Settled by A1: CI posts the assembled ADR (`adr.py show NNNN --full`) as a pull-request comment (24 §3.2).*
+- **Q1. Which catalogue moves first, and who reads it.** *Settled by A1.*
+- **Q2. `Updated`.** *Settled by A1.*
+- **Q3. Review of born-as-pointer ADRs.** *Settled by A1.*
 
 ## References
 

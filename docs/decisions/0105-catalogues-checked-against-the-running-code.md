@@ -54,9 +54,9 @@ James's direction, from the design discussion of 2026-11-09:
 
 ## Open questions
 
-- **Q1.** ~~**When the report becomes a failure.** Proposed: once a CI run on `main` reports no unlisted permission, the report step gains `--strict`, by a change James approves. Whether the first strict runs should allow a short list of known exceptions instead.~~ *Settled by A1: strict now, with no list of exceptions.*
-- **Q2.** ~~**Settings and log events.** The same mechanism fits both: the server reports each setting it reads and each log event it emits, compared with `settings.toml` and `log-events.toml`. Whether they come in one ADR or one each.~~ *Settled by [0107](0107-settings-and-log-events-checked-against-the-running-code.md) §2, §3: one ADR for both, with one probe for every catalogue.*
-- **Q3.** ~~**The end-to-end tests.** The Playwright suite (`ui/e2e`) starts a server too and exercises the site's pages, which the client checks and the battery do not; probing it as well would observe more permissions.~~ *Settled by A1: the end-to-end job probes its API server and runs the strict report too.*
+- **Q1. When the report becomes a failure.** *Settled by A1.*
+- **Q2. Settings and log events.** *Settled by [0107](0107-settings-and-log-events-checked-against-the-running-code.md) §2, §3.*
+- **Q3. The end-to-end tests.** *Settled by A1.*
 
 ## References
 

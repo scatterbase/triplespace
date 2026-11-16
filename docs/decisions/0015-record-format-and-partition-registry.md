@@ -77,10 +77,10 @@ Two smaller gaps are closed with them: the document node of a foreign entity on 
 
 ## Open questions
 
-- **Q1.** ~~**Content backfill by default.** Whether retaining an entity should fetch the content of every upstream revision, or only the metadata, given the cost noted in [0002](0002-source-graphs-and-mass-ingest.md) Consequences.~~ *Settled by A13: content by default, from the provider's API for modest sets and from a history dump the operator supplies for large ones; `--history metadata` opts out.*
+- **Q1. Content backfill by default.** *Settled by A13.*
 - **Q2. Whether `site` settings should each be a record,** or one record per settings group.
 - **Q3. Revision IDs beyond 2^40 upstream.** No provider is near it; if one ever is, its number is re-registered with a wider split, which is a format version.
-- **Q4.** ~~**Reason classes.** `upstream`, `legal` and `privacy` are now used; the full vocabulary and its visibility are settled in [0016](0016-permissions-and-access-control.md) §6.~~ *Settled by [0016](0016-permissions-and-access-control.md) §6: `legal`, `privacy`, `upstream` and `operational`, extensible in `site` configuration; the class and authority reference are visible to `ts-viewerasures` only.*
+- **Q4. Reason classes.** *Settled by [0016](0016-permissions-and-access-control.md) §6.*
 
 ## References
 

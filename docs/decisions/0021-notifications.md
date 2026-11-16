@@ -87,9 +87,9 @@ Echo is the precedent. It has notification *types* (mention, edit-user-talk, rev
 - **Q1. Web Push**, and native app push.
 - **Q2. Bundling rules and windows**, and whether a digest email should summarize watch notifications the way the watchlist page does.
 - **Q3. Temporary accounts**: MediaWiki delivers talk-page messages to temporary accounts by session; whether to do the same.
-- **Q4.** ~~**Cross-tenant notifications**: whether a mention of `librarybase:42` from another tenant on the same instance reaches that user's inbox, which would be the first thing to cross a tenant boundary.~~ *Settled by [0028](0028-tenancy-policy.md) §7: by policy, through farm identity; the bell aggregates linked accounts' inboxes and a farm-name mention goes to the home tenant.*
-- **Q5.** ~~**RFC 9421 timing**, and FEP-8b32 object integrity proofs, as Mastodon adopts them.~~ *Settled by [0022](0022-federation.md) §8: both implemented behind `site` switches, off until Mastodon accepts them; outbound stays cavage until then.*
-- **Q6.** ~~**[0022](0022-federation.md)**: WebFinger and actor documents for users, talk pages as `Group` actors that `Announce` their threads, `Update` and `Delete` delivery, opt-in per account with the vanish page amended, `rel="me"` public links, and, separately, inbound replies as posts attributed to fediverse actors with a `federated` group, domain lists and moderation.~~ *Settled by [0022](0022-federation.md) Part B, which does all of this and fixes the inbound rules while leaving the inbound protocol details open.*
+- **Q4. Cross-tenant notifications.** *Settled by [0028](0028-tenancy-policy.md) §7.*
+- **Q5. RFC 9421 timing.** *Settled by [0022](0022-federation.md) §8.*
+- **Q6. [0022](0022-federation.md).** *Settled by [0022](0022-federation.md) Part B, which does all of this and fixes the inbound rules while leaving the inbound protocol details open.*
 
 ## References
 

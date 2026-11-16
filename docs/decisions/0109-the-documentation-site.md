@@ -47,7 +47,7 @@ James's direction, from the design discussion of 2026-11-09:
 ## Open questions
 
 - **Q1. Rustdoc and the command line's reference.** Both need the workspace compiled, which may not fit Read the Docs' build time. Whether to build them there, in CI and publish them beside the site, or not at all.
-- **Q2.** ~~**Claims for code outside the crates.** The site's hooks and `coverage.py` itself are Python under `tools/`, which coverage reads as test code. Whether such tools may carry an `implements` claim (a src class for `tools/` scripts that are product, not tests), so that this ADR, and 0099, can become Accepted.~~ *Settled by James in the design discussion of 2026-11-09: yes; a script under `tools/` that says it is "Product code (24 §15)" is src, as the claims rule now says ([24](../architecture/24-documentation.md) §15).*
+- **Q2. Claims for code outside the crates.** *Settled by James in the design discussion of 2026-11-09: yes; a script under `tools/` that says it is "Product code (24 §15)" is src, as the claims rule now says ([24](../architecture/24-documentation.md) §15).*
 
 ## References
 

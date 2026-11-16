@@ -88,7 +88,7 @@ James's direction, from the design discussion of 2026-10-04:
 
 ## Open questions
 
-- **Q1.** ~~**Private tenants.** Whether a tenant with a `read` restriction may run the query service under `store` isolation, with an embedded store fed from its deltas in the tenant-visible rather than the public form and read only through the server, which applies the tenant ACL before answering. This needs [0032](0032-sparql-update-stream.md) to compute deltas for a tenant it does not stream.~~ *Settled by A8: yes; the store is fed from the tenant's deltas in the form its `tenant` ACL's group may read, and answers only principals that satisfy the ACL.*
+- **Q1. Private tenants.** *Settled by A8.*
 - **Q2. `SERVICE`.** Federated queries to Wikidata's endpoint and others are what makes many Wikidata queries useful. Refused in version 1 because the store makes the outbound request; an allow-list of endpoints (`query.services`) is the likely answer.
 - **Q3. Query results as tables.** Whether `Special:Query` should save a result as a `triplespace-table` whose rows are the query, which [0060](0060-scopes.md) §6 nearly gives already.
 - **Q4. Cursor-stamped reads.** Whether `/sparql` should accept `cursor=` and refuse to answer from a store behind it, so that a client that just wrote can know when its write is queryable.

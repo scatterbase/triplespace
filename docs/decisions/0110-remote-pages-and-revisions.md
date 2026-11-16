@@ -105,18 +105,18 @@ James's direction, from the design discussion of 2026-11-12 to 2026-11-15:
 
 ## Open questions
 
-- **Q1.** ~~**The name.** `hosted`, `Hosted` and `wikibase-hosted` were working names. Others considered: `page` (taken in sense by Triplespace's own pages, and `Page:` is ProofreadPage's namespace 104 on Wikisource), `site` and `farm` (a wiki term, which a non-wiki host would not use).~~ *Settled by §1: James chose `remote` on 2026-11-16.*
-- **Q2.** ~~**The label.** Derived from the key, the page's title, or editable.~~ *Settled by A1: James decided on 2026-11-16 to build a label from the synced title, else the number and site, with a stored label overriding.*
-- **Q3.** ~~**A namespace alias per host.** Whether a host may name a title alias such as `Wikimedia:`.~~ *Settled by A2: James approved an optional `alias` per host on 2026-11-16, `Wikimedia` the first.*
-- **Q4.** ~~**Who may register a host.** The registry only, or instances too.~~ *Settled by A3: James approved on 2026-11-16 tenant-declared hosts on the entity-source pattern, with promotion to the registry.*
-- **Q5.** ~~**Remote keys and page repositories.** Whether `Remote:wikimedia:enwiki-p12` resolves to the served page on a tenant that serves the site, and where it lands when the page is forked.~~ *Settled by §8: James decided on 2026-11-16 that it goes to the synced copy when the tenant syncs the site and works as an entity page otherwise, and that a fork is a new page the key never names.*
-- **Q6.** ~~**A revision's page.** Whether and how an ingest states which page a revision belongs to.~~ *Settled by A4: James approved the `revision-of` role on 2026-11-16, projected later on synced sites.*
-- **Q7.** ~~**Miraheze's site list.** How a Miraheze wiki's links are found.~~ *Withdrawn: James deferred Miraheze support on 2026-11-16; it stays a commented candidate in `hosts.toml`.*
-- **Q8.** ~~**Whether this ends 0048's rule of thumb.**~~ *Settled by A5: James's justification of 2026-11-16, that Remote is an umbrella over keyed types whose things are self-validating in identity; 0048's rule stands for terms.*
-- **Q9.** ~~**Which repository serves a site.** Whether a page-repository record or the provider entry names the host and site a repository serves.~~ *Settled by §8: James accepted on 2026-11-16 a `remote` field on the provider entry, derived from the hosts' site lists where it is empty.*
-- **Q10.** ~~**Reaching the entity on a served site.** How the remote entity's statements are reached once `Remote:` shows the served page.~~ *Settled by §9: James decided on 2026-11-16 that a synced page's data is reached as its page statements.*
-- **Q11.** ~~**One set of data or two.** Whether a synced page's page statements are the remote entity's statements, stored on the remote key, or a second set keyed by the ranged page ID.~~ *Settled by §9: James confirmed on 2026-11-16 one set, on the remote key.*
-- **Q12.** ~~**Category projections on a synced page.** Whether a synced page's categories project page statements, given that they are not memberships in `view.page_category`.~~ *Settled by §9: James accepted on 2026-11-16 that projection waits on [0052](0052-page-repositories-and-title-inheritance.md) Q3; until then a synced page's page statements are asserted only.*
+- **Q1. The name.** *Settled by §1.*
+- **Q2. The label.** *Settled by A1.*
+- **Q3. A namespace alias per host.** *Settled by A2.*
+- **Q4. Who may register a host.** *Settled by A3.*
+- **Q5. Remote keys and page repositories.** *Settled by §8.*
+- **Q6. A revision's page.** *Settled by A4.*
+- **Q7. Miraheze's site list.** *Withdrawn: James deferred Miraheze support on 2026-11-16; it stays a commented candidate in `hosts.toml`.*
+- **Q8. Whether this ends 0048's rule of thumb.** *Settled by A5.*
+- **Q9. Which repository serves a site.** *Settled by §8.*
+- **Q10. Reaching the entity on a served site.** *Settled by §9.*
+- **Q11. One set of data or two.** *Settled by §9.*
+- **Q12. Category projections on a synced page.** *Settled by §9.*
 
 ## References
 

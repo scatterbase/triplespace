@@ -131,7 +131,7 @@ James's direction, from the design discussion of 2026-10-18:
 
 ## Open questions
 
-- **Q1.** ~~**Who may create a login.** Every login is challenged, but an instance of private or closed wikis may want to close login creation itself, or require approval of logins as tenants approve accounts.~~ *Settled by A6: a login may log in on any tenant of its instance; what is gated is whether that makes an account there, which is the instance's policy, left to tenants or set as a default they override.*
+- **Q1. Who may create a login.** *Settled by A6.*
 - **Q2. Deleting a login.** What becomes of the tenant accounts bound to it: unbound and reclaimable, as after a move, or refusal while any remains.
 - **Q3. The farm base.** Whether a farm base that is no tenant's logs in through the auth host, and which account its session holds: the primary tenant's account of the login, which instance acts need ([0046](0046-primary-tenant.md) §6).
 - **Q4. A login's data.** What the user data bundle of [0027](0027-preferences-and-portability.md) §7 carries of a login, which no tenant owns.
