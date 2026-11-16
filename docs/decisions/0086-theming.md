@@ -157,7 +157,7 @@ Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Date:** 2026-10-28
 - **Source:** [0093](0093-fallback-typefaces.md) §1, §2, §3, §4
 - **Change:** extends §1, §3, §5, §7
-- **Summary:** A type set may name a shipped fallback layer, whose typefaces fill its stacks for the scripts its own lack. The text as it stood is in git (`tools/adr.py log 0086 A5 --diff`). The text is in git (`tools/adr.py log 0086 A5 --diff`).
+- **Summary:** A type set may name a shipped fallback layer, whose typefaces fill its stacks for the scripts its own lack. The text is in git (`tools/adr.py log 0086 A5 --diff`).
 
 ### A6. Colour-vision palettes become keyed alternates
 
