@@ -820,7 +820,8 @@ pub async fn create_with(args: Create, password: Option<&str>) -> Result<()> {
         adopt: spec.adopt.clone(),
         owner_id: spec.owner,
     };
-    let authority = crate::provision::file(&client, &operator, &ask, Some("tenant create")).await?;
+    let authority =
+        crate::provision::file(&args.database, &operator, &ask, Some("tenant create")).await?;
     let provisioner = crate::provision::Provisioner {
         database: args.database.clone(),
         accounts_database: args.database.clone(),

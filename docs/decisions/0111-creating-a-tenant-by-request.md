@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-16
-- **Updated:** 2026-11-16 (A1)
+- **Updated:** 2026-11-16 (A2)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0015](0015-record-format-and-partition-registry.md), [0079](0079-derived-issuer-codes.md), [0089](0089-the-auth-host-and-instance-logins.md)
 
@@ -156,3 +156,20 @@ James's direction, from the design discussion of 2026-11-16:
   Chapter text: 08 §1.4; 03 §1.2.
 
 Replaced text: 08 §1.4, 03 §1.2.
+
+### A2. Calls made building the requests' API, page and invitation
+
+- **Date:** 2026-11-16
+- **Source:** Direct: Claude, while building the tenant requests' API, `Special:Tenants` and the owner's invitation (SCA-423), 2026-11-16; unconfirmed
+- **Change:** amends §5; extends §7
+- **Summary:** The calls made building §5 and §7:
+  - **An invitation is redeemed only by creating a login.** §5 had its holder "sign in with a login they have or create one". Signing in on a tenant with a login that has no account there needs the auth host's pages, which are not built; and a second route that checks an existing login's password would have to carry `clientlogin`'s challenge and throttling with it. The invitation exists for an owner with no login on the instance (§5's Q2), and an owner who has one is named as the request's owner login source instead, so the invitation page asks for a password, twice, creates a login for the owner account with it, binds the account, and signs the person in. An invitation is refused for a request that named a login (`ts-invitation-bound`) and for an owner who already has one.
+  - **The code** is 32 random bytes in URL-safe base64, shown once in the answer to `POST /tenancy/requests/{id}/invitation`, with the address to send; `private.tenant_invitation` keeps its SHA-256, the tenant, the owner account, who asked, when it expires (seven days) and when it was used, one row per account, so asking again replaces it.
+  - **Two routes on the tenant**, `GET /auth/invitation?code=` (what the invitation is for: the wiki's name and the owner's name) and `POST /auth/invitation` (`{code, password}`), which §7 did not list; `Special:CreateAccount?invite=` serves the invitation before the page's registration gate, so a wiki closed to registration still takes its owner's.
+  - **The form names the owner login source with a checkbox,** **The owner signs in with my login**, which sends the viewer's own account; another account is named through the API's `owner_login_source`.
+  - **`POST /tenancy/requests` checks only the shape** and answers `202` with the request `pending`; whether the slug is free or the host a wiki's own is the provisioner's to refuse, with the reason, so a request is never refused in two places. Reading the requests needs `ts-createtenant` too, since they hold the owner and the owner login source, and nothing is cached.
+  - **`Special:Tenants` was registered as served but had no page;** it is the page of §7 now, at the farm base only, and listed on `Special:SpecialPages` there.
+
+  Chapter text: 08 §1.4; 03 §4.16; 18 §3.2 (`routes.toml`).
+
+Replaced text: 08 §1.4.

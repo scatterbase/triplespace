@@ -23,8 +23,8 @@
 //!
 //! This implements 0111 §1; it implements 0111 §2 (A1); with the role and the two functions
 //! of `triplespace-db`'s `0041_provision` it implements 0111 §3 (A1); and it
-//! implements 0111 §4 (A1). Of 0111 §5 it
-//! builds the binding to a named login; the invitation is not built yet (SCA-423).
+//! implements 0111 §4 (A1). Of 0111 §5 it builds the binding to a named login; the
+//! invitation is `triplespace-api-rest`'s.
 
 use std::time::Duration;
 
@@ -35,25 +35,21 @@ use scatter_actors::evaluate::instance_rights;
 use scatter_actors::key::ActorKey;
 use scatter_integrity::attest::Authority;
 use scatter_log::header::CONFIG_PARTITION;
-use scatter_log::record::Record;
 use scatter_log_postgres::{log, sequences};
 use scatter_projection::Backend as _;
 use tokio_postgres::Client;
+use triplespace_api_ingest::tenant_requests;
 use triplespace_projections::Farm;
-use triplespace_projections::common::{PAYLOAD_LOGEVENT, attested, content};
+use triplespace_projections::common::PAYLOAD_LOGEVENT;
 use triplespace_projections::tenants;
 
-use crate::common::{connect, draft, draft_attested, farm_of, now, store};
+use crate::common::{connect, draft_attested, farm_of, now, store};
 use crate::tenant::{
     Attester, Created, Spec, check_base, check_free, create, current_key, host_of, project,
     provision, transaction,
 };
 
-/// The channel a filed request is announced on (0111 §2).
-pub const CHANNEL: &str = "ts_tenant_request";
-
-/// The instance right that files a request (0111 §8).
-pub const RIGHT: &str = "ts-createtenant";
+pub use triplespace_api_ingest::tenant_requests::{Ask, CHANNEL, RIGHT};
 
 /// The advisory lock a provisioner holds while it works (0111 §3): the first eight bytes of
 /// `ts_tenant_request` as a number.
@@ -61,25 +57,6 @@ const LOCK: i64 = 0x7473_5f74_656e_616e;
 
 /// How long the provisioner waits for a notification before it looks anyway.
 const IDLE: Duration = Duration::from_mins(1);
-
-/// What an operator asks for: the fields of a request (0111 §2).
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Ask {
-    /// The slug.
-    pub slug: String,
-    /// The base URI.
-    pub base: String,
-    /// The wiki's name, `site.name`.
-    pub name: Option<String>,
-    /// The owner's account name.
-    pub owner_name: String,
-    /// The account, by actor key, whose login the owner account is bound to.
-    pub owner_login_source: Option<String>,
-    /// The source wiki the tenant adopts (0035), its base URL: the CLI's `--adopt`.
-    pub adopt: Option<String>,
-    /// The owner's user ID: the source wiki's with `adopt`, else 1.
-    pub owner_id: Option<u64>,
-}
 
 /// A request in the instance `log`.
 #[derive(Debug, Clone)]
@@ -128,154 +105,52 @@ pub async fn instance_log(client: &Client) -> Result<u64> {
     Ok(scatter_log_postgres::ids::partition_from_db(row.get(0)))
 }
 
-fn request_key(slug: &str) -> String {
-    format!("tenant:{slug}")
-}
-
 /// Files a request as `operator`, announces it, and returns where it is. The caller has
 /// checked nothing: the provisioner checks everything (0111 §4).
 pub async fn file(
-    client: &Client,
+    database: &str,
     operator: &str,
     ask: &Ask,
     reason: Option<&str>,
 ) -> Result<Authority> {
-    let partition = instance_log(client).await?;
-    let t = now();
-    let event = serde_json::json!({
-        "type": "tenant", "action": "request", "time": t, "target": null,
-        "params": {"slug": ask.slug, "base": ask.base},
-        "request": {
-            "slug": ask.slug, "base": ask.base, "name": ask.name,
-            "owner_name": ask.owner_name, "owner_login_source": ask.owner_login_source,
-            "adopt": ask.adopt, "owner_id": ask.owner_id,
-        },
-    });
-    let appended = transaction(client, async {
-        let mut d = draft(
-            PAYLOAD_LOGEVENT,
-            &request_key(&ask.slug),
-            &event,
-            operator,
-            reason,
-            t,
-        )?;
-        d.logid =
-            Some(sequences::next(client, sequences::INSTANCE, &sequences::Sequence::Log).await?);
-        Ok(log::append(client, partition, d).await?)
-    })
-    .await?;
+    let client = connect(database).await?;
+    let farm = farm_of(&client).await?;
+    let (store, pipeline) = store(database, &farm)?;
+    let mut cx = store.begin().await?;
+    let filed =
+        tenant_requests::file(&store, &pipeline, &mut cx, ask, operator, reason, now()).await?;
+    store.commit(cx).await?;
     client.batch_execute(&format!("NOTIFY {CHANNEL}")).await?;
     Ok(Authority {
-        partition,
-        offset: appended.offset,
-        leaf: appended.leaf,
+        partition: filed.partition,
+        offset: filed.offset,
+        leaf: filed.leaf,
     })
-}
-
-fn text(v: &serde_json::Value, k: &str) -> Option<String> {
-    v.get(k)
-        .and_then(serde_json::Value::as_str)
-        .map(str::to_owned)
-}
-
-fn event_of(record: &Record) -> Result<Option<serde_json::Value>> {
-    if record.header().payload_type != PAYLOAD_LOGEVENT {
-        return Ok(None);
-    }
-    content(record)
-        .map_err(|e| anyhow::anyhow!("{e}"))?
-        .map(|v| v.to_json().map_err(|e| anyhow::anyhow!("{e}")))
-        .transpose()
 }
 
 /// The requests that are neither carried out nor refused, oldest first.
 pub async fn pending(client: &Client) -> Result<Vec<Request>> {
-    let partition = instance_log(client).await?;
-    let rows = client
-        .query(
-            "SELECT \"offset\", header, body, leaf FROM log.record
-             WHERE partition = $1 AND key LIKE 'tenant:%' ORDER BY \"offset\"",
-            &[&scatter_log_postgres::ids::partition_to_db(partition)],
-        )
-        .await?;
-    let mut requests = Vec::new();
-    let mut answered = std::collections::BTreeSet::new();
-    for row in &rows {
-        let offset = u64::try_from(row.get::<_, i64>(0))?;
-        let record = Record::new(
-            scatter_log::header::Header::decode(row.get(1))?,
-            scatter_log::body::Body::decode(row.get(2))?,
-        )?;
-        let Some(event) = event_of(&record)? else {
-            continue;
-        };
-        match (
-            text(&event, "type").as_deref(),
-            text(&event, "action").as_deref(),
-        ) {
-            (Some("tenant"), Some("request")) => {
-                let Some(r) = event.get("request") else {
-                    continue;
-                };
-                let leaf: Vec<u8> = row.get(3);
-                requests.push(Request {
-                    authority: Authority {
-                        partition,
-                        offset,
-                        leaf: leaf
-                            .try_into()
-                            .map_err(|_| anyhow::anyhow!("leaf is not 32 bytes"))?,
-                    },
-                    actor: attested(&record).actor,
-                    ask: Ask {
-                        slug: text(r, "slug").unwrap_or_default(),
-                        base: text(r, "base").unwrap_or_default(),
-                        name: text(r, "name"),
-                        owner_name: text(r, "owner_name").unwrap_or_else(|| "Owner".into()),
-                        owner_login_source: text(r, "owner_login_source"),
-                        adopt: text(r, "adopt"),
-                        owner_id: r.get("owner_id").and_then(serde_json::Value::as_u64),
-                    },
-                });
-            }
-            (Some("tenant"), Some("refuse")) => {
-                if let Some(o) = event
-                    .get("target")
-                    .and_then(|t| t.get("offset"))
-                    .and_then(serde_json::Value::as_u64)
-                {
-                    answered.insert(o);
-                }
-            }
-            _ => {}
-        }
-    }
-    let mut out = Vec::new();
-    for r in requests {
-        if !answered.contains(&r.authority.offset) && created_for(client, &r).await?.is_none() {
-            out.push(r);
-        }
-    }
-    Ok(out)
+    Ok(tenant_requests::list(client)
+        .await
+        .map_err(|e| anyhow::anyhow!("{e}"))?
+        .into_iter()
+        .filter(|e| e.state == tenant_requests::State::Pending)
+        .map(|e| Request {
+            authority: Authority {
+                partition: e.filed.partition,
+                offset: e.filed.offset,
+                leaf: e.filed.leaf,
+            },
+            actor: e.actor,
+            ask: e.ask,
+        })
+        .collect())
 }
 
-/// The tenant a request created, from the `tenant:` records under its slug in the instance
-/// `config`: one naming the request's offset.
-async fn created_for(client: &Client, request: &Request) -> Result<Option<serde_json::Value>> {
-    for (_, record) in
-        log::read_by_key(client, CONFIG_PARTITION, &request_key(&request.ask.slug)).await?
-    {
-        if let Some(v) = content(&record).map_err(|e| anyhow::anyhow!("{e}"))? {
-            let v = v.to_json().map_err(|e| anyhow::anyhow!("{e}"))?;
-            if v.get("request").and_then(serde_json::Value::as_u64)
-                == Some(request.authority.offset)
-            {
-                return Ok(Some(v));
-            }
-        }
-    }
-    Ok(None)
+async fn created_for(client: &Client, request: &Request) -> Result<bool> {
+    tenant_requests::created_for(client, &request.ask.slug, request.authority.offset)
+        .await
+        .map_err(|e| anyhow::anyhow!("{e}"))
 }
 
 /// A refusal: its code and why.
@@ -311,7 +186,7 @@ impl Provisioner {
 
     /// Checks a request and carries it out, or refuses it (0111 §4).
     pub async fn carry_out(&self, client: &Client, request: &Request) -> Result<Outcome> {
-        if created_for(client, request).await?.is_some() {
+        if created_for(client, request).await? {
             return Ok(Outcome::Done);
         }
         let farm = farm_of(client).await?;
@@ -479,16 +354,19 @@ impl Provisioner {
         why: &str,
     ) -> Result<()> {
         let t = now();
-        let event = serde_json::json!({
-            "type": "tenant", "action": "refuse", "time": t,
-            "target": {"kind": "record", "partition": request.authority.partition,
-                       "offset": request.authority.offset},
-            "params": {"reason": code},
-        });
+        let event = tenant_requests::refusal_event(
+            &tenant_requests::Filed {
+                partition: request.authority.partition,
+                offset: request.authority.offset,
+                leaf: request.authority.leaf,
+            },
+            code,
+            t,
+        );
         transaction(client, async {
             let mut d = draft_attested(
                 PAYLOAD_LOGEVENT,
-                &request_key(&request.ask.slug),
+                &tenant_requests::key(&request.ask.slug),
                 &event,
                 Some(why),
                 t,

@@ -51,6 +51,7 @@ pub mod email;
 pub mod forwarder;
 pub mod groups;
 pub mod identity;
+pub mod invitations;
 pub mod keys;
 pub mod login;
 pub mod logins;

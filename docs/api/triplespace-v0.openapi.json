@@ -6722,6 +6722,502 @@
           }
         }
       }
+    },
+    "/tenancy/requests": {
+      "get": {
+        "operationId": "listTenantRequests",
+        "summary": "Every tenant request, newest first, with its state",
+        "description": "At the farm base, for holders of `ts-createtenant` (ADR 0111 §7): each request with `pending`, `created`, or `refused` with the refusal's code and comment. Not cached.",
+        "responses": {
+          "200": {
+            "description": "The requests.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "requests": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/TenantRequest"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`ts-instance-policy`: not the farm base.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied`: no `ts-createtenant`, an instance right.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "`misdirected`: not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "fileTenantRequest",
+        "summary": "File a tenant request",
+        "description": "At the farm base, for holders of `ts-createtenant` (ADR 0111 §2, §7): files a `tenant/request` as the caller and announces it with `NOTIFY ts_tenant_request`; the provisioner carries it out or refuses it (§4). Only the shape is checked here. A session's write carries its CSRF token.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "slug",
+                  "base",
+                  "owner_name"
+                ],
+                "properties": {
+                  "slug": {
+                    "type": "string"
+                  },
+                  "base": {
+                    "type": "string"
+                  },
+                  "name": {
+                    "type": "string"
+                  },
+                  "owner_name": {
+                    "type": "string"
+                  },
+                  "owner_login_source": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "token": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "The request, `pending`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "request": {
+                      "$ref": "#/components/schemas/TenantRequest"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`ts-instance-policy`, `badbody` or `ts-tenant-request-invalid`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` or `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "`misdirected`: not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenancy/requests/{id}": {
+      "get": {
+        "operationId": "getTenantRequest",
+        "summary": "One tenant request with its state",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The request.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "request": {
+                      "$ref": "#/components/schemas/TenantRequest"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`ts-instance-policy`: not the farm base.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied`: no `ts-createtenant`, an instance right.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "`misdirected`: not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`nosuchrequest`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tenancy/requests/{id}/invitation": {
+      "post": {
+        "operationId": "inviteTenantOwner",
+        "summary": "Issue the owner's invitation for a created tenant",
+        "description": "At the farm base, for holders of `ts-createtenant` (ADR 0111 §5, A2): for a tenant the request created, which named no owner login source and whose owner has no login, a single-use code valid for seven days, replacing an unused one, shown once with the address to send.",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The invitation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "invitation": {
+                      "type": "object",
+                      "properties": {
+                        "code": {
+                          "type": "string"
+                        },
+                        "url": {
+                          "type": "string"
+                        },
+                        "tenant": {
+                          "type": "string"
+                        },
+                        "owner": {
+                          "type": "string"
+                        },
+                        "valid_days": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`ts-instance-policy`: not the farm base.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied`: no `ts-createtenant`, an instance right.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "`misdirected`: not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`nosuchrequest`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`ts-invitation-not-created` or `ts-invitation-bound`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/auth/invitation": {
+      "get": {
+        "operationId": "getInvitation",
+        "summary": "What an open owner's invitation is for",
+        "description": "On the tenant it is for (ADR 0111 §5, A2): the wiki's name, the owner account's name and when the invitation expires.",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The invitation.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "invitation": {
+                      "type": "object",
+                      "properties": {
+                        "wiki": {
+                          "type": "string"
+                        },
+                        "owner": {
+                          "type": [
+                            "string",
+                            "null"
+                          ]
+                        },
+                        "expires": {
+                          "type": "integer"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-invitation-invalid`: unknown, used or expired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "`misdirected`: not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "redeemInvitation",
+        "summary": "Redeem an owner's invitation with a new password",
+        "description": "On the tenant it is for (ADR 0111 §5, A2): creates a login for the owner account with the password and binds the account to it; the invitation is spent. The site then logs the person in with `action=clientlogin`.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "code",
+                  "password"
+                ],
+                "properties": {
+                  "code": {
+                    "type": "string"
+                  },
+                  "password": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Redeemed.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "invitation": {
+                      "type": "object",
+                      "properties": {
+                        "result": {
+                          "type": "string"
+                        },
+                        "username": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`badbody` or `passwordtooshort`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`ts-external-required`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-invitation-invalid`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "`misdirected`: not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -10126,6 +10622,90 @@
         "required": [
           "set"
         ]
+      },
+      "TenantRequest": {
+        "type": "object",
+        "description": "A tenant request with what became of it (ADR 0111 §2, §4, A1).",
+        "required": [
+          "id",
+          "state",
+          "slug",
+          "base",
+          "owner_name"
+        ],
+        "properties": {
+          "id": {
+            "type": "integer",
+            "description": "The request's offset in the instance `log`."
+          },
+          "state": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "created",
+              "refused"
+            ]
+          },
+          "time": {
+            "type": "integer",
+            "description": "When it was filed, microseconds since the epoch."
+          },
+          "actor": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The operator who filed it."
+          },
+          "reason": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "slug": {
+            "type": "string"
+          },
+          "base": {
+            "type": "string"
+          },
+          "name": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "owner_name": {
+            "type": "string"
+          },
+          "owner_login_source": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "description": "The account, by actor key, whose login the owner account is bound to."
+          },
+          "refusal": {
+            "type": "object",
+            "properties": {
+              "code": {
+                "type": "string",
+                "enum": [
+                  "ts-not-entitled",
+                  "ts-tenant-invalid",
+                  "ts-auth-base-required",
+                  "ts-owner-no-login"
+                ]
+              },
+              "why": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              }
+            }
+          }
+        }
       }
     }
   }

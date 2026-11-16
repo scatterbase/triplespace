@@ -79,7 +79,8 @@ pub fn index_model(
 ) -> IndexPage {
     let mut offered: Vec<(&str, IndexEntry)> = Vec::new();
     for (title, label, description, feature) in PAGES {
-        let elsewhere = *title == "Special:InstanceSettings" && !at_farm;
+        let elsewhere =
+            matches!(*title, "Special:InstanceSettings" | "Special:Tenants") && !at_farm;
         if feature.is_none_or(|f| features.has(f))
             && !elsewhere
             && let Some(group) = listed_under(title, &holds)
@@ -360,6 +361,12 @@ pub const PAGES: &[(&str, &str, &str, Option<Feature>)] = &[
         "Special:Providers",
         "ts-providers-title",
         "ts-specialpages-providers",
+        None,
+    ),
+    (
+        "Special:Tenants",
+        "ts-tenants-title",
+        "ts-specialpages-tenants",
         None,
     ),
     (

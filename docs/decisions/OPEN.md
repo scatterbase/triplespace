@@ -110,6 +110,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0106 A8](0106-create-entities-grid-and-drafts.md#a8-a-literal-backslash-in-a-cell-of-several-values) | 2026-11-10 | A literal backslash in a cell of several values |
 | [0106 A11](0106-create-entities-grid-and-drafts.md#a11-keeping-a-table-runs-past-500-rows-locked-columns-and-reference-chips-found-while-building) | 2026-11-16 | Keeping a table, runs past 500 rows, locked columns and reference chips, found while building |
 | [0111 A1](0111-creating-a-tenant-by-request.md#a1-calls-made-building-the-provisioner) | 2026-11-16 | Calls made building the provisioner |
+| [0111 A2](0111-creating-a-tenant-by-request.md#a2-calls-made-building-the-requests-api-page-and-invitation) | 2026-11-16 | Calls made building the requests' API, page and invitation |
 
 ## Open questions
 
