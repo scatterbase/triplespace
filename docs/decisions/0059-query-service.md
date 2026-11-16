@@ -127,7 +127,7 @@ James's direction, from the design discussion of 2026-10-04:
 - **Change:** amends §2, §4
 - **Summary:** `store` with `remote` is refused only on a farm; on a single-tenant instance the remote store holds one tenant's graphs and so satisfies `store`. `query.isolation` is a row of [0028](0028-tenancy-policy.md) §1's switch table: the `isolated` preset sets `store`, the shared presets `dataset`. (PENDING C9)
 
-Replaced text: §2 of this ADR; §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0059 A3 --before`).
+Replaced text: §2 of this ADR; §4 of this ADR.
 
 ### A4. Backend settings are deployment configuration
 
@@ -143,14 +143,13 @@ Replaced text: §2 of this ADR; §4 of this ADR, as it stood before this entry; 
 - **Change:** corrects §8
 - **Summary:** `triplespace-query` is in the surfaces layer (layer 4), not layer 3. (PENDING F25)
 
-Replaced text: §8 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0059 A5 --before`).
+Replaced text: §8 of this ADR.
 
 ### A6. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§8
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0059 A6 --diff`).
 
 ### A7. The rewriting layer, and one shared resolved graph
 
@@ -166,7 +165,7 @@ Replaced text: §8 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §4
 - **Summary:** A private tenant has no graphs in the shared store and, under `dataset`, no query service; under `store` it has one: its own embedded store is fed from its own deltas, computed in the form the `tenant` ACL's group may read (nothing under any finer restriction) in place of a public form that would be empty, and the service answers only principals that satisfy that ACL, through `/sparql`, `Special:Query`, the MCP tools and compiled queries. What a private tenant lacks is the public endpoint, the stream and the dump, and nothing else. A hosting instance needs no `tenant` restriction ([0056](0056-security-model.md) A15). Settles Q1. (REVIEW G39)
 
-Replaced text: [08](../architecture/08-tenants-and-instances.md) §9.1, as it stood before this entry; in git (`tools/adr.py log 0059 A8 --before`).
+Replaced text: [08](../architecture/08-tenants-and-instances.md) §9.1.
 
 > **Not yet.** Whether a `store` tenant behind the evaluator could have a query service while private is open ([0059](0059-query-service.md) Q1).
 
@@ -177,7 +176,7 @@ Replaced text: [08](../architecture/08-tenants-and-instances.md) §9.1, as it st
 - **Change:** amends §2
 - **Summary:** The embedded store is the small profile's backend ([0013](0013-postgres-storage.md) §11): the service refuses to start it above a configured triple count, and the Wikidata-scale profile requires `query.backend = remote`. The rest of the row is other ADRs': dumps are taken from a replica under `pg_export_snapshot()` with parallel workers sharing the snapshot ([0013](0013-postgres-storage.md) §8, in [02](../architecture/02-graphs-rdf-and-query.md) §4.1), and `term_prefix` is kept as schema and not read by the large profile ([0013](0013-postgres-storage.md) §11). The ledger names §7, whose text ([22](../architecture/22-crates-and-stack.md) §4.7) did not change. (REVIEW G49)
 
-Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §7.2, as it stood before this entry; in git (`tools/adr.py log 0059 A9 --before`).
+Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §7.2.
 
 ### A10. A rebuild truncates `rdf_delta`; epochs are per tenant
 

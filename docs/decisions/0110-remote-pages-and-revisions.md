@@ -135,7 +135,7 @@ James's direction, from the design discussion of 2026-11-12 to 2026-11-15:
 - **Change:** amends §1
 - **Summary:** Settles Q2. A remote key's labels are editable, as a keyword's are, and a stored label always wins. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.11.
 
-Replaced text: [04](../architecture/04-entities-and-identifiers.md) §3.11, as it stood before this entry; in git (`tools/adr.py log 0110 A1 --before`).
+Replaced text: [04](../architecture/04-entities-and-identifiers.md) §3.11.
 
 ### A2. A host may name a title alias
 
@@ -151,7 +151,7 @@ Replaced text: [04](../architecture/04-entities-and-identifiers.md) §3.11, as i
 - **Change:** amends §2, §3
 - **Summary:** Settles Q4. Besides registry hosts, a tenant may declare a host as a `remote-host` config record, on the entity-source pattern: its name joins the tenant's table of names under the sources' rules, its keys mean something only on that tenant, its IRIs are under the tenant's base, its site grammar is a built-in one, and it can be promoted to the registry, keeping its keys' form and recording each old IRI as `owl:sameAs` the new. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.11, §3.12; [05](../architecture/05-providers-and-ingest.md) §6.2, §6.3; [23](../architecture/23-configuration-and-registry.md) §2.2.
 
-Replaced text: [04](../architecture/04-entities-and-identifiers.md) §3.12, §3.11, the Grammar row; [05](../architecture/05-providers-and-ingest.md) §6.2, as it stood before this entry; in git (`tools/adr.py log 0110 A3 --before`).
+Replaced text: [04](../architecture/04-entities-and-identifiers.md) §3.12, §3.11, the Grammar row; [05](../architecture/05-providers-and-ingest.md) §6.2.
 
 ### A4. The `revision-of` role
 

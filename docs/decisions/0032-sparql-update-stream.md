@@ -112,7 +112,7 @@ Three choices James made in review shape the rest: the stream is **selectable pe
 - **Change:** supersedes §9
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A28). The paragraph on the local quad store as a consumer, which followed the table, moved to §6 at conversion.
 
-Replaced text: §9 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0032 A1 --before`).
+Replaced text: §9 of this ADR.
 
 ### A2. Decisions of 2026-09-27 (evening)
 
@@ -144,14 +144,13 @@ Replaced text: not recorded; the sections were revised in place before the repos
 - **Change:** corrects §2
 - **Summary:** `scatter-wikibase-rdf` renders the resolved-view and source-graph (`resolved`, `local`, `mirror/{provider}`) sides of a delta; `triplespace-rdf` renders the metadata-graph sides, since the revision, actor, event and provenance nodes are its vocabulary ([0013](0013-postgres-storage.md) §8). §2 had named `scatter-wikibase-rdf` for every side. (PENDING A19)
 
-Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0032 A5 --before`).
+Replaced text: §2 of this ADR.
 
 ### A6. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§9
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0032 A6 --diff`).
 
 ### A7. The sync client's marker triple
 
@@ -167,7 +166,7 @@ Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §2; extends §1, §3, §4
 - **Summary:** The internal graph is in source form: the dump and the stream carry the IDs each source wrote, and the response-time rewriting of entity IDs to a consumer's preferred form never applies to either (§1); `rdf_delta.entity_id` is in source form (§3). In RDF the fused body is emitted under every member's concept IRI with `owl:sameAs` between the members, in the dump and in the stream alike. The shared deltas of §4 are computed under the instance's policy record, and the shared query store holds the same shape: one shared resolved graph and an overlay graph per tenant. 0082's table names §2 and §4; the chapters also cite 0082 §3 for §1's text and 0082 §1 for §3's column comment, which are extensions. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §6.2. (REVIEW G1, G3, G5, G6)
 
-Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §6.2, as it stood before this entry; in git (`tools/adr.py log 0032 A8 --before`).
+Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §6.2.
 
 ### A9. The delta is a tier-3 consumer; one sequencer; per-tenant epochs
 
@@ -176,7 +175,7 @@ Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §6.2, as it sto
 - **Change:** amends §2, §3, §5; extends §6
 - **Summary:** The delta is computed by a tier-3 consumer of composition events behind the `site` setting `updates.enabled` (default off), with its own queue, rate and lag, in no write's transaction and off during bootstrap and bulk modes; it reads the old state from `view.graph_state` (delta graphs) and the previous composed row, and the new state from the composed row, and it is not computed in any write or any composition (§2). `rdf_delta` is indexed by `(partition, "offset")` so the erasure purge reaches metadata-only rows (§5). 0083's table gives a row for §4 (by §7); the chapter section that holds §4, [08](../architecture/08-tenants-and-instances.md) §10.5, cites 0082 §5 and not 0083, so the row is corrected to §6, whose chapter text ([02](../architecture/02-graphs-rdf-and-query.md) §6.4) cites 0083 §7. (REVIEW G10, G14)
 
-Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §6.2, as it stood before this entry; in git (`tools/adr.py log 0032 A9 --before`).
+Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §6.2.
 
 > | `resolved` | The resolution projection writes an entity ([0013](../decisions/0013-postgres-storage.md) §5.1, step 4 of §7) | The entity's previous resolved JSON, read before it is overwritten | The new resolved JSON |
 > | `local`, `mirror/{provider}` | A change set is applied to the entity's state in that graph ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.2) | The graph's previous state for the entity, which the ingester reads to compute `changes` ([0012](../decisions/0012-api-requirements.md) §2.2) | The new state |
@@ -185,11 +184,11 @@ Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §6.2, as it sto
 
 > **Bootstrap mode** ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.6, [0013](../decisions/0013-postgres-storage.md) §9) produces no deltas: there is no previous state, and a consumer of a bootstrapped partition loads the dump taken at the end of the bootstrap.
 
-Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.11, as it stood before this entry; in git (`tools/adr.py log 0032 A9 --before`).
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.11.
 
 > - **The table is a projection**, rebuilt from the log with every other `view` table (§6). A rebuild reproduces the same *final* state, but not the same sequence of intermediate states under compaction, and its rows take new `seq` values. Every cursor therefore carries an **epoch**, a number in `ops` that a rebuild increments; a cursor from an earlier epoch is refused with the reload response, as an expired one is.
 
-Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §6.3, as it stood before this entry; in git (`tools/adr.py log 0032 A9 --before`).
+Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §6.3.
 
 ### A10. The skolem hash is over the statement UUID
 
@@ -198,7 +197,7 @@ Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §6.3, as it sto
 - **Change:** amends §7
 - **Summary:** The skolem IRI's hash is over the **statement UUID**, never the entity part of the statement ID, so the node is the same under every member ID the fused body is emitted under and whatever form a consumer asked for; the snak role (main snak, qualifier, reference); the property; and an index defined as the snak's position within its role on the statement. A reference snak hashes the reference hash in place of the index, so identical references share a node as they share a `ref:` IRI. The hash function and the byte layout of the preimage are fixed in `wikibase-compat.md`. The federation parts of the same row (bootstrap from the export bundle, record bodies on the stream for `source = local`, `verified_at_size` in `entity_source` only, a `delete/statement` event) are logged in [0022](0022-federation.md). (REVIEW G48)
 
-Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §4.3, as it stood before this entry; in git (`tools/adr.py log 0032 A10 --before`).
+Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §4.3.
 
 > The statement ID in the hash is upstream's for a mirrored statement and the tenant's for a local one, so the inputs never collide.
 
@@ -216,7 +215,7 @@ Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §4.3, as it sto
 - **Change:** amends §1
 - **Summary:** A11 took every dump from a replica so that the primary is never read. Single-node installs, Librarybase's among them, have none. Asked, James chose that `triplespace dump` reads the replica the operator names (`--replica`, `TRIPLESPACE_REPLICA_URL`) and otherwise the primary, under the same exported `REPEATABLE READ` snapshot either way, so a dump describes one instant wherever it is read and only the load's placement differs. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §4.1.
 
-Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §4.1, as it stood before this entry; in git (`tools/adr.py log 0032 A12 --before`).
+Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §4.1.
 
 ### A13. The skolem hash is specified with the dumps
 
@@ -225,7 +224,7 @@ Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §4.1, as it sto
 - **Change:** amends §7
 - **Summary:** §7 said the hash function and the preimage's byte layout were fixed in wikibase-compat.md, and they were not. Asked whether to leave the skolem form for the update stream or specify it with the dumps, James chose to specify it now and write the skolemized form beside the plain one: SHA-256 over the inputs §7 names, as lowercase hex, under `https://scatter.red/genid/`, the layout and a test vector in [wikibase-compat.md](../api/wikibase-compat.md) §5.7. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §4.3.
 
-Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §4.3, as it stood before this entry; in git (`tools/adr.py log 0032 A13 --before`).
+Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §4.3.
 
 ### A14. The skolem preimage: property IRIs, per-property indexes, references without the UUID
 

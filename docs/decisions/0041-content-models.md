@@ -130,7 +130,7 @@ James's direction, from the design discussion of 2026-09-30:
 - **Change:** supersedes §12
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A41).
 
-Replaced text: §12 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0041 A1 --before`).
+Replaced text: §12 of this ADR.
 
 ### A2. The `Scribunto` model
 
@@ -153,9 +153,9 @@ Replaced text: §12 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** amends §3
 - **Summary:** `triplespace-osm-tag` is replaced by `triplespace-notation`, entity type `notation`, the default in Notation (216). The rest of its row is unchanged. Q2 names `wikibase-notation` in place of `wikibase-osm-tag`.
 
-Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0041 A4 --before`).
+Replaced text: §3 of this ADR.
 
-Replaced text: Open questions of this ADR, as it stood before this entry; in git (`tools/adr.py log 0041 A4 --before`).
+Replaced text: Open questions of this ADR.
 
 ### A5. The `triplespace-board` model
 
@@ -185,7 +185,7 @@ Replaced text: Open questions of this ADR, as it stood before this entry; in git
 - **Change:** extends §3
 - **Summary:** `triplespace-scope` (origin Triplespace): source text, slot `main`, format `application/json`, direct editing yes, the default in Scope (312). Its content is a definition; the member list is projected.
 
-Replaced text: §3, in part of this ADR, as it stood before this entry; in git (`tools/adr.py log 0041 A8 --before`).
+Replaced text: §3, in part of this ADR.
 
 ### A9. The `triplespace-sprint` model
 
@@ -215,7 +215,7 @@ Replaced text: §3, in part of this ADR, as it stood before this entry; in git (
 - **Change:** amends §7
 - **Summary:** Labels and descriptions on `M` IDs are captions, accepted and stored as the File page's terms; aliases and sitelinks stay refused.
 
-Replaced text: §7 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0041 A12 --before`).
+Replaced text: §7 of this ADR.
 
 ### A13. The `wikibase-lexeme` model
 
@@ -231,7 +231,7 @@ Replaced text: §7 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** corrects §2
 - **Summary:** The models reserved and not implemented are `css`, `javascript`, `unknown` and `wikibase-query`; `wikibase-lexeme` and `EntitySchema` are implemented ([0066](0066-lexemes.md) §3, [0064](0064-entityschema-and-validation.md) §3; A11, A13), so §2's list no longer names them. (PENDING E16)
 
-Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0041 A14 --before`).
+Replaced text: §2 of this ADR.
 
 ### A15. The namespace catalogue says where a model is allowed
 
@@ -240,7 +240,7 @@ Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §3
 - **Summary:** The namespace catalogue ([0008](0008-namespaces-and-document-pages.md) §2 as amended; chapter 10 §1.4) is the one place that says where a model is allowed. §3's "Default in" column carries defaults only, and its "allowed in" notes go. (PENDING E17)
 
-Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0041 A15 --before`).
+Replaced text: §3 of this ADR.
 
 > | `triplespace-sprint` | Triplespace | text | main | `application/json` | Yes | — ; allowed on Project (4) subpages ([0061](0061-sprints-and-tasks.md) §2–3) |
 
@@ -251,7 +251,6 @@ Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§12
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0041 A16 --diff`).
 
 ### A17. A talk page's revision content and diff
 
@@ -260,7 +259,7 @@ Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** extends §3, §5
 - **Summary:** The composite source gains a serialization and a diff: a talk page's content as of a revision is a read-only wikitext rendering of the threads attached to it now, each as it stood after the revision, and its diff is the line diff of that text. `triplespace-talk` gains the format `text/x-wiki`. Chapter text: [10](../architecture/10-pages-and-content-models.md) §4.3, §4.4.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §4.3 and §4.4, as it stood before this entry; in git (`tools/adr.py log 0041 A17 --before`).
+Replaced text: [10](../architecture/10-pages-and-content-models.md) §4.3 and §4.4.
 
 ### A18. The `triplespace-remote` model
 

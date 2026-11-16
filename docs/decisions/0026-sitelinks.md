@@ -105,7 +105,7 @@ Two constraints shape the rest. The **host of a URL is a Domain** ([0009](0009-k
 - **Change:** supersedes §10
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A22).
 
-Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0026 A1 --before`).
+Replaced text: §10 of this ADR.
 
 ### A2. Decisions of 2026-09-27 (evening)
 
@@ -123,7 +123,7 @@ Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/a
   - §1: A sitelink in the local graph whose host is one the tenant is served at is stored by page ID, not URL. Its URL and title are derived from the page's current title, so a move does not break it; a title with no page is refused with `ts-sitelink-no-page`.
   - §2: A tenant registers a site alias for its own host, so that `wbgetentities` by `sites` and `titles`, `wbsetsitelink` and `Special:ItemByTitle` reach an item from a local page's title. The one-link-per-host and one-item-per-URL invariants make that pairing one-to-one.
 
-Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0026 A3 --before`).
+Replaced text: §1 of this ADR.
 
 ### A4. Converted to the 0050 format
 
@@ -139,14 +139,13 @@ Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §8
 - **Summary:** For a page paired with an item ([0038](0038-page-metadata-and-categories.md) §6, §11) the `schema:Article` node is the page node `{base}/page/{id}`, also typed `schema:WebPage`, with the URL as `schema:url`; every other sitelink keeps wikibase-compat §5.2's shape, where the node is the page's URL. (PENDING A20)
 
-Replaced text: §8 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0026 A5 --before`).
+Replaced text: §8 of this ADR.
 
 ### A6. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0026 A6 --diff`).
 
 ### A7. One URL across entities: local wins, and the projection never fails
 

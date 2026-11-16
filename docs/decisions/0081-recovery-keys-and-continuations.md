@@ -110,4 +110,3 @@ James's direction, from the design discussion of 2026-10-09:
 - **Date:** 2026-10-30
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0081 A1 --diff`).

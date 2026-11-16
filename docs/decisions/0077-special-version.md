@@ -159,7 +159,7 @@ And on the first proposal, the same day:
 - **Change:** extends §1; amends §4, §8, §11
 - **Summary:** "I don't think it's necessary to mention ADRs directly in Special:Version." The page names no ADRs: the services table loses its "Specified in" column, features are no longer linked to their ADRs, and an `inspired_by` entry shows what was taken but not its ADR. The `adr` fields in `version.toml` stay, for maintainers. Showing QLever's and Parsoid's versions is deferred: both are shown without one (Q1). Q3 is withdrawn.
 
-Replaced text: §4 of this ADR; §8 of this ADR; §11 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0077 A1 --before`).
+Replaced text: §4 of this ADR; §8 of this ADR; §11 of this ADR.
 
 ### A2. Services not configured are not shown
 
@@ -168,14 +168,13 @@ Replaced text: §4 of this ADR; §8 of this ADR; §11 of this ADR, as it stood b
 - **Change:** amends §4
 - **Summary:** "If a service is not configured, it shouldn't be shown." §4 lists only the services the instance is configured to use and the embedded components in use; a configured service is `connected` or `unreachable`.
 
-Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0077 A2 --before`).
+Replaced text: §4 of this ADR.
 
 ### A3. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§15
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0077 A3 --diff`).
 
 ### A4. Contract versions and skins
 
@@ -207,7 +206,7 @@ Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §2, §3, §6
 - **Summary:** With the commercial licence withdrawn ([0005](0005-crate-organization.md) A114), a contributor entry no longer carries the date of a contributor licence agreement, the sentence after the licence notice says only that the embedded documentation and registry data are CC0 (the message `ts-version-cc0` replaces `ts-version-dual-and-cc0`), and a `scatter-*` crate is no longer marked as also available commercially (`ts-version-commercial-mark` and the manifest's `commercial` field are removed).
 
-Replaced text: [21](../architecture/21-special-pages.md) §5.2, §5.3; [22](../architecture/22-crates-and-stack.md) §7.2, as it stood before this entry; in git (`tools/adr.py log 0077 A7 --before`).
+Replaced text: [21](../architecture/21-special-pages.md) §5.2, §5.3; [22](../architecture/22-crates-and-stack.md) §7.2.
 
 ### A8. The licence header on built JavaScript and CSS
 

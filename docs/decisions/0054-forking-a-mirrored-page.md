@@ -141,7 +141,7 @@ James's direction, from the design discussion of 2026-10-01:
 - **Change:** amends §6, §9
 - **Summary:** The upstream diff's base follows `merge` records; merging and proposing replace the manual edit; re-following is a setting. Q1 settled.
 
-Replaced text: §6, in part of this ADR, as it stood before this entry; in git (`tools/adr.py log 0054 A1 --before`).
+Replaced text: §6, in part of this ADR.
 
 ### A2. Following the talk page
 
@@ -150,7 +150,7 @@ Replaced text: §6, in part of this ADR, as it stood before this entry; in git (
 - **Change:** amends §1, §5
 - **Summary:** Forking asks whether the talk page follows upstream (the default where the repository's `talk` is `sync`) or is forked; `forked_from` records `talk`, and the `follow` page operation changes it. The conversion of §5 runs at fork time only for **Fork the talk page**, and later on **Stop following**. The front matter thread is created pinned and open.
 
-Replaced text: §5 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0054 A2 --before`).
+Replaced text: §5 of this ADR.
 
 > | **The text above the first heading**: the frontmatter of banners, WikiProject templates and talk headers | One thread, subject "*{title}*: talk page header", holding that text as its opening post. The direction says to treat the frontmatter as a section, and this is how |
 
@@ -163,14 +163,13 @@ Replaced text: §5 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** corrects §8
 - **Summary:** "Copying files" (§7) needs `upload`, whose default is `autoconfirmed` ([0039](0039-files-and-media.md) §21), not `user`; §8's permissions table had the default wrong. `reupload-shared` stays as 0039 §21 has it. (PENDING C13)
 
-Replaced text: §8 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0054 A3 --before`).
+Replaced text: §8 of this ADR.
 
 ### A4. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§12
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0054 A4 --diff`).
 
 ### A5. Seeding is metadata-only by default, with content for the last 100 revisions
 
@@ -179,13 +178,13 @@ Replaced text: §8 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §3, §4, §5; extends §10
 - **Summary:** Every upstream revision is seeded as metadata (content, comment and attestation parts, no `text` part), so the history is complete as a list; the `text` part is seeded for the last `fork.content_revisions` (`site`, default 100) revisions only, which a tenant may raise up to the instance ceiling, and an article whose editors want its whole history diffable here asks the job for it explicitly. `fork.max_revisions` (default 20,000) becomes the per-job budget, the number of upstream revisions one job seeds, metadata included, beyond which the oldest are not seeded and the History tab links upstream. `view.upstream_revision` carries a `tenant` column leading its key, since two tenants may fork one article, and admits page subjects in the key form page subjects take across `view`. Chapter text: [13](../architecture/13-mirrored-pages.md) §3.4, §3.6, §5.13. (REVIEW G37)
 
-Replaced text: [13](../architecture/13-mirrored-pages.md) §3.4, as it stood before this entry; in git (`tools/adr.py log 0054 A5 --before`).
+Replaced text: [13](../architecture/13-mirrored-pages.md) §3.4.
 
 > **Serving.** `view.upstream_revision` ([0015](0015-record-format-and-partition-registry.md) §4) gains rows whose `entity_id` is the page ID in decimal, as page statements use it ([0038](0038-page-metadata-and-categories.md) §1).
 
-Replaced text: [13](../architecture/13-mirrored-pages.md) §3.6, as it stood before this entry; in git (`tools/adr.py log 0054 A5 --before`).
+Replaced text: [13](../architecture/13-mirrored-pages.md) §3.6.
 
-Replaced text: [13](../architecture/13-mirrored-pages.md) §5.13, as it stood before this entry; in git (`tools/adr.py log 0054 A5 --before`).
+Replaced text: [13](../architecture/13-mirrored-pages.md) §5.13.
 
 ### A6. Comment by comment, attribution from history, and `all`
 
@@ -194,7 +193,7 @@ Replaced text: [13](../architecture/13-mirrored-pages.md) §5.13, as it stood be
 - **Change:** amends §3, §5, §12
 - **Summary:** The talk-page conversion keeps its threads and splits their posts: each comment becomes one wikitext post, its `inReplyTo` the post it answers, found by signatures (a user link and a timestamp in a format of the universal registry `talk-markup.toml`, or an undated signature) and indentation; headings below level two become heading posts, wrappers that close a whole section or subsection become wrapper posts, and a section that will not split falls back to one post as before, a page that will not divide to one post for the page. Each post records `signed_as` and `added_by` and is attributed to its author, resolved from both, which settles Q4; the conversion reads the talk page's whole history from `fork.history_source` for a line-level blame, keeps only each post's `added_by`, and attributes archives from the parent's history. Chapter text: [13](../architecture/13-mirrored-pages.md) §3.4, §5.12–§5.17; [22](../architecture/22-crates-and-stack.md) §2.1.
 
-Replaced text: [13](../architecture/13-mirrored-pages.md) §3.4, §5.12 and §5.13; [22](../architecture/22-crates-and-stack.md) §2.1, the `scatter-adapter-mediawiki` row, as it stood before this entry; in git (`tools/adr.py log 0054 A6 --before`).
+Replaced text: [13](../architecture/13-mirrored-pages.md) §3.4, §5.12 and §5.13; [22](../architecture/22-crates-and-stack.md) §2.1, the `scatter-adapter-mediawiki` row.
 
 ### A7. Editors may write wikitext posts too
 
@@ -203,5 +202,5 @@ Replaced text: [13](../architecture/13-mirrored-pages.md) §3.4, §5.12 and §5.
 - **Change:** amends §5
 - **Summary:** A tenant's `thread.markup` setting may make editors' posts wikitext ([0019](0019-discussions.md) A28), so `text/x-wiki` is no longer written only by imports. An import still writes every post as wikitext, whatever the setting, and keeps its text as it was, signatures included: the removal of a trailing signature applies to original posts only. Chapter text: [13](../architecture/13-mirrored-pages.md) §5.13.
 
-Replaced text: [13](../architecture/13-mirrored-pages.md) §5.13, as it stood before this entry; in git (`tools/adr.py log 0054 A7 --before`).
+Replaced text: [13](../architecture/13-mirrored-pages.md) §5.13.
 

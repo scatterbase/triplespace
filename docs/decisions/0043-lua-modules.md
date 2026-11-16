@@ -142,7 +142,7 @@ James's direction, from the design discussion of 2026-09-30:
 - **Change:** supersedes §17
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries `triplespace-scribunto` and every change this section listed (0005 A43).
 
-Replaced text: §17 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0043 A1 --before`).
+Replaced text: §17 of this ADR.
 
 ### A2. Converted to the 0050 format
 
@@ -172,7 +172,7 @@ Replaced text: §17 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** corrects §3
 - **Summary:** [0008](0008-namespaces-and-document-pages.md) §5's exclusion now covers `css` and `javascript` only: `sanitized-css` is implemented ([0055](0055-templatestyles-templatedata-and-page-properties.md) §1; [0041](0041-content-models.md) A7). §3's paragraph reads "the other two stay excluded" (`css`, `javascript`) and points at 0055 §1 for `sanitized-css`. (PENDING E18)
 
-Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0043 A5 --before`).
+Replaced text: §3 of this ADR.
 
 ### A6. `render_state.unheld_misses`
 
@@ -186,7 +186,6 @@ Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§17
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0043 A7 --diff`).
 
 ### A8. Usage invalidation is a tier-3 consumer of composition
 
@@ -195,7 +194,7 @@ Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §10
 - **Summary:** Invalidation no longer hangs off "when an entity's `resolved_version` changes": the composer emits "entity X, tenant T, composed to version N" after each composed row commits, and the entity-usage consumer reads those events in its own queue, with its own rate and lag, never inside the appending or composing transaction. The consumer is off while no tenant on the instance has `wikitext.expansion` on, and off during bootstrap and bulk modes until the operator turns it on; its lag is reported on its own page, and a page's render may be behind an entity by that lag. Chapter text: [11](../architecture/11-rendering-templates-and-modules.md) §7.9, §4.4. (REVIEW G10)
 
-Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §7.9, §4.4, as it stood before this entry; in git (`tools/adr.py log 0043 A8 --before`).
+Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §7.9, §4.4.
 
 ### A9. The Interface namespace
 
@@ -204,7 +203,7 @@ Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §7.9
 - **Change:** amends §5
 - **Summary:** `mw.message` reads messages under the wiki's Interface pages (0095 §2).
 
-Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §7.5, as it stood before this entry; in git (`tools/adr.py log 0043 A9 --before`).
+Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §7.5.
 
 ### A10. No commercial licence
 
@@ -213,5 +212,5 @@ Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §7.5
 - **Change:** amends §14
 - **Summary:** The `scatter-*` crates are no longer offered under a commercial licence ([0005](0005-crate-organization.md) A114), so the vendored Lua is no longer kept out of them for that reason. `triplespace-scribunto` stays where it is, and the Lua vendored into it keeps its upstream licences.
 
-Replaced text: [22](../architecture/22-crates-and-stack.md) §3.3, as it stood before this entry; in git (`tools/adr.py log 0043 A10 --before`).
+Replaced text: [22](../architecture/22-crates-and-stack.md) §3.3.
 

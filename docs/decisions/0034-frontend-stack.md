@@ -126,7 +126,7 @@ The backend stack is in 0033.
 - **Change:** amends §6
 - **Summary:** When the source needs expansion the browser cannot do, the preview comes from `action=parse` on the server instead.
 
-Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0034 A1 --before`).
+Replaced text: §6 of this ADR.
 
 ### A2. A Lua mode
 
@@ -149,7 +149,7 @@ Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** consolidates §1–13
 - **Summary:** A1–A3 were folded into the Decision. The title's em dash became a full stop, the open questions were numbered, the Author line was added, and the list this ADR kept under "Changes to other ADRs" (quoted below) was replaced by the generated table. That list also claimed changes to 0003 §3, 0012 §5 and 0014 §5 (renderers, the fragment routes, fragment caching); none was ever written into those ADRs, and nothing records them there, so the fragment routes and their caching are stated in §5 of this ADR alone. No decision changed. Before this, A1–A3 were blockquotes. The file before conversion is commit `0b26a3a`.
 
-Replaced text: Changes to other ADRs of this ADR, as it stood before this entry; in git (`tools/adr.py log 0034 A4 --before`).
+Replaced text: Changes to other ADRs of this ADR.
 
 ### A5. CSS linting and TemplateData in the editor
 
@@ -165,7 +165,7 @@ Replaced text: Changes to other ADRs of this ADR, as it stood before this entry;
 - **Change:** amends §1, §2, §5, §8, §11; extends §13
 - **Summary:** The server-side renderer is an API client like the browser: it calls the public HTTP API with the viewer's credentials, from `triplespace-web` over the network or from `triplespace-server` in-process, and never the API crates' handlers. Either binary serves the site and its assets. Fragment routes are gone: a component fetches its region with `action=render` and `region` on the page's own URL, which also ends the collision of `GET /page/{id}/render` with 0042 §12's render manifest. In development the web tier can be pointed at Wikidata directly. A consequence is added.
 
-Replaced text: §1 of this ADR; §2 of this ADR; §5 of this ADR; §8 of this ADR; §11 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0034 A6 --before`).
+Replaced text: §1 of this ADR; §2 of this ADR; §5 of this ADR; §8 of this ADR; §11 of this ADR.
 
 ### A7. Codex, themed by tokens
 
@@ -174,7 +174,7 @@ Replaced text: §1 of this ADR; §2 of this ADR; §5 of this ADR; §8 of this AD
 - **Change:** amends §1; extends §10
 - **Summary:** Codex stays, for its accessible components, its right-to-left and language support and its CSS-only components, but no longer strictly as-is: the instance or a tenant may set Codex's design tokens to its own values as a theme (`ui.theme`), served as a stylesheet of custom properties and refused unless its colours meet WCAG 2.1 AA contrast. The site reads the theme from `siprop=triplespace`, since it reaches the instance only through the API, and serves it under a URL named by its hash. Components, markup and behaviour stay Codex's. James, asked whether to keep Codex at all: "I like your middle path with Codex. It has more to do with the accessibility and right-to-left benefits than pure visual or UX fidelity. Being able to get HTML-only too is a bonus."
 
-Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0034 A7 --before`).
+Replaced text: §1 of this ADR.
 
 ### A8. The shipped default theme; the Codex release
 
@@ -183,7 +183,7 @@ Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §1; extends §2, §8
 - **Summary:** "Let's ship the canvases' palette and Newsreader headings as the shipped default theme." A site with no `ui.theme` wears `default` from the new `docs/registry/themes.toml`: Codex token values taken from the site and statement UI canvases, with Newsreader for headings (`font-family-heading-main`), IBM Plex Sans for text and IBM Plex Mono for IDs, every text pair at WCAG 2.1 AA and the boundaries of controls at 3:1; the canvases' light input borders were darkened to meet the latter. The typefaces are self-hosted under the OFL. "Codex latest release": Codex is pinned at its latest release, 2.7.0, and bumped deliberately, which settles Q1.
 
-Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0034 A8 --before`).
+Replaced text: §1 of this ADR.
 
 ### A9. The wasm list lives in 0005 rule 7
 
@@ -192,14 +192,13 @@ Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** corrects §6
 - **Summary:** [0005](0005-crate-organization.md) §3 rule 7 is the one wasm list: the nine crates its table marks. §6 and `cargo xtask wasm` read that list rather than keeping a list of their own; §6's four-item enumeration of what `scatter-wasm` re-exports is replaced by a reference to rule 7. (PENDING F23)
 
-Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0034 A9 --before`).
+Replaced text: §6 of this ADR.
 
 ### A10. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§13
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0034 A10 --diff`).
 
 ### A11. The interface language is negotiated
 
@@ -208,7 +207,7 @@ Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §9
 - **Summary:** A reader is served in their language without having to choose one: the interface language comes from `uselang`, then the reader's `language` preference, then the request's `Accept-Language` matched against the languages the interface has messages for, then the tenant's default (`site.language` unless `preferences.defaults` names another) and the farm's. Readers who are not logged in are served the same way. The chapter text is [19](../architecture/19-site-ui.md) §5.6.
 
-Replaced text: [19](../architecture/19-site-ui.md) §5.6, as it stood before this entry; in git (`tools/adr.py log 0034 A11 --before`).
+Replaced text: [19](../architecture/19-site-ui.md) §5.6.
 
 ### A12. Palettes and type sets replace the flat theme
 
@@ -217,7 +216,7 @@ Replaced text: [19](../architecture/19-site-ui.md) §5.6, as it stood before thi
 - **Change:** amends §1; extends §11
 - **Summary:** The flat theme of A7, one map of Codex token values in `ui.theme`, becomes two choices held as config records: a palette, with `light`, `dark`, `light-more` and `dark-more` colour variants and the shape tokens, each variant held to its contrast floor, and a type set, with the three typeface roles and the typefaces it serves. The shipped default of A8 is the palette `parchment` (the same light values, now with a walnut-brown dark variant and high-contrast variants) with the type set `default26`; for accessibility, the palettes `parchment-ob` and `parchment-co`, for colour-vision deficiencies, and the type sets `hyperlegible` and `opendyslexic` ship, and a reader may always choose them. A reader chooses mode, contrast, text size, palette and type set, the last two within what the wiki offers. One stylesheet per palette and one per type set hold their variants and modes under `data-*` attributes and media queries. `font-src` and `img-src` admit the media origin, where a tenant's typefaces and logo are served as site assets. Q2 is settled: Codex's dark tokens are the base every palette's `dark` overlays. `ui.theme` is retired. The chapter text is [19](../architecture/19-site-ui.md) §5.1, §5.2 and §5.9, [09](../architecture/09-security-and-moderation.md) §1.4, [02](../architecture/02-graphs-rdf-and-query.md) §1.4 and [23](../architecture/23-configuration-and-registry.md) §3.2.
 
-Replaced text: [19](../architecture/19-site-ui.md) §5.1, §5.2; [02](../architecture/02-graphs-rdf-and-query.md) §1.4; [23](../architecture/23-configuration-and-registry.md) §3.2, as it stood before this entry; in git (`tools/adr.py log 0034 A12 --before`).
+Replaced text: [19](../architecture/19-site-ui.md) §5.1, §5.2; [02](../architecture/02-graphs-rdf-and-query.md) §1.4; [23](../architecture/23-configuration-and-registry.md) §3.2.
 
 ### A13. `style` attributes are allowed
 
@@ -226,7 +225,7 @@ Replaced text: [19](../architecture/19-site-ui.md) §5.1, §5.2; [02](../archite
 - **Change:** amends §11
 - **Summary:** The site's Content Security Policy adds `style-src-attr 'unsafe-inline'`: `style` attributes apply, while stylesheets still come only from the instance's origin and `<style>` elements stay refused. Wikitext writes `style` attributes and MediaWiki's Sanitizer, which the renderer follows ([0008](0008-namespaces-and-document-pages.md) A39), checks each value, so blocking them took the styling off content the API had already accepted: infoboxes, navboxes, coloured table cells and hidden elements, above all on mirrored Wikipedia pages. A style attribute cannot run script; what it can still do is lay content over the page, as on MediaWiki, where moderation answers it. `style-src-attr` is in every current browser engine. The policy does not yet admit the `<style>` elements `<templatestyles>` emits and mirrored Wikipedia HTML carries ([11](../architecture/11-rendering-templates-and-modules.md) §6.3); whether they come in as a hash per element in each page's own policy or as stylesheets served from the origin is not decided here. The chapter text is [09](../architecture/09-security-and-moderation.md) §1.4.
 
-Replaced text: [09](../architecture/09-security-and-moderation.md) §1.4, its first sentence, as it stood before this entry; in git (`tools/adr.py log 0034 A13 --before`).
+Replaced text: [09](../architecture/09-security-and-moderation.md) §1.4, its first sentence.
 
 ### A14. Skins and message bundles
 
@@ -235,9 +234,9 @@ Replaced text: [09](../architecture/09-security-and-moderation.md) §1.4, its fi
 - **Change:** amends §2, §9
 - **Summary:** The site's HTML is drawn by a skin the operator installs: MiniJinja templates over the view models `triplespace-ui` builds, under a versioned template contract, with nine template functions, named menus and link classification. The default skin is a skin; it first reproduces today's pages, and the built-in `askama` rendering and the Codex builder are then removed, the Codex components becoming the default skin's macros. Interface messages come in versioned bundles, the binary's in `i18n/` and each skin's in its own, a skin's keys carrying its name as a prefix. The chapter text is [19](../architecture/19-site-ui.md) §5.2, §5.6 and §5.10.
 
-Replaced text: [19](../architecture/19-site-ui.md) §5.2, as it stood before this entry; in git (`tools/adr.py log 0034 A14 --before`).
+Replaced text: [19](../architecture/19-site-ui.md) §5.2.
 
-Replaced text: [19](../architecture/19-site-ui.md) §5.6, as it stood before this entry; in git (`tools/adr.py log 0034 A14 --before`).
+Replaced text: [19](../architecture/19-site-ui.md) §5.6.
 
 ### A15. `uselang=qqx` shows message keys
 
@@ -257,7 +256,7 @@ Replaced text: [19](../architecture/19-site-ui.md) §5.6, as it stood before thi
 - **Change:** amends §3
 - **Summary:** Sparklines are dropped: no statement-group layout (19 §4.3) defines one, and nothing draws them. Charts and timeline strips stay SVG drawn in Rust. Chapter text: [19](../architecture/19-site-ui.md) §4.9.
 
-Replaced text: [19](../architecture/19-site-ui.md) §4.9, as it stood before this entry; in git (`tools/adr.py log 0034 A16 --before`).
+Replaced text: [19](../architecture/19-site-ui.md) §4.9.
 
 ### A17. Thread fragments, the browser's language, and the media origin: the calls made building them
 
@@ -287,7 +286,7 @@ Replaced text: [19](../architecture/19-site-ui.md) §4.9, as it stood before thi
 - **Change:** amends §4
 - **Summary:** The header's search box suggests as the reader types, with these calls. (1) It is built on Codex's Lookup inside the header's own form, not on Codex's TypeaheadSearch: 2.7.0's TypeaheadSearch draws each suggestion, and its footer, as a link inside an option, which axe refuses (`nested-interactive`), as it refused ChipInput (A18). A suggestion here is an option; choosing it goes to its page. TypeaheadSearch takes its place once a Codex release passes, or on James's decision to accept the finding as an exception. (2) The component, with Vue, loads the first time the box is focused or typed in and takes the plain form's place, keeping what was typed and the focus, so a reader who does not search downloads none of it; without JavaScript the form searches as before. (3) The suggestions: where the text is shaped as an entity ID that no suggestion names, **Go to** first, which is the search page's own go; then items, properties and domains by label or alias, at most four of each, then pages by title, ten in all; each entity with its description and its ID, a page marked as one; last, a line to the full results. The suggestions are flat, in that order, not grouped under headings. (4) Enter with no suggestion highlighted submits the form, as the plain one does. (5) The server writes the language, the kinds and the `ts-typeahead-*` messages beside the box. The bell's panel stays the site's own markup and script, not Codex's Popover: nothing was found wrong with it, and whether to rebuild it on Popover is James's to decide. Chapter text: 19 §5.3.
 
-Replaced text: [19](../architecture/19-site-ui.md) §5.3, as it stood before this entry; in git (`tools/adr.py log 0034 A20 --before`).
+Replaced text: [19](../architecture/19-site-ui.md) §5.3.
 
 ### A21. `banana-i18n` in the components; `GENDER` and `GRAMMAR` stay degenerate on the server
 

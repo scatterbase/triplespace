@@ -109,7 +109,7 @@ James's direction, 2026-10-30, on the review:
 - **Change:** consolidates §5
 - **Summary:** 24 §11 now names the registry file behind each catalogue that has moved (the crate map, the REST routes, the permissions, the log events: 0005 A111, 0012 A82, 0016 A40, 0011 A35) and the two still in prose. The decision is unchanged. The last commit before this entry is `0e67cce`.
 
-Replaced text: [24](../architecture/24-documentation.md) §11, as it stood before this entry; in git (`tools/adr.py log 0098 A2 --before`).
+Replaced text: [24](../architecture/24-documentation.md) §11.
 
 ### A3. What a catalogue move logs
 
@@ -118,7 +118,7 @@ Replaced text: [24](../architecture/24-documentation.md) §11, as it stood befor
 - **Change:** amends §5
 - **Summary:** 24 §11 no longer names each moved catalogue or an order (the registry README lists the files and the section each generates into; the Action API modules moved too, 0012 A83), and it says what a move logs: one `consolidates` entry in the ADR that owns the chapter section, quoting any chapter prose the move rewrote and naming the last commit that carried the table, rather than an entry in every ADR the table cites. That is what the five moves did (0005 A111, 0012 A82–A83, 0016 A40, 0011 A35).
 
-Replaced text: [24](../architecture/24-documentation.md) §11, as it stood after A2, as it stood before this entry; in git (`tools/adr.py log 0098 A3 --before`).
+Replaced text: [24](../architecture/24-documentation.md) §11, as it stood after A2.
 
 ### A4. Catalogues are checked against the running code
 

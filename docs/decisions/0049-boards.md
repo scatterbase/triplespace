@@ -137,7 +137,7 @@ James's direction, from the design discussion of 2026-10-01:
 - **Change:** supersedes §15
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A49).
 
-Replaced text: §15 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0049 A1 --before`).
+Replaced text: §15 of this ADR.
 
 ### A2. Converted to the 0050 format
 
@@ -153,7 +153,7 @@ Replaced text: §15 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** amends §4, §14
 - **Summary:** The `scope` key is accepted at board definition version 2 and takes a scope page or an inline kind of 0060 §4, meaning the threads attached to the talk pages of the selected subjects, or the board kinds `thread_statement` (this ADR's former `statement`) and `boards`. `subjects` is 0060's `statement`; `mentions` is withdrawn for 0060 Q2's `links`. Q2 is settled in part; Q7 holds the rest.
 
-Replaced text: §14, in part of this ADR; §4 of this ADR; §14 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0049 A3 --before`).
+Replaced text: §14, in part of this ADR; §4 of this ADR; §14 of this ADR.
 
 ### A4. Pinned threads
 
@@ -169,11 +169,10 @@ Replaced text: §14, in part of this ADR; §4 of this ADR; §14 of this ADR, as 
 - **Change:** amends §12
 - **Summary:** The `tp:` listing key, like the `sc:` and `sp:` listing keys of [0060](0060-scopes.md) §10 and [0061](0061-sprints-and-tasks.md) §11, carries a **listing version**: the maximum activity ID over the listing's members, computed in Postgres at read time. This replaces the tag purge of the `tp:` listing on every record on a thread; [0014](0014-caches-and-search.md) §1 principles 1 and 4 hold unchanged. Tag purges remain for erasure and hiding. (PENDING B4)
 
-Replaced text: §12 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0049 A5 --before`).
+Replaced text: §12 of this ADR.
 
 ### A6. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§15
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0049 A6 --diff`).

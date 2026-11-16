@@ -99,7 +99,7 @@ One constraint is fixed by James: **whether a user is watching something is priv
 - **Change:** supersedes §8
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A16).
 
-Replaced text: §8 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0020 A1 --before`).
+Replaced text: §8 of this ADR.
 
 ### A2. Notifications
 
@@ -122,7 +122,7 @@ Replaced text: §8 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §7
 - **Summary:** Streams and Atom fetches are rate-limited in the `stream` and `atom` classes. This settled the rate-limit half of Q5.
 
-Replaced text: §7 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0020 A4 --before`).
+Replaced text: §7 of this ADR.
 
 ### A5. Preferences and portability
 
@@ -131,7 +131,7 @@ Replaced text: §7 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §3
 - **Summary:** The four auto-watch flags move into the preference store, with `autowatch.notify`; the watch set is portable in the user data bundle and the private extract of a move; the period window is the `feeds.period` preference. This settled Q3 and the period half of Q5.
 
-Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0020 A5 --before`).
+Replaced text: §3 of this ADR.
 
 ### A6. Farm-wide feeds and the stream across instances
 
@@ -140,7 +140,7 @@ Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** extends §2, §5; amends §4
 - **Summary:** An all-tenants target set, served at the farm base under `feeds.farm_wide`. Cross-instance provider-to-tenant sync follows the stream, filtered to `source = local` and verified ([0022](0022-federation.md) §2); same-instance reading is direct. This settled Q4.
 
-Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0020 A6 --before`).
+Replaced text: §4 of this ADR.
 
 ### A7. The filter log is a feed
 
@@ -163,7 +163,7 @@ Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §2
 - **Summary:** A talk page's one-target set includes every thread attached to it, home or listing, and a board's is the board and its threads. A thread that is listed or detached joins or leaves the set at query time, as a moved one does.
 
-Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0020 A9 --before`).
+Replaced text: §2 of this ADR.
 
 ### A10. Converted to the 0050 format
 
@@ -179,7 +179,7 @@ Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** extends §2, §3
 - **Summary:** A Scope target set, joined against `view.scope_member` and bounded by `scopes.max_members`; `scope` and `rows` watch kinds, expanded at query time.
 
-Replaced text: §3, in part of this ADR, as it stood before this entry; in git (`tools/adr.py log 0020 A11 --before`).
+Replaced text: §3, in part of this ADR.
 
 ### A12. Followed talk pages
 
@@ -195,14 +195,13 @@ Replaced text: §3, in part of this ADR, as it stood before this entry; in git (
 - **Change:** amends §3
 - **Summary:** `notify` is refused on a `scope` or `rows` watch, with the error `ts-watch-notify-unsupported`: those watches are feed filters that expand at query time, not subscriptions to a target, so the generalization of DiscussionTools' topic subscription stops at the four target kinds that name one thing (`entity`, `page`, `thread`, `actor`). [0060](0060-scopes.md) §7 says the same of its side. (PENDING E31)
 
-Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0020 A13 --before`).
+Replaced text: §3 of this ADR.
 
 ### A14. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§8
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0020 A14 --diff`).
 
 ### A15. The stream's resume token is a vector of per-partition high-water marks
 
@@ -211,7 +210,7 @@ Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §4; extends §1
 - **Summary:** A page and a stream carry the same rows in different orders. The stream is therefore ordered by commit, and its resume token is a vector of per-partition high-water marks, `{partition: offset, …}`, since within a partition offsets are commit-ordered under the append lock; `Last-Event-ID` carries that vector, opaquely encoded, and the continuation token of a page carries the sort key, the two never interchanged. Chapter text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.4. (REVIEW G14)
 
-Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.4, as it stood before this entry; in git (`tools/adr.py log 0020 A15 --before`).
+Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.4.
 
 ### A16. A history's sync rows come from `view.entity_history`
 
@@ -220,7 +219,7 @@ Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.4, a
 - **Change:** amends §2
 - **Summary:** A history and a watchlist draw a mirrored entity's sync rows from `view.entity_history (tenant, canonical_id, time, partition, offset, kind, member)`, the one backing of a mirrored entity's history, written by composition; upstream log events are rows of it and never of `view.activity`. The ledger names [0013](0013-postgres-storage.md) §5, [0011](0011-logs.md) §3 and [0010](0010-site-ui.md) §3; the fold also changed §2's chapter text ([16](../architecture/16-logs-feeds-and-notifications.md) §4.2), so it is logged here. (REVIEW G42)
 
-Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.2, as it stood before this entry; in git (`tools/adr.py log 0020 A16 --before`).
+Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.2.
 
 ### A17. `private.watch` gains a target index for the addressing projection
 
@@ -236,13 +235,13 @@ Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.2, a
 - **Change:** amends §3, §5
 - **Summary:** `private.watch` is built (migration `0021_watch`), with `action=watch`, `action=setnotificationtimestamp`, `prop=info` `watched` and `notificationtimestamp`, `list=watchlist`, `list=watchlistraw`, `GET /activity?set=watchlist`, the `/watchlist` routes, the `watchlist` parameter of the writes and the site's star, **Watch for…** menu, `Special:Watchlist` and `Special:EditWatchlist`. James chose: the star plus a **Watch for…** disclosure ("Star plus a 'Watch for…' menu"), the seen marks in this round, and the Atom feed with its token, and `scope` and `rows` watches, left for later. Settled in the building, for James to confirm: a row stores its target in `view.activity`'s numbering, with a new kind, `title` (`{ns}:{title}` in the subject namespace), for a title with no page yet, which covers the page once there is one; a page the watcher may not see is watched as its title, so watching it answers as watching a page to come, and a page ID they may not see is refused as missing; what a page is watched as (an entity's page and talk page as the entity; a user page, user talk page and a thread homed there as the user; a talk page as its subject); `seen` is the newest change seen, a change being unseen when newer than `seen` or the watch's addition and not the holder's own, and visiting a watched page marks it seen; `setnotificationtimestamp` only moves `seen` to now; `wlallrev` off shows a page's newest change within each page of results; the `watchlist` parameter applies to `action=edit`, Wikibase's writes and the thread routes (body fields `watchlist`, `watchlistexpiry`), not yet to `action=move`; `action=watch` takes Triplespace's `tsnotify`, and `prop=info` reports `ts-notify`. Chapter text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.3; [18](../architecture/18-api.md) §2.3, §2.4, §3.2.
 
-Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.3, as it stood before this entry; in git (`tools/adr.py log 0020 A18 --before`).
+Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.3.
 
 > **`seen`** is updated when the holder reads the target or the watchlist, and drives the "changed since you last looked" mark. It is written often and matters little, which is why it lives here and not in a record.
 
 > **Serving respects the schema boundary.** `triplespace-accounts` is the only code that reads `private.watch`. It resolves the holder's watch set to a list of targets and hands that list to the activity query, which runs under the public role against `view` alone. The join happens in the query as a target-set parameter, never as a cross-schema join.
 
-Replaced text: [18](../architecture/18-api.md) §2.3, §2.4, §3.2, as it stood before this entry; in git (`tools/adr.py log 0020 A18 --before`).
+Replaced text: [18](../architecture/18-api.md) §2.3, §2.4, §3.2.
 
 > | `action=setnotificationtimestamp` | As in MediaWiki | [0020](0020-change-feeds.md) §5 |
 
@@ -262,7 +261,7 @@ Replaced text: [18](../architecture/18-api.md) §2.3, §2.4, §3.2, as it stood 
 - **Change:** corrects §5
 - **Summary:** The module catalogue named `action=unwatch` beside `action=watch`; MediaWiki has no such module (mediawiki-compat.md lists `watch` alone), and unwatching is `action=watch` with `unwatch`, which is served. The row now names `action=watch` only. Chapter text: [18](../architecture/18-api.md) §2.3 (`action-api.toml`).
 
-Replaced text: [18](../architecture/18-api.md) §2.3, `action-api.toml`, as it stood before this entry; in git (`tools/adr.py log 0020 A20 --before`).
+Replaced text: [18](../architecture/18-api.md) §2.3, `action-api.toml`.
 
 ### A21. A feed filters by what an entity edit changed
 

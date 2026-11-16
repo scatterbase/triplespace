@@ -112,7 +112,7 @@ Two existing mechanisms fit the rest. Keyed entity types ([0009](0009-keyed-enti
   - §6: The rule now belongs to the `notation` type: no notation of any scheme joins an identity cluster.
   - §7: `keyed-types.toml` gains `notation` instead of `osm-tag`, and the new `notation-schemes.toml` holds `osm`. 216/217 are `Notation` and `Notation talk`. `scatter-normalize` keeps the `osm-tag` grammar as the `osm` scheme's grammar, and `triplespace-titles` gains the `Notation` namespace instead of `OSM`.
 
-Replaced text: §3 of this ADR; §4 of this ADR; §5 of this ADR; §6 of this ADR; §7 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0036 A2 --before`).
+Replaced text: §3 of this ADR; §4 of this ADR; §5 of this ADR; §6 of this ADR; §7 of this ADR.
 
 ### A3. Converted to the 0050 format
 
@@ -128,14 +128,13 @@ Replaced text: §3 of this ADR; §4 of this ADR; §5 of this ADR; §6 of this AD
 - **Change:** amends §2
 - **Summary:** §2 stands in substance: a provider may opt into the keyed-style clear, a `put` of the empty state, in place of a tombstone for an upstream deletion, by the registry flag `deletion = clear` in `providers.toml`, which OSM sets. [0002](0002-source-graphs-and-mass-ingest.md) §5 gains that option, so §2 now cites 0002 §5 for the clear rather than [0009](0009-keyed-entity-types-and-domain.md) §9, whose rule is for keyed types. (PENDING E9)
 
-Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0036 A4 --before`).
+Replaced text: §2 of this ADR.
 
 ### A5. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§7
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0036 A5 --diff`).
 
 ### A6. The key map binds roles in the instance record, never a tenant's properties
 
@@ -144,7 +143,7 @@ Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §4; extends §1
 - **Summary:** Adapters never map onto a tenant's properties. The OSM key map still names properties by role, but the bindings it reads are the instance-scope `role` record's ([0082](0082-source-form-and-the-shared-view.md) §5.2), never a tenant's, and they name registry-provider properties (`WDP…`, `OWP…`) or properties of OpenStreetMap's own **property type**: a `[[provider.type]]` row with `entity_type = "property"` on a provider that publishes no properties of its own, its letter allocated when the adapter is built, whose properties the adapter mints under deterministic IDs with the mapping versioned with the adapter (§1, in [05](../architecture/05-providers-and-ingest.md) §8.1). Whatever a mapped key becomes is therefore the same property on every instance, and "no per-instance property numbers exist" holds by construction rather than by the case-3 fallback alone. The ledger named §3 (the `osm` scheme), whose chapter text did not change; the fold is in [05](../architecture/05-providers-and-ingest.md) §8.8, which holds §4. (REVIEW G26)
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §8.8, as it stood before this entry; in git (`tools/adr.py log 0036 A6 --before`).
+Replaced text: [05](../architecture/05-providers-and-ingest.md) §8.8.
 
 > Case 3 is the fallback until they do, and it means no property is minted per key and no per-instance property numbers exist.
 
@@ -155,7 +154,7 @@ Replaced text: [05](../architecture/05-providers-and-ingest.md) §8.8, as it sto
 - **Change:** amends §1, §5, §7
 - **Summary:** `OW` is read by `scatter-adapter-wikibase` (formerly `scatter-adapter-wikidata`). Its key map is two `[[provider.adapter_config.key_map]]` rules, for `Q7` and `Q2`, each matching an item's direct class through the configuration's `class_property`, the wiki's "instance of"; the key map is the same rule list that internetdomains.wiki's is. Chapter text: [05](../architecture/05-providers-and-ingest.md) §8.7, §8.9; [23](../architecture/23-configuration-and-registry.md) §4.2.
 
-Replaced text: 05 §8.7 of this ADR; 05 §8.9 of this ADR; 23 §4.2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0036 A7 --before`).
+Replaced text: 05 §8.7 of this ADR; 05 §8.9 of this ADR; 23 §4.2 of this ADR.
 
 ### A8. The wiki's "instance of" is `P2`
 

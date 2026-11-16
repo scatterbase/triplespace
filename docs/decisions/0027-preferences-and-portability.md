@@ -100,7 +100,7 @@ This ADR does three things: it names every kind of private state and puts prefer
 - **Change:** supersedes §9
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A23).
 
-Replaced text: §9 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0027 A1 --before`).
+Replaced text: §9 of this ADR.
 
 ### A2. Converted to the 0050 format
 
@@ -137,7 +137,6 @@ Replaced text: none; §2 gains two sentences.
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§9
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0027 A6 --diff`).
 
 ### A7. The preference registry is copied on create and synced
 
@@ -153,7 +152,7 @@ Replaced text: none; §2 gains two sentences.
 - **Change:** amends §1; amends §7
 - **Summary:** A preference resolves to the account's own value, then `preferences.defaults` (the tenant's map merged key by key over the instance's default for it), then the registry default. `Special:Preferences` becomes a page of its own with a tab per group, the notification matrix among them, instead of a section of `Special:Account`. Q4 is settled by [0085](0085-settings-and-preferences.md) §6. The chapter text is [07](../architecture/07-actors-and-accounts.md) §8.1 and [19](../architecture/19-site-ui.md) §2.4 and §2.6.
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §8.1; [19](../architecture/19-site-ui.md) §2.4; [23](../architecture/23-configuration-and-registry.md) §3.2, as it stood before this entry; in git (`tools/adr.py log 0027 A8 --before`).
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §8.1; [19](../architecture/19-site-ui.md) §2.4; [23](../architecture/23-configuration-and-registry.md) §3.2.
 
 ### A9. Client credentials never leave
 
@@ -169,7 +168,7 @@ Replaced text: [07](../architecture/07-actors-and-accounts.md) §8.1; [19](../ar
 - **Change:** amends §2, §3
 - **Summary:** Email addresses belong to the instance login, which no tenant owns ([0100](0100-email-addresses-and-verification-codes.md) §1), so they are no longer an account's portable contact details: the user data bundle's `contacts` holds the fediverse handle alone, and a tenant move or an import carries no address.
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §8.3, §8.4, as it stood before this entry; in git (`tools/adr.py log 0027 A10 --before`).
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §8.3, §8.4.
 
 ### A11. The private extract is sealed with the rest of the transfer
 
@@ -178,7 +177,7 @@ Replaced text: [07](../architecture/07-actors-and-accounts.md) §8.3, §8.4, as 
 - **Change:** amends §4
 - **Summary:** The private extract no longer travels apart from the bundle: the whole transfer is sealed to the receiving instance's key, the extract with it, and the binding digest's secret still passes operator to operator. Chapter text: [07](../architecture/07-actors-and-accounts.md) §8.5.
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §8.5, as it stood before this entry; in git (`tools/adr.py log 0027 A11 --before`).
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §8.5.
 
 ### A12. A recovered move carries restricted content
 
@@ -187,5 +186,5 @@ Replaced text: [07](../architecture/07-actors-and-accounts.md) §8.5, as it stoo
 - **Change:** amends §4
 - **Summary:** A non-cooperative move was limited to the public bundle. It still carries no private extract, but a `recovered` continuation also carries the tenant's restricted content (0103 §7). Chapter text: [07](../architecture/07-actors-and-accounts.md) §8.5.
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §8.5, as it stood before this entry; in git (`tools/adr.py log 0027 A12 --before`).
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §8.5.
 

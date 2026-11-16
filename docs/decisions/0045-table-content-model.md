@@ -123,7 +123,7 @@ James's direction, from the design discussion of 2026-09-30:
 - **Change:** supersedes §13
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A45).
 
-Replaced text: §13 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0045 A1 --before`).
+Replaced text: §13 of this ADR.
 
 ### A2. Converted to the 0050 format
 
@@ -139,7 +139,7 @@ Replaced text: §13 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** amends §4
 - **Summary:** `rows` accepts every scope kind of 0060 §4 and a named scope; page-subject scopes give page rows. Q1 and Q4 are settled.
 
-Replaced text: §4, the `rows` row of this ADR, as it stood before this entry; in git (`tools/adr.py log 0045 A3 --before`).
+Replaced text: §4, the `rows` row of this ADR.
 
 ### A4. Transclusion
 
@@ -167,7 +167,6 @@ Replaced text: §4, the `rows` row of this ADR, as it stood before this entry; i
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§13
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0045 A7 --diff`).
 
 ### A8. Drafts: staged rows
 
@@ -176,7 +175,7 @@ Replaced text: §4, the `rows` row of this ADR, as it stood before this entry; i
 - **Change:** amends §1; extends §4 and §7
 - **Summary:** A table can hold staged rows, items not yet written with their values, under a new `staged` key allowed with `ids` rows, together with declared properties, `new` and `reference` columns, and default-reference snaks that read a column. This is how `Special:CreateEntities` keeps a draft and a saved column mapping. Staged rows are the one exception to a table storing no values; importing them turns each written row into an ID in `rows.ids`.
 
-Replaced text: [15](../architecture/15-structured-pages.md) §2.1, as it stood before this entry; in git (`tools/adr.py log 0045 A8 --before`).
+Replaced text: [15](../architecture/15-structured-pages.md) §2.1.
 
 ### A9. The error for a definition that is not valid
 

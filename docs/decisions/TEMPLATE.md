@@ -87,7 +87,8 @@ When a change lands here:
   1. Fold: rewrite the chapter section the pointer names so it says what holds now, citing the source,
      and add the changing section to that chapter section's Sources line.
   2. Log: add the entry below, naming the sections whose text the change removed as Replaced text;
-     the commit holds that text, so it is not quoted (24 §6).
+     the commit holds that text, so it is not quoted:
+     `tools/adr.py log NNNN An --before` prints it (24 §6).
   3. Mark: add the ID to the provenance line of each changed section:  *Changed by A1, A3.*
   4. Strike consequences it falsifies, and settle questions it answers (questions need no entry).
   5. Update the header's Updated line; if the ADR is Accepted, add the entry to its status; run check.sh --write.
@@ -101,4 +102,4 @@ Every change is folded, extensions included: no callouts.
 - **Change:** amends §2; extends §3  <!-- amends, extends, supersedes, corrects, retitles, consolidates -->
 - **Summary:** What changed and why, in a few sentences, with the chapter sections it changed. For a direct decision, the decision in full.
 
-Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.5, as it stood before this entry; in git (`tools/adr.py log NNNN A1 --before`).
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.5.

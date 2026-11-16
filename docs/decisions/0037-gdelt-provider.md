@@ -147,7 +147,6 @@ Replaced text (§2):
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§8
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0037 A6 --diff`).
 
 ### A7. Roles bound in the instance record; identifying qualifiers in statement IDs
 

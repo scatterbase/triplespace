@@ -120,7 +120,7 @@ James's direction, from the design discussion of 2026-10-16 and 2026-10-17:
 - **Change:** amends §1
 - **Summary:** Where a palette's or type set's name comes to collide across levels, the colliding record is renamed rather than the change refused, which settles Q8. James's direction: "if an instance has a pre-existing palette or type set "foo", and a tenant with their own "foo" wants to be imported, the conflict would resolve by keying the name to the tenant e.g. "foo~tenantname". If an instance wants to introduce a new palette or type set with a name in use by a tenant, it is blocked until the instance renames it with the key or gives it a new name altogether." James then chose, on 2026-10-18: the key is the tenant's slug, and a keyed name stays with the tenant when it leaves; when the instance takes a name a tenant uses, it is the tenant's record that is keyed and the instance takes the bare name; `registry sync` keys a colliding instance or tenant record, the instance's with the farm slug, rather than being refused; and keying in a tenant is a written provision that rewrites every reference to the record in the same act (`theme.palette` and `theme.typeset`, `extends`, and readers' `ui.palette` and `ui.typeset`). Claude proposed reserving `~` for keying, `key=tenants` as the way an instance write keys the tenants' records, and a job record listing the renames as the authority, which also maps the preferences of accounts reclaimed after a join. The join is in [08](../architecture/08-tenants-and-instances.md) §6.3 ([0018](0018-tenants.md) A30) and the written act in [08](../architecture/08-tenants-and-instances.md) §8.6 ([0040](0040-instance-prerogatives.md) A8).
 
-Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0086 A1 --before`).
+Replaced text: §1 of this ADR.
 
 ### A2. Encyclopedia and Basic, inspired by Vector 2022
 
@@ -136,12 +136,12 @@ Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §1, §2, §7
 - **Summary:** The accessibility palettes are named and labelled for the deficiency each serves, not for the colours it uses, so that a reader who has it finds it. James asked: "Might we come up with clearer names for the colorblind variants of the parchment theme? If I were a colorblind user looking for these settings, under what name(s) would I expect them?" He then chose the labels "Parchment (protanopia and deuteranopia)" and "Parchment (tritanopia)", and decided to change the slugs too: "I think it's fine to change the slug names since these aren't in use yet." The slugs become `parchment-rg` (red–green), from `parchment-ob`, and `parchment-by` (blue–yellow), from `parchment-co`; Claude proposed these slugs. Neither palette had been served, so no reader's or wiki's choice names the old slugs, and they are changed rather than retired. The colours are unchanged. The values are in `themes.toml`.
 
-Replaced text: §1 of this ADR; §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0086 A3 --before`).
+Replaced text: §1 of this ADR; §2 of this ADR.
 
 > - **`parchment-ob`**, for red–green deficiencies (protanopia and deuteranopia), named for the orange and blue it uses: errors, destructive actions and removed text in vermilion (`#A84300` in `light`), success and added text in cerulean (`#087691`), kept apart from link blue, warnings in umber and visited links in plum. Its lowest text pairs are 4.62:1 and 4.63:1 in `light` and `dark`, and at least 7.15:1 in the high-contrast variants.
 > - **`parchment-co`**, for blue–yellow deficiency (tritanopia), named for its crimson and olive: errors in crimson (`#B3263E`), success in olive (`#587114`), which a tritanope tells from link blue, and warnings in an umber they do not confuse with errors. Its lowest text pairs are 4.85:1 and 4.63:1, and at least 7.17:1.
 
-Replaced text: §7 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0086 A3 --before`).
+Replaced text: §7 of this ADR.
 
 ### A4. Default 26 set in Source Serif 4, Source Sans 3 and Lilex
 
@@ -150,7 +150,7 @@ Replaced text: §7 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §1
 - **Summary:** The type set `default26` changes its typefaces; its name, label and role as the default type set do not change. James first asked on 2026-10-27: "For the default26 type set, I would like the serif font to be Source Serif 4, with Rubik as the sans-serif font and Lilex as the monospace font." Before that shipped he tried Libre Baskerville and Mukta Mahee on 2026-10-28, then chose for the coverage of writing systems: "Let's go with Source Serif 4 and Source Sans 3." Source Serif 4 replaces Newsreader for headings (`font-family-heading-main`, weights 400 and 500), Source Sans 3 replaces IBM Plex Sans for text (`font-family-base`, weights 400, 500 and 600), and Lilex replaces IBM Plex Mono for code and IDs (`font-family-monospace`, weights 400 and 500), each before the fallback stack it had. All three are under the SIL OFL 1.1 and are served from the site's own origin, as before. `hyperlegible` and `opendyslexic` keep IBM Plex Mono for code. `docs/registry/themes.toml` is the authority.
 
-Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0086 A4 --before`).
+Replaced text: §1 of this ADR.
 
 ### A5. A fallback layer for every script
 
@@ -166,7 +166,7 @@ Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §1, §2, §4, §5; extends §7
 - **Summary:** Colour-vision accessibility becomes alternates of any palette, turned on with `ui.vision`, in place of the palettes `parchment-rg` and `parchment-by`, whose colours become `parchment`'s alternates and whose names are retired and read as `parchment` with the alternate. The text as it stood is in git (`tools/adr.py log 0086 A6 --diff`).
 
-Replaced text: §1 of this ADR; §2 of this ADR; §4 of this ADR; §5 of this ADR; §7 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0086 A6 --before`).
+Replaced text: §1 of this ADR; §2 of this ADR; §4 of this ADR; §5 of this ADR; §7 of this ADR.
 
 ### A7. The token contract is Codex's
 
@@ -180,7 +180,6 @@ Replaced text: §1 of this ADR; §2 of this ADR; §4 of this ADR; §5 of this AD
 - **Date:** 2026-10-30
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§7
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0086 A8 --diff`).
 
 ### A9. Theming: loose ends from building it
 

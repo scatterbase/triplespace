@@ -150,7 +150,6 @@ James's direction, from the design discussion of 2026-10-18:
 - **Date:** 2026-10-30
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§17
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0089 A1 --diff`).
 
 ### A2. Email addresses
 
@@ -173,7 +172,7 @@ James's direction, from the design discussion of 2026-10-18:
 - **Change:** amends §8; extends §2, §7, §15
 - **Summary:** Under `login.external_required` a login is created only from an external identity: `Special:CreateAccount` and `action=createaccount` refuse a password with `ts-external-required`, for oneself, for another and under `account.approval`, and `password set` makes no login for an account without one. Every login then holds at least one identity (§2), the auth host's `Special:CreateAccount` shows the issuers' buttons alone and `Special:Account` disables the last identity's **Remove** (§7), and `logins check` reports what enacting the requirement waits on (§15).
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.8, as it stood before this entry; in git (`tools/adr.py log 0089 A4 --before`).
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.8.
 
 ### A5. Strict names
 
@@ -182,7 +181,7 @@ Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.8, as it stoo
 - **Change:** amends §6
 - **Summary:** Under `login.names = provider` nothing is chosen on the first visit: the account is created with the name derived from the login's external identity, `{label}-{username}`, on every tenant alike ([07](../architecture/07-actors-and-accounts.md) §2.10).
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.8, as it stood before this entry; in git (`tools/adr.py log 0089 A5 --before`).
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.8.
 
 ### A6. A login logs in anywhere on its instance; whether that makes an account is the instance's policy
 

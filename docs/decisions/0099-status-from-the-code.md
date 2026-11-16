@@ -93,7 +93,7 @@ James's direction, 2026-10-30, after the catalogue moves:
 - **Change:** extends §3
 - **Summary:** Everything that waits on a decision is one generated, committed page, `docs/decisions/OPEN.md`: every open question across the ADRs with its first sentence, every unconfirmed log entry (moved there from INDEX, which keeps the counts), and the registry's pending allocations. What waits on work stays a command, `coverage.py --todo`, which now leads with the code's not-built-yet comments, because it changes with every code commit. The fold is in [24](../architecture/24-documentation.md) §13.
 
-Replaced text: [24](../architecture/24-documentation.md) §13, as it stood before this entry; in git (`tools/adr.py log 0099 A1 --before`).
+Replaced text: [24](../architecture/24-documentation.md) §13.
 
 ### A2. What other documents say is built comes from the code
 
@@ -109,5 +109,5 @@ Replaced text: [24](../architecture/24-documentation.md) §13, as it stood befor
 - **Change:** extends §1
 - **Summary:** A script under `tools/` that is part of the product rather than a check of it says so near its top, "Product code (24 §15)", and `coverage.py` reads it as src, so it can carry an `implements` claim; every other script there is still a test. The documentation site's hooks (`tools/docs_site.py`, 0109) are the first. Settles 0109 Q2. Chapter text: [24](../architecture/24-documentation.md) §15.
 
-Replaced text: [24](../architecture/24-documentation.md) §15, as it stood before this entry; in git (`tools/adr.py log 0099 A3 --before`).
+Replaced text: [24](../architecture/24-documentation.md) §15.
 

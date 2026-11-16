@@ -88,11 +88,10 @@ James's direction, from the design discussions of 2026-10-04 and 2026-10-05:
 - **Change:** amends §4
 - **Summary:** [0069](0069-synchronized-talk-pages.md), the newer, stands: a following fork sends a `talk`-destination proposal through 0069 §6 now, gated by 0069 §6's switch; this section's "later phase" applies to page proposals only. (PENDING F3)
 
-Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0068 A1 --before`).
+Replaced text: §4 of this ADR.
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§7
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0068 A2 --diff`).

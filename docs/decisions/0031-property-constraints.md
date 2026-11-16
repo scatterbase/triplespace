@@ -98,7 +98,7 @@ The instance has two advantages over Wikidata here. It **mirrors** Wikidata's pr
 - **Change:** supersedes §9
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries `scatter-wikibase-constraints` and every change this section listed (0005 A27).
 
-Replaced text: §9 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0031 A1 --before`).
+Replaced text: §9 of this ADR.
 
 ### A2. Reports default to the local graph
 
@@ -107,7 +107,7 @@ Replaced text: §9 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §3
 - **Summary:** The source-graph filter defaults to the local graph, as every report does. Widening it is live, since `view.constraint_violation` already covers the resolved view.
 
-Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0031 A2 --before`).
+Replaced text: §3 of this ADR.
 
 ### A3. Converted to the 0050 format
 
@@ -123,14 +123,13 @@ Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** corrects §1
 - **Summary:** In the role table, *item requires statement* is Q21503247, not Q21510856 (which is *required qualifier*, listed again later in the same row); and P2305 is the parameter of both *item of property constraint* and *allowed values*, so the parameter row lists it once with its two uses rather than twice. The decision does not change; the IDs were wrong. (PENDING E10)
 
-Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0031 A4 --before`).
+Replaced text: §1 of this ADR.
 
 ### A5. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§9
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0031 A5 --diff`).
 
 ### A6. Shared-row violations under the instance role bindings
 
@@ -139,7 +138,7 @@ Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §4; extends §1
 - **Summary:** The `role` config kind has an instance-scope record beside the tenant records, bound in the instance's policy record (`reconcile:default`). A tenant does not rebind a role the instance record binds: a tenant-scope write that tries is refused with `ts-instance-policy`, and a tenant whose bindings differ gets overlay rows for what the difference touches, which on a Wikidata mirror is everything, so in practice a tenant on a farm does not rebind the constraint roles. On an instance whose record leaves the roles unbound, nothing is checked on shared rows. §1's chapter text ([06](../architecture/06-statements-and-properties.md) §2.1) is unchanged, so for §1 this is an extension; 0082's table gives the §1 row as `amends`. (REVIEW G1)
 
-Replaced text: [06](../architecture/06-statements-and-properties.md) §2.4, as it stood before this entry; in git (`tools/adr.py log 0031 A6 --before`).
+Replaced text: [06](../architecture/06-statements-and-properties.md) §2.4.
 
 ### A7. The constraint projection is a consumer of composition, scoped
 
@@ -148,7 +147,7 @@ Replaced text: [06](../architecture/06-statements-and-properties.md) §2.4, as i
 - **Change:** amends §2
 - **Summary:** The constraint projection is a tier-3 consumer of "entity X, tenant T, composed to version N" events, with its own queue, rate and lag, in nobody's transaction, off during bootstrap and bulk modes until the operator turns it on; it is view-derived, rebuilt by a scan of the composed rows and never by a log replay. `constraints.scope` is a `site` setting: `local` (the default: local-graph statements and entities in the tenant's overlay), `overlay`, or `all`, and `all` is a batch job with progress, never a per-event step. A constraint-statement change on a mirrored property enqueues a batch rather than a scan. `type` and `value type` are checked with the L0 class cache, and a `P279` change does not invalidate stored results until the next composition of each subject. Bootstrap leaves the projection off. This settles Q2. Chapter text: [06](../architecture/06-statements-and-properties.md) §2, §2.2. (REVIEW G10)
 
-Replaced text: [06](../architecture/06-statements-and-properties.md) §2, §2.2, as it stood before this entry; in git (`tools/adr.py log 0031 A7 --before`).
+Replaced text: [06](../architecture/06-statements-and-properties.md) §2, §2.2.
 
 > **What it checks against.** The resolved view ([02](../architecture/02-graphs-rdf-and-query.md) §1.5): fused statements, canonical IDs ([04](../architecture/04-entities-and-identifiers.md) §4.4), normalized values ([04](../architecture/04-entities-and-identifiers.md) §4.7, §3.1). So a *distinct values* check on DOIs compares casefolded keys, a *value type* check follows a value to its canonical entity, and a *single value* check counts fused statements, not source-graph duplicates. Mirrored data is checked as local data is: a tenant sees Wikidata's own constraint violations on the items it mirrors, which is also what Wikidata's checker shows.
 

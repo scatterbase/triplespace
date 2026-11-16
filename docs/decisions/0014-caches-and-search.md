@@ -125,7 +125,7 @@ MediaWiki's search is CirrusSearch, which Wikimedia now runs on OpenSearch after
 - **Change:** supersedes §9
 - **Summary:** 0005 §2 became the one crate table CI checks, and carries `triplespace-cache` and `triplespace-search` (0005 A9). The paragraph on mappings and pure document building, which followed the table, moved to §7 at conversion.
 
-Replaced text: §9 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0014 A1 --before`).
+Replaced text: §9 of this ADR.
 
 ### A2. Prefixed IDs in search documents
 
@@ -134,7 +134,7 @@ Replaced text: §9 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §7
 - **Summary:** The `id` field of a search document carries the prefixed ID form; the `key` field keeps the bare key.
 
-Replaced text: §7 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0014 A2 --before`).
+Replaced text: §7 of this ADR.
 
 ### A3. Additions gathered in §10
 
@@ -143,7 +143,7 @@ Replaced text: §7 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §1, §5; extends §10
 - **Summary:** The third-pass review of 2026-09-27 gathered into §10 what 0018 through 0032 add to the layers: tenant-aware keys and per-provider and per-tenant indexes (0018, which amends §4 and §7); thread keys and documents (0019); watchlists, inboxes and account routes never cached (0020, 0021, 0024, 0025); inbox and delta rows deleted on erasure (0021, 0032); deletion and hiding through the purge path, `view.acl` in L0, and statement and property read ACLs in the public form (0023); rate-limit classes and key-bearing sessions (0024); OAuth codes in Valkey and token-bearing sessions (0025); farm-wide search and the farm-account join (0028); filter rules and throttles (0030); parsed constraints (0031). Deletion and hiding by ACL falsified §1's claim that only erasure and upstream hiding reach caches; §1 and §5 were not corrected until this conversion.
 
-Replaced text: §1 of this ADR; §5 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0014 A3 --before`).
+Replaced text: §1 of this ADR; §5 of this ADR.
 
 ### A4. Page categories and statements in search
 
@@ -178,7 +178,7 @@ Replaced text: none in the body; `content_model` had no stated vocabulary.
   - §7: With expansion on, the `text` field of the `pages` index is the rendered text, and `source_text` keeps the source; `hastemplate:` reads `view.transclusion`. Recorded only in 0042 until this conversion.
   - §10: Erasing, deleting or hiding a dependency bumps the epoch of each page that read it and purges their tags. §10 had been given its Rendering paragraph in place.
 
-Replaced text: §3 of this ADR; §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0014 A7 --before`).
+Replaced text: §3 of this ADR; §4 of this ADR.
 
 ### A8. Data modules
 
@@ -222,7 +222,7 @@ Replaced text: §3 of this ADR; §4 of this ADR, as it stood before this entry; 
 - **Change:** amends §1, §4, §7
 - **Summary:** Shared caches hold the form for a visibility set, keyed by it, so that a private wiki caches as a public one does; the public form is the empty set's entry and the only one L2 may hold. The L1 keys gain a `{vis}` segment with the tenant's visibility epoch. The text is in git (`tools/adr.py log 0014 A13 --diff`).
 
-Replaced text: §1 of this ADR; §4 of this ADR; §7 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0014 A13 --before`).
+Replaced text: §1 of this ADR; §4 of this ADR; §7 of this ADR.
 
 ### A14. Sessions fall back to Postgres
 
@@ -266,7 +266,7 @@ Replaced text: §1 of this ADR; §4 of this ADR; §7 of this ADR, as it stood be
 - **Change:** amends §2
 - **Summary:** Session state lives in Valkey when a shared cache is configured and in `private` otherwise ([0025](0025-oauth-server.md) §8; A14), so §2 no longer states Valkey as the one home of sessions; [0013](0013-postgres-storage.md) §4's "sessions' secrets" means that fallback. (PENDING A12)
 
-Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0014 A19 --before`).
+Replaced text: §2 of this ADR.
 
 ### A20. Listing keys carry a listing version
 
@@ -275,7 +275,7 @@ Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §10
 - **Summary:** Listing keys (`tp:`, `sc:`, `sp:`) carry a **listing version**, the maximum activity ID over the listing's members, computed in Postgres at read time, in place of tag purges on ordinary writes and in place of the talk page's latest revision ID; §1's principles 1 and 4 hold unchanged. Tag purges remain for erasure and hiding. The same holds in [0049](0049-boards.md) §12, [0069](0069-synchronized-talk-pages.md) §10, [0060](0060-scopes.md) §10 and [0061](0061-sprints-and-tasks.md) §11. (PENDING B4)
 
-Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0014 A20 --before`).
+Replaced text: §10 of this ADR.
 
 ### A21. Every viewer-dependent key carries `{vis}`
 
@@ -284,7 +284,7 @@ Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** amends §10
 - **Summary:** Rule: every key whose value depends on what the viewer may read carries `{vis}` ([0056](0056-security-model.md) §7), and §10's key list marks each key. Classification, to confirm: carry `{vis}`: `e:`, `t:`, `prov:`, `p:`, `d:`, `sug:`, `css:`, `post:`, `th:`, `tp:`, `fi:`, `rf:`, `ld:`, `sc:`, `sp:`; do not: `s:`, `rl:`, `up:`, `fp:` (a repository bundle is public upstream content). The thread keys of §10, which lacked the segment, gain it. (PENDING B5)
 
-Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0014 A21 --before`).
+Replaced text: §10 of this ADR.
 
 ### A22. Rate-limit counter keys
 
@@ -293,14 +293,13 @@ Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** corrects §4
 - **Summary:** Rate-limit counters are `rl:{class}:{key}`, the class being a rate-limit class of [0024](0024-subsidiary-accounts.md) §5 and the key the actor key or, for anonymous requests, the IP; 0024 §5 is corrected to the same form. (PENDING C4)
 
-Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0014 A22 --before`).
+Replaced text: §4 of this ADR.
 
 ### A23. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0014 A23 --diff`).
 
 ### A24. Source form in the cache, the index and the fallback
 
@@ -309,7 +308,7 @@ Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §3, §7, §8, §10; extends §4
 - **Summary:** L1 holds the internal form once per entity version, and the layer that rewrites entity IDs to the consumer's preferred form runs after the cache, on a hit on the way out, so there is one `e:` entry per version and `ETag` is the version of the stored form; `resolved_version` is new on every composition, including one caused by another member of the entity's cluster, and never by a referrer's change. A tenant document replaces the shared one in the index: the overlay projection sets `tenant_overlaid` on the shared document and a tenant's query excludes shared documents that name it, so no post-query dedup is needed. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §9.3, §11.1, §11.3, §11.4, §11.6, §12.1, §12.5. (REVIEW G3, G4, G5, G2, G7)
 
-Replaced text: [03](../architecture/03-storage-caches-and-search.md) §9.3, §11.1, §11.3, §11.4, §11.6, §12.1, §12.5, as it stood before this entry; in git (`tools/adr.py log 0014 A24 --before`).
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §9.3, §11.1, §11.3, §11.4, §11.6, §12.1, §12.5.
 
 ### A25. The composer writes L1; the indexer is a tier-3 consumer; the cache epoch
 
@@ -318,7 +317,7 @@ Replaced text: [03](../architecture/03-storage-caches-and-search.md) §9.3, §11
 - **Change:** amends §3, §7; extends §4, §10
 - **Summary:** Read-your-writes follows from the write path's after-commit slot: the composer composes the written entity after commit, takes its new version, writes the resolved JSON into L1 and returns the body, so L1 is written by the composer after commit and never by the write path before it, and a rolled-back transaction leaves nothing in the cache. Every L1 key begins with an instance-wide cache epoch, `c{epoch}:`, a counter in `ops` that every projection rebuild bumps, distinct from a tenant's visibility epoch and the stream epochs; §12.1 writes the keys without it. The `read` rate class is counted for authenticated principals only once a per-process count passes a fraction of the limit, and never for a response served from L0 or L1. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §9.3, §11.3. (REVIEW G9, G10, G13, G15)
 
-Replaced text: [03](../architecture/03-storage-caches-and-search.md) §9.3, §11.3, as it stood before this entry; in git (`tools/adr.py log 0014 A25 --before`).
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §9.3, §11.3.
 
 ### A26. The public `{vis}` form carries the tenant epoch; enclosures, not groups, are stored
 
@@ -327,7 +326,7 @@ Replaced text: [03](../architecture/03-storage-caches-and-search.md) §9.3, §11
 - **Change:** amends §4, §5, §7, §10
 - **Summary:** The `{vis}` segment's empty-set form is `-{epoch}` on a tenant key, so that a public entry cached before a namespace restriction lapses with it, and plain `-` on a shared key, which carries no tenant epoch because a shared row is under no tenant's namespace. Only a `namespace` or `tenant` `read` ACL bumps the tenant's visibility epoch; a `set` change bumps the generation of the members it touched. A stored search document or feed row holds `read_enclosures`, a reference to the enclosures its target is under, never a group list, and the groups those enclosures require are evaluated at serve time from L0, so a change on an enclosure rewrites no document; the per-tenant indexes are where `read_enclosures` is non-empty. The required privacy test is that an entry cached under the empty set before a namespace restriction is not served after it. (REVIEW G38)
 
-Replaced text: [03](../architecture/03-storage-caches-and-search.md) §9.4, §9.6, §11.5, §12.1, as it stood before this entry; in git (`tools/adr.py log 0014 A26 --before`).
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §9.4, §9.6, §11.5, §12.1.
 
 ### A27. Cache tags are exact and bounded
 
@@ -336,7 +335,7 @@ Replaced text: [03](../architecture/03-storage-caches-and-search.md) §9.4, §9.
 - **Change:** amends §5, §6, §10
 - **Summary:** A composed page carries exact `Cache-Tag`s for its subjects and its render-manifest pages only; label dependencies are not tagged, since a large item draws labels from thousands of entities, and label staleness is accepted up to `s-maxage`. An anonymous API response is tagged for the entities and pages it is about, not every one it drew on. The About panel of an entity page has its own response and `max-age`, since its counters change without the entity's version changing; the page budget of four API calls to first byte, the bulk-labels route and the `GET /entity/{id}/page` bundle that meet it are in chapters 18 and 20. (REVIEW G41)
 
-Replaced text: [03](../architecture/03-storage-caches-and-search.md) §9.6, §10.3, §12.4, as it stood before this entry; in git (`tools/adr.py log 0014 A27 --before`).
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §9.6, §10.3, §12.4.
 
 ### A28. Address keys, the `createaccount` class and challenge keys
 
@@ -345,7 +344,7 @@ Replaced text: [03](../architecture/03-storage-caches-and-search.md) §9.6, §10
 - **Change:** extends §4
 - **Summary:** Rate-limit counters key an anonymous request on its address key, the IPv4 address or the IPv6 /64 ([0024](0024-subsidiary-accounts.md) A19); the `createaccount` class joins the counters; `ch:{tenant}:{mac}` marks a challenge spent until it expires, and `ch:{tenant}:bad:{key}` and `ch:{tenant}:badu:{actor}` count failed `password` logins for the `badlogin` trigger. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §12.1 and §12.3.
 
-Replaced text: [03](../architecture/03-storage-caches-and-search.md) §12.1, §12.3, as it stood before this entry; in git (`tools/adr.py log 0014 A28 --before`).
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §12.1, §12.3.
 
 ### A29. Central sessions and login codes in L1
 
@@ -354,5 +353,5 @@ Replaced text: [03](../architecture/03-storage-caches-and-search.md) §12.1, §1
 - **Change:** amends §4
 - **Summary:** `s:{session}` also records the login a session holds and, for a tenant session, the central session it came from. `sc:{central session}` lists the tenant sessions a central session opened, so that logging out everywhere ends them; `authr:{handle hash}` holds a tenant's request at the auth host for ten minutes, and `authc:{code hash}` a login code for 60 seconds. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §12.1.
 
-Replaced text: [03](../architecture/03-storage-caches-and-search.md) §12.1, as it stood before this entry; in git (`tools/adr.py log 0014 A29 --before`).
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §12.1.
 

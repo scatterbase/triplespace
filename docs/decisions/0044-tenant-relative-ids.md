@@ -73,7 +73,7 @@ James's direction, from the design discussion of 2026-09-30: **`QQQ`, `PPP` and 
 - **Change:** supersedes §6
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries both changes this section listed (0005 A44).
 
-Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0044 A1 --before`).
+Replaced text: §6 of this ADR.
 
 ### A2. Converted to the 0050 format
 
@@ -87,7 +87,6 @@ Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§6
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0044 A3 --diff`).
 
 ### A4. Naming a tenant's entity from elsewhere
 
@@ -96,7 +95,7 @@ Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §1
 - **Summary:** A tenant's entity is named from elsewhere by its IRI, and on a tenant that reads it by that tenant's name for it: the registry code where there is one (`LBQ6`), otherwise the reader's source name (`lb:Q6`).
 
-Replaced text: §1, in [04](../architecture/04-entities-and-identifiers.md) §2.3, as it stood before this entry; in git (`tools/adr.py log 0044 A4 --before`).
+Replaced text: §1, in [04](../architecture/04-entities-and-identifiers.md) §2.3.
 
 ### A5. Cluster members are normalized at every entry point and rewritten on the way out
 

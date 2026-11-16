@@ -130,14 +130,13 @@ James's direction, from the design discussion of 2026-10-07:
 - **Change:** amends §4
 - **Summary:** An undesignated `match_key` property may find a subject (step 1, via `view.identifier`) but never create one: the refusal in step 3 stands, so a `create-or-add` never carries an undesignated property as its `match`, and a source is not refused at configuration merely for naming one; 0073 §3's `lines.identifiers` follows the same rule. (PENDING F4)
 
-Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0071 A1 --before`).
+Replaced text: §4 of this ADR.
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§14
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0071 A2 --diff`).
 
 ### A3. Foreign subjects are overlay triggers; the statement ID hashes the match key
 
@@ -146,7 +145,7 @@ Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §5; extends §4, §12
 - **Summary:** A derivation naming a foreign subject is an overlay trigger: the tenant then has local assertions about a shared entity, so composition gives it a tenant row of `view.entity` over the shared one, found through `view.derivation_subject` exactly as a local-graph assertion is found through `view.graph_state`; a derivation that stops naming the subject removes the trigger. A derived statement's ID hashes the match key the extractor gave for the subject (`P9999 = "1804886"` or the normalized URL), never the resolved subject, so a subject that resolves differently later (a key that found a local item and now finds the Wikidata item it was merged into, or a cluster that gained or lost a member) keeps the statement's ID, and the correction moves with it; a subject with no match key hashes the page's page ID and the extractor's subject index in its place, the one case where the ID is tied to the page. The ledger names §12 alone; the ID rule is §5's and the trigger is §4's and §12's. (REVIEW G34)
 
-Replaced text: [13](../architecture/13-mirrored-pages.md) §6.5, as it stood before this entry; in git (`tools/adr.py log 0071 A3 --before`).
+Replaced text: [13](../architecture/13-mirrored-pages.md) §6.5.
 
 ### A4. Composition reads derivations as tier-2 work
 
@@ -155,5 +154,5 @@ Replaced text: [13](../architecture/13-mirrored-pages.md) §6.5, as it stood bef
 - **Change:** amends §7, §12
 - **Summary:** Composition, not "the entity projection", finds a subject's derivations through `view.derivation_subject`; a derivation's `put` recomposes the subjects it names now and the subjects its previous version named, as tier-2 work in the composition worker, after the derivation projection has written the `derived/{source}` graph's state to `view.graph_state` in tier 1. "Resolution of the subjects it names runs in step 4" is withdrawn. (REVIEW G9)
 
-Replaced text: [13](../architecture/13-mirrored-pages.md) §6.6; [03](../architecture/03-storage-caches-and-search.md) §4.12, as it stood before this entry; in git (`tools/adr.py log 0071 A4 --before`).
+Replaced text: [13](../architecture/13-mirrored-pages.md) §6.6; [03](../architecture/03-storage-caches-and-search.md) §4.12.
 

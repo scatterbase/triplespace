@@ -318,10 +318,13 @@ for name in sorted(new_format):
     touched = collections.defaultdict(set)   # section -> {A ids} from the log
     for n, e in log.items():
         f = e["fields"]
-        for req in ("Date", "Source", "Change", "Summary"):
-            if req not in f:
-                P.append(f"A{n} lacks {req}")
         verbs = parse_change(f.get("Change", ""))
+        relocation = bool(verbs) and all(v == "relocates" for v, _ in verbs)   # 24 §6: no Summary
+        for req in ("Date", "Source", "Change", "Summary"):
+            if req not in f and not (req == "Summary" and relocation):
+                P.append(f"A{n} lacks {req}")
+            if req == "Summary" and relocation and req in f:
+                P.append(f"A{n} only relocates, so it has no Summary (24 §6)")
         for v, ss in verbs:
             if v not in LOG_VERBS:
                 P.append(f"A{n}: change verb '{v}' is not one of {sorted(LOG_VERBS)}")

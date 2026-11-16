@@ -112,7 +112,7 @@ The two agree on the shape: users, groups, memberships, named permissions, and r
 - **Change:** supersedes §9
 - **Summary:** 0005 §2 became the one crate table CI checks, and carries every change this section listed (0005 A11).
 
-Replaced text: §9 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0016 A1 --before`).
+Replaced text: §9 of this ADR.
 
 ### A2. Threads
 
@@ -151,7 +151,7 @@ Replaced text: not recorded. 0016 was revised in place before the repository's h
 - **Change:** amends §4, §8; extends §2
 - **Summary:** ACLs restrict `read` as well as write permissions, which is what deletion, revision-hiding, suppression and username-hiding are. Two target kinds are added, `record` (with a `parts` list) and `actor`. The record is the payload type `scatter:v0/acl`, not a config kind: graph ACLs are appended to `config`; every other target's ACL is a moderation record in the tenant `log` partition, so that suppressions stay out of public dumps. Writing a `read` ACL needs `delete`, `deleterevision`, `suppressrevision` or `hideuser` by target, as 0023 §11 lists. §11 adds `patrol`, `autopatrol` and the `autopatrolled` group. 0023's amendment of 2026-09-27 added the `statement` and `property` targets, whose rows §4 had been given in place. This settled Q1 and Q4.
 
-Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0016 A6 --before`).
+Replaced text: §4 of this ADR.
 
 ### A7. Subsidiaries
 
@@ -160,7 +160,7 @@ Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §2, §3; extends §2
 - **Summary:** An operator's blocks reach their subsidiaries, and the ownership rules gain the operator's; a key's grants intersect the permissions; `createaccount`, `ts-transferaccount` and `noratelimit`. Rate limits are site configuration by action class, which settled Q3.
 
-Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0016 A7 --before`).
+Replaced text: §3 of this ADR.
 
 ### A8. OAuth
 
@@ -203,7 +203,7 @@ Replaced text: not recorded. 0016 was revised in place before the repository's h
 - **Change:** amends §3
 - **Summary:** On a tenant that adopts an existing Wikibase, `instance create --adopt {source} --owner {user_id}` creates the owner under the source's user ID instead of `local:1`, with the same password binding, and sets the user-ID floor; "`local:1`" here reads as "the owner account".
 
-Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0016 A12 --before`).
+Replaced text: §3 of this ADR.
 
 ### A13. Files
 
@@ -244,7 +244,7 @@ Replaced text: the `owner` paragraph as A12 quotes it.
 - **Change:** amends §4
 - **Summary:** A talk page or board encloses the threads whose **home** it is. A thread only listed on it is not enclosed by it; the page's `edit` ACL governs what may be listed there.
 
-Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0016 A17 --before`).
+Replaced text: §4 of this ADR.
 
 ### A18. Converted to the 0050 format
 
@@ -274,7 +274,7 @@ Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §2, §4; extends §4, §7
 - **Summary:** `protect` may restrict `read`: a confidential restriction, distinct from the moderation kind that deletion and suppression set, which keeps the target live for its group and absent for everyone else; the setting actor must be a member of the group named. Two ACL targets are added: `tenant`, the root of enclosure and a tenant's visibility, and `set`, a grouping of pages, entities and threads by ID that only `protect` can change. The REST routes for both are in 0056 §13.
 
-Replaced text: §2 of this ADR; §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0016 A21 --before`).
+Replaced text: §2 of this ADR; §4 of this ADR.
 
 > Enclosure is fixed: a graph encloses the records written to it; a namespace encloses its pages and entities; a page encloses its subpages;
 
@@ -292,7 +292,7 @@ Replaced text: §2 of this ADR; §4 of this ADR, as it stood before this entry; 
 - **Change:** amends §1
 - **Summary:** The MediaWiki names are the permission names. The Scatterbase column of §1's mapping table (`view`, `view_deleted`, `block_user`) is historical: it records where the five early permissions came from and names nothing a client or a record uses. (PENDING C10)
 
-Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0016 A23 --before`).
+Replaced text: §1 of this ADR.
 
 ### A24. Rights the index of later ADRs lacked
 
@@ -308,7 +308,7 @@ Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §2
 - **Summary:** Jobs run under subsidiaries: `ts-runjob` defaults to `bot` everywhere, and §2 drops `sysop` from its default groups. An administrator runs a job by creating or approving a subsidiary they operate ([0024](0024-subsidiary-accounts.md) §3); 0047 §12's `sysop` job rate row goes with it (0047's log). James: "administrators should be able to run jobs under subsidiaries", read as this. (PENDING C14)
 
-Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0016 A25 --before`).
+Replaced text: §2 of this ADR.
 
 ### A26. The `actors` graph's record kinds
 
@@ -317,7 +317,7 @@ Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** corrects §4
 - **Summary:** The default graph ACL table's `actors` row names the records by their payload types: "`membership` and `block` records" (payload type `scatter:v0/membership`, as §3 says), not "`rights` and `block` records"; `rights/rights` is the log event a membership projects as, not the record. (PENDING C15)
 
-Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0016 A26 --before`).
+Replaced text: §4 of this ADR.
 
 ### A27. `deletedhistory` and `deletedtext` gate nothing
 
@@ -326,7 +326,7 @@ Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** corrects §2, §5
 - **Summary:** `deletedhistory` and `deletedtext` are reported to MediaWiki clients by members of the deletion group and gate no evaluation of their own: what may still be seen is decided by the `read` ACL's group ([0023](0023-moderation.md) §11). §5's answer to 0010's "see hidden usernames" is therefore membership in the deletion group, not `deletedhistory`. (PENDING C16)
 
-Replaced text: §2 of this ADR; §5 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0016 A27 --before`).
+Replaced text: §2 of this ADR; §5 of this ADR.
 
 ### A28. Retiring an ACL over REST
 
@@ -340,7 +340,6 @@ Replaced text: §2 of this ADR; §5 of this ADR, as it stood before this entry; 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§9
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0016 A29 --diff`).
 
 ### A30. `autoconfirmed` is an implicit group computed from `view.actor`; `pending` is OAuth-only
 
@@ -349,7 +348,7 @@ Replaced text: §2 of this ADR; §5 of this ADR, as it stood before this entry; 
 - **Change:** corrects §3
 - **Summary:** `autoconfirmed` is an implicit group, like `user`: no membership record is written for it, and an account is a member once `view.actor.created_at` and `view.actor.editcount` meet the age and edit-count thresholds set in `site` configuration; `editcount` is maintained by the activity projection from the account's local `edit` rows, erased ones included and job rows excluded, so a bot's job writes do not confirm its operator. Hand-made subsidiaries are never pending: `pending` is a status only an OAuth authorization sets, the MCP requirement is the `basic` grant, and `instance create` puts the sync subsidiaries in `bot`. (REVIEW G40)
 
-Replaced text: [09](../architecture/09-security-and-moderation.md) §3.1, as it stood before this entry; in git (`tools/adr.py log 0016 A30 --before`).
+Replaced text: [09](../architecture/09-security-and-moderation.md) §3.1.
 
 ### A31. Global groups are copied from the registry at `instance create` and kept by `registry sync`
 
@@ -365,7 +364,7 @@ Replaced text: [09](../architecture/09-security-and-moderation.md) §3.1, as it 
 - **Change:** amends §2, §5
 - **Summary:** `property-create` is granted to `user` by default, as a stock Wikibase grants it, so a registered account can create properties through `wbeditentity` and `Special:NewProperty`, and Wikibase clients (WikibaseIntegrator, WikidataIntegrator, Pywikibot) that create properties work unchanged. `propertycreator` and `sysop` keep it, so a tenant that wants Wikidata's arrangement removes it from `user` in its configuration. What changes predicates for every consumer stays restricted: `equivalent-property` links and the cross-namespace property redirect of [0004](0004-identity-clusters-and-equivalence.md) A4 move from `property-create` to a new right, `ts-linkproperty`, held by `propertycreator` and `sysop` (0004 A22). `wbeditentity` with `new=property` enforces it, which it had not before. A key exercises `property-create` through the `editentity` or `createeditmovepage` grant, and `ts-linkproperty` through `editentity` ([0024](0024-subsidiary-accounts.md) A18).
 
-Replaced text: [09](../architecture/09-security-and-moderation.md) §2.2, §2.4, as it stood before this entry; in git (`tools/adr.py log 0016 A32 --before`).
+Replaced text: [09](../architecture/09-security-and-moderation.md) §2.2, §2.4.
 
 ### A33. `ts-config` covers the settings routes and pages
 
@@ -381,7 +380,7 @@ Replaced text: [09](../architecture/09-security-and-moderation.md) §2.2, §2.4,
 - **Change:** extends §2
 - **Summary:** Two permissions under their MediaWiki extensions' names and defaults: `confirmaccount` (ConfirmAccount; `bureaucrat`), reviewing account requests and, under `account.approval`, creating an account for another at once; and `skipcaptcha` (ConfirmEdit; `bot`, `sysop`), exemption from every challenge trigger. A tenant closes registration by taking `createaccount` from `universe`, as a private tenant does; `groups.toml` moves `createaccount` from `autoconfirmed` to `universe`, as [0024](0024-subsidiary-accounts.md) A13 decided. The chapter rows are [09](../architecture/09-security-and-moderation.md) §2.2.
 
-Replaced text: [09](../architecture/09-security-and-moderation.md) §2.2, as it stood before this entry; in git (`tools/adr.py log 0016 A34 --before`).
+Replaced text: [09](../architecture/09-security-and-moderation.md) §2.2.
 
 ### A35. A group may include others
 
@@ -404,7 +403,7 @@ Replaced text: [09](../architecture/09-security-and-moderation.md) §2.2, as it 
 - **Change:** amends §3
 - **Summary:** `owner` holds every permission by definition and, James decided, reads everything by definition too, consistent with it being the all-powerful role. That makes it a **bootstrap role**: a mature deployment whose own groups cover every right it uses may have no owner at all, and `owner` is then restored only from the command line. In full: (1) `"*"` in `includes` means every group but `owner` and the tenant's suppression group, which a tenant may add by name. (2) Inclusion counts only when a `read` restriction is evaluated, never for other ACLs, the lock-out or permissions, so an including group reads what the included groups read and changes nothing more (narrowing A35). (3) `owner` ships with `includes = ["*"]`: its members read every confidential target but not what the suppression group alone may, and set, change or lift a confidential restriction only for a group they have joined. (4) A new default group, `auditor`, holds no permissions, includes `"*"`, and is empty until someone is added. (5) `owner` may lose its last member when every permission the tenant's groups use, `userrights` included, is held by another group with a current member, and on the primary tenant `ts-keys` and `ts-primary` are too or are left to the CLI; with no member, `owner` is restored only by `triplespace-cli`, an instance act. This reverses A11's "`owner` stays a group with at least one member"; `instance.owner_of_record` is unaffected.
 
-Replaced text: [09](../architecture/09-security-and-moderation.md) §3.1, §3.2, §3.4, §3.6, as it stood before this entry; in git (`tools/adr.py log 0016 A37 --before`).
+Replaced text: [09](../architecture/09-security-and-moderation.md) §3.1, §3.2, §3.4, §3.6.
 
 ### A38. `read-all`; the instance rights may be held by no group; joins notify only where a group says so
 
@@ -417,7 +416,7 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §3.1, as it 
 
 > `autopatrolled`, `federated` and `auditor`. `auditor` holds no permissions and `includes` every group but `owner` and the suppression group (§3.2), so its members read every confidential target and may do nothing more with it; it is empty until someone is added to it, as any group is ([0016](0016-permissions-and-access-control.md) A37).
 
-Replaced text: [09](../architecture/09-security-and-moderation.md) §3.2, §3.3, as it stood before this entry; in git (`tools/adr.py log 0016 A38 --before`).
+Replaced text: [09](../architecture/09-security-and-moderation.md) §3.2, §3.3.
 
 Replaced text ([09](../architecture/09-security-and-moderation.md) §3.6, as it stood):
 
@@ -437,7 +436,7 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §3.6, as it 
 - **Change:** consolidates §2
 - **Summary:** The table of 09 §2.2 moved into `docs/registry/permissions.toml` (what each permission allows, its sources, and the *(new)* mark); its *Granted by default to* column is now derived from `groups.toml`, which the chapter already named as authoritative, so the two cannot disagree. The move surfaced one difference: `ts-runjob` is granted to `bot` and `sysop` in `groups.toml` where the chapter said `bot`; the registry stands. Eight permissions no group grants (`ts-keys`, `ts-primary`, the takedown and expunge rights, `ts-viewoperator`, `abusefilter-bypass`, `upload_by_url`) are marked `ungranted` with the holder the chapter named (owner only, the farm's global groups, or none). `architecture/catalogues.py` generates the table and checks both directions. No decision changed. The last commit in which the chapter carried the table is `0e67cce`.
 
-Replaced text: [09](../architecture/09-security-and-moderation.md) §2.2, the lead, as it stood before this entry; in git (`tools/adr.py log 0016 A40 --before`).
+Replaced text: [09](../architecture/09-security-and-moderation.md) §2.2, the lead.
 
 ### A41. Group records over REST, and `sysop` runs jobs
 

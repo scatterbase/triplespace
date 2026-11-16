@@ -119,7 +119,7 @@ James's direction, from the design discussion of 2026-09-30: the role is **trans
 - **Change:** supersedes §10
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A46).
 
-Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0046 A1 --before`).
+Replaced text: §10 of this ADR.
 
 ### A2. Special pages at a shared farm base
 
@@ -154,7 +154,6 @@ Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/a
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0046 A6 --diff`).
 
 ### A7. The farm code
 
@@ -163,7 +162,7 @@ Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** amends §5, §6; extends §9
 - **Summary:** The farm slug stays the instance's readable name, chosen at `instance create --farm-slug` and never changed, but it is in no key. The **farm code**, derived from the instance's founding record (its first `key:` record, at offset 0 of the instance `config` partition) as a tenant's issuer code is, is what the operator's actor key `instance:{farm code}`, the farm issuer's code and the farm partition names carry, so that an instance act stays attributed to the instance that made it whatever other instance shares its slug (§6). A primary transfer leaves the operator's key unchanged (§5). `siprop=triplespace` and `GET /tenancy` at the farm base report the farm code beside the farm slug (§9).
 
-Replaced text: §6, in [08](../architecture/08-tenants-and-instances.md) §1.2; §5, in [08](../architecture/08-tenants-and-instances.md) §7.5, as it stood before this entry; in git (`tools/adr.py log 0046 A7 --before`).
+Replaced text: §6, in [08](../architecture/08-tenants-and-instances.md) §1.2; §5, in [08](../architecture/08-tenants-and-instances.md) §7.5.
 
 ### A8. Accept moves to Special:WikiSettings
 
@@ -172,7 +171,7 @@ Replaced text: §6, in [08](../architecture/08-tenants-and-instances.md) §1.2; 
 - **Change:** amends §9
 - **Summary:** `Special:Tenancy` is merged into the settings pages, so an `owner` of a tenant offered the primary role sees **Accept** on `Special:Tenants` and on the Tenancy tab of their own tenant's `Special:WikiSettings`. The chapter text is [19](../architecture/19-site-ui.md) §2.8 and §6.11.
 
-Replaced text: [19](../architecture/19-site-ui.md) §6.11, as it stood before this entry; in git (`tools/adr.py log 0046 A8 --before`).
+Replaced text: [19](../architecture/19-site-ui.md) §6.11.
 
 ### A9. The instance `log` stays `internal` as a whole
 

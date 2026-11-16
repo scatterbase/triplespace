@@ -174,7 +174,7 @@ James's direction, from the design discussion of 2026-10-20:
 - **Change:** amends §3, §4, §8, §12
 - **Summary:** A wrapper template becomes data, not a box. The comments inside every wrapper are split as anywhere else, and its two calls leave the posts' text, kept verbatim in `imported_from.wrapper`. A wrapper enclosing a whole section is a closure: its statement becomes the closer's post with `status: closed`, a new default status (James: "'closed' is a good name for the status"), appended after the comments it closes, and the thread shows collapsed as every closed thread does. Collapsing a range is a native feature of threads that any editor may use, not an import-only field (James: "Range collapsing should be a native feature"; [0019](0019-discussions.md) A25). Wrapper posts, their `wrap` field and the placeholder rendering are withdrawn, and so is the section fallback for a wrapper enclosing part of a section, which on the 2026-10-21 samples cost the incidents noticeboard 5 of its 38 threads and 195 of its 989 comments. Settles Q2. Chapter text: [13](../architecture/13-mirrored-pages.md) §5.14, §5.15; [14](../architecture/14-discussions.md) §1.5, §1.6, §2.1, §2.4; [22](../architecture/22-crates-and-stack.md) §2.1.
 
-Replaced text: §3 of this ADR; §4 of this ADR; §8 of this ADR; §12 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0090 A1 --before`).
+Replaced text: §3 of this ADR; §4 of this ADR; §8 of this ADR; §12 of this ADR.
 
 ### A2. The splitter as built
 
@@ -183,7 +183,7 @@ Replaced text: §3 of this ADR; §4 of this ADR; §8 of this ADR; §12 of this A
 - **Change:** amends §2, §3, §4, §5, §6, §13
 - **Summary:** 0090 now says what `scatter-talk` does, on James's direction that it "should be updated to reflect what the code ended up doing". **Boxes** (James: "The 'barnstar rule' is a good call (though it occurs in other contexts as well where messages are wrapped in pretty boxes)"): a signature inside a table, block element, template call, HTML comment or in-comment wrapper still open on its line does not end the comment; the comment runs on to the line that closes the construct, and only a second signature or a heading before then makes the section fall back. Without it every barnstar section on a user talk page fell back; on the 2026-10-21 samples it recovered all 18 comments lost in Jimbo Wales's archive. **Level-one headings** are read as level two when anything but blank lines is directly under them, not only comments, and a deeper heading with no thread to belong to starts one. **Parents** may be unsigned posts, and unsigned text just before a wrapper that encloses comments is a post of its own. **Wrappers** are recognised only on lines of their own; one encloses a whole section when it opens before anything else and nothing follows it; one that encloses no complete comment is that comment's text. **Aliases:** a signature name counts as the account's own when it makes up at least half of the signatures the account added under names not its own, as well as at least two, so a delivery bot takes no sender's name. **Zones:** a printed zone abbreviation gives a timestamp's offset; the caller supplies the abbreviations and the wiki's offset from siteinfo's `timezone` and the tz database, and `scatter-talk` stays pure. **Testing:** the samples are committed as fixtures (James: "we can commit the sample fixtures if they are not too big"), about 3.3 MB compressed, with a README carrying their licence and attribution, which settles Q6; the test holds the splitter to agreement thresholds rather than a list of known differences, which was never built. Chapter text: [13](../architecture/13-mirrored-pages.md) §5.12, §5.13, §5.14, §5.15, §5.16; [22](../architecture/22-crates-and-stack.md) §4.9.
 
-Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0090 A2 --before`).
+Replaced text: §2 of this ADR.
 
 Replaced text (§3):
 
@@ -197,7 +197,7 @@ Replaced text (§4):
 
 > - a comment boundary would fall inside a construct that opens before the boundary and closes after it: a table, an HTML block element left open, a template call spanning lines, or a wrapper opened inside a comment that ends before the wrapper closes (§3);
 
-Replaced text: §5 of this ADR; §6 of this ADR; §13 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0090 A2 --before`).
+Replaced text: §5 of this ADR; §6 of this ADR; §13 of this ADR.
 
 ### A3. `scatter-talk-import`: one mapping for every import job
 
@@ -211,4 +211,3 @@ Replaced text: §5 of this ADR; §6 of this ADR; §13 of this ADR, as it stood b
 - **Date:** 2026-10-30
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§13
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0090 A4 --diff`).

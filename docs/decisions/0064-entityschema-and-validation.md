@@ -101,7 +101,7 @@ James's direction, from the design discussion of 2026-10-05:
 - **Change:** corrects §8
 - **Summary:** Entity schemas have no RDF: no terms on an entity node, no `wikibase:EntitySchema` type. [wikibase-compat.md](../api/wikibase-compat.md) §2's description already says so and stands. (PENDING B8)
 
-Replaced text: §8 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0064 A1 --before`).
+Replaced text: §8 of this ADR.
 
 ### A2. Unsupported ShEx features: saved, not validated
 
@@ -110,14 +110,13 @@ Replaced text: §8 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** corrects §4
 - **Summary:** A schema using unsupported ShEx features (`IMPORT`, `EXTERNAL`, semantic actions, annotations other than `rdfs:label`/`rdfs:comment`, an undefined prefix) is saved and marked `unvalidatable`: "not validated", not "refused at save". (PENDING F12)
 
-Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0064 A2 --before`).
+Replaced text: §4 of this ADR.
 
 ### A3. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§9
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0064 A3 --diff`).
 
 ### A4. Validation runs in tier 3 only, under a binding cap
 
@@ -126,5 +125,5 @@ Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §5
 - **Summary:** Validation against a bound schema is a tier-3 consumer that follows the scope projection, consuming composition events in its own queue, outside every transaction, with its own lag shown on the schema page beside "checked at"; it never runs inline in a write or in a fan-out budget, and only the ad hoc check of §6 runs on request. The ledger names §9; the crate table did not change. Chapter text: [15](../architecture/15-structured-pages.md) §6.4. (REVIEW G10)
 
-Replaced text: [15](../architecture/15-structured-pages.md) §6.4, as it stood before this entry; in git (`tools/adr.py log 0064 A4 --before`).
+Replaced text: [15](../architecture/15-structured-pages.md) §6.4.
 

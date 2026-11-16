@@ -142,7 +142,7 @@ James's direction, from the design discussion of 2026-09-29:
 - **Change:** supersedes §15
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A38).
 
-Replaced text: §15 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0038 A1 --before`).
+Replaced text: §15 of this ADR.
 
 ### A2. Uploads in the page's history
 
@@ -160,7 +160,7 @@ Replaced text: §15 of this ADR, as it stood before this entry; in git (`tools/a
   - §1: On **File pages** the statements have the MediaInfo ID `M{page ID}` and are read and written through `wbgetentities` and the Wikibase statement modules, as on Commons, because tools written for Structured Data on Commons expect that contract. They appear in the `mediainfo` slot (`wikibase-mediainfo`) in `prop=revisions`. Terms and sitelinks on `M` IDs are refused with `not-supported` until page terms are settled. Statements on every other page stay as written here: no entity ID and no Action API.
   - §13: File pages are the exception: their statements are in the Action API as MediaInfo entities.
 
-Replaced text: §1 of this ADR; §13 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0038 A3 --before`).
+Replaced text: §1 of this ADR; §13 of this ADR.
 
 ### A4. Categories from expanded text
 
@@ -169,7 +169,7 @@ Replaced text: §1 of this ADR; §13 of this ADR, as it stood before this entry;
 - **Change:** amends §3
 - **Summary:** While a tenant's `wikitext.expansion` is on, membership is read from the **expanded** text: categories that templates emit count, `<includeonly>` categories reach transcluding pages, and expansion adds MediaWiki's tracking categories for its own conditions. The paragraph above holds for tenants with expansion off. The consequence that template-emitted categories are frozen at import was struck for tenants with expansion on.
 
-Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0038 A4 --before`).
+Replaced text: §3 of this ADR.
 
 ### A5. Boards carry statements
 
@@ -206,7 +206,7 @@ Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §1
 - **Summary:** File pages' change sets may carry labels and descriptions (captions) through a `terms` operation; Q4 settled for File pages, the rest as Q7.
 
-Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0038 A9 --before`).
+Replaced text: §1 of this ADR.
 
 ### A10. `proposal-state`
 
@@ -222,7 +222,7 @@ Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** corrects §1
 - **Summary:** Only aliases and sitelinks on `M` IDs are refused with `not-supported` ([0065](0065-mediainfo-captions-and-commons.md) §1). Labels and descriptions on an `M` ID are captions, accepted since A9, so §1's sentence that terms and sitelinks are refused "until page terms are settled" was wrong about something already decided. (PENDING E11)
 
-Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0038 A11 --before`).
+Replaced text: §1 of this ADR.
 
 ### A12. A proposal's fields are page metadata of the thread page
 
@@ -238,14 +238,13 @@ Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** corrects §7
 - **Summary:** [0010](0010-site-ui.md) §2 is the one tabs table: Page data on the thread row, Talk on the document-page row. §7 refers to it instead of carrying a second table, which had lost Talk from the document-page row. (PENDING F15)
 
-Replaced text: §7 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0038 A13 --before`).
+Replaced text: §7 of this ADR.
 
 ### A14. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§15
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0038 A14 --diff`).
 
 ### A15. Two row classes of `view.page_category`, one writer each
 
@@ -254,7 +253,7 @@ Replaced text: §7 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §3
 - **Summary:** With expansion on, membership is read from the expanded text *as well as* the stored text, and the two readings are two row classes of `view.page_category` with one writer each, as the links projection has: every row carries `from_render`; the page projection writes the memberships the stored text declares, with `from_render = false`, when it applies the record; the refresh job of [0042](0042-template-expansion-and-parsoid.md) §10 writes those the expanded text adds, with `from_render = true`. Each writer owns its class exclusively, a category page lists the union, the refresh job never deletes a row it did not write, and turning `wikitext.expansion` off truncates the render-owned rows alone, leaving every membership the text itself declares. 0083's table names §2 (asserted and projected statements); the chapter section that changed, [10](../architecture/10-pages-and-content-models.md) §5.3, holds §3, so the row is corrected. (REVIEW G13)
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §5.3, as it stood before this entry; in git (`tools/adr.py log 0038 A15 --before`).
+Replaced text: [10](../architecture/10-pages-and-content-models.md) §5.3.
 
 ### A16. Help pages carry statements
 

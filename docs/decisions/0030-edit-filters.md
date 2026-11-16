@@ -124,7 +124,7 @@ James named two dimensions, **abusive statements** and **abusive page contents**
 - **Change:** supersedes §13
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries `scatter-filter` and every change this section listed (0005 A26).
 
-Replaced text: §13 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0030 A1 --before`).
+Replaced text: §13 of this ADR.
 
 ### A2. Property constraints report, filters gate
 
@@ -143,7 +143,7 @@ Replaced text: §13 of this ADR, as it stood before this entry; in git (`tools/a
   - §2: No graph reads in filters, ever (decision 15): the bound of §2 is permanent, and 0031's question about violations touching patrolling closes the same way.
   - §4: Every enabled filter evaluates every write and every match is a hit, as AbuseFilter does; the write is refused once, naming the first disallowing filter's message (decision 15).
 
-Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0030 A3 --before`).
+Replaced text: §2 of this ADR.
 
 ### A4. The upload context
 
@@ -159,7 +159,7 @@ Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §8
 - **Summary:** Global filters are records in the **instance `log`**, not the primary tenant's, since the instance now has a log of its own; evaluation order is unchanged. A `block` or `degroup` a global filter appends to a tenant's `actors` is an instance prerogative, binding for its duration: a tenant unblock lifts only the tenant's own block. Hits are unchanged: they stay in the tenant's `log`, attested by the actor whose write was hit.
 
-Replaced text: §8 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0030 A5 --before`).
+Replaced text: §8 of this ADR.
 
 ### A6. Link variables from expanded text
 
@@ -168,7 +168,7 @@ Replaced text: §8 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §2
 - **Summary:** With expansion on, `added_links` and `removed_links` come from the expanded text, computed only when an enabled filter reads them.
 
-Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0030 A6 --before`).
+Replaced text: §2 of this ADR.
 
 ### A7. Converted to the 0050 format
 
@@ -210,7 +210,6 @@ Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§13
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0030 A12 --diff`).
 
 ### A13. Filters are a step of tier 1; job writes are opted into
 
@@ -219,6 +218,6 @@ Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §7; extends §1, §2, §5
 - **Summary:** Edit filters stay in the appending transaction, as a step of tier 1, since a filter is a function of the written record and the actor and nothing composes while it runs (§1). The `rate` variable is computed lazily, read from the counters only when an enabled filter's rule names it (§2). The `read` rate class of [0024](0024-subsidiary-accounts.md) §5 is counted for authenticated principals only once a per-process count passes a fraction of the limit, and never for a response served from L0 or L1. 0083's table gives this change as `extends 0030 §7`; the chapter text of §7 said every filter applied to every operation of a job unless it exempted the job's group, which the default now contradicts, so it is logged as an amendment. (REVIEW G8, G15)
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §3.6, as it stood before this entry; in git (`tools/adr.py log 0030 A13 --before`).
+Replaced text: [05](../architecture/05-providers-and-ingest.md) §3.6.
 
 > A job of a million operations under ten filters spends seconds on them.

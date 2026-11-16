@@ -94,7 +94,7 @@ This ADR replaces the one grammar of 0009 §3 with three, each declared in the r
 - **Change:** supersedes §7
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A13).
 
-Replaced text: §7 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0017 A1 --before`).
+Replaced text: §7 of this ADR.
 
 ### A2. DOI is a resolver
 
@@ -167,7 +167,7 @@ Replaced text (§2):
 - **Change:** amends §1
 - **Summary:** A fifth form, the **source** ID, `{name}:{upstream ID}` (`mhc:Q1`): a foreign ID in the colon shape, minted by an entity source a tenant declares, and meaning that source only on that tenant. Colon forms are told apart by the kind of their prefix in the tenant's table of names. Registry provider slugs join that table, and `wikidata:Q42` is an input form of `WDQ42`.
 
-Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0017 A10 --before`).
+Replaced text: §1 of this ADR.
 
 > No minted ID contains a colon, and every keyed ID does, so the two never collide, whatever a key looks like.
 
@@ -176,7 +176,6 @@ Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§7
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0017 A11 --diff`).
 
 ### A12. Any member of a cluster is accepted wherever an entity ID is accepted
 

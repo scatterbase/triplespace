@@ -132,7 +132,7 @@ James's direction is to make the relation structural: a bot is a **subsidiary ac
 - **Change:** supersedes §13
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A20).
 
-Replaced text: §13 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0024 A1 --before`).
+Replaced text: §13 of this ADR.
 
 ### A2. OAuth tokens and pending subsidiaries
 
@@ -150,7 +150,7 @@ Replaced text: not recorded; §4 had spoken of keys alone, and the sentence on t
 - **Change:** extends §4; amends §12
 - **Summary:** Client signing keys (decision 4). Beside its API keys, a subsidiary may hold one or more **signing keys**: Ed25519 keypairs the operator generates, whose public half is registered as a `scatter:v0/key` record in the `actors` partition ([0015](0015-record-format-and-partition-registry.md) §1, as amended) and whose private half the instance never sees. The operator registers, rotates and revokes them from the subsidiary's keys section and `POST /account/subsidiaries/{name}/signing-keys`; registration and revocation project as `key/register` and `key/revoke` log events ([0011](0011-logs.md) §6.1), public like the operator relation. A write submitted with a `signature` (as a field of the change set or page operation, or an `X-Triplespace-Signature` header on a REST write) is verified against the actor's current key before the append, and the record's attestation part carries it. A signature never grants anything and is never required by default; `site` configuration may require one for the `bot` group (`signing.require_for_bot`), which is what an instance that wants third-party-verifiable bot attribution turns on. History rows and "About this edit" ([0010](0010-site-ui.md) §5–6) show a *signed* mark with the key ID, and the record and proof routes ([0012](0012-api-requirements.md) §5) return the signature so a third party can check it against the export bundle. `triplespace-cli` and the reference SDK produce the canonical CBOR of the content and comment parts and sign it; Pywikibot does not, and works unsigned. Primary accounts hold no signing key, for the reason they hold no API key: a person's edits are attributed by session, a program's by credential. §12's attestation half is therefore no longer open. The bootstrap login for `owner` (decision 1) is the built-in `password` issuer recorded as 0007 A3: a primary account still holds no key or token; a password is a binding. This settled Q4.
 
-Replaced text: §12 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0024 A3 --before`).
+Replaced text: §12 of this ADR.
 
 ### A4. File rate classes
 
@@ -173,7 +173,7 @@ Replaced text: §12 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** amends §1
 - **Summary:** An instance job needs a subsidiary of an account on the tenant that is primary when the job is submitted (`ts-runjob` is an instance right for such jobs). When the role is transferred, `triplespace-cli primary accept` creates sync subsidiaries on the new primary; jobs already running finish under theirs.
 
-Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0024 A6 --before`).
+Replaced text: §1 of this ADR.
 
 ### A7. The export class and a sysop row for jobs
 
@@ -182,7 +182,7 @@ Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §5
 - **Summary:** A class `export` counts exports (default 30 / 300 per hour for `user` / `bot`). The `job` class gains a `sysop` row, 10 per hour, so that an administrator who is not a bot can start a Nuke or a job revert.
 
-Replaced text: §5 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0024 A7 --before`).
+Replaced text: §5 of this ADR.
 
 ### A8. Converted to the 0050 format
 
@@ -219,7 +219,7 @@ Replaced text: §5 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** corrects §5
 - **Summary:** Rate-limit counters are `rl:{class}:{key}` here and in [0014](0014-caches-and-search.md) §4 alike, the key being the actor key or, for anonymous requests, the IP; §5 had written the form as `rl:{class}:{actor key}` and 0014 §4 differently. (PENDING C4)
 
-Replaced text: §5 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0024 A12 --before`).
+Replaced text: §5 of this ADR.
 
 ### A13. `createaccount` as in MediaWiki
 
@@ -228,7 +228,7 @@ Replaced text: §5 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** corrects §11
 - **Summary:** `createaccount` governs self-registration and creating an account for another, as in MediaWiki, and so also creating a subsidiary (§2); its default group is `universe`, and a private tenant removes it from `universe` ([0056](0056-security-model.md) §3 stands). §11's `autoconfirmed` default goes. A subsidiary a new user creates is `pending` until approved ([0025](0025-oauth-server.md) §3), which is what kept the right from needing a threshold. (PENDING C12)
 
-Replaced text: §11 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0024 A13 --before`).
+Replaced text: §11 of this ADR.
 
 ### A14. The `federation` rate class
 
@@ -244,7 +244,6 @@ Replaced text (§5): the counters sentence as A12 quotes it.
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§13
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0024 A15 --diff`).
 
 ### A16. `read` is counted lazily, and `maxlag` includes composition lag
 
@@ -260,7 +259,7 @@ Replaced text (§5): the counters sentence as A12 quotes it.
 - **Change:** corrects §2, §11; extends §1
 - **Summary:** `pending` is an OAuth-only status: a subsidiary created on the OAuth consent page is pending until approved, and a subsidiary created by hand from `Special:Account` or `POST /account/subsidiaries` is a member of `user` from its first record, whoever its operator is and however new their account; "a subsidiary a new user creates is pending until approved" is struck. The MCP requirement is the `basic` grant, which every key and token carries. `triplespace-cli instance create` creates the instance's sync subsidiaries beside `local:1` and puts them in the `bot` group at creation, as `primary accept` does on a transfer. `view.actor` gains `editcount` and `created_at`, maintained by the activity projection from local `edit` rows, erased included and job rows excluded, from which the implicit `autoconfirmed` group is computed. (REVIEW G40)
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §4.2, §4.3; [09](../architecture/09-security-and-moderation.md) §8.4, as it stood before this entry; in git (`tools/adr.py log 0024 A17 --before`).
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §4.2, §4.3; [09](../architecture/09-security-and-moderation.md) §8.4.
 
 ### A18. `editentity` and `createeditmovepage` cover `property-create`; `editentity` covers `ts-linkproperty`
 
@@ -269,7 +268,7 @@ Replaced text: [07](../architecture/07-actors-and-accounts.md) §4.2, §4.3; [09
 - **Change:** amends §4
 - **Summary:** With `property-create` held by `user` by default (0016 A32), a key needs a grant that covers it for a client to create properties. `editentity` covers it, so a key made for entity editing (the client compatibility suite's `editentity` and `highvolume`) creates properties as a session does; `createeditmovepage` covers it too, as Wikibase's grant of that name does, so a Pywikibot user's usual grants behave as on a stock Wikibase. `editentity` also covers `ts-linkproperty`, as it covers `ts-link`; a key still exercises it only where the account holds it.
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §5.3, as it stood before this entry; in git (`tools/adr.py log 0024 A18 --before`).
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §5.3.
 
 ### A19. The `createaccount` class; anonymous requests are counted by IPv6 /64
 
@@ -278,7 +277,7 @@ Replaced text: [07](../architecture/07-actors-and-accounts.md) §5.3, as it stoo
 - **Change:** extends §5; corrects §5
 - **Summary:** A `createaccount` class counts accounts created and account requests filed by the caller's address key, whoever the caller is: 6 per day for every group, as MediaWiki's `$wgAccountCreationThrottle` is set on Wikimedia wikis, with `noratelimit` exempt; over it, `action=createaccount` answers `acct_creation_throttle_hit`. **Correction:** §5 keyed an anonymous request's counters on its IP address, which for IPv6 limits nothing, since a host commonly holds a whole /64 and can rotate through it. The chapter text is [07](../architecture/07-actors-and-accounts.md) §6.2 and §6.3.
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §6.3, as it stood before this entry; in git (`tools/adr.py log 0024 A19 --before`).
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §6.3.
 
 ### A20. Long-window counters without a shared cache are kept in Postgres
 
@@ -287,7 +286,7 @@ Replaced text: [07](../architecture/07-actors-and-accounts.md) §6.3, as it stoo
 - **Change:** amends §5
 - **Summary:** An instance without a shared cache still counts most classes in process, approximately, but the `createaccount` counter and 0087's two `badlogin` counters, whose windows are a day and ten minutes, are kept in Postgres in `private.rate_event`, so that spreading attempts over the replicas of a pool or waiting for a restart does not reset them. The chapter text is [07](../architecture/07-actors-and-accounts.md) §6.3.
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §6.3, as it stood before this entry; in git (`tools/adr.py log 0024 A20 --before`).
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §6.3.
 
 ### A21. Reserved prefixes
 

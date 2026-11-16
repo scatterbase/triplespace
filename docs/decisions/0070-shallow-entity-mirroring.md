@@ -140,7 +140,7 @@ James's direction, from the design discussion of 2026-10-07:
 - **Change:** extends §2.1, §3, §10
 - **Summary:** A tenant's entity source takes `entities.mirror` and `entities.closure` under its name, with `linked` as the default where it has an `api` and `off` where it does not, and an empty closure list. Its fetch is a tenant job per source, writing to `source/{name}`, following the source's events if any and otherwise the sweep. `ops.entity_fetch` gains a `tenant` column.
 
-Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0070 A1 --before`).
+Replaced text: §10 of this ADR.
 
 ### A2. Instance jobs act as the instance
 
@@ -154,7 +154,6 @@ Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/a
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§11
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0070 A3 --diff`).
 
 ### A4. `view.term` holds the instance's languages, for shallow and full mirrors alike
 
@@ -163,11 +162,11 @@ Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** amends §4, §6
 - **Summary:** `view.term` holds rows for local entities, for entities in any tenant overlay, and for mirrored entities in the instance's term languages only: `entities.term_languages` is instance configuration for the shared rows, set in the instance policy record, and a tenant's setting of the same name only narrows the languages its own display offers. Settles Q2. Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.8, §5.6. (REVIEW G7)
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §5.8, as it stood before this entry; in git (`tools/adr.py log 0070 A4 --before`).
+Replaced text: [05](../architecture/05-providers-and-ingest.md) §5.8.
 
 > Not yet: what a full mirror (`all`) writes to `view.term` is an open question of [0070](0070-shallow-entity-mirroring.md).
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §5.6, as it stood before this entry; in git (`tools/adr.py log 0070 A4 --before`).
+Replaced text: [05](../architecture/05-providers-and-ingest.md) §5.6.
 
 ### A5. A fetch miss for an unknown entity writes no record
 
@@ -176,7 +175,7 @@ Replaced text: [05](../architecture/05-providers-and-ingest.md) §5.6, as it sto
 - **Change:** amends §3
 - **Summary:** Only an entity already in the set, one with a `view.entity_source` row for the provider, that upstream reports missing becomes a `tombstone`. A fetch miss for an entity with no `entity_source` row writes no record: a typo'd or never-existing ID is not a deletion, nothing is tombstoned and no retention policy runs; the referring value renders unresolved, and the queue row is dropped. The rest of the row (a mirror tombstone carries nothing about retention; each tenant's policy is applied per overlay as a tenant-partition record under the instance attestation with a `retention/apply` event; the compaction exemption is any tenant's `retain` row; `cascade` is never a default) is [0002](0002-source-graphs-and-mass-ingest.md) §5's. The ledger names §5 too, whose text did not change. (REVIEW G28)
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §5.5, as it stood before this entry; in git (`tools/adr.py log 0070 A5 --before`).
+Replaced text: [05](../architecture/05-providers-and-ingest.md) §5.5.
 
 ### A6. A provider that is a tenant of this instance is never synced
 
@@ -199,5 +198,5 @@ Replaced text: [05](../architecture/05-providers-and-ingest.md) §5.5, as it sto
 - **Change:** extends §3, §5, §7, §9; amends §10
 - **Summary:** A provider or entity source with an `api` and no `events` is followed by polling `list=recentchanges`, as the Wikidata Query Service's updater did: deduped by `rcid`, coalesced by title, read by time near the present, with a tail pass, every `follow.interval`. Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.5, §5.7, §5.9; [03](../architecture/03-storage-caches-and-search.md) §4.12; [18](../architecture/18-api.md) §3.2.
 
-Replaced text: 05 §5.7 of this ADR; 03 §4.12 of this ADR; 18 §3.2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0070 A8 --before`).
+Replaced text: 05 §5.7 of this ADR; 03 §4.12 of this ADR; 18 §3.2 of this ADR.
 

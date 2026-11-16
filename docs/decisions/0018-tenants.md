@@ -139,7 +139,7 @@ This ADR adds tenants, makes each tenant its own issuer of identity, lets a tena
 - **Change:** supersedes §12
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A14).
 
-Replaced text: §12 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0018 A1 --before`).
+Replaced text: §12 of this ADR.
 
 ### A2. Sitelink policy lists
 
@@ -162,7 +162,7 @@ Replaced text: §12 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** amends §4; extends §5
 - **Summary:** Under a tenancy policy with farm identity, the farm *is* an issuer with accounts, but those accounts edit nothing: they are the identity a person carries across the farm, publicly linked to the tenant accounts created from them, and what global groups and global blocks key on. Every record is still attested by a tenant actor, and instance-level records by the primary tenant's, so nothing in this section's attribution rule changes. §5 gains `providers.between_tenants`, reader lists, cross-instance reading by the Triplespace adapter, and deletion as a move with no destination. This settled Q2, Q3 and Q4, and falsified the consequence that there is no farm-level account.
 
-Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0018 A4 --before`).
+Replaced text: §4 of this ADR.
 
 ### A5. Adoption
 
@@ -200,7 +200,7 @@ Replaced text: none; §4 assumed, without saying so, that the instance never wri
   - §3: The `tenant` record has no primary flag; which tenant is primary is the single `primary` record of the instance `config`.
   - §10: The primary tenant cannot be frozen for a move, moved or deleted until the primary role has been transferred to another tenant (`ts-primary-tenant`); on a single-tenant instance, moving the only tenant is rehosting the instance.
 
-Replaced text: §1 of this ADR; §2 of this ADR; §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0018 A8 --before`).
+Replaced text: §1 of this ADR; §2 of this ADR; §3 of this ADR.
 
 ### A9. Special page scopes
 
@@ -223,7 +223,7 @@ Replaced text: §1 of this ADR; §2 of this ADR; §3 of this ADR, as it stood be
 - **Change:** amends §5
 - **Summary:** A private tenant is one whose `tenant` ACL restricts `read`. §5 had named one by its export policy without saying how a tenant becomes one; the export policy is now a consequence of the ACL.
 
-Replaced text: §5 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0018 A11 --before`).
+Replaced text: §5 of this ADR.
 
 ### A12. Entity sources
 
@@ -232,7 +232,7 @@ Replaced text: §5 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** extends §5, §10
 - **Summary:** A provider tenant's references to its entity sources cross to a reader by IRI: to a registry provider's ID, to the reader's own source for the same IRIs, or else the statements using them are withheld and counted. Unpublished sources never cross. A move carries each `source/{name}` partition with the six.
 
-Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0018 A12 --before`).
+Replaced text: §10 of this ADR.
 
 ### A13. Inference properties are instance configuration
 
@@ -241,7 +241,7 @@ Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** amends §3
 - **Summary:** The identifier properties that drive tier-3 inference are **instance** configuration, held in an instance `reconcile` record, so tier-3 links stay instance-wide (§6). A tenant's `reconcile` record may switch inference off for the tenant and set its provider order and link properties, but may not add inference properties. §3's instance row therefore gains `reconcile`, and the tenant row's `reconcile` is read with that limit ([0004](0004-identity-clusters-and-equivalence.md) §3, [0015](0015-record-format-and-partition-registry.md) §3). (PENDING B6)
 
-Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0018 A13 --before`).
+Replaced text: §3 of this ADR.
 
 ### A14. Source partitions and farm partitions in the partition table
 
@@ -257,7 +257,7 @@ Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** corrects §2
 - **Summary:** "Partition 0" is a designation, not an ID. The ADRs say "the instance `config` partition": it is found by its registry name and has a random 64-bit ID like every other partition (§2); offset 0 of it holds the first `key:` record ([0015](0015-record-format-and-partition-registry.md) §3). (PENDING C7)
 
-Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0018 A15 --before`).
+Replaced text: §2 of this ADR.
 
 ### A16. `instance` is a reserved slug
 
@@ -285,7 +285,6 @@ Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§12
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0018 A19 --diff`).
 
 ### A20. Issuer codes derived from the founding record
 
@@ -294,7 +293,7 @@ Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §1, §4, §9, §10; extends §2, §11
 - **Summary:** A tenant's issuer code, the code its actor keys carry, is no longer its slug: it is derived from the hash of the tenant's founding record, so it is fixed at creation, survives moves and erasure, and is allocated by no one. The slug becomes only a name on the instance, chosen afresh on arrival if taken, and `GET /tenancy` gives each tenant's code as `issuer`. Examples keep writing `librarybase:42` for the derived key. Chapter text: [08](../architecture/08-tenants-and-instances.md) §1.2, §3.1, §6.1, §6.3.
 
-Replaced text: §1, in [08](../architecture/08-tenants-and-instances.md) §1.2; §4, in [08](../architecture/08-tenants-and-instances.md) §3.1; §9, in [08](../architecture/08-tenants-and-instances.md) §6.1; §10, in [08](../architecture/08-tenants-and-instances.md) §6.3, as it stood before this entry; in git (`tools/adr.py log 0018 A20 --before`).
+Replaced text: §1, in [08](../architecture/08-tenants-and-instances.md) §1.2; §4, in [08](../architecture/08-tenants-and-instances.md) §3.1; §9, in [08](../architecture/08-tenants-and-instances.md) §6.1; §10, in [08](../architecture/08-tenants-and-instances.md) §6.3.
 
 ### A21. Provider tenants are entity sources
 
@@ -303,13 +302,13 @@ Replaced text: §1, in [08](../architecture/08-tenants-and-instances.md) §1.2; 
 - **Change:** amends §5, §10
 - **Summary:** A tenant is read by another tenant as an entity source that names it by issuer code, not by taking a registry code: directly on the same instance, through `scatter-adapter-triplespace` elsewhere. A registry code becomes a promotion for a widely read tenant, and a move switches readers between the two ways of reading. Chapter text: [08](../architecture/08-tenants-and-instances.md) §4.1, §4.3, §6.3.
 
-Replaced text: §5, in [08](../architecture/08-tenants-and-instances.md) §4.1, as it stood before this entry; in git (`tools/adr.py log 0018 A21 --before`).
+Replaced text: §5, in [08](../architecture/08-tenants-and-instances.md) §4.1.
 
 Replaced text (§5, in [08](../architecture/08-tenants-and-instances.md) §4.3):
 
 > …cannot take a code:
 
-Replaced text: §10, in [08](../architecture/08-tenants-and-instances.md) §6.3, as it stood before this entry; in git (`tools/adr.py log 0018 A21 --before`).
+Replaced text: §10, in [08](../architecture/08-tenants-and-instances.md) §6.3.
 
 ### A22. Continuations and fixed origin lines
 
@@ -318,7 +317,7 @@ Replaced text: §10, in [08](../architecture/08-tenants-and-instances.md) §6.3,
 - **Change:** amends §2, §10
 - **Summary:** A tenant partition's checkpoint origin line uses the tenant's host as it was when the partition was created or the tenant arrived on the instance, and an alias does not change it (§2). A non-cooperative move appends a `continuation`, `recovered` when the tenant's recovery keys sign it and `unauthorized` otherwise, instead of a rotation with no signature (§10).
 
-Replaced text: §2, in [08](../architecture/08-tenants-and-instances.md) §2.1; §10, in [08](../architecture/08-tenants-and-instances.md) §6.3, as it stood before this entry; in git (`tools/adr.py log 0018 A22 --before`).
+Replaced text: §2, in [08](../architecture/08-tenants-and-instances.md) §2.1; §10, in [08](../architecture/08-tenants-and-instances.md) §6.3.
 
 ### A23. Shared views under the instance policy, and IDs rewritten on the way out
 
@@ -327,7 +326,7 @@ Replaced text: §2, in [08](../architecture/08-tenants-and-instances.md) §2.1; 
 - **Change:** amends §3, §5, §6, §7
 - **Summary:** The tenancy side of 0082: the shared row of every `view` table is computed under the instance's policy record, which a tenant narrows and never reorders (refused with `ts-instance-policy`); §5's read-side rewrite of a provider tenant's IDs is the same layer that rewrites a response to the consumer's preferred form; and a tenant's own links, derivations and documents overlay the shared rows rather than copying them. Chapter text: [08](../architecture/08-tenants-and-instances.md) §2.5, §4.1; [03](../architecture/03-storage-caches-and-search.md) §7, §11.4; [04](../architecture/04-entities-and-identifiers.md) §4.9. (REVIEW G1, G2, G5, G7)
 
-Replaced text: [08](../architecture/08-tenants-and-instances.md) §2.5, §4.1; [03](../architecture/03-storage-caches-and-search.md) §7, §11.4; [04](../architecture/04-entities-and-identifiers.md) §4.9, as it stood before this entry; in git (`tools/adr.py log 0018 A23 --before`).
+Replaced text: [08](../architecture/08-tenants-and-instances.md) §2.5, §4.1; [03](../architecture/03-storage-caches-and-search.md) §7, §11.4; [04](../architecture/04-entities-and-identifiers.md) §4.9.
 
 ### A24. `unit`, `globe` and `calendarmodel` are expanded through the current IRI template
 
@@ -343,7 +342,7 @@ Replaced text: [08](../architecture/08-tenants-and-instances.md) §2.5, §4.1; [
 - **Change:** amends §2
 - **Summary:** The record at offset 0 of a tenant's `config`, the first copy of the instance key, carries the founding attestation of [0015](0015-record-format-and-partition-registry.md) A52: no actor, a signature by the key it registers, and the authority `(instance config, 0)`, the instance's own founding record, which itself has no authority at all; the tenant's issuer code, or the farm code, is derived from the leaf afterwards, so nothing that needs the code has to exist before it. Every later copy, at each rotation, is a written instance act under the ordinary instance attestation. Offsets 1 and 2 of the instance `config`, the primary tenant's `tenant:` record and the first `primary` record, are attested by `instance:{farm code}` with the founding record as authority, so a single-tenant instance needs no authority record and no `ts-prerogative` path before its first entity. The ledger's verb is extends; the chapter sentence below said the founding copy carried the instance attestation, which the decision contradicts, so this entry amends. (REVIEW G22)
 
-Replaced text: [08](../architecture/08-tenants-and-instances.md) §2.4, as it stood before this entry; in git (`tools/adr.py log 0018 A25 --before`).
+Replaced text: [08](../architecture/08-tenants-and-instances.md) §2.4.
 
 ### A26. A provider whose issuer is a tenant of this instance is never synced
 
@@ -366,7 +365,7 @@ Replaced text: [08](../architecture/08-tenants-and-instances.md) §2.4, as it st
 - **Change:** amends §8
 - **Summary:** `Special:Contributions/{issuer}:{id}` for a foreign actor lists what this tenant's `view.activity` holds for the actor, page revisions imported with that attribution and the rows of the tenant's log that name the actor; upstream revision records in `log/{provider}` are not indexed by actor, so they are not listed, and the page says so. For an actor of another tenant on the same instance the view is complete, since that tenant's `view.activity` indexes every record. The ledger names [0047](0047-special-pages.md) §2 and §4; the chapter text that changed is §8's ([19](../architecture/19-site-ui.md) §2.5), so the entry is logged here as well. (REVIEW G50)
 
-Replaced text: [19](../architecture/19-site-ui.md) §2.5, as it stood before this entry; in git (`tools/adr.py log 0018 A28 --before`).
+Replaced text: [19](../architecture/19-site-ui.md) §2.5.
 
 ### A29. Inherited settings do not travel
 
@@ -396,7 +395,7 @@ Replaced text: [19](../architecture/19-site-ui.md) §2.5, as it stood before thi
 - **Change:** amends §4, §10
 - **Summary:** An instance login on the auth host becomes the only way to log in, with each tenant account bound to a login in its tenant's `accounts` partition, so identity stays per tenant. Because that binding means nothing on another instance, a move's binding digest is computed over the external identities of each account's login, and a person reclaims a moved account by logging in with one of them. Chapter text: [08](../architecture/08-tenants-and-instances.md) §3.2, §6.2, §6.4.
 
-Replaced text: [08](../architecture/08-tenants-and-instances.md) §3.2, §6.2, §6.4, as it stood before this entry; in git (`tools/adr.py log 0018 A32 --before`).
+Replaced text: [08](../architecture/08-tenants-and-instances.md) §3.2, §6.2, §6.4.
 
 ### A33. Multi-tenant round 1: the assumptions the implementation made
 
@@ -422,7 +421,7 @@ Replaced text: [08](../architecture/08-tenants-and-instances.md) §3.2, §6.2, �
 - **Change:** amends §10
 - **Summary:** A tenant moves as a transfer (0103 §1): every partition but `accounts` with every present part in full, restricted and hidden ones included, and its blobs, sealed whole to the key the receiving instance supplies, not only the private extract; the old instance keeps the partitions read-only for the grace period, so the tenant can move back (James, 2026-11-07). Chapter text: [08](../architecture/08-tenants-and-instances.md) §6.2, §6.7.
 
-Replaced text: [08](../architecture/08-tenants-and-instances.md) §6.2, as it stood before this entry; in git (`tools/adr.py log 0018 A34 --before`).
+Replaced text: [08](../architecture/08-tenants-and-instances.md) §6.2.
 
 ### A35. What a move the old instance does not sign carries
 
@@ -431,7 +430,7 @@ Replaced text: [08](../architecture/08-tenants-and-instances.md) §6.2, as it st
 - **Change:** amends §10
 - **Summary:** A non-cooperative move took its bundle "from backups or from the old instance's public exports" without saying what it may hold. An `unauthorized` continuation carries the export scope; a `recovered` one, signed by the tenant's recovery keys, also its read-restricted and hidden parts, held sealed until the recovery delay has passed uncancelled; suppressed and confidential parts never travel this way. Chapter text: [08](../architecture/08-tenants-and-instances.md) §6.3.
 
-Replaced text: [08](../architecture/08-tenants-and-instances.md) §6.3, as it stood before this entry; in git (`tools/adr.py log 0018 A35 --before`).
+Replaced text: [08](../architecture/08-tenants-and-instances.md) §6.3.
 
 ### A36. Instances and tenants created by question and answer
 

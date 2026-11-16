@@ -117,7 +117,7 @@ James's direction, from the design discussion of 2026-09-30: an instance preroga
 - **Change:** supersedes §11
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A40).
 
-Replaced text: §11 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0040 A1 --before`).
+Replaced text: §11 of this ADR.
 
 ### A2. The primary tenant
 
@@ -129,7 +129,7 @@ Replaced text: §11 of this ADR, as it stood before this entry; in git (`tools/a
   - §4: "An actor of the primary tenant" means an actor of the tenant that held the role when the authority record was appended, as the history of the `primary` record shows, and `verify` checks it so. An authority record attested by an operator of a former primary tenant stays valid after a transfer.
   - §9: Three more instance rights: `ts-primary` (offering the primary role; `owner` only), `mwoauthmanageconsumer` (approving OAuth consumers, [0025](0025-oauth-server.md) §2) and `ts-runjob` for instance jobs. An instance right is evaluated on the tenant that is primary at the time of the act.
 
-Replaced text: §2 of this ADR; §4 of this ADR; §9 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0040 A2 --before`).
+Replaced text: §2 of this ADR; §4 of this ADR; §9 of this ADR.
 
 ### A3. Converted to the 0050 format
 
@@ -143,7 +143,6 @@ Replaced text: §2 of this ADR; §4 of this ADR; §9 of this ADR, as it stood be
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§11
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0040 A4 --diff`).
 
 ### A5. The operator's key carries the farm code
 
@@ -152,7 +151,7 @@ Replaced text: §2 of this ADR; §4 of this ADR; §9 of this ADR, as it stood be
 - **Change:** amends §2, §3, §7
 - **Summary:** The operator actor's key is `instance:{farm code}`, where the farm code is derived from the instance's founding record ([0079](0079-derived-issuer-codes.md) §4), not the farm slug, which no longer appears in any key. The attestation's `actor` field, log projections and contributions use that key.
 
-Replaced text: §2, in [08](../architecture/08-tenants-and-instances.md) §8.2; §3, in [08](../architecture/08-tenants-and-instances.md) §8.3; §7, in [16](../architecture/16-logs-feeds-and-notifications.md) §2.1 and [19](../architecture/19-site-ui.md) §2.5, §6.11, as it stood before this entry; in git (`tools/adr.py log 0040 A5 --before`).
+Replaced text: §2, in [08](../architecture/08-tenants-and-instances.md) §8.2; §3, in [08](../architecture/08-tenants-and-instances.md) §8.3; §7, in [16](../architecture/16-logs-feeds-and-notifications.md) §2.1 and [19](../architecture/19-site-ui.md) §2.5, §6.11.
 
 ### A6. The founding attestation
 
@@ -168,7 +167,7 @@ Replaced text: §2, in [08](../architecture/08-tenants-and-instances.md) §8.2; 
 - **Change:** amends §6
 - **Summary:** Tenant creation provisions templates of every kind but `site`: a `site` template is the instance's evaluated default for the setting and is never written into the tenant, so it is no instance act. Locked templates are unchanged. The chapter row is [08](../architecture/08-tenants-and-instances.md) §8.6.
 
-Replaced text: [08](../architecture/08-tenants-and-instances.md) §8.6, as it stood before this entry; in git (`tools/adr.py log 0040 A7 --before`).
+Replaced text: [08](../architecture/08-tenants-and-instances.md) §8.6.
 
 ### A8. Keying a palette or type set
 

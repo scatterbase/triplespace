@@ -117,7 +117,7 @@ This ADR makes the instance an OAuth 2.0 authorization server under those two ru
 - **Change:** supersedes §11
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries `triplespace-oauth` and every change this section listed (0005 A21).
 
-Replaced text: §11 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0025 A1 --before`).
+Replaced text: §11 of this ADR.
 
 ### A2. The primary tenant
 
@@ -128,7 +128,7 @@ Replaced text: §11 of this ADR, as it stood before this entry; in git (`tools/a
   - §5: Consumer events are written to the **instance `log`**, not to the primary tenant's `log` or to `log/{farm}`: consumers are instance configuration, and their record must not move when the primary role does.
   - §10: `mwoauthmanageconsumer` is an **instance right** ([0040](0040-instance-prerogatives.md) §9): it is evaluated on the primary tenant or through a global group, and a bureaucrat of any other tenant holds it to no effect.
 
-Replaced text: §5 of this ADR; §10 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0025 A2 --before`).
+Replaced text: §5 of this ADR; §10 of this ADR.
 
 ### A3. Converted to the 0050 format
 
@@ -144,7 +144,7 @@ Replaced text: §5 of this ADR; §10 of this ADR, as it stood before this entry;
 - **Change:** amends §1, §3, §5, §8, §9
 - **Summary:** The authorization server keeps its endpoints and checks; its pages become pages of the site, rendered by `triplespace-ui` wherever the site is served. `/oauth/authorize` validates the request, stores it under a ten-minute request handle and redirects to `Special:OAuth/authorize`, which reads the request and posts the decision back through the new `/oauth/requests` routes; the device page joins the same flow. Pending state (codes, device codes, request handles) falls back to `private` rather than process memory, so an API pool of several replicas can complete a flow.
 
-Replaced text: §1 of this ADR; §3 of this ADR; §8 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0025 A4 --before`).
+Replaced text: §1 of this ADR; §3 of this ADR; §8 of this ADR.
 
 ### A5. The instance as an OAuth client
 
@@ -158,4 +158,3 @@ Replaced text: §1 of this ADR; §3 of this ADR; §8 of this ADR, as it stood be
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§12
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0025 A6 --diff`).

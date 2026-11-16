@@ -137,7 +137,7 @@ Two goals from the earlier ADRs constrain the design. Every unit of contribution
 - **Change:** supersedes §13
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries `scatter-threads` and every change this section listed (0005 A15).
 
-Replaced text: §13 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0019 A1 --before`).
+Replaced text: §13 of this ADR.
 
 ### A2. Watching
 
@@ -160,7 +160,7 @@ Replaced text: §13 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** amends §1, §7, §12; extends §9
 - **Summary:** `delete` and `undelete` are no longer thread operations. Deleting a thread is a `read` ACL on its page ID, written to the tenant `log` partition, and undeletion retires it; hiding one post is a `record` ACL on that post's record with `parts: [text]`. The `thread` payload type carries `create`, `post`, `edit`, `rename` and `move`, and the sentence below about "any operation on a deleted thread other than `undelete`" reads as "any operation on a deleted thread". Posts and thread operations are patrollable.
 
-Replaced text: §1 of this ADR; §7 of this ADR; §12 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0019 A4 --before`).
+Replaced text: §1 of this ADR; §7 of this ADR; §12 of this ADR.
 
 ### A5. Visibility as a preference
 
@@ -169,7 +169,7 @@ Replaced text: §1 of this ADR; §7 of this ADR; §12 of this ADR, as it stood b
 - **Change:** amends §6
 - **Summary:** The visibility rule of §6 is the `threads.visibility` preference.
 
-Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0019 A5 --before`).
+Replaced text: §6 of this ADR.
 
 ### A6. Cross-tenant discussion
 
@@ -185,7 +185,7 @@ Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §6
 - **Summary:** Statuses are `config` records of kind `thread-status` in the tenant `config` ([0015](0015-record-format-and-partition-registry.md) §3), each with a label, a **category** (`open` or `closed`) and a display order; the defaults ship in `docs/registry/thread-statuses.toml` and follow the labels of bug trackers and project tools: **Open**, **In progress** and **Blocked** (open), and **Resolved**, **Won't fix**, **Declined** and **Stale** (closed). `rejected` is renamed `declined`. The category, not the name, drives the default visibility rule below (closed threads collapse) and the `thread-status` notification of [0021](0021-notifications.md) §2, which fires when a thread moves from an open to a closed status. `open` is required and cannot be retired.
 
-Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0019 A7 --before`).
+Replaced text: §6 of this ADR.
 
 ### A8. Articles and thread statements
 
@@ -197,7 +197,7 @@ Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/ad
   - §6: Threads carry statements, as document pages do. When the `thread-status` role is bound, a thread's status is also a projected, read-only statement, derived from the latest status-bearing post; this section stays the one place a status is set, and asserting that property on a thread is refused.
   - §7: Except thread statements, which are output in the main graph as page statements are.
 
-Replaced text: §5 of this ADR; §7 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0019 A8 --before`).
+Replaced text: §5 of this ADR; §7 of this ADR.
 
 ### A9. Content models
 
@@ -210,7 +210,7 @@ Replaced text: §5 of this ADR; §7 of this ADR, as it stood before this entry; 
   - §9: `action=edit` on a `Thread:` or talk title is refused with MediaWiki's own `no-direct-editing` (`apierror-no-direct-editing`), because neither model supports direct editing. `ts-structured` is retired.
   - §11: The `content_model` values are the registry IDs `triplespace-thread` and `triplespace-talk`, not `thread` and `talk`.
 
-Replaced text: §2 of this ADR; §3 of this ADR; §9 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0019 A9 --before`).
+Replaced text: §2 of this ADR; §3 of this ADR; §9 of this ADR.
 
 ### A10. Boards: one home, any number of listings
 
@@ -228,7 +228,7 @@ Replaced text: §2 of this ADR; §3 of this ADR; §9 of this ADR, as it stood be
   - §11: `view.thread_attachment` holds every attachment, home or listing, and serves the listing query in place of the `thread_talk` index; `view.thread.talk_page_id` is the home. Boards have `view.talk_page` rows.
   - §12: A talk page encloses the threads whose *home* it is, not those listed on it. `attach` and `detach` need `move` on the thread and `edit` on the target.
 
-Replaced text: §1 of this ADR; §2 of this ADR; §7 of this ADR; §8 of this ADR; §9 of this ADR; §11 of this ADR; §12 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0019 A10 --before`).
+Replaced text: §1 of this ADR; §2 of this ADR; §7 of this ADR; §8 of this ADR; §9 of this ADR; §11 of this ADR; §12 of this ADR.
 
 ### A11. Converted to the 0050 format
 
@@ -251,7 +251,7 @@ Replaced text: §1 of this ADR; §2 of this ADR; §7 of this ADR; §8 of this AD
 - **Change:** amends §3, §4, §5, §6
 - **Summary:** `status` may appear on `create`; the content part gains `mediaType` (`text/markdown` or `text/x-wiki`, the latter written only by imports and rendered by the wikitext pipeline) and `imported_from`; a thread an import creates takes the date the import supplies for its title; the default statuses gain **Archived** (closed). Q5 settled.
 
-Replaced text: §3 of this ADR; §4 of this ADR; §5 of this ADR; §6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0019 A13 --before`).
+Replaced text: §3 of this ADR; §4 of this ADR; §5 of this ADR; §6 of this ADR.
 
 > **Resolved**, **Won't fix**, **Declined** and **Stale** (closed).
 
@@ -269,7 +269,7 @@ Replaced text: §3 of this ADR; §4 of this ADR; §5 of this ADR; §6 of this AD
 - **Change:** amends §2; extends §1, §4, §8
 - **Summary:** "Foreign talk pages are never loaded" is narrowed to mirrored entities: a page repository with `talk = sync` has its talk pages followed, and their sections are shown as foreign threads beside local ones, as are those of a fork that follows upstream. `pin` and `unpin` join the operations; `create` may carry `pinned`; `imported_from` may carry a section's name hash. Talk pages list pinned threads first and merge foreign threads by time.
 
-Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0019 A15 --before`).
+Replaced text: §2 of this ADR.
 
 ### A16. `GET /page/{id}/history` is defined in 0012 §5
 
@@ -285,7 +285,7 @@ Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** corrects §4
 - **Summary:** The Comment row of §4's parts table lists every operation that carries a summary: `edit`, `rename`, `move`, `attach`, `detach`, `pin`, `unpin`, `propose`, `submit` and `withdraw`; it stays null for `create` and `post`, whose text is the contribution. The row had not been extended when A10, A14 and A15 added the operations. (PENDING F5)
 
-Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0019 A17 --before`).
+Replaced text: §4 of this ADR.
 
 ### A18. `pin` and `unpin` name any attachment
 
@@ -294,7 +294,7 @@ Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** corrects §4
 - **Summary:** In §4's content-part table, `target` is a `page` target only for `attach` and `detach`; `pin` and `unpin` name any attachment of the thread, an `actor` target included ([0049](0049-boards.md) §6, [0069](0069-synchronized-talk-pages.md) §4). (PENDING F6)
 
-Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0019 A18 --before`).
+Replaced text: §4 of this ADR.
 
 ### A19. A proposal's fields are page metadata set by `propose`
 
@@ -310,7 +310,7 @@ Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §6
 - **Summary:** On a proposal thread the `declined` status may be set only by the proposer or by a holder of `edit` on the subject's talk page; any other post carrying `declined` is refused with `ts-proposal-status` ([0067](0067-proposals.md) §5). §6's rule that anyone who may post may set a status holds for every other status and every other thread, and notes this exception. (PENDING F8)
 
-Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0019 A20 --before`).
+Replaced text: §6 of this ADR.
 
 ### A21. `thread-statuses.toml` holds the shipped statuses
 
@@ -324,7 +324,6 @@ Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§13
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0019 A22 --diff`).
 
 ### A23. Server-minted values move to the attestation map
 
@@ -333,7 +332,7 @@ Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §2, §3, §4
 - **Summary:** A value the server mints into a thread record while appending it never enters a client-signed part. The talk page ID a `create`, `move`, `attach`, `detach`, `pin` or `unpin` carries for its target, the talk page IDs of each `also` entry, and the minted title of a `create` or `rename`, suffix included, are carried in the record's attestation map rather than its content part, so that the content and comment parts stay the bytes the client submitted and a client signature over them verifies; the client submits the subject, the server mints the title; a rebuild reads the IDs and titles from the attestation maps; the content part carries `target` alone. A page `move`, by contrast, carries its new title in the content part, because the mover chose it. The ledger names §2; the title rule is §3's and the parts table is §4's, so all three are changed. (REVIEW G23)
 
-Replaced text: [14](../architecture/14-discussions.md) §1.3, §1.4, §1.5, §3.6, §4.2, as it stood before this entry; in git (`tools/adr.py log 0019 A23 --before`).
+Replaced text: [14](../architecture/14-discussions.md) §1.3, §1.4, §1.5, §3.6, §4.2.
 
 ### A24. Heading posts, wrapper posts and imported posts' provenance
 
@@ -342,7 +341,7 @@ Replaced text: [14](../architecture/14-discussions.md) §1.3, §1.4, §1.5, §3.
 - **Change:** extends §4, §5
 - **Summary:** The thread payload gains `heading` and `wrap` on `post`, for the heading posts and wrapper posts a talk-page conversion writes; `imported_from` may appear on `post` as well as `create`, carrying each imported post's DiscussionTools name and ID, `signed_as`, `added_by`, original timestamp and fallback reason; `inReplyTo` may name a heading post. Heading posts render as headings and wrapper posts around the posts they enclose. Chapter text: [14](../architecture/14-discussions.md) §1.5, §1.6.
 
-Replaced text: [14](../architecture/14-discussions.md) §1.5, as it stood before this entry; in git (`tools/adr.py log 0019 A24 --before`).
+Replaced text: [14](../architecture/14-discussions.md) §1.5.
 
 Replaced text ([14](../architecture/14-discussions.md) §1.6): none; a paragraph on heading and wrapper posts is added before the one on `~~~~`.
 
@@ -353,7 +352,7 @@ Replaced text ([14](../architecture/14-discussions.md) §1.6): none; a paragraph
 - **Change:** amends §4, §5; extends §6
 - **Summary:** A default thread status `closed` (category `closed`) is added to `thread-statuses.toml`, for a discussion someone formally closed with a statement; a talk-page conversion writes it for a closing template ([0090](0090-converting-talk-pages-comment-by-comment.md) A1). A post may carry `collapse: {first, last}`, the revision IDs of two posts of the same thread, and the range is shown collapsed beneath the post's text, its posts keeping their places and parents; a later post carrying `uncollapse` with the collapsing post's revision ID undoes it. Collapsing is native, a claim in public like a status: anyone who may post may collapse, and imports write collapsing posts for wrapper templates. The wrapper posts and `wrap` field of A24 are withdrawn. Chapter text: [14](../architecture/14-discussions.md) §1.5, §1.6, §2.1, §2.4.
 
-Replaced text: [14](../architecture/14-discussions.md) §1.5, §1.6, as it stood before this entry; in git (`tools/adr.py log 0019 A25 --before`).
+Replaced text: [14](../architecture/14-discussions.md) §1.5, §1.6.
 
 ### A26. Rules settled while building `scatter-threads`
 
@@ -376,7 +375,7 @@ Replaced text: [14](../architecture/14-discussions.md) §1.5, §1.6, as it stood
 - **Change:** amends §4, §5; extends §8
 - **Summary:** James: "I like the idea of quietly removing the tildes upon save. There isn't really a need to scold the user. Whether posts use markdown or wikitext can be an instance or tenant setting." With his choices of 2026-10-25 on the details: **Markup.** The tenant `site` setting `thread.markup` (`markdown` or `wikitext`, default `markdown`; a tenant sets it or inherits its instance's default, 0085 §2.1) names the media type of every original `create` and `post` written while it holds. A request that omits `mediaType` takes it; one that names the other is refused with `ts-bad-media-type` (James chose refusal over accepting either). `text/x-wiki` is therefore no longer import-only, which amends A26's list of import-only fields; `heading` and `imported_from` stay import-only. **Signatures.** When an original `create`, `post` or `edit` is written, a signature at the very end of its text (`~~~`, `~~~~` or `~~~~~`, with any whitespace and one `--`, `—` or `–` before it) is removed silently; tildes elsewhere are kept (James chose the trailing signature only). A wikitext post then receives the rest of the pre-save transform as a wikitext page does: `subst:`, `safesubst:` and signatures elsewhere in the text expand (James chose this over no transform). A markdown post receives nothing else. An original `create` or `edit` whose text is empty once its signature is removed is refused with `ts-empty-post`, and so is a `post` unless it sets a status or collapses or uncollapses a range (an implementation call for James's review). Imports keep their text verbatim. **UI** (§8): the composer shows the markup in use beneath its text area and removes the signature without comment. Chapter text: [14](../architecture/14-discussions.md) §1.5, §1.6; [11](../architecture/11-rendering-templates-and-modules.md) §1.2, §1.5; [13](../architecture/13-mirrored-pages.md) §5.13 (0054 A7); [19](../architecture/19-site-ui.md) §6.1; [23](../architecture/23-configuration-and-registry.md) §3.2, §6 (`siprop=triplespace` reports it).
 
-Replaced text: [14](../architecture/14-discussions.md) §1.5, §1.6; [11](../architecture/11-rendering-templates-and-modules.md) §1.2 and §1.5, as it stood before this entry; in git (`tools/adr.py log 0019 A28 --before`).
+Replaced text: [14](../architecture/14-discussions.md) §1.5, §1.6; [11](../architecture/11-rendering-templates-and-modules.md) §1.2 and §1.5.
 
 ### A29. A talk page's revisions have content: its threads as wikitext
 

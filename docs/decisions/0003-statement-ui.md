@@ -143,7 +143,7 @@ Triplespace does not come with MediaWiki's editing UI ([0000](0000-init.md), Con
 - **Change:** extends §6, §7; amends §9
 - **Summary:** The constraint vocabulary is bound by roles. A violating value carries a constraint marker in its value cell, drawn only where there is a violation. The provenance response gains a `constraints` list per statement, so the statement UI needs one request. The constraints-as-hints rule of §7 stands.
 
-Replaced text: §9 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0003 A4 --before`).
+Replaced text: §9 of this ADR.
 
 ### A5. OpenStreetMap roles
 
@@ -201,14 +201,13 @@ Replaced text: §9 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** supersedes §10
 - **Summary:** The prototype is `triplespace-ui` with `scatter-wasm`, server-rendered Rust ([0034](0034-frontend-stack.md) §3, §13), built and tested against live Wikidata as §10 says; the fixture list and the audit step stay. The closing paragraph goes: the prototype does not live in `ui/`, and there is no "later Rust implementation" distinct from it. 0010 §13 is superseded the same way. (PENDING F17)
 
-Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0003 A12 --before`).
+Replaced text: §10 of this ADR.
 
 ### A13. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0003 A13 --diff`).
 
 ### A14. The `role` kind has an instance-scope record
 
@@ -217,7 +216,7 @@ Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** amends §7
 - **Summary:** A role binding is no longer only tenant configuration: the `role` config kind has an instance-scope record beside the tenant records. The chapter folds this at [06](../architecture/06-statements-and-properties.md) §1 and §1.2, whose provenance is §7 here; 0082's table did not list this ADR, and was extended. The ledger's G21 (prefixed `unit`, `globe` and `calendarmodel`) is folded under [0004](0004-identity-clusters-and-equivalence.md) §7, not here. Chapter text: [06](../architecture/06-statements-and-properties.md) §1, §1.2. (REVIEW G1, G26)
 
-Replaced text: [06](../architecture/06-statements-and-properties.md) §1, §1.2, as it stood before this entry; in git (`tools/adr.py log 0003 A14 --before`).
+Replaced text: [06](../architecture/06-statements-and-properties.md) §1, §1.2.
 
 ### A15. The UI asks for the local form and fetches labels by cluster
 
@@ -233,7 +232,7 @@ Replaced text: [06](../architecture/06-statements-and-properties.md) §1, §1.2,
 - **Change:** amends §8
 - **Summary:** Correcting a mirrored value's rank or a mirrored term writes a local-graph `override`; replacing a mirrored value is refused by the API with `ts-foreign-statement`, and the editor never shows the refusal: editing the value of a statement whose source chip is a mirror's opens as **Replace here**, one action that suppresses the mirrored statement and adds the local one in one change set, with the new statement's GUID, the row keeping its place with a "Corrected here" chip, and **Propose upstream** beside it. Each save's `baserevid` is the entity's newest local revision; a mirror advancing since the edit began is never a conflict, and if the local graph has changed the pending rows are applied to the current data as the API patches around a stale base (`wikibase-conflict-patched`), with only the clashing cells marked. The chapter folds this at [19](../architecture/19-site-ui.md) §4.7, whose provenance is §8 here; 0084's table was extended. (REVIEW G16, G17)
 
-Replaced text: [19](../architecture/19-site-ui.md) §4.7, as it stood before this entry; in git (`tools/adr.py log 0003 A16 --before`).
+Replaced text: [19](../architecture/19-site-ui.md) §4.7.
 
 > - **Conflicts.** Each save carries `baserevid`. If the group has changed since the edit began, the pending rows are applied to the current data, and only the cells that clash are marked. The rest of the save goes through.
 
@@ -244,7 +243,7 @@ Replaced text: [19](../architecture/19-site-ui.md) §4.7, as it stood before thi
 - **Change:** amends §5, §9; extends §6
 - **Summary:** James asked that references be deduplicated and presented at the bottom as endnotes, to reduce duplication. Each distinct reference that a tab's statement groups cite, a deprecated value's included, is numbered once in the order it first appears down the tab and listed under **References** at the foot of the tab (Statements and Identifiers each have their own), with the groups that cite it; a row's markers link to those entries. A group's footer keeps "Cited by all N values", with the shared reference's marker, and the count of values without a source; it no longer lists references. A group rendered alone carries the numbers its tab gives it, and the editor swaps in the whole tab after a save. He also asked that the upstream revision named in "Where this comes from" link to that revision: the provenance response gives `upstream_url`, the provider's `index.php?oldid=` page, where the provider is a MediaWiki that publishes revision IDs ([0012](0012-api-requirements.md) A80). The chapter folds this at [19](../architecture/19-site-ui.md) §4.5, §4.6 and §4.8, whose provenance is §5, §6 and §9 here.
 
-Replaced text: [19](../architecture/19-site-ui.md) §4.5, §4.8, as it stood before this entry; in git (`tools/adr.py log 0003 A17 --before`).
+Replaced text: [19](../architecture/19-site-ui.md) §4.5, §4.8.
 
 ### A18. The `revision-of` role
 

@@ -128,7 +128,7 @@ Domains are also a bulk-ingest target. Citation data carries URLs, and every URL
 - **Change:** supersedes §12
 - **Summary:** 0005 §2 became the one crate table CI checks; `scatter-keyed` was folded into `scatter-normalize`, which builds for wasm and depends on `idna`.
 
-Replaced text: §12 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0009 A1 --before`).
+Replaced text: §12 of this ADR.
 
 ### A2. Keyed IDs carry their type
 
@@ -137,7 +137,7 @@ Replaced text: §12 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** amends §3, §4, §9, §10; extends §1, §5, §8
 - **Summary:** A keyed ID is the type's name, a colon and the key: `domain:en.wikipedia.org`. This replaces the disjointness argument of §3; titles are unchanged, and a bare key is not an ID. Keyword is a second keyed type, with an editable display rule; keywords never join identity clusters; OpenAlex keywords are mapped by key.
 
-Replaced text: §1 of this ADR; §3 of this ADR; §4 of this ADR; §9 of this ADR; §10 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0009 A2 --before`).
+Replaced text: §1 of this ADR; §3 of this ADR; §4 of this ADR; §9 of this ADR; §10 of this ADR.
 
 ### A3. Sitelinks and Domains
 
@@ -160,7 +160,7 @@ Replaced text: §1 of this ADR; §3 of this ADR; §4 of this ADR; §9 of this AD
 - **Change:** amends §11
 - **Summary:** The `Domain` namespace is a `pages` namespace with the model `triplespace-domain`, and `Domain talk` uses `triplespace-talk`.
 
-Replaced text: §11 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0009 A5 --before`).
+Replaced text: §11 of this ADR.
 
 ### A6. Notations
 
@@ -197,14 +197,13 @@ Replaced text: §11 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** corrects §6
 - **Summary:** A Domain's document node is `{base}/wiki/Special:EntityData/{id}` with the prefixed ID, `domain:en.wikipedia.org`, as [0017](0017-entity-id-grammar.md) §1 requires for every keyed ID, not the bare key; 0017 §3's list of the 0009 sections it updated gains §6. (PENDING A15)
 
-Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0009 A10 --before`).
+Replaced text: §6 of this ADR.
 
 ### A11. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§12
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0009 A11 --diff`).
 
 ### A12. Surrogates are allocated under a lock in the appending transaction
 
@@ -213,7 +212,7 @@ Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §7
 - **Summary:** A surrogate is allocated in the appending transaction under an advisory lock on `(keyed_type, key)`, so two writers meeting a new key cannot mint two surrogates for it; the mapping record is appended in the same transaction as the first record that uses the surrogate, rather than "before" it; a bulk job reserves a block of surrogates up front, as it reserves ID blocks, so a key-mapped bootstrap of millions of keys is not millions of serialized appends; and the mapping is erased only when no live record in any partition of the instance is keyed to the surrogate, so one tenant's erasure never strips the key from another tenant's assertions. (REVIEW G29)
 
-Replaced text: [04](../architecture/04-entities-and-identifiers.md) §3.4, as it stood before this entry; in git (`tools/adr.py log 0009 A12 --before`).
+Replaced text: [04](../architecture/04-entities-and-identifiers.md) §3.4.
 
 > This is the same pattern as the actor surrogates in [0007](../decisions/0007-actor-identity.md) §5 ([07](../architecture/07-actors-and-accounts.md)). Erasing a Domain by key erases the mapping record along with everything else keyed to the surrogate, and only an opaque number remains. The log never sees the key, only the surrogate; this holds for every keyed type, with one sequence per type.
 
@@ -226,7 +225,7 @@ Replaced text: [04](../architecture/04-entities-and-identifiers.md) §3.4, as it
 - **Change:** extends §9
 - **Summary:** The mapping index holds, beside each key's owner, the items upstream merged into the owner, as aliases of the key; the `put` under the key carries them as `upstream_aliases`, and the newest `put` under a key decides its rows. When an item becomes mapped, the foreign item it was is tombstoned; when an item merged into a mapped item had a foreign item, that is tombstoned too. A merge between two unmapped items is an ordinary mirror `redirect`, written once. A key whose owner a sync saw but which no item claims any longer is cleared with a `put` of the empty state, and the snapshot sweep clears keyed entities rather than tombstoning them, leaving one already cleared alone. A state re-written because the mapping moved, at an upstream revision already recorded, claims no revision ID; its version names the revision. The table and text are in [05](../architecture/05-providers-and-ingest.md) §3.4 and §4.2, the index in [03](../architecture/03-storage-caches-and-search.md), the record field in [payloads.md](../api/payloads.md) §3.1.
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §4.2, as it stood before this entry; in git (`tools/adr.py log 0009 A13 --before`).
+Replaced text: [05](../architecture/05-providers-and-ingest.md) §4.2.
 
 ### A14. How an upstream alias answers
 
@@ -242,7 +241,7 @@ Replaced text: [05](../architecture/05-providers-and-ingest.md) §4.2, as it sto
 - **Change:** amends §9, §12
 - **Summary:** A key map is a list of `[[provider.adapter_config.key_map]]` rules, each naming an identity property by its upstream ID (not by role), a keyed type and optionally a class, with `class_property` and `identity_property_on_mapped` beside them; internetdomains.wiki's is one rule with no class, and the flat fields are retired. `scatter-adapter-internetdomains` is retired into `scatter-adapter-wikibase`. Chapter text: [05](../architecture/05-providers-and-ingest.md) §4.1, §8.6; [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.
 
-Replaced text: 05 §4.1 of this ADR; 05 §8.6 of this ADR; 22 §2.1, the row of this ADR, as it stood before this entry; in git (`tools/adr.py log 0009 A15 --before`).
+Replaced text: 05 §4.1 of this ADR; 05 §8.6 of this ADR; 22 §2.1, the row of this ADR.
 
 ### A16. The `remote` keyed type
 

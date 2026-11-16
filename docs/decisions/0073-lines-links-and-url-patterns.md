@@ -96,11 +96,10 @@ James's direction, from the design discussion of 2026-10-07:
 - **Change:** amends §3
 - **Summary:** An undesignated `match_key` property may find a subject (0071 §4 step 1, via `view.identifier`) but never create one; the refusal in 0071 §4 step 3 stands, and `lines.identifiers` follows the same rule: an identifier a URL yields under an undesignated property in the list is a lookup key for finding the subject, not a creation key. (PENDING F4)
 
-Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0073 A1 --before`).
+Replaced text: §3 of this ADR.
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§8
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0073 A2 --diff`).

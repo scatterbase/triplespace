@@ -100,7 +100,7 @@ James's direction, from the design discussion of 2026-10-01:
 - **Change:** supersedes §8
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A48).
 
-Replaced text: §8 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0048 A1 --before`).
+Replaced text: §8 of this ADR.
 
 ### A2. Converted to the 0050 format
 
@@ -109,14 +109,13 @@ Replaced text: §8 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** consolidates §8
 - **Summary:** A1 was folded into the Decision. The open questions were numbered, and the list this ADR kept under "Amendments to earlier ADRs" (quoted below) was replaced by the generated table. No decision changed. Before this, A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
 
-Replaced text: Amendments to earlier ADRs of this ADR, as it stood before this entry; in git (`tools/adr.py log 0048 A2 --before`).
+Replaced text: Amendments to earlier ADRs of this ADR.
 
 ### A3. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§8
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0048 A3 --diff`).
 
 ### A4. A remote key is not a notation
 

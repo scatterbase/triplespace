@@ -109,7 +109,7 @@ Echo is the precedent. It has notification *types* (mention, edit-user-talk, rev
 - **Change:** supersedes §10
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries the two crates this section added (0005 A17).
 
-Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0021 A1 --before`).
+Replaced text: §10 of this ADR.
 
 ### A2. Federation
 
@@ -118,7 +118,7 @@ Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** extends §5, §8
 - **Summary:** Per-actor keys, opt-in Person and Group actors beside the notifier, WebFinger for opted-in users, RFC 9421 and FEP-8b32 behind switches, and ActivityPub delivery moved to `triplespace-federation`. §8 had been given the per-actor keys in place. This settled Q5 and Q6.
 
-Replaced text: §5 of this ADR; §8 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0021 A2 --before`).
+Replaced text: §5 of this ADR; §8 of this ADR.
 
 ### A3. Subsidiaries
 
@@ -127,7 +127,7 @@ Replaced text: §5 of this ADR; §8 of this ADR, as it stood before this entry; 
 - **Change:** extends §2, §8
 - **Summary:** A subsidiary's `rights` and `talk` notifications reach its operator, as its `job` and `mention` ones already did; outbound notification requests an actor initiates are rate-limited in the `notify` class.
 
-Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0021 A3 --before`).
+Replaced text: §2 of this ADR.
 
 ### A4. The preference matrix is preferences
 
@@ -136,7 +136,7 @@ Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §3
 - **Summary:** `private.notification_pref` is dropped; the reason-by-channel matrix is the set of `notifications.{reason}.{channel}` keys in `private.preference`, and the addressing projection reads those. `private.inbox` and `private.inbox_state` stand. The inbox is portable state (0027 §2): it travels in the user data bundle and the private extract of a cooperative tenant move.
 
-Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0021 A4 --before`).
+Replaced text: §3 of this ADR.
 
 ### A5. Cross-tenant notifications
 
@@ -145,7 +145,7 @@ Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** extends §2; amends §7
 - **Summary:** Under `notifications.cross_tenant = home`, the bell aggregates linked accounts' inboxes and a farm-name mention goes to the home tenant; `notwikis` gains its real meaning. This settled Q4.
 
-Replaced text: §7 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0021 A5 --before`).
+Replaced text: §7 of this ADR.
 
 ### A6. The filter reason
 
@@ -210,14 +210,13 @@ Replaced text: §7 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §2
 - **Summary:** The `watch` reason is not "generalized to every watchable target": `notify` is refused on a `scope` or `rows` watch with `ts-watch-notify-unsupported`, because those watches are feed filters that expand at query time, not subscriptions ([0020](0020-change-feeds.md) §3, 0020 A13; [0060](0060-scopes.md) §7). The reason addresses an account only for `entity`, `page`, `thread` and `actor` watches with `notify` set. (PENDING E31)
 
-Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0021 A14 --before`).
+Replaced text: §2 of this ADR.
 
 ### A15. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0021 A15 --diff`).
 
 ### A16. The notification matrix moves to Special:Preferences
 
@@ -226,7 +225,7 @@ Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §6
 - **Summary:** The account page's Notifications section is split. The matrix of reasons by channel and the digest are the Notifications tab of `Special:Preferences`; the email address and fediverse handle with their verification state, the *follow the notifier* hint and *Remove* are the **Contacts** section of `Special:Account`, where `ChangeEmail`, `Confirmemail` and `Invalidateemail` lead. The chapter text is [19](../architecture/19-site-ui.md) §2.4 and §2.6.
 
-Replaced text: [19](../architecture/19-site-ui.md) §2.4, as it stood before this entry; in git (`tools/adr.py log 0021 A16 --before`).
+Replaced text: [19](../architecture/19-site-ui.md) §2.4.
 
 ### A17. `group-join`
 
@@ -242,7 +241,7 @@ Replaced text: [19](../architecture/19-site-ui.md) §2.4, as it stood before thi
 - **Change:** amends §2
 - **Summary:** Joining `auditor`, or `owner` with its default `includes`, gives the reading of every confidential group without a membership in any of them, so `group-join` also fires for the members of each group a confidential restriction names when an account joins a group that includes it.
 
-Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.2, as it stood before this entry; in git (`tools/adr.py log 0021 A18 --before`).
+Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.2.
 
 ### A19. `group-join` is the group's choice
 
@@ -262,7 +261,7 @@ Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §5.2, a
 - **Change:** amends §2, §6; extends §7
 - **Summary:** The reasons `talk`, `reply`, `mention` and `thread-status` are built. James chose four things: `watch` waits for the watch set and its controls ("Defer with the watchlist"); what a reader may no longer see leaves the inbox both ways ("Read-time check + purge"): the addressing projection deletes the rows of a record a `record` ACL hides in any part and, on a `read` ACL on a thread, the rows of those who may no longer read it, and every inbox read leaves out an item about a thread the reader may not read now, whose talk page is hidden from them (a confidential page's or a hidden user's), or whose record is hidden or erased, its counts included; the site gets the bell, `Special:Notifications`, the orange bar and new topics on user talk pages; and an edit addresses only the mentions it adds while imported threads and posts address nobody. Settled in the building, for James to confirm: an account is addressed once per record, for the first of `talk`, `thread-status`, `reply`, `mention`; a mention is a link to a user page itself, not a subpage, a markdown post's `[[wiki links]]` and a wikitext post's links as written with templates unexpanded, at most 50 per post (Echo's `$wgEchoMaxMentionsCount`); `talk` is a new thread or post, not an edit; `thread-status` addresses the first post's author, on a move from an open category to a closed one; a reply to an imported post addresses nobody; a thread notification reaches a registered account or a bot's operator and no temporary account while Q3 is open; a subsidiary's action is its operator's own. `talk` is Echo's `message` section and every other reason `alert`; `meta=notifications` takes `notgroupbysection` and counts to 100 after the read check; `echomarkread` takes `sections`. Chapter text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.2; [19](../architecture/19-site-ui.md) §6.2; [18](../architecture/18-api.md) §2.3, §2.4.
 
-Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.2, as it stood before this entry; in git (`tools/adr.py log 0021 A20 --before`).
+Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.2.
 
 > **Only local accounts have inboxes.** A mention of a foreign actor, such as a Wikidata editor's IRI, addresses nobody here.
 
@@ -270,7 +269,7 @@ Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.2, a
 
 > and a delivered notification whose target becomes restricted is removed by the same purge ([09](../architecture/09-security-and-moderation.md) §5.3).
 
-Replaced text: [19](../architecture/19-site-ui.md) §6.2, as it stood before this entry; in git (`tools/adr.py log 0021 A20 --before`).
+Replaced text: [19](../architecture/19-site-ui.md) §6.2.
 
 ### A21. `watch` notifications, the star and the watchlist pages
 
@@ -279,7 +278,7 @@ Replaced text: [19](../architecture/19-site-ui.md) §6.2, as it stood before thi
 - **Change:** extends §2; amends §6
 - **Summary:** The `watch` reason is built ([0020](0020-change-feeds.md) A18). James chose threads, talk pages and document pages for this round ("Threads and pages"), entities waiting for a decision on mirror syncs. `watch` comes last in A20's order, so an account a thread record already addresses is not addressed again; the recipient's reading is checked as for every thread notification. Its Echo type is `ts-watch`, an alert. The site's watch controls are the star and a **Watch for…** menu with the spans and **Notify me of changes**, and `Special:Watchlist` and `Special:EditWatchlist` are built and linked from the account menu. Chapter text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.2; [19](../architecture/19-site-ui.md) §6.2.
 
-Replaced text: [19](../architecture/19-site-ui.md) §6.2, as it stood before this entry; in git (`tools/adr.py log 0021 A21 --before`).
+Replaced text: [19](../architecture/19-site-ui.md) §6.2.
 
 ### A22. One watch menu
 
@@ -288,7 +287,7 @@ Replaced text: [19](../architecture/19-site-ui.md) §6.2, as it stood before thi
 - **Change:** amends §6
 - **Summary:** James asked that the **Watch for…** menu and the watch button be merged into one button, sitting toward the right with **More**. The watch control is one menu at the end of the tabs, before **More**: its button is the star with **Watch**, or a filled star with **Watching**; it opens the spans and **Notify me of changes**, submitted with **Watch** (or **Save** for a watched title), and a watched title's menu also has **Unwatch**. Watching permanently takes two clicks where the star took one. A lapsing watch says until when in the menu and on the button's hover. **More** is the size of the watch button, as the other tab-bar controls are. Chapter text: [19](../architecture/19-site-ui.md) §6.2.
 
-Replaced text: [19](../architecture/19-site-ui.md) §6.2, as it stood before this entry; in git (`tools/adr.py log 0021 A22 --before`).
+Replaced text: [19](../architecture/19-site-ui.md) §6.2.
 
 ### A23. Accountability: the calls made building tier 5
 
@@ -311,7 +310,7 @@ Replaced text: [19](../architecture/19-site-ui.md) §6.2, as it stood before thi
 - **Change:** amends §4, §6, §7, §8
 - **Summary:** An email address belongs to the instance login ([0089](0089-the-auth-host-and-instance-logins.md)), not to a tenant account. A login may verify several addresses, one of them the primary, which receives every notification mail. Verification is by a six-digit code, valid for an hour and spent by five wrong entries, entered in a session of the login; not by a link, which a mail scanner can follow. `private.email` is keyed by login. Every outgoing message is staged in `ops.delivery` and sent by a `MailTransport` (`log`, `smtp`; HTTP APIs later). Chapter text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.4; [19](../architecture/19-site-ui.md) §2.4; [18](../architecture/18-api.md) §3.2; [03](../architecture/03-storage-caches-and-search.md) §4.16; [07](../architecture/07-actors-and-accounts.md) §6.2.
 
-Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.4; [19](../architecture/19-site-ui.md) §2.4; [18](../architecture/18-api.md) §3.2; [03](../architecture/03-storage-caches-and-search.md) §4.16; [07](../architecture/07-actors-and-accounts.md) §6.2, as it stood before this entry; in git (`tools/adr.py log 0021 A24 --before`).
+Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.4; [19](../architecture/19-site-ui.md) §2.4; [18](../architecture/18-api.md) §3.2; [03](../architecture/03-storage-caches-and-search.md) §4.16; [07](../architecture/07-actors-and-accounts.md) §6.2.
 
 ### A25. A job found interrupted notifies
 
@@ -320,7 +319,7 @@ Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.4; [
 - **Change:** extends §2
 - **Summary:** The `job` reason also addresses a job's actor and operator when a later load marks the job `interrupted`, its process having died ([0011](0011-logs.md) A36), as it does when a job finishes, fails or is reverted.
 
-Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.2, the `job` row, as it stood before this entry; in git (`tools/adr.py log 0021 A25 --before`).
+Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.2, the `job` row.
 
 ### A26. The bell opens a panel
 
@@ -329,7 +328,7 @@ Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.2, t
 - **Change:** amends §6
 - **Summary:** With JavaScript the bell opens the inbox as a panel over the page, which A20 left to wait. Calls made in the building: the panel is the inbox page's own list, fetched from `Special:Notifications` and drawn in place, so an item has one rendering and opening the panel sets `seen_at` as opening the page does; **Mark as read** and **Mark all as read** post in place and the panel and the bell's count are drawn again; Escape, a second press or a click elsewhere closes it; a modified click, or a fetch that does not return the inbox, follows the link. Chapter text: [19](../architecture/19-site-ui.md) §6.2.
 
-Replaced text: [19](../architecture/19-site-ui.md) §6.2, as it stood before this entry; in git (`tools/adr.py log 0021 A26 --before`).
+Replaced text: [19](../architecture/19-site-ui.md) §6.2.
 
 ### A27. The preference matrix is honoured on the web, and the inbox filters by reason
 

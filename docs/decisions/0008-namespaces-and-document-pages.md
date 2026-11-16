@@ -166,7 +166,7 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 - **Change:** supersedes §11
 - **Summary:** 0005 §2 became the one crate table CI checks. `scatter-markdown` was folded into `scatter-pages` as a feature, and `scatter-keyed` into `scatter-normalize`.
 
-Replaced text: §11 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0008 A1 --before`).
+Replaced text: §11 of this ADR.
 
 ### A2. Entity IDs canonicalize by their grammar
 
@@ -175,7 +175,7 @@ Replaced text: §11 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** amends §3
 - **Summary:** The `entity-id` normalizer uppercases only the prefix and applies the type's ID grammar to the rest, so case-sensitive UUID IDs survive. Until the migration, nothing in this ADR recorded the change. 0017's header attributed it to 0017 §4, but the text is in 0017 §2.
 
-Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0008 A2 --before`).
+Replaced text: §3 of this ADR.
 
 ### A3. Discussions
 
@@ -185,7 +185,7 @@ Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Summary:** Talk namespaces are now of kind `composite`: the talk page of a subject is the set of threads attached to it. Threads themselves are pages in a new `Thread` namespace of kind `thread`, whose number is pending registration.
   Not noted here before the migration: 0019 §3 and §5 also gave threads minted titles, gave the `markdown` model wiki links and HTML sanitized to §8's allow-list, and made links in posts `page_link` rows. A11 later replaced the `composite` and `thread` kinds with models.
 
-Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0008 A3 --before`).
+Replaced text: §2 of this ADR.
 
 ### A4. Deletion becomes an ACL
 
@@ -194,7 +194,7 @@ Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §4
 - **Summary:** `delete` and `undelete` are no longer page operations. Deletion is a `read` ACL on the page, written to the tenant `log` partition, and undeletion retires it; the effects described here are unchanged. The `page` payload type carries `create`, `edit` and `move` only.
 
-Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0008 A4 --before`).
+Replaced text: §4 of this ADR.
 
 > A base is required for `edit`, `move` and `delete`.
 
@@ -217,7 +217,7 @@ Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/ad
   2. **Talk namespaces exist only for implemented subject namespaces.** They work as §2 and [0019](0019-discussions.md) §2 describe, at the next odd number, and are `composite`. A reserved-and-not-implemented namespace has no talk namespace enabled: Talk (1), File talk (7) and the rest are not registered.
   3. **Triplespace's own namespaces take 210–219, and resolver prefixes ([0029](0029-resolver-namespaces.md)) take 220–229.** Allocated now: Domain 210/211 ([0009](0009-keyed-entity-types-and-domain.md) §11), Keyword 212/213 ([0017](0017-entity-id-grammar.md) §5), Thread 214/215 ([0019](0019-discussions.md) §3), OSM 216/217 ([0036](0036-openstreetmap-providers.md) §3), DOI 220/221 and URL 222/223 ([0029](0029-resolver-namespaces.md)). The ranges are registered on mediawiki.org's Extension default namespaces page, which as of 2026-09-27 lists nothing between 204 and 240. Allocation is a change to `namespaces.toml`, under the registry's rules ([0015](0015-record-format-and-partition-registry.md) §5).
 
-Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0008 A6 --before`).
+Replaced text: §2 of this ADR.
 
 ### A7. Adopted wikis keep page IDs
 
@@ -244,7 +244,7 @@ Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/ad
   - §8: Category links in the latest revision of a `wikitext` page define its category membership, a projection like MediaWiki's `categorylinks`; `{{DEFAULTSORT:…}}` and `__HIDDENCAT__` are recognised; `[[:Category:…]]` is a plain link. The foot of the page lists categories as links to their pages in the `Category` namespace, with hidden categories collapsed.
   - §10: A page's statements go into the main graph with the page's document node as subject. Page text and category membership are still not RDF.
 
-Replaced text: §2, from A6 rule 1 of this ADR; §4 of this ADR; §8 and §10 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0008 A9 --before`).
+Replaced text: §2, from A6 rule 1 of this ADR; §4 of this ADR; §8 and §10 of this ADR.
 
 > - Nothing about document pages goes into the main or resolved graph. Page text is not RDF.
 
@@ -269,7 +269,7 @@ Replaced text: §2, from A6 rule 1 of this ADR; §4 of this ADR; §8 and §10 of
   - §5: Content models now cover every page, not only document pages, and live in `docs/registry/content-models.toml`. IDs follow one rule: MediaWiki's and Wikibase extensions' IDs are kept and reserved, generic formats (`markdown`, `yaml`) take no prefix, and models unique to Triplespace take `triplespace-`. Each model has a **source** (text, entity, thread, composite or statements); only text models support direct editing, and `changecontentmodel` moves only between text models the namespace allows.
   - Not noted here before the migration: the resolve step of §3 named document namespaces, a kind this entry retires.
 
-Replaced text: §1 of this ADR; §3 of this ADR; §5 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0008 A11 --before`).
+Replaced text: §1 of this ADR; §3 of this ADR; §5 of this ADR.
 
 > **Content models are registry data.** The rendering code for each model implements a trait in `scatter-pages` (§11), so an instance can add models without changing the page format.
 
@@ -284,7 +284,7 @@ Replaced text: §1 of this ADR; §3 of this ADR; §5 of this ADR, as it stood be
   - §9: With expansion on, step 3 is optional: the census also reports which templates and modules the export contains, and the importer may bring Template and Module pages with their history instead of flattening.
   - §10: With expansion on, the links projection reads the expanded text, so links that templates emit count, and its rows are written by the refresh job of 0042 §10.
 
-Replaced text: §8 of this ADR; §9 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0008 A12 --before`).
+Replaced text: §8 of this ADR; §9 of this ADR.
 
 ### A13. Lua modules
 
@@ -295,7 +295,7 @@ Replaced text: §8 of this ADR; §9 of this ADR, as it stood before this entry; 
   - §2: A reserved number can be implemented conditionally, by a setting named in its `namespaces.toml` entry (`enabled_by`). Template (10), with Template talk (11), is a `pages` namespace while the tenant's `wikitext.expansion` is on; Module (828) and Module talk (829), Scribunto's numbers, now registered, while `wikitext.lua` is on. Turning a setting off keeps the namespace's pages readable and refuses writes with `ts-namespace-disabled`.
   - §5: The exclusion above is of models that reach the reader's browser. `Scribunto`, whose modules run on the server in a sandbox and return wikitext, is implemented; `css`, `javascript` and `sanitized-css` stay excluded.
 
-Replaced text: §5 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0008 A13 --before`).
+Replaced text: §5 of this ADR.
 
 ### A14. Tenant-relative IDs in titles
 
@@ -377,7 +377,7 @@ Replaced text (§2). The table as it stood, with rows 1, 210 and 211 already edi
 - **Change:** amends §4; extends §3, §8, §10
 - **Summary:** A `wikitext` page whose text begins with `#REDIRECT [[Target]]` is a redirect; the resolver follows one hop unless told `redirect=no`; a move leaves a redirect page at the old title by default, so a move is one record on the moved page and a `create` of a second; links to redirects carry `mw-redirect`; the links projection records a redirect's target. Q8 settled.
 
-Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0008 A21 --before`).
+Replaced text: §4 of this ADR.
 
 ### A22. Page repositories and title inheritance
 
@@ -386,7 +386,7 @@ Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §3; extends §8, §10
 - **Summary:** A `pages` title resolves to the primary of its stack: the local page, else the first page repository in `pages.repos` that serves the namespace and has the title. Links to inherited titles are ordinary links carrying `ts-inherited`; links into namespaces no repository serves leave the wiki; the links projection records links to inherited titles by title.
 
-Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0008 A22 --before`).
+Replaced text: §3 of this ADR.
 
 ### A23. Forks, and talk pages imported as threads
 
@@ -402,7 +402,7 @@ Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §5
 - **Summary:** The exclusion of style models is narrowed to `css` and `javascript`, which reach the browser as written. `sanitized-css`, TemplateStyles' model, is implemented behind a sanitizer that scopes every sheet to rendered content.
 
-Replaced text: §5 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0008 A24 --before`).
+Replaced text: §5 of this ADR.
 
 ### A25. Scope
 
@@ -418,7 +418,7 @@ Replaced text: §5 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** extends §2
 - **Summary:** `Project` (4) allows `triplespace-sprint`, for subpages only; the default stays `wikitext`.
 
-Replaced text: §2, the Project row of this ADR, as it stood before this entry; in git (`tools/adr.py log 0008 A26 --before`).
+Replaced text: §2, the Project row of this ADR.
 
 ### A27. Query
 
@@ -427,7 +427,7 @@ Replaced text: §2, the Project row of this ADR, as it stood before this entry; 
 - **Change:** amends §2
 - **Summary:** Query (124) moves from `reserved` to `pages` with model `triplespace-sparql`, keeping Wikibase's meaning for the number; Query talk (125) is added.
 
-Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0008 A27 --before`).
+Replaced text: §2 of this ADR.
 
 ### A28. EntitySchema
 
@@ -443,7 +443,7 @@ Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §2
 - **Summary:** Lexeme (146) moves from `reserved` to `pages` with model `wikibase-lexeme`; Lexeme talk (147) is added.
 
-Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0008 A29 --before`).
+Replaced text: §2 of this ADR.
 
 ### A30. The `follow` operation
 
@@ -459,7 +459,7 @@ Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** extends §2, §3
 - **Summary:** Rule 4: a tenant's own namespaces take 3000 and above, or 100–199 except registered numbers, and an adopted wiki keeps its numbers; other numbers are refused with `ts-namespace-number`, and names that equal another namespace's or an interwiki prefix with `ts-namespace-name-taken`. Until now nothing said which numbers a tenant's namespaces may take. An entity source's namespace is a `resolver` namespace with the source's ID normalizer and the source's lookup.
 
-Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0008 A31 --before`).
+Replaced text: §2 of this ADR.
 
 ### A32. `triplespace-sprint` is allowed, not default, on Project subpages
 
@@ -468,14 +468,13 @@ Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** corrects §2
 - **Summary:** In the Project row of §2's table, `triplespace-sprint` is a model *allowed* on Project subpages; the default model of a Project subpage stays `wikitext`, as [0061](0061-sprints-and-tasks.md) §2 says. The row read as though subpages defaulted to the sprint model. (PENDING E12)
 
-Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0008 A32 --before`).
+Replaced text: §2 of this ADR.
 
 ### A33. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1, §2, §3, §4, §5, §6, §7, §8, §9, §10, §12
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0008 A33 --diff`).
 
 ### A34. Revision states per page record; one writer per row class of the links projection
 
@@ -484,7 +483,7 @@ Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** extends §4; amends §10
 - **Summary:** The state after every revision of a page is stored once, per revision: the appending transaction writes the page's state after each `pages` record, the text and the fold of its statement change sets, to `view.entity_revision (tenant, revid, state)`, beside the current state in `view.graph_state`, so that `oldid=`, `action=compare`, `Special:PermanentLink` and export read one row rather than folding the page's history (§4). The same holds for `view.page_category` and `view.page_prop` ([0038](0038-page-metadata-and-categories.md) §2, [0055](0055-templatestyles-templatedata-and-page-properties.md) §6). 0083's table did not list this ADR; the chapter cites 0083 §4 at [10](../architecture/10-pages-and-content-models.md) §3.2 and §6 at §5.2, and the table was extended. Chapter text: [10](../architecture/10-pages-and-content-models.md) §5.2. (REVIEW G11, G13)
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §5.2, as it stood before this entry; in git (`tools/adr.py log 0008 A34 --before`).
+Replaced text: [10](../architecture/10-pages-and-content-models.md) §5.2.
 
 ### A35. Page IDs are per tenant; a mirrored entity's page ID is provider-ranged
 
@@ -493,7 +492,7 @@ Replaced text: [10](../architecture/10-pages-and-content-models.md) §5.2, as it
 - **Change:** amends §4
 - **Summary:** Page IDs are per tenant: a tenant's own pages take IDs from the tenant's own sequence, which starts at 1, stays below 2^40 and never reuses a number, and `view.entity`'s unique key on a page ID is `(tenant, page_id)`. A mirrored entity's page ID is provider-ranged, `provider_number << 40 | upstream page ID` where the provider publishes one and `provider_number << 40 | mirror offset` otherwise, computed by the writer with no allocation; `log."instance.page_id"` is not used for entities. A page served by a page repository takes a provider-ranged page ID the same way. "Minted by the instance in sequence" is withdrawn. The ledger named §3 (titles); the chapter states page identity at [10](../architecture/10-pages-and-content-models.md) §3.1, whose provenance is §4, and the ledger row was corrected. (REVIEW G18)
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §3.1, as it stood before this entry; in git (`tools/adr.py log 0008 A35 --before`).
+Replaced text: [10](../architecture/10-pages-and-content-models.md) §3.1.
 
 ### A36. A move leaves a redirect only where the old title may hold `wikitext`
 
@@ -502,7 +501,7 @@ Replaced text: [10](../architecture/10-pages-and-content-models.md) §3.1, as it
 - **Change:** corrects §4
 - **Summary:** A move leaves a redirect at the old title only where the old title may hold `wikitext`, since only a `wikitext` page can be a redirect: in namespace 0, User, Project, File, Template and Category, and at the `/doc` titles of Module, Table, Query and Scope. Where the old title cannot hold `wikitext`, the move behaves as `noredirect` without needing `suppressredirect`, and the `move/move` event says so with `noredirect: true`. Entity, keyed-type, Thread and Board namespaces disallow `move` altogether; a thread's title follows its subject through the thread's own `rename` record, which is not a move. The ledger named §3; the fold is at [10](../architecture/10-pages-and-content-models.md) §2.5, whose provenance is §4 here beside [0051](0051-page-redirects.md) §3, and the ledger row was corrected. (REVIEW G43)
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §2.5, as it stood before this entry; in git (`tools/adr.py log 0008 A36 --before`).
+Replaced text: [10](../architecture/10-pages-and-content-models.md) §2.5.
 
 > - **Thread renames leave none** ([0019](../decisions/0019-discussions.md) §3), for the reason user renames do.
 
@@ -513,7 +512,7 @@ Replaced text: [10](../architecture/10-pages-and-content-models.md) §2.5, as it
 - **Change:** amends §7
 - **Summary:** The local name of the Project namespace is `site.name` unless the tenant's `namespace` record fixes it. When the site is renamed and the local name followed it, the old name becomes an alias of the namespace in the same change set, so links through it still resolve; a fixed local name, `Project` included, is untouched and gains no alias, as James decided: an old project name is kept only if it was the namespace's name. The chapter text is [10](../architecture/10-pages-and-content-models.md) §3.5.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §3.5, as it stood before this entry; in git (`tools/adr.py log 0008 A37 --before`).
+Replaced text: [10](../architecture/10-pages-and-content-models.md) §3.5.
 
 ### A38. An adopted wiki's pages come in its adoption job
 
@@ -522,7 +521,7 @@ Replaced text: [10](../architecture/10-pages-and-content-models.md) §3.5, as it
 - **Change:** amends §9
 - **Summary:** When the source is the wiki the tenant adopted, its pages are imported within the adoption job, not by a job of their own. They keep their source page IDs in field 9 and, revision by revision, their source revision IDs in field 7, so that an `oldid` link into the source's pages resolves as one into its entities does, and a revision the source hid is imported as an adopted entity revision is. The chapter text is [10](../architecture/10-pages-and-content-models.md) §6.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §6, as it stood before this entry; in git (`tools/adr.py log 0008 A38 --before`).
+Replaced text: [10](../architecture/10-pages-and-content-models.md) §6.
 
 ### A39. Inline HTML follows MediaWiki's Sanitizer allow-list
 
@@ -531,7 +530,7 @@ Replaced text: [10](../architecture/10-pages-and-content-models.md) §6, as it s
 - **Change:** amends §8
 - **Summary:** MediaWiki's Sanitizer is the authority for the HTML wikitext may write: its allow-list of tags, the attributes each tag keeps (the common set of `id`, `class`, `style`, `lang`, `dir`, `title`, ARIA, RDFa and microdata attributes and `data-*`, plus each tag's own, such as `colspan` on cells and `start` on lists), and its check of `style`. The subset's row had listed only `class`, `id` and a sanitized `style`; [11](../architecture/11-rendering-templates-and-modules.md) §1.2 already named the Sanitizer, and the built-in renderer implements it. The chapter text is [10](../architecture/10-pages-and-content-models.md) §5.1.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §5.1, as it stood before this entry; in git (`tools/adr.py log 0008 A39 --before`).
+Replaced text: [10](../architecture/10-pages-and-content-models.md) §5.1.
 
 ### A40. The edit base is MediaWiki's
 
@@ -540,7 +539,7 @@ Replaced text: [10](../architecture/10-pages-and-content-models.md) §5.1, as it
 - **Change:** amends §4
 - **Summary:** An `edit` of a document page takes its base as MediaWiki's `action=edit` does: from `baserevid`, else from `basetimestamp`, read as the page's latest record at that time, else the page's latest record, so a client that sends neither edits whatever is current instead of being refused. A stale base is `editconflict`; `createonly` on an existing page is `articleexists`, and `nocreate` on a missing one `missingtitle`. A base remains required for `move`. Clients written for MediaWiki (Pywikibot, mwclient, the site's own edit form) send `baserevid` or `basetimestamp`, so the change loses no conflict a client was asking to have detected. The chapter text is [10](../architecture/10-pages-and-content-models.md) §3.2.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §3.2, as it stood before this entry; in git (`tools/adr.py log 0008 A40 --before`).
+Replaced text: [10](../architecture/10-pages-and-content-models.md) §3.2.
 
 ### A41. An adopted wiki's templates come as pages; its talk pages wait for threads
 
@@ -558,7 +557,7 @@ Replaced text: none; the two sentences are added to [10](../architecture/10-page
 - **Change:** corrects §10
 - **Summary:** The links projection records a link to a page by the target's namespace number and title, never by page ID, whether or not a page has the title, as MediaWiki's `pagelinks` does: `view.page_link` rows of `target_kind` 6 (`TITLE`) with `target_id` `{ns}:{title}`. A link to an entity is recorded by its ID (`target_kind` 1). So creating a page needs no rewrite of the links to it, and a move leaves links on the old title, which its redirect serves. §10's "after resolution" and the backlink sentences read as if links to existing pages were held by page ID, and chapter 03 kept `page_link` targets current through title-index maintenance; neither was the design the projection implements. The chapter text is [10](../architecture/10-pages-and-content-models.md) §5.2, with the schema comment and the redirect paragraph of [03](../architecture/03-storage-caches-and-search.md) §4.5 and §4.7.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §5.2, the paragraph's first sentence; [03](../architecture/03-storage-caches-and-search.md) §4.7, as it stood before this entry; in git (`tools/adr.py log 0008 A42 --before`).
+Replaced text: [10](../architecture/10-pages-and-content-models.md) §5.2, the paragraph's first sentence; [03](../architecture/03-storage-caches-and-search.md) §4.7.
 
 ### A43. An adopted wiki's talk pages are converted, comment by comment
 
@@ -567,7 +566,7 @@ Replaced text: [10](../architecture/10-pages-and-content-models.md) §5.2, the p
 - **Change:** amends §9
 - **Summary:** Adoption converts the adopted wiki's talk pages to threads within the job, with their history read from the dump to attribute each comment and their actors the adopted actors, so they are no longer counted `deferred`; talk pages in a content model other than wikitext still are. Chapter text: [10](../architecture/10-pages-and-content-models.md) §6.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §6, as it stood before this entry; in git (`tools/adr.py log 0008 A43 --before`).
+Replaced text: [10](../architecture/10-pages-and-content-models.md) §6.
 
 ### A44. The Interface namespace
 
@@ -576,7 +575,7 @@ Replaced text: [10](../architecture/10-pages-and-content-models.md) §6, as it s
 - **Change:** amends §2
 - **Summary:** Namespace 8 holds pages: plain-text interface messages and names of IDs, shown under the local name Interface while keeping the canonical name MediaWiki, with its talk namespace 9 (0095 §1). It is no longer reserved.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §1.4, as it stood before this entry; in git (`tools/adr.py log 0008 A44 --before`).
+Replaced text: [10](../architecture/10-pages-and-content-models.md) §1.4.
 
 ### A45. Messages from Interface pages
 
@@ -599,7 +598,7 @@ Replaced text: [10](../architecture/10-pages-and-content-models.md) §1.4, as it
 - **Change:** amends §2
 - **Summary:** Namespace 12 holds pages: Help, a document namespace that works as Project does, with Help talk at 13 (0096 §3). Its local name does not follow the site name, and it allows neither `triplespace-sprint` nor `sanitized-css`. It is no longer reserved, and help content no longer has to go in Project.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §1.4, as it stood before this entry; in git (`tools/adr.py log 0008 A47 --before`).
+Replaced text: [10](../architecture/10-pages-and-content-models.md) §1.4.
 
 ### A48. Importing onto an existing title follows MediaWiki; entity pages only from the adopted wiki
 
@@ -622,7 +621,7 @@ Replaced text: [10](../architecture/10-pages-and-content-models.md) §1.4, as it
 - **Change:** amends §9.1; extends §9.6, §9.7
 - **Summary:** James confirmed A49, with (2) understood as temporary until the job runner exists, and decided three things. (1) **Which issuer a source is.** A page fetched from another wiki by site alias resolves a registered issuer by the alias, as an issuer's code or one of its providers' slugs, or by the alias's host, which the registry names in an issuer's users API or actor IRIs; an uploaded file resolves one only where `interwikiprefix` names an issuer's code outright, since the file itself is not to be trusted with real accounts, which is why MediaWiki keeps uploads under `prefix>Name`; `triplespace import` resolves `--issuer`, else `--source`, the same way. A registered issuer's accounts keep their numeric keys, and the file's named accounts get actor records with their names where the tenant has none, as adoption records the adopted wiki's accounts (0035 §5); a name the file does not list as an account, and every author of an unregistered source, stays an `imported` surrogate, chaining as before. (2) **An imported or adopted revision is marked as such.** The activity projection keeps the source revision ID and time of a page record that has them, the APIs serve them as `upstream` on activity, revision and diff rows, and the history row and the diff's header carry an **Imported** chip in place of Local, naming the upstream revision and the job in its tooltip, with the job named beside it and linked once `Special:Jobs/{n}` exists; rows projected before this show it after `triplespace rebuild`. (3) **Times are UTC.** A revision's shown source time is kept on the condition that exports write every timestamp in UTC, which the exporter does with `Z`, and that an import reads any offset a file writes into UTC, which the parser does. Chapter text: 10 §6.1, §6.6; 19 §3.4.
 
-Replaced text: [10](../architecture/10-pages-and-content-models.md) §6.1, as it stood before this entry; in git (`tools/adr.py log 0008 A50 --before`).
+Replaced text: [10](../architecture/10-pages-and-content-models.md) §6.1.
 
 ### A51. Link marks: repeated links, and a redirect's target in its title
 

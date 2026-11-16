@@ -94,11 +94,10 @@ James's direction, from the design discussion of 2026-10-07:
 - **Change:** corrects §4, §6, §7
 - **Summary:** Scopes are addressed by page ID, as every scope route is: `/scope/{pageid}/dumps`, `/scope/{pageid}/dumps/{file}`, `/scope/{pageid}/dataset.jsonld`, not `{title}`. The ledger row names §2 and §6; the `{title}` routes are in §4 and §6 (§2 has none), and the §7 crates row names them too, so this entry corrects §4, §6 and §7. (PENDING E35)
 
-Replaced text: §4 of this ADR; §6 of this ADR; §7 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0076 A1 --before`).
+Replaced text: §4 of this ADR; §6 of this ADR; §7 of this ADR.
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§7
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0076 A2 --diff`).

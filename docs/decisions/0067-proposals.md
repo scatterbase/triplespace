@@ -123,7 +123,7 @@ James's direction, from the design discussions of 2026-10-04 and 2026-10-05:
 - **Change:** amends §3
 - **Summary:** A proposal's kind, destination, base, payload, omitted and flags are **page metadata of the thread page**, set by the `propose` operation and projected to `view.proposal`; they are not fields of `create`, whose `target` stays the thread's home ([0019](0019-discussions.md) §4). (PENDING F7)
 
-Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0067 A3 --before`).
+Replaced text: §3 of this ADR.
 
 ### A4. Who may set `declined`
 
@@ -132,7 +132,7 @@ Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §5
 - **Summary:** On a proposal thread `declined` may be set only by the proposer or a holder of `edit` on the subject's talk page; any other `declined` post is refused with `ts-proposal-status`. [0019](0019-discussions.md) §6 notes the exception. (PENDING F8)
 
-Replaced text: §5 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0067 A4 --before`).
+Replaced text: §5 of this ADR.
 
 ### A5. Publications run under a subsidiary; the rule is scoped to proposals
 
@@ -141,14 +141,13 @@ Replaced text: §5 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §6
 - **Summary:** A publication ([0074](0074-publishing-a-scope-to-an-external-wiki.md) §4) runs under a subsidiary account that holds its credential (PENDING C14); §6's rule is scoped to proposals: the instance never pushes a proposal under its own name. (PENDING F14)
 
-Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0067 A5 --before`).
+Replaced text: §6 of this ADR.
 
 ### A6. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§9
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0067 A6 --diff`).
 
 ### A7. Retirement is an `ops` job, never a projection step
 
@@ -157,7 +156,7 @@ Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §5
 - **Summary:** No projection has side effects during replay: the proposal projection writes `view.proposal.state` and nothing else, so a rebuild re-derives every state and re-runs no retirement. "Retires each redundant assertion at once" is withdrawn. The ledger and 0083's table named §9; the text they amend is §5's ([14](../architecture/14-discussions.md) §5.4), and the crate table did not change. Chapter text: [14](../architecture/14-discussions.md) §5.4. (REVIEW G13)
 
-Replaced text: [14](../architecture/14-discussions.md) §5.4, as it stood before this entry; in git (`tools/adr.py log 0067 A7 --before`).
+Replaced text: [14](../architecture/14-discussions.md) §5.4.
 
 ### A8. `private.upstream_grant` stores the tokens, encrypted
 
@@ -166,7 +165,7 @@ Replaced text: [14](../architecture/14-discussions.md) §5.4, as it stood before
 - **Change:** corrects §6
 - **Summary:** `private.upstream_grant` holds `access_token` and `refresh_token` encrypted at rest with the key handling of `private.publication_credential`, never hashes: the instance is the OAuth *client* here and must present the access token to the wiki and the refresh token to its token endpoint. Hashes are kept only where the instance is the server, in [0025](0025-oauth-server.md) §8's token tables. (REVIEW G47)
 
-Replaced text: [17](../architecture/17-federation-and-publication.md) §3.2, as it stood before this entry; in git (`tools/adr.py log 0067 A8 --before`).
+Replaced text: [17](../architecture/17-federation-and-publication.md) §3.2.
 
 ### A9. Upstream grants are revoked from Special:Account
 
@@ -175,7 +174,7 @@ Replaced text: [17](../architecture/17-federation-and-publication.md) §3.2, as 
 - **Change:** amends §6
 - **Summary:** `Special:Preferences` is now a page of preference keys, so an upstream grant, a credential the instance holds for the person at a destination wiki, is listed and revoked in the Connected applications section of `Special:Account`. The chapter text is [17](../architecture/17-federation-and-publication.md) §3.2 and [19](../architecture/19-site-ui.md) §2.4.
 
-Replaced text: [17](../architecture/17-federation-and-publication.md) §3.2, as it stood before this entry; in git (`tools/adr.py log 0067 A9 --before`).
+Replaced text: [17](../architecture/17-federation-and-publication.md) §3.2.
 
 ### A10. Upstream grants sealed under the instance sealing key
 

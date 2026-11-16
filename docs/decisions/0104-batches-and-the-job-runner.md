@@ -136,11 +136,11 @@ James's direction, from the design discussion of 2026-11-08:
 - **Change:** amends §11
 - **Summary:** `Special:CreateEntities` keeps the pasted table as its canonical form and gains a grid over it, a mapping step for uploaded files, and drafts kept as Table pages with staged rows. A row that matches an existing item by a match key or by label and description adds to it; properties a table declares are created first, by holders of `property-create` only; rows are written in the order their references require; a statement's own reference replaces the default. Of what §11 left out, match keys, references between rows, updating (matched) items and properties are taken; qualifiers and Lua column transforms are not. Chapter text: [21](../architecture/21-special-pages.md) §6.6; [05](../architecture/05-providers-and-ingest.md) §3.5.
 
-Replaced text: [21](../architecture/21-special-pages.md) §6.6, as it stood before this entry; in git (`tools/adr.py log 0104 A4 --before`).
+Replaced text: [21](../architecture/21-special-pages.md) §6.6.
 
 > - **Not taken yet** ([0104](../decisions/0104-batches-and-the-job-runner.md) §11): match keys, so every row creates (a re-run creates again); references from one row to an item another row creates; updating existing items; properties and other entity types. A table larger than a run allows waits on the queued batch of [05](../architecture/05-providers-and-ingest.md) §3.5.
 
-Replaced text: [05](../architecture/05-providers-and-ingest.md) §3.5, as it stood before this entry; in git (`tools/adr.py log 0104 A4 --before`).
+Replaced text: [05](../architecture/05-providers-and-ingest.md) §3.5.
 
 ### A5. The page is named `Special:CreateManyEntities`
 
@@ -149,7 +149,7 @@ Replaced text: [05](../architecture/05-providers-and-ingest.md) §3.5, as it sto
 - **Change:** amends §11
 - **Summary:** The page that creates items from a table is `Special:CreateManyEntities`, which says what it is for beside `Special:NewItem`. `CreateEntities` stays in the special-page registry as an alias: a GET of it is sent on to the new name with its subpage, so links and drafts' addresses written before the change still work. Earlier ADR text and log entries keep the name they were written with.
 
-Replaced text: [21](../architecture/21-special-pages.md) §6.6, as it stood before this entry; in git (`tools/adr.py log 0104 A5 --before`).
+Replaced text: [21](../architecture/21-special-pages.md) §6.6.
 
 ### A6. Dumps join the queue, and a runner claims only its kinds
 
@@ -172,7 +172,7 @@ Replaced text: [21](../architecture/21-special-pages.md) §6.6, as it stood befo
 - **Change:** amends §4
 - **Summary:** A7 left two things. (1) **A job whose claim was taken is stopped.** The runner's heartbeat, on finding the row no longer its job's, ends the work where it stands; before, the work ran on beside the run that had taken the claim, each checking what the other had written in transactions of its own. What the stopped run had committed stays, and the other run goes on from it, as after a runner's death. (2) What made stopping safe: **a unit of work that is neither committed nor rolled back closes its connection**, where it had gone back to the pool still inside its transaction, for the next unit of work to run inside and commit with its own; this held for every unit of work an error returned past, not only for a stopped job. (3) A dump's files are written on a thread that is not stopped: it finishes them, and the stopped job records nothing of them; the run that took the claim writes the dump again. (4) **An import's talk pages are converted within the job**: after its pages, since a thread needs its subject page and authors, and before its finish record, which now carries the conversion's counts as `talk`; a conversion that cannot be written fails the job, with its `job/fail`, where it had left the job `finished` and the error in the server's log. This holds for `action=import`, the runner and `triplespace import` alike; an adoption converts after its job, as before. (5) A talk page whose unit of work is rolled back no longer leaves the surrogates it minted in the conversion's memory, where a later page would have attributed posts to an actor with no record.
 
-Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §2.2, as it stood before this entry; in git (`tools/adr.py log 0104 A8 --before`).
+Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §2.2.
 
 ### A9. Exports, adoptions, syncs and followers join the queue
 

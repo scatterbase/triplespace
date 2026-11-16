@@ -98,7 +98,7 @@ Asked what the namespace holds and how an account is marked, James chose (2026-1
 - **Change:** amends §1, §2, §6; extends §7, §8
 - **Summary:** James asked for the two parts left unbuilt, `{{int:}}` reading overrides and `meta=allmessages`, and decided: "When adopting a wiki, it should bring in the MediaWiki-namespace pages. Those that can't be used by the Triplespace instance are just ignored." An adopted wiki's MediaWiki pages of model `wikitext` or `text` come as Interface pages, each revision as `text`; pages of any other model are ignored and counted (§7). `{{int:key|…}}` expands the wiki's override in the wiki's language, with its arguments, and stays a chip where there is none, the build shipping no MediaWiki core messages (§2). `meta=allmessages` answers from the overrides over the site's shipped English messages (§8). `mw.message` waits on Lua (0043).
 
-Replaced text: §1 of this ADR; §2 of this ADR; §6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0095 A1 --before`).
+Replaced text: §1 of this ADR; §2 of this ADR; §6 of this ADR.
 
 ### A2. `amprop=default`
 
@@ -119,4 +119,3 @@ Replaced text: §1 of this ADR; §2 of this ADR; §6 of this ADR, as it stood be
 - **Date:** 2026-10-30
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§8
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0095 A4 --diff`).

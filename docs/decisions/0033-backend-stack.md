@@ -178,7 +178,7 @@ Replaced text: not recorded; the sections were revised in place before the repos
   - §9.1: With a tenant's expansion on, the parser renders and extracts from **expanded** text, produced by `scatter-wikitext-expand`; a tenant may instead render through a Parsoid service that calls back into Triplespace for expansion. Parsoid stays rejected as an in-process parser.
   - §15: The reference install gains ParserFunctions and Scribunto, beside WikibaseClient, for differential `action=expandtemplates` tests and Lua conformance ([0043](0043-lua-modules.md) §15).
 
-Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0033 A3 --before`).
+Replaced text: §1 of this ADR.
 
 ### A4. Lua
 
@@ -194,7 +194,7 @@ Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** consolidates §1–17
 - **Summary:** A1–A4 were folded into the Decision. The title's em dash became a full stop, the open questions were numbered, the Author line was added, and the list this ADR kept under "Changes to other ADRs" (quoted below) was replaced by the generated table; the placeholder "0027 §…" in §6 now cites 0027 Q1. No decision changed. Before this, A2–A4 were blockquotes. 0005 A32 records the dependency notes this ADR gave 0005 §2. The file before conversion is commit `0b26a3a`.
 
-Replaced text: Changes to other ADRs of this ADR, as it stood before this entry; in git (`tools/adr.py log 0033 A5 --before`).
+Replaced text: Changes to other ADRs of this ADR.
 
 ### A6. The RevisionChest reader moves to `scatter-adapter-mediawiki`
 
@@ -203,7 +203,7 @@ Replaced text: Changes to other ADRs of this ADR, as it stood before this entry;
 - **Change:** amends §10
 - **Summary:** The `.mwrev.zst` reader lives in the new MediaWiki adapter, on which the Wikidata adapter now depends, so that Wikipedia page revisions and Wikidata entity revisions share it.
 
-Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0033 A6 --before`).
+Replaced text: §10 of this ADR.
 
 ### A7. RevisionChest stores for page history
 
@@ -212,7 +212,7 @@ Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** amends §10
 - **Summary:** A RevisionChest store of a Wikipedia's history is the source a fork's revisions are seeded from, and receives the hiding sweep read from the repository's events.
 
-Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0033 A7 --before`).
+Replaced text: §10 of this ADR.
 
 ### A8. Deployment checks
 
@@ -237,7 +237,7 @@ Replaced text (§4): "A small runner in `triplespace-db` applies them in 0005's 
 - **Change:** amends §1, §17; extends §12
 - **Summary:** The server binary serves the site itself, so a small instance is still one binary and Postgres; a larger one may add `triplespace-web`, a stateless second binary that renders the site through the API. `server.ui` chooses whether the server serves the site, and the web tier's settings, its forwarder key among them, follow §12's rules. The image carries both binaries.
 
-Replaced text: §1 of this ADR; §17 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0033 A10 --before`).
+Replaced text: §1 of this ADR; §17 of this ADR.
 
 ### A11. The query service
 
@@ -246,7 +246,7 @@ Replaced text: §1 of this ADR; §17 of this ADR, as it stood before this entry;
 - **Change:** amends §1, §11
 - **Summary:** The query service runs embedded (Oxigraph, in the binary) by default and may use QLever as a remote backend, so the one-binary rule of §1 holds with the service on, and QLever becomes an optional runtime service as well as an export destination. A QLever that backs the service loads the `full` form.
 
-Replaced text: §1, item 1, in part of this ADR; §11 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0033 A11 --before`).
+Replaced text: §1, item 1, in part of this ADR; §11 of this ADR.
 
 > - The `resolved` subscription is the default for QLever; `full`, with its named graphs, is benchmarked before being recommended.
 
@@ -271,7 +271,7 @@ Replaced text: §1, item 1, in part of this ADR; §11 of this ADR, as it stood b
 - **Change:** corrects §9.1
 - **Summary:** `File:` and `Image:` links are no longer rendered as chips, and the File namespace is no longer "reserved, not implemented": files in wikitext follow [0039](0039-files-and-media.md) §13's rule. The chip list of §9.1 loses that entry. (PENDING E19)
 
-Replaced text: §9.1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0033 A14 --before`).
+Replaced text: §9.1 of this ADR.
 
 ### A15. Implemented tags and switches render without expansion
 
@@ -280,7 +280,7 @@ Replaced text: §9.1 of this ADR, as it stood before this entry; in git (`tools/
 - **Change:** amends §9.1
 - **Summary:** Tags and behaviour switches the registry marks `implemented` are rendered by the built-in renderer whether or not the tenant's expansion is on; §9.1's chip list is pruned to what the registry keeps as `chip`, and behaviour switches are no longer ignored wholesale ([0042](0042-template-expansion-and-parsoid.md) §5). (PENDING E20)
 
-Replaced text: §9.1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0033 A15 --before`).
+Replaced text: §9.1 of this ADR.
 
 ### A16. Three binaries
 
@@ -289,14 +289,13 @@ Replaced text: §9.1 of this ADR, as it stood before this entry; in git (`tools/
 - **Change:** corrects §1, §17
 - **Summary:** The server binary is `triplespace-server`, not `triplespace`; `triplespace` is the CLI's binary. Packaging ships three binaries, `triplespace-server`, `triplespace-web` and `triplespace`, and the OCI image carries all three. Principle 1's "one binary" still means that a small instance runs one server process beside Postgres. (PENDING F27)
 
-Replaced text: §1 of this ADR; §17 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0033 A16 --before`).
+Replaced text: §1 of this ADR; §17 of this ADR.
 
 ### A17. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§17
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0033 A17 --diff`).
 
 ### A18. The profiles at Wikidata scale: terms, `entity_ref`, the query backend and dumps
 
@@ -305,11 +304,11 @@ Replaced text: §1 of this ADR; §17 of this ADR, as it stood before this entry;
 - **Change:** amends §1; extends §8
 - **Summary:** The deployment-profile table of §1 changes in four rows, from [0082](0082-source-form-and-the-shared-view.md) §6 and the review's query-service row. `view.term` holds rows for local entities, for entities in any tenant overlay, and for mirrored entities in the instance's term languages only, in both profiles; its size at Wikidata scale is mirrored entities × the instance's term languages × term kinds, the budget `entities.term_languages` sets. `entity_ref` is keyed on integer page IDs with a role bitmask and, with `view.term`, is the largest `view` table; the Wikidata-scale profile may omit it and serve "Links here" and the backlink count from the query service. The embedded query backend is the small profile's: the service refuses to start it above a configured triple count, and the Wikidata-scale profile requires `query.backend = remote` (QLever from dumps), so principle 1's "moving to QLever only when an instance chooses" becomes "when an instance chooses and necessarily at Wikidata scale". A dump is taken from a replica under `pg_export_snapshot()`, with parallel workers sharing the one snapshot (§8, in [02](../architecture/02-graphs-rdf-and-query.md) §4.1; an extension). The ledger's G49 row named 0032 §1 and 0013 §11 for the profile and dump parts; the chapter sections that hold them, [22](../architecture/22-crates-and-stack.md) §6 and §4.1 and [02](../architecture/02-graphs-rdf-and-query.md) §4.1, cite §1 and §8 of this ADR, and 0082's table does not name this ADR, so both are logged here as a direct decision. Chapter text: [22](../architecture/22-crates-and-stack.md) §6, §4.1. (REVIEW G7, G49)
 
-Replaced text: [22](../architecture/22-crates-and-stack.md) §6, as it stood before this entry; in git (`tools/adr.py log 0033 A18 --before`).
+Replaced text: [22](../architecture/22-crates-and-stack.md) §6.
 
 > | Quad store | Optional | Optional; QLever from dumps |
 
-Replaced text: [22](../architecture/22-crates-and-stack.md) §4.1, as it stood before this entry; in git (`tools/adr.py log 0033 A18 --before`).
+Replaced text: [22](../architecture/22-crates-and-stack.md) §4.1.
 
 ### A19. The write path as tower layers is tier 1; `LogStore`'s unit of work
 
@@ -318,7 +317,7 @@ Replaced text: [22](../architecture/22-crates-and-stack.md) §4.1, as it stood b
 - **Change:** amends §3
 - **Summary:** The tower layers of §3 build the appending transaction, tier 1 of the write path of [0083](0083-write-path-in-three-tiers.md) §1, in its order: auth → grants → rate limit → ACLs → filters → normalize and diff → base check → ID allocation → append → graph state → activity row → commit. Composition of the written entity follows commit as a step of the handler, and nothing else of tiers 2 and 3 runs in a request; "projections" is no longer a layer of the request. `LogStore`'s methods are written as `impl Future + Send` in the trait (return-position `impl Trait`), `scatter-log` depends on `std::future` alone, its file backend does synchronous I/O inside those futures and a runtime caller wraps a file-backend call in `spawn_blocking`; `LogStore` carries an associated unit-of-work type, the transaction or handle within which an append and the rows written beside it commit together, which `Backend::apply_in` in `scatter-projection` and `IngestStore` in `scatter-ingest` take rather than naming a database, so the write path appends and projects in one Postgres transaction while the in-memory and file backends stay runtime-free. The crate-side parts of the same row (`scatter-extract` at layer 2, payload-type homes, `scatter-titles`, the wasm budget, the `FilterHook`) are logged in [0005](0005-crate-organization.md). The tier-1 rewrite is 0083 §1's, which the chapter section cites and 0083's table does not name, so it is logged here as a direct decision. (REVIEW G8, G51)
 
-Replaced text: [22](../architecture/22-crates-and-stack.md) §4.3, as it stood before this entry; in git (`tools/adr.py log 0033 A19 --before`).
+Replaced text: [22](../architecture/22-crates-and-stack.md) §4.3.
 
 ### A20. `triplespace migrate`, and a server that refuses a database behind its migrations
 
@@ -341,7 +340,7 @@ Replaced text: [22](../architecture/22-crates-and-stack.md) §4.3, as it stood b
 - **Change:** amends §16
 - **Summary:** MIT-0 joins the accepted licences. It is the licence of `parse-wiki-text-2`, vendored into `scatter-wikitext` (§9.1, "MIT-style licence without a notice clause"): MIT's grant without its notice condition. It places no condition on redistribution, so the code can go into the GPL binary and also be passed on under the `scatter-*` crates' commercial licence, which Scatter's copyright alone could not grant for code it did not write. `cargo-deny` records the crate's licence file as MIT-0 with a clarify entry, since the manifest names only the file. The chapter text is [22](../architecture/22-crates-and-stack.md) §3.3, §3.4.
 
-Replaced text: [22](../architecture/22-crates-and-stack.md) §3.3, §3.4, as it stood before this entry; in git (`tools/adr.py log 0033 A22 --before`).
+Replaced text: [22](../architecture/22-crates-and-stack.md) §3.3, §3.4.
 
 ### A23. The `.env` file
 
@@ -371,7 +370,7 @@ Replaced text: [22](../architecture/22-crates-and-stack.md) §3.3, §3.4, as it 
 - **Change:** amends §10
 - **Summary:** Code moving from RevisionChest into the Wikibase adapter no longer needs the Internet Archive's agreement, because the `scatter-*` crates are not offered under a commercial licence and Scatter need not hold copyright in every line of them ([0005](0005-crate-organization.md) A114); the code keeps its licence notice.
 
-Replaced text: [13](../architecture/13-mirrored-pages.md) §3.5, as it stood before this entry; in git (`tools/adr.py log 0033 A26 --before`).
+Replaced text: [13](../architecture/13-mirrored-pages.md) §3.5.
 
 ### A27. The probe
 
@@ -394,7 +393,7 @@ Replaced text: [13](../architecture/13-mirrored-pages.md) §3.5, as it stood bef
 - **Change:** amends §16
 - **Summary:** bzip2-1.0.6 joins the accepted licences. It is the licence of bzip2 and libbzip2: a permissive BSD-style text that asks for the copyright notice to be kept, the origin not to be misrepresented, altered versions to be marked, and the author's name not to be used to endorse what is derived; it has no copyleft and no advertising clause. `bzip2` 0.6 reads the dumps (§10) through `libbz2-rs-sys`, a Rust port that declares this licence, where `bzip2` 0.5 used `bzip2-sys`, which bundles the C library under the same terms while declaring MIT or Apache-2.0: the code was already linked under this licence, and `cargo-deny` now sees it. The occasion was Dependabot's pull request for `bzip2` 0.6, which `cargo-deny` rejected. The chapter text is [22](../architecture/22-crates-and-stack.md) §3.3.
 
-Replaced text: [22](../architecture/22-crates-and-stack.md) §3.3, as it stood before this entry; in git (`tools/adr.py log 0033 A29 --before`).
+Replaced text: [22](../architecture/22-crates-and-stack.md) §3.3.
 
 ### A30. Dependabot ignores a major release that cannot be taken yet
 

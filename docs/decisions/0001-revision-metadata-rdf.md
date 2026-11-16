@@ -111,7 +111,7 @@ Under [0000](0000-init.md), the append-only log is the source of truth and RDF i
 - **Change:** amends §2
 - **Summary:** The main graph is computed by applying a reconciliation policy over the source graphs. It is still Wikibase-shaped, still what is exported to QLever, and still rebuildable from the log; the source graphs may be exported too.
 
-Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0001 A1 --before`).
+Replaced text: §2 of this ADR.
 
 ### A2. One vocabulary under scatter.red
 
@@ -120,7 +120,7 @@ Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §2, §5, §6
 - **Summary:** Triplespace's terms move to `https://scatter.red/terms/v0/`, the namespace Scatterbase already uses, with the prefix `scatter:`. The illustrative `sw:` becomes `scatter:`. `v0` makes no stability promise; `v1` is the commitment of this ADR's Consequences, made for both products at once. Content-derived identifiers that are the same everywhere may stay under `scatter.red`. This settled Q1, and makes the vocabulary consequence hold for the new namespace.
 
-Replaced text: §5 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0001 A2 --before`).
+Replaced text: §5 of this ADR.
 
 Replaced text: every `sw:` prefix, now `scatter:` (`sw:addedIn`, `sw:Revision`, `sw:summaryOperation` and the rest), and the heading "Terms to mint under `https://scatter.wiki`:".
 
@@ -131,7 +131,7 @@ Replaced text: every `sw:` prefix, now `scatter:` (`sw:addedIn`, `sw:Revision`, 
 - **Change:** amends §4
 - **Summary:** A legal takedown that requires data to leave the log is the `erase` record: headers stay, bodies are destroyed. Before the migration this was recorded only in 0006.
 
-Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0001 A3 --before`).
+Replaced text: §4 of this ADR.
 
 ### A4. Actor vocabulary
 
@@ -147,7 +147,7 @@ Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §6
 - **Summary:** Log events are projected into the metadata graph only, typed as Activity Streams activities where one fits and as `scatter:` subclasses of `as:Activity` where none does. Merges are removed from the list of log events: a Wikibase merge is its revisions and the redirect.
 
-Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0001 A5 --before`).
+Replaced text: §6 of this ADR.
 
 ### A6. RDF becomes an output, not the read path
 
@@ -156,7 +156,7 @@ Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §2
 - **Summary:** The resolved view, source graphs and metadata graph stream as N-Quads from Postgres; no intermediate quad store is needed. A Wikibase-compatible dump holds the resolved view only; a full dump, the instance's own export, carries both. The application's history, attribution, diffs and moderation views come from `view.activity` and the records. The consumers column of §2 was restated accordingly.
 
-Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0001 A6 --before`).
+Replaced text: §2 of this ADR.
 
 ### A7. Document nodes for foreign entities
 
@@ -200,7 +200,7 @@ Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §3
 - **Summary:** Statements about document pages and threads are output in the main graph, in Wikibase's statement shape, with the page node `{base}/page/{page ID}` as subject. This adds subjects, not vocabulary: every predicate is Wikibase's or schema.org's.
 
-Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0001 A12 --before`).
+Replaced text: §3 of this ADR.
 
 ### A13. Content model on every revision
 
@@ -223,14 +223,13 @@ Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §6
 - **Summary:** The list in §6 of terms minted under `scatter:` is illustrative, not a catalogue: `scatter-vocab` is the catalogue of record for Triplespace's own vocabulary, and a term is defined there, not by appearing in §6. The same holds for the actor-class terms [0007](0007-actor-identity.md) §9 lists. (PENDING A21)
 
-Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0001 A15 --before`).
+Replaced text: §6 of this ADR.
 
 ### A16. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§6
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0001 A16 --diff`).
 
 ### A17. The record IRI names a post revision or a log event
 
@@ -285,5 +284,5 @@ Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §4.2, as it sto
 - **Change:** amends §2
 - **Summary:** The metadata graph was kept out of external stores to keep the external contract simple, not for secrecy. Its export policy is now `public`: the full dump, an export served at `{base}/dumps/`, carries it in its visible form, naming surrogates by IRI only; the Wikibase-compatible dump still never does, by its own definition. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §1.5.
 
-Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §1.5, as it stood before this entry; in git (`tools/adr.py log 0001 A23 --before`).
+Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §1.5.
 

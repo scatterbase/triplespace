@@ -202,7 +202,7 @@ James's direction, from the design discussion of 2026-09-30:
 - **Change:** supersedes §14
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A47).
 
-Replaced text: §14 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0047 A1 --before`).
+Replaced text: §14 of this ADR.
 
 ### A2. Converted to the 0050 format
 
@@ -211,7 +211,7 @@ Replaced text: §14 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** consolidates §14–15
 - **Summary:** A1 was folded into the Decision. The open questions were numbered, and the list this ADR kept as §15, "Changes to other ADRs" (quoted below), was replaced by the generated table, so the Decision now ends at §14. No decision changed. Before this, A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
 
-Replaced text: §15 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0047 A2 --before`).
+Replaced text: §15 of this ADR.
 
 ### A3. The redirect reports
 
@@ -220,7 +220,7 @@ Replaced text: §15 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** amends §10; extends §4.4
 - **Summary:** `ListRedirects`, `BrokenRedirects`, `DoubleRedirects` and `RandomRedirect` leave the deferred table and are served as index-backed reports over `view.redirect`.
 
-Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0047 A3 --before`).
+Replaced text: §10 of this ADR.
 
 ### A4. `Special:Fork`
 
@@ -236,7 +236,7 @@ Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** amends §10; extends §4.4
 - **Summary:** `view.page_prop` exists, so `PagesWithProp` leaves the deferred table and is served over it. Q2 settled.
 
-Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0047 A5 --before`).
+Replaced text: §10 of this ADR.
 
 ### A6. `Special:Query`
 
@@ -266,7 +266,7 @@ Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** amends §10; extends §1, §9
 - **Summary:** The three EntitySchema pages move from reserved to served, with `CheckEntitySchema` added; §1's `reserved` status has no current members.
 
-Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0047 A9 --before`).
+Replaced text: §1 of this ADR.
 
 ### A10. Lexeme pages
 
@@ -289,7 +289,7 @@ Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §9
 - **Summary:** `Special:Version` gets its own row, pointing to 0077, which specifies its sections, subpages and sources; it is no longer described as built from the registry, configuration and i18n alone.
 
-Replaced text: §9 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0047 A12 --before`).
+Replaced text: §9 of this ADR.
 
 ### A13. `tenant` is the slug
 
@@ -298,7 +298,7 @@ Replaced text: §9 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** corrects §13
 - **Summary:** The `tenant` column of `view.report_entry`, `view.report_state` and `view.site_stats` is `tenant text NOT NULL DEFAULT ''`, the column as [0013](0013-postgres-storage.md) §5 (0013 A11) defines it for every `view` table, not `tenant bigint`. (PENDING A6)
 
-Replaced text: §13 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0047 A13 --before`).
+Replaced text: §13 of this ADR.
 
 > CREATE TABLE view.report_state (
 >   tenant bigint NOT NULL, report text NOT NULL, scope text NOT NULL,
@@ -313,7 +313,7 @@ Replaced text: §13 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** amends §12
 - **Summary:** Jobs run under subsidiaries: `ts-runjob` defaults to `bot` everywhere ([0016](0016-permissions-and-access-control.md) §2 drops `sysop`; [0046](0046-primary-tenant.md) §8), and an administrator runs a job, a Nuke or a job revert included, by creating or approving a subsidiary they operate. The `sysop` row this section added to the `job` rate class of [0024](0024-subsidiary-accounts.md) §5 goes with it. James: "administrators should be able to run jobs under subsidiaries", read as this. (PENDING C14)
 
-Replaced text: §12 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0047 A14 --before`).
+Replaced text: §12 of this ADR.
 
 ### A15. `listed`, `requires`, `note` and extension origins
 
@@ -329,14 +329,13 @@ Replaced text: §12 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** corrects §4.4
 - **Summary:** The report is `RandomRootpage`, the registry's spelling and MediaWiki's first English alias; §4.4 had `RandomRootPage`. `check_adrs.py` check 5 becomes case-sensitive on canonical names so the difference is caught ([0050](0050-adr-format.md) §14, check 15). (PENDING F21)
 
-Replaced text: §4.4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0047 A16 --before`).
+Replaced text: §4.4 of this ADR.
 
 ### A17. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§14
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0047 A17 --diff`).
 
 ### A18. Reports are a view-derived, tier-3 consumer of composition
 
@@ -345,7 +344,7 @@ Replaced text: §4.4 of this ADR, as it stood before this entry; in git (`tools/
 - **Change:** amends §4.2, §4.3
 - **Summary:** The `report` projection declares its class: it is view-derived, populated by a scan of the `view` tables it reads and never by a log replay, and "rebuild projection P for tenant T from `view`" is the named operation a batch-to-live switch uses. It is a tier-3 consumer: it consumes events — "entity X composed to version N" for entity reports, the page projection's and the refresh job's row changes for page reports — in its own queue, at its own rate, in no write's transaction, off during bootstrap and bulk modes until the operator turns it on. "Step 5 of 0013 §7" and "the synchronous budget" are withdrawn; the refresh job's rows are events to the report projection like any other, not deltas it applies in the refresh transaction. Chapter text: [21](../architecture/21-special-pages.md) §2.2, §2.3. (REVIEW G10, G13, G50)
 
-Replaced text: [21](../architecture/21-special-pages.md) §2.2, §2.3, as it stood before this entry; in git (`tools/adr.py log 0047 A18 --before`).
+Replaced text: [21](../architecture/21-special-pages.md) §2.2, §2.3.
 
 > Changing a mode writes nothing into any tenant's partitions, so it is not an instance act ([0040](0040-instance-prerogatives.md) §1). When a report moves from live to batch, its next run fills its rows. When it moves from batch to live, the `report` projection rebuilds its rows for that tenant.
 
@@ -364,7 +363,7 @@ Replaced text: [21](../architecture/21-special-pages.md) §2.2, §2.3, as it sto
 - **Change:** corrects §1, §2
 - **Summary:** `served` records a decision, not an implementation, and a served page exists in a build only once it registers a handler. At startup `triplespace-titles` intersects the registry's `served` set with the handlers the binary compiled; that intersection is what the instance reports as its special pages, in `siprop=specialpagealiases` and on `Special:SpecialPages`. The rest of the row (`private.watch`'s `watch_target` index, encrypted upstream grants, `siprop=triplespace` as a function of configuration with the live counters moved to `GET /version`, `/provider/{code}/mirror` and `/repo/{name}`) lands in [0020](0020-change-feeds.md), [0022](0022-federation.md) and [0012](0012-api-requirements.md). Chapter text: [21](../architecture/21-special-pages.md) §1.1, §1.2. (REVIEW G47)
 
-Replaced text: [21](../architecture/21-special-pages.md) §1.1, §1.2, as it stood before this entry; in git (`tools/adr.py log 0047 A19 --before`).
+Replaced text: [21](../architecture/21-special-pages.md) §1.1, §1.2.
 
 ### A20. Nuke by tag, and per-entity export folded by the export job
 
@@ -373,7 +372,7 @@ Replaced text: [21](../architecture/21-special-pages.md) §1.1, §1.2, as it sto
 - **Change:** amends §8; extends §7, §13
 - **Summary:** `view.activity.tags` gets a GIN index (`activity_tags`, [03](../architecture/03-storage-caches-and-search.md) §4.6), so a change-tag target's whole history is one index scan: Nuke's window over an account reads `view.activity` by actor, and over a tag reads it through that index. Per-revision entity export is folded by the export job, which reads one row of `view.entity_revision` per revision and folds it into the XML there, never on the request path; the revisions exported per entity are capped by `export.max_entity_history` (default 100; [23](../architecture/23-configuration-and-registry.md) §3), lower than `export.max_history` for pages, since each entity revision is a whole state rather than a text. The report half of the row (entity reports consume composition events, trigger only for a canonical with a local member, and show their composition lag) is A18's. The foreign-actor contributions view, bounded to `view.activity` with a note that upstream revisions are not indexed by actor, is [0010](0010-site-ui.md) §8's text ([19](../architecture/19-site-ui.md) §2.5), not this ADR's. (REVIEW G50)
 
-Replaced text: [21](../architecture/21-special-pages.md) §4.2, as it stood before this entry; in git (`tools/adr.py log 0047 A20 --before`).
+Replaced text: [21](../architecture/21-special-pages.md) §4.2.
 
 ### A21. `Special:LinkEntities` needs `ts-linkproperty` for `equivalent-property`
 
@@ -382,7 +381,7 @@ Replaced text: [21](../architecture/21-special-pages.md) §4.2, as it stood befo
 - **Change:** amends §6
 - **Summary:** `Special:LinkEntities` needs `ts-link` for `same-as` and `different-from` and also `ts-linkproperty` for `equivalent-property`, the right that now gates linking properties.
 
-Replaced text: [21](../architecture/21-special-pages.md) §3.2, as it stood before this entry; in git (`tools/adr.py log 0047 A21 --before`).
+Replaced text: [21](../architecture/21-special-pages.md) §3.2.
 
 ### A22. Special:Preferences, Special:WikiSettings and Special:InstanceSettings
 
@@ -391,7 +390,7 @@ Replaced text: [21](../architecture/21-special-pages.md) §3.2, as it stood befo
 - **Change:** extends §1; amends §2; amends §3
 - **Summary:** The registry gains three served pages: `Preferences` (MediaWiki's name, scope `tenant`, restricted to `editmyoptions`, with `DisplayNotificationsConfiguration` as its section alias for the notifications tab), `WikiSettings` (scope `tenant`) and `InstanceSettings` (scope `farm`). `Preferences` stops being a section alias of `Account`, whose `ResetTokens` alias now leads to the watchlist token and whose email aliases lead to the new Contacts section. `Tenancy` keeps its name, unlisted, as a redirect to the Tenancy tabs of the two settings pages. The chapter text is [21](../architecture/21-special-pages.md) §1.2, §1.3 and §8.
 
-Replaced text: [21](../architecture/21-special-pages.md) §1.2, §1.3, §8, as it stood before this entry; in git (`tools/adr.py log 0047 A22 --before`).
+Replaced text: [21](../architecture/21-special-pages.md) §1.2, §1.3, §8.
 
 Replaced text ([21](../architecture/21-special-pages.md) §8, as it stood):
 
@@ -404,7 +403,7 @@ Replaced text ([21](../architecture/21-special-pages.md) §8, as it stood):
 - **Change:** extends §1
 - **Summary:** The registry gains `ConfirmAccounts`, origin `ConfirmAccount`, served at tenant scope in the `users` group and restricted to `confirmaccount`; and `CreateAccount` gains the alias `RequestAccount`, ConfirmAccount's request form, which under `account.approval` is the same form. `version.toml` gains the `ConfirmAccount` extension, and `ConfirmEdit` with what Triplespace took from it. The chapter text is [21](../architecture/21-special-pages.md) §8.
 
-Replaced text: [21](../architecture/21-special-pages.md) §8, as it stood before this entry; in git (`tools/adr.py log 0047 A23 --before`).
+Replaced text: [21](../architecture/21-special-pages.md) §8.
 
 ### A24. Pages at the auth base
 
@@ -420,7 +419,7 @@ Replaced text: [21](../architecture/21-special-pages.md) §8, as it stood before
 - **Change:** extends §9
 - **Summary:** `Special:GoToComment`, DiscussionTools' redirect page, is served with its meaning: it finds an imported post by its DiscussionTools name or ID and redirects to it through `Special:PermanentLink/{revid}`, listing the posts where several share a name. Origin `DiscussionTools`, scope `tenant`, group `redirects`; registered in `special-pages.toml`. Chapter text: [21](../architecture/21-special-pages.md) §6.1, §8.
 
-Replaced text: [21](../architecture/21-special-pages.md) §8, as it stood before this entry; in git (`tools/adr.py log 0047 A25 --before`).
+Replaced text: [21](../architecture/21-special-pages.md) §8.
 
 ### A26. `NewProperty` offers the data types the API registers
 
@@ -429,7 +428,7 @@ Replaced text: [21](../architecture/21-special-pages.md) §8, as it stood before
 - **Change:** amends §5
 - **Summary:** `Special:NewProperty` offered fifteen data types, those the entity pages had a name for, while `siteinfo`'s `wikibase-propertytypes` reported thirteen: Wikibase's twelve built-in types and `wikibase-domain` ([0009](0009-keyed-entity-types-and-domain.md)). The two extra were `math` and `musical-notation`, which Wikibase registers only with the Math and Score extensions, and which no ADR adopts: Triplespace validates neither TeX nor LilyPond, renders neither, and has no RDF type for them; the entity pages name them only so that mirrored Wikidata properties of those types display. James asked for the right answer and for the two lists to agree. `wikibase-propertytypes` is the authority, as it is in Wikibase, where it is the set a property may be created with: `NewProperty` offers exactly the registered types, and `Special:ListDatatypes` lists the same ones in the same order. A data type joins the list when an ADR adopts it and the API serves it.
 
-Replaced text: [21](../architecture/21-special-pages.md) §3.1, as it stood before this entry; in git (`tools/adr.py log 0047 A26 --before`).
+Replaced text: [21](../architecture/21-special-pages.md) §3.1.
 
 ### A27. Special:SpecialPages lists by the registry's headings
 
@@ -445,7 +444,7 @@ Replaced text: [21](../architecture/21-special-pages.md) §3.1, as it stood befo
 - **Change:** corrects §1
 - **Summary:** §1's text said the registry is embedded by `triplespace-titles`. The crate map (22 §2.1) gives the registry to `scatter-titles`, the pure crate that embeds the namespace registry and builds for `wasm32`, and `triplespace-titles` is the DB-backed resolver over it, not yet built; `scatter-titles` has embedded `special-pages.toml` since the grouped `Special:SpecialPages` (A27). The decision is unchanged; the chapter now names the crate that holds it. The chapter text is 21 §1.1.
 
-Replaced text: [21](../architecture/21-special-pages.md) §1.1, as it stood before this entry; in git (`tools/adr.py log 0047 A28 --before`).
+Replaced text: [21](../architecture/21-special-pages.md) §1.1.
 
 ### A29. `page_random` is derived from the page
 
@@ -454,7 +453,7 @@ Replaced text: [21](../architecture/21-special-pages.md) §1.1, as it stood befo
 - **Change:** amends §13
 - **Summary:** `view.page.random` is computed from the page, not drawn: the first 52 bits of the MD5 of `{tenant}:{page_id}`, as a fraction in [0, 1). A log-replayed projection is a function of the log ([03](../architecture/03-storage-caches-and-search.md) §6.1), and a value drawn when the row is created is a new value on every rebuild: the Librarybase rebuild of 2026-11-02 differed from the adopted views in every document page's `random`. The hash is uniform as MediaWiki's draw is, so `Special:Random` and `list=random` pick as evenly; the difference is that the value is reproducible, the same page always sorting to the same place. A source's own `page_random` is not in an XML export, so adoption could not keep it either way. Migration `0025_page_random` recomputes existing rows. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §4.5.
 
-Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.5, as it stood before this entry; in git (`tools/adr.py log 0047 A29 --before`).
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.5.
 
 ### A30. The `records` export is one document, and leaves out what no checkpoint covers
 
@@ -512,7 +511,7 @@ Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.5, as i
 - **Change:** amends §8.1
 - **Summary:** A35 (3) wrote every revision of a page with the page's current content model, since a page record carries no model of its own at each revision. James chose correctness: the exporter walks the page's records as it writes them, the `create`'s model and then each `edit`'s change, so a revision carries the model it had, and the `<format>` follows; where the records that set the model are withheld, the page's current model stands. A page's model changes rarely, and the records are read for the text anyway, so the walk costs nothing more. Chapter text: 21 §4.2.
 
-Replaced text: [21](../architecture/21-special-pages.md) §4.2, as it stood before this entry; in git (`tools/adr.py log 0047 A37 --before`).
+Replaced text: [21](../architecture/21-special-pages.md) §4.2.
 
 ### A38. `import.max_upload`
 

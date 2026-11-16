@@ -378,7 +378,7 @@ def replaced_cites(adr, body):
         for seg in cite.split(";"):
             doc = ("adr", adr)
             # A section named rather than numbered (Consequences; the old "Changes to other ADRs").
-            named = re.match(r"\s*([A-Z][A-Za-z ]+?)(?: of this ADR)?\s*(?:,|$)", seg)
+            named = re.match(r"\s*([A-Z][A-Za-z ]+?)(?: of this ADR)?\s*(?:,|\.?\s*$)", seg)
             if named and "§" not in seg and not re.search(r"\[\d", seg):
                 out.append(("adr", adr, named.group(1)))
                 continue

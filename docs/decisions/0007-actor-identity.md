@@ -137,7 +137,7 @@ Four constraints follow from how MediaWiki treats accounts:
 - **Change:** amends §1; extends §3, §8
 - **Summary:** Each tenant is an issuer, coded by its slug; `local` reads as the current tenant's issuer. Bindings map a provider subject to a tenant account and live in the tenant's `accounts` partition. Attribution keeps the account and tenant an edit was made under.
 
-Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0007 A2 --before`).
+Replaced text: §1 of this ADR.
 
 ### A3. The built-in password issuer
 
@@ -246,7 +246,7 @@ Replaced text: the operator IRI `{farm base}/operator` of A13.
 - **Change:** amends §9
 - **Summary:** The list in §9 of terms minted under `scatter:` is illustrative, not a catalogue: `scatter-vocab` is the catalogue of record for Triplespace's own vocabulary, and a term is defined there, not by appearing in §9 or in [0001](0001-revision-metadata-rdf.md) §6, which is amended the same way. (PENDING A21)
 
-Replaced text: §9 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0007 A17 --before`).
+Replaced text: §9 of this ADR.
 
 ### A18. One actor record per provider
 
@@ -255,7 +255,7 @@ Replaced text: §9 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §6
 - **Summary:** A provider without individual actors has one actor record, of kind `provider`, in `actors/{provider}`, with agent type `prov:Organization`, written when the provider is registered; every attestation, OpenAlex's mirror records included, names an actor key. "No actor records are kept for such providers" becomes this. The job's own actor stays separate, as §6 says. [0013](0013-postgres-storage.md) §5.4 is amended the same way. (PENDING C1)
 
-Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0007 A18 --before`).
+Replaced text: §6 of this ADR.
 
 ### A19. The right to see an IP in the abuse-handling store
 
@@ -269,7 +269,6 @@ Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0007 A20 --diff`).
 
 ### A21. Tenant and farm issuer codes are derived
 
@@ -278,7 +277,7 @@ Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §1, §3
 - **Summary:** A tenant's issuer code is derived from its founding record, and the farm's is the farm code ([0079](0079-derived-issuer-codes.md) §1–2, §4): 26 characters of base32 that no registry allocates. Chapter text: [07](../architecture/07-actors-and-accounts.md) §1.1, §2.1.
 
-Replaced text: §1, in [07](../architecture/07-actors-and-accounts.md) §1.1; §3, in [07](../architecture/07-actors-and-accounts.md) §2.1, as it stood before this entry; in git (`tools/adr.py log 0007 A21 --before`).
+Replaced text: §1, in [07](../architecture/07-actors-and-accounts.md) §1.1; §3, in [07](../architecture/07-actors-and-accounts.md) §2.1.
 
 ### A22. The actor key lives in the attestation part, never in the header
 
@@ -287,7 +286,7 @@ Replaced text: §1, in [07](../architecture/07-actors-and-accounts.md) §1.1; §
 - **Change:** corrects §1
 - **Summary:** An actor key is what the attestation part of a record carries; a record's header never names the actor responsible for it, and carries an actor key only as the key of an actor record, whose subject the actor is. "It is what log headers carry" is struck. `view.activity`'s issuer index filters on the tenant's issuer code. The spelling of issuer codes is settled by [0079](0079-derived-issuer-codes.md). (REVIEW G19)
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §1.1, as it stood before this entry; in git (`tools/adr.py log 0007 A22 --before`).
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §1.1.
 
 ### A23. `editcount` and `created_at` on `view.actor`; `autoconfirmed` is implicit
 
@@ -317,7 +316,7 @@ Replaced text: [07](../architecture/07-actors-and-accounts.md) §1.1, as it stoo
 - **Change:** amends §3
 - **Summary:** A person authenticates to the instance as an **instance login**, not as a tenant account. `login` is a built-in issuer. Logins are created and used on the auth host, and a person chooses a tenant account's public name on the first visit. The chapter text is [07](../architecture/07-actors-and-accounts.md) §2.1, §2.2, §2.6 and the new §2.8.
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.1, §2.2, §2.6, as it stood before this entry; in git (`tools/adr.py log 0007 A26 --before`).
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.1, §2.2, §2.6.
 
 ### A27. A surrogate's actor key is `actor:{n}`
 
@@ -326,7 +325,7 @@ Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.1, §2.2, §2
 - **Change:** amends §5; extends §1
 - **Summary:** A surrogate is minted by its tenant, in sequence, from the tenant's `actor_surrogate` sequence, and its actor key is `actor:{n}`. Like `local`, the code `actor` is never registered, reads as the current tenant's, and is reserved in the shared namespace of slugs and issuer codes; the key's IRI is `{base}/actor/{n}`, and outside the tenant a surrogate is named by that IRI. Its actor record, of kind `anonymous`, `imported` or `federated` with the `raw` value, is in the tenant's `actors` partition, keyed by the key. Before this, a surrogate had an IRI and no key, and tenant issuers accept only numeric subjects. The chapter text is [07](../architecture/07-actors-and-accounts.md) §1.1 and §1.4; the sequence is logged as [0013](0013-postgres-storage.md) A68.
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §1.4, as it stood before this entry; in git (`tools/adr.py log 0007 A27 --before`).
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §1.4.
 
 > **Surrogates are minted by the instance, in sequence.** They carry no information about what they stand for.
 
@@ -344,5 +343,5 @@ Replaced text: [07](../architecture/07-actors-and-accounts.md) §1.4, as it stoo
 - **Change:** amends §8; extends §5
 - **Summary:** A private graph is never in an export or a transfer, and only the operator's backups carry it (0103 §2); and RDF, dumps, the stream and federation name a surrogate by its IRI alone, never the raw value an actor record keeps for it, an upstream IP address among them (0103 §6). Chapter text: [07](../architecture/07-actors-and-accounts.md) §1.6, §1.4.
 
-Replaced text: [07](../architecture/07-actors-and-accounts.md) §1.6, as it stood before this entry; in git (`tools/adr.py log 0007 A29 --before`).
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §1.6.
 

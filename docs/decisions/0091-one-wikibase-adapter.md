@@ -94,11 +94,10 @@ His choices in the same discussion:
 - **Change:** corrects Consequences
 - **Summary:** The implementation renamed the crate, retired `scatter-adapter-internetdomains` and moved internetdomains.wiki's key map to the rule form in one change, so the two consequences that described a gap between the registry, the crate map and the code no longer hold. The decision is unchanged.
 
-Replaced text: Consequences of this ADR, as it stood before this entry; in git (`tools/adr.py log 0091 A1 --before`).
+Replaced text: Consequences of this ADR.
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-30
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§5
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0091 A2 --diff`).

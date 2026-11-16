@@ -68,5 +68,5 @@ James's direction, from the design discussion of 2026-11-09:
 - **Change:** amends §1
 - **Summary:** The probe gains three kinds of line: `tenancy` for a tenancy switch read, and, from the server, `module` and `route` for an Action API module or a REST route served. Settles Q1 and Q2. Chapter text: [22](../architecture/22-crates-and-stack.md) §4.9; [24](../architecture/24-documentation.md) §11.
 
-Replaced text: [22](../architecture/22-crates-and-stack.md) §4.9; [24](../architecture/24-documentation.md) §11, as it stood before this entry; in git (`tools/adr.py log 0107 A1 --before`).
+Replaced text: [22](../architecture/22-crates-and-stack.md) §4.9; [24](../architecture/24-documentation.md) §11.
 

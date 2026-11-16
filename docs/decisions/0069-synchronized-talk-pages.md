@@ -132,7 +132,7 @@ James's direction, from the design discussion of 2026-10-06:
 - **Change:** amends §10
 - **Summary:** Listing keys (`tp:`, `sc:`, `sp:`) carry a **listing version**, the maximum activity ID over the listing's members, computed in Postgres at read time, in place of tag purges on ordinary writes; 0014 §1 principles 1 and 4 hold unchanged. Tag purges remain for erasure and hiding. For this ADR: a `put` of a followed talk page no longer purges the `tp:` listings of the local talk pages that follow it by tag; the listing's version changes with the `put` instead. (PENDING B4)
 
-Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0069 A1 --before`).
+Replaced text: §10 of this ADR.
 
 ### A2. No `list=threads`
 
@@ -141,7 +141,7 @@ Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/a
 - **Change:** corrects §9
 - **Summary:** There is no `list=threads`; `origin=` is a parameter of `GET /page/{id}/threads` only. The Action API paragraph's `thorigin` on `list=threads` goes; the route table's `origin=local|upstream` filter stands. (PENDING E34)
 
-Replaced text: §9 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0069 A2 --before`).
+Replaced text: §9 of this ADR.
 
 ### A3. Talk-destination proposals on a following fork
 
@@ -155,7 +155,6 @@ Replaced text: §9 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§12
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0069 A4 --diff`).
 
 ### A5. Stopping splits comments too
 
@@ -164,5 +163,5 @@ Replaced text: §9 of this ADR, as it stood before this entry; in git (`tools/ad
 - **Change:** amends §7
 - **Summary:** **Stop following** runs the conversion as it now stands, so each section's comments become posts, attributed to their authors, rather than one post per section. Chapter text: [13](../architecture/13-mirrored-pages.md) §5.11.
 
-Replaced text: [13](../architecture/13-mirrored-pages.md) §5.11, as it stood before this entry; in git (`tools/adr.py log 0069 A5 --before`).
+Replaced text: [13](../architecture/13-mirrored-pages.md) §5.11.
 

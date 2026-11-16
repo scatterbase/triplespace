@@ -155,7 +155,6 @@ James's direction, from the design discussion of 2026-10-29:
 - **Date:** 2026-10-30
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§18
-- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0097 A1 --diff`).
 
 ### A2. Plain and Worksheet; switching by group
 
@@ -164,17 +163,17 @@ James's direction, from the design discussion of 2026-10-29:
 - **Change:** amends §8, §13, §16, §17; extends §9
 - **Summary:** Two skins ship. **Plain** draws the site's HTML and loads no stylesheet of its own; its DOM (element structure, class names, `data-` attributes, landmarks) is a contract versioned as Plain's version, with Codex's class names where Codex has a component and `ts-` classes filling the gaps. **Worksheet**, the default (`skins.default` defaults to `worksheet`), is Plain plus Codex's and the site's stylesheets. A skin either extends Plain, naming it as parent and adding stylesheets and the files they use and nothing else, so that everything written against Plain's DOM works on it; or stands alone, implementing the template contract with its own DOM, free but outside that compatibility. Plain is useful unstyled to operators building their own look, to readers styling it client-side, and to readers using assistive technology. Plain is written first to reproduce today's HTML, and parity is measured on Worksheet. Feature work on the site pauses while the migration runs. The chapter text is [19](../architecture/19-site-ui.md) §5.2, §5.6 and §5.10.
 
-Replaced text: [19](../architecture/19-site-ui.md) §5.10, as it stood before this entry; in git (`tools/adr.py log 0097 A2 --before`).
+Replaced text: [19](../architecture/19-site-ui.md) §5.10.
 
 > - **The manifest**, `skin.toml`, gives the name, version, licence and requirements: the template contract and the Codex token major it is written for. A skin whose requirements the binary does not meet is not loaded, and the reason is logged and shown on `Special:Version`.
 
 > **Reaching parity.** The default skin first reproduces today's HTML. Deployment configuration `server.renderer` and `web.renderer` is `builtin` (until parity), `skin` or `compare`, which renders each page both ways, serves the built-in result and logs each route that differs. Results are compared as normalized DOM, fragments byte for byte, with `html::esc` as the skin's escaper, over every route of the routing table for a fixture wiki as an anonymous reader, a user and an administrator, for each content model, right to left, in night mode, with each feature switch on and off, and on a private tenant; the Playwright and axe suite runs against both. The frame moves first, then entity pages, then the rest route by route, each once it is equal on the corpus and has run under `compare` on a staging instance without a difference; then the built-in rendering and `renderer` are removed. The template contract stays at major 0 until a second skin, structurally different from the default, renders every route.
 
-Replaced text: [19](../architecture/19-site-ui.md) §5.2, as it stood before this entry; in git (`tools/adr.py log 0097 A2 --before`).
+Replaced text: [19](../architecture/19-site-ui.md) §5.2.
 
 > - **Codex markup:** the default skin's macros emit Codex CSS-only component markup (buttons, fields, tables, cards, tabs, messages, chips, progress bars), following the approach of WMF's Codex PHP, so a Codex markup change is one edit; until parity, a Rust builder module does the same for the built-in rendering. Another skin may use other components.
 
-Replaced text: [19](../architecture/19-site-ui.md) §5.6, as it stood before this entry; in git (`tools/adr.py log 0097 A2 --before`).
+Replaced text: [19](../architecture/19-site-ui.md) §5.6.
 
 ### A3. Fragments are compared as normalized DOM
 
@@ -183,7 +182,7 @@ Replaced text: [19](../architecture/19-site-ui.md) §5.6, as it stood before thi
 - **Change:** amends §16
 - **Summary:** The parity comparison reads `action=render` fragments the way it reads pages, as normalized DOM, not byte for byte. §16 assumed that with `html::esc` as the skin's escaper "escaping never differs", but the built-in renderer already escapes two ways: `askama` writes `&#60;`, `&#62;`, `&#38;`, `&#34;` in the frame and the Codex component templates, and `html::esc` writes `&lt;`, `&gt;`, `&amp;`, `&quot;` in the string builders, so a fragment that holds a Codex component cannot be reproduced byte for byte by a skin with one escaper. A browser builds the same DOM from either spelling, and the normalizer (`triplespace_ui::parity`) keeps every other difference, whitespace where it renders included. The chapter text is 19 §5.10.
 
-Replaced text: [19](../architecture/19-site-ui.md) §5.10, as it stood before this entry; in git (`tools/adr.py log 0097 A3 --before`).
+Replaced text: [19](../architecture/19-site-ui.md) §5.10.
 
 ### A4. Drawings are SVG the binary makes
 
@@ -199,7 +198,7 @@ Replaced text: [19](../architecture/19-site-ui.md) §5.10, as it stood before th
 - **Change:** amends §16
 - **Summary:** The entity pages (group 3) reached parity on every gate but the timing: +9.4% at the median over the corpus, which is about 2.5 ms on the heaviest page (a 500-statement item), since a template engine costs about twice the string builders it replaces and the harness's in-memory API makes the render share, and so the ratio, a worst case. James: "The 9.4% above baseline is tolerable here. 'Pages with hundreds of statements' describes a scenario traditional Wikibase handles very poorly, and it appears we handle it with slight delay instead of catastrophically slowing down." A group over the 5% budget switches when the absolute cost is one no reader can perceive; the budget stays as the gate for a slowdown of another order. The chapter text is 19 §5.10.
 
-Replaced text: [19](../architecture/19-site-ui.md) §5.10, as it stood before this entry; in git (`tools/adr.py log 0097 A5 --before`).
+Replaced text: [19](../architecture/19-site-ui.md) §5.10.
 
 ### A6. A part of a later group is carried as HTML until that group switches
 
@@ -250,11 +249,11 @@ Replaced text: [19](../architecture/19-site-ui.md) §5.10, as it stood before th
 - **Change:** amends §16; extends §9, A3 and A6
 - **Summary:** Group 12 passed the gates of §16 with the built-in builders still in place, and switched: every page is drawn by the skin, and the built-in renderer is removed, its string builders, the Codex components' `askama` templates and the `askama` dependency (the components keep their models, which Plain's macros draw, and `tests/codex_macros.rs` holds each macro's markup as a snapshot in place of the builder it was compared with), with the deployment settings `server.renderer` and `web.renderer` (`--renderer`, `TRIPLESPACE_RENDERER`, `TRIPLESPACE_WEB_RENDERER`) and the end-to-end suite's run per renderer. The parity harness and `cargo xtask skin-parity` are kept over the same corpus as the check that Worksheet is Plain with its stylesheets: each case drawn with both skins, Worksheet's stylesheet links taken out, compared as A3 compares; the render times are reported as a watch rather than judged against a budget, since there is no built-in time to judge them by. No part of a page is carried as HTML for a later group (A6). The chapter text is 19 §5.10, 20 §1.2 and 23 §3.6.
 
-Replaced text: [19](../architecture/19-site-ui.md) §5.10, as it stood before this entry; in git (`tools/adr.py log 0097 A12 --before`).
+Replaced text: [19](../architecture/19-site-ui.md) §5.10.
 
 > While the migration runs, a part of a page that belongs to a group not yet switched is carried the same way and the field is replaced by the part's model when that group switches ([0097](../decisions/0097-versioning-and-skins.md) A6); the History tab's changes table was carried so between groups 4 and 7.
 
-Replaced text: [19](../architecture/19-site-ui.md) §5.2; [20](../architecture/20-web-tier.md) §1.2 and [23](../architecture/23-configuration-and-registry.md) §3.6, as it stood before this entry; in git (`tools/adr.py log 0097 A12 --before`).
+Replaced text: [19](../architecture/19-site-ui.md) §5.2; [20](../architecture/20-web-tier.md) §1.2 and [23](../architecture/23-configuration-and-registry.md) §3.6.
 
 > | `server.renderer` | `builtin`, `skin`, `compare` | `builtin` | Which renderer draws the embedded site's pages until the skin migration is done: `compare` renders both, serves the built-in result and logs each route that differs; removed with the last group ([19](../architecture/19-site-ui.md) §5.10) | [0097](../decisions/0097-versioning-and-skins.md) §16 |
 
