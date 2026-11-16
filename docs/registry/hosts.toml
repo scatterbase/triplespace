@@ -18,9 +18,12 @@
 #               Without it the host's keys have no links.
 # page_url      Template for a page's link: {base} and {n}.
 # revision_url  Template for a revision's link: {base} and {n}.
+# alias         Optional. A title alias for the host's keys: Wikimedia:enwiki-p12 is
+#               Remote:wikimedia:enwiki-p12. Takes no namespace number (0110 A2).
 #
-# Hosts are allocated here only, never by an instance or a tenant: remote IDs and IRIs are shared
-# by every instance. A host's name is never reused for another host; a retired host stays with
+# Hosts here are shared by every instance: their remote IDs and IRIs are the same everywhere. A tenant
+# may also declare a host of its own, as a `remote-host` config record whose keys mean something only
+# on that tenant (0110 A3). A host's name is never reused for another host; a retired host stays with
 # `retired = true`.
 
 version = 1
@@ -32,9 +35,10 @@ site_grammar = "dbname"
 sites = "site-aliases"
 page_url = "{base}/?curid={n}"
 revision_url = "{base}/?oldid={n}"
-defined_in = "0110 §2"
+alias = "Wikimedia"
+defined_in = "0110 §2, A2"
 
-# --- Candidates (0110 §2, Q7) -------------------------------------------------------------------
+# --- Candidates (0110 §2; deferred, Q7) -------------------------------------------------------------------
 #
 # Miraheze: wikis named by database name, numbered by MediaWiki. No site list yet: a wiki's domain
 # is its subdomain of miraheze.org unless it has a custom one, so links wait for a generated list.

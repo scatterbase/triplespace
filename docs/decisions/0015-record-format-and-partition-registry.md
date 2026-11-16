@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-15 (A66)
+- **Updated:** 2026-11-16 (A67)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md)
 - **Uses:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md)
@@ -35,7 +35,7 @@ Two smaller gaps are closed with them: the document node of a foreign entity on 
 
 ### 3. The `config` partition (amends 0005 §4.1; extends 0006 §4 and §6)
 
-*Changed by A3, A4, A5, A6, A8, A9, A10, A11, A12, A13, A16, A19, A20, A21, A23, A24, A26, A27, A28, A30, A31, A32, A33, A34, A35, A36, A37, A39, A40, A41, A42, A44, A47, A52, A54, A57, A58, A59, A60.*
+*Changed by A3, A4, A5, A6, A8, A9, A10, A11, A12, A13, A16, A19, A20, A21, A23, A24, A26, A27, A28, A30, A31, A32, A33, A34, A35, A36, A37, A39, A40, A41, A42, A44, A47, A52, A54, A57, A58, A59, A60, A67.*
 
 *Current text: [23](../architecture/23-configuration-and-registry.md) §1.1, §1.2, §1.3, §1.4, §2.1, §2.2, §2.3, §2.4, §3.1, §3.2, §3.7, §5.2.*
 
@@ -701,3 +701,10 @@ Replaced text ([01](../architecture/01-log-and-records.md) §2.5, as it stood):
 - **Source:** Direct: James, 2026-11-15, on A65; the registry declaration and the fallback are Claude's, while building it, unconfirmed
 - **Change:** extends §2
 - **Summary:** James confirms A65's rule for a keyed subject, which keeps its key's page ID. For an operation without an upstream page ID, A65's fallback to the page sequence goes: (1) **a follower's deletion and redirect** carry the page ID their change row names, so that their page ID comes from their content as a state's does. A deletion's log row names the deleted page (every one of 120 deletions in Wikidata's recent changes on 2026-11-15 did), a redirect's row is an edit of the redirected page, and the rows about one title in a batch keep any page ID one of them names. An entity read again on a later pass, after a lagging replica, has lost its row and takes its key's page ID. (2) **A provider that publishes no page IDs** takes `provider_number << 40 | offset of the key's first record`, as A50 has it, for every record, and one that publishes them never does, so that the two never share a provider's range. Which a provider does is declared on its registry entry, not judged record by record, and a record of a provider that publishes page IDs that arrives without one takes its key's page ID. (2) is not yet built, and until it is such a provider still draws from `log."instance.page_id"`: the log store assigns a record's offset when it appends it, after its header, field 9 included, is fixed, so the append has to fill field 9 from the offset it assigns. Chapter text: 01 §2.5.
+
+### A67. The `remote-host` config kind
+
+- **Date:** 2026-11-16
+- **Source:** Direct: James, design discussion of 2026-11-16
+- **Change:** extends §3
+- **Summary:** A tenant `config` record of kind `remote-host`, keyed by the host's name, declares a host for the tenant's own remote keys ([0110](0110-remote-pages-and-revisions.md) A3). Chapter text: [23](../architecture/23-configuration-and-registry.md) §2.2.

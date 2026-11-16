@@ -342,7 +342,7 @@ One scheme shares one namespace with every other scheme, which leaves 218 to 219
 
 ### 3.9 What a notation is, and what it is not
 
-*Sources: [0048](../decisions/0048-notation.md) §3; [0048](../decisions/0048-notation.md) §4; [0036](../decisions/0036-openstreetmap-providers.md) §6; [0110](../decisions/0110-remote-pages-and-revisions.md) §3.*
+*Sources: [0048](../decisions/0048-notation.md) §3; [0048](../decisions/0048-notation.md) §4; [0036](../decisions/0036-openstreetmap-providers.md) §6; [0110](../decisions/0110-remote-pages-and-revisions.md) §3; [0110](../decisions/0110-remote-pages-and-revisions.md) A5.*
 
 Five mechanisms give strings an identity. The question that tells them apart is who decides that two strings are the same thing.
 
@@ -355,6 +355,8 @@ Five mechanisms give strings an identity. The question that tells them apart is 
 | **Remote key** (§3.11) | A host that runs many sites has numbered a page or revision on one of them, and the string is that number qualified by the host and the site. It names the page or revision itself | `remote:wikimedia:enwiki-p12` |
 
 **A remote key is not a notation** ([0110](../decisions/0110-remote-pages-and-revisions.md) §3). A notation is a term: `notation:osm:amenity=cafe` is a tag, not the café. A remote key names its page or revision as a Domain names its domain, so a statement about `remote:wikimedia:enwiki-p12` is a statement about the article, and a `wikibase-remote` value cites the page or revision, not a string that names it.
+
+**Remote is an umbrella over keyed types** ([0110](../decisions/0110-remote-pages-and-revisions.md) A5). Each host's keys could have been a keyed type of their own, and are one type only so that a host costs a registry entry instead of a type. What makes them keyed at all is the test any new keyed type must pass: **the thing named is self-validating in identity**, so the key alone says what it names, with no authority to ask. A domain name is; a page number qualified by its host and site is; a notation is not, because what its string denotes is the vocabulary's to say. 0048's rule stands for terms: a new vocabulary of terms is a notation scheme.
 
 **Notations never join identity clusters** (§4.1), as keywords do not, for the same reason: `notation:osm:amenity=cafe` is a tag, and a Wikidata item about cafés is the concept. A notation may carry an ordinary statement pointing at the concept it usually denotes; `P7` and `P12` stay statements, so a user can follow a tag to its concept without the phrase becoming canonical over the concept.
 
@@ -379,7 +381,7 @@ Normalizers come from `scatter-normalize` ([22](22-crates-and-stack.md)), which 
 
 ### 3.11 Remote pages and revisions
 
-*Sources: [0110](../decisions/0110-remote-pages-and-revisions.md) §1; [0110](../decisions/0110-remote-pages-and-revisions.md) §3; [0110](../decisions/0110-remote-pages-and-revisions.md) §4; [0110](../decisions/0110-remote-pages-and-revisions.md) §8.*
+*Sources: [0110](../decisions/0110-remote-pages-and-revisions.md) §1; [0110](../decisions/0110-remote-pages-and-revisions.md) §3; [0110](../decisions/0110-remote-pages-and-revisions.md) §4; [0110](../decisions/0110-remote-pages-and-revisions.md) §8; [0110](../decisions/0110-remote-pages-and-revisions.md) A1; [0110](../decisions/0110-remote-pages-and-revisions.md) A4.*
 
 A **host** runs many sites, gives each a short name, and numbers each site's pages and revisions: Wikimedia names its wikis by database name (`enwiki`) and MediaWiki numbers their pages and revisions. A **remote key** names one page or one revision by the host, the site and the number. `remote:wikimedia:enwiki-p12` is English Wikipedia's page 12, the article *Anarchism*, whatever its title becomes; `remote:wikimedia:enwiki-r1234567` is one revision on English Wikipedia. The pattern is not particular to wikis: any host that names its sites and numbers their pages and revisions can be registered (§3.12).
 
@@ -392,16 +394,23 @@ A **host** runs many sites, gives each a short name, and numbers each site's pag
 | Data type | `wikibase-remote`, value type `wikibase-entityid` |
 | Content model | `triplespace-remote` ([10](10-pages-and-content-models.md) §4.4) |
 | IRI | `https://scatter.red/remote/{key}`, content-derived and shared by every instance (§3.5) |
-| Grammar | A registered host's name; `:`; a site name in the host's site grammar (§3.12), which never admits `-`; `-`; `p` or `r`; a decimal number from 1 to 2^63 − 1 with no leading zeros |
+| Grammar | The name of a host in the registry or declared on the tenant (§3.12); `:`; a site name in the host's site grammar (§3.12), which never admits `-`; `-`; `p` or `r`; a decimal number from 1 to 2^63 − 1 with no leading zeros |
 | Normalizer | The host's name lowercased, the site name by its grammar, and the letter lowercased; nothing else. `WIKIMEDIA:ENWIKI-P12` is `wikimedia:enwiki-p12`, while `wikimedia:enwiki-p012` and `wikimedia:en.wikipedia.org-p12` are not keys |
-| Display | Derived: the key without the host as the `mul` label; `wbsetlabel` fails with `derived-label` as on a Domain (§3.6). Descriptions and aliases are stored and reconciled like an item's |
+| Display | Editable, as a keyword's labels are (§3.7): a stored label in the requested language always wins. Without one, the UI builds a label from what the tenant knows (below). Descriptions and aliases are stored and reconciled like an item's |
 | Clusters | Never (§4.1) |
 
 **Parsing a key.** A host's name never contains a colon, so the first colon ends it, and a site name never contains a hyphen, so the first hyphen after it ends the site. A key whose host is not registered is not a valid key, as a notation whose scheme is not registered is not (§3.8).
 
 **The key is checked by its form alone.** It is valid whether or not the site, the page or the revision exists, as a Domain is valid whether or not anyone has registered it (§3.3). No list of sites is read to decide it, so the key is the same on every instance and does not change when a host opens, closes or renames a site.
 
-**A page key names the page, a revision key names the revision.** A host whose numbers this type records keeps a page's number when the page is renamed and never gives a revision's number to another revision; MediaWiki does both, so `remote:wikimedia:enwiki-p12` follows the article through moves. Neither key says anything of the other: which page a revision belongs to is data, because a history merge can move revisions between pages.
+**A label is built from what the tenant knows** ([0110](../decisions/0110-remote-pages-and-revisions.md) A1). Where no label is stored in the reader's language, the UI shows, in this order:
+
+1. on a tenant whose page repository indexes the site's titles ([13](13-mirrored-pages.md) §2.3), the page's current title and its site: "Judith Butler (from en.wikipedia.org)";
+2. otherwise the number and the site: "page ID 148809 (from en.wikipedia.org)", or "revision ID 1234567 (…)" for a revision key, naming the site by the domain its host's site list gives it and by its name ("from enwiki") where the list gives none.
+
+The phrases are interface messages, in the reader's language. Wikibase JSON and RDF carry stored labels only, so an entity with none has no label there, and a client shows its ID, the key. The title comes from the title index whatever the repository's mode, so an option to index a site's titles without serving its pages would supply it too; there is none yet.
+
+**A page key names the page, a revision key names the revision.** A host whose numbers this type records keeps a page's number when the page is renamed and never gives a revision's number to another revision; MediaWiki does both, so `remote:wikimedia:enwiki-p12` follows the article through moves. Neither key says anything of the other: which page a revision belongs to is data, because a history merge can move revisions between pages. It is said with the role **`revision-of`** ([0110](../decisions/0110-remote-pages-and-revisions.md) A4; [06](06-statements-and-properties.md) §1.2), whose property an ingest asserts on a revision key with the page key as value. On a tenant that serves the site, where each served revision knows its page, the statement is to be projected as well, once synced pages' projected statements exist ([13](13-mirrored-pages.md) §1.7).
 
 The rest of what §3 says of a Domain applies unchanged: a remote key exists because it is valid, with no create, redirect or delete (§3.3); log headers carry a surrogate (§3.4); upstream items can be key-mapped onto remote keys ([05](05-providers-and-ingest.md)). Host names join the one table of keyed-type, resolver and scheme names, so `wikimedia:enwiki-p12` typed into `/resolve` or the search box means the remote key, tried after keyed IDs and with notation keys, before resolver strings.
 
@@ -413,7 +422,7 @@ The rest of what §3 says of a Domain applies unchanged: a remote key exists bec
 
 ### 3.12 Hosts
 
-*Sources: [0110](../decisions/0110-remote-pages-and-revisions.md) §2; [0110](../decisions/0110-remote-pages-and-revisions.md) §4.*
+*Sources: [0110](../decisions/0110-remote-pages-and-revisions.md) §2; [0110](../decisions/0110-remote-pages-and-revisions.md) §4; [0110](../decisions/0110-remote-pages-and-revisions.md) A2; [0110](../decisions/0110-remote-pages-and-revisions.md) A3.*
 
 **Hosts are registry data,** in `docs/registry/hosts.toml`, to be embedded by `scatter-normalize` with the type. Each entry has:
 
@@ -424,10 +433,13 @@ The rest of what §3 says of a Domain applies unchanged: a remote key exists bec
 | `site_grammar` | The name of a grammar implemented in `scatter-normalize` that decides which site names are valid and how they are normalized. None may admit `-`. One exists: `dbname`, 1 to 64 characters of ASCII letters, digits and underscores, starting with a letter, lowercased (`enwiki`, `zh_min_nanwiki`) |
 | `sites` | Optional. Where a site's base URL comes from: `site-aliases`, the default site aliases by site ID ([06](06-statements-and-properties.md) §4.3). Without it the host's keys have no links |
 | `page_url`, `revision_url` | Templates over `{base}`, the site's base URL, and `{n}`, the number |
+| `alias` | Optional. A title alias for the host's keys ([0110](../decisions/0110-remote-pages-and-revisions.md) A2): with `alias = "Wikimedia"`, `Wikimedia:enwiki-p12` is `Remote:wikimedia:enwiki-p12` |
 | `defined_in` | The ADR that registered the host |
 | `retired` | Optional. A retired host stays in the file so its name is never given to another |
 
-**Hosts are allocated in the registry only, never by an instance or a tenant,** for the reason schemes are (§3.8): a remote ID and its IRI are shared by every instance, so two instances that gave one name to different hosts would describe different pages with one IRI. **A new host is a registry change; a new site grammar is code.** A host is not a provider (`providers.toml`, [05](05-providers-and-ingest.md) §1.5): it mints nothing Triplespace stores or mirrors, and needs only a name, a grammar and its links.
+**A host's alias is a title form, not a namespace** ([0110](../decisions/0110-remote-pages-and-revisions.md) A2). `Wikimedia:enwiki-p12` and `Wikimedia talk:enwiki-p12` are normalized to `Remote:wikimedia:enwiki-p12` and `Remote talk:wikimedia:enwiki-p12`, which stay canonical: the alias takes no number, and since it stands for a namespace and the host together, `meta=siteinfo` cannot list it among `namespacealiases`. An alias may not equal a namespace's name or alias on the tenant, or an interwiki prefix from its site aliases; such a host is refused with `ts-namespace-name-taken`, as an entity source's namespace is ([05](05-providers-and-ingest.md) §6.5). The alias also gives a client a talk title it can accept: the text of `Remote talk:wikimedia:enwiki-p12` starts with `wikimedia:`, an interwiki prefix on Wikimedia's map, which MediaWiki refuses at the start of a talk page's text, while `Wikimedia talk:enwiki-p12` has none. `wikimedia:` points to the Wikimedia Foundation's governance wiki, so the alias shadows only links to that wiki in copied wikitext. Wikimedia's alias is `Wikimedia`.
+
+**A host is a registry entry, or a tenant's own** ([0110](../decisions/0110-remote-pages-and-revisions.md) A3). A registry host's remote IDs and IRIs are shared by every instance, so its name is allocated in the registry only, as a scheme's is (§3.8). **A tenant may declare a host for itself,** as it declares an entity source ([05](05-providers-and-ingest.md) §6.1): a `config` record of kind `remote-host` ([23](23-configuration-and-registry.md) §2.2), keyed `remote-host:{name}`, with the fields above. Its name joins the tenant's table of names under the rules an entity source's does ([05](05-providers-and-ingest.md) §6.3): refused where the registry has the name, and shadowing a registry name added later. Its keys mean something only on that tenant, as a source's IDs do, and their IRIs are `{base}/remote/{key}` under the tenant's base, not `scatter.red`. Its site grammar is one `scatter-normalize` implements, and its site list may be the tenant's own `site-alias` records. A tenant host that many tenants use can be promoted to the registry, as a source is ([05](05-providers-and-ingest.md) §6.8): its keys keep their form, and each old IRI is recorded as `owl:sameAs` the registry one. **A new site grammar is code.** A host is not a provider (`providers.toml`, [05](05-providers-and-ingest.md) §1.5): it mints nothing Triplespace stores or mirrors, and needs only a name, a grammar and its links.
 
 **Wikimedia is the first host:** site grammar `dbname`, site list `site-aliases`, page URL `{base}/?curid={n}`, revision URL `{base}/?oldid={n}`. **Miraheze is drafted as a candidate,** commented out as `resolvers.toml` drafts its candidates: its wikis have database names too, some the same as Wikimedia's (`metawiki`), which the host in the key keeps apart. It has no site list yet, because a Miraheze wiki's domain is a subdomain of `miraheze.org` unless it has a custom one.
 
