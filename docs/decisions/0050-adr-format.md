@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-11-16 (A6)
+- **Updated:** 2026-11-16 (A7)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0026](0026-sitelinks.md), [0027](0027-preferences-and-portability.md), [0028](0028-tenancy-policy.md), [0029](0029-resolver-namespaces.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0032](0032-sparql-update-stream.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0035](0035-adopting-a-wikibase.md), [0036](0036-openstreetmap-providers.md), [0037](0037-gdelt-provider.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0044](0044-tenant-relative-ids.md), [0045](0045-table-content-model.md), [0046](0046-primary-tenant.md), [0047](0047-special-pages.md), [0048](0048-notation.md), [0049](0049-boards.md), [0051](0051-page-redirects.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [0056](0056-security-model.md), [0057](0057-web-tier.md), [0058](0058-packed-record-storage.md), [0059](0059-query-service.md), [0060](0060-scopes.md), [0061](0061-sprints-and-tasks.md), [0062](0062-workspaces.md), [0063](0063-query-namespace.md), [0064](0064-entityschema-and-validation.md), [0065](0065-mediainfo-captions-and-commons.md), [0066](0066-lexemes.md), [0067](0067-proposals.md), [0068](0068-merging-with-upstream.md), [0069](0069-synchronized-talk-pages.md), [0070](0070-shallow-entity-mirroring.md), [0071](0071-derived-statements-from-mirrored-pages.md), [0072](0072-template-mappings.md), [0073](0073-lines-links-and-url-patterns.md), [0074](0074-publishing-a-scope-to-an-external-wiki.md), [0075](0075-mcp-server.md), [0076](0076-dataset-publication.md), [0077](0077-special-version.md), [0078](0078-entity-sources.md), [0079](0079-derived-issuer-codes.md), [0080](0080-tenants-as-entity-sources.md), [0081](0081-recovery-keys-and-continuations.md), [0082](0082-source-form-and-the-shared-view.md), [0083](0083-write-path-in-three-tiers.md), [0084](0084-wikibase-writes-against-the-resolved-view.md), [0085](0085-settings-and-preferences.md), [0086](0086-theming.md), [0087](0087-account-registration-and-challenges.md), [0088](0088-external-identity-providers.md), [0089](0089-the-auth-host-and-instance-logins.md), [0090](0090-converting-talk-pages-comment-by-comment.md), [0091](0091-one-wikibase-adapter.md), [0092](0092-following-recent-changes.md), [0093](0093-fallback-typefaces.md), [0094](0094-accessibility-alternates.md), [0095](0095-the-interface-namespace.md), [0096](0096-adopting-any-mediawiki.md), [0097](0097-versioning-and-skins.md)
 - **Uses:** [0005](0005-crate-organization.md), [0013](0013-postgres-storage.md)
@@ -117,7 +117,7 @@ And later the same day, on implementation in part:
 
 ### 13. Migration
 
-*Changed by A2, A4.*
+*Changed by A2, A4, A7.*
 
 *Current text: [24](../architecture/24-documentation.md) §14.*
 
@@ -216,3 +216,12 @@ Replaced text: [24](../architecture/24-documentation.md) §1.1, §4, §6.
 - **Summary:** A *Replaced text* line is the sections' names and nothing else: "as it stood before this entry; in git (`tools/adr.py log NNNN An --before`)" said the same thing on every line, and the command follows from the entry's own ID, so the rule states it once. A `relocates` entry has no Summary, since all 98 carried the same three sentences, which the rule now states once; `check_adrs.py` no longer requires a Summary of an entry that only relocates. Every existing entry was converted in this change: 703 lines shortened and 98 summaries removed, about 80 KB. Nothing was removed that the rule does not state or the entry's ID does not give. Chapter text: [24](../architecture/24-documentation.md) §6.
 
 Replaced text: [24](../architecture/24-documentation.md) §6.
+
+### A7. The relocation entries no longer name a commit
+
+- **Date:** 2026-11-16
+- **Source:** Direct: James, review of pull request #262, 2026-11-16
+- **Change:** corrects §13
+- **Summary:** The account of the 2026-10-08 and 2026-10-09 migration said each `relocates` entry names the last commit that carried the text. A5 removed those hashes, so the sentence now says the entries named it until then and that the commit is found from git. No decision changed. Chapter text: [24](../architecture/24-documentation.md) §14.
+
+Replaced text: [24](../architecture/24-documentation.md) §14.
