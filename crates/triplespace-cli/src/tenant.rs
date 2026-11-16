@@ -10,10 +10,10 @@
 //!    attestation, citing the instance's own founding record as authority (0015 A52);
 //! 2. the issuer code is derived from that record's leaf;
 //! 3. the `tenant:` record is appended to the instance `config`, carrying the slug, the
-//!    base and the code. On `instance create` the instance attests it, citing the
-//!    instance's founding record (0079 §4); on `tenant create` the operator who acted, an
-//!    account of the primary tenant, attests it (0046 §4), since it is the authority
-//!    record of the tenant's creation (0040 §4);
+//!    base and the code. The instance attests it: on `instance create` citing the
+//!    instance's founding record (0079 §4), and for every later tenant citing the tenant
+//!    request it carries out, which the operator attested and which is the authority record
+//!    of the creation (0111 §4; 0040 §4), its offset in the record's `request`;
 //! 4. everything else the creation writes into the tenant (its `graph:` records, the
 //!    `owner` group, the owner's account and membership) is a **provision**: an instance
 //!    act with the `tenant:` record as authority and `binding: false` (0040 §1, §6);
@@ -154,13 +154,13 @@ pub struct Spec {
     pub owner_name: String,
 }
 
-/// Who attests the `tenant:` record (0046 §4; 0079 §4).
+/// Who attests the `tenant:` record (0046 §4; 0079 §4; 0111 §4).
 #[derive(Debug, Clone)]
 pub enum Attester {
     /// The instance, citing its founding record: `instance create`'s primary tenant.
     Instance(Authority),
-    /// An account of the primary tenant: `tenant create`.
-    Operator(String),
+    /// The instance, citing the tenant request it carries out: every later tenant.
+    Request(Authority),
 }
 
 /// A tenant just created.
@@ -206,6 +206,22 @@ fn info(
     }
 }
 
+/// Registers a partition and creates its record table through
+/// [`triplespace_db::grants::CREATE_RECORD_TABLE`], which also grants on it, so that the
+/// provisioner's role, which does not own `log.record`, makes the same table the database
+/// owner would (0111 §3).
+async fn create_partition(client: &Client, partition: u64, info: &PartitionInfo) -> Result<()> {
+    log::create_partition_via(
+        client,
+        partition,
+        Segments::new(SEGMENT_K).expect("valid exponent"),
+        info,
+        triplespace_db::grants::CREATE_RECORD_TABLE,
+    )
+    .await?;
+    Ok(())
+}
+
 /// Makes a source partition for a registry graph and returns its ID with its entry.
 pub async fn open_partition(
     client: &Client,
@@ -218,21 +234,9 @@ pub async fn open_partition(
         .lookup(name)
         .with_context(|| format!("`{name}` is not a registered graph"))?;
     let partition = random_partition()?;
-    log::create_partition(
-        client,
-        partition,
-        Segments::new(SEGMENT_K).expect("valid exponent"),
-        &info(graph, name, tenant, iri_base),
-    )
-    .await
-    .with_context(|| format!("create partition `{name}`"))?;
-    triplespace_db::grants::grant_partition(
-        client,
-        partition,
-        name == triplespace_db::grants::ACCOUNTS_PARTITION,
-    )
-    .await
-    .with_context(|| format!("grant partition `{name}`"))?;
+    create_partition(client, partition, &info(graph, name, tenant, iri_base))
+        .await
+        .with_context(|| format!("create partition `{name}`"))?;
     Ok((
         partition,
         GraphEntry::source(graph, name.to_string(), partition, SEGMENT_K),
@@ -256,17 +260,13 @@ pub async fn found(
 ) -> Result<(Genesis, Appended)> {
     let registry = GraphRegistry::embedded();
     let (config_graph, _) = registry.lookup("config").context("config graph")?;
-    log::create_partition(
+    create_partition(
         client,
         partition,
-        Segments::new(SEGMENT_K).expect("valid exponent"),
         &info(config_graph, "config", tenant, info_base),
     )
     .await
     .context("create config partition")?;
-    triplespace_db::grants::grant_partition(client, partition, false)
-        .await
-        .context("grant config partition")?;
     let mut genesis = Genesis {
         partition,
         scope,
@@ -406,7 +406,7 @@ pub async fn create(
     // 1–2. The founding record, then the issuer code from its leaf.
     let founding_authority = match attester {
         Attester::Instance(a) => *a,
-        Attester::Operator(_) => instance_founding(client).await?,
+        Attester::Request(_) => instance_founding(client).await?,
     };
     let config = random_partition()?;
     let (genesis, founded) = found(
@@ -433,25 +433,24 @@ pub async fn create(
     if let Some(source) = &spec.adopt {
         entry["adopted_from"] = serde_json::Value::String(source.clone());
     }
-    let tenant_key = format!("tenant:{}", spec.slug);
-    let d = match attester {
-        Attester::Instance(a) => draft_attested(
-            PAYLOAD_CONFIG,
-            &tenant_key,
-            &entry,
-            Some("tenant create"),
-            t,
-            provision(key, farm, a),
-        )?,
-        Attester::Operator(actor) => draft(
-            PAYLOAD_CONFIG,
-            &tenant_key,
-            &entry,
-            actor,
-            Some("tenant create"),
-            t,
-        )?,
+    let authority = match attester {
+        Attester::Instance(a) => a,
+        Attester::Request(a) => {
+            // The request this record carries out, so that it is never carried out twice
+            // (0111 §4).
+            entry["request"] = serde_json::json!(a.offset);
+            a
+        }
     };
+    let tenant_key = format!("tenant:{}", spec.slug);
+    let d = draft_attested(
+        PAYLOAD_CONFIG,
+        &tenant_key,
+        &entry,
+        Some("tenant create"),
+        t,
+        provision(key, farm, authority),
+    )?;
     let created = log::append(client, CONFIG_PARTITION, d).await?;
     let authority = authority_of(CONFIG_PARTITION, &created);
     let provide = provision(key, farm, &authority);
@@ -473,7 +472,13 @@ pub async fn create(
         )?;
         log::append(client, config, d).await?;
     }
-    sequences::create(client, &spec.slug, &ENTITY_TYPES).await?;
+    sequences::create_via(
+        client,
+        &spec.slug,
+        &ENTITY_TYPES,
+        triplespace_db::grants::CREATE_SEQUENCE,
+    )
+    .await?;
     let d = draft_attested(
         PAYLOAD_CONFIG,
         "group:owner",
@@ -705,6 +710,10 @@ pub struct Create {
     /// The auth host, `server.auth_base` (0089 §1): required for a second tenant.
     #[arg(long, env = "TRIPLESPACE_AUTH_BASE")]
     pub auth_base: Option<String>,
+    /// An account on this instance, by actor key (`{issuer}:{id}`), whose login the new
+    /// owner account is bound to, so that the owner signs in with it (0111 §5).
+    #[arg(long, value_name = "ACTOR_KEY")]
+    pub owner_login_of: Option<String>,
 }
 
 /// `tenant list`.
@@ -775,28 +784,17 @@ async fn run_create(args: Create) -> Result<()> {
 }
 
 /// `tenant create` with the owner's password already in hand: what `tenant setup` runs
-/// once its questions are answered.
+/// once its questions are answered. It files a tenant request as the operator and carries
+/// it out at once, in this process, then sets the owner's password if one is given: at the
+/// server's terminal, a password is not typed into a form. This implements 0111 §6.
 pub async fn create_with(args: Create, password: Option<&str>) -> Result<()> {
     let client = connect(&args.database).await?;
     let farm = farm_of(&client).await?;
-    let existing = tenants::tenants(&client).await?;
-    // 0089 §1: a second tenant needs the auth host.
+    // The checks the provisioner makes, made first so that a mistake is reported before a
+    // request is filed; the provisioner makes them again (0111 §4).
     let auth_base = args.auth_base.as_deref().filter(|a| !a.is_empty());
-    if !existing.is_empty() && auth_base.is_none() {
-        bail!(
-            "ts-auth-base-required: an instance with more than one tenant needs an auth host; \
-             set server.auth_base (--auth-base or TRIPLESPACE_AUTH_BASE) first (0089 §1)"
-        );
-    }
-    if let Some(a) = auth_base {
-        let host = check_base(a).context("--auth-base")?;
-        if host_of(&farm.base).as_deref() == Some(host.as_str())
-            || existing
-                .iter()
-                .any(|t| host_of(&t.base).as_deref() == Some(host.as_str()))
-        {
-            bail!("the auth base `{a}` is the farm base or a tenant's base (0089 §1)");
-        }
+    if let Err(e) = crate::provision::check_auth_base(&client, &farm, auth_base).await? {
+        bail!("{e}");
     }
     if let Some(name) = &args.name {
         triplespace_accounts::settings::plan::check_site_name(name)
@@ -813,31 +811,35 @@ pub async fn create_with(args: Create, password: Option<&str>) -> Result<()> {
     check_free(&client, &spec, &farm, auth_base).await?;
     let key = current_key(&client, &args.key_file).await?;
     let operator = operator(&client, args.operator).await?;
-    let t = now();
-    // One transaction: the instance is live, and its `config` takes appends from the
-    // server too; a tenant is created whole or not at all.
-    let created = transaction(
-        &client,
-        create(
-            &client,
-            &key,
-            &farm,
-            &spec,
-            &Attester::Operator(operator.clone()),
-            t,
-        ),
-    )
-    .await?;
-    project(
-        &args.database,
-        &farm,
-        client,
-        &[CONFIG_PARTITION, created.config],
-    )
-    .await?;
-    let password = owner_password(&args.database, &farm, &created, password, t).await?;
-    println!("tenant created by {operator}");
-    print_created(&created, &spec, password);
+    let ask = crate::provision::Ask {
+        slug: spec.slug.clone(),
+        base: spec.base.clone(),
+        name: spec.name.clone(),
+        owner_name: spec.owner_name.clone(),
+        owner_login_source: args.owner_login_of.clone(),
+        adopt: spec.adopt.clone(),
+        owner_id: spec.owner,
+    };
+    let authority = crate::provision::file(&client, &operator, &ask, Some("tenant create")).await?;
+    let provisioner = crate::provision::Provisioner {
+        database: args.database.clone(),
+        accounts_database: args.database.clone(),
+        key,
+        auth_base: auth_base.map(str::to_owned),
+    };
+    let request = crate::provision::Request {
+        authority,
+        actor: Some(operator.clone()),
+        ask,
+    };
+    let created = match provisioner.carry_out(&client, &request).await? {
+        crate::provision::Outcome::Created(c) => *c,
+        crate::provision::Outcome::Refused(code, why) => bail!("{code}: {why}"),
+        crate::provision::Outcome::Done => bail!("the request was already carried out"),
+    };
+    let password = owner_password(&args.database, &farm, &created, password, now()).await?;
+    println!("tenant created by {operator}, request {}", authority.offset);
+    print_created(&created, &spec, password || args.owner_login_of.is_some());
     Ok(())
 }
 

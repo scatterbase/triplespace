@@ -13,8 +13,8 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use triplespace_cli::{
     accounts, adopt, backup_key, challenge, compact, dump, env_file, follow, forwarder,
-    import_pages, instance, job, log_bundle, logins, oauth_client, restore, rights, settings,
-    setup, source, status, sync, tenant,
+    import_pages, instance, job, log_bundle, logins, oauth_client, provision, restore, rights,
+    settings, setup, source, status, sync, tenant,
 };
 
 /// Triplespace: a Wikibase as an append-only log.
@@ -43,6 +43,9 @@ enum Command {
         #[command(subcommand)]
         command: tenant::TenantCommand,
     },
+    /// Carry out tenant requests: a long-running process beside the server, or `--once`
+    /// (0111 §3).
+    Provision(provision::Provision),
     /// Adopt a frozen Wikibase from its XML dump into a tenant (0035).
     Adopt(adopt::Adopt),
     /// Import pages from any wiki's MediaWiki XML export into a tenant (0008 §9).
@@ -187,6 +190,7 @@ async fn run() -> Result<()> {
             command: InstanceCommand::Forwarder { command },
         } => forwarder::run(command).await,
         Command::Tenant { command } => tenant::run(command).await,
+        Command::Provision(args) => provision::run(args).await,
         Command::Adopt(args) => adopt::run(args).await,
         Command::Import(args) => import_pages::run(args).await,
         Command::Job { command } => job::run(command).await,

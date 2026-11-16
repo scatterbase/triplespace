@@ -598,7 +598,7 @@ async fn ensure_restores_what_migrations_granted() {
              REVOKE ALL ON SCHEMA log, view, ops, private FROM {roles};
              ALTER DEFAULT PRIVILEGES IN SCHEMA log, view, ops, private REVOKE ALL ON TABLES FROM {roles};
              ALTER DEFAULT PRIVILEGES IN SCHEMA log, view, ops, private REVOKE ALL ON SEQUENCES FROM {roles};
-             REVOKE ALL ON ALL FUNCTIONS IN SCHEMA ops FROM {roles};
+             REVOKE ALL ON ALL FUNCTIONS IN SCHEMA ops, log FROM {roles};
              DROP POLICY ts_accounts_reads_all ON log.record;
              DROP POLICY ts_public_skips_accounts ON log.record;"
         ))

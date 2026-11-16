@@ -131,6 +131,52 @@ pub async fn create_partition<C: PgClient>(
     segments: Segments,
     info: &PartitionInfo,
 ) -> Result<(), StoreError> {
+    register_partition(client, partition, segments, info).await?;
+    let p = partition_to_db(partition);
+    let table = record_table(partition);
+    client
+        .batch_execute(&format!(
+            "CREATE TABLE {table} PARTITION OF log.record FOR VALUES IN ({p}) WITH ({RECORD_AUTOVACUUM});
+             CREATE INDEX ON {table} (key, \"offset\" DESC);"
+        ))
+        .await
+        .map_err(|e| storage_error(&e))?;
+    Ok(())
+}
+
+/// Registers a partition with its registry row and has `function`, a database function
+/// taking the partition's ID, create its record table: for a caller that may insert into
+/// `log.partition` but does not own `log.record`, which Postgres requires of whoever
+/// creates a partition of it. The function is the caller's policy, named by it; it must
+/// make the table [`create_partition`] would.
+pub async fn create_partition_via<C: PgClient>(
+    client: &C,
+    partition: u64,
+    segments: Segments,
+    info: &PartitionInfo,
+    function: &str,
+) -> Result<(), StoreError> {
+    register_partition(client, partition, segments, info).await?;
+    client
+        .execute(
+            &format!("SELECT {function}($1)"),
+            &[&partition_to_db(partition)],
+        )
+        .await
+        .map_err(|e| storage_error(&e))?;
+    Ok(())
+}
+
+/// The autovacuum settings every record table is created with, for a function that
+/// creates one as [`create_partition`] does.
+pub const RECORD_TABLE_OPTIONS: &str = RECORD_AUTOVACUUM;
+
+async fn register_partition<C: PgClient>(
+    client: &C,
+    partition: u64,
+    segments: Segments,
+    info: &PartitionInfo,
+) -> Result<(), StoreError> {
     let p = partition_to_db(partition);
     let exists = client
         .query_opt("SELECT 1 FROM log.partition WHERE partition = $1", &[&p])
@@ -156,14 +202,6 @@ pub async fn create_partition<C: PgClient>(
                 &info.origin,
             ],
         )
-        .await
-        .map_err(|e| storage_error(&e))?;
-    let table = record_table(partition);
-    client
-        .batch_execute(&format!(
-            "CREATE TABLE {table} PARTITION OF log.record FOR VALUES IN ({p}) WITH ({RECORD_AUTOVACUUM});
-             CREATE INDEX ON {table} (key, \"offset\" DESC);"
-        ))
         .await
         .map_err(|e| storage_error(&e))?;
     Ok(())

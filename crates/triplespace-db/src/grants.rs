@@ -26,10 +26,22 @@ pub mod role {
     pub const FEDERATION: &str = "ts_federation";
     /// `verify`, read-only on the log.
     pub const VERIFY: &str = "ts_verify";
+    /// The provisioner (0111 §3): a member of [`SERVER`] that may also execute
+    /// [`super::CREATE_RECORD_TABLE`] and [`super::CREATE_SEQUENCE`].
+    pub const PROVISION: &str = "ts_provision";
 
-    /// Every role, in the order `0004_roles` creates them.
-    pub const ALL: [&str; 5] = [SERVER, ACCOUNTS, NOTIFY, FEDERATION, VERIFY];
+    /// Every role, in the order the migrations create them: `0004_roles`'s, then
+    /// `0041_provision`'s.
+    pub const ALL: [&str; 6] = [SERVER, ACCOUNTS, NOTIFY, FEDERATION, VERIFY, PROVISION];
 }
+
+/// The function that creates a registered partition's record table as the database owner,
+/// which [`role::PROVISION`] may execute (`0041_provision`; 0111 §3).
+pub const CREATE_RECORD_TABLE: &str = "log.create_record_table";
+
+/// The function that creates one sequence of a tenant as the database owner, which
+/// [`role::PROVISION`] may execute (`0041_provision`; 0111 A1).
+pub const CREATE_SEQUENCE: &str = "log.create_sequence";
 
 /// The name of the partition hidden from every role but [`role::ACCOUNTS`].
 pub const ACCOUNTS_PARTITION: &str = "accounts";
@@ -58,6 +70,11 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA private GRANT USAGE, SELECT, UPDATE ON SEQUEN
 GRANT SELECT ON private.preference TO ts_notify;
 REVOKE ALL ON FUNCTION ops.caller_session(text, text), ops.caller_key(text, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION ops.caller_session(text, text), ops.caller_key(text, text) TO ts_server, ts_accounts;
+GRANT ts_server TO ts_provision;
+REVOKE ALL ON FUNCTION log.create_record_table(bigint) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION log.create_record_table(bigint) TO ts_provision;
+REVOKE ALL ON FUNCTION log.create_sequence(text, text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION log.create_sequence(text, text) TO ts_provision;
 ";
 
 /// The row-level security of `log.record` that `0034_record_policies` gives, each policy

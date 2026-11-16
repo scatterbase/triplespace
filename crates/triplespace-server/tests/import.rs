@@ -433,6 +433,7 @@ async fn librarybase_pages_are_imported_with_history_authors_and_talk() {
         owner_password_file: None,
         operator: None,
         auth_base: Some(format!("https://{AUTH}")),
+        owner_login_of: None,
     }))
     .await
     .expect("tenant create");

@@ -364,7 +364,8 @@ pub fn owner_may_leave(
 /// global group at the farm base; held on any other tenant they grant nothing at instance
 /// scope. Some of these names also do ordinary tenant work (`userrights`, `block`,
 /// `ts-config`); at instance scope they are the farm-account and farm-base forms.
-pub const INSTANCE_RIGHTS: [&str; 12] = [
+/// `ts-createtenant` files a tenant request: this implements 0111 §8 (A1).
+pub const INSTANCE_RIGHTS: [&str; 13] = [
     "ts-keys",
     "ts-backup-keys",
     "ts-primary",
@@ -377,6 +378,7 @@ pub const INSTANCE_RIGHTS: [&str; 12] = [
     "ts-expunge",
     "mwoauthmanageconsumer",
     "ts-runjob",
+    "ts-createtenant",
 ];
 
 /// The instance rights a person holds (0040 §9): the union of what they hold on the

@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-16
+- **Updated:** 2026-11-16 (A1)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0015](0015-record-format-and-partition-registry.md), [0079](0079-derived-issuer-codes.md), [0089](0089-the-auth-host-and-instance-logins.md)
 
@@ -133,3 +134,25 @@ James's direction, from the design discussion of 2026-11-16:
 
 - [PostgreSQL: `LISTEN`](https://www.postgresql.org/docs/current/sql-listen.html) and
   [`NOTIFY`](https://www.postgresql.org/docs/current/sql-notify.html)
+
+## Amendment log
+
+### A1. Calls made building the provisioner
+
+- **Date:** 2026-11-16
+- **Source:** Direct: Claude, while building the tenant request and the provisioner (SCA-423), 2026-11-16; unconfirmed
+- **Change:** amends §2, §3, §4; extends §8
+- **Summary:** The calls made building §2–§6:
+  - **The request** is a `scatter:v0/logevent` of type `tenant`, action `request`, keyed `tenant:{slug}`. Its `params`, which the activity projection copies into the instance `log`'s public events, hold only the slug and the base; the wiki's name, the owner's name, the owner login source, and for the CLI's `--adopt` the source wiki and the owner's ID, are under `request`, which no projection reads, so the owner login source is never served.
+  - **A refusal** is a `tenant/refuse` log event under the same key, its target the request (`{kind: record, partition, offset}`), its `params.reason` one of `ts-not-entitled`, `ts-tenant-invalid` (a slug, base or name failing the checks `tenant create` made, the comment saying which), `ts-auth-base-required` and `ts-owner-no-login`. `tenant/request` and `tenant/refuse` are registered in `log-events.toml`.
+  - **The carried-out mark** is the `tenant:` record's `request`, the request's offset in the instance `log`.
+  - **The operator's right is checked when the request is carried out**, against the rights held then, not reconstructed at the request's offset as §4 had it: a request is carried out as soon as it is seen, so the two agree, and where a provisioner was down they differ only in refusing a request whose filer has since lost the right.
+  - **A second function.** A tenant also has sequences of its own in `log` (its revision, log, page, user and entity IDs), and creating one needs `CREATE` on `log`, which `ts_server` lacks; §3 named one function. `log.create_sequence(tenant, kind)`, `SECURITY DEFINER` and owned by the database owner like `log.create_record_table`, creates one, for a tenant that already has partitions and under the grammar `sequences.rs` checks.
+  - **`ts_provision` is a member of `ts_server`,** so that `ts_server`'s grants and its row-level policy on `log.record` apply to it unchanged.
+  - **The provisioner projects the new tenant on the accounts service's login,** not `ts_provision`'s: the projection pipeline ends in addressing, which writes `private.inbox`.
+  - **`ts-createtenant` is also in `groups.toml`'s list of Triplespace permissions,** which 0111 §8 omitted: an `owner` holds `*`, and `*` is that list.
+  - **The CLI** names the owner login source with `tenant create --owner-login-of {actor key}`; `triplespace provision` takes `--database`, `--accounts-database`, `--key-file`, `--auth-base` and `--once`, from the same environment variables as the server.
+
+  Chapter text: 08 §1.4; 03 §1.2.
+
+Replaced text: 08 §1.4, 03 §1.2.

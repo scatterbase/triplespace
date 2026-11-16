@@ -194,6 +194,7 @@ fn tenant_create(
         owner_password_file: None,
         operator: None,
         auth_base: Some(format!("https://{AUTH}")),
+        owner_login_of: None,
     }
 }
 
@@ -455,19 +456,32 @@ async fn two_tenants_on_one_instance() {
         );
     }
 
-    // Beta's `tenant:` record is attested by the operator who created it, alpha's owner.
+    // 0111 §4: beta was created by request. The request in the instance `log` is attested by
+    // the operator who filed it, alpha's owner; beta's `tenant:` record by the instance,
+    // naming the request.
     let row = db
         .query_one(
-            "SELECT actor, instance_act FROM view.registry WHERE tenant = '' AND kind = 'tenant' AND code = 'beta'",
+            "SELECT actor, instance_act, config->'request' FROM view.registry WHERE tenant = '' AND kind = 'tenant' AND code = 'beta'",
             &[],
         )
         .await
         .unwrap();
     assert_eq!(
         row.get::<_, Option<String>>(0),
+        Some(farm.operator().to_string())
+    );
+    assert!(row.get::<_, bool>(1));
+    let request_offset = row
+        .get::<_, Value>(2)
+        .as_u64()
+        .expect("the request's offset");
+    let instance_log = triplespace_cli::provision::instance_log(&db).await.unwrap();
+    let request = record(&database, instance_log, request_offset).await;
+    assert_eq!(request.header().key.as_deref(), Some("tenant:beta"));
+    assert_eq!(
+        triplespace_projections::common::attested(&request).actor,
         Some(format!("{}:1", alpha.issuer))
     );
-    assert!(!row.get::<_, bool>(1));
 
     // The server: a second tenant needs the auth base in its configuration too.
     let app = App::new(
