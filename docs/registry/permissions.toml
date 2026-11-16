@@ -409,6 +409,14 @@ allows = "Offering and withdrawing the primary role. An instance right"
 sources = "[0046](../decisions/0046-primary-tenant.md) §8"
 
 [[permission]]
+names = ["ts-createtenant"]
+ungranted = true
+granted_note = "`owner` only"
+new = true
+allows = "Filing a tenant request, which the provisioner carries out ([08](08-tenants-and-instances.md) §1.4). An instance right, evaluated on the primary tenant"
+sources = "[0111](../decisions/0111-creating-a-tenant-by-request.md) §8"
+
+[[permission]]
 names = ["suppressredirect"]
 allows = "`noredirect` on a move"
 sources = "[0051](../decisions/0051-page-redirects.md) §8"

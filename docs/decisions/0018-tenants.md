@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-16 (A37)
+- **Updated:** 2026-11-16 (A38)
 - **Author:** James Hare / Claude Fable
 - **Uses:** [0003](0003-statement-ui.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
 
@@ -420,3 +420,12 @@ Replaced text: 08 §6.3.
 - **Source:** Direct: James, design discussion of 2026-11-16
 - **Change:** extends §1
 - **Summary:** James considered an alternative mode in which tenants are subdirectories of one host (`example.com/tenant/wiki/Project:Home`) rather than hosts of their own (`tenant.example.com/wiki/Project:Home`), and rejected it as too costly. Every tenant's base has a host of its own, and the server tells tenants apart by host alone, as 0056 §10 already has it (requirement 5 of the deployment boundary). The deciding cost is that tenants sharing a host share a browser origin, which would need a second security model to keep one tenant's scripts from acting with a user's session on another; the reasoning is under *Alternatives considered*. Chapter text: 08 §1.1.
+
+### A38. A later tenant is created by request
+
+- **Date:** 2026-11-16
+- **Source:** 0111 §1, §6, §7, §10
+- **Change:** amends §1, §10; extends §11
+- **Summary:** A tenant after the first is no longer created in one step by the CLI. An operator of the primary tenant files a `tenant/request` record in the instance `log`, and the provisioner, `triplespace provision`, carries it out; `tenant create` files the request and runs the provisioner on it at once, and `Special:Tenants` gains a form that files one. `instance create` is unchanged. Freezing a tenant for a cooperative move is filed and carried out the same way. Chapter text: 08 §1.1, §1.4, §6.3; 19 §6.11.
+
+Replaced text: 08 §1.1, §6.3.

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-16 (A106)
+- **Updated:** 2026-11-16 (A107)
 - **Author:** James Hare / Claude Fable
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
 
@@ -993,3 +993,10 @@ Replaced text: 03 §1.2.
 - **Source:** 0069 §10
 - **Change:** extends §5.6
 - **Summary:** The `view` schema gains `foreign_thread` at instance scope and `pinned` on `thread_attachment`, and `ops` gains `upstream_post`, the send queue. This records an extension made when 0069 was written, on 2026-10-06: its heading has said so since then and the chapter text has carried it, but this log had no entry. No text changes with this entry. Chapter text: 03 §5.
+
+### A107. The provisioner's role
+
+- **Date:** 2026-11-16
+- **Source:** 0111 §3
+- **Change:** extends §4
+- **Summary:** A sixth role, `ts_provision`, for the provisioner: `ts_server`'s grants on `log`, `view` and `ops`, and the right to execute `log.create_record_table`, a `SECURITY DEFINER` function the database owner owns, which creates the record table of a partition registered in `log.partition` and grants on it. Postgres lets only the owner of `log.record` create its partitions, so the function is the narrowest way to let a process other than the owner create a tenant. Chapter text: 03 §1.2.
