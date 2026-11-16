@@ -23,7 +23,7 @@
 //! is, since a single-tenant instance's tenant base is its auth base (0089 §12).
 //!
 //! The five routes are what implements 0100 §7 (A2); the security notices they stage,
-//! with `triplespace_notify::mail::texts`, are what implements 0100 §4.
+//! with `triplespace_notify::mail::texts`, are what implements 0100 §4 (A4).
 //! `email.required` is read for the removal rule only: the creation-time
 //! flow of 0100 §1, where `action=createaccount` asks for a code, is not built yet.
 //!
@@ -228,14 +228,14 @@ async fn instance_name(app: &App, db: &tokio_postgres::Client, tenant: &Tenant) 
         .unwrap_or_else(|| app.config().farm.slug.clone())
 }
 
-/// Where the login is reviewed: the auth host's `Special:Account`.
-fn account_url(app: &App, tenant: &Tenant) -> String {
-    let base = app
-        .config()
-        .auth_base
-        .clone()
-        .unwrap_or_else(|| tenant.public_base.clone());
-    format!("{}/wiki/Special:Account", base.trim_end_matches('/'))
+/// Where the login is reviewed: `Special:Account` on the tenant the message was sent
+/// from (0100 A4). The auth host serves only `/healthz` until its pages are built (0089
+/// §7), so the auth base is not used here even when it is set.
+fn account_url(tenant: &Tenant) -> String {
+    format!(
+        "{}/wiki/Special:Account",
+        tenant.public_base.trim_end_matches('/')
+    )
 }
 
 /// The texts of the request's language: the preference negotiated from
@@ -400,7 +400,7 @@ async fn notify_all(
         return Ok(());
     };
     let instance = instance_name(app, db, tenant).await;
-    let url = account_url(app, tenant);
+    let url = account_url(tenant);
     let now = SystemTime::now();
     for recipient in to {
         let o = texts::notice(t, &instance, &url, recipient, what, address, now);
@@ -443,7 +443,7 @@ pub async fn add(
     };
     let texts = texts_for(&client, &scope.tenant, &scope.login, &headers).await;
     let instance = instance_name(&app, &client, &scope.tenant).await;
-    let url = account_url(&app, &scope.tenant);
+    let url = account_url(&scope.tenant);
     let sent = match &added {
         Added::Code { code, expires } => {
             let outgoing = texts::verification(

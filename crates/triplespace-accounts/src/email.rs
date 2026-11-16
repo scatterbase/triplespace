@@ -491,7 +491,7 @@ async fn count_send<C: GenericClient>(
 /// Adds an address to the login and issues a code, or issues a new code to an address
 /// the login holds unverified. `max_addresses` is `email.max_addresses`.
 ///
-/// With [`verify`] this implements 0100 §2.
+/// With [`verify`] this implements 0100 §2 (A4).
 /// With [`make_primary`] and [`remove`] this implements 0100 §3.
 /// Reading `email.max_addresses` and `email.required` implements 0100 §10 (A2).
 /// The table and its indexes in `0026_email.sql` implements 0100 §8 (A2).

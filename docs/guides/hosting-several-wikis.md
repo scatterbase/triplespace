@@ -384,7 +384,7 @@ needs only steps 3 and 4.
 | Missing | What it means for now |
 |---|---|
 | The `community` and `enterprise` presets, with farm-wide accounts, global groups and global blocks | Every wiki is isolated. A person signs up on each wiki, and a block on one wiki does not reach the others. |
-| Sign-in on the auth host | People sign in on each wiki's host. Account emails, such as address verification codes and security notices, link to `Special:Account` on the auth host, which returns 404 for now. Have people open `Special:Account` on their own wiki instead. |
+| Sign-in on the auth host | People sign in on each wiki's host, and manage their login, email addresses included, on `Special:Account` there. Account emails link to that page on the wiki they were sent from. |
 | A wiki at a path rather than a host | Each wiki needs its own host name. |
 | Freezing, deleting or moving a single wiki | Wikis cannot yet be frozen, deleted, or moved to another instance one at a time. The whole instance can be moved: see [Moving an instance](moving-an-instance.md). |
 | Changing the primary tenant, or a wiki's host | The first wiki stays primary, and every wiki keeps the host it was created with. |
