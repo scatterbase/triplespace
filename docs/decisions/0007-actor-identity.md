@@ -327,8 +327,6 @@ Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.1, §2.2, §2
 
 Replaced text: [07](../architecture/07-actors-and-accounts.md) §1.4.
 
-> **Surrogates are minted by the instance, in sequence.** They carry no information about what they stand for.
-
 ### A28. Strict names: derived names, reserved prefixes and provider renames
 
 - **Date:** 2026-11-06

@@ -145,8 +145,6 @@ Replaced text: §2 of this ADR.
 
 Replaced text: [05](../architecture/05-providers-and-ingest.md) §8.8.
 
-> Case 3 is the fallback until they do, and it means no property is minted per key and no per-instance property numbers exist.
-
 ### A7. The `OW` key map is two class rules of the one Wikibase adapter
 
 - **Date:** 2026-10-26

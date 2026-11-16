@@ -138,8 +138,6 @@ James's direction, from the design discussion of 2026-11-08:
 
 Replaced text: [21](../architecture/21-special-pages.md) §6.6.
 
-> - **Not taken yet** ([0104](../decisions/0104-batches-and-the-job-runner.md) §11): match keys, so every row creates (a re-run creates again); references from one row to an item another row creates; updating existing items; properties and other entity types. A table larger than a run allows waits on the queued batch of [05](../architecture/05-providers-and-ingest.md) §3.5.
-
 Replaced text: [05](../architecture/05-providers-and-ingest.md) §3.5.
 
 ### A5. The page is named `Special:CreateManyEntities`

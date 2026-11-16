@@ -314,10 +314,6 @@ Replaced text: §6, in [01](../architecture/01-log-and-records.md) §4.2; §6, i
 
 Replaced text: [01](../architecture/01-log-and-records.md) §7.
 
-> - For a write to a foreign entity, `baserevid` is decoded to a partition and offset, and the check runs against the newest record for the key across the source partitions, not only the local one. A base that names a state compaction has since replaced is an `editconflict`.
->
-> The check needs an index from each key to its latest offset. For the local partition, this is the version cursor.
-
 ### A22. The founding attestation
 
 - **Date:** 2026-10-09
@@ -340,10 +336,6 @@ Replaced text: [01](../architecture/01-log-and-records.md) §7.
 - **Summary:** Non-`config` partitions have no genesis record: a partition's name, hash function, `k` and policies are its `graph:` record in `config`, which the export bundle carries (§9), and the partition's first record is an ordinary record at offset 0; in `config` itself that record is the founding record (A22). `log.segment_manifest` is keyed `(partition, segment)`, one per sealed segment and never re-signed, with no `replaces` and no `sealed_at` in the key. A `hashed` partition has segment manifests only and no checkpoints: the "checkpoint" a job writes at its end is the manifest of the last sealed segment plus an unsigned head offset, and records in the open segment are uncommitted until the segment is sealed; `log.checkpoint` rows exist for `logged` partitions only. Every record in `local`, `pages`, the tenant `log` and the tenant `actors` partitions takes a `logid` at append whether or not the catalogue projects it as an event (folded at [01](../architecture/01-log-and-records.md) §2.5, under [0015](0015-record-format-and-partition-registry.md) §2). The chapter section the genesis sentence stood in ([01](../architecture/01-log-and-records.md) §1.2) is shared by §2, §3 and §4 here; the policy it states is §4's. (REVIEW G24)
 
 Replaced text: [01](../architecture/01-log-and-records.md) §1.2.
-
-> | **`hashed`** | Every header, in one Merkle tree for each sealed segment, with a signed manifest for each segment | Allowed | Triplespace's mirror partitions; Scatterbase's foreign partition |
-
-> **`hashed` partitions prove less.** A verifier can show that each record in a live segment is unaltered since the segment was sealed. A compacted offset keeps its leaf, so a segment's tree and its manifest are unchanged by compaction, and the holes are visible. A verifier cannot show that compaction kept the right records. That limit is deliberate: a mirror's source of truth is upstream, and [0002](../decisions/0002-source-graphs-and-mass-ingest.md) §2 lets a mirror forget.
 
 ### A25. Several processes append; the projection worker signs
 

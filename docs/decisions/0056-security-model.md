@@ -278,8 +278,6 @@ Replaced text: §10 of this ADR.
 
 Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.6.
 
-> `view.tenant` is a projection of the tenant's `read` ACL records on a namespace, set or tenant target, each of which increments the epoch; a tenant's configuration stays in `view.registry`.
-
 ### A14. Public entries carry the tenant epoch; stored rows reference enclosures, never groups
 
 - **Date:** 2026-10-09
@@ -289,11 +287,7 @@ Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.6.
 
 Replaced text: [03](../architecture/03-storage-caches-and-search.md) §9.4.
 
-> A `read` ACL on a namespace, set or tenant bumps the epoch and every entry under it lapses at once (§9.6).
-
 Replaced text: [03](../architecture/03-storage-caches-and-search.md) §9.6, §4.14.
-
-> Feed rows and search documents store the set at projection time and are re-projected on change (§9.6, §11.5).
 
 Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.6.
 

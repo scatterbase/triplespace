@@ -297,8 +297,6 @@ Replaced text: [03](../architecture/03-storage-caches-and-search.md) §13.
 
 Replaced text: [08](../architecture/08-tenants-and-instances.md) §5.3; [19](../architecture/19-site-ui.md) §6.11.
 
-> `Special:Tenancy` also carries the **Visibility** control of §6.3.
-
 Replaced text: [18](../architecture/18-api.md) §1.2.
 
 ### A22. Approval on a farm account's first visit

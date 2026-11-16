@@ -169,8 +169,6 @@ Replaced text (§2):
 
 Replaced text: §1 of this ADR.
 
-> No minted ID contains a colon, and every keyed ID does, so the two never collide, whatever a key looks like.
-
 ### A11. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09

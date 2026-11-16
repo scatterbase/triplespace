@@ -177,16 +177,7 @@ Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §6.2.
 
 Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §6.2.
 
-> | `resolved` | The resolution projection writes an entity ([0013](../decisions/0013-postgres-storage.md) §5.1, step 4 of §7) | The entity's previous resolved JSON, read before it is overwritten | The new resolved JSON |
-> | `local`, `mirror/{provider}` | A change set is applied to the entity's state in that graph ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.2) | The graph's previous state for the entity, which the ingester reads to compute `changes` ([0012](../decisions/0012-api-requirements.md) §2.2) | The new state |
-
-> **Why at projection time.** Under the `latest` history policy a mirror's earlier state is compacted away ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §2), and [0012](../decisions/0012-api-requirements.md) §7 concedes that the resolved view at a past time cannot be rebuilt in general. The only moment both states exist is when the new one replaces the old. The delta is therefore stored ([0032](../decisions/0032-sparql-update-stream.md) §3), not recomputed on request.
-
-> **Bootstrap mode** ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.6, [0013](../decisions/0013-postgres-storage.md) §9) produces no deltas: there is no previous state, and a consumer of a bootstrapped partition loads the dump taken at the end of the bootstrap.
-
 Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.11.
-
-> - **The table is a projection**, rebuilt from the log with every other `view` table (§6). A rebuild reproduces the same *final* state, but not the same sequence of intermediate states under compaction, and its rows take new `seq` values. Every cursor therefore carries an **epoch**, a number in `ops` that a rebuild increments; a cursor from an earlier epoch is refused with the reload response, as an expired one is.
 
 Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §6.3.
 
@@ -198,8 +189,6 @@ Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §6.3.
 - **Summary:** The skolem IRI's hash is over the **statement UUID**, never the entity part of the statement ID, so the node is the same under every member ID the fused body is emitted under and whatever form a consumer asked for; the snak role (main snak, qualifier, reference); the property; and an index defined as the snak's position within its role on the statement. A reference snak hashes the reference hash in place of the index, so identical references share a node as they share a `ref:` IRI. The hash function and the byte layout of the preimage are fixed in `wikibase-compat.md`. The federation parts of the same row (bootstrap from the export bundle, record bodies on the stream for `source = local`, `verified_at_size` in `entity_source` only, a `delete/statement` event) are logged in [0022](0022-federation.md). (REVIEW G48)
 
 Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §4.3.
-
-> The statement ID in the hash is upstream's for a mirrored statement and the tenant's for a local one, so the inputs never collide.
 
 ### A11. Dumps from a replica under one snapshot
 

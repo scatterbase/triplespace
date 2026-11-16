@@ -193,21 +193,9 @@ Replaced text: §5, in [07](../architecture/07-actors-and-accounts.md) §2.5.
 
 Replaced text: [05](../architecture/05-providers-and-ingest.md) §7.3.
 
-> The record is an ordinary local revision: it takes the next revision ID from the tenant's sequence ([0015](../decisions/0015-record-format-and-partition-registry.md) §2), its comment part is empty, and its attestation names the job's subsidiary and the job ([0015](../decisions/0015-record-format-and-partition-registry.md) §1). The entity's `lastrevid` after adoption is that new local revision ID; `source_revid` is shown beside it as "adopted from revision N".
-
-> **Re-running** an adoption job against the same dump skips every entity already present and is therefore how a partial adoption is completed. A newer dump is not a second adoption: once adopted, the wiki changes through edits.
-
 Replaced text: [05](../architecture/05-providers-and-ingest.md) §3.2.
 
-> `adopt` is accepted only from an adoption job on a tenant that is that wiki continuing on Triplespace, on a `local` partition that holds no other entity records; it never updates, and re-running it skips an entity whose content hash matches and rejects one that differs.
-
 Replaced text: [05](../architecture/05-providers-and-ingest.md) §7.4, §7.5, "History: shape fixed, content deferred".
-
-> - **(a) History first, in order.** Each source revision is an `adopt` record with an explicit revision ID (the source's, below the floor), its original timestamp and its original actor, as [0008](../decisions/0008-namespaces-and-document-pages.md) §9 steps 1–2 do for pages, and the last revision *is* the current state. It needs the XML history dump at adoption time, and it makes adoption one job.
-
-> Adopting current state only forecloses (a) for that tenant. Librarybase accepts that: its first milestone is API-only and current-state, and (b) is then its path.
->
-> Not yet: the choice between the two shapes for tenants that have not yet adopted is open in [0035](../decisions/0035-adopting-a-wikibase.md).
 
 Replaced text: [05](../architecture/05-providers-and-ingest.md) §8.3; [16](../architecture/16-logs-feeds-and-notifications.md) §3.1.
 

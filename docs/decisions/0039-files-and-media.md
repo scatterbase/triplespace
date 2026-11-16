@@ -278,8 +278,6 @@ Replaced text: [12](../architecture/12-files-and-media.md) §5.3.
 
 Replaced text: [12](../architecture/12-files-and-media.md) §6.4, §6.5, §6.6.
 
-> **Clusters**: a local `M` entity and the `WDM` it mirrors are **one subject by construction**, not a cluster: the local page *is* the foreign file's page here, with the ranged page ID of [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6 ([04](../architecture/04-entities-and-identifiers.md) §5.3) where the file is only inherited. `same-as` between `M` IDs is refused, as §8.2's "derived, not minted" implies.
-
 Replaced text: [12](../architecture/12-files-and-media.md) §7.1, §7.3.
 
 ### A13. Site assets are the one exception to the access check

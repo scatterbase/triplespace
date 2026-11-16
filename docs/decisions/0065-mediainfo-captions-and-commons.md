@@ -99,13 +99,7 @@ Replaced text: §1 of this ADR; §4 of this ADR.
 
 Replaced text: [12](../architecture/12-files-and-media.md) §8.4.
 
-> `wbsetlabel`, `wbsetdescription` and a `wbeditentity` carrying `labels` or `descriptions` on an `M` ID are accepted and append the `terms` operation.
-
 Replaced text: [12](../architecture/12-files-and-media.md) §6.6.
-
-> The local page's own `M{local page ID}` names the local overlay; `wbgetentities&ids=M{local}` returns the resolved view and says `foreign: "WDM123"` in `triplespace`, and `wbgetentities&ids=WDM123` returns the mirror alone.
-
-> **Clusters**: a local `M` entity and the `WDM` it mirrors are **one subject by construction**, not a cluster: the local page *is* the foreign file's page here, with the ranged page ID of [0052](0052-page-repositories-and-title-inheritance.md) §6 ([04](../architecture/04-entities-and-identifiers.md) §5.3) where the file is only inherited. `same-as` between `M` IDs is refused, as §8.2's "derived, not minted" implies.
 
 Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.3.
 

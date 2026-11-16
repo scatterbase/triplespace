@@ -276,8 +276,6 @@ Replaced text: §4 of this ADR.
 
 Replaced text: §2 of this ADR; §4 of this ADR.
 
-> Enclosure is fixed: a graph encloses the records written to it; a namespace encloses its pages and entities; a page encloses its subpages;
-
 ### A22. How `instance create` sets the owner's password
 
 - **Date:** 2026-10-03

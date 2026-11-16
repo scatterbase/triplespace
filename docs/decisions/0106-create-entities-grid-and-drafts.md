@@ -176,8 +176,6 @@ James's direction, from the design discussion of 2026-11-08:
 
 Replaced text: [21](../architecture/21-special-pages.md) §6.6.
 
-> - **The table** is pasted, tab- or comma-separated with double-quoted cells as a spreadsheet writes them, or uploaded as a CSV or TSV file. Its first row names the columns
-
 Replaced text: [21](../architecture/21-special-pages.md) §6.7, §6.8.
 
 ### A10. What A9 needed, found while building

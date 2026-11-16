@@ -506,8 +506,6 @@ Replaced text: [19](../architecture/19-site-ui.md) §3.5, §5.2.
 
 Replaced text: [19](../architecture/19-site-ui.md) §2.5.
 
-> For an actor of another tenant on the same instance the third view is complete, since the instance holds every record. For a Wikidata account it is the sparse subset the instance has observed or backfilled, and says so. `/actor/{key}/contributions` serves the same three cases ([18](../architecture/18-api.md)).
-
 ### A41. The Appearance button, and the account page without preferences
 
 - **Date:** 2026-10-17

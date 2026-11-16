@@ -152,10 +152,6 @@ Replaced text: §6, in part of this ADR.
 
 Replaced text: §5 of this ADR.
 
-> | **The text above the first heading**: the frontmatter of banners, WikiProject templates and talk headers | One thread, subject "*{title}*: talk page header", holding that text as its opening post. The direction says to treat the frontmatter as a section, and this is how |
-
-> **Every thread is created closed.**
-
 ### A3. Copying files needs `upload`, default `autoconfirmed`
 
 - **Date:** 2026-10-08
@@ -179,8 +175,6 @@ Replaced text: §8 of this ADR.
 - **Summary:** Every upstream revision is seeded as metadata (content, comment and attestation parts, no `text` part), so the history is complete as a list; the `text` part is seeded for the last `fork.content_revisions` (`site`, default 100) revisions only, which a tenant may raise up to the instance ceiling, and an article whose editors want its whole history diffable here asks the job for it explicitly. `fork.max_revisions` (default 20,000) becomes the per-job budget, the number of upstream revisions one job seeds, metadata included, beyond which the oldest are not seeded and the History tab links upstream. `view.upstream_revision` carries a `tenant` column leading its key, since two tenants may fork one article, and admits page subjects in the key form page subjects take across `view`. Chapter text: [13](../architecture/13-mirrored-pages.md) §3.4, §3.6, §5.13. (REVIEW G37)
 
 Replaced text: [13](../architecture/13-mirrored-pages.md) §3.4.
-
-> **Serving.** `view.upstream_revision` ([0015](0015-record-format-and-partition-registry.md) §4) gains rows whose `entity_id` is the page ID in decimal, as page statements use it ([0038](0038-page-metadata-and-categories.md) §1).
 
 Replaced text: [13](../architecture/13-mirrored-pages.md) §3.6.
 

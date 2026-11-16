@@ -145,8 +145,6 @@ Replaced text: §6 of this ADR.
 
 Replaced text: [10](../architecture/10-pages-and-content-models.md) §2.5.
 
-> - **Thread renames leave none** ([0019](0019-discussions.md) §3), for the reason user renames do.
-
 ### A7. The move record names the redirect it left
 
 - **Date:** 2026-10-24
@@ -155,9 +153,6 @@ Replaced text: [10](../architecture/10-pages-and-content-models.md) §2.5.
 - **Summary:** A `move` record carries, beside the new title, the page ID of the redirect the move left at the old title, when it left one; the ID is minted before the move record is appended, and the redirect's `create` that follows in the same transaction takes it. The move's `move/move` event is projected from the move record alone, so without the field it could not say whether a redirect was left or which page it is (16 §2.3 asks for both): the alternatives were a projection that patches the move's row when the redirect's `create` arrives next, or a per-row lookup at read time, and both make a fact of the log recoverable only by reconstructing the transaction, and lose it if the `create` is erased. A `move` record without the field, every one written before this entry included, left no redirect. The old title in the event is read from the page's own history, the latest `create` or `move` before the record, rather than stored. Folded into 10 §2.5 and the record table of 10 §3.2.
 
 Replaced text: [10](../architecture/10-pages-and-content-models.md) §2.5.
-
-> 1. the page's `move` record with the new title (§3.2);
-> 2. a `create` record for a **new page** at the old title, model `wikitext`, text `#REDIRECT [[New title]]`, attributed to the mover with the move's summary.
 
 Replaced text: [10](../architecture/10-pages-and-content-models.md) §3.2.
 

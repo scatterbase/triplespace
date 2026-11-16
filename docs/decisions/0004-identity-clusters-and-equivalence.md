@@ -226,24 +226,7 @@ Replaced text: §3 of this ADR.
 
 Replaced text: [04](../architecture/04-entities-and-identifiers.md) §4.3, §4.4.
 
-> So if a local item `Q77` about en.wikipedia.org existed before Domains did, `same-as` between `Q77` and `domain:en.wikipedia.org` makes the Domain canonical. `Q77` resolves to it and gets the redirect-form `owl:sameAs` in RDF. A cluster whose links would join two Domains is a conflict, and the links are held (§4.11).
-
-> **The canonical ID is chosen when the resolved view is projected.**
->
-> - Source graphs keep IDs exactly as they were asserted.
-> - The resolved view ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §3, in [02](../architecture/02-graphs-rdf-and-query.md)) rewrites subjects and entity values to the canonical ID.
-> - Each non-canonical member is emitted in Wikibase's redirect form, `<member IRI> owl:sameAs <canonical IRI>`.
-> - The API resolves a non-canonical member to the canonical entity, as Wikibase resolves a redirect.
-> - The per-graph views ([0003](../decisions/0003-statement-ui.md) §6) still show each member's own data.
-
 Replaced text: [04](../architecture/04-entities-and-identifiers.md) §4.5, §4.6, §4.10.
-
-> **Configuration is recorded in the log.** The following settings are the `reconcile` record's; the first, second and fourth are the tenant's, the third the instance's (§4.3):
->
-> - the provider order;
-> - the link properties for each provider;
-> - the identifier properties used for inference;
-> - normalizer overrides.
 
 ### A17. Composition is a pure function run after commit
 
@@ -267,18 +250,6 @@ Replaced text: [04](../architecture/04-entities-and-identifiers.md) §4.5, §4.6
 - **Summary:** A mirror partition is an instance partition read by every tenant, a local `P12` means a different entity on each tenant, and an instance job cannot mint from a tenant's sequence; so no adapter writes a local property or item ID into a mirror graph, and none creates a local entity on import. A provider that needs vocabulary of its own has a provider **property type** in the registry, a `[[provider.type]]` row with `entity_type = "property"` under its code, its letter allocated when the adapter is built (OpenAlex already uses `P` for publishers; OpenStreetMap and GDELT likewise), with its properties minted by the adapter under deterministic IDs and the mapping versioned with the adapter. Enumerated values map onto Wikidata items where one fits, else onto a provider type of the provider's own. Where an adapter names a property by role, the binding it reads is the instance-scope `role` record's, never a tenant's ([0003](0003-statement-ui.md) A14). "Otherwise onto a local property", "the adapter can create them on first import" and "local properties that an adapter maps onto are protected from deletion" are struck. (REVIEW G26)
 
 Replaced text: [04](../architecture/04-entities-and-identifiers.md) §4.6.
-
-> - otherwise onto a local property.
-
-> There is no OpenAlex property namespace or type code.
-
-> - **Enumerated values** such as work type are mapped in the same way, onto Wikidata items or local items.
-> - **Local targets are named by role.** Local property and item IDs differ between instances. The adapter therefore refers to its local targets by role, as [0003](../decisions/0003-statement-ui.md) §7 does. Each instance binds the roles to its own entities, and the adapter can create them on first import.
-> - **The mapping is versioned with the adapter** ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.3).
-
-> **Any graph may use any property.** The OpenAlex mirror graph holds statements whose predicates are `WDP` or local properties. A graph records who asserts a triple, not whose vocabulary the triple uses. Mapped properties are affected by changes as follows:
-
-> - **Local properties** that an adapter maps onto are protected from deletion.
 
 ### A20. `unit`, `globe` and `calendarmodel` are prefixed entity IDs
 

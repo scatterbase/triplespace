@@ -187,8 +187,6 @@ Replaced text: §5 of this ADR.
 
 Replaced text: [15](../architecture/15-structured-pages.md) §1.4.
 
-> **The bound.** Members are materialized in a deterministic order, entity IDs then page IDs, each ascending, so that the prefix kept is stable between computations. When a computation yields more than `scopes.max_members`, the first `scopes.max_members` are kept and `truncated` is set. **The scope page, and every table, board, feed and watch that uses the scope, shows the notice**: "This scope has more than 100,000 members; the first 100,000 are shown." A truncated scope is still a full operand: `intersection` and `difference` are computed over the operands' complete sets where the operand is incremental, and by the query service where any operand is a query, and only the result is bounded. So `Scope:Humans` is useless to list and fine to intersect with.
-
 Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.15.
 
 ### A10. Constant expansion in compiled SPARQL

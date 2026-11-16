@@ -730,10 +730,6 @@ Replaced text: [03](../architecture/03-storage-caches-and-search.md) §5.
 
 Replaced text: [03](../architecture/03-storage-caches-and-search.md) §2.3.
 
-> An adoption sets every sequence here, entity, page, revision, log and user IDs, past what the source wiki consumed, records the floors in its job record, and supplies `page_id` for adopted records rather than taking one ([0035](../decisions/0035-adopting-a-wikibase.md) §4).
-
-> Per-tenant sequences also include `log."{tenant}.user_id"` ([0007](../decisions/0007-actor-identity.md) §3).
-
 ### A69. DiscussionTools names and original times on `view.post`
 
 - **Date:** 2026-10-20
@@ -758,8 +754,6 @@ Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.8.
 - **Summary:** A bootstrap load projects as it goes, a block at a time: each synchronous projection takes the block's records at once (`Projection::apply_many`, defaulting to one at a time), set-based where it has a form for it (for a mirror's `put` of a subject no other graph or overlay holds: the entity source, the entity row with its terms and identifiers, and activity), record by record otherwise. The views are current after every committed block, a load that stops part way needs no projection pass, and the partition keeps its key index for the record-by-record path. Building indexes after the load and projecting in one pass over it stay open, should per-block projection become the limit. Measured on the 2M Wikidata benchmark: 1 h 44 min (321 entities/s) against 2 h 56 min with projections record by record, 0.13 statements per entity against 11.0, and the same view rows (`docs/testing/performance.md` §8).
 
 Replaced text: [05](../architecture/05-providers-and-ingest.md) §3.8.
-
-> 4. Indexes are built, then projections run in the order of [0013](../decisions/0013-postgres-storage.md) §7, each in one pass over the partition; composition is set-based, one pass over the loaded states, and the consumers of composition (constraints, scopes, search documents, the RDF delta and the rest, [03](../architecture/03-storage-caches-and-search.md)) stay off until the operator turns them on.
 
 ### A72. A bootstrap block's commit does not wait for the disk
 
@@ -841,10 +835,6 @@ Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §4.1.
 - **Summary:** A bootstrap load writes up to `--writers` blocks at once (4 by default), each in a transaction of its own, and commits them in dump order. One coordinator gives each block, in order, its page IDs, its offsets and the tree nodes its leaves complete, keeping the partition's Merkle frontier in memory; each block's transaction then `COPY`s its records and nodes and runs its projections, and its last statement, which moves the partition's next offset from the block's first offset to past its last, runs only once every earlier block has committed, followed by the commit (the projections' positions are written at commit). So what has committed, and what a crash leaves, is always a prefix of whole blocks, with the records, tree, views and positions agreeing, as with one block at a time; a statement that finds the next offset elsewhere fails rather than commit out of order. The text of §9 had a coordinator hand writers offset blocks from an `ops.bootstrap_block` table and hand out again the block of a writer that failed, with the tree folded in one pass after the load; neither was built, the load having so far written one block at a time with each block's tree nodes, and the commit order now keeps a failed block from leaving a hole instead. Why several blocks: one block at a time left Postgres waiting on the client and the client on Postgres, neither near its limit. Why 4: on the full Wikidata dump on 16 cores, 40 minutes from empty loaded 4.81M entities with 1 writer, 5.96M with 2, 7.15M with 4 and 6.57M with 8; from 2 writers up, the 14 threads preparing records ran at 93–98% in dense stretches, so preparation, not writing, became the limit, and 8 only added connections. No relationship with the number of cores was found to set it by. Loading the dump to 40M entities with 4 writers took 4 h 00 min, against 5 h 07 min for the whole-dump load's first 40M with one, the gain growing as the database outgrew memory (`docs/testing/performance.md` §8).
 
 Replaced text: [05](../architecture/05-providers-and-ingest.md) §3.8.
-
-> 3. Leaf hashes are computed by the writers. Segment subtrees and the partition root are folded in one pass afterwards, as [0006](../decisions/0006-log-integrity-and-erasure.md) §5 describes, and written to `log.merkle_node`.
-
-> Nothing about this is specific to Postgres except the use of `COPY` and the deferred index build, which is how any bulk load into it is done.
 
 ### A83. How a bootstrap load keeps its blocks apart
 

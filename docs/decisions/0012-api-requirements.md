@@ -623,8 +623,6 @@ Replaced text: [18](../architecture/18-api.md) §5.2.
 
 Replaced text: [01](../architecture/01-log-and-records.md) §2.5; [18](../architecture/18-api.md) §1.5, §2.3.
 
-> | The statement modules | On lexeme and part IDs, and on `M` IDs | [0066](../decisions/0066-lexemes.md) §8; [0041](../decisions/0041-content-models.md) §8 |
-
 ### A67. Page IDs are per tenant; a mirrored entity's is provider-ranged
 
 - **Date:** 2026-10-09
@@ -633,8 +631,6 @@ Replaced text: [01](../architecture/01-log-and-records.md) §2.5; [18](../archit
 - **Summary:** A local page ID is taken from the tenant's own sequence the first time a key is written in a tenant partition, stays below 2^40, and is repeated in field 9 by every later record for the key; a mirrored entity's page ID is `provider_number << 40 | upstream page ID` where the provider publishes one and `provider_number << 40 | mirror offset` otherwise, computed by the writer with no allocation, so `log."instance.page_id"` is not used for entities, and `view.entity`'s unique key on the page ID is `(tenant, page_id)`; bootstrap writers of a tenant partition take page IDs in blocks. The ledger names [0013](0013-postgres-storage.md) §6, [0015](0015-record-format-and-partition-registry.md) §2, [0052](0052-page-repositories-and-title-inheritance.md) §6 and [0008](0008-namespaces-and-document-pages.md) §4; the sentence stood at [01](../architecture/01-log-and-records.md) §2.5, whose provenance is §2.1 here, and the ledger row was extended. (REVIEW G18)
 
 Replaced text: [01](../architecture/01-log-and-records.md) §2.5.
-
-> **A page a page repository serves has a provider-ranged page ID,** `provider_number << 40 | upstream page ID`, derived and never minted, so that a foreign page has a stable `pageid` on every tenant without any write; in `mirror` mode the `pages/{repo}` records carry it in field 9 and the ranged upstream revision ID in field 7 ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6, [0053](../decisions/0053-mirrored-pages.md) §5). Local page IDs stay below 2^40.
 
 ### A68. Every ID a client sees is below 2^53
 
@@ -679,8 +675,6 @@ Replaced text: [18](../architecture/18-api.md) §3.2.
 
 Replaced text: [18](../architecture/18-api.md) §2.2.
 
-> | `protocols`, `interwikimap`, `languagevariants`, `defaultoptions`, `specialpagealiases` | For Parsoid ([0042](../decisions/0042-template-expansion-and-parsoid.md) §8.1); `specialpagealiases` from the special-page registry ([0047](../decisions/0047-special-pages.md) §2) |
-
 ### A73. `rckind`, and `source`, `job` and `operator` on the feed modules
 
 - **Date:** 2026-10-15
@@ -689,8 +683,6 @@ Replaced text: [18](../architecture/18-api.md) §2.2.
 - **Summary:** `list=recentchanges`, `list=usercontribs` and `list=logevents` are three target sets over the one feed query of [0020](0020-change-feeds.md) §1, and their rows carry what the query already holds: `rcprop`, `ucprop` and `leprop` gain `source` (the graph), `job` and `operator`, the values §4 had given `prop=revisions` alone, so a bot that reads recent changes learns a row's graph and job without a second call; and `rckind=edit|sync|log|job|erased` selects the row kinds of `view.activity` directly, which is how a client asks for the mirror syncs that `rctype` leaves out, since `rctype=external` keeps its Wikibase-client meaning. The chapter rows are [18](../architecture/18-api.md) §2.3.
 
 Replaced text: [18](../architecture/18-api.md) §2.3.
-
-> | `list=usercontribs` | By local account. Job changes appear with their tags. `ucjob` filters by job | [0012](0012-api-requirements.md) §4 |
 
 ### A74. `rvprop=record` names a revision's record
 

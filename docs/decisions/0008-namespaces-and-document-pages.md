@@ -196,10 +196,6 @@ Replaced text: §2 of this ADR.
 
 Replaced text: §4 of this ADR.
 
-> A base is required for `edit`, `move` and `delete`.
-
-> | **Pages** | `{base}/graph/pages` | Source | Page edits, moves, deletions and imports | Full | `logged` | Public |
-
 ### A5. The `resolver` kind
 
 - **Date:** 2026-09-27
@@ -246,8 +242,6 @@ Replaced text: §2 of this ADR.
 
 Replaced text: §2, from A6 rule 1 of this ADR; §4 of this ADR; §8 and §10 of this ADR.
 
-> - Nothing about document pages goes into the main or resolved graph. Page text is not RDF.
-
 ### A10. Files and media
 
 - **Date:** 2026-09-30
@@ -270,8 +264,6 @@ Replaced text: §2, from A6 rule 1 of this ADR; §4 of this ADR; §8 and §10 of
   - Not noted here before the migration: the resolve step of §3 named document namespaces, a kind this entry retires.
 
 Replaced text: §1 of this ADR; §3 of this ADR; §5 of this ADR.
-
-> **Content models are registry data.** The rendering code for each model implements a trait in `scatter-pages` (§11), so an instance can add models without changing the page format.
 
 ### A12. Template expansion
 
@@ -502,8 +494,6 @@ Replaced text: [10](../architecture/10-pages-and-content-models.md) §3.1.
 - **Summary:** A move leaves a redirect at the old title only where the old title may hold `wikitext`, since only a `wikitext` page can be a redirect: in namespace 0, User, Project, File, Template and Category, and at the `/doc` titles of Module, Table, Query and Scope. Where the old title cannot hold `wikitext`, the move behaves as `noredirect` without needing `suppressredirect`, and the `move/move` event says so with `noredirect: true`. Entity, keyed-type, Thread and Board namespaces disallow `move` altogether; a thread's title follows its subject through the thread's own `rename` record, which is not a move. The ledger named §3; the fold is at [10](../architecture/10-pages-and-content-models.md) §2.5, whose provenance is §4 here beside [0051](0051-page-redirects.md) §3, and the ledger row was corrected. (REVIEW G43)
 
 Replaced text: [10](../architecture/10-pages-and-content-models.md) §2.5.
-
-> - **Thread renames leave none** ([0019](../decisions/0019-discussions.md) §3), for the reason user renames do.
 
 ### A37. The Project namespace's local name follows the site's name, and keeps the old one
 

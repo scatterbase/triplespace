@@ -253,8 +253,6 @@ Replaced text: §1 of this ADR; §2 of this ADR; §7 of this ADR; §8 of this AD
 
 Replaced text: §3 of this ADR; §4 of this ADR; §5 of this ADR; §6 of this ADR.
 
-> **Resolved**, **Won't fix**, **Declined** and **Stale** (closed).
-
 ### A14. Proposal operations
 
 - **Date:** 2026-10-05

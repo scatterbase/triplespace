@@ -300,12 +300,6 @@ Replaced text: §9 of this ADR.
 
 Replaced text: §13 of this ADR.
 
-> CREATE TABLE view.report_state (
->   tenant bigint NOT NULL, report text NOT NULL, scope text NOT NULL,
-
-> CREATE TABLE view.site_stats (                  -- §9: MediaWiki's site_stats
->   tenant bigint PRIMARY KEY,
-
 ### A14. No `sysop` job rate row
 
 - **Date:** 2026-10-08
@@ -345,16 +339,6 @@ Replaced text: §4.4 of this ADR.
 - **Summary:** The `report` projection declares its class: it is view-derived, populated by a scan of the `view` tables it reads and never by a log replay, and "rebuild projection P for tenant T from `view`" is the named operation a batch-to-live switch uses. It is a tier-3 consumer: it consumes events — "entity X composed to version N" for entity reports, the page projection's and the refresh job's row changes for page reports — in its own queue, at its own rate, in no write's transaction, off during bootstrap and bulk modes until the operator turns it on. "Step 5 of 0013 §7" and "the synchronous budget" are withdrawn; the refresh job's rows are events to the report projection like any other, not deltas it applies in the refresh transaction. Chapter text: [21](../architecture/21-special-pages.md) §2.2, §2.3. (REVIEW G10, G13, G50)
 
 Replaced text: [21](../architecture/21-special-pages.md) §2.2, §2.3.
-
-> Changing a mode writes nothing into any tenant's partitions, so it is not an instance act ([0040](0040-instance-prerogatives.md) §1). When a report moves from live to batch, its next run fills its rows. When it moves from batch to live, the `report` projection rebuilds its rows for that tenant.
-
-> A batch report's page says when it was computed, as MediaWiki's cached reports do. `list=querypage` returns `cached`, `cachedtimestamp` and `maxresults` for it.
-
-> - The `report` projection runs after the tables it reads, in step 5 of [0013](0013-postgres-storage.md) §7 ([03](../architecture/03-storage-caches-and-search.md) §6.1). Each change to an input key recomputes only the entries that key affects. For example, a new `page_link` row to a missing title adds one to that title's `WantedPages` count.
-> - Report entries are **fan-out**, not part of a write's own rows. They are applied by the projection worker under 0013 §7's synchronous budget, and their lag is reported with the other projections'.
-> - Some inputs are written by the refresh job rather than by replay ([0042](0042-template-expansion-and-parsoid.md) §10): `transclusion`, `entity_usage`, and links and categories under expansion. For those, the refresh job applies the report deltas in the same transaction as the rows it writes.
-
-> - `projection` entries are a function of the `view` tables they read, and are rebuilt with them.
 
 ### A19. A served page exists only once the build registers its handler
 

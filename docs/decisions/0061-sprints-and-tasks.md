@@ -160,5 +160,3 @@ Replaced text: §4 of this ADR.
 - **Summary:** The task projection is a tier-3 consumer that follows the scope projection: it consumes the same composition events, after the scope consumer has applied them, in its own queue and outside every transaction, and is off during bootstrap and bulk modes; "inside the fan-out budget of 0013 §7" is withdrawn, and the small work after the initial job is per event, not per write. Chapter text: [15](../architecture/15-structured-pages.md) §3.5. (REVIEW G10)
 
 Replaced text: [15](../architecture/15-structured-pages.md) §3.5.
-
-> All of this is inside the fan-out budget of 0013 §7: a scope of a hundred thousand members with twenty rules is two million rows to compute when the sprint is saved, which is a job, and small per-write work after that. The sprint page shows "Tasks are being computed" until the job is done.

@@ -149,10 +149,6 @@ Replaced text: §8 of this ADR.
 
 Replaced text: §4 of this ADR.
 
-> The frame is drawn per request as it is for a local page; the HTML inside it is the cached fragment, so a page is fetched and rewritten once per `cache_ttl` however many readers it has.
-
-> When an entry passes `expires_at` the server checks the repository's latest revision ID (`prop=info`, the REST route's `ETag`, or the Enterprise version) before refetching, so an unchanged page costs one small request per `cache_ttl`.
-
 ### A4. The Delete action writes the hiding ACL
 
 - **Date:** 2026-10-09
@@ -183,12 +179,6 @@ Replaced text: [13](../architecture/13-mirrored-pages.md) §2.5, §5.4.
 - **Summary:** With page repositories instance-level ([0052](0052-page-repositories-and-title-inheritance.md) A7), the stored HTML rewrite is tenant-independent: one bundle per page per repository, whose single DOM pass rewrites every wiki link to the local-form URL of the same title in the repository's namespace (carrying `data-ts-ns`) and every image to its `File:` title with no byte URL, and leaves to a cheap tenant pass applied at serve time what only a tenant can decide: which of the repository's namespaces the tenant inherits (a link into one it does not becomes the repository's URL with `class="extiw"`), which file repository serves each `File:` title and in which mode, and the frame, site styles and link classes. The stored form is one per instance, held once in `proxy` mode and recorded once in `mirror` mode, so a tenant joining or leaving a repository rewrites nothing; the L1 key is the instance's with no tenant segment, a tenant's shorter `cache_ttl` revalidates the shared entry sooner and a longer one is served from it. `pages/{repo}` has one writer, the repository's sync job: an on-demand fetch, a purge, a talk-page fetch after a send and a tenant's first read all enqueue work for the job rather than writing, so the job's lock is the partition's order and foreign-thread numbers are allocated per provider under it; the next `n` is one more than the highest the partition holds, and no sequence outside the log is needed. (REVIEW G37)
 
 Replaced text: [13](../architecture/13-mirrored-pages.md) §2.2.
-
-> | **Wiki links** (`rel="mw:WikiLink"`, `href="./Title"`; or the article path's `/wiki/Title` from the legacy parser) | A link to the **local** URL of the same title when its namespace is one the repository serves here, so the link resolves through the stack (§1.3–1.4) and the reader keeps reading; otherwise the repository's own URL with `class="extiw"`, a link that leaves the wiki. A link whose title the title index (§2.3) lacks gets `class="new"`, a red link, as upstream drew it; a link to a redirect keeps `mw-redirect` ([0051](0051-page-redirects.md) §2) |
-
-> | **Images** (`<img>`, `srcset`, `<figure>`, `mw:File`) | Served by the tenant's **file policy**: the `File:` link goes to the local file title, and the bytes follow the first file repository in `files.repos` that holds the file, in its mode ([0039](0039-files-and-media.md) §11, in [12](../architecture/12-files-and-media.md)): `proxy` fetches and serves them from the media base, `link` leaves the repository's URLs, `mirror` serves the copy. An `<img>` whose source is not a file in any repository, a rendered formula from a math service for instance, is fetched through the repository's `media_hosts` allow-list in `proxy` mode and dropped otherwise, since external image URLs are never embedded ([0008](0008-namespaces-and-document-pages.md) §8) |
-
-> **The rewritten HTML depends on the repository's configuration and the title index, not on the stack.** A link is `/wiki/Title`; what the title shows is decided when it is followed.
 
 Replaced text: [13](../architecture/13-mirrored-pages.md) §2.4, §2.5, §5.4.
 

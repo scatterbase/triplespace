@@ -180,15 +180,6 @@ Replaced text: §5 of this ADR.
 
 Replaced text: [13](../architecture/13-mirrored-pages.md) §1.1.
 
-> | `namespaces` | The repository's namespaces the tenant serves, by the repository's canonical names, with `main` for namespace 0. Each is served in the local namespace of the same canonical name. The default is `["Template", "Module"]`, which is what a template repository served; MDWiki's English Wikipedia entry is `["main", "Template", "Module", "Category"]` |
-> | `shadowed` | What becomes of this repository's page when a higher-ranked page exists under the same title: `offer` (default), it is offered as an alternate (§1.5); `hide`, it is not shown at all |
-> | `repo.cache_ttl` | How long fetched source and bundles are held, default one hour, as [0042](0042-template-expansion-and-parsoid.md) §11 had it |
-> | `talk` | `link` (default): a foreign page's talk page holds local threads and links to the repository's talk page (§1.7). `sync`: the repository's talk pages paired with the served namespaces are followed, mirrored whatever the `mode`, and their sections are shown as foreign threads (§5) |
-
-> `repo.cache_ttl` is a per-repository field of the `page-repo` or `file-repo` record, under that one name everywhere, with a default per kind: 7 days for files, one hour for template source and page bundles.
-
-> **The tenant's order is the inheritance.** The `site` setting **`pages.repos`** lists the repositories the tenant uses, by name, in order. It replaces `wikitext.template_repos`, and **`pages.share`** replaces `wikitext.share` ([0042](0042-template-expansion-and-parsoid.md) §2): a tenant that sets it may serve its pages to other tenants as a `tenant` repository.
-
 ### A8. A mirrored entity's page ID is provider-ranged too
 
 - **Date:** 2026-10-09

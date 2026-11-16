@@ -164,8 +164,6 @@ Replaced text: §10 of this ADR.
 
 Replaced text: [05](../architecture/05-providers-and-ingest.md) §5.8.
 
-> Not yet: what a full mirror (`all`) writes to `view.term` is an open question of [0070](0070-shallow-entity-mirroring.md).
-
 Replaced text: [05](../architecture/05-providers-and-ingest.md) §5.6.
 
 ### A5. A fetch miss for an unknown entity writes no record

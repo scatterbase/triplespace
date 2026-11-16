@@ -248,8 +248,6 @@ Replaced text: §1 of this ADR; §17 of this ADR.
 
 Replaced text: §1, item 1, in part of this ADR; §11 of this ADR.
 
-> - The `resolved` subscription is the default for QLever; `full`, with its named graphs, is benchmarked before being recommended.
-
 ### A12. Client compatibility in CI
 
 - **Date:** 2026-10-06
@@ -305,8 +303,6 @@ Replaced text: §1 of this ADR; §17 of this ADR.
 - **Summary:** The deployment-profile table of §1 changes in four rows, from [0082](0082-source-form-and-the-shared-view.md) §6 and the review's query-service row. `view.term` holds rows for local entities, for entities in any tenant overlay, and for mirrored entities in the instance's term languages only, in both profiles; its size at Wikidata scale is mirrored entities × the instance's term languages × term kinds, the budget `entities.term_languages` sets. `entity_ref` is keyed on integer page IDs with a role bitmask and, with `view.term`, is the largest `view` table; the Wikidata-scale profile may omit it and serve "Links here" and the backlink count from the query service. The embedded query backend is the small profile's: the service refuses to start it above a configured triple count, and the Wikidata-scale profile requires `query.backend = remote` (QLever from dumps), so principle 1's "moving to QLever only when an instance chooses" becomes "when an instance chooses and necessarily at Wikidata scale". A dump is taken from a replica under `pg_export_snapshot()`, with parallel workers sharing the one snapshot (§8, in [02](../architecture/02-graphs-rdf-and-query.md) §4.1; an extension). The ledger's G49 row named 0032 §1 and 0013 §11 for the profile and dump parts; the chapter sections that hold them, [22](../architecture/22-crates-and-stack.md) §6 and §4.1 and [02](../architecture/02-graphs-rdf-and-query.md) §4.1, cite §1 and §8 of this ADR, and 0082's table does not name this ADR, so both are logged here as a direct decision. Chapter text: [22](../architecture/22-crates-and-stack.md) §6, §4.1. (REVIEW G7, G49)
 
 Replaced text: [22](../architecture/22-crates-and-stack.md) §6.
-
-> | Quad store | Optional | Optional; QLever from dumps |
 
 Replaced text: [22](../architecture/22-crates-and-stack.md) §4.1.
 

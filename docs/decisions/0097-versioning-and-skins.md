@@ -165,13 +165,7 @@ James's direction, from the design discussion of 2026-10-29:
 
 Replaced text: [19](../architecture/19-site-ui.md) §5.10.
 
-> - **The manifest**, `skin.toml`, gives the name, version, licence and requirements: the template contract and the Codex token major it is written for. A skin whose requirements the binary does not meet is not loaded, and the reason is logged and shown on `Special:Version`.
-
-> **Reaching parity.** The default skin first reproduces today's HTML. Deployment configuration `server.renderer` and `web.renderer` is `builtin` (until parity), `skin` or `compare`, which renders each page both ways, serves the built-in result and logs each route that differs. Results are compared as normalized DOM, fragments byte for byte, with `html::esc` as the skin's escaper, over every route of the routing table for a fixture wiki as an anonymous reader, a user and an administrator, for each content model, right to left, in night mode, with each feature switch on and off, and on a private tenant; the Playwright and axe suite runs against both. The frame moves first, then entity pages, then the rest route by route, each once it is equal on the corpus and has run under `compare` on a staging instance without a difference; then the built-in rendering and `renderer` are removed. The template contract stays at major 0 until a second skin, structurally different from the default, renders every route.
-
 Replaced text: [19](../architecture/19-site-ui.md) §5.2.
-
-> - **Codex markup:** the default skin's macros emit Codex CSS-only component markup (buttons, fields, tables, cards, tabs, messages, chips, progress bars), following the approach of WMF's Codex PHP, so a Codex markup change is one edit; until parity, a Rust builder module does the same for the built-in rendering. Another skin may use other components.
 
 Replaced text: [19](../architecture/19-site-ui.md) §5.6.
 
@@ -251,11 +245,7 @@ Replaced text: [19](../architecture/19-site-ui.md) §5.10.
 
 Replaced text: [19](../architecture/19-site-ui.md) §5.10.
 
-> While the migration runs, a part of a page that belongs to a group not yet switched is carried the same way and the field is replaced by the part's model when that group switches ([0097](../decisions/0097-versioning-and-skins.md) A6); the History tab's changes table was carried so between groups 4 and 7.
-
 Replaced text: [19](../architecture/19-site-ui.md) §5.2; [20](../architecture/20-web-tier.md) §1.2 and [23](../architecture/23-configuration-and-registry.md) §3.6.
-
-> | `server.renderer` | `builtin`, `skin`, `compare` | `builtin` | Which renderer draws the embedded site's pages until the skin migration is done: `compare` renders both, serves the built-in result and logs each route that differs; removed with the last group ([19](../architecture/19-site-ui.md) §5.10) | [0097](../decisions/0097-versioning-and-skins.md) §16 |
 
 ### A13. Plain's message bundle: which messages are a skin's
 

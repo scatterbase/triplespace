@@ -263,12 +263,6 @@ Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §5.2, a
 
 Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.2.
 
-> **Only local accounts have inboxes.** A mention of a foreign actor, such as a Wikidata editor's IRI, addresses nobody here.
-
-> **Hidden and erased content is not delivered**, and an already-delivered notification whose activity is later hidden or erased is removed from every inbox by the same purge that clears caches ([03](../architecture/03-storage-caches-and-search.md) §9.6).
-
-> and a delivered notification whose target becomes restricted is removed by the same purge ([09](../architecture/09-security-and-moderation.md) §5.3).
-
 Replaced text: [19](../architecture/19-site-ui.md) §6.2.
 
 ### A21. `watch` notifications, the star and the watchlist pages

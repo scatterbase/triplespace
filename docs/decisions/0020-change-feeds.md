@@ -237,15 +237,7 @@ Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.2.
 
 Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.3.
 
-> **`seen`** is updated when the holder reads the target or the watchlist, and drives the "changed since you last looked" mark. It is written often and matters little, which is why it lives here and not in a record.
-
-> **Serving respects the schema boundary.** `triplespace-accounts` is the only code that reads `private.watch`. It resolves the holder's watch set to a list of targets and hands that list to the activity query, which runs under the public role against `view` alone. The join happens in the query as a target-set parameter, never as a cross-schema join.
-
 Replaced text: [18](../architecture/18-api.md) §2.3, §2.4, §3.2.
-
-> | `action=setnotificationtimestamp` | As in MediaWiki | [0020](0020-change-feeds.md) §5 |
-
-> | `GET /watchlist` | The holder's watch set with expiries | [0020](0020-change-feeds.md) §5 |
 
 ### A19. A deleted target's changes leave the lists
 

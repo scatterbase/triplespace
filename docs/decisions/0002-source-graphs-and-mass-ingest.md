@@ -353,8 +353,6 @@ Replaced text: §8.2 of this ADR.
 
 Replaced text: §8.2 of this ADR.
 
-> It is the one whole-entity write to the local graph.
-
 ### A26. The bulk sketch uses `create-or-add`
 
 - **Date:** 2026-10-08
@@ -432,10 +430,6 @@ Replaced text: [05](../architecture/05-providers-and-ingest.md) §2.5, §3.2.
 - **Summary:** A mirror tombstone carries nothing about retention: it is one record in a shared partition, and retention is per tenant per entity. When the tombstone lands, the entity projection applies each reading tenant's policy for the entity, per overlay, as a record in that tenant's partition attested by the instance under an authority record, with a `retention/apply` log event, as a tier-3 job after the tombstone's composition and never inside the sync's transaction; under `retain` that record carries the materialized state into the tenant's local graph, under `cascade` it retracts the tenant's assertions, under `orphan` it writes the hiding. The compaction exemption is any tenant's `retain` row, instance-wide. The shipped default of `retention.default` is `orphan`; `cascade` is never a default, and a tenant that wants it sets it. A fetch miss for an entity with no `entity_source` row writes no record: the referring value renders unresolved (folded at [05](../architecture/05-providers-and-ingest.md) §5.5, under [0070](0070-shallow-entity-mirroring.md) §3). Scenarios A and B (§9) now read per tenant. (REVIEW G28)
 
 Replaced text: [05](../architecture/05-providers-and-ingest.md) §1.6, §2.1.
-
-> | `retain` | Its history is kept, and its last state is **materialized into the local graph** in the same log record as the tombstone | Kept. The entity survives. |
-
-> **Scenario A** is `cascade`, or `orphan` if the instance wants to keep local annotations recoverable.
 
 ### A35. Deterministic statement IDs hash the identifying qualifiers
 

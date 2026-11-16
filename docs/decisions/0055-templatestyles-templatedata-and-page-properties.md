@@ -129,8 +129,6 @@ James's direction, from the design discussion of 2026-10-01, was that the ADR se
 
 Replaced text: [10](../architecture/10-pages-and-content-models.md) §5.5.
 
-> Properties the refresh job writes are written in the same transaction as the links, categories and transclusions of a render ([0042](0042-template-expansion-and-parsoid.md) §10), and are therefore among the `view` tables that render re-creates rather than replays. A property the latest render did not set is deleted.
-
 ### A4. Night-mode selectors are kept
 
 - **Date:** 2026-10-17
@@ -148,8 +146,6 @@ Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §6.2
 - **Summary:** The site serves each TemplateStyles sheet as a same-origin stylesheet instead of an inline `<style>` element: the sheet is pure CSS, already sanitized and scoped, and the site's Content Security Policy refuses `<style>` elements ([0034](0034-frontend-stack.md) A13), which left both this ADR's elements and those of mirrored Wikipedia HTML unstyled. The HTML the site shows carries, where the element stood, a `<link rel="stylesheet">` with the same `data-mw-deduplicate` key, so order and deduplication are as before. The key is MediaWiki's, `TemplateStyles:r{revid}`, with `/{wrapper}` where a wrapper is given and the repository's name before a foreign sheet's revision; §3's `r{hash}` had left what it hashed unsaid. Addressing by revision rather than by a hash of the content needs no table of sheets, can be rebuilt from the log at any time, and lets an erasure or a deletion of the sheet's revision end its serving, which a copy kept by content would outlive. The API serves `/w/styles/`, the site styles of §4 included, whose address had not been among the API's paths; a sheet is served immutable, with its page's visibility. The chapter text is [11](../architecture/11-rendering-templates-and-modules.md) §6.3–6.4, with [09](../architecture/09-security-and-moderation.md) §1.4, [13](../architecture/13-mirrored-pages.md) §2.2, [18](../architecture/18-api.md) §2.3 and [20](../architecture/20-web-tier.md) §2.1.
 
 Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §6.3.
-
-> **Both renderers.** The built-in renderer renders the element as above. Parsoid asks the render-scoped `action=parse` for tags it does not implement natively (§3.1), and gets the same element with `modules` empty. **Mirrored HTML** carries Wikipedia's `<style>` elements already; [0053](../decisions/0053-mirrored-pages.md) §2 passes them through `sanitize` and keeps their keys, so a mirrored page and a fork of it deduplicate the same way.
 
 ### A6. The Interface namespace
 

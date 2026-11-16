@@ -167,8 +167,6 @@ Replaced text: §8 of this ADR.
 
 Replaced text: [08](../architecture/08-tenants-and-instances.md) §9.1.
 
-> **Not yet.** Whether a `store` tenant behind the evaluator could have a query service while private is open ([0059](0059-query-service.md) Q1).
-
 ### A9. The embedded backend is the small profile's
 
 - **Date:** 2026-10-09

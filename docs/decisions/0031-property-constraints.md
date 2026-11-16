@@ -149,12 +149,6 @@ Replaced text: [06](../architecture/06-statements-and-properties.md) §2.4.
 
 Replaced text: [06](../architecture/06-statements-and-properties.md) §2, §2.2.
 
-> **What it checks against.** The resolved view ([02](../architecture/02-graphs-rdf-and-query.md) §1.5): fused statements, canonical IDs ([04](../architecture/04-entities-and-identifiers.md) §4.4), normalized values ([04](../architecture/04-entities-and-identifiers.md) §4.7, §3.1). So a *distinct values* check on DOIs compares casefolded keys, a *value type* check follows a value to its canonical entity, and a *single value* check counts fused statements, not source-graph duplicates. Mirrored data is checked as local data is: a tenant sees Wikidata's own constraint violations on the items it mirrors, which is also what Wikidata's checker shows.
-
-> | The entity's classes | type (checks `P31`/`P279` chains up to a depth set in `site` configuration) | Entity reads along the chain, cached in L0 ([03](../architecture/03-storage-caches-and-search.md) §9.2) |
-
-> **Incremental and batch.** An entity's own statements are re-checked when the entity changes, synchronously for interactive writes so that the editor sees the marker on reload ([03](../architecture/03-storage-caches-and-search.md) §6.2). Types that depend on *other* entities are re-checked for them too, through the reverse index, in the same way a cluster change re-resolves referrers ([04](../architecture/04-entities-and-identifiers.md) §4): changing an item's `P31` re-checks *type* constraints on statements that point at it. A change to a constraint itself re-checks every statement using the property, as a batch job with progress ([19](../architecture/19-site-ui.md)), since that is a full scan of one property. Bootstrap ([05](../architecture/05-providers-and-ingest.md)) runs the constraint projection last, and a Wikidata-scale instance may run it for a chosen set of properties first.
-
 ### A8. Adapters read the instance role record
 
 - **Date:** 2026-10-09

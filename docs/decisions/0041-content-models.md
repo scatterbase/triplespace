@@ -242,10 +242,6 @@ Replaced text: §2 of this ADR.
 
 Replaced text: §3 of this ADR.
 
-> | `triplespace-sprint` | Triplespace | text | main | `application/json` | Yes | — ; allowed on Project (4) subpages ([0061](0061-sprints-and-tasks.md) §2–3) |
-
-> | `sanitized-css` | TemplateStyles | text | main | `text/css` | Yes | Template (10) for titles ending in `.css`; allowed in Project (4) for the site-styles page ([0055](0055-templatestyles-templatedata-and-page-properties.md) §1) |
-
 ### A16. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09

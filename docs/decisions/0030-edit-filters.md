@@ -219,5 +219,3 @@ Replaced text: §2 of this ADR.
 - **Summary:** Edit filters stay in the appending transaction, as a step of tier 1, since a filter is a function of the written record and the actor and nothing composes while it runs (§1). The `rate` variable is computed lazily, read from the counters only when an enabled filter's rule names it (§2). The `read` rate class of [0024](0024-subsidiary-accounts.md) §5 is counted for authenticated principals only once a per-process count passes a fraction of the limit, and never for a response served from L0 or L1. 0083's table gives this change as `extends 0030 §7`; the chapter text of §7 said every filter applied to every operation of a job unless it exempted the job's group, which the default now contradicts, so it is logged as an amendment. (REVIEW G8, G15)
 
 Replaced text: [05](../architecture/05-providers-and-ingest.md) §3.6.
-
-> A job of a million operations under ten filters spends seconds on them.

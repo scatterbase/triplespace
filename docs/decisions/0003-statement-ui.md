@@ -234,8 +234,6 @@ Replaced text: [06](../architecture/06-statements-and-properties.md) §1, §1.2.
 
 Replaced text: [19](../architecture/19-site-ui.md) §4.7.
 
-> - **Conflicts.** Each save carries `baserevid`. If the group has changed since the edit began, the pending rows are applied to the current data, and only the cells that clash are marked. The rest of the save goes through.
-
 ### A17. References are a tab's endnotes; the upstream revision is linked
 
 - **Date:** 2026-10-27

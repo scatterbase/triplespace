@@ -236,8 +236,6 @@ Replaced text: §2 of this ADR; §11 of this ADR.
 
 Replaced text: §5 of this ADR.
 
-> | **Behaviour switches:** `__NOEDITSECTION__`, `__NEWSECTIONLINK__`, `__NONEWSECTIONLINK__`, `__NOGALLERY__`, `__INDEX__`, `__NOINDEX__`, `__STATICREDIRECT__`, `__EXPECTUNUSEDCATEGORY__`, `__DISAMBIG__`, `__NOCONTENTCONVERT__`, `__NOTITLECONVERT__` | `ignored` |
-
 Replaced text: §8.1 of this ADR.
 
 ### A7. An include may not widen
@@ -346,17 +344,7 @@ Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §4.5
 
 Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §1.1 and §1.3.
 
-> Whether a tenant expands, runs Lua and which renderer serves its HTML are the `site` settings `wikitext.expansion`, `wikitext.lua` and `wikitext.renderer`, capped by the instance's `wikitext.ceiling`; the Parsoid service's address, timeout and concurrency are deployment configuration. The settings, their defaults and the rule that turning `wikitext.expansion` off also turns `wikitext.lua` off and `wikitext.renderer` back to `builtin` are in [23](../architecture/23-configuration-and-registry.md) ([0042](../decisions/0042-template-expansion-and-parsoid.md) §2).
-
-> **While `wikitext.expansion` is on**, Template (10) is a `pages` namespace and Template talk (11) is enabled:
-
-> **While it is off**, 10 is `reserved` and 11 is registered but disabled, both entered in `namespaces.toml` with `enabled_by = "wikitext.expansion"`, as §7.2 says for 828 and 829. This is a rule of [0008](../decisions/0008-namespaces-and-document-pages.md) §2: **a reserved number can be implemented conditionally**, by a setting named in its `namespaces.toml` entry. The namespace table is [10](../architecture/10-pages-and-content-models.md)'s.
-
-> **Turning expansion off never removes pages.** Template pages that exist keep their records and history. The namespace refuses `create`, `edit` and `move` into it with `ts-namespace-disabled`, and its existing pages stay readable at their titles and can be deleted. Nothing transcludes them. Turning expansion on again restores everything. `meta=siteinfo` lists a disabled namespace while it still holds pages, so clients can read them.
-
 Replaced text: [10](../architecture/10-pages-and-content-models.md) §6 step 3; [23](../architecture/23-configuration-and-registry.md) §3.2.
-
-> Turning `wikitext.expansion` off also turns `wikitext.lua` off and `wikitext.renderer` back to `builtin`; changing any `wikitext.*` setting bumps the render epoch of every `wikitext` page in the tenant and queues them for refresh ([11](../architecture/11-rendering-templates-and-modules.md)).
 
 ### A20. The Interface namespace
 
