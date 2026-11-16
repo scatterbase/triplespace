@@ -324,12 +324,26 @@ triplespace tenant create --tenant orgwiki --base https://wiki.example.org \
 ```
 
 `triplespace tenant setup` asks the same questions one at a time. Each wiki gets its own owner
-account, which holds that wiki's `owner` group. That account belongs to the new wiki only: it
-cannot sign in on the primary tenant, or on any other wiki.
+account, which holds that wiki's `owner` group.
 
-**The operator.** A wiki is created on behalf of an owner of the primary tenant, recorded in the
-instance's log as the operator who acted. If the primary tenant has more than one owner, choose
-one with `--operator {user ID}`; the default is the owner with the lowest user ID.
+**The owner's sign-in.** Give the owner a password with `--owner-password-file`, as above, or
+let them sign in with a login they already have on this instance: `--owner-login-of` names an
+account of theirs, on any wiki here, by its actor key (`{issuer code}:{user ID}`; the issuer
+code is in `triplespace tenant list`), and the new owner account is bound to that account's
+login. For example, to make the primary tenant's owner, user 1, the owner of a new wiki too:
+
+```sh
+triplespace tenant create --tenant beta --base https://beta.example.net \
+    --name "Beta" --owner-name Alice --owner-login-of qcsbdsnqe2t3ifazvtcjsmi4si:1
+```
+
+**The operator.** A wiki is created by a request filed on behalf of an owner of the primary
+tenant, recorded in the instance's log as the operator who asked for it. If the primary tenant
+has more than one owner, choose one with `--operator {user ID}`; the default is the owner with
+the lowest user ID. `tenant create` files the request and carries it out at once, so it ends
+with the wiki created or with the reason the request was refused. A request filed any other way
+is carried out by `triplespace provision`, a long-running process that a later version will
+need beside the server; nothing files one any other way yet.
 
 To adopt an existing Wikibase as one of the wikis instead of starting it empty, see step 8 of
 the [Quickstart](quickstart.md).

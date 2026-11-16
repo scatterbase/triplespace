@@ -63,6 +63,7 @@ triplespace = [
   "ts-takedown", "ts-expunge", "ts-viewtakedown",   # 0039 §21: operator removal of files; evaluated on the primary tenant only
   "ts-viewoperator",                             # 0040 §9: see which operator carried out an instance act; an instance right
   "ts-primary",                                  # 0046 §8: offer the primary role to another tenant; an instance right, owner only
+  "ts-createtenant",                             # 0111 §8: file a tenant request; an instance right, owner only
   "ts-viewip",                                   # 0007 §3: see an address in the abuse-handling store; an account request's (0087 §6)
 ]
 # The permissions that act on a page, entity or thread: all a scoped group may hold (09 §3.2;

@@ -98,6 +98,38 @@ pub async fn create<C: PgClient>(
     create_all(client, tenant, &seqs).await
 }
 
+/// [`create`] for a caller without the right to create in `log`: `function`, a database
+/// function taking the tenant and the sequence's kind, creates each sequence that does not
+/// exist. The function is the caller's policy, named by it.
+pub async fn create_via<C: PgClient>(
+    client: &C,
+    tenant: &str,
+    entity_types: &[&str],
+    function: &str,
+) -> Result<(), StoreError> {
+    let mut seqs = vec![
+        Sequence::Revision,
+        Sequence::Log,
+        Sequence::Page,
+        Sequence::User,
+        Sequence::ActorSurrogate,
+    ];
+    seqs.extend(
+        entity_types
+            .iter()
+            .map(|t| Sequence::Entity((*t).to_string())),
+    );
+    for s in &seqs {
+        // The name is checked here as `create` checks it, before the function checks it.
+        sequence_name(tenant, s)?;
+        client
+            .execute(&format!("SELECT {function}($1, $2)"), &[&tenant, &s.kind()])
+            .await
+            .map_err(|e| storage_error(&e))?;
+    }
+    Ok(())
+}
+
 /// Creates the instance's sequences, if they do not exist: job, log and page IDs, and a
 /// surrogate counter per keyed type, given by name.
 pub async fn create_instance<C: PgClient>(

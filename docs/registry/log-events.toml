@@ -136,6 +136,13 @@ visible_to = "Everyone; without reason or notice when `confidential`"
 sources = "0011 §6.1; 0039 §16"
 
 [[event]]
+events = ["tenant/request", "tenant/refuse"]
+from = "A tenant request in the instance `log`, filed by an operator of the primary tenant, and the refusal the provisioner appends when a check fails, whose target is the request ([08](08-tenants-and-instances.md) §1.4)"
+parameters = "`tenant/request`: the slug and the base; `tenant/refuse`: `reason`, the refusal's code"
+visible_to = "Everyone who may read the farm base's log"
+sources = "0111 §2, §4"
+
+[[event]]
 events = ["takedown/expunge"]
 from = "An `expunge` record, in the instance's own log only"
 parameters = "—"

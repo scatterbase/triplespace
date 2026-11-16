@@ -761,6 +761,7 @@ pub async fn tenant_setup(p: &mut dyn Prompt, args: TenantSetup) -> Result<()> {
                 owner_password_file: None,
                 operator,
                 auth_base: Some(auth.clone()),
+                owner_login_of: None,
             },
             password.as_deref(),
         )
