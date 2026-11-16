@@ -4,7 +4,7 @@
 //! and the removal rules; the security notices staged to every verified address; the
 //! Postmark webhook marking a bounced address; and `Special:Account`'s Email addresses
 //! section drawn without JavaScript (0100 §2, §3, §4, §5, §6, §7, §8, §9, §10; 0100 A1,
-//! A2).
+//! A2, A4).
 //! Needs `TRIPLESPACE_TEST_DATABASE_URL`; vacuous without it.
 
 use std::net::SocketAddr;
@@ -281,7 +281,9 @@ async fn email_addresses_and_codes() {
             trusted_proxies: vec![],
             dev_tenant: None,
             farm: triplespace_cli::common::farm_at(&database).await.unwrap(),
-            auth_base: None,
+            // An auth host is set, as on an instance with several tenants; the mail
+            // still links to the tenant's own `Special:Account` (0100 A4).
+            auth_base: Some("https://auth.example.org".into()),
             generator: "Triplespace test".into(),
             version: None,
         },
@@ -420,6 +422,15 @@ async fn email_addresses_and_codes() {
             .1
             .contains("https://librarybase.org/wiki/Special:Account")
     );
+    // 0100 A4: the code and the notice link to the tenant, not to the auth host, which
+    // serves no pages yet.
+    for (_, text) in &mails {
+        assert!(
+            text.contains("https://librarybase.org/wiki/Special:Account"),
+            "{text}"
+        );
+        assert!(!text.contains("auth.example.org"), "{text}");
+    }
 
     // A verified address is left alone by another add, with nothing sent.
     let r = c.email("", json!({"address": "alice@example.org"})).await;

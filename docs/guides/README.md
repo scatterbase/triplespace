@@ -7,6 +7,7 @@ They describe how to use what is built; the design behind each step is in the
 | Guide | For |
 |---|---|
 | [Quickstart](quickstart.md) | Building Triplespace, creating an instance and its first wiki, and starting the server; then adding wikis, adopting an existing Wikibase, mirroring a remote one, bots and tools, and deploying behind a proxy. |
+| [Hosting several wikis](hosting-several-wikis.md) | Deploying an instance that serves several wikis in production: host names, DNS, TLS and the reverse proxy, the server's settings, creating the wikis, and what this version does not support yet. |
 | [Moving an instance](moving-an-instance.md) | Taking an instance, with every wiki, its history, accounts and keys, from one Triplespace installation to another: a new server, a new database. |
 
 Using a Wikibase client library against Triplespace is covered in

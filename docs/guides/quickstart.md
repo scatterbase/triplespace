@@ -236,5 +236,7 @@ Chapter [18](../architecture/18-api.md) and the `--help` of each binary have the
 
 ## Next
 
+- [Hosting several wikis](hosting-several-wikis.md) on one instance in production: host names,
+  DNS, TLS and the proxy.
 - [Moving an instance to another installation](moving-an-instance.md), when this one needs a new
   server or a new database.
