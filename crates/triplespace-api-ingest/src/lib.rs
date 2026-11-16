@@ -37,6 +37,7 @@ pub mod settings;
 pub mod sources;
 pub mod store;
 pub mod talk_import;
+pub mod tenant_requests;
 pub mod threads;
 
 pub use store::PgIngest;

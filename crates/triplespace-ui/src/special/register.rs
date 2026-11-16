@@ -765,6 +765,10 @@ pub async fn serve(
     peer: Peer,
     query: &BTreeMap<String, String>,
 ) -> Response {
+    // A tenant owner's invitation (0111 §5, A2), before the registration gate.
+    if let Some(code) = query.get("invite") {
+        return super::invitation::serve(site, headers, peer, query, code).await;
+    }
     let incoming = pages::incoming(headers, peer);
     let mut cx = match start(site, headers, &incoming, query, TITLE).await {
         Ok(cx) => cx,
@@ -844,6 +848,9 @@ pub async fn post(
     query: &BTreeMap<String, String>,
     form: &BTreeMap<String, String>,
 ) -> Response {
+    if form.contains_key("invite") {
+        return super::invitation::post(site, headers, peer, query, form).await;
+    }
     let incoming = pages::incoming(headers, peer);
     let mut cx = match start(site, headers, &incoming, query, TITLE).await {
         Ok(cx) => cx,

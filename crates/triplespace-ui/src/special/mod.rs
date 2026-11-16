@@ -61,6 +61,7 @@ pub mod external;
 pub mod import;
 pub mod index;
 pub mod info;
+pub mod invitation;
 pub mod jobs;
 pub mod login;
 pub mod movepage;
@@ -76,6 +77,7 @@ pub mod reports;
 pub mod search;
 pub mod set_terms;
 pub mod settings;
+pub mod tenants;
 pub mod undelete;
 pub mod userrights;
 pub mod values;
@@ -103,6 +105,7 @@ pub fn name_of(title: &str) -> Option<String> {
 }
 
 /// Serves a special page, or `None` for one the site does not serve.
+#[allow(clippy::too_many_lines)] // a dispatch table, one arm per page
 pub async fn serve(
     site: &Site,
     headers: &HeaderMap,
@@ -158,6 +161,7 @@ pub async fn serve(
             Some(settings::serve(site, headers, peer, settings::Scope::Instance, params).await)
         }
         "Tenancy" => Some(settings::tenancy(site, headers, peer, query).await),
+        "Tenants" => Some(tenants::serve(site, headers, peer, params).await),
         "UserRights" => Some(userrights::serve(site, headers, peer, title, params).await),
         "RenameUser" | "Renameuser" => {
             Some(renameuser::serve(site, headers, peer, title, params).await)
@@ -237,6 +241,7 @@ pub async fn post(
             Some(register::post(site, headers, peer, query, form).await)
         }
         "ConfirmAccounts" => Some(register::post_review(site, headers, peer, query, form).await),
+        "Tenants" => Some(tenants::post(site, headers, peer, query, form).await),
         "Preferences" => Some(preferences::post(site, headers, peer, query, params).await),
         "WikiSettings" => {
             Some(settings::post(site, headers, peer, settings::Scope::Wiki, query, params).await)

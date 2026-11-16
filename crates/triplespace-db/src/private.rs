@@ -63,6 +63,9 @@ pub const PRIVATE_TABLES: &[(&str, Portability)] = &[
     // 0010 §10: a released name's keyed hash; it survives erasure by design and names
     // nobody, so it leaves with no account.
     ("name_tombstone", Portability::NeverLeaves),
+    // 0111 §5, A2: an owner's invitation is this instance's single-use code, spent or
+    // replaced here, and means nothing anywhere else.
+    ("tenant_invitation", Portability::NeverLeaves),
 ];
 
 /// Why the live schema disagrees with [`PRIVATE_TABLES`].

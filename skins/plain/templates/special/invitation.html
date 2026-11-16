@@ -1,0 +1,6 @@
+{#- A tenant owner's invitation on Special:CreateAccount?invite= (0111 §5, A2): which wiki,
+    as whom, and a password twice. -#}
+{%- import "codex.html" as codex -%}
+<div class="ts-invitation-page">{% for n in notices %}{{ codex.message(n) }}{% endfor -%}
+<p>{{ intro }}</p>
+<form class="ts-invitation" method="post" action="{{ action }}"><input type="hidden" name="invite" value="{{ code }}">{{ codex.field(password) }}{{ codex.field(retype) }}<div class="ts-invitation__actions">{{ codex.button(submit) }}</div></form></div>

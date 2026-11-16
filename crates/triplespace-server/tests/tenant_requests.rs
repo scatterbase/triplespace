@@ -140,7 +140,7 @@ async fn tenants_by_request() {
     // 0111 §2: a request is a log event in the instance `log`, keyed by the slug, and it
     // is pending until the provisioner answers it.
     let beta = file(
-        &db,
+        &database,
         &alpha_owner,
         &ask("beta", BETA, Some(&alpha_owner)),
         None,
@@ -272,7 +272,7 @@ async fn tenants_by_request() {
         ),
     ];
     for (filer, a, _) in &refused {
-        file(&db, filer, a, Some("a test")).await.unwrap();
+        file(&database, filer, a, Some("a test")).await.unwrap();
     }
     let done = provisioner.pass().await.unwrap();
     assert_eq!(done.len(), refused.len(), "{done:?}");
@@ -298,9 +298,14 @@ async fn tenants_by_request() {
         auth_base: None,
         ..provisioner.clone()
     };
-    file(&db, &alpha_owner, &ask("zeta", "zeta.example", None), None)
-        .await
-        .unwrap();
+    file(
+        &database,
+        &alpha_owner,
+        &ask("zeta", "zeta.example", None),
+        None,
+    )
+    .await
+    .unwrap();
     let done = no_auth.pass().await.unwrap();
     assert!(
         matches!(&done[0].1, Outcome::Refused(c, _) if c == "ts-auth-base-required"),

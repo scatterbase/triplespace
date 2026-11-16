@@ -341,19 +341,63 @@ triplespace tenant create --tenant beta --base https://beta.example.net \
 tenant, recorded in the instance's log as the operator who asked for it. If the primary tenant
 has more than one owner, choose one with `--operator {user ID}`; the default is the owner with
 the lowest user ID. `tenant create` files the request and carries it out at once, so it ends
-with the wiki created or with the reason the request was refused. A request filed any other way
-is carried out by `triplespace provision`, a long-running process that a later version will
-need beside the server; nothing files one any other way yet.
+with the wiki created or with the reason the request was refused. A request filed from the site
+is carried out by the provisioner instead; see *Creating wikis from the site* below.
 
 To adopt an existing Wikibase as one of the wikis instead of starting it empty, see step 8 of
 the [Quickstart](quickstart.md).
 
-Start the server, or restart it after adding a wiki. It refuses to start when the instance has
-more than one wiki and no auth base is set.
+Start the server. It refuses to start when the instance has more than one wiki and no auth
+base is set; once it runs, it serves a new wiki's host as soon as the wiki exists, with no
+restart.
 
 ```sh
 TRIPLESPACE_ENV_FILE=server.env triplespace-server
 ```
+
+### Creating wikis from the site
+
+An owner of the primary tenant can also request a wiki on `Special:Tenants` at the farm base.
+The request is carried out by the **provisioner**, `triplespace provision`, a long-running
+process beside the server. It is the only process that creates a wiki's tables and signs with
+the instance key, so the public server needs neither power.
+
+Give it a database login of its own, granted `ts_provision`, which may create a wiki's tables
+and sequences through two functions the database owner owns and do nothing else beyond what the
+server may:
+
+```sql
+CREATE ROLE ts_provision_login LOGIN PASSWORD '…' IN ROLE ts_provision;
+```
+
+Then run it with the instance key, the auth base, and the accounts service's login, which it
+uses to bind a new owner to a login:
+
+```sh
+cat > provision.env <<'END'
+TRIPLESPACE_DATABASE_URL=postgres://ts_provision_login:…@localhost/triplespace
+TRIPLESPACE_ACCOUNTS_DATABASE_URL=postgres://ts_accounts_login:…@localhost/triplespace
+TRIPLESPACE_KEY_FILE=triplespace.key
+TRIPLESPACE_AUTH_BASE=https://auth.example.net
+END
+chmod 600 provision.env
+TRIPLESPACE_ENV_FILE=provision.env triplespace provision
+```
+
+It waits for requests and carries out each one as soon as it is filed. `triplespace provision
+--once` carries out whatever is pending and exits, for a deployment that would rather run it
+from a timer.
+
+On `Special:Tenants`, **Create a wiki** takes the slug, the base URL, the name, the owner's
+account name, and a reason. Set up the wiki's DNS and proxy first (steps 2 and 3): the page does
+not check them. Below the form, **Requests** shows each request's state: pending, created, or
+refused with the reason, such as a slug or host already taken.
+
+**The owner's sign-in.** Tick **The owner signs in with my login** to make yourself the new
+wiki's owner with the login you already have. Otherwise, once the wiki is created, press
+**Invite the owner** beside its request. The page shows an address, once, that works once for
+seven days: send it to the owner, who opens it on the new wiki, chooses a password, and is
+signed in as the owner.
 
 ## 6. Check the deployment
 
@@ -387,11 +431,11 @@ lists every wiki.
 1. **DNS:** add records for its host (step 2), unless a wildcard record already covers it.
 2. **Proxy:** add the host to the proxy and reload it (step 3), unless a wildcard certificate
    already covers it.
-3. Run `triplespace tenant create` (step 5).
-4. Restart the server.
+3. Run `triplespace tenant create` (step 5), or request the wiki on `Special:Tenants` with the
+   provisioner running.
 
 With a wildcard record and a wildcard certificate for a domain, a new wiki under that domain
-needs only steps 3 and 4.
+needs only step 3.
 
 ## Not supported yet
 
