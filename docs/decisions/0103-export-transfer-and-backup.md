@@ -99,9 +99,7 @@ James's direction, from the design discussion of 2026-11-07:
 - **Change:** amends §1
 - **Summary:** §1 carried every part an anonymous reader may not read as its commitment, the header kept. A record's header names its key, payload type, time and revision, so for a target a confidential restriction hides, which is answered as a target that does not exist ([0056](0056-security-model.md) §5), the header itself would show that it exists. Asked, James chose that such a record is exported as its leaf alone, header included, as a compacted record is: the tree still folds and every other proof verifies, but nothing says what the offset held. Restricted and hidden targets keep their headers with their parts withheld. Chapter text: [01](../architecture/01-log-and-records.md) §8.
 
-Replaced text ([01](../architecture/01-log-and-records.md) §8, as it stood):
-
-> - an **export** publishes: a public bundle, a dump, the update stream, outbound federation. It holds only what the export policies of [02](../architecture/02-graphs-rdf-and-query.md) §1.1 allow, in its visible form: every part an anonymous reader may not read, hidden, suppressed, confidential or restricted, is carried as its commitment, as an erased part is, so every proof still verifies ([09](../architecture/09-security-and-moderation.md) §5.4);
+Replaced text: [01](../architecture/01-log-and-records.md) §8, as it stood before this entry; in git (`tools/adr.py log 0103 A1 --before`).
 
 ### A2. A backup is the binary's own, with `private` encrypted
 
@@ -110,9 +108,7 @@ Replaced text ([01](../architecture/01-log-and-records.md) §8, as it stood):
 - **Change:** extends §1; amends §4
 - **Summary:** Rehosting was "a Postgres restore plus the rejects files and the `private` schema", which needs Postgres's tools and a role set-up by hand ([0013](0013-postgres-storage.md) A97). James decided, choosing among a snapshot copy, the log bundle and a hybrid: (1) **the backup is the log bundle by default**: it carries, beside every partition, the partition registry's rows, the `private` schema, the `ops` state no rebuild recovers, the rejects files and the file blobs, and a restore loads the log and rebuilds every projection; (2) **a snapshot backup is offered as well**: every table copied from one snapshot and restored without a rebuild, faster but not verifiable; (3) **`private` is encrypted to a key**, in either form (which key is Q2); (4) **a restore migrates forward** a backup written under an older schema; (5) the rejects files and blobs travel in the backup. A Postgres restore remains a way to rehost.
 
-Replaced text ([08](../architecture/08-tenants-and-instances.md) §6.7, as it stood):
-
-> Rehosting an instance whole is a Postgres restore plus the rejects files and the `private` schema.
+Replaced text: [08](../architecture/08-tenants-and-instances.md) §6.7, as it stood before this entry; in git (`tools/adr.py log 0103 A2 --before`).
 
 ### A3. The backup key set
 

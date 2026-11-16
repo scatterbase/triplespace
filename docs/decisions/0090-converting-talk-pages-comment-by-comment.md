@@ -172,31 +172,9 @@ James's direction, from the design discussion of 2026-10-20:
 - **Date:** 2026-10-21
 - **Source:** Direct: James, design discussion of 2026-10-21
 - **Change:** amends §3, §4, §8, §12
-- **Summary:** A wrapper template becomes data, not a box. The comments inside every wrapper are split as anywhere else, and its two calls leave the posts' text, kept verbatim in `imported_from.wrapper`. A wrapper enclosing a whole section is a closure: its statement becomes the closer's post with `status: closed`, a new default status (James: "'closed' is a good name for the status"), appended after the comments it closes, and the thread shows collapsed as every closed thread does. Any other wrapper, around a subsection or part of one, closed or not, becomes a collapsing post whose `collapse` names the first and last posts it enclosed; their parents do not change. Collapsing a range is a native feature of threads that any editor may use, not an import-only field (James: "Range collapsing should be a native feature"; [0019](0019-discussions.md) A25). Wrapper posts, their `wrap` field and the placeholder rendering are withdrawn, and so is the section fallback for a wrapper enclosing part of a section, which on the 2026-10-21 samples cost the incidents noticeboard 5 of its 38 threads and 195 of its 989 comments. A wrapper opened inside a comment that ends before it closes is still a construct a boundary may not fall inside. Settles Q2. Chapter text: [13](../architecture/13-mirrored-pages.md) §5.14, §5.15; [14](../architecture/14-discussions.md) §1.5, §1.6, §2.1, §2.4; [22](../architecture/22-crates-and-stack.md) §2.1.
+- **Summary:** A wrapper template becomes data, not a box. The comments inside every wrapper are split as anywhere else, and its two calls leave the posts' text, kept verbatim in `imported_from.wrapper`. A wrapper enclosing a whole section is a closure: its statement becomes the closer's post with `status: closed`, a new default status (James: "'closed' is a good name for the status"), appended after the comments it closes, and the thread shows collapsed as every closed thread does. Collapsing a range is a native feature of threads that any editor may use, not an import-only field (James: "Range collapsing should be a native feature"; [0019](0019-discussions.md) A25). Wrapper posts, their `wrap` field and the placeholder rendering are withdrawn, and so is the section fallback for a wrapper enclosing part of a section, which on the 2026-10-21 samples cost the incidents noticeboard 5 of its 38 threads and 195 of its 989 comments. Settles Q2. Chapter text: [13](../architecture/13-mirrored-pages.md) §5.14, §5.15; [14](../architecture/14-discussions.md) §1.5, §1.6, §2.1, §2.4; [22](../architecture/22-crates-and-stack.md) §2.1.
 
-Replaced text (§3):
-
-> **A wrapper** is a registered template pair (§5) that collapses or closes a discussion: `{{archive top}}`…`{{archive bottom}}`, `{{hat}}`…`{{hab}}`, `{{collapse top}}`…`{{collapse bottom}}` and their relatives. Noticeboard and RfC archives are mostly closed discussions wrapped this way.
-> - **A wrapper that encloses a whole section or a whole subsection is lifted.** Its two calls are removed from the posts' text and become a **wrapper post**: a `post` whose text is the opening call, usually the closer's signed statement, and whose `wrap` field holds the closing call. It is the first post of its section or subsection, and is attributed to the closer, the signature in the opening call, by §6. The posts it encloses keep their own parents; nothing replies to the wrapper.
-> - **A wrapper that encloses only part of a section** is not lifted, and the section falls back (§4).
->
-> Heading posts and wrapper posts are written only by imports, as wikitext posts are, and render as what they were. A heading post renders as a heading at its depth. A wrapper post renders by expanding its opening call, a placeholder and its closing call once, then putting the enclosed posts' rendered HTML at the placeholder. So `{{archive top}}`'s box closes around the discussion it closed.
-
-Replaced text (§4):
-
-> - a comment boundary would fall inside a construct that opens before the boundary and closes after it: a table, an HTML block element left open, a template call spanning lines, or a wrapper not lifted by §3;
-
-Replaced text (§8):
-
-> The thread payload ([0019](0019-discussions.md) §4) gains three content-part fields and widens one. All four are written only by imports, and a `post` from an editor that carries any of them is refused.
->
-> | `wrap` | `post` (optional) | The closing call of a wrapper post, whose text is the opening call (§3) |
-
-Replaced text (§12):
-
-> | `scatter-threads` | Heading posts, wrapper posts, `imported_from` on `post`, and refusing those fields on an editor's `post` (§3, §8) |
->
-> | `triplespace-ui` | Rendering heading and wrapper posts, anchors, the imported post's byline, and `Special:GoToComment` (§3, §9) |
+Replaced text: §3 of this ADR; §4 of this ADR; §8 of this ADR; §12 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0090 A1 --before`).
 
 ### A2. The splitter as built
 
@@ -205,11 +183,7 @@ Replaced text (§12):
 - **Change:** amends §2, §3, §4, §5, §6, §13
 - **Summary:** 0090 now says what `scatter-talk` does, on James's direction that it "should be updated to reflect what the code ended up doing". **Boxes** (James: "The 'barnstar rule' is a good call (though it occurs in other contexts as well where messages are wrapped in pretty boxes)"): a signature inside a table, block element, template call, HTML comment or in-comment wrapper still open on its line does not end the comment; the comment runs on to the line that closes the construct, and only a second signature or a heading before then makes the section fall back. Without it every barnstar section on a user talk page fell back; on the 2026-10-21 samples it recovered all 18 comments lost in Jimbo Wales's archive. **Level-one headings** are read as level two when anything but blank lines is directly under them, not only comments, and a deeper heading with no thread to belong to starts one. **Parents** may be unsigned posts, and unsigned text just before a wrapper that encloses comments is a post of its own. **Wrappers** are recognised only on lines of their own; one encloses a whole section when it opens before anything else and nothing follows it; one that encloses no complete comment is that comment's text. **Aliases:** a signature name counts as the account's own when it makes up at least half of the signatures the account added under names not its own, as well as at least two, so a delivery bot takes no sender's name. **Zones:** a printed zone abbreviation gives a timestamp's offset; the caller supplies the abbreviations and the wiki's offset from siteinfo's `timezone` and the tz database, and `scatter-talk` stays pure. **Testing:** the samples are committed as fixtures (James: "we can commit the sample fixtures if they are not too big"), about 3.3 MB compressed, with a README carrying their licence and attribution, which settles Q6; the test holds the splitter to agreement thresholds rather than a list of known differences, which was never built. Chapter text: [13](../architecture/13-mirrored-pages.md) §5.12, §5.13, §5.14, §5.15, §5.16; [22](../architecture/22-crates-and-stack.md) §4.9.
 
-Replaced text (§2):
-
-> - **A comment's text** is everything in its section since the previous comment ended, less blank lines at either end. Unsigned text before a signed comment is part of that comment unless history says otherwise (§6). Unsigned text after the last comment of a section is a post of its own, attributed by §6.
->
-> - **A comment's depth** is the indentation of its first line. **Its parent** is the nearest earlier comment in the same section or subsection with a smaller depth. A comment at depth 0 has no parent, or the heading post of its subsection (§3). After a registered outdent template (`{{outdent}}`, `{{od}}`, §5), the next comment is a reply to the comment before it, whatever its depth.
+Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0090 A2 --before`).
 
 Replaced text (§3):
 
@@ -223,33 +197,18 @@ Replaced text (§4):
 
 > - a comment boundary would fall inside a construct that opens before the boundary and closes after it: a table, an HTML block element left open, a template call spanning lines, or a wrapper opened inside a comment that ends before the wrapper closes (§3);
 
-Replaced text (§5):
-
-> the timezone, in which a timestamp without a zone is read, with the tz database's daylight-saving rules; and the namespace names and aliases and special-page aliases that a user link may use.
-
-Replaced text (§6):
-
-> That account. An account's names are those it signed with in its own additions at least twice in the history read, and its former names in the repository's rename log where that is readable. This catches renames and usurped names, which a lookup of today's names gets wrong
-
-Replaced text (§13):
-
-> **`scatter-talk` has golden tests against DiscussionTools.**
-> - **The fixtures** are made by `tools/talk_dumps.py`: a page's revision as a dump, with `discussiontoolspageinfo`'s parse of that same revision.
-> - **The comparison:** the test compares comments by name and parents by name.
-> - **The reference implementation:** `tools/talk_split.py` is the Python prototype of §2, and `tools/talk_compare.py` its comparison. The Rust splitter is held to the prototype's agreement or better.
-> - **Known differences:** where the splitter is right and DiscussionTools is not, such as old date formats or a subsection's first comment, the case goes in a known-differences list with its reason. The test fails when one of them starts matching, as the Librarybase parse goldens do.
-> - **Attribution:** it is tested on a page with full history, against the counts of the research.
+Replaced text: §5 of this ADR; §6 of this ADR; §13 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0090 A2 --before`).
 
 ### A3. `scatter-talk-import`: one mapping for every import job
 
 - **Date:** 2026-10-22
 - **Source:** Direct: James, design discussion of 2026-10-22
 - **Change:** extends §1, §3, §12
-- **Summary:** Mapping a conversion onto thread records is part of the import (James: "it would make sense if the import job handled the mapping, since mapping arguably is part of the import"), done once in a new pure crate that every import job depends on (James: "What if we made it its own crate that others can depend on?"; the name `scatter-talk-import` approved). It keeps `scatter-talk` and `scatter-threads` independent of each other, and spares the fork job and `Special:Import` a dependency on `scatter-ingest`. It plans each thread's records in append order with parents and collapsed ranges by position, and the job resolves positions to revision IDs as it appends. Two rules the mapping needed: a thread's subject is its heading as plain text (§1), and a section that opens with a subheading opens its thread with that heading as text (§3). Chapter text: [13](../architecture/13-mirrored-pages.md) §5.12, §5.14; [22](../architecture/22-crates-and-stack.md) §2.1 (by [0005](0005-crate-organization.md) A103).
+- **Summary:** Mapping a conversion onto thread records is part of the import (James: "it would make sense if the import job handled the mapping, since mapping arguably is part of the import"), done once in a new pure crate that every import job depends on (James: "What if we made it its own crate that others can depend on?"; the name `scatter-talk-import` approved). It keeps `scatter-talk` and `scatter-threads` independent of each other, and spares the fork job and `Special:Import` a dependency on `scatter-ingest`. Chapter text: [13](../architecture/13-mirrored-pages.md) §5.12, §5.14; [22](../architecture/22-crates-and-stack.md) §2.1 (by [0005](0005-crate-organization.md) A103).
 
 ### A4. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-30
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§13
-- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [10](../architecture/10-pages-and-content-models.md), [13](../architecture/13-mirrored-pages.md), [14](../architecture/14-discussions.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0090 A4 --diff`).

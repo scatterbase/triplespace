@@ -82,20 +82,14 @@ James's direction, from the design discussion of 2026-10-05:
 - **Change:** corrects §1, §4
 - **Summary:** Caption triples (`rdfs:label`, `schema:description` per language) are emitted on the page node `{base}/page/{page ID}` ([0038](0038-page-metadata-and-categories.md) §11, [0041](0041-content-models.md) §7); there is no "`M` node". (PENDING E24)
 
-Replaced text (§1):
-
-> **RDF**: the `M` node ([0038](0038-page-metadata-and-categories.md) §11) gains `rdfs:label` and `schema:description` per language, as Commons' SDC export has them.
-
-Replaced text (§4):
-
-> - **RDF**: captions on the `M` node (§1); `WDM` entities in the Wikidata mirror graph and, through resolution, in the resolved view of the tenant's own File pages for foreign files, as any mirrored entity.
+Replaced text: §1 of this ADR; §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0065 A1 --before`).
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§5
-- **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [12](../architecture/12-files-and-media.md), [15](../architecture/15-structured-pages.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0065 A2 --diff`).
 
 ### A3. Captions are term operations; `M` and `WDM` are an ordinary cluster; a local File page is required
 
@@ -104,20 +98,15 @@ Replaced text (§4):
 - **Change:** amends §1, §2, §4
 - **Summary:** The `terms` operation is withdrawn: captions are written with the same `add`, `remove` and `override` operations a change set uses for any term, on the subject `M{page ID}`, in the page's change set in `pages`; a caption on a local file is an `add`, replacing or clearing a Commons caption on a foreign file is an `override` or `remove` of the mirrored term; `wbsetlabel` and `wbsetdescription` on an `M` ID become those operations by the module mapping of [0084](0084-wikibase-writes-against-the-resolved-view.md) §2, which the chapter cites for that step. Local annotation of a foreign file requires a local File page, a `create` with no upload, keyed by that page's `M` ID; the ranged-ID overlay is dropped, and a foreign file no local page describes has no local statements. A local `M` and the `WDM` it mirrors are an ordinary identity cluster with a fixed canonical, the `WDM` member, formed by the file lookup when the local page is created, never re-pointed by a `same-as` or `different-from` record, and dissolved when the page is deleted or the file stops being the repository's; the two resolve and rewrite in responses as any cluster members do, and `wbgetentities&ids=M{page ID}` says `canonical: "WDM123"` rather than `foreign`. `mediainfo.mirror = on-demand` enqueues a fetch through `ops.entity_fetch` with reason `read`, and the page or statement renders without the statements until the fetch lands. Page subjects use one key form across `view`: `M{page ID}` for a File page, the decimal page ID otherwise. (REVIEW G44)
 
-Replaced text ([12](../architecture/12-files-and-media.md) §8.4, as it stood):
-
-> **A File page's `mediainfo` slot carries labels and descriptions**, Commons' captions, in every language, as Wikibase terms. They are written by a **`terms`** operation on the page's change set in `pages` — the change-set payload already carries page statements ([0038](0038-page-metadata-and-categories.md) §1), and gains terms for File pages only — and projected into `view.term` with `entity_id = 'M{page ID}'` ([03](../architecture/03-storage-caches-and-search.md) §4.3), so every reader of terms (search, the label in the viewer's language, `wbgetentities`, the dump) sees them with no new table.
+Replaced text: [12](../architecture/12-files-and-media.md) §8.4, as it stood before this entry; in git (`tools/adr.py log 0065 A3 --before`).
 
 > `wbsetlabel`, `wbsetdescription` and a `wbeditentity` carrying `labels` or `descriptions` on an `M` ID are accepted and append the `terms` operation.
 
-Replaced text ([12](../architecture/12-files-and-media.md) §6.6, as it stood):
-
-> **Mirroring set**: `mediainfo.mirror` (site, default **`on-demand`**): a Commons file's MediaInfo is fetched through `Special:EntityData` ([0012](0012-api-requirements.md) §6's upstream fetch) the first time the file is used by a local page or shown, written as a `put`, and kept current by Commons' EventStreams `mediainfo` changes as [0053](0053-mirrored-pages.md) §6 keeps mirrored pages current;
+Replaced text: [12](../architecture/12-files-and-media.md) §6.6, as it stood before this entry; in git (`tools/adr.py log 0065 A3 --before`).
 
 > The local page's own `M{local page ID}` names the local overlay; `wbgetentities&ids=M{local}` returns the resolved view and says `foreign: "WDM123"` in `triplespace`, and `wbgetentities&ids=WDM123` returns the mirror alone.
 
 > **Clusters**: a local `M` entity and the `WDM` it mirrors are **one subject by construction**, not a cluster: the local page *is* the foreign file's page here, with the ranged page ID of [0052](0052-page-repositories-and-title-inheritance.md) §6 ([04](../architecture/04-entities-and-identifiers.md) §5.3) where the file is only inherited. `same-as` between `M` IDs is refused, as §8.2's "derived, not minted" implies.
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.3, as it stood):
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.3, as it stood before this entry; in git (`tools/adr.py log 0065 A3 --before`).
 
-> Captions are `term` rows with `entity_id` of the form `M{page ID}` and `WDM{page ID}`; the page projection writes the local ones from the `terms` operation, the mirror projection the foreign ones ([0065](0065-mediainfo-captions-and-commons.md) §4).

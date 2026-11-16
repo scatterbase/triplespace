@@ -73,14 +73,7 @@ James's direction, from the design discussion of 2026-09-30: **`QQQ`, `PPP` and 
 - **Change:** supersedes §6
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries both changes this section listed (0005 A44).
 
-Replaced text (§6):
-
-> | Crate | Change |
-> |---|---|
-> | `scatter-wikibase-model` | The ID parser accepts the tenant-relative form and returns the local ID (§1) |
-> | `scatter-providers` | The reserved doubled codes, rejected when a provider is registered (§2) |
->
-> No crate is added.
+Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0044 A1 --before`).
 
 ### A2. Converted to the 0050 format
 
@@ -94,7 +87,7 @@ Replaced text (§6):
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§6
-- **Summary:** The Decision's current text now lives in the architecture chapters [04](../architecture/04-entities-and-identifiers.md), [10](../architecture/10-pages-and-content-models.md), [17](../architecture/17-federation-and-publication.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0044 A3 --diff`).
 
 ### A4. Naming a tenant's entity from elsewhere
 
@@ -103,9 +96,7 @@ Replaced text (§6):
 - **Change:** amends §1
 - **Summary:** A tenant's entity is named from elsewhere by its IRI, and on a tenant that reads it by that tenant's name for it: the registry code where there is one (`LBQ6`), otherwise the reader's source name (`lb:Q6`).
 
-Replaced text (§1, in [04](../architecture/04-entities-and-identifiers.md) §2.3):
-
-> To name a tenant's entity from elsewhere, use the tenant's provider code ([0018](0018-tenants.md) §5, in [08](../architecture/08-tenants-and-instances.md)).
+Replaced text: §1, in [04](../architecture/04-entities-and-identifiers.md) §2.3, as it stood before this entry; in git (`tools/adr.py log 0044 A4 --before`).
 
 ### A5. Cluster members are normalized at every entry point and rewritten on the way out
 

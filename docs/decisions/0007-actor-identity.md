@@ -137,9 +137,7 @@ Four constraints follow from how MediaWiki treats accounts:
 - **Change:** amends §1; extends §3, §8
 - **Summary:** Each tenant is an issuer, coded by its slug; `local` reads as the current tenant's issuer. Bindings map a provider subject to a tenant account and live in the tenant's `accounts` partition. Attribution keeps the account and tenant an edit was made under.
 
-Replaced text (§1):
-
-> | This instance | `local` | Numeric | Local users (§3) |
+Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0007 A2 --before`).
 
 ### A3. The built-in password issuer
 
@@ -248,9 +246,7 @@ Replaced text: the operator IRI `{farm base}/operator` of A13.
 - **Change:** amends §9
 - **Summary:** The list in §9 of terms minted under `scatter:` is illustrative, not a catalogue: `scatter-vocab` is the catalogue of record for Triplespace's own vocabulary, and a term is defined there, not by appearing in §9 or in [0001](0001-revision-metadata-rdf.md) §6, which is amended the same way. (PENDING A21)
 
-Replaced text (§9):
-
-> Terms to mint under `scatter:`:
+Replaced text: §9 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0007 A17 --before`).
 
 ### A18. One actor record per provider
 
@@ -259,9 +255,7 @@ Replaced text (§9):
 - **Change:** amends §6
 - **Summary:** A provider without individual actors has one actor record, of kind `provider`, in `actors/{provider}`, with agent type `prov:Organization`, written when the provider is registered; every attestation, OpenAlex's mirror records included, names an actor key. "No actor records are kept for such providers" becomes this. The job's own actor stays separate, as §6 says. [0013](0013-postgres-storage.md) §5.4 is amended the same way. (PENDING C1)
 
-Replaced text (§6):
-
-> No actor records are kept for such providers.
+Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0007 A18 --before`).
 
 ### A19. The right to see an IP in the abuse-handling store
 
@@ -275,26 +269,16 @@ Replaced text (§6):
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
-- **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [07](../architecture/07-actors-and-accounts.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0007 A20 --diff`).
 
 ### A21. Tenant and farm issuer codes are derived
 
 - **Date:** 2026-10-09
 - **Source:** [0079](0079-derived-issuer-codes.md) §1, §2, §6
 - **Change:** amends §1, §3
-- **Summary:** A tenant's issuer code is derived from its founding record, and the farm's is the farm code ([0079](0079-derived-issuer-codes.md) §1–2, §4): 26 characters of base32 that no registry allocates. A registered issuer code is at most 25 characters, so it can never equal a derived one (§1). The operator's key is `instance:{farm code}` (§1). Adopted accounts are written under the tenant's issuer code (§3).
+- **Summary:** A tenant's issuer code is derived from its founding record, and the farm's is the farm code ([0079](0079-derived-issuer-codes.md) §1–2, §4): 26 characters of base32 that no registry allocates. Chapter text: [07](../architecture/07-actors-and-accounts.md) §1.1, §2.1.
 
-Replaced text (§1, in [07](../architecture/07-actors-and-accounts.md) §1.1):
-
-> | Each tenant | Its slug, such as `librarybase`; `local` names the current tenant's ([0018](0018-tenants.md) §4) | Numeric | The tenant's users (§2) |
-> …
-> | The farm, where the tenancy policy gives it identity | The farm slug | Numeric | Farm accounts, which edit nothing ([0028](0028-tenancy-policy.md) §2) |
->
-> **The `instance` issuer** has one actor, the operator: actor key `instance:{farm slug}`, …
-
-Replaced text (§3, in [07](../architecture/07-actors-and-accounts.md) §2.1):
-
-> …the source's accounts are written as `{slug}:{id}` actor records under their own numbers, …
+Replaced text: §1, in [07](../architecture/07-actors-and-accounts.md) §1.1; §3, in [07](../architecture/07-actors-and-accounts.md) §2.1, as it stood before this entry; in git (`tools/adr.py log 0007 A21 --before`).
 
 ### A22. The actor key lives in the attestation part, never in the header
 
@@ -303,9 +287,7 @@ Replaced text (§3, in [07](../architecture/07-actors-and-accounts.md) §2.1):
 - **Change:** corrects §1
 - **Summary:** An actor key is what the attestation part of a record carries; a record's header never names the actor responsible for it, and carries an actor key only as the key of an actor record, whose subject the actor is. "It is what log headers carry" is struck. `view.activity`'s issuer index filters on the tenant's issuer code. The spelling of issuer codes is settled by [0079](0079-derived-issuer-codes.md). (REVIEW G19)
 
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §1.1, as it stood):
-
-> **An actor key** is the compact form `{issuer}:{id}`, such as `wikidatawiki:12345` or `local:42`. It is what log headers carry ([01](../architecture/01-log-and-records.md)). [0006](../decisions/0006-log-integrity-and-erasure.md) §3 requires a header key to be an identifier, never content. An actor key is an identifier and never contains a name.
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §1.1, as it stood before this entry; in git (`tools/adr.py log 0007 A22 --before`).
 
 ### A23. `editcount` and `created_at` on `view.actor`; `autoconfirmed` is implicit
 
@@ -319,7 +301,7 @@ Replaced text ([07](../architecture/07-actors-and-accounts.md) §1.1, as it stoo
 - **Date:** 2026-10-17
 - **Source:** [0087](0087-account-registration-and-challenges.md) §1, §2, §3, §6, §7
 - **Change:** extends §3
-- **Summary:** `createaccount` alone decides whether an account may be made; a person registers with the `password` issuer or by a first login through an external issuer. A challenge, a SHA-256 proof of work bound to one trigger, tenant and session, guards three acts, listed in `challenge.triggers`: creating an account or filing a request with the `password` issuer (`createaccount`), the save that would create a temporary account (`tempaccount`), and a `password` login after repeated failures (`badlogin`). Registrations through an external issuer and bot-password logins are not challenged; `skipcaptcha` exempts its holder. With `account.approval` on, registering files a request in `private.account_request`, reviewed by holders of `confirmaccount` on ConfirmAccount's model; an account never approved never enters the log. The chapter text is [07](../architecture/07-actors-and-accounts.md) §2.3 and the new §2.6.
+- **Summary:** `createaccount` alone decides whether an account may be made; a person registers with the `password` issuer or by a first login through an external issuer. Registrations through an external issuer and bot-password logins are not challenged; `skipcaptcha` exempts its holder. With `account.approval` on, registering files a request in `private.account_request`, reviewed by holders of `confirmaccount` on ConfirmAccount's model; an account never approved never enters the log. The chapter text is [07](../architecture/07-actors-and-accounts.md) §2.3 and the new §2.6.
 
 ### A25. External identity providers
 
@@ -333,53 +315,9 @@ Replaced text ([07](../architecture/07-actors-and-accounts.md) §1.1, as it stoo
 - **Date:** 2026-10-18
 - **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §2, §3, §4
 - **Change:** amends §3
-- **Summary:** A person authenticates to the instance as an **instance login**, not as a tenant account. The login holds the sign-in methods: a password, whose binding is now `(password, n) → login:n` with the hash in `private.password` keyed by login, and external identities, whose bindings are records in the instance's private `logins` partition. A tenant account holds one binding, `(login, n)`, in its tenant's `accounts` partition, and a login reaches at most one account per tenant, so one password serves every tenant while actors stay per tenant. `login` is a built-in issuer. Logins are created and used on the auth host, and a person chooses a tenant account's public name on the first visit. The chapter text is [07](../architecture/07-actors-and-accounts.md) §2.1, §2.2, §2.6 and the new §2.8.
+- **Summary:** A person authenticates to the instance as an **instance login**, not as a tenant account. `login` is a built-in issuer. Logins are created and used on the auth host, and a person chooses a tenant account's public name on the first visit. The chapter text is [07](../architecture/07-actors-and-accounts.md) §2.1, §2.2, §2.6 and the new §2.8.
 
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.1, as it stood):
-
-> **Logging in uses a binding.** A binding maps an identity-provider subject to a local user, for example `(wikimedia-central, 7654321) → local:42`. The rules are:
->
-> - A local user may hold several bindings, and may add or remove them.
-> - A provider subject is bound to at most one local user.
-> - Tokens and other secrets are never written to the log. They live in an operational store.
-> - The `sub` claim is normalized. The legacy form `7654321` and the newer form `mw:CentralAuth:7654321` are the same subject.
-> - A binding belongs to a tenant account and lives in that tenant's `accounts` partition. One identity-provider account may be bound on several tenants; that makes them one person's accounts, not one actor ([0018](0018-tenants.md) §4).
-
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.1, as it stood):
-
-> **API keys are credentials of subsidiary accounts only** (§5.1). A primary account authenticates through a binding and never holds a key.
-
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.1, as it stood):
-
-> **Bindings are private.** They go to the `accounts` graph (§1.6), which is never projected, exported or placed on a feed.
-
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.2, as it stood):
-
-> One issuer is operated by the instance itself, `password`, registered in `issuers.toml` with `builtin = true`. Its subject for a local user is that user's own ID, so a password login is the binding `(password, 42) → local:42`, and the hash lives in `private.password` ([0013](0013-postgres-storage.md) §4), never in the log. It is an identity provider and nothing else: no actor is ever attributed to it, and it appears on `Special:UserLogin` ([0010](0010-site-ui.md) §10; [19](../architecture/19-site-ui.md)) as one button among the issuers. Whether it accepts logins is the `site` setting `login.password`; `triplespace-cli instance create` turns it on and sets the first administrator's password ([0016](0016-permissions-and-access-control.md) §3), and an instance that registers an external provider may turn it off or leave it as a fallback.
-
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.6, as it stood):
-
-> A person registers with the built-in `password` issuer (§2.2), choosing a name and a password in one form, or by a first login through an external issuer, which continues to `Special:CreateAccount` to choose a name ([19](../architecture/19-site-ui.md) §2.3). `action=createaccount` serves both ([18](../architecture/18-api.md) §2.3).
-
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.6, as it stood):
-
-> and which issuers may register, which is the issuer registry and `login.password` (§2.2).
-
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.6, as it stood):
-
-> | `createaccount` | Creating an account, or filing a request for one, with the `password` issuer |
-
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.6, as it stood):
-
-> | `badlogin` | A `password` login, once the caller's address key (§6.3) has failed 3 times within 5 minutes or the named account 20 times within 10 minutes |
-
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.6, as it stood):
-
-> A registration through an external issuer is not challenged, since the issuer has decided who may hold an account there, and neither is a subsidiary's bot-password login, whose secret cannot be guessed. A challenge is issued for one trigger, one tenant and one session, and a solution is accepted once.
-
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.6, as it stood):
-
-> the credential the account will be created with (a password hash, or an issuer and subject)
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.1, §2.2, §2.6, as it stood before this entry; in git (`tools/adr.py log 0007 A26 --before`).
 
 ### A27. A surrogate's actor key is `actor:{n}`
 
@@ -388,9 +326,7 @@ Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.6, as it stoo
 - **Change:** amends §5; extends §1
 - **Summary:** A surrogate is minted by its tenant, in sequence, from the tenant's `actor_surrogate` sequence, and its actor key is `actor:{n}`. Like `local`, the code `actor` is never registered, reads as the current tenant's, and is reserved in the shared namespace of slugs and issuer codes; the key's IRI is `{base}/actor/{n}`, and outside the tenant a surrogate is named by that IRI. Its actor record, of kind `anonymous`, `imported` or `federated` with the `raw` value, is in the tenant's `actors` partition, keyed by the key. Before this, a surrogate had an IRI and no key, and tenant issuers accept only numeric subjects. The chapter text is [07](../architecture/07-actors-and-accounts.md) §1.1 and §1.4; the sequence is logged as [0013](0013-postgres-storage.md) A68.
 
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §1.4, as it stood):
-
-> | **Upstream IP edits,** made before temporary accounts | The IP gets a surrogate, `{base}/actor/{n}`, of kind `anonymous`.
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §1.4, as it stood before this entry; in git (`tools/adr.py log 0007 A27 --before`).
 
 > **Surrogates are minted by the instance, in sequence.** They carry no information about what they stand for.
 
@@ -408,6 +344,5 @@ Replaced text ([07](../architecture/07-actors-and-accounts.md) §1.4, as it stoo
 - **Change:** amends §8; extends §5
 - **Summary:** A private graph is never in an export or a transfer, and only the operator's backups carry it (0103 §2); and RDF, dumps, the stream and federation name a surrogate by its IRI alone, never the raw value an actor record keeps for it, an upstream IP address among them (0103 §6). Chapter text: [07](../architecture/07-actors-and-accounts.md) §1.6, §1.4.
 
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §1.6, as it stood):
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §1.6, as it stood before this entry; in git (`tools/adr.py log 0007 A29 --before`).
 
-> **`private` is an export policy.** A private graph is never projected into any graph, never placed on a feed, and never included in an export bundle ([0006](../decisions/0006-log-integrity-and-erasure.md) §9), including one made for verification. Its integrity can be checked only by the instance itself.

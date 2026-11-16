@@ -154,9 +154,7 @@ Replaced text (§4, in part):
 - **Change:** amends §10
 - **Summary:** The scope listing key `sc:` (with `tp:` of [0049](0049-boards.md) §12 and `sp:` of [0061](0061-sprints-and-tasks.md) §11) carries a **listing version**, the maximum activity ID over the listing's members, computed in Postgres at read time, in place of purges on ordinary writes; [0014](0014-caches-and-search.md) §1 principles 1 and 4 hold unchanged. Tag purges remain for erasure and hiding. (PENDING B4)
 
-Replaced text (§10):
-
-> Cache keys: `sc:{page id}:{definition revid}:{computed_at}` for member pages, purged on recomputation; the scope page itself follows the page rules of [0014](0014-caches-and-search.md).
+Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0060 A5 --before`).
 
 ### A6. `notify` refused on scope and rows watches
 
@@ -172,35 +170,27 @@ Replaced text (§10):
 - **Change:** corrects §5
 - **Summary:** `view.scope_member.kind` admits `form` and `sense` beside `entity` and `page`, as A4's form and sense subjects need; a lexeme part is keyed by its part ID. (PENDING F9)
 
-Replaced text (§5):
-
-> ```
->   kind     text   NOT NULL,                -- 'entity' | 'page'
-> ```
+Replaced text: §5 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0060 A7 --before`).
 
 ### A8. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§11
-- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [15](../architecture/15-structured-pages.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0060 A8 --diff`).
 
 ### A9. Membership is a tier-3 consumer; `view.scope_trigger`; the initial computation is a job
 
 - **Date:** 2026-10-09
 - **Source:** [0083](0083-write-path-in-three-tiers.md) §3, §6
 - **Change:** amends §5, §10; extends §4
-- **Summary:** The scope projection no longer runs in step 7 of 0013 §7 within a fan-out budget: it is a tier-3 consumer of composition events, in its own queue with its own rate and lag, never inside the appending or composing transaction, off during bootstrap and bulk modes. A definition compiles at save to rows of `view.scope_trigger (tenant, trigger_kind, key, scope_page_id)` — `property:P31`, `category:{page}`, `table-row:{page}`, `sitelink`, `schema:{id}` — held in L0, so an event that matches no trigger is one hash probe and nothing more. The initial computation is always a job: the save compiles the triggers, writes `view.scope` with `computed_at` null and enqueues the computation; a rebuild is the same job for every scope of a tenant from `view`, the projection being view-derived. A truncated scope is "the first N found, refilled by a job when it falls below N"; it is a full operand only where it can be probed (`statement`, `category`, `ids`, `conforms`), and an `intersection` or `difference` whose non-probeable operand (`query`, `saved`, `column`, `pages_of`, `entities_of`) is truncated is refused at save with `ts-scope-truncated-operand`; a scope whose operand becomes truncated later is marked `stale`. Incremental scopes are current within the consumer's lag, shown beside `computed_at`. (REVIEW G10)
+- **Summary:** The scope projection no longer runs in step 7 of 0013 §7 within a fan-out budget: it is a tier-3 consumer of composition events, in its own queue with its own rate and lag, never inside the appending or composing transaction, off during bootstrap and bulk modes. A truncated scope is "the first N found, refilled by a job when it falls below N"; it is a full operand only where it can be probed (`statement`, `category`, `ids`, `conforms`), and an `intersection` or `difference` whose non-probeable operand (`query`, `saved`, `column`, `pages_of`, `entities_of`) is truncated is refused at save with `ts-scope-truncated-operand`; a scope whose operand becomes truncated later is marked `stale`. Chapter text: [15](../architecture/15-structured-pages.md) §1.4; [03](../architecture/03-storage-caches-and-search.md) §4.15. (REVIEW G10)
 
-Replaced text ([15](../architecture/15-structured-pages.md) §1.4, as it stood):
-
-> **Two speeds.** `ids`, `statement`, `category`, `column`, `pages_of`, `entities_of` and the set algebra over them are **incremental**: the scope projection runs in step 7 of [0013](0013-postgres-storage.md) §7 ([03](../architecture/03-storage-caches-and-search.md) §6.1), after the statement, category and page projections, and applies the effect of each write to the scopes it touches, found through the inverted index above and through `page_link` for the kinds that name a property, category or table. These scopes are current within the fan-out budget of 0013 §7, like referrers. `query` kinds, and any set algebra with a `query` operand, are **refreshed**: a job runs the compiled query at `scopes.refresh` (default 15 min) and whenever the definition is saved or a person asks (`POST /scope/{pageid}/refresh`, [18](../architecture/18-api.md) §3.2), and replaces the members in one transaction with the cursor the service reported. Which deltas affect an arbitrary query is not knowable, so these scopes are as fresh as the last refresh, and say so.
+Replaced text: [15](../architecture/15-structured-pages.md) §1.4, as it stood before this entry; in git (`tools/adr.py log 0060 A9 --before`).
 
 > **The bound.** Members are materialized in a deterministic order, entity IDs then page IDs, each ascending, so that the prefix kept is stable between computations. When a computation yields more than `scopes.max_members`, the first `scopes.max_members` are kept and `truncated` is set. **The scope page, and every table, board, feed and watch that uses the scope, shows the notice**: "This scope has more than 100,000 members; the first 100,000 are shown." A truncated scope is still a full operand: `intersection` and `difference` are computed over the operands' complete sets where the operand is incremental, and by the query service where any operand is a query, and only the result is bounded. So `Scope:Humans` is useless to list and fine to intersect with.
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.15, as it stood):
-
-> - `view.scope` and `view.scope_member` as in [0060](0060-scopes.md) §5; the scope projection in step 7 of §6.1 and the refresh job in `ops` ([0060](0060-scopes.md) §10).
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.15, as it stood before this entry; in git (`tools/adr.py log 0060 A9 --before`).
 
 ### A10. Constant expansion in compiled SPARQL
 

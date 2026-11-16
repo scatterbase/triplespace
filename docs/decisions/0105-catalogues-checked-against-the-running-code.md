@@ -71,9 +71,7 @@ James's direction, from the design discussion of 2026-11-09:
 - **Change:** amends §2
 - **Summary:** The permission report is strict from now: an unlisted permission, or a run that observed no check, fails the job, with no list of exceptions (settles Q1). The end-to-end job runs its API server with the probe on and the strict report after the Playwright suite (settles Q3), so the site's pages add to what is observed.
 
-Replaced text ([09](../architecture/09-security-and-moderation.md) §2.2, as it stood):
-
-> CI runs the client checks and the attack battery with it on, and `tools/permission_report.py` compares the names with this catalogue and with the `[permissions]` lists of `groups.toml`, on the job's summary page: a name in neither is unlisted, and fails nothing yet.
+Replaced text: [09](../architecture/09-security-and-moderation.md) §2.2, as it stood before this entry; in git (`tools/adr.py log 0105 A1 --before`).
 
 ### A2. One probe for every catalogue
 
@@ -82,10 +80,5 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §2.2, as it 
 - **Change:** amends §1, §2
 - **Summary:** The probe is one for every catalogue the code acts on: `--probe FILE` (`TRIPLESPACE_PROBE`) in both binaries replaces `triplespace-server --probe-permissions`, each line is `{kind} {name}` (`permission`, `setting`, `log-event`), and `tools/probe_report.py` replaces `tools/permission_report.py`, checking permissions, settings and log events strictly. Settles Q2: settings and log events in one ADR, 0107. Chapter text: [24](../architecture/24-documentation.md) §11; [09](../architecture/09-security-and-moderation.md) §2.2; [22](../architecture/22-crates-and-stack.md) §4.9.
 
-Replaced text ([24](../architecture/24-documentation.md) §11, as it stood):
+Replaced text: [24](../architecture/24-documentation.md) §11; [09](../architecture/09-security-and-moderation.md) §2.2, as it stood before this entry; in git (`tools/adr.py log 0105 A2 --before`).
 
-> The code, asked to, reports each name it uses as it runs (a permission it checks; later a setting it reads, a log event it emits), and a script compares that set with the registry file. … The permissions are the first ([09](../architecture/09-security-and-moderation.md) §2.2).
-
-Replaced text ([09](../architecture/09-security-and-moderation.md) §2.2, as it stood):
-
-> `triplespace-server --probe-permissions FILE` (`TRIPLESPACE_PROBE_PERMISSIONS`) installs one that appends each permission name to the file the first time it is checked; without it nothing is recorded. CI runs the client checks, the attack battery and the end-to-end suite with it on, and `tools/permission_report.py --strict` compares the names with this catalogue and with the `[permissions]` lists of `groups.toml`, on each job's summary page: a name missing from either is unlisted and fails the job, as does a run that observed no check at all ([0105](0105-catalogues-checked-against-the-running-code.md) A1).

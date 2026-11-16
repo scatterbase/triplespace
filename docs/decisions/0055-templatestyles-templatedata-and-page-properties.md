@@ -119,18 +119,16 @@ James's direction, from the design discussion of 2026-10-01, was that the ADR se
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§9
-- **Summary:** The Decision's current text now lives in the architecture chapters [09](../architecture/09-security-and-moderation.md), [10](../architecture/10-pages-and-content-models.md), [11](../architecture/11-rendering-templates-and-modules.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0055 A2 --diff`).
 
 ### A3. `view.page_prop` has two row classes with one writer each
 
 - **Date:** 2026-10-09
 - **Source:** [0083](0083-write-path-in-three-tiers.md) §6
 - **Change:** amends §6
-- **Summary:** `view.page_prop` gains `from_render boolean`, joining the primary key `(page_id, name, from_render)`, and names the writer of each row: the page projection writes the rows the stored text sets, synchronously when it applies the record; the refresh job writes the rows a render sets, with `from_render = true`. Each writer owns its class exclusively, readers union the two (a property with a row in both classes reads as the render's value), the refresh job never deletes a row it did not write, and turning `wikitext.expansion` off truncates the render-owned rows and nothing else. A render-owned property the latest render did not set is deleted by that render; a source-owned row is never touched by it. `view.page_link` and `view.page_category` carry the same column under the same rule ([0038](0038-page-metadata-and-categories.md), [0042](0042-template-expansion-and-parsoid.md) A17). (REVIEW G13)
+- **Summary:** `view.page_prop` gains `from_render boolean`, joining the primary key `(page_id, name, from_render)`, and names the writer of each row: the page projection writes the rows the stored text sets, synchronously when it applies the record; the refresh job writes the rows a render sets, with `from_render = true`. `view.page_link` and `view.page_category` carry the same column under the same rule ([0038](0038-page-metadata-and-categories.md), [0042](0042-template-expansion-and-parsoid.md) A17). Chapter text: [10](../architecture/10-pages-and-content-models.md) §5.5. (REVIEW G13)
 
-Replaced text ([10](../architecture/10-pages-and-content-models.md) §5.5, as it stood):
-
->   PRIMARY KEY (page_id, name)
+Replaced text: [10](../architecture/10-pages-and-content-models.md) §5.5, as it stood before this entry; in git (`tools/adr.py log 0055 A3 --before`).
 
 > Properties the refresh job writes are written in the same transaction as the links, categories and transclusions of a render ([0042](0042-template-expansion-and-parsoid.md) §10), and are therefore among the `view` tables that render re-creates rather than replays. A property the latest render did not set is deleted.
 
@@ -141,20 +139,16 @@ Replaced text ([10](../architecture/10-pages-and-content-models.md) §5.5, as it
 - **Change:** amends §2
 - **Summary:** A selector whose first compound is `html` with only the classes `skin-theme-clientpref-night`, `skin-theme-clientpref-os` or `skin-theme-clientpref-day` keeps that compound before the `.mw-parser-output` prefix, as TemplateStyles does, so content written for Wikipedia's night mode works under the dark variants of [0086](0086-theming.md); every other selector escaping the prefix still matches nothing. The chapter row is [11](../architecture/11-rendering-templates-and-modules.md) §6.2.
 
-Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §6.2, as it stood):
-
-> | **Selectors** | Any selector, **prefixed with `.mw-parser-output`** so that it matches only rendered content and never the frame, as TemplateStyles prefixes them; a `wrapper` attribute on the tag (§6.3) prefixes further | Selectors that escape the prefix (`html`, `body`, `:root`), which are rewritten to match nothing |
+Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §6.2, as it stood before this entry; in git (`tools/adr.py log 0055 A4 --before`).
 
 ### A5. Sheets are served as stylesheets
 
 - **Date:** 2026-10-20
 - **Source:** Direct: James, review of 2026-10-20
 - **Change:** amends §3, §4
-- **Summary:** The site serves each TemplateStyles sheet as a same-origin stylesheet instead of an inline `<style>` element: the sheet is pure CSS, already sanitized and scoped, and the site's Content Security Policy refuses `<style>` elements ([0034](0034-frontend-stack.md) A13), which left both this ADR's elements and those of mirrored Wikipedia HTML unstyled. The HTML the site shows carries, where the element stood, a `<link rel="stylesheet">` with the same `data-mw-deduplicate` key, so order and deduplication are as before. The key is MediaWiki's, `TemplateStyles:r{revid}`, with `/{wrapper}` where a wrapper is given and the repository's name before a foreign sheet's revision; §3's `r{hash}` had left what it hashed unsaid. The address follows from the key: `/w/styles/templatestyles/r{revid}.css`, `/w/styles/templatestyles/{repository}/r{revid}.css`, with `?wrapper=`. Addressing by revision rather than by a hash of the content needs no table of sheets, can be rebuilt from the log at any time, and lets an erasure or a deletion of the sheet's revision end its serving, which a copy kept by content would outlive. The API serves `/w/styles/`, the site styles of §4 included, whose address had not been among the API's paths; a sheet is served immutable, with its page's visibility. `action=parse` keeps the inline element for API clients, and the site asks for links with `tsstyles=link`. The chapter text is [11](../architecture/11-rendering-templates-and-modules.md) §6.3–6.4, with [09](../architecture/09-security-and-moderation.md) §1.4, [13](../architecture/13-mirrored-pages.md) §2.2, [18](../architecture/18-api.md) §2.3 and [20](../architecture/20-web-tier.md) §2.1.
+- **Summary:** The site serves each TemplateStyles sheet as a same-origin stylesheet instead of an inline `<style>` element: the sheet is pure CSS, already sanitized and scoped, and the site's Content Security Policy refuses `<style>` elements ([0034](0034-frontend-stack.md) A13), which left both this ADR's elements and those of mirrored Wikipedia HTML unstyled. The HTML the site shows carries, where the element stood, a `<link rel="stylesheet">` with the same `data-mw-deduplicate` key, so order and deduplication are as before. The key is MediaWiki's, `TemplateStyles:r{revid}`, with `/{wrapper}` where a wrapper is given and the repository's name before a foreign sheet's revision; §3's `r{hash}` had left what it hashed unsaid. Addressing by revision rather than by a hash of the content needs no table of sheets, can be rebuilt from the log at any time, and lets an erasure or a deletion of the sheet's revision end its serving, which a copy kept by content would outlive. The API serves `/w/styles/`, the site styles of §4 included, whose address had not been among the API's paths; a sheet is served immutable, with its page's visibility. The chapter text is [11](../architecture/11-rendering-templates-and-modules.md) §6.3–6.4, with [09](../architecture/09-security-and-moderation.md) §1.4, [13](../architecture/13-mirrored-pages.md) §2.2, [18](../architecture/18-api.md) §2.3 and [20](../architecture/20-web-tier.md) §2.1.
 
-Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §6.3, as it stood):
-
-> The tag emits, in place, a `<style data-mw-deduplicate="TemplateStyles:r{hash}">` element holding the sheet's sanitized form, with `wrapper="…"` prefixing every selector further, as TemplateStyles does. **One `<style>` per distinct sheet per page:** the renderer keeps the first and drops repeats by their key, which is what MediaWiki and Parsoid do, so a page with two hundred citations loads the citation sheet once.
+Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §6.3, as it stood before this entry; in git (`tools/adr.py log 0055 A5 --before`).
 
 > **Both renderers.** The built-in renderer renders the element as above. Parsoid asks the render-scoped `action=parse` for tags it does not implement natively (§3.1), and gets the same element with `modules` empty. **Mirrored HTML** carries Wikipedia's `<style>` elements already; [0053](../decisions/0053-mirrored-pages.md) §2 passes them through `sanitize` and keeps their keys, so a mirrored page and a fork of it deduplicate the same way.
 
@@ -165,9 +159,7 @@ Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §6.3
 - **Change:** amends §4
 - **Summary:** The site styles stay one Project page; the Interface namespace now holds plain-text messages, so there is still no `MediaWiki:Common.css` (0095 §1, §2).
 
-Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §6.4, as it stood):
-
-> The MediaWiki namespace (8) stays reserved ([0008](../decisions/0008-namespaces-and-document-pages.md) §2); the page is
+Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §6.4, as it stood before this entry; in git (`tools/adr.py log 0055 A6 --before`).
 
 ### A7. No commercial licence
 
@@ -176,6 +168,5 @@ Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §6.4
 - **Change:** amends §2
 - **Summary:** `scatter-css` is still written from the specification and TemplateStyles' documented rules rather than translated from its PHP, but the reason given, original code under the shared crates' licence, lapsed when the commercial licence was withdrawn ([0005](0005-crate-organization.md) A114). Asked the same day, James kept the rule.
 
-Replaced text ([11](../architecture/11-rendering-templates-and-modules.md) §6.2, as it stood):
+Replaced text: [11](../architecture/11-rendering-templates-and-modules.md) §6.2, as it stood before this entry; in git (`tools/adr.py log 0055 A7 --before`).
 
-> It is written from the CSS Syntax Level 3 specification and from TemplateStyles' documented rules and test cases, not translated from its PHP, so that it is original code under the shared crates' licence ([0005](../decisions/0005-crate-organization.md) §6).

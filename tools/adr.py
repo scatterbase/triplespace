@@ -9,6 +9,7 @@
   adr.py outline 03          a chapter's (or ADR's) headings
   adr.py where entity source chapter sections, ADRs and registry files that mention a phrase
   adr.py log 0008            an ADR's Amendment log; `log 0008 A6` for one entry
+  adr.py log 0083 A6 --diff  what an entry changed, from git; --before for the text it replaced
   adr.py questions 0090      an ADR's open questions, settled ones marked
   adr.py code 0013 §7        the code that cites a section (file:line), from tools/coverage.py
 
@@ -272,6 +273,16 @@ def h2(lines, title):
     return []
 
 
+def log_entry(lines, entry):
+    """The lines of one Amendment log entry ('A6'), or None."""
+    log = h2(lines, "Amendment log")
+    heads = headings(log)
+    for i, lv, text in heads:
+        if lv == 3 and re.match(rf"^{re.escape(entry)}\.", text):
+            return block(log, heads, i)
+    return None
+
+
 def cmd_log(a):
     kind, path = doc_for(a.doc)
     if kind != "adr":
@@ -282,17 +293,252 @@ def cmd_log(a):
         print(f"{os.path.basename(path)} has no Amendment log")
         return
     if not a.entry:
+        if a.diff or a.before:
+            die("--diff and --before need an entry: `log 0083 A6 --diff`")
         print(f"[{os.path.basename(path)}]")
         print("\n".join(log).rstrip())
         return
     entry = a.entry.upper()
-    heads = headings(log)
-    for i, lv, text in heads:
-        if lv == 3 and re.match(rf"^{re.escape(entry)}\.", text):
-            print(f"[{os.path.basename(path)}]")
-            print("\n".join(block(log, heads, i)).rstrip())
+    body = log_entry(lines, entry)
+    if body is None:
+        die(f"no {entry} in {os.path.basename(path)}'s log")
+    if a.diff or a.before:
+        emit_history(path, entry, body, before_only=a.before)
+        return
+    print(f"[{os.path.basename(path)}]")
+    print("\n".join(body).rstrip())
+
+
+# --- What an entry replaced, read from git (24 §6) ---------------------------------------
+#
+# An entry is appended in the same change as the text it describes, so the commit that added
+# its `### An.` heading is the change, and that commit's first parent holds the text as it
+# stood. Nothing is stored: the commit is found each time, so a rebase or a later commit of
+# uncommitted work changes nothing.
+
+
+def git(*args, check=True):
+    import subprocess
+    r = subprocess.run(["git", "-C", ROOT, *args], capture_output=True, text=True)
+    if check and r.returncode:
+        die(f"git {' '.join(args)}: {r.stderr.strip()}")
+    return r.stdout if r.returncode == 0 else None
+
+
+def entry_commit(path, entry):
+    """The commit that added the entry's heading, or None (not committed yet). The commit on the
+    branch it was written on is preferred to the merge that brought it in, because one pull
+    request often appends several entries to the same section, and the merge's parent holds the
+    text as it stood before all of them."""
+    rel = os.path.relpath(path, ROOT)
+    for scope in ([], ["--first-parent"]):
+        out = git("log", *scope, "--reverse", "--format=%H", "-G", rf"^### {entry}\. ", "--", rel)
+        if out.split():
+            return out.split()[0]
+    return None
+
+
+def file_at(rev, kind, num):
+    """(path, text) of ADR `num` or chapter `num` as it stood at `rev`, or (None, None)."""
+    folder = "docs/decisions" if kind == "adr" else "docs/architecture"
+    stem = num if kind == "adr" else f"{int(num):02d}"
+    names = git("ls-tree", "--name-only", f"{rev}:{folder}", check=False) or ""
+    hit = next((n for n in names.split("\n") if n.startswith(stem + "-") and n.endswith(".md")), None)
+    if not hit:
+        return None, None
+    return f"{folder}/{hit}", git("show", f"{rev}:{folder}/{hit}")
+
+
+def section_at(rev, kind, num, sec):
+    """The lines of `sec` in a document as it stood at `rev`, or None."""
+    if rev is None:
+        return None
+    _, text = file_at(rev, kind, num)
+    if text is None:
+        return None
+    lines = text.splitlines()
+    if not re.match(r"\d", sec):  # a named section: Context, Consequences, Open questions…
+        return h2(lines, sec) or None
+    start, heads = find_section(kind, lines, sec)
+    return block(lines, heads, start) if start is not None else None
+
+
+REPLACED = re.compile(r"^Replaced text ?(?:\((.*)\)|:\s*(.*?))\s*:?\s*$")
+
+
+def replaced_cites(adr, body):
+    """[(kind, num, section), …] named by the entry's 'Replaced text' lines, in order. A bare
+    '§4' names this ADR's §4 as it stood (entries older than the chapters)."""
+    out = []
+    for line in body:
+        m = REPLACED.match(line.strip())
+        if not m:
+            continue
+        cite = m.group(1) or m.group(2) or ""
+        for seg in cite.split(";"):
+            doc = ("adr", adr)
+            # A section named rather than numbered (Consequences; the old "Changes to other ADRs").
+            named = re.match(r"\s*([A-Z][A-Za-z ]+?)(?: of this ADR)?\s*(?:,|$)", seg)
+            if named and "§" not in seg and not re.search(r"\[\d", seg):
+                out.append(("adr", adr, named.group(1)))
+                continue
+            # A document is a link ([03](…)) or a bare number before a section sign (22 §2.1).
+            for t in re.finditer(r"\[(\d{2}|\d{4})\]\([^)]*\)|\b(\d{2}|\d{4})(?= §)|§(\d+(?:\.\d+)*)", seg):
+                d = t.group(1) or t.group(2)
+                if d:
+                    doc = ("chapter", d) if len(d) == 2 else ("adr", d)
+                else:
+                    out.append((*doc, t.group(3)))
+    seen = set()
+    return [c for c in out if not (c in seen or seen.add(c))]
+
+
+def change_sections(body):
+    """[(verb, section), …] of this ADR from the entry's Change line (`§1–§11` is a range)."""
+    line = next((l for l in body if l.startswith("- **Change:**")), "")
+    out = []
+    for clause in line.split(";"):
+        verb = re.search(r"\b(amends|extends|supersedes|corrects|relocates|consolidates)\b", clause)
+        if not verb:
+            continue
+        for lo, hi in re.findall(r"§(\d+(?:\.\d+)*)(?:\s*[–-]\s*§(\d+))?", clause):
+            for sec in ([str(n) for n in range(int(lo), int(hi) + 1)] if hi else [lo]):
+                out.append((verb.group(1), sec))
+    return out
+
+
+def entry_history(path, entry, body):
+    """{'commit', 'parent', 'cites', 'sections': [(label, before|None, after|None)]} for an entry,
+    or None if the entry is not in a commit yet. The sections are those its Replaced text names;
+    failing that, those its Change line names, followed through their pointers to the chapter
+    sections that held the text at the time (except for a move, where the ADR's own text is
+    what moved)."""
+    adr = os.path.basename(path)[:4]
+    commit = entry_commit(path, entry)
+    if commit is None:
+        return None
+    parent = (git("rev-parse", "--verify", "--quiet", f"{commit}^1", check=False) or "").strip() or None
+    cites = replaced_cites(adr, body)
+    found = []
+
+    def add(kind, num, sec, note=""):
+        before = section_at(parent, kind, num, sec)
+        after = section_at(commit, kind, num, sec)
+        if before is None and after is None:
             return
-    die(f"no {entry} in {os.path.basename(path)}'s log")
+        if any(f[0].startswith(f"{num} §{sec}") for f in found):
+            return
+        label = f"{num} §{sec}" if re.match(r"\d", sec) else f"{num} {sec}"
+        found.append((label + note, before, after))
+
+    for kind, num, sec in cites:
+        if section_at(parent, kind, num, sec) is not None:
+            add(kind, num, sec)
+    if not found:
+        # Entries written before the chapters: the cited chapter section did not exist yet.
+        note = " (the cited text stood here then)" if cites else ""
+        for verb, sec in change_sections(body):
+            if verb in ("relocates", "consolidates"):
+                add("adr", adr, sec, note)
+                continue
+            targets = pointer_targets(section_at(commit, "adr", adr, sec) or [])
+            if targets:
+                for ch, csec in targets:
+                    before, after = section_at(parent, "chapter", ch, csec), section_at(commit, "chapter", ch, csec)
+                    if before != after:
+                        add("chapter", ch, csec)
+            else:
+                add("adr", adr, sec, note)
+    # An entry that names its chapter text ("Chapter text: [16](…) §2.2") points there itself.
+    summary = next((l for l in body if l.startswith("- **Summary:**")), "")
+    named = summary.split("Chapter text:", 1)[1] if "Chapter text:" in summary else ""
+    doc = None
+    for t in re.finditer(r"\[(\d{2})\]\([^)]*\)|\b(\d{2})(?= §)|§(\d+(?:\.\d+)*)", named):
+        if t.group(1) or t.group(2):
+            doc = t.group(1) or t.group(2)
+        elif doc and section_at(parent, "chapter", doc, t.group(3)) != section_at(commit, "chapter", doc, t.group(3)):
+            add("chapter", doc, t.group(3))
+    return {"commit": commit, "parent": parent, "cites": cites, "sections": found}
+
+
+def emit_history(path, entry, body, before_only=False):
+    import difflib
+    adr = os.path.basename(path)[:4]
+    h = entry_history(path, entry, body)
+    if h is None:
+        die(f"{adr} {entry} is not in a commit on this branch yet; `git diff` shows its change")
+    subject = git("log", "-1", "--format=%h %ad %s", "--date=short", h["commit"]).strip()
+    print(f"[{adr} {entry}] {subject}")
+    # The commit may carry more than this entry: several entries written together, or entries
+    # numbered later when the log took its present form (0050). Say so rather than imply otherwise.
+    date = next((l.split(":**", 1)[1].strip() for l in body if l.startswith("- **Date:**")), "")
+    rel = os.path.relpath(path, ROOT)
+    added = re.findall(r"(?m)^\+### (A\d+)\. ", git("show", "--format=", "-U0", h["commit"], "--", rel, check=False) or "")
+    others = [x for x in added if x != entry]
+    if date and date != subject.split()[1]:
+        print(f"(the entry is dated {date}; this commit gave it its present heading, so the diff shows the text as it stood then)")
+    if others:
+        shown = ", ".join(others[:8]) + (f" and {len(others) - 8} more" if len(others) > 8 else "")
+        print(f"(this commit also added {shown} to {adr}; their changes may show here too)")
+    if h["parent"] is None:
+        print("(the first commit: the entry predates the repository, so its quoted text is the record)")
+        return
+    if not h["sections"]:
+        print("(no cited section found at the parent; `git show --stat " + h["commit"][:9] + " -- docs` lists what changed)")
+        return
+    for label, before, after in h["sections"]:
+        if before_only:
+            print(f"\n--- {label}, as it stood ---")
+            print("\n".join(before).rstrip() if before is not None else "(the section did not exist yet)")
+            continue
+        print(f"\n--- {label} ---")
+        before = before or []
+        if after is None:
+            print("(the section is gone after this commit; --before shows it)")
+            continue
+        changed = False
+        sm = difflib.SequenceMatcher(None, before, after, autojunk=False)
+        for op, i1, i2, j1, j2 in sm.get_opcodes():
+            if op == "equal":
+                continue
+            changed = True
+            # A paragraph is one line in these docs, so a changed paragraph is shown word by word.
+            if op == "replace" and i2 - i1 == j2 - j1:
+                for old, new in zip(before[i1:i2], after[j1:j2]):
+                    print(word_diff(old, new))
+            else:
+                for line in before[i1:i2]:
+                    if line.strip():
+                        print(f"[-{line}-]")
+                for line in after[j1:j2]:
+                    if line.strip():
+                        print(f"{{+{line}+}}")
+        if not changed:
+            print(f"(no change to {label} in this commit)")
+
+
+def word_diff(old, new, context=12):
+    """One changed line as `[-removed-]{+added+}`, git --word-diff style, with long unchanged
+    runs elided to `context` words either side."""
+    import difflib
+    a, b = re.findall(r"\s*\S+", old), re.findall(r"\s*\S+", new)
+    out = []
+    ops = difflib.SequenceMatcher(None, a, b, autojunk=False).get_opcodes()
+    for k, (op, i1, i2, j1, j2) in enumerate(ops):
+        if op == "equal":
+            run = a[i1:i2]
+            if len(run) > 2 * context:
+                head = "".join(run[:context]) if k > 0 else ""
+                tail = "".join(run[-context:]) if k < len(ops) - 1 else ""
+                run = [head, " …", tail]
+            out.append("".join(run))
+            continue
+        lead = " " if (a[i1:i2] or b[j1:j2])[0][:1].isspace() else ""
+        if i2 > i1:
+            out.append(lead + "[-" + "".join(a[i1:i2]).strip() + "-]")
+        if j2 > j1:
+            out.append(("" if i2 > i1 else lead) + "{+" + "".join(b[j1:j2]).strip() + "+}")
+    return "".join(out).strip()
 
 
 def cmd_questions(a):
@@ -349,6 +595,8 @@ def main():
     lg = sub.add_parser("log", help="an ADR's Amendment log, or one entry")
     lg.add_argument("doc")
     lg.add_argument("entry", nargs="?")
+    lg.add_argument("--diff", action="store_true", help="what the entry changed, section by section, from git")
+    lg.add_argument("--before", action="store_true", help="the sections the entry replaced, as they stood, from git")
     lg.set_defaults(fn=cmd_log)
     qu = sub.add_parser("questions", help="an ADR's open questions")
     qu.add_argument("doc")

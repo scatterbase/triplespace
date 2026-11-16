@@ -58,8 +58,9 @@ chapter text. Chapter 24 is how the documents fit together.
 - **ADR section → chapter, in bulk.** `python3 docs/architecture/map.py --sections` prints every
   Decision section with the chapter sections that cite it. Every section is cited by some chapter
   (0050 and 0098, the process ADRs, by chapter 24); the only exceptions are the stubs.
-- **History of a passage.** The ADR's Amendment log quotes replaced text verbatim. Cite text as
-  it was by the entry that replaced it (`0008 A6`), never by date.
+- **History of a passage.** The ADR's Amendment log names the sections each entry replaced;
+  `tools/adr.py log 0008 A6 --before` prints them as they stood and `--diff` what the entry
+  changed, from git. Cite text as it was by the entry that replaced it (`0008 A6`), never by date.
 
 ## Citations
 

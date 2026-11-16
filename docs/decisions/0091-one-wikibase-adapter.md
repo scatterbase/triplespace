@@ -94,14 +94,11 @@ His choices in the same discussion:
 - **Change:** corrects Consequences
 - **Summary:** The implementation renamed the crate, retired `scatter-adapter-internetdomains` and moved internetdomains.wiki's key map to the rule form in one change, so the two consequences that described a gap between the registry, the crate map and the code no longer hold. The decision is unchanged.
 
-Replaced text (Consequences, as it stood):
-
-> - **The registry runs ahead of the code only where nothing reads it.** The four Wikibase entries' `adapter` fields name `scatter-adapter-wikibase` now, since no code reads the field. internetdomains.wiki's key map keeps its flat form until the adapter reads rules, because `scatter-adapter-internetdomains` and `scatter-providers`' tests read it today. The rule form, and `OW`'s `class_property`, are written as comments beside the entries and listed as a pending allocation in `docs/registry/README.md`.
-> - **`cargo xtask deps` reads the crate map in chapter 22**, which now names `scatter-adapter-wikibase`. It fails from this change until the crate is renamed, so the two land together.
+Replaced text: Consequences of this ADR, as it stood before this entry; in git (`tools/adr.py log 0091 A1 --before`).
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-30
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§5
-- **Summary:** The Decision's current text now lives in the architecture chapters [05](../architecture/05-providers-and-ingest.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0091 A2 --diff`).

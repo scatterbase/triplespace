@@ -112,47 +112,7 @@ Two existing mechanisms fit the rest. Keyed entity types ([0009](0009-keyed-enti
   - §6: The rule now belongs to the `notation` type: no notation of any scheme joins an identity cluster.
   - §7: `keyed-types.toml` gains `notation` instead of `osm-tag`, and the new `notation-schemes.toml` holds `osm`. 216/217 are `Notation` and `Notation talk`. `scatter-normalize` keeps the `osm-tag` grammar as the `osm` scheme's grammar, and `triplespace-titles` gains the `Notation` namespace instead of `OSM`.
 
-Replaced text (§3):
-
-> One keyed type covers both a key (`amenity`) and a tag (`amenity=cafe`), as Wikidata's P1282 is "OpenStreetMap tag or key". Keys never contain `=`, so the two forms cannot collide, and the wiki's `Key:` and `Tag:` page titles are the same strings.
->
-> | | |
-> |---|---|
-> | Type name, ID prefix | `osm-tag`, `osmtag:` (`osmtag:amenity`, `osmtag:amenity=cafe`) |
-> | Namespace | `OSM`, 216, with `OSM talk` at 217 ([0008](0008-namespaces-and-document-pages.md) §2) |
-> | Data type | `wikibase-osm-tag`, value type `wikibase-entityid` |
-> | IRI | `https://scatter.red/osm-tag/{key}`, content-derived and shared by every instance |
-> | Grammar | A key of 1 to 255 characters, or a key, `=` and a value of 1 to 255 characters. No control characters, no `=` in the key, no leading or trailing whitespace, Unicode NFC |
-> | Normalizer | None. The exact string, case-sensitive. Input that is not NFC is not a valid key |
-> | Display | The string itself as the `mul` label. Descriptions and aliases are stored and reconciled like an item's |
-> | Clusters | Never (§6) |
->
-> **The keyword normalizer is not used.** Keyword ([0017](0017-entity-id-grammar.md) §5) casefolds and turns punctuation into hyphens, so `fast_food`, `fast-food` and `fast:food` would become one entity, and `Name` would merge with `name`. OSM tags are case-sensitive exact strings and those forms are different tags.
->
-> **Grammar over policy.** The grammar admits any valid OSM string. Which strings become entities is decided by the adapters (§4, §5), not the grammar.
->
-> One type shares one namespace, which leaves 218 to 219 free. Splitting keys from tags into two types is a registry change, not a design change, if a use for the difference appears.
-
-Replaced text (§4):
-
-> 2. **A documented tag.** If an `osm-tag` entity for exactly `k=v` exists in the `OW` mirror, or the wiki says the key takes well-known values, the object gets a statement with role `osm-tag` and value `osmtag:k=v`.
-> 3. **Everything else.** The object gets a statement with role `osm-tag-text`, string value `v`, and a qualifier with role `osm-key` and value `osmtag:k`.
-
-Replaced text (§5):
-
-> The wiki's Wikibase models keys and tags as items and describes them with about fifty properties. The adapter maps two classes to `osm-tag`:
->
-> Values pointing at such items become `wikibase-osm-tag` values.
-
-Replaced text (§6):
-
-> `osm-tag` has `clusters = false`, as `keyword` does ([0017](0017-entity-id-grammar.md) §5), for the same reason: `osmtag:amenity=cafe` is a tag, and a Wikidata item about cafés is the concept. `same-as` with an `osm-tag` on either side is rejected at write time,
-
-Replaced text (§7):
-
-> - `providers.toml`: `OS` (number 6) and `OW` (number 7). `issuers.toml`: `openstreetmap` and `osmwiki`. `keyed-types.toml`: `osm-tag`. `namespaces.toml`: `OSM` 216 and `OSM talk` 217. The registry README lists 216/217 in the mediawiki.org registration still to be filed.
-> - **New crate:** `scatter-adapter-openstreetmap` (layer 3), depending on `scatter-wikibase-changeset`, `scatter-wikibase-model`, `scatter-providers` and `scatter-normalize`. `OW` needs none: it is `scatter-adapter-wikidata` parameterised by the provider entry, with the key-mapping capability that `scatter-adapter-internetdomains` needs as well.
-> - `scatter-normalize` gains the `osm-tag` grammar. `triplespace-titles` gains the `OSM` namespace.
+Replaced text: §3 of this ADR; §4 of this ADR; §5 of this ADR; §6 of this ADR; §7 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0036 A2 --before`).
 
 ### A3. Converted to the 0050 format
 
@@ -168,16 +128,14 @@ Replaced text (§7):
 - **Change:** amends §2
 - **Summary:** §2 stands in substance: a provider may opt into the keyed-style clear, a `put` of the empty state, in place of a tombstone for an upstream deletion, by the registry flag `deletion = clear` in `providers.toml`, which OSM sets. [0002](0002-source-graphs-and-mass-ingest.md) §5 gains that option, so §2 now cites 0002 §5 for the clear rather than [0009](0009-keyed-entity-types-and-domain.md) §9, whose rule is for keyed types. (PENDING E9)
 
-Replaced text (§2):
-
-> - Each node, way and relation is a foreign item under its type code. The IDs are bare digits (`upstream_prefix = ""`, `id_grammar` `digits`), and the type code is what separates node 1 from way 1. Deleted IDs are never reused upstream; a deletion clears the mirror's contribution as in [0009](0009-keyed-entity-types-and-domain.md) §9.
+Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0036 A4 --before`).
 
 ### A5. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§7
-- **Summary:** The Decision's current text now lives in the architecture chapters [04](../architecture/04-entities-and-identifiers.md), [05](../architecture/05-providers-and-ingest.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0036 A5 --diff`).
 
 ### A6. The key map binds roles in the instance record, never a tenant's properties
 
@@ -186,9 +144,7 @@ Replaced text (§2):
 - **Change:** amends §4; extends §1
 - **Summary:** Adapters never map onto a tenant's properties. The OSM key map still names properties by role, but the bindings it reads are the instance-scope `role` record's ([0082](0082-source-form-and-the-shared-view.md) §5.2), never a tenant's, and they name registry-provider properties (`WDP…`, `OWP…`) or properties of OpenStreetMap's own **property type**: a `[[provider.type]]` row with `entity_type = "property"` on a provider that publishes no properties of its own, its letter allocated when the adapter is built, whose properties the adapter mints under deterministic IDs with the mapping versioned with the adapter (§1, in [05](../architecture/05-providers-and-ingest.md) §8.1). Whatever a mapped key becomes is therefore the same property on every instance, and "no per-instance property numbers exist" holds by construction rather than by the case-3 fallback alone. The ledger named §3 (the `osm` scheme), whose chapter text did not change; the fold is in [05](../architecture/05-providers-and-ingest.md) §8.8, which holds §4. (REVIEW G26)
 
-Replaced text ([05](../architecture/05-providers-and-ingest.md) §8.8, as it stood):
-
-> The key map names properties **by role** ([0003](../decisions/0003-statement-ui.md) §7), like the identity property in §4.1 and OpenAlex's field mapping, so it never depends on a property's number.
+Replaced text: [05](../architecture/05-providers-and-ingest.md) §8.8, as it stood before this entry; in git (`tools/adr.py log 0036 A6 --before`).
 
 > Case 3 is the fallback until they do, and it means no property is minted per key and no per-instance property numbers exist.
 
@@ -199,17 +155,7 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §8.8, as it sto
 - **Change:** amends §1, §5, §7
 - **Summary:** `OW` is read by `scatter-adapter-wikibase` (formerly `scatter-adapter-wikidata`). Its key map is two `[[provider.adapter_config.key_map]]` rules, for `Q7` and `Q2`, each matching an item's direct class through the configuration's `class_property`, the wiki's "instance of"; the key map is the same rule list that internetdomains.wiki's is. Chapter text: [05](../architecture/05-providers-and-ingest.md) §8.7, §8.9; [23](../architecture/23-configuration-and-registry.md) §4.2.
 
-Replaced text (05 §8.7, as it stood):
-
-> | Adapter | `scatter-adapter-openstreetmap` | `scatter-adapter-wikidata`, parameterised, with key-mapping (§4) |
-
-Replaced text (05 §8.9, as it stood):
-
-> The adapter maps two classes to notations in the `osm` scheme (the key map names `key_type = "notation"` and `key_scheme = "osm"`, [0048](0048-notation.md) §6; [04](../architecture/04-entities-and-identifiers.md)):
-
-Replaced text (23 §4.2, as it stood):
-
-> the `OW` key map with `key_type = "notation"` and `key_scheme = "osm"`,
+Replaced text: 05 §8.7 of this ADR; 05 §8.9 of this ADR; 23 §4.2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0036 A7 --before`).
 
 ### A8. The wiki's "instance of" is `P2`
 

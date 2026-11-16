@@ -101,9 +101,7 @@ James's direction, from the design discussion of 2026-10-05:
 - **Change:** corrects §8
 - **Summary:** Entity schemas have no RDF: no terms on an entity node, no `wikibase:EntitySchema` type. [wikibase-compat.md](../api/wikibase-compat.md) §2's description already says so and stands. (PENDING B8)
 
-Replaced text (§8):
-
-> The schema's **terms** go on its entity node in the dump as any entity's do (`rdfs:label`, `schema:description`, `skos:altLabel`), typed `wikibase:EntitySchema`, under the entity IRI rules of [0015](0015-record-format-and-partition-registry.md) §5.
+Replaced text: §8 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0064 A1 --before`).
 
 ### A2. Unsupported ShEx features: saved, not validated
 
@@ -112,24 +110,21 @@ Replaced text (§8):
 - **Change:** corrects §4
 - **Summary:** A schema using unsupported ShEx features (`IMPORT`, `EXTERNAL`, semantic actions, annotations other than `rdfs:label`/`rdfs:comment`, an undefined prefix) is saved and marked `unvalidatable`: "not validated", not "refused at save". (PENDING F12)
 
-Replaced text (§4):
-
-> **Refused at save**: `IMPORT`, `EXTERNAL`, semantic actions and annotations other than `rdfs:label`/`rdfs:comment`, and any prefix the tenant's dump does not define. A schema that uses them is saved but marked `unvalidatable`, with the reason on its page, since a mirrored Wikidata schema may use them and must still mirror.
+Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0064 A2 --before`).
 
 ### A3. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§9
-- **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [15](../architecture/15-structured-pages.md), [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0064 A3 --diff`).
 
 ### A4. Validation runs in tier 3 only, under a binding cap
 
 - **Date:** 2026-10-09
 - **Source:** [0083](0083-write-path-in-three-tiers.md) §3, §6
 - **Change:** amends §5
-- **Summary:** Validation against a bound schema is a tier-3 consumer that follows the scope projection, consuming composition events in its own queue, outside every transaction, with its own lag shown on the schema page beside "checked at"; it never runs inline in a write or in a fan-out budget, and only the ad hoc check of §6 runs on request. Its triggers are the `schema:{id}` rows of `view.scope_trigger`. Binding a schema to a scope is refused at scope save with `ts-schema-binding-cap` when the sum over the tenant of bound-schema × scope size (each binding's scope `count`, or `scopes.max_members` for a scope not yet computed) would exceed `schemas.max_bound` (`site`, ceiling-bounded; default 1,000,000), unless an operator raises the ceiling; the refusal names the bindings that fill the cap. The projection is view-derived: a rebuild re-validates every bound subject from `view` as a job. The ledger names §9; the crate table did not change. (REVIEW G10)
+- **Summary:** Validation against a bound schema is a tier-3 consumer that follows the scope projection, consuming composition events in its own queue, outside every transaction, with its own lag shown on the schema page beside "checked at"; it never runs inline in a write or in a fan-out budget, and only the ad hoc check of §6 runs on request. The ledger names §9; the crate table did not change. Chapter text: [15](../architecture/15-structured-pages.md) §6.4. (REVIEW G10)
 
-Replaced text ([15](../architecture/15-structured-pages.md) §6.4, as it stood):
+Replaced text: [15](../architecture/15-structured-pages.md) §6.4, as it stood before this entry; in git (`tools/adr.py log 0064 A4 --before`).
 
-> **When it runs.** In step 7 of [0013](0013-postgres-storage.md) §7 after the scope projection ([03](../architecture/03-storage-caches-and-search.md) §6.1): a **subject's own write** re-validates the subject against every schema bound to a scope it is in, within the fan-out budget; **a scope's membership change** validates joining members and drops leaving ones; **a schema's revision** re-validates every member of every scope bound to it, as a job; and a periodic **`schemas.recheck`** job (default daily) re-validates subjects whose referenced nodes may have changed, which the subject's own write does not see. `schemas.max_subjects` (default `scopes.max_members`) bounds a schema's materialized report, truncated with the scope notice. The report writes no record and no activity row, as the constraint and scope projections do not.

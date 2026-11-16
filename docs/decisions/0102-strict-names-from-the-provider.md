@@ -91,9 +91,7 @@ James's direction, from the design discussion of 2026-11-06, after 0101 was buil
 - **Change:** amends §2; extends §3, §5
 - **Summary:** Three calls made while building. (1) The username a provider's profile gives is kept on the identity's binding row (`private.binding.username`), refreshed at every login and set when an identity is bound, so that `logins check` and the save that enacts `login.names = provider` compute every account's derived name without asking the provider; an account whose identity has not authenticated since the column existed has no known derived name and blocks enactment until its holder signs in once. (2) The reserved prefixes are those of every issuer with an OAuth table in `issuers.toml`, not only of the issuers the auth host offers: the check is then static and instance-wide, and an issuer offered later finds its names free, at the cost of reserving a few prefixes no one here will use. (3) When the provider renames a person to a name another account on a tenant already holds, that account is left as it is and `logins check` lists it; the design does not say what should happen, and the reservation of prefixes makes the case rare.
 
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.10, as it stood):
-
-> Every offered issuer's prefix is **reserved**: no hand-made name may begin with it, whether a subsidiary's (§4.2), one the CLI creates, or a chosen name on an instance that later turns strict names on (`ts-name-reserved`, as for a tombstoned name).
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.10, as it stood before this entry; in git (`tools/adr.py log 0102 A1 --before`).
 
 ### A2. A rename by hand; the tombstone that yields
 

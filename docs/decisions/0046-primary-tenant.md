@@ -119,19 +119,7 @@ James's direction, from the design discussion of 2026-09-30: the role is **trans
 - **Change:** supersedes §10
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A46).
 
-Replaced text (§10):
-
-> | Crate | Change |
-> |---|---|
-> | `scatter-log` | The `primary` config kind and its single-record rule; the instance path in graph IRIs and origin lines (§2, §7) |
-> | `scatter-actors` | Instance-right evaluation against the primary tenant at the record's offset; `ts-primary`; acceptance by the offered tenant's `owner` (§1, §5, §8) |
-> | `scatter-integrity` | Verifying that an authority record's attester belonged to the primary tenant at its offset (§1) |
-> | `scatter-mwlog` | `primary/offer`, `primary/withdraw`, `primary/transfer` (§5) |
-> | `triplespace-projections` | Mirror sync job records and consumer events from the instance `log` (§4) |
-> | `triplespace-api-action`, `triplespace-api-rest` | `siprop=triplespace` and `/tenancy` fields; `Special:Tenants` offer and accept; the two refusals (§9) |
-> | `triplespace-cli` | `--farm-slug`; `primary offer`, `withdraw` and `accept` (§9) |
->
-> No crate is added.
+Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0046 A1 --before`).
 
 ### A2. Special pages at a shared farm base
 
@@ -166,7 +154,7 @@ Replaced text (§10):
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
-- **Summary:** The Decision's current text now lives in the architecture chapters [01](../architecture/01-log-and-records.md), [02](../architecture/02-graphs-rdf-and-query.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0046 A6 --diff`).
 
 ### A7. The farm code
 
@@ -175,13 +163,7 @@ Replaced text (§10):
 - **Change:** amends §5, §6; extends §9
 - **Summary:** The farm slug stays the instance's readable name, chosen at `instance create --farm-slug` and never changed, but it is in no key. The **farm code**, derived from the instance's founding record (its first `key:` record, at offset 0 of the instance `config` partition) as a tenant's issuer code is, is what the operator's actor key `instance:{farm code}`, the farm issuer's code and the farm partition names carry, so that an instance act stays attributed to the instance that made it whatever other instance shares its slug (§6). A primary transfer leaves the operator's key unchanged (§5). `siprop=triplespace` and `GET /tenancy` at the farm base report the farm code beside the farm slug (§9).
 
-Replaced text (§6, in [08](../architecture/08-tenants-and-instances.md) §1.2):
-
-> **The farm slug is the instance's own slug.** It is chosen at `instance create` (`--farm-slug`, required, with no default derived from a tenant), registered in the same shared namespace of slugs, provider slugs and issuer codes, and **never changes**, since it is part of the operator's actor key `instance:{farm slug}` (§8.2), the farm issuer's code (§3.5) and the farm partition names `actors/{farm}`, `accounts/{farm}` and `log/{farm}` (§2.1). It differs from every tenant slug, the primary tenant's included. A single-tenant instance has one too, because the operator actor needs it whether or not a farm issuer exists. `instance` itself is reserved in the shared namespace, so no tenant or provider can take it.
-
-Replaced text (§5, in [08](../architecture/08-tenants-and-instances.md) §7.5):
-
-> - The operator actor keeps its key `instance:{farm slug}` and its IRI.
+Replaced text: §6, in [08](../architecture/08-tenants-and-instances.md) §1.2; §5, in [08](../architecture/08-tenants-and-instances.md) §7.5, as it stood before this entry; in git (`tools/adr.py log 0046 A7 --before`).
 
 ### A8. Accept moves to Special:WikiSettings
 
@@ -190,9 +172,7 @@ Replaced text (§5, in [08](../architecture/08-tenants-and-instances.md) §7.5):
 - **Change:** amends §9
 - **Summary:** `Special:Tenancy` is merged into the settings pages, so an `owner` of a tenant offered the primary role sees **Accept** on `Special:Tenants` and on the Tenancy tab of their own tenant's `Special:WikiSettings`. The chapter text is [19](../architecture/19-site-ui.md) §2.8 and §6.11.
 
-Replaced text ([19](../architecture/19-site-ui.md) §6.11, as it stood):
-
-> An `owner` of the offered tenant sees **Accept** there and on their own tenant's `Special:Tenancy` ([0046](0046-primary-tenant.md) §9).
+Replaced text: [19](../architecture/19-site-ui.md) §6.11, as it stood before this entry; in git (`tools/adr.py log 0046 A8 --before`).
 
 ### A9. The instance `log` stays `internal` as a whole
 

@@ -174,21 +174,11 @@ James's direction, from the design discussion of 2026-11-08:
 - **Change:** amends §1, §6 and §7; extends §9
 - **Summary:** (1) Every import saves the table as a Table page before anything is written: the draft it is kept in, or a new one where it is not. Until now only a table already saved as a draft was recorded. (2) The grid stands in for the text box, and nothing switches between the two; the text stays the canonical form, and is what the page without JavaScript shows. The button that adds a row stands beneath the last row, and the one that adds a column to the right of the last column, as tall as the table, under a plus sign. (3) The grid has no button of its own that checks the rows. The form's button checks them on its first press and writes them on its second; the preview page with its confirmation stays as what the page shows without JavaScript. This amends A6 (1), under which the grid posted nothing itself. (4) A file is read on a page of its own, which passes a table on to `Special:CreateManyEntities` and QuickStatements commands on to `Special:QuickStatements`; `Special:CreateManyEntities` has no file field. `Special:QuickStatements` is a reader in front of `Special:CreateManyEntities`, of the two forms James offered.
 
-Replaced text ([21](../architecture/21-special-pages.md) §6.6, as it stood):
-
-> Without JavaScript the page takes the table as text, as described here; with it, the same table is edited as a grid (§6.7), and an uploaded file is mapped into it first (§6.8). The grid reads the text and writes it, a toggle shows either, and anything the grid can express the text can express, so the two paths do the same thing and a table can be passed between people as text.
+Replaced text: [21](../architecture/21-special-pages.md) §6.6, as it stood before this entry; in git (`tools/adr.py log 0106 A9 --before`).
 
 > - **The table** is pasted, tab- or comma-separated with double-quoted cells as a spreadsheet writes them, or uploaded as a CSV or TSV file. Its first row names the columns
 
-Replaced text ([21](../architecture/21-special-pages.md) §6.7, as it stood):
-
-> The grid writes each change into the form's text box and posts nothing of its own, so checking, saving a draft and importing are the form's with or without it; to show the rows' statuses it asks the page for its check as JSON (`wpFormat=json`), when the editor asks (0106 A6).
-
-Replaced text ([21](../architecture/21-special-pages.md) §6.8, as it stood):
-
-> With JavaScript, an uploaded file goes through a mapping step before the grid. A CSV, TSV or XLSX file (its first sheet), a JSON Lines file, or QuickStatements V1 limited to `CREATE` and `LAST` lines with term and statement commands, is read and each source column shown with its header and a sample of its values. Each is mapped to a term and language, an existing property, a new property (with `property-create`), a value the reference on every statement reads, `id`, or *ignore*. Mappings are suggested where they are evident: a header that is a property's ID or label, a header in the text conventions of §6.6, or values matching one identifier property's pattern. The result lands in the grid as a new draft. The file is read in the browser and is not uploaded (0106 A6).
->
-> **A mapping is saved as a draft with its columns and no rows.** Opening such a draft with a file of the same shape skips the mapping step, which serves anyone importing the same export each month. Without JavaScript an uploaded file is read by the header conventions of §6.6, with no mapping step.
+Replaced text: [21](../architecture/21-special-pages.md) §6.7, §6.8, as it stood before this entry; in git (`tools/adr.py log 0106 A9 --before`).
 
 ### A10. What A9 needed, found while building
 
@@ -204,7 +194,5 @@ Replaced text ([21](../architecture/21-special-pages.md) §6.8, as it stood):
 - **Change:** extends §1 and §9; amends §6
 - **Summary:** What §6, §9 and A2 decided and the building had to settle. (1) **Keeping a table** is a tick beside the table's name. A table not yet saved is made as `Table:{title}`; a draft already saved is moved there before anything else, and the move leaves a redirect, since leaving none needs a right most editors lack. A name is required, and a table of its own is not asked again. (2) **Runs.** A table is checked whole, up to 5000 rows, the default of `tables.max_rows`. One run writes 500 rows. The first run writes what the confirmation carries; each later run reads the saved table, checks again the staged rows that no run has written or refused, and writes the next 500. The page sends the next run itself with JavaScript; without it the report carries a button. The batch is closed by the last run. (3) A row the check finds a problem in is recorded in the table as refused, with what was found, where it used to stay staged without a reason; such a row waits for no run. A property a run created becomes a column of that property in the table; before, importing the rest of a draft would have tried to create it again. (4) An import ends when a run writes and refuses nothing, so that a table whose rest cannot be written does not run for ever. (5) **Locked columns.** A statement on every item stands as a locked column at the grid's right edge. Unlocking a row's cell writes it into the table with the shared value; from then on the table has a column of the property, whose empty cells show the shared statement, locked, and emptying a cell locks it again. (6) **Reference chips.** A statement's own reference is opened from a chip on its cell and edited as a list; its `P…/ref:P…` columns are not columns of the grid, and **+ Add column** no longer offers one. (7) The statements on every item and the reference on every statement are still edited as the lists of A10 (5), not in the statement UI's group shape or with a shared-reference component: neither exists as a component the grid could use. A draft larger than `tables.max_rows` still waits on the queued batch.
 
-Replaced text ([21](../architecture/21-special-pages.md) §6.7, as it stood):
-
-> Until those are built, each of the two is a list beside the grid, over the text box the form posts (0106 A10): a line is a property, picked by search, and its value, an item picked by search where the property takes items; a line of the reference takes its value as given or from one of the table's plain columns.
+Replaced text: [21](../architecture/21-special-pages.md) §6.7, as it stood before this entry; in git (`tools/adr.py log 0106 A11 --before`).
 

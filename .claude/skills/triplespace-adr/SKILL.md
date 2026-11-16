@@ -108,9 +108,12 @@ For each target ADR *Y*:
    section to that chapter section's Sources line. Every change is folded, extensions included.
    Never use a blockquote callout such as `> **Amended by …**`.
 2. **Log.** Append `### An. Title` to *Y*'s Amendment log, with Date, Source, Change (verbs plus
-   *Y*'s sections) and Summary. Quote removed or contradicted chapter text verbatim as
-   `Replaced text ([03](../architecture/03-….md) §4.5, as it stood):`. IDs are contiguous and
-   never edited.
+   *Y*'s sections) and Summary: what changed and why, and the chapter sections it changed, not
+   a restatement of them. Open the Summary with what was decided, not with the state it
+   replaced, so that its first sentence (two for a direct decision) stands for the entry. Name the chapter sections whose text the change removed or
+   contradicted, `Replaced text: [03](../architecture/03-….md) §4.5, as it stood before this
+   entry; in git (`tools/adr.py log NNNN An --before`).`; the commit holds the text, so quote it
+   only where git does not (24 §6). IDs are contiguous and never edited.
 3. **Mark.** Add `An` to the `*Changed by …*` provenance line of each changed *Y* section,
    creating the line if needed. Strike any Consequence the change falsifies
    (`~~**Claim.** …~~ *Why (An).*`). Set *Y*'s `Updated: YYYY-MM-DD (An)`. If *Y* is Accepted,

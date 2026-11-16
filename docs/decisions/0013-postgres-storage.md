@@ -193,18 +193,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 - **Change:** supersedes §10
 - **Summary:** 0005 §2 became the one crate table CI checks, and carries every crate of this section (0005 A8). The section was kept in step with it until this conversion: A2 renamed `erase_bodies`. It still named `sqlx`, which 0033 §4 replaced with `tokio-postgres` in 0005 §2's dependency notes.
 
-Replaced text (§10):
-
-> | Layer | Crate | Change |
-> |---|---|---|
-> | Substrate | `scatter-log` | Gains the `LogStore` trait: `append`, `read`, `scan`, `erase_parts` (named `erase_bodies` until [0015](0015-record-format-and-partition-registry.md) §7), `compact`, `head`. Its file backend, `segments`, implements it and remains the export-bundle format. |
-> | | `scatter-log-postgres` (new) | `LogStore` over the `log` schema of §2, with `sqlx`. It also owns that schema's migrations. Shared with Scatterbase, which may use it in place of files. |
-> | | `scatter-projection` | The projection trait gains a transactional variant, so a projection can apply inside the appending transaction (§7). |
-> | Triplespace | `triplespace-db` (new) | The `view`, `private` and `ops` schemas, their migrations, roles and grants (§4), connection pools, and replica routing (§7) |
-> | | `triplespace-projections` (new) | Every `view` projection of §5, in the order of §7. Absorbs `triplespace-activity` from [0010](0010-site-ui.md) §13. Pure computation stays in `scatter-wikibase-resolve`, `scatter-identity` and the other core crates; this crate only reads records and writes rows. |
-> | | `triplespace-rdf` (new) | The streaming RDF projection of §8, using `scatter-wikibase-rdf`. Absorbs `triplespace-revmeta`, the metadata-graph projection of [0001](0001-revision-metadata-rdf.md) and [0011](0011-logs.md) §10. |
->
-> The rules of [0005](0005-crate-organization.md) §3 hold: no core crate depends on `sqlx` or Postgres, async and I/O appear only in `scatter-log-postgres`, `scatter-ingest` and the surfaces, and the `segments` backend keeps `scatter-log` usable without a database.
+Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0013 A1 --before`).
 
 ### A2. Header IDs, erasable parts and upstream revisions
 
@@ -279,9 +268,7 @@ Replaced text: not recorded. 0013 was revised in place before the repository's h
   - §5.6, §7, §8: `view.rdf_delta` and the delta epoch in §5.6; the delta projection noted in §7; §8 amended: stamped and skolemized dumps, and the local quad store fed from the delta table.
   - §8: Every dump is stamped with the cursor of the SPARQL Update stream it continues into, and is offered in a second form with blank nodes skolemized (0032 §7); the plain form is unchanged. The local quad store is no longer a separate projection: it is fed from `view.rdf_delta`, the same rows the stream serializes, in process through `scatter-quadstore::apply` or externally through `triplespace-cli sparql-sync` (0032 §9).
 
-Replaced text (§8):
-
-> - **A local quad store is a deployment option.** An instance that wants its own SPARQL endpoint runs the quad projection into Oxigraph or QLever as one more consumer of the log.
+Replaced text: §8 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0013 A10 --before`).
 
 ### A11. Decisions of 2026-09-27 (evening)
 
@@ -332,9 +319,7 @@ Replaced text: `content_model text NOT NULL, owner_actor text,` with no comment.
 - **Change:** amends §5.6; extends §7
 - **Summary:** On a tenant with expansion on, `transclusion`, `render_state`, `entity_usage`, and the links, categories and file usage they drive are written by the refresh job and rebuilt by re-rendering, not by replay. Where a render read a foreign template repository or the clock, a rebuild can differ, so the first rule below does not hold for them. §5.6 had been given the table row in place.
 
-Replaced text (§5.6):
-
-> Every `view` table is a projection under §7 and is rebuilt from the log.
+Replaced text: §5.6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0013 A16 --before`).
 
 ### A17. Entity usage
 
@@ -445,15 +430,9 @@ Replaced text (§7): "The remainder is queued in `ops.projection_state` as work 
 - **Date:** 2026-10-04
 - **Source:** [0058](0058-packed-record-storage.md) §1, §2, §6, §7
 - **Change:** amends §2, Consequences; extends §3, §9
-- **Summary:** A partition's `storage` is `plain` or `packed`. A packed body is stored as zstd, against a per-domain dictionary, over a packed form in which repeated subtrees named by `docs/registry/fragments.toml` are 16-byte keyed references into `log.fragment`, stored once per dedup domain (each tenant, and the instance's shared partitions). `log.record` gains `codec` and `dict`; `log.fragment_domain`, `log.fragment`, `log.dict` and `ops.fragment_candidate` are added. The logical bytes, header, leaf and commitment do not change, and every rebuilt body is checked against the commitment. Erasure and compaction make the removed refs candidates for a candidate sweep, which deletes unshared fragments; shared ones wait for a full sweep, which a `legal` erasure runs at once. Bootstrap writers pack in-process and merge fragments after the load. A storage-only change to the `log` schema no longer needs a format version.
+- **Summary:** A partition's `storage` is `plain` or `packed`. A packed body is stored as zstd, against a per-domain dictionary, over a packed form in which repeated subtrees named by `docs/registry/fragments.toml` are 16-byte keyed references into `log.fragment`, stored once per dedup domain (each tenant, and the instance's shared partitions). `log.record` gains `codec` and `dict`; `log.fragment_domain`, `log.fragment`, `log.dict` and `ops.fragment_candidate` are added. Erasure and compaction make the removed refs candidates for a candidate sweep, which deletes unshared fragments; shared ones wait for a full sweep, which a `legal` erasure runs at once. Bootstrap writers pack in-process and merge fragments after the load. A storage-only change to the `log` schema no longer needs a format version. The text is in git (`tools/adr.py log 0013 A31 --diff`).
 
-Replaced text (§2):
-
-> - **Bodies use TOAST with `lz4` compression.** Canonical CBOR compresses well, and `lz4` decompresses fast enough for the read path. Bodies are never queried inside the database; they are decoded by the server.
-
-Replaced text (Consequences):
-
-> - **Migrations become part of the compatibility surface.** A `view` change needs a rebuild or a migration; a `log` change needs a new payload or header version and a migration that keeps every existing header verifiable.
+Replaced text: §2 of this ADR; Consequences of this ADR, as it stood before this entry; in git (`tools/adr.py log 0013 A31 --before`).
 
 ### A32. The query service reads the quad store
 
@@ -520,9 +499,7 @@ Replaced text (§8): none removed. The rule quoted in the Summary was stated in 
 - **Change:** corrects §3
 - **Summary:** The sentence saying that the compaction worker re-signs the manifest of each segment it touched is struck: a compacted offset keeps its leaf ([0006](0006-log-integrity-and-erasure.md) A14), so a sealed manifest never changes and nothing replaces it. (PENDING A1)
 
-Replaced text (§3):
-
-> The compaction worker re-signs the manifest of each segment it touched, listing the manifest it replaces.
+Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0013 A40 --before`).
 
 ### A41. `provider-readers` is tenant scope
 
@@ -531,9 +508,7 @@ Replaced text (§3):
 - **Change:** corrects §5.6
 - **Summary:** `provider-readers` is **tenant** scope, a record in the provider tenant's own `config` ([0015](0015-record-format-and-partition-registry.md) §3, [0028](0028-tenancy-policy.md) §5); the 0028 row of §5.6 says so instead of listing it beside the instance-level `tenancy` and `template` kinds. (Corrected 2026-10-08: first written as "add to §5.5's instance-level list", which 0015 §3 and 0028 §5 contradict.) (PENDING A5)
 
-Replaced text (§5.6):
-
-> | `log`, `view` | Instance partitions `actors/{farm}`, `accounts/{farm}`, `log/{farm}`; farm accounts in `actor` with a `NULL` tenant; the farm-wide name-registry index; `tenancy`, `template`, `provider-readers` in `registry` | Farm identity, global groups and blocks, templates | [0028](0028-tenancy-policy.md) §12 |
+Replaced text: §5.6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0013 A41 --before`).
 
 ### A42. `foreign_page` in `proxy` mode indexes L1
 
@@ -542,9 +517,7 @@ Replaced text (§5.6):
 - **Change:** corrects §5.6
 - **Summary:** In `proxy` mode `view.foreign_page` indexes the **L1** (Valkey) cache, where [0014](0014-caches-and-search.md) §4 keys the bundle `fp:`, not L2; the 0053 row of §5.6 is corrected with [0053](0053-mirrored-pages.md) §8. (PENDING A7)
 
-Replaced text (§5.6):
-
-> | `view`, `ops` | `foreign_page` (instance scope); `ops.repo_cursor`, `ops.page_fetch` | The bundles the instance holds for repository pages, in `proxy` mode the L2 cache's index and in `mirror` mode the projection of `pages/{repo}`; the event cursor and fetch queue | [0053](0053-mirrored-pages.md) §8 |
+Replaced text: §5.6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0013 A42 --before`).
 
 ### A43. Rows the schema map lacks
 
@@ -560,9 +533,7 @@ Replaced text (§5.6):
 - **Change:** corrects §7
 - **Summary:** Step 2 of §7's projection order also names `redirect` ([0051](0051-page-redirects.md) §5), `page_prop` ([0055](0055-templatestyles-templatedata-and-page-properties.md) §6) and `derivation` ([0071](0071-derived-statements-from-mirrored-pages.md) §12), which §5.6 already says run in step 2. (PENDING A10)
 
-Replaced text (§7):
-
-> 2. `entity_source`, `keyed_map` ([0009](0009-keyed-entity-types-and-domain.md) §9), `page`, `job`, `upstream_revision` ([0015](0015-record-format-and-partition-registry.md) §4), `page_category` and `category` ([0038](0038-page-metadata-and-categories.md) §10), and the file projection ([0039](0039-files-and-media.md) §20);
+Replaced text: §7 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0013 A44 --before`).
 
 ### A45. Session state
 
@@ -571,9 +542,7 @@ Replaced text (§7):
 - **Change:** amends §4
 - **Summary:** Session state lives in Valkey when a shared cache is configured and in `private` otherwise ([0025](0025-oauth-server.md) §8, [0014](0014-caches-and-search.md) §2); "sessions' secrets" in §4's `private` row means that fallback, not an unconditional home. (PENDING A12)
 
-Replaced text (§4):
-
-> | `private` | State that belongs to one account and has no public history: the accounts graph's binding index, password hashes for the built-in `password` issuer ([0007](0007-actor-identity.md) A3), sessions' secrets, IP addresses held for abuse handling and IP blocks, when each binding was last used ([0007](0007-actor-identity.md) §3, [0012](0012-api-requirements.md) §5, [0016](0016-permissions-and-access-control.md) §3); the watch set and its Atom token ([0020](0020-change-feeds.md) §3); inboxes and read state ([0021](0021-notifications.md) §3); email addresses, fediverse handles, and the ActivityPub keys and followers of the notifier and of every opted-in actor ([0021](0021-notifications.md) §5, §8, [0022](0022-federation.md) §6); subsidiaries' API keys, OAuth tokens and confidential consumers' secrets ([0024](0024-subsidiary-accounts.md) §4, [0025](0025-oauth-server.md) §8); every preference, including the notification matrix and the auto-watch flags ([0027](0027-preferences-and-portability.md) §1); the IP row behind each edit-filter hit ([0030](0030-edit-filters.md) §11). §5.6 lists the tables | Permanent; never exported. The portable part travels with an account as a user data bundle, and with a cooperative tenant move as a sealed private extract applied on reclaim ([0027](0027-preferences-and-portability.md) §2–4); nothing else leaves ([0018](0018-tenants.md) §10) | `triplespace-accounts`, `triplespace-notify` and, for `ap_key` and `ap_follower` only, `triplespace-federation` |
+Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0013 A45 --before`).
 
 ### A46. Instance-scope `view` tables
 
@@ -603,9 +572,7 @@ Replaced text (§4):
 - **Change:** amends §5.5
 - **Summary:** [0015](0015-record-format-and-partition-registry.md) §3's scope paragraph is the one list of instance-level config kinds, gaining `reports`, `forwarder` and `page-repo` (tenant or instance); §5.5 refers to it instead of carrying its own list. (PENDING C18)
 
-Replaced text (§5.5):
-
-> `view.registry`'s key is `(tenant, kind, code)` since [0018](0018-tenants.md) §3 split the config kinds by scope; instance-level kinds (`key`, `graph`, `provider`, `issuer`, `keyed-type`, `tenant`, `alias`, and since then `tenancy`, `template`, `consumer`, the instance `sitelink-policy` and `federation-policy` lists, global `group`s, and `primary`, whose single code is `primary` ([0046](0046-primary-tenant.md) §2)) have the empty-string tenant.
+Replaced text: §5.5 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0013 A49 --before`).
 
 ### A50. `view.proposal`
 
@@ -619,161 +586,25 @@ Replaced text (§5.5):
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§11
-- **Summary:** The Decision's current text now lives in the architecture chapters [01](../architecture/01-log-and-records.md), [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [05](../architecture/05-providers-and-ingest.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0013 A51 --diff`).
 
 ### A52. Source form, the shared view under a policy record, and `term` and `entity_ref` at scale
 
 - **Date:** 2026-10-09
 - **Source:** [0082](0082-source-form-and-the-shared-view.md) §1, §5, §5.1, §6
 - **Change:** amends §5, §5.1, §5.2, §5.3, §5.6, §11
-- **Summary:** The stored graph is in source form: every `view` table keeps the entity IDs its source wrote, the canonical ID is an attribute of `view.cluster` and never applied to data, `materialized` means two or more contributing graphs or local deltas and nothing else, every member of a cluster keeps its row with the fused body stored once on the canonical member's row, and a cluster change recomposes the cluster's members only. The shared row (`tenant = ''`) of every `view` table is computed under the instance's `reconcile` policy record, which `view.entity.policy` names; a tenant narrows and never reorders, and a tenant-scope write that tries is refused with `ts-instance-policy`. `cluster`, `cluster_member`, `link`, `different_from` and `entity_source` gain the `tenant` column with the `''`-then-tenant lookup, `cluster_member`'s unique key is `(tenant, entity_id)`, and a read over shared rows by any key other than the entity (identifier by value, sitelink by URL, `entity_ref` by target, term by prefix) excludes shared rows of entities the viewer's tenant has overlaid; the overlay projection sets `tenant_overlaid` on the shared search document. `view.term` holds rows for local entities, overlaid entities and mirrored entities in the instance's term languages only, the rest served from the record through the L1 label cache; `term_prefix` is a partial index over tenant rows, never created or read on the large profile; `view.entity_ref` is keyed `(tenant, target_page_id, source_page_id, roles)` with a role bitmask and no `statement_id`, exists for "Links here" and the backlink count, and the Wikidata profile may omit it. The chapter also gives the quad store one shared resolved graph plus per-tenant overlay graphs, and the deployment profile table says the large profile leaves `term_prefix` in the schema unbuilt. (REVIEW G1, G2, G3, G7)
+- **Summary:** The storage side of 0082's source form: no stored ID is rewritten when a cluster forms, shared rows are computed under the instance's policy record and a tenant only narrows them, and `view.term` and `view.entity_ref` are cut down to what a Wikidata-sized instance can hold. The chapter text is in git (`tools/adr.py log 0013 A52 --diff`). (REVIEW G1, G2, G3, G7)
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.1, as it stood):
-
-> **Tenants.** Under [0018](../decisions/0018-tenants.md) §6, `view.entity` and the tables that hang off it (`term`, `sitelink`, `identifier`, `entity_ref`, `statement_assertion`, `correction`, `constraint_violation`, `value_key`) gain a `tenant text NOT NULL DEFAULT ''` column that leads every primary key: the **empty string is the instance**, and the row with `tenant = ''` is the shared row computed from the shared source graphs; a tenant that has local assertions, a cluster link or a correction touching the entity has its own `(tenant, id)` row; a tenant with none reads the shared one. A read is therefore one primary-key lookup with the viewer's tenant, falling back to one with `''`.
-
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.2, as it stood):
-
-> ```sql
->   id                text PRIMARY KEY,          -- local, foreign or keyed ID in the form of 0017 §1
->   canonical_id      text NOT NULL,             -- itself unless a non-canonical member (0004 §4)
-> ```
->
-> **The resolved view is materialized only where it differs from its source.** Reconciliation across graphs ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §3), statement fusion ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §8) and canonical-ID rewriting ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §4) are too costly to do per request, so the projection computes the resolved canonical JSON whenever any contributing record changes. But for most entities in a full mirror, exactly one graph contributes and no value refers to a clustered entity. For those, the resolved JSON *is* the mirror record's payload, which the adapter already wrote in prefixed-ID form ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.4). Storing it twice would double the largest table in the database. So:
->
-> - The projection computes the resolved JSON and compares its content hash with the single source's.
-> - If they match, `resolved_kind = 'source'` and `resolved` is `NULL`. A reader takes the body at `entity_source.offset`.
-> - Otherwise `resolved_kind = 'materialized'` and `resolved` holds the JSON.
->
-> **Only canonical members have a full row.** A non-canonical cluster member keeps its row for resolution (`canonical_id` points at the canonical entity), its `entity_source` rows and its terms in the per-graph views, but its resolved JSON is the canonical entity's.
-
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.3, as it stood):
-
-> ```sql
->   PRIMARY KEY (entity_id, kind, lang, ordinal)
-> -- Optional, small profile only (0014 §8): prefix search without OpenSearch.
-> CREATE INDEX term_prefix ON view.term (lang, kind, lower(text) text_pattern_ops);
->   url_key text PRIMARY KEY,                     -- the normalized URL; one item per URL
->   UNIQUE (entity_id, host)                      -- one link per host per item
->   PRIMARY KEY (property, value_key, entity_id, graph)
->   PRIMARY KEY (property, value_key)
-> CREATE TABLE view.entity_ref (                  -- the reverse index (0004 Consequences, 0008 §10)
->   target_id text NOT NULL, source_id text NOT NULL,
->   statement_id text NOT NULL, role smallint NOT NULL,     -- 1 main, 2 qualifier, 3 reference
->   PRIMARY KEY (target_id, source_id, statement_id, role)
-> ```
->
-> - **`term` serves label lookups**, which every entity page does in bulk for the entities it links to. It is the equivalent of Wikibase's term store. Prefix search on it is a fallback; the search index (§11) is the primary path.
-> - **`entity_ref` is the largest table after `record`** at Wikidata scale, on the order of 10^9 rows. It is required: a change of cluster membership must find every referrer, and "Links here" must list them. Its `target_id` is the ID as asserted; the projection resolves through `canonical_id` when it reads.
-
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.4, as it stood):
-
-> ```sql
-> CREATE TABLE view.cluster (cluster_id bigserial PRIMARY KEY, canonical_id text NOT NULL);
-> CREATE TABLE view.cluster_member (
->   cluster_id bigint NOT NULL, namespace text NOT NULL, entity_id text NOT NULL UNIQUE,
->   PRIMARY KEY (cluster_id, namespace)           -- one member per namespace (0004 §2)
-> );
-> CREATE TABLE view.link (                        -- every link, applied or held (0004 §3, §10)
->   a text NOT NULL, b text NOT NULL, tier smallint NOT NULL,
->   PRIMARY KEY (a, b, tier, source)
-> );
-> CREATE TABLE view.different_from (a text NOT NULL, b text NOT NULL, "offset" bigint NOT NULL, PRIMARY KEY (a, b));
-> ```
-
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §5, as it stood):
-
-> | `view` | `entity`, `entity_source` | The resolved view and the version cursor per graph | [0013](../decisions/0013-postgres-storage.md) §5.1 | 0013's own |
-> | `view` | `term`, `sitelink`, `identifier`, `match_key`, `entity_ref` | Terms, sitelinks, normalized identifiers, match keys, the reverse index | [0013](../decisions/0013-postgres-storage.md) §5.2 | 0013's own |
-> | `view` | `statement_assertion`, `correction`, `record_statement`, `cluster`, `cluster_member`, `link`, `different_from`, `property_link` | Statement provenance, corrections, value history, clusters and links | [0013](../decisions/0013-postgres-storage.md) §5.3 | 0013's own |
-> | `view`, `ops` | `term` rows of mirrored entities in `entities.term_languages` only; `ops.entity_fetch`; provider rows in `ops.repo_cursor` | Shallow mirroring: the fetch queue and the entity stream's cursor | [0070](../decisions/0070-shallow-entity-mirroring.md) §6, §10 | Yes |
-
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §7, as it stood):
-
-> Everything derived from shared source graphs alone is computed once, for the instance. Everything a tenant's own graph changes is an **overlay** keyed by tenant.
->
-> - **Entities.** `view.entity` and its dependents gain a `tenant` column (§4.1). A row with the empty-string tenant is the shared row for a mirrored entity, computed from the shared graphs. A tenant that has local assertions about the entity, a cluster link touching it, or a correction on it gets its own `(tenant, id)` row; a tenant with none reads the shared one. This is §4.2's "materialize only where it differs", applied per tenant. `view.term`, `view.identifier`, `view.entity_ref`, `view.statement_assertion` and `view.correction` follow the same rule; `view.page`, `view.activity`, `view.job` and the actor tables are per tenant outright.
-> - **Clusters.** Tier-2 and tier-3 links come from shared graphs and are instance-wide; tier-1 links are the tenant's own, and its `different-from` blocks are too. A tenant's clusters are the shared clusters with its overlay applied, recomputed for the entities its links touch ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §2). A conflict is a conflict for the tenant that holds the links that cause it.
-> - **Search.** One shared `entities` index per provider, holding that provider's canonical entities as the shared view has them, and one index per tenant holding the tenant's local entities and its overlay documents (§11.4). Duplicating a provider's index per tenant is not an option at Wikidata scale, so the overlay is the only shape that works.
-
-Replaced text ([22](../architecture/22-crates-and-stack.md) §6, as it stood):
-
-> | `term_prefix` index | Present; serves suggest and `wbsearchentities` | Absent; OpenSearch serves them ([0014](../decisions/0014-caches-and-search.md) §7) |
-> | `entity_ref` | Present | Present; the largest `view` table |
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.1, §4.2, §4.3, §4.4, §5, §7; [22](../architecture/22-crates-and-stack.md) §6, as it stood before this entry; in git (`tools/adr.py log 0013 A52 --before`).
 
 ### A53. The write path in three tiers
 
 - **Date:** 2026-10-09
 - **Source:** [0083](0083-write-path-in-three-tiers.md) §1, §2, §3, §4, §5, §6, §7
 - **Change:** amends §2, §5, §5.1, §5.4, §5.5, §5.6, §7, §9
-- **Summary:** Tier 1, the appending transaction, does only what is a function of the written record and the local graph (normalize, evaluate filters, check the base against the local graph, allocate IDs, append, write the written graph's state to `view.graph_state` and, for a local revision, `view.entity_revision`, write the activity row, commit); the partition lock covers exactly this and nothing composes inside it, so §7's "projections 1–5 for the affected keys before commit" is withdrawn, as is the synchronous budget's inline fan-out. Tier 2, composition, is a pure function of the contributing graph states, the policy record and the cluster map version, recorded as `composed_from`; it runs after commit for the written entity, in a coalescing worker for everything else, on miss on the read path, and set-based in bootstrap and bulk modes; a composed row is replaced only when its inputs are newer, `resolved_version` comes from an instance-wide sequence, and L1 is written by the composer after commit. Tier 3, the consumers of composition (constraints, scopes through `view.scope_trigger`, sprints and tasks, schema validation, entity usage, reports, the RDF delta behind `updates.enabled`, search documents, the ACL and visibility re-projections), each run on their own queue, never in a transaction, off during bootstrap and bulk modes; the statement and property ACL lookup is skipped while `view.tenant.live_statement_acls` is zero, and `view.activity` stores `read_enclosures` evaluated at serve time instead of `read_groups`. Every projection declares its class, log-replayed or view-derived; no projection has side effects during replay (blob destruction and adoption retirement are `ops` jobs); large projections rebuild into `view_next` and swap, and every rebuild bumps an instance-wide cache epoch carried in every L1 key; a tenant's partitions replay in `(appended_at, partition, offset)` order; decisions the write path makes from other partitions' state are written into the attestation part; `ops.projection_work` is the unit of truth for lag and `applied_offset` the contiguous prefix; `page_category`, `page_link` and `page_prop` carry `from_render` with one writer per row class. `rdf_delta.seq` is assigned by the one delta consumer, a rebuild truncates `rdf_delta`, and `ops.tenant_epoch` holds a per-tenant epoch with a rendering version. Bulk append into a live partition takes the lock once per block with the `put` skip evaluated in bulk, `stream` jobs are one transaction per block, and a new provider on a live instance is bootstrapped and then caught up against the live `view`. (REVIEW G8, G9, G10, G11, G12, G13, G14)
+- **Summary:** The storage side of 0083's three tiers: only tier 1 runs in the appending transaction, composition runs after commit, and the consumers of composition run on queues of their own, never in a transaction. §7's "projections 1–5 for the affected keys before commit" and the synchronous budget's inline fan-out are withdrawn. The chapter text is in git (`tools/adr.py log 0013 A53 --diff`). (REVIEW G8–G14)
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §2.1, as it stood):
-
-> **Offsets are allocated in the appending transaction.** The transaction locks the partition's row in `log.partition`, takes `next_offset`, inserts, and advances it. A rollback releases the offsets, so the sequence stays gapless as [0006](../decisions/0006-log-integrity-and-erasure.md) §3 requires. Appends to one partition are serialized by that lock. This is the correct behaviour for the local partition, where edits must be ordered, and irrelevant for bulk ingest, which uses bootstrap mode ([0013](../decisions/0013-postgres-storage.md) §9).
-
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.2, as it stood):
-
-> ```sql
->   resolved_version  bigint NOT NULL,           -- monotonic; bumped on every re-resolution (0014 §3)
-> ```
->
-> - The single source has to be a whole-state record for the reader to take it: a `put`, a `create` or an `adopt` that is the key's only local record. A local entity that has been edited with `add` or `remove` is materialized even when it is the only graph, since no record holds its state. `resolved` is compressed by the column's TOAST method (`lz4`, as §2.1 compresses bodies); the projection writes the plain canonical JSON.
-
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.5, as it stood):
-
-> ```sql
->   PRIMARY KEY (from_page, target_kind, target_id)
-> ```
-
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.6, as it stood):
-
-> ```sql
->   tenant text PRIMARY KEY, visibility_epoch integer NOT NULL DEFAULT 0
-> ```
->
-> `view.activity.patrolled boolean` with its partial index `WHERE NOT patrolled` serves the recent-changes filter, set by the patrol projection and the autopatrol rule of [0023](../decisions/0023-moderation.md) §6. `view.activity` gains `read_groups text[]`, so feed and log rows are filtered by principal ([0056](../decisions/0056-security-model.md) §5, §14).
->
-> `view.tenant` is a projection of the tenant's `read` ACL records on a namespace, set or tenant target, each of which increments the epoch; a tenant's configuration stays in `view.registry`.
-
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §5, as it stood):
-
-> | `ops` | `projection_state`, `projection_work` | Projection positions; queued fan-out work | [0013](../decisions/0013-postgres-storage.md) §7 | 0013's own |
-> | `ops` | The delta epoch | Incremented by a `view` rebuild, so that cursors from before it are refused | [0032](../decisions/0032-sparql-update-stream.md) §3 | Yes |
->
-> **Two rules follow from the table.** Every `view` table is a projection under §6 and is rebuilt from the log, with two exceptions that are not pure functions of it.
-
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6.1, as it stood):
-
-> Every table in `view` belongs to a named projection. `ops.projection_state (projection, partition, applied_offset)` records how far each has replayed; lag is the distance to the partition's head, and it is what job pages report ([0010](../decisions/0010-site-ui.md) §9). A rebuild truncates the projection's tables and replays from offset 0.
->
-> Projections run in dependency order:
->
-> 1. `registry`, `keyed_surrogate`, `actor`, and `group`, `membership`, `acl`, `block` ([0016](../decisions/0016-permissions-and-access-control.md) §9, [0023](../decisions/0023-moderation.md) §10), and `filter` ([0030](../decisions/0030-edit-filters.md) §11), since the write path reads all of these;
-> 2. `entity_source`, `keyed_map` ([0009](../decisions/0009-keyed-entity-types-and-domain.md) §9), `page`, `job`, `upstream_revision` ([0015](../decisions/0015-record-format-and-partition-registry.md) §4), `page_category` and `category` ([0038](../decisions/0038-page-metadata-and-categories.md) §10), and the file projection ([0039](../decisions/0039-files-and-media.md) §20);
-> 3. `cluster` and `link`;
-> 4. `entity` (resolution), `term`, `sitelink` with the denied-host filter ([0026](../decisions/0026-sitelinks.md) §6), `identifier`, `value_key`, `entity_ref`, `statement_assertion`, `correction`, then `constraint_violation` and `constraint_count` ([0031](../decisions/0031-property-constraints.md) §2), which read them, and page-statement resolution ([0038](../decisions/0038-page-metadata-and-categories.md) §10);
-> 5. `activity` with `patrolled` ([0023](../decisions/0023-moderation.md) §6), `filter_hit` ([0030](../decisions/0030-edit-filters.md) §11), `page_link`, `record_statement`, and `thread`, `post`, `talk_page` ([0019](../decisions/0019-discussions.md) §11), then `report` and `site_stats`, after `activity` and `page_link` ([0047](../decisions/0047-special-pages.md) §4.3, §13);
-> 6. the addressing projection that fills inboxes ([0021](../decisions/0021-notifications.md) §1), which reads `activity` and writes to `private`; it is the one projection whose target is not `view`, and it runs asynchronously under the notifier's role;
-> 7. the RDF and search projections ([0013](../decisions/0013-postgres-storage.md) §8, in [02](../architecture/02-graphs-rdf-and-query.md); §11.3). The **delta projection** of [0032](../decisions/0032-sparql-update-stream.md) §2 is not a separate step: it runs inside steps 2, 4 and 7, wherever a projection has both the old and the new state of an entity in hand, and writes `view.rdf_delta` in the same transaction. The scope, task and validation projections ([0060](../decisions/0060-scopes.md) §5, [0061](../decisions/0061-sprints-and-tasks.md) §6, [0064](../decisions/0064-entityschema-and-validation.md) §5) run at the end of this step, in that order, within the fan-out budget.
->
-> Later ADRs place their projections in this order where their Storage sections say so: the ACL projection runs in step 1 with the permission tables, since resolution, terms, search and activity all read it, and it is synchronous for interactive writes, so a deletion is invisible the moment it commits ([0023](../decisions/0023-moderation.md) §10); `redirect` is written in step 2 with `page` ([0051](../decisions/0051-page-redirects.md) §5); the `derivation` projection runs in step 2 beside `entity_source`, and resolution of the subjects it names in step 4 ([0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §12); the file projection runs in step 2 with pages, after the ACL projection ([0039](../decisions/0039-files-and-media.md) §20); lexeme terms are written by the term projection in step 4 ([0066](../decisions/0066-lexemes.md) §5); the constraint projection runs in step 4 after `entity` and its dependents ([0031](../decisions/0031-property-constraints.md) §5); the thread tables are projections applied synchronously for interactive writes ([0019](../decisions/0019-discussions.md) §11).
->
-> **One projection may own several tables.** The list above names tables; `term` and `identifier` are written by the `entity` projection from the same resolution pass, since each is a function of the resolved state and splitting them would resolve every subject three times. `ops.projection_state` has one row per projection, so their position is `entity`'s. A rebuild orders partitions by dependency: the `config` partition, then the instance `log` (surrogates, instance jobs), then mirrors, then tenant partitions; the resolution projection fails loudly on a keyed subject whose surrogate it cannot find ([0009](../decisions/0009-keyed-entity-types-and-domain.md) §7).
-
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6.2, as it stood):
-
-> **Edit filters run before the append** ([0030](../decisions/0030-edit-filters.md) §1, §11), in the same transaction, after the permission and ACL checks and the rate-limit check ([0024](../decisions/0024-subsidiary-accounts.md) §5); a refusal appends only the hit record. The write path in full is therefore: authenticate the credential and resolve the actor and its effective permissions, including a key's or token's grants ([0024](../decisions/0024-subsidiary-accounts.md) §4, [0025](../decisions/0025-oauth-server.md) §3); rate limit; ACLs on the target and its enclosures; edit filters; the base-offset check ([0006](../decisions/0006-log-integrity-and-erasure.md) §8); the append with ID allocation; projections 1–5 for the affected keys; commit.
->
-> **Interactive writes update the synchronous set in the same transaction as the append.** An editor who saves and reloads must see their edit, as they do on MediaWiki. So a write through the edit API appends the record and, before commit, applies projections 1–5 for the affected keys. Bulk jobs apply projections in batches behind the append, and report lag.
->
-> **The synchronous budget.** A write's own rows are always synchronous: the written entity's or page's resolution, terms, identifiers, sitelinks, its own `entity_ref` rows, its own constraint checks ([0031](../decisions/0031-property-constraints.md) §2), its activity row and its delta ([0032](../decisions/0032-sparql-update-stream.md) §2). **Fan-out** to other entities, meaning referrers re-resolved by a cluster change ([0004](../decisions/0004-identity-clusters-and-equivalence.md), Consequences), `type`, `inverse` and `symmetric` constraint re-checks of statements that point at the changed entity ([0031](../decisions/0031-property-constraints.md) §2), and the deltas those produce, is applied inline until a budget is spent and then handed to the projection worker: `projections.sync_budget` (`site` configuration, default 1,000 rows) or `projections.sync_time` (default 250 ms), whichever comes first. The remainder is queued in `ops.projection_work` as work for the affected keys (one row per projection, tenant, record and key; `ops.projection_state` holds only positions), applied in append order by the worker that serves bulk jobs, and reported as lag on the entity page's identity line ("N referrers updating") and in `siprop=triplespace`. Read-your-writes therefore holds for the thing edited and for small fan-outs; a link to a heavily cited author shows its effect on referrers within lag. The append lock of §2.1 is released at commit, before the queued remainder runs, so a large fan-out never blocks the next editor. Report entries are fan-out under this budget; the refresh job of [0042](../decisions/0042-template-expansion-and-parsoid.md) §10 applies them for the tables it writes ([0047](../decisions/0047-special-pages.md) §13).
->
-> **Tenant overlays.** Under §7 the shared rows are computed once from the shared partitions, and a tenant's rows only where its own partitions change the result. A record in a tenant partition therefore re-runs steps 3–5 for that tenant's overlay of the affected keys; a record in a shared partition re-runs them for the shared row and for every tenant that holds an overlay row for the key.
-
-Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.8, as it stood):
-
-> 4. Indexes are built, then projections run in the order of [0013](../decisions/0013-postgres-storage.md) §7, each in one pass over the partition.
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §2.1, §4.2, §4.5, §4.6, §5, §6.1, §6.2; [05](../architecture/05-providers-and-ingest.md) §3.8, as it stood before this entry; in git (`tools/adr.py log 0013 A53 --before`).
 
 ### A54. `lastrevid` is the newest local revision
 
@@ -782,11 +613,7 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.8, as it sto
 - **Change:** amends §5.1
 - **Summary:** `view.entity.local_revid`, the `lastrevid` of the Action API, is the revision ID of the key's newest local record when it has one, and otherwise the provider-ranged ID of its newest mirror record; the base check of a write is per source graph, against the local partition's newest record for the key, and a mirror advancing is never a conflict. The 0084 table named §6 for this row; the chapter text that holds the rule is [03](../architecture/03-storage-caches-and-search.md) §4.2, which §5.1 points to, so the entry lands here. (REVIEW G17)
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.2, as it stood):
-
-> ```sql
->   local_revid       bigint,                    -- lastrevid for the Action API
-> ```
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.2, as it stood before this entry; in git (`tools/adr.py log 0013 A54 --before`).
 
 ### A55. A mirrored entity's page ID is provider-ranged
 
@@ -795,22 +622,7 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.2, as i
 - **Change:** amends §5.1, §5.4, §6
 - **Summary:** A mirrored entity's page ID is provider-ranged, `provider_number << 40 | upstream page ID` where the provider publishes one and `provider_number << 40 | mirror offset` otherwise, computed by the writer with no allocation and no read of `view`; `log."instance.page_id"` is not used for entities; the sub-2^40 range of the page ID space is the tenant's own sequence, so one `pageid` space covers local pages, local entities and mirrored entities on a tenant without collision; and `view.entity`'s unique key on the page ID is `(tenant, page_id)`, since a shared row and a tenant's overlay row for one entity carry the same page ID. Chapter 10 §3.1 says "per tenant". (REVIEW G18)
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §2.3, as it stood):
-
-> - `log.page_id` is taken the first time a key is written in any partition, and every later record for that key repeats it in header field 9 ([0015](../decisions/0015-record-format-and-partition-registry.md) §2). It is never derived from replay order. Talk pages take theirs from the same sequence through the thread record that first attaches to them ([0019](../decisions/0019-discussions.md) §2).
-> - Mirror records take a **provider-ranged** revision ID, `provider_number << 40 | n` ([0015](../decisions/0015-record-format-and-partition-registry.md) §2), computed by the writer with no allocation. A page served by a page repository takes a provider-ranged **page ID** the same way, `provider_number << 40 | upstream page ID`, derived and never minted; `log.page_id` therefore stays below 2^40 ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6).
->
-> A mirrored entity's page ID is taken from `log."instance.page_id"` the first time its key is written, since it belongs to no tenant; only a page served by a page repository has a provider-ranged page ID ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6).
-
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.2, as it stood):
-
-> ```sql
->   page_id           bigint NOT NULL UNIQUE,    -- §2.3
-> ```
-
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.5, as it stood):
-
-> Entity pages get their `page_id` from the same sequence as document pages (§2.3), so `view.entity.page_id` and `view.page.page_id` never collide and one `pageid` space covers both kinds of page.
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §2.3, §4.2, §4.5, as it stood before this entry; in git (`tools/adr.py log 0013 A55 --before`).
 
 ### A56. The actor key is in the attestation part, never the header
 
@@ -819,38 +631,16 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.5, as i
 - **Change:** corrects §5.4
 - **Summary:** The actor key lives in the attestation part of a record and never in its header, except as the key of an actor record itself; the actor tables and `view.activity.actor_key` are projected from the attestation, which is why an attestation cut leaves the row with no actor; `view.activity`'s issuer index, and the `actor_local_name` index, filter on the tenant's derived issuer code ([0079](0079-derived-issuer-codes.md) §1), which `local` names. Chapter 07 §1.1's "what log headers carry" is struck. (REVIEW G19)
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.5, as it stood):
-
-> ```sql
-> CREATE UNIQUE INDEX actor_local_name ON view.actor (lower(name)) WHERE issuer = 'local' AND name IS NOT NULL;
-> ```
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.5, as it stood before this entry; in git (`tools/adr.py log 0013 A56 --before`).
 
 ### A57. No genesis records, manifests keyed per segment, `logid` for every tenant record, and concurrent appends
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §2
-- **Summary:** Non-`config` partitions have no genesis record: a partition's name, hash function, `k` and policies are its `graph:` record in `config`, which the bundle carries, and `log.partition.hash` is denormalized from it. `log.segment_manifest` is keyed `(partition, segment)` with no `replaces` column and no `sealed_at` in the key; a manifest is signed once and never re-signed. A `hashed` partition has segment manifests only: its job-end "checkpoint" is the manifest of the last sealed segment plus an unsigned head offset, records in the open segment are uncommitted until sealed, and `log.checkpoint` rows exist for `logged` partitions only. Every record in `local`, `pages`, the tenant `log` and the tenant `actors` partitions takes a `logid` at append whether or not the catalogue projects it. Several processes append: the tree's right edge is read under the append lock and only complete subtrees are persisted, and checkpoints are signed by the projection worker under an advisory lock per partition, the only process holding the instance key. (REVIEW G24, G25)
+- **Summary:** Non-`config` partitions have no genesis record: a partition's name, hash function, `k` and policies are its `graph:` record in `config`, which the bundle carries, and `log.partition.hash` is denormalized from it. `log.segment_manifest` is keyed `(partition, segment)` with no `replaces` column and no `sealed_at` in the key; a manifest is signed once and never re-signed. A `hashed` partition has segment manifests only: its job-end "checkpoint" is the manifest of the last sealed segment plus an unsigned head offset, records in the open segment are uncommitted until sealed, and `log.checkpoint` rows exist for `logged` partitions only. Several processes append: the tree's right edge is read under the append lock and only complete subtrees are persisted, and checkpoints are signed by the projection worker under an advisory lock per partition, the only process holding the instance key. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §2.1, §2.2, §2.3. (REVIEW G24, G25)
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §2.1, as it stood):
-
-> ```sql
->   hash          text NOT NULL,                 -- named in the genesis record (0006 §2, 0015 §3)
-> ```
-
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §2.2, as it stood):
-
-> ```sql
-> CREATE TABLE log.checkpoint (
->   replaces    bigint[] NOT NULL DEFAULT '{}',  -- manifests this one supersedes after compaction
->   PRIMARY KEY (partition, segment, sealed_at)
-> ```
->
-> `GET /record/{partition}/{offset}/checkpoint` ([0012](../decisions/0012-api-requirements.md) §5) is `SELECT min(tree_size) WHERE tree_size > offset`.
-
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §2.3, as it stood):
-
-> - `log.log_id` is taken for every record that projects as a log event ([0011](../decisions/0011-logs.md) §6.1), which includes the records of the tenant's `actors` partition, and for every record in the tenant's log partition, written to header field 8 and `log.record.logid`.
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §2.1, §2.2, §2.3, as it stood before this entry; in git (`tools/adr.py log 0013 A57 --before`).
 
 ### A58. Surrogates are allocated under an advisory lock
 
@@ -880,11 +670,7 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §2.3, as i
 - **Change:** extends §5.1; amends §5.5
 - **Summary:** `view.entity_history (tenant, canonical_id, time, partition, offset, kind, member)` is the one backing of a mirrored entity's history, written by composition with one row per mirror record and per relevant upstream log event of every member of the cluster, so a history page is one keyset query bounded by the entity's own record count; upstream log events are rows of it and never of `view.activity`, which grows with local activity and jobs only; a watched mirrored entity's sync rows are read from it. The default mirrored provider log is `delete/*` and `protect/*`, the backfill covers held entities only, and `create/create` is derived from the first upstream revision. (REVIEW G42)
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.6, as it stood):
-
-> It grows with local activity and the number of jobs, never with the mirrors: a sync of a million entities is one `job` row and one activity row, and per-entity mirror history is served from `entity_source` and the record itself.
->
-> Sync rows for a watched mirrored entity are read per target from its mirror records, as a history reads them.
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.6, as it stood before this entry; in git (`tools/adr.py log 0013 A61 --before`).
 
 ### A62. Dumps from a replica, and the embedded backend's ceiling
 
@@ -893,10 +679,7 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.6, as i
 - **Change:** amends §11
 - **Summary:** Dumps are taken from a replica under `pg_export_snapshot()` with parallel workers sharing the snapshot; the embedded query backend is the small profile's and is refused above a configured triple count (`query.embedded_max_triples`); the Wikidata profile requires `query.backend = remote`; `term_prefix` is kept as schema and never created or read by the large profile. (REVIEW G49)
 
-Replaced text ([22](../architecture/22-crates-and-stack.md) §6, as it stood):
-
-> | Postgres | One server | Primary plus replicas; mirror child tables on their own tablespace |
-> | Quad store | Optional | Optional; QLever from dumps |
+Replaced text: [22](../architecture/22-crates-and-stack.md) §6, as it stood before this entry; in git (`tools/adr.py log 0013 A62 --before`).
 
 ### A63. The projection order is a partial order over registered projections
 
@@ -931,34 +714,22 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §6, as it stood):
 - **Date:** 2026-10-18
 - **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §2, §3, §5, §10
 - **Change:** amends §4
-- **Summary:** `private.login` indexes the instance's `logins` partition. `private.password` is keyed by login, not by account. `private.binding` indexes a login's external identities, under the empty tenant, and each tenant or farm account's binding to its login. `private.oauth_client` has one row per issuer, without `tenant`. Where there is no shared cache, `private.auth_request` holds a tenant's request at the auth host and `private.auth_code` a login code. `private.session` gains `login` and `central`. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §4.16.
+- **Summary:** `private.login` indexes the instance's `logins` partition. `private.password` is keyed by login, not by account. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §4.16.
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.16, as it stood):
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.16, as it stood before this entry; in git (`tools/adr.py log 0013 A67 --before`).
 
-> `private.oauth_client (tenant, issuer, client_id, secret, callback, created, updated)`, primary key `(tenant, issuer)`, `tenant = ''` the instance default, the secret sealed under the instance sealing key,
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §5, as it stood before this entry; in git (`tools/adr.py log 0013 A67 --before`).
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.16, as it stood):
-
-> `private.binding (tenant, issuer, subject, actor_key, partition, offset, added, last_used)`, unique on `(tenant, issuer, subject)`: the index of external bindings, whose truth is the binding records of the `accounts` partition; a password binding's index is `private.password`. All three are read and written by `triplespace-accounts` only.
-
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.16, as it stood):
-
-> | `private` | `password` | `(actor_key, hash, updated)` for the built-in `password` issuer; a portable-class-"re-established" table under 0027 §2 | [0007](0007-actor-identity.md) A3 | Yes |
-
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.16, as it stood):
-
-> | `private` | `oauth_client`, `oauth_flow`, `binding` | Login through external issuers: client credentials per tenant and issuer with the instance default, the secret sealed;
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §5, as it stood before this entry; in git (`tools/adr.py log 0013 A67 --before`).
 
 ### A68. Adopted revision IDs; the surrogate sequence
 
 - **Date:** 2026-10-19
 - **Source:** [0035](0035-adopting-a-wikibase.md) A12; [0007](0007-actor-identity.md) A27
 - **Change:** amends §6
-- **Summary:** `log.revision_id` is not taken for an adopted revision, which carries the source wiki's own revision ID below the floor, as an adopted record carries its page ID ([0035](0035-adopting-a-wikibase.md) A12). Each tenant has one more sequence, `log."{tenant}.actor_surrogate"`, from which it mints the surrogates `actor:{n}` ([0007](0007-actor-identity.md) A27). The chapter text is [03](../architecture/03-storage-caches-and-search.md) §2.3.
+- **Summary:** `log.revision_id` is not taken for an adopted revision, which carries the source wiki's own revision ID below the floor, as an adopted record carries its page ID ([0035](0035-adopting-a-wikibase.md) A12). The chapter text is [03](../architecture/03-storage-caches-and-search.md) §2.3.
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §2.3, as it stood):
-
-> - `log.revision_id` is taken for every record appended to a partition whose records are this tenant's revisions: `local` and `pages`. It is written to header field 7 and to `log.record.revid` in the appending transaction.
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §2.3, as it stood before this entry; in git (`tools/adr.py log 0013 A68 --before`).
 
 > An adoption sets every sequence here, entity, page, revision, log and user IDs, past what the source wiki consumed, records the floors in its job record, and supplies `page_id` for adopted records rather than taking one ([0035](../decisions/0035-adopting-a-wikibase.md) §4).
 
@@ -971,11 +742,7 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §2.3, as i
 - **Change:** extends §5
 - **Summary:** `view.post` gains `dt_name`, `dt_id` and `original`, filled from an imported post's `imported_from`, with partial indexes on `dt_name` and `dt_id` for `Special:GoToComment`. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §4.8.
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.8, as it stood):
-
->   hidden smallint NOT NULL DEFAULT 0, erased boolean NOT NULL DEFAULT false
-> );
-> CREATE INDEX post_thread ON view.post (thread_id, published);
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §4.8, as it stood before this entry; in git (`tools/adr.py log 0013 A69 --before`).
 
 ### A70. How a load enters bootstrap mode
 
@@ -991,9 +758,7 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §4.8, as i
 - **Change:** amends §9
 - **Summary:** A bootstrap load projects as it goes, a block at a time: each synchronous projection takes the block's records at once (`Projection::apply_many`, defaulting to one at a time), set-based where it has a form for it (for a mirror's `put` of a subject no other graph or overlay holds: the entity source, the entity row with its terms and identifiers, and activity), record by record otherwise. The views are current after every committed block, a load that stops part way needs no projection pass, and the partition keeps its key index for the record-by-record path. Building indexes after the load and projecting in one pass over it stay open, should per-block projection become the limit. Measured on the 2M Wikidata benchmark: 1 h 44 min (321 entities/s) against 2 h 56 min with projections record by record, 0.13 statements per entity against 11.0, and the same view rows (`docs/testing/performance.md` §8).
 
-Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.8, as it stood):
-
-> 1. The target child tables are created with the primary key only. The mirror partition's `(key, offset)` index and every `view` table are absent.
+Replaced text: [05](../architecture/05-providers-and-ingest.md) §3.8, as it stood before this entry; in git (`tools/adr.py log 0013 A71 --before`).
 
 > 4. Indexes are built, then projections run in the order of [0013](../decisions/0013-postgres-storage.md) §7, each in one pass over the partition; composition is set-based, one pass over the loaded states, and the consumers of composition (constraints, scopes, search documents, the RDF delta and the rest, [03](../architecture/03-storage-caches-and-search.md)) stay off until the operator turns them on.
 
@@ -1060,9 +825,7 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.8, as it sto
 - **Change:** amends §8
 - **Summary:** The full dump carries the resolved view, the exportable source graphs and the metadata graph, each in its visible form; it is published at `{base}/dumps/` like the other dumps and is no longer described as being for backups, which are the operator's copies of the database (0103 §1). Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §4.1.
 
-Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §4.1, as it stood):
-
->   - **A full dump** holds the resolved view, every source graph whose export policy allows it (§1.1), and the metadata graph. It is the RDF form of the instance's own history: for the instance's own SPARQL endpoint, for backups, and for another instance that wants the whole record.
+Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §4.1, as it stood before this entry; in git (`tools/adr.py log 0013 A80 --before`).
 
 ### A81. Each dump carries the public bundle of the `local` partition
 
@@ -1078,9 +841,7 @@ Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §4.1, as it sto
 - **Change:** amends §9
 - **Summary:** A bootstrap load writes up to `--writers` blocks at once (4 by default), each in a transaction of its own, and commits them in dump order. One coordinator gives each block, in order, its page IDs, its offsets and the tree nodes its leaves complete, keeping the partition's Merkle frontier in memory; each block's transaction then `COPY`s its records and nodes and runs its projections, and its last statement, which moves the partition's next offset from the block's first offset to past its last, runs only once every earlier block has committed, followed by the commit (the projections' positions are written at commit). So what has committed, and what a crash leaves, is always a prefix of whole blocks, with the records, tree, views and positions agreeing, as with one block at a time; a statement that finds the next offset elsewhere fails rather than commit out of order. The text of §9 had a coordinator hand writers offset blocks from an `ops.bootstrap_block` table and hand out again the block of a writer that failed, with the tree folded in one pass after the load; neither was built, the load having so far written one block at a time with each block's tree nodes, and the commit order now keeps a failed block from leaving a hole instead. Why several blocks: one block at a time left Postgres waiting on the client and the client on Postgres, neither near its limit. Why 4: on the full Wikidata dump on 16 cores, 40 minutes from empty loaded 4.81M entities with 1 writer, 5.96M with 2, 7.15M with 4 and 6.57M with 8; from 2 writers up, the 14 threads preparing records ran at 93–98% in dense stretches, so preparation, not writing, became the limit, and 8 only added connections. No relationship with the number of cores was found to set it by. Loading the dump to 40M entities with 4 writers took 4 h 00 min, against 5 h 07 min for the whole-dump load's first 40M with one, the gain growing as the database outgrew memory (`docs/testing/performance.md` §8).
 
-Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.8, as it stood):
-
-> 2. A coordinator hands each writer a contiguous block of offsets from `ops.bootstrap_block`. Writers `COPY` records in parallel. A block whose writer fails is handed out again, so no segment is sealed with a hole. Into a `packed` partition, writers pack bodies in-process with the domain's key and dictionaries and `COPY` new fragments into a staging table, merged into `log.fragment` after the load; a load and a sweep of the same domain exclude each other (below).
+Replaced text: [05](../architecture/05-providers-and-ingest.md) §3.8, as it stood before this entry; in git (`tools/adr.py log 0013 A82 --before`).
 
 > 3. Leaf hashes are computed by the writers. Segment subtrees and the partition root are folded in one pass afterwards, as [0006](../decisions/0006-log-integrity-and-erasure.md) §5 describes, and written to `log.merkle_node`.
 
@@ -1106,9 +867,7 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.8, as it sto
 - **Change:** amends §9
 - **Summary:** A bootstrap load does not sign its checkpoints: they are signed as every partition's are, by `triplespace checkpoint`, until 0006 Q4 settles the cadence a worker signs on. The step is deferred, not dropped. Chapter text: [05](../architecture/05-providers-and-ingest.md) §3.8.
 
-Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.8, as it stood):
-
-> 5. Checkpoints are signed and the partition goes live.
+Replaced text: [05](../architecture/05-providers-and-ingest.md) §3.8, as it stood before this entry; in git (`tools/adr.py log 0013 A85 --before`).
 
 ### A86. A snapshot sweep writes its operations in blocks
 
@@ -1138,9 +897,7 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.8, as it sto
 - **Change:** amends §7
 - **Summary:** A87 (4) ended a block's stretch at every repeated key until the projections were audited. They were: of the synchronous projections that accept a tenant's change sets and pages (revision state, entity source, keyed map, entity, activity, page), only the entity projection reads another projection's rows (the entity sources and the graph state), and it recomputes its subject's rows from them, so over a whole block it leaves the rows it leaves one record at a time but for two columns of `view.entity` that follow the key's history: `resolved_version`, which starts again when the entity goes and comes back (a state, a redirect, a state: 1 one at a time, 3 over the block), and `first_seen`, the earliest time the key's records carry (a block finds the last). Both were reproduced over Postgres with the stretches off, and nothing else differed. Decided: a projection says whether a key may repeat (`Projection::repeats_in_block(earlier, later)`, the earlier records of the key in the stretch and the one arriving; the default is no), and the pipeline ends a stretch before a record whose key it holds unless every synchronous projection that accepts the record says yes (`Pipeline::stretches`, `apply_inline_stretches`, which `write_many` calls), so that `scatter-ingest` knows nothing of what a projection reads. The answers given: revision state, entity source, keyed map and page say yes; activity says yes for change sets and pages and no for the other payloads, whose rows were not audited; the entity projection says yes for a local entity whose records in the stretch were appended at one time, the first a whole state (a `create`, or an `adopt` with a state and no redirect) and the rest whole states or `add`s, and no otherwise. A run of an adopted entity's revisions is then one stretch; a redirect, a withheld revision or a deletion ends it. Not audited, and so still kept apart: thread, ACL and actor records, and a mirror's records where tenants overlay them (a sync's block names each subject once anyway). On the Librarybase sample, which has few repeated entities (295 revisions of 254), adoption took about 0.55 s against 0.59 s. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §6.
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it stood):
-
-> A key may come more than once: the records are appended together and the projections run over each stretch in which no key repeats.
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §6, as it stood before this entry; in git (`tools/adr.py log 0013 A89 --before`).
 
 ### A90. A tenant's NDJSON batch writes its operations in blocks
 
@@ -1149,9 +906,7 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it 
 - **Change:** amends §7
 - **Summary:** A tenant's bulk job over an NDJSON batch (`run_batch`; [0002](0002-source-graphs-and-mass-ingest.md) §8.5) writes its operations with the block write of A87, 200 at a time (`batch::BLOCK`, a sync's unit), rather than one at a time. The batch is prepared whole before anything is written, as before. The calls made: (1) consecutive operations for one graph are a block (`local`, or `pages` for a page's statements), so the page and revision IDs are taken in the order the operations come. (2) An atomic batch is still one unit of work: its blocks are written inside it, and the operations before the first line that has problems are written before that line fails the batch, so a failure among them is still the one reported. (3) A streamed batch commits a block at a time. A block in which a write fails is rolled back and its operations are written again each in a unit of work of its own, as every operation was before: the one that fails is rejected with its line and the rest land. A line with problems is rejected after the operations before it are written, so the rejects stay in batch order. (4) What differs from one operation at a time: a streamed batch that is interrupted has landed whole blocks rather than every operation up to the interruption; and since a sequence does not give back what a rolled-back block took, a block that fails leaves a gap in the tenant's revision and page IDs the size of the block rather than of one operation. With no failed write the records, their IDs, the counts, the rejects and every `view` table are those of the job that wrote one operation at a time, checked over Postgres against that code, streamed and atomic. A batch of 2,000 `create`s (release build, cloud sandbox, preparation included) takes about 2.6 s against 7.7 s streamed and 2.6 s against 5.4 s atomic. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §6.
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it stood):
-
-> The NDJSON job and the imports do not use the block write yet, and the projections apply a tenant's records one at a time inside a block.
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §6, as it stood before this entry; in git (`tools/adr.py log 0013 A90 --before`).
 
 ### A91. An import writes each page as a block, and a few records are written one at a time
 
@@ -1160,9 +915,7 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it 
 - **Change:** amends §7
 - **Summary:** The general import job (`run_import`; [0008](0008-namespaces-and-document-pages.md) §9) writes each page's revisions, and the restoring edit after them, as one block (`write_raw_many`, the block write of A87 for caller-encoded records, which needs no table of providers), rather than one at a time. A page is still its own unit of work, decided from what it held before the job, so what an interrupted import has committed, and the skip rule that makes a second run write nothing twice, are unchanged. The calls made: (1) a new page of several revisions takes its page ID from the sequence before its block, for all its records; a new page of one revision leaves that to the write, as a record with no key, as before. (2) Pages are not batched together: that would commit several pages at a time, which was not asked for. (3) No more than four records (`write::SMALL_BLOCK`) are written one at a time by every caller of the block write, the same records by the same functions as before A87: a block spends on itself (the lookups for the block, two `COPY`s) what it saves on each record, and on an import of 600 revisions in pages of so many each it took 2.1 s against 1.5 s at one revision a page, as long at five, and less above. With the rule: 1.6 s against 1.6 s at one revision a page, 0.9 s against 1.0 s at ten, 0.7 s against 1.0 s at a hundred (release build, cloud sandbox). The records, counts and every `view` table are those of the import that wrote one revision at a time, checked over Postgres against that code on a page of six revisions with registered, imported and hidden authors and a withheld text, a second run, and older revisions merged behind a restored newest. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §6.
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it stood):
-
-> The imports do not use the block write yet, and the projections apply a tenant's records one at a time inside a block.
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §6, as it stood before this entry; in git (`tools/adr.py log 0013 A91 --before`).
 
 ### A92. A sync's unit is taken in blocks and single items, where they come
 
@@ -1171,9 +924,7 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it 
 - **Change:** amends §7
 - **Summary:** A76 wrote a unit as a block only when every item in it was of the common kind and the provider owned no keys; one other item sent the whole unit, and a provider that maps keys its whole sync, to the item-by-item path. A unit is now taken in stretches, in item order (`sync::segments`): each run of consecutive items a block can take, no two on the same subject, is a block, read, decided and written as A76 has it; an item no block takes is taken by itself, by the item-by-item path, where it comes; and a run of one is taken by itself too. The unit is still one unit of work. The calls made: (1) what makes an item one a block can take is asked of the item, not of the unit or the provider (`sync::in_block`): its subject is its own key and deciding it reads and writes nothing but that subject's records. So a state mapped from another upstream ID, a keyed subject and a clearing deletion are taken by themselves, as before; and where A76 asked that the provider own no keys, a state is now taken by itself only when its own upstream item owned a key before the job, which is the one case in which a state not mapped onto a key reads another subject's records (the key's, for the revision it recorded). (2) A subject named again ends the run and begins the next, rather than sending the unit item by item. (3) A block is decided when the job comes to it, after everything before it in the unit is written, so an item taken by itself that retires a subject an earlier block wrote, or that a later block writes, finds and leaves what it did item by item. The records, counts, owners of keys and every `view` table are those of the sync that fell back, checked over Postgres against that code on three passes over a provider that maps keys: mapped states among foreign ones, a key that moves, a foreign item that becomes mapped and retires what a block wrote, an item that stops owning a key, a keyed deletion, a subject twice in a unit, and a snapshot. A sync of 4,000 items of which every fortieth is mapped onto a key (release build, cloud sandbox, units of 200) takes about 1.6 s against 5.7 s for a first load and 2.0 s against 9.8 s for a pass that changes every item. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §6.
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it stood):
-
-> A unit whose subjects are their own keys, each named once, with no mapped state, no clearing deletion and a provider that owns no keys, is read once for the unit (cursors, the records at them, the revisions their keys claimed, page IDs), decided item by item in memory as the item-by-item path decides, appended together and projected over the block by the set-based path a bootstrap load uses (§6.2; [05](../architecture/05-providers-and-ingest.md) §3.8). Any other unit is written item by item.
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §6, as it stood before this entry; in git (`tools/adr.py log 0013 A92 --before`).
 
 ### A93. The projections apply a tenant's block a key at a time, the keys together
 
@@ -1182,9 +933,7 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it 
 - **Change:** amends §7
 - **Summary:** Measured first (release build, cloud sandbox, `pg_stat_statements` and a timer on each projection, 2,000 records each): with the writes in blocks, the synchronous projections took 89% of a streamed batch of `create`s (3.0 s; the entity projection half of it, revision state a quarter), 95% of a history adoption of 200 entities of ten revisions (2.4 s; the entity projection 59%) and 94% of an import of 20 pages of 100 revisions (2.6 s; the page projection 79%), at 12 to 16 statements a record sent one after another, of which Postgres's own time was under a third. The calls made: (1) a projection whose rows for a record are its key's alone applies a block a key at a time (`common::by_key`): a key's records in order, the keys together, thirty-two at a time, so that the driver pipelines their statements on the one connection rather than each waiting for the answer before it. The statements are those of applying the records in order, and so are the rows; no SQL changed. Revision state, entity source (where the block is not all `put`s) and activity (for change sets and pages) do so for every block; the entity projection for a tenant's partition when no record is a `convert`. (2) Where a key repeats in a block and A89's rule holds for its records, the entity projection resolves the key once, after its last record, and moves `resolved_version` by the number of records, which is what resolving it for each record leaves. (3) Left as they were: a shared partition's records in the entity projection, since they reach every tenant's overlay; a `convert`, which names two entities; and the page projection, whose records reach other pages' rows (a redirect's target), so that pages cannot be applied together, and which was the whole of the import's time. After: the batch 1.6 s, the adoption 0.6 s, the import unchanged at 2.2 s. The records and every `view` table are those of one record at a time, by the tests of A87 to A92, with a block of more keys than are sent at once added. Not done: statements for a block rather than for a record (a multi-row form per table), which is what is left of the batch's time, and a block form for the page projection. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §6.
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it stood):
-
-> The projections apply a tenant's records one at a time inside a block.
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §6, as it stood before this entry; in git (`tools/adr.py log 0013 A93 --before`).
 
 ### A94. The page projection applies a run of one page's revisions as one
 
@@ -1193,9 +942,7 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it 
 - **Change:** amends §7
 - **Summary:** A93 left the page projection applying a block one record at a time, at about ten statements a revision, which was four fifths of an import's time. Of what a revision writes, only its text under its revision ID is the revision's own; the page's row, its redirect, its links and its categories are the page's as its latest text leaves them, written again by every revision. The calls made: (1) the projection applies a block's records in order and pages never together, as before, since a page's record reaches other pages' rows (a `create` resolves the redirects that name its title; a redirect looks its target up by title). (2) A run of consecutive records of one page that is a `create` and the `edit`s after it, or `edit`s alone, is applied as one (`pages::apply_run`): the `create` as it was; the `edit`s as one update of the page's row, with the last revision's offset, revision ID and time, the length and content model of the last revision that carries one, and `revisions` moved by their number; every revision's text in one statement; the redirects naming a created page's title resolved once; and the last text of the run indexed once (the redirect, links and categories). The `view` rows are those of one record at a time. (3) What differs is outside `view`: the report keys queued (`ops.projection_work`) are the page's title and the links and categories the run removes or leaves, queued once at the run's last offset, where one record at a time queued every revision's at its own offset. A link or category that came and went inside the run is not queued, and changes no report, since the page neither held it before the run nor holds it after. (4) A run with a `move`, an erased record or a `create` after its first record goes one record at a time; so does a run of `edit`s the page's row does not take from the first (its offset is not behind the row's, which is records applied again), since then some would apply and some not. An import of 20 pages of 100 revisions takes about 0.6 s against 2.4 s, and of 60 pages of ten 0.5 s against 0.9 s (release build, cloud sandbox). Checked over Postgres: an adoption of pages whose histories change links and categories, pass through a redirect, withhold a text and end as a redirect leaves the same rows in every `view` table as one revision to a unit, and an import the rows the projection left before. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §6.
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it stood):
-
-> A shared partition's records, which reach every tenant's overlay, a `convert`, which names two entities, and the page projection are applied one record at a time.
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §6, as it stood before this entry; in git (`tools/adr.py log 0013 A94 --before`).
 
 ### A95. Three projections write a tenant's block a table at a time
 
@@ -1204,9 +951,7 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it 
 - **Change:** amends §7
 - **Summary:** A93 left a statement for each record and table, pipelined; a batch of `create`s still sent about sixteen a record, and Postgres's own time on them was then half the job. Three projections now write a block with a statement a table where the block allows it, and fall back to A93's key-at-a-time path where it does not. The calls made: (1) **revision state** reads the states of the block's keys in one statement, folds each key's records onto its state in memory in record order, and writes `view.graph_state` (each key's state after its last record, its version moved by the number of its records) and `view.entity_revision` (the state after each record that has a revision ID) in one statement each. A key with no stored state is seeded from its earlier records as before (0083 A1); one statement finds which such keys have any record before the block, so a key the block is first to write costs no read of its own. A block that names a revision ID twice goes a key at a time, since one statement cannot write a row twice. (2) **Entity source** writes each entity the cursor its last record in the block leaves, in one statement, for any block in which no record removes a cursor (a `tombstone`, an upstream `redirect`); before, only a block of `put`s that named each subject once. (3) **The entity projection**, for a tenant's `local` block, takes the entities whose one source is that graph: a local ID with no other row in `view.entity_source`, whose stored state is at the block's last record of it, which resolves to something, and whose records in the block may be resolved once (A89, A93). It reads their sources and their states in two statements, resolves each in memory as `resolve_subject` does (the local state and its corrections; `source` or `materialized` by the same test; the page ID, offset and revision ID of the last record; `first_seen` from the source's row; `resolved_version` moved by the number of records), and writes `view.entity` in one upsert with the conflict rule of the single form, and the terms and identifiers in one delete and one insert each. Every other entity of the block (a foreign or keyed ID, one a mirror or an overlay also holds, one that resolves to nothing, one whose records may not be resolved once) goes a key at a time as before. (4) Activity still writes a row a statement, pipelined; its row has too many columns of too many kinds to be worth a block form for a twelfth of the time. A batch of 2,000 `create`s takes about 0.76 s against 1.5 s, and a history adoption of 200 entities of ten revisions 0.35 s against 0.6 s (release build, cloud sandbox); against 3.0 s and 2.4 s before A93. The rows of every `view` table are those of one record at a time, by the tests of A87 to A94 and one added for a block that seeds a state from the records before it. Chapter text: [03](../architecture/03-storage-caches-and-search.md) §6.
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it stood):
-
-> the statements, and so the rows, are those of applying the records in order.
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §6, as it stood before this entry; in git (`tools/adr.py log 0013 A95 --before`).
 
 ### A96. Compaction keeps the record that claims a key's highest revision, and runs by a range of offsets
 
@@ -1215,16 +960,7 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6, as it 
 - **Change:** amends §3
 - **Summary:** Nothing called compaction: the whole-dump Wikidata mirror, a `latest` partition, held 125,513,063 records for 122,231,562 entities, every followed edit adding a whole state and none removed, about 7.2 KB an edit with the record's body and index entries. Building it found that "every record for a key but the newest" would break the guard 0092 §2 relies on: a mirror's sync reads the highest revision ID any record under a key carries, so as never to claim a revision twice, and a deletion or redirect is written without one, so a key whose newest record is a tombstone or redirect would lose every revision it had claimed, and an entity undeleted at a revision already recorded would claim it again. On the mirror, 150 of 99,661 keys written in a run of 100,000 offsets were such keys. The calls made: (1) compaction keeps a key's newest record and, where it is an older record, the one carrying the key's highest revision ID (ties to the newer), and removes the rest (`scatter_log_postgres::log::compact_keys`). (2) It is asked of a range of offsets: the keys of the records at `from..to`, less any key a tenant retains (`view.entity.retention = 'retain'`, matched on the entity ID the key names), wherever their other records are (`IngestStore::compact_range`); a partition whose history policy is `full` is left alone. (3) It runs 10,000 offsets to a unit of work, each under the partition's append lock (`scatter_ingest::compact`), so that appends wait at most one window. (4) `triplespace compact --provider {slug} [--from] [--to] [--window]` runs it by hand over a registry provider's mirror. Left open: a tombstoned entity that is not retained still keeps the record that claims its highest revision, which the text's "loses every record for its key" does not allow for; until tombstones are removed, which nothing does yet, the two do not meet. The space removed rows held is reused once the table is vacuumed; the files do not shrink. Chapter text: [01](../architecture/01-log-and-records.md) §6.
 
-Replaced text ([01](../architecture/01-log-and-records.md) §6, as it stood):
-
-> Compaction applies to a partition with the `latest` history policy (§1.2) and removes every record for a key except the newest. In Postgres it is a batched delete:
->
-> ```sql
-> DELETE FROM log.record_mirror_wikidata r
->  USING (SELECT key, max("offset") AS keep FROM log.record_mirror_wikidata
->         WHERE key = ANY($keys) GROUP BY key) k
->  WHERE r.key = k.key AND r."offset" < k.keep;
-> ```
+Replaced text: [01](../architecture/01-log-and-records.md) §6, as it stood before this entry; in git (`tools/adr.py log 0013 A96 --before`).
 
 ### A97. The roles and grants converge on every migration run
 
@@ -1240,9 +976,7 @@ Replaced text ([01](../architecture/01-log-and-records.md) §6, as it stood):
 - **Change:** amends §4
 - **Summary:** Postgres checks privileges only on the table a query names, so revoking the accounts partition's child table left its rows readable, and writable, through the parent `log.record`, to which every role is granted (Q11). Migration `0034_record_policies` enables row-level security on `log.record` with two policies: `ts_accounts_reads_all` admits every row to `ts_accounts`, and `ts_public_skips_accounts` admits to `ts_server`, `ts_notify`, `ts_federation` and `ts_verify` every row whose partition is not in `SELECT partition FROM log.partition WHERE name = 'accounts'`, for reads and writes. The calls made: (1) **The form of the check.** Measured as `ts_server` counting a 200,000-row partition, against 12 ms with no policy: a function called per row took 812 ms; an array read once per query 27 ms with one accounts partition and 401 ms with 1,001, since `<> ALL` over a parameter is a linear scan; a correlated `NOT EXISTS` 129 ms; a literal array 13 ms at any size, but it would be rewritten, under an exclusive lock on `log.record`, whenever a tenant is created; an uncorrelated `NOT IN`, which Postgres hashes once a query, 18 ms with 1 or 1,001. The `NOT IN` was chosen: flat in the number of tenants, and no DDL after the migration. `log.partition.partition` is `NOT NULL`, so `NOT IN` has no null trap. (2) **Restores.** A policy names roles, so a restore onto a server without them leaves it out, and the table, its security enabled, then shows those roles nothing; `grants::POLICIES` re-creates each policy that is missing on every migration run (A97), and leaves one that exists alone, since creating a policy locks the table. (3) **The owner bypasses row-level security** (it is not `FORCE`d): every service connects as the owner today, so nothing changes in production until services connect as the roles. (4) Partitions are recognised by the name `accounts`, as `grants::ensure` does; packed record storage ([0058](0058-packed-record-storage.md)), when built, will hold accounts bodies outside `log.record` and needs the same exclusion.
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §1.2, as it stood):
-
-> Their child table is in the `log` schema but owned by the accounts role, and the public role's `SELECT` on `log.record` is granted per child table, excluding it.
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §1.2, as it stood before this entry; in git (`tools/adr.py log 0013 A98 --before`).
 
 ### A99. Each part of the server connects as its own login
 
@@ -1265,10 +999,7 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §1.2, as i
 - **Change:** amends §4
 - **Summary:** Reviewing which parts A100 gave the accounts service, James confirmed that the server warns, rather than refusing to start, when the public API connects as a login that can read `private`, and decided four changes, after which A100 stands confirmed: (1) **a request's caller** is found through narrow functions that read `private` as their owner and return the account and nothing else, `ops.caller_session` and `ops.caller_key` (`0036_caller_lookup`), so that the public API resolves its callers on its own connection and still may not read `private.session` or `private.api_key`; (2) **a settings save** is the public API's again, its login checks no longer holding the whole save on the accounts login; (3) **the job runners** no longer give jobs that write only public partitions the accounts login; (4) **forwarder keys** move from `private` to `ops` (`0037_forwarder_key_ops`): they belong to no account, and the public API checks one on every forwarded request. A102 records how (2) and (3) were built.
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §1.2, as it stood):
-
-> | The public API, the site's reads, the write path, the projections' workers | `ts_server` | `TRIPLESPACE_DATABASE_URL` (`--database`) |
-> | The accounts service: a request's caller (its session or API key), sign-in, sign-out and sign-up, external logins and their OAuth clients, account requests, renames and name tombstones, preferences, the watch set, the inbox as its holder reads it, challenges and rate limits, forwarder keys; and the job runners, since an adoption appends to accounts partitions | `ts_accounts` | `TRIPLESPACE_ACCOUNTS_DATABASE_URL` (`--accounts-database`) |
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §1.2, as it stood before this entry; in git (`tools/adr.py log 0013 A101 --before`).
 
 ### A102. How settings checks and the job runners left the accounts service
 
@@ -1284,9 +1015,7 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §1.2, as i
 - **Change:** corrects §4
 - **Summary:** A102 (2) gave adoption a runner of its own on the accounts login when it joined the queue, "since an adoption appends to accounts partitions". It does not: an adoption writes the source's accounts as actor records in the tenant's public `actors` partition, and no binding ([07](../architecture/07-actors-and-accounts.md) §2.5), so the public API's login runs it, as it runs imports. The job that needs the accounts login is the **follower**, which reads the bot password it logs in upstream with from `private.upstream_login` ([0092](0092-following-recent-changes.md) §10). So: every runner but one connects as the public API and runs imports, reverts, dumps, exports, adoptions and syncs; one runner connects as the accounts service and claims `follow` jobs alone ([0104](0104-batches-and-the-job-runner.md) A9). Where the server is given no accounts URL, it uses the one it has.
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §1.2, as it stood):
-
-> | The public API, the site's reads, the write path, settings saves, the projections' workers, the job runners | `ts_server` | `TRIPLESPACE_DATABASE_URL` (`--database`) |
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §1.2, as it stood before this entry; in git (`tools/adr.py log 0013 A103 --before`).
 
 ### A104. The large tables vacuum after a hundredth of their rows change
 

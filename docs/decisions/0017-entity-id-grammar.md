@@ -94,19 +94,7 @@ This ADR replaces the one grammar of 0009 §3 with three, each declared in the r
 - **Change:** supersedes §7
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A13).
 
-Replaced text (§7):
-
-> | Crate | Change |
-> |---|---|
-> | `scatter-wikibase-model` | The ID parser reads the three forms of §1, the grammars of §2 and the prefixes of §3 from the registries; the `keyword` entity type and the `wikibase-keyword` data type (§5) |
-> | `scatter-providers` | The `id_grammar` field and its canonical forms; `upstream_prefix` in ID rewriting (§2) |
-> | `scatter-normalize` | The keyword normalizer and grammar; the `id_prefix` and display-rule fields of the keyed-type registry (§3, §5) |
-> | `scatter-wikibase-resolve` | Rejecting `same-as` involving a keyword (§5) |
-> | `scatter-adapter-openalex` | Key-mapping keywords (§5) |
-> | `scatter-adapter-musicbrainz` *(new)* | The MusicBrainz adapter (§6). Layer 3; depends on `scatter-wikibase-changeset`, `scatter-wikibase-model` and `scatter-providers` |
-> | `triplespace-titles` | Bare-key recognition for suggestions (§1) |
->
-> The workspace goes from thirty-five crates to thirty-six.
+Replaced text: §7 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0017 A1 --before`).
 
 ### A2. DOI is a resolver
 
@@ -179,9 +167,7 @@ Replaced text (§2):
 - **Change:** amends §1
 - **Summary:** A fifth form, the **source** ID, `{name}:{upstream ID}` (`mhc:Q1`): a foreign ID in the colon shape, minted by an entity source a tenant declares, and meaning that source only on that tenant. Colon forms are told apart by the kind of their prefix in the tenant's table of names. Registry provider slugs join that table, and `wikidata:Q42` is an input form of `WDQ42`.
 
-Replaced text (§1):
-
-> Every entity ID has one of three forms, told apart by its first character and by the presence of a colon:
+Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0017 A10 --before`).
 
 > No minted ID contains a colon, and every keyed ID does, so the two never collide, whatever a key looks like.
 
@@ -190,14 +176,14 @@ Replaced text (§1):
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§7
-- **Summary:** The Decision's current text now lives in the architecture chapters [04](../architecture/04-entities-and-identifiers.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0017 A11 --diff`).
 
 ### A12. Any member of a cluster is accepted wherever an entity ID is accepted
 
 - **Date:** 2026-10-09
 - **Source:** [0082](0082-source-form-and-the-shared-view.md) §1, §2
 - **Change:** extends §1
-- **Summary:** The three ID forms of §1 are what the store holds, in source form: the stored form of an entity keeps the IDs its source wrote, and the UUID of a statement GUID stays its identity while the entity part is a property of the response. At every entry point, API parameters, change sets, titles, the search box, `wbgetentities`, `GET /resolve` and SPARQL constants, any member of a cluster is accepted for the entity and normalized to the internal form before anything executes, as the tenant-relative form and a provider slug already are; a lookup that names a cluster is expanded to the member set, one indexed probe of `view.cluster_member` per constant with L0 in front; property paths are not expanded; search results collapse by `cluster_id`. (REVIEW G3, G4)
+- **Summary:** The three ID forms of §1 are what the store holds, in source form: the stored form of an entity keeps the IDs its source wrote, and the UUID of a statement GUID stays its identity while the entity part is a property of the response. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §2.1, §5.2. (REVIEW G3, G4)
 
 ### A13. A statement ID's UUID part is Wikibase's shape, not a UUID
 

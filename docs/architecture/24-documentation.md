@@ -20,7 +20,7 @@ How the design is written down: the chapters of this directory, the ADRs of [`..
 - **Current:** the header, the Decision's headings and pointers, the Consequences, and the state of each open question. They say what holds now. Reading the Decision's pointers, and the chapter sections they name, gives the decision as it stands.
 - **Historical:** the Context, its Direction, and the Amendment log. They say what was known, wanted and changed, and they are never rewritten. References are only appended to.
 
-**Nothing is deleted.** Text that stops being current moves to the Amendment log (§6) or is struck through in place (§7, §8). A chapter's text is never deleted either: the log entry that removes it quotes it.
+**Nothing is deleted.** Text that stops being current moves to the Amendment log (§6) or is struck through in place (§7, §8). A chapter's text is never deleted either: the log entry that removes it names the sections it stood in, and the entry's commit holds it (§6).
 
 **What an ADR says is decided, whoever drafted it.** A section Claude proposed carries no mark and has the same standing as one James wrote, until a later change says otherwise. That change is an amendment like any other.
 
@@ -116,7 +116,7 @@ naming every chapter section whose provenance line (§10.2) cites it. The headin
 When an ADR, or a decision made directly, changes the text of ADR *Y*, the same change does four things to *Y*:
 
 1. **Fold.** Rewrite the affected text so that it states the current decision, in the chapter section that *Y*'s pointer names, in the same commit. Where a reader would want the detail, cite the source in the sentence: "Deletion is an ACL ([0023](../decisions/0023-moderation.md) §4)." Add the changing ADR's section to the chapter section's provenance line (§10.2).
-2. **Log.** Append an entry to *Y*'s Amendment log (§6). Text the change removes or contradicts goes into the entry as **Replaced text**, verbatim, quoted from the chapter section as it stood and cited as that chapter section.
+2. **Log.** Append an entry to *Y*'s Amendment log (§6). The entry names the chapter sections whose text the change removes or contradicts as **Replaced text**; the commit that makes the change holds that text, so it is not quoted (§6).
 3. **Mark.** Add the entry's ID to the provenance line of each *Y* section it changed. Strike any consequence the change makes false (§7). If *Y* is `Accepted`, add the entry's ID to its status (§2.2). Set *Y*'s `Updated`.
 4. **Answer.** If the change settles an open question, strike the question and say what settled it (§8). Settling a question needs no log entry: the struck question is the record.
 
@@ -155,19 +155,19 @@ The retired verbs map onto these. **refines, specifies, narrows**: `amends` if i
 - **Date:** 2026-09-29
 - **Source:** [0038](0038-page-metadata-and-categories.md) §1, §3, §4, §8, §11
 - **Change:** amends §2, §8, §10; extends §4
-- **Summary:** One short paragraph: what changed and why.
+- **Summary:** What changed and why, in a few sentences. Chapter text: [10](../architecture/10-pages-and-content-models.md) §4.3.
 
-Replaced text ([10](../architecture/10-pages-and-content-models.md) §4.3, as it stood):
-
-> - Category links (`[[Category:…]]`) are listed as plain text at the foot of the page. No category pages exist.
+Replaced text: [10](../architecture/10-pages-and-content-models.md) §4.3, as it stood before this entry; in git (`tools/adr.py log NNNN A9 --before`).
 ```
 
-- **IDs are `A1`, `A2`, …,** assigned in the order entries are appended, and never renumbered. An entry is never edited, except to correct a typo or a broken link.
-- **Source** is another ADR's sections, or `Direct:` with who decided and on what occasion ("Direct: James, design discussion of 2026-10-01"). For a direct decision the Summary holds the decision in full, because nowhere else does.
+- **IDs are `A1`, `A2`, …,** assigned in the order entries are appended, and never renumbered. An entry is never edited, except to correct a typo or a broken link, and once by 0050 A5, which replaced quoted text that git holds with the sections' names and shortened summaries that restated the chapter.
+- **Source** is another ADR's sections, or `Direct:` with who decided and on what occasion ("Direct: James, design discussion of 2026-10-01"). For a direct decision the Summary holds the decision itself, with who made it and why, because the fold says neither.
 - **A decision made while building is logged by the agent that made it,** in the same change as the code, with Source `Direct: Claude, while building <what>, YYYY-MM-DD; unconfirmed`. It is decided like any other entry (§1.1) and folded like any other; the word *unconfirmed* is what the index (§13) lists it by. James confirms it by editing the Source line (`Direct: James, confirmed YYYY-MM-DD; Claude's call while building …`) or overturns it with a new entry. Notes outside the ADRs are not where such calls are kept.
 - **Change** uses the verbs of §5.
-- **Replaced text** is the removed or contradicted text, quoted as it stood, headed by the chapter section it was taken from (*Replaced text (10 §4.3, as it stood):*), or by the ADR section for entries older than the chapters. Together with the current text, it lets every earlier state be read without git.
-- **The log is the only place history accumulates.** It is read through `tools/adr.py log NNNN [An]`, so its size costs a reader nothing until the history is wanted.
+- **Summary** says what changed and why: the reason, anything the change withdraws or corrects, and the chapter sections it changed (*Chapter text: …*). It does not restate the chapter text, which the diff shows. For a direct decision it holds the decision, its reasons, its consequences and each call it made, and leaves out only detail the fold states; an unconfirmed entry is kept whole until James confirms it, since he confirms it by reading it. An entry from another ADR need not repeat that ADR's reasons. An entry whose commit does not hold the change (see below) keeps its summary whole.
+- **Replaced text** names the sections whose text the change removed or contradicted: *Replaced text: [10](…) §4.3, as it stood before this entry; in git (`tools/adr.py log NNNN A9 --before`).* The entry is written in the same change as the fold, so the commit that adds the entry's heading holds the text, and its parent holds the text as it stood. `tools/adr.py log NNNN An --before` prints those sections as they stood and `--diff` what the change did to them, word by word. The tool finds the commit each time, so no entry records a hash, uncommitted work needs none, and a rebase changes nothing; when the commit also carries other entries, or only gave an older entry its heading, the tool says so.
+- **Text is quoted only where git does not hold it:** text edited before the repository held it (entries dated before 2026-09-27, or edited in place before the 0050 conversion of 2026-10-01), or a file `adr.py` does not read, such as a registry file. Such text is quoted verbatim, headed by the section it stood in (*Replaced text (10 §4.3, as it stood):*).
+- **The log is where history is recorded, and git holds the text it names.** It is read through `tools/adr.py log NNNN [An] [--before | --diff]`, so its size costs a reader nothing until the history is wanted.
 
 ## 7. Consequences
 

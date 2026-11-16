@@ -96,16 +96,7 @@ The instance already has every part of this. [0013](0013-postgres-storage.md) §
 - **Change:** supersedes §9
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A25).
 
-Replaced text (§9):
-
-> | Crate | Change |
-> |---|---|
-> | `scatter-normalize` | Resolver grammars and normalizers, with the case rule; the rule that a resolver's normalizer is its bound properties' normalizer (§1). Embeds `docs/registry/resolvers.toml`. Builds for `wasm32`, so the search box can recognise a key |
-> | `triplespace-titles` | The `resolver` namespace kind and its normalizer; the lookup of §3 and its decision; `/resolve` ordering (§2, §6) |
-> | `triplespace-projections` | Nothing new: `view.identifier` and `view.sitelink` already exist |
-> | `triplespace-api-action`, `triplespace-api-rest` | §6 |
->
-> No crate is added.
+Replaced text: §9 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0029 A1 --before`).
 
 ### A2. Main-namespace titles resolve last
 
@@ -121,9 +112,7 @@ Replaced text (§9):
 - **Change:** amends §2
 - **Summary:** The kinds beside `resolver` are now `pages`, `reserved` and `virtual`: entity view, document, composite and thread namespaces are `pages` namespaces told apart by content model. `resolver` stays a kind, because a resolver namespace holds no pages and so has no model.
 
-Replaced text (§2):
-
-> `resolver` joins the namespace kinds of [0008](0008-namespaces-and-document-pages.md) §1 (entity view, document, reserved, virtual, composite, thread). A resolver namespace holds no pages and no records:
+Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0029 A3 --before`).
 
 ### A4. Special pages for the item form and disambiguation
 
@@ -160,9 +149,7 @@ Replaced text (§2):
 - **Change:** corrects §2
 - **Summary:** Drop "as Thread talk is": `Thread talk` has been `virtual` since [0049](0049-boards.md) §2, so it is no longer the example of a `reserved` talk namespace. A resolver's paired talk namespace stays `reserved` and empty. (PENDING E14)
 
-Replaced text (§2):
-
-> Its paired talk namespace is `reserved` and empty, as `Thread talk` is ([0019](0019-discussions.md) §3).
+Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0029 A8 --before`).
 
 ### A9. Notation keys resolve; other bare keys are suggestions
 
@@ -171,16 +158,14 @@ Replaced text (§2):
 - **Change:** amends §6
 - **Summary:** The `/resolve` order of [0012](0012-api-requirements.md) §5 folds §6's step: a string that normalizes to a notation key ([0048](0048-notation.md) §2) resolves, as the one exception to the bare-key rule; any other bare string that normalizes to a valid key of a resolver is returned as a suggestion, not resolved. The order stays entity IDs (source IDs among them), keyed-type IDs, notation keys, resolver-prefixed strings, main-namespace titles. (PENDING E40)
 
-Replaced text (§6):
-
-> | `GET /resolve?q=` | Now tries, in order: entity IDs, source IDs among them ([0078](0078-entity-sources.md) §3), keyed-type IDs, notation keys ([0048](0048-notation.md) §2), then resolver-prefixed strings (`doi:10.1000/xyz`) and bare strings that normalize to a valid key of exactly one resolver, and last main-namespace titles ([0038](0038-page-metadata-and-categories.md) §8): a bare ID still reaches its entity first, and a main-namespace page with the same title is returned in an `also` field. The response carries `kind: resolver`, the resolver, the normalized key and either the target entity or the candidate list |
+Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0029 A9 --before`).
 
 ### A10. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§9
-- **Summary:** The Decision's current text now lives in the architecture chapters [06](../architecture/06-statements-and-properties.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0029 A10 --diff`).
 
 ### A11. A DOI is percent-decoded only when written as a URI
 
@@ -189,6 +174,5 @@ Replaced text (§6):
 - **Change:** amends §1
 - **Summary:** The normalizer percent-decoded every input, so the key was not a fixed point: `10.1000/%2541` became `10.1000/%41` and then `10.1000/A`. James chose to decode only URL forms; a bare DOI is taken as written, so a `%` in it is a character of the DOI, as the DOI Handbook allows. Two details are Claude's, for James to confirm: the `doi:` prefix counts as a URI form and is decoded too, and a bare DOI with `%` that was decoded before (`10.1000/%58yz` was `10.1000/xyz`) now keeps it, which changes the stored key of any such value at the next rebuild. Folded at [06](../architecture/06-statements-and-properties.md) §3.1.
 
-Replaced text (§1, Normalizer):
+Replaced text: [06](../architecture/06-statements-and-properties.md) §3.1, as it stood before this entry; in git (`tools/adr.py log 0029 A11 --before`).
 
-> Strip a leading `https://doi.org/`, `http://dx.doi.org/` or `doi:`; percent-decode; **casefold**

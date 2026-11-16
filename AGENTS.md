@@ -30,7 +30,7 @@ with `mkdocs build --strict`, so a broken link in `docs/` fails.
 **Looking things up:** `tools/adr.py` answers the common questions in one call:
 - `show 0013 §7` prints an ADR section, following its pointer to the chapter text; `show 0098 --full` prints a whole ADR assembled with its chapter text (what CI posts on a pull request that adds an ADR).
 - `where <phrase>` lists the chapter sections, ADRs and registry files that cover a subject.
-- `log 0008 [A6]` prints an Amendment log, or one entry.
+- `log 0008 [A6]` prints an Amendment log, or one entry; `log 0008 A6 --before` and `--diff` show, from git, the text the entry replaced and what it changed.
 - `questions NNNN` prints an ADR's open questions.
 - `outline NN|NNNN` prints a document's headings.
 - `code 0013 §7` lists the code that cites a section.

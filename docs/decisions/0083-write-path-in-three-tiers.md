@@ -107,9 +107,7 @@ James's direction, from the design review of 2026-10-09:
 - **Change:** amends §4
 - **Summary:** Migration `0010_revision_state` creates both tables and the `revision_state` projection (step 1, `Step::Registry`) writes them in the appending transaction for the `local` partition: the key's `graph_state` row is read, the record's operation applied, the row written back with `version` bumped and the record's offset as the graph's latest, and the state after the revision inserted into `entity_revision` under the record's revision ID. `entity_revision` carries `entity_id`, `partition` and `"offset"` beyond §4's `(tenant, revid, state)`: the record is the row's natural second key (a diff page resolves a revision through its `{partition, offset}`, [0012](0012-api-requirements.md) A74), and the state before a revision is the row at the previous offset the stored state's `offsets` list names, so a partially filled table never pairs a revision with a stale "before". The stored form is `LocalState`'s storage JSON — the local assertions, corrections, retention, redirect, conversion and the offsets folded — as bytes, uncompressed for now; it is a serving table's cell, re-derived by a rebuild, and nothing hashes it. `read::current` reads the `graph_state` row and the one record at its offset where the state is one whole record, else folds. A1's fold ends as the primary path and stays as the fallback: a database migrated to the tables keeps answering for revisions appended before the migration, and a key with no `graph_state` row is seeded from its earlier records on its next write rather than started at that write, so a rebuild is an optimization, not a prerequisite. The `pages` partition joins when the pages stack writes to it; `derived/*` and `source/*` join with their writers; compression of `state` is open until the rows are measured.
 
-Replaced text (§4, as it stood):
-
-> **`view.entity_revision (tenant, revid, state bytea)`** holds the local-graph state after every revision of the `local` and `pages` partitions, written in tier 1 beside `graph_state`, so that `oldid=`, `action=compare`, `GET /entity/{id}/compare`, `?as_of=`, `Special:PermanentLink` and export read one row ([0012](0012-api-requirements.md) §4, §7). It is MediaWiki's `text` table at local scale: local edits are the small part of a mirror-dominated instance, and the rows pack well. Mirror states are not reconstructable under `latest`, as [0012](0012-api-requirements.md) §7 already said for the resolved view. **Until this table exists, the past-state readers fold the subject's local records** (`triplespace_projections::revisions`, A1): the same fold the latest state already uses, bounded by the subject's own local record count, behind the signatures this section gives them — a revision in, a state out — so that landing the table changes their backing and nothing they serve.
+Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0083 A2 --before`).
 
 ### A3. Expansion has no setting
 
@@ -118,13 +116,7 @@ Replaced text (§4, as it stood):
 - **Change:** amends §3, §6
 - **Summary:** `wikitext.expansion` is withdrawn, so entity usage is idle while no page uses an entity rather than while no tenant has expansion on, and the one-writer-per-row-class rule loses its clause about turning expansion off. The row classes and their writers are unchanged.
 
-Replaced text (§3, as it stood):
-
-> - **Entity usage** ([0043](0043-lua-modules.md) §10) checks `view.entity_usage` for the canonical ID and every member of its cluster by index **before** computing an aspect diff, and does nothing while no tenant on the instance has `wikitext.expansion` on.
-
-Replaced text (§6, as it stood):
-
-> **One writer per row class.** `view.page_category`, `view.page_link` and `view.page_prop` ([0038](0038-page-metadata-and-categories.md) §2, [0055](0055-templatestyles-templatedata-and-page-properties.md) §6, [0042](0042-template-expansion-and-parsoid.md) §10) carry `from_render boolean`: the page projection writes source-derived rows (what the stored text says) and the refresh job writes expansion-derived rows, each owning its class exclusively; readers union them; turning `wikitext.expansion` off truncates the render-owned rows and nothing else; the refresh job never deletes a row it did not write.
+Replaced text: §3 of this ADR; §6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0083 A3 --before`).
 
 ### A4. One generic worker over the work queue
 
@@ -138,7 +130,7 @@ Replaced text (§6, as it stood):
 - **Date:** 2026-10-30
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§8
-- **Summary:** The Decision's current text now lives in the architecture chapters [00](../architecture/00-overview.md), [01](../architecture/01-log-and-records.md), [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [05](../architecture/05-providers-and-ingest.md), [06](../architecture/06-statements-and-properties.md), [07](../architecture/07-actors-and-accounts.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [10](../architecture/10-pages-and-content-models.md), [11](../architecture/11-rendering-templates-and-modules.md), [12](../architecture/12-files-and-media.md), [13](../architecture/13-mirrored-pages.md), [14](../architecture/14-discussions.md), [15](../architecture/15-structured-pages.md), [16](../architecture/16-logs-feeds-and-notifications.md), [17](../architecture/17-federation-and-publication.md), [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0083 A5 --diff`).
 
 ### A6. Bulk append's blocks are bootstrap's blocks, not an `ops.bootstrap_block` table
 
@@ -147,13 +139,8 @@ Replaced text (§6, as it stood):
 - **Change:** corrects §5
 - **Summary:** §5 pointed at `ops.bootstrap_block` as the shape of a bulk-append block. That table was 0013 §9's coordinator hand-out of offset blocks; it was never built, and [0013](0013-postgres-storage.md) A82 replaced it with a coordinator that assigns each block its offsets in memory and commits blocks in order. A bulk-append block is the same unit, a run of records written together, so §5 now names bootstrap's blocks (05 §3.8) instead of the table. Nothing in bulk append changes, and bulk append itself is still unbuilt.
 
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §6.2, as it stood):
+Replaced text: [03](../architecture/03-storage-caches-and-search.md) §6.2; [05](../architecture/05-providers-and-ingest.md) §3.10, as it stood before this entry; in git (`tools/adr.py log 0083 A6 --before`).
 
-> takes the partition lock once per block (`ops.bootstrap_block` has the shape), `COPY`s the block's records
-
-Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.10, as it stood):
-
-> takes the partition lock **once per block** (`ops.bootstrap_block` has the shape, §3.8), `COPY`s the block's records
 ### A7. The runner is background tasks of the server
 
 - **Date:** 2026-11-08

@@ -109,11 +109,11 @@ James's direction, from the design discussion of 2026-10-09:
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §2, §4
-- **Summary:** The record at offset 0 of any `config` partition carries a third attestation form, the founding attestation: no actor, a signature by the key the record registers (self-certifying), and for a tenant the authority `(instance config, 0)`; the issuer or farm code is derived from its leaf afterwards. Offsets 1 and 2 of the instance `config` are attested by `instance:{farm code}` with the founding record as authority. A single-tenant instance therefore needs no authority record and no `ts-prerogative` path to exist before its first entity. The form itself is [0015](0015-record-format-and-partition-registry.md) §1's; the chapters hold it in [01](../architecture/01-log-and-records.md) §2.4 and [08](../architecture/08-tenants-and-instances.md) §2.4, §7.2 and §8.3. (REVIEW G22)
+- **Summary:** The record at offset 0 of any `config` partition carries a third attestation form, the founding attestation: no actor, a signature by the key the record registers (self-certifying), and for a tenant the authority `(instance config, 0)`; the issuer or farm code is derived from its leaf afterwards. Offsets 1 and 2 of the instance `config` are attested by `instance:{farm code}` with the founding record as authority. The form itself is [0015](0015-record-format-and-partition-registry.md) §1's; the chapters hold it in [01](../architecture/01-log-and-records.md) §2.4 and [08](../architecture/08-tenants-and-instances.md) §2.4, §7.2 and §8.3. The text is in git (`tools/adr.py log 0079 A1 --diff`). (REVIEW G22)
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-30
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§9
-- **Summary:** The Decision's current text now lives in the architecture chapters [01](../architecture/01-log-and-records.md), [07](../architecture/07-actors-and-accounts.md), [08](../architecture/08-tenants-and-instances.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0079 A2 --diff`).

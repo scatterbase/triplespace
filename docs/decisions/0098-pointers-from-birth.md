@@ -109,9 +109,7 @@ James's direction, 2026-10-30, on the review:
 - **Change:** consolidates §5
 - **Summary:** 24 §11 now names the registry file behind each catalogue that has moved (the crate map, the REST routes, the permissions, the log events: 0005 A111, 0012 A82, 0016 A40, 0011 A35) and the two still in prose. The decision is unchanged. The last commit before this entry is `0e67cce`.
 
-Replaced text ([24](../architecture/24-documentation.md) §11, as it stood):
-
-> **A catalogue is registry data, not prose.** A table whose rows are entries rather than argument — the crate map (22 §2.1), the `view` schema (03 §4), the REST routes and Action API modules (18 §2, §3), the permission catalogue (09), the log-event catalogue (16) — belongs in a registry file with a generated chapter table, so that the chapter stays readable and the code can read the same file. Each move is a `consolidates` entry in the ADRs whose sections the table cites: no decision changes. Until a catalogue has moved, its chapter table is the authority. The order: the crate map first (`registry/crates.toml`; `cargo xtask deps` reads the file rather than the chapter table), then the permission and log-event catalogues as registry files; the REST route table is generated from the OpenAPI file in `../api/` rather than a new registry file; the `view` schema stays in prose until it has a reader, since the migrations are already its source.
+Replaced text: [24](../architecture/24-documentation.md) §11, as it stood before this entry; in git (`tools/adr.py log 0098 A2 --before`).
 
 ### A3. What a catalogue move logs
 
@@ -120,13 +118,11 @@ Replaced text ([24](../architecture/24-documentation.md) §11, as it stood):
 - **Change:** amends §5
 - **Summary:** 24 §11 no longer names each moved catalogue or an order (the registry README lists the files and the section each generates into; the Action API modules moved too, 0012 A83), and it says what a move logs: one `consolidates` entry in the ADR that owns the chapter section, quoting any chapter prose the move rewrote and naming the last commit that carried the table, rather than an entry in every ADR the table cites. That is what the five moves did (0005 A111, 0012 A82–A83, 0016 A40, 0011 A35).
 
-Replaced text ([24](../architecture/24-documentation.md) §11, as it stood after A2):
-
-> **A catalogue is registry data, not prose.** A table whose rows are entries rather than argument — the crate map (22 §2.1, `crates.toml`), the REST routes (18 §3.2, `routes.toml`, checked against the OpenAPI contract), the permission catalogue (09 §2.2, `permissions.toml` with `groups.toml`), the log-event catalogue (16 §2.3, `log-events.toml`), and still to move, the Action API modules (18 §2) and the `view` schema (03 §4) — belongs in a registry file with a generated chapter table, so that the chapter stays readable and the code can read the same file. Each move is a `consolidates` entry in the ADRs whose sections the table cites: no decision changes. Until a catalogue has moved, its chapter table is the authority. The order: the crate map first (`registry/crates.toml`; `cargo xtask deps` reads the file rather than the chapter table), then the permission and log-event catalogues as registry files; the REST route table is generated from the OpenAPI file in `../api/` rather than a new registry file; the `view` schema stays in prose until it has a reader, since the migrations are already its source.
+Replaced text: [24](../architecture/24-documentation.md) §11, as it stood after A2, as it stood before this entry; in git (`tools/adr.py log 0098 A3 --before`).
 
 ### A4. Catalogues are checked against the running code
 
 - **Date:** 2026-11-09
 - **Source:** [0105](0105-catalogues-checked-against-the-running-code.md) §1
 - **Change:** extends §5
-- **Summary:** A catalogue the code acts on is also checked against the running code, both ways: the code reports the names it uses, and a script names those the file lacks (unlisted) and the entries no run used (not observed). Such a check starts as a report and becomes a CI failure once a run reports nothing unlisted. Permissions are first. Chapter text: [24](../architecture/24-documentation.md) §11.
+- **Summary:** A catalogue the code acts on is also checked against the running code, both ways: the code reports the names it uses, and a script names those the file lacks (unlisted) and the entries no run used (not observed). Permissions are first. Chapter text: [24](../architecture/24-documentation.md) §11.

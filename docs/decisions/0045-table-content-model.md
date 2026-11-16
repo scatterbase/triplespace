@@ -123,17 +123,7 @@ James's direction, from the design discussion of 2026-09-30:
 - **Change:** supersedes §13
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A45).
 
-Replaced text (§13):
-
-> No new crate.
->
-> | Crate | Change |
-> |---|---|
-> | `scatter-wikibase-shape` | The `triplespace-table` model: the definition types, schema validation, canonical serialization, the cell rule of §5 (best values, fold count). Builds for `wasm32`, so the grid editor validates definitions and predicts cells in the browser. Gains a direct dependency on `scatter-pages` for the content-model trait, which it already had through `scatter-wikibase-model` |
-> | `scatter-pages` | The model's registry entry |
-> | `triplespace-titles` | Namespaces 218 and 219, with the `/doc` rule |
-> | `triplespace-projections` | `page_link` rows from table definitions |
-> | `triplespace-api-action`, `triplespace-api-rest` | The behaviour of §9, the routes of §10, and the mapping from cell edits to change-set operations (§6) |
+Replaced text: §13 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0045 A1 --before`).
 
 ### A2. Converted to the 0050 format
 
@@ -149,9 +139,7 @@ Replaced text (§13):
 - **Change:** amends §4
 - **Summary:** `rows` accepts every scope kind of 0060 §4 and a named scope; page-subject scopes give page rows. Q1 and Q4 are settled.
 
-Replaced text (§4, the `rows` row):
-
-> | `rows` | Yes | The scope: an object holding exactly one scope kind. Version 1 has one kind, **`ids`**: a list of entity IDs in any form the tenant accepts (local, foreign, another tenant's, keyed). An object rather than a bare list so that query scopes (Open questions) can be added without changing the shape |
+Replaced text: §4, the `rows` row of this ADR, as it stood before this entry; in git (`tools/adr.py log 0045 A3 --before`).
 
 ### A4. Transclusion
 
@@ -179,7 +167,7 @@ Replaced text (§4, the `rows` row):
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§13
-- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [15](../architecture/15-structured-pages.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0045 A7 --diff`).
 
 ### A8. Drafts: staged rows
 
@@ -188,9 +176,7 @@ Replaced text (§4, the `rows` row):
 - **Change:** amends §1; extends §4 and §7
 - **Summary:** A table can hold staged rows, items not yet written with their values, under a new `staged` key allowed with `ids` rows, together with declared properties, `new` and `reference` columns, and default-reference snaks that read a column. This is how `Special:CreateEntities` keeps a draft and a saved column mapping. Staged rows are the one exception to a table storing no values; importing them turns each written row into an ID in `rows.ids`.
 
-Replaced text ([15](../architecture/15-structured-pages.md) §2.1, as it stood):
-
-> **A table is a page in the `Table` namespace (§2.2) whose content is a definition** (§2.3): which entities are its rows and which fields of those entities are its columns. **It stores no values.**
+Replaced text: [15](../architecture/15-structured-pages.md) §2.1, as it stood before this entry; in git (`tools/adr.py log 0045 A8 --before`).
 
 ### A9. The error for a definition that is not valid
 

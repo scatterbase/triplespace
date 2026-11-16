@@ -127,13 +127,7 @@ James's direction, from the design discussion of 2026-10-04:
 - **Change:** amends §2, §4
 - **Summary:** `store` with `remote` is refused only on a farm; on a single-tenant instance the remote store holds one tenant's graphs and so satisfies `store`. `query.isolation` is a row of [0028](0028-tenancy-policy.md) §1's switch table: the `isolated` preset sets `store`, the shared presets `dataset`. (PENDING C9)
 
-Replaced text (§2):
-
-> | `remote` | Any SPARQL 1.1 Protocol endpoint; QLever first | `triplespace-cli sparql-sync` ([0032](0032-sparql-update-stream.md) §6) run by the operator against the instance's own `full` stream, or QLever's own `update` tooling ([0033](0033-backend-stack.md) §11) | `dataset` only |
-
-Replaced text (§4):
-
-> `store` is **only ever embedded**: the setting is refused with `remote`, because a store per tenant would mean a QLever per tenant, which this ADR exists to avoid.
+Replaced text: §2 of this ADR; §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0059 A3 --before`).
 
 ### A4. Backend settings are deployment configuration
 
@@ -149,23 +143,21 @@ Replaced text (§4):
 - **Change:** corrects §8
 - **Summary:** `triplespace-query` is in the surfaces layer (layer 4), not layer 3. (PENDING F25)
 
-Replaced text (§8):
-
-> | `triplespace-query` | **New, layer 3.** The `QueryService` trait; the embedded backend over `scatter-quadstore` and the remote backend over the SPARQL Protocol; dataset computation from a tenant's provider policy; the prefix set; the envelope of §5 (dataset, `LIMIT`, order) and the checks on user SPARQL; the cursor marker. Depends on `triplespace-db`, `scatter-quadstore` (feature `oxigraph`), `scatter-wikibase-rdf`, `scatter-vocab`, `spargebra` for parsing and the `FROM`/`SERVICE` checks, `reqwest` for the remote backend |
+Replaced text: §8 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0059 A5 --before`).
 
 ### A6. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§8
-- **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [08](../architecture/08-tenants-and-instances.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0059 A6 --diff`).
 
 ### A7. The rewriting layer, and one shared resolved graph
 
 - **Date:** 2026-10-09
 - **Source:** [0082](0082-source-form-and-the-shared-view.md) §2, §5
 - **Change:** extends §2, §3, §4
-- **Summary:** Both backends sit behind one rewriting layer: where a query constant names an entity that is a member of a cluster, the planner expands the constant to the member set (`lb:Q9` becomes `VALUES ?v { lb:Q9 wd:Q5 … }`), one indexed lookup against `view.cluster_member` per constant with L0 in front of it, before the query reaches the store; property paths are not expanded, neither backend does `owl:sameAs` reasoning, and a query that needs the closure writes it; result bindings are rewritten to the request's preferred form through the concept-IRI template on the way out. The `full` form holds one shared resolved graph, the instance's, computed under the instance policy record `reconcile:default` from the shared rows of `view`, plus a small overlay graph per tenant holding the entities it has overlaid; a tenant's dataset is the shared graph with its overlay shadowing it as the default graph, so forty tenants mirroring Wikidata share one copy of its resolved triples and a query written for Wikidata runs unchanged on a tenant with no overlay. (REVIEW G1, G4)
+- **Summary:** Both backends sit behind one rewriting layer: where a query constant names an entity that is a member of a cluster, the planner expands the constant to the member set (`lb:Q9` becomes `VALUES ?v { lb:Q9 wd:Q5 … }`), one indexed lookup against `view.cluster_member` per constant with L0 in front of it, before the query reaches the store; property paths are not expanded, neither backend does `owl:sameAs` reasoning, and a query that needs the closure writes it; result bindings are rewritten to the request's preferred form through the concept-IRI template on the way out. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §7.2, §7.3; [08](../architecture/08-tenants-and-instances.md) §9.1. (REVIEW G1, G4)
 
 ### A8. A private tenant keeps its query service under `store` isolation
 
@@ -174,9 +166,7 @@ Replaced text (§8):
 - **Change:** amends §4
 - **Summary:** A private tenant has no graphs in the shared store and, under `dataset`, no query service; under `store` it has one: its own embedded store is fed from its own deltas, computed in the form the `tenant` ACL's group may read (nothing under any finer restriction) in place of a public form that would be empty, and the service answers only principals that satisfy that ACL, through `/sparql`, `Special:Query`, the MCP tools and compiled queries. What a private tenant lacks is the public endpoint, the stream and the dump, and nothing else. A hosting instance needs no `tenant` restriction ([0056](0056-security-model.md) A15). Settles Q1. (REVIEW G39)
 
-Replaced text ([08](../architecture/08-tenants-and-instances.md) §9.1, as it stood):
-
-> **A private tenant** (§4.3) has no graphs in any store, as it has no stream and no public form. It has no query service in version 1.
+Replaced text: [08](../architecture/08-tenants-and-instances.md) §9.1, as it stood before this entry; in git (`tools/adr.py log 0059 A8 --before`).
 
 > **Not yet.** Whether a `store` tenant behind the evaluator could have a query service while private is open ([0059](0059-query-service.md) Q1).
 
@@ -187,9 +177,7 @@ Replaced text ([08](../architecture/08-tenants-and-instances.md) §9.1, as it st
 - **Change:** amends §2
 - **Summary:** The embedded store is the small profile's backend ([0013](0013-postgres-storage.md) §11): the service refuses to start it above a configured triple count, and the Wikidata-scale profile requires `query.backend = remote`. The rest of the row is other ADRs': dumps are taken from a replica under `pg_export_snapshot()` with parallel workers sharing the snapshot ([0013](0013-postgres-storage.md) §8, in [02](../architecture/02-graphs-rdf-and-query.md) §4.1), and `term_prefix` is kept as schema and not read by the large profile ([0013](0013-postgres-storage.md) §11). The ledger names §7, whose text ([22](../architecture/22-crates-and-stack.md) §4.7) did not change. (REVIEW G49)
 
-Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §7.2, as it stood):
-
-> **Embedded is the default** so that turning the service on changes nothing about the deployment: the `triplespace` binary and Postgres. The embedded store is a second copy of the public graphs on the server's disk, grown by `rdf_delta`, and is sized like the `full` dump. A larger instance moves to `remote` when the embedded store's query times or disk no longer suit it; nothing above the trait notices.
+Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §7.2, as it stood before this entry; in git (`tools/adr.py log 0059 A9 --before`).
 
 ### A10. A rebuild truncates `rdf_delta`; epochs are per tenant
 

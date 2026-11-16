@@ -190,28 +190,7 @@ James's direction, from the design discussion of 2026-09-30:
 - **Change:** supersedes §23
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries the three new crates and every change this section listed (0005 A39).
 
-Replaced text (§23):
-
-> | Layer | Crate | Change |
-> |---|---|---|
-> | Substrate | `scatter-blob` *(new)* | The blob store over `object_store`: the `fs` and `s3` backends, scopes and the key layout, streaming SHA-256 and SHA-1, copy-if-absent, ranged and streamed reads, prefix deletion, and the listing the orphan sweep and `verify` walk (§3–4). Async, like `scatter-log-postgres` |
-> | | `scatter-files` *(new)* | The `scatter:v0/upload` and `scatter:v0/expunge` payload types (§2, §10); the `file-name` normalizer; the type registry, embedding `docs/registry/file-types.toml`; type detection, the script and SVG checks (§5); metadata extraction; the transform grammar and the raster and SVG thumbnailers (§6). Pure |
-> | | `scatter-log` | The instance `log` partition and `files/{repo}` in the graph registry (§10–11) |
-> | | `scatter-actors` | The `blob` target kind at instance scope, the content axis of enclosure, restriction to no group, and the file and operator rights (§10, §21) |
-> | | `scatter-integrity` | Blob verification at `presence` and `full`, and bundles with `--blobs` (§14) |
-> | Wikibase | `scatter-wikibase-model`, `scatter-wikibase-rdf` | The `localMedia` data type and its RDF (§12) |
-> | | `scatter-wikitext`, `scatter-pages` | File embeds, gallery and `Media:` links; markdown image syntax with file targets (§13) |
-> | | `scatter-filter` | The `upload` context (§5) |
-> | | `scatter-mwlog` | `upload/*`, `takedown/*` and `import/upload` for files (§16) |
-> | Triplespace | `triplespace-files` *(new)* | The upload pipeline and stash; the media routes, signed URLs and headers (§7); thumbnail rendering and caching; reclamation, the orphan sweep and `ops.blob_delete`; takedown and expunge execution; the `tenant` and `mediawiki` repositories in their three modes, and the mirror job (§11); file import and the adoption step (§14) |
-> | | `triplespace-projections` | `view.file`, `file_version`, `blob`, `file_link`, `file_block` and the metadata projection (§20) |
-> | | `triplespace-titles` | The `file` kind, `Media:` resolution and repository fall-through (§1, §11) |
-> | | `triplespace-upstream` | `prop=imageinfo` and rendered descriptions from `mediawiki` repositories (§11) |
-> | | `triplespace-cache`, `triplespace-search` | The tags and keys of §20; file fields in `pages` (§19) |
-> | | `triplespace-api-action`, `triplespace-api-rest` | §17 |
-> | | `triplespace-server`, `triplespace-cli` | The media routes; `files import`, `files rescope`, `files verify`, `takedown`, `reinstate` and `expunge` |
->
-> The workspace goes from forty-six crates to forty-nine.
+Replaced text: §23 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0039 A1 --before`).
 
 ### A2. Reclamation and expunge are instance prerogatives
 
@@ -229,11 +208,7 @@ Replaced text: not recorded; 0040's change was written into §9, §10 and the Co
 - **Change:** amends §1
 - **Summary:** The `file` kind is gone: File (6) is a `pages` namespace with the `wikitext` model and `uploads = true`. A File page also has a second slot, `mediainfo` (model `wikibase-mediainfo`), which presents its statements as the MediaInfo entity `M{page ID}` over the Wikibase Action API.
 
-Replaced text (§1):
-
-> | 6 | File | **File** *(new kind)* | A document namespace whose pages may also carry uploads (§2). Content models: `wikitext` only, as MediaWiki's description pages are |
->
-> **The `file` kind is `document` plus uploads.** Everything 0008 says of document pages holds:
+Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0039 A3 --before`).
 
 ### A4. Converted to the 0050 format
 
@@ -277,16 +252,14 @@ Replaced text (§1):
 - **Change:** amends §11
 - **Summary:** `repo.cache_ttl` is a per-repository field of the `page-repo`/`file-repo` record, not a setting beside it, with a per-kind default: 7 days for files, one hour for template source and page bundles ([0042](0042-template-expansion-and-parsoid.md) §11; [0052](0052-page-repositories-and-title-inheritance.md) §1). §11's `proxy` row names the field as a field of the `file-repo` record with the 7-day default. (PENDING C20)
 
-Replaced text (§11):
-
-> | `proxy` *(default)* | Fetched by the server from the repository and served from the media base (§7), cached under `cache/{repo}/` with a TTL (`repo.cache_ttl`, default 7 days) and a size cap with least-recently-used eviction | `prop=imageinfo` and the rendered description from `action=parse`, through the live upstream client: cached, rate-limited, User-Agent and `maxlag` set, never logged ([0012](0012-api-requirements.md) §6) | Readers' addresses never reach the repository |
+Replaced text: §11 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0039 A9 --before`).
 
 ### A10. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§23
-- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [09](../architecture/09-security-and-moderation.md), [12](../architecture/12-files-and-media.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0039 A10 --diff`).
 
 ### A11. Byte destruction is an `ops` job, never a projection step
 
@@ -295,38 +268,20 @@ Replaced text (§11):
 - **Change:** amends §9; extends §20
 - **Summary:** No projection has side effects during replay. `view.blob` is a pure count: when an erasure brings a count to zero, the projection enqueues an `ops` job for the scope and hash, keyed by them so that a repeat is a no-op, and the job takes a lock on the hash, re-checks the count at the live head, and only then deletes the object and its thumbnails and purges the hash's L2 tags. The job runs at once, so the bytes of an erased version are gone within its latency; a projection rebuild re-derives `view.blob` and re-runs no job, since the `ops` queue is not a projection target, and a count a rebuild finds at zero for an object still present is reported by `verify` as an orphan, not deleted. 0083's table names §20 (storage), whose chapter row in [03](../architecture/03-storage-caches-and-search.md) §4.9 is extended; the sentence contradicted is §9's, in [12](../architecture/12-files-and-media.md) §5.3, so a row for §9 is added. (REVIEW G13)
 
-Replaced text ([12](../architecture/12-files-and-media.md) §5.3, as it stood):
-
-> When an erasure brings the count to zero, the projection queues the object and its thumbnails for **deletion at once**, not at the next sweep, and purges the hash's L2 tags.
+Replaced text: [12](../architecture/12-files-and-media.md) §5.3, as it stood before this entry; in git (`tools/adr.py log 0039 A11 --before`).
 
 ### A12. Foreign files: a local page to annotate, an ordinary cluster, cached existence and bounded usage
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §11, §12, §13
-- **Summary:** Annotating a foreign file locally requires a **local File page**, a page `create` with the description text and no upload, which takes a page ID from the tenant's sequence and whose `M{page ID}` keys every local statement and caption on the file; the overlay keyed by a ranged page ID is dropped, and a foreign file no local page describes has no local statements (§11). The local `M` entity and the `WDM` it mirrors are an **ordinary identity cluster with a fixed canonical**, formed by the file lookup when a local File page is created for a title a Commons repository serves, the canonical always the `WDM` member, never re-pointed by `same-as` or `different-from` and dissolved only when the page is deleted or the file stops being the repository's; a hand-written `same-as` on an `M` ID is still refused (§11). `mediainfo.mirror = on-demand` enqueues a fetch through `ops.entity_fetch` and the page or statement renders without the statements until the fetch lands; nothing waits on Commons inside a read or a write (§11). `commonsMedia` existence is cached per (repository, name) in L1 with the repository's `cache_ttl`, the uncached names of a change set are validated in one batched request, and a job may declare `validate_media = defer`, its failures tracked as constraint-style rows beside the statement; an interactive write whose batch cannot reach the repository is refused with `upstream-unavailable`, a deferred job's is recorded (§12). Usage by statement is served from `view.value_key` for the media data types, written only when a repository is configured, so a tenant that reads Wikidata and names no Commons repository carries no rows for the millions of `P18` values in its view (§12, §13). `mirror` mode's "used" is page usage plus the local graph's statements by default; a repository opts in to resolved-view usage with `mirror_usage = resolved` (§11). This settles Q6. The ledger's rows name §10 and §14, whose chapter text did not change; the folds are in [12](../architecture/12-files-and-media.md) §6.4, §6.5, §6.6, §7.1 and §7.3, which hold §11, §12 and §13. (REVIEW G44, G45)
+- **Summary:** Annotating a foreign file locally requires a **local File page**, a page `create` with the description text and no upload, which takes a page ID from the tenant's sequence and whose `M{page ID}` keys every local statement and caption on the file; the overlay keyed by a ranged page ID is dropped, and a foreign file no local page describes has no local statements (§11). The local `M` entity and the `WDM` it mirrors are an **ordinary identity cluster with a fixed canonical**, formed by the file lookup when a local File page is created for a title a Commons repository serves, the canonical always the `WDM` member, never re-pointed by `same-as` or `different-from` and dissolved only when the page is deleted or the file stops being the repository's; a hand-written `same-as` on an `M` ID is still refused (§11). `mediainfo.mirror = on-demand` enqueues a fetch through `ops.entity_fetch` and the page or statement renders without the statements until the fetch lands; nothing waits on Commons inside a read or a write (§11). `commonsMedia` existence is cached per (repository, name) in L1 with the repository's `cache_ttl`, the uncached names of a change set are validated in one batched request, and a job may declare `validate_media = defer`, its failures tracked as constraint-style rows beside the statement; an interactive write whose batch cannot reach the repository is refused with `upstream-unavailable`, a deferred job's is recorded (§12). This settles Q6. The ledger's rows name §10 and §14, whose chapter text did not change; the folds are in [12](../architecture/12-files-and-media.md) §6.4, §6.5, §6.6, §7.1 and §7.3, which hold §11, §12 and §13. (REVIEW G44, G45)
 
-Replaced text ([12](../architecture/12-files-and-media.md) §6.4, as it stood):
-
-> It mirrors the files that are **used**: referenced by a page of any tenant using the repository, or by a `commonsMedia` value in such a tenant's resolved view (§7.1).
-
-Replaced text ([12](../architecture/12-files-and-media.md) §6.5, as it stood):
-
-> A **local page** for a foreign file holds local text and statements ([0038](../decisions/0038-page-metadata-and-categories.md) §1) shown beside the foreign description: local annotations on someone else's file, which is the foreign-entity pattern of [0002](../decisions/0002-source-graphs-and-mass-ingest.md) applied to files. Its talk page is local.
-
-Replaced text ([12](../architecture/12-files-and-media.md) §6.6, as it stood):
-
-> **Mirroring set**: `mediainfo.mirror` (site, default **`on-demand`**): a Commons file's MediaInfo is fetched through `Special:EntityData` ([0012](../decisions/0012-api-requirements.md) §6's upstream fetch) the first time the file is used by a local page or shown, written as a `put`, and kept current by Commons' EventStreams `mediainfo` changes as [0053](../decisions/0053-mirrored-pages.md) §6 keeps mirrored pages current;
+Replaced text: [12](../architecture/12-files-and-media.md) §6.4, §6.5, §6.6, as it stood before this entry; in git (`tools/adr.py log 0039 A12 --before`).
 
 > **Clusters**: a local `M` entity and the `WDM` it mirrors are **one subject by construction**, not a cluster: the local page *is* the foreign file's page here, with the ranged page ID of [0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6 ([04](../architecture/04-entities-and-identifiers.md) §5.3) where the file is only inherited. `same-as` between `M` IDs is refused, as §8.2's "derived, not minted" implies.
 
-Replaced text ([12](../architecture/12-files-and-media.md) §7.1, as it stood):
-
-> a local write is validated against it, as Wikibase validates against Commons; if the repository cannot be reached the write is refused with `upstream-unavailable` ([0012](../decisions/0012-api-requirements.md) §6). Mirrored values are never validated: they are upstream's. With no repository configured, values render as links to Commons.
-
-Replaced text ([12](../architecture/12-files-and-media.md) §7.3, as it stood):
-
-> It serves `prop=images`, `list=imageusage`, `Special:WhatLinksHere` and the file page's usage section, and it is what `mirror` mode (§6.4) counts as use. A file's usage also includes the entities whose statements name it, listed apart from the pages that embed it.
+Replaced text: [12](../architecture/12-files-and-media.md) §7.1, §7.3, as it stood before this entry; in git (`tools/adr.py log 0039 A12 --before`).
 
 ### A13. Site assets are the one exception to the access check
 
@@ -335,9 +290,7 @@ Replaced text ([12](../architecture/12-files-and-media.md) §7.3, as it stood):
 - **Change:** amends §7
 - **Summary:** A **site asset**, a file version a setting uses for a basic site function (the logo, the favicon, a theme's typeface), is served to anyone, a private tenant's outsiders included, at `{media base}/asset/{h}/{name}`, because and only while a setting of type `site-asset` names it. The setting pins the version by SHA-1 and is written with `ts-config` by someone who can read it; a hidden, suppressed or taken-down version is never served; the file page and `Special:WikiSettings` show what is exposed. SVG is accepted from trusted `ts-config` holders, and needs a sanitizer before untrusted tenants are hosted ([0085](0085-settings-and-preferences.md) Q5). Every other byte stays behind the access check. The chapter text is [12](../architecture/12-files-and-media.md) §4.1, §4.2 and §4.5.
 
-Replaced text ([12](../architecture/12-files-and-media.md) §4.1, as it stood):
-
-> **Access to every Triplespace resource goes through an access check**;
+Replaced text: [12](../architecture/12-files-and-media.md) §4.1, as it stood before this entry; in git (`tools/adr.py log 0039 A13 --before`).
 
 ### A14. Font and icon file types
 

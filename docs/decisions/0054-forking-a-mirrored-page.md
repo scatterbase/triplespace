@@ -141,9 +141,7 @@ James's direction, from the design discussion of 2026-10-01:
 - **Change:** amends §6, §9
 - **Summary:** The upstream diff's base follows `merge` records; merging and proposing replace the manual edit; re-following is a setting. Q1 settled.
 
-Replaced text (§6, in part):
-
-> The diff is computed live and never stored. Applying upstream's changes is a manual edit; a merge tool is Q1.
+Replaced text: §6, in part of this ADR, as it stood before this entry; in git (`tools/adr.py log 0054 A1 --before`).
 
 ### A2. Following the talk page
 
@@ -152,9 +150,7 @@ Replaced text (§6, in part):
 - **Change:** amends §1, §5
 - **Summary:** Forking asks whether the talk page follows upstream (the default where the repository's `talk` is `sync`) or is forked; `forked_from` records `talk`, and the `follow` page operation changes it. The conversion of §5 runs at fork time only for **Fork the talk page**, and later on **Stop following**. The front matter thread is created pinned and open.
 
-Replaced text (§5):
-
-> **The repository's talk page is converted into threads homed on the fork's talk page.**
+Replaced text: §5 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0054 A2 --before`).
 
 > | **The text above the first heading**: the frontmatter of banners, WikiProject templates and talk headers | One thread, subject "*{title}*: talk page header", holding that text as its opening post. The direction says to treat the frontmatter as a section, and this is how |
 
@@ -167,84 +163,38 @@ Replaced text (§5):
 - **Change:** corrects §8
 - **Summary:** "Copying files" (§7) needs `upload`, whose default is `autoconfirmed` ([0039](0039-files-and-media.md) §21), not `user`; §8's permissions table had the default wrong. `reupload-shared` stays as 0039 §21 has it. (PENDING C13)
 
-Replaced text (§8):
-
-> | Copying files (§7) | `upload`, `reupload-shared` | `user`; `reupload-shared` as [0039](0039-files-and-media.md) §21 has it |
+Replaced text: §8 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0054 A3 --before`).
 
 ### A4. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§12
-- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [09](../architecture/09-security-and-moderation.md), [13](../architecture/13-mirrored-pages.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0054 A4 --diff`).
 
 ### A5. Seeding is metadata-only by default, with content for the last 100 revisions
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** amends §3, §4, §5; extends §10
-- **Summary:** Every upstream revision is seeded as metadata (content, comment and attestation parts, no `text` part), so the history is complete as a list; the `text` part is seeded for the last `fork.content_revisions` (`site`, default 100) revisions only, which a tenant may raise up to the instance ceiling, and an article whose editors want its whole history diffable here asks the job for it explicitly. `fork.max_revisions` (default 20,000) becomes the per-job budget, the number of upstream revisions one job seeds, metadata included, beyond which the oldest are not seeded and the History tab links upstream. Seeding is never done for dependencies or archives: a dependency fork carries its upstream revision in `forked_from` and nothing more, a converted talk archive's threads carry `imported_from`, and their history is read upstream; a forked talk page's own history follows the same default. `view.upstream_revision` carries a `tenant` column leading its key, since two tenants may fork one article, and admits page subjects in the key form page subjects take across `view`. (REVIEW G37)
+- **Summary:** Every upstream revision is seeded as metadata (content, comment and attestation parts, no `text` part), so the history is complete as a list; the `text` part is seeded for the last `fork.content_revisions` (`site`, default 100) revisions only, which a tenant may raise up to the instance ceiling, and an article whose editors want its whole history diffable here asks the job for it explicitly. `fork.max_revisions` (default 20,000) becomes the per-job budget, the number of upstream revisions one job seeds, metadata included, beyond which the oldest are not seeded and the History tab links upstream. `view.upstream_revision` carries a `tenant` column leading its key, since two tenants may fork one article, and admits page subjects in the key form page subjects take across `view`. Chapter text: [13](../architecture/13-mirrored-pages.md) §3.4, §3.6, §5.13. (REVIEW G37)
 
-Replaced text ([13](../architecture/13-mirrored-pages.md) §3.4, as it stood):
-
-> **`fork.max_revisions`** (`site`, default 20,000) caps what is seeded with content. Beyond it the oldest revisions are seeded as metadata only, so the history is complete and diffable for the recent past and complete as a list for all of it; the History tab says so and links upstream for the rest.
+Replaced text: [13](../architecture/13-mirrored-pages.md) §3.4, as it stood before this entry; in git (`tools/adr.py log 0054 A5 --before`).
 
 > **Serving.** `view.upstream_revision` ([0015](0015-record-format-and-partition-registry.md) §4) gains rows whose `entity_id` is the page ID in decimal, as page statements use it ([0038](0038-page-metadata-and-categories.md) §1).
 
-Replaced text ([13](../architecture/13-mirrored-pages.md) §3.6, as it stood):
+Replaced text: [13](../architecture/13-mirrored-pages.md) §3.6, as it stood before this entry; in git (`tools/adr.py log 0054 A5 --before`).
 
-> - **otherwise it is forked as §3.1 forks a page:** a `create` carrying `forked_from` with the repository's current revision of the template, attributed upstream, tagged `fork-dependency`, with its history seeded by the same job (§3.4).
-
-Replaced text ([13](../architecture/13-mirrored-pages.md) §5.12, as it stood):
-
-> **The talk page's own history comes too.** Its upstream revisions, and each archive's, are seeded as upstream revision records keyed by the **fork's talk page ID**, as §3.4 seeds the article's, so the talk page's composite history ([0019](0019-discussions.md) §7) gains rows "upstream revision of Talk:…" with their text at `oldid=`, and nothing of what was said is lost to the splitting.
+Replaced text: [13](../architecture/13-mirrored-pages.md) §5.13, as it stood before this entry; in git (`tools/adr.py log 0054 A5 --before`).
 
 ### A6. Comment by comment, attribution from history, and `all`
 
 - **Date:** 2026-10-20
 - **Source:** [0090](0090-converting-talk-pages-comment-by-comment.md) §1–§9, §11, §12
 - **Change:** amends §3, §5, §12
-- **Summary:** The talk-page conversion keeps its threads and splits their posts: each comment becomes one wikitext post, its `inReplyTo` the post it answers, found by signatures (a user link and a timestamp in a format of the universal registry `talk-markup.toml`, or an undated signature) and indentation; headings below level two become heading posts, wrappers that close a whole section or subsection become wrapper posts, and a section that will not split falls back to one post as before, a page that will not divide to one post for the page. Each post records `signed_as` and `added_by` and is attributed to its author, resolved from both, which settles Q4; the conversion reads the talk page's whole history from `fork.history_source` for a line-level blame, keeps only each post's `added_by`, and attributes archives from the parent's history. Imported posts keep their DiscussionTools names and IDs, with anchors and `Special:GoToComment`. `fork.content_revisions`, its ceiling and `fork.max_revisions` accept `all`. The talk-page splitter moves from `scatter-adapter-mediawiki` to the new `scatter-talk`. Chapter text: [13](../architecture/13-mirrored-pages.md) §3.4, §5.12–§5.17; [22](../architecture/22-crates-and-stack.md) §2.1.
+- **Summary:** The talk-page conversion keeps its threads and splits their posts: each comment becomes one wikitext post, its `inReplyTo` the post it answers, found by signatures (a user link and a timestamp in a format of the universal registry `talk-markup.toml`, or an undated signature) and indentation; headings below level two become heading posts, wrappers that close a whole section or subsection become wrapper posts, and a section that will not split falls back to one post as before, a page that will not divide to one post for the page. Each post records `signed_as` and `added_by` and is attributed to its author, resolved from both, which settles Q4; the conversion reads the talk page's whole history from `fork.history_source` for a line-level blame, keeps only each post's `added_by`, and attributes archives from the parent's history. Chapter text: [13](../architecture/13-mirrored-pages.md) §3.4, §5.12–§5.17; [22](../architecture/22-crates-and-stack.md) §2.1.
 
-Replaced text ([13](../architecture/13-mirrored-pages.md) §3.4, as it stood):
-
-> the **`text` part is seeded for the last `fork.content_revisions`** (`site`, default **100**) revisions only, so the recent past is diffable here and the rest is read upstream. A tenant may raise `fork.content_revisions` up to the instance ceiling, and an article whose editors want its whole history diffable here asks the job for it explicitly. **The job runs under a per-job budget**, `fork.max_revisions` (`site`, default 20,000): the number of upstream revisions one fork job seeds, metadata included, beyond which the oldest are not seeded and the History tab says "older history on {repository}" with a link.
-
-Replaced text ([13](../architecture/13-mirrored-pages.md) §5.12 and §5.13, as they stood):
-
-> ### 5.12 The conversion: sections become closed threads
->
-> *Sources: [0054](../decisions/0054-forking-a-mirrored-page.md) §5; [0069](../decisions/0069-synchronized-talk-pages.md) §7.*
->
-> **The conversion turns the repository's talk page into threads homed on the fork's talk page.** The fork job fetches `Talk:{title}` at the fork's upstream revision time, and every archive subpage under it (`Talk:{title}/Archive 1` and the rest, found with `list=allpages&apprefix=`), and splits each by its **level-two headings**:
->
-> | Piece | Becomes |
-> |---|---|
-> | **The text above the first heading**: the frontmatter of banners, WikiProject templates and talk headers | One thread, subject "*{title}*: talk page header", holding that text as its opening post, created **pinned** and **open** ([14](../architecture/14-discussions.md)), since banners do not go stale as discussions do. The direction says to treat the frontmatter as a section, and this is how |
-> | **Each `== Section ==`**, with its subsections | One thread whose subject is the heading's text and whose opening post is the whole section's wikitext, signatures, indentation and subsections intact |
-> | **Each archive subpage** | The same, with each thread's content part naming the archive it came from |
->
-> The conversion runs at fork time only when the person chose **Fork the talk page** (§5.11).
->
-> **Every other thread is created closed.** The `create` record carries `status: archived`, a default status in `docs/registry/thread-statuses.toml` ([0019](../decisions/0019-discussions.md) §6, in [14](../architecture/14-discussions.md)): category `closed`, label **Archived**, ordered after Stale. `status` may appear on `create` as on `post`, which says exactly what an import means: the thread arrived already over. Anyone who may post can reopen one.
->
-> **Local threads move.** Threads that readers had attached to the foreign page's talk page, on its ranged page ID (§1.7), are moved to the fork's talk page by the job, one `move` record each, so discussion that began before the fork continues on it.
->
-> **`Special:Import` uses the same conversion** ([0008](../decisions/0008-namespaces-and-document-pages.md) §9; [10](../architecture/10-pages-and-content-models.md)) for any talk namespace in an XML export: a wikitext talk page is imported as closed threads on the subject's talk page, split by heading, with the frontmatter as the first. A village pump imported this way lands on a board ([0049](../decisions/0049-boards.md) §1) the importer names.
->
-> ### 5.13 Imported posts: wikitext, attribution, dates and history
->
-> *Sources: [0054](../decisions/0054-forking-a-mirrored-page.md) §5.*
->
-> **The post is wikitext.** [0019](../decisions/0019-discussions.md) §5 made posts markdown. The thread payload's text part has a media type: the content part's **`mediaType`** is `text/markdown` by default and **`text/x-wiki`** for a post an import writes. A wikitext post renders through the tenant's wikitext pipeline, with expansion, so `{{WikiProject Medicine}}` and `{{Talk header}}` render through the stack (§1.3) without being forked, and `~~~~` signatures stay the text they were. No editor composes a wikitext post; only an import writes one, and editing such a post keeps its media type. The AS2 profile ([0019](../decisions/0019-discussions.md) §10, in [16](../architecture/16-logs-feeds-and-notifications.md)) emits it as `as:source`'s `mediaType`.
->
-> **Attribution and dates.** A section has many authors, so the opening post is attributed to the forking user and the job, with the content part's **`imported_from`** naming the repository, the talk page, its revision and, for an archive, the subpage. [0019](../decisions/0019-discussions.md) §3 made a thread's title date the date of its `create` record; for an imported thread it is **the date the import supplies**: the earliest signature timestamp the section's text parses, or the talk page revision's time. So `Thread:2019-04-12/Merge proposal` is what the section was, not when it arrived, and the thread's `as:published` is the import time while its identity line reads "originally on English Wikipedia Talk:…, 12 April 2019".
->
-> **The talk page's own history comes too, under the same default.** Its upstream revisions are seeded as upstream revision records keyed by the **fork's talk page ID**, as §3.4 seeds the article's: metadata for all of them within the job's budget, and the `text` part for the last `fork.content_revisions`, so the talk page's composite history ([0019](../decisions/0019-discussions.md) §7) gains rows "upstream revision of Talk:…", the recent ones with their text at `oldid=`, and nothing of what was said is lost to the splitting, since the sections' wikitext is in the threads. **Archives are never seeded**: a converted archive's threads carry `imported_from` naming the archive subpage and its revision, and the archive's history is read upstream.
-
-Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, the `scatter-adapter-mediawiki` row, as it stood):
-
-> upstream revision records for pages from a store or `prop=revisions`, and the talk-page splitter ([0053](../decisions/0053-mirrored-pages.md) §12, [0054](../decisions/0054-forking-a-mirrored-page.md) §3, §5, §12); the `discussiontoolspageinfo` reader,
+Replaced text: [13](../architecture/13-mirrored-pages.md) §3.4, §5.12 and §5.13; [22](../architecture/22-crates-and-stack.md) §2.1, the `scatter-adapter-mediawiki` row, as it stood before this entry; in git (`tools/adr.py log 0054 A6 --before`).
 
 ### A7. Editors may write wikitext posts too
 
@@ -253,6 +203,5 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, the `scatter-
 - **Change:** amends §5
 - **Summary:** A tenant's `thread.markup` setting may make editors' posts wikitext ([0019](0019-discussions.md) A28), so `text/x-wiki` is no longer written only by imports. An import still writes every post as wikitext, whatever the setting, and keeps its text as it was, signatures included: the removal of a trailing signature applies to original posts only. Chapter text: [13](../architecture/13-mirrored-pages.md) §5.13.
 
-Replaced text ([13](../architecture/13-mirrored-pages.md) §5.13, as it stood):
+Replaced text: [13](../architecture/13-mirrored-pages.md) §5.13, as it stood before this entry; in git (`tools/adr.py log 0054 A7 --before`).
 
-> **The post is wikitext.** [0019](../decisions/0019-discussions.md) §5 made posts markdown. The thread payload's text part has a media type: the content part's **`mediaType`** is `text/markdown` by default and **`text/x-wiki`** for a post an import writes. A wikitext post renders through the tenant's wikitext pipeline, with expansion, so `{{WikiProject Medicine}}` and `{{Talk header}}` render through the stack (§1.3) without being forked, and `~~~~` signatures stay the text they were. No editor composes a wikitext post; only an import writes one, and editing such a post keeps its media type. The AS2 profile ([0019](../decisions/0019-discussions.md) §10, in [16](../architecture/16-logs-feeds-and-notifications.md)) emits it as `as:source`'s `mediaType`.

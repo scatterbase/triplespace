@@ -139,13 +139,11 @@ James's direction, from the design discussion of 2026-10-04:
 - **Change:** corrects §8
 - **Summary:** Tenant deletion is [0028](0028-tenancy-policy.md) §5 and [0040](0040-instance-prerogatives.md) §6, not 0039 §9's reclaim: a tenant's partitions are dropped after its `erase` records are written, and only then can the domain's child table go with them. §8 cited the wrong ADR and did not say when the drop happens. (PENDING C8)
 
-Replaced text (§8):
-
-> When a tenant's partitions are dropped (reclaim, [0039](0039-files-and-media.md) §9), its domain's child table goes with them.
+Replaced text: §8 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0058 A1 --before`).
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§12
-- **Summary:** The Decision's current text now lives in the architecture chapters [01](../architecture/01-log-and-records.md), [03](../architecture/03-storage-caches-and-search.md), [05](../architecture/05-providers-and-ingest.md), [08](../architecture/08-tenants-and-instances.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0058 A2 --diff`).

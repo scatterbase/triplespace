@@ -100,18 +100,7 @@ James's direction, from the design discussion of 2026-10-01:
 - **Change:** supersedes §8
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A48).
 
-Replaced text (§8):
-
-> | Crate | Change |
-> |---|---|
-> | `scatter-normalize` | The `notation` keyed type; the scheme registry, embedding `docs/registry/notation-schemes.toml`; the four normalizers; the `osm-tag` and `text` grammars. The `osm-tag` grammar is the former `osm-tag` normalizer, unchanged |
-> | `scatter-wikibase-model` | The `notation` entity type and the `wikibase-notation` data type replace `osm-tag` and `wikibase-osm-tag` |
-> | `scatter-wikibase-rdf` | The `skos:notation` and `skos:inScheme` triples (§5) |
-> | `scatter-adapter-wikidata` | `key_scheme` in the key map (§6) |
-> | `triplespace-titles` | The `Notation` namespace; scheme names in the `/resolve` order (§2) |
-> | API crates | The `notation-scheme` check and `ts-notation-scheme` on the write path (§4) |
->
-> No crate is added.
+Replaced text: §8 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0048 A1 --before`).
 
 ### A2. Converted to the 0050 format
 
@@ -120,22 +109,14 @@ Replaced text (§8):
 - **Change:** consolidates §8
 - **Summary:** A1 was folded into the Decision. The open questions were numbered, and the list this ADR kept under "Amendments to earlier ADRs" (quoted below) was replaced by the generated table. No decision changed. Before this, A1 was recorded only in 0005. The file before conversion is commit `0b26a3a`.
 
-Replaced text (Amendments to earlier ADRs):
-
-> - **[0003](0003-statement-ui.md) §7:** the `notation-scheme` role (§4).
-> - **[0005](0005-crate-organization.md) §2:** the rows of §8.
-> - **[0008](0008-namespaces-and-document-pages.md) §2:** 216/217 are Notation and Notation talk (§7).
-> - **[0017](0017-entity-id-grammar.md) §3 and §5:** a third keyed type whose key carries a scheme (§1).
-> - **[0029](0029-resolver-namespaces.md) §2:** scheme names share the namespace of keyed-type and resolver names (§2).
-> - **[0036](0036-openstreetmap-providers.md) §3–§7:** OSM keys and tags are notations in the `osm` scheme (§6).
-> - **[0041](0041-content-models.md) §3:** `triplespace-notation` replaces `triplespace-osm-tag` (§7).
+Replaced text: Amendments to earlier ADRs of this ADR, as it stood before this entry; in git (`tools/adr.py log 0048 A2 --before`).
 
 ### A3. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§8
-- **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [04](../architecture/04-entities-and-identifiers.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0048 A3 --diff`).
 
 ### A4. A remote key is not a notation
 

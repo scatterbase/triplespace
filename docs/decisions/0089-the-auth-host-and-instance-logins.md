@@ -150,7 +150,7 @@ James's direction, from the design discussion of 2026-10-18:
 - **Date:** 2026-10-30
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§17
-- **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [20](../architecture/20-web-tier.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0089 A1 --diff`).
 
 ### A2. Email addresses
 
@@ -173,9 +173,7 @@ James's direction, from the design discussion of 2026-10-18:
 - **Change:** amends §8; extends §2, §7, §15
 - **Summary:** Under `login.external_required` a login is created only from an external identity: `Special:CreateAccount` and `action=createaccount` refuse a password with `ts-external-required`, for oneself, for another and under `account.approval`, and `password set` makes no login for an account without one. Every login then holds at least one identity (§2), the auth host's `Special:CreateAccount` shows the issuers' buttons alone and `Special:Account` disables the last identity's **Remove** (§7), and `logins check` reports what enacting the requirement waits on (§15).
 
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.8, as it stood):
-
-> `Special:CreateAccount` creates a login, with a password under the `createaccount` challenge, or from an external identity bound to no login.
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.8, as it stood before this entry; in git (`tools/adr.py log 0089 A4 --before`).
 
 ### A5. Strict names
 
@@ -184,9 +182,7 @@ Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.8, as it stoo
 - **Change:** amends §6
 - **Summary:** Under `login.names = provider` nothing is chosen on the first visit: the account is created with the name derived from the login's external identity, `{label}-{username}`, on every tenant alike ([07](../architecture/07-actors-and-accounts.md) §2.10).
 
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.8, as it stood):
-
-> **On the first visit**, a login with no account on the tenant is answered as §2.7 says: an account request, then vouching, then the session's pending login, for which the person chooses a public name on `Special:CreateAccount`. The login name is offered as a button, and so is the username of the external identity that authenticated the login, each with the warning that the same name makes accounts easy to connect.
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.8, as it stood before this entry; in git (`tools/adr.py log 0089 A5 --before`).
 
 ### A6. A login logs in anywhere on its instance; whether that makes an account is the instance's policy
 

@@ -382,10 +382,7 @@ Replaced text: not recorded. 0005 was revised in place; the repository's history
 - **Change:** amends §2
 - **Summary:** `scatter-log-postgres` uses `tokio-postgres`, with a blocking API possible through the synchronous `postgres` crate; `scatter-wikitext` vendors `parse-wiki-text-2`; `scatter-pages` renders markdown with `comrak` and sanitizes with `ammonia`; `scatter-filter` uses `cel`, formerly `cel-interpreter`; the Wikidata adapter reads RevisionChest's `.mwrev.zst` files. 0033 listed these changes, and settled Q7, but §2 never received them until the migration.
 
-Replaced text (§2):
-
-> | | `scatter-log-postgres` | … | `scatter-log`, `sqlx` |
-> | | `scatter-filter` | … | …, a CEL crate (§6) |
+Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0005 A32 --before`).
 
 ### A33. Frontend crates
 
@@ -394,9 +391,7 @@ Replaced text (§2):
 - **Change:** extends §2, §3; amends Consequences
 - **Summary:** `triplespace-ui` renders pages on the server with `askama` and Codex markup; `scatter-wasm` binds the pure crates editors need for the browser. 0034 listed both as new crates in 0005, but §2 never received them until the migration.
 
-Replaced text (Consequences):
-
-> - **Fifty-two crates cost more upkeep than twenty-two.**
+Replaced text: Consequences of this ADR, as it stood before this entry; in git (`tools/adr.py log 0005 A33 --before`).
 
 ### A34. Crates of 0035 §8
 
@@ -528,7 +523,7 @@ Replaced text: not recorded. 0005 was revised in place; the repository's history
 - **Date:** 2026-10-01
 - **Source:** [0052](0052-page-repositories-and-title-inheritance.md) §10
 - **Change:** extends §2
-- **Summary:** No new crate. The title stack, `origin` views and `GET /page/stack` in `triplespace-titles`; inherited and leaving link classes and stack lookups in `triplespace-render`; codeless providers in `scatter-providers`; the `page-repo` kind and the `page-alternates` role in `scatter-pages`.
+- **Summary:** No new crate. The text is in git (`tools/adr.py log 0005 A51 --diff`).
 
 ### A52. `scatter-adapter-mediawiki` and `triplespace-repos`
 
@@ -537,16 +532,14 @@ Replaced text: not recorded. 0005 was revised in place; the repository's history
 - **Change:** amends §2
 - **Summary:** Two crates added: the MediaWiki adapter in the ingest layer, which takes the RevisionChest `.mwrev.zst` reader from `scatter-adapter-wikidata` (which now depends on it), and `triplespace-repos` in the surfaces layer for fetching, rewriting, caching, mirroring and indexing repository pages; the `pages/{repo}` graph and `scatter:v0/mirrored-page` in `scatter-log`.
 
-Replaced text (§2, `scatter-adapter-wikidata`):
-
-> reading the `.mwrev.zst` revision files that RevisionChest, a separate binary, makes from Wikidata's history dumps ([0033](0033-backend-stack.md) §10) | `scatter-wikibase-changeset`, `scatter-wikibase-model`, `scatter-providers`, `scatter-actors`, `scatter-mwlog` |
+Replaced text: §2, `scatter-adapter-wikidata` of this ADR, as it stood before this entry; in git (`tools/adr.py log 0005 A52 --before`).
 
 ### A53. Forks
 
 - **Date:** 2026-10-01
 - **Source:** [0054](0054-forking-a-mirrored-page.md) §12
 - **Change:** extends §2
-- **Summary:** No new crate. `forked_from` in `scatter-pages`; `status` on `create`, `mediaType` and `imported_from` in `scatter-threads`; the `text` part of upstream revision records in `scatter-log`; page revisions from a store or the API and the talk-page splitter in `scatter-adapter-mediawiki`; the fork job in `triplespace-repos`; `Special:Fork` in `triplespace-titles`; `import/interwiki` for forks in `scatter-mwlog`; `view.fork` in `triplespace-projections`.
+- **Summary:** No new crate. The text is in git (`tools/adr.py log 0005 A53 --diff`).
 
 ### A54. `scatter-css`
 
@@ -603,23 +596,11 @@ Replaced text (§2, the `scatter-ingest` row's dependencies): "`scatter-log`, `s
 - **Change:** amends §2, Consequences; extends §3, §7
 - **Summary:** `triplespace-client` (the site's API client, its two transports and its response cache) and `triplespace-web` (the stateless web tier) are added. `triplespace-ui` gains the page handlers, special pages, the landing page, the routing table and `action=render`, and depends on `triplespace-client` and the pure crates it renders from instead of reaching any store. `triplespace-server` serves the site through it under `server.ui = embedded`, and judges forwarded headers by the trust walk of 0057 §10, by address or forwarder key. `triplespace-accounts` keeps forwarder key hashes and, without a shared cache, OAuth pending state; `triplespace-oauth` gives up the consent page for request handles; `triplespace-cli` manages forwarder keys. Rule 10 keeps the site's crates away from every store, and build step 12 places them. The crate count in the Consequences is brought up to date: it was already stale at fifty-four before these two.
 
-Replaced text (§2, `triplespace-ui`):
-
-> | | `triplespace-ui` | Server rendering: `askama` templates, the builder that emits Codex CSS-only markup, the page frame of [0010](0010-site-ui.md) §2 shared by every page kind, and the pinned Codex assets ([0034](0034-frontend-stack.md) §2) | `scatter-wikibase-shape`, `askama` |
-
-Replaced text (§2, `triplespace-server`):
-
-> Binaries. `triplespace-server` also serves the special pages that `docs/registry/special-pages.toml` marks `served` ([0047](0047-special-pages.md)), including those of [0025](0025-oauth-server.md) §5.
+Replaced text: §2, `triplespace-ui` of this ADR; §2, `triplespace-server` of this ADR, as it stood before this entry; in git (`tools/adr.py log 0005 A60 --before`).
 
 > `triplespace-server` has `server.mode`, `server.trusted_proxies`, `server.admin_listen`, 421 on an unregistered host, the private tenant's landing page and the internal endpoint for Parsoid,
 
-Replaced text (§2, `triplespace-oauth`):
-
-> PKCE, the consent page, the consumer registry
-
-Replaced text (Consequences):
-
-> - **Fifty-four crates cost more upkeep than twenty-two.**
+Replaced text: §2, `triplespace-oauth` of this ADR; Consequences of this ADR, as it stood before this entry; in git (`tools/adr.py log 0005 A60 --before`).
 
 ### A61. Packed record storage
 
@@ -628,9 +609,7 @@ Replaced text (Consequences):
 - **Change:** extends §2; amends §3
 - **Summary:** `scatter-log` gains the stored-form codec and embeds `docs/registry/fragments.toml`; `scatter-log-postgres` gains packed storage (fragments, dictionaries, sweeps, the fragment cache) and depends on `zstd` and `hmac`; `triplespace-cli` gains the `storage` commands. Rule 9 distinguishes a change to what log records are, which is a format version, from a change to how they are stored, which keeps every logical byte and needs only a migration.
 
-Replaced text (§3, rule 9):
-
-> 9. **Schemas are contracts.** A change to the `log` schema needs a new payload or header version and a migration that keeps every existing header verifiable; a change to `view` needs a migration or a rebuild ([0013](0013-postgres-storage.md), Consequences). Migrations live with the crate that owns the schema.
+Replaced text: §3, rule 9 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0005 A61 --before`).
 
 ### A62. The query service
 
@@ -639,16 +618,14 @@ Replaced text (§3, rule 9):
 - **Change:** extends §2; amends §4.4
 - **Summary:** `triplespace-query` is new: the `QueryService` trait with embedded and remote backends, dataset computation, the prefix set, the query envelope and the cursor marker. `scatter-quadstore` gains `query(sparql, dataset)` behind its feature; `triplespace-projections` feeds the embedded store; the API crates gain `/sparql`; `triplespace-ui` gains `Special:Query`; the binaries gain the `query` commands, settings and rate class. §4.4's "nothing in the API reads from it" becomes "nothing reads from it but the query service".
 
-Replaced text (§4.4, in part):
-
-> and nothing in the API reads from it.
+Replaced text: §4.4, in part of this ADR, as it stood before this entry; in git (`tools/adr.py log 0005 A62 --before`).
 
 ### A63. Scopes
 
 - **Date:** 2026-10-04
 - **Source:** [0060](0060-scopes.md) §11
 - **Change:** extends §2, §3
-- **Summary:** `scatter-scope` is new, pure and wasm: the `triplespace-scope` definition and its compilation. `scatter-wikibase-shape` gains the table `rows` kinds through it; `scatter-threads` gains board definition version 2; `triplespace-projections` gains the scope tables, projection, refresh job, target set and watch expansion; the API crates gain the scope routes; `triplespace-ui` the scope page and notice. Rule 2's pure list gains `scatter-scope`.
+- **Summary:** `scatter-scope` is new, pure and wasm: the `triplespace-scope` definition and its compilation. The text is in git (`tools/adr.py log 0005 A63 --diff`).
 
 ### A64. Sprints and tasks
 
@@ -711,11 +688,9 @@ Replaced text (§4.4, in part):
 - **Date:** 2026-10-06
 - **Source:** [0069](0069-synchronized-talk-pages.md) §12
 - **Change:** amends §2
-- **Summary:** No new crate. Followed talk pages in `scatter-adapter-mediawiki` and `triplespace-repos`; pins in `scatter-threads` and `triplespace-projections`; the `follow` page operation in `scatter-pages`; upstream replies in `triplespace-upstream`, which now depends on `triplespace-db` and `triplespace-accounts` for `ops.upstream_post` and the grant; the grant flow in `triplespace-accounts`; `reply`, `featured` and search changes in their crates.
+- **Summary:** No new crate. The text is in git (`tools/adr.py log 0005 A72 --diff`).
 
-Replaced text (§2, `triplespace-upstream` dependencies):
-
-> `scatter-adapter-wikidata`, `scatter-mwlog`, `triplespace-cache`
+Replaced text: §2, `triplespace-upstream` dependencies of this ADR, as it stood before this entry; in git (`tools/adr.py log 0005 A72 --before`).
 
 ### A73. Shallow entity mirroring
 
@@ -780,9 +755,7 @@ Replaced text (§2, `triplespace-upstream` dependencies):
 - **Change:** amends §4.3
 - **Summary:** "The server is the only signer" becomes: the instance key is the only signer of checkpoints and manifests; an actor may additionally sign its own record with the client `signature` of [0015](0015-record-format-and-partition-registry.md) §1. [0006](0006-log-integrity-and-erasure.md) §1 is amended the same way. The consequence that said Triplespace does not yet use the client-signature room is struck. (PENDING A2)
 
-Replaced text (§4.3):
-
-> - In Triplespace the parts are content, comment and attestation, and a payload type may declare more: the thread type adds a fourth, the post text ([0019](0019-discussions.md) §4). The content is a change set, a page or thread operation, an actor record, a log event, an upstream revision, a configuration record, a membership, a block, an ACL ([0023](0023-moderation.md) §3), a filter or a filter hit ([0030](0030-edit-filters.md) §5); the attestation holds the actor, the job ([0002](0002-source-graphs-and-mass-ingest.md) §8.3), the change tags ([0030](0030-edit-filters.md) §5) and, for a post that arrived from the fediverse, the signed remote activity as evidence ([0022](0022-federation.md) §8); and the server is the only signer.
+Replaced text: §4.3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0005 A81 --before`).
 
 ### A82. Rule 7 is the one wasm list
 
@@ -791,9 +764,7 @@ Replaced text (§4.3):
 - **Change:** corrects §3
 - **Summary:** Rule 7 is the one list of crates that must build for `wasm32-unknown-unknown`: the nine crates the table of §2 marks as building for `wasm32` (`scatter-merge`, `scatter-normalize`, `scatter-pages`, `scatter-wikitext`, `scatter-extract`, `scatter-css`, `scatter-wikibase-shape`, `scatter-scope`, `scatter-tasks`), not the four the rule named. [0034](0034-frontend-stack.md) §6 and `cargo xtask wasm` read rule 7 rather than keeping lists of their own. (PENDING F23)
 
-Replaced text (§3, rule 7):
-
-> 7. **`scatter-wikibase-shape`, `scatter-wikitext`, `scatter-pages` and `scatter-normalize` must build for `wasm32-unknown-unknown`,** so that the statement UI ([0003](0003-statement-ui.md)), the page editor's preview ([0008](0008-namespaces-and-document-pages.md) §11), title normalization in the browser ([0009](0009-keyed-entity-types-and-domain.md) §12) and the classifier audit over a Wikidata dump run the same code as the server.
+Replaced text: §3, rule 7 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0005 A82 --before`).
 
 ### A83. The pure list gains three crates
 
@@ -802,9 +773,7 @@ Replaced text (§3, rule 7):
 - **Change:** corrects §3
 - **Summary:** Rule 2's list of pure crates gains `scatter-files`, `scatter-extract` and `scatter-vocab`, which the table of §2 already describes as pure. (PENDING F24)
 
-Replaced text (§3, rule 2):
-
-> 2. **The core is pure.** `scatter-providers`, `scatter-identity`, `scatter-normalize`, `scatter-actors`, `scatter-pages`, `scatter-wikitext`, `scatter-threads`, `scatter-activitypub`, `scatter-filter`, `scatter-mwlog`, `scatter-wikitext-expand` ([0042](0042-template-expansion-and-parsoid.md) §4), `scatter-css` ([0055](0055-templatestyles-templatedata-and-page-properties.md) §2), `scatter-scope` ([0060](0060-scopes.md) §11), `scatter-tasks` ([0061](0061-sprints-and-tasks.md) §12), `scatter-shex` ([0064](0064-entityschema-and-validation.md) §9), `scatter-merge` ([0068](0068-merging-with-upstream.md) §7), `triplespace-scribunto` ([0043](0043-lua-modules.md) §14) and every `scatter-wikibase-*` crate perform no I/O, use no async runtime, and depend on no tokio.
+Replaced text: §3, rule 2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0005 A83 --before`).
 
 ### A84. Crate clauses the table lacked
 
@@ -818,14 +787,14 @@ Replaced text (§3, rule 2):
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§7
-- **Summary:** The Decision's current text now lives in the architecture chapters [01](../architecture/01-log-and-records.md), [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0005 A85 --diff`).
 
 ### A86. Derived issuer codes
 
 - **Date:** 2026-10-09
 - **Source:** [0079](0079-derived-issuer-codes.md) §8
 - **Change:** extends §2
-- **Summary:** `scatter-actors` derives tenant issuer codes and the farm code from a founding record's leaf hash, keys `IssuerRegistry::for_tenant` and `for_farm` by code, and refuses a registered issuer code longer than 25 characters. `triplespace-cli`'s `instance create` derives the farm code, and tenant creation each tenant's issuer code, once the founding record is appended.
+- **Summary:** `scatter-actors` derives tenant issuer codes and the farm code from a founding record's leaf hash, keys `IssuerRegistry::for_tenant` and `for_farm` by code, and refuses a registered issuer code longer than 25 characters. Chapter text: [22](../architecture/22-crates-and-stack.md) §2.1.
 
 ### A87. Tenant sources
 
@@ -846,7 +815,7 @@ Replaced text (§3, rule 2):
 - **Date:** 2026-10-09
 - **Source:** [0082](0082-source-form-and-the-shared-view.md) §7
 - **Change:** extends §2
-- **Summary:** `scatter-wikibase-model` keeps the source-form invariant (no rewriting of entity IDs in stored or hashed JSON; the fused body composed per cluster); `scatter-identity` holds the exact-match map (tier 1, tier 2, `equivalent-property`), `cluster_id` for search documents and the member-set expansion; `scatter-wikibase-rdf` emits under every member with `owl:sameAs`; `scatter-scope` expands constants in compiled SPARQL through the rewriting layer and leaves paths untouched; `triplespace-api-action` and `triplespace-api-rest` normalize every parameter, take `prefer` and rewrite the response after the cache, and answer `wbgetentities` under the requested ID with `canonical`; `triplespace-ui` prefers the local form and labels by cluster; `triplespace-projections` writes `policy` on shared rows, the tenant columns and `tenant_overlaid`, instance-language terms and the integer-keyed `entity_ref`, and refuses tenant-scope writes to instance policy with `ts-instance-policy`; `triplespace-db` carries the migrations. (REVIEW G1–G7)
+- **Summary:** The crates take on 0082's source form: no crate rewrites an entity ID in stored or hashed JSON, and the API crates rewrite IDs to the consumer's preferred form after the cache. No new crate. The rows are in git (`tools/adr.py log 0005 A89 --diff`). (REVIEW G1–G7)
 
 ### A90. The write path in three tiers
 
@@ -855,9 +824,7 @@ Replaced text (§3, rule 2):
 - **Change:** amends §4.2; extends §2
 - **Summary:** An interactive write in Postgres appends and does the rest of the appending transaction (the base check, ID allocation, the written graph's state and the activity row) in one transaction on the async driver; it no longer "applies its projections" there, since composition and everything derived from it run after commit, and only the step-1 projections the write path reads stay inline (§4.2, at [01](../architecture/01-log-and-records.md) §1.3). `scatter-ingest` is tier 1, with the bulk-append mode and block coordinator and the `graph_state` and `entity_revision` writes; `scatter-wikibase-resolve` composes as a pure function with `composed_from`, coalescing and a set-based form; `scatter-projection` holds the projection classes (log-replayed, view-derived), the side-effect-free rule, rebuild by swap, the cache epoch and the replay order; `triplespace-projections` runs the composition worker, compose-on-miss, the tier-3 consumers and their queues, `view.scope_trigger`, `from_render` on the page tables, the single-sequencer delta consumer and per-tenant epochs; the API crates compose the written entity inline for the write response and serve the per-partition activity resume token; `triplespace-db` gains `view.graph_state`, `view.entity_revision`, `view.scope_trigger`, `ops.tenant_epoch`, the `rdf_delta` coordinate index and the `composed_from` and `policy` columns. (REVIEW G8–G15)
 
-Replaced text ([01](../architecture/01-log-and-records.md) §1.3, as it stood):
-
-> **`LogStore` is asynchronous and transaction-shaped.** Its methods (`create_partition`, `partitions`, `head`, `append`, `read`, `scan`, `erase_parts`, `compact`) return `Send` futures, because an interactive write in Postgres appends and applies its projections in one transaction on the async driver ([0013](../decisions/0013-postgres-storage.md) §7): the Postgres backend implements the trait on a handle that borrows the caller's transaction, so the append composes with everything else in it, and the conformance suite ([0005](../decisions/0005-crate-organization.md) rule 8) exercises the same append the write path uses. The trait needs no runtime (rule 2). The store fills in only the header fields it alone can know, the partition, the offset and the commitment; the caller's `Draft` carries the time, the payload type, the key and the global IDs, which the write path allocates from its own per-tenant sequences in the same transaction ([0013](../decisions/0013-postgres-storage.md) §6, [0015](../decisions/0015-record-format-and-partition-registry.md) §2).
+Replaced text: [01](../architecture/01-log-and-records.md) §1.3, as it stood before this entry; in git (`tools/adr.py log 0005 A90 --before`).
 
 ### A91. Wikibase writes against the resolved view
 
@@ -871,21 +838,13 @@ Replaced text ([01](../architecture/01-log-and-records.md) §1.3, as it stood):
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** corrects §2, §3, §4; extends §7
-- **Summary:** `scatter-extract` is a layer-2 crate, since it produces `scatter-wikibase-model`'s types. A `scatter:v0/*` payload type or config kind lives in the lowest crate whose product needs it (rule 11): `scatter-log` defines the `config` payload type and the kinds the log cannot start without, `scatter-pages` the page records, and a payload type or config kind that only Triplespace writes is declared by the Triplespace crate that writes it, so `scatter:v0/mirrored-page` and the `page-repo` kind are `triplespace-repos`'s, `scatter:v0/derivation` is `triplespace-extraction`'s, and the `tenancy`, `template` and `provider-readers` kinds are `triplespace-accounts`'s. `scatter-titles`, a new layer-1 pure crate, holds the namespace and special-page registries, title normalization and alias resolution, everything of a title that is a function of the registry and the string, and builds for `wasm32`, so that `triplespace-ui` and `scatter-wasm` can take it; `triplespace-titles` keeps the DB-backed resolver. `LogStore` has an associated unit-of-work type that `Backend::apply_in` and `IngestStore` take, its methods are written as `impl Future + Send` (RPITIT), and a runtime caller wraps the file backend's synchronous I/O in `spawn_blocking`. Rule 7 closes over dependencies: every transitive dependency of a rule-7 crate builds for wasm, CI builds `scatter-wasm` against a 2 MB gzipped budget, and the editor bundle is two lazily loaded modules. Per-operation filtering in `scatter-ingest` is an injected `FilterHook` trait, so the ingester names no filter language. The build order (§7) adds `scatter-titles` to step 1 and puts `triplespace-titles` over it in step 6. The ledger named §1 (the four layers); the layer move is a row of the table, and the chapter's rules section ([22](../architecture/22-crates-and-stack.md) §1.2) is §3 here, so the ledger row was corrected to §2, §3, §4 and §7. (REVIEW G51)
+- **Summary:** `scatter-extract` is a layer-2 crate, since it produces `scatter-wikibase-model`'s types. A `scatter:v0/*` payload type or config kind lives in the lowest crate whose product needs it (rule 11): `scatter-log` defines the `config` payload type and the kinds the log cannot start without, `scatter-pages` the page records, and a payload type or config kind that only Triplespace writes is declared by the Triplespace crate that writes it, so `scatter:v0/mirrored-page` and the `page-repo` kind are `triplespace-repos`'s, `scatter:v0/derivation` is `triplespace-extraction`'s, and the `tenancy`, `template` and `provider-readers` kinds are `triplespace-accounts`'s. `scatter-titles`, a new layer-1 pure crate, holds the namespace and special-page registries, title normalization and alias resolution, everything of a title that is a function of the registry and the string, and builds for `wasm32`, so that `triplespace-ui` and `scatter-wasm` can take it; `triplespace-titles` keeps the DB-backed resolver. The build order (§7) adds `scatter-titles` to step 1 and puts `triplespace-titles` over it in step 6. The ledger named §1 (the four layers); the layer move is a row of the table, and the chapter's rules section ([22](../architecture/22-crates-and-stack.md) §1.2) is §3 here, so the ledger row was corrected to §2, §3, §4 and §7. Chapter text: [22](../architecture/22-crates-and-stack.md) §1.2, §1.3, §2.1. (REVIEW G51)
 
-Replaced text ([22](../architecture/22-crates-and-stack.md) §1.2, as it stood):
-
-> 2. **The core is pure.** `scatter-vocab`, `scatter-providers`, `scatter-identity`, `scatter-normalize`, `scatter-actors`, `scatter-pages`, `scatter-wikitext`, `scatter-threads`, `scatter-activitypub`, `scatter-filter`, `scatter-mwlog`, `scatter-wikitext-expand` ([0042](../decisions/0042-template-expansion-and-parsoid.md) §4), `scatter-css` ([0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §2), `scatter-scope` ([0060](../decisions/0060-scopes.md) §11), `scatter-tasks` ([0061](../decisions/0061-sprints-and-tasks.md) §12), `scatter-shex` ([0064](../decisions/0064-entityschema-and-validation.md) §9), `scatter-merge` ([0068](../decisions/0068-merging-with-upstream.md) §7), `scatter-files`, `scatter-extract` ([0072](../decisions/0072-template-mappings.md) §7), `triplespace-scribunto` ([0043](../decisions/0043-lua-modules.md) §14) and every `scatter-wikibase-*` crate perform no I/O, use no async runtime, and depend on no tokio. `scatter-activitypub` signs and verifies; it never sends. Async appears only in `scatter-log-postgres`, `scatter-ingest` and the surfaces. `LogStore`'s methods return futures ([01](../architecture/01-log-and-records.md)), which is a type signature, not a runtime: `scatter-log` depends on `std::future` alone, and its file backend does synchronous I/O inside those futures and nothing else. Other runtimes can then call the core without bridging, and a synchronous caller drives a `LogStore` call with any executor. `triplespace-scribunto` is pure (no I/O, no async runtime), but through `mlua` it links Lua's C code, so it cannot build for wasm and is not on rule 7's list ([0043](../decisions/0043-lua-modules.md) §14).
+Replaced text: [22](../architecture/22-crates-and-stack.md) §1.2, as it stood before this entry; in git (`tools/adr.py log 0005 A92 --before`).
 
 > 7. **`scatter-wikibase-shape`, `scatter-wikitext`, `scatter-pages`, `scatter-normalize`, `scatter-merge`, `scatter-extract`, `scatter-css`, `scatter-scope` and `scatter-tasks` must build for `wasm32-unknown-unknown`,** so that the statement UI ([0003](../decisions/0003-statement-ui.md)), the page editor's preview ([0008](../decisions/0008-namespaces-and-document-pages.md) §11), title normalization in the browser ([0009](../decisions/0009-keyed-entity-types-and-domain.md) §12) and the classifier audit over a Wikidata dump run the same code as the server. This rule is the one wasm list, the nine crates the table of §2 marks as building for `wasm32`; [0034](../decisions/0034-frontend-stack.md) §6 and `cargo xtask wasm` read it. CI builds that target. `scatter-wasm` ([0034](../decisions/0034-frontend-stack.md) §6) is the one crate that binds them for the browser ([0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §9).
 
-Replaced text ([22](../architecture/22-crates-and-stack.md) §1.3, as it stood):
-
-> - **Log partitions carry their own policy.** Each partition has a history policy (`full` or `latest`), an integrity policy (`logged` or `hashed`), a segment size 2^k and a hash function fixed at creation ([01](../architecture/01-log-and-records.md)). Scatterbase's claim partition keeps everything and is `logged`; Triplespace's mirror partitions compact. `scatter-log` supports both from its first release, since adding either one later would change the on-disk format. A partition may be backed by files or by Postgres; both implement `LogStore`, whose methods return `Send` futures, and export bundles use the file format whichever backend is live ([0005](../decisions/0005-crate-organization.md) §4.2).
-
-Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
-
-> | | `scatter-log` | An append-only log split into partitions and generic over the record type; the `pages/{repo}` graph and the five-part `scatter:v0/mirrored-page` payload type ([0053](../decisions/0053-mirrored-pages.md) §5), and the optional `text` part of `scatter:v0/upstream-revision` ([0054](../decisions/0054-forking-a-mirrored-page.md) §3). The `LogStore` trait (`append`, `read`, `scan`, `erase_parts`, `compact`, `head`) and its file backend, `segments` ([0013](../decisions/0013-postgres-storage.md) §1, §10). The record header and body formats, hash tags, segment layout and Merkle tree ([0006](../decisions/0006-log-integrity-and-erasure.md) §2–5). **The graph and partition registry** (§4.1, §4.2), formerly `scatter-graphs`. Header fields 7–9, the provider-ranged revision ID and the body of erasable parts ([0015](../decisions/0015-record-format-and-partition-registry.md) §1–2). The `config` payload type with kinds `key` and `graph`, the `membership` and `block` types ([0015](../decisions/0015-record-format-and-partition-registry.md) §3, [0016](../decisions/0016-permissions-and-access-control.md) §3), and the `acl` payload type, appended to `config` for graph targets and to `log` for moderation ([0023](../decisions/0023-moderation.md) §3). The `tenancy`, `template` and `provider-readers` kinds and `scope` on `group` ([0028](../decisions/0028-tenancy-policy.md) §14). Durable offsets, tombstones, bootstrap segment writing, and replay from any offset. Embeds `docs/registry/graphs.toml` as the default registry ([0015](../decisions/0015-record-format-and-partition-registry.md) §5); the instance `log` partition and `files/{repo}` mirror partitions in the graph registry ([0039](../decisions/0039-files-and-media.md) §10–11); the instance attestation, domain tag `0x06` and the refusal of submitted instance attestations ([0040](../decisions/0040-instance-prerogatives.md) §3); the stored-form codec of packed storage: path patterns over CBOR, packing a body into fragment references, splicing it back and checking the commitment on rebuild, embedding `docs/registry/fragments.toml`; it does not compress ([0058](../decisions/0058-packed-record-storage.md) §1, §3); the `derived/{source}` graph and the four-part `scatter:v0/derivation` payload type ([0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §1, §3); the `recovery-key`, `continuation` and `continuation-cancel` config kinds ([0081](../decisions/0081-recovery-keys-and-continuations.md) §10) | `oxrdf` |
+Replaced text: [22](../architecture/22-crates-and-stack.md) §1.3, §2.1, as it stood before this entry; in git (`tools/adr.py log 0005 A92 --before`).
 
 > | | `scatter-extract` | Template mappings with `when` conditions, parsers, value maps, split and trim ([0072](../decisions/0072-template-mappings.md) §2–4, §7); line rules, URL match patterns compiled into one set with PCRE translation, identifiers from URLs, heading and column facets ([0073](../decisions/0073-lines-links-and-url-patterns.md) §3–5, §7); the result type of subjects, match keys, statements and reports. Pure; its configuration is data, so callers outside Triplespace can use it; builds for `wasm32` | `scatter-wikitext`, `scatter-wikibase-model`, `scatter-normalize`, `regex` |
 
@@ -902,13 +861,7 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
 - **Change:** amends §7; extends §2
 - **Summary:** The projection order is a partial order over the projections a build registers, with `ops.projection_state` rows for those only, so that a build without a projection has no row for it and nothing waits on it, and a later projection is added by registering it with its class and the projections it reads after; `scatter-projection` and `triplespace-projections` carry this. The build order names the first milestone's crate and projection set (the API-only single-tenant instance the three client libraries are tested against), and step 2 builds `scatter-log`'s formats, tree and trait with an in-memory backend, then `scatter-integrity`, then `scatter-log-postgres` and the conformance suite, and the `segments` file backend last against the same suite: Postgres is the backend the milestone serves from. The ledger named §3; the fold is at [22](../architecture/22-crates-and-stack.md) §3.1 (§7 here) and in the table (§2), and the ledger row was corrected. (REVIEW G52)
 
-Replaced text ([22](../architecture/22-crates-and-stack.md) §3.1, as it stood):
-
-> 2. **The log:** `scatter-log` with the `segments` backend, `scatter-integrity`, then `scatter-log-postgres` and the `LogStore` conformance suite.
-
-Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
-
-> | | `scatter-projection` | The projection trait, including a transactional variant that applies inside the appending transaction ([0013](../decisions/0013-postgres-storage.md) §7, §10); projection positions per partition, rebuilding from offset 0, and lag reporting | `scatter-log` |
+Replaced text: [22](../architecture/22-crates-and-stack.md) §3.1, §2.1, as it stood before this entry; in git (`tools/adr.py log 0005 A93 --before`).
 
 ### A94. No genesis record; several processes append
 
@@ -917,20 +870,14 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
 - **Change:** amends §4.2
 - **Summary:** A partition has no genesis record: its name, hash function, `k` and policies are its `graph:` record in the `config` partition, which the export bundle carries, and its first record is an ordinary record at offset 0. Several processes append to one partition: an appending transaction reads the tree's right edge under the partition's append lock and persists only the complete subtrees its append closes, rather than keeping the right edge in memory. Both are stated at [01](../architecture/01-log-and-records.md) §1.2 and §4.1, whose provenance includes §4.2 here beside [0006](0006-log-integrity-and-erasure.md) §4 and §5, where the decisions are logged in full (0006 A24, A25); the ledger rows were extended to name §4.2. (REVIEW G24, G25)
 
-Replaced text ([01](../architecture/01-log-and-records.md) §1.2, as it stood):
-
-> - a **segment size** 2^k and the **hash function**, fixed at creation. The hash function is named in the partition's genesis record; changing it means starting a new partition.
-
-Replaced text ([01](../architecture/01-log-and-records.md) §4.1, as it stood):
-
-> - **Appends in steady state** keep the tree's right edge in memory, which is O(log n) hashes. Each append costs one leaf hash plus O(log n) node hashes in the worst case.
+Replaced text: [01](../architecture/01-log-and-records.md) §1.2, §4.1, as it stood before this entry; in git (`tools/adr.py log 0005 A94 --before`).
 
 ### A95. Crates for settings and preferences
 
 - **Date:** 2026-10-17
 - **Source:** [0085](0085-settings-and-preferences.md) §9
 - **Change:** extends §2
-- **Summary:** `triplespace-accounts` embeds `docs/registry/settings.toml` and holds the `setting` config kind, the setting resolver and the one validator every writer of a `site` record calls, and resolves preferences through `preferences.defaults` and the farm account; `triplespace-api-rest` serves `/settings/schema` and `/settings`; `triplespace-files` serves site assets at `{media base}/asset/`; `triplespace-api-action` reports the `site.*` settings in `siteinfo`; `triplespace-projections` projects `settings/change`; `triplespace-ui` draws `Special:Preferences`, `Special:WikiSettings`, `Special:InstanceSettings` and the Appearance menu; `triplespace-cli` gains `settings`. The chapter rows are [22](../architecture/22-crates-and-stack.md) §2.1.
+- **Summary:** The crates take on 0085's settings and preferences; no new crate. Chapter text: 22 §2.1; the rows are in git (`tools/adr.py log 0005 A95 --diff`).
 
 ### A96. Crates for theming
 
@@ -944,7 +891,7 @@ Replaced text ([01](../architecture/01-log-and-records.md) §4.1, as it stood):
 - **Date:** 2026-10-17
 - **Source:** [0087](0087-account-registration-and-challenges.md) §10
 - **Change:** extends §2
-- **Summary:** A new pure crate, `scatter-challenge`, layer 1, building for `wasm32`, holds the proof-of-work challenge: the challenge string, its MAC given a key and a binding, the SHA-256 work function, the solver and the test vectors, shared with Scatterbase. `scatter-wasm` gains a third lazily loaded module for the solver; `triplespace-accounts` issues and checks challenges and holds account requests; `triplespace-api-action`, `triplespace-ui`, `triplespace-client`, `triplespace-cli`, `triplespace-db` and `triplespace-cache` gain their parts. The chapter text is [22](../architecture/22-crates-and-stack.md) §2.1 and §2.2.
+- **Summary:** A new pure crate, `scatter-challenge`, layer 1, building for `wasm32`, holds the proof-of-work challenge: the challenge string, its MAC given a key and a binding, the SHA-256 work function, the solver and the test vectors, shared with Scatterbase. The chapter text is [22](../architecture/22-crates-and-stack.md) §2.1 and §2.2.
 
 ### A98. The challenge solver is not a WebAssembly module
 
@@ -953,58 +900,34 @@ Replaced text ([01](../architecture/01-log-and-records.md) §4.1, as it stood):
 - **Change:** amends §2
 - **Summary:** The browser solves a registration challenge with JavaScript in `triplespace-ui`, held to `scatter-challenge`'s test vectors, so `scatter-wasm` gains no module for it and no longer depends on `scatter-challenge`; `scatter-challenge` keeps the native solver. Compiling the crate for the browser is 0087 Q5. `triplespace-db` and `triplespace-accounts` gain `private.rate_event` (0013 A65). The chapter text is [22](../architecture/22-crates-and-stack.md) §2.1 and §2.2.
 
-Replaced text ([22](../architecture/22-crates-and-stack.md) §2.2, the `scatter-wasm` row, as it stood):
+Replaced text: [22](../architecture/22-crates-and-stack.md) §2.1, as it stood before this entry; in git (`tools/adr.py log 0005 A98 --before`).
 
-> a third lazily loaded module, the `scatter-challenge` solver, for the Web Worker of the registration, login and edit forms ([0087](../decisions/0087-account-registration-and-challenges.md) §5, §10)
-
-Replaced text ([22](../architecture/22-crates-and-stack.md) §2.2, the end of the `scatter-wasm` row's dependencies, as it stood):
-
-> `scatter-css`, `wasm-bindgen`, `scatter-challenge` |
+Replaced text: [22](../architecture/22-crates-and-stack.md) §2.1, as it stood before this entry; in git (`tools/adr.py log 0005 A98 --before`).
 
 ### A99. The OAuth client for login
 
 - **Date:** 2026-10-18
 - **Source:** [0088](0088-external-identity-providers.md) §10
 - **Change:** extends §2
-- **Summary:** `triplespace-accounts` gains the OAuth client for login through external issuers: flows, PKCE and `state`, the exchange and profile call, subject normalization, `private.oauth_client` sealed under the instance sealing key, `private.binding`, and vouching with the `reclaim` record. `triplespace-api-action`, `triplespace-api-rest`, `triplespace-ui` and `triplespace-cli` (`oauth-client`) gain their parts; `scatter-actors` reads an issuer's `oauth` table. XChaCha20-Poly1305 (`chacha20poly1305`) joins the cryptography table. The chapter text is [22](../architecture/22-crates-and-stack.md) §2.1 and §4.4.
+- **Summary:** `triplespace-accounts` gains the OAuth client for login through external issuers: flows, PKCE and `state`, the exchange and profile call, subject normalization, `private.oauth_client` sealed under the instance sealing key, `private.binding`, and vouching with the `reclaim` record. XChaCha20-Poly1305 (`chacha20poly1305`) joins the cryptography table. The chapter text is [22](../architecture/22-crates-and-stack.md) §2.1 and §4.4.
 
 ### A100. The auth host and instance logins
 
 - **Date:** 2026-10-18
 - **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §17
 - **Change:** extends §2
-- **Summary:** `triplespace-accounts` gains instance logins: their records and names, passwords and external bindings keyed by login, tenant and farm accounts' bindings to logins, the authorization route's handles and login codes, central sessions and logging out everywhere, and the migration. `triplespace-server` gains `server.auth_base` and the auth base's routes, and `triplespace-cli` `logins migrate`; `triplespace-api-action`, `triplespace-api-rest`, `triplespace-ui`, `triplespace-db` and `scatter-actors` gain their parts. The chapter text is [22](../architecture/22-crates-and-stack.md) §2.1.
+- **Summary:** `triplespace-accounts` gains instance logins: their records and names, passwords and external bindings keyed by login, tenant and farm accounts' bindings to logins, the authorization route's handles and login codes, central sessions and logging out everywhere, and the migration. The chapter text is [22](../architecture/22-crates-and-stack.md) §2.1.
 
 ### A101. `scatter-talk`
 
 - **Date:** 2026-10-20
 - **Source:** [0090](0090-converting-talk-pages-comment-by-comment.md) §12
 - **Change:** amends §2
-- **Summary:** A new pure crate, `scatter-talk`, holds the wikitext talk-page splitter (moved from `scatter-adapter-mediawiki`), the line-level blame and attribution, and DiscussionTools names and IDs, and embeds `talk-markup.toml`; it depends on `scatter-wikitext`. `scatter-threads` gains heading posts, wrapper posts and `imported_from` on `post`; `scatter-ingest` converts an adopted wiki's talk pages; `triplespace-repos` calls the conversion and streams history for attribution; `triplespace-projections` fills `view.post`'s new columns; `triplespace-ui` renders the new posts, anchors and `Special:GoToComment`. Chapter text: [22](../architecture/22-crates-and-stack.md) §1.2, §2.1.
+- **Summary:** A new pure crate, `scatter-talk`, holds the wikitext talk-page splitter (moved from `scatter-adapter-mediawiki`), the line-level blame and attribution, and DiscussionTools names and IDs, and embeds `talk-markup.toml`; it depends on `scatter-wikitext`. Chapter text: [22](../architecture/22-crates-and-stack.md) §1.2, §2.1.
 
-Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
+Replaced text: [22](../architecture/22-crates-and-stack.md) §1.2, as it stood before this entry; in git (`tools/adr.py log 0005 A101 --before`).
 
-> `scatter-threads`, `scatter-activitypub`,
-
-Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
-
-> the section name hash in `imported_from` ([0069](../decisions/0069-synchronized-talk-pages.md) §12) | `scatter-pages` |
-
-Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
-
-> the per-graph base check and the patch rule of a stale local base ([0084](../decisions/0084-wikibase-writes-against-the-resolved-view.md) §6) | `scatter-log`, `scatter-projection`, `scatter-wikibase-changeset`, `scatter-wikibase-model`, `scatter-providers` |
-
-Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
-
-> event following and cursors shared with entity providers ([0070](../decisions/0070-shallow-entity-mirroring.md) §5) | `scatter-adapter-mediawiki`,
-
-Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
-
-> the `settings/change` log event ([0085](../decisions/0085-settings-and-preferences.md) §9) | `triplespace-db`, `scatter-projection`,
-
-Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
-
-> `Special:ConfirmAccounts` and the open-request count ([0087](../decisions/0087-account-registration-and-challenges.md) §5, §10) | `triplespace-client`,
+Replaced text: [22](../architecture/22-crates-and-stack.md) §2.1, as it stood before this entry; in git (`tools/adr.py log 0005 A101 --before`).
 
 ### A102. Closing and collapsing posts in the talk-page crates
 
@@ -1013,13 +936,7 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
 - **Change:** amends §2
 - **Summary:** With wrapper templates converted into closing and collapsing posts rather than wrapper posts, `scatter-threads` gains `collapse` and `uncollapse` on any post and the `closed` status in place of wrapper posts; `scatter-talk` writes heading, closing and collapsing posts; `triplespace-ui` renders collapsed ranges. Chapter text: [22](../architecture/22-crates-and-stack.md) §2.1.
 
-Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
-
-> heading posts, wrapper posts and `imported_from` on `post`, and refusing them on an editor's `post` ([0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §3, §8)
->
-> signatures, depth and parents, heading and wrapper posts, and the section and page fallbacks;
->
-> heading and wrapper posts, post anchors, the imported post's byline and `Special:GoToComment` ([0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §3, §9)
+Replaced text: [22](../architecture/22-crates-and-stack.md) §2.1, as it stood before this entry; in git (`tools/adr.py log 0005 A102 --before`).
 
 ### A103. `scatter-talk-import`
 
@@ -1035,43 +952,25 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
 - **Change:** corrects §2
 - **Summary:** 0021 §1 makes addressing a projection, which `triplespace-notify` holds, so the crate implements `scatter-projection`'s trait over records it decodes with `scatter-log`; its row omitted both. The decision is unchanged. Chapter text: [22](../architecture/22-crates-and-stack.md) §2.1.
 
-Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, `triplespace-notify`'s *Depends on*, as it stood):
-
-> `triplespace-db`, `triplespace-projections`, `triplespace-accounts`, `scatter-activitypub`
+Replaced text: [22](../architecture/22-crates-and-stack.md) §2.1, `triplespace-notify`'s *Depends on*, as it stood before this entry; in git (`tools/adr.py log 0005 A104 --before`).
 
 ### A105. `scatter-adapter-wikibase`
 
 - **Date:** 2026-10-26
 - **Source:** [0091](0091-one-wikibase-adapter.md) §5
 - **Change:** amends §2, §7
-- **Summary:** `scatter-adapter-wikidata` is renamed `scatter-adapter-wikibase` and gains the key-mapped adapter, with a dependency on `scatter-normalize`; `scatter-adapter-internetdomains` is retired into it. ADRs that name either read as naming `scatter-adapter-wikibase`. Chapter text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2, §3.1.
+- **Summary:** `scatter-adapter-wikidata` is renamed `scatter-adapter-wikibase` and gains the key-mapped adapter, with a dependency on `scatter-normalize`; `scatter-adapter-internetdomains` is retired into it. Chapter text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2, §3.1.
 
-Replaced text (22 §2.1, the row's name and opening, as it stood):
-
-> | | `scatter-adapter-wikidata` | The Wikidata adapter: entity dumps and streams,
-
-Replaced text (22 §2.1, the end of the row and its *Depends on*, as it stood):
-
-> §4) | `scatter-wikibase-changeset`, `scatter-wikibase-model`, `scatter-providers`, `scatter-actors`, `scatter-mwlog`, `scatter-adapter-mediawiki` |
-
-Replaced text (22 §2.1, the retired row, as it stood):
-
-> | | `scatter-adapter-internetdomains` | The key-mapped adapter for internetdomains.wiki ([0009](0009-keyed-entity-types-and-domain.md) §9, §12) | `scatter-wikibase-changeset`, `scatter-wikibase-model`, `scatter-providers`, `scatter-normalize` |
-
-Replaced text (22 §3.1, as it stood):
-
-> 4. **Ingest:** `scatter-wikibase-changeset`, `scatter-ingest` and `scatter-adapter-wikidata`,
+Replaced text: 22 §2.1, the row's name and opening of this ADR; 22 §2.1, the end of the row and its *Depends on* of this ADR; 22 §2.1, the retired row of this ADR; 22 §3.1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0005 A105 --before`).
 
 ### A106. The recent-changes follower
 
 - **Date:** 2026-10-26
 - **Source:** [0092](0092-following-recent-changes.md) §8
 - **Change:** amends §2
-- **Summary:** `scatter-adapter-mediawiki` gains the recent-changes query and batch reading, shared by entity and page followers; `scatter-adapter-wikibase` the entity namespaces from `siteinfo`; `scatter-ingest` the follower loop over a `ChangeSource` trait, the position, a load's handover, the gap check, loads into a source and the crawl; `triplespace-api-ingest` implements `ChangeSource`; `triplespace-upstream` makes the poll's and the crawl's requests; `triplespace-repos` follows a page repository without `events` the same way; `triplespace-accounts` keeps the optional upstream bot password. No new crate and no new edge. The `triplespace-upstream` row still named `scatter-adapter-wikidata` among its dependencies after [0091](0091-one-wikibase-adapter.md) §5, and now names `scatter-adapter-wikibase`. Chapter text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.
+- **Summary:** The crates take on 0092's recent-changes follower; no new crate and no new edge. The `triplespace-upstream` row also stops naming `scatter-adapter-wikidata`, which 0091 §5 had renamed. Chapter text: 22 §2.1, §2.2; the rows are in git (`tools/adr.py log 0005 A106 --diff`).
 
-Replaced text (22 §2.1, `triplespace-upstream`, as it stood):
-
-> edits as a publication's account, with `basetimestamp` and the conflict check ([0074](0074-publishing-a-scope-to-an-external-wiki.md) §4) | `scatter-adapter-wikidata`, `scatter-mwlog`,
+Replaced text: 22 §2.1, `triplespace-upstream` of this ADR, as it stood before this entry; in git (`tools/adr.py log 0005 A106 --before`).
 
 ### A107. The talk-page conversion runs in `triplespace-cli`, not `scatter-ingest`
 
@@ -1080,9 +979,7 @@ Replaced text (22 §2.1, `triplespace-upstream`, as it stood):
 - **Change:** corrects §2
 - **Summary:** 0090 §10 has an adopted wiki's talk pages converted "within the adoption job". The thread writer is `triplespace-api-ingest`'s, a surface crate above the ingester, so `scatter-ingest` cannot call it (22 §1.2 rule 1): the conversion runs in `triplespace-cli`'s `adopt`, after the adoption job has written every subject page and account, in the same command and attributed to the same job. The `scatter-ingest` row said the ingester converts them; the `triplespace-cli` row now says what it does. The decision is unchanged. Chapter text: [22](../architecture/22-crates-and-stack.md) §2.1.
 
-Replaced text (22 §2.1, `scatter-ingest`, as it stood):
-
-> converting an adopted wiki's talk pages within the adoption job, with blame over the dump ([0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §10)
+Replaced text: 22 §2.1, `scatter-ingest` of this ADR, as it stood before this entry; in git (`tools/adr.py log 0005 A107 --before`).
 
 ### A108. The Interface namespace
 
@@ -1105,9 +1002,7 @@ Replaced text (22 §2.1, `scatter-ingest`, as it stood):
 - **Change:** amends §2; extends §6
 - **Summary:** `triplespace-ui` renders through operator-installed skins: a skin loader with a requirement check, MiniJinja with the template functions, the menus and the link classification, and the view models every skin draws; `askama` and the Codex builder remain for the built-in rendering only until the default skin reaches parity, and go then (0097 §16). It gains `minijinja`, `semver` and `html5ever`. `triplespace-web` and `triplespace-server` embed the default skin and read a skin directory and the `renderer` switch; `triplespace-client` checks `api_version` as a semantic version; `triplespace-api-action` reports it and the contract versions; `triplespace-accounts` holds `skins.available`, `skins.default` and `ui.skin`. Each `scatter-*` crate is versioned on its own, checked by `cargo-semver-checks` once published; the other crates are `publish = false` and carry the product version. The chapter text is [22](../architecture/22-crates-and-stack.md) §2.1, §3.4 and §3.5.
 
-Replaced text (§2):
-
-> Server rendering: `askama` templates, the builder that emits Codex CSS-only markup, the page frame of [0010](../decisions/0010-site-ui.md) §2 shared by every page kind, and the pinned Codex assets ([0034](../decisions/0034-frontend-stack.md) §2);
+Replaced text: [22](../architecture/22-crates-and-stack.md) §2.1, as it stood before this entry; in git (`tools/adr.py log 0005 A110 --before`).
 
 ### A111. The crate map is a registry file
 
@@ -1116,15 +1011,7 @@ Replaced text (§2):
 - **Change:** consolidates §2, §3
 - **Summary:** The table of 22 §2.1 moved, cell for cell, into `docs/registry/crates.toml` (one `[[crate]]` entry per row: names, layer, a one-line summary, `depends`, `depends_any`, `depends_note`, `pure`, `wasm`, and the full `contents`); the chapter's table is now generated from it by `architecture/crates.py` and shows the summary, and `architecture/CRATES.md`, generated likewise, shows every entry in full. `cargo xtask deps` and `xtask wasm` read the file instead of the chapter, and the `pure` and `wasm` lists that were hard-coded in `xtask` and restated in 22 §1.2 rules 2 and 7 are the file's marks; the two rules now name the marks. Four cells that 0095 A3 had folded into the Crate column (`scatter-titles`, `triplespace-projections`, `triplespace-ui`, `triplespace-client`) were moved to those crates' contents. No decision changed. The last commit in which the chapter carried the table is `0e67cce`.
 
-Replaced text ([22](../architecture/22-crates-and-stack.md) §1.2 rule 2, as it stood):
-
-> 2. **The core is pure.** `scatter-vocab`, `scatter-providers`, `scatter-identity`, `scatter-normalize`, `scatter-actors`, `scatter-pages`, `scatter-wikitext`, `scatter-threads`, `scatter-talk` and `scatter-talk-import` ([0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §12), `scatter-activitypub`, `scatter-filter`, `scatter-mwlog`, `scatter-wikitext-expand` ([0042](../decisions/0042-template-expansion-and-parsoid.md) §4), `scatter-css` ([0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §2), `scatter-scope` ([0060](../decisions/0060-scopes.md) §11), `scatter-tasks` ([0061](../decisions/0061-sprints-and-tasks.md) §12), `scatter-shex` ([0064](../decisions/0064-entityschema-and-validation.md) §9), `scatter-merge` ([0068](../decisions/0068-merging-with-upstream.md) §7), `scatter-files`, `scatter-extract` ([0072](../decisions/0072-template-mappings.md) §7), `scatter-titles`, `triplespace-scribunto` ([0043](../decisions/0043-lua-modules.md) §14) and every `scatter-wikibase-*` crate perform no I/O, use no async runtime, and depend on no tokio.
-
-Replaced text ([22](../architecture/22-crates-and-stack.md) §1.2 rule 7, as it stood):
-
-> 7. **`scatter-wikibase-shape`, `scatter-wikitext`, `scatter-pages`, `scatter-normalize`, `scatter-merge`, `scatter-extract`, `scatter-css`, `scatter-scope`, `scatter-tasks` and `scatter-titles` must build for `wasm32-unknown-unknown`,** …
->
-> This rule is the one wasm list, the ten crates the table of §2 marks as building for `wasm32`; [0034](../decisions/0034-frontend-stack.md) §6 and `cargo xtask wasm` read it.
+Replaced text: [22](../architecture/22-crates-and-stack.md) §1.2 rule 2, §1.2 rule 7, as it stood before this entry; in git (`tools/adr.py log 0005 A111 --before`).
 
 ### A112. The map's history lives in its entries
 
@@ -1133,50 +1020,7 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §1.2 rule 7, as it 
 - **Change:** consolidates §2
 - **Summary:** 22 §2.2, the narrative of which ADR introduced which crate, is retired: a chapter carries no history (24 §10.1), and every fact in it is carried by the entries of `crates.toml`, each of which cites the ADR sections that added or changed it, and by those ADRs' logs. Its citations moved to 22 §2.1's provenance line and the pointers of the ADRs it cited now name §2.1 alone. The retired crate names (`scatter-graphs`, `scatter-markdown`, `scatter-keyed`, `triplespace-activity`, `triplespace-revmeta`, `scatter-adapter-wikidata`, `scatter-adapter-internetdomains`) moved from a sentence in 22 §2.1 into `[[retired]]` entries of `crates.toml`, from which `crates.py` writes the sentence and `check_adrs.py` reads the names. No decision changed. The last commit before this entry is `928613b`.
 
-Replaced text ([22](../architecture/22-crates-and-stack.md) §2.1, as it stood):
-
-> Crates named by earlier ADRs that no longer exist as separate crates: `scatter-graphs` (in `scatter-log`), `scatter-markdown` (in `scatter-pages`), `scatter-keyed` (in `scatter-normalize`), `triplespace-activity` (in `triplespace-projections`), `triplespace-revmeta` (in `triplespace-rdf`), `scatter-adapter-wikidata` (renamed `scatter-adapter-wikibase`, [0091](../decisions/0091-one-wikibase-adapter.md) §5), `scatter-adapter-internetdomains` (in `scatter-adapter-wikibase`, the same). References to them in [0008](../decisions/0008-namespaces-and-document-pages.md) §11, [0009](../decisions/0009-keyed-entity-types-and-domain.md) §12, [0010](../decisions/0010-site-ui.md) §13, [0011](../decisions/0011-logs.md) §10, [0012](../decisions/0012-api-requirements.md) §9, [0019](../decisions/0019-discussions.md) §13 and every ADR that names either adapter read as references to their new homes.
-
-Replaced text ([22](../architecture/22-crates-and-stack.md) §2.2, as it stood):
-
-> The Crates section of each ADR from [0006](../decisions/0006-log-integrity-and-erasure.md) to [0049](../decisions/0049-boards.md) is superseded by the table above, which keeps every change those sections listed; the tables they first gave are in their amendment logs. The crates each introduced, in the order the ADRs did:
->
-> - `scatter-integrity`, which owns checkpoint signing and parsing, inclusion and consistency proofs, erasure bookkeeping, export bundles and `verify`, and depends on `scatter-log`, which owns the header and body formats, the two policies, segment layout and the Merkle tree ([0006](../decisions/0006-log-integrity-and-erasure.md) §10);
-> - `scatter-actors`, a pure substrate crate, and `triplespace-accounts`, a surface crate ([0007](../decisions/0007-actor-identity.md) §10);
-> - `scatter-adapter-musicbrainz` ([0017](../decisions/0017-entity-id-grammar.md) §7);
-> - `scatter-threads` ([0019](../decisions/0019-discussions.md) §13);
-> - `scatter-activitypub` and `triplespace-notify` ([0021](../decisions/0021-notifications.md) §10);
-> - `triplespace-federation` ([0022](../decisions/0022-federation.md) §13);
-> - `triplespace-oauth` ([0025](../decisions/0025-oauth-server.md) §11);
-> - `scatter-adapter-triplespace` ([0028](../decisions/0028-tenancy-policy.md) §14);
-> - `scatter-filter` ([0030](../decisions/0030-edit-filters.md) §13);
-> - `scatter-wikibase-constraints` ([0031](../decisions/0031-property-constraints.md) §9);
-> - `scatter-adapter-openstreetmap` (layer 3), depending on `scatter-wikibase-changeset`, `scatter-wikibase-model`, `scatter-providers` and `scatter-normalize`. `OW` needs no adapter of its own: it is `scatter-adapter-wikidata` parameterised by the provider entry, with the key-mapping capability that `scatter-adapter-internetdomains` needs as well. `scatter-normalize` keeps the `osm-tag` grammar as the `osm` scheme's grammar, and `triplespace-titles` gains the `Notation` namespace ([0036](../decisions/0036-openstreetmap-providers.md) §7; the registry side of that section is in [23](../architecture/23-configuration-and-registry.md));
-> - `scatter-adapter-gdelt` (layer 3), with the same four dependencies. `scatter-providers` gains per-type `id_grammar` and the `gdelt-record` and `token` grammars, beside `digits` and `uuid`: the ID grammars of minted types live with the registry field that names them ([0017](../decisions/0017-entity-id-grammar.md) §7), and `scatter-normalize` keeps the key grammars of keyed types ([0037](../decisions/0037-gdelt-provider.md) §8; the registry side is in [23](../architecture/23-configuration-and-registry.md));
-> - `scatter-blob`, `scatter-files` and `triplespace-files` ([0039](../decisions/0039-files-and-media.md) §23);
-> - `scatter-wikitext-expand` and `triplespace-render`; `services/parsoid/` is a PHP program, not a crate ([0042](../decisions/0042-template-expansion-and-parsoid.md) §19);
-> - `triplespace-scribunto` ([0043](../decisions/0043-lua-modules.md) §17);
-> - `scatter-adapter-mediawiki` (ingest) and `triplespace-repos` (surfaces); the `.mwrev.zst` reader for RevisionChest stores moves to `scatter-adapter-mediawiki` from `scatter-adapter-wikidata`, which now depends on it, so that both adapters share it ([0053](../decisions/0053-mirrored-pages.md) §12);
-> - `scatter-css`, pure and wasm ([0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §9);
-> - `triplespace-client` and `triplespace-web`, with rule 10 of §1.2 ([0057](../decisions/0057-web-tier.md) §12);
-> - `triplespace-query` ([0059](../decisions/0059-query-service.md) §8);
-> - `scatter-scope`, layer 2, pure, wasm ([0060](../decisions/0060-scopes.md) §11);
-> - `scatter-tasks`, layer 2, pure, wasm ([0061](../decisions/0061-sprints-and-tasks.md) §12);
-> - `scatter-shex`, layer 2, pure ([0064](../decisions/0064-entityschema-and-validation.md) §9);
-> - `scatter-merge`, layer 1, pure, wasm ([0068](../decisions/0068-merging-with-upstream.md) §7);
-> - `triplespace-extraction` ([0071](../decisions/0071-derived-statements-from-mirrored-pages.md) §14) and `scatter-extract` (§2.3);
-> - `triplespace-publish` ([0074](../decisions/0074-publishing-a-scope-to-an-external-wiki.md) §9);
-> - `triplespace-mcp` ([0075](../decisions/0075-mcp-server.md) §7);
-> - `scatter-titles`, layer 1, pure, wasm: the registry-and-string half of what `triplespace-titles` held, split out so that the browser and `triplespace-ui` normalize titles with the server's code, leaving `triplespace-titles` the DB-backed resolver ([0005](../decisions/0005-crate-organization.md) §2);
-> - `scatter-challenge`, layer 1, pure, wasm ([0087](../decisions/0087-account-registration-and-challenges.md) §10).
->
-> Following a wiki by its recent changes adds no crate either: its pieces land in `scatter-adapter-wikibase`, `scatter-ingest`, `triplespace-api-ingest`, `triplespace-upstream` and `triplespace-db` ([0092](../decisions/0092-following-recent-changes.md) §8).
->
-> One Wikibase adapter adds no crate: it renames `scatter-adapter-wikidata` to `scatter-adapter-wikibase` and retires `scatter-adapter-internetdomains` into it, so that every MediaWiki+Wikibase provider is read by one adapter parameterised by its registry entry ([0091](../decisions/0091-one-wikibase-adapter.md) §5).
->
-> Source form and the shared view, the write path in three tiers and Wikibase writes against the resolved view add no crate: each lands in the crates it names, and the table carries their rows ([0082](../decisions/0082-source-form-and-the-shared-view.md) §7; [0083](../decisions/0083-write-path-in-three-tiers.md) §8; [0084](../decisions/0084-wikibase-writes-against-the-resolved-view.md) §6).
->
-> Some of those sections say where something does not go. `sites.toml` is embedded by `scatter-wikibase-model`, since a site alias is a Wikibase-compatibility concern, not a provider one ([0026](../decisions/0026-sitelinks.md) §10). The user data bundle format is a Triplespace surface, not a shared seam, so nothing of it enters a `scatter-*` crate ([0027](../decisions/0027-preferences-and-portability.md) §9). Packed record storage leaves the `segments` backend unchanged: a segment file holds logical slots, and any compression there is a matter for the file format of payloads.md §10 ([0058](../decisions/0058-packed-record-storage.md) §12). Moderation, subsidiaries, sitelinks, preferences, tenancy policy, resolvers, tenant-relative IDs, tables, the primary tenant, special pages, notation and boards add no crate and land in the crates they extend ([0023](../decisions/0023-moderation.md) §13, [0024](../decisions/0024-subsidiary-accounts.md) §13, [0026](../decisions/0026-sitelinks.md) §10, [0027](../decisions/0027-preferences-and-portability.md) §9, [0028](../decisions/0028-tenancy-policy.md) §14, [0029](../decisions/0029-resolver-namespaces.md) §9, [0044](../decisions/0044-tenant-relative-ids.md) §6, [0045](../decisions/0045-table-content-model.md) §13, [0046](../decisions/0046-primary-tenant.md) §10, [0047](../decisions/0047-special-pages.md) §14, [0048](../decisions/0048-notation.md) §8, [0049](../decisions/0049-boards.md) §15), as do page metadata, instance prerogatives, content models, forking, the security model, workspaces, the Query namespace, MediaInfo, lexemes, proposals, synchronized talk pages, shallow mirroring, lines and URL patterns, dataset publication and entity sources ([0038](../decisions/0038-page-metadata-and-categories.md) §15, [0040](../decisions/0040-instance-prerogatives.md) §11, [0041](../decisions/0041-content-models.md) §12, [0054](../decisions/0054-forking-a-mirrored-page.md) §12, [0056](../decisions/0056-security-model.md) §16, [0062](../decisions/0062-workspaces.md) §10, [0063](../decisions/0063-query-namespace.md) §8, [0065](../decisions/0065-mediainfo-captions-and-commons.md) §5, [0066](../decisions/0066-lexemes.md) §10, [0067](../decisions/0067-proposals.md) §9, [0069](../decisions/0069-synchronized-talk-pages.md) §12, [0070](../decisions/0070-shallow-entity-mirroring.md) §11, [0073](../decisions/0073-lines-links-and-url-patterns.md) §7, [0076](../decisions/0076-dataset-publication.md) §7, [0078](../decisions/0078-entity-sources.md) §12). The Postgres tables the permission crates project are in [03](../architecture/03-storage-caches-and-search.md) ([0016](../decisions/0016-permissions-and-access-control.md) §9), the local quad store that [0032](../decisions/0032-sparql-update-stream.md) §9 once described beside its crate list is in [02](../architecture/02-graphs-rdf-and-query.md), and the adoption job of [0035](../decisions/0035-adopting-a-wikibase.md) §8 is placed in build step 4 beside the mirror bootstrap (§3.1).
+Replaced text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2, as it stood before this entry; in git (`tools/adr.py log 0005 A112 --before`).
 
 ### A113. `scatter-mail`
 
@@ -1192,10 +1036,7 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §2.2, as it stood):
 - **Change:** amends §6
 - **Summary:** James withdrew the plan to offer the `scatter-*` crates under a commercial licence. Code in the repository is GPL-3.0-or-later unless otherwise stated, the shared crates included; what states otherwise is vendored third-party code and assets (their own licences), `docs/` (CC0-1.0) and bindings in other languages (Apache-2.0). With nothing to relicense, contributions are accepted under GPL-3.0-or-later and no contributor licence agreement is asked for (James chose this when asked, the same day): `version.toml`'s `[[contributor]]` loses its `cla` field, and Special:Version drops the commercial sentence and the per-crate mark ([0077](0077-special-version.md) A7). The other ADRs whose text gave dual licensing as a reason are amended with it: [0033](0033-backend-stack.md) A26, [0042](0042-template-expansion-and-parsoid.md) A23, [0043](0043-lua-modules.md) A10, [0055](0055-templatestyles-templatedata-and-page-properties.md) A7.
 
-Replaced text ([22](../architecture/22-crates-and-stack.md) §3.3, as it stood):
-
-> - **Triplespace is GPL-3.0-or-later.** That covers every crate in this workspace and the `ui/` package. Workspace crates and `ui/package.json` declare `GPL-3.0-or-later`, set once in `[workspace.package]` ([0033](../decisions/0033-backend-stack.md) §16).
-> - **The shared `scatter-*` crates are dual-licensed.** Like the Scatterbase kernel, they are also available under a commercial license from the copyright holder. Dual licensing requires Scatter to hold copyright in every shared crate, so outside contributions need a contributor license agreement.
+Replaced text: [22](../architecture/22-crates-and-stack.md) §3.3, as it stood before this entry; in git (`tools/adr.py log 0005 A114 --before`).
 
 ### A115. `scatter-wikibase-rdf` depends on `scatter-normalize`, `oxttl` and `md-5`
 
@@ -1218,9 +1059,7 @@ Replaced text ([22](../architecture/22-crates-and-stack.md) §3.3, as it stood):
 - **Change:** amends §4.1
 - **Summary:** `internal` was "served by the API but never exported" and `private` "never projected, placed on a feed or exported", which seemed to forbid a tenant move carrying `internal` partitions and a rehost carrying `private`. Each policy now names the scopes of 0006 §9 that carry it: `public` is exported, transferred and backed up; `internal` is transferred and backed up, never exported; `private` is backed up only, a transfer carrying its portable content, sealed. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §1.1.
 
-Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §1.1, as it stood):
-
-> - its **export policy**: `public`, published to external stores; `internal`, served by the API but never exported; or `private`, never projected, placed on a feed or exported ([0007](../decisions/0007-actor-identity.md) §8).
+Replaced text: [02](../architecture/02-graphs-rdf-and-query.md) §1.1, as it stood before this entry; in git (`tools/adr.py log 0005 A117 --before`).
 
 ### A118. `triplespace-rdf` writes bundles too
 

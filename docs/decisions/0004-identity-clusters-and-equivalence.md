@@ -110,10 +110,7 @@ There are three needs:
 - **Change:** extends §1; amends §4
 - **Summary:** A keyed type is a namespace of its own. Keyed members rank first in a cluster, ahead of local members.
 
-Replaced text (§4):
-
-> - A local member always ranks first.
-> - Each instance sets the order of the providers after it. The default is Wikidata, then OpenAlex.
+Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0004 A1 --before`).
 
 ### A2. Keywords never cluster
 
@@ -136,9 +133,7 @@ Replaced text (§4):
 - **Change:** extends §3, §4, §7; amends §9
 - **Summary:** For **properties only**, a local `redirect` may cross namespaces (`{"op":"redirect","from":"P12","to":"WDP585"}`), retiring the local property in favour of the mirrored one; see the open-questions note on retiring a local property. The `reconcile` record may carry `order_by_type` to rank providers differently per entity type. The same review settled Q1–Q4 and Q7: providers may be ordered per entity type; inferred links apply at once for the properties the `reconcile` record names; a coarser time does not fuse with a finer one; properties, not items, may redirect across namespaces; and the stable external handle is a member's document node.
 
-Replaced text (§9):
-
-> `redirect` in the local graph now records only a merge within one namespace. The same-as meaning that 0002 §8.2 gave it moves to `same-as`.
+Replaced text: §9 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0004 A4 --before`).
 
 ### A5. Deleted members leave the cluster
 
@@ -196,17 +191,7 @@ Replaced text (§9):
 - **Change:** amends §1, §2, §4
 - **Summary:** A cluster has at most one member per namespace the tenant reads: the registry's providers, the keyed types and the entity sources, not "the local instance, Wikidata or OpenAlex" and not "three today". The default provider order, after keyed and local members, is provider-number order in `providers.toml`, overridable by `reconcile`; "Wikidata, then OpenAlex" is no longer stated as the default. (PENDING A16)
 
-Replaced text (§1):
-
-> Each member of a cluster belongs to a **namespace**, meaning whoever minted the ID: the local instance, Wikidata or OpenAlex.
-
-Replaced text (§2):
-
-> **Clusters stay small.** A cluster can hold no more members than there are namespaces, which is three today.
-
-Replaced text (§4):
-
-> - Each instance sets the order of the providers after them. The default is Wikidata, then OpenAlex.
+Replaced text: §1 of this ADR; §2 of this ADR; §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0004 A12 --before`).
 
 ### A13. `reconcile` is tenant configuration
 
@@ -215,9 +200,7 @@ Replaced text (§4):
 - **Change:** corrects §4, §9
 - **Summary:** The `reconcile` record is tenant configuration ([0018](0018-tenants.md) §3), not "an instance's configuration": the provider order, link properties and normalizer overrides of §9 are set per tenant. The inference properties are the exception, which A14 states. The §4 sentence this corrects is the one A12 also replaced ("Each instance sets the order of the providers after them."); it is quoted under A12. (PENDING A17)
 
-Replaced text (§9):
-
-> **Configuration is recorded in the log.** The following settings are part of an instance's configuration:
+Replaced text: §9 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0004 A13 --before`).
 
 ### A14. Inference properties are instance configuration
 
@@ -226,33 +209,23 @@ Replaced text (§9):
 - **Change:** amends §3
 - **Summary:** The identifier properties that drive tier-3 inference are **instance** configuration, named in the instance `reconcile` record, so tier-3 links stay instance-wide (§3's farm rule). A tenant's `reconcile` may switch inference off for itself and set its provider order and link properties, but may not add inference properties. [0015](0015-record-format-and-partition-registry.md) §3 (`reconcile`) and 0018 §3 are amended the same way. Q2's settlement is extended accordingly. (PENDING B6)
 
-Replaced text (§3):
-
-> An inferred link is applied at once, for the identifier properties the tenant's `reconcile` record names; nothing is queued for review, and the registry ships none enabled.
+Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0004 A14 --before`).
 
 ### A15. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
-- **Summary:** The Decision's current text now lives in the architecture chapters [04](../architecture/04-entities-and-identifiers.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0004 A15 --diff`).
 
 ### A16. Source form, rewriting in responses and the instance policy record
 
 - **Date:** 2026-10-09
 - **Source:** [0082](0082-source-form-and-the-shared-view.md) §1, §3, §4, §5, §5.1
 - **Change:** amends §3, §4, §5, §6, §9
-- **Summary:** The internal graph is in source form: the canonical ID is an attribute of the cluster, named by `view.cluster`, and never applied to data; statement subjects, entity values, `entity_ref`, `identifier`, the search documents, the dump and the stream keep the IDs their sources wrote, and nothing rewrites an ID in storage because a cluster formed, changed or dissolved. The resolved view is the cluster's fused body, composed once per cluster; `materialized` means two or more contributing graphs or local deltas, nothing else; a cluster change recomposes the cluster's members and nothing else, with no delta per referrer and no re-resolution of referrers. In RDF the fused body is emitted under every member's concept IRI with `owl:sameAs` between the members, beside the redirect-form `owl:sameAs` to the canonical one. The form a consumer sees is a property of the response: a layer on the way out rewrites entity IDs, the entity part of statement GUIDs and `unit`, `globe` and `calendarmodel` to the consumer's preferred namespace order (`prefer`, defaulting to the form of the request; local for the site UI), using exact matches only (tier 1, tier 2 and `equivalent-property`, never tier-3 inference or anything a `different-from` split), after the cache, never inside literals; `wbgetentities` answers under the requested ID with a `canonical` field, and the Wikibase redirect shape is reserved for true redirects. So a converted `WDQ123` no longer "resolves to" `Q456` (§5); the two are one cluster, and a property `redirect` across namespaces makes the old ID an alias served under the new one (§9). Shared rows are computed under the instance's `reconcile` record, the named policy record, which holds the provider order among registry providers, the tier-2 link properties, the inference properties, the normalizer overrides, the role bindings for shared rows and the shared term languages; a tenant narrows (hides a provider, restricts its display languages, declines inferred links, orders its own entity sources) but may not reorder shared providers, change a shared normalizer or rebind a shared role, and a tenant-scope write that tries is refused with `ts-instance-policy`; the shared row carries `policy`, and only `default` exists. `view.cluster`, `view.cluster_member`, `view.link`, `view.different_from` and `view.entity_source` gain the `tenant` column with the `''`-then-tenant lookup, and `cluster_member`'s unique key is `(tenant, entity_id)` (§3). The fused body treats an `equivalent-property` pair as one property, with stored predicates keeping their IDs (§6). 0082's table listed §3, §4 and §9; the chapter also folds §5 ([04](../architecture/04-entities-and-identifiers.md) §4.5) and §6 ([04](../architecture/04-entities-and-identifiers.md) §4.6), and the table was extended. (REVIEW G1, G2, G3, G5, G6)
+- **Summary:** The internal graph is in source form: the canonical ID is an attribute of the cluster, named by `view.cluster`, and never applied to data; statement subjects, entity values, `entity_ref`, `identifier`, the search documents, the dump and the stream keep the IDs their sources wrote, and nothing rewrites an ID in storage because a cluster formed, changed or dissolved. The form a consumer sees is a property of the response: a layer on the way out rewrites entity IDs, the entity part of statement GUIDs and `unit`, `globe` and `calendarmodel` to the consumer's preferred namespace order (`prefer`, defaulting to the form of the request; local for the site UI), using exact matches only (tier 1, tier 2 and `equivalent-property`, never tier-3 inference or anything a `different-from` split), after the cache, never inside literals; `wbgetentities` answers under the requested ID with a `canonical` field, and the Wikibase redirect shape is reserved for true redirects. So a converted `WDQ123` no longer "resolves to" `Q456` (§5); the two are one cluster, and a property `redirect` across namespaces makes the old ID an alias served under the new one (§9). The fused body treats an `equivalent-property` pair as one property, with stored predicates keeping their IDs (§6). 0082's table listed §3, §4 and §9; the chapter also folds §5 ([04](../architecture/04-entities-and-identifiers.md) §4.5) and §6 ([04](../architecture/04-entities-and-identifiers.md) §4.6), and the table was extended. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §4.3, §4.4, §4.5, §4.6, §4.10. (REVIEW G1, G2, G3, G5, G6)
 
-Replaced text ([04](../architecture/04-entities-and-identifiers.md) §4.3, as it stood):
-
-> **Inferred links need a unique value.** A value that appears on more than one entity in a namespace produces no link. Values are compared by their normalized keys (§4.7). An inferred link is applied at once, for the identifier properties the **instance's** `reconcile` record names; nothing is queued for review, and the registry ships none enabled. A tenant's `reconcile` record may switch inference off for that tenant, and sets its provider order and link properties (§4.10), but cannot add inference properties, so every tenant of a farm infers the same links from a shared graph.
->
-> **On a farm,** tier-2 and tier-3 links come from shared graphs and are instance-wide. Tier-1 links and `different-from` blocks are each tenant's own. A provider tenant's `same-as` and `convert` records are tier-2 links for every other tenant ([0018](../decisions/0018-tenants.md) §5–6, in [08](../architecture/08-tenants-and-instances.md)).
-
-Replaced text ([04](../architecture/04-entities-and-identifiers.md) §4.4, as it stood):
-
-> - The tenant's `reconcile` record sets the order of the providers after them; the default is provider-number order in `providers.toml` (Wikidata first). The `reconcile` record ([0015](../decisions/0015-record-format-and-partition-registry.md) §3, in [23](../architecture/23-configuration-and-registry.md)) may set a different order per entity type, `order_by_type`; a cluster's members share a type, so the order is always defined.
+Replaced text: [04](../architecture/04-entities-and-identifiers.md) §4.3, §4.4, as it stood before this entry; in git (`tools/adr.py log 0004 A16 --before`).
 
 > So if a local item `Q77` about en.wikipedia.org existed before Domains did, `same-as` between `Q77` and `domain:en.wikipedia.org` makes the Domain canonical. `Q77` resolves to it and gets the redirect-form `owl:sameAs` in RDF. A cluster whose links would join two Domains is a conflict, and the links are held (§4.11).
 
@@ -264,20 +237,7 @@ Replaced text ([04](../architecture/04-entities-and-identifiers.md) §4.4, as it
 > - The API resolves a non-canonical member to the canonical entity, as Wikibase resolves a redirect.
 > - The per-graph views ([0003](../decisions/0003-statement-ui.md) §6) still show each member's own data.
 
-Replaced text ([04](../architecture/04-entities-and-identifiers.md) §4.5, as it stood):
-
-> - `WDQ123` resolves to `Q456`;
-> - mirrored statements under `WDQ123` attach to `Q456`;
-> - the redirect-form `owl:sameAs` is emitted.
-
-Replaced text ([04](../architecture/04-entities-and-identifiers.md) §4.6, as it stood):
-
-> - **The resolved view uses the canonical property's predicates** for every statement in the cluster.
-> - **RDF output:** property entity IRIs get the redirect-form `owl:sameAs`, as items do. OWL equivalence holds between predicates, not between entity IRIs. So `owl:equivalentProperty` is emitted for each pair of predicates in the same family: `wdt:`, `p:`, `ps:`, `psv:`, `pq:`, `pqv:`, `pr:`, `prv:`, and the normalized forms.
-
-Replaced text ([04](../architecture/04-entities-and-identifiers.md) §4.10, as it stood):
-
-> `redirect` in the local graph records a merge within one namespace. **For properties only, a local `redirect` may cross namespaces:** `{"op":"redirect","from":"P12","to":"WDP585"}` retires `P12` and makes `WDP585` the canonical predicate. The resolved view is rewritten as §4.6 rewrites a linked pair, and existing local statements keep `P12` in the log and read as `WDP585`. It needs `property-create` and a matching data type. An item never redirects across namespaces, and a local item stays canonical.
+Replaced text: [04](../architecture/04-entities-and-identifiers.md) §4.5, §4.6, §4.10, as it stood before this entry; in git (`tools/adr.py log 0004 A16 --before`).
 
 > **Configuration is recorded in the log.** The following settings are the `reconcile` record's; the first, second and fourth are the tenant's, the third the instance's (§4.3):
 >
@@ -307,9 +267,7 @@ Replaced text ([04](../architecture/04-entities-and-identifiers.md) §4.10, as i
 - **Change:** amends §6
 - **Summary:** A mirror partition is an instance partition read by every tenant, a local `P12` means a different entity on each tenant, and an instance job cannot mint from a tenant's sequence; so no adapter writes a local property or item ID into a mirror graph, and none creates a local entity on import. A provider that needs vocabulary of its own has a provider **property type** in the registry, a `[[provider.type]]` row with `entity_type = "property"` under its code, its letter allocated when the adapter is built (OpenAlex already uses `P` for publishers; OpenStreetMap and GDELT likewise), with its properties minted by the adapter under deterministic IDs and the mapping versioned with the adapter. Enumerated values map onto Wikidata items where one fits, else onto a provider type of the provider's own. Where an adapter names a property by role, the binding it reads is the instance-scope `role` record's, never a tenant's ([0003](0003-statement-ui.md) A14). "Otherwise onto a local property", "the adapter can create them on first import" and "local properties that an adapter maps onto are protected from deletion" are struck. (REVIEW G26)
 
-Replaced text ([04](../architecture/04-entities-and-identifiers.md) §4.6, as it stood):
-
-> **OpenAlex properties are mapped by the adapter.** OpenAlex has no property entities. Its fields have names, not identifiers, and the set of fields is small and changes little. The OpenAlex adapter therefore maps each field:
+Replaced text: [04](../architecture/04-entities-and-identifiers.md) §4.6, as it stood before this entry; in git (`tools/adr.py log 0004 A19 --before`).
 
 > - otherwise onto a local property.
 
@@ -344,6 +302,5 @@ Replaced text ([04](../architecture/04-entities-and-identifiers.md) §4.6, as it
 - **Change:** amends §9
 - **Summary:** A local property's `redirect` across namespaces (A4) needs `ts-linkproperty`, not `property-create`, which every registered account now holds by default; `equivalent-property` needs it too ([09](../architecture/09-security-and-moderation.md) §2.4). Both change predicates for every consumer, so the right stays with `propertycreator` and `sysop`.
 
-Replaced text ([04](../architecture/04-entities-and-identifiers.md) §4.10, as it stood):
+Replaced text: [04](../architecture/04-entities-and-identifiers.md) §4.10, as it stood before this entry; in git (`tools/adr.py log 0004 A22 --before`).
 
-> It needs `property-create` and a matching data type.

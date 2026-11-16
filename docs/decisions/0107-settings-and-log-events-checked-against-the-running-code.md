@@ -68,10 +68,5 @@ James's direction, from the design discussion of 2026-11-09:
 - **Change:** amends §1
 - **Summary:** The probe gains three kinds of line: `tenancy` for a tenancy switch read, and, from the server, `module` and `route` for an Action API module or a REST route served. Settles Q1 and Q2. Chapter text: [22](../architecture/22-crates-and-stack.md) §4.9; [24](../architecture/24-documentation.md) §11.
 
-Replaced text ([22](../architecture/22-crates-and-stack.md) §4.9, as it stood):
+Replaced text: [22](../architecture/22-crates-and-stack.md) §4.9; [24](../architecture/24-documentation.md) §11, as it stood before this entry; in git (`tools/adr.py log 0107 A1 --before`).
 
-> `log-event block/block` for a log event the activity projection wrote ([16](../architecture/16-logs-feeds-and-notifications.md) §2.3). Without it nothing is recorded.
-
-Replaced text ([24](../architecture/24-documentation.md) §11, as it stood):
-
-> (a permission it checks, a setting it reads, a log event it writes) … Permissions, settings and log events are checked so, strictly ([09](../architecture/09-security-and-moderation.md) §2.2; [23](../architecture/23-configuration-and-registry.md) §3.1; [16](../architecture/16-logs-feeds-and-notifications.md) §2.3; [0107](0107-settings-and-log-events-checked-against-the-running-code.md) §1).

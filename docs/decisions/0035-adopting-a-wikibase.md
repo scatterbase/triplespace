@@ -107,19 +107,7 @@ One alternative needs no new operation and was rejected: load the old wiki into 
 - **Change:** supersedes §8
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed; its §7 build order places the adoption job (0005 A34).
 
-Replaced text (§8):
-
-> | Crate | Change |
-> |---|---|
-> | `scatter-wikibase-changeset` | The `adopt` operation and its source fields (§3) |
-> | `scatter-ingest` | The adoption job: preconditions, idempotent resume, floors, actor records (§2, §4, §5) |
-> | `scatter-adapter-wikidata` | Adoption mode: reading a MediaWiki+Wikibase dump or API parameterised by the tenant's own provider entry, emitting IDs in home form and rewriting only the source's entity-source prefixes (§3) |
-> | `scatter-log-postgres`, `triplespace-db` | The entity-ID sequences; setting floors; an explicit page ID on append (§4) |
-> | `scatter-mwlog` | `import/upload` and `import/interwiki` for entities (§6) |
-> | `triplespace-rdf` | `prov:wasRevisionOf` and `pav:importedOn` on adopted records (§6) |
-> | `triplespace-cli` | `instance create --adopt --owner`; `adopt` (§2, §5) |
->
-> No crate is added. In the build order of [0005](0005-crate-organization.md) §7, the adoption job sits in step 4 beside the mirror bootstrap: a tenant continuing an existing Wikibase needs it before step 5.
+Replaced text: §8 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0035 A1 --before`).
 
 ### A2. Adoption brings the wiki's files
 
@@ -156,9 +144,7 @@ Replaced text (§8):
 - **Change:** corrects §3
 - **Summary:** `adopt` is "the one whole-entity write that needs no base revision", not the one whole-entity write to the local graph: `create-or-add` with `overwrite` and a base revision still replaces an entity whole ([0002](0002-source-graphs-and-mass-ingest.md) §8.2). The consequence that said the residue of 0005 narrows is struck. (PENDING E4)
 
-Replaced text (§3):
-
-> This also narrows the residue [0005](0005-crate-organization.md) leaves open on log granularity: `adopt` is the one whole-entity write to the local graph, and it is confined to adoption jobs.
+Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0035 A6 --before`).
 
 ### A7. Lexemes are adoptable
 
@@ -167,9 +153,7 @@ Replaced text (§3):
 - **Change:** corrects §3
 - **Summary:** Strike "once the Lexeme namespace is implemented": `L` is adoptable, since [0066](0066-lexemes.md) decided lexemes. (PENDING E7)
 
-Replaced text (§3):
-
-> Any minted entity type the source has may be adopted (`Q`, `P`, and `L` once the Lexeme namespace is implemented).
+Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0035 A7 --before`).
 
 ### A8. `reclaim/reclaim` is a log event
 
@@ -183,18 +167,16 @@ Replaced text (§3):
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§8
-- **Summary:** The Decision's current text now lives in the architecture chapters [05](../architecture/05-providers-and-ingest.md), [07](../architecture/07-actors-and-accounts.md), [16](../architecture/16-logs-feeds-and-notifications.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0035 A9 --diff`).
 
 ### A10. Adopted accounts under the issuer code
 
 - **Date:** 2026-10-09
 - **Source:** [0079](0079-derived-issuer-codes.md) §6, §9
 - **Change:** amends §5
-- **Summary:** An adopted wiki's accounts are written under the adopting tenant's issuer code, derived from its founding record ([0079](0079-derived-issuer-codes.md) §1), and their own numbers: the source's user 42 is `{code}:42`. Where the registry already knows the source wiki as an issuer, its entry gains `tenant`, the adopting tenant's code, and the registered key becomes an input form of the tenant's: `librarybase:42` is read as `{code}:42`.
+- **Summary:** An adopted wiki's accounts are written under the adopting tenant's issuer code, derived from its founding record ([0079](0079-derived-issuer-codes.md) §1), and their own numbers: the source's user 42 is `{code}:42`. Chapter text: [07](../architecture/07-actors-and-accounts.md) §2.5.
 
-Replaced text (§5, in [07](../architecture/07-actors-and-accounts.md) §2.5):
-
-> …so the source's user 42 is `{slug}:42`.
+Replaced text: §5, in [07](../architecture/07-actors-and-accounts.md) §2.5, as it stood before this entry; in git (`tools/adr.py log 0035 A10 --before`).
 
 ### A11. No adoption beside a live mirror of the same code
 
@@ -208,29 +190,19 @@ Replaced text (§5, in [07](../architecture/07-actors-and-accounts.md) §2.5):
 - **Date:** 2026-10-19
 - **Source:** Direct: James, design discussion of 2026-10-19
 - **Change:** amends §2, §3, §4, §6, §7; retitles §7
-- **Summary:** An adoption brings the source's full revision history by default, as shape (a) of §7. Its input is a full-history XML export, and every revision of every entity page becomes one `adopt` record in `local`, in source-revision order within the page. The record's revision ID, header field 7, is the source's own, below the revision floor, so none is taken from the tenant's sequence. Its content adds `source_parentid` and `minor` to `source_revid`, `source_time` and `source_pageid`; its comment part is the revision's edit summary; its attestation names the revision's author with the job beside it: the adopted account `{code}:{n}`, a surrogate `actor:{n}` ([0007](0007-actor-identity.md) A27) for an IP or `imported>Name` author, or no actor and the `hidden` marker for a user the source hid. A revision that made the page a redirect carries `redirect` in place of `entity`, so a merged entity redirects as it did on the source, and a later revision that restores it carries `entity` again. The newest revision is the current state, with no adoption revision after it, so `lastrevid` is the source's and every `oldid=` the source issued resolves here. An `adopt` follows only an `adopt` of the same entity with a lower source revision ID; a re-run skips a revision present with the same content and rejects one present with other content. Each adopted revision is an activity row at its source time, so it stands in the past, and no addressing rule delivers one. A dump without history (every page one revision while revisions name parents) is refused unless the operator passes `--current-only`, which keeps the current-state adoption: one `adopt` per entity under a fresh revision ID, attributed to the job's subsidiary, with (b) as the later path to history. The job record carries `history` (`full` or `current`). Librarybase adopts with its history. The chapter text is [05](../architecture/05-providers-and-ingest.md) §3.2, §3.9, §7.2–§7.5 and §8.3, and [16](../architecture/16-logs-feeds-and-notifications.md) §2.2, §2.3 and §3.1; the change to revision-ID assignment is logged as [0015](0015-record-format-and-partition-registry.md) A62 and [0013](0013-postgres-storage.md) A68.
+- **Summary:** An adoption brings the source's full revision history by default, as shape (a) of §7. Its input is a full-history XML export, and every revision of every entity page becomes one `adopt` record in `local`, in source-revision order within the page. A revision that made the page a redirect carries `redirect` in place of `entity`, so a merged entity redirects as it did on the source, and a later revision that restores it carries `entity` again. An `adopt` follows only an `adopt` of the same entity with a lower source revision ID; a re-run skips a revision present with the same content and rejects one present with other content. Each adopted revision is an activity row at its source time, so it stands in the past, and no addressing rule delivers one. A dump without history (every page one revision while revisions name parents) is refused unless the operator passes `--current-only`, which keeps the current-state adoption: one `adopt` per entity under a fresh revision ID, attributed to the job's subsidiary, with (b) as the later path to history. The job record carries `history` (`full` or `current`). Librarybase adopts with its history. The chapter text is [05](../architecture/05-providers-and-ingest.md) §3.2, §3.9, §7.2–§7.5 and §8.3, and [16](../architecture/16-logs-feeds-and-notifications.md) §2.2, §2.3 and §3.1; the change to revision-ID assignment is logged as [0015](0015-record-format-and-partition-registry.md) A62 and [0013](0013-postgres-storage.md) A68.
 
-Replaced text ([05](../architecture/05-providers-and-ingest.md) §7.3, as it stood):
-
-> - **`source_revid`, `source_time`, `source_pageid`** are the source's revision ID and timestamp for the adopted state and the page ID of the entity's page on the source. They are content, kept in the content part, and they give the record its provenance ([0035](../decisions/0035-adopting-a-wikibase.md) §6; [07](../architecture/07-actors-and-accounts.md)) and its page ID (§7.4).
+Replaced text: [05](../architecture/05-providers-and-ingest.md) §7.3, as it stood before this entry; in git (`tools/adr.py log 0035 A12 --before`).
 
 > The record is an ordinary local revision: it takes the next revision ID from the tenant's sequence ([0015](../decisions/0015-record-format-and-partition-registry.md) §2), its comment part is empty, and its attestation names the job's subsidiary and the job ([0015](../decisions/0015-record-format-and-partition-registry.md) §1). The entity's `lastrevid` after adoption is that new local revision ID; `source_revid` is shown beside it as "adopted from revision N".
 
 > **Re-running** an adoption job against the same dump skips every entity already present and is therefore how a partial adoption is completed. A newer dump is not a second adoption: once adopted, the wiki changes through edits.
 
-Replaced text ([05](../architecture/05-providers-and-ingest.md) §3.2, as it stood):
-
-> | `adopt` | Local | Writes an entity's whole state as its first local record, under the ID the source minted. Accepted only from an adoption job (§7.2). An entity already present is skipped when the content hash matches and rejected otherwise; `adopt` never updates. |
+Replaced text: [05](../architecture/05-providers-and-ingest.md) §3.2, as it stood before this entry; in git (`tools/adr.py log 0035 A12 --before`).
 
 > `adopt` is accepted only from an adoption job on a tenant that is that wiki continuing on Triplespace, on a `local` partition that holds no other entity records; it never updates, and re-running it skips an entity whose content hash matches and rejects one that differs.
 
-Replaced text ([05](../architecture/05-providers-and-ingest.md) §7.4, as it stood):
-
-> | **Revision IDs** (`log.revision_id`). Adopted records take fresh IDs above the floor | The source's highest revision ID | No local revision ever shares a number with a source revision, so `oldid={source revid}` resolves to the source revision once history is imported (§7.5) and to nothing before, never to an unrelated local revision |
-
-Replaced text ([05](../architecture/05-providers-and-ingest.md) §7.5, "History: shape fixed, content deferred", as it stood):
-
-> Adoption brings **current state only**. What fixes the shape of a later history import is a constraint, not a preference: a later job must not displace the current state.
+Replaced text: [05](../architecture/05-providers-and-ingest.md) §7.4, §7.5, "History: shape fixed, content deferred", as it stood before this entry; in git (`tools/adr.py log 0035 A12 --before`).
 
 > - **(a) History first, in order.** Each source revision is an `adopt` record with an explicit revision ID (the source's, below the floor), its original timestamp and its original actor, as [0008](../decisions/0008-namespaces-and-document-pages.md) §9 steps 1–2 do for pages, and the last revision *is* the current state. It needs the XML history dump at adoption time, and it makes adoption one job.
 
@@ -238,35 +210,23 @@ Replaced text ([05](../architecture/05-providers-and-ingest.md) §7.5, "History:
 >
 > Not yet: the choice between the two shapes for tenants that have not yet adopted is open in [0035](../decisions/0035-adopting-a-wikibase.md).
 
-Replaced text ([05](../architecture/05-providers-and-ingest.md) §8.3, as it stood):
-
-> its first milestone is API-only and current-state, with history as a later backfill (§7.5).
-
-Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §3.1, as it stood):
-
-> An adopted entity's first record is an `edit` row with `new` set, the `bot` flag, the `job:{id}` tag and an `adopt` tag ([0035](../decisions/0035-adopting-a-wikibase.md) §6);
+Replaced text: [05](../architecture/05-providers-and-ingest.md) §8.3; [16](../architecture/16-logs-feeds-and-notifications.md) §3.1, as it stood before this entry; in git (`tools/adr.py log 0035 A12 --before`).
 
 ### A13. Every page comes in the same job
 
 - **Date:** 2026-10-19
 - **Source:** Direct: James, design discussion of 2026-10-19
 - **Change:** amends §2; extends §6
-- **Summary:** The adoption job carries every page of the dump, not only entity pages. A page outside the entity namespaces is imported by the page-import procedure of [0008](0008-namespaces-and-document-pages.md) §9 within the job, into `pages`, keeping its source page ID and, revision by revision, its source revision IDs, attributed as entity revisions are (A12); one revision sequence then serves both, as it did on the source. Precondition 3 applies to each partition the job writes, `local` for entities and `pages` for pages, so a job that adopted the entities can be resumed to carry the pages while no page has been edited. A page the job cannot import is counted as `deferred`. The `import/*` event is written for the first record of an adopted page as for an adopted entity. The chapter text is [05](../architecture/05-providers-and-ingest.md) §7.2 and [16](../architecture/16-logs-feeds-and-notifications.md) §2.3; the page-import side is logged as [0008](0008-namespaces-and-document-pages.md) A38.
+- **Summary:** The adoption job carries every page of the dump, not only entity pages. A page outside the entity namespaces is imported by the page-import procedure of [0008](0008-namespaces-and-document-pages.md) §9 within the job, into `pages`, keeping its source page ID and, revision by revision, its source revision IDs, attributed as entity revisions are (A12); one revision sequence then serves both, as it did on the source. A page the job cannot import is counted as `deferred`. The `import/*` event is written for the first record of an adopted page as for an adopted entity. The chapter text is [05](../architecture/05-providers-and-ingest.md) §7.2 and [16](../architecture/16-logs-feeds-and-notifications.md) §2.3; the page-import side is logged as [0008](0008-namespaces-and-document-pages.md) A38.
 
-Replaced text ([05](../architecture/05-providers-and-ingest.md) §7.2, as it stood):
-
-> 3. **the tenant's `local` partition holds no entity records** other than those written by earlier adoption jobs for the same source. This is what makes a failed adoption resumable (§7.3) and everything else an ordinary edit;
-
-Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §2.3, as it stood):
-
-> the first record of an adopted entity, as `import/upload` from a dump or `import/interwiki` from the live API, never as `create/create`;
+Replaced text: [05](../architecture/05-providers-and-ingest.md) §7.2; [16](../architecture/16-logs-feeds-and-notifications.md) §2.3, as it stood before this entry; in git (`tools/adr.py log 0035 A13 --before`).
 
 ### A14. Parts the source hid
 
 - **Date:** 2026-10-19
 - **Source:** Direct: James, design discussion of 2026-10-19
 - **Change:** extends §3
-- **Summary:** A revision the source revision-deleted reaches a history export with its text, comment or contributor replaced by `deleted="deleted"`, and the export does not say whether it was deleted or suppressed. The adopted record carries nothing for a withheld part, and the `adopt`'s `withheld` names the parts it lacks, as a `record` ACL names parts: `content`, so the `adopt` has neither `entity` nor `redirect` and the revision has no state for `oldid` to show to anyone; `comment`, so the comment part is empty; `attestation`, so it names no actor. Beside each such record the job writes a `record` ACL with those parts restricted to `suppress`, and the history views show them as suppressed. The current revision's text is never hidden on MediaWiki, so the current state is never withheld. Pages the source deleted are not in the export and are not adopted; the floors still cover their IDs. Adoption reads the export only, not the source's `archive` table or revision-deleted content. The chapter text is [05](../architecture/05-providers-and-ingest.md) §7.3.
+- **Summary:** A revision the source revision-deleted reaches a history export with its text, comment or contributor replaced by `deleted="deleted"`, and the export does not say whether it was deleted or suppressed. The adopted record carries nothing for a withheld part, and the `adopt`'s `withheld` names the parts it lacks, as a `record` ACL names parts: `content`, so the `adopt` has neither `entity` nor `redirect` and the revision has no state for `oldid` to show to anyone; `comment`, so the comment part is empty; `attestation`, so it names no actor. Adoption reads the export only, not the source's `archive` table or revision-deleted content. The chapter text is [05](../architecture/05-providers-and-ingest.md) §7.3.
 
 ### A15. Any MediaWiki, and the source's namespaces
 

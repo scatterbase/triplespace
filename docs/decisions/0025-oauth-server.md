@@ -117,18 +117,7 @@ This ADR makes the instance an OAuth 2.0 authorization server under those two ru
 - **Change:** supersedes §11
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries `triplespace-oauth` and every change this section listed (0005 A21).
 
-Replaced text (§11):
-
-> | Layer | Crate | Change |
-> |---|---|---|
-> | Substrate | `scatter-actors` | The `pending` status and its effect on implicit membership (§3); the grant-intersection rule already exists for keys and is reused unchanged |
-> | | `scatter-mwlog` | The `oauth/*` actions (§5) |
-> | Triplespace | `triplespace-oauth` *(new)* | The authorization server: metadata, authorize, token, device, revoke and identify endpoints at both paths; PKCE; consent page; consumer registry and policy evaluation; the `oauth:{slug}` tag on the request path (§1–4). Depends on `triplespace-accounts` for every read or write of `private` and on `scatter-actors` for permissions |
-> | | `triplespace-accounts` | `private.oauth_token` and `private.oauth_consumer`; token authentication beside key authentication; session–token binding; revocation on retirement and transfer (§5, §8) |
-> | | `triplespace-api-action`, `triplespace-api-rest` | §9; the `oauth-pending` refusal in front of every write |
-> | | `triplespace-server` | `Special:OAuthConsumers`, `Special:PendingSubsidiaries`, `Special:OAuth/device` and the Connected applications section, served from `triplespace-oauth` (§5) |
->
-> The workspace goes from forty-three crates to forty-four.
+Replaced text: §11 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0025 A1 --before`).
 
 ### A2. The primary tenant
 
@@ -139,13 +128,7 @@ Replaced text (§11):
   - §5: Consumer events are written to the **instance `log`**, not to the primary tenant's `log` or to `log/{farm}`: consumers are instance configuration, and their record must not move when the primary role does.
   - §10: `mwoauthmanageconsumer` is an **instance right** ([0040](0040-instance-prerogatives.md) §9): it is evaluated on the primary tenant or through a global group, and a bureaucrat of any other tenant holds it to no effect.
 
-Replaced text (§5):
-
-> with the consumer slug as target and the reason in the comment part, written to the primary tenant's `log` partition, or `log/{farm}` where [0028](0028-tenancy-policy.md) §2 creates one.
-
-Replaced text (§10):
-
-> | `mwoauthmanageconsumer` | Approving, rejecting and disabling consumers (§2) | `bureaucrat` |
+Replaced text: §5 of this ADR; §10 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0025 A2 --before`).
 
 ### A3. Converted to the 0050 format
 
@@ -161,17 +144,7 @@ Replaced text (§10):
 - **Change:** amends §1, §3, §5, §8, §9
 - **Summary:** The authorization server keeps its endpoints and checks; its pages become pages of the site, rendered by `triplespace-ui` wherever the site is served. `/oauth/authorize` validates the request, stores it under a ten-minute request handle and redirects to `Special:OAuth/authorize`, which reads the request and posts the decision back through the new `/oauth/requests` routes; the device page joins the same flow. Pending state (codes, device codes, request handles) falls back to `private` rather than process memory, so an API pool of several replicas can complete a flow.
 
-Replaced text (§1):
-
-> | `/oauth/authorize` | `/w/rest.php/oauth2/authorize` | Consent page (§3); requires an interactive session of a **primary** account |
-
-Replaced text (§3):
-
-> The consent page at `/oauth/authorize` is shown to a **primary account** with an interactive session;
-
-Replaced text (§8):
-
-> An instance without a shared cache holds them in process, which the small profile accepts.
+Replaced text: §1 of this ADR; §3 of this ADR; §8 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0025 A4 --before`).
 
 ### A5. The instance as an OAuth client
 
@@ -185,4 +158,4 @@ Replaced text (§8):
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§12
-- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0025 A6 --diff`).

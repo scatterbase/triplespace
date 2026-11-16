@@ -98,17 +98,7 @@ Asked what the namespace holds and how an account is marked, James chose (2026-1
 - **Change:** amends §1, §2, §6; extends §7, §8
 - **Summary:** James asked for the two parts left unbuilt, `{{int:}}` reading overrides and `meta=allmessages`, and decided: "When adopting a wiki, it should bring in the MediaWiki-namespace pages. Those that can't be used by the Triplespace instance are just ignored." An adopted wiki's MediaWiki pages of model `wikitext` or `text` come as Interface pages, each revision as `text`; pages of any other model are ignored and counted (§7). `{{int:key|…}}` expands the wiki's override in the wiki's language, with its arguments, and stays a chip where there is none, the build shipping no MediaWiki core messages (§2). `meta=allmessages` answers from the overrides over the site's shipped English messages (§8). `mw.message` waits on Lua (0043).
 
-Replaced text (§1):
-
-> An adopted wiki's `MediaWiki:` pages are `wikitext`, so adoption still defers them (Q1).
-
-Replaced text (§2):
-
-> **Which messages:** the site's interface messages (`i18n/`), and MediaWiki core's messages as `{{int:}}` and Scribunto's `mw.message` read them, which 0042 §5 and 0043 §5 left unoverridable. A page for a key no message has is unused, except a name (§3).
-
-Replaced text (§6):
-
-> `{{int:}}` and `mw.message` still read the shipped messages alone; their overrides wait on the renderer reading the same report.
+Replaced text: §1 of this ADR; §2 of this ADR; §6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0095 A1 --before`).
 
 ### A2. `amprop=default`
 
@@ -129,4 +119,4 @@ Replaced text (§6):
 - **Date:** 2026-10-30
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§8
-- **Summary:** The Decision's current text now lives in the architecture chapters [09](../architecture/09-security-and-moderation.md), [10](../architecture/10-pages-and-content-models.md), [11](../architecture/11-rendering-templates-and-modules.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0095 A4 --diff`).

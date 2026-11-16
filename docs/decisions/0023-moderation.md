@@ -148,20 +148,7 @@ Patrolling is the odd one out, since it restricts nothing: it is a mark that a t
 - **Change:** supersedes §13
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A19).
 
-Replaced text (§13):
-
-> | Crate | Change |
-> |---|---|
-> | `scatter-actors` | ACL evaluation for `read`, with `parts` on `record` targets and the `actor` target; the autopatrol rule as a pure function over memberships as of a time |
-> | `scatter-log` | The `scatter:v0/acl` payload type, replacing the `acl` config kind; registered for the `config` and `log` partitions |
-> | `scatter-pages`, `scatter-threads` | The `delete` and `undelete` operations are removed from `scatter:v0/page` and `scatter:v0/thread` |
-> | `scatter-mwlog` | `patrol` and `suppress` log types; `protect/*` and `delete/*` parameters as typed in §3 |
-> | `triplespace-projections` | The ACL projection; derived `deleted`, `visibility`, `hidden` and `status` flags; the patrol projection; cluster re-evaluation on entity deletion and undeletion |
-> | `triplespace-titles` | Reserved page IDs in the title index |
-> | `triplespace-api-action`, `triplespace-api-rest` | The modules and routes of §8 |
-> | `triplespace-cache`, `triplespace-search` | Hiding and deletion on the purge path of 0014 §5, as erasure already is |
->
-> No crate is added.
+Replaced text: §13 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0023 A1 --before`).
 
 ### A2. Statement and property targets
 
@@ -193,9 +180,7 @@ Replaced text (§13):
 - **Change:** amends §6, §8
 - **Summary:** Unpatrol exists (decision 15): a `patrol/unpatrol` log event in the tenant `log`, keyed like `patrol/patrol` and written by holders of `patrol`; the projection sets `patrolled` false, and the newest of the two events for a record wins. `action=patrol` gains `unpatrol=1`; the row's action is "Mark as unpatrolled". §6 had been given a struck sentence with a note. This settled Q5.
 
-Replaced text (§6):
-
-> There is no unpatrol, as there is none in MediaWiki core.
+Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0023 A4 --before`).
 
 ### A5. Files
 
@@ -224,13 +209,7 @@ Replaced text (§6):
   - §2: A talk page or board encloses the threads whose home it is, not the threads listed on it.
   - §4: A deleted talk page or board takes with it the threads whose home it is. A thread only listed there is untouched; the listing goes dormant, hidden outside the deletion group, and returns on undelete.
 
-Replaced text (§2):
-
-> **Enclosure is unchanged** from [0016](0016-permissions-and-access-control.md) §4 and [0019](0019-discussions.md) §12: a namespace encloses its pages and entities, a page its subpages, a talk page its threads. So a `read` ACL on a namespace makes it private, and deleting a talk page deletes its threads.
-
-Replaced text (§4):
-
-> - a deleted thread leaves its talk page's listing and history; a deleted talk page takes its threads with it by enclosure.
+Replaced text: §2 of this ADR; §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0023 A7 --before`).
 
 ### A8. Converted to the 0050 format
 
@@ -246,13 +225,7 @@ Replaced text (§4):
 - **Change:** amends §1, §2; extends §2, §8, §9
 - **Summary:** Protection may restrict `read`. Such a restriction is of the confidential kind: the target stays live for its group and is absent, not marked deleted, for everyone else, and it is set with `protect` by a member of the group. The `read` ACLs this ADR defines are the moderation kind and are unchanged. Two targets join the table: `tenant`, the root of enclosure, and `set`, a grouping by ID that only `protect` changes. `action=protect` takes `read=`; `Special:ProtectedPages` gains a Read column and a Sets tab.
 
-Replaced text (§1):
-
-> | **Protect** | A page, thread, talk page, entity or namespace | `edit`, `move`, or both; `createpage` for a title that does not exist yet (§2) | `autoconfirmed` (semi-protection) or `sysop` (full), or any group | Page protection; `protected_titles` |
-
-Replaced text (§2):
-
-> **Containment is unchanged** from [0016](0016-permissions-and-access-control.md) §4 and [0019](0019-discussions.md) §12: a namespace encloses its pages and entities, a page its subpages,
+Replaced text: §1 of this ADR; §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0023 A9 --before`).
 
 ### A10. `view.acl` is as 0013 §5.4 defines it
 
@@ -261,16 +234,14 @@ Replaced text (§2):
 - **Change:** corrects §10
 - **Summary:** `view.acl` is the table [0013](0013-postgres-storage.md) §5.4 defines (0013 A27): `(target, restrictions jsonb, read_kind, extra jsonb, "offset")`, primary key `(target)`, one row per target holding every permission it restricts. §10's own column list, one row per (target, permission), is replaced by a reference to that definition; the evaluation path, caching and the common-case miss are unchanged. [0056](0056-security-model.md) §14's `kind` is that table's `read_kind` (0056's log). (PENDING A4)
 
-Replaced text (§10):
-
-> - **`view.acl`** ([0016](0016-permissions-and-access-control.md) §9) holds moderation ACLs beside graph ACLs: `(target_kind, target_id, permission, parts smallint, "group", expires, partition, "offset")`, indexed by target. The evaluation path reads it for the target and its enclosures, cached in L0 ([0014](0014-caches-and-search.md) §2); the common case, no row, is one indexed miss.
+Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0023 A10 --before`).
 
 ### A11. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§13
-- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0023 A11 --diff`).
 
 ### A12. Autopatrol is decided by the write path and written into the attestation part
 
@@ -279,9 +250,7 @@ Replaced text (§10):
 - **Change:** amends §6
 - **Summary:** Autopatrol is a decision the write path makes from the state of another partition, so it is written down: the appending transaction evaluates the actor's effective permissions, which it has already resolved for the write itself, and writes the decision as an `autopatrol` field of the record's attestation map; the activity projection reads the field and sets `patrolled` from it, and never reconstructs the memberships in `actors` as of the record's `appended_at`, since a rebuild replays partitions in an order that need not interleave them as they were written and a vanish may have erased the memberships it would need. No record is written per bot edit, and an edit filter's `unpatrol` action withholds the field as a write lands. (REVIEW G13)
 
-Replaced text ([09](../architecture/09-security-and-moderation.md) §6.4, as it stood):
-
-> **Autopatrol is a projection rule, not a record.** A change made by an actor who held `autopatrol` when the record was appended is patrolled from the start. The projection decides this from the membership records in `actors` as of the record's `appended_at`, so a rebuild reaches the same answer, and no record is written per bot edit.
+Replaced text: [09](../architecture/09-security-and-moderation.md) §6.4, as it stood before this entry; in git (`tools/adr.py log 0023 A12 --before`).
 
 ### A13. Visibility epochs, set generations and stored enclosures
 
@@ -304,9 +273,7 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §6.4, as it 
 - **Change:** amends §3
 - **Summary:** An ACL holds one `read` restriction per record, so deleting a confidential page replaced its confidential group with the deletion group, and undeleting removed `read` altogether: an administrator outside the group could make the page public by deleting and undeleting it. 09 §5.2 already says a deleted confidential target is seen by the intersection of the two groups. The record now carries `confidential`, the confidential restriction a deletion keeps beside the deletion group in `restrictions.read`; every reader must satisfy both, the confidential one deciding absence first, and undeleting moves it back to `restrictions.read`. Only a moderation `read` record carries it ([0056](0056-security-model.md) A18).
 
-Replaced text ([09](../architecture/09-security-and-moderation.md) §4.3, as it stood):
-
-> | Content part | The target; for each restricted permission, the group and an optional expiry; `parts` for a `record` target; the reserved title for create-protection; for a whole-page or whole-entity deletion, the flag `talk: true` when the paired talk page is deleted by the same action. A content of `null` retires the ACL |
+Replaced text: [09](../architecture/09-security-and-moderation.md) §4.3, as it stood before this entry; in git (`tools/adr.py log 0023 A15 --before`).
 
 ### A16. A hidden name hides the threads on the user's talk page
 
@@ -334,6 +301,5 @@ Replaced text ([09](../architecture/09-security-and-moderation.md) §4.3, as it 
 - **Change:** amends §7
 - **Summary:** "A full dump made by the instance for itself" was a backup by another name. The `log` partition enters no export; the full dump, an export, carries log events only through the metadata graph in their visible form, and transfers and backups carry the records. Chapter text: [09](../architecture/09-security-and-moderation.md) §6.5.
 
-Replaced text ([09](../architecture/09-security-and-moderation.md) §6.5, as it stood):
+Replaced text: [09](../architecture/09-security-and-moderation.md) §6.5, as it stood before this entry; in git (`tools/adr.py log 0023 A18 --before`).
 
-> - **The `log` partition's export policy is internal**, so none of these records enters a public dump; a full dump made by the instance for itself carries them, and it is the instance's to protect.

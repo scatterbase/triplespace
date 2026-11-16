@@ -130,18 +130,7 @@ James's direction, from the design discussion of 2026-09-30:
 - **Change:** supersedes §12
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A41).
 
-Replaced text (§12):
-
-> | Crate | Change |
-> |---|---|
-> | `scatter-pages` | The content model registry, embedding `docs/registry/content-models.toml`; the trait of §5 with source, slot, format and direct-editing; text models as before |
-> | `scatter-threads` | Implements `triplespace-thread`: serialization as of a revision, and per-post diff |
-> | `scatter-wikibase-model` | Implements the entity models and `wikibase-mediainfo`: the `mediainfo` entity type and its serialization, and derived `M` IDs in the ID parser ([0017](0017-entity-id-grammar.md) §1). Gains a dependency on `scatter-pages` for the trait; `scatter-pages` depends on nothing, so no cycle results |
-> | `triplespace-titles` | The `pages` kind, allowed and default models and the `uploads` flag in the namespace registry; the registry check that a namespace's models share a source |
-> | `triplespace-projections` | `view.page.content_model` from the registry; the `content_model` registry kind |
-> | `triplespace-api-action`, `triplespace-api-rest` | `defaultcontentmodel`, `siprop=triplespace` `contentmodels`, the `contentmodel` enumerations, `no-direct-editing` and the `changecontentmodel` codes, the `mediainfo` slot, the Wikibase modules on `M` IDs, `content_model` on page objects |
->
-> No crate is added.
+Replaced text: §12 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0041 A1 --before`).
 
 ### A2. The `Scribunto` model
 
@@ -164,13 +153,9 @@ Replaced text (§12):
 - **Change:** amends §3
 - **Summary:** `triplespace-osm-tag` is replaced by `triplespace-notation`, entity type `notation`, the default in Notation (216). The rest of its row is unchanged. Q2 names `wikibase-notation` in place of `wikibase-osm-tag`.
 
-Replaced text (§3):
+Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0041 A4 --before`).
 
-> | `triplespace-osm-tag` | Triplespace | entity (`osm-tag`) | main | `application/json` | No | 216 |
-
-Replaced text (Q2):
-
-> - **Data type IDs.** `wikibase-domain`, `wikibase-keyword` and `wikibase-osm-tag` (now `wikibase-notation`, [0048](0048-notation.md)) ([0009](0009-keyed-entity-types-and-domain.md), [0017](0017-entity-id-grammar.md) §5, [0036](0036-openstreetmap-providers.md)) are unique to Triplespace
+Replaced text: Open questions of this ADR, as it stood before this entry; in git (`tools/adr.py log 0041 A4 --before`).
 
 ### A5. The `triplespace-board` model
 
@@ -200,9 +185,7 @@ Replaced text (Q2):
 - **Change:** extends §3
 - **Summary:** `triplespace-scope` (origin Triplespace): source text, slot `main`, format `application/json`, direct editing yes, the default in Scope (312). Its content is a definition; the member list is projected.
 
-Replaced text (§3, in part):
-
-> **Two models hold a definition, not the page's content.**
+Replaced text: §3, in part of this ADR, as it stood before this entry; in git (`tools/adr.py log 0041 A8 --before`).
 
 ### A9. The `triplespace-sprint` model
 
@@ -232,9 +215,7 @@ Replaced text (§3, in part):
 - **Change:** amends §7
 - **Summary:** Labels and descriptions on `M` IDs are captions, accepted and stored as the File page's terms; aliases and sitelinks stay refused.
 
-Replaced text (§7):
-
-> **Terms and sitelinks are not supported yet.** MediaInfo's labels are Commons' *captions*. They are page terms, which [0038](0038-page-metadata-and-categories.md) Q4 leaves open, and 0038 §1 keeps terms out of page change sets. Until that is settled, `labels` and `descriptions` are always empty, and `wbsetlabel`, `wbsetdescription`, `wbsetaliases`, `wbsetsitelink` and a `wbeditentity` carrying terms or sitelinks on an `M` ID are refused with Wikibase's `not-supported` ("The requested feature is not supported by the given entity").
+Replaced text: §7 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0041 A12 --before`).
 
 ### A13. The `wikibase-lexeme` model
 
@@ -250,9 +231,7 @@ Replaced text (§7):
 - **Change:** corrects §2
 - **Summary:** The models reserved and not implemented are `css`, `javascript`, `unknown` and `wikibase-query`; `wikibase-lexeme` and `EntitySchema` are implemented ([0066](0066-lexemes.md) §3, [0064](0064-entityschema-and-validation.md) §3; A11, A13), so §2's list no longer names them. (PENDING E16)
 
-Replaced text (§2):
-
-> Reserved now and not implemented: `css`, `javascript` and `unknown` (core); `wikibase-lexeme` (WikibaseLexeme); `EntitySchema` (EntitySchema).
+Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0041 A14 --before`).
 
 ### A15. The namespace catalogue says where a model is allowed
 
@@ -261,12 +240,7 @@ Replaced text (§2):
 - **Change:** amends §3
 - **Summary:** The namespace catalogue ([0008](0008-namespaces-and-document-pages.md) §2 as amended; chapter 10 §1.4) is the one place that says where a model is allowed. §3's "Default in" column carries defaults only, and its "allowed in" notes go. (PENDING E17)
 
-Replaced text (§3):
-
-> | `markdown` | Generic | text | main | `text/markdown` | Yes | — (allowed in 0, 2, 4) |
-> | `json` | MediaWiki | text | main | `application/json` | Yes | — (allowed in 0, 2, 4) |
-> | `yaml` | Generic | text | main | `application/yaml` | Yes | — (allowed in 0, 2, 4) |
-> | `text` | MediaWiki | text | main | `text/plain` | Yes | — (allowed in 0, 2, 4) |
+Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0041 A15 --before`).
 
 > | `triplespace-sprint` | Triplespace | text | main | `application/json` | Yes | — ; allowed on Project (4) subpages ([0061](0061-sprints-and-tasks.md) §2–3) |
 
@@ -277,7 +251,7 @@ Replaced text (§3):
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§12
-- **Summary:** The Decision's current text now lives in the architecture chapters [10](../architecture/10-pages-and-content-models.md), [12](../architecture/12-files-and-media.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0041 A16 --diff`).
 
 ### A17. A talk page's revision content and diff
 
@@ -286,13 +260,7 @@ Replaced text (§3):
 - **Change:** extends §3, §5
 - **Summary:** The composite source gains a serialization and a diff: a talk page's content as of a revision is a read-only wikitext rendering of the threads attached to it now, each as it stood after the revision, and its diff is the line diff of that text. `triplespace-talk` gains the format `text/x-wiki`. Chapter text: [10](../architecture/10-pages-and-content-models.md) §4.3, §4.4.
 
-Replaced text ([10](../architecture/10-pages-and-content-models.md) §4.3 and §4.4, as it stood):
-
-> | Serialize as of a revision (`rvprop=content`, export) | The text | Wikibase JSON ([wikibase-compat.md](../api/wikibase-compat.md)) | The `GET /thread/{page ID}` body ([0019](../decisions/0019-discussions.md) §9) as of that revision | — | MediaInfo JSON ([0041](../decisions/0041-content-models.md) §7) |
->
-> | Diff | Line diff | Wikibase's entity diff ([0012](../decisions/0012-api-requirements.md) §7) | Per post | — | Statement diff |
->
-> | `triplespace-talk` | Triplespace | composite | main | — | No | Every enabled talk namespace | [0041](../decisions/0041-content-models.md) §3 |
+Replaced text: [10](../architecture/10-pages-and-content-models.md) §4.3 and §4.4, as it stood before this entry; in git (`tools/adr.py log 0041 A17 --before`).
 
 ### A18. The `triplespace-remote` model
 

@@ -103,16 +103,14 @@ James's direction, from the design discussion of 2026-10-07:
 - **Change:** amends §4
 - **Summary:** A publication runs under a subsidiary account that holds its credential, as every job runs under a subsidiary (PENDING C14), not as an instance-run job; 0067 §6's rule is scoped to proposals ("never pushes a proposal under its own name"), so a publication writing under the account the destination granted does not breach it. (PENDING F14)
 
-Replaced text (§4):
-
-> - **The job is an instance-run job per publication** ([0040](0040-instance-prerogatives.md) §6), with `job/start` and checkpoints, so its runs, edit counts and conflicts are on its job page.
+Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0074 A1 --before`).
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§9
-- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [17](../architecture/17-federation-and-publication.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0074 A2 --diff`).
 
 ### A3. Publication credentials sealed under the instance sealing key
 

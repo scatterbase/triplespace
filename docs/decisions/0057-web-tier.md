@@ -166,16 +166,14 @@ James's direction, from the design discussion of 2026-10-03:
 - **Change:** amends §10
 - **Summary:** This ADR (the newer) stands over [0056](0056-security-model.md) §10 line 12 (0056 A11): the web tier may hold, beyond the forwarder key, the password of the Valkey its response cache uses (§5), which may be the instance's L1 Valkey; "no credential of the instance's beyond an optional forwarder key" is qualified by that one, and 0056 §10 line 12 is qualified the same way. (PENDING F19)
 
-Replaced text (§10):
-
-> - **The web tier in the boundary.** It holds no credential of the instance's beyond an optional forwarder key and reads no store of it, so 0056 §10 lines 1, 2 and 4 do not apply to it and line 3 applies only to its cache's Valkey (§5).
+Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0057 A2 --before`).
 
 ### A3. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§14
-- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [11](../architecture/11-rendering-templates-and-modules.md), [20](../architecture/20-web-tier.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0057 A3 --diff`).
 
 ### A4. The page budget: the in-process transport and exact `Cache-Tag`s
 
@@ -184,17 +182,7 @@ Replaced text (§10):
 - **Change:** amends §1, §6; extends §4, §8
 - **Summary:** A page has a budget of four API calls to first byte, met by a bulk-labels route and a `GET /entity/{id}/page` bundle ([0012](0012-api-requirements.md), [0010](0010-site-ui.md)) and, in the embedded server, by the in-process transport: with `server.ui = embedded` a page's sub-requests enter the API router as `tower` calls, the session is resolved once when the page request arrives and the principal is handed to every sub-request, and the sub-requests are exempt from the `read` rate counter, which counts the page itself, so a page of four calls costs one count; visibility, ACLs and redaction run on every sub-request as over HTTP, and `triplespace-web` has no such exemption. A composed page's `Cache-Tag`s are exact and bounded: a tag for each of its subjects and for every page in its render manifest, and nothing else; label dependencies are not tagged, since a large item draws labels from thousands of entities and a tag per label source would exceed every proxy's header limit and let a mirror sync purge the whole site, so label staleness is bounded by `s-maxage`. The About panel of an entity page has a response of its own with its own short `max-age`, since its counters change without the entity's version changing. The ledger names §2; the sections that carry the text are §1, §4, §6 and §8. (REVIEW G41)
 
-Replaced text ([20](../architecture/20-web-tier.md) §1.1, as it stood):
-
-> 4. **One code path, two transports.** The same `triplespace-ui` router serves pages from `triplespace-web`, over HTTP, and from `triplespace-server`, over an in-process call into the API's own router (§1.2). Both send the same requests through the same middleware.
-
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §10.3, as it stood):
-
-> - **Its `Cache-Tag`** is the union of theirs, so the purges of §9.6 reach it.
-
-Replaced text ([03](../architecture/03-storage-caches-and-search.md) §12.4, as it stood):
-
-> a page the web tier composes carries the union of its components' tags (§10.3).
+Replaced text: [20](../architecture/20-web-tier.md) §1.1; [03](../architecture/03-storage-caches-and-search.md) §10.3, §12.4, as it stood before this entry; in git (`tools/adr.py log 0057 A4 --before`).
 
 ### A5. The response cache keys by the negotiated language
 
@@ -210,9 +198,7 @@ Replaced text ([03](../architecture/03-storage-caches-and-search.md) §12.4, as 
 - **Change:** amends §7
 - **Summary:** Creating an account, filing an account request, an anonymous save that would create a temporary account, and a login after repeated failures work without JavaScript only where no challenge applies. Where one does, the act is refused with an explanation, never queued, as James directed: the page says what the wiki asks of the browser and why, and that the person may turn JavaScript on, ask an administrator to create the account, or wait out a failed-login window. The chapter text is [20](../architecture/20-web-tier.md) §3.1.
 
-Replaced text ([20](../architecture/20-web-tier.md) §3.1, as it stood):
-
-> Reading, logging in and out, creating an account, the account pages, page source editing and search work without JavaScript ([0034](0034-frontend-stack.md) §4).
+Replaced text: [20](../architecture/20-web-tier.md) §3.1, as it stood before this entry; in git (`tools/adr.py log 0057 A6 --before`).
 
 ### A7. The issuer flow stays on the API
 
@@ -233,11 +219,9 @@ Replaced text ([20](../architecture/20-web-tier.md) §3.1, as it stood):
 - **Date:** 2026-10-29
 - **Source:** [0097](0097-versioning-and-skins.md) §5, §15
 - **Change:** extends §6, §8; amends §9
-- **Summary:** The build ID that a composed page's `ETag` hashes and that a component sends as `X-Triplespace-UI-Build` names the skin that drew the page and its version as well as the binary's build, so a skin upgrade or a change of skin is build skew. `api_version` becomes `MAJOR.MINOR.PATCH`, the integer before being its minor at major 0, and the web tier is ready only against the major it was built for at no lower a minor; a new REST major is served at a new base path. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §10.3 and [20](../architecture/20-web-tier.md) §3.2 and §4.
+- **Summary:** The build ID that a composed page's `ETag` hashes and that a component sends as `X-Triplespace-UI-Build` names the skin that drew the page and its version as well as the binary's build, so a skin upgrade or a change of skin is build skew. The chapter text is [03](../architecture/03-storage-caches-and-search.md) §10.3 and [20](../architecture/20-web-tier.md) §3.2 and §4.
 
-Replaced text (§9):
-
-> - **The API's version.** `meta=siteinfo&siprop=triplespace` reports `api_version`, beside the capability list it already carries ([18](../architecture/18-api.md)). The web tier hides what the API lacks ([0012](0012-api-requirements.md) §1.4) and reports itself not ready below the minimum `api_version` it was built for.
+Replaced text: [20](../architecture/20-web-tier.md) §4, as it stood before this entry; in git (`tools/adr.py log 0057 A9 --before`).
 
 ### A10. Stopping on `SIGTERM`, and the build ID a component sends
 

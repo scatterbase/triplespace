@@ -135,9 +135,7 @@ James's direction, from the design discussion of 2026-10-04:
 - **Change:** amends §11
 - **Summary:** The sprint listing key `sp:` (with `tp:` of [0049](0049-boards.md) §12 and `sc:` of [0060](0060-scopes.md) §10) carries a **listing version**, the maximum activity ID over the listing's members, computed in Postgres at read time, in place of purges on ordinary writes such as a task changing state; [0014](0014-caches-and-search.md) §1 principles 1 and 4 hold unchanged. Tag purges remain for erasure and hiding. (PENDING B4)
 
-Replaced text (§11):
-
-> Cache keys `sp:{page id}:{definition revid}` for the page's counts and leaderboard, purged when any task of the sprint changes state, which is the one hot key here and is cached at L1 for `sprints.cache_ttl` (default 30 s) to absorb a busy drive.
+Replaced text: §11 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0061 A3 --before`).
 
 ### A4. No `subjects` rule parameter
 
@@ -146,26 +144,22 @@ Replaced text (§11):
 - **Change:** corrects §4
 - **Summary:** `subjects` is not a rule parameter: a rule's subject type follows the sprint's scope. (PENDING F11)
 
-Replaced text (§4):
-
-> | `missing-statement` | `property`; optional `value` | The member has no best-rank statement of the property, or none with that value | Such a statement exists | entity, or page with `subjects: "pages"` | `view.statement_assertion` |
+Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0061 A4 --before`).
 
 ### A5. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§12
-- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [10](../architecture/10-pages-and-content-models.md), [15](../architecture/15-structured-pages.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0061 A5 --diff`).
 
 ### A6. The task projection is a view-derived, tier-3 consumer
 
 - **Date:** 2026-10-09
 - **Source:** [0083](0083-write-path-in-three-tiers.md) §3, §6
 - **Change:** amends §6; extends §11
-- **Summary:** The task projection is a tier-3 consumer that follows the scope projection: it consumes the same composition events, after the scope consumer has applied them, in its own queue and outside every transaction, and is off during bootstrap and bulk modes; "inside the fan-out budget of 0013 §7" is withdrawn, and the small work after the initial job is per event, not per write. The projection is view-derived: populated by a scan of `view.scope_member`, `view.statement_assertion`, `view.constraint_violation`, `view.schema_report`, `view.page_category` and the claim records' rows, and by `view.activity` for credit, never by a log replay; "rebuild tasks for tenant T from `view`" recomputes every sprint's tasks and re-derives each task's resolution history from its subject's activity rows, so a rebuild reproduces the same `resolved_by`, `resolved_at`, `resolved_record` and `reopened`. (REVIEW G10)
+- **Summary:** The task projection is a tier-3 consumer that follows the scope projection: it consumes the same composition events, after the scope consumer has applied them, in its own queue and outside every transaction, and is off during bootstrap and bulk modes; "inside the fan-out budget of 0013 §7" is withdrawn, and the small work after the initial job is per event, not per write. Chapter text: [15](../architecture/15-structured-pages.md) §3.5. (REVIEW G10)
 
-Replaced text ([15](../architecture/15-structured-pages.md) §3.5, as it stood):
-
-> **When it runs.** The task projection runs after the scope projection in step 7 of [0013](0013-postgres-storage.md) §7 ([03](../architecture/03-storage-caches-and-search.md) §6.1) and reads three kinds of change:
+Replaced text: [15](../architecture/15-structured-pages.md) §3.5, as it stood before this entry; in git (`tools/adr.py log 0061 A6 --before`).
 
 > All of this is inside the fan-out budget of 0013 §7: a scope of a hundred thousand members with twenty rules is two million rows to compute when the sprint is saved, which is a job, and small per-write work after that. The sprint page shows "Tasks are being computed" until the job is done.

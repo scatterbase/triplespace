@@ -110,9 +110,7 @@ James's direction, from the design discussion of 2026-10-01, was for the mirrori
 - **Change:** corrects §1
 - **Summary:** §1's own list of the namespaces that may hold redirects is replaced by a reference to the namespace catalogue ([chapter 10 §1.4](../architecture/10-pages-and-content-models.md)): any namespace the catalogue lists with `wikitext` among its models may hold redirects, which includes the `/doc` pages of Module, Table, Scope and Query. The list ended with Table and omitted Scope and Query. (PENDING E15)
 
-Replaced text (§1):
-
-> Any namespace whose allowed models include `wikitext` may hold redirects ([0008](0008-namespaces-and-document-pages.md) §2): main, User, Project, File, Category, Template, Module (its `/doc` pages) and Table (its `/doc` pages).
+Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0051 A2 --before`).
 
 ### A3. A move without a redirect is `move/move` with `noredirect`
 
@@ -121,9 +119,7 @@ Replaced text (§1):
 - **Change:** corrects §3
 - **Summary:** A move that leaves no redirect is logged as `move/move` with `noredirect: true` in its parameters (MediaWiki's `suppressredirect`); `move/move_redir` keeps MediaWiki's meaning, a move onto an existing redirect. The ledger row names §5, but the text it corrects is in §3, which is the section this entry names; §5 says nothing about the event. (PENDING E28)
 
-Replaced text (§3):
-
-> With `noredirect`, which needs `suppressredirect` (§8), only the `move` record is written and the event is `move/move_redir` where MediaWiki would so name it, or `move/move` with `noredirect` set.
+Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0051 A3 --before`).
 
 ### A4. The redirect reports are index-backed
 
@@ -132,27 +128,23 @@ Replaced text (§3):
 - **Change:** corrects §6
 - **Summary:** The four redirect reports are index-backed and live: their backing is the `index` row of [0047](0047-special-pages.md) §4.3, a keyset-paged query over `view.redirect` and its indexes, with no rows of their own, not a `projection` report. (PENDING F22)
 
-Replaced text (§6):
-
-> Each is a live projection ([0047](0047-special-pages.md) §4.3).
+Replaced text: §6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0051 A4 --before`).
 
 ### A5. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§9
-- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [10](../architecture/10-pages-and-content-models.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0051 A5 --diff`).
 
 ### A6. A redirect is left only where the old title may hold `wikitext`
 
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** corrects §3
-- **Summary:** A move leaves a redirect only where the old title may hold `wikitext`, since only a `wikitext` page can be a redirect (§1): in namespace 0, User, Project, File, Template and Category, and at the `/doc` titles of Module, Table, Query and Scope. Where the old title cannot hold `wikitext` (a Table page moved to another Table title, a Scope, a Query, a Module's code page, a sprint subpage) the move behaves as `noredirect` without needing `suppressredirect`, and the `move/move` event says so with `noredirect: true`. Entity, keyed-type, Thread and Board namespaces disallow `move` altogether: an entity's title is its ID, a thread's title is minted from its subject and changed only by the thread's own `rename` record, and a board's title names the board, so `action=move` into, out of or within these namespaces is refused, as in a `virtual` or `resolver` namespace. The ledger names §2, but the text it corrects is §3's, which this entry names; §2 says nothing about moves. (REVIEW G43)
+- **Summary:** A move leaves a redirect only where the old title may hold `wikitext`, since only a `wikitext` page can be a redirect (§1): in namespace 0, User, Project, File, Template and Category, and at the `/doc` titles of Module, Table, Query and Scope. Where the old title cannot hold `wikitext` (a Table page moved to another Table title, a Scope, a Query, a Module's code page, a sprint subpage) the move behaves as `noredirect` without needing `suppressredirect`, and the `move/move` event says so with `noredirect: true`. The ledger names §2, but the text it corrects is §3's, which this entry names; §2 says nothing about moves. Chapter text: [10](../architecture/10-pages-and-content-models.md) §2.5. (REVIEW G43)
 
-Replaced text ([10](../architecture/10-pages-and-content-models.md) §2.5, as it stood):
-
-> **A move leaves a redirect at the old title by default,** as MediaWiki's does.
+Replaced text: [10](../architecture/10-pages-and-content-models.md) §2.5, as it stood before this entry; in git (`tools/adr.py log 0051 A6 --before`).
 
 > - **Thread renames leave none** ([0019](0019-discussions.md) §3), for the reason user renames do.
 
@@ -163,16 +155,12 @@ Replaced text ([10](../architecture/10-pages-and-content-models.md) §2.5, as it
 - **Change:** amends §3
 - **Summary:** A `move` record carries, beside the new title, the page ID of the redirect the move left at the old title, when it left one; the ID is minted before the move record is appended, and the redirect's `create` that follows in the same transaction takes it. The move's `move/move` event is projected from the move record alone, so without the field it could not say whether a redirect was left or which page it is (16 §2.3 asks for both): the alternatives were a projection that patches the move's row when the redirect's `create` arrives next, or a per-row lookup at read time, and both make a fact of the log recoverable only by reconstructing the transaction, and lose it if the `create` is erased. A `move` record without the field, every one written before this entry included, left no redirect. The old title in the event is read from the page's own history, the latest `create` or `move` before the record, rather than stored. Folded into 10 §2.5 and the record table of 10 §3.2.
 
-Replaced text ([10](../architecture/10-pages-and-content-models.md) §2.5, as it stood):
-
-> **A move is one record on the moved page.** Moving a page appends a `move` record with its new title, and nothing else about that page changes.
+Replaced text: [10](../architecture/10-pages-and-content-models.md) §2.5, as it stood before this entry; in git (`tools/adr.py log 0051 A7 --before`).
 
 > 1. the page's `move` record with the new title (§3.2);
 > 2. a `create` record for a **new page** at the old title, model `wikitext`, text `#REDIRECT [[New title]]`, attributed to the mover with the move's summary.
 
-Replaced text ([10](../architecture/10-pages-and-content-models.md) §3.2, as it stood):
-
-> | `move` | Sets a new title |
+Replaced text: [10](../architecture/10-pages-and-content-models.md) §3.2, as it stood before this entry; in git (`tools/adr.py log 0051 A7 --before`).
 
 ### A8. `action=move`: the calls made building it
 

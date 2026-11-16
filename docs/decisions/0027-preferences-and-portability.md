@@ -100,18 +100,7 @@ This ADR does three things: it names every kind of private state and puts prefer
 - **Change:** supersedes §9
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A23).
 
-Replaced text (§9):
-
-> | Crate | Change |
-> |---|---|
-> | `triplespace-db` | The portability class on each `private` table (§2) |
-> | `triplespace-accounts` | `private.preference` and the key registry, embedding `docs/registry/preferences.toml`; the user data bundle, export and import (§3); applying a private extract on reclaim (§4) |
-> | `triplespace-notify` | Reads `notifications.*` preferences in place of `notification_pref` |
-> | `triplespace-projections` | `view-pin` records (§5) |
-> | `triplespace-api-action`, `triplespace-api-rest` | §6 |
-> | `triplespace-cli` | `tenant export` produces the private extract; `tenant import` seals and stores it for reclaim (§4) |
->
-> No crate is added. The bundle format is a Triplespace surface, not a shared seam, so nothing enters a `scatter-*` crate.
+Replaced text: §9 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0027 A1 --before`).
 
 ### A2. Converted to the 0050 format
 
@@ -148,7 +137,7 @@ Replaced text: none; §2 gains two sentences.
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§9
-- **Summary:** The Decision's current text now lives in the architecture chapters [03](../architecture/03-storage-caches-and-search.md), [07](../architecture/07-actors-and-accounts.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0027 A6 --diff`).
 
 ### A7. The preference registry is copied on create and synced
 
@@ -162,19 +151,9 @@ Replaced text: none; §2 gains two sentences.
 - **Date:** 2026-10-17
 - **Source:** [0085](0085-settings-and-preferences.md) §1, §2.2, §5
 - **Change:** amends §1; amends §7
-- **Summary:** A preference resolves to the account's own value, then `preferences.defaults` (the tenant's map merged key by key over the instance's default for it), then the registry default. `preferences.toml` gains `group` (the key's tab), the `choice` type with `choices`, `follows` (`account`, or `farm`: under farm identity the value belongs to the farm account and every linked tenant account reads it; a reader's own interface language, label languages, time zone and date format follow the farm account), `negotiated` (the interface and label languages come from the request's `Accept-Language` where the reader has not chosen) and `browser` (whether a reader who is not logged in may hold the key in the browser). `Special:Preferences` becomes a page of its own with a tab per group, the notification matrix among them, instead of a section of `Special:Account`. Q4 is settled by [0085](0085-settings-and-preferences.md) §6. The chapter text is [07](../architecture/07-actors-and-accounts.md) §8.1 and [19](../architecture/19-site-ui.md) §2.4 and §2.6.
+- **Summary:** A preference resolves to the account's own value, then `preferences.defaults` (the tenant's map merged key by key over the instance's default for it), then the registry default. `Special:Preferences` becomes a page of its own with a tab per group, the notification matrix among them, instead of a section of `Special:Account`. Q4 is settled by [0085](0085-settings-and-preferences.md) §6. The chapter text is [07](../architecture/07-actors-and-accounts.md) §8.1 and [19](../architecture/19-site-ui.md) §2.4 and §2.6.
 
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §8.1, as it stood):
-
-> each with a type, a default and a description; an instance may set its own defaults in `site` configuration (`preferences.defaults`) and add keys for features it adds.
-
-Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
-
-> | Preferences | — | Every preference key, grouped as MediaWiki groups them ([0027](0027-preferences-and-portability.md) §7; the keys are in [07](../architecture/07-actors-and-accounts.md)), including interface and label language, and the defaults for the upstream-edits fold (§3.6) and the mirror-sync filter (§3.9) |
-
-Replaced text ([23](../architecture/23-configuration-and-registry.md) §3.2, as it stood):
-
-> | `preferences.defaults` | `site` | tenant | map | the registry's defaults | An instance's own defaults for registered preference keys | [0027](0027-preferences-and-portability.md) §1 |
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §8.1; [19](../architecture/19-site-ui.md) §2.4; [23](../architecture/23-configuration-and-registry.md) §3.2, as it stood before this entry; in git (`tools/adr.py log 0027 A8 --before`).
 
 ### A9. Client credentials never leave
 
@@ -190,13 +169,7 @@ Replaced text ([23](../architecture/23-configuration-and-registry.md) §3.2, as 
 - **Change:** amends §2, §3
 - **Summary:** Email addresses belong to the instance login, which no tenant owns ([0100](0100-email-addresses-and-verification-codes.md) §1), so they are no longer an account's portable contact details: the user data bundle's `contacts` holds the fediverse handle alone, and a tenant move or an import carries no address.
 
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §8.3, as it stood):
-
-> … contact details: email address and fediverse handle, with their verification state ([0021](../decisions/0021-notifications.md) §5, §8); …
-
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §8.4, as it stood):
-
-> - `contacts`: email address and fediverse handle, each with `verified`;
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §8.3, §8.4, as it stood before this entry; in git (`tools/adr.py log 0027 A10 --before`).
 
 ### A11. The private extract is sealed with the rest of the transfer
 
@@ -205,9 +178,7 @@ Replaced text ([07](../architecture/07-actors-and-accounts.md) §8.4, as it stoo
 - **Change:** amends §4
 - **Summary:** The private extract no longer travels apart from the bundle: the whole transfer is sealed to the receiving instance's key, the extract with it, and the binding digest's secret still passes operator to operator. Chapter text: [07](../architecture/07-actors-and-accounts.md) §8.5.
 
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §8.5, as it stood):
-
-> The extract travels operator to operator, as the binding digest does, never in the public bundle.
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §8.5, as it stood before this entry; in git (`tools/adr.py log 0027 A11 --before`).
 
 ### A12. A recovered move carries restricted content
 
@@ -216,6 +187,5 @@ Replaced text ([07](../architecture/07-actors-and-accounts.md) §8.5, as it stoo
 - **Change:** amends §4
 - **Summary:** A non-cooperative move was limited to the public bundle. It still carries no private extract, but a `recovered` continuation also carries the tenant's restricted content (0103 §7). Chapter text: [07](../architecture/07-actors-and-accounts.md) §8.5.
 
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §8.5, as it stood):
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §8.5, as it stood before this entry; in git (`tools/adr.py log 0027 A12 --before`).
 
-> `private` is not in backups the new operator can be handed responsibly, and 0018 §10 already limits that case to the public bundle.

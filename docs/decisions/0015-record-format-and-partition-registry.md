@@ -99,21 +99,7 @@ Two smaller gaps are closed with them: the document node of a foreign entity on 
 - **Change:** supersedes §7
 - **Summary:** 0005 §2 became the one crate table CI checks, and carries every change this section listed (0005 A10).
 
-Replaced text (§7):
-
-> | Crate | Change |
-> |---|---|
-> | `scatter-log` | Body parts and part leaves (§1); header fields 7–9 and the provider-ranged revision ID (§2); the `config` payload type with kinds `key` and `graph` (§3); `erase` with `parts`, and `LogStore::erase_bodies` becomes `erase_parts`; `docs/registry/graphs.toml` embedded as the default registry (§5) |
-> | `scatter-log-postgres` | The `page_id` column; `erased` as a bitmask of parts; partial erasure as a body rewrite ([0013](0013-postgres-storage.md) §3) |
-> | `scatter-integrity` | `verify` per part (§1) |
-> | `scatter-providers` | Provider slugs and numbers; `docs/registry/providers.toml` embedded as the default registry (§5) |
-> | `scatter-actors` | `docs/registry/issuers.toml` embedded as the default issuer registry (§5) |
-> | `scatter-mwlog` | The `upstream-revision` payload type beside `logevent` (§4) |
-> | `scatter-adapter-wikidata` | Emits upstream revision records from history dumps, `prop=revisions` and the stream (§4) |
-> | `triplespace-projections` | The `upstream_revision` projection; the registry projection reads `config` (§3, §4) |
-> | `triplespace-rdf` | The IRI rules of §4–6 |
->
-> No crate is added.
+Replaced text: §7 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0015 A1 --before`).
 
 ### A2. Providers registered
 
@@ -129,17 +115,11 @@ Replaced text (§7):
 - **Change:** amends §2, §3, §5
 - **Summary:** The ID sequences are per tenant, and the provider-ranged revision ID carries a tenant's revisions to other tenants. The config kinds split by instance and tenant scope, and a tenant's `config` carries the instance's key chain. Graph names are per tenant: each tenant has its own source partitions under its base, and the registry is keyed by (tenant, name). The `tenant` and `alias` kinds and the `providers` list had been given rows in place.
 
-Replaced text (§2):
-
-> They are assigned in the appending transaction, before the leaf hash is computed, so they are inside the Merkle tree. The rules of 0013 §6 stand for local records:
+Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0015 A3 --before`).
 
 Replaced text: not recorded. 0015 was revised in place before the repository's history begins (commit `1e53c95`, 2026-09-27).
 
-Replaced text (§5):
-
-> **A graph's IRI is `{base}/graph/{name}`.** `{base}` is the instance's base URI: the origin that serves `/wiki/`, `/w/api.php` and `/entity/`, the same base that [0001](0001-revision-metadata-rdf.md) §5 gives instance data.
->
-> **Graph names are fixed by convention.** They are the partition names of [0013](0013-postgres-storage.md) §2, and the registry (§3, kind `graph`) stores both name and IRI:
+Replaced text: §5 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0015 A3 --before`).
 
 ### A4. Threads
 
@@ -155,9 +135,7 @@ Replaced text (§5):
 - **Change:** amends §1; extends §3, §5
 - **Summary:** The attestation part may carry `evidence`, a signed remote activity. `federation-policy` is a config kind. `providers.toml` gains `trust` and a key-chain URL. The rows and the clause had been written in place.
 
-Replaced text (§1):
-
-> | 2 | **Attestation** | Who is responsible, and how: the actor key, the job ([0006](0006-log-integrity-and-erasure.md) §3), since [0030](0030-edit-filters.md) §5 the change tags, and since [0022](0022-federation.md) §8 an optional `evidence` field holding a signed remote activity | user |
+Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0015 A5 --before`).
 
 ### A6. ACLs are a payload type
 
@@ -275,9 +253,7 @@ Replaced text (§2):
 - **Change:** amends §5; extends §3
 - **Summary:** The `primary` config kind, whose row had been added in place; the `tenant` record loses its primary flag. Instance graph IRIs are `{farm base}/instance/graph/{name}` and instance origin lines `{farm host}/instance/log/{name}`, which was recorded only in 0046 until this conversion.
 
-Replaced text (§5):
-
-> **Checkpoint origin lines stay `{host}/log/{name}`** ([0006](0006-log-integrity-and-erasure.md) §6). They are a transparency-log convention, not a graph IRI, and the two are deliberately different.
+Replaced text: §5 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0015 A20 --before`).
 
 ### A21. Special pages and reports
 
@@ -302,9 +278,7 @@ Replaced text (§5):
 - **Change:** extends §2, §3, §5
 - **Summary:** The `page-repo` config kind replaces `template-repo`; `pages.repos` and `pages.share` join the `site` settings; a page a repository serves has a provider-ranged page ID, derived from its upstream page ID; a provider that mints no entities may have no code.
 
-Replaced text (§3):
-
-> | `template-repo` | The repository name | Tenant or instance scope: a foreign template repository, its kind (`tenant` or `mediawiki`), endpoint and cache lifetime | [0042](0042-template-expansion-and-parsoid.md) §11 |
+Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0015 A23 --before`).
 
 ### A24. The `pages/{repo}` partition
 
@@ -402,7 +376,7 @@ Replaced text (§3):
 - **Date:** 2026-10-08
 - **Source:** [0078](0078-entity-sources.md) §1, §4
 - **Change:** extends §2, §3, §5
-- **Summary:** Provider numbers from 2^22 to 2^23 − 1 are left out of the registry and assigned per tenant to entity sources. A tenant-scope config kind, `entity-source`, keyed by the source's name. A tenant-scope graph per source, `source/{name}`, with the policies of `mirror/{provider}`.
+- **Summary:** Provider numbers from 2^22 to 2^23 − 1 are left out of the registry and assigned per tenant to entity sources. The text is in git (`tools/adr.py log 0015 A37 --diff`).
 
 ### A38. Policies for every reserved graph
 
@@ -418,9 +392,7 @@ Replaced text (§3):
 - **Change:** amends §3
 - **Summary:** The identifier properties that drive tier-3 inference are **instance** configuration, held in an instance `reconcile` record, so that tier-3 links stay instance-wide; a tenant's `reconcile` may switch inference off for itself and set provider order and link properties, but not add inference properties. `reconcile` therefore has both an instance record and tenant records, and §3's scope paragraph no longer leaves it to the tenants alone ([0004](0004-identity-clusters-and-equivalence.md) §3, [0018](0018-tenants.md) §3). (PENDING B6)
 
-Replaced text (§3):
-
-> | `reconcile` | `default` or a provider code | Provider order, an optional `order_by_type` override, link properties, identifier properties for inference, normalizer overrides, reconciliation rules | [0004](0004-identity-clusters-and-equivalence.md) §9 |
+Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0015 A39 --before`).
 
 > **Scope.** The kinds split by scope ([0018](0018-tenants.md) §3). The instance's `config` holds `key`, `graph`, `provider`, `issuer`, `keyed-type`, `tenant`, `alias`, `primary`, `tenancy`, `template`, `consumer` and `forwarder`, the instance lists of `sitelink-policy` and `federation-policy`, and global `group`s; each tenant's `config` holds the rest. A tenant's `config` begins with a `key:` record, the current instance key, and every `key:` record of the instance is appended to it as well, so a tenant's partitions verify from the tenant's bundle alone ([0018](0018-tenants.md) §2).
 
@@ -431,9 +403,7 @@ Replaced text (§3):
 - **Change:** corrects §3
 - **Summary:** "Partition 0" is a designation, not an ID: the instance `config` partition is found by its registry name and has a random 64-bit ID like every other partition ([0018](0018-tenants.md) §2); offset 0 of it holds the first `key:` record. The same correction applies in 0018 §2. (PENDING C7)
 
-Replaced text (§3):
-
-> **Order of the first records.** The `config` partition is partition 0. Its record at offset 0 is the instance's first `key:` record, as [0006](0006-log-integrity-and-erasure.md) §6 requires. Every other partition is created by a `graph:` record in `config`, appended before that partition's first record; that record is the "genesis record" 0006 §2 says names the partition's hash function. The `config` partition's own `graph:config` record follows its key record at offset 1.
+Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0015 A40 --before`).
 
 ### A41. The instance kinds are listed once
 
@@ -442,9 +412,7 @@ Replaced text (§3):
 - **Change:** amends §3
 - **Summary:** §3's scope paragraph is the one list of instance-level config kinds, gaining `reports` and `page-repo` (tenant or instance) beside `forwarder`; [0013](0013-postgres-storage.md) §5.5 refers to it instead of carrying its own list. (PENDING C18)
 
-Replaced text (§3):
-
-> **Scope.** The kinds split by scope ([0018](0018-tenants.md) §3). The instance's `config` holds `key`, `graph`, `provider`, `issuer`, `keyed-type`, `tenant`, `alias`, `primary`, `tenancy`, `template`, `consumer` and `forwarder`, the instance lists of `sitelink-policy` and `federation-policy`, and global `group`s; each tenant's `config` holds the rest. A tenant's `config` begins with a `key:` record, the current instance key, and every `key:` record of the instance is appended to it as well, so a tenant's partitions verify from the tenant's bundle alone ([0018](0018-tenants.md) §2).
+Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0015 A41 --before`).
 
 ### A42. `file-repo`
 
@@ -472,7 +440,7 @@ Replaced text (§3):
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§7
-- **Summary:** The Decision's current text now lives in the architecture chapters [01](../architecture/01-log-and-records.md), [02](../architecture/02-graphs-rdf-and-query.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0015 A45 --diff`).
 
 ### A46. The instance attestation names the farm code
 
@@ -481,9 +449,7 @@ Replaced text (§3):
 - **Change:** amends §1
 - **Summary:** The instance attestation's `actor` is `instance:{farm code}`, the farm code being derived from the instance's founding record ([0079](0079-derived-issuer-codes.md) §4).
 
-Replaced text (§1, in [01](../architecture/01-log-and-records.md) §2.4):
-
-> `actor` (`instance:{farm slug}`)
+Replaced text: §1, in [01](../architecture/01-log-and-records.md) §2.4, as it stood before this entry; in git (`tools/adr.py log 0015 A46 --before`).
 
 ### A47. Chain-of-custody kinds and witness settings
 
@@ -497,26 +463,16 @@ Replaced text (§1, in [01](../architecture/01-log-and-records.md) §2.4):
 - **Date:** 2026-10-09
 - **Source:** [0084](0084-wikibase-writes-against-the-resolved-view.md) §5
 - **Change:** amends §2
-- **Summary:** `lastrevid` of an entity is the revision ID of its newest **local** record when the key has one, and otherwise the ranged ID of its newest mirror record; §2's "newest record in any source partition, chosen by append time" is withdrawn, since a client bases a write on local state. The base check is per source graph: a `baserevid` in the local partition is checked against the local partition's newest record for the key, one in a mirror partition asserts only that the key still has no local record, and a mirror advancing is never a conflict; an `override` naming a mirrored statement is checked by whether that statement still exists in the graph's current state. Wikibase's patch rule applies: a stale local base is accepted with `wikibase-conflict-patched` when the change set touches no statement UUID, term, alias or sitelink a later local record touched, else `editconflict` naming the current `lastrevid`; a compacted base is `editconflict`. Inbound `maxlag` is the larger of replica lag and the tenant's local-partition composition lag. (REVIEW G17)
+- **Summary:** The record side of 0084: `lastrevid` is the entity's newest **local** revision when it has one, since a client bases a write on local state, and §2's "newest record in any source partition, chosen by append time" is withdrawn. The base check is per source graph, a mirror advancing is never a conflict, and a stale local base is patched under Wikibase's rule rather than refused. Chapter text: [01](../architecture/01-log-and-records.md) §2.5. (REVIEW G17)
 
-Replaced text ([01](../architecture/01-log-and-records.md) §2.5, as it stood):
-
-> - **`lastrevid`** of an entity is the revision ID of its newest record in any source partition, chosen by append time. For a purely mirrored entity that is its latest `put`; a local assertion about it takes over as the newest record.
-> - **`baserevid`** on a write to a foreign entity is decoded to (partition, offset), and the base-offset check of §7 runs against the newest record for the key across the source partitions, not only the local one. A base that names a state compaction has since replaced is an `editconflict`.
-
-Replaced text ([01](../architecture/01-log-and-records.md) §7, as it stood):
-
-> - The log rejects the change set if a newer record for the key exists in the partition. The Action API reports this as `editconflict`, and the REST API as HTTP 409.
-> - For a write to a foreign entity, `baserevid` is decoded to a partition and offset, and the check runs against the newest record for the key across the source partitions, not only the local one. A base that names a state compaction has since replaced is an `editconflict`.
->
-> The check needs an index from each key to its latest offset. For the local partition, this is the version cursor.
+Replaced text: [01](../architecture/01-log-and-records.md) §2.5, §7, as it stood before this entry; in git (`tools/adr.py log 0015 A48 --before`).
 
 ### A49. The base check is a step of the appending transaction; `oldid` reads `view.entity_revision`
 
 - **Date:** 2026-10-09
 - **Source:** [0083](0083-write-path-in-three-tiers.md) §1, §4
 - **Change:** extends §2
-- **Summary:** The base check is a step of tier 1, the appending transaction, made against the local graph alone, and it reads the local graph's current state from `view.graph_state`; `oldid=N` and `Special:Diff/N` with a local revision ID read that revision's state from `view.entity_revision`, one row per revision of the `local` and `pages` partitions, never a replay of the key's records. 0083's "Changes to other ADRs" did not list this ADR; chapter 01 §2.5 and §7 cite 0083 §1 and §4, so the entry is logged here. (REVIEW G8, G11)
+- **Summary:** The base check is a step of tier 1, made against the local graph's state in `view.graph_state`, and a revision's state is one row of `view.entity_revision`, never a replay. 0083's "Changes to other ADRs" did not list this ADR; chapter 01 §2.5 and §7 cite 0083 §1 and §4, so the entry is logged here. (REVIEW G8, G11)
 
 ### A50. A mirrored entity's page ID is provider-ranged
 
@@ -525,11 +481,7 @@ Replaced text ([01](../architecture/01-log-and-records.md) §7, as it stood):
 - **Change:** amends §2
 - **Summary:** A mirrored entity's page ID is `provider_number << 40 | upstream page ID` where the provider publishes one and `provider_number << 40 | mirror offset` otherwise, computed by the writer with no allocation; `log."instance.page_id"` is not used for entities; a local assertion about a mirrored entity repeats the ranged ID in its own field 9; a local page ID is taken from the tenant's own sequence the first time a key is written in a tenant partition, and the range below 2^40 is that sequence, so a ranged ID never collides with a local one and `view.entity`'s unique key on the page ID is `(tenant, page_id)`. (REVIEW G18)
 
-Replaced text ([01](../architecture/01-log-and-records.md) §2.5, as it stood):
-
-> **Page IDs are carried forward.** A page ID is taken from one sequence the first time a key is written in any partition — or supplied by an adoption job, which carries the source wiki's page ID and has set the sequence past it ([0035](../decisions/0035-adopting-a-wikibase.md) §4) — and every later record for that key, in every partition, repeats it in field 9.
->
-> **A page a page repository serves has a provider-ranged page ID,** `provider_number << 40 | upstream page ID`, derived and never minted, so that a foreign page has a stable `pageid` on every tenant without any write; in `mirror` mode the `pages/{repo}` records carry it in field 9 and the ranged upstream revision ID in field 7 ([0052](../decisions/0052-page-repositories-and-title-inheritance.md) §6, [0053](../decisions/0053-mirrored-pages.md) §5). Local page IDs stay below 2^40.
+Replaced text: [01](../architecture/01-log-and-records.md) §2.5, as it stood before this entry; in git (`tools/adr.py log 0015 A50 --before`).
 
 ### A51. Every ID a client sees is below 2^53
 
@@ -538,15 +490,7 @@ Replaced text ([01](../architecture/01-log-and-records.md) §2.5, as it stood):
 - **Change:** amends §2, §5
 - **Summary:** Every ID a client sees is below 2^53, so that it survives a JavaScript `Number`: registry provider numbers are below 2^12, entity-source numbers are assigned per tenant from 2^12 to 2^13 − 1, and `number << 40 | n` therefore stays under 2^53 for `n` below 2^40; the revision-ID space is no longer described as 63 bits. The registry text that holds the number ranges is chapter 23 §4.1, whose provenance line cites [0077](0077-special-version.md) §14 and which cites §5 of this ADR inline; its replaced sentence is quoted under §5. (REVIEW G20)
 
-Replaced text ([01](../architecture/01-log-and-records.md) §2.5, as it stood):
-
-> It is a number prefix instead. The revision-ID space is 63 bits, partitioned by **provider number**:
->
-> Provider number 0 is the instance itself, so local revision IDs are the plain sequence. Each provider has a number in the registry ([0015](../decisions/0015-record-format-and-partition-registry.md) §5). Numbers from 2^22 to 2^23 − 1 are never allocated in the registry: each tenant assigns them to its entity sources, and they are unique on their tenant only, which suffices because revision and page IDs are per tenant and no other tenant reads a source's records ([0078](../decisions/0078-entity-sources.md) §4).
-
-Replaced text ([23](../architecture/23-configuration-and-registry.md) §4.1, as it stood):
-
-> Provider number 0 is the current tenant and is never assigned; numbers 2^22 to 2^23 − 1 are the tenants', assigned at runtime to their entity sources, the one runtime allocation of a provider number ([0078](../decisions/0078-entity-sources.md) §4);
+Replaced text: [01](../architecture/01-log-and-records.md) §2.5; [23](../architecture/23-configuration-and-registry.md) §4.1, as it stood before this entry; in git (`tools/adr.py log 0015 A51 --before`).
 
 ### A52. The founding attestation
 
@@ -569,9 +513,7 @@ Replaced text ([23](../architecture/23-configuration-and-registry.md) §4.1, as 
 - **Change:** amends §3
 - **Summary:** Non-`config` partitions have no genesis record: a partition's name, hash function, segment exponent `k` and policies are its `graph:` record in `config`, appended before the partition's first record and carried by the export bundle; the partition's first record is an ordinary record at offset 0. In `config` itself the first record is the founding `key:` record (A52). `log.segment_manifest` is keyed `(partition, segment)`, a `hashed` partition has segment manifests only with its job-end checkpoint the last sealed manifest plus an unsigned head offset, and every record in `local`, `pages`, the tenant `log` and `actors` partitions takes a `logid` at append; those parts of the row are logged in [0013](0013-postgres-storage.md) A57 and [0006](0006-log-integrity-and-erasure.md). (REVIEW G24)
 
-Replaced text ([23](../architecture/23-configuration-and-registry.md) §1.2, as it stood):
-
-> Every other partition is created by a `graph:` record in `config`, appended before that partition's first record; that record is the "genesis record" 0006 §2 says names the partition's hash function.
+Replaced text: [23](../architecture/23-configuration-and-registry.md) §1.2, as it stood before this entry; in git (`tools/adr.py log 0015 A54 --before`).
 
 ### A55. Provider property types in the registry
 
@@ -587,9 +529,7 @@ Replaced text ([23](../architecture/23-configuration-and-registry.md) §1.2, as 
 - **Change:** corrects §5
 - **Summary:** The `XD` row's `actor_model` in `providers.toml` is `individual`; the registry README's "may add providers" becomes "may declare entity sources", since an instance declares entity sources and never adds a provider at runtime; and a provider's slug and per-type IRI templates join its code and number on the list of things never changed once allocated. The chapter text is [23](../architecture/23-configuration-and-registry.md) §4.1, whose provenance line cites [0077](0077-special-version.md) §14 and which cites §5 of this ADR inline. (REVIEW G32)
 
-Replaced text ([23](../architecture/23-configuration-and-registry.md) §4.1, as it stood):
-
-> They are defaults, not state: an instance's `config` partition starts from them and may diverge, adding providers, renaming groups or changing permissions, but may not reuse a provider code or number for something else, because IDs and revision IDs computed from them are shared between instances.
+Replaced text: [23](../architecture/23-configuration-and-registry.md) §4.1, as it stood before this entry; in git (`tools/adr.py log 0015 A56 --before`).
 
 ### A57. Every setting has a bound
 
@@ -598,18 +538,7 @@ Replaced text ([23](../architecture/23-configuration-and-registry.md) §4.1, as 
 - **Change:** amends §3
 - **Summary:** The settings catalogue gains a bound column: `tenant` (the tenant's record is the value), `tenant ≤ instance ceiling` (the ceiling a tenancy switch of the setting's own name, a record above it refused), or `instance` (the setting exists once in the instance `config`, and a tenant-scope record of that name is refused with `ts-instance-policy`). Pool sizes and intervals (`files.thumb_concurrency`, `repo.concurrency`, `repo.fetches_per_minute`, `updates.batch_interval`, `notifications.fediverse_interval`) are deployment configuration, never `site` records; budgets and limits (`projections.sync_budget`, `projections.sync_time`, `scopes.max_members`, `sprints.max_tasks`, `query.max_results`, `query.timeout`) are ceiling-bounded; `query.isolation` and `query.max_concurrent` are instance-only. (REVIEW G35)
 
-Replaced text ([23](../architecture/23-configuration-and-registry.md) §3.2, as it stood):
-
-> | `files.thumb_concurrency` | `site` (by rule, §3.1) | integer | — | Size of the thumbnail rendering pool | [0039](../decisions/0039-files-and-media.md) §6 |
-> | `notifications.fediverse_interval` | `site` (by rule, §3.1) | duration | five minutes | Bundling interval for fediverse delivery | [0021](../decisions/0021-notifications.md) §5 |
-> | `query.max_concurrent` | instance-wide | integer | 8 | Concurrent queries, beyond which a query waits up to its own timeout | [0059](../decisions/0059-query-service.md) §6 |
-> | `repo.concurrency` | `site` (by rule, §3.1) | integer | 4 | Per-repository concurrency cap on the upstream client | [0053](../decisions/0053-mirrored-pages.md) §1 |
-> | `repo.fetches_per_minute` | `site` (by rule, §3.1) | integer | 600 | Per-repository fetch budget | [0053](../decisions/0053-mirrored-pages.md) §1 |
-> | `updates.batch_interval` | `site` (by rule, §3.1) | duration | one hour | How often update batch files are written | [0032](../decisions/0032-sparql-update-stream.md) §6 |
-
-Replaced text ([23](../architecture/23-configuration-and-registry.md) §3.4, as it stood):
-
-> | `query.isolation` | `dataset`, `store` ([0059](../decisions/0059-query-service.md) §4) | `store` | `dataset` | `dataset` |
+Replaced text: [23](../architecture/23-configuration-and-registry.md) §3.2, §3.4, as it stood before this entry; in git (`tools/adr.py log 0015 A57 --before`).
 
 ### A58. Copy on create, `registry sync`, and the per-kind `schema` integer
 
@@ -618,68 +547,46 @@ Replaced text ([23](../architecture/23-configuration-and-registry.md) §3.4, as 
 - **Change:** amends §3, §5
 - **Summary:** An instance's `config` starts as a copy of the registry: `instance create` appends a config record for every registry entry, so the log carries what the instance runs under and a reader of the log needs no binary to know it; `triplespace-cli registry sync` appends records, under the instance attestation, for registry entries newer than the instance's, and `instance check` warns when the instance is behind the registry its binary carries. Every config record's content carries a per-kind `schema` integer; `view.registry` stores the entry opaquely with its schema number, and an unknown kind or schema is projected opaquely and never fails replay. The ledger named §5 alone; the record shape and `view.registry` are §3's text ([23](../architecture/23-configuration-and-registry.md) §1.1), and the copy-on-create rule is in 23 §4.1, which cites §5 inline. (REVIEW G36)
 
-Replaced text ([23](../architecture/23-configuration-and-registry.md) §1.1, as it stood):
-
-> The content part holds the entry; the comment part holds the reason for the change; the attestation names who made it. A later record for the same key replaces the entry, and a record whose content is null retires it. `view.registry` is the projection of the latest record per key.
-
-Replaced text ([23](../architecture/23-configuration-and-registry.md) §4.1, as it stood):
-
-> They are defaults, not state: an instance's `config` partition starts from them and may diverge, adding providers, renaming groups or changing permissions, but may not reuse a provider code or number for something else, because IDs and revision IDs computed from them are shared between instances.
+Replaced text: [23](../architecture/23-configuration-and-registry.md) §1.1, §4.1, as it stood before this entry; in git (`tools/adr.py log 0015 A58 --before`).
 
 ### A59. The settings registry and the site's identity settings
 
 - **Date:** 2026-10-17
 - **Source:** [0085](0085-settings-and-preferences.md) §1, §2.1, §7
 - **Change:** amends §3; amends §5
-- **Summary:** `docs/registry/settings.toml` joins the registry of record: every `site` setting, a tenant's and the instance's, with its scope, bound, group, type, choices and default, copied into the instance `config` as records of a new instance kind, `setting`, and synced like every registry file. The settings catalogue of [23](../architecture/23-configuration-and-registry.md) §3.2–3.3 is generated from it, and the validator every writer calls reads it. A setting resolves to the tenant's record, the instance's default (an evaluated `template:site:{key}` record) or the registry default, under locks and ceilings, with its origin. Four settings name the wiki: `site.name`, `site.language`, `site.logo` and `site.icon`, the last two site assets. `preferences.toml` gains groups and the `follows` and `browser` fields. The chapter text is [02](../architecture/02-graphs-rdf-and-query.md) §1.4 and [23](../architecture/23-configuration-and-registry.md) §1.3, §1.4, §2.2, §3.1–3.3, §3.7, §4.1, §5.2 and §6.
+- **Summary:** `docs/registry/settings.toml` joins the registry of record, synced into the instance `config` as records of a new kind, `setting`; the settings catalogue is generated from it, and the one validator every writer calls reads it. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §1.4; [23](../architecture/23-configuration-and-registry.md) §1.3, §1.4, §2.2, §3.1–3.3, §3.7, §4.1, §5.2, §6.
 
-Replaced text ([23](../architecture/23-configuration-and-registry.md) §1.4, as it stood):
-
-> Any `site` setting can be provisioned into new tenants or locked this way, the `wikitext.*` settings among them.
-
-Replaced text ([23](../architecture/23-configuration-and-registry.md) §2.2, as it stood):
-
-> | `site` | A setting name | Tenant, and instance for the settings §3.3 lists | Site name, content languages, the recent-changes window, checkpoint cadence, and other scalar settings; the catalogue is §3 | [0006](0006-log-integrity-and-erasure.md) §6, [0010](0010-site-ui.md) §7 |
-
-Replaced text ([23](../architecture/23-configuration-and-registry.md) §3.7, as it stood):
-
-> A preference is a key–value pair owned by an account, registered in `docs/registry/preferences.toml` with a type, a default and a description, and is not a `site` setting; an instance sets its own defaults with `preferences.defaults` (§3.2).
-
-Replaced text ([02](../architecture/02-graphs-rdf-and-query.md) §1.4, as it stood):
-
-> | `preferences.toml` | The registered preference keys, types and defaults | [0027](0027-preferences-and-portability.md) §1 |
+Replaced text: [23](../architecture/23-configuration-and-registry.md) §1.4, §2.2, §3.7; [02](../architecture/02-graphs-rdf-and-query.md) §1.4, as it stood before this entry; in git (`tools/adr.py log 0015 A59 --before`).
 
 ### A60. The `palette` and `typeset` kinds
 
 - **Date:** 2026-10-17
 - **Source:** [0086](0086-theming.md) §1
 - **Change:** extends §3
-- **Summary:** Two config kinds at instance or tenant scope, written with `ts-config`: `palette`, keyed `palette:{name}`, holding a palette's label, shape tokens, colour variants, the palette it extends and its accessibility mark, and `typeset`, keyed `typeset:{name}`, holding a type set's label, typeface roles, per-language stacks, typefaces and accessibility mark. `docs/registry/themes.toml` holds the shipped ones in the same shape. The chapter rows are [23](../architecture/23-configuration-and-registry.md) §2.2.
+- **Summary:** Two config kinds at instance or tenant scope, `palette` and `typeset`, with the shipped ones in `docs/registry/themes.toml` in the same shape. Chapter text: [23](../architecture/23-configuration-and-registry.md) §2.2.
 
 ### A61. The `logins` partition
 
 - **Date:** 2026-10-18
 - **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §2
 - **Change:** extends §5
-- **Summary:** The instance gains a private source partition, `logins` (`full`, `logged`, never exported or projected), whose graph IRI is `{farm base}/instance/graph/logins`: one `scatter:v0/login` record per instance login, keyed `login:{n}`, and the `scatter:v0/binding` records of each login's external identities. `login` is a built-in issuer code in `issuers.toml`, and so reserved in the shared namespace of slugs and issuer codes. The chapter text is [02](../architecture/02-graphs-rdf-and-query.md) §1.2.
+- **Summary:** The instance gains a private source partition, `logins`, never exported or projected, holding one record per instance login and the bindings of its external identities; `login` becomes a built-in issuer code, and so a reserved slug. Chapter text: [02](../architecture/02-graphs-rdf-and-query.md) §1.2.
 
 ### A62. Adopted revisions keep the source's revision IDs
 
 - **Date:** 2026-10-19
 - **Source:** [0035](0035-adopting-a-wikibase.md) A12
 - **Change:** amends §2
-- **Summary:** An adopted revision carries the source wiki's own revision ID in field 7, below the floor the adoption job set, in place of a number from the tenant's sequence, as an adopted record's page ID is supplied in field 9 (A15). The records come in the source's order within each page, so the revision ID no longer increases with append order across an adoption's history. The chapter text is [01](../architecture/01-log-and-records.md) §2.5.
+- **Summary:** An adopted revision carries the source wiki's own revision ID in field 7, as its page ID is carried in field 9 (A15), so revision IDs no longer increase with append order across an adoption's history. Chapter text: [01](../architecture/01-log-and-records.md) §2.5.
 
-Replaced text ([01](../architecture/01-log-and-records.md) §2.5, as it stood):
-
-> - **The sequence increases with append order.** Gaps are acceptable.
+Replaced text: [01](../architecture/01-log-and-records.md) §2.5, as it stood before this entry; in git (`tools/adr.py log 0015 A62 --before`).
 
 ### A63. What a format version means
 
 - **Date:** 2026-10-29
 - **Source:** [0097](0097-versioning-and-skins.md) §4
 - **Change:** extends §2
-- **Summary:** Every reader reads every record ever written. The header's format version is the header layout's major, and a payload type's tag carries the payload's major: a change older readers can ignore keeps the tag, one they cannot interpret takes a new tag, and both are read from then on. A new major ships first behind a switch, off by default, in a minor release, and the release that writes it by default is a product major. The chapter text is [01](../architecture/01-log-and-records.md) §2.2.
+- **Summary:** Every reader reads every record ever written: the header's format version and each payload type's tag carry a major, a change older readers cannot interpret takes a new tag, and a new major ships behind a switch before any release writes it by default. Chapter text: [01](../architecture/01-log-and-records.md) §2.2.
 
 ### A64. A mirrored entity's upstream page ID is carried in the record's content
 

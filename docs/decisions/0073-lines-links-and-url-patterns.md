@@ -96,13 +96,11 @@ James's direction, from the design discussion of 2026-10-07:
 - **Change:** amends §3
 - **Summary:** An undesignated `match_key` property may find a subject (0071 §4 step 1, via `view.identifier`) but never create one; the refusal in 0071 §4 step 3 stands, and `lines.identifiers` follows the same rule: an identifier a URL yields under an undesignated property in the list is a lookup key for finding the subject, not a creation key. (PENDING F4)
 
-Replaced text (§3):
-
-> They become the subject's match keys in that order ([0071](0071-derived-statements-from-mirrored-pages.md) §4).
+Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0073 A1 --before`).
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§8
-- **Summary:** The Decision's current text now lives in the architecture chapters [13](../architecture/13-mirrored-pages.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0073 A2 --diff`).

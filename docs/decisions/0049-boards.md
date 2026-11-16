@@ -137,20 +137,7 @@ James's direction, from the design discussion of 2026-10-01:
 - **Change:** supersedes §15
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A49).
 
-Replaced text (§15):
-
-> No new crate.
->
-> | Crate | Change |
-> |---|---|
-> | `scatter-threads` | `attach`, `detach`, `also` and `keep`; the fold to a home and a listing set; their validation (§6). The `triplespace-board` model: definition types, schema validation and canonical serialization (§3–4). Pure |
-> | `scatter-pages` | The `triplespace-board` registry entry |
-> | `triplespace-titles` | Namespaces 310 and 311; `forwards_to` in the resolver; 215 changes kind (§2) |
-> | `triplespace-projections` | `view.thread_attachment`; `view.talk_page` rows for boards; `page_link` rows from board headers; `thread/*` log events |
-> | `triplespace-rdf` | The nodes and event types of §9 |
-> | `triplespace-federation` | Announces from listings, and `Undo` on detach (§10) |
-> | `triplespace-search` | The attachments field (§12) |
-> | `triplespace-api-action`, `triplespace-api-rest` | §11 |
+Replaced text: §15 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0049 A1 --before`).
 
 ### A2. Converted to the 0050 format
 
@@ -166,26 +153,7 @@ Replaced text (§15):
 - **Change:** amends §4, §14
 - **Summary:** The `scope` key is accepted at board definition version 2 and takes a scope page or an inline kind of 0060 §4, meaning the threads attached to the talk pages of the selected subjects, or the board kinds `thread_statement` (this ADR's former `statement`) and `boards`. `subjects` is 0060's `statement`; `mentions` is withdrawn for 0060 Q2's `links`. Q2 is settled in part; Q7 holds the rest.
 
-Replaced text (§14, in part):
-
-> Version 1 refuses it. A version that accepts it raises `version`.
-
-Replaced text (§4):
-
-> | `scope` | — | Reserved for automatic scopes (§14). A definition carrying it is refused in version 1 |
-
-Replaced text (§14):
-
-> Candidate kinds, roughly cheapest first:
->
-> | Kind | Selects |
-> |---|---|
-> | `subjects` | Threads attached to the talk pages of entities with a given statement (`P31` = `Q5`), from the statement indexes |
-> | `statement` | Threads carrying a given statement ([0038](0038-page-metadata-and-categories.md) §9), such as a topic property bound to a role |
-> | `mentions` | Threads whose posts link to matching entities, from `page_link` |
-> | `boards` | The threads of other boards, which is how boards nest |
->
-> `statement` is where manual and automatic meet: a person states a thread's topic once, and every board scoped to that topic shows it.
+Replaced text: §14, in part of this ADR; §4 of this ADR; §14 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0049 A3 --before`).
 
 ### A4. Pinned threads
 
@@ -201,13 +169,11 @@ Replaced text (§14):
 - **Change:** amends §12
 - **Summary:** The `tp:` listing key, like the `sc:` and `sp:` listing keys of [0060](0060-scopes.md) §10 and [0061](0061-sprints-and-tasks.md) §11, carries a **listing version**: the maximum activity ID over the listing's members, computed in Postgres at read time. This replaces the tag purge of the `tp:` listing on every record on a thread; [0014](0014-caches-and-search.md) §1 principles 1 and 4 hold unchanged. Tag purges remain for erasure and hiding. (PENDING B4)
 
-Replaced text (§12):
-
-> - **Caches** ([0014](0014-caches-and-search.md) §7): any record on a thread purges the `tp:` listing of every page it is attached to, by tag.
+Replaced text: §12 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0049 A5 --before`).
 
 ### A6. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§15
-- **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [09](../architecture/09-security-and-moderation.md), [14](../architecture/14-discussions.md), [15](../architecture/15-structured-pages.md), [16](../architecture/16-logs-feeds-and-notifications.md), [17](../architecture/17-federation-and-publication.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0049 A6 --diff`).

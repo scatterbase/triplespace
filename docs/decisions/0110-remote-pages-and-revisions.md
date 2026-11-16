@@ -133,11 +133,9 @@ James's direction, from the design discussion of 2026-11-12 to 2026-11-15:
 - **Date:** 2026-11-16
 - **Source:** Direct: James, design discussion of 2026-11-16
 - **Change:** amends §1
-- **Summary:** Settles Q2. A remote key's labels are editable, as a keyword's are, and a stored label always wins. Without one the UI builds a label: on a tenant whose page repository indexes the site's titles, the current title and the site ("Judith Butler (from en.wikipedia.org)"); otherwise the number and the site ("page ID 148809 (from en.wikipedia.org)", or "(from enwiki)" where the site list gives no domain); in Wikibase JSON and RDF, which carry stored labels only, the key. An option to index titles without serving pages would supply titles too. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.11.
+- **Summary:** Settles Q2. A remote key's labels are editable, as a keyword's are, and a stored label always wins. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.11.
 
-Replaced text ([04](../architecture/04-entities-and-identifiers.md) §3.11, as it stood):
-
-> | Display | Derived: the key without the host as the `mul` label; `wbsetlabel` fails with `derived-label` as on a Domain (§3.6). Descriptions and aliases are stored and reconciled like an item's |
+Replaced text: [04](../architecture/04-entities-and-identifiers.md) §3.11, as it stood before this entry; in git (`tools/adr.py log 0110 A1 --before`).
 
 ### A2. A host may name a title alias
 
@@ -151,19 +149,9 @@ Replaced text ([04](../architecture/04-entities-and-identifiers.md) §3.11, as i
 - **Date:** 2026-11-16
 - **Source:** Direct: James, design discussion of 2026-11-16
 - **Change:** amends §2, §3
-- **Summary:** Settles Q4. Besides registry hosts, a tenant may declare a host as a `remote-host` config record, on the entity-source pattern: its name joins the tenant's table of names under the sources' rules, its keys mean something only on that tenant, its IRIs are under the tenant's base, its site grammar is a built-in one, and it can be promoted to the registry, keeping its keys' form and recording each old IRI as `owl:sameAs` the new. A key under a tenant host is therefore not valid by its form alone on every instance, and is read as a source ID is. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.11, §3.12; [05](../architecture/05-providers-and-ingest.md) §6.2, §6.3; [23](../architecture/23-configuration-and-registry.md) §2.2.
+- **Summary:** Settles Q4. Besides registry hosts, a tenant may declare a host as a `remote-host` config record, on the entity-source pattern: its name joins the tenant's table of names under the sources' rules, its keys mean something only on that tenant, its IRIs are under the tenant's base, its site grammar is a built-in one, and it can be promoted to the registry, keeping its keys' form and recording each old IRI as `owl:sameAs` the new. Chapter text: [04](../architecture/04-entities-and-identifiers.md) §3.11, §3.12; [05](../architecture/05-providers-and-ingest.md) §6.2, §6.3; [23](../architecture/23-configuration-and-registry.md) §2.2.
 
-Replaced text ([04](../architecture/04-entities-and-identifiers.md) §3.12, as it stood):
-
-> **Hosts are allocated in the registry only, never by an instance or a tenant,** for the reason schemes are (§3.8): a remote ID and its IRI are shared by every instance, so two instances that gave one name to different hosts would describe different pages with one IRI. **A new host is a registry change; a new site grammar is code.** A host is not a provider (`providers.toml`, [05](../architecture/05-providers-and-ingest.md) §1.5): it mints nothing Triplespace stores or mirrors, and needs only a name, a grammar and its links.
-
-Replaced text ([04](../architecture/04-entities-and-identifiers.md) §3.11, the Grammar row, as it stood):
-
-> | Grammar | A registered host's name; `:`; a site name in the host's site grammar (§3.12), which never admits `-`; `-`; `p` or `r`; a decimal number from 1 to 2^63 − 1 with no leading zeros |
-
-Replaced text ([05](../architecture/05-providers-and-ingest.md) §6.2, as it stood):
-
-> A keyed ID's key is valid by its form alone, the same on every instance and with nothing declared: a domain name, a phrase, a notation, or a host's page or revision number qualified by the host and the site ([04](../architecture/04-entities-and-identifiers.md) §3.11, [0110](../decisions/0110-remote-pages-and-revisions.md) §3).
+Replaced text: [04](../architecture/04-entities-and-identifiers.md) §3.12, §3.11, the Grammar row; [05](../architecture/05-providers-and-ingest.md) §6.2, as it stood before this entry; in git (`tools/adr.py log 0110 A3 --before`).
 
 ### A4. The `revision-of` role
 

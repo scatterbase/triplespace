@@ -105,19 +105,7 @@ Two constraints shape the rest. The **host of a URL is a Domain** ([0009](0009-k
 - **Change:** supersedes §10
 - **Summary:** 0005 §2 is the one crate table CI checks, and carries every change this section listed (0005 A22).
 
-Replaced text (§10):
-
-> | Crate | Change |
-> |---|---|
-> | `scatter-normalize` | The URL normalizer (§1), built on the `url` crate, which already depends on `idna` |
-> | `scatter-wikibase-model` | Sitelinks as URLs with badges and an optional title; the alias mapping between (site ID, title) and URL; `sitelink-conflict` checks. Embeds `docs/registry/sites.toml` |
-> | `scatter-wikibase-rdf` | The RDF of §8 |
-> | `scatter-wikibase-resolve` | Reconciliation by URL and host (§4); the denied-host filter (§3) |
-> | `scatter-adapter-wikidata` | Resolving upstream site IDs to URLs from the provider's site table (§4) |
-> | `triplespace-projections` | `view.sitelink` (§6); re-resolution on policy change |
-> | `triplespace-api-action`, `triplespace-api-rest` | §7 |
->
-> No crate is added. `sites.toml` is embedded by `scatter-wikibase-model` rather than `scatter-providers` because the alias is a Wikibase-compatibility concern, not a provider one: a site alias exists for hosts the instance never mirrors.
+Replaced text: §10 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0026 A1 --before`).
 
 ### A2. Decisions of 2026-09-27 (evening)
 
@@ -135,9 +123,7 @@ Replaced text (§10):
   - §1: A sitelink in the local graph whose host is one the tenant is served at is stored by page ID, not URL. Its URL and title are derived from the page's current title, so a move does not break it; a title with no page is refused with `ts-sitelink-no-page`.
   - §2: A tenant registers a site alias for its own host, so that `wbgetentities` by `sites` and `titles`, `wbsetsitelink` and `Special:ItemByTitle` reach an item from a local page's title. The one-link-per-host and one-item-per-URL invariants make that pairing one-to-one.
 
-Replaced text (§1):
-
-> Nothing else is folded: `/Foo` and `/Foo/` are different URLs, as they are to the server that serves them.
+Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0026 A3 --before`).
 
 ### A4. Converted to the 0050 format
 
@@ -153,16 +139,14 @@ Replaced text (§1):
 - **Change:** amends §8
 - **Summary:** For a page paired with an item ([0038](0038-page-metadata-and-categories.md) §6, §11) the `schema:Article` node is the page node `{base}/page/{id}`, also typed `schema:WebPage`, with the URL as `schema:url`; every other sitelink keeps wikibase-compat §5.2's shape, where the node is the page's URL. (PENDING A20)
 
-Replaced text (§8):
-
-> The RDF shape of [wikibase-compat.md §5.2](../api/wikibase-compat.md) is kept for every sitelink, so QLever and Wikidata tooling see what they expect:
+Replaced text: §8 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0026 A5 --before`).
 
 ### A6. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
-- **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [04](../architecture/04-entities-and-identifiers.md), [06](../architecture/06-statements-and-properties.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0026 A6 --diff`).
 
 ### A7. One URL across entities: local wins, and the projection never fails
 

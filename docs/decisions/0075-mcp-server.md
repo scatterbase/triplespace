@@ -89,16 +89,14 @@ James's direction, from the design discussion of 2026-10-07:
 - **Change:** corrects §5
 - **Summary:** "the `read` grant" is `basic` (0024 §4), which every API key and OAuth token carries; there is no `read` grant. (PENDING C3)
 
-Replaced text (§5):
-
-> **Other tenants** require a bearer credential: a subsidiary's API key ([0024](0024-subsidiary-accounts.md) §4) or an OAuth token ([0025](0025-oauth-server.md)), with the `read` grant.
+Replaced text: §5 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0075 A1 --before`).
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§7
-- **Summary:** The Decision's current text now lives in the architecture chapters [07](../architecture/07-actors-and-accounts.md), [09](../architecture/09-security-and-moderation.md), [18](../architecture/18-api.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0075 A2 --diff`).
 
 ### A3. The chapter says `basic`
 
@@ -107,6 +105,5 @@ Replaced text (§5):
 - **Change:** corrects §5
 - **Summary:** The MCP requirement on a non-public tenant is the `basic` grant, which every API key and OAuth token carries; A1 recorded this, and the chapter text still said "the `read` grant" until this review. The rest of the row (hand-made subsidiaries are never `pending`, `instance create` puts the sync subsidiaries in `bot`, `view.actor` gains `editcount` and `created_at`, `autoconfirmed` is an implicit group) is [0024](0024-subsidiary-accounts.md) §2's and [0016](0016-permissions-and-access-control.md) §3's. The ledger names §4, which is the resources section and unchanged. (REVIEW G40)
 
-Replaced text ([09](../architecture/09-security-and-moderation.md) §8.11, as it stood):
+Replaced text: [09](../architecture/09-security-and-moderation.md) §8.11, as it stood before this entry; in git (`tools/adr.py log 0075 A3 --before`).
 
-> **Other tenants** require a bearer credential: a subsidiary's API key or an OAuth token, with the `read` grant.

@@ -123,118 +123,16 @@ James's direction, from the design discussion of 2026-10-18:
 - **Date:** 2026-10-18
 - **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §3, §4, §5, §6, §7, §10, §14, §16
 - **Change:** amends §3, §4, §5, §6, §7, §8, §9
-- **Summary:** External identities authenticate instance logins, on the auth host, and no longer tenant accounts. `private.oauth_client` has one row per issuer for the whole instance: the per-tenant rows and the instance default they overrode are withdrawn with the CLI's `--tenant`, and the callback the operator registers is the auth host's. The auth host offers what the instance default of `login.issuers` lists, and a tenant's value says which methods it admits. A bound identity authenticates its login; an unbound one becomes the auth host's pending identity, from which a login is created. On a tenant, a login with no account is answered by an account request, by vouching where the central session was authenticated through the vouching issuer, or as the session's pending login, from which the account is created with `createpreservestate`. Sign-in methods are added and removed on the auth host, and `private.binding` indexes both a login's identities and each tenant account's binding to its login. `siprop=triplespace` reports the auth host.
+- **Summary:** External identities authenticate instance logins, on the auth host, and no longer tenant accounts. `private.oauth_client` has one row per issuer for the whole instance: the per-tenant rows and the instance default they overrode are withdrawn with the CLI's `--tenant`, and the callback the operator registers is the auth host's. A bound identity authenticates its login; an unbound one becomes the auth host's pending identity, from which a login is created. On a tenant, a login with no account is answered by an account request, by vouching where the central session was authenticated through the vouching issuer, or as the session's pending login, from which the account is created with `createpreservestate`. Sign-in methods are added and removed on the auth host, and `private.binding` indexes both a login's identities and each tenant account's binding to its login. The text is in git (`tools/adr.py log 0088 A1 --diff`).
 
-Replaced text (§3):
-
-> **`private.oauth_client`** holds one row per tenant and issuer: `(tenant, issuer, client_id, secret, callback, created, updated)`, primary key `(tenant, issuer)`, where `tenant = ''` is the **instance default**. Its portability class is "never leaves": a consumer belongs to the host it was registered for, and a moved tenant registers its own.
-
-Replaced text (§3):
-
-> **Resolution.** A tenant uses its own row for an issuer if it has one. Otherwise it uses the instance default, but only when the default's `callback` is the tenant's own callback URL (§5), or a prefix of it registered as one: a provider sends the person back only to the URL its consumer was registered with, so a default registered for the primary tenant's host does not serve a tenant on another host. An issuer with no usable row is not offered on that tenant (§4).
-
-Replaced text (§3):
-
-> and the associated data is the table name, the tenant and the issuer, so a sealed value
-
-Replaced text (§3):
-
-> - `triplespace-cli oauth-client set {issuer} [--tenant {slug}] --client-id {id}
-
-Replaced text (§3):
-
-> - `triplespace-cli oauth-client list [--tenant {slug}]` lists issuers, client IDs, callbacks and which rows each tenant resolves to;
-
-Replaced text (§3):
-
-> - `triplespace-cli oauth-client callback {issuer} [--tenant {slug}]` prints
-
-Replaced text (§3):
-
-> - `triplespace-cli oauth-client remove {issuer} [--tenant {slug}]`.
-
-Replaced text (§4):
-
-> A tenant offers an external issuer for login when the issuer has `login = true` and an `oauth` table, a credential resolves for it (§3), and the tenant's setting **`login.issuers`** lists it. `login.issuers` defaults to `*`, every issuer, so a credential is all an instance needs to offer one; a tenant narrows it to refuse an instance default, and an instance may lock it. `login.password` keeps governing the built-in issuer ([0007](0007-actor-identity.md) §3). A tenant that offers nothing has no way to log in, so a save that would leave `login.password` off and no issuer offered is refused with `ts-no-login-method`.
-
-Replaced text (§4):
-
-> An issuer that stops being offered does not unbind anyone: its bindings stay, and the account page shows them as unavailable.
-
-Replaced text (§5):
-
-> **The callback is one URL per tenant**, `{base}/w/rest.php/triplespace/v0/auth/{issuer}/callback`, served by the API, and it is the URL the operator registers with the provider.
-
-Replaced text (§5):
-
-> on the tenant's own origin (another is `ts-oauth-returnurl`)
-
-Replaced text (§6):
-
-> **A login whose identity is bound** opens a session for the account, as a password login does, and updates the binding's `last_used`. An account that may not log in is refused as it would be with a password.
-
-Replaced text (§6):
-
-> **A login whose identity is not bound**, in this order:
-
-Replaced text (§6):
-
-> 1. If an account request holds the identity as its credential,
-
-Replaced text (§6):
-
-> 2. If the tenant vouches through this issuer, §8 decides.
-
-Replaced text (§6):
-
-> 3. Otherwise the identity becomes **pending**: the flow is kept, bound to the session, until it expires.
-
-Replaced text (§6):
-
-> **Creating the account.** `action=createaccount` with `createpreservestate=1` and a `username`, in the session holding a pending identity, creates the account with a binding to that identity instead of a password; it asks for no password and no challenge, and the `createaccount` throttle counts it as it counts every registration ([0087](0087-account-registration-and-challenges.md) §4). Starting from `Special:CreateAccount` instead, the person types a name and presses the issuer's button: `createaccount` with the button checks the name first, so a name already taken costs no trip to the provider, and the flow then creates the account on `createcontinue`. Under `account.approval`, either files a request whose credential is the issuer and subject. A subject already bound on the tenant is refused with `ts-oauth-bound`, which says to log in instead.
-
-Replaced text (§6):
-
-> **The name.** The field starts empty, and the provider's username is offered as a button labelled with where it came from,
-
-Replaced text (§7):
-
-> **`private.binding`** is the index of external bindings that [0013](0013-postgres-storage.md) §4 left to be defined: `(tenant, issuer, subject, actor_key, partition, offset, added, last_used)`, unique on `(tenant, issuer, subject)`. The binding record in the tenant's `accounts` partition is the truth ([0007](0007-actor-identity.md) §8); the row is written in the same transaction as the record, and points at it so that it can be erased. A password binding's index is `private.password`, which is already keyed by account.
-
-Replaced text (§7):
-
-> **Adding** a sign-in method is the flow with purpose `link`, through `POST /auth/{issuer}/start` from `Special:Account` or `action=linkaccount`, in the session of a primary account. It appends a binding record. A subject bound to another account on the tenant is refused with `ts-oauth-bound-elsewhere`; one already bound to this account is a success that changes nothing.
-
-Replaced text (§7):
-
-> which `meta=authmanagerinfo&amirequestsfor=remove` lists for each of the account's bindings, or **Remove** on `Special:Account`.
-
-Replaced text (§8):
-
-> **The check.** On a login through that issuer whose identity is not bound (§6, step 2), the instance resolves the person's account on the source:
-
-Replaced text (§8):
-
-> If the source answers with user `n` and `{tenant code}:{n}` is an adopted account with no binding and no password, the account is **reclaimed**: one change set appends the binding record and a public
-
-Replaced text (§8):
-
-> if the source names no user, the login continues as an unbound one;
-
-Replaced text (§9):
-
-> `siprop=triplespace` reports the issuers the tenant offers under `login`,
-
-Replaced text (Consequences):
-
-> - **An instance offers Wikimedia login with one CLI command** once the operator holds the consumer, and a tenant on its own host registers its own.
+Replaced text: §3 of this ADR; §4 of this ADR; §5 of this ADR; §6 of this ADR; §7 of this ADR; §8 of this ADR; §9 of this ADR; Consequences of this ADR, as it stood before this entry; in git (`tools/adr.py log 0088 A1 --before`).
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-30
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
-- **Summary:** The Decision's current text now lives in the architecture chapters [07](../architecture/07-actors-and-accounts.md), [08](../architecture/08-tenants-and-instances.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0088 A2 --diff`).
 
 ### A3. Requiring an external sign-in method
 
@@ -243,9 +141,7 @@ Replaced text (Consequences):
 - **Change:** amends §7; extends §4
 - **Summary:** An instance may require every login to hold an external identity (`login.external_required`). Under it, removing a login's last external identity is refused with `ts-external-required` whether or not the login has a password, where before only the last way to log in of any kind was refused; and the save that enacts it is refused with `ts-external-required-unmet` until the auth host offers an issuer, every login holds an identity and no credential is still keyed by a tenant account.
 
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.7, as it stood):
-
-> removing the last way to log in, counting a password, is `ts-last-binding`. Neither appears in any log, feed or export.
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.7, as it stood before this entry; in git (`tools/adr.py log 0088 A3 --before`).
 
 ### A4. One identity per login under strict names
 
@@ -254,6 +150,5 @@ Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.7, as it stoo
 - **Change:** amends §7
 - **Summary:** Under strict names a login holds exactly one external identity, the one its names derive from; adding a second answers `ts-strict-identity` ([07](../architecture/07-actors-and-accounts.md) §2.7, §2.10).
 
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.7, as it stood):
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.7, as it stood before this entry; in git (`tools/adr.py log 0088 A4 --before`).
 
-> **Adding** one is the flow with purpose `link`, on the auth host's `Special:Account` or `action=linkaccount` at the auth base; a subject bound to another login is `ts-oauth-bound-elsewhere`, and one already bound to this login changes nothing.

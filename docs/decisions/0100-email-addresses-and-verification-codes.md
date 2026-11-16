@@ -139,11 +139,8 @@ None.
 - **Change:** amends §5; extends §1, §7, §8, §10, §11
 - **Summary:** The first HTTP mail API is built, as §5 planned: `mail.transport = postmark` sends one JSON request per message with the server token from `mail.postmark.token_file`, through `reqwest` (a new edge of `scatter-mail`); `200` is accepted, `429` and `5xx` temporary, `422` with an API error code and `401`, `413`, `415` permanent. Codes and security notices go on `mail.postmark.stream` (`outbound`); notifications and digests on `mail.postmark.notification_stream` (`broadcast`), a broadcast stream the operator creates, because Postmark's terms keep bulk mail off the transactional stream. Postmark's bounce and spam-complaint webhooks post to `POST /mail/postmark`, authenticated by the HTTP Basic password `mail.postmark.webhook_secret_file` holds, since Postmark signs nothing. **What a bounce does to an address**, the decision SCA-296 asked for: a hard bounce or a complaint marks the address *undeliverable* on every login that holds it verified, with the reason and time (two columns of `private.email`); the address keeps its verification and its primary role, nothing more is sent to it, and the page says so beside it. The holder clears the mark by confirming the address again with a new code; after a complaint the page suggests removing it, since Postmark will refuse it for good. This was chosen over removing the address (a lost primary, with no word to the holder) and over a warning alone (every digest would then cost sender reputation); it is reversible by the holder and needs no operator. A transient or soft bounce changes nothing. `ops.delivery` gained a `failed` flag beside the attempts, so a permanent failure keeps its row and error until expiry without being retried.
 
-Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §5.7, as it stood):
+Replaced text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.7, as it stood before this entry; in git (`tools/adr.py log 0100 A2 --before`).
 
-> HTTP mail APIs are further implementations of the trait, each with a transport name of its own and sending through the egress path of [0012](0012-api-requirements.md) §6. What one adds over SMTP is structured delivery results and bounce and complaint webhooks, so each is built together with that handling. The first is `postmark`, whose message streams keep codes and security notices apart from notification digests; until it is built, a provider is reached through `smtp`, which every one of them accepts.
->
-> **The sender** is one address for the whole instance, `mail.from`, required unless the transport is `none`. Its display name says whom a message is from: the instance's display name (the operator's, [08](../architecture/08-tenants-and-instances.md) §8.2) on mail about the login, codes and security notices, and the tenant's `site.name` on a tenant's notifications and digests. Bounces and complaints are not processed yet.
 ### A3. Addresses keyed by the login
 
 - **Date:** 2026-11-06
@@ -151,9 +148,7 @@ Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §5.7, a
 - **Change:** amends §1, §7 (A1)
 - **Summary:** Instance logins exist ([0089](0089-the-auth-host-and-instance-logins.md) A3), so an address's row names the login by its ID, as §1 always said, and A1's interim keying by actor key is over; the `login` column stays text and holds the decimal ID. What A1 said of where the routes are served stands for the reason 0089 §12 gives: on a single-tenant instance the tenant's base is the auth base. A request by API key is still refused.
 
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.9, as it stood):
-
-> Until instance logins exist (§2.8 is not built), the login an address belongs to is the account whose session acts, identified by its actor key, and the routes and the page are served on the tenant's host as the account page is; the migration to logins rekeys the rows (0100 A1).
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.9, as it stood before this entry; in git (`tools/adr.py log 0100 A3 --before`).
 
 ### A4. Messages link to the tenant's Special:Account until the auth host serves it
 
@@ -162,9 +157,7 @@ Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.9, as it stoo
 - **Change:** amends §4; extends §2
 - **Summary:** The security notice of §4, and the verification and held-elsewhere messages of §2, linked to `Special:Account` on the auth base whenever one was set. The auth host serves only `/healthz` until its pages are built ([0089](0089-the-auth-host-and-instance-logins.md) §7), so on every instance with more than one tenant the link was a 404. Until the auth host serves `Special:Account`, every message about the login links to `Special:Account` on the tenant the message was sent from, where the addresses are managed today (A3); the link moves to the auth host with its pages.
 
-Replaced text ([07](../architecture/07-actors-and-accounts.md) §2.9, as it stood):
-
-> It names the change, the address concerned and the time, and links to the auth host's `Special:Account`.
+Replaced text: [07](../architecture/07-actors-and-accounts.md) §2.9, as it stood before this entry; in git (`tools/adr.py log 0100 A4 --before`).
 
 ## References
 

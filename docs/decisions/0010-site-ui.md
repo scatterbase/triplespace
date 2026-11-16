@@ -193,9 +193,7 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 - **Change:** amends §13
 - **Summary:** `scatter-markdown` was folded into `scatter-pages`; the crate names in §13 read as their new homes.
 
-Replaced text (§13):
-
-> - **The frontend extends the `ui/` prototype of [0003](0003-statement-ui.md) §10.** Statement diffs reuse `scatter-wikibase-shape`, and the page editor's preview reuses `scatter-wikitext` and `scatter-markdown`, all built for `wasm32-unknown-unknown`.
+Replaced text: §13 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0010 A1 --before`).
 
 ### A2. The activity projection in Postgres
 
@@ -204,9 +202,7 @@ Replaced text (§13):
 - **Change:** amends §13
 - **Summary:** The activity projection is `view.activity`, written by `triplespace-projections`, which absorbs `triplespace-activity`.
 
-Replaced text (§13):
-
-> - **A new activity projection** lives in the surfaces layer ([0005](0005-crate-organization.md) §1), in a new crate, `triplespace-activity`. It is a time-ordered index with these inputs:
+Replaced text: §13 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0010 A2 --before`).
 
 ### A3. Global revision IDs
 
@@ -215,13 +211,7 @@ Replaced text (§13):
 - **Change:** amends §5.2, §12
 - **Summary:** Local and mirror records have global revision IDs, so rows may show revision numbers and `oldid=N` and `Special:Diff/N` work for both. This settled Q3.
 
-Replaced text (§5.2):
-
-> **Rows are identified by time and source.** Revision numbers are not shown until the question of global revision IDs is settled ([0008](0008-namespaces-and-document-pages.md), open questions).
-
-Replaced text (§12):
-
-> | Diff | `Special:Diff/…` and `index.php?diff=…&oldid=…`. The ID form depends on global revision IDs (open questions). |
+Replaced text: §5.2 of this ADR; §12 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0010 A3 --before`).
 
 ### A4. One search, two indexes
 
@@ -230,9 +220,7 @@ Replaced text (§12):
 - **Change:** amends §3
 - **Summary:** Entity labels and page text are two indexes queried together.
 
-Replaced text (§3):
-
-> - **The full results page** also searches page text. Whether one index serves both labels and text is still open in [0008](0008-namespaces-and-document-pages.md).
+Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0010 A4 --before`).
 
 ### A5. Groups, protection and erasure reasons
 
@@ -241,9 +229,7 @@ Replaced text (§3):
 - **Change:** amends §5.2; extends §2, §12
 - **Summary:** The overflow menu gains **Protect…**; group, rights, block and protection pages appear where MediaWiki users expect them; an erased row's reason class is visible to holders of `ts-viewerasures`. 0016 §5–6 also settled Q5 and Q8.
 
-Replaced text (§5.2):
-
-> | Erased record | A gap row showing only its time and source: "An edit was erased." Its reason class is shown only if [0006](0006-log-integrity-and-erasure.md) makes it public. |
+Replaced text: §5.2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0010 A5 --before`).
 
 ### A6. Name rules
 
@@ -259,9 +245,7 @@ Replaced text (§5.2):
 - **Change:** amends §3
 - **Summary:** Keyed IDs carry their type prefix; a bare key pasted into the search box is offered as its keyed ID.
 
-Replaced text (§3):
-
-> - **An ID or domain key jumps straight to its page.** Input that parses as an ID or domain key gets a "Go to" option as the first suggestion, and Enter follows it.
+Replaced text: §3 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0010 A7 --before`).
 
 ### A8. Contributions across tenants
 
@@ -270,9 +254,7 @@ Replaced text (§3):
 - **Change:** amends §8
 - **Summary:** Contributions are per tenant account; `Special:GlobalContributions` follows linked accounts; a foreign actor's page shows what the instance holds and never fetches upstream. This settled Q4.
 
-Replaced text (§8):
-
-> - **Contributions are per account** ([0007](0007-actor-identity.md), Consequences).
+Replaced text: §8 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0010 A8 --before`).
 
 ### A9. Discussions
 
@@ -337,11 +319,7 @@ Replaced text (§8):
 - **Change:** amends §11
 - **Summary:** The Preferences section becomes the home of every preference key; a Your data section, Private, offers download and import; the Leave section suggests downloading first.
 
-Replaced text (§11):
-
-> `Special:Account` is visible only to its holder. It has five sections:
->
-> | Preferences | — | Interface and label language, and the defaults for the upstream-edits fold (§5.5) and the mirror-sync filter (§7) |
+Replaced text: §11 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0010 A17 --before`).
 
 ### A18. Resolver keys
 
@@ -371,9 +349,7 @@ Replaced text (§11):
 - **Change:** amends §4, §13
 - **Summary:** Pages render on the server with Codex markup; editors load `scatter-wasm` for live preview. This settled Q6, and the responsive-site half of Q7.
 
-Replaced text (§4):
-
-> - **The source and a live preview sit side by side.** The preview runs the server's own renderer compiled to WebAssembly ([0008](0008-namespaces-and-document-pages.md) §11).
+Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0010 A21 --before`).
 
 ### A22. Articles, categories and page data
 
@@ -386,10 +362,7 @@ Replaced text (§4):
   - §3: When a main-namespace page has the same title as the ID, it is offered as the next suggestion, "Page titled Q42".
   - §4: Categories are listed as links to their category pages, with hidden categories collapsed.
 
-Replaced text (§4):
-
->   - A template call renders as a "Template not rendered" chip showing the call.
->   - Category links are listed at the foot of the page as plain text, under "Categories from the source wiki".
+Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0010 A22 --before`).
 
 ### A23. File pages
 
@@ -412,9 +385,7 @@ Replaced text (§4):
 - **Change:** amends §4
 - **Summary:** The Format selector and the model shown beside the title appear only for text models, and the selector only where the namespace allows more than one model.
 
-Replaced text (§4):
-
-> - **A Format selector** changes the content model (`action=changecontentmodel`).
+Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0010 A25 --before`).
 
 ### A26. Template expansion
 
@@ -477,9 +448,7 @@ Replaced text: the chip rule quoted under A22, which applies only with expansion
 - **Change:** corrects §2
 - **Summary:** §2's tabs table is the one tabs table for the site: the thread row gains Page data, and the document-page row keeps Talk; [0038](0038-page-metadata-and-categories.md) §7 refers to this table instead of carrying its own. (PENDING F15)
 
-Replaced text (§2):
-
-> | Thread, talk page | The posts as a tree, or the list of threads, with History ([0019](0019-discussions.md) §8) |
+Replaced text: §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0010 A33 --before`).
 
 ### A34. The About panel on entity pages
 
@@ -495,16 +464,14 @@ Replaced text (§2):
 - **Change:** supersedes §13
 - **Summary:** The `ui/` prototype of [0003](0003-statement-ui.md) §10 is superseded: the prototype is `triplespace-ui` with `scatter-wasm`, server-rendered Rust ([0034](0034-frontend-stack.md) §3, §13). The fixture list and audit step of 0003 §10 stay; "later Rust implementation" and "lives in `ui/`" go, and §13's frontend bullet no longer extends a `ui/` prototype. (PENDING F17)
 
-Replaced text (§13):
-
-> - **The frontend extends the `ui/` prototype of [0003](0003-statement-ui.md) §10.** Statement diffs reuse `scatter-wikibase-shape`, and the page editor's preview reuses `scatter-wikitext` and the markdown renderer of `scatter-pages`, all built for `wasm32-unknown-unknown` ([0005](0005-crate-organization.md) §2).
+Replaced text: §13 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0010 A35 --before`).
 
 ### A36. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§13
-- **Summary:** The Decision's current text now lives in the architecture chapters [19](../architecture/19-site-ui.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0010 A36 --diff`).
 
 ### A37. The search box accepts any cluster member and lands in the local form
 
@@ -513,9 +480,7 @@ Replaced text (§13):
 - **Change:** amends §3
 - **Summary:** The title resolver the search box uses accepts any member of an identity cluster, so `WDQ42` and the local `Q9` it is clustered with land on the same entity page, shown in the site's local form; a non-canonical member no longer "lands on its canonical entity", since the page is served under whichever ID was asked for with values rewritten to the local preference. Search results are one per cluster, the member the local preference selects. 0082's table named §9 (Jobs); the fold is at [19](../architecture/19-site-ui.md) §2.1, whose provenance is §3 here, and the table and the ledger row were corrected. (REVIEW G4, G5)
 
-Replaced text ([19](../architecture/19-site-ui.md) §2.1, as it stood):
-
-> - **An ID or domain key jumps straight to its page.** Input that parses as an ID, a keyed ID or a bare key of a keyed type gets a "Go to" option as the first suggestion, and Enter follows it ([0017](../decisions/0017-entity-id-grammar.md) §1, §4). So does a resolver key, such as `DOI:10.1000/xyz`, which lands on the item it resolves to or on a disambiguation page in the site frame. Parsing and resolution use the title resolver ([0008](../decisions/0008-namespaces-and-document-pages.md) §3; [10](../architecture/10-pages-and-content-models.md)), so a non-canonical cluster member lands on its canonical entity ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §4). When a main-namespace page has the same title as the ID, it is offered as the next suggestion, "Page titled Q42" ([0038](../decisions/0038-page-metadata-and-categories.md) §8).
+Replaced text: [19](../architecture/19-site-ui.md) §2.1, as it stood before this entry; in git (`tools/adr.py log 0010 A37 --before`).
 
 ### A38. An entity's history has one backing, `view.entity_history`
 
@@ -524,13 +489,7 @@ Replaced text ([19](../architecture/19-site-ui.md) §2.1, as it stood):
 - **Change:** amends §5.4, §13; extends §5, §5.1
 - **Summary:** The history of an entity is read from `view.entity_history (tenant, canonical_id, time, partition, offset, kind, member)`, which composition writes: one row per record in any source partition keyed to the entity or a member of its cluster, and one per upstream log event keyed to a member, each with its kind and the member. The page is one keyset query over that index, served by `GET /entity/{id}/history`; nothing is merged from `log.record` or `view.activity` at request time, and upstream log events are rows of it, not of `view.activity`. Under `full`, or for a retained entity, every observed state and every backfilled upstream revision is a row of it too, so "read from the log" is withdrawn; document page histories, recent changes and contributions stay on `view.activity`. The default mirrored provider log is `delete/*` and `protect/*`, the backfill covers held entities only, and `create/create` is derived from the first upstream revision ([0011](0011-logs.md) §3). The ledger named §3 (Search); the folds are at [19](../architecture/19-site-ui.md) §3.3, §3.5 and §5.2, whose provenance is §5, §5.1, §5.4 and §13 here, and the ledger row was corrected. (REVIEW G42)
 
-Replaced text ([19](../architecture/19-site-ui.md) §3.5, as it stood):
-
-> Under `full`, or for a retained entity, every observed state is a row, and backfilled upstream revisions are read from the log.
-
-Replaced text ([19](../architecture/19-site-ui.md) §5.2, as it stood):
-
-> `triplespace-ui` renders pages on the server, runs in the server or in the stateless web tier, and reaches the instance only through the public API ([0057](../decisions/0057-web-tier.md) §1–2; [20](../architecture/20-web-tier.md)). Statement diffs reuse `scatter-wikibase-shape`, and the page editor's preview reuses `scatter-wikitext` and the markdown renderer of `scatter-pages`, all built for `wasm32-unknown-unknown` ([0005](../decisions/0005-crate-organization.md) §2; [22](../architecture/22-crates-and-stack.md)). Recent changes, contributions and histories are served by the activity projection, `view.activity` in `triplespace-projections`, which grows with local activity and the number of jobs, not with the size of the mirrors ([0010](../decisions/0010-site-ui.md) §13; its inputs and tables are [03](../architecture/03-storage-caches-and-search.md) and [16](../architecture/16-logs-feeds-and-notifications.md)).
+Replaced text: [19](../architecture/19-site-ui.md) §3.5, §5.2, as it stood before this entry; in git (`tools/adr.py log 0010 A38 --before`).
 
 ### A39. The About panel is its own response; counts are counters
 
@@ -546,9 +505,7 @@ Replaced text ([19](../architecture/19-site-ui.md) §5.2, as it stood):
 - **Change:** amends §8
 - **Summary:** `Special:Contributions/{issuer}:{id}` for a foreign actor lists what `view.activity` holds for that actor: page revisions imported with that attribution and the rows of this tenant's log that name the actor. Upstream revision records in `log/{provider}` are not indexed by actor, so they are not listed, and the page says so ("This instance does not index Wikidata's revisions by user"). For an actor of another tenant on the same instance the view is complete, since that tenant's `view.activity` indexes every record; for a Wikidata account it is only what reached this tenant's activity rows. The ledger names [0047](0047-special-pages.md) §2 and §4; the fold is at [19](../architecture/19-site-ui.md) §2.5, whose provenance is §8 here, and the ledger row was extended. (REVIEW G50)
 
-Replaced text ([19](../architecture/19-site-ui.md) §2.5, as it stood):
-
-> | `Special:Contributions/{issuer}:{id}` for a foreign actor | **What the instance holds:** upstream revision records keyed to that actor in `log/{provider}` ([0015](../decisions/0015-record-format-and-partition-registry.md) §4), and page revisions imported with that attribution. The page says whose user this is, links to their page on the issuer's site, and does not fetch upstream, because per-actor fetching is unbounded. |
+Replaced text: [19](../architecture/19-site-ui.md) §2.5, as it stood before this entry; in git (`tools/adr.py log 0010 A40 --before`).
 
 > For an actor of another tenant on the same instance the third view is complete, since the instance holds every record. For a Wikidata account it is the sparse subset the instance has observed or backfilled, and says so. `/actor/{key}/contributions` serves the same three cases ([18](../architecture/18-api.md)).
 
@@ -559,18 +516,7 @@ Replaced text ([19](../architecture/19-site-ui.md) §2.5, as it stood):
 - **Change:** extends §2; amends §11
 - **Summary:** The global header gains an **Appearance** button for every viewer, which writes the account's appearance preferences when signed in and keeps them in the browser otherwise ([19](../architecture/19-site-ui.md) §1.2, §2.7). Preferences leave `Special:Account` for a page of their own, `Special:Preferences` ([19](../architecture/19-site-ui.md) §2.6); the account page keeps the account itself, its Notifications section becomes **Contacts** (the email address and fediverse handle), and the settings of a wiki and of the instance get pages of their own, `Special:WikiSettings` and `Special:InstanceSettings` ([19](../architecture/19-site-ui.md) §2.8).
 
-Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
-
-> | Preferences | — | Every preference key, grouped as MediaWiki groups them ([0027](0027-preferences-and-portability.md) §7; the keys are in [07](../architecture/07-actors-and-accounts.md)), including interface and label language, and the defaults for the upstream-edits fold (§3.6) and the mirror-sync filter (§3.9) |
-> | Notifications | Private | The preference matrix of reasons by channel, read and written in place as the `notifications.*` keys; the email address with its verification state; the fediverse handle with its verification state, a *follow the notifier* hint with the notifier's handle, and *Remove* ([0021](0021-notifications.md) §6) |
-
-Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
-
-> `Special:Preferences` redirects to the Preferences section.
-
-Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
-
-> | Connected applications | Private | Each OAuth authorization one's subsidiaries hold, with **Revoke** ([0025](0025-oauth-server.md) §5) |
+Replaced text: [19](../architecture/19-site-ui.md) §2.4, as it stood before this entry; in git (`tools/adr.py log 0010 A41 --before`).
 
 ### A42. Provider chips in the dark variants
 
@@ -579,9 +525,7 @@ Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
 - **Change:** amends §2
 - **Summary:** A provider chip's colours come from the provider registry for the light variants; in the dark variants the two colours swap, which keeps their contrast exactly, unless the registry gives `chip_color_dark` and `chip_background_dark`. The chapter row is [19](../architecture/19-site-ui.md) §1.5.
 
-Replaced text ([19](../architecture/19-site-ui.md) §1.5, as it stood):
-
-> | Provider code | Monospace, one colour per provider, taken from the provider registry | The entity or row comes from that provider's graph |
+Replaced text: [19](../architecture/19-site-ui.md) §1.5, as it stood before this entry; in git (`tools/adr.py log 0010 A42 --before`).
 
 ### A43. The registration form's challenge, honeypot and requests
 
@@ -602,31 +546,9 @@ Replaced text ([19](../architecture/19-site-ui.md) §1.5, as it stood):
 - **Date:** 2026-10-18
 - **Source:** [0089](0089-the-auth-host-and-instance-logins.md) §6, §7, §8, §13
 - **Change:** amends §10, §11
-- **Summary:** A tenant's `Special:UserLogin` offers one **Log in** button, which goes to the auth host and back. The auth host's `Special:UserLogin` takes a login name and password and offers the external issuers; reached from a tenant, it names the tenant, offers what the tenant admits and accepts that tenant's account name. The first visit to a tenant continues to its `Special:CreateAccount` to choose the account's public name, with the login name and the provider's username offered as buttons; the auth host's `Special:CreateAccount` creates a login, under the `createaccount` challenge. Sign-in methods leave the tenant's `Special:Account` for the auth host's, the login's own page, with its name, methods, the tenant accounts bound to it and **Log out everywhere**. Farm signup is on the auth host. The chapter text is [19](../architecture/19-site-ui.md) §2.3 and §2.4.
+- **Summary:** A tenant's `Special:UserLogin` offers one **Log in** button, which goes to the auth host and back. Farm signup is on the auth host. The chapter text is [19](../architecture/19-site-ui.md) §2.3 and §2.4.
 
-Replaced text ([19](../architecture/19-site-ui.md) §2.3, as it stood):
-
-> - Offers one button for each issuer that the tenant offers for login ([07](../architecture/07-actors-and-accounts.md) §2.7), such as "Log in with Wikimedia", each a form posting to `/auth/{issuer}/start`, so it works without JavaScript. It says what the instance learns: which account the user holds, and nothing else. An error the callback returns (`tserror`) is shown above the buttons.
-
-Replaced text ([19](../architecture/19-site-ui.md) §2.3, as it stood):
-
-> **The first login** continues to `Special:CreateAccount`, where the user chooses a public name. The page says which provider the person signed in with, asks for no password and shows no challenge, and creates the account with `createpreservestate`. Arriving at `Special:CreateAccount` directly, a person may type a name and press an issuer's button instead of choosing a password; the name is checked first.
-
-Replaced text ([19](../architecture/19-site-ui.md) §2.3, as it stood):
-
-> - **The name field starts empty.** The identity provider's username may be offered as a button, labelled with where it came from.
-
-Replaced text ([19](../architecture/19-site-ui.md) §2.3, as it stood):
-
-> A farm signup page states the linking consent of [0028](0028-tenancy-policy.md) §2 (§6.11).
-
-Replaced text ([19](../architecture/19-site-ui.md) §2.3, as it stood):
-
-> - **A challenge**, where the tenant lists the `createaccount` trigger, is solved in a Web Worker
-
-Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
-
-> | Sign-in methods | Private | Each binding, with when it was added and last used, and an issuer the tenant no longer offers marked unavailable. **Remove** is disabled for the last way to log in, a password included, and says why; removing erases the binding from history. **Add** lists the issuers the tenant offers, each a form to `/auth/{issuer}/start` with `purpose=link` ([07](../architecture/07-actors-and-accounts.md) §2.7). |
+Replaced text: [19](../architecture/19-site-ui.md) §2.3, §2.4, as it stood before this entry; in git (`tools/adr.py log 0010 A45 --before`).
 
 ### A46. The Interface namespace
 
@@ -705,9 +627,7 @@ Replaced text ([19](../architecture/19-site-ui.md) §2.4, as it stood):
 - **Change:** amends §10
 - **Summary:** Upstream is canonical under strict names: a name tombstone yields to the issuer that named it attesting a different subject, since the provider has already reassigned the name ([19](../architecture/19-site-ui.md) §2.3; [07](../architecture/07-actors-and-accounts.md) §2.10). Every other tombstone holds as before.
 
-Replaced text ([19](../architecture/19-site-ui.md) §2.3, as it stood):
-
-> **A name is never reused.** Every name a local account has ever held, whether renamed away or vanished from, stays reserved as a *name tombstone*, so that `[[User:OldName]]` in old page text or a post can never come to name a different person; the only way to have a name is to have always had it.
+Replaced text: [19](../architecture/19-site-ui.md) §2.3, as it stood before this entry; in git (`tools/adr.py log 0010 A52 --before`).
 
 ### A53. Name tombstones and `renameuser`: the calls made building them
 
@@ -723,9 +643,7 @@ Replaced text ([19](../architecture/19-site-ui.md) §2.3, as it stood):
 - **Change:** amends §9
 - **Summary:** **Revert this job…** appends the inverse of each record the job wrote as a job of mode `revert`, attributed to the reverter, listing records changed since; it needs `ts-revertjob`. The page gains **Reject this batch…** (a reason, `job/reject`, the revert offered in the same step), **Close** for a keyed batch's submitter, a queued job's place in the queue, and a batch's hash and operator. Chapter text: [19](../architecture/19-site-ui.md) §3.10.
 
-Replaced text ([19](../architecture/19-site-ui.md) §3.10, as it stood):
-
-> - **Revert this job…** (local jobs) appends the inverse change sets as a new job ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.3). Where someone has edited an affected entity since, that later edit is kept, and those entities are listed first for review.
+Replaced text: [19](../architecture/19-site-ui.md) §3.10, as it stood before this entry; in git (`tools/adr.py log 0010 A54 --before`).
 
 ### A55. Feed rows: the action's own column, summaries parsed as MediaWiki's, and a row menu
 

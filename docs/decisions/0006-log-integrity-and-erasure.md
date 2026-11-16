@@ -160,9 +160,7 @@ Three terms are used precisely below:
 - **Change:** extends §5; amends §7
 - **Summary:** A segment becomes an offset range in Postgres. Erasure rewrites the target row in the appending transaction; erased bytes linger until `VACUUM` and in WAL archives, which the runbook bounds. Compaction is a batched delete.
 
-Replaced text (§7):
-
-> - Each target's body is deleted: the salt, the payload and the attestation. Segments are rewritten with an erasure marker in place of each body.
+Replaced text: §7 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0006 A2 --before`).
 
 ### A3. Erasable parts and header IDs
 
@@ -171,35 +169,7 @@ Replaced text (§7):
 - **Change:** amends §2, §3, §7, §9; extends §6, §8
 - **Summary:** The body is a fixed list of erasable **parts** (content, comment, attestation, and any a payload type adds), each stored as `[salt, bytes]` with a 16-byte salt and its own leaf `H(0x04 ‖ i ‖ salt ‖ bytes)`; the commitment in header field 6 is `H(0x02 ‖ leaf_0 ‖ … ‖ leaf_{n-1})`, and erasure (§7) replaces a part with `[null, leaf]`. Three header fields follow field 6: the global revision ID, log ID and page ID. [0018](0018-tenants.md) §2 makes the partition field 64 random bits. The content hash `0x03` covers the content part alone. Erasure and verification work per part. The configuration partition is `config`. A `baserevid` on a foreign entity is checked across source partitions.
 
-Replaced text (§2):
-
-> Tags `0x00` and `0x01` are the leaf and node prefixes of RFC 6962, so the Merkle tree (§5) is the RFC 6962 tree unchanged. Tags `0x02` and `0x03` are Triplespace's own and never appear inside the tree.
-
-Replaced text (§3):
-
-> - **The body** holds everything that might have to be erased: the payload and the attestation.
->
-> | 6 | Body commitment | bstr (32) | `H(0x02 ‖ body)` |
->
-> The **body** is a CBOR array:
->
-> | # | Field | Meaning |
-> |---|---|---|
-> | 0 | Salt | 32 random bytes |
-> | 1 | Payload | The record's content: a change set for Triplespace, a claim for Scatterbase |
-> | 2 | Attestation | Who is responsible for the record |
->
-> **The salt keeps erased content from being confirmed.** Without it, anyone holding a header could test a guess at a short erased payload, such as a username or a date of birth, by hashing the guess and comparing it with the commitment. Once the salt is erased with the body, that test is no longer possible.
->
-> **Deduplication uses the content hash** (`0x03`), which is computed over the payload without the salt.
-
-Replaced text (§7):
-
-> **Verification.** A verifier reports a missing body that an `erase` record accounts for as erased, naming the erasing offset. A missing body with no `erase` record is a failure.
-
-Replaced text (§9):
-
-> 2. **Bodies.** Every present body against its commitment, and every missing body against an `erase` record.
+Replaced text: §2 of this ADR; §3 of this ADR; §7 of this ADR; §9 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0006 A3 --before`).
 
 ### A4. Who may erase
 
@@ -208,9 +178,7 @@ Replaced text (§9):
 - **Change:** amends §7
 - **Summary:** Erasing needs `ts-erase`. The reason classes are `legal`, `privacy`, `upstream` and `operational`, extensible in `site` configuration; that a record was erased is public, its class and authority are visible to `ts-viewerasures`. This settled Q5.
 
-Replaced text (§7):
-
-> This settles the **mechanism** for erasure from the local graph, open since [0000](0000-init.md). **Who** may erase remains a permissions question.
+Replaced text: §7 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0006 A4 --before`).
 
 ### A5. Client signatures
 
@@ -226,13 +194,7 @@ Replaced text (§7):
 - **Change:** amends §3, §6; extends §9
 - **Summary:** Partition IDs are 64 random bits. Origin lines use the tenant's host. Each tenant's `config` carries the key chain. Moving a tenant is a key rotation naming the new instance's key and the final checkpoint, with the bundle carrying two extracts.
 
-Replaced text (§3):
-
-> | 1 | Partition | uint | Partition number, assigned when the partition is created |
-
-Replaced text (§6):
-
-> - **Origin line:** `{instance host}/log/{partition name}`, without a scheme. For segment manifests in a `hashed` partition, `{instance host}/log/{partition name}/segment/{n}`.
+Replaced text: §3 of this ADR; §6 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0006 A6 --before`).
 
 ### A7. The JSON → CBOR mapping
 
@@ -312,9 +274,7 @@ Replaced text (§4): "When compaction replaces segments, the new segment's manif
 - **Change:** amends §1
 - **Summary:** "The instance key is the only signer" becomes: the instance key is the only signer of checkpoints and segment manifests; an actor may additionally sign its own record with the client `signature` of [0015](0015-record-format-and-partition-registry.md) §1, which §1's table already admits. A signed checkpoint still attests only to order of appending, not to who wrote a record. [0005](0005-crate-organization.md) §4.3 is amended the same way. (PENDING A2)
 
-Replaced text (§1):
-
-> Triplespace's instance key is the only signer.
+Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0006 A16 --before`).
 
 ### A17. Bundles carry the key records of client-signed records
 
@@ -328,7 +288,7 @@ Replaced text (§1):
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
-- **Summary:** The Decision's current text now lives in the architecture chapters [01](../architecture/01-log-and-records.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0006 A18 --diff`).
 
 ### A19. Recovery keys, continuations and witnessed key chains
 
@@ -337,15 +297,7 @@ Replaced text (§1):
 - **Change:** extends §2, §9; amends §6
 - **Summary:** Domain tag `0x07` is the preimage of a recovery signature (§2). A tenant may register recovery keys, held by its community, which authorize a **continuation**: a move the old instance did not sign, cosigning the old instance's final roots in one signature per partition instead of re-signing records (§6). A tenant partition's origin line is fixed at the partition's creation or the tenant's arrival on an instance, and an alias does not change it (§6). Witnesses are for the key chain: a tenant's `integrity.witnesses` cosign its `config` checkpoints by default, and an instance may itself be a witness under `witness.enabled` (§6). `verify` reports a tenant's chain of custody at level 1 (§9).
 
-Replaced text (§6, in [01](../architecture/01-log-and-records.md) §4.2):
-
-> - **Origin line,** without a scheme: `{tenant host}/log/{partition name}` for a tenant's partition ([0018](0018-tenants.md) §2),
-
-Replaced text (§6, in [01](../architecture/01-log-and-records.md) §4.3):
-
-> - Recovering from a compromised key is out of scope. It belongs to the identity work that Scatterbase and Triplespace share.
->
-> **Witnesses are optional.** An instance may publish its checkpoints to external witnesses that implement [C2SP tlog-witness](https://c2sp.org/tlog-witness). Because the tree is RFC 6962 with SHA-256, a witness can verify consistency proofs between checkpoints and cosign them with no changes.
+Replaced text: §6, in [01](../architecture/01-log-and-records.md) §4.2; §6, in [01](../architecture/01-log-and-records.md) §4.3, as it stood before this entry; in git (`tools/adr.py log 0006 A19 --before`).
 
 ### A20. The base check is a step of the appending transaction; attestation carries cross-partition decisions
 
@@ -359,11 +311,9 @@ Replaced text (§6, in [01](../architecture/01-log-and-records.md) §4.3):
 - **Date:** 2026-10-09
 - **Source:** [0084](0084-wikibase-writes-against-the-resolved-view.md) §5
 - **Change:** amends §8
-- **Summary:** The base check is per source graph. A `baserevid` that decodes to the tenant's local partition is checked against the local partition's newest record for the key; one that decodes to a mirror partition asserts only that the key still has no local record, and a mirror advancing is never a conflict, because nothing a local assertion depends on changed. The one operation whose meaning depends on mirrored state, an `override` naming a mirrored statement, is checked by whether that statement still exists in the graph's current state. A stale local base is accepted with the warning `wikibase-conflict-patched` when the change set touches no statement UUID, term, alias or sitelink that a later local record touched; otherwise the write fails with `editconflict`, naming the current `lastrevid`, and HTTP 409 on REST; a base that names a state compaction has since replaced is an `editconflict`. "The check runs against the newest record for the key across the source partitions" is withdrawn, and `lastrevid` is the newest local record's ID when the key has one ([0015](0015-record-format-and-partition-registry.md) §2). (REVIEW G17)
+- **Summary:** The base check is per source graph. A `baserevid` that decodes to the tenant's local partition is checked against the local partition's newest record for the key; one that decodes to a mirror partition asserts only that the key still has no local record, and a mirror advancing is never a conflict, because nothing a local assertion depends on changed. A stale local base is accepted with the warning `wikibase-conflict-patched` when the change set touches no statement UUID, term, alias or sitelink that a later local record touched; otherwise the write fails with `editconflict`, naming the current `lastrevid`, and HTTP 409 on REST; a base that names a state compaction has since replaced is an `editconflict`. "The check runs against the newest record for the key across the source partitions" is withdrawn, and `lastrevid` is the newest local record's ID when the key has one ([0015](0015-record-format-and-partition-registry.md) §2). Chapter text: [01](../architecture/01-log-and-records.md) §7. (REVIEW G17)
 
-Replaced text ([01](../architecture/01-log-and-records.md) §7, as it stood):
-
-> - The log rejects the change set if a newer record for the key exists in the partition. The Action API reports this as `editconflict`, and the REST API as HTTP 409.
+Replaced text: [01](../architecture/01-log-and-records.md) §7, as it stood before this entry; in git (`tools/adr.py log 0006 A21 --before`).
 
 > - For a write to a foreign entity, `baserevid` is decoded to a partition and offset, and the check runs against the newest record for the key across the source partitions, not only the local one. A base that names a state compaction has since replaced is an `editconflict`.
 >
@@ -374,7 +324,7 @@ Replaced text ([01](../architecture/01-log-and-records.md) §7, as it stood):
 - **Date:** 2026-10-09
 - **Source:** Direct: James, design review of 2026-10-09
 - **Change:** extends §3, §6
-- **Summary:** The attestation part has a third form, carried by exactly one record per `config` partition: the record at offset 0, the `key:` record that opens the partition's key chain. It names no actor; its `signature` is by the key the record itself registers, so the record is self-certifying; and for a tenant's `config` it carries the `authority` `(instance config, 0)`. The issuer or farm code is derived from the record's leaf afterwards, so nothing that depends on the code exists before it; offsets 1 and 2 of the instance `config` are attested by `instance:{farm code}` with the founding record as authority. A single-tenant instance therefore needs no authority record and no `ts-prerogative` path to exist before its first entity. The instance's first public key is registered under this form, and each tenant's key chain is opened by a founding record of the same form whose authority is the instance's (§6). The ledger names [0015](0015-record-format-and-partition-registry.md) §1 and §3, [0018](0018-tenants.md) §2, [0040](0040-instance-prerogatives.md) §3 and [0079](0079-derived-issuer-codes.md) §2 and §4; the chapter folds it at [01](../architecture/01-log-and-records.md) §2.4 and §4.3, whose provenance is §3 and §6 here, and the ledger row was extended. (REVIEW G22)
+- **Summary:** The attestation part has a third form, carried by exactly one record per `config` partition: the record at offset 0, the `key:` record that opens the partition's key chain. It names no actor; its `signature` is by the key the record itself registers, so the record is self-certifying; and for a tenant's `config` it carries the `authority` `(instance config, 0)`. The ledger names [0015](0015-record-format-and-partition-registry.md) §1 and §3, [0018](0018-tenants.md) §2, [0040](0040-instance-prerogatives.md) §3 and [0079](0079-derived-issuer-codes.md) §2 and §4; the chapter folds it at [01](../architecture/01-log-and-records.md) §2.4 and §4.3, whose provenance is §3 and §6 here, and the ledger row was extended. Chapter text: [01](../architecture/01-log-and-records.md) §1.2, §2.2, §2.3, §2.4, §4.2, §4.3. (REVIEW G22)
 
 ### A23. Server-filled values never enter a client-signed part
 
@@ -390,9 +340,7 @@ Replaced text ([01](../architecture/01-log-and-records.md) §7, as it stood):
 - **Change:** amends §4; extends §5, §6, §9
 - **Summary:** Non-`config` partitions have no genesis record: a partition's name, hash function, `k` and policies are its `graph:` record in `config`, which the export bundle carries (§9), and the partition's first record is an ordinary record at offset 0; in `config` itself that record is the founding record (A22). `log.segment_manifest` is keyed `(partition, segment)`, one per sealed segment and never re-signed, with no `replaces` and no `sealed_at` in the key. A `hashed` partition has segment manifests only and no checkpoints: the "checkpoint" a job writes at its end is the manifest of the last sealed segment plus an unsigned head offset, and records in the open segment are uncommitted until the segment is sealed; `log.checkpoint` rows exist for `logged` partitions only. Every record in `local`, `pages`, the tenant `log` and the tenant `actors` partitions takes a `logid` at append whether or not the catalogue projects it as an event (folded at [01](../architecture/01-log-and-records.md) §2.5, under [0015](0015-record-format-and-partition-registry.md) §2). The chapter section the genesis sentence stood in ([01](../architecture/01-log-and-records.md) §1.2) is shared by §2, §3 and §4 here; the policy it states is §4's. (REVIEW G24)
 
-Replaced text ([01](../architecture/01-log-and-records.md) §1.2, as it stood):
-
-> - a **segment size** 2^k and the **hash function**, fixed at creation. The hash function is named in the partition's genesis record; changing it means starting a new partition.
+Replaced text: [01](../architecture/01-log-and-records.md) §1.2, as it stood before this entry; in git (`tools/adr.py log 0006 A24 --before`).
 
 > | **`hashed`** | Every header, in one Merkle tree for each sealed segment, with a signed manifest for each segment | Allowed | Triplespace's mirror partitions; Scatterbase's foreign partition |
 
@@ -405,9 +353,7 @@ Replaced text ([01](../architecture/01-log-and-records.md) §1.2, as it stood):
 - **Change:** amends §5; extends §6
 - **Summary:** An appending transaction reads the tree's right edge under the partition's append lock and persists only the complete subtrees its append closes, so two API replicas and a bulk job writing one partition never disagree about a node; the right edge is recomputed from the persisted nodes by whoever appends next. Checkpoints and segment manifests are signed by the projection worker under an advisory lock per partition, the only process that holds the instance key; an API replica or a bulk job appends and never signs, and a checkpoint covers only complete subtrees every appender has closed. "Appends in steady state keep the tree's right edge in memory" is withdrawn. The ledger named §6; the fold is at [01](../architecture/01-log-and-records.md) §4.1 (§5 here) and §4.2 (§6), and the ledger row was extended. (REVIEW G25)
 
-Replaced text ([01](../architecture/01-log-and-records.md) §4.1, as it stood):
-
-> - **Appends in steady state** keep the tree's right edge in memory, which is O(log n) hashes. Each append costs one leaf hash plus O(log n) node hashes in the worst case.
+Replaced text: [01](../architecture/01-log-and-records.md) §4.1, as it stood before this entry; in git (`tools/adr.py log 0006 A25 --before`).
 
 ### A26. A nesting-depth limit for canonical CBOR
 
@@ -423,16 +369,14 @@ Replaced text ([01](../architecture/01-log-and-records.md) §4.1, as it stood):
 - **Change:** amends §9
 - **Summary:** A bundle followed each graph's export policy by default, and a bundle that moved a tenant carried its extracts too, which left a move unable to carry the tenant's `internal` partitions. A bundle now has one of three scopes: an export, which publishes the visible form of what the export policies allow; a transfer, which hands one tenant to another operator, sealed, with every present part; and a backup, the operator's own copy of everything. Chapter text: [01](../architecture/01-log-and-records.md) §8.
 
-Replaced text ([01](../architecture/01-log-and-records.md) §8, as it stood):
-
-> Default exports follow each graph's export policy ([0005](../decisions/0005-crate-organization.md) §4.1). Bundles also take `--blobs include|list|omit` ([0039](../decisions/0039-files-and-media.md) §14). A bundle that moves a tenant carries its extracts as well ([0018](../decisions/0018-tenants.md) §10).
+Replaced text: [01](../architecture/01-log-and-records.md) §8, as it stood before this entry; in git (`tools/adr.py log 0006 A27 --before`).
 
 ### A28. `triplespace checkpoint` signs until the worker does; `export` and `verify` on the command line
 
 - **Date:** 2026-11-07
 - **Source:** Direct: James, design discussion of 2026-11-07
 - **Change:** extends §6, §9
-- **Summary:** Building `export` and `verify` showed that nothing signed checkpoints: `log.checkpoint` existed and stayed empty, so a bundle had nothing for `verify` to check its tree against. Asked, James chose a command, `triplespace checkpoint`, that signs every partition's new head and every unsigned full segment with the instance key, run by hand, by cron or before an export, until the projection worker signs on a cadence once §6's N and T are chosen (Q4). Of the bundle scopes of [0103](0103-export-transfer-and-backup.md) §1, the backup scope is built with `export` and `verify`; the export scope, which withholds what an anonymous reader may not read, comes next, before a public bundle is served. Chapter text: [01](../architecture/01-log-and-records.md) §4.2, §8.
+- **Summary:** Building `export` and `verify` showed that nothing signed checkpoints: `log.checkpoint` existed and stayed empty, so a bundle had nothing for `verify` to check its tree against. Asked, James chose a command, `triplespace checkpoint`, that signs every partition's new head and every unsigned full segment with the instance key, run by hand, by cron or before an export, until the projection worker signs on a cadence once §6's N and T are chosen (Q4). Chapter text: [01](../architecture/01-log-and-records.md) §4.2, §8.
 
 ### A29. Origins fixed by the first checkpoint; what the commands check
 
@@ -469,9 +413,7 @@ Replaced text ([01](../architecture/01-log-and-records.md) §8, as it stood):
 - **Change:** amends §6
 - **Summary:** A29 (1) fixed a partition's origin line by its first checkpoint or manifest, derived from the tenant's host at that time, so a tenant aliased before its first checkpoint would sign under its new host, against 01 §4.2. James chose the exact fix: the origin is recorded when the partition is created, as a column of its registry row (`log.partition.origin`), derived from the same base the graph IRI is built from, by the one function the signer also uses for a row with none; every signer and bundle writer reads it from there, and only a row without one falls back to its first checkpoint, then to the current host. Two migrations backfill existing rows: the log schema's from the first checkpoint's or manifest's origin line, and the instance's from each tenant's current base in the registry, the best that can be done; a database migrated before its registry projection is current keeps the row empty and is derived at first signing. A field in the `graph:` config record was the alternative, rejected because it would have changed a hashed record's shape for something only the signer reads. Chapter text: 01 §4.2; 03 §2.1 (`log.partition`).
 
-Replaced text ([01](../architecture/01-log-and-records.md) §4.2, as it stood):
-
-> **A partition's origin is fixed by its first checkpoint or manifest** and reused for every later one; the first is derived from the tenant's current host, or the farm's ([0006](../decisions/0006-log-integrity-and-erasure.md) A29).
+Replaced text: [01](../architecture/01-log-and-records.md) §4.2, as it stood before this entry; in git (`tools/adr.py log 0006 A33 --before`).
 
 ### A34. Defaults for the segment exponent and the checkpoint cadence
 
@@ -480,6 +422,5 @@ Replaced text ([01](../architecture/01-log-and-records.md) §4.2, as it stood):
 - **Change:** extends §5; amends §6
 - **Summary:** James took the three defaults Q4 left open. **k = 16**, segments of 65,536 records: it is what every partition made so far has, a `hashed` partition's open segment is unsigned until it is sealed and a small k keeps that short, and a Wikidata-sized mirror is under two thousand segments. **T = 60 seconds** and **N = 4,096 records** for the steady-state cadence of a `logged` partition: T bounds how long a saved edit waits for a checkpoint that an inclusion proof can cite, and since every checkpoint is kept it also caps a partition at 1,440 a day; N matters only under sustained writing between jobs, which checkpoint at their end. The worker signs only a partition that has grown. Chapter text: 01 §4.1, §4.2. The signing worker itself is not built; `triplespace checkpoint` signs until it is.
 
-Replaced text ([01](../architecture/01-log-and-records.md) §4.2, as it stood):
+Replaced text: [01](../architecture/01-log-and-records.md) §4.2, as it stood before this entry; in git (`tools/adr.py log 0006 A34 --before`).
 
-> **Until that worker signs on a cadence**, whose N and T are still open (0006 Q4), `triplespace checkpoint` signs

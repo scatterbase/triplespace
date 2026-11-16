@@ -159,18 +159,7 @@ And on the first proposal, the same day:
 - **Change:** extends §1; amends §4, §8, §11
 - **Summary:** "I don't think it's necessary to mention ADRs directly in Special:Version." The page names no ADRs: the services table loses its "Specified in" column, features are no longer linked to their ADRs, and an `inspired_by` entry shows what was taken but not its ADR. The `adr` fields in `version.toml` stay, for maintainers. Showing QLever's and Parsoid's versions is deferred: both are shown without one (Q1). Q3 is withdrawn.
 
-Replaced text (§4):
-
-> | Version | Read by the registry's `version` probe for a service (`SHOW server_version` for PostgreSQL; Valkey's `INFO server`; OpenSearch's `GET /`), from the manifest for an embedded component (Oxigraph), or a fixed string (Lua 5.1) |
-> | Specified in | The ADR |
-
-Replaced text (§8):
-
-> **Extensions that leave no `origin`** in any registry, but from which Triplespace took something, carry `inspired_by` in `version.toml`: what was taken, and the ADR.
-
-Replaced text (§11):
-
-> **The tenant form shows the tenant's feature switches:** the value of each `[[feature]]` setting of scope `tenant` in `version.toml` (`content.licence`, `wikitext.expansion`, `wikitext.lua`, `wikitext.renderer`, `pages.repos`, `search.inherited`, `query.enabled`, `mcp.enabled` and `proposals.push`), each linked to its ADR.
+Replaced text: §4 of this ADR; §8 of this ADR; §11 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0077 A1 --before`).
 
 ### A2. Services not configured are not shown
 
@@ -179,18 +168,14 @@ Replaced text (§11):
 - **Change:** amends §4
 - **Summary:** "If a service is not configured, it shouldn't be shown." §4 lists only the services the instance is configured to use and the embedded components in use; a configured service is `connected` or `unreachable`.
 
-Replaced text (§4):
-
-> **Then each service and embedded component** in `version.toml`'s `[[service]]` list, with:
->
-> | State | `connected`, `configured but unreachable`, or `not configured`. An embedded component shows `in use` or `not in use` |
+Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0077 A2 --before`).
 
 ### A3. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§15
-- **Summary:** The Decision's current text now lives in the architecture chapters [18](../architecture/18-api.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0077 A3 --diff`).
 
 ### A4. Contract versions and skins
 
@@ -222,17 +207,7 @@ Replaced text (§4):
 - **Change:** amends §2, §3, §6
 - **Summary:** With the commercial licence withdrawn ([0005](0005-crate-organization.md) A114), a contributor entry no longer carries the date of a contributor licence agreement, the sentence after the licence notice says only that the embedded documentation and registry data are CC0 (the message `ts-version-cc0` replaces `ts-version-dual-and-cc0`), and a `scatter-*` crate is no longer marked as also available commercially (`ts-version-commercial-mark` and the manifest's `commercial` field are removed).
 
-Replaced text ([21](../architecture/21-special-pages.md) §5.2, as it stood):
-
-> Each has a name as its holder wishes to be credited, the date of the first merged contribution, and the date the contributor licence agreement was signed; nothing is merged without one (0005 §6). Git history is not read.
-
-Replaced text ([21](../architecture/21-special-pages.md) §5.3, as it stood):
-
-> Two more sentences follow: the `scatter-*` crates are also available from Scatter LLC under a commercial licence (0005 §6), and the documentation and registry data the binary embeds are dedicated to the public domain under CC0 1.0 (`docs/LICENSE`).
-
-Replaced text ([22](../architecture/22-crates-and-stack.md) §7.2, as it stood):
-
-> **Triplespace crates:** each workspace crate linked into the binary, with its version and licence. A `scatter-*` crate is marked as also available under a commercial licence (§3.3).
+Replaced text: [21](../architecture/21-special-pages.md) §5.2, §5.3; [22](../architecture/22-crates-and-stack.md) §7.2, as it stood before this entry; in git (`tools/adr.py log 0077 A7 --before`).
 
 ### A8. The licence header on built JavaScript and CSS
 

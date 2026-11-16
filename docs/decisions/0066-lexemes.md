@@ -99,16 +99,14 @@ James's direction, from the design discussion of 2026-10-05:
 - **Change:** corrects §4
 - **Summary:** Merging two local lexemes is a `redirect`, as for items ([0004](0004-identity-clusters-and-equivalence.md) §2, unchanged): the source's forms and senses move to the target with new part numbers and each part leaves a redirect; no cluster is formed within the local namespace. (PENDING B7)
 
-Replaced text (§4):
-
-> **Merging lexemes** (`Special:MergeLexemes`, §7) is `same-as` plus the conversion of [0004](0004-identity-clusters-and-equivalence.md) §5 when both are local, which is what WikibaseLexeme's merge does by hand: the source's forms and senses are appended to the target with new part numbers and the source becomes a redirect; here the source becomes a cluster member and its parts keep their IDs.
+Replaced text: §4 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0066 A1 --before`).
 
 ### A2. Current text relocated to the architecture chapters
 
 - **Date:** 2026-10-09
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§10
-- **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [03](../architecture/03-storage-caches-and-search.md), [04](../architecture/04-entities-and-identifiers.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [21](../architecture/21-special-pages.md), [22](../architecture/22-crates-and-stack.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `c76d96f`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0066 A2 --diff`).
 
 ### A3. The part suffix belongs to the lexeme entity type, not to a grammar
 

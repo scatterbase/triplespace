@@ -120,9 +120,7 @@ James's direction, from the design discussion of 2026-10-16 and 2026-10-17:
 - **Change:** amends §1
 - **Summary:** Where a palette's or type set's name comes to collide across levels, the colliding record is renamed rather than the change refused, which settles Q8. James's direction: "if an instance has a pre-existing palette or type set "foo", and a tenant with their own "foo" wants to be imported, the conflict would resolve by keying the name to the tenant e.g. "foo~tenantname". If an instance wants to introduce a new palette or type set with a name in use by a tenant, it is blocked until the instance renames it with the key or gives it a new name altogether." James then chose, on 2026-10-18: the key is the tenant's slug, and a keyed name stays with the tenant when it leaves; when the instance takes a name a tenant uses, it is the tenant's record that is keyed and the instance takes the bare name; `registry sync` keys a colliding instance or tenant record, the instance's with the farm slug, rather than being refused; and keying in a tenant is a written provision that rewrites every reference to the record in the same act (`theme.palette` and `theme.typeset`, `extends`, and readers' `ui.palette` and `ui.typeset`). Claude proposed reserving `~` for keying, `key=tenants` as the way an instance write keys the tenants' records, and a job record listing the renames as the authority, which also maps the preferences of accounts reclaimed after a join. The join is in [08](../architecture/08-tenants-and-instances.md) §6.3 ([0018](0018-tenants.md) A30) and the written act in [08](../architecture/08-tenants-and-instances.md) §8.6 ([0040](0040-instance-prerogatives.md) A8).
 
-Replaced text (§1):
-
-> **A name means one thing on an instance**, as James decided: a tenant may not write a palette or type set under a name the registry or the instance uses, and the instance may not write one under a name the registry or any of its tenants uses, so a reader's choice never names two different records (Q8 for names that collide when the registry gains one or a tenant joins).
+Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0086 A1 --before`).
 
 ### A2. Encyclopedia and Basic, inspired by Vector 2022
 
@@ -138,20 +136,12 @@ Replaced text (§1):
 - **Change:** amends §1, §2, §7
 - **Summary:** The accessibility palettes are named and labelled for the deficiency each serves, not for the colours it uses, so that a reader who has it finds it. James asked: "Might we come up with clearer names for the colorblind variants of the parchment theme? If I were a colorblind user looking for these settings, under what name(s) would I expect them?" He then chose the labels "Parchment (protanopia and deuteranopia)" and "Parchment (tritanopia)", and decided to change the slugs too: "I think it's fine to change the slug names since these aren't in use yet." The slugs become `parchment-rg` (red–green), from `parchment-ob`, and `parchment-by` (blue–yellow), from `parchment-co`; Claude proposed these slugs. Neither palette had been served, so no reader's or wiki's choice names the old slugs, and they are changed rather than retired. The colours are unchanged. The values are in `themes.toml`.
 
-Replaced text (§1):
-
-> **What ships:** the palette **`parchment`**, the canvases' colours named on 2026-10-17, with a walnut-brown dark variant and high-contrast variants of both; the accessibility palettes **`parchment-ob`** and **`parchment-co`**, for colour-vision deficiencies (§2); the type set **`default26`**, Newsreader, IBM Plex Sans and IBM Plex Mono; and the accessibility type sets **`hyperlegible`** and **`opendyslexic`** (§3). Beside them, as options a wiki or a reader may choose and not as defaults, ship the palette **`encyclopedia`** and the type set **`basic`**, inspired by Vector 2022, the skin of Wikipedia, as James decided (A2): `encyclopedia` is Codex's own colours, which Vector 2022 wears, changed only where they miss the floors of §2, with high-contrast variants in Codex's hues, and `basic` is Vector 2022's default stacks on Wikimedia wikis, serving no typeface (§3).
-
-Replaced text (§2):
-
-> Their colours were chosen by simulating the deficiency they serve (Machado, Oliveira and Fernandes, 2009) and are held to the same floors as any palette:
+Replaced text: §1 of this ADR; §2 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0086 A3 --before`).
 
 > - **`parchment-ob`**, for red–green deficiencies (protanopia and deuteranopia), named for the orange and blue it uses: errors, destructive actions and removed text in vermilion (`#A84300` in `light`), success and added text in cerulean (`#087691`), kept apart from link blue, warnings in umber and visited links in plum. Its lowest text pairs are 4.62:1 and 4.63:1 in `light` and `dark`, and at least 7.15:1 in the high-contrast variants.
 > - **`parchment-co`**, for blue–yellow deficiency (tritanopia), named for its crimson and olive: errors in crimson (`#B3263E`), success in olive (`#587114`), which a tritanope tells from link blue, and warnings in an umber they do not confuse with errors. Its lowest text pairs are 4.85:1 and 4.63:1, and at least 7.17:1.
 
-Replaced text (§7):
-
-> The registry part of §1 is in place: `themes.toml` holds `parchment` with its four variants, the accessibility palettes `parchment-ob` and `parchment-co`, which extend it, the palette `encyclopedia` (A2), and the type sets `default26`, `hyperlegible`, `opendyslexic` and `basic` (A2), and `triplespace-ui` reads the default pair from it. The other palettes and type sets are not yet served, and the Atkinson Hyperlegible and OpenDyslexic files are not yet in the build.
+Replaced text: §7 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0086 A3 --before`).
 
 ### A4. Default 26 set in Source Serif 4, Source Sans 3 and Lilex
 
@@ -160,62 +150,23 @@ Replaced text (§7):
 - **Change:** amends §1
 - **Summary:** The type set `default26` changes its typefaces; its name, label and role as the default type set do not change. James first asked on 2026-10-27: "For the default26 type set, I would like the serif font to be Source Serif 4, with Rubik as the sans-serif font and Lilex as the monospace font." Before that shipped he tried Libre Baskerville and Mukta Mahee on 2026-10-28, then chose for the coverage of writing systems: "Let's go with Source Serif 4 and Source Sans 3." Source Serif 4 replaces Newsreader for headings (`font-family-heading-main`, weights 400 and 500), Source Sans 3 replaces IBM Plex Sans for text (`font-family-base`, weights 400, 500 and 600), and Lilex replaces IBM Plex Mono for code and IDs (`font-family-monospace`, weights 400 and 500), each before the fallback stack it had. All three are under the SIL OFL 1.1 and are served from the site's own origin, as before. `hyperlegible` and `opendyslexic` keep IBM Plex Mono for code. `docs/registry/themes.toml` is the authority.
 
-Replaced text (§1):
-
-> **What ships:** the palette **`parchment`**, the canvases' colours named on 2026-10-17, with a walnut-brown dark variant and high-contrast variants of both; the accessibility palettes **`parchment-rg`** and **`parchment-by`**, for colour-vision deficiencies and named for them (§2, A3); the type set **`default26`**, Newsreader, IBM Plex Sans and IBM Plex Mono; and the accessibility type sets **`hyperlegible`** and **`opendyslexic`** (§3). Beside them, as options a wiki or a reader may choose and not as defaults, ship the palette **`encyclopedia`** and the type set **`basic`**, inspired by Vector 2022, the skin of Wikipedia, as James decided (A2): `encyclopedia` is Codex's own colours, which Vector 2022 wears, changed only where they miss the floors of §2, with high-contrast variants in Codex's hues, and `basic` is Vector 2022's default stacks on Wikimedia wikis, serving no typeface (§3).
+Replaced text: §1 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0086 A4 --before`).
 
 ### A5. A fallback layer for every script
 
 - **Date:** 2026-10-28
 - **Source:** [0093](0093-fallback-typefaces.md) §1, §2, §3, §4
 - **Change:** extends §1, §3, §5, §7
-- **Summary:** A type set may name a shipped fallback layer, whose typefaces go into its stacks after its own, by generic family, for the scripts its own lack (0093 §1). The layer `noto` ships, and `default26`, `hyperlegible` and `opendyslexic` name it. It has Noto Sans and Noto Serif, a Noto family for each of the 47 scripts of Wikimedia's language data other than Latin, Greek, Cyrillic, Chinese, Japanese, Korean and SignWriting, two symbol families, and Noto Nastaliq Urdu for `ur`: 72 families in weights 400 and 600 (0093 §2). Chinese, Japanese and Korean stay with the device's fonts. The layer's `@font-face` rules are in each such type set's stylesheet, each face limited to its script's ranges and served as WOFF2 alone, so a page fetches the files for its scripts only (0093 §3).
+- **Summary:** A type set may name a shipped fallback layer, whose typefaces fill its stacks for the scripts its own lack. The text as it stood is in git (`tools/adr.py log 0086 A5 --diff`). The text is in git (`tools/adr.py log 0086 A5 --diff`).
 
 ### A6. Colour-vision palettes become keyed alternates
 
 - **Date:** 2026-10-28
 - **Source:** [0094](0094-accessibility-alternates.md) §1, §2, §3, §4, §5, §6, §7
 - **Change:** amends §1, §2, §4, §5; extends §7
-- **Summary:** For colour-vision deficiencies a palette has accessibility alternates, keyed by the registry (`rg`, `by`), which a reader turns on with `ui.vision` over whatever palette they wear, in place of the palettes `parchment-rg` and `parchment-by`, whose colours become `parchment`'s alternates unchanged and whose names are retired and read as `parchment` with the alternate. A palette wears its own alternate, else its base's, else its `alternates-from`'s, else the default palette's; the palettes it names are prerequisites. The alternates' rules are in the palette's stylesheet under `data-vision`.
+- **Summary:** Colour-vision accessibility becomes alternates of any palette, turned on with `ui.vision`, in place of the palettes `parchment-rg` and `parchment-by`, whose colours become `parchment`'s alternates and whose names are retired and read as `parchment` with the alternate. The text as it stood is in git (`tools/adr.py log 0086 A6 --diff`).
 
-Replaced text (§1):
-
-> **Keying renames every reference in the same act**, so no setting or choice changes what it shows: the record is written under its keyed name and the old one deleted, and with it the `theme.palette` and `theme.typeset` values that name it (the tenant's own, and the instance's defaults and locks), the `extends` of the palettes that extend it, and the `ui.palette` and `ui.typeset` preferences of tenant and farm accounts. In a tenant, keying is a written provision ([08](../architecture/08-tenants-and-instances.md) §8.6): its records carry the instance attestation, its authority is a job record in the instance `log` that lists the renames, and the tenant may later rename the record to any name that is free. **`~` is reserved for keying**: no one writes a new name containing it, and a keyed record is updated and deleted under its keyed name. Once written, a keyed name is a name like any other: it stays when the tenant leaves, and is keyed again, its key replaced by the tenant's slug there, only if it is taken where the tenant arrives.
-
-Replaced text (§1):
-
-> **What ships:** the palette **`parchment`**, the canvases' colours named on 2026-10-17, with a walnut-brown dark variant and high-contrast variants of both; the accessibility palettes **`parchment-rg`** and **`parchment-by`**, for colour-vision deficiencies and named for them (§2, A3); the type set **`default26`**, Source Serif 4 for headings over Source Sans 3 for text and Lilex for code (A4); the accessibility type sets **`hyperlegible`** and **`opendyslexic`** (§3); and the fallback layer **`noto`**, which those three name, with Noto for every other script of Wikimedia's languages but Chinese, Japanese and Korean ([0093](0093-fallback-typefaces.md) §2). Beside them, as options a wiki or a reader may choose and not as defaults, ship the palette **`encyclopedia`** and the type set **`basic`**, inspired by Vector 2022, the skin of Wikipedia, as James decided (A2): `encyclopedia` is Codex's own colours, which Vector 2022 wears, changed only where they miss the floors of §2, with high-contrast variants in Codex's hues, and `basic` is Vector 2022's default stacks on Wikimedia wikis, serving no typeface (§3).
-
-Replaced text (§2):
-
-> **A palette may extend another** (`extends`): each of its variants is laid over the same variant of that palette as served, rather than over Codex's, so it states only the colours it changes; its `light-more` and `dark-more` take its own `light` and `dark` first, and a variant missing from both falls back as above. A palette may extend a shipped palette or one at its own scope, and not one that itself extends another; a palette that another extends cannot be deleted.
-
-Replaced text (§2):
-
-> **Accessibility palettes.** A palette marked `accessibility = true` can always be chosen by a reader (§4). In place of colour-vision variants of every palette, James chose palettes made for a deficiency, which a reader chooses as they would any palette. Two ship, both extending `parchment` and changing only the colours that carry meaning (errors and destructive actions, success, warnings, visited links, and the subtle backgrounds of each), with all four variants. Their colours were chosen by simulating the deficiency they serve (Machado, Oliveira and Fernandes, 2009), and are named and labelled for that deficiency, as a reader who has it would look for it (A3) and are held to the same floors as any palette:
->
-> - **`parchment-rg`**, labelled *Parchment (protanopia and deuteranopia)*, for red–green deficiencies, which uses orange and blue (A3): errors, destructive actions and removed text in vermilion (`#A84300` in `light`), success and added text in cerulean (`#087691`), kept apart from link blue, warnings in umber and visited links in plum. Its lowest text pairs are 4.62:1 and 4.63:1 in `light` and `dark`, and at least 7.15:1 in the high-contrast variants.
-> - **`parchment-by`**, labelled *Parchment (tritanopia)*, for blue–yellow deficiency, which uses crimson and olive (A3): errors in crimson (`#B3263E`), success in olive (`#587114`), which a tritanope tells from link blue, and warnings in an umber they do not confuse with errors. Its lowest text pairs are 4.85:1 and 4.63:1, and at least 7.17:1.
-
-Replaced text (§2):
-
-> **Colour is never the only cue** (WCAG 1.4.1): what the site draws tells states apart by text, icon or mark as well, such as the `−` and `+` of a diff beside `color-destructive` and `color-success` on their subtle backgrounds, so an accessibility palette makes the colour a cue the reader can see, not the only one. A wiki that wants its brand in a colour-vision palette writes one that extends its own and marks it `accessibility`.
-
-Replaced text (§4):
-
-> **Accessibility choices are never locked.** `ui.mode`, `ui.contrast`, `ui.text-size` and the accessibility palettes and type sets are offered whatever `theme.choice` and any instance lock say; only the other palettes and type sets, which carry a wiki's brand, can be withheld. A reader who chooses an accessibility palette leaves the wiki's own palette for it.
-
-Replaced text (§5):
-
-> **The reader's choices are attributes on `<html>`**: `data-mode`, `data-contrast` and `data-text-size`, written by the server for a signed-in reader, whose page is private, and by the head script of [0085](0085-settings-and-preferences.md) §6 for a reader who is not logged in, whose page stays public and carries the tenant's default stylesheet. MediaWiki's classes are set beside them, `skin-theme-clientpref-night` for a chosen dark mode, `skin-theme-clientpref-os` for `auto` and `skin-theme-clientpref-day` for a chosen light mode, so content written for Wikipedia's night mode works (§6); a public page is served with `skin-theme-clientpref-os` and no `data-mode`, so it follows the device until the head script says otherwise. Where a reader not logged in has chosen another palette or type set, the head script swaps the stylesheet links before the first paint, from a JSON block on the page that maps the tenant's palettes and type sets to their stylesheet URLs; the default sheets may already be in flight, a cost of one cached request. **Without JavaScript**, the media queries alone follow the device's dark-mode and contrast settings.
-
-Replaced text (§5):
-
-> **`siprop=triplespace` reports the theme**: the palettes and type sets the tenant offers (name, label, which variants a palette has and the palette it extends, whether a palette or type set is for accessibility), `theme.palette`, `theme.typeset` and `theme.choice`, and the stylesheet URL of each offered palette and type set, in place of `ui.theme`'s token map. **Palettes and type sets are public**, as James decided, like the logo, the favicon and the typefaces ([0085](0085-settings-and-preferences.md) §8): an outsider of a private tenant is given the theme in full, the records, the settings and the stylesheets, which `/ui/theme/` serves to anyone. They are what the pages an outsider can reach are made of, and a reader who needs an accessibility palette or type set needs it on the landing page and the login form before signing in.
-
-Replaced text (§7):
-
-> The registry part of §1 is in place: `themes.toml` holds `parchment` with its four variants, the accessibility palettes `parchment-rg` and `parchment-by` (A3), which extend it, the palette `encyclopedia` (A2), and the type sets `default26`, `hyperlegible`, `opendyslexic` and `basic` (A2), and `triplespace-ui` reads the default pair from it. The other palettes and type sets are not yet served, and the Atkinson Hyperlegible and OpenDyslexic files are not yet in the build.
+Replaced text: §1 of this ADR; §2 of this ADR; §4 of this ADR; §5 of this ADR; §7 of this ADR, as it stood before this entry; in git (`tools/adr.py log 0086 A6 --before`).
 
 ### A7. The token contract is Codex's
 
@@ -229,7 +180,7 @@ Replaced text (§7):
 - **Date:** 2026-10-30
 - **Source:** [0050](0050-adr-format.md) §14
 - **Change:** relocates §1–§7
-- **Summary:** The Decision's current text now lives in the architecture chapters [02](../architecture/02-graphs-rdf-and-query.md), [07](../architecture/07-actors-and-accounts.md), [08](../architecture/08-tenants-and-instances.md), [09](../architecture/09-security-and-moderation.md), [11](../architecture/11-rendering-templates-and-modules.md), [12](../architecture/12-files-and-media.md), [16](../architecture/16-logs-feeds-and-notifications.md), [18](../architecture/18-api.md), [19](../architecture/19-site-ui.md), [22](../architecture/22-crates-and-stack.md), [23](../architecture/23-configuration-and-registry.md), in the sections each pointer names; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and this log. The last commit in which this file carried the text is `2e2a7c8`. No decision changed.
+- **Summary:** The Decision's current text moved to the chapter sections its pointers name; this ADR keeps its headings, provenance lines, Context, Consequences, Open questions and log. No decision changed. The text as it stood here is in git (`tools/adr.py log 0086 A8 --diff`).
 
 ### A9. Theming: loose ends from building it
 
