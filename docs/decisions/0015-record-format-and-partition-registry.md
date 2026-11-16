@@ -4,7 +4,6 @@
 - **Date:** 2026-09-26
 - **Updated:** 2026-11-16 (A67)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md)
 - **Uses:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md)
 
 ## Context
@@ -23,43 +22,29 @@ Two smaller gaps are closed with them: the document node of a foreign entity on 
 
 ### 1. The body is a tree of erasable parts (amends 0006 §3 and §7)
 
-*Changed by A4, A5, A13, A14, A17, A18, A29, A31, A46, A52, A53.*
-
 *Current text: [01](../architecture/01-log-and-records.md) §2.3, §2.4, §5.1, §5.3, §8.1, §8.3.*
 
 ### 2. Global IDs live in the header (amends 0006 §3 and 0013 §6)
-
-*Changed by A3, A15, A23, A37, A48, A49, A50, A51, A62, A63, A64, A65, A66.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §2.2, §2.5, §5.3, §7.*
 
 ### 3. The `config` partition (amends 0005 §4.1; extends 0006 §4 and §6)
 
-*Changed by A3, A4, A5, A6, A8, A9, A10, A11, A12, A13, A16, A19, A20, A21, A23, A24, A26, A27, A28, A30, A31, A32, A33, A34, A35, A36, A37, A39, A40, A41, A42, A44, A47, A52, A54, A57, A58, A59, A60, A67.*
-
 *Current text: [23](../architecture/23-configuration-and-registry.md) §1.1, §1.2, §1.3, §1.4, §2.1, §2.2, §2.3, §2.4, §3.1, §3.2, §3.7, §5.2.*
 
 ### 4. Upstream revision records (amends 0002 §8.3 and 0011 §2, §3, §5, §8)
-
-*Changed by A14, A25.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §2.6, §5.4.*
 
 ### 5. Graph names and IRIs (settles 0001 Q2, 0002 Q1 and 0005 Q6)
 
-*Changed by A2, A3, A4, A5, A7, A9, A10, A11, A12, A16, A17, A19, A20, A21, A23, A24, A26, A31, A36, A37, A38, A43, A51, A55, A56, A58, A59, A61.*
-
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.2, §1.3, §1.4.*
 
 ### 6. Document nodes for foreign entities (extends 0001 §1, 0002 §4 and 0009 §6)
 
-*Changed by A14.*
-
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §2.1, §5.6.*
 
 ### 7. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

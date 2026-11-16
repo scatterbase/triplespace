@@ -4,7 +4,6 @@
 - **Date:** 2026-11-09
 - **Updated:** 2026-11-09 (A2)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0016](0016-permissions-and-access-control.md), [0098](0098-pointers-from-birth.md)
 - **Uses:** [0056](0056-security-model.md), [0099](0099-status-from-the-code.md)
 
 ## Context
@@ -25,13 +24,9 @@ James's direction, from the design discussion of 2026-11-09:
 
 ### 1. A catalogue the code acts on is checked against the running code (extends 0098 §5)
 
-*Changed by A2.*
-
 *Current text: [24](../architecture/24-documentation.md) §11.*
 
 ### 2. The server reports the permissions it checks (extends 0016 §2)
-
-*Changed by A1, A2.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.2.*
 

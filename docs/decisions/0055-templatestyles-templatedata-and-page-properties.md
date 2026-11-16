@@ -4,7 +4,6 @@
 - **Date:** 2026-10-01
 - **Updated:** 2026-11-07 (A7)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0047](0047-special-pages.md)
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0039](0039-files-and-media.md), [0043](0043-lua-modules.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -31,19 +30,13 @@ James's direction, from the design discussion of 2026-10-01, was that the ADR se
 
 ### 2. The sanitizer: `scatter-css` (extends 0005 §3; uses 0033 §9.1)
 
-*Changed by A4, A7.*
-
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §6.2, §8.*
 
 ### 3. `<templatestyles>` (amends 0042 §5; extends 0042 §7, §9 and §10)
 
-*Changed by A5.*
-
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §2.2, §4.2, §6.3.*
 
 ### 4. Site styles: one designated page (settles 0042 Q3)
-
-*Changed by A5, A6.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §6.4.*
 
@@ -52,8 +45,6 @@ James's direction, from the design discussion of 2026-10-01, was that the ADR se
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §2.2, §3.1, §6.5.*
 
 ### 6. Page properties: `view.page_prop` (extends 0013 §5.6; extends 0042 §4 and §10; amends 0047 §10)
-
-*Changed by A1, A3.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §5.5.*
 

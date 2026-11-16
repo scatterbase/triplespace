@@ -4,7 +4,6 @@
 - **Date:** 2026-09-27
 - **Updated:** 2026-11-07 (A14)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0020](0020-change-feeds.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [Wikibase contract](../api/wikibase-compat.md)
 
 ## Context
@@ -21,43 +20,29 @@ Three choices James made in review shape the rest: the stream is **selectable pe
 
 ### 1. The stream is the dump, kept current (extends 0001 §2 and 0013 §8)
 
-*Changed by A2, A8, A11, A12.*
-
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §6.1.*
 
 ### 2. The delta is computed when the view changes (extends 0002 §2–3 and 0013 §7)
-
-*Changed by A5, A8, A9.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §6.2.*
 
 ### 3. Storage: `view.rdf_delta` (extends 0013 §5.6)
 
-*Changed by A2, A8, A9.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.11, §5.*
 
 ### 4. Tenants: shared deltas and overlay deltas (uses 0018 §6)
-
-*Changed by A8.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §10.5.*
 
 ### 5. Erasure and hiding reach the consumer, and the store (extends 0006 §7 and 0014 §5)
 
-*Changed by A9.*
-
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §6.3.*
 
 ### 6. Delivery: pull, with a sync client (extends 0012 §5)
 
-*Changed by A2, A4, A7, A9.*
-
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §6.4, §6.5.*
 
 ### 7. Blank nodes are skolemized (extends 0013 §8)
-
-*Changed by A2, A10, A13, A14.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §4.3.*
 
@@ -66,8 +51,6 @@ Three choices James made in review shape the rest: the stream is **selectable pe
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §6.6.*
 
 ### 9. Crates (amends 0005 §2 and §4.4)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

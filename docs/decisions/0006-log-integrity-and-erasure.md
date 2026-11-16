@@ -4,7 +4,6 @@
 - **Date:** 2026-09-25
 - **Updated:** 2026-11-13 (A34)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md)
 
 ## Context
 
@@ -35,55 +34,37 @@ Three terms are used precisely below:
 
 ### 1. Scope: the log, not the claim
 
-*Changed by A5, A16.*
-
 *Current text: [01](../architecture/01-log-and-records.md) §1.1.*
 
 ### 2. Encoding and hashing
-
-*Changed by A3, A5, A7, A9, A11, A19, A26.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §1.2, §3.1, §3.2, §3.3.*
 
 ### 3. A record is a header and a body
 
-*Changed by A3, A6, A20, A22, A23.*
-
 *Current text: [01](../architecture/01-log-and-records.md) §1.2, §2.1, §2.2, §2.3, §2.4.*
 
 ### 4. Integrity policies
-
-*Changed by A14, A24.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §1.2, §6.*
 
 ### 5. The Merkle tree and segments
 
-*Changed by A2, A14, A24, A25, A34.*
-
 *Current text: [01](../architecture/01-log-and-records.md) §4.1, §6.*
 
 ### 6. Checkpoints and keys
-
-*Changed by A3, A6, A8, A12, A19, A22, A24, A25, A28, A29, A33, A34.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §4.2, §4.3.*
 
 ### 7. Erasure
 
-*Changed by A1, A2, A3, A4, A10, A15.*
-
 *Current text: [01](../architecture/01-log-and-records.md) §5.1, §5.2, §5.3, §5.4, §5.5, §6.*
 
 ### 8. Edit conflicts per entity
 
-*Changed by A3, A20, A21.*
-
 *Current text: [01](../architecture/01-log-and-records.md) §7.*
 
 ### 9. Verification and export
-
-*Changed by A3, A6, A10, A11, A17, A19, A24, A27, A28, A29, A30, A31, A32.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §8.*
 

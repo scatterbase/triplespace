@@ -4,7 +4,6 @@
 - **Date:** 2026-10-04
 - **Updated:** 2026-10-09 (A6)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0021](0021-notifications.md), [0041](0041-content-models.md), [0047](0047-special-pages.md)
 - **Uses:** [0003](0003-statement-ui.md), [0007](0007-actor-identity.md), [0013](0013-postgres-storage.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0038](0038-page-metadata-and-categories.md), [0042](0042-template-expansion-and-parsoid.md), [0049](0049-boards.md), [0059](0059-query-service.md), [0060](0060-scopes.md)
 
 ## Context
@@ -38,8 +37,6 @@ James's direction, from the design discussion of 2026-10-04:
 
 ### 4. The definition
 
-*Changed by A1, A2, A4.*
-
 *Current text: [15](../architecture/15-structured-pages.md) §3.3, §5.5.*
 
 ### 5. Claims (extends 0015 §1)
@@ -48,8 +45,6 @@ James's direction, from the design discussion of 2026-10-04:
 
 ### 6. The task projection (extends 0013 §5.6 and §7)
 
-*Changed by A6.*
-
 *Current text: [15](../architecture/15-structured-pages.md) §3.5.*
 
 ### 7. Credit, and the window
@@ -57,8 +52,6 @@ James's direction, from the design discussion of 2026-10-04:
 *Current text: [15](../architecture/15-structured-pages.md) §3.6.*
 
 ### 8. The sprint page and notifications (extends 0021 §2)
-
-*Changed by A2.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.2, §5.6.*
 
@@ -71,8 +64,6 @@ James's direction, from the design discussion of 2026-10-04:
 *Current text: [18](../architecture/18-api.md) §2.3, §3.2.*
 
 ### 11. Storage, caches and search
-
-*Changed by A3, A6.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.15, §5, §11.1, §12.1.*
 

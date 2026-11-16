@@ -4,7 +4,6 @@
 - **Date:** 2026-09-27
 - **Updated:** 2026-11-06 (A11)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0017](0017-entity-id-grammar.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
 
 ## Context
@@ -19,19 +18,13 @@ The instance already has every part of this. [0013](0013-postgres-storage.md) §
 
 ### 1. A resolver is a namespace bound to a property (extends 0003 §7; settles 0009 Q6 and 0017 Q6)
 
-*Changed by A11.*
-
 *Current text: [06](../architecture/06-statements-and-properties.md) §3.1.*
 
 ### 2. The `resolver` namespace kind (extends 0008 §1 and §3)
 
-*Changed by A3, A5, A7, A8.*
-
 *Current text: [06](../architecture/06-statements-and-properties.md) §3.2.*
 
 ### 3. Resolution
-
-*Changed by A4.*
 
 *Current text: [06](../architecture/06-statements-and-properties.md) §3.3.*
 
@@ -45,8 +38,6 @@ The instance already has every part of this. [0013](0013-postgres-storage.md) §
 
 ### 6. API (extends 0012 §5)
 
-*Changed by A2, A5, A7, A9.*
-
 *Current text: [18](../architecture/18-api.md) §2.3, §3.2, §3.3.*
 
 ### 7. UI (extends 0010 §3)
@@ -58,8 +49,6 @@ The instance already has every part of this. [0013](0013-postgres-storage.md) §
 *Current text: [23](../architecture/23-configuration-and-registry.md) §2.2, §4.4, §5.2.*
 
 ### 9. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

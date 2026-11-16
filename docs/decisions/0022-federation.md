@@ -4,7 +4,6 @@
 - **Date:** 2026-09-27
 - **Updated:** 2026-11-07 (A13)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md)
 - **Uses:** [0000](0000-init.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0014](0014-caches-and-search.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0030](0030-edit-filters.md)
 
 ## Context
@@ -17,13 +16,9 @@ The two halves share a stance. Triplespace federates **facts and speech, not ide
 
 ### 1. What a Triplespace instance publishes (settles 0006 Q3)
 
-*Changed by A2, A10, A12, A13.*
-
 *Current text: [17](../architecture/17-federation-and-publication.md) §1.1.*
 
 ### 2. The Triplespace adapter reads the local graph and verifies it (extends 0002 §8.4; amends 0028 §5)
-
-*Changed by A2, A10, A11, A12.*
 
 *Current text: [17](../architecture/17-federation-and-publication.md) §1.2.*
 
@@ -41,19 +36,13 @@ The two halves share a stance. Triplespace federates **facts and speech, not ide
 
 ### 6. Actors (extends 0021 §5)
 
-*Changed by A3.*
-
 *Current text: [17](../architecture/17-federation-and-publication.md) §2.1.*
 
 ### 7. Outbound: what a follower receives
 
-*Changed by A3, A6, A8.*
-
 *Current text: [17](../architecture/17-federation-and-publication.md) §2.2.*
 
 ### 8. Inbound: the rules fixed now, the protocol left open
-
-*Changed by A2.*
 
 *Current text: [17](../architecture/17-federation-and-publication.md) §2.3.*
 
@@ -63,13 +52,9 @@ The two halves share a stance. Triplespace federates **facts and speech, not ide
 
 ### 10. Storage (extends 0013 §5.6)
 
-*Changed by A7, A12.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.2, §4.5, §4.6, §4.16, §5.*
 
 ### 11. API and UI (extends 0012 §5, 0010 §2 and §11)
-
-*Changed by A5.*
 
 *Current text: [18](../architecture/18-api.md) §3.2; [19](../architecture/19-site-ui.md) §1.3, §1.5, §2.4, §6.11.*
 
@@ -78,8 +63,6 @@ The two halves share a stance. Triplespace federates **facts and speech, not ide
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.2, §3.1, §8.3.*
 
 ### 13. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

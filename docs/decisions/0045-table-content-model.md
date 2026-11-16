@@ -4,7 +4,6 @@
 - **Date:** 2026-09-30
 - **Updated:** 2026-11-10 (A10)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0034](0034-frontend-stack.md), [0041](0041-content-models.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0044](0044-tenant-relative-ids.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -24,8 +23,6 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 1. A table is a page that names entities and properties
 
-*Changed by A8.*
-
 *Current text: [15](../architecture/15-structured-pages.md) §2.1.*
 
 ### 2. The `Table` namespace (extends 0008 §2)
@@ -34,13 +31,9 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 3. The `triplespace-table` content model (extends 0041 §3)
 
-*Changed by A9.*
-
 *Current text: [15](../architecture/15-structured-pages.md) §2.2.*
 
 ### 4. The definition
-
-*Changed by A3, A5, A6, A8.*
 
 *Current text: [15](../architecture/15-structured-pages.md) §2.3.*
 
@@ -50,19 +43,13 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 6. Editing cells: one row, one change set
 
-*Changed by A10.*
-
 *Current text: [15](../architecture/15-structured-pages.md) §2.5.*
 
 ### 7. Adding and removing rows
 
-*Changed by A8, A10.*
-
 *Current text: [15](../architecture/15-structured-pages.md) §2.6.*
 
 ### 8. Links, feeds and backlinks
-
-*Changed by A4.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.2, §4.3.*
 
@@ -83,8 +70,6 @@ James's direction, from the design discussion of 2026-09-30:
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.7, §9.7, §11.1.*
 
 ### 13. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

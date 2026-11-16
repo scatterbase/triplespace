@@ -4,7 +4,6 @@
 - **Date:** 2026-09-30
 - **Updated:** 2026-11-13 (A16)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0035](0035-adopting-a-wikibase.md), [0038](0038-page-metadata-and-categories.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0007](0007-actor-identity.md), [0019](0019-discussions.md), [0040](0040-instance-prerogatives.md), [0041](0041-content-models.md)
 
 ## Context
@@ -28,8 +27,6 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 1. The File and Media namespaces (amends 0008 §2)
 
-*Changed by A3, A5.*
-
 *Current text: [12](../architecture/12-files-and-media.md) §1.1, §1.2.*
 
 ### 2. Upload records (extends 0015 §1 and 0038 §1)
@@ -38,19 +35,13 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 3. The blob store (uses 0033 §1)
 
-*Changed by A15, A16.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §8.*
 
 ### 4. Storage scopes: separate per tenant by default (extends 0018 §2)
 
-*Changed by A15.*
-
 *Current text: [12](../architecture/12-files-and-media.md) §2.*
 
 ### 5. Uploading: stash, validation and warnings (extends 0030 §2)
-
-*Changed by A14.*
 
 *Current text: [12](../architecture/12-files-and-media.md) §3.1, §3.2, §3.3.*
 
@@ -60,8 +51,6 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 7. Serving: every byte behind an access check (extends 0014 §6)
 
-*Changed by A13.*
-
 *Current text: [12](../architecture/12-files-and-media.md) §4.1, §4.2, §4.3, §4.4.*
 
 ### 8. Removing files: the vocabulary (extends 0023 §1)
@@ -70,37 +59,25 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 9. Tenant removal: delete, hide, erase and reclaim
 
-*Changed by A2, A11.*
-
 *Current text: [12](../architecture/12-files-and-media.md) §5.2, §5.3.*
 
 ### 10. Operator removal: take down, reinstate, expunge (extends 0023 §2; extends 0028 §8)
-
-*Changed by A2.*
 
 *Current text: [12](../architecture/12-files-and-media.md) §5.4, §5.5, §5.6.*
 
 ### 11. Foreign file repositories (uses 0002 §2, §5, 0012 §6 and 0028 §5)
 
-*Changed by A6, A8, A9, A12.*
-
 *Current text: [12](../architecture/12-files-and-media.md) §6.1, §6.2, §6.3, §6.4, §6.5, §6.6.*
 
 ### 12. Media data types (uses 0003 §9 and 0038 §1)
-
-*Changed by A12.*
 
 *Current text: [12](../architecture/12-files-and-media.md) §7.1, §7.3.*
 
 ### 13. Wikitext and markdown (amends 0008 §8)
 
-*Changed by A12.*
-
 *Current text: [12](../architecture/12-files-and-media.md) §7.2, §7.3.*
 
 ### 14. Import, adoption, export and verification (extends 0008 §9, 0035 §2 and 0006 §9)
-
-*Changed by A7.*
 
 *Current text: [12](../architecture/12-files-and-media.md) §9.*
 
@@ -126,8 +103,6 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 20. Storage (extends 0013 §5.6 and §7)
 
-*Changed by A11.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.9, §5, §6.1, §9.6, §12.1, §12.2, §12.4.*
 
 ### 21. Permissions (extends 0016 §2)
@@ -139,8 +114,6 @@ James's direction, from the design discussion of 2026-09-30:
 *Current text: [22](../architecture/22-crates-and-stack.md) §1.3.*
 
 ### 23. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

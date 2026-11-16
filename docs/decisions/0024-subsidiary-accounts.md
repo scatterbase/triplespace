@@ -4,7 +4,6 @@
 - **Date:** 2026-09-27
 - **Updated:** 2026-11-06 (A21)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -24,13 +23,9 @@ James's direction is to make the relation structural: a bot is a **subsidiary ac
 
 ### 1. A subsidiary is a local account with an operator (amends 0007 §4 and §6)
 
-*Changed by A2, A6, A17.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §1.3, §1.5, §4.1.*
 
 ### 2. Creating, approving and transferring
-
-*Changed by A2, A17, A21.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §1.3, §3.2, §4.2, §4.3, §4.4.*
 
@@ -40,13 +35,9 @@ James's direction is to make the relation structural: a bot is a **subsidiary ac
 
 ### 4. API keys (extends 0007 §3)
 
-*Changed by A2, A3, A10, A18.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.4, §5.1, §5.2, §5.3, §5.4, §5.5.*
 
 ### 5. Rate limits (settles 0012, 0016, 0020 and 0021)
-
-*Changed by A4, A5, A7, A9, A11, A12, A14, A16, A19, A20.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §6.1, §6.2, §6.3.*
 
@@ -60,8 +51,6 @@ James's direction is to make the relation structural: a bot is a **subsidiary ac
 
 ### 8. API (extends 0012 §4 and §5)
 
-*Changed by A10.*
-
 *Current text: [18](../architecture/18-api.md) §1.5, §2.2, §2.3, §3.1, §3.2.*
 
 ### 9. Site UI (extends 0010 §8 and §11)
@@ -74,19 +63,13 @@ James's direction is to make the relation structural: a bot is a **subsidiary ac
 
 ### 11. Permissions (extends 0016 §2)
 
-*Changed by A13, A17.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.2, §8.4.*
 
 ### 12. Scatterbase
 
-*Changed by A3.*
-
 *Current text: [22](../architecture/22-crates-and-stack.md) §1.3.*
 
 ### 13. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

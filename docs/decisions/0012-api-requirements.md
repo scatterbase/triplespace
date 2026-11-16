@@ -4,7 +4,6 @@
 - **Date:** 2026-09-26
 - **Updated:** 2026-11-15 (A93)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -31,25 +30,17 @@ This ADR sets the rules for filling both gaps, and lists what the UI needs from 
 
 ### 2. Prerequisites
 
-*Changed by A66, A68.*
-
 *Current text: [18](../architecture/18-api.md) §1.3, §5.1.*
 
 #### 2.1 Global revision and log IDs
-
-*Changed by A2, A4, A7, A65, A66, A67, A68, A69, A91.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §2.5, §5.3.*
 
 #### 2.2 Mirror metadata that survives compaction (amends [0002](0002-source-graphs-and-mass-ingest.md) §8.2)
 
-*Changed by A58.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §2.6, §8.2.*
 
 #### 2.3 Ordering and paging
-
-*Changed by A65.*
 
 *Current text: [18](../architecture/18-api.md) §1.3.*
 
@@ -59,43 +50,29 @@ This ADR sets the rules for filling both gaps, and lists what the UI needs from 
 
 ### 3. The activity row
 
-*Changed by A5, A12, A18.*
-
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §3.1.*
 
 ### 4. Action API changes
-
-*Changed by A3, A4, A5, A7, A8, A9, A10, A12, A13, A14, A15, A16, A17, A18, A19, A21, A23, A24, A25, A26, A27, A30, A31, A32, A33, A34, A35, A36, A37, A38, A55, A64, A65, A66, A72, A73, A74, A75, A76, A77, A78, A79, A81, A86, A87, A88, A90.*
 
 *Current text: [18](../architecture/18-api.md) §1.5, §2.1, §2.2, §2.3, §2.4, §3.4, §5.1.*
 
 ### 5. REST routes under `rest.php/triplespace/v0`
 
-*Changed by A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A28, A30, A31, A32, A33, A37, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A50, A51, A52, A53, A54, A55, A56, A59, A60, A61, A62, A64, A70, A71, A72, A75, A76, A77, A78, A79, A80, A84, A85, A86, A87, A88, A89, A92, A93.*
-
 *Current text: [17](../architecture/17-federation-and-publication.md) §1.1; [18](../architecture/18-api.md) §1.2, §3.1, §3.2, §3.3, §4.*
 
 ### 6. Fetching upstream edits live
-
-*Changed by A4, A13.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §2.7.*
 
 ### 7. Structured diffs
 
-*Changed by A65.*
-
 *Current text: [18](../architecture/18-api.md) §5.1.*
 
 ### 8. Redaction, caching and permissions
 
-*Changed by A3, A5, A12, A13, A24, A35, A57.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.1, §2.2, §5.3, §5.7, §5.8.*
 
 ### 9. Crates
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

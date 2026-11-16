@@ -4,7 +4,6 @@
 - **Date:** 2026-10-03
 - **Updated:** 2026-11-15 (A10)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0025](0025-oauth-server.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0056](0056-security-model.md)
 - **Uses:** [0003](0003-statement-ui.md), [0039](0039-files-and-media.md), [0045](0045-table-content-model.md), [0047](0047-special-pages.md), [0053](0053-mirrored-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -37,8 +36,6 @@ James's direction, from the design discussion of 2026-10-03:
 
 ### 1. Principles (amends 0034 §1)
 
-*Changed by A4.*
-
 *Current text: [20](../architecture/20-web-tier.md) §1.1.*
 
 ### 2. Two ways to run the site (amends 0033 §1, §17; extends 0033 §12; amends 0034 §2, §8)
@@ -47,13 +44,9 @@ James's direction, from the design discussion of 2026-10-03:
 
 ### 3. The routing table
 
-*Changed by A8.*
-
 *Current text: [20](../architecture/20-web-tier.md) §2.1.*
 
 ### 4. Talking to the API
-
-*Changed by A4.*
 
 *Current text: [20](../architecture/20-web-tier.md) §2.2.*
 
@@ -63,37 +56,25 @@ James's direction, from the design discussion of 2026-10-03:
 
 ### 6. A page's own cacheability (extends 0014 §6)
 
-*Changed by A4, A5, A9.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §10.3, §12.4.*
 
 ### 7. Forms without JavaScript (extends 0012 §4)
-
-*Changed by A6, A7.*
 
 *Current text: [20](../architecture/20-web-tier.md) §3.1.*
 
 ### 8. Fragments: `action=render` on the page's own URL (amends 0034 §5, §11; extends 0010 §12, §13)
 
-*Changed by A4, A9, A10.*
-
 *Current text: [20](../architecture/20-web-tier.md) §3.2.*
 
 ### 9. Independent deployment (extends 0012 §4)
-
-*Changed by A9.*
 
 *Current text: [20](../architecture/20-web-tier.md) §4.*
 
 ### 10. Proxy trust and the deployment boundary (amends 0056 §10; extends 0056 §15; extends 0015 §3)
 
-*Changed by A1, A2.*
-
 *Current text: [20](../architecture/20-web-tier.md) §5.1, §5.2, §5.5.*
 
 ### 11. Health and observability (uses 0033 §13)
-
-*Changed by A10.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §4.7.*
 

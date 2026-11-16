@@ -3,7 +3,6 @@
 - **Status:** Accepted
 - **Date:** 2026-11-09
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0028](0028-tenancy-policy.md), [0107](0107-settings-and-log-events-checked-against-the-running-code.md)
 - **Uses:** [0105](0105-catalogues-checked-against-the-running-code.md)
 
 ## Context

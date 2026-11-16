@@ -4,7 +4,6 @@
 - **Date:** 2026-09-28
 - **Updated:** 2026-10-26 (A8)
 - **Author:** James Hare / Claude Sonnet
-- **Changes:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0017](0017-entity-id-grammar.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0015](0015-record-format-and-partition-registry.md), [0031](0031-property-constraints.md), [0048](0048-notation.md)
 
 ## Context
@@ -24,43 +23,29 @@ Two existing mechanisms fit the rest. Keyed entity types ([0009](0009-keyed-enti
 
 ### 1. Two providers
 
-*Changed by A6, A7.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §8.1, §8.7.*
 
 ### 2. `OS`: map objects
-
-*Changed by A4.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §8.7.*
 
 ### 3. The `osm` scheme: keys and tags as notations
 
-*Changed by A2.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §3.8.*
 
 ### 4. Tags on map objects
-
-*Changed by A2, A6.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §8.8.*
 
 ### 5. `OW`: the vocabulary
 
-*Changed by A2, A7, A8.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §8.9.*
 
 ### 6. Tags are not concepts
 
-*Changed by A2.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §3.9, §4.1.*
 
 ### 7. Registry, namespaces and crates
-
-*Changed by A1, A2, A7.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1; [23](../architecture/23-configuration-and-registry.md) §4.2, §4.3.*
 

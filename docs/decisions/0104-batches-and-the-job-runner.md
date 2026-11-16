@@ -4,7 +4,6 @@
 - **Date:** 2026-11-08
 - **Updated:** 2026-11-15 (A11)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0016](0016-permissions-and-access-control.md), [0047](0047-special-pages.md), [0083](0083-write-path-in-three-tiers.md)
 - **Uses:** [0007](0007-actor-identity.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0047](0047-special-pages.md)
 
 ## Context
@@ -26,8 +25,6 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 1. A batch is a job the submitter keys (amends 0002 §8.3; extends 0011 §6.3)
 
-*Changed by A2.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.3; [16](../architecture/16-logs-feeds-and-notifications.md) §2.2.*
 
 ### 2. Rejecting a batch (extends 0011 §6.3)
@@ -36,13 +33,9 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 3. Reverting a job, record by record (amends 0002 §8.3 and 0010 §9)
 
-*Changed by A2.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.3; [19](../architecture/19-site-ui.md) §3.10.*
 
 ### 4. The runner (extends 0083 §5)
-
-*Changed by A1, A6, A7, A8, A9, A10.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §2.2; [21](../architecture/21-special-pages.md) §4.3.*
 
@@ -52,8 +45,6 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 6. API (extends 0012 §4 and §5)
 
-*Changed by A2.*
-
 *Current text: [18](../architecture/18-api.md) §2.3, §3.2.*
 
 ### 7. Log events (extends 0011 §6.1)
@@ -61,8 +52,6 @@ James's direction, from the design discussion of 2026-11-08:
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §2.3.*
 
 ### 8. Storage (extends 0013 §5.6)
-
-*Changed by A1, A2.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.12.*
 
@@ -75,8 +64,6 @@ James's direction, from the design discussion of 2026-11-08:
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ### 11. Creating items from a table (extends 0002 §8.5 and 0047 §5)
-
-*Changed by A3, A4, A5, A11.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.5; [21](../architecture/21-special-pages.md) §6.6.*
 

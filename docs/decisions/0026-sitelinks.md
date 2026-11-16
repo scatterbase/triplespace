@@ -4,7 +4,6 @@
 - **Date:** 2026-09-27
 - **Updated:** 2026-11-15 (A9)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md)
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0022](0022-federation.md), [Wikibase contract](../api/wikibase-compat.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -21,13 +20,9 @@ Two constraints shape the rest. The **host of a URL is a Domain** ([0009](0009-k
 
 ### 1. A sitelink is a normalized URL, with badges
 
-*Changed by A3, A8.*
-
 *Current text: [06](../architecture/06-statements-and-properties.md) §4.1, §4.6.*
 
 ### 2. The host is the site ID; one link per host; one item per URL
-
-*Changed by A2, A3, A7, A9.*
 
 *Current text: [06](../architecture/06-statements-and-properties.md) §4.2, §4.3, §4.6.*
 
@@ -36,8 +31,6 @@ Two constraints shape the rest. The **host of a URL is a Domain** ([0009](0009-k
 *Current text: [06](../architecture/06-statements-and-properties.md) §4.4.*
 
 ### 4. Reconciliation (amends 0002 §3)
-
-*Changed by A7.*
 
 *Current text: [06](../architecture/06-statements-and-properties.md) §4.5.*
 
@@ -55,8 +48,6 @@ Two constraints shape the rest. The **host of a URL is a Domain** ([0009](0009-k
 
 ### 8. RDF
 
-*Changed by A5.*
-
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §5.5.*
 
 ### 9. UI (extends 0010 §2)
@@ -64,8 +55,6 @@ Two constraints shape the rest. The **host of a URL is a Domain** ([0009](0009-k
 *Current text: [19](../architecture/19-site-ui.md) §6.4.*
 
 ### 10. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

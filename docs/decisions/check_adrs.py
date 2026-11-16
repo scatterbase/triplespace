@@ -121,7 +121,7 @@ for name, text in texts.items():
 VERBS = {"amends", "extends", "supersedes", "corrects", "settles", "uses"}   # 0050 §7
 LOG_VERBS = {"amends", "extends", "supersedes", "corrects", "retitles", "consolidates", "relocates"}  # 0050 §8, §14
 NEEDS_REPLACED = {"amends", "supersedes", "corrects"}
-HEADER_ORDER = ["Status", "Date", "Updated", "Author", "Changes", "Uses"]  # 24 §2.2
+HEADER_ORDER = ["Status", "Date", "Updated", "Author", "Uses"]  # 24 §2.2
 STATUS_RE = re.compile(r"^(Proposed|Accepted|Accepted with proposed amendment \((A\d+)(, A\d+)*\)|Withdrawn|Superseded by \[?\d{4}\]?(\([^)]*\))?)$")
 
 def header_fields(text):
@@ -251,6 +251,8 @@ for name in sorted(new_format):
     for f in names:
         if f == "Chapters":
             P.append("header field 'Chapters' is retired: the chapters are read from the pointers (24 §2.2)")
+        elif f == "Changes":
+            P.append("header field 'Changes' is retired: what an ADR changes is read from the logs that name it (24 §2.2; tools/adr.py changes NNNN)")
         elif f not in HEADER_ORDER:
             P.append(f"header field '{f}' is not one of {HEADER_ORDER}")
     known = [f for f in names if f in HEADER_ORDER]
@@ -277,7 +279,7 @@ for name in sorted(new_format):
                 P.append(f"Status is '{fd['Status']}', but the code says '{said}' (24 §15): run check_adrs.py --index")
     if not re.match(r"^# \d{4}\. ", text):
         P.append("H1 is not '# NNNN. Title'")
-    for f in ("Changes", "Uses"):
+    for f in ("Uses",):
         nums = re.findall(r"\[(\d{4})\]", fd.get(f, ""))
         if nums != sorted(nums):
             P.append(f"{f} is not in ascending order")
@@ -347,15 +349,12 @@ for name in sorted(new_format):
             continue
         sec = m.group(1)
         first = next((l for l in body.split("\n") if l.strip()), "")
-        prov = re.match(r"^\*Changed by ((?:A\d+(?:, )?)+)\.\*$", first.strip())
+        if re.search(r"^\*Changed by ", body, re.M):
+            P.append(f"§{sec}: '*Changed by …*' lines are retired: the entries that changed a section are read from the log's Change lines (24 §3.1; tools/adr.py show {me} §{sec})")
         stub = re.match(r"^\*Superseded by .*\(A(\d+)\)\.\*$", first.strip())
-        listed = {int(x) for x in re.findall(r"A(\d+)", prov.group(1))} if prov else set()
-        if stub:
-            listed.add(int(stub.group(1)))
-        for a in listed - touched.get(sec, set()):
-            P.append(f"§{sec}: provenance names A{a}, whose Change does not name §{sec}" if a in log else f"§{sec}: provenance names A{a}, which is not in the log")
-        for a in touched.get(sec, set()) - listed:
-            P.append(f"§{sec}: A{a} changes it, but its provenance line does not say so")
+        if stub and int(stub.group(1)) not in touched.get(sec, set()):
+            a = int(stub.group(1))
+            P.append(f"§{sec}: the stub names A{a}, whose Change does not name §{sec}" if a in log else f"§{sec}: the stub names A{a}, which is not in the log")
     for s in touched:
         if s not in secs[name]:
             P.append(f"the log changes §{s}, which does not exist")
@@ -439,7 +438,7 @@ for name, text in texts.items():
             for m in re.finditer(r"\*Settled by ([^*]*)\*", q):
                 srcs |= adr_nums(settlers(m.group(1)))
         amended_by[name] = srcs
-        related[name] = set(re.findall(r"\[(\d{4})\]", header_field(text, "Changes") + header_field(text, "Uses")))
+        related[name] = set(re.findall(r"\[(\d{4})\]", header_field(text, "Uses")))
         continue
     ab = header_field(text, "Amended by")
     rel = header_field(text, "Related")
@@ -452,16 +451,27 @@ for a, bs in amended_by.items():
         if not bf:
             problems[a].append(f"Amended-by names unknown ADR {b}")
             continue
+        if bf in new_format:
+            continue   # what an ADR changes is derived from the logs that name it (24 §2.2)
         if a[:4] not in related[bf] and a[:4] not in amended_by[bf]:
             problems[bf].append(f"{a[:4]} lists {b} under Amended-by, but {b} does not list {a[:4]} under Related")
 
 # reverse: B's Related clause says it amends/settles/extends A -> A should list B as amender
 for b, text in texts.items():
     if b in new_format:
-        for a in set(re.findall(r"\[(\d{4})\]", header_field(text, "Changes"))):
+        # a heading that says it changes another ADR needs that ADR's log, or a settled question
+        # there, to name this one (24 §12 check 6)
+        claimed = set()
+        for level, head, body in decision_sections(text):
+            paren = re.search(r"\(([^()]*\d{4}[^()]*)\)\s*$", head)
+            for clause in re.split(r";", paren.group(1)) if paren else ():
+                clause = clause.strip()
+                if clause.split(" ")[0] in VERBS - {"uses", "extends"}:   # an extension's entry is not enforced
+                    claimed |= set(re.findall(r"\b(\d{4})\b", clause))
+        for a in sorted(claimed - {b[:4]}):
             af = num2file.get(a)
             if af and b[:4] not in amended_by[af]:
-                problems[af].append(f"{b[:4]}'s Changes names {a}, but {a} does not list {b[:4]} under Amended-by or in its log")
+                problems[af].append(f"a heading of {b[:4]} says it changes {a}, but no log entry or settled question of {a} names {b[:4]}")
         continue
     rel = header_field(text, "Related")
     for m in re.finditer(r"\[(\d{4})[^\]]*\]\([^)]+\)\s*(\([^)]*\))?", rel):

@@ -4,7 +4,6 @@
 - **Date:** 2026-10-01
 - **Updated:** 2026-11-08 (A9)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0022](0022-federation.md), [0033](0033-backend-stack.md), [0039](0039-files-and-media.md), [0042](0042-template-expansion-and-parsoid.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0040](0040-instance-prerogatives.md), [0047](0047-special-pages.md), [0051](0051-page-redirects.md), [0052](0052-page-repositories-and-title-inheritance.md), [0054](0054-forking-a-mirrored-page.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -25,13 +24,9 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 1. The page bundle
 
-*Changed by A1.*
-
 *Current text: [13](../architecture/13-mirrored-pages.md) §2.1.*
 
 ### 2. Rewriting the HTML (extends 0008 §8; uses 0039 §11)
-
-*Changed by A7.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §2.2.*
 
@@ -41,19 +36,13 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 4. Proxy mode: fetched on demand, cached, never logged (extends 0014 §4)
 
-*Changed by A3, A7.*
-
 *Current text: [13](../architecture/13-mirrored-pages.md) §2.4.*
 
 ### 5. Mirror mode: the `pages/{repo}` partition (extends 0015 §3 and §5; uses 0002 §2, §5, 0006 §4)
 
-*Changed by A1, A6, A7, A9.*
-
 *Current text: [13](../architecture/13-mirrored-pages.md) §1.6, §2.5, §2.6, §5.4.*
 
 ### 6. Following the repository: events and invalidation (settles 0042 Q5)
-
-*Changed by A8.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §2.7.*
 
@@ -63,13 +52,9 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 8. Storage (extends 0013 §5.6)
 
-*Changed by A2, A8.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.12, §5.*
 
 ### 9. Attribution, licences and takedowns (extends 0039 §11)
-
-*Changed by A4.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §2.8, §2.9.*
 

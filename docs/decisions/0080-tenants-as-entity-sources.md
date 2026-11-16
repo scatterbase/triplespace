@@ -4,7 +4,6 @@
 - **Date:** 2026-10-09
 - **Updated:** 2026-10-30 (A3)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0044](0044-tenant-relative-ids.md), [0052](0052-page-repositories-and-title-inheritance.md), [0078](0078-entity-sources.md), [0079](0079-derived-issuer-codes.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0022](0022-federation.md), [0056](0056-security-model.md)
 
 ## Context
@@ -32,8 +31,6 @@ James's direction, from the design discussion of 2026-10-09:
 
 ### 1. A tenant source (extends 0078 §1; amends 0078 §9)
 
-*Changed by A1.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §6.1, §6.8.*
 
 ### 2. Reading a tenant source (amends 0018 §5; extends 0078 §4)
@@ -41,8 +38,6 @@ James's direction, from the design discussion of 2026-10-09:
 *Current text: [05](../architecture/05-providers-and-ingest.md) §6.4; [08](../architecture/08-tenants-and-instances.md) §4.1, §4.4, §6.3.*
 
 ### 3. Registry codes for tenants are promotion (amends 0018 §5; extends 0078 §9)
-
-*Changed by A2.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §6.8; [08](../architecture/08-tenants-and-instances.md) §4.1.*
 

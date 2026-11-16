@@ -4,7 +4,6 @@
 - **Date:** 2026-09-30
 - **Updated:** 2026-11-07 (A23)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md)
 - **Uses:** [0023](0023-moderation.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0043](0043-lua-modules.md), [0047](0047-special-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -38,31 +37,21 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 1. Expansion, then rendering (amends 0008 §8 and 0033 §9.1)
 
-*Changed by A19.*
-
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §1.1.*
 
 ### 2. Settings (extends 0015 §3; extends 0028 §1)
-
-*Changed by A2, A5, A19.*
 
 *Current text: [23](../architecture/23-configuration-and-registry.md) §1.4, §3.1, §3.2, §3.4, §3.6, §6.*
 
 ### 3. The Template namespace (amends 0008 §2)
 
-*Changed by A7, A13, A14, A19.*
-
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §1.3.*
 
 ### 4. The expander
 
-*Changed by A6, A9, A22, A23.*
-
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §1.4.*
 
 ### 5. Variables, parser functions, tags and switches: a registry (extends 0015 §5)
-
-*Changed by A6, A9, A10, A12, A20, A21.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §2.1, §2.2, §2.3.*
 
@@ -72,8 +61,6 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 7. The built-in renderer after expansion (amends 0010 §4)
 
-*Changed by A6.*
-
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §1.2, §6.3.*
 
 ### 8. The Parsoid renderer
@@ -81,8 +68,6 @@ James's direction, from the design discussion of 2026-09-30:
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §3.*
 
 #### 8.1 Parsoid calls back into Triplespace
-
-*Changed by A6, A21.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §3.1.*
 
@@ -100,19 +85,13 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 9. Links, categories and other metadata come from expanded output (amends 0038 §3; amends 0008 §10)
 
-*Changed by A6, A17, A19.*
-
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §4.1.*
 
 ### 10. The render manifest and refresh (extends 0013 §5.6 and 0014 §3–5)
 
-*Changed by A2, A3, A6, A8, A9, A15, A17, A18.*
-
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §4.2, §4.3, §4.4, §4.5, §4.6.*
 
 ### 11. Foreign template repositories (uses 0039 §11)
-
-*Changed by A5, A11.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §5.1, §5.2, §5.3.*
 
@@ -122,13 +101,9 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 13. Import (amends 0008 §9)
 
-*Changed by A19.*
-
 *Current text: [10](../architecture/10-pages-and-content-models.md) §6.*
 
 ### 14. API (extends 0012 §4 and §5)
-
-*Changed by A8, A21.*
 
 *Current text: [18](../architecture/18-api.md) §2.2, §2.3, §3.2.*
 
@@ -149,8 +124,6 @@ James's direction, from the design discussion of 2026-09-30:
 *Current text: [22](../architecture/22-crates-and-stack.md) §4.9.*
 
 ### 19. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

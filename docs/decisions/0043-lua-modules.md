@@ -4,7 +4,6 @@
 - **Date:** 2026-09-30
 - **Updated:** 2026-11-07 (A10)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md)
 - **Uses:** [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0026](0026-sitelinks.md), [0038](0038-page-metadata-and-categories.md), [0044](0044-tenant-relative-ids.md)
 
 ## Context
@@ -35,8 +34,6 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 3. The `Scribunto` content model (extends 0041 §3; amends 0008 §5)
 
-*Changed by A5.*
-
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §7.3.*
 
 ### 4. The runtime: Lua 5.1 in a sandbox (extends 0033 §1)
@@ -45,8 +42,6 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 5. The Scribunto contract: Scribunto's Lua, Triplespace's host
 
-*Changed by A3, A9.*
-
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §7.5.*
 
 ### 6. Data modules (extends 0014 §4)
@@ -54,8 +49,6 @@ James's direction, from the design discussion of 2026-09-30:
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §7.6.*
 
 ### 7. Wikibase Client: `mw.wikibase`, `#property` and `#statements`
-
-*Changed by A4.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §2.2, §7.7.*
 
@@ -69,13 +62,9 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 10. Usage tracking and invalidation (extends 0042 §10)
 
-*Changed by A8.*
-
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §4.2, §4.4, §7.9.*
 
 ### 11. Entities the tenant does not hold
-
-*Changed by A6.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §7.10.*
 
@@ -89,8 +78,6 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 14. Licensing (extends 0033 §1 and 0005 §3)
 
-*Changed by A10.*
-
 *Current text: [22](../architecture/22-crates-and-stack.md) §1.2, §3.3.*
 
 ### 15. Conformance
@@ -102,8 +89,6 @@ James's direction, from the design discussion of 2026-09-30:
 *Current text: [18](../architecture/18-api.md) §2.2, §2.3.*
 
 ### 17. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

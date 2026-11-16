@@ -4,7 +4,6 @@
 - **Date:** 2026-09-24
 - **Updated:** 2026-11-09 (A48)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md)
 - **Uses:** [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
 ## Context
@@ -33,43 +32,29 @@ Four scenarios were used to test the design:
 
 ### 2. Source graphs
 
-*Changed by A22.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §1.2, §1.3, §8.2, §8.4.*
 
 ### 3. The main graph becomes a resolved view (amends 0001 §2)
-
-*Changed by A13, A22, A31.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §1.4.*
 
 ### 4. IRIs for foreign entities
 
-*Changed by A2, A7, A8, A18, A28, A35, A37, A38, A39, A40, A41, A42, A43, A44, A45.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §1.5, §8.1, §8.2, §8.3, §8.4, §8.5.*
 
 ### 5. Upstream deletion and retention (scenarios A and B)
-
-*Changed by A2, A3, A6, A23, A29, A34.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §2.1, §2.2.*
 
 ### 6. Converting a foreign entity into a local one
 
-*Changed by A1, A10, A31.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §2.3, §2.4.*
 
 ### 7. Corrections and extensions (scenarios C and D)
 
-*Changed by A16, A20, A32, A33.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §2.5.*
 
 ### 8. Ingest API
-
-*Changed by A32.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.1, §3.10.*
 
@@ -79,43 +64,29 @@ Four scenarios were used to test the design:
 
 #### 8.2 Operations
 
-*Changed by A1, A4, A15, A19, A24, A25, A32, A33.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.2.*
 
 #### 8.3 Import jobs
-
-*Changed by A3, A6, A9, A27, A46.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.3.*
 
 #### 8.4 Foreign imports
 
-*Changed by A11, A14, A21, A35, A36, A38, A40.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.4, §8.4.*
 
 #### 8.5 Local bulk creation
-
-*Changed by A12, A15, A19, A32, A47, A48.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.5.*
 
 #### 8.6 Throughput
 
-*Changed by A5, A32.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.7.*
 
 #### 8.7 Wire format sketch
 
-*Changed by A26.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.9.*
 
 ### 9. How the scenarios resolve
-
-*Changed by A34.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §1.6.*
 

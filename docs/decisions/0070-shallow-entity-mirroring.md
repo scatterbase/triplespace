@@ -4,7 +4,6 @@
 - **Date:** 2026-10-07
 - **Updated:** 2026-10-26 (A8)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0040](0040-instance-prerogatives.md), [0053](0053-mirrored-pages.md), [0065](0065-mediainfo-captions-and-commons.md), [0067](0067-proposals.md), [0071](0071-derived-statements-from-mirrored-pages.md)
 
 ## Context
@@ -34,8 +33,6 @@ James's direction, from the design discussion of 2026-10-07:
 
 #### 2.1 The setting
 
-*Changed by A1.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.2, §8.2.*
 
 #### 2.2 When `linked` fetches
@@ -52,31 +49,21 @@ James's direction, from the design discussion of 2026-10-07:
 
 ### 3. Fetching and records
 
-*Changed by A1, A2, A5, A8.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.5.*
 
 ### 4. Labels of entities not mirrored
-
-*Changed by A4.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.6.*
 
 ### 5. Keeping mirrored entities current (uses 0053 §6)
 
-*Changed by A8.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.7, §8.2.*
 
 ### 6. Terms of mirrored entities (extends 0013 §5.6)
 
-*Changed by A4.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.8.*
 
 ### 7. Becoming a full mirror
-
-*Changed by A6, A7, A8.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.9.*
 
@@ -86,13 +73,9 @@ James's direction, from the design discussion of 2026-10-07:
 
 ### 9. API and operations (extends 0012 §5)
 
-*Changed by A8.*
-
 *Current text: [18](../architecture/18-api.md) §2.2, §3.2.*
 
 ### 10. Storage (extends 0013 §5.6)
-
-*Changed by A1, A8.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.12, §5.*
 

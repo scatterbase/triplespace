@@ -4,7 +4,6 @@
 - **Date:** 2026-09-27
 - **Updated:** 2026-11-09 (A24)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0023](0023-moderation.md)
 - **Uses:** [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0027](0027-preferences-and-portability.md)
 
 ## Context
@@ -25,13 +24,9 @@ MediaWiki's answer to the second is CentralAuth: one global account, local accou
 
 ### 1. The tenancy policy is instance configuration, with three presets
 
-*Changed by A3, A6, A9, A13, A18, A19, A24.*
-
 *Current text: [08](../architecture/08-tenants-and-instances.md) §5.1.*
 
 ### 2. Farm identity (extends 0007 §1, §3 and §7; amends 0018 §4)
-
-*Changed by A5, A7, A12, A16, A22, A23.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §2.1, §3.4, §3.5, §3.6, §3.7, §8.6.*
 
@@ -45,8 +40,6 @@ MediaWiki's answer to the second is CentralAuth: one global account, local accou
 
 ### 5. Reading across tenants (extends 0018 §5; settles 0018 Q2, Q4 and 0020 Q4)
 
-*Changed by A2, A5, A7, A9, A11, A17.*
-
 *Current text: [08](../architecture/08-tenants-and-instances.md) §4.2, §4.4, §6.6.*
 
 ### 6. Discussion (settles 0019 Q6)
@@ -59,8 +52,6 @@ MediaWiki's answer to the second is CentralAuth: one global account, local accou
 
 ### 8. Shared machinery: templates and locks
 
-*Changed by A4, A5, A21.*
-
 *Current text: [08](../architecture/08-tenants-and-instances.md) §5.3, §5.4, §8.6.*
 
 ### 9. Farm-wide feeds and search (extends 0020 §2 and 0014 §7)
@@ -69,19 +60,13 @@ MediaWiki's answer to the second is CentralAuth: one global account, local accou
 
 ### 10. Leaving and joining a farm (extends 0018 §10)
 
-*Changed by A7.*
-
 *Current text: [08](../architecture/08-tenants-and-instances.md) §6.5.*
 
 ### 11. API and UI (extends 0012 and 0010)
 
-*Changed by A14, A16, A21.*
-
 *Current text: [18](../architecture/18-api.md) §1.2, §2.2, §2.3, §3.2; [19](../architecture/19-site-ui.md) §1.3, §2.4, §2.8, §6.11.*
 
 ### 12. Storage (extends 0013)
-
-*Changed by A10, A20.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.5, §4.6, §5, §12.2, §13.*
 
@@ -90,8 +75,6 @@ MediaWiki's answer to the second is CentralAuth: one global account, local accou
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.2, §2.3, §3.7.*
 
 ### 14. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

@@ -4,7 +4,6 @@
 - **Date:** 2026-09-26
 - **Updated:** 2026-11-09 (A57)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -36,43 +35,29 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 
 ### 1. Principles
 
-*Changed by A22.*
-
 *Current text: [19](../architecture/19-site-ui.md) §1.1.*
 
 ### 2. The frame
-
-*Changed by A5, A9, A11, A12, A13, A16, A20, A22, A23, A27, A29, A30, A33, A41, A42, A47, A50.*
 
 *Current text: [19](../architecture/19-site-ui.md) §1.2, §1.3, §1.4, §1.5.*
 
 ### 3. Search
 
-*Changed by A4, A7, A18, A22, A27, A37, A51.*
-
 *Current text: [19](../architecture/19-site-ui.md) §2.1.*
 
 ### 4. Document pages
-
-*Changed by A21, A22, A25, A26, A30, A31, A34, A39, A50.*
 
 *Current text: [19](../architecture/19-site-ui.md) §3.1, §3.2.*
 
 ### 5. History
 
-*Changed by A38, A56.*
-
 *Current text: [19](../architecture/19-site-ui.md) §3.3.*
 
 #### 5.1 What a history covers
 
-*Changed by A23, A38.*
-
 *Current text: [19](../architecture/19-site-ui.md) §3.3.*
 
 #### 5.2 Rows
-
-*Changed by A3, A5, A13, A24, A55.*
 
 *Current text: [19](../architecture/19-site-ui.md) §3.4.*
 
@@ -82,8 +67,6 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 
 #### 5.4 Mirror states the instance did not keep
 
-*Changed by A38.*
-
 *Current text: [19](../architecture/19-site-ui.md) §3.5.*
 
 #### 5.5 Upstream edits, fetched live
@@ -91,8 +74,6 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 *Current text: [19](../architecture/19-site-ui.md) §3.6.*
 
 #### 5.6 Comparing
-
-*Changed by A49.*
 
 *Current text: [19](../architecture/19-site-ui.md) §3.7.*
 
@@ -102,49 +83,33 @@ The design exploration is on the [site UI canvas](https://claude.ai/artifact/XNb
 
 ### 6. Diffs
 
-*Changed by A48, A49, A57.*
-
 *Current text: [19](../architecture/19-site-ui.md) §3.8.*
 
 ### 7. Recent changes
-
-*Changed by A10, A13, A19, A46.*
 
 *Current text: [19](../architecture/19-site-ui.md) §3.9.*
 
 ### 8. Contributions
 
-*Changed by A8, A14, A40.*
-
 *Current text: [19](../architecture/19-site-ui.md) §2.5.*
 
 ### 9. Jobs
-
-*Changed by A54.*
 
 *Current text: [19](../architecture/19-site-ui.md) §3.10.*
 
 ### 10. Logging in
 
-*Changed by A6, A43, A44, A45, A52, A53.*
-
 *Current text: [19](../architecture/19-site-ui.md) §2.3.*
 
 ### 11. Account settings
-
-*Changed by A10, A11, A12, A14, A15, A17, A41, A45.*
 
 *Current text: [19](../architecture/19-site-ui.md) §2.4.*
 
 ### 12. Addresses
 
-*Changed by A3, A5, A10, A11, A19, A20, A27, A32.*
-
 *Current text: [19](../architecture/19-site-ui.md) §2.2.*
 
 ### 13. Implementation
-
-*Changed by A1, A2, A21, A32, A35, A38.*
 
 *Current text: [19](../architecture/19-site-ui.md) §3.6, §5.2, §5.8.*
 

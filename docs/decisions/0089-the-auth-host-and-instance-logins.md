@@ -4,7 +4,6 @@
 - **Date:** 2026-10-18
 - **Updated:** 2026-11-13 (A7)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0047](0047-special-pages.md), [0056](0056-security-model.md), [0057](0057-web-tier.md), [0087](0087-account-registration-and-challenges.md), [0088](0088-external-identity-providers.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0034](0034-frontend-stack.md), [0046](0046-primary-tenant.md), [0079](0079-derived-issuer-codes.md), [0085](0085-settings-and-preferences.md)
 
 ## Context
@@ -34,19 +33,13 @@ James's direction, from the design discussion of 2026-10-18:
 
 ### 2. Instance logins (amends 0007 §3; amends 0018 §4; extends 0015 §5; amends 0013 §4)
 
-*Changed by A2, A3, A4.*
-
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.2; [03](../architecture/03-storage-caches-and-search.md) §4.16, §12.1; [07](../architecture/07-actors-and-accounts.md) §2.1, §2.8; [08](../architecture/08-tenants-and-instances.md) §3.2.*
 
 ### 3. Sign-in methods belong to the login (amends 0088 §7; amends 0007 §3; amends 0013 §4)
 
-*Changed by A3, A7.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.1, §2.2, §2.7, §2.8.*
 
 ### 4. Tenant accounts bind to a login (amends 0007 §3; amends 0088 §6; amends 0028 §2)
-
-*Changed by A3.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.1, §2.8; [08](../architecture/08-tenants-and-instances.md) §3.2.*
 
@@ -56,19 +49,13 @@ James's direction, from the design discussion of 2026-10-18:
 
 ### 6. The first visit to a tenant (amends 0088 §6; amends 0010 §10; amends 0087 §6)
 
-*Changed by A5, A6.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.6, §2.7, §2.8; [19](../architecture/19-site-ui.md) §2.3.*
 
 ### 7. What the auth host serves (amends 0012 §4; extends 0047 §3; amends 0010 §10, §11)
 
-*Changed by A2, A4.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.8; [18](../architecture/18-api.md) §2.3; [19](../architecture/19-site-ui.md) §2.3, §2.4; [21](../architecture/21-special-pages.md) §1.3.*
 
 ### 8. Creating a login (amends 0087 §2, §4)
-
-*Changed by A4.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.6; [19](../architecture/19-site-ui.md) §2.3.*
 
@@ -97,8 +84,6 @@ James's direction, from the design discussion of 2026-10-18:
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.5; [08](../architecture/08-tenants-and-instances.md) §6.2, §6.4.*
 
 ### 15. Migration
-
-*Changed by A3, A4.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.8.*
 

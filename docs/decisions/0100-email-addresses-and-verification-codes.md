@@ -4,7 +4,6 @@
 - **Date:** 2026-11-05
 - **Updated:** 2026-11-16 (A4)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0021](0021-notifications.md), [0027](0027-preferences-and-portability.md), [0089](0089-the-auth-host-and-instance-logins.md)
 - **Uses:** [0012](0012-api-requirements.md), [0085](0085-settings-and-preferences.md), [0088](0088-external-identity-providers.md)
 
 ## Context
@@ -37,13 +36,9 @@ James's direction, from the design discussion of 2026-11-05:
 
 ### 1. An address belongs to the login (amends 0021 §4, §8; extends 0089 §2)
 
-*Changed by A1, A2, A3.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.9.*
 
 ### 2. Verification by a six-digit code (amends 0021 §4)
-
-*Changed by A4.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.9, §6.2; [16](../architecture/16-logs-feeds-and-notifications.md) §5.4.*
 
@@ -53,13 +48,9 @@ James's direction, from the design discussion of 2026-11-05:
 
 ### 4. Security notices (extends 0021 §4)
 
-*Changed by A4.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.9.*
 
 ### 5. Staging and sending mail (amends 0021 §8)
-
-*Changed by A2.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.7; [23](../architecture/23-configuration-and-registry.md) §3.6.*
 
@@ -69,13 +60,9 @@ James's direction, from the design discussion of 2026-11-05:
 
 ### 7. API (amends 0021 §7)
 
-*Changed by A1, A2, A3.*
-
 *Current text: [18](../architecture/18-api.md) §3.2.*
 
 ### 8. Storage (amends 0021 §8)
-
-*Changed by A2.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.16, §5.*
 
@@ -85,13 +72,9 @@ James's direction, from the design discussion of 2026-11-05:
 
 ### 10. Settings (uses 0085 §1)
 
-*Changed by A2.*
-
 *Current text: [23](../architecture/23-configuration-and-registry.md) §3.3.*
 
 ### 11. Crates (extends 0005 §2)
-
-*Changed by A2.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

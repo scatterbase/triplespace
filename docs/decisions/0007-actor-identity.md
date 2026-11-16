@@ -4,7 +4,6 @@
 - **Date:** 2026-09-25
 - **Updated:** 2026-11-07 (A29)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0013](0013-postgres-storage.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md)
 
 ## Context
@@ -36,55 +35,37 @@ Four constraints follow from how MediaWiki treats accounts:
 
 ### 1. An actor is an issuer and a subject
 
-*Changed by A2, A3, A11, A13, A14, A21, A22, A25, A27.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §1.1.*
 
 ### 2. Actor IRIs
-
-*Changed by A14.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §1.2.*
 
 ### 3. Local users and delegated authentication
 
-*Changed by A2, A3, A8, A11, A12, A16, A19, A21, A24, A25, A26.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.1, §2.2, §2.3, §2.6, §2.7, §5.1, §8.3.*
 
 ### 4. Names are attributes, kept in actor records
-
-*Changed by A1, A6, A7, A8, A9, A10, A11, A23, A28.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §1.3, §3.2.*
 
 ### 5. Actors with no stable numeric ID
 
-*Changed by A6, A27, A29.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §1.4.*
 
 ### 6. Providers without individual actors
-
-*Changed by A8, A18.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §1.5.*
 
 ### 7. Linking accounts is opt-in
 
-*Changed by A6, A11.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §3.1.*
 
 ### 8. Graphs (amends 0005 §4.1)
 
-*Changed by A2, A4, A5, A10, A11, A29.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §1.6, §8.3.*
 
 ### 9. Vocabulary (extends 0001 §6)
-
-*Changed by A17.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §3.2.*
 

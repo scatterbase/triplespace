@@ -4,7 +4,6 @@
 - **Date:** 2026-10-04
 - **Updated:** 2026-10-09 (A2)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0033](0033-backend-stack.md), [0039](0039-files-and-media.md), [0056](0056-security-model.md), [Record and payload shapes](../api/payloads.md)
 
 ## Context
@@ -69,8 +68,6 @@ James's direction, from the design discussion of 2026-10-04:
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.8.*
 
 ### 8. Domains and tenants (uses 0018 §2, 0039 §4, 0056 §1)
-
-*Changed by A1.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §9.2.*
 

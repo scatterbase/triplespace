@@ -4,7 +4,6 @@
 - **Date:** 2026-10-07
 - **Updated:** 2026-10-09 (A2)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0013](0013-postgres-storage.md), [0026](0026-sitelinks.md), [0070](0070-shallow-entity-mirroring.md), [0071](0071-derived-statements-from-mirrored-pages.md), [0072](0072-template-mappings.md)
 
 ## Context
@@ -36,8 +35,6 @@ James's direction, from the design discussion of 2026-10-07:
 *Current text: [13](../architecture/13-mirrored-pages.md) §8.2.*
 
 ### 3. URL normalization and match patterns (uses 0026 §1)
-
-*Changed by A1.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §8.3.*
 

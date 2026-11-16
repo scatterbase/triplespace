@@ -4,7 +4,6 @@
 - **Date:** 2026-10-26
 - **Updated:** 2026-10-30 (A2)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md), [0036](0036-openstreetmap-providers.md)
 - **Uses:** [0003](0003-statement-ui.md), [0017](0017-entity-id-grammar.md), [0035](0035-adopting-a-wikibase.md), [0048](0048-notation.md), [0070](0070-shallow-entity-mirroring.md), [0078](0078-entity-sources.md)
 
 ## Context

@@ -4,7 +4,6 @@
 - **Date:** 2026-09-26
 - **Updated:** 2026-11-09 (A44)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -23,55 +22,37 @@ The two agree on the shape: users, groups, memberships, named permissions, and r
 
 ### 1. Vocabulary
 
-*Changed by A23.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §1.1.*
 
 ### 2. Permissions
-
-*Changed by A2, A3, A4, A5, A6, A7, A8, A10, A13, A14, A15, A16, A19, A20, A21, A24, A25, A27, A32, A33, A34, A39, A41, A43, A44.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.1, §2.2, §2.3.*
 
 ### 3. Groups, memberships and blocks
 
-*Changed by A5, A7, A8, A9, A11, A12, A15, A22, A30, A31, A35, A36, A37, A38, A42.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §3.1, §3.2, §3.3, §3.4, §3.5, §3.6.*
 
 ### 4. ACLs (amends 0005 §4.1)
-
-*Changed by A2, A6, A17, A21, A26.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §4.1, §4.2, §4.3, §4.4, §4.5, §4.6.*
 
 ### 5. What each earlier ADR's question resolves to
 
-*Changed by A27, A32.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.4, §6.*
 
 ### 6. Erasure visibility (settles 0006, 0010 and 0011)
-
-*Changed by A13, A14.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §6.6.*
 
 ### 7. API and UI
 
-*Changed by A21, A28, A41.*
-
 *Current text: [18](../architecture/18-api.md) §1.5, §2.2, §2.3, §3.2.*
 
 ### 8. Scatterbase
 
-*Changed by A6.*
-
 *Current text: [22](../architecture/22-crates-and-stack.md) §1.3.*
 
 ### 9. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

@@ -4,7 +4,6 @@
 - **Date:** 2026-10-07
 - **Updated:** 2026-10-18 (A3)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0024](0024-subsidiary-accounts.md), [0027](0027-preferences-and-portability.md), [0040](0040-instance-prerogatives.md), [0060](0060-scopes.md), [0062](0062-workspaces.md), [0067](0067-proposals.md), [0070](0070-shallow-entity-mirroring.md), [0071](0071-derived-statements-from-mirrored-pages.md)
 
 ## Context
@@ -40,8 +39,6 @@ James's direction, from the design discussion of 2026-10-07:
 
 ### 4. Writing to the destination
 
-*Changed by A1.*
-
 *Current text: [17](../architecture/17-federation-and-publication.md) §4.4.*
 
 ### 5. Generated pages from kits (uses 0062 §6)
@@ -57,8 +54,6 @@ James's direction, from the design discussion of 2026-10-07:
 *Current text: [17](../architecture/17-federation-and-publication.md) §4.7.*
 
 ### 8. API, operations and storage (extends 0012 §5; extends 0013 §5.6)
-
-*Changed by A3.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.15, §5; [18](../architecture/18-api.md) §3.2.*
 

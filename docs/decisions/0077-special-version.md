@@ -4,7 +4,6 @@
 - **Date:** 2026-10-07
 - **Updated:** 2026-11-15 (A8)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0033](0033-backend-stack.md), [0047](0047-special-pages.md)
 - **Uses:** [0005](0005-crate-organization.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0046](0046-primary-tenant.md), [0056](0056-security-model.md), [0057](0057-web-tier.md), [0059](0059-query-service.md), [0075](0075-mcp-server.md)
 
 ## Context
@@ -41,25 +40,17 @@ And on the first proposal, the same day:
 
 ### 1. One page, two forms (amends 0047 §9)
 
-*Changed by A1.*
-
 *Current text: [21](../architecture/21-special-pages.md) §5.1, §5.6, §8.*
 
 ### 2. The credit line, contributors and funders
-
-*Changed by A7.*
 
 *Current text: [21](../architecture/21-special-pages.md) §5.2.*
 
 ### 3. The licence notice and licence texts
 
-*Changed by A7, A8.*
-
 *Current text: [21](../architecture/21-special-pages.md) §5.3.*
 
 ### 4. Installed software and services
-
-*Changed by A1, A2.*
 
 *Current text: [21](../architecture/21-special-pages.md) §5.4.*
 
@@ -69,8 +60,6 @@ And on the first proposal, the same day:
 
 ### 6. Crates and third-party components
 
-*Changed by A4, A7.*
-
 *Current text: [21](../architecture/21-special-pages.md) §5.6; [22](../architecture/22-crates-and-stack.md) §7.2.*
 
 ### 7. Wikitext
@@ -78,8 +67,6 @@ And on the first proposal, the same day:
 *Current text: [21](../architecture/21-special-pages.md) §5.7.*
 
 ### 8. Inspired by
-
-*Changed by A1.*
 
 *Current text: [21](../architecture/21-special-pages.md) §5.8.*
 
@@ -89,13 +76,9 @@ And on the first proposal, the same day:
 
 ### 10. API (extends 0012 §4 and §5)
 
-*Changed by A5.*
-
 *Current text: [18](../architecture/18-api.md) §2.2, §3.2, §8.*
 
 ### 11. Features
-
-*Changed by A1, A6.*
 
 *Current text: [21](../architecture/21-special-pages.md) §5.10.*
 

@@ -4,7 +4,6 @@
 - **Date:** 2026-10-01
 - **Updated:** 2026-11-16 (A5)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0017](0017-entity-id-grammar.md), [0029](0029-resolver-namespaces.md), [0036](0036-openstreetmap-providers.md), [0037](0037-gdelt-provider.md), [0041](0041-content-models.md)
 - **Uses:** [0014](0014-caches-and-search.md), [0031](0031-property-constraints.md)
 
 ## Context
@@ -40,8 +39,6 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 3. What a notation is, and what it is not
 
-*Changed by A4, A5.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §3.6, §3.7, §3.9, §4.1.*
 
 ### 4. A property's scheme (extends 0003 §7)
@@ -61,8 +58,6 @@ James's direction, from the design discussion of 2026-10-01:
 *Current text: [23](../architecture/23-configuration-and-registry.md) §4.2, §4.3.*
 
 ### 8. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

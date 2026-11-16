@@ -33,8 +33,9 @@ a decision always means editing a chapter section and citing the ADR section in 
 
 ## Two kinds of change
 
-- **A new ADR** decides something and changes other ADRs. It names them in its header's
-  `Changes` and its section headings; each target's log entry names the ADR section as its Source.
+- **A new ADR** decides something and changes other ADRs. It names them in its section headings;
+  each target's log entry names the ADR section as its Source, and those entries are the record
+  of what it changes (`tools/adr.py changes NNNN`).
 - **A direct decision** changes an ADR with no new ADR: James decides in discussion. The log
   entry's Source is `Direct: James, design discussion of YYYY-MM-DD`, and its Summary holds the
   decision in full, because nowhere else does.
@@ -55,8 +56,8 @@ a decision always means editing a chapter section and citing the ADR section in 
   - `Updated` only once there is a log.
   - `Author: James Hare / Claude Fable`. The agent name must be an `[[agent]]` in
     `docs/registry/version.toml`; check 9 enforces this.
-  - `Changes` and `Uses`: linked numbers in ascending order, omitted when empty.
-  - No `Chapters` field and no *Changes to other ADRs* section: both are derived (24 §2.2).
+  - `Uses`: linked numbers in ascending order, omitted when empty.
+  - No `Changes` or `Chapters` field and no *Changes to other ADRs* section: all are derived (24 §2.2).
 - **Context** is historical: what was known and wanted. *Direction* quotes James's directives
   verbatim, with the date and occasion.
 - **Decision** sections are `### N. Title` and `#### N.M Title`, numbered once and never
@@ -113,8 +114,8 @@ For each target ADR *Y*:
    replaced, so that its first sentence (two for a direct decision) stands for the entry. Name the chapter sections whose text the change removed or
    contradicted, `Replaced text: [03](../architecture/03-….md) §4.5.`; the commit holds the text and
    `tools/adr.py log NNNN An --before` prints it, so quote it only where git does not (24 §6). IDs are contiguous and never edited.
-3. **Mark.** Add `An` to the `*Changed by …*` provenance line of each changed *Y* section,
-   creating the line if needed. Strike any Consequence the change falsifies
+3. **Mark.** Write nothing under the section headings: the entry's Change line is what says it
+   changed them (`tools/adr.py show NNNN §N` prints the entries). Strike any Consequence the change falsifies
    (`~~**Claim.** …~~ *Why (An).*`). Set *Y*'s `Updated: YYYY-MM-DD (An)`. If *Y* is Accepted,
    its status becomes `Accepted with proposed amendment (An)`.
 4. **Answer.** Replace the text of any open question the change settles with what settled it,
@@ -156,8 +157,8 @@ with its old text in the log entry. If a chapter section is split or renamed, re
 ## When the code is done
 
 Finishing a section is part of the change that finishes it (24 §15): add `implements NNNN §N (An)`
-in a comment at the completing src code (the entry is the last one in the section's provenance
-line; none if it has no provenance line; `§N.M` or `§N rule K` for a part) and make sure a test
+in a comment at the completing src code (the entry is the last one `tools/adr.py show NNNN §N`
+lists as having changed the section; none if no entry has; `§N.M` or `§N rule K` for a part) and make sure a test
 cites the section (`// 0013 §7` in the test is enough). Then `docs/check.sh --write` recomputes
 the ADR's Status and `INDEX.md`, the crate map's *As built* paragraphs in `CRATES.md` (which list
 each crate's claims and its first `//!` paragraph) and its *Built* column, and the last column of
@@ -177,8 +178,8 @@ It runs `check_adrs.py`, `map.py`, `settings.py` and the log test vectors, and n
 failed. Each checker also runs alone from `docs/`, e.g. `python3 decisions/check_adrs.py .`, which
 exits 1 when it lists any problem.
 
-`check_adrs.py` covers: links and § citations; header order and `Changes` ↔ the targets' logs;
-heading verbs; log IDs and Replaced text; provenance lines matching the log; every Decision section
+`check_adrs.py` covers: links and § citations; header order; heading verbs, and a heading's
+claim to amend or settle ↔ the target's log; log IDs and Replaced text; no `*Changed by*` line or `Changes` field; every Decision section
 a pointer or a stub, and each pointer's chapter section citing it back; `NNNN An` and `Qn`
 citations; crate names against chapter 22 §2.1; `Special:` names against `special-pages.toml`;
 agent names against `version.toml`; `INDEX.md` being current. `map.py` covers the chapters: every

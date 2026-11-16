@@ -4,7 +4,6 @@
 - **Date:** 2026-10-05
 - **Updated:** 2026-10-09 (A3)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0045](0045-table-content-model.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0017](0017-entity-id-grammar.md), [0023](0023-moderation.md), [0032](0032-sparql-update-stream.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
 ## Context
@@ -22,13 +21,9 @@ James's direction, from the design discussion of 2026-10-05:
 
 ### 1. Captions are the File page's terms (amends 0038 §1; amends 0041 §7; settles 0038 Q4 for File pages)
 
-*Changed by A1, A3.*
-
 *Current text: [12](../architecture/12-files-and-media.md) §8.4.*
 
 ### 2. Commons' MediaInfo on foreign files (extends 0039 §11; settles 0039 Q7)
-
-*Changed by A3.*
 
 *Current text: [12](../architecture/12-files-and-media.md) §6.6.*
 
@@ -37,8 +32,6 @@ James's direction, from the design discussion of 2026-10-05:
 *Current text: [15](../architecture/15-structured-pages.md) §2.3, §2.4.*
 
 ### 4. Storage, API and RDF (extends 0013 §5.6; extends 0012 §5)
-
-*Changed by A1, A3.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §5.6; [03](../architecture/03-storage-caches-and-search.md) §4.2, §4.3, §4.9, §5, §11.1; [18](../architecture/18-api.md) §2.1, §2.3, §3.2.*
 

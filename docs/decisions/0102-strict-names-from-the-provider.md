@@ -4,7 +4,6 @@
 - **Date:** 2026-11-06
 - **Updated:** 2026-11-07 (A2)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0024](0024-subsidiary-accounts.md), [0087](0087-account-registration-and-challenges.md), [0088](0088-external-identity-providers.md), [0089](0089-the-auth-host-and-instance-logins.md)
 - **Uses:** [0085](0085-settings-and-preferences.md), [0101](0101-requiring-an-external-sign-in-method.md)
 
 ## Context
@@ -28,13 +27,9 @@ James's direction, from the design discussion of 2026-11-06, after 0101 was buil
 
 ### 2. The prefix is always there, and reserved (extends 0007 §4; extends 0024 §2)
 
-*Changed by A1.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.10.*
 
 ### 3. Upstream is canonical (amends 0010 §10; extends 0007 §4)
-
-*Changed by A1, A2.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.10; [19](../architecture/19-site-ui.md) §2.3.*
 
@@ -43,8 +38,6 @@ James's direction, from the design discussion of 2026-11-06, after 0101 was buil
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.7, §2.10; [18](../architecture/18-api.md) §2.3.*
 
 ### 5. Enacting strict names (uses 0101 §2)
-
-*Changed by A1, A2.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.10.*
 

@@ -4,7 +4,6 @@
 - **Date:** 2026-09-27
 - **Updated:** 2026-11-13 (A31)
 - **Author:** James Hare / Claude
-- **Changes:** [0005](0005-crate-organization.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0034](0034-frontend-stack.md)
 
 ## Context
@@ -24,31 +23,21 @@ This ADR records the rest. The frontend is in 0034.
 
 ### 1. Principles
 
-*Changed by A1, A3, A4, A10, A11, A16, A18.*
-
 *Current text: [22](../architecture/22-crates-and-stack.md) §3.3, §4.1, §6.*
 
 ### 2. Language and toolchain
-
-*Changed by A12, A24.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §4.2.*
 
 ### 3. Async runtime and HTTP server
 
-*Changed by A19.*
-
 *Current text: [22](../architecture/22-crates-and-stack.md) §4.3.*
 
 ### 4. Postgres
 
-*Changed by A9, A20, A25, A31.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §1.4, §5.*
 
 ### 5. Cache and search clients
-
-*Changed by A2.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §8, §9.2.*
 
@@ -62,8 +51,6 @@ This ADR records the rest. The frontend is in 0034.
 
 ### 8. RDF
 
-*Changed by A18.*
-
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §4.1, §6.5.*
 
 ### 9. Text and markup
@@ -71,8 +58,6 @@ This ADR records the rest. The frontend is in 0034.
 *Current text: [22](../architecture/22-crates-and-stack.md) §4.6.*
 
 #### 9.1 Wikitext, in `scatter-wikitext` (uses 0008 §5)
-
-*Changed by A3, A14, A15.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §1.1, §1.2, §1.5, §8; [22](../architecture/22-crates-and-stack.md) §4.6.*
 
@@ -90,19 +75,13 @@ This ADR records the rest. The frontend is in 0034.
 
 ### 10. Wikidata history dumps: RevisionChest
 
-*Changed by A6, A7, A26.*
-
 *Current text: [13](../architecture/13-mirrored-pages.md) §3.5.*
 
 ### 11. QLever
 
-*Changed by A11.*
-
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §6.5, §7.2.*
 
 ### 12. Configuration and CLI
-
-*Changed by A8, A10, A21, A23.*
 
 *Current text: [23](../architecture/23-configuration-and-registry.md) §3.1, §3.6, §5.1.*
 
@@ -116,19 +95,13 @@ This ADR records the rest. The frontend is in 0034.
 
 ### 15. Testing
 
-*Changed by A3, A27.*
-
 *Current text: [22](../architecture/22-crates-and-stack.md) §4.9.*
 
 ### 16. Licensing and supply chain
 
-*Changed by A1, A13, A22, A28, A29, A30.*
-
 *Current text: [22](../architecture/22-crates-and-stack.md) §3.3, §3.4, §7.1.*
 
 ### 17. Packaging
-
-*Changed by A10, A16.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §4.10.*
 

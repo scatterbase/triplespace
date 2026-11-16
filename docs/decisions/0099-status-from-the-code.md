@@ -2,9 +2,8 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-30
-- **Updated:** 2026-11-09 (A3)
+- **Updated:** 2026-11-16 (A4)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0050](0050-adr-format.md)
 - **Uses:** [0098](0098-pointers-from-birth.md)
 
 ## Context
@@ -28,19 +27,13 @@ James's direction, 2026-10-30, after the catalogue moves:
 
 ### 1. The code claims what it implements (amends 0050 §11)
 
-*Changed by A3.*
-
 *Current text: [24](../architecture/24-documentation.md) §9, §15.*
 
 ### 2. The status is written from the code (amends 0050 §3, §12)
 
-*Changed by A2.*
-
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1; [24](../architecture/24-documentation.md) §2.2, §12, §15.*
 
 ### 3. The index is the status page (amends 0050 §12)
-
-*Changed by A1.*
 
 *Current text: [24](../architecture/24-documentation.md) §13, §15.*
 
@@ -49,8 +42,6 @@ James's direction, 2026-10-30, after the catalogue moves:
 *Current text: [24](../architecture/24-documentation.md) §6.*
 
 ### 5. The working notes are retired (extends 0050 §13)
-
-*Changed by A2.*
 
 *Current text: [24](../architecture/24-documentation.md) §14, §15.*
 
@@ -111,3 +102,11 @@ Replaced text: [24](../architecture/24-documentation.md) §13.
 
 Replaced text: [24](../architecture/24-documentation.md) §15.
 
+### A4. A claim's entry is read from the log
+
+- **Date:** 2026-11-16
+- **Source:** Direct: James, review of pull request #262, 2026-11-16
+- **Change:** amends §1
+- **Summary:** [0050](0050-adr-format.md) A10 retires the `*Changed by …*` lines. Whether a section has been changed, and by which entry a claim must be current, is read from the log's Change lines; the rule is otherwise as it was, and `coverage.py` reports the same status for every ADR. Chapter text: [24](../architecture/24-documentation.md) §15.
+
+Replaced text: [24](../architecture/24-documentation.md) §15.

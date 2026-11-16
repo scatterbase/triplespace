@@ -4,7 +4,6 @@
 - **Date:** 2026-10-17
 - **Updated:** 2026-11-09 (A8)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0047](0047-special-pages.md), [0057](0057-web-tier.md)
 - **Uses:** [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0034](0034-frontend-stack.md), [0035](0035-adopting-a-wikibase.md), [0056](0056-security-model.md), [0085](0085-settings-and-preferences.md)
 
 ## Context
@@ -27,37 +26,25 @@ James's direction, from the design discussion of 2026-10-17:
 
 ### 1. Who may register (extends 0007 §3)
 
-*Changed by A2.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.6.*
 
 ### 2. Challenges and their triggers (extends 0007 §3; amends 0012 §4)
-
-*Changed by A3.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §12.3; [07](../architecture/07-actors-and-accounts.md) §2.3, §2.6; [18](../architecture/18-api.md) §1.5.*
 
 ### 3. The proof of work (extends 0013 §4; extends 0014 §4)
 
-*Changed by A1, A6, A8.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §5, §12.3; [07](../architecture/07-actors-and-accounts.md) §2.6.*
 
 ### 4. Difficulty, the throttle and addresses (extends 0024 §5; corrects 0024 §5; amends 0024 §5; extends 0013 §4)
-
-*Changed by A1, A3, A4.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §12.1, §12.3; [07](../architecture/07-actors-and-accounts.md) §6.2, §6.3.*
 
 ### 5. In the site, and without JavaScript (amends 0057 §7; extends 0010 §10)
 
-*Changed by A1, A7.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.6; [19](../architecture/19-site-ui.md) §2.3; [20](../architecture/20-web-tier.md) §3.1.*
 
 ### 6. Account requests and approval (extends 0010 §10; extends 0011 §6.1; extends 0012 §5; extends 0013 §4; extends 0016 §2; extends 0028 §2; extends 0047 §1)
-
-*Changed by A3.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §5; [07](../architecture/07-actors-and-accounts.md) §2.6; [08](../architecture/08-tenants-and-instances.md) §3.6; [09](../architecture/09-security-and-moderation.md) §2.2; [16](../architecture/16-logs-feeds-and-notifications.md) §2.3; [18](../architecture/18-api.md) §3.2; [19](../architecture/19-site-ui.md) §2.3; [21](../architecture/21-special-pages.md) §8.*
 
@@ -74,8 +61,6 @@ James's direction, from the design discussion of 2026-10-17:
 *Current text: [18](../architecture/18-api.md) §1.5, §2.2, §2.3.*
 
 ### 10. Crates (extends 0005 §2; amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

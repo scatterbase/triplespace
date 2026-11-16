@@ -4,7 +4,6 @@
 - **Date:** 2026-10-29
 - **Updated:** 2026-10-30 (A1)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0035](0035-adopting-a-wikibase.md), [0038](0038-page-metadata-and-categories.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0042](0042-template-expansion-and-parsoid.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [0063](0063-query-namespace.md), [0072](0072-template-mappings.md), [0077](0077-special-version.md), [0090](0090-converting-talk-pages-comment-by-comment.md)
 
 ## Context

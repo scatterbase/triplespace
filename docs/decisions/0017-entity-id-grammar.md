@@ -4,7 +4,6 @@
 - **Date:** 2026-09-27
 - **Updated:** 2026-11-07 (A13)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0016](0016-permissions-and-access-control.md)
 
 ## Context
@@ -22,19 +21,13 @@ This ADR replaces the one grammar of 0009 §3 with three, each declared in the r
 
 ### 1. Three ID forms
 
-*Changed by A5, A6, A9, A10, A12, A13.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §1, §2.1, §2.3, §5.2.*
 
 ### 2. ID grammars for minted types
 
-*Changed by A4, A6.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §2.2.*
 
 ### 3. Keyed IDs
-
-*Changed by A7.*
 
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §3.1, §3.2, §3.4, §3.5.*
 
@@ -44,8 +37,6 @@ This ADR replaces the one grammar of 0009 §3 with three, each declared in the r
 
 ### 5. Keyword: a second keyed type (extends 0009 §1)
 
-*Changed by A2, A3, A7.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §3.7, §4.1.*
 
 ### 6. MusicBrainz
@@ -53,8 +44,6 @@ This ADR replaces the one grammar of 0009 §3 with three, each declared in the r
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §2.2.*
 
 ### 7. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

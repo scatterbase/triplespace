@@ -4,7 +4,6 @@
 - **Date:** 2026-10-20
 - **Updated:** 2026-10-30 (A4)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0013](0013-postgres-storage.md), [0019](0019-discussions.md), [0047](0047-special-pages.md), [0054](0054-forking-a-mirrored-page.md), [0069](0069-synchronized-talk-pages.md)
 - **Uses:** [0007](0007-actor-identity.md), [0015](0015-record-format-and-partition-registry.md), [0035](0035-adopting-a-wikibase.md), [0049](0049-boards.md), [0053](0053-mirrored-pages.md), [0085](0085-settings-and-preferences.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -49,37 +48,25 @@ James's direction, from the design discussion of 2026-10-20:
 
 ### 1. One post per comment (amends 0054 §5; settles 0054 Q4)
 
-*Changed by A3.*
-
 *Current text: [13](../architecture/13-mirrored-pages.md) §5.12.*
 
 ### 2. Finding comments (amends 0054 §5)
-
-*Changed by A2.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §5.12.*
 
 ### 3. Headings, and wrappers that close a discussion (amends 0054 §5; extends 0019 §4)
 
-*Changed by A1, A2, A3.*
-
 *Current text: [13](../architecture/13-mirrored-pages.md) §5.14; [14](../architecture/14-discussions.md) §1.5, §1.6, §2.1, §2.4.*
 
 ### 4. When the split fails: the section, then the page (amends 0054 §5)
-
-*Changed by A1, A2.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §5.15.*
 
 ### 5. Signature conventions: a universal registry
 
-*Changed by A2.*
-
 *Current text: [13](../architecture/13-mirrored-pages.md) §5.16; [23](../architecture/23-configuration-and-registry.md) §4.7.*
 
 ### 6. Attribution (amends 0054 §5; uses 0007 §5)
-
-*Changed by A2.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §5.13.*
 
@@ -88,8 +75,6 @@ James's direction, from the design discussion of 2026-10-20:
 *Current text: [13](../architecture/13-mirrored-pages.md) §3.4, §5.13.*
 
 ### 8. The record (amends 0019 §4; extends 0054 §5)
-
-*Changed by A1.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §5.13; [14](../architecture/14-discussions.md) §1.5.*
 
@@ -107,13 +92,9 @@ James's direction, from the design discussion of 2026-10-20:
 
 ### 12. Crates (amends 0005 §2; amends 0054 §12)
 
-*Changed by A1, A3.*
-
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ### 13. Testing
-
-*Changed by A2.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §4.9.*
 

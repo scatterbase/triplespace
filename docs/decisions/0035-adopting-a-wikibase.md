@@ -4,7 +4,6 @@
 - **Date:** 2026-09-28
 - **Updated:** 2026-11-02 (A16)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md)
 - **Uses:** [0024](0024-subsidiary-accounts.md), [Wikibase contract](../api/wikibase-compat.md)
 
 ## Context
@@ -27,49 +26,33 @@ One alternative needs no new operation and was rejected: load the old wiki into 
 
 ### 1. Adoption (extends 0018 §1 and §5)
 
-*Changed by A11, A15.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §7.1, §8.3.*
 
 ### 2. Preconditions and the job
-
-*Changed by A2, A11, A12, A13, A15.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §7.2.*
 
 ### 3. The `adopt` operation (amends 0002 §8.2 and §8.5)
 
-*Changed by A4, A6, A7, A12, A14.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.2, §3.9, §7.3.*
 
 ### 4. Sequence floors (extends 0013 §6; amends 0015 §2 and 0007 §3)
-
-*Changed by A12.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §7.4.*
 
 ### 5. Accounts (amends 0007 §3 and 0016 §3; uses 0018 §4 and §10)
 
-*Changed by A5, A8, A10, A16.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.5.*
 
 ### 6. Provenance and log events (amends 0011 §6.1; extends 0012 §5)
-
-*Changed by A12, A13.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §2.2, §2.3.*
 
 ### 7. History
 
-*Changed by A12.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §7.5, §8.3.*
 
 ### 8. Crates (amends 0005 §2 and §7)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §3.1.*
 

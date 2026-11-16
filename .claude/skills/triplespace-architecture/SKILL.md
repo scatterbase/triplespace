@@ -53,9 +53,10 @@ chapter text. Chapter 24 is how the documents fit together.
 - **Chapter → ADR.** Each chapter section opens with *Sources: [0013] §7; [0032] §2.*: the ADR
   sections it was assembled from. Follow them for the reasoning.
 - **ADR → chapter.** A Decision section reading *Current text: [03] §4.5.* has its text in that
-  chapter section. Its heading, number and *Changed by An* line stay in the ADR.
+  chapter section. Its heading and number stay in the ADR; `tools/adr.py show NNNN §N`
+  prints the log entries that changed it.
 - **ADR → ADR.** `docs/decisions/INDEX.md` lists each ADR's status, last update, chapters and
-  what changes it; the header's `Changes` says what it changes.
+  what changes it; `tools/adr.py changes NNNN` lists what it changes.
 - **ADR section → chapter, in bulk.** `python3 docs/architecture/map.py --sections` prints every
   Decision section with the chapter sections that cite it. Every section is cited by some chapter
   (0050 and 0098, the process ADRs, by chapter 24); the only exceptions are the stubs.

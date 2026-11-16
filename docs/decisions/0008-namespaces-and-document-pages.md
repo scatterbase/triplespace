@@ -4,7 +4,6 @@
 - **Date:** 2026-09-26
 - **Updated:** 2026-11-15 (A53)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -24,31 +23,21 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 
 ### 1. A namespace is a registry entry
 
-*Changed by A3, A5, A10, A11, A19.*
-
 *Current text: [10](../architecture/10-pages-and-content-models.md) §1.1, §1.2.*
 
 ### 2. Namespace numbering
-
-*Changed by A3, A6, A8, A9, A10, A12, A13, A15, A17, A18, A19, A25, A26, A27, A28, A29, A31, A32, A44, A46, A47, A53.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §1.3, §1.4.*
 
 ### 3. Titles
 
-*Changed by A2, A3, A5, A10, A11, A14, A19, A21, A22, A31.*
-
 *Current text: [10](../architecture/10-pages-and-content-models.md) §2.1, §2.2.*
 
 ### 4. Document pages
 
-*Changed by A4, A9, A21, A23, A30, A34, A35, A36, A40.*
-
 *Current text: [10](../architecture/10-pages-and-content-models.md) §2.5, §3.1, §3.2.*
 
 ### 5. Content models
-
-*Changed by A3, A11, A13, A24.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §4.1, §4.2, §4.3, §4.4, §4.5.*
 
@@ -58,31 +47,21 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 
 ### 7. The Project namespace
 
-*Changed by A37.*
-
 *Current text: [10](../architecture/10-pages-and-content-models.md) §3.5.*
 
 ### 8. The wikitext subset
-
-*Changed by A3, A9, A10, A12, A21, A22, A39, A51, A52.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §5.1, §5.2, §5.3.*
 
 ### 9. Importing pages from another wiki
 
-*Changed by A7, A10, A12, A16, A23, A38, A41, A43, A45, A48, A49.*
-
 *Current text: [10](../architecture/10-pages-and-content-models.md) §6; [21](../architecture/21-special-pages.md) §4.3.*
 
 #### 9.1 The job
 
-*Changed by A49, A50.*
-
 *Current text: [10](../architecture/10-pages-and-content-models.md) §6.1.*
 
 #### 9.2 The template census
-
-*Changed by A49.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §6.2.*
 
@@ -92,8 +71,6 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 
 #### 9.4 Existing titles and entity pages
 
-*Changed by A49.*
-
 *Current text: [10](../architecture/10-pages-and-content-models.md) §6.4.*
 
 #### 9.5 Files
@@ -102,19 +79,13 @@ The goal is not to reimplement MediaWiki's page features. Templates, parser func
 
 #### 9.6 Talk pages
 
-*Changed by A49, A50.*
-
 *Current text: [10](../architecture/10-pages-and-content-models.md) §6.6.*
 
 #### 9.7 The forms
 
-*Changed by A49, A50.*
-
 *Current text: [10](../architecture/10-pages-and-content-models.md) §6.7.*
 
 ### 10. Links and metadata
-
-*Changed by A3, A9, A12, A21, A22, A34, A42.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §5.2, §5.6.*
 

@@ -4,7 +4,6 @@
 - **Date:** 2026-09-28
 - **Updated:** 2026-10-09 (A7)
 - **Author:** James Hare / Claude Sonnet
-- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0017](0017-entity-id-grammar.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0009](0009-keyed-entity-types-and-domain.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0026](0026-sitelinks.md), [0029](0029-resolver-namespaces.md), [0036](0036-openstreetmap-providers.md), [0048](0048-notation.md)
 
 ## Context
@@ -28,25 +27,17 @@ The mechanisms these ADRs already provide fit the parts that are identifiable. P
 
 ### 1. One provider
 
-*Changed by A5, A7.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §8.1, §8.10.*
 
 ### 2. Types and IDs
-
-*Changed by A3.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §8.10.*
 
 ### 3. What a document becomes
 
-*Changed by A7.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §8.11.*
 
 ### 4. What an event becomes
-
-*Changed by A7.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §8.12.*
 
@@ -63,8 +54,6 @@ The mechanisms these ADRs already provide fit the parts that are identifiable. P
 *Current text: [05](../architecture/05-providers-and-ingest.md) §8.13.*
 
 ### 8. Registry and crates
-
-*Changed by A1, A2.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1; [23](../architecture/23-configuration-and-registry.md) §4.2.*
 

@@ -4,7 +4,6 @@
 - **Date:** 2026-09-27
 - **Updated:** 2026-11-07 (A18)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0006](0006-log-integrity-and-erasure.md), [0009](0009-keyed-entity-types-and-domain.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -34,67 +33,45 @@ Patrolling is the odd one out, since it restricts nothing: it is a mark that a t
 
 ### 1. One mechanism: an ACL on a target
 
-*Changed by A5, A9.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §4.1, §4.4, §5.2, §6.1.*
 
 ### 2. Targets (extends 0016 §4)
-
-*Changed by A2, A5, A7, A9, A14.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §4.2, §4.4, §4.5, §4.7, §4.8.*
 
 ### 3. Records (amends 0015 §3 and 0016 §4)
 
-*Changed by A3, A15.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §4.1, §4.3; [16](../architecture/16-logs-feeds-and-notifications.md) §2.3.*
 
 ### 4. What deletion does (amends 0008 §4 and 0019 §1; amends 0004 §4)
-
-*Changed by A7, A13, A14, A17.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §6.2.*
 
 ### 5. What hiding does (extends 0001 §4, 0006 Context, 0015 §1; amends 0007 §4)
 
-*Changed by A14, A16.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §6.3.*
 
 ### 6. Patrolling
-
-*Changed by A3, A4, A12.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §6.4.*
 
 ### 7. Visibility of the moderation records themselves
 
-*Changed by A18.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §6.5.*
 
 ### 8. API (extends 0012 §4 and §5; extends 0016 §7)
-
-*Changed by A4, A9.*
 
 *Current text: [18](../architecture/18-api.md) §2.3, §3.1, §3.2.*
 
 ### 9. Site UI (extends 0010 §2, §5 and §7)
 
-*Changed by A6, A9.*
-
 *Current text: [19](../architecture/19-site-ui.md) §3.4, §3.9, §6.3.*
 
 ### 10. Storage (amends 0013 §5)
 
-*Changed by A10.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.5, §5, §6.1, §12.2.*
 
 ### 11. Permissions (extends 0016 §2)
-
-*Changed by A6.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.2, §3.1.*
 
@@ -103,8 +80,6 @@ Patrolling is the odd one out, since it restricts nothing: it is a mark that a t
 *Current text: [22](../architecture/22-crates-and-stack.md) §1.3.*
 
 ### 13. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

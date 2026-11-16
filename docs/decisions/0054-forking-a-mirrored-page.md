@@ -4,7 +4,6 @@
 - **Date:** 2026-10-01
 - **Updated:** 2026-10-25 (A7)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0033](0033-backend-stack.md), [0039](0039-files-and-media.md), [0047](0047-special-pages.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0023](0023-moderation.md), [0035](0035-adopting-a-wikibase.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0049](0049-boards.md), [0051](0051-page-redirects.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -30,8 +29,6 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 1. A fork is a local page whose first record names its origin (extends 0008 §4 and 0011 §6.1)
 
-*Changed by A2.*
-
 *Current text: [13](../architecture/13-mirrored-pages.md) §3.1; [16](../architecture/16-logs-feeds-and-notifications.md) §2.3.*
 
 ### 2. Forking on save (extends 0010 §4; extends 0012 §4)
@@ -40,25 +37,17 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 3. History is seeded afterwards, from a RevisionChest store or the API (extends 0015 §4; extends 0035 §7; amends 0033 §10)
 
-*Changed by A5, A6.*
-
 *Current text: [13](../architecture/13-mirrored-pages.md) §1.6, §3.4, §3.5.*
 
 ### 4. Dependencies: templates, modules and stylesheets (uses 0042 §11 and §13, 0043 §2, 0055 §2)
-
-*Changed by A5.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §3.6.*
 
 ### 5. The talk page: sections become closed threads (amends 0019 §3, §4, §5, §6; settles 0019 Q5; extends 0008 §9)
 
-*Changed by A2, A5, A6, A7.*
-
 *Current text: [13](../architecture/13-mirrored-pages.md) §5.11, §5.12, §5.13.*
 
 ### 6. What a fork knows about upstream (extends 0010 §2 and §4; uses 0001 §1)
-
-*Changed by A1.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §3.7.*
 
@@ -68,19 +57,13 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 8. The job, permissions and limits (extends 0016 §2; extends 0024 §5)
 
-*Changed by A3.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §6.2; [09](../architecture/09-security-and-moderation.md) §8.8.*
 
 ### 9. Deleting, moving and re-forking
 
-*Changed by A1.*
-
 *Current text: [13](../architecture/13-mirrored-pages.md) §3.9, §4.5.*
 
 ### 10. Storage (extends 0013 §5.6)
-
-*Changed by A5.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.12, §5.*
 
@@ -89,8 +72,6 @@ James's direction, from the design discussion of 2026-10-01:
 *Current text: [18](../architecture/18-api.md) §2.3, §3.2.*
 
 ### 12. Crates (amends 0005 §2)
-
-*Changed by A6.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

@@ -4,7 +4,6 @@
 - **Date:** 2026-10-07
 - **Updated:** 2026-10-09 (A3)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0014](0014-caches-and-search.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0033](0033-backend-stack.md), [0056](0056-security-model.md), [0059](0059-query-service.md), [0060](0060-scopes.md), [0062](0062-workspaces.md), [0063](0063-query-namespace.md), [0067](0067-proposals.md), [0071](0071-derived-statements-from-mirrored-pages.md), [0074](0074-publishing-a-scope-to-an-external-wiki.md), [0076](0076-dataset-publication.md)
 
 ## Context
@@ -43,8 +42,6 @@ James's direction, from the design discussion of 2026-10-07:
 *Current text: [18](../architecture/18-api.md) §7.3.*
 
 ### 5. Access and limits
-
-*Changed by A1, A3.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §5.3, §6.2, §6.4; [09](../architecture/09-security-and-moderation.md) §8.11.*
 

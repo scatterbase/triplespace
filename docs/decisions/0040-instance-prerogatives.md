@@ -4,7 +4,6 @@
 - **Date:** 2026-09-30
 - **Updated:** 2026-10-18 (A8)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [0039](0039-files-and-media.md)
 - **Uses:** [0023](0023-moderation.md), [0025](0025-oauth-server.md), [0026](0026-sitelinks.md), [0046](0046-primary-tenant.md)
 
 ## Context
@@ -34,19 +33,13 @@ James's direction, from the design discussion of 2026-09-30: an instance preroga
 
 ### 2. The instance as an actor (extends 0007 §1 and §2)
 
-*Changed by A2, A5.*
-
 *Current text: [08](../architecture/08-tenants-and-instances.md) §1.2, §8.2.*
 
 ### 3. The instance attestation (extends 0015 §1; extends 0006 §2)
 
-*Changed by A5, A6.*
-
 *Current text: [08](../architecture/08-tenants-and-instances.md) §8.3.*
 
 ### 4. Authority records
-
-*Changed by A2.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §8.4.*
 
@@ -56,13 +49,9 @@ James's direction, from the design discussion of 2026-09-30: an instance preroga
 
 ### 6. The written acts (amends 0028 §2, §5 and §8; amends 0030 §8; amends 0039 §9 and §10)
 
-*Changed by A7, A8.*
-
 *Current text: [08](../architecture/08-tenants-and-instances.md) §8.6.*
 
 ### 7. Display, logs and RDF (extends 0010 §5 and 0011 §6.1)
-
-*Changed by A5.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §5.1; [16](../architecture/16-logs-feeds-and-notifications.md) §2.1, §2.3, §5.2; [19](../architecture/19-site-ui.md) §2.5, §3.4, §6.11.*
 
@@ -72,8 +61,6 @@ James's direction, from the design discussion of 2026-09-30: an instance preroga
 
 ### 9. Instance rights (extends 0016 §2)
 
-*Changed by A2.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.2, §2.3.*
 
 ### 10. Scatterbase
@@ -81,8 +68,6 @@ James's direction, from the design discussion of 2026-09-30: an instance preroga
 *Current text: [22](../architecture/22-crates-and-stack.md) §1.3.*
 
 ### 11. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

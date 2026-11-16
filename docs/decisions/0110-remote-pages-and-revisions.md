@@ -4,7 +4,6 @@
 - **Date:** 2026-11-15
 - **Updated:** 2026-11-16 (A5)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0026](0026-sitelinks.md), [0041](0041-content-models.md), [0048](0048-notation.md), [0052](0052-page-repositories-and-title-inheritance.md), [0078](0078-entity-sources.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0017](0017-entity-id-grammar.md), [0029](0029-resolver-namespaces.md), [0038](0038-page-metadata-and-categories.md), [0054](0054-forking-a-mirrored-page.md)
 
 ## Context
@@ -41,19 +40,13 @@ James's direction, from the design discussion of 2026-11-12 to 2026-11-15:
 
 ### 1. The `remote` keyed type (extends 0009 §1)
 
-*Changed by A1, A4.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §3.1, §3.11.*
 
 ### 2. Hosts
 
-*Changed by A2, A3.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §3.12.*
 
 ### 3. What a remote key names (extends 0048 §3; amends 0078 §2)
-
-*Changed by A3, A5.*
 
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §3.9, §3.11; [05](../architecture/05-providers-and-ingest.md) §6.2.*
 
@@ -66,8 +59,6 @@ James's direction, from the design discussion of 2026-11-12 to 2026-11-15:
 *Current text: [06](../architecture/06-statements-and-properties.md) §4.3.*
 
 ### 6. Namespace and content model (extends 0008 §2, 0041 §3)
-
-*Changed by A2.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §1.4, §4.4.*
 

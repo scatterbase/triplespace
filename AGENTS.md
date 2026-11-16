@@ -31,6 +31,7 @@ with `mkdocs build --strict`, so a broken link in `docs/` fails.
 - `show 0013 §7` prints an ADR section, following its pointer to the chapter text; `show 0098 --full` prints a whole ADR assembled with its chapter text (what CI posts on a pull request that adds an ADR).
 - `where <phrase>` lists the chapter sections, ADRs and registry files that cover a subject.
 - `log 0008 [A6]` prints an Amendment log, or one entry; `log 0008 A6 --before` and `--diff` show, from git, the text the entry replaced and what it changed.
+- `changes NNNN` lists what an ADR changes: the log entries and settled questions that name it.
 - `questions NNNN` prints an ADR's open questions; `questions 0008 Q3 --before` prints a settled one as it was asked, from git.
 - `outline NN|NNNN` prints a document's headings.
 - `code 0013 §7` lists the code that cites a section.
@@ -38,7 +39,7 @@ with `mkdocs build --strict`, so a broken link in `docs/` fails.
 **Is it built? The code says (24 §15).** Two kinds of citation in code comments: `0013 §7` means the
 code is *about* the section; `implements 0013 §7 (A41)` claims it is built in full as it stood at
 entry A41 (written once, in src, at the code that completes it; `§7.3` or `§7 rule 2` for a part;
-the entry is required once the section has a provenance line). A section is **done** when a src
+the entry is required once a log entry has changed the section). A section is **done** when a src
 claim covers it, a test cites it, and no entry changed it since. `tools/coverage.py` reads both:
 alone for one line per ADR with its computed status, `NNNN` for each section, `NNNN §N` for the
 citing lines, `--todo` for everything not done and what it needs (this is the backlog), `--check`

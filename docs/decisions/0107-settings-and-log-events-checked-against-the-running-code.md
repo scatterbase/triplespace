@@ -4,7 +4,6 @@
 - **Date:** 2026-11-09
 - **Updated:** 2026-11-09 (A1)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0011](0011-logs.md), [0033](0033-backend-stack.md), [0085](0085-settings-and-preferences.md), [0105](0105-catalogues-checked-against-the-running-code.md)
 - **Uses:** [0099](0099-status-from-the-code.md)
 
 ## Context
@@ -25,8 +24,6 @@ James's direction, from the design discussion of 2026-11-09:
 ## Decision
 
 ### 1. One probe for the catalogues the code acts on (amends 0105 §1, §2; extends 0033 §15)
-
-*Changed by A1.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.2; [22](../architecture/22-crates-and-stack.md) §4.9; [24](../architecture/24-documentation.md) §11.*
 

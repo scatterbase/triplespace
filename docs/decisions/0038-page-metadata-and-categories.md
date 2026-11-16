@@ -4,7 +4,6 @@
 - **Date:** 2026-09-29
 - **Updated:** 2026-10-31 (A17)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0001](0001-revision-metadata-rdf.md), [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0026](0026-sitelinks.md), [0029](0029-resolver-namespaces.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0032](0032-sparql-update-stream.md), [0035](0035-adopting-a-wikibase.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0049](0049-boards.md)
 
 ## Context
@@ -29,8 +28,6 @@ James's direction, from the design discussion of 2026-09-29:
 
 ### 1. Pages carry statements (extends 0008 §4)
 
-*Changed by A2, A3, A5, A9, A11, A12, A16.*
-
 *Current text: [06](../architecture/06-statements-and-properties.md) §5.1, §5.2.*
 
 ### 2. A page's statements: asserted and projected
@@ -38,8 +35,6 @@ James's direction, from the design discussion of 2026-09-29:
 *Current text: [06](../architecture/06-statements-and-properties.md) §5.3.*
 
 ### 3. Legacy categories are defined only in wikitext (amends 0008 §8; settles 0008 Q5)
-
-*Changed by A4, A15.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §5.3.*
 
@@ -53,25 +48,17 @@ James's direction, from the design discussion of 2026-09-29:
 
 ### 6. Pages paired with items (amends 0026 §1; extends 0026 §2)
 
-*Changed by A7.*
-
 *Current text: [06](../architecture/06-statements-and-properties.md) §4.6.*
 
 ### 7. One subject per frame (extends 0010 §1 and §2)
-
-*Changed by A13.*
 
 *Current text: [19](../architecture/19-site-ui.md) §1.1, §1.3, §1.4, §3.1.*
 
 ### 8. Namespace 0 holds articles (amends 0008 §2)
 
-*Changed by A17.*
-
 *Current text: [10](../architecture/10-pages-and-content-models.md) §1.4, §3.3.*
 
 ### 9. Threads (extends 0019 §6; amends 0019 §7)
-
-*Changed by A10.*
 
 *Current text: [14](../architecture/14-discussions.md) §2.3, §5.4.*
 
@@ -81,8 +68,6 @@ James's direction, from the design discussion of 2026-09-29:
 
 ### 11. RDF (amends 0001 §3 and 0008 §10; uses 0032 §2)
 
-*Changed by A8.*
-
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §5.4.*
 
 ### 12. Search (extends 0014 §7)
@@ -91,8 +76,6 @@ James's direction, from the design discussion of 2026-09-29:
 
 ### 13. API (extends 0012 §4 and §5)
 
-*Changed by A3.*
-
 *Current text: [18](../architecture/18-api.md) §2.3, §3.2.*
 
 ### 14. Permissions and filters
@@ -100,8 +83,6 @@ James's direction, from the design discussion of 2026-09-29:
 *Current text: [09](../architecture/09-security-and-moderation.md) §7.2, §8.9.*
 
 ### 15. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

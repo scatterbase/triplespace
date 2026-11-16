@@ -4,7 +4,6 @@
 - **Date:** 2026-09-27
 - **Updated:** 2026-11-07 (A12)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md)
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -19,25 +18,17 @@ This ADR does three things: it names every kind of private state and puts prefer
 
 ### 1. One preference store, one key registry
 
-*Changed by A7, A8.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §8.1.*
 
 ### 2. What private state is, and which of it is portable
-
-*Changed by A3, A4, A5, A9, A10.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §8.3.*
 
 ### 3. The user data bundle
 
-*Changed by A10.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §6.2, §8.4.*
 
 ### 4. The private extract in a tenant move (extends 0018 §10; extends 0007 §4)
-
-*Changed by A11, A12.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §3.2, §8.5.*
 
@@ -51,8 +42,6 @@ This ADR does three things: it names every kind of private state and puts prefer
 
 ### 7. UI (extends 0010 §11)
 
-*Changed by A8.*
-
 *Current text: [19](../architecture/19-site-ui.md) §2.4, §2.6.*
 
 ### 8. Storage (extends 0013 §4 and §5.6)
@@ -60,8 +49,6 @@ This ADR does three things: it names every kind of private state and puts prefer
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.16, §5.*
 
 ### 9. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

@@ -4,7 +4,6 @@
 - **Date:** 2026-10-01
 - **Updated:** 2026-11-07 (A29)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0021](0021-notifications.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md), [0033](0033-backend-stack.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0051](0051-page-redirects.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0045](0045-table-content-model.md), [0046](0046-primary-tenant.md), [0047](0047-special-pages.md), [0049](0049-boards.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -40,8 +39,6 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 1. The invariant
 
-*Changed by A15, A17.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §1.2, §1.3, §1.4, §3.4.*
 
 ### 2. Visibility: the `read` restrictions that enclose a target
@@ -50,13 +47,9 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 3. Two targets: the tenant and the set (extends 0016 §4; extends 0023 §2)
 
-*Changed by A3, A4, A10, A16, A23, A24.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §4.2, §4.4, §4.7.*
 
 ### 4. Who may restrict what (amends 0016 §2 and §4; amends 0023 §1)
-
-*Changed by A16, A18, A21, A22, A23, A27.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §4.5.*
 
@@ -66,19 +59,13 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 6. Flow: derived output inherits the visibility of its inputs (amends 0042 §3; extends 0043 §5; extends 0051 §2; amends 0028 §5)
 
-*Changed by A29.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §5.4, §7.8.*
 
 ### 7. Caches are keyed by visibility (amends 0014 §1, §4)
 
-*Changed by A6, A7, A9, A14.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §9.1, §9.4, §9.6, §10.1, §12.1, §12.2.*
 
 ### 8. Search indexes restricted content, with a filter (amends 0014 §7)
-
-*Changed by A8.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §11.3, §11.5, §11.6.*
 
@@ -87,8 +74,6 @@ James's direction, from the design discussion of 2026-10-01:
 *Current text: [09](../architecture/09-security-and-moderation.md) §5.5.*
 
 ### 10. The deployment boundary (extends 0033 §12)
-
-*Changed by A1, A2, A3, A11, A17.*
 
 *Current text: [20](../architecture/20-web-tier.md) §5.1, §5.3, §5.4, §5.5.*
 
@@ -102,25 +87,17 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 13. API and UI (extends 0012 §4; extends 0016 §7; extends 0023 §8 and §9)
 
-*Changed by A16, A25, A26, A28.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §4.7; [18](../architecture/18-api.md) §2.2, §2.3, §3.1, §3.2; [19](../architecture/19-site-ui.md) §1.3, §1.5, §2.8, §6.3, §6.11.*
 
 ### 14. Storage (extends 0013 §5.6)
-
-*Changed by A5, A6, A13, A14, A19, A20.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.5, §4.6, §4.14, §5, §12.2.*
 
 ### 15. The privacy test (extends 0012 §8)
 
-*Changed by A2, A14.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §5.8.*
 
 ### 16. Crates (amends 0005 §2)
-
-*Changed by A2.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

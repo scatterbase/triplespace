@@ -4,7 +4,6 @@
 - **Date:** 2026-10-07
 - **Updated:** 2026-10-09 (A4)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0038](0038-page-metadata-and-categories.md), [0047](0047-special-pages.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md), [0060](0060-scopes.md), [0070](0070-shallow-entity-mirroring.md), [0072](0072-template-mappings.md), [0073](0073-lines-links-and-url-patterns.md), [Record and payload shapes](../api/payloads.md)
 
 ## Context
@@ -43,13 +42,9 @@ James's direction, from the design discussion of 2026-10-07:
 
 ### 4. Subjects: found by identifier, or created (uses 0002 §8.5)
 
-*Changed by A1, A3.*
-
 *Current text: [13](../architecture/13-mirrored-pages.md) §6.4.*
 
 ### 5. Statement IDs
-
-*Changed by A3.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §6.5.*
 
@@ -58,8 +53,6 @@ James's direction, from the design discussion of 2026-10-07:
 *Current text: [13](../architecture/13-mirrored-pages.md) §6.5.*
 
 ### 7. Resolution (amends 0002 §3)
-
-*Changed by A4.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §6.6.*
 
@@ -80,8 +73,6 @@ James's direction, from the design discussion of 2026-10-07:
 *Current text: [13](../architecture/13-mirrored-pages.md) §6.8.*
 
 ### 12. Storage (extends 0013 §5.6)
-
-*Changed by A3, A4.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.12, §5, §6.1, §7.*
 

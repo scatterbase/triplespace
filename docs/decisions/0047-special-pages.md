@@ -4,7 +4,6 @@
 - **Date:** 2026-09-30
 - **Updated:** 2026-11-08 (A39)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0029](0029-resolver-namespaces.md), [0031](0031-property-constraints.md), [0042](0042-template-expansion-and-parsoid.md), [0046](0046-primary-tenant.md)
 - **Uses:** [0019](0019-discussions.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md), [0034](0034-frontend-stack.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md)
 
 ## Context
@@ -43,19 +42,13 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 1. One registry of special pages (extends 0015 §5)
 
-*Changed by A9, A15, A19, A22, A23, A27, A28.*
-
 *Current text: [21](../architecture/21-special-pages.md) §1.1, §8.*
 
 ### 2. Names, aliases and section aliases
 
-*Changed by A19, A22.*
-
 *Current text: [21](../architecture/21-special-pages.md) §1.2.*
 
 ### 3. Where a page is served (extends 0018 §11 and 0046 §7)
-
-*Changed by A22, A24.*
 
 *Current text: [21](../architecture/21-special-pages.md) §1.3.*
 
@@ -69,19 +62,13 @@ James's direction, from the design discussion of 2026-09-30:
 
 #### 4.2 Local graphs by default
 
-*Changed by A18.*
-
 *Current text: [21](../architecture/21-special-pages.md) §2.2.*
 
 #### 4.3 Live projections by default; batch by configuration
 
-*Changed by A18.*
-
 *Current text: [21](../architecture/21-special-pages.md) §2.3.*
 
 #### 4.4 The reports
-
-*Changed by A3, A5, A16.*
 
 *Current text: [21](../architecture/21-special-pages.md) §2.4, §8.*
 
@@ -91,31 +78,21 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 5. Wikibase compatibility forms
 
-*Changed by A26, A39.*
-
 *Current text: [21](../architecture/21-special-pages.md) §3.1.*
 
 ### 6. Identity and correction pages
-
-*Changed by A11, A21.*
 
 *Current text: [21](../architecture/21-special-pages.md) §3.2.*
 
 ### 7. Special:Nuke
 
-*Changed by A20.*
-
 *Current text: [21](../architecture/21-special-pages.md) §4.1.*
 
 ### 8. Special:Export and Special:Import
 
-*Changed by A20, A30, A31.*
-
 *Current text: [21](../architecture/21-special-pages.md) §4.*
 
 #### 8.1 Special:Export
-
-*Changed by A32, A33, A34, A35, A37.*
 
 *Current text: [21](../architecture/21-special-pages.md) §4.2.*
 
@@ -125,19 +102,13 @@ James's direction, from the design discussion of 2026-09-30:
 
 #### 8.3 Special:Import
 
-*Changed by A36, A38.*
-
 *Current text: [21](../architecture/21-special-pages.md) §4.3.*
 
 ### 9. Other pages (extends 0010 §2, §3 and §12)
 
-*Changed by A4, A6, A7, A8, A9, A10, A11, A12, A25.*
-
 *Current text: [21](../architecture/21-special-pages.md) §5.1, §6.1, §8.*
 
 ### 10. Deferred, declined and reserved
-
-*Changed by A3, A5, A9.*
 
 *Current text: [21](../architecture/21-special-pages.md) §7, §8.*
 
@@ -147,19 +118,13 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 12. Permissions (extends 0016 §2)
 
-*Changed by A14.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.2, §8.6.*
 
 ### 13. Storage (amends 0013 §5 and §7)
 
-*Changed by A13, A20, A29.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.5, §4.10, §5, §6.1.*
 
 ### 14. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

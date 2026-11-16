@@ -4,7 +4,6 @@
 - **Date:** 2026-09-27
 - **Updated:** 2026-10-09 (A6)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0024](0024-subsidiary-accounts.md)
 - **Uses:** [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0030](0030-edit-filters.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -21,8 +20,6 @@ This ADR makes the instance an OAuth 2.0 authorization server under those two ru
 
 ### 1. An OAuth 2.0 authorization server, at MediaWiki's paths
 
-*Changed by A4, A5.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §7.1, §7.2, §7.7.*
 
 ### 2. Consumers are instance configuration (extends 0015 §3)
@@ -31,8 +28,6 @@ This ADR makes the instance an OAuth 2.0 authorization server under those two ru
 
 ### 3. Authorization selects or creates a subsidiary, and a created one is pending (amends 0007 §4; extends 0024 §2; amends 0024 §4)
 
-*Changed by A4.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §1.3, §4.2, §4.3, §5.3, §7.4.*
 
 ### 4. Attribution and the consumer tag (extends 0030 §5; settles 0024 Q3)
@@ -40,8 +35,6 @@ This ADR makes the instance an OAuth 2.0 authorization server under those two ru
 *Current text: [07](../architecture/07-actors-and-accounts.md) §4.6, §5, §7.5.*
 
 ### 5. Management, revocation and log events (extends 0010 §11 and 0011 §6.1)
-
-*Changed by A2, A4.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.4, §4.4, §7.6; [16](../architecture/16-logs-feeds-and-notifications.md) §2.3.*
 
@@ -55,25 +48,17 @@ This ADR makes the instance an OAuth 2.0 authorization server under those two ru
 
 ### 8. Storage (extends 0013 §4 and §5.6; uses 0014 §2 and §4)
 
-*Changed by A4.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.5, §4.6, §4.16, §5, §12.3.*
 
 ### 9. API (extends 0012 §4 and §5)
-
-*Changed by A4.*
 
 *Current text: [18](../architecture/18-api.md) §1.5, §2.2, §2.3, §3.2, §8.*
 
 ### 10. Permissions (extends 0016 §2; amends 0016 §3)
 
-*Changed by A2.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.2, §2.3, §3.4, §8.4.*
 
 ### 11. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

@@ -4,7 +4,6 @@
 - **Date:** 2026-10-01
 - **Updated:** 2026-11-16 (A9)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0038](0038-page-metadata-and-categories.md), [0042](0042-template-expansion-and-parsoid.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0026](0026-sitelinks.md), [0028](0028-tenancy-policy.md), [0039](0039-files-and-media.md), [0041](0041-content-models.md), [0043](0043-lua-modules.md), [0051](0051-page-redirects.md), [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -39,8 +38,6 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 1. A page repository (amends 0042 §2 and §11; extends 0015 §3)
 
-*Changed by A1, A2, A3, A6, A7.*
-
 *Current text: [13](../architecture/13-mirrored-pages.md) §1.1.*
 
 ### 2. A title names a stack
@@ -57,19 +54,13 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 5. The frame: primary, origin and alternates (extends 0010 §2)
 
-*Changed by A4.*
-
 *Current text: [13](../architecture/13-mirrored-pages.md) §1.5.*
 
 ### 6. Identity: provider-ranged page IDs, and the API (extends 0015 §2 and 0013 §6; extends 0012 §4–5)
 
-*Changed by A8.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §5.3; [18](../architecture/18-api.md) §2.2, §2.3, §3.1, §3.2.*
 
 ### 7. Talk pages, statements, categories and feeds
-
-*Changed by A1, A9.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §1.7, §1.8.*
 

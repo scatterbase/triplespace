@@ -4,7 +4,6 @@
 - **Date:** 2026-11-07
 - **Updated:** 2026-11-13 (A13)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0027](0027-preferences-and-portability.md), [0056](0056-security-model.md)
 - **Uses:** [0039](0039-files-and-media.md), [0081](0081-recovery-keys-and-continuations.md)
 
 ## Context
@@ -34,8 +33,6 @@ James's direction, from the design discussion of 2026-11-07:
 
 ### 1. Three scopes: export, transfer and backup (amends 0006 §9)
 
-*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13.*
-
 *Current text: [01](../architecture/01-log-and-records.md) §8.2.*
 
 ### 2. Export policies say which scopes carry a partition (amends 0005 §4.1; amends 0007 §8; amends 0056 §6)
@@ -47,8 +44,6 @@ James's direction, from the design discussion of 2026-11-07:
 *Current text: [07](../architecture/07-actors-and-accounts.md) §8.5; [08](../architecture/08-tenants-and-instances.md) §6.2.*
 
 ### 4. Backups and rehosting carry everything (extends 0018 §10; amends 0023 §7)
-
-*Changed by A2, A3, A5, A6, A7, A8, A9, A10, A11, A12, A13.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §6.7; [09](../architecture/09-security-and-moderation.md) §6.5.*
 

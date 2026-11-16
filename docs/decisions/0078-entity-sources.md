@@ -4,7 +4,6 @@
 - **Date:** 2026-10-08
 - **Updated:** 2026-11-16 (A7)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0029](0029-resolver-namespaces.md), [0035](0035-adopting-a-wikibase.md), [0070](0070-shallow-entity-mirroring.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0043](0043-lua-modules.md), [0044](0044-tenant-relative-ids.md), [0048](0048-notation.md), [0052](0052-page-repositories-and-title-inheritance.md), [0056](0056-security-model.md), [0065](0065-mediainfo-captions-and-commons.md), [0071](0071-derived-statements-from-mirrored-pages.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
 ## Context
@@ -30,25 +29,17 @@ James's direction, from the design discussion of 2026-10-07 and 2026-10-08:
 
 ### 1. An entity source is a provider a tenant declares (extends 0015 §3)
 
-*Changed by A2.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §6.1.*
 
 ### 2. Source IDs (amends 0017 §1)
-
-*Changed by A6.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §6.2.*
 
 ### 3. One table of names per tenant (extends 0029 §2 and §6)
 
-*Changed by A7.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §6.3.*
 
 ### 4. Numbers, the mirror partition and fetching (extends 0015 §2 and §5, 0018 §10, 0070 §2.1, §3 and §10)
-
-*Changed by A2, A4, A5.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.5, §6.4.*
 
@@ -66,19 +57,13 @@ James's direction, from the design discussion of 2026-10-07 and 2026-10-08:
 
 ### 8. Across tenants and instances (extends 0018 §5)
 
-*Changed by A2, A3.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §6.7.*
 
 ### 9. Binding is permanent; promotion
 
-*Changed by A2.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §6.8.*
 
 ### 10. API and operations (extends 0012 §5)
-
-*Changed by A2.*
 
 *Current text: [18](../architecture/18-api.md) §2.2, §2.3, §3.2, §3.3.*
 

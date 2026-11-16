@@ -4,7 +4,6 @@
 - **Date:** 2026-09-27
 - **Updated:** 2026-11-15 (A21)
 - **Author:** James Hare / Claude
-- **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0029](0029-resolver-namespaces.md), [0033](0033-backend-stack.md)
 
 ## Context
@@ -19,67 +18,45 @@ The backend stack is in 0033.
 
 ### 1. Principles
 
-*Changed by A6, A7, A8, A12.*
-
 *Current text: [19](../architecture/19-site-ui.md) §1, §5.1.*
 
 ### 2. Server rendering, in `triplespace-ui`
-
-*Changed by A6, A8, A14.*
 
 *Current text: [19](../architecture/19-site-ui.md) §1.2, §5.2.*
 
 ### 3. Statement groups (uses 0003 §3)
 
-*Changed by A16.*
-
 *Current text: [19](../architecture/19-site-ui.md) §4.9.*
 
 ### 4. Interactive components
-
-*Changed by A3, A18, A20.*
 
 *Current text: [19](../architecture/19-site-ui.md) §3.10, §5.3.*
 
 ### 5. Fragments
 
-*Changed by A6, A17.*
-
 *Current text: [20](../architecture/20-web-tier.md) §3.2.*
 
 ### 6. Rust in the browser, in `scatter-wasm`
-
-*Changed by A1, A5, A9.*
 
 *Current text: [19](../architecture/19-site-ui.md) §5.4.*
 
 ### 7. Source editor
 
-*Changed by A2, A5.*
-
 *Current text: [19](../architecture/19-site-ui.md) §3.2, §5.5.*
 
 ### 8. Build
-
-*Changed by A6, A8, A19.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §5.1.*
 
 ### 9. Internationalisation
 
-*Changed by A11, A14, A15, A17, A21.*
-
 *Current text: [19](../architecture/19-site-ui.md) §5.6.*
 
 ### 10. Accessibility and browser support
 
-*Changed by A7.*
-
 *Current text: [19](../architecture/19-site-ui.md) §5.7.*
 
 ### 11. Security
-
-*Changed by A6, A12, A13, A17.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §1.4.*
 
@@ -88,8 +65,6 @@ The backend stack is in 0033.
 *Current text: [22](../architecture/22-crates-and-stack.md) §5.2.*
 
 ### 13. Prototyping path
-
-*Changed by A6.*
 
 *Current text: [19](../architecture/19-site-ui.md) §5.8.*
 

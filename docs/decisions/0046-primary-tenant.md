@@ -4,7 +4,6 @@
 - **Date:** 2026-09-30
 - **Updated:** 2026-11-08 (A9)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0028](0028-tenancy-policy.md), [0040](0040-instance-prerogatives.md)
 - **Uses:** [0010](0010-site-ui.md), [0039](0039-files-and-media.md), [0047](0047-special-pages.md)
 
 ## Context
@@ -49,43 +48,29 @@ James's direction, from the design discussion of 2026-09-30: the role is **trans
 
 ### 4. Instance records live in instance partitions (amends 0011 §6.3 and 0025 §5)
 
-*Changed by A9.*
-
 *Current text: [01](../architecture/01-log-and-records.md) §1.4; [08](../architecture/08-tenants-and-instances.md) §7.4.*
 
 ### 5. Transferring the role
-
-*Changed by A7.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §7.5, §7.6.*
 
 ### 6. The farm slug (settles 0028 §2's reference)
 
-*Changed by A7.*
-
 *Current text: [08](../architecture/08-tenants-and-instances.md) §1.2.*
 
 ### 7. Instance IRIs have their own path (amends 0006 §6, 0018 §2, 0028 §2 and §10, 0040 §2 and §7)
-
-*Changed by A2.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.3, §2.2.*
 
 ### 8. Instance rights (amends 0040 §9; extends 0016 §2; amends 0025 §10)
 
-*Changed by A4.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.2, §2.3.*
 
 ### 9. API and UI
 
-*Changed by A5, A7, A8.*
-
 *Current text: [18](../architecture/18-api.md) §1.2, §2.2; [19](../architecture/19-site-ui.md) §2.8, §6.11.*
 
 ### 10. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

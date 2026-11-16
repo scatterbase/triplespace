@@ -4,7 +4,6 @@
 - **Date:** 2026-10-04
 - **Updated:** 2026-10-09 (A10)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0024](0024-subsidiary-accounts.md), [0028](0028-tenancy-policy.md), [0032](0032-sparql-update-stream.md), [0033](0033-backend-stack.md), [0047](0047-special-pages.md), [0056](0056-security-model.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0018](0018-tenants.md), [0045](0045-table-content-model.md), [0049](0049-boards.md), [0060](0060-scopes.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
 ## Context
@@ -33,19 +32,13 @@ James's direction, from the design discussion of 2026-10-04:
 
 ### 2. Two backends (amends 0033 §1 and §11)
 
-*Changed by A2, A3, A4, A7, A9.*
-
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §7.2.*
 
 ### 3. What the store holds, and how fresh it is
 
-*Changed by A2, A7, A10.*
-
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §7.3.*
 
 ### 4. Tenant isolation: by dataset, or by store (extends 0028 §12; extends 0056 §3 and §10)
-
-*Changed by A3, A7, A8.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §9.1.*
 
@@ -55,8 +48,6 @@ James's direction, from the design discussion of 2026-10-04:
 
 ### 6. Raw SPARQL for people (extends 0012 §5; extends 0047 §9)
 
-*Changed by A1.*
-
 *Current text: [18](../architecture/18-api.md) §3.2, §6; [19](../architecture/19-site-ui.md) §6.9.*
 
 ### 7. Operations
@@ -64,8 +55,6 @@ James's direction, from the design discussion of 2026-10-04:
 *Current text: [22](../architecture/22-crates-and-stack.md) §4.7.*
 
 ### 8. Crates (amends 0005 §2 and §4.4)
-
-*Changed by A5.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

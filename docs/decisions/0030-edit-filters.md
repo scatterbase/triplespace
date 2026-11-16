@@ -4,7 +4,6 @@
 - **Date:** 2026-09-27
 - **Updated:** 2026-10-09 (A13)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0020](0020-change-feeds.md), [0021](0021-notifications.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
 - **Uses:** [0007](0007-actor-identity.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0025](0025-oauth-server.md), [0029](0029-resolver-namespaces.md)
 
 ## Context
@@ -19,13 +18,9 @@ James named two dimensions, **abusive statements** and **abusive page contents**
 
 ### 1. A filter is a rule with actions, evaluated before append
 
-*Changed by A13.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §7.1.*
 
 ### 2. Three contexts and one actor
-
-*Changed by A2, A3, A4, A6, A8, A9, A10, A11, A13.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §7.2.*
 
@@ -35,13 +30,9 @@ James named two dimensions, **abusive statements** and **abusive page contents**
 
 ### 4. Actions
 
-*Changed by A3.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §7.4.*
 
 ### 5. Records: filters, hits and tags (extends 0011 §2, §6.1; amends 0015 §1)
-
-*Changed by A3, A11, A13.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.2, §7.5, §7.6; [16](../architecture/16-logs-feeds-and-notifications.md) §2.3.*
 
@@ -51,13 +42,9 @@ James named two dimensions, **abusive statements** and **abusive page contents**
 
 ### 7. Bulk jobs (extends 0002 §8.5)
 
-*Changed by A13.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.6.*
 
 ### 8. Farm-wide filters (extends 0028 §1)
-
-*Changed by A5.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §7.7.*
 
@@ -75,13 +62,9 @@ James named two dimensions, **abusive statements** and **abusive page contents**
 
 ### 12. Permissions (extends 0016 §2; settles 0016 Q5)
 
-*Changed by A11.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.2, §7.8.*
 
 ### 13. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

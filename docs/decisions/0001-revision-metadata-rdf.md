@@ -4,7 +4,6 @@
 - **Date:** 2026-09-24
 - **Updated:** 2026-11-07 (A23)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0000](0000-init.md)
 - **Uses:** [0000](0000-init.md), [MediaWiki API contract](../api/mediawiki-compat.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
 ## Context
@@ -37,37 +36,25 @@ Under [0000](0000-init.md), the append-only log is the source of truth and RDF i
 
 ### 1. Revision metadata describes the document, not the thing
 
-*Changed by A7, A8, A17, A18.*
-
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §2.1, §5.1, §5.3.*
 
 ### 2. Two named graphs: main and metadata
-
-*Changed by A1, A2, A6, A11, A23.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.2, §1.5.*
 
 ### 3. The standard Wikibase output is unchanged
 
-*Changed by A11, A12, A19, A20, A21, A22.*
-
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §4.2.*
 
 ### 4. Deleted and suppressed data is an application-policy concern
-
-*Changed by A3, A9.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §4.4.*
 
 ### 5. Triplespace's own vocabulary lives under `https://scatter.red/terms/v0/`
 
-*Changed by A2.*
-
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §3.1.*
 
 ### 6. Reuse existing vocabularies first
-
-*Changed by A2, A4, A5, A8, A10, A13, A15.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §3.2, §5.1.*
 

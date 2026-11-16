@@ -4,7 +4,8 @@
 Format: chapter 24 of docs/architecture/ (ADRs 0050 and 0098). Copy to NNNN-slug.md. Delete these
 comments and any optional part you do not use.
 Header values are dates, statuses or lists of links, never sentences.
-Omit Updated until the first log entry; omit Changes and Uses when empty.
+Omit Updated until the first log entry; omit Uses when empty. There is no Changes field: what an ADR changes is read from the
+logs that name it (tools/adr.py changes NNNN).
 Status is written from the code by `check_adrs.py --index` (24 §2.2, §15): leave it Proposed and never edit it.
 It becomes Accepted when every Decision section has an `implements NNNN §N (An)` claim in src and a test citing it.
 The Decision's text does not go here. Write it into the chapter sections it belongs to, each with a
@@ -16,7 +17,6 @@ from docs/ to fill the pointers below, and `docs/check.sh --write` to regenerate
 - **Date:** YYYY-MM-DD
 - **Updated:** YYYY-MM-DD (An)
 - **Author:** James Hare / Claude …
-- **Changes:** [NNNN](NNNN-slug.md), [NNNN](NNNN-slug.md)
 - **Uses:** [NNNN](NNNN-slug.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
 ## Context
@@ -91,7 +91,7 @@ When a change lands here:
   2. Log: add the entry below, naming the sections whose text the change removed as Replaced text;
      the commit holds that text, so it is not quoted:
      `tools/adr.py log NNNN An --before` prints it (24 §6).
-  3. Mark: add the ID to the provenance line of each changed section:  *Changed by A1, A3.*
+  3. Mark: nothing under the section heading; the log's Change line is what says an entry changed it.
   4. Strike consequences it falsifies, and settle questions it answers (questions need no entry).
   5. Update the header's Updated line; if the ADR is Accepted, add the entry to its status; run check.sh --write.
 Every change is folded, extensions included: no callouts.

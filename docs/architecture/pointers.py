@@ -3,8 +3,8 @@
 
 For each numbered Decision section of the named ADRs that is empty or already a pointer, the body
 becomes the line `*Current text: [NN](../architecture/NN-slug.md) §a, §b.*`, naming every chapter
-section whose provenance line cites it (or its parent section). The heading, a `*Changed by …*`
-provenance line and a `*Superseded by …*` stub are kept. A section that carries text is left alone
+section whose provenance line cites it (or its parent section). The heading and a `*Superseded by …*`
+stub are kept. A section that carries text is left alone
 and reported, unless --replace is given: then its text is replaced too (the one-off relocation of
 24 §14; the caller logs it).
 
@@ -84,7 +84,7 @@ def fill(adr):
         body_end = heads[k + 1][0] if k + 1 < len(heads) else end
         body = lines[hi + 1: body_end]
         i = body_end
-        meaningful = [l for l in body if l.strip() and not l.startswith("*Changed by") and not l.startswith("*Current text:")]
+        meaningful = [l for l in body if l.strip() and not l.startswith("*Current text:")]
         first = next((l.strip() for l in body if l.strip()), "")
         has_subs = k + 1 < len(heads) and heads[k + 1][2] > lvl
         if first.startswith("*Superseded by") or (not body or not any(l.strip() for l in body)) and has_subs:
@@ -99,11 +99,7 @@ def fill(adr):
             missing.append(sec)
             out.extend(body)
             continue
-        prov = first if first.startswith("*Changed by") else None
         out.append("")
-        if prov:
-            out.append(prov)
-            out.append("")
         out.append(ptr)
         out.append("")
         written.append(sec)

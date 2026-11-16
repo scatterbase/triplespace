@@ -4,7 +4,6 @@
 - **Date:** 2026-10-05
 - **Updated:** 2026-10-09 (A2)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0005](0005-crate-organization.md), [0012](0012-api-requirements.md), [0047](0047-special-pages.md), [0054](0054-forking-a-mirrored-page.md), [0067](0067-proposals.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0040](0040-instance-prerogatives.md), [0042](0042-template-expansion-and-parsoid.md), [0051](0051-page-redirects.md), [0052](0052-page-repositories-and-title-inheritance.md), [0053](0053-mirrored-pages.md)
 
 ## Context
@@ -35,8 +34,6 @@ James's direction, from the design discussions of 2026-10-04 and 2026-10-05:
 *Current text: [13](../architecture/13-mirrored-pages.md) §4.3.*
 
 ### 4. Export and push
-
-*Changed by A1.*
 
 *Current text: [13](../architecture/13-mirrored-pages.md) §4.4.*
 

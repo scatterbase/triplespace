@@ -4,7 +4,6 @@
 - **Date:** 2026-10-18
 - **Updated:** 2026-11-06 (A4)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0018](0018-tenants.md), [0027](0027-preferences-and-portability.md), [0035](0035-adopting-a-wikibase.md), [0057](0057-web-tier.md), [0067](0067-proposals.md), [0074](0074-publishing-a-scope-to-an-external-wiki.md), [0087](0087-account-registration-and-challenges.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0016](0016-permissions-and-access-control.md), [0025](0025-oauth-server.md), [0033](0033-backend-stack.md), [0034](0034-frontend-stack.md), [0079](0079-derived-issuer-codes.md), [0085](0085-settings-and-preferences.md)
 
 ## Context
@@ -38,43 +37,29 @@ James's direction, from the design discussion of 2026-10-18:
 
 ### 3. Client credentials (extends 0013 §4; extends 0027 §2; extends 0067 §6; extends 0074 §8)
 
-*Changed by A1.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.7; [22](../architecture/22-crates-and-stack.md) §4.4.*
 
 ### 4. Which issuers a tenant offers (extends 0007 §3)
-
-*Changed by A1, A3.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.7.*
 
 ### 5. Flows and the callback (amends 0012 §5; extends 0057 §7)
 
-*Changed by A1.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.7; [18](../architecture/18-api.md) §2.3, §3.2; [19](../architecture/19-site-ui.md) §2.3.*
 
 ### 6. Logging in, and the first login (extends 0007 §3; extends 0010 §10; extends 0087 §1, §6)
-
-*Changed by A1.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.7; [18](../architecture/18-api.md) §2.3; [19](../architecture/19-site-ui.md) §2.3.*
 
 ### 7. Sign-in methods (extends 0012 §4; extends 0013 §4)
 
-*Changed by A1, A3, A4.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.7; [18](../architecture/18-api.md) §2.3.*
 
 ### 8. Reclaiming an adopted account by vouching (settles 0035 Q3; extends 0018 §10; settles 0018 Q8 in part; extends 0011 §6.1)
 
-*Changed by A1.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.5; [08](../architecture/08-tenants-and-instances.md) §6.4; [18](../architecture/18-api.md) §2.3.*
 
 ### 9. Settings (uses 0085 §1)
-
-*Changed by A1.*
 
 *Current text: [07](../architecture/07-actors-and-accounts.md) §2.7; [18](../architecture/18-api.md) §2.2; [23](../architecture/23-configuration-and-registry.md) §3.2.*
 

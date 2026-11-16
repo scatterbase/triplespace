@@ -4,7 +4,6 @@
 - **Date:** 2026-10-17
 - **Updated:** 2026-11-04 (A12)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0034](0034-frontend-stack.md), [0039](0039-files-and-media.md), [0040](0040-instance-prerogatives.md), [0055](0055-templatestyles-templatedata-and-page-properties.md)
 - **Uses:** [0053](0053-mirrored-pages.md), [0054](0054-forking-a-mirrored-page.md), [0077](0077-special-version.md), [0085](0085-settings-and-preferences.md)
 
 ## Context
@@ -34,31 +33,21 @@ James's direction, from the design discussion of 2026-10-16 and 2026-10-17:
 
 ### 1. Palettes and type sets are configuration (amends 0034 §1; extends 0015 §3, 0012 §5, 0011 §6.1, 0018 §10 and 0040 §6)
 
-*Changed by A1, A2, A3, A4, A5, A6, A10, A11.*
-
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.4; [08](../architecture/08-tenants-and-instances.md) §6.3, §8.6; [16](../architecture/16-logs-feeds-and-notifications.md) §2.3; [18](../architecture/18-api.md) §3.2; [19](../architecture/19-site-ui.md) §5.1, §5.9; [23](../architecture/23-configuration-and-registry.md) §2.2.*
 
 ### 2. Variants and contrast (amends 0010 §2; settles 0034 Q2)
-
-*Changed by A3, A6, A12.*
 
 *Current text: [19](../architecture/19-site-ui.md) §1.5, §5.9.*
 
 ### 3. Type sets (extends 0039 §5)
 
-*Changed by A2, A5, A10, A11.*
-
 *Current text: [12](../architecture/12-files-and-media.md) §4.5; [19](../architecture/19-site-ui.md) §5.2, §5.9.*
 
 ### 4. Who chooses (uses 0085 §1)
 
-*Changed by A6.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §8.1; [19](../architecture/19-site-ui.md) §2.7, §5.9.*
 
 ### 5. Serving (amends 0034 §1; extends 0034 §11; amends 0012 §4)
-
-*Changed by A5, A6, A7, A9.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §1.4; [18](../architecture/18-api.md) §2.2; [19](../architecture/19-site-ui.md) §5.9.*
 
@@ -67,8 +56,6 @@ James's direction, from the design discussion of 2026-10-16 and 2026-10-17:
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §6.2.*
 
 ### 7. Crates (extends 0005 §2)
-
-*Changed by A2, A3, A5, A6.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

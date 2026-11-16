@@ -152,13 +152,30 @@ def adr_docs():
             end = min([j for j, lv2, _ in dh[k + 1:] if lv2 <= lv] + [j for j in parts if j > i] + [hi])
             secs[m.group(1)] = Section(num, m.group(1), m.group(2), "\n".join(lines[i + 1:end]))
         status = re.search(r"^- \*\*Status:\*\* (.*)$", text, re.M)
-        # the entries that changed each section, from its provenance line (24 §3.1)
+        # the entries that changed each section, from the log's Change lines (24 §3.1)
+        changed = log_changes(text)
         for s in secs.values():
-            m = re.search(r"^\*Changed by ((?:A\d+(?:, )?)+)\.\*", s.body, re.M)
-            s.changed = sorted(int(x) for x in re.findall(r"A(\d+)", m.group(1))) if m else []
+            s.changed = sorted(changed.get(s.num, ()))
         docs[num] = {"title": lines[0].lstrip("# ").split(". ", 1)[-1], "status": status.group(1) if status else "?",
                      "sections": secs, "path": path}
     return docs
+
+
+def log_changes(text):
+    """{'7': {3, 41}, …}: the Amendment log entries whose Change line names each section (24 §3.1,
+    §6). An entry that only consolidates, retitles or relocates changes no decision and is left out."""
+    out = collections.defaultdict(set)
+    log = re.search(r"^## Amendment log\s*\n(.*?)(?=^## |\Z)", text, re.M | re.S)
+    for e in re.finditer(r"^### A(\d+)\. [^\n]*\n(.*?)(?=^### A\d+\. |\Z)", log.group(1) if log else "", re.M | re.S):
+        change = re.search(r"^- \*\*Change:\*\*\s*(.*)$", e.group(2), re.M)
+        for clause in (change.group(1) if change else "").split(";"):
+            m = re.match(r"\s*([a-z]+)\s*(.*)", clause)
+            if not m or m.group(1) in ("consolidates", "retitles", "relocates"):
+                continue
+            for a, b in re.findall(r"§(\d+(?:\.\d+)?)(?:[–-]§?(\d+))?", m.group(2)):
+                for sec in ([str(i) for i in range(int(a), int(b) + 1)] if b and "." not in a else [a]):
+                    out[sec].add(int(e.group(1)))
+    return out
 
 
 def chapter_sources():
@@ -410,7 +427,7 @@ def claim_problems(docs, cites):
         elif s.changed and c.entry is None:
             out.append(f"{c.rel}:{c.line}: implements {c.doc} §{c.sec} without the entry it is current to; the section was changed by A{s.changed[-1]}")
         elif c.entry is not None and c.entry not in s.changed:
-            out.append(f"{c.rel}:{c.line}: implements {c.doc} §{c.sec} (A{c.entry}), but no entry A{c.entry} changed §{c.sec} (provenance: {', '.join(f'A{a}' for a in s.changed) or 'never changed'})")
+            out.append(f"{c.rel}:{c.line}: implements {c.doc} §{c.sec} (A{c.entry}), but no entry A{c.entry} changed §{c.sec} (changed by: {', '.join(f'A{a}' for a in s.changed) or 'never changed'})")
     return out
 
 

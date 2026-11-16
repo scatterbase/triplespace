@@ -4,7 +4,6 @@
 - **Date:** 2026-10-07
 - **Updated:** 2026-10-09 (A1)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0015](0015-record-format-and-partition-registry.md), [0038](0038-page-metadata-and-categories.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0042](0042-template-expansion-and-parsoid.md), [0051](0051-page-redirects.md), [0053](0053-mirrored-pages.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [0071](0071-derived-statements-from-mirrored-pages.md), [0073](0073-lines-links-and-url-patterns.md)
 
 ## Context

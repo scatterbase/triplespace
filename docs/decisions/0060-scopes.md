@@ -4,7 +4,6 @@
 - **Date:** 2026-10-04
 - **Updated:** 2026-10-09 (A10)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0020](0020-change-feeds.md), [0041](0041-content-models.md), [0045](0045-table-content-model.md), [0049](0049-boards.md), [0056](0056-security-model.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md), [0023](0023-moderation.md), [0026](0026-sitelinks.md), [0038](0038-page-metadata-and-categories.md), [0042](0042-template-expansion-and-parsoid.md), [0044](0044-tenant-relative-ids.md), [0059](0059-query-service.md)
 
 ## Context
@@ -39,13 +38,9 @@ James's direction, from the design discussion of 2026-10-04:
 
 ### 4. The definition
 
-*Changed by A2, A3, A4, A9.*
-
 *Current text: [15](../architecture/15-structured-pages.md) §1.3, §5.5.*
 
 ### 5. Membership is a projection
-
-*Changed by A7, A9.*
 
 *Current text: [15](../architecture/15-structured-pages.md) §1.4.*
 
@@ -55,13 +50,9 @@ James's direction, from the design discussion of 2026-10-04:
 
 ### 7. Feeds and watching (extends 0020 §2 and §3; settles 0045 Q4)
 
-*Changed by A6.*
-
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.2, §4.3, §5.2.*
 
 ### 8. The scope page, links and the API (extends 0012 §5)
-
-*Changed by A1.*
 
 *Current text: [18](../architecture/18-api.md) §2.3, §3.2; [19](../architecture/19-site-ui.md) §3.1, §6.9.*
 
@@ -71,13 +62,9 @@ James's direction, from the design discussion of 2026-10-04:
 
 ### 10. Storage, caches and search
 
-*Changed by A5, A9.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.15, §5, §6.1, §11.1, §12.1.*
 
 ### 11. Crates (amends 0005 §2)
-
-*Changed by A10.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

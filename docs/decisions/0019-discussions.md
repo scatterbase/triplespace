@@ -4,7 +4,6 @@
 - **Date:** 2026-09-27
 - **Updated:** 2026-11-05 (A31)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0016](0016-permissions-and-access-control.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0018](0018-tenants.md), [0022](0022-federation.md)
 
 ## Context
@@ -23,55 +22,37 @@ Two goals from the earlier ADRs constrain the design. Every unit of contribution
 
 ### 1. A thread is a page; a post is a record
 
-*Changed by A4, A10, A14, A15.*
-
 *Current text: [14](../architecture/14-discussions.md) §1.1, §1.2, §3.6.*
 
 ### 2. Talk pages are composite; attachment is by identifier (amends 0008 §2)
-
-*Changed by A6, A9, A10, A12, A15, A23.*
 
 *Current text: [14](../architecture/14-discussions.md) §1.3, §3.5.*
 
 ### 3. The `Thread` namespace and thread titles (extends 0008 §1 and §3)
 
-*Changed by A9, A10, A13, A23, A26.*
-
 *Current text: [14](../architecture/14-discussions.md) §1.4.*
 
 ### 4. The record: four parts (amends 0015 §1)
-
-*Changed by A10, A13, A15, A17, A18, A19, A23, A24, A25, A26, A28.*
 
 *Current text: [14](../architecture/14-discussions.md) §1.5, §3.6, §4.2.*
 
 ### 5. Text: markdown, mentions and links (extends 0008 §5, §8 and §10)
 
-*Changed by A8, A13, A24, A25, A28.*
-
 *Current text: [14](../architecture/14-discussions.md) §1.6.*
 
 ### 6. Status and visibility
-
-*Changed by A3, A5, A7, A8, A13, A20, A21, A25, A26.*
 
 *Current text: [14](../architecture/14-discussions.md) §2.1, §2.2, §2.3, §2.4.*
 
 ### 7. History, activity, logs and RDF (extends 0001 §1 and §6, 0011 §6.1 and §8)
 
-*Changed by A4, A8, A10, A27, A29.*
-
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §2.3, §6.1, §6.3.*
 
 ### 8. Rendering and the UI (extends 0010)
 
-*Changed by A2, A10, A15, A28, A30, A31.*
-
 *Current text: [19](../architecture/19-site-ui.md) §6.1.*
 
 ### 9. API (extends 0012 §4 and §5)
-
-*Changed by A4, A9, A10, A16, A30, A31.*
 
 *Current text: [18](../architecture/18-api.md) §2.1, §2.3, §2.4, §3.2.*
 
@@ -81,19 +62,13 @@ Two goals from the earlier ADRs constrain the design. Every unit of contribution
 
 ### 11. Storage, caches and search (extends 0013 §5 and 0014)
 
-*Changed by A9, A10.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.8, §5, §6.1, §11.1, §12.1.*
 
 ### 12. Permissions (extends 0016 §2; amends 0016 §4)
 
-*Changed by A4, A10.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.2, §4.4, §8.1.*
 
 ### 13. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

@@ -10,6 +10,7 @@
   adr.py where entity source chapter sections, ADRs and registry files that mention a phrase
   adr.py log 0008            an ADR's Amendment log; `log 0008 A6` for one entry
   adr.py log 0083 A6 --diff  what an entry changed, from git; --before for the text it replaced
+  adr.py changes 0038        the ADRs it changes (the log entries and settled questions that name it)
   adr.py questions 0090      an ADR's open questions, settled ones marked
   adr.py questions 0008 Q3 --before   a settled question as it was asked, from git
   adr.py code 0013 §7        the code that cites a section (file:line), from tools/coverage.py
@@ -170,6 +171,10 @@ def cmd_show(a):
         die(f"no §{num} in {os.path.basename(path)}")
     body = block(lines, heads, start)
     targets = pointer_targets(body) if kind == "adr" else []
+    # Which entries changed the section is not written under its heading: the log says (24 §3.1).
+    by = changed_by(lines).get(num) if kind == "adr" else None
+    if by:
+        body = [body[0], "", "*Changed by " + ", ".join(f"A{n}" for n in by) + ".* (from the log)"] + body[1:]
     if not targets or a.adr:
         print(f"[{os.path.basename(path)}]")
         emit(body, a.lines)
@@ -187,6 +192,57 @@ def cmd_show(a):
             print(f"(no §{sec}: the pointer is stale; run docs/check.sh)")
             continue
         emit(block(clines, cheads, cstart), a.lines)
+
+
+def log_entries(lines):
+    """[(id, title, {field: value})] of an ADR's Amendment log, in order."""
+    log = h2(lines, "Amendment log")
+    heads = headings(log)
+    out = []
+    for i, lv, text in heads:
+        m = re.match(r"^A(\d+)\. (.*)$", text) if lv == 3 else None
+        if m:
+            fields = dict(re.findall(r"^- \*\*([A-Za-z ]+):\*\*\s*(.*)$", "\n".join(block(log, heads, i)), re.M))
+            out.append((int(m.group(1)), m.group(2), fields))
+    return out
+
+
+def changed_by(lines):
+    """{'7': [3, 41], …}: the log entries whose Change line names each Decision section. An entry
+    that only consolidates, retitles or relocates changes no decision and is left out (24 §3.1)."""
+    out = {}
+    for n, _, fields in log_entries(lines):
+        for verb, sec in change_sections(["- **Change:** " + fields.get("Change", "")]):
+            if verb not in ("consolidates", "relocates"):
+                out.setdefault(sec, []).append(n)
+    return {s: sorted(set(v)) for s, v in out.items()}
+
+
+def cmd_changes(a):
+    """What an ADR changes: every log entry and settled question of another ADR that names it as
+    its source. The header no longer lists them (24 §2.2), since this is where they are recorded."""
+    kind, path = doc_for(a.doc)
+    if kind != "adr":
+        die("`changes` takes an ADR number")
+    me = os.path.basename(path)[:4]
+    cite = re.compile(rf"\[{me}\]\([^)]*\)|\b{me}\b")
+    rows = []
+    for other in sorted(glob.glob(os.path.join(DEC, "[0-9][0-9][0-9][0-9]-*.md"))):
+        num = os.path.basename(other)[:4]
+        if num == me:
+            continue
+        olines = read(other).splitlines()
+        for n, title, fields in log_entries(olines):
+            src = fields.get("Source", "")
+            if not src.startswith("Direct") and cite.search(src):
+                rows.append(f"  {num} A{n:<3} {fields.get('Change', '')}  ({DOC_LINK.sub(lambda m: m.group(1), src)})")
+        for line in h2(olines, "Open questions"):
+            m = re.match(r"- \*\*(Q\d+)\. ", line)
+            for note in re.findall(r"\*Settled by ([^*]*)\*", line) if m else ():
+                if cite.search(note.split(": ")[0]):
+                    rows.append(f"  {num} {m.group(1):<4} settles  ({DOC_LINK.sub(lambda m: m.group(1), note.split(': ')[0]).rstrip('.')})")
+    print(f"[{os.path.basename(path)}] changes:")
+    print("\n".join(rows) or "  (nothing: no log entry or settled question of another ADR names it)")
 
 
 def emit_full(path, lines):
@@ -642,6 +698,9 @@ def main():
     lg.add_argument("--diff", action="store_true", help="what the entry changed, section by section, from git")
     lg.add_argument("--before", action="store_true", help="the sections the entry replaced, as they stood, from git")
     lg.set_defaults(fn=cmd_log)
+    cg = sub.add_parser("changes", help="what an ADR changes: the log entries and settled questions that name it")
+    cg.add_argument("doc")
+    cg.set_defaults(fn=cmd_changes)
     qu = sub.add_parser("questions", help="an ADR's open questions")
     qu.add_argument("doc")
     qu.add_argument("question", nargs="?", help="one question, e.g. Q3")

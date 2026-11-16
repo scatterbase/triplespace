@@ -4,7 +4,6 @@
 - **Date:** 2026-09-25
 - **Updated:** 2026-11-15 (A126)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
-- **Changes:** [0001](0001-revision-metadata-rdf.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md)
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
 ## Context
@@ -35,49 +34,33 @@ Since this ADR was first written, twenty-six further ADRs have added crates, cha
 
 ### 1. Four layers
 
-*Changed by A12, A31.*
-
 *Current text: [22](../architecture/22-crates-and-stack.md) §1.1.*
 
 ### 2. Crate map
-
-*Changed by A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26, A27, A28, A29, A30, A31, A32, A33, A34, A35, A36, A37, A38, A39, A40, A41, A42, A43, A44, A45, A46, A47, A48, A49, A51, A52, A53, A54, A55, A57, A58, A59, A60, A61, A62, A63, A64, A65, A66, A67, A68, A69, A70, A71, A72, A73, A74, A75, A76, A77, A78, A79, A80, A84, A86, A87, A88, A89, A90, A91, A92, A93, A95, A96, A97, A98, A99, A100, A101, A102, A103, A104, A105, A106, A107, A108, A109, A110, A113, A115, A116, A118, A119, A120, A121, A122, A123, A124, A125, A126.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1, §2.2.*
 
 ### 3. Rules
 
-*Changed by A8, A10, A33, A42, A43, A54, A56, A60, A61, A63, A64, A67, A71, A82, A83, A92.*
-
 *Current text: [22](../architecture/22-crates-and-stack.md) §1.2.*
 
 ### 4. Seams shared with Scatterbase
-
-*Changed by A92.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §1.3.*
 
 #### 4.1 Named graphs are registry entries
 
-*Changed by A2, A3, A6, A10, A11, A14, A31, A117.*
-
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.1, §1.2; [22](../architecture/22-crates-and-stack.md) §1.3.*
 
 #### 4.2 Log partitions carry their own policy
-
-*Changed by A1, A8, A10, A14, A56, A90, A94.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §1.2, §1.3, §4.1, §6; [22](../architecture/22-crates-and-stack.md) §1.3.*
 
 #### 4.3 A record is a header plus a payload
 
-*Changed by A1, A10, A31, A81.*
-
 *Current text: [01](../architecture/01-log-and-records.md) §2.1, §2.3, §2.4; [22](../architecture/22-crates-and-stack.md) §1.3.*
 
 #### 4.4 Storage contracts
-
-*Changed by A8, A28, A62.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §1.3; [22](../architecture/22-crates-and-stack.md) §1.3.*
 
@@ -87,13 +70,9 @@ Since this ADR was first written, twenty-six further ADRs have added crates, cha
 
 ### 6. Naming, licensing and repository
 
-*Changed by A17, A30, A110, A114.*
-
 *Current text: [22](../architecture/22-crates-and-stack.md) §3.2, §3.3, §3.4.*
 
 ### 7. Build order
-
-*Changed by A12, A17, A18, A31, A34, A42, A60, A92, A93, A105.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §3.1.*
 

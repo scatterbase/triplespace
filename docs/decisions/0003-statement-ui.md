@@ -36,13 +36,9 @@ Triplespace does not come with MediaWiki's editing UI ([0000](0000-init.md), Con
 
 ### 2. The UI reads canonical Wikibase JSON
 
-*Changed by A7, A15.*
-
 *Current text: [19](../architecture/19-site-ui.md) §1.4, §4.2.*
 
 ### 3. Shape detection
-
-*Changed by A2, A10.*
 
 *Current text: [19](../architecture/19-site-ui.md) §4.3.*
 
@@ -52,37 +48,25 @@ Triplespace does not come with MediaWiki's editing UI ([0000](0000-init.md), Con
 
 ### 5. Shared qualifiers and references
 
-*Changed by A17.*
-
 *Current text: [19](../architecture/19-site-ui.md) §4.5.*
 
 ### 6. Provenance
-
-*Changed by A1, A4, A11, A17.*
 
 *Current text: [19](../architecture/19-site-ui.md) §4.6.*
 
 ### 7. Semantic roles
 
-*Changed by A1, A3, A4, A5, A6, A7, A8, A10, A14, A18.*
-
 *Current text: [06](../architecture/06-statements-and-properties.md) §1.1, §1.2.*
 
 ### 8. Editing
-
-*Changed by A16.*
 
 *Current text: [19](../architecture/19-site-ui.md) §4.7.*
 
 ### 9. Components
 
-*Changed by A4, A17.*
-
 *Current text: [19](../architecture/19-site-ui.md) §4.8.*
 
 ### 10. Prototype against Wikidata first
-
-*Changed by A12.*
 
 *Current text: [19](../architecture/19-site-ui.md) §5.8.*
 

@@ -4,7 +4,6 @@
 - **Date:** 2026-09-27
 - **Updated:** 2026-11-10 (A28)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0028](0028-tenancy-policy.md)
 
 ## Context
@@ -23,43 +22,29 @@ Echo is the precedent. It has notification *types* (mention, edit-user-talk, rev
 
 ### 2. Addressing rules (amends 0020 §3)
 
-*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A17, A18, A19, A20, A21, A23, A25, A28.*
-
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.2.*
 
 ### 3. The inbox is private state (extends 0007 §8, 0013 §4)
-
-*Changed by A4, A27.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.3.*
 
 ### 4. Channels
 
-*Changed by A24.*
-
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.4.*
 
 ### 5. The fediverse channel
-
-*Changed by A2.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §5.5.*
 
 ### 6. UI (extends 0010 §2 and §11)
 
-*Changed by A16, A20, A21, A22, A24, A26, A27, A28.*
-
 *Current text: [19](../architecture/19-site-ui.md) §1.2, §2.4, §2.6, §6.2.*
 
 ### 7. API (extends 0012 §4 and §5)
 
-*Changed by A5, A20, A24, A27.*
-
 *Current text: [18](../architecture/18-api.md) §2.3, §3.2.*
 
 ### 8. Storage and operations (extends 0013 §4)
-
-*Changed by A2, A3, A12, A24.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.16, §5.*
 
@@ -68,8 +53,6 @@ Echo is the precedent. It has notification *types* (mention, edit-user-talk, rev
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.2, §8.2.*
 
 ### 10. Crates
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

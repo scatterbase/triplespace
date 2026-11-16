@@ -4,7 +4,6 @@
 - **Date:** 2026-10-05
 - **Updated:** 2026-10-09 (A1)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0059](0059-query-service.md), [0060](0060-scopes.md), [0061](0061-sprints-and-tasks.md), [0062](0062-workspaces.md)
 - **Uses:** [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0038](0038-page-metadata-and-categories.md), [0043](0043-lua-modules.md), [0044](0044-tenant-relative-ids.md), [0045](0045-table-content-model.md), [0047](0047-special-pages.md)
 
 ## Context

@@ -4,7 +4,6 @@
 - **Date:** 2026-09-30
 - **Updated:** 2026-11-15 (A18)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0001](0001-revision-metadata-rdf.md), [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0019](0019-discussions.md), [0029](0029-resolver-namespaces.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md)
 - **Uses:** [0035](0035-adopting-a-wikibase.md), [0043](0043-lua-modules.md), [0045](0045-table-content-model.md), [0048](0048-notation.md), [0049](0049-boards.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -41,13 +40,9 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 2. Model IDs: generic, Triplespace, reserved
 
-*Changed by A14.*
-
 *Current text: [10](../architecture/10-pages-and-content-models.md) §4.2.*
 
 ### 3. The content model registry (extends 0008 §5)
-
-*Changed by A2, A3, A4, A5, A7, A8, A9, A10, A11, A13, A15, A17, A18.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §1.4, §4.4.*
 
@@ -57,8 +52,6 @@ James's direction, from the design discussion of 2026-09-30:
 
 ### 5. Sources, and what a model provides (extends 0008 §5)
 
-*Changed by A17.*
-
 *Current text: [10](../architecture/10-pages-and-content-models.md) §4.3.*
 
 ### 6. Slots: `main` everywhere, `mediainfo` on File pages
@@ -66,8 +59,6 @@ James's direction, from the design discussion of 2026-09-30:
 *Current text: [12](../architecture/12-files-and-media.md) §8.1.*
 
 ### 7. MediaInfo: a File page's statements over the Wikibase API (amends 0038 §1 and §13; extends 0017 §1)
-
-*Changed by A12.*
 
 *Current text: [12](../architecture/12-files-and-media.md) §8.2, §8.3, §8.4.*
 
@@ -88,8 +79,6 @@ James's direction, from the design discussion of 2026-09-30:
 *Current text: [22](../architecture/22-crates-and-stack.md) §1.3.*
 
 ### 12. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

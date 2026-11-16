@@ -4,7 +4,6 @@
 - **Date:** 2026-10-29
 - **Updated:** 2026-11-15 (A13)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0015](0015-record-format-and-partition-registry.md), [0034](0034-frontend-stack.md), [0057](0057-web-tier.md), [0077](0077-special-version.md), [0086](0086-theming.md), [0095](0095-the-interface-namespace.md)
 - **Uses:** [0012](0012-api-requirements.md), [0028](0028-tenancy-policy.md), [0050](0050-adr-format.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [0058](0058-packed-record-storage.md), [0085](0085-settings-and-preferences.md)
 
 ## Context
@@ -62,13 +61,9 @@ James's direction, from the design discussion of 2026-10-29:
 
 ### 8. Skins (amends 0034 §2)
 
-*Changed by A2, A13.*
-
 *Current text: [19](../architecture/19-site-ui.md) §5.2, §5.10; [21](../architecture/21-special-pages.md) §5.6; [23](../architecture/23-configuration-and-registry.md) §3.4.*
 
 ### 9. The template contract (extends 0034 §2)
-
-*Changed by A2, A4, A6, A7, A8, A11, A12.*
 
 *Current text: [19](../architecture/19-site-ui.md) §5.10.*
 
@@ -86,8 +81,6 @@ James's direction, from the design discussion of 2026-10-29:
 
 ### 13. Message bundles (amends 0034 §9; extends 0095 §2)
 
-*Changed by A2, A13.*
-
 *Current text: [19](../architecture/19-site-ui.md) §5.6.*
 
 ### 14. Theme tokens (extends 0086 §5)
@@ -100,13 +93,9 @@ James's direction, from the design discussion of 2026-10-29:
 
 ### 16. Reaching parity, then removing the built-in rendering
 
-*Changed by A2, A3, A5, A12.*
-
 *Current text: [19](../architecture/19-site-ui.md) §5.10.*
 
 ### 17. Crates (amends 0005 §2)
-
-*Changed by A2.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

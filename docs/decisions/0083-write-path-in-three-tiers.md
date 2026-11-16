@@ -4,7 +4,6 @@
 - **Date:** 2026-10-09
 - **Updated:** 2026-11-08 (A7)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0031](0031-property-constraints.md), [0032](0032-sparql-update-stream.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0047](0047-special-pages.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [0056](0056-security-model.md), [0059](0059-query-service.md), [0060](0060-scopes.md), [0061](0061-sprints-and-tasks.md), [0064](0064-entityschema-and-validation.md), [0067](0067-proposals.md), [0070](0070-shallow-entity-mirroring.md), [0071](0071-derived-statements-from-mirrored-pages.md)
 - **Uses:** [0082](0082-source-form-and-the-shared-view.md), [0084](0084-wikibase-writes-against-the-resolved-view.md)
 
 ## Context
@@ -34,25 +33,17 @@ James's direction, from the design review of 2026-10-09:
 
 ### 3. Tier 3: consumers of composition (amends 0013 §7, 0014 §7, 0031 §2, 0032 §2, 0042 §10, 0043 §10, 0047 §4.2 and §4.3, 0056 §14, 0060 §5 and §10, 0061 §6 and 0064 §5; extends 0014 §5, 0060 §4 and 0061 §11)
 
-*Changed by A3, A4.*
-
 *Current text: [00](../architecture/00-overview.md) §2.1, §2.2, §5; [02](../architecture/02-graphs-rdf-and-query.md) §6.2; [03](../architecture/03-storage-caches-and-search.md) §4.4, §4.6, §4.10, §4.11, §4.14, §4.15, §5, §6.1, §6.2, §11.3; [06](../architecture/06-statements-and-properties.md) §2.2; [08](../architecture/08-tenants-and-instances.md) §2.5; [09](../architecture/09-security-and-moderation.md) §4.2, §4.4; [11](../architecture/11-rendering-templates-and-modules.md) §4.4, §7.9; [15](../architecture/15-structured-pages.md) §1.3, §1.4, §3.5, §6.4; [21](../architecture/21-special-pages.md) §2.2, §2.3; [23](../architecture/23-configuration-and-registry.md) §3.2.*
 
 ### 4. Graph state and revision state (extends 0002 §7, 0008 §4, 0012 §2.1 and §4, 0013 §5 and 0015 §2; amends 0012 §7)
-
-*Changed by A1, A2.*
 
 *Current text: [00](../architecture/00-overview.md) §5; [01](../architecture/01-log-and-records.md) §2.5; [03](../architecture/03-storage-caches-and-search.md) §4.2, §5; [05](../architecture/05-providers-and-ingest.md) §2.5; [10](../architecture/10-pages-and-content-models.md) §3.2; [18](../architecture/18-api.md) §1.3, §2.3, §3.2, §5.1, §5.2.*
 
 ### 5. Bulk append into a live partition, and catch-up (amends 0013 §2 and §9; extends 0002 §8 and 0070 §7)
 
-*Changed by A6, A7.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §2.1, §6.2; [05](../architecture/05-providers-and-ingest.md) §3.10.*
 
 ### 6. Projections: classes, replay and rebuild (amends 0008 §10, 0013 §7, 0023 §6, 0038 §3, 0039 §9, 0042 §9 and §10, 0047 §4.3, 0055 §6, 0060 §5, 0061 §6, 0064 §5 and 0067 §5; extends 0006 §3, 0014 §4 and §10 and 0039 §20)
-
-*Changed by A3, A4.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §2.4; [03](../architecture/03-storage-caches-and-search.md) §4.5, §4.6, §4.7, §4.10, §5, §6.1, §9.4, §12.1; [09](../architecture/09-security-and-moderation.md) §6.4; [10](../architecture/10-pages-and-content-models.md) §5.2, §5.3, §5.5; [11](../architecture/11-rendering-templates-and-modules.md) §4.1, §4.3; [12](../architecture/12-files-and-media.md) §5.3; [14](../architecture/14-discussions.md) §5.4; [15](../architecture/15-structured-pages.md) §1.4, §3.5, §3.6, §6.4; [21](../architecture/21-special-pages.md) §2.3.*
 

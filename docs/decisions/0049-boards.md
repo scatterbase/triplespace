@@ -4,7 +4,6 @@
 - **Date:** 2026-10-01
 - **Updated:** 2026-10-09 (A6)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0011](0011-logs.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md), [0020](0020-change-feeds.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0038](0038-page-metadata-and-categories.md), [0041](0041-content-models.md)
 - **Uses:** [0012](0012-api-requirements.md), [0014](0014-caches-and-search.md), [0021](0021-notifications.md), [0028](0028-tenancy-policy.md), [0045](0045-table-content-model.md), [0047](0047-special-pages.md)
 
 ## Context
@@ -40,8 +39,6 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 4. The definition
 
-*Changed by A3.*
-
 *Current text: [14](../architecture/14-discussions.md) §3.4.*
 
 ### 5. A thread has one home and any number of listings (amends 0019 §1–2)
@@ -50,8 +47,6 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 6. Records (amends 0019 §1 and §4)
 
-*Changed by A4.*
-
 *Current text: [14](../architecture/14-discussions.md) §1.2, §1.5, §3.6, §4.2.*
 
 ### 7. What the home decides, and what every attachment shares (amends 0016 §4, 0019 §12, 0023 §2 and §4; extends 0020 §2)
@@ -59,8 +54,6 @@ James's direction, from the design discussion of 2026-10-01:
 *Current text: [14](../architecture/14-discussions.md) §3.7.*
 
 ### 8. Rendering and the UI (amends 0019 §8)
-
-*Changed by A4.*
 
 *Current text: [19](../architecture/19-site-ui.md) §6.1.*
 
@@ -78,25 +71,17 @@ James's direction, from the design discussion of 2026-10-01:
 
 ### 12. Storage, caches and search (extends 0019 §11)
 
-*Changed by A4, A5.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.8, §5, §11.1, §12.1.*
 
 ### 13. Permissions (extends 0019 §12)
-
-*Changed by A4.*
 
 *Current text: [09](../architecture/09-security-and-moderation.md) §8.1.*
 
 ### 14. Scopes, later
 
-*Changed by A3.*
-
 *Current text: [15](../architecture/15-structured-pages.md) §1.5.*
 
 ### 15. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

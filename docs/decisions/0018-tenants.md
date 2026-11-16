@@ -4,7 +4,6 @@
 - **Date:** 2026-09-27
 - **Updated:** 2026-11-16 (A37)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [0003](0003-statement-ui.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
 
 ## Context
@@ -25,73 +24,49 @@ This ADR adds tenants, makes each tenant its own issuer of identity, lets a tena
 
 ### 1. Instances and tenants
 
-*Changed by A5, A8, A16, A20, A36, A37.*
-
 *Current text: [08](../architecture/08-tenants-and-instances.md) §1.1, §1.2, §1.3, §7.1.*
 
 ### 2. Partitions (amends 0005 §4.1–4.2, 0006 §3, 0013 §2 and 0015 §3, §5)
-
-*Changed by A6, A8, A14, A15, A20, A22, A25.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §2.1, §2.2, §2.3, §2.4.*
 
 ### 3. Configuration (amends 0015 §3)
 
-*Changed by A2, A5, A8, A13, A23, A27, A33.*
-
 *Current text: [08](../architecture/08-tenants-and-instances.md) §2.4, §2.5.*
 
 ### 4. Identity is per tenant (amends 0007 §1 and §8)
-
-*Changed by A4, A7, A20, A32.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §3.1, §3.2, §3.3, §3.4, §8.1.*
 
 ### 5. A tenant can be a provider (amends 0002 §4)
 
-*Changed by A4, A5, A11, A12, A21, A23, A26.*
-
 *Current text: [08](../architecture/08-tenants-and-instances.md) §4.1, §4.2, §4.3, §6.6.*
 
 ### 6. Shared views and tenant overlays (amends 0013 §5, 0014 §7)
-
-*Changed by A23.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.1, §7, §9.4, §11.4, §12.1, §12.5.*
 
 ### 7. Statement IDs follow the canonical ID (settles 0002 and 0004)
 
-*Changed by A23.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §4.9, §4.12.*
 
 ### 8. Contributions (settles 0010 and 0012; amends 0010 §8)
-
-*Changed by A28.*
 
 *Current text: [19](../architecture/19-site-ui.md) §2.5.*
 
 ### 9. Aliases
 
-*Changed by A20, A24.*
-
 *Current text: [08](../architecture/08-tenants-and-instances.md) §6.1.*
 
 ### 10. Moving a tenant (extends 0006 §6 and §9)
-
-*Changed by A3, A7, A8, A12, A17, A20, A21, A22, A29, A30, A31, A32, A34, A35.*
 
 *Current text: [08](../architecture/08-tenants-and-instances.md) §6.2, §6.3, §6.4, §6.7, §7.6; [16](../architecture/16-logs-feeds-and-notifications.md) §2.3.*
 
 ### 11. API and UI (amends 0012 §4–5)
 
-*Changed by A9, A18, A20.*
-
 *Current text: [18](../architecture/18-api.md) §1.2, §2.2; [19](../architecture/19-site-ui.md) §1.3, §3.10, §6.11.*
 
 ### 12. Crates (amends 0005 §2)
-
-*Changed by A1, A36.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

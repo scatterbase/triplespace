@@ -4,7 +4,6 @@
 - **Date:** 2026-09-26
 - **Updated:** 2026-10-18 (A29)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md)
 - **Uses:** [0000](0000-init.md), [0003](0003-statement-ui.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -27,61 +26,41 @@ MediaWiki's search is CirrusSearch, which Wikimedia now runs on OpenSearch after
 
 ### 1. Principles
 
-*Changed by A3, A13.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §9.1, §13.*
 
 ### 2. Layers
-
-*Changed by A14, A15, A19.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §9.2, §12.2.*
 
 ### 3. Versions
 
-*Changed by A7, A24, A25.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §9.3.*
 
 ### 4. What L1 holds
-
-*Changed by A7, A11, A12, A13, A22, A24, A25, A26, A28, A29.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §9.4, §9.7, §12.1, §12.3.*
 
 ### 5. Erasure and hiding reach every layer
 
-*Changed by A3, A7, A26, A27.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §9.6, §12.4.*
 
 ### 6. HTTP caching
-
-*Changed by A5, A15, A27.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §10.1, §10.3.*
 
 ### 7. Search on OpenSearch
 
-*Changed by A2, A4, A5, A6, A7, A10, A11, A12, A13, A17, A24, A25, A26.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §11.1, §11.2, §11.3, §11.5, §12.5.*
 
 ### 8. Postgres fallback
-
-*Changed by A24.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §5, §11.6.*
 
 ### 9. Crates
 
-*Changed by A1.*
-
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ### 10. Caches, indexes and stores added by later ADRs
-
-*Changed by A3, A5, A7, A8, A16, A18, A20, A21, A24, A25, A26, A27.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §9.4, §9.5, §9.6, §9.7, §11.4, §12.1, §12.2, §12.3, §12.4, §12.5, §13.*
 

@@ -4,7 +4,6 @@
 - **Date:** 2026-09-30
 - **Updated:** 2026-10-09 (A5)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0017](0017-entity-id-grammar.md)
 - **Uses:** [0012](0012-api-requirements.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0043](0043-lua-modules.md)
 
 ## Context
@@ -19,8 +18,6 @@ James's direction, from the design discussion of 2026-09-30: **`QQQ`, `PPP` and 
 
 ### 1. The tenant-relative form (extends 0017 §1)
 
-*Changed by A4, A5.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §2.1, §2.3, §5.2, §6.*
 
 ### 2. The doubled codes are reserved (extends 0017 §2)
@@ -28,8 +25,6 @@ James's direction, from the design discussion of 2026-09-30: **`QQQ`, `PPP` and 
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §2.2, §2.3.*
 
 ### 3. Where it is accepted (uses 0012 §4 and §5)
-
-*Changed by A5.*
 
 *Current text: [18](../architecture/18-api.md) §1.4, §3.4, §4.*
 
@@ -42,8 +37,6 @@ James's direction, from the design discussion of 2026-09-30: **`QQQ`, `PPP` and 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §2.1.*
 
 ### 6. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

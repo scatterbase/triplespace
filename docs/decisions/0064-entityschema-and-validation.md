@@ -4,7 +4,6 @@
 - **Date:** 2026-10-05
 - **Updated:** 2026-10-09 (A4)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [0047](0047-special-pages.md), [0060](0060-scopes.md), [0061](0061-sprints-and-tasks.md), [0062](0062-workspaces.md)
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0010](0010-site-ui.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0024](0024-subsidiary-accounts.md), [0031](0031-property-constraints.md), [0059](0059-query-service.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
 ## Context
@@ -35,13 +34,9 @@ James's direction, from the design discussion of 2026-10-05:
 
 ### 4. Validation: `scatter-shex`
 
-*Changed by A2.*
-
 *Current text: [15](../architecture/15-structured-pages.md) §6.3.*
 
 ### 5. Binding a schema to a scope, and the report (extends 0013 §5.6 and §7)
-
-*Changed by A4.*
 
 *Current text: [15](../architecture/15-structured-pages.md) §6.4.*
 
@@ -54,8 +49,6 @@ James's direction, from the design discussion of 2026-10-05:
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §11.1; [18](../architecture/18-api.md) §2.1, §2.3, §3.2, §6; [21](../architecture/21-special-pages.md) §6.4, §7, §8.*
 
 ### 8. RDF
-
-*Changed by A1.*
 
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §5.9.*
 

@@ -4,7 +4,6 @@
 - **Date:** 2026-10-09
 - **Updated:** 2026-10-30 (A1)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0079](0079-derived-issuer-codes.md)
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0021](0021-notifications.md), [0027](0027-preferences-and-portability.md), [0040](0040-instance-prerogatives.md), [0080](0080-tenants-as-entity-sources.md)
 
 ## Context

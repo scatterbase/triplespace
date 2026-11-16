@@ -4,7 +4,6 @@
 - **Date:** 2026-10-01
 - **Updated:** 2026-10-30 (A8)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0008](0008-namespaces-and-document-pages.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0030](0030-edit-filters.md), [0038](0038-page-metadata-and-categories.md), [0039](0039-files-and-media.md), [0047](0047-special-pages.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0023](0023-moderation.md), [0041](0041-content-models.md), [0042](0042-template-expansion-and-parsoid.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
 ## Context
@@ -21,19 +20,13 @@ James's direction, from the design discussion of 2026-10-01, was for the mirrori
 
 ### 1. A redirect is a wikitext page whose text says so (settles 0008 Q8)
 
-*Changed by A2.*
-
 *Current text: [10](../architecture/10-pages-and-content-models.md) §2.3.*
 
 ### 2. Following a redirect (extends 0008 §3)
 
-*Changed by A1.*
-
 *Current text: [10](../architecture/10-pages-and-content-models.md) §2.4.*
 
 ### 3. Moves leave a redirect (amends 0008 §4)
-
-*Changed by A3, A6, A7, A8.*
 
 *Current text: [10](../architecture/10-pages-and-content-models.md) §2.5, §3.2.*
 
@@ -46,8 +39,6 @@ James's direction, from the design discussion of 2026-10-01, was for the mirrori
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.5, §4.7, §5, §6.1, §11.1, §12.1; [16](../architecture/16-logs-feeds-and-notifications.md) §2.3.*
 
 ### 6. Reports (extends 0047 §4.4; amends 0047 §10)
-
-*Changed by A4.*
 
 *Current text: [21](../architecture/21-special-pages.md) §2.4, §7, §8.*
 

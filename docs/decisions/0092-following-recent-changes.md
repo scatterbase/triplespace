@@ -4,7 +4,6 @@
 - **Date:** 2026-10-26
 - **Updated:** 2026-11-15 (A8)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0053](0053-mirrored-pages.md), [0070](0070-shallow-entity-mirroring.md), [0078](0078-entity-sources.md)
 - **Uses:** [0011](0011-logs.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0027](0027-preferences-and-portability.md), [0040](0040-instance-prerogatives.md), [0067](0067-proposals.md), [0085](0085-settings-and-preferences.md), [0088](0088-external-identity-providers.md), [0091](0091-one-wikibase-adapter.md)
 
 ## Context
@@ -47,13 +46,9 @@ James's direction, from the design discussion of 2026-10-26:
 
 ### 2. A row says only that a title changed (extends 0070 §3)
 
-*Changed by A3, A5, A6, A7, A8.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.7.*
 
 ### 3. The follower's position (amends 0053 §8; amends 0070 §10)
-
-*Changed by A1.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.12; [05](../architecture/05-providers-and-ingest.md) §5.7.*
 
@@ -62,8 +57,6 @@ James's direction, from the design discussion of 2026-10-26:
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.9, §6.4.*
 
 ### 5. From the load to the follower (extends 0070 §7)
-
-*Changed by A4.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §5.9.*
 

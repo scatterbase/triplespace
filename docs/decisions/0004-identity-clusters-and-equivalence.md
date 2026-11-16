@@ -4,7 +4,6 @@
 - **Date:** 2026-09-25
 - **Updated:** 2026-10-09 (A22)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md)
 - **Uses:** [0000](0000-init.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
 ## Context
@@ -24,43 +23,29 @@ There are three needs:
 
 ### 1. Identity clusters
 
-*Changed by A1, A2, A7, A9, A11, A12.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §4.1.*
 
 ### 2. Clusters are strictly one-to-one
-
-*Changed by A12.*
 
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §4.2.*
 
 ### 3. Where links come from
 
-*Changed by A3, A4, A14, A16.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §4.3.*
 
 ### 4. The canonical ID
-
-*Changed by A1, A4, A5, A12, A13, A16, A17.*
 
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §4.4, §4.12.*
 
 ### 5. Conversion joins a cluster (amends 0002 §6)
 
-*Changed by A16.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §4.5.*
 
 ### 6. Properties
 
-*Changed by A16, A19.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §4.6.*
 
 ### 7. Values
-
-*Changed by A4, A6, A20, A21.*
 
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §4.7.*
 
@@ -70,13 +55,9 @@ There are three needs:
 
 ### 9. Operations (amends 0002 §8.2)
 
-*Changed by A4, A13, A16, A18, A22.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §4.10.*
 
 ### 10. Conflicts
-
-*Changed by A8.*
 
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §4.11.*
 

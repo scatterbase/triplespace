@@ -4,7 +4,6 @@
 - **Date:** 2026-10-09
 - **Updated:** 2026-10-30 (A2)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0015](0015-record-format-and-partition-registry.md), [0018](0018-tenants.md), [0028](0028-tenancy-policy.md), [0035](0035-adopting-a-wikibase.md), [0040](0040-instance-prerogatives.md), [0046](0046-primary-tenant.md)
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0022](0022-federation.md), [0027](0027-preferences-and-portability.md)
 
 ## Context
@@ -35,8 +34,6 @@ James's direction, from the design discussion of 2026-10-09:
 
 ### 2. The derivation (amends 0007 §1)
 
-*Changed by A1.*
-
 *Current text: [07](../architecture/07-actors-and-accounts.md) §1.1; [08](../architecture/08-tenants-and-instances.md) §1.2.*
 
 ### 3. The slug is a name (amends 0018 §1, §9 and §10)
@@ -44,8 +41,6 @@ James's direction, from the design discussion of 2026-10-09:
 *Current text: [08](../architecture/08-tenants-and-instances.md) §1.2, §6.1, §6.3.*
 
 ### 4. The farm code (amends 0015 §1, 0028 §2, 0040 §2, §3 and §7, and 0046 §5 and §6)
-
-*Changed by A1.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §2.4; [07](../architecture/07-actors-and-accounts.md) §1.1; [08](../architecture/08-tenants-and-instances.md) §1.2, §3.5, §7.5, §8.2, §8.3; [16](../architecture/16-logs-feeds-and-notifications.md) §2.1; [19](../architecture/19-site-ui.md) §2.5, §6.11.*
 

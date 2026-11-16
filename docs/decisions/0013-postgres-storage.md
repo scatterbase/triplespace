@@ -4,7 +4,6 @@
 - **Date:** 2026-09-26
 - **Updated:** 2026-11-15 (A104)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md)
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
 
 ## Context
@@ -51,97 +50,65 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 2. The `log` schema
 
-*Changed by A2, A5, A27, A31, A53, A57, A104.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §2.1, §2.2, §5.*
 
 ### 3. Erasure and compaction in Postgres (amends 0006 §7)
-
-*Changed by A2, A31, A40, A96.*
 
 *Current text: [01](../architecture/01-log-and-records.md) §5.2, §6.*
 
 ### 4. Four schemas
 
-*Changed by A3, A7, A8, A9, A11, A27, A45, A64, A65, A66, A67, A97, A98, A99, A100, A101, A102, A103.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §1.2, §4.16.*
 
 ### 5. The `view` schema
-
-*Changed by A5, A9, A11, A46, A52, A53, A59, A69.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.1, §7.*
 
 #### 5.1 Entities
 
-*Changed by A4, A28, A52, A53, A54, A55, A61.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.2, §5.*
 
 #### 5.2 Terms, sitelinks, identifiers and references
-
-*Changed by A9, A52.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.3, §5.*
 
 #### 5.3 Statements, clusters and corrections
 
-*Changed by A52.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.4, §5.*
 
 #### 5.4 Keyed types, pages, actors
-
-*Changed by A9, A11, A15, A21, A27, A43, A48, A53, A55, A56, A60.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.5, §5.*
 
 #### 5.5 Activity, jobs and configuration
 
-*Changed by A9, A18, A47, A49, A53, A61.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §4.6, §5.*
 
 #### 5.6 Tables added by later ADRs
-
-*Changed by A2, A3, A6, A7, A8, A9, A10, A11, A13, A14, A16, A17, A19, A21, A22, A23, A24, A25, A26, A30, A33, A34, A35, A36, A37, A38, A39, A41, A42, A43, A50, A52, A53, A84.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §5.*
 
 ### 6. Global revision, log and page IDs (amends 0012 §2.1)
 
-*Changed by A2, A5, A6, A12, A22, A29, A55, A58, A68, A100.*
-
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §2.3.*
 
 ### 7. Projections, synchrony and read-your-writes
-
-*Changed by A3, A5, A6, A8, A9, A10, A11, A13, A14, A16, A19, A27, A28, A33, A44, A53, A63, A75, A76, A77, A86, A87, A88, A89, A90, A91, A92, A93, A94, A95.*
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §5, §6.1, §6.2, §6.3.*
 
 ### 8. RDF becomes an output, not the read path (amends 0001 §2 and 0005 §4.4)
 
-*Changed by A9, A10, A32, A78, A79, A80, A81.*
-
 *Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.5, §4.1, §6.5.*
 
 ### 9. Bootstrap mode (extends 0002 §8.6; uses 0006 §5)
-
-*Changed by A31, A53, A70, A71, A72, A73, A74, A82, A83, A85, A100.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.8.*
 
 ### 10. Crates (amends 0005 §2)
 
-*Changed by A1.*
-
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ### 11. Deployment profiles
-
-*Changed by A52, A62.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §6.*
 

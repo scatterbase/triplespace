@@ -4,7 +4,6 @@
 - **Date:** 2026-09-26
 - **Updated:** 2026-11-15 (A16)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md)
 - **Uses:** [0000](0000-init.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
 ## Context
@@ -21,8 +20,6 @@ Domains are also a bulk-ingest target. Citation data carries URLs, and every URL
 
 ### 1. Keyed entity types
 
-*Changed by A2, A9, A16.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §3.1, §3.10.*
 
 ### 2. The Domain key
@@ -31,61 +28,41 @@ Domains are also a bulk-ingest target. Citation data carries URLs, and every URL
 
 ### 3. IDs, JSON and values
 
-*Changed by A2.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §3.2.*
 
 ### 4. A Domain exists because its key is valid
-
-*Changed by A2.*
 
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §3.3.*
 
 ### 5. Terms
 
-*Changed by A2, A3.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §3.6.*
 
 ### 6. IRIs under `scatter.red`
-
-*Changed by A10.*
 
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §3.5.*
 
 ### 7. Log keys are surrogates
 
-*Changed by A8, A12.*
-
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §3.4.*
 
 ### 8. Keyed types rank first in identity clusters (amends 0004 §4)
-
-*Changed by A2, A6.*
 
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §3, §4.1, §4.4.*
 
 ### 9. Key-mapped providers (amends 0002 §4 and §5)
 
-*Changed by A2, A4, A6, A13, A14, A15.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §2, §4.1, §4.2, §8.4, §8.6.*
 
 ### 10. Operations
-
-*Changed by A2.*
 
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §3.3, §4.10.*
 
 ### 11. The Domain namespace
 
-*Changed by A5.*
-
 *Current text: [10](../architecture/10-pages-and-content-models.md) §1.4, §3.7.*
 
 ### 12. Crates (amends 0005 §2)
-
-*Changed by A1, A15.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

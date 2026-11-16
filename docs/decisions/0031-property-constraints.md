@@ -4,7 +4,6 @@
 - **Date:** 2026-09-27
 - **Updated:** 2026-10-09 (A8)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0003](0003-statement-ui.md), [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0030](0030-edit-filters.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0018](0018-tenants.md), [0020](0020-change-feeds.md), [0029](0029-resolver-namespaces.md), [Wikibase contract](../api/wikibase-compat.md)
 
 ## Context
@@ -19,25 +18,17 @@ The instance has two advantages over Wikidata here. It **mirrors** Wikidata's pr
 
 ### 1. A constraint is a statement on a property, read by role (extends 0003 §7)
 
-*Changed by A4, A6, A8.*
-
 *Current text: [06](../architecture/06-statements-and-properties.md) §2.1.*
 
 ### 2. Checking is a projection over the resolved view (extends 0004 §4, §7)
-
-*Changed by A7.*
 
 *Current text: [06](../architecture/06-statements-and-properties.md) §2.2, §2.5.*
 
 ### 3. Where violations appear
 
-*Changed by A2.*
-
 *Current text: [06](../architecture/06-statements-and-properties.md) §2.3.*
 
 ### 4. Tenants (uses 0018 §6)
-
-*Changed by A6.*
 
 *Current text: [06](../architecture/06-statements-and-properties.md) §2.4.*
 
@@ -58,8 +49,6 @@ The instance has two advantages over Wikidata here. It **mirrors** Wikidata's pr
 *Current text: [06](../architecture/06-statements-and-properties.md) §2.5.*
 
 ### 9. Crates (amends 0005 §2)
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

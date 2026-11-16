@@ -4,7 +4,6 @@
 - **Date:** 2026-09-27
 - **Updated:** 2026-11-09 (A21)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0005](0005-crate-organization.md), [0007](0007-actor-identity.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0016](0016-permissions-and-access-control.md), [0019](0019-discussions.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0022](0022-federation.md)
 
 ## Context
@@ -19,31 +18,21 @@ One constraint is fixed by James: **whether a user is watching something is priv
 
 ### 1. A feed is activity rows filtered by a target set
 
-*Changed by A3, A15, A19, A21.*
-
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.1.*
 
 ### 2. Target sets
-
-*Changed by A6, A7, A9, A11, A12, A16.*
 
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.2.*
 
 ### 3. The watch set is private state, not records (extends 0007 §8, 0013 §4)
 
-*Changed by A2, A5, A11, A13, A17, A18.*
-
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.3.*
 
 ### 4. Delivery: page, Atom, stream (settles 0012 Q6)
 
-*Changed by A6, A8, A15.*
-
 *Current text: [16](../architecture/16-logs-feeds-and-notifications.md) §4.4.*
 
 ### 5. API (extends 0012 §4 and §5)
-
-*Changed by A2, A6, A18, A20.*
 
 *Current text: [18](../architecture/18-api.md) §2.3, §3.1, §3.2.*
 
@@ -53,13 +42,9 @@ One constraint is fixed by James: **whether a user is watching something is priv
 
 ### 7. Permissions (extends 0016 §2)
 
-*Changed by A4.*
-
 *Current text: [09](../architecture/09-security-and-moderation.md) §2.2, §8.2.*
 
 ### 8. Crates
-
-*Changed by A1.*
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 

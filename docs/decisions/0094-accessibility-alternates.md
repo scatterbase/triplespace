@@ -4,7 +4,6 @@
 - **Date:** 2026-10-28
 - **Updated:** 2026-10-30 (A1)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0086](0086-theming.md)
 - **Uses:** [0085](0085-settings-and-preferences.md)
 
 ## Context

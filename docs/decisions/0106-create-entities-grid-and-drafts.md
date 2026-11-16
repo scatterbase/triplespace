@@ -4,7 +4,6 @@
 - **Date:** 2026-11-08
 - **Updated:** 2026-11-16 (A11)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0045](0045-table-content-model.md), [0104](0104-batches-and-the-job-runner.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0043](0043-lua-modules.md), [0064](0064-entityschema-and-validation.md), [0073](0073-lines-links-and-url-patterns.md)
 
 ## Context
@@ -27,13 +26,9 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 1. The grid is an enhancement over the table's text (amends 0104 §11)
 
-*Changed by A2, A6, A9, A11.*
-
 *Current text: [21](../architecture/21-special-pages.md) §6.6, §6.7.*
 
 ### 2. The text names ids, new properties, references and other rows (amends 0104 §11)
-
-*Changed by A1, A4, A7, A8.*
 
 *Current text: [21](../architecture/21-special-pages.md) §6.6.*
 
@@ -43,37 +38,25 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 4. New properties from a column, for holders of `property-create` (amends 0104 §11)
 
-*Changed by A1, A4.*
-
 *Current text: [21](../architecture/21-special-pages.md) §6.6.*
 
 ### 5. A row that matches an existing item adds to it (amends 0104 §11; uses 0002 §8.5)
-
-*Changed by A1, A4.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.5; [21](../architecture/21-special-pages.md) §6.6.*
 
 ### 6. Row status and cells by data type (uses 0003 §9 and 0073)
 
-*Changed by A1, A6, A7, A9, A10, A11.*
-
 *Current text: [21](../architecture/21-special-pages.md) §6.7.*
 
 ### 7. Upload and column mapping (extends 0104 §11)
-
-*Changed by A6, A9, A10.*
 
 *Current text: [21](../architecture/21-special-pages.md) §6.8.*
 
 ### 8. One batch; a statement's own reference replaces the default (amends 0104 §11)
 
-*Changed by A4.*
-
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.5; [21](../architecture/21-special-pages.md) §6.6.*
 
 ### 9. Drafts are tables with staged rows (amends 0045 §1; extends 0045 §4 and §7)
-
-*Changed by A1, A2, A3, A5, A9, A10, A11.*
 
 *Current text: [15](../architecture/15-structured-pages.md) §2.1, §2.3, §2.6, §2.7.*
 

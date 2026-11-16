@@ -2,9 +2,8 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-30
-- **Updated:** 2026-11-09 (A4)
+- **Updated:** 2026-11-16 (A5)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0050](0050-adr-format.md)
 - **Uses:** [0005](0005-crate-organization.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0016](0016-permissions-and-access-control.md), [0085](0085-settings-and-preferences.md)
 
 ## Context
@@ -31,8 +30,6 @@ James's direction, 2026-10-30, on the review:
 
 ### 1. Every Decision section is a pointer from birth (amends 0050 §5, §7, §14)
 
-*Changed by A1.*
-
 *Current text: [24](../architecture/24-documentation.md) §1, §3.2, §5.*
 
 ### 2. The chapters' provenance lines are the map (amends 0050 §14)
@@ -48,8 +45,6 @@ James's direction, 2026-10-30, on the review:
 *Current text: [24](../architecture/24-documentation.md) §12, §13.*
 
 ### 5. Catalogues are registry data (extends 0050 §6; uses 0005 §2–3, 0011 §6, 0012 §4, §5, 0016 §2)
-
-*Changed by A1, A3, A4.*
 
 *Current text: [24](../architecture/24-documentation.md) §11.*
 
@@ -126,3 +121,12 @@ Replaced text: [24](../architecture/24-documentation.md) §11, as it stood after
 - **Source:** [0105](0105-catalogues-checked-against-the-running-code.md) §1
 - **Change:** extends §5
 - **Summary:** A catalogue the code acts on is also checked against the running code, both ways: the code reports the names it uses, and a script names those the file lacks (unlisted) and the entries no run used (not observed). Permissions are first. Chapter text: [24](../architecture/24-documentation.md) §11.
+
+### A5. `Changes` joins the retired header fields; a pointer section keeps no Changed-by line
+
+- **Date:** 2026-11-16
+- **Source:** Direct: James, review of pull request #262, 2026-11-16
+- **Change:** amends §1, §3
+- **Summary:** [0050](0050-adr-format.md) A10 retires the `Changes` header and the `*Changed by …*` lines, both read from the logs. §3's list of retired, derivable fields gains `Changes`, and §1's account of what a pointer section keeps no longer names a provenance line. Chapter text: [24](../architecture/24-documentation.md) §2.2, §3.2.
+
+Replaced text: [24](../architecture/24-documentation.md) §2.2, §3.2.

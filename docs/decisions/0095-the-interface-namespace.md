@@ -4,7 +4,6 @@
 - **Date:** 2026-10-28
 - **Updated:** 2026-10-30 (A4)
 - **Author:** James Hare / Claude Opus
-- **Changes:** [0005](0005-crate-organization.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0012](0012-api-requirements.md), [0016](0016-permissions-and-access-control.md), [0042](0042-template-expansion-and-parsoid.md), [0043](0043-lua-modules.md), [0055](0055-templatestyles-templatedata-and-page-properties.md)
 - **Uses:** [0007](0007-actor-identity.md), [0019](0019-discussions.md), [0046](0046-primary-tenant.md), [0079](0079-derived-issuer-codes.md)
 
 ## Context
@@ -26,13 +25,9 @@ Asked what the namespace holds and how an account is marked, James chose (2026-1
 
 ### 1. The Interface namespace (amends 0008 §2)
 
-*Changed by A1.*
-
 *Current text: [10](../architecture/10-pages-and-content-models.md) §1.4.*
 
 ### 2. Interface pages override messages (amends 0042 §5; amends 0043 §5; amends 0055 §4)
-
-*Changed by A1, A3.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §2.3, §6.4, §7.5.*
 
@@ -50,19 +45,13 @@ Asked what the namespace holds and how an account is marked, James chose (2026-1
 
 ### 6. Crates (extends 0005 §2)
 
-*Changed by A1.*
-
 *Current text: [22](../architecture/22-crates-and-stack.md) §2.1.*
 
 ### 7. Adopting a wiki brings its MediaWiki namespace (settles Q1; extends 0008 §9)
 
-*Changed by A1.*
-
 *Current text: [10](../architecture/10-pages-and-content-models.md) §6.*
 
 ### 8. `meta=allmessages` (settles Q2; amends 0042 §5, §8.1, §14)
-
-*Changed by A1, A2.*
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §2.3, §3.1; [18](../architecture/18-api.md) §2.3.*
 

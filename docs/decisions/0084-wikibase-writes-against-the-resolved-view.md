@@ -4,7 +4,6 @@
 - **Date:** 2026-10-09
 - **Updated:** 2026-10-30 (A1)
 - **Author:** James Hare / Claude Fable
-- **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0005](0005-crate-organization.md), [0006](0006-log-integrity-and-erasure.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0015](0015-record-format-and-partition-registry.md)
 - **Uses:** [Wikibase data model and ontology contract](../api/wikibase-compat.md), [MediaWiki compatibility contract](../api/mediawiki-compat.md), [0082](0082-source-form-and-the-shared-view.md), [0083](0083-write-path-in-three-tiers.md)
 
 ## Context
