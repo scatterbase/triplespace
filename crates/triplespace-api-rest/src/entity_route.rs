@@ -37,7 +37,16 @@ pub(crate) fn error(status: StatusCode, code: &str, message: impl Into<String>) 
 
 /// An internal error.
 pub(crate) fn internal(e: &dyn std::fmt::Display) -> Response {
-    error(StatusCode::INTERNAL_SERVER_ERROR, "internal", e.to_string())
+    let text = e.to_string();
+    // A frozen or deleted tenant refuses every write (0111 §10, A3).
+    if triplespace_api_action::response::is_frozen(&text) {
+        return error(
+            StatusCode::SERVICE_UNAVAILABLE,
+            "readonly",
+            "the wiki is read-only: it is frozen or deleted",
+        );
+    }
+    error(StatusCode::INTERNAL_SERVER_ERROR, "internal", text)
 }
 
 /// The request, resolved.

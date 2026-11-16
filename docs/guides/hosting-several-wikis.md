@@ -437,6 +437,35 @@ lists every wiki.
 With a wildcard record and a wildcard certificate for a domain, a new wiki under that domain
 needs only step 3.
 
+## Freezing, deleting and handing over a wiki
+
+These are requests too, carried out by the provisioner, so `triplespace provision` must be
+running. Each is filed from `Special:Tenants` at the farm base, by an operator who may create
+wikis, with the button on the wiki's row:
+
+- **Freeze** makes a wiki read-only. Readers see it as before; every edit is refused with
+  `readonly`, as MediaWiki refuses edits to a locked wiki, and API clients see `readonly` in
+  `meta=siteinfo`. **Unfreeze** undoes it.
+- **Delete** freezes the wiki and erases it after a grace period, 90 days unless the instance
+  says otherwise. The row shows the date. **Cancel deletion** makes the wiki active again any
+  time before then. Once erased, its data is gone from the database, and its host is free for
+  a new wiki; remove its DNS record and proxy entry yourself. To change the grace period:
+
+  ```sh
+  triplespace settings set --instance tenants.delete_grace_days 30
+  ```
+
+- The primary wiki cannot be frozen or deleted until another wiki has taken the primary role.
+
+**Handing over the primary role.** An owner of the primary wiki offers the role to another
+wiki under **Offer the primary role** on `Special:Tenants` at the farm base. The offer stays open
+for seven days and can be withdrawn there. An owner of the wiki offered it opens
+`Special:Tenants` on that wiki's own host and presses **Accept the primary role**. From then on,
+that wiki's owners operate the instance, and the former primary wiki's owners own only their
+own wiki. The farm base stays where it is: if it is the former primary wiki's host, the new
+operators manage the instance there with accounts of that wiki, since every wiki has its own
+accounts in this version.
+
 ## Not supported yet
 
 | Missing | What it means for now |
@@ -444,7 +473,8 @@ needs only step 3.
 | The `community` and `enterprise` presets, with farm-wide accounts, global groups and global blocks | Every wiki is isolated. A person signs up on each wiki, and a block on one wiki does not reach the others. |
 | Sign-in on the auth host | People sign in on each wiki's host, and manage their login, email addresses included, on `Special:Account` there. Account emails link to that page on the wiki they were sent from. |
 | A wiki at a path rather than a host | Each wiki needs its own host name. |
-| Freezing, deleting or moving a single wiki | Wikis cannot yet be frozen, deleted, or moved to another instance one at a time. The whole instance can be moved: see [Moving an instance](moving-an-instance.md). |
-| Changing the primary tenant, or a wiki's host | The first wiki stays primary, and every wiki keeps the host it was created with. |
+| Moving a single wiki to another instance | Wikis can be frozen and deleted, but not moved one at a time. The whole instance can be moved: see [Moving an instance](moving-an-instance.md). |
+| Freezing, deleting or handing over a wiki from the command line | Use `Special:Tenants` or the REST API (`POST /tenancy/requests` with `act`). |
+| Changing a wiki's host | Every wiki keeps the host it was created with. |
 | Reading one wiki's entities from another on the same instance | Wikis do not see each other's data. The instance's provider mirrors, such as Wikidata, are held once and shared by every wiki. |
 | File uploads | No media host is needed yet. |

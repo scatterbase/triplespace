@@ -548,8 +548,8 @@ async fn two_tenants_on_one_instance() {
     assert_eq!(
         tenancy["tenants"],
         json!([
-            {"slug": "alpha", "issuer": alpha.issuer, "host": ALPHA, "base": format!("https://{ALPHA}"), "name": "Alpha", "status": "active"},
-            {"slug": "beta", "issuer": beta.issuer, "host": BETA, "base": format!("https://{BETA}"), "name": "Beta", "status": "active"},
+            {"slug": "alpha", "issuer": alpha.issuer, "host": ALPHA, "base": format!("https://{ALPHA}"), "name": "Alpha", "status": "active", "erase_after": null},
+            {"slug": "beta", "issuer": beta.issuer, "host": BETA, "base": format!("https://{BETA}"), "name": "Beta", "status": "active", "erase_after": null},
         ])
     );
     let (status, err) = on_beta

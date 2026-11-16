@@ -78,6 +78,11 @@ pub enum Outcome {
     Refused(String, String),
     /// It had been carried out or refused already.
     Done,
+    /// Another act was carried out now: freeze, unfreeze, delete, undelete or
+    /// accept-primary (0111 §10).
+    Carried(String),
+    /// A deleted tenant whose grace period was over was erased.
+    Erased,
 }
 
 /// What carrying out a request needs.
@@ -147,14 +152,14 @@ pub async fn pending(client: &Client) -> Result<Vec<Request>> {
         .collect())
 }
 
-async fn created_for(client: &Client, request: &Request) -> Result<bool> {
-    tenant_requests::created_for(client, &request.ask.slug, request.authority.offset)
+async fn done_for(client: &Client, request: &Request) -> Result<bool> {
+    tenant_requests::done_for(client, &request.ask, request.authority.offset)
         .await
         .map_err(|e| anyhow::anyhow!("{e}"))
 }
 
 /// A refusal: its code and why.
-struct Refusal(&'static str, String);
+pub(crate) struct Refusal(pub(crate) &'static str, pub(crate) String);
 
 impl Provisioner {
     /// Carries out every pending request, under the advisory lock; returns each request's
@@ -174,6 +179,10 @@ impl Provisioner {
                 let outcome = self.carry_out(&client, &request).await?;
                 out.push((request.ask.slug.clone(), outcome));
             }
+            let farm = farm_of(&client).await?;
+            for slug in self.erase_due(&client, &farm).await? {
+                out.push((slug, Outcome::Erased));
+            }
             Ok::<(), anyhow::Error>(())
         }
         .await;
@@ -186,10 +195,13 @@ impl Provisioner {
 
     /// Checks a request and carries it out, or refuses it (0111 §4).
     pub async fn carry_out(&self, client: &Client, request: &Request) -> Result<Outcome> {
-        if created_for(client, request).await? {
+        if done_for(client, request).await? {
             return Ok(Outcome::Done);
         }
         let farm = farm_of(client).await?;
+        if request.ask.act() != tenant_requests::act::CREATE {
+            return self.carry_out_act(client, &farm, request).await;
+        }
         match self.check(client, &farm, request).await? {
             Err(Refusal(code, why)) => {
                 self.refuse(client, &farm, request, code, &why).await?;
@@ -281,7 +293,7 @@ impl Provisioner {
 
     /// Whether `actor` holds the right on the tenant that is primary now. A request is
     /// carried out as soon as it is seen, so now is its offset (0111 A1).
-    async fn entitled(&self, client: &Client, actor: Option<&str>) -> Result<bool> {
+    pub(crate) async fn entitled(&self, client: &Client, actor: Option<&str>) -> Result<bool> {
         let Some(actor) = actor else {
             return Ok(false);
         };
@@ -345,7 +357,7 @@ impl Provisioner {
 
     /// Appends the refusal of `request`, attested by the instance with the request as
     /// authority.
-    async fn refuse(
+    pub(crate) async fn refuse(
         &self,
         client: &Client,
         farm: &Farm,
@@ -445,6 +457,8 @@ pub fn print_outcome(slug: &str, outcome: &Outcome) {
         ),
         Outcome::Refused(code, why) => println!("refused   {slug}  {code}: {why}"),
         Outcome::Done => println!("done      {slug}"),
+        Outcome::Carried(act) => println!("{act:<9} {slug}"),
+        Outcome::Erased => println!("erased    {slug}"),
     }
 }
 

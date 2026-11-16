@@ -538,6 +538,8 @@ pub async fn create(
             base: spec.base.clone(),
             issuer,
             adopted_from: spec.adopt.clone(),
+            status: "active".into(),
+            erase_after: None,
         },
         config,
         partitions,
@@ -819,6 +821,7 @@ pub async fn create_with(args: Create, password: Option<&str>) -> Result<()> {
         owner_login_source: args.owner_login_of.clone(),
         adopt: spec.adopt.clone(),
         owner_id: spec.owner,
+        ..Default::default()
     };
     let authority =
         crate::provision::file(&args.database, &operator, &ask, Some("tenant create")).await?;
@@ -836,7 +839,9 @@ pub async fn create_with(args: Create, password: Option<&str>) -> Result<()> {
     let created = match provisioner.carry_out(&client, &request).await? {
         crate::provision::Outcome::Created(c) => *c,
         crate::provision::Outcome::Refused(code, why) => bail!("{code}: {why}"),
-        crate::provision::Outcome::Done => bail!("the request was already carried out"),
+        crate::provision::Outcome::Done
+        | crate::provision::Outcome::Carried(_)
+        | crate::provision::Outcome::Erased => bail!("the request was already carried out"),
     };
     let password = owner_password(&args.database, &farm, &created, password, now()).await?;
     println!("tenant created by {operator}, request {}", authority.offset);

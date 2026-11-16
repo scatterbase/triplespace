@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-11-16 (A10)
+- **Updated:** 2026-11-16 (A11)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0010](0010-site-ui.md), [0039](0039-files-and-media.md), [0047](0047-special-pages.md)
 
@@ -87,8 +87,8 @@ James's direction, from the design discussion of 2026-09-30: the role is **trans
 
 - **Q1. Instance groups separate from the primary tenant's groups.** Whether instance rights should be granted by instance-scope group records rather than by the primary tenant's own groups, so that a community wiki can be primary without its bureaucrats approving consumers. Global groups already do this on farms with farm identity; the question is for farms without it.
 - **Q2. Public dumps of the instance `log`.** *Settled by A9.*
-- **Q3. Two owners for a transfer.** Whether offering the role should, like expunge ([0040](0040-instance-prerogatives.md) Q1), need two members of `owner`.
-- **Q4. Offer expiry default.** Seven days is a placeholder.
+- **Q3. Two owners for a transfer.** *Settled by A11.*
+- **Q4. Offer expiry default.** *Settled by A11.*
 
 ## References
 
@@ -173,3 +173,12 @@ Replaced text: 19 §6.11.
 - **Summary:** Records in instance partitions were attested by an upstream actor, a farm account, or an actor of the primary tenant for everything else. The `tenant:` and `tenant/refuse` records the provisioner writes when it carries out a tenant request are attested by `instance:{farm code}`, with the request, which an actor of the primary tenant attests, as their authority, as offsets 1 and 2 of the instance `config` already were. A new instance right, `ts-createtenant`, held by `owner` alone, files a request; `Special:Tenants` gains the form that files one. Accepting the primary role is now an acceptance request citing the offer, which the provisioner checks before it appends the new `primary` record, attested by the instance with the acceptance as authority. Chapter text: 08 §7.4, §7.5; 09 §2.2; 19 §6.11.
 
 Replaced text: 08 §7.4, §7.5.
+
+### A11. One owner offers the role, for seven days
+
+- **Date:** 2026-11-16
+- **Source:** Direct: James, design discussion of 2026-11-16
+- **Change:** amends §5
+- **Summary:** One member of `owner` on the primary tenant may offer the primary role; it needs no second owner, since the receiving tenant's acceptance is the second party. An offer is open for seven days, no longer a placeholder. Chapter text: 08 §7.5.
+
+Replaced text: 08 §7.5.

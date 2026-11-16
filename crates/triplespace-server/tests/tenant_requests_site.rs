@@ -3,7 +3,10 @@
 //! requests; `POST /tenancy/requests` files one, refused to a reader; the provisioner
 //! carries it out; `POST /tenancy/requests/{id}/invitation` issues the owner's invitation,
 //! which `Special:CreateAccount?invite=` on the new wiki redeems with a password, after which
-//! the owner logs in there. Needs `TRIPLESPACE_TEST_DATABASE_URL`; vacuous without it.
+//! the owner logs in there. Then the other acts (0111 §10): the row buttons freeze a wiki,
+//! whose writes answer `readonly`, and the API unfreezes it; the primary role is offered,
+//! withdrawn and offered again (0046 §5), and accepted on the offered wiki's own
+//! `Special:Tenants`. Needs `TRIPLESPACE_TEST_DATABASE_URL`; vacuous without it.
 
 use std::net::SocketAddr;
 
@@ -420,4 +423,131 @@ async fn tenant_requests_from_the_site() {
         .await;
     assert_eq!(r.status, StatusCode::CONFLICT, "{}", r.body);
     assert_eq!(r.body["code"], "ts-invitation-bound");
+
+    // 0111 §10: the row's Freeze button files a freeze, which the provisioner carries out.
+    let r = farm.page("/wiki/Special:Tenants").await;
+    assert!(
+        r.text.contains("name=\"act\" value=\"freeze\""),
+        "{}",
+        r.text
+    );
+    let token = farm.csrf().await;
+    let r = farm
+        .page_post(
+            "/w/index.php?title=Special:Tenants",
+            &[("token", &token), ("act", "freeze"), ("slug", "beta")],
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK);
+    assert!(r.text.contains("cdx-message--success"), "{}", r.text);
+    let done = provisioner.pass().await.unwrap();
+    assert!(
+        matches!(&done[..], [(slug, Outcome::Carried(act))] if slug == "beta" && act == "freeze"),
+        "{done:?}"
+    );
+    let r = farm.page("/wiki/Special:Tenants").await;
+    assert!(r.text.contains("Frozen: read-only"), "{}", r.text);
+    assert!(r.text.contains("value=\"unfreeze\""), "{}", r.text);
+
+    // 08 §6.3: the frozen wiki reports it, and a write answers `readonly`.
+    let info = beta.api("action=query&meta=siteinfo").await;
+    assert_eq!(info["query"]["general"]["readonly"], true, "{info}");
+    let token = beta.csrf().await;
+    let r = beta
+        .send(
+            "POST",
+            "/w/api.php",
+            Some("application/x-www-form-urlencoded"),
+            Some(format!(
+                "action=edit&title=Sandbox&text=hello&token={}&format=json&formatversion=2",
+                enc(&token)
+            )),
+        )
+        .await;
+    assert_eq!(r.body["error"]["code"], "readonly", "{}", r.body);
+
+    // The API unfreezes it.
+    let token = farm.csrf().await;
+    let r = farm
+        .rest(
+            "POST",
+            "/tenancy/requests",
+            Some(json!({"act": "unfreeze", "slug": "beta", "token": token})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::ACCEPTED, "{}", r.body);
+    assert_eq!(r.body["request"]["act"], "unfreeze");
+    let id = r.body["request"]["id"].as_u64().unwrap();
+    provisioner.pass().await.unwrap();
+    let r = farm
+        .rest("GET", &format!("/tenancy/requests/{id}"), None)
+        .await;
+    assert_eq!(r.body["request"]["state"], "done", "{}", r.body);
+    let info = beta.api("action=query&meta=siteinfo").await;
+    assert_eq!(info["query"]["general"]["readonly"], false, "{info}");
+
+    // 0046 §5: an offer through the page, withdrawn through the API.
+    let token = farm.csrf().await;
+    let r = farm
+        .page_post(
+            "/w/index.php?title=Special:Tenants",
+            &[("token", &token), ("offer_to", "beta")],
+        )
+        .await;
+    assert!(r.text.contains("Offered to beta"), "{}", r.text);
+    let r = farm.rest("GET", "/tenancy", None).await;
+    let offer = r.body["offers"][0]["id"].as_u64().unwrap();
+    assert_eq!(r.body["offers"][0]["tenant"], "beta", "{}", r.body);
+    let token = farm.csrf().await;
+    let r = farm
+        .rest(
+            "POST",
+            "/tenancy/primary/withdraw",
+            Some(json!({"offer": offer, "token": token})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let r = beta.rest("GET", "/tenancy/acceptance", None).await;
+    assert_eq!(r.body["offers"], json!([]), "{}", r.body);
+    // Only a holder of `ts-primary` offers; Bob is an owner of beta, not of the primary.
+    let token = beta.csrf().await;
+    let r = beta
+        .rest(
+            "POST",
+            "/tenancy/primary/offer",
+            Some(json!({"tenant": "beta", "token": token})),
+        )
+        .await;
+    assert_ne!(r.status, StatusCode::OK, "{}", r.body);
+
+    // Offered again, and accepted on beta's own Special:Tenants by its owner.
+    let token = farm.csrf().await;
+    let r = farm
+        .rest(
+            "POST",
+            "/tenancy/primary/offer",
+            Some(json!({"tenant": "beta", "token": token})),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let offer = r.body["offer"]["id"].as_u64().unwrap();
+    let r = beta.page("/wiki/Special:Tenants").await;
+    assert_eq!(r.status, StatusCode::OK);
+    assert!(r.text.contains("Accept the primary role"), "{}", r.text);
+    let token = beta.csrf().await;
+    let r = beta
+        .page_post(
+            "/w/index.php?title=Special:Tenants",
+            &[("token", &token), ("accept", &offer.to_string())],
+        )
+        .await;
+    assert!(r.text.contains("cdx-message--success"), "{}", r.text);
+    let done = provisioner.pass().await.unwrap();
+    assert!(
+        matches!(&done[..], [(_, Outcome::Carried(act))] if act == "accept-primary"),
+        "{done:?}"
+    );
+    let r = farm.rest("GET", "/tenancy", None).await;
+    assert_eq!(r.body["primary"], "beta", "{}", r.body);
+    assert_eq!(r.body["offers"], json!([]), "{}", r.body);
 }

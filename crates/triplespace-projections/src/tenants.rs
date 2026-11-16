@@ -22,6 +22,11 @@ pub struct TenantEntry {
     pub issuer: String,
     /// The source wiki it adopted, if any (0035).
     pub adopted_from: Option<String>,
+    /// What state it is in (0111 §10, A3): `active`, `frozen` (read-only), `deleted`
+    /// (read-only until [`Self::erase_after`]) or `erased`.
+    pub status: String,
+    /// For a deleted tenant, when it is erased: microseconds since the epoch.
+    pub erase_after: Option<u64>,
 }
 
 impl TenantEntry {
@@ -37,12 +42,23 @@ impl TenantEntry {
             base: text("base")?,
             issuer: text("issuer")?,
             adopted_from: text("adopted_from"),
+            status: text("status").unwrap_or_else(|| "active".into()),
+            erase_after: config
+                .get("erase_after")
+                .and_then(serde_json::Value::as_u64),
         })
+    }
+
+    /// Whether the tenant takes writes: neither frozen nor deleted (0111 §10).
+    #[must_use]
+    pub fn writable(&self) -> bool {
+        self.status == "active"
     }
 }
 
 /// Every registered tenant, by slug. A `tenant:` record without a base or an issuer code
-/// is not a tenant this version can serve, and is left out.
+/// is not a tenant this version can serve, and is left out, as is an erased tenant, whose
+/// slug and host are free again (0111 A3).
 pub async fn tenants<C: GenericClient>(
     client: &C,
 ) -> Result<Vec<TenantEntry>, tokio_postgres::Error> {
@@ -55,6 +71,7 @@ pub async fn tenants<C: GenericClient>(
     Ok(rows
         .iter()
         .filter_map(|r| TenantEntry::from_config(r.get(0), &r.get::<_, serde_json::Value>(1)))
+        .filter(|t| t.status != "erased")
         .collect())
 }
 

@@ -449,6 +449,18 @@ meaning = "Whether the job runner is paused: queued jobs wait, and a running one
 source = "[0104](../decisions/0104-batches-and-the-job-runner.md) §4"
 
 [[setting]]
+key = "tenants.delete_grace_days"
+scope = "instance"
+bound = "instance"
+group = "instance"
+type = "integer"
+values = "0 or more"
+default = 90
+default_text = "90 days"
+meaning = "How long a deleted wiki stays, read-only, before the provisioner erases it; a deletion can be cancelled until then ([08](08-tenants-and-instances.md) §6.6)"
+source = "[0028](../decisions/0028-tenancy-policy.md) A26"
+
+[[setting]]
 key = "jobs.max_attempts"
 scope = "instance"
 bound = "instance"

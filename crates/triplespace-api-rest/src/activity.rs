@@ -492,6 +492,7 @@ mod tests {
             base: "https://t.example".into(),
             public_base: "https://t.example".into(),
             host: "t.example".into(),
+            writable: true,
         };
         let b = body(&tenant, &Feed::everything(5), &feed::Page::default());
         for key in b.as_object().unwrap().keys() {

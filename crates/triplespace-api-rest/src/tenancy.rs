@@ -1,9 +1,10 @@
 //! `GET /tenancy` at the farm base (0028 §11; 0046 §9; 0079 §7; 0012 §5): the farm, the
 //! primary tenant, the tenancy policy, and the tenant list `Special:Tenants` shows, each
-//! tenant with its slug, issuer code, host, name and status.
+//! tenant with its slug, issuer code, host, name and status: `active`, `frozen`, or
+//! `deleted` with when it is erased (0111 §10, A3); and the open offers of the primary role
+//! (0046 §5), which `Special:Tenants` shows.
 //!
-//! A tenant's name is its `site.name` setting (0085 §7). Every listed tenant is `active`:
-//! freezing and deleting a tenant (0018 §10; 0028 §5) are not built yet. A tenant that
+//! A tenant's name is its `site.name` setting (0085 §7). A tenant that
 //! is private (0056 §3) is listed by the same right as any other, since the list names
 //! tenants and holds none of their content.
 
@@ -84,7 +85,8 @@ async fn body(app: &App, client: &tokio_postgres::Client) -> Result<Value, Strin
             "host": host_of(&t.base),
             "base": t.base,
             "name": name,
-            "status": "active",
+            "status": t.status,
+            "erase_after": t.erase_after,
         }));
     }
     Ok(json!({
@@ -92,6 +94,14 @@ async fn body(app: &App, client: &tokio_postgres::Client) -> Result<Value, Strin
         "primary": primary,
         "policy": tenant::tenancy_report(client).await.map_err(|e| e.to_string())?,
         "tenants": list,
+        "offers": triplespace_api_ingest::tenant_requests::open_offers(
+            client,
+            triplespace_api_action::edit::now_micros(),
+        )
+        .await?
+        .iter()
+        .map(|o| json!({"id": o.offset, "tenant": o.tenant, "expires": o.expires, "actor": o.actor}))
+        .collect::<Vec<_>>(),
     }))
 }
 

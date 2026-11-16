@@ -20,6 +20,7 @@ use axum::extract::{Extension, Path, State};
 use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use scatter_actors::evaluate::instance_rights;
+use scatter_ingest::store::IngestStore as _;
 use scatter_projection::Backend as _;
 use serde_json::{Map, Value, json};
 use triplespace_api_action::App;
@@ -46,6 +47,17 @@ fn json_response(status: StatusCode, body: &Value) -> Response {
 /// The farm base and the right, or the refusal.
 #[allow(clippy::result_large_err)] // a ready response, as the async routes return
 fn entitled(app: &App, tenant: &Tenant, caller: &Caller) -> Result<String, Response> {
+    entitled_to(app, tenant, caller, RIGHT)
+}
+
+/// The farm base and an instance right, or the refusal.
+#[allow(clippy::result_large_err)] // a ready response, as the async routes return
+fn entitled_to(
+    app: &App,
+    tenant: &Tenant,
+    caller: &Caller,
+    right: &str,
+) -> Result<String, Response> {
     if !at_farm(app, tenant) {
         return Err(error(
             StatusCode::BAD_REQUEST,
@@ -60,11 +72,11 @@ fn entitled(app: &App, tenant: &Tenant, caller: &Caller) -> Result<String, Respo
             "tenant requests need an account on the primary tenant",
         ));
     };
-    if !instance_rights(Some(&caller.effective), None).contains(RIGHT) {
+    if !instance_rights(Some(&caller.effective), None).contains(right) {
         return Err(error(
             StatusCode::FORBIDDEN,
             "permissiondenied",
-            "tenant requests need `ts-createtenant`, an instance right",
+            format!("this needs `{right}`, an instance right"),
         ));
     }
     Ok(actor)
@@ -115,7 +127,16 @@ pub async fn post(
         owner_login_source: text(&object, "owner_login_source"),
         adopt: None,
         owner_id: None,
+        act: text(&object, "act").unwrap_or_default(),
+        ..Default::default()
     };
+    if ask.act() == tenant_requests::act::ACCEPT_PRIMARY {
+        return error(
+            StatusCode::BAD_REQUEST,
+            "ts-tenant-request-invalid",
+            "the primary role is accepted on the offered tenant, with POST /tenancy/acceptance",
+        );
+    }
     if let Err(why) = ask.check_shape() {
         return error(StatusCode::BAD_REQUEST, "ts-tenant-request-invalid", why);
     }
@@ -348,4 +369,258 @@ async fn owner_of<C: tokio_postgres::GenericClient>(
         scatter_actors::key::ActorKey::numeric(&created.issuer, entry.ask.owner_id.unwrap_or(1))
             .to_string();
     Ok((created, owner))
+}
+
+/// A write's body, with its CSRF token checked.
+#[allow(clippy::result_large_err)] // a ready response, as the async routes return
+fn body_of(
+    app: &App,
+    caller: &Caller,
+    headers: &HeaderMap,
+    body: &[u8],
+) -> Result<Map<String, Value>, Response> {
+    let Ok(Value::Object(object)) = serde_json::from_slice::<Value>(body) else {
+        return Err(error(
+            StatusCode::BAD_REQUEST,
+            "badbody",
+            "the body is a JSON object",
+        ));
+    };
+    check_token(app, caller, headers, &object)?;
+    Ok(object)
+}
+
+/// Runs `write` in a unit of work of the public store, and commits it.
+async fn in_unit<T>(
+    app: &App,
+    write: impl AsyncFnOnce(&mut triplespace_projections::PgCx) -> Result<T, String>,
+) -> Result<T, Response> {
+    let store = app.store();
+    let mut cx = store.begin().await.map_err(|e| internal(&e))?;
+    match write(&mut cx).await {
+        Ok(v) => {
+            store.commit(cx).await.map_err(|e| internal(&e))?;
+            Ok(v)
+        }
+        Err(e) => {
+            let _ = store.rollback(cx).await;
+            Err(internal(&e))
+        }
+    }
+}
+
+/// `POST /tenancy/primary/offer` with `{tenant, reason?, token}` (0046 §5; 08 §7.5): at the
+/// farm base, for a holder of `ts-primary`, offers the primary role to another tenant for
+/// seven days.
+pub async fn offer(
+    State(app): State<App>,
+    Extension(origin): Extension<Origin>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    let client = match app.pool().get().await {
+        Ok(c) => c,
+        Err(e) => return internal(&e),
+    };
+    let (tenant, caller) = match prelude(&app, &client, &origin, &headers).await {
+        Ok(x) => x,
+        Err(r) => return r,
+    };
+    let actor = match entitled_to(&app, &tenant, &caller, "ts-primary") {
+        Ok(a) => a,
+        Err(r) => return r,
+    };
+    let object = match body_of(&app, &caller, &headers, &body) {
+        Ok(o) => o,
+        Err(r) => return r,
+    };
+    let Some(offered) = text(&object, "tenant") else {
+        return error(StatusCode::BAD_REQUEST, "badbody", "`tenant` is required");
+    };
+    match triplespace_projections::tenants::tenant(&**client, &offered).await {
+        Ok(Some(t)) if t.writable() && offered != tenant.slug => {}
+        Ok(_) => {
+            return error(
+                StatusCode::BAD_REQUEST,
+                "ts-tenant-invalid",
+                "the role is offered to another active tenant of this instance",
+            );
+        }
+        Err(e) => return internal(&e),
+    }
+    let reason = text(&object, "reason");
+    let now = triplespace_api_action::edit::now_micros();
+    let filed = in_unit(&app, async |cx| {
+        tenant_requests::offer(
+            app.store(),
+            app.pipeline(),
+            cx,
+            &offered,
+            &actor,
+            reason.as_deref(),
+            now,
+        )
+        .await
+        .map_err(|e| e.to_string())
+    })
+    .await;
+    match filed {
+        Ok(f) => json_response(
+            StatusCode::OK,
+            &json!({"offer": {"id": f.offset, "tenant": offered,
+                              "expires": now + tenant_requests::OFFER_DAYS * 86_400 * 1_000_000}}),
+        ),
+        Err(r) => r,
+    }
+}
+
+/// `POST /tenancy/primary/withdraw` with `{offer, token}`: withdraws an open offer.
+pub async fn withdraw(
+    State(app): State<App>,
+    Extension(origin): Extension<Origin>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    let client = match app.pool().get().await {
+        Ok(c) => c,
+        Err(e) => return internal(&e),
+    };
+    let (tenant, caller) = match prelude(&app, &client, &origin, &headers).await {
+        Ok(x) => x,
+        Err(r) => return r,
+    };
+    let actor = match entitled_to(&app, &tenant, &caller, "ts-primary") {
+        Ok(a) => a,
+        Err(r) => return r,
+    };
+    let object = match body_of(&app, &caller, &headers, &body) {
+        Ok(o) => o,
+        Err(r) => return r,
+    };
+    let Some(id) = object.get("offer").and_then(Value::as_u64) else {
+        return error(StatusCode::BAD_REQUEST, "badbody", "`offer` is required");
+    };
+    let now = triplespace_api_action::edit::now_micros();
+    let open = match tenant_requests::open_offers(&**client, now).await {
+        Ok(o) => o,
+        Err(e) => return internal(&e),
+    };
+    if !open.iter().any(|o| o.offset == id) {
+        return error(StatusCode::NOT_FOUND, "ts-no-offer", "no such open offer");
+    }
+    let done = in_unit(&app, async |cx| {
+        let partition = app
+            .store()
+            .partition(cx, "", "log")
+            .await
+            .map_err(|e| e.to_string())?
+            .ok_or_else(|| "no instance log".to_string())?;
+        let offer = tenant_requests::Filed {
+            partition,
+            offset: id,
+            leaf: [0; 32],
+        };
+        tenant_requests::withdraw(app.store(), app.pipeline(), cx, &offer, &actor, now)
+            .await
+            .map_err(|e| e.to_string())
+    })
+    .await;
+    match done {
+        Ok(_) => json_response(StatusCode::OK, &json!({"withdrawn": id})),
+        Err(r) => r,
+    }
+}
+
+/// `POST /tenancy/acceptance` with `{offer, token}` (08 §7.5; 0111 §10): on the offered
+/// tenant, for a member of its `owner` group, files the acceptance of the primary role as a
+/// tenant request, which the provisioner carries out.
+pub async fn accept(
+    State(app): State<App>,
+    Extension(origin): Extension<Origin>,
+    headers: HeaderMap,
+    body: Bytes,
+) -> Response {
+    let client = match app.pool().get().await {
+        Ok(c) => c,
+        Err(e) => return internal(&e),
+    };
+    let (tenant, caller) = match prelude(&app, &client, &origin, &headers).await {
+        Ok(x) => x,
+        Err(r) => return r,
+    };
+    let Some(actor) = caller.identity.actor_key.clone() else {
+        return error(
+            StatusCode::FORBIDDEN,
+            "permissiondenied",
+            "accepting the primary role needs a member of `owner` on this tenant",
+        );
+    };
+    if !caller.effective.groups.contains("owner") {
+        return error(
+            StatusCode::FORBIDDEN,
+            "permissiondenied",
+            "accepting the primary role needs a member of `owner` on this tenant",
+        );
+    }
+    let object = match body_of(&app, &caller, &headers, &body) {
+        Ok(o) => o,
+        Err(r) => return r,
+    };
+    let Some(offer) = object.get("offer").and_then(Value::as_u64) else {
+        return error(StatusCode::BAD_REQUEST, "badbody", "`offer` is required");
+    };
+    let mut ask = Ask::on(tenant_requests::act::ACCEPT_PRIMARY, &tenant.slug);
+    ask.offer = Some(offer);
+    let now = triplespace_api_action::edit::now_micros();
+    let filed = in_unit(&app, async |cx| {
+        tenant_requests::file(app.store(), app.pipeline(), cx, &ask, &actor, None, now)
+            .await
+            .map_err(|e| e.to_string())
+    })
+    .await;
+    let filed = match filed {
+        Ok(f) => f,
+        Err(r) => return r,
+    };
+    if let Err(e) = client.batch_execute(&format!("NOTIFY {CHANNEL}")).await {
+        return internal(&e);
+    }
+    let entry = tenant_requests::Entry {
+        filed,
+        actor: Some(actor),
+        time: now,
+        reason: None,
+        ask,
+        state: tenant_requests::State::Pending,
+    };
+    json_response(StatusCode::ACCEPTED, &json!({"request": entry.to_json()}))
+}
+
+/// `GET /tenancy/acceptance` (08 §7.5): on any tenant, the open offers of the primary role
+/// that name it, for the page that accepts one.
+pub async fn offers_here(
+    State(app): State<App>,
+    Extension(origin): Extension<Origin>,
+    headers: HeaderMap,
+) -> Response {
+    let client = match app.pool().get().await {
+        Ok(c) => c,
+        Err(e) => return internal(&e),
+    };
+    let (tenant, _) = match prelude(&app, &client, &origin, &headers).await {
+        Ok(x) => x,
+        Err(r) => return r,
+    };
+    let now = triplespace_api_action::edit::now_micros();
+    match tenant_requests::open_offers(&**client, now).await {
+        Ok(offers) => json_response(
+            StatusCode::OK,
+            &json!({"offers": offers
+                .iter()
+                .filter(|o| o.tenant == tenant.slug)
+                .map(|o| json!({"id": o.offset, "tenant": o.tenant, "expires": o.expires, "actor": o.actor}))
+                .collect::<Vec<_>>()}),
+        ),
+        Err(e) => internal(&e),
+    }
 }

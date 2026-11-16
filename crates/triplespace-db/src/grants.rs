@@ -43,6 +43,17 @@ pub const CREATE_RECORD_TABLE: &str = "log.create_record_table";
 /// [`role::PROVISION`] may execute (`0041_provision`; 0111 A1).
 pub const CREATE_SEQUENCE: &str = "log.create_sequence";
 
+/// The function that freezes or unfreezes a tenant partition's record table: a trigger
+/// that refuses inserts, attached or dropped (`0043_tenant_lifecycle`; 0111 A3).
+pub const SET_FROZEN: &str = "log.set_frozen";
+
+/// The function that drops an erased tenant's record tables, log bookkeeping rows and
+/// sequences (`0043_tenant_lifecycle`; 0111 A3).
+pub const DROP_TENANT_STORAGE: &str = "log.drop_tenant_storage";
+
+/// The SQLSTATE a frozen tenant's record table refuses an insert with.
+pub const FROZEN_SQLSTATE: &str = "TSFRZ";
+
 /// The name of the partition hidden from every role but [`role::ACCOUNTS`].
 pub const ACCOUNTS_PARTITION: &str = "accounts";
 
@@ -75,6 +86,10 @@ REVOKE ALL ON FUNCTION log.create_record_table(bigint) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION log.create_record_table(bigint) TO ts_provision;
 REVOKE ALL ON FUNCTION log.create_sequence(text, text) FROM PUBLIC;
 GRANT EXECUTE ON FUNCTION log.create_sequence(text, text) TO ts_provision;
+REVOKE ALL ON FUNCTION log.set_frozen(bigint, boolean) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION log.set_frozen(bigint, boolean) TO ts_provision;
+REVOKE ALL ON FUNCTION log.drop_tenant_storage(text) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION log.drop_tenant_storage(text) TO ts_provision;
 ";
 
 /// The row-level security of `log.record` that `0034_record_policies` gives, each policy

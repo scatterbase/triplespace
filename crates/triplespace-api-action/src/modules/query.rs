@@ -888,7 +888,7 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                     "fallback": [],
                     "case": "first-letter",
                     "legaltitlechars": " %!\"$&'()*,\\-.\\/0-9:;=?@A-Z\\\\^_`a-z~\\x80-\\xFF+",
-                    "readonly": false,
+                    "readonly": !ctx.tenant.writable,
                     "writeapi": true,
                     "maxarticlesize": 2_097_152,
                     "timezone": "UTC",

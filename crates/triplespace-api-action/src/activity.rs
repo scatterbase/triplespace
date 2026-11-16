@@ -650,6 +650,7 @@ mod tests {
             base: "https://librarybase.org".into(),
             public_base: "https://librarybase.org".into(),
             host: "librarybase.org".into(),
+            writable: true,
         }
     }
 

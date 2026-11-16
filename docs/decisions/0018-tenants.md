@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-16 (A38)
+- **Updated:** 2026-11-16 (A39)
 - **Author:** James Hare / Claude Fable
 - **Uses:** [0003](0003-statement-ui.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
 
@@ -429,3 +429,10 @@ Replaced text: 08 §6.3.
 - **Summary:** A tenant after the first is no longer created in one step by the CLI. An operator of the primary tenant files a `tenant/request` record in the instance `log`, and the provisioner, `triplespace provision`, carries it out; `tenant create` files the request and runs the provisioner on it at once, and `Special:Tenants` gains a form that files one. `instance create` is unchanged. Freezing a tenant for a cooperative move is filed and carried out the same way. Chapter text: 08 §1.1, §1.4, §6.3; 19 §6.11.
 
 Replaced text: 08 §1.1, §6.3.
+
+### A39. The database refuses writes to a frozen tenant
+
+- **Date:** 2026-11-16
+- **Source:** Direct: James, design discussion of 2026-11-16
+- **Change:** extends §10
+- **Summary:** A frozen tenant is refused writes by a trigger on each of its record tables, which refuses every insert, rather than by a check in the server, so that no process that writes, the ingester and jobs included, can append to it. Chapter text: 08 §6.3; 03 §1.2.
