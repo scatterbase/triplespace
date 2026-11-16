@@ -118,13 +118,13 @@ import { CdxButton, CdxMessage } from '@wikimedia/codex';
 import EntityLookup from '../edit/EntityLookup.vue';
 import type { Api } from '../edit/api';
 import { msg } from './data';
-import type { CreateData } from './data';
+import type { CreateData, FileData } from './data';
 import { apply, complete, suggest } from './mapping';
 import type { Mapping, Target } from './mapping';
 import type { Sheet } from './readers';
 
 const props = defineProps<{
-	data: CreateData;
+	data: CreateData | FileData;
 	api: Api;
 	sheet: Sheet;
 }>();

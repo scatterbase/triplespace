@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-08
-- **Updated:** 2026-11-13 (A10)
+- **Updated:** 2026-11-15 (A11)
 - **Author:** James Hare / Claude Fable
 - **Changes:** [0002](0002-source-graphs-and-mass-ingest.md), [0005](0005-crate-organization.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0016](0016-permissions-and-access-control.md), [0047](0047-special-pages.md), [0083](0083-write-path-in-three-tiers.md)
 - **Uses:** [0007](0007-actor-identity.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0047](0047-special-pages.md)
@@ -76,7 +76,7 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 11. Creating items from a table (extends 0002 §8.5 and 0047 §5)
 
-*Changed by A3, A4, A5.*
+*Changed by A3, A4, A5, A11.*
 
 *Current text: [05](../architecture/05-providers-and-ingest.md) §3.5; [21](../architecture/21-special-pages.md) §6.6.*
 
@@ -195,3 +195,11 @@ Replaced text ([16](../architecture/16-logs-feeds-and-notifications.md) §2.2, a
 - **Source:** Direct: James, 2026-11-13: "Require a token to queue an export."
 - **Change:** extends §4
 - **Summary:** A9 (4) left open whether queuing an export should need a token. James decided that it does. `POST /export` is still a read where it answers in place, and takes no token then; where the selection is over `export.sync_revisions` and would be queued, a request made with a session must carry the session's CSRF token as `token` in the body, as every write with a session does, and is refused `403 badtoken` without it, nothing queued; a request made with a bearer key needs none. The token is the request's and is not kept in the queue row. `Special:Export`'s form carries the token of a reader who is signed in, as `wpEditToken`, and passes it on; an anonymous reader's form carries none, and stays as cacheable as it was.
+
+### A11. `Special:CreateManyEntities` closes its batch when its run ends
+
+- **Date:** 2026-11-15
+- **Source:** Direct: James, 2026-11-15, after using the page: "The job finishes but keeps saying 'in progress' even after refreshing the page."; the closing as its remedy, Claude, while building it, 2026-11-15; confirmed by James, 2026-11-15
+- **Change:** extends §11
+- **Summary:** A keyed batch stays `running` until its submitter closes it (§1), and the page never did, so a finished run read as running for good. When its run ends the page closes the batch, as the submitter it acts for, and the job reads `closed`. A batch rejected during the run is left as it is. If the closing fails, the report says so and names the job, whose page can close it. A later run under the same batch value opens a new job, as §1 has it for a closed batch.
+

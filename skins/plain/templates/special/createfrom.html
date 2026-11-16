@@ -1,0 +1,14 @@
+{#- The pages in front of Special:CreateManyEntities (0106 A9; 21 §6.8, §6.9):
+    Special:CreateEntitiesFromFile and Special:QuickStatements. One form each, whose answer is
+    that page's form holding the table. -#}
+{%- import "codex.html" as codex -%}
+{%- import "forms.html" as forms -%}
+<div class="ts-createfrom {{ class }}">
+{%- if gate %}{{ codex.message(gate.notice) }}{% if gate.login %}<p><a href="{{ gate.login.href }}">{{ gate.login.label }}</a></p>{% endif -%}
+{%- else %}{% for n in notices %}{{ codex.message(n) }}{% endfor %}<p>{{ intro }}</p>
+<form class="ts-createfrom__form" method="post"{% if multipart %} enctype="multipart/form-data"{% endif %} action="{{ action }}">{% for h in hidden %}<input type="hidden" name="{{ h[0] }}" value="{{ h[1] }}">{% endfor %}
+{%- for f in fields %}{{ forms.field(f) }}{% endfor %}
+{{ data_html|safe }}
+<div class="ts-protect__actions">{{ codex.button(submit) }}</div></form>
+<ul class="ts-createfrom__links">{% for l in links %}<li><a href="{{ l[0] }}">{{ l[1] }}</a></li>{% endfor %}</ul>
+{%- endif %}</div>

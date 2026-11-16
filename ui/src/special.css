@@ -237,6 +237,113 @@
 	color: var( --color-base );
 }
 
+/* The table with the buttons that make it grow (0106 A9): one as tall as the table to
+   the right of its last column, one as wide beneath its last row. */
+.ts-sheet__frame--grows {
+	display: grid;
+	grid-template-columns: 1fr auto;
+	min-width: max-content;
+}
+
+.ts-sheet__add {
+	display: flex;
+	gap: 0.375rem;
+	align-items: center;
+	justify-content: center;
+	padding: 0.375rem 0.625rem;
+	border: 0;
+	background: var( --background-color-neutral-subtle );
+	color: var( --color-progressive );
+	font: inherit;
+	font-weight: bold;
+	cursor: pointer;
+}
+
+.ts-sheet__add:hover,
+.ts-sheet__add:focus-visible {
+	background: var( --background-color-progressive-subtle );
+}
+
+.ts-sheet__add:focus-visible {
+	outline: 2px solid var( --border-color-progressive--focus );
+	outline-offset: -2px;
+}
+
+.ts-sheet__add--column {
+	position: sticky;
+	right: 0;
+	z-index: 2;
+	min-width: 2.25rem;
+	border-left: 1px solid var( --border-color-base );
+}
+
+.ts-sheet__add--row {
+	grid-column: 1 / -1;
+	position: sticky;
+	bottom: 0;
+	left: 0;
+	z-index: 2;
+	justify-content: flex-start;
+	border-top: 1px solid var( --border-color-base );
+}
+
+.ts-sheet__after {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem 1.5rem;
+	align-items: baseline;
+}
+
+.ts-sheet__after p {
+	margin: 0;
+}
+
+/* The statements on every item and the reference on every statement, as lists. */
+.ts-sheet-lines {
+	margin: 1rem 0;
+	padding: 0;
+	border: 0;
+}
+
+.ts-sheet-lines__legend {
+	padding: 0;
+	font-weight: bold;
+}
+
+.ts-sheet-lines__none,
+.ts-sheet-lines__type {
+	color: var( --color-subtle );
+	font-size: 0.875rem;
+}
+
+.ts-sheet-lines__none {
+	margin: 0.25rem 0 0.5rem;
+}
+
+.ts-sheet-lines__list {
+	margin: 0.5rem 0;
+	padding: 0;
+	list-style: none;
+}
+
+.ts-sheet-lines__line {
+	display: flex;
+	flex-wrap: wrap;
+	gap: 0.5rem;
+	align-items: center;
+	margin: 0.375rem 0;
+}
+
+.ts-sheet-lines__line .cdx-lookup,
+.ts-sheet-lines__value {
+	flex: 1 1 14rem;
+	max-width: 24rem;
+}
+
+.ts-createfrom__links {
+	margin-top: 1.5rem;
+}
+
 .ts-sheet__bar,
 .ts-sheet__panel,
 .ts-sheet__actions {
@@ -252,11 +359,6 @@
 	border: 1px solid var( --border-color-subtle );
 	border-radius: 2px;
 	background: var( --background-color-neutral-subtle );
-}
-
-.ts-sheet__bar [ aria-pressed='true' ] {
-	border-color: var( --border-color-progressive );
-	background: var( --background-color-progressive-subtle );
 }
 
 .ts-sheet__summary {

@@ -27,6 +27,21 @@ export interface CreateData extends Common {
 	canCreateProperty: boolean;
 	/** The data types a new property can have. */
 	datatypes: string[];
+	/** The label of the form's button before the rows are checked. */
+	check: string;
+}
+
+/** `Special:CreateEntitiesFromFile`: what the mapping step needs, as on the page it opens. */
+export interface FileData extends Common {
+	page: 'file';
+	canCreateProperty: boolean;
+	datatypes: string[];
+	/** Where the mapped table is posted: `Special:CreateManyEntities`. */
+	open: string;
+	/** The draft the file fills, or nothing. */
+	draft: string;
+	/** That draft's headers when it is a saved mapping: columns and no rows. */
+	columns: string[] | null;
 }
 
 /** A column of a Table page. */
@@ -91,7 +106,7 @@ export interface TableData extends Common {
 }
 
 /** Either page's block. */
-export type SheetData = CreateData | TableData;
+export type SheetData = CreateData | FileData | TableData;
 
 /**
  * Reads the data block, if the page has one.

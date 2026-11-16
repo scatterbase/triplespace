@@ -1,13 +1,14 @@
 /**
  * The grid components (ADR 0106 §1, §6, §7; 0045 §6, §7), loaded only on a page that has
- * a sheet data block: `Special:CreateManyEntities` for a signed-in viewer, and a Table
- * page the viewer may edit. Each page works without this script, as a text box and as a
- * drawn table.
+ * a sheet data block: `Special:CreateManyEntities` and `Special:CreateEntitiesFromFile`
+ * for a signed-in viewer, and a Table page the viewer may edit. Each page works without
+ * this script, as a text box and as a drawn table.
  */
 
 import { createApp } from 'vue';
 import { Api } from '../edit/api';
 import CreateGrid from './CreateGrid.vue';
+import FileStep from './FileStep.vue';
 import TableEditor from './TableEditor.vue';
 import { msg, readSheetData } from './data';
 
@@ -18,7 +19,30 @@ if ( data && data.page === 'create' ) {
 	if ( form && area ) {
 		const host = document.createElement( 'div' );
 		( area.closest( '.cdx-field' ) ?? area ).before( host );
-		createApp( CreateGrid, { data, api: new Api(), form } ).mount( host );
+		// The lists of statements and of the reference stand where their text boxes do.
+		const beside = ( name: string ): HTMLElement | undefined => {
+			const box = form.elements.namedItem( name ) as HTMLTextAreaElement | null;
+			if ( !box ) {
+				return undefined;
+			}
+			const at = document.createElement( 'div' );
+			( box.closest( '.cdx-field' ) ?? box ).before( at );
+			return at;
+		};
+		createApp( CreateGrid, {
+			data,
+			api: new Api(),
+			form,
+			sharedHost: beside( 'shared' ),
+			referenceHost: beside( 'reference' ),
+		} ).mount( host );
+	}
+} else if ( data && data.page === 'file' ) {
+	const form = document.querySelector<HTMLFormElement>( '.ts-createfrom__form' );
+	if ( form ) {
+		const host = document.createElement( 'div' );
+		form.after( host );
+		createApp( FileStep, { data, api: new Api(), form } ).mount( host );
 	}
 } else if ( data && data.page === 'table' ) {
 	const grid = document.querySelector<HTMLElement>( '.ts-table' );

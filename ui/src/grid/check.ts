@@ -28,6 +28,8 @@ export interface Check {
 	text: string;
 	summary: string | null;
 	confirm: string | null;
+	/** What the confirmation posts, when there is something to write. */
+	hidden?: [ string, string ][] | null;
 	columns: CheckColumn[] | null;
 	labels: Record<string, string> | null;
 	rows: CheckRow[] | null;
@@ -48,7 +50,7 @@ export async function runCheck(
 	fetcher: Fetcher = ( i, init ) => fetch( i, init ),
 ): Promise<Check> {
 	const body = new URLSearchParams();
-	for ( const name of [ 'token', 'rows', 'shared', 'reference', 'batch', 'draft' ] ) {
+	for ( const name of [ 'token', 'rows', 'shared', 'reference', 'batch', 'draft', 'draftname' ] ) {
 		const field = form.elements.namedItem( name ) as
 			HTMLInputElement | HTMLTextAreaElement | null;
 		if ( field ) {

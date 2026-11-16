@@ -1,7 +1,9 @@
 //! `Special:CreateManyEntities` (0104 §11; 0106; 21 §6.6; 05 §3.5): many items from one table,
 //! as a spreadsheet holds them: a column per term or property, a row per item, and
 //! statements every row shares, with the reference every statement carries. The table is
-//! pasted, tab- or comma-separated, or uploaded as a CSV or TSV file. **Its text is the
+//! pasted, tab- or comma-separated; a file is read on `Special:CreateEntitiesFromFile`
+//! ([`from_file`]) and QuickStatements commands on `Special:QuickStatements`
+//! ([`quickstatements`]), each of which opens its table here (0106 A9). **Its text is the
 //! canonical form** (0106 §1; [`table`]): the first row names the columns, and the preview
 //! writes back into it what it found, so the table can be corrected and checked again, or
 //! passed on, as text.
@@ -25,21 +27,23 @@
 //! through the same handler as `Special:NewItem`, under the batch value the form names
 //! (one is made up when left blank). The run is one job on `Special:Jobs` with Reject and
 //! Revert, and the report lists each row's item, or the API's refusal. A row that fails
-//! leaves the rest to go on.
+//! leaves the rest to go on. When the run ends the page closes its batch (0104 A11), so
+//! the job reads `closed` rather than `running`.
 //!
 //! The form needs a signed-in viewer with the right to create pages, which the API
 //! enforces. At most [`MAX_ROWS`] rows a run.
 //!
 //! **Drafts** (0106 §9; [`draft`]). The table can be saved as a draft, a Table page under
 //! the viewer's name whose definition holds the rows not yet written, and opened again
-//! as `Special:CreateManyEntities/{table title}`. Importing from a draft saves it first, then
-//! records the run in it: each written row becomes a listed row, a refused row stays
-//! staged with its reason.
+//! as `Special:CreateManyEntities/{table title}`. **Importing always saves the table
+//! first** (0106 A9), as the draft it is or as a new one, then records the run in it:
+//! each written row becomes a listed row, a refused row stays staged with its reason.
 //!
-//! **With JavaScript** the table is edited as a grid over the same text, and a chosen file
-//! is mapped onto it first (0106 §1, §6, §7; `ui/src/grid`). The page gives the grid a
-//! data block to start from, and answers the check as JSON (`wpFormat=json`) so that the
-//! grid can show each row's status; everything else is this form.
+//! **With JavaScript** the table is edited as a grid over the same text (0106 §1, §6;
+//! `ui/src/grid`). The page gives the grid a data block to start from, and answers the
+//! check as JSON (`wpFormat=json`) with each row's status and the confirmation's fields,
+//! so that the form's one button checks the rows and then imports them (0106 A9); without
+//! it the check is a page of its own with the confirmation on it.
 //!
 //! Not here yet: matching by a match-key identifier (0106 §5), which waits on the API
 //! serving the lookup; moving a draft to a title of its own (0106 A2); runs past
@@ -49,7 +53,9 @@
 //! implements 0106 §8 (A4)
 
 pub mod draft;
+pub mod from_file;
 pub mod plan;
+pub mod quickstatements;
 pub mod table;
 
 use std::collections::BTreeMap;
@@ -75,7 +81,8 @@ use crate::pages::{self, Context, Params, Peer};
 use crate::special::controls::{ControlModel, FieldRow};
 use crate::special::new_entity::{datatype_name, offered};
 
-const TITLE: &str = "Special:CreateManyEntities";
+/// The page's title.
+pub const TITLE: &str = "Special:CreateManyEntities";
 
 /// The most rows one run creates.
 pub const MAX_ROWS: usize = 500;
@@ -117,8 +124,8 @@ pub struct CreateEntitiesPage {
     pub token: String,
     /// The table, pasted.
     pub rows: FieldRow,
-    /// The table, uploaded.
-    pub file: FieldRow,
+    /// `Special:CreateEntitiesFromFile`, for this draft where there is one, and its label.
+    pub from_file: (String, String),
     /// The statements on every item.
     pub shared: FieldRow,
     /// The reference on every statement.
@@ -335,19 +342,14 @@ fn form_model(cx: &Context, typed: &Typed) -> CreateEntitiesPage {
         action: format!("/wiki/{TITLE}"),
         token: typed.token.clone(),
         rows: area("ts-createentities-rows", "rows", &typed.rows, 8),
-        file: FieldRow {
-            id: "ts-createentities-file".into(),
-            label: m.get("ts-createentities-file"),
-            class: None,
-            control: ControlModel::File {
-                id: Some("ts-createentities-file".into()),
-                name: "file".into(),
-                accept: Some(".csv,.tsv,.txt,text/csv,text/tab-separated-values".into()),
-                described_by: Some("ts-createentities-file-help".into()),
+        from_file: (
+            if typed.draft.is_empty() {
+                format!("/wiki/{}", from_file::TITLE)
+            } else {
+                format!("/wiki/{}/{}", from_file::TITLE, title_url(&typed.draft))
             },
-            help: Some(m.get("ts-createentities-file-help")),
-            help_id: Some("ts-createentities-file-help".into()),
-        },
+            m.get("ts-createentities-from-file"),
+        ),
         shared: area("ts-createentities-shared", "shared", &typed.shared, 3),
         reference: area(
             "ts-createentities-reference",
@@ -401,6 +403,7 @@ fn form_model(cx: &Context, typed: &Typed) -> CreateEntitiesPage {
                 "canCreateProperty": typed.can_new,
                 "datatypes": offered(&cx.site),
                 "conceptBase": cx.site.concept_base,
+                "check": m.get("ts-createentities-preview"),
                 "messages": m.with_prefix("ts-sheet-"),
             });
             format!(
@@ -476,6 +479,36 @@ fn made_up_batch() -> String {
     format!("{TITLE} {now}")
 }
 
+/// The context of one of the pages that create entities, at `title`, and the gate a
+/// viewer who is not signed in is shown in place of the form; or the response that ends
+/// the request, creating not being offered (`404`).
+pub(crate) async fn viewer(
+    site: &Site,
+    headers: &HeaderMap,
+    incoming: &Incoming,
+    query: &BTreeMap<String, String>,
+    title: &str,
+) -> Result<(Context, Option<GateModel>), Response> {
+    let cx = pages::context(site, incoming, query).await?;
+    if !cx.features.has(Feature::Create) {
+        return Err(pages::no_page(&cx, headers, title.to_string()));
+    }
+    let gate = cx.user.is_none().then(|| {
+        let login_href = format!(
+            "/w/index.php?title=Special:UserLogin&returnto={}",
+            title_url(title)
+        );
+        GateModel {
+            notice: Message::block(MessageKind::Notice, &cx.m.get("ts-new-login")).model(),
+            login: cx
+                .features
+                .has(Feature::Login)
+                .then(|| link_to(login_href, cx.m.get("ts-login-title"))),
+        }
+    });
+    Ok((cx, gate))
+}
+
 /// The context, or the response that ends the request: creating not offered (`404`), or
 /// a viewer not signed in (asked to).
 async fn start(
@@ -484,26 +517,60 @@ async fn start(
     incoming: &Incoming,
     query: &BTreeMap<String, String>,
 ) -> Result<Context, Response> {
-    let cx = pages::context(site, incoming, query).await?;
-    if !cx.features.has(Feature::Create) {
-        return Err(pages::no_page(&cx, headers, TITLE.to_string()));
-    }
-    if cx.user.is_none() {
-        let login_href = format!(
-            "/w/index.php?title=Special:UserLogin&returnto={}",
-            title_url(TITLE)
-        );
+    let (cx, gate) = viewer(site, headers, incoming, query, TITLE).await?;
+    if gate.is_some() {
         let mut model = form_model(&cx, &Typed::default());
-        model.gate = Some(GateModel {
-            notice: Message::block(MessageKind::Notice, &cx.m.get("ts-new-login")).model(),
-            login: cx
-                .features
-                .has(Feature::Login)
-                .then(|| link_to(login_href, cx.m.get("ts-login-title"))),
-        });
+        model.gate = gate;
         return Err(page(&cx, headers, StatusCode::OK, &model));
     }
     Ok(cx)
+}
+
+/// A page in front of this one (0106 A9; 21 §6.8, §6.9), as `special/createfrom.html`
+/// draws it: `Special:CreateEntitiesFromFile` and `Special:QuickStatements`, each one
+/// form whose answer is this page's form holding a table.
+#[derive(Debug, Clone, Serialize)]
+pub struct HandoffPage {
+    /// A reader is asked to log in.
+    pub gate: Option<GateModel>,
+    /// The page's class.
+    pub class: String,
+    /// What the page says above the form.
+    pub intro: String,
+    /// Notices above the form.
+    pub notices: Vec<MessageModel>,
+    /// Where the form posts.
+    pub action: String,
+    /// Whether the form carries a file.
+    pub multipart: bool,
+    /// Its hidden fields.
+    pub hidden: Vec<(String, String)>,
+    /// Its fields.
+    pub fields: Vec<FieldRow>,
+    /// What the page's script starts from: a JSON block, HTML; or nothing.
+    pub data_html: String,
+    /// Its button.
+    pub submit: ButtonModel,
+    /// The other pages that create entities, each a link and its label.
+    pub links: Vec<(String, String)>,
+}
+
+/// Draws a [`HandoffPage`] at `title`, under the heading the message `heading` gives.
+pub(crate) fn handoff(
+    cx: &Context,
+    headers: &HeaderMap,
+    status: StatusCode,
+    title: &str,
+    heading: &str,
+    model: &HandoffPage,
+) -> Response {
+    let body = cx.draw("special/createfrom.html", model);
+    pages::respond(cx, headers, status, |m| Page {
+        title: m.get(heading),
+        returnto: Some(title.to_string()),
+        body,
+        ..Page::default()
+    })
 }
 
 fn page(
@@ -692,7 +759,9 @@ async fn store(
     let mut read = Read::of(&rows[0], &rows[1..], shared, reference, &lang);
     read.concept_base.clone_from(&cx.site.concept_base);
     let lookup = lookup_of(site, cx, incoming, &read).await?;
-    let (title, base) = if typed.draft.is_empty() {
+    // A name nobody chose can be changed when a page already has it.
+    let made_up = typed.draft.is_empty() && typed.draft_name.is_empty();
+    let (mut title, base) = if typed.draft.is_empty() {
         let name = if typed.draft_name.is_empty() {
             made_up_batch().replace(TITLE, "").trim().to_string()
         } else {
@@ -713,7 +782,7 @@ async fn store(
             Ok(d) => d,
             Err(problems) => return Ok(Err(problems.iter().map(|p| error(p)).collect())),
         };
-    match save(
+    let mut saved = save(
         site,
         incoming,
         typed,
@@ -722,8 +791,19 @@ async fn store(
         base.as_ref(),
         summary,
     )
-    .await
+    .await;
+    // Two runs in one second make up the same name: the later one takes the next free.
+    let first = title.clone();
+    let mut n = 2;
+    while made_up
+        && n < 10
+        && matches!(&saved, Err(ClientError::Api { code, .. }) if code == "articleexists")
     {
+        title = format!("{first} ({n})");
+        saved = save(site, incoming, typed, &title, &definition, None, summary).await;
+        n += 1;
+    }
+    match saved {
         Ok(title) => Ok(Ok((title, definition))),
         Err(ClientError::Api { code, info }) => {
             let text = match code.as_str() {
@@ -807,7 +887,49 @@ pub async fn post(
     if typed.step == "create" {
         return create(site, &mut cx, headers, &incoming, typed).await;
     }
+    if typed.step == "open" {
+        return open(site, &mut cx, headers, &incoming, typed, Vec::new()).await;
+    }
     preview(site, &mut cx, headers, &incoming, typed).await
+}
+
+/// The form holding a table another page made (0106 A9): a mapped file, QuickStatements
+/// commands read as a table. Nothing is checked or written; the form gets a token of its
+/// own, since what was posted here need carry none.
+pub(crate) async fn open(
+    site: &Site,
+    cx: &mut Context,
+    headers: &HeaderMap,
+    incoming: &Incoming,
+    mut typed: Typed,
+    mut notices: Vec<MessageModel>,
+) -> Response {
+    let token = match site.client().token(incoming, "csrf").await {
+        Ok(t) => t,
+        Err(e) => return pages::api_failed(cx, headers, &e),
+    };
+    cx.inputs.push(token.value.cache.clone());
+    typed.token = token.value.value;
+    typed.can_new = may_create_properties(site, incoming).await;
+    if !typed.draft.is_empty() {
+        // A draft named here is one the viewer can read; its title as the API writes it.
+        match stored(site, cx, incoming, &typed.draft).await {
+            Ok(Ok(found)) => typed.draft = found.title,
+            Ok(Err(why)) => {
+                typed.draft.clear();
+                notices.push(error(&why));
+            }
+            Err(e) => return pages::api_failed(cx, headers, &e),
+        }
+    }
+    if rows_of(&typed.rows).len() > 1 {
+        notices.push(
+            Message::block(MessageKind::Notice, &cx.m.get("ts-createentities-opened")).model(),
+        );
+    }
+    let mut model = form_model(cx, &typed);
+    model.notices = notices;
+    page(cx, headers, StatusCode::OK, &model)
 }
 
 /// Whether the viewer holds `property-create` (0106 §4), which decides whether the grid
@@ -819,7 +941,7 @@ async fn may_create_properties(site: &Site, incoming: &Incoming) -> bool {
         .is_ok_and(|r| r.iter().any(|x| x == "property-create"))
 }
 
-fn error(text: &str) -> MessageModel {
+pub(crate) fn error(text: &str) -> MessageModel {
     Message::block(MessageKind::Error, text).model()
 }
 
@@ -1185,14 +1307,15 @@ async fn preview(
                 .encode(serde_json::to_vec(&carried).unwrap_or_default()),
         ),
     ];
-    if !typed.draft.is_empty() {
-        // Importing saves the draft first (21 §6.7), so the confirmation carries the table.
-        for (k, v) in [
-            ("draft", &typed.draft),
-            ("rows", &typed.rows),
-            ("shared", &typed.shared),
-            ("reference", &typed.reference),
-        ] {
+    // Importing saves the table first (21 §6.6; 0106 A9), so the confirmation carries it.
+    for (k, v) in [
+        ("draft", &typed.draft),
+        ("draftname", &typed.draft_name),
+        ("rows", &typed.rows),
+        ("shared", &typed.shared),
+        ("reference", &typed.reference),
+    ] {
+        if !v.is_empty() {
             hidden.push((k.to_string(), v.clone()));
         }
     }
@@ -1285,6 +1408,11 @@ fn answer(
         "text": typed.rows,
         "summary": p.map(|p| p.summary.clone()),
         "confirm": p.and_then(|p| p.submit.as_ref()).map(|b| b.label.clone()),
+        // What the confirmation posts (0106 A9): the grid's button sends it on its
+        // second press, where the page without JavaScript has a form of its own.
+        "hidden": p
+            .filter(|p| p.submit.is_some())
+            .map(|p| p.hidden.clone()),
         "columns": p.map(|p| p.kinds.clone()),
         "labels": p.map(|p| p.labels.clone()),
         "rows": p.map(|p| p.rows.clone()),
@@ -1335,21 +1463,20 @@ async fn create(
     } else {
         typed.batch.clone()
     };
-    // A draft is saved as the run reads it, before anything is written (21 §6.7).
-    let mut kept: Option<(String, Definition)> = None;
-    if carried.draft.is_some() {
-        let summary =
-            cx.m.with("ts-createentities-draft-import-summary", &[&batch]);
-        match store(site, cx, incoming, &typed, &summary).await {
-            Ok(Ok(saved)) => kept = Some(saved),
-            Ok(Err(notices)) => {
-                let mut model = form_model(cx, &typed);
-                model.notices = notices;
-                return page(cx, headers, StatusCode::OK, &model);
-            }
-            Err(e) => return pages::api_failed(cx, headers, &e),
+    // The table is saved as the run reads it, before anything is written (21 §6.6; 0106
+    // A9): the draft it is kept in, or a new one, so that every run leaves a Table page.
+    let summary =
+        cx.m.with("ts-createentities-draft-import-summary", &[&batch]);
+    let kept: Option<(String, Definition)> = match store(site, cx, incoming, &typed, &summary).await
+    {
+        Ok(Ok(saved)) => Some(saved),
+        Ok(Err(notices)) => {
+            let mut model = form_model(cx, &typed);
+            model.notices = notices;
+            return page(cx, headers, StatusCode::OK, &model);
         }
-    }
+        Err(e) => return pages::api_failed(cx, headers, &e),
+    };
     let mut job = None;
     let mut known = Known::default();
     let mut notices = Vec::new();
@@ -1485,6 +1612,22 @@ async fn create(
             Err(e) => return pages::api_failed(cx, headers, &e),
         }
         rows.push(row);
+    }
+    // The run is over, so the page closes its batch (0104 A11): the job then reads
+    // `closed`, where a keyed batch otherwise stays `running` until its submitter closes
+    // it. A rejected batch is closed already (0104 §11).
+    if let Some(j) = job.filter(|_| !stopped) {
+        use triplespace_client::settings::Saved;
+        match site.client().close_job(incoming, j, &typed.token).await {
+            Ok(Saved::Ok(_)) => {}
+            Ok(Saved::Refused(_)) | Err(_) => notices.push(
+                Message::block(
+                    MessageKind::Warning,
+                    &cx.m.with("ts-createentities-not-closed", &[&j.to_string()]),
+                )
+                .model(),
+            ),
+        }
     }
     // The draft records the run (15 §2.6, §2.7): written rows become listed rows, refused
     // rows stay with their reason. The entities are written by now; if this save fails,

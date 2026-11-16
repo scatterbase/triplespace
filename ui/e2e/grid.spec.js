@@ -1,6 +1,7 @@
-// The grid (ADR 0106 §1, §6, §7; 0045 §6, §7), with JavaScript: the table of
-// Special:CreateManyEntities edited as a grid over the text the form posts, an uploaded
-// file mapped into it, and a Table page's cells and rows edited in place.
+// The grid (ADR 0106 §1, §6, §7, A9; 0045 §6, §7), with JavaScript: the table of
+// Special:CreateManyEntities edited as a grid over the text the form posts, checked and
+// then imported by the form's one button; a file mapped into it from
+// Special:CreateEntitiesFromFile; and a Table page's cells and rows edited in place.
 import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 
@@ -77,34 +78,57 @@ test.describe( 'with JavaScript', () => {
 			'label,description,aliases,P2\nGrid item one,made in the grid,,Q2\nGrid item two,pasted in,,nonsense\n'
 		);
 
-		// The page's check, shown on the rows.
-		await grid.getByRole( 'button', { name: 'Check rows now' } ).click();
+		// The table grows from its edges: no bar above it, and no switch to the text.
+		await expect( grid.locator( '.ts-sheet__bar' ) ).toHaveCount( 0 );
+		await expect( grid.getByRole( 'button', { name: 'Text', exact: true } ) ).toHaveCount( 0 );
+		await expect( page.locator( 'input[type="file"]' ) ).toHaveCount( 0 );
+
+		// The form's one button checks first: each row's status is shown on it.
+		const form = page.locator( '.ts-createentities__form' );
+		await form.getByRole( 'button', { name: 'Check the rows' } ).click();
 		await expect( grid.locator( '.ts-sheet__status' ).first() ).toHaveText( 'new' );
 		await expect( grid.locator( '.ts-sheet__status' ).nth( 1 ) ).toHaveText( 'invalid (1)' );
 		await expect( grid.locator( '.ts-sheet__summary' ) ).toHaveText( 'Create 1 item, add to 0, skip 1' );
+		// Checked, the button says what pressing it again writes.
+		await expect( form.getByRole( 'button', { name: 'Create 1 item, add to 0, skip 1' } ) ).toBeVisible();
 		// The property is named, and the item the first row's cell holds.
 		await expect( grid.getByRole( 'columnheader', { name: /instance of/ } ) ).toBeVisible();
 		await expect( grid.locator( '.ts-sheet__note' ).first() ).not.toHaveText( '' );
 		await grid.getByLabel( 'Only rows with problems' ).check();
 		await expect( grid.locator( '.ts-sheet__row' ) ).toHaveCount( 1 );
 		await grid.getByLabel( 'Only rows with problems' ).uncheck();
-		expect( await axe( page, '.ts-sheet-create' ) ).toEqual( [] );
+		expect( await axe( page, '.ts-createentities__form' ) ).toEqual( [] );
 
-		// Fixed, then as text and back.
+		// A change makes the check stale, and the button checks again.
 		await page.getByLabel( /, row 2$/ ).last().fill( 'row:1' );
-		await grid.getByRole( 'button', { name: 'Text', exact: true } ).click();
-		await expect( page.locator( 'textarea[name="rows"]' ) ).toBeVisible();
-		await grid.getByRole( 'button', { name: 'Grid', exact: true } ).click();
-		await expect( page.getByLabel( 'Label, row 2' ) ).toHaveValue( 'Grid item two' );
+		await expect( form.getByRole( 'button', { name: 'Check the rows' } ) ).toBeVisible();
 
-		// The form's own check and confirmation write the rows.
-		await page.getByRole( 'button', { name: 'Check the rows' } ).click();
-		await page.getByRole( 'button', { name: 'Create 2 items, add to 0, skip 0' } ).click();
+		// A statement on every item, picked from a list where the text box was.
+		await expect( page.locator( 'textarea[name="shared"]' ) ).toBeHidden();
+		await form.getByRole( 'button', { name: 'Add statement' } ).click();
+		await form.getByRole( 'combobox', { name: 'Property of line 1' } ).fill( 'P11' );
+		await page.getByRole( 'option', { name: /P11/ } ).first().click();
+		await form.getByLabel( 'Value of line 1' ).fill( 'https://example.org/every' );
+		await expect( page.locator( 'textarea[name="shared"]' ) ).toHaveValue( 'P11:https://example.org/every' );
+		await form.getByLabel( 'Table name' ).fill( 'E2E grid run' );
+
+		// Checked again, the same button writes the rows: no page in between.
+		await form.getByRole( 'button', { name: 'Check the rows' } ).click();
+		await form.getByRole( 'button', { name: 'Create 2 items, add to 0, skip 0' } ).click();
 		await expect( page.getByText( '2 items created, 0 added to, 0 not written.' ) ).toBeVisible();
+		// The run left a Table page, and its job is closed, not running.
+		const kept = page.locator( '.ts-createentities__draft a' );
+		await expect( kept ).toHaveText( 'Table:Drafts/Alice/E2E grid run' );
+		await page.locator( '.ts-createentities a[href^="/wiki/Special:Jobs/"]' ).click();
+		await expect( page.locator( '#content' ) ).toContainText( 'Closed' );
+		await page.goto( '/wiki/Table:Drafts/Alice/E2E_grid_run' );
+		await expect( page.locator( '.ts-table__grid' ) ).toContainText( 'Grid item two' );
 	} );
 
 	test( 'an uploaded file is mapped into the grid', async ( { page } ) => {
-		await logIn( page, 'Special:CreateManyEntities' );
+		await logIn( page, 'Special:CreateEntitiesFromFile' );
+		// The file is read when it is chosen, so the page's own button is not shown.
+		await expect( page.getByRole( 'button', { name: 'Read the file' } ) ).toBeHidden();
 		await page.locator( 'input[type="file"]' ).setInputFiles( {
 			name: 'items.csv',
 			mimeType: 'text/csv',
@@ -123,13 +147,28 @@ test.describe( 'with JavaScript', () => {
 		expect( await axe( page, '.ts-sheet-map' ) ).toEqual( [] );
 		await map.getByRole( 'button', { name: 'Put the rows in the table' } ).click();
 
+		// The table opens in the grid of the page that checks and writes it.
+		await page.waitForURL( '**/wiki/Special:CreateManyEntities' );
+		await expect( page.getByText( 'The table below was read for you.' ) ).toBeVisible();
 		await expect( page.locator( 'textarea[name="rows"]' ) ).toHaveValue(
 			'label,P2,Source\nMapped one,Q2,https://example.org/1\nMapped two,Q2,\n'
 		);
 		await expect( page.locator( 'textarea[name="reference"]' ) ).toHaveValue( 'P11:{Source}' );
 		await expect( page.getByLabel( 'Label, row 2' ) ).toHaveValue( 'Mapped two' );
-		// The file is not uploaded as well: the grid holds its rows.
-		await expect( page.locator( 'input[type="file"]' ) ).toHaveValue( '' );
+		// The reference reads the column, shown as a line of the list beside the grid.
+		const form = page.locator( '.ts-createentities__form' );
+		await expect( form.getByLabel( 'Where the value of line 1 comes from' ) ).toHaveValue( 'Source' );
+	} );
+
+	test( 'a file of QuickStatements commands is read as the commands\' page reads them', async ( { page } ) => {
+		await logIn( page, 'Special:CreateEntitiesFromFile' );
+		await page.locator( 'input[type="file"]' ).setInputFiles( {
+			name: 'batch.qs',
+			mimeType: 'text/plain',
+			buffer: Buffer.from( 'CREATE\nLAST|Len|"From commands"\nLAST|P2|Q2\n' )
+		} );
+		await expect( page.locator( 'textarea[name="rows"]' ) ).toHaveValue( 'label,P2\nFrom commands,Q2\n' );
+		await expect( page.getByLabel( 'Label, row 1' ) ).toHaveValue( 'From commands' );
 	} );
 
 	test( 'a table\'s cells and rows are edited in its grid', async ( { page } ) => {
@@ -227,4 +266,18 @@ test( 'without JavaScript the table is a text box and a Table page a drawn table
 	await logIn( page, 'Special:CreateManyEntities' );
 	await expect( page.locator( 'textarea[name="rows"]' ) ).toBeVisible();
 	await expect( page.locator( '.ts-sheet-create' ) ).toHaveCount( 0 );
+	// The check is a page of its own, with the confirmation on it.
+	await page.locator( 'textarea[name="rows"]' ).fill( 'label\nWithout script\n' );
+	await page.getByRole( 'button', { name: 'Check the rows' } ).click();
+	await expect( page.getByRole( 'heading', { name: 'The rows as they will be written' } ) ).toBeVisible();
+	await expect( page.getByRole( 'button', { name: 'Create 1 item, add to 0, skip 0' } ) ).toBeVisible();
+
+	// QuickStatements commands are read into the same table, and a removal is refused.
+	await page.goto( '/wiki/Special:QuickStatements' );
+	await page.getByLabel( 'Commands' ).fill( '-Q2|P2|Q3' );
+	await page.getByRole( 'button', { name: 'Read the commands' } ).click();
+	await expect( page.getByText( 'It removes something, which this page cannot do.' ) ).toBeVisible();
+	await page.getByLabel( 'Commands' ).fill( 'CREATE\nLAST|Len|"Commanded"\nLAST|P2|Q2' );
+	await page.getByRole( 'button', { name: 'Read the commands' } ).click();
+	await expect( page.locator( 'textarea[name="rows"]' ) ).toHaveValue( 'label,P2\nCommanded,Q2\n' );
 } );

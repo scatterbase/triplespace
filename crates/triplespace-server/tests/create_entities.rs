@@ -243,6 +243,37 @@ impl Browser {
             .to_string()
     }
 
+    /// Posts the confirmation a preview shows, with every field its form carries: the
+    /// plans, the batch, and the table, which the run saves first (0106 A9).
+    async fn confirm(&mut self, preview: &str) -> Got {
+        let at = preview
+            .find("ts-createentities__confirm")
+            .unwrap_or_else(|| panic!("no confirmation in {preview}"));
+        let form = preview[at..].split("</form>").next().unwrap_or_default();
+        let mut fields: Vec<(String, String)> = Vec::new();
+        for input in form.split("<input type=\"hidden\" name=\"").skip(1) {
+            let (name, rest) = input.split_once("\" value=\"").expect("a value");
+            let value = rest.split('"').next().unwrap_or_default();
+            let value = value
+                .replace("&quot;", "\"")
+                .replace("&#34;", "\"")
+                .replace("&#39;", "'")
+                .replace("&#x27;", "'")
+                .replace("&#x2f;", "/")
+                .replace("&#47;", "/")
+                .replace("&lt;", "<")
+                .replace("&gt;", ">")
+                .replace("&amp;", "&");
+            fields.push((name.to_string(), value));
+        }
+        let fields: Vec<(&str, &str)> = fields
+            .iter()
+            .map(|(k, v)| (k.as_str(), v.as_str()))
+            .collect();
+        self.post_form("/wiki/Special:CreateManyEntities", &fields)
+            .await
+    }
+
     async fn login(&mut self, name: &str, password: &str) {
         let token =
             self.api("action=query&meta=tokens&type=login").await["query"]["tokens"]["logintoken"]
@@ -292,7 +323,14 @@ async fn a_table_becomes_items_under_one_batch() {
     let moved = owner.get("/wiki/Special:CreateEntities/Table:X").await;
     assert_eq!(moved.status, StatusCode::MOVED_PERMANENTLY);
     assert!(form.body.contains("name=\"rows\""), "{}", form.body);
-    assert!(form.body.contains("type=\"file\"") && form.body.contains("name=\"file\""));
+    // A file is read on a page of its own (0106 A9), which this one links to.
+    assert!(!form.body.contains("type=\"file\""), "{}", form.body);
+    assert!(
+        form.body
+            .contains("href=\"/wiki/Special:CreateEntitiesFromFile\""),
+        "{}",
+        form.body
+    );
     let token = Browser::field(&form.body, "token");
 
     // Two properties to fill: an item one and a quantity.
@@ -373,22 +411,11 @@ async fn a_table_becomes_items_under_one_batch() {
     );
     assert!(html.contains("2 statements"), "{html}");
     assert!(html.contains("name=\"wpPlans\""), "{html}");
-    let plans = Browser::field(html, "wpPlans");
     let batch = Browser::field(html, "batch");
     assert_eq!(batch, "cities 2026");
 
     // The creation: two items, one batch job, the report naming each ID.
-    let report = owner
-        .post_form(
-            "/wiki/Special:CreateManyEntities",
-            &[
-                ("token", &token),
-                ("wpStep", "create"),
-                ("batch", &batch),
-                ("wpPlans", &plans),
-            ],
-        )
-        .await;
+    let report = owner.confirm(html).await;
     assert_eq!(report.status, StatusCode::OK, "{}", report.body);
     let html = &report.body;
     assert!(
@@ -403,7 +430,37 @@ async fn a_table_becomes_items_under_one_batch() {
     .await;
     assert_eq!(rows.len(), 1, "one batch job");
     let job: i64 = rows[0].get(0);
-    assert_eq!(rows[0].get::<_, String>(2), "running");
+    // The page closes its batch when the run ends (0104 A11).
+    assert_eq!(rows[0].get::<_, String>(2), "closed");
+    // And the run left a Table page (0106 A9), under a made-up name: it lists the two
+    // items, and keeps the row that was not written.
+    assert!(
+        html.contains("1 row is still staged in the table"),
+        "{html}"
+    );
+    let at = html.find("Table:Drafts/Owner/").expect("the table's title");
+    let title = html[at..]
+        .split(['<', '"'])
+        .next()
+        .unwrap_or_default()
+        .to_string();
+    let stored = owner
+        .api(&format!(
+            "action=query&prop=revisions&titles={}&rvprop=content&rvslots=main",
+            enc(&title)
+        ))
+        .await;
+    let stored: Value = serde_json::from_str(
+        stored["query"]["pages"][0]["revisions"][0]["slots"]["main"]["content"]
+            .as_str()
+            .unwrap_or_default(),
+    )
+    .expect("the table is JSON");
+    assert_eq!(
+        stored["rows"]["ids"].as_array().map(Vec::len),
+        Some(2),
+        "{stored}"
+    );
     assert!(
         html.contains(&format!("href=\"/wiki/Special:Jobs/{job}\"")),
         "{html}"
@@ -591,19 +648,8 @@ async fn the_text_names_ids_new_properties_references_and_rows() {
     assert!(html.contains("term conflict (1)"), "{html}");
     assert!(html.contains("skipped"), "{html}");
     assert!(html.contains("Create 1 item, add to 1, skip 2"), "{html}");
-    let plans = Browser::field(html, "wpPlans");
 
-    let report = owner
-        .post_form(
-            "/wiki/Special:CreateManyEntities",
-            &[
-                ("token", &token),
-                ("wpStep", "create"),
-                ("batch", "papers"),
-                ("wpPlans", &plans),
-            ],
-        )
-        .await;
+    let report = owner.confirm(html).await;
     let html = &report.body;
     assert!(
         html.contains("1 item created, 1 added to, 0 not written."),
@@ -670,18 +716,7 @@ async fn the_text_names_ids_new_properties_references_and_rows() {
         "{}",
         again.body
     );
-    let plans = Browser::field(&again.body, "wpPlans");
-    let report = owner
-        .post_form(
-            "/wiki/Special:CreateManyEntities",
-            &[
-                ("token", &token),
-                ("wpStep", "create"),
-                ("batch", "papers again"),
-                ("wpPlans", &plans),
-            ],
-        )
-        .await;
+    let report = owner.confirm(&again.body).await;
     assert!(
         report
             .body
@@ -928,22 +963,7 @@ async fn a_table_is_validated_drawn_and_kept_as_a_draft() {
     assert_eq!(checked["labels"][&journal], "journal");
     let html = &preview.body;
     assert!(html.contains("Create 1 item, add to 1, skip 1"), "{html}");
-    let plans = Browser::field(html, "wpPlans");
-    let report = owner
-        .post_form(
-            "/wiki/Special:CreateManyEntities",
-            &[
-                ("token", &token),
-                ("wpStep", "create"),
-                ("batch", "journals"),
-                ("wpPlans", &plans),
-                ("draft", draft),
-                ("rows", &rows),
-                ("shared", ""),
-                ("reference", &reference),
-            ],
-        )
-        .await;
+    let report = owner.confirm(html).await;
     let html = &report.body;
     assert!(
         html.contains("1 item created, 1 added to, 0 not written."),
@@ -999,4 +1019,191 @@ async fn a_table_is_validated_drawn_and_kept_as_a_draft() {
         page.body
     );
     assert!(page.body.contains("1 staged row"), "{}", page.body);
+}
+
+/// The text of the form's table, as the page wrote it into its text box.
+fn table_in(body: &str) -> String {
+    let at = body.find("name=\"rows\"").expect("the table's text box");
+    let rest = &body[at..];
+    let from = rest.find('>').expect("the box's start") + 1;
+    rest[from..]
+        .split("</textarea>")
+        .next()
+        .unwrap_or_default()
+        .replace("&quot;", "\"")
+        .replace("&#34;", "\"")
+        .replace("&amp;", "&")
+}
+
+// 0106 §7, A9: a file and QuickStatements commands are each read on a page of their own,
+// which opens the table in `Special:CreateManyEntities`; the commands become items there.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn a_file_and_quickstatements_open_as_the_table() {
+    let Some((database, key_file)) = setup("tscreateentities_file_test").await else {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    };
+    let site = site(&database, &key_file).await;
+    let mut reader = Browser {
+        router: site.clone(),
+        cookie: None,
+    };
+    for page in ["CreateEntitiesFromFile", "QuickStatements"] {
+        let asked = reader.get(&format!("/wiki/Special:{page}")).await;
+        assert_eq!(asked.status, StatusCode::OK);
+        assert!(asked.body.contains("Log in to create"), "{}", asked.body);
+    }
+    let mut owner = Browser {
+        router: site.clone(),
+        cookie: None,
+    };
+    owner.login("Owner", "owner-secret-1234").await;
+    let csrf =
+        owner.api("action=query&meta=tokens&type=csrf").await["query"]["tokens"]["csrftoken"]
+            .as_str()
+            .unwrap()
+            .to_string();
+    let p_kind = make(
+        &mut owner,
+        &csrf,
+        "property",
+        r#"{"labels":{"en":{"language":"en","value":"instance of"}},"datatype":"wikibase-item"}"#,
+    )
+    .await;
+    let p_url = make(
+        &mut owner,
+        &csrf,
+        "property",
+        r#"{"labels":{"en":{"language":"en","value":"reference URL"}},"datatype":"url"}"#,
+    )
+    .await;
+    let city = make(
+        &mut owner,
+        &csrf,
+        "item",
+        r#"{"labels":{"en":{"language":"en","value":"city"}}}"#,
+    )
+    .await;
+
+    // The file page: a CSV opens as the table, unchecked, in the form of the other page.
+    let page = owner.get("/wiki/Special:CreateEntitiesFromFile").await;
+    assert_eq!(page.status, StatusCode::OK, "{}", page.body);
+    assert!(page.body.contains("type=\"file\""), "{}", page.body);
+    let csv = format!("label,{p_kind}\nPortland,{city}\n");
+    let opened = owner
+        .post_multipart(
+            "/wiki/Special:CreateEntitiesFromFile",
+            &[],
+            Some(csv.as_bytes()),
+        )
+        .await;
+    assert_eq!(opened.status, StatusCode::OK, "{}", opened.body);
+    assert!(
+        opened
+            .body
+            .contains("action=\"/wiki/Special:CreateManyEntities\""),
+        "{}",
+        opened.body
+    );
+    assert!(
+        opened.body.contains("The table below was read for you"),
+        "{}",
+        opened.body
+    );
+    assert_eq!(table_in(&opened.body), csv);
+    // No file, and nothing happens.
+    let none = owner
+        .post_multipart("/wiki/Special:CreateEntitiesFromFile", &[], None)
+        .await;
+    assert!(none.body.contains("Choose a file first."), "{}", none.body);
+
+    // A file of QuickStatements commands is read as that page reads them.
+    let commands = format!(
+        "CREATE\nLAST|Len|\"Salem\"\nLAST|Den|\"capital of Oregon\"\nLAST|{p_kind}|{city}|S{}|\"https://example.org/salem\"\n{city}|Aen|\"town\"\n",
+        &p_url[1..]
+    );
+    let from_file = owner
+        .post_multipart(
+            "/wiki/Special:CreateEntitiesFromFile",
+            &[],
+            Some(commands.as_bytes()),
+        )
+        .await;
+    let expected = format!(
+        "id,label,description,{p_kind},{p_kind}/ref:{p_url},aliases\n,Salem,capital of Oregon,{city},https://example.org/salem,\n{city},,,,,town\n"
+    );
+    assert_eq!(table_in(&from_file.body), expected, "{}", from_file.body);
+
+    // The commands' own page: what the table cannot hold is refused by line.
+    let page = owner.get("/wiki/Special:QuickStatements").await;
+    assert_eq!(page.status, StatusCode::OK, "{}", page.body);
+    assert!(page.body.contains("name=\"commands\""), "{}", page.body);
+    let refused = owner
+        .post_form(
+            "/wiki/Special:QuickStatements",
+            &[("commands", &format!("-{city}|{p_kind}|{city}\n"))],
+        )
+        .await;
+    assert!(refused.body.contains("Line 1 ("), "{}", refused.body);
+    assert!(
+        refused.body.contains("It removes something"),
+        "{}",
+        refused.body
+    );
+    assert!(
+        refused
+            .body
+            .contains("action=\"/wiki/Special:QuickStatements\""),
+        "{}",
+        refused.body
+    );
+
+    // Read, checked and written: an item made, and an alias added to one that exists.
+    let opened = owner
+        .post_form("/wiki/Special:QuickStatements", &[("commands", &commands)])
+        .await;
+    assert_eq!(table_in(&opened.body), expected, "{}", opened.body);
+    let token = Browser::field(&opened.body, "token");
+    let preview = owner
+        .post_form(
+            "/wiki/Special:CreateManyEntities",
+            &[
+                ("token", &token),
+                ("wpStep", "preview"),
+                ("rows", &expected),
+                ("batch", "from commands"),
+            ],
+        )
+        .await;
+    assert!(
+        preview.body.contains("Create 1 item, add to 1, skip 0"),
+        "{}",
+        preview.body
+    );
+    let report = owner.confirm(&preview.body).await;
+    assert!(
+        report
+            .body
+            .contains("1 item created, 1 added to, 0 not written."),
+        "{}",
+        report.body
+    );
+    let e = owner
+        .api(&format!("action=wbgetentities&ids={city}&props=aliases"))
+        .await;
+    assert_eq!(e["entities"][&city]["aliases"]["en"][0]["value"], "town");
+    let found = owner
+        .api("action=wbsearchentities&search=Salem&language=en&type=item")
+        .await;
+    let id = found["search"][0]["id"]
+        .as_str()
+        .expect("Salem")
+        .to_string();
+    let e = owner.api(&format!("action=wbgetentities&ids={id}")).await;
+    assert_eq!(
+        e["entities"][&id]["claims"][&p_kind][0]["references"][0]["snaks"][&p_url][0]["datavalue"]
+            ["value"],
+        "https://example.org/salem"
+    );
 }

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-08
-- **Updated:** 2026-11-10 (A8)
+- **Updated:** 2026-11-15 (A10)
 - **Author:** James Hare / Claude Opus
 - **Changes:** [0045](0045-table-content-model.md), [0104](0104-batches-and-the-job-runner.md)
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0043](0043-lua-modules.md), [0064](0064-entityschema-and-validation.md), [0073](0073-lines-links-and-url-patterns.md)
@@ -27,7 +27,7 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 1. The grid is an enhancement over the table's text (amends 0104 §11)
 
-*Changed by A2, A6.*
+*Changed by A2, A6, A9.*
 
 *Current text: [21](../architecture/21-special-pages.md) §6.6, §6.7.*
 
@@ -55,13 +55,13 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 6. Row status and cells by data type (uses 0003 §9 and 0073)
 
-*Changed by A1, A6, A7.*
+*Changed by A1, A6, A7, A9, A10.*
 
 *Current text: [21](../architecture/21-special-pages.md) §6.7.*
 
 ### 7. Upload and column mapping (extends 0104 §11)
 
-*Changed by A6.*
+*Changed by A6, A9, A10.*
 
 *Current text: [21](../architecture/21-special-pages.md) §6.8.*
 
@@ -73,7 +73,7 @@ James's direction, from the design discussion of 2026-11-08:
 
 ### 9. Drafts are tables with staged rows (amends 0045 §1; extends 0045 §4 and §7)
 
-*Changed by A1, A2, A3, A5.*
+*Changed by A1, A2, A3, A5, A9, A10.*
 
 *Current text: [15](../architecture/15-structured-pages.md) §2.1, §2.3, §2.6, §2.7.*
 
@@ -166,3 +166,34 @@ James's direction, from the design discussion of 2026-11-08:
 - **Source:** Direct: Claude, while fixing a code-scanning finding on PR #198, 2026-11-10; unconfirmed
 - **Change:** extends §2
 - **Summary:** In a cell that may hold several values, `\\` is a literal backslash, beside `\|` for a literal bar; a backslash before any other character stands for itself, so `C:\dir` is read as written. Without it a value ending in a backslash could not be written before another value: its backslash and the separator read as an escaped bar, and the two values became one. What writes such cells (the preview, a draft, the grid, the file readers) escapes both characters. A value typed by hand with two backslashes in a row, such as a UNC path or a line break in LaTeX, now reads as one and must be written with four.
+
+### A9. One button, no text switch, every run a Table page, and files and QuickStatements on pages of their own
+
+- **Date:** 2026-11-15
+- **Source:** Direct: James, 2026-11-15, after using the page: "When I use Special:CreateManyEntities I don't end up with a saved Table namespace page, not even a draft one." "You don't need a button to switch between table mode and text mode in Special:CreateManyEntities. I would also move 'Add row' to the bottom and 'Add column' as a table-height button with a plus icon to the right of the rightmost column." "Get rid of the check button at the top of the form; it makes the page look like it's two separate forms and it doesn't queue the table up for edits anyway. You can move its behavior to the bottom button, where clicking it once validates the rows and clicking it a second time submits. The current interstitial page can be kept as a no-JS fallback." "Creating entities by file should be its own special page, which directs people to either CreateManyEntities or QuickStatements depending on format. Or QuickStatements is just a shim on top of CreateManyEntities. But having file upload on Special:CreateManyEntities right now clutters the interface."
+- **Change:** amends §1, §6 and §7; extends §9
+- **Summary:** (1) Every import saves the table as a Table page before anything is written: the draft it is kept in, or a new one where it is not. Until now only a table already saved as a draft was recorded. (2) The grid stands in for the text box, and nothing switches between the two; the text stays the canonical form, and is what the page without JavaScript shows. The button that adds a row stands beneath the last row, and the one that adds a column to the right of the last column, as tall as the table, under a plus sign. (3) The grid has no button of its own that checks the rows. The form's button checks them on its first press and writes them on its second; the preview page with its confirmation stays as what the page shows without JavaScript. This amends A6 (1), under which the grid posted nothing itself. (4) A file is read on a page of its own, which passes a table on to `Special:CreateManyEntities` and QuickStatements commands on to `Special:QuickStatements`; `Special:CreateManyEntities` has no file field. `Special:QuickStatements` is a reader in front of `Special:CreateManyEntities`, of the two forms James offered.
+
+Replaced text ([21](../architecture/21-special-pages.md) §6.6, as it stood):
+
+> Without JavaScript the page takes the table as text, as described here; with it, the same table is edited as a grid (§6.7), and an uploaded file is mapped into it first (§6.8). The grid reads the text and writes it, a toggle shows either, and anything the grid can express the text can express, so the two paths do the same thing and a table can be passed between people as text.
+
+> - **The table** is pasted, tab- or comma-separated with double-quoted cells as a spreadsheet writes them, or uploaded as a CSV or TSV file. Its first row names the columns
+
+Replaced text ([21](../architecture/21-special-pages.md) §6.7, as it stood):
+
+> The grid writes each change into the form's text box and posts nothing of its own, so checking, saving a draft and importing are the form's with or without it; to show the rows' statuses it asks the page for its check as JSON (`wpFormat=json`), when the editor asks (0106 A6).
+
+Replaced text ([21](../architecture/21-special-pages.md) §6.8, as it stood):
+
+> With JavaScript, an uploaded file goes through a mapping step before the grid. A CSV, TSV or XLSX file (its first sheet), a JSON Lines file, or QuickStatements V1 limited to `CREATE` and `LAST` lines with term and statement commands, is read and each source column shown with its header and a sample of its values. Each is mapped to a term and language, an existing property, a new property (with `property-create`), a value the reference on every statement reads, `id`, or *ignore*. Mappings are suggested where they are evident: a header that is a property's ID or label, a header in the text conventions of §6.6, or values matching one identifier property's pattern. The result lands in the grid as a new draft. The file is read in the browser and is not uploaded (0106 A6).
+>
+> **A mapping is saved as a draft with its columns and no rows.** Opening such a draft with a file of the same shape skips the mapping step, which serves anyone importing the same export each month. Without JavaScript an uploaded file is read by the header conventions of §6.6, with no mapping step.
+
+### A10. What A9 needed, found while building
+
+- **Date:** 2026-11-15
+- **Source:** Direct: Claude, while building A9, 2026-11-15; confirmed by James, 2026-11-15
+- **Change:** extends §6, §7 and §9
+- **Summary:** (1) The file's page is `Special:CreateEntitiesFromFile`; with a table's title after it, it fills that draft, and a saved mapping (A6 (5)) applies there. It passes a table on by posting its text to `Special:CreateManyEntities` with `wpStep=open`, which shows the form holding it and checks and writes nothing. Without JavaScript the file is uploaded to the page, which tells commands from a table by the first line that says anything. (2) `Special:QuickStatements` reads `CREATE` and `LAST`, and also a command on an item's ID, as a row that adds to that item; on such a row a label or description is written with `!`, since the command sets the term whatever it was. Sources become the statement's own reference. A removal, a sitelink, `MERGE` and a target that is not an item are refused by line, and nothing opens until every line reads; qualifiers are left out and counted, as A6 (4) left them out of a file. A quantity's unit is read (`12U11573`). (3) A table saved by an import with no name given is named from the time, and takes a number after the name when a page already has it. A name the editor gave that a page already has is refused before anything is written. (4) The form's button writes only while nothing has changed since the check, anything typed beside the grid included; otherwise it checks again. (5) The statements on every item and the reference on every statement are lists beside the grid over their text boxes, a property and its value on each line, the reference's value given or read from a plain column: a step toward the locked columns and the reference block of §6, which are not built.
+
