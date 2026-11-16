@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-15 (A126)
+- **Updated:** 2026-11-16 (A127)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
@@ -1093,3 +1093,10 @@ Replaced text (22 §2.1, `crates.toml`, the binaries' entry, as it stood):
 - **Source:** 0110 §7
 - **Change:** extends §2
 - **Summary:** `scatter-normalize` holds the `remote` keyed type's grammar and normalizer and the host registry with its site grammars, embedding `hosts.toml`; `scatter-wikibase-model` holds the entity type, the `wikibase-remote` data type and the link through a host's site list. No new crate and no new edge. Chapter text: 22 §2.1 (`crates.toml`).
+
+### A127. The provisioner
+
+- **Date:** 2026-11-16
+- **Source:** 0111 §9
+- **Change:** extends §2
+- **Summary:** `triplespace-cli` holds the provisioner, `triplespace provision`, which carries out tenant requests as the database owner with the instance key, and `tenant create` files a request and runs it at once. No new crate and no new edge. Chapter text: 22 §2.1 (`crates.toml`).

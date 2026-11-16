@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-11-08 (A9)
+- **Updated:** 2026-11-16 (A10)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0010](0010-site-ui.md), [0039](0039-files-and-media.md), [0047](0047-special-pages.md)
 
@@ -164,3 +164,12 @@ Replaced text: 19 §6.11.
 - **Source:** Direct: James, design discussion of 2026-11-08
 - **Change:** extends §4
 - **Summary:** Settles Q2. Asked whether the instance `log` should be published, its job records and consumer events being public and its takedown and expunge records not, James chose to keep the whole partition `internal`, with no export policy per payload type and no public dump of it; its public records reach readers through the API and the feeds alone, as 01 §1.4 and 09 §6.5 say. To be revisited with federation (0022) if a consumer needs them from a dump. Chapter text: 01 §1.4.
+
+### A10. The instance attests what the provisioner writes
+
+- **Date:** 2026-11-16
+- **Source:** 0111 §4, §7, §8, §10
+- **Change:** amends §4, §5; extends §8, §9
+- **Summary:** Records in instance partitions were attested by an upstream actor, a farm account, or an actor of the primary tenant for everything else. The `tenant:` and `tenant/refuse` records the provisioner writes when it carries out a tenant request are attested by `instance:{farm code}`, with the request, which an actor of the primary tenant attests, as their authority, as offsets 1 and 2 of the instance `config` already were. A new instance right, `ts-createtenant`, held by `owner` alone, files a request; `Special:Tenants` gains the form that files one. Accepting the primary role is now an acceptance request citing the offer, which the provisioner checks before it appends the new `primary` record, attested by the instance with the acceptance as authority. Chapter text: 08 §7.4, §7.5; 09 §2.2; 19 §6.11.
+
+Replaced text: 08 §7.4, §7.5.

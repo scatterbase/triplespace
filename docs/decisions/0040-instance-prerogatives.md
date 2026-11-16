@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-10-18 (A8)
+- **Updated:** 2026-11-16 (A9)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0023](0023-moderation.md), [0025](0025-oauth-server.md), [0026](0026-sitelinks.md), [0046](0046-primary-tenant.md)
 
@@ -160,3 +160,12 @@ Replaced text: 08 §8.6.
 - **Source:** 0086 A1
 - **Change:** extends §6
 - **Summary:** A new written act: the instance renames a tenant's palette or type set to `{name}~{slug}` when the tenant joins, when the instance takes the name with `key=tenants`, or when `registry sync` adds it, rewriting the tenant's references in the same act. It is a provision, so the tenant may rename the record again; its authority is a job record in the instance `log` that lists the renames. The chapter row is 08 §8.6.
+
+### A9. The authority for creating a tenant is its request
+
+- **Date:** 2026-11-16
+- **Source:** 0111 §4
+- **Change:** amends §4
+- **Summary:** Tenant creation was the one written instance act whose authority record, the `tenant:` record attested by the operator, was written partway through the work. Its authority is now the `tenant/request` record the operator files in the instance `log` before anything is done; the `tenant:` record is attested by the instance with the request as authority, and remains the authority of the provisions written into the new tenant. Template provisions and locked templates keep their own rows. Chapter text: 08 §8.4.
+
+Replaced text: 08 §8.4.

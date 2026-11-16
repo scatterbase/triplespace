@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-09 (A24)
+- **Updated:** 2026-11-16 (A25)
 - **Author:** James Hare / Claude Fable
 - **Uses:** [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0027](0027-preferences-and-portability.md)
 
@@ -304,3 +304,12 @@ Replaced text: 08 §3.5, §3.6.
 - **Source:** 0108 §2
 - **Change:** extends §1
 - **Summary:** Every read of a switch goes through the settings snapshot's `switch` or the policy's `get`, which report it to the probe; CI fails a run that read a name which is neither a switch `tenancy.toml` lists nor the ceiling of a `bound = "ceiling"` setting. The `tenancy:locked` list is not a switch. Chapter text: 08 §5.1.
+
+### A25. Deleting a tenant is filed as a request
+
+- **Date:** 2026-11-16
+- **Source:** 0111 §10
+- **Change:** amends §5
+- **Summary:** An operator deletes a tenant by filing a request in the instance `log`, which the provisioner carries out as it carries out a tenant request; the grace period and the erasure job after it are unchanged. Chapter text: 08 §6.6.
+
+Replaced text: 08 §6.6.
