@@ -58,7 +58,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 4. Four schemas
 
-*Current text: [03](../architecture/03-storage-caches-and-search.md) §1.2, §4.16.*
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §1.2, §4.16; [08](../architecture/08-tenants-and-instances.md) §6.7.*
 
 ### 5. The `view` schema
 
@@ -98,7 +98,7 @@ PostgreSQL is already part of the deployment stack, and the only question the st
 
 ### 8. RDF becomes an output, not the read path (amends 0001 §2 and 0005 §4.4)
 
-*Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.5, §4.1, §6.5.*
+*Current text: [02](../architecture/02-graphs-rdf-and-query.md) §1.5, §4.1, §6.5; [17](../architecture/17-federation-and-publication.md) §1.1.*
 
 ### 9. Bootstrap mode (extends 0002 §8.6; uses 0006 §5)
 
