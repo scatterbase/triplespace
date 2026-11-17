@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-13 (A31)
+- **Updated:** 2026-11-17 (A32)
 - **Author:** James Hare / Claude
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0034](0034-frontend-stack.md)
 
@@ -378,3 +378,11 @@ Replaced text: 22 §3.3.
 - **Change:** extends §4
 - **Summary:** The runner compared the database with the binary's own migrations only, so a database a newer binary had migrated looked to an older one like a database in step: the older server started on it, `triplespace migrate` said there was nothing to do and gave the older binary's grants, and a backup recorded the older binary's list. The calls made: (1) **a migration the database records and the binary lacks makes the database newer than the binary**; `triplespace-server` refuses to start on one, naming the migrations, as it refuses one behind it (A20), and the runner refuses to migrate one; (2) this also stops an older replica from starting during a rolling upgrade once the database is migrated, and a rollback of the binary alone, both of which ran before, on a schema the code did not know; whether either should be allowed, for migrations marked as safe for the version before, is not decided; (3) a backup records the database's own rows (0103 A13). The runner still takes no lock: two runs at once end with one of them failing on `ops.migration`'s key, its migration rolled back.
 
+### A32. Blob storage no longer uses `object_store`
+
+- **Date:** 2026-11-17
+- **Source:** 0039 A17
+- **Change:** amends §5
+- **Summary:** Blob storage is `scatter-blob`'s own backend trait, with the `fs` backend built in the crate on tokio's filesystem calls; `object_store`, chosen in A2, is no longer a dependency, and with it `chrono` and `humantime` leave the dependency graph, both declared unmaintained (RUSTSEC-2026-0543, RUSTSEC-2026-0542). The `s3` backend's client is not yet chosen; it must pass §16's `cargo deny` check and not bring in `chrono`. The chapter text is 03 §8, §9.2.
+
+Replaced text: 03 §8, §9.2.

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-11-13 (A16)
+- **Updated:** 2026-11-17 (A17)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0007](0007-actor-identity.md), [0019](0019-discussions.md), [0040](0040-instance-prerogatives.md), [0041](0041-content-models.md)
 
@@ -283,3 +283,11 @@ Replaced text: 12 §4.1.
 - **Change:** extends §3
 - **Summary:** §3's layout had four kinds of key, none for bytes that are neither an upload nor derived from one, which a queued export's file is (0104 A9). The calls made: (1) **`{scope}/job/{id}/{name}`** holds what a job of the runner's wrote for its submitter to fetch, `{id}` the job's ID in decimal and `{name}` one segment (`export.xml`, `export.cbor`); (2) such an object is not content-addressed: it is written once, by a streamed write to its key that leaves nothing there if its source fails, and is never read by hash, so `verify` and the orphan sweep, which reason from `upload` records, leave `job/` alone; (3) it is removed by age, by whoever wrote it: the export job removes a tenant's job output older than `export.keep_days` before it writes its own, and a fetch of an expired file removes it and answers that it is gone; (4) `scatter-blob` gains the key, its prefixes and the streamed write at a key, shared with Scatterbase like the rest of the layout.
 
+### A17. The blob store over a backend trait of its own
+
+- **Date:** 2026-11-17
+- **Source:** Direct: James, design discussion of 2026-11-17, chose a backend trait in `scatter-blob` with the `fs` backend built there; the calls in (1)–(3) are Claude's, while building it; unconfirmed
+- **Change:** amends §3
+- **Summary:** `scatter-blob` defines the store over a small backend trait of its own and implements the `fs` backend itself, in place of `object_store`. `chrono` and `humantime` were declared unmaintained (RUSTSEC-2026-0543, RUSTSEC-2026-0542), and `object_store` depends on both in every release, `chrono` as part of its public API, so `cargo deny` failed on every branch. The calls made: (1) the trait holds only what the store uses: put, replacing or only if absent; a streamed write that takes its key when it completes and removes its temporary file if it is dropped unfinished; copy-if-absent; whole, ranged and streamed reads; metadata; delete; and a listing under a prefix; (2) the `s3` backend implements the same trait when it is built, on a client that does not bring in `chrono`, not yet chosen; (3) the `fs` backend keeps the directory form `object_store` gave it, so an existing store is read unchanged: each key segment percent-encoded with `object_store`'s character set, `.` and `..` encoded whole, writes made under `{path}#{n}` and renamed or hard-linked into place, such a temporary name never listed, empty directories removed after a delete, and nothing fsynced, as `object_store` did not by default; a listing now decodes the segments it returns, so a stash key with an encoded character parses back to itself, where it parsed to its encoded form before; and a prefix deletion lists every object before it deletes any. The chapter text is 03 §8, §9.2.
+
+Replaced text: 03 §8, §9.2.

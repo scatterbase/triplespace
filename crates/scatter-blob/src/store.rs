@@ -6,31 +6,26 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::SystemTime;
 
-use bytes::Bytes;
-use futures::stream::{BoxStream, Stream, StreamExt, TryStreamExt};
-use object_store::local::LocalFileSystem;
-use object_store::{
-    GetOptions, GetRange, ObjectStore, ObjectStoreExt as _, PutMode, PutOptions, WriteMultipart,
-};
-
+use crate::backend::{Backend, BackendError, Filesystem, PutMode};
 use crate::error::BlobError;
 use crate::hash::{Digest, Hasher, Sha256};
 use crate::key::{Key, Kind, Prefix, Scope};
+use bytes::Bytes;
+use futures::stream::{BoxStream, Stream, StreamExt, TryStreamExt};
 
 /// The blob store: one backend, every scope (0039 §3).
 ///
 /// The backend is deployment configuration. [`BlobStore::filesystem`] is the `fs` backend,
-/// a directory; [`BlobStore::new`] takes any `object_store` backend, which is where `s3` will
-/// plug in.
+/// a directory; [`BlobStore::new`] takes any [`Backend`], which is where `s3` will plug in.
 #[derive(Clone)]
 pub struct BlobStore {
-    inner: Arc<dyn ObjectStore>,
+    inner: Arc<dyn Backend>,
     temp: Arc<AtomicU64>,
 }
 
 impl std::fmt::Debug for BlobStore {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "BlobStore({})", self.inner)
+        write!(f, "BlobStore({:?})", self.inner)
     }
 }
 
@@ -118,20 +113,12 @@ impl BlobStore {
     /// generally does not). Deleting the last object in a shard directory removes the
     /// directory.
     pub fn filesystem(root: impl AsRef<std::path::Path>) -> Result<Self, BlobError> {
-        let root = root.as_ref();
-        std::fs::create_dir_all(root).map_err(|source| {
-            BlobError::Store(object_store::Error::Generic {
-                store: "fs",
-                source: Box::new(source),
-            })
-        })?;
-        let fs = LocalFileSystem::new_with_prefix(root)?.with_automatic_cleanup(true);
-        Ok(Self::new(Arc::new(fs)))
+        Ok(Self::new(Arc::new(Filesystem::new(root)?)))
     }
 
-    /// The store over any `object_store` backend.
+    /// The store over any backend.
     #[must_use]
-    pub fn new(inner: Arc<dyn ObjectStore>) -> Self {
+    pub fn new(inner: Arc<dyn Backend>) -> Self {
         Self {
             inner,
             temp: Arc::new(AtomicU64::new(0)),
@@ -140,7 +127,7 @@ impl BlobStore {
 
     /// The backend.
     #[must_use]
-    pub fn backend(&self) -> &Arc<dyn ObjectStore> {
+    pub fn backend(&self) -> &Arc<dyn Backend> {
         &self.inner
     }
 
@@ -151,13 +138,9 @@ impl BlobStore {
         h.update(&bytes);
         let digest = h.finish();
         let key = Key::sha256(scope.clone(), digest.sha256);
-        let opts = PutOptions {
-            mode: PutMode::Create,
-            ..PutOptions::default()
-        };
-        let existed = match self.inner.put_opts(&key.path(), bytes.into(), opts).await {
-            Ok(_) => false,
-            Err(object_store::Error::AlreadyExists { .. }) => true,
+        let existed = match self.inner.put(&key.path(), bytes, PutMode::Create).await {
+            Ok(()) => false,
+            Err(BackendError::AlreadyExists { .. }) => true,
             Err(e) => return Err(e.into()),
         };
         Ok(Stored { digest, existed })
@@ -203,8 +186,7 @@ impl BlobStore {
     {
         let key = Key::stash(scope.clone(), key)?;
         let path = key.path();
-        let upload = self.inner.put_multipart(&path).await?;
-        let mut writer = WriteMultipart::new(upload);
+        let mut upload = self.inner.upload(&path).await?;
         let mut hasher = Hasher::new();
         let mut stream = std::pin::pin!(stream);
 
@@ -217,8 +199,7 @@ impl BlobStore {
                     return Err(BlobError::TooLarge { limit });
                 }
                 hasher.update(&chunk);
-                writer.wait_for_capacity(8).await?;
-                writer.put(chunk);
+                upload.write(chunk).await?;
             }
             Ok(())
         }
@@ -227,10 +208,10 @@ impl BlobStore {
         if let Err(e) = outcome {
             // Best effort: the abort may itself fail, and the original error is the one to
             // report; whatever an abort leaves, the orphan sweep removes.
-            let _ = writer.abort().await;
+            let _ = upload.abort().await;
             return Err(e);
         }
-        writer.finish().await?;
+        upload.finish().await?;
         Ok(Staged {
             key,
             digest: hasher.finish(),
@@ -250,10 +231,10 @@ impl BlobStore {
         };
         let from = staged.key.path();
         let address = Key::sha256(scope.clone(), staged.digest.sha256);
-        let existed = match self.inner.copy_if_not_exists(&from, &address.path()).await {
+        let existed = match self.inner.copy_if_absent(&from, &address.path()).await {
             Ok(()) => false,
-            Err(object_store::Error::AlreadyExists { .. }) => true,
-            Err(object_store::Error::NotFound { .. }) if self.exists(&address).await? => true,
+            Err(BackendError::AlreadyExists { .. }) => true,
+            Err(BackendError::NotFound { .. }) if self.exists(&address).await? => true,
             Err(e) => return Err(e.into()),
         };
         self.delete(&staged.key).await?;
@@ -272,7 +253,9 @@ impl BlobStore {
                 key.to_string(),
             )));
         }
-        self.inner.put(&key.path(), bytes.into()).await?;
+        self.inner
+            .put(&key.path(), bytes, PutMode::Overwrite)
+            .await?;
         Ok(())
     }
 
@@ -291,8 +274,7 @@ impl BlobStore {
                 key.to_string(),
             )));
         }
-        let upload = self.inner.put_multipart(&key.path()).await?;
-        let mut writer = WriteMultipart::new(upload);
+        let mut upload = self.inner.upload(&key.path()).await?;
         let mut stream = std::pin::pin!(stream);
         let mut written = 0u64;
 
@@ -300,8 +282,7 @@ impl BlobStore {
             while let Some(chunk) = stream.next().await {
                 let chunk = chunk.map_err(|e| BlobError::Source(Box::new(e)))?;
                 written += chunk.len() as u64;
-                writer.wait_for_capacity(8).await?;
-                writer.put(chunk);
+                upload.write(chunk).await?;
             }
             Ok(())
         }
@@ -309,35 +290,33 @@ impl BlobStore {
 
         if let Err(e) = outcome {
             // Best effort, as for a stash write: the original error is the one to report.
-            let _ = writer.abort().await;
+            let _ = upload.abort().await;
             return Err(e);
         }
-        writer.finish().await?;
+        upload.finish().await?;
         Ok(written)
     }
 
     /// Reads a whole object into memory.
     pub async fn get(&self, key: &Key) -> Result<Bytes, BlobError> {
-        Ok(self.inner.get(&key.path()).await?.bytes().await?)
+        let got = self.inner.get(&key.path(), None).await?;
+        collect(got.stream).await
     }
 
     /// Reads one byte range into memory. A range that starts past the end is an error; one
     /// that ends past it is clipped.
     pub async fn get_range(&self, key: &Key, range: Range<u64>) -> Result<Bytes, BlobError> {
-        Ok(self.inner.get_range(&key.path(), range).await?)
+        let got = self.inner.get(&key.path(), Some(range)).await?;
+        collect(got.stream).await
     }
 
     /// Opens an object, or a byte range of it, as a stream (0039 §3: streamed reads).
     pub async fn read(&self, key: &Key, range: Option<Range<u64>>) -> Result<Reader, BlobError> {
-        let opts = GetOptions {
-            range: range.map(GetRange::Bounded),
-            ..GetOptions::default()
-        };
-        let got = self.inner.get_opts(&key.path(), opts).await?;
+        let got = self.inner.get(&key.path(), range).await?;
         Ok(Reader {
             size: got.meta.size,
-            range: got.range.clone(),
-            stream: got.into_stream().map_err(BlobError::from).boxed(),
+            range: got.range,
+            stream: got.stream.map_err(BlobError::from).boxed(),
         })
     }
 
@@ -346,9 +325,9 @@ impl BlobStore {
         match self.inner.head(&key.path()).await {
             Ok(m) => Ok(Some(Meta {
                 size: m.size,
-                last_modified: m.last_modified.into(),
+                last_modified: m.last_modified,
             })),
-            Err(object_store::Error::NotFound { .. }) => Ok(None),
+            Err(BackendError::NotFound { .. }) => Ok(None),
             Err(e) => Err(e.into()),
         }
     }
@@ -362,7 +341,7 @@ impl BlobStore {
     /// `ops.blob_delete` job (03 §4.9) converges.
     pub async fn delete(&self, key: &Key) -> Result<(), BlobError> {
         match self.inner.delete(&key.path()).await {
-            Ok(()) | Err(object_store::Error::NotFound { .. }) => Ok(()),
+            Ok(()) | Err(BackendError::NotFound { .. }) => Ok(()),
             Err(e) => Err(e.into()),
         }
     }
@@ -370,16 +349,18 @@ impl BlobStore {
     /// Deletes every object under a prefix and returns how many it deleted: a tenant's
     /// scope when it leaves (0039 §4, §14), a repository's cache, one hash's thumbnails.
     pub async fn delete_prefix(&self, prefix: &Prefix) -> Result<u64, BlobError> {
-        let locations = self
+        // Listed first, then deleted: deleting while the walk is open would let it miss
+        // entries, and a deletion removes the directories it empties.
+        let locations: Vec<_> = self
             .inner
-            .list(Some(prefix.path()))
+            .list(prefix.path())
             .map_ok(|m| m.location)
-            .boxed();
+            .try_collect()
+            .await?;
         let mut deleted = 0;
-        let mut results = self.inner.delete_stream(locations);
-        while let Some(r) = results.next().await {
-            match r {
-                Ok(_) | Err(object_store::Error::NotFound { .. }) => deleted += 1,
+        for location in &locations {
+            match self.inner.delete(location).await {
+                Ok(()) | Err(BackendError::NotFound { .. }) => deleted += 1,
                 Err(e) => return Err(e.into()),
             }
         }
@@ -391,7 +372,7 @@ impl BlobStore {
     /// describe, with its size and age. Order is the backend's.
     pub fn list(&self, prefix: &Prefix) -> BoxStream<'static, Result<Entry, BlobError>> {
         self.inner
-            .list(Some(prefix.path()))
+            .list(prefix.path())
             .map(|r| {
                 let m = r?;
                 Ok(Entry {
@@ -399,7 +380,7 @@ impl BlobStore {
                     location: m.location.to_string(),
                     meta: Meta {
                         size: m.size,
-                        last_modified: m.last_modified.into(),
+                        last_modified: m.last_modified,
                     },
                 })
             })
@@ -430,4 +411,15 @@ impl BlobStore {
             }
         })
     }
+}
+
+/// Reads a whole stream into one buffer.
+async fn collect(
+    mut stream: BoxStream<'static, Result<Bytes, BackendError>>,
+) -> Result<Bytes, BlobError> {
+    let mut buf = Vec::new();
+    while let Some(chunk) = stream.next().await {
+        buf.extend_from_slice(&chunk?);
+    }
+    Ok(Bytes::from(buf))
 }

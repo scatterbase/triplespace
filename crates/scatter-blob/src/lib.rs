@@ -1,10 +1,10 @@
-//! The blob store (0039 §3, §4; 03 §8, 12 §2): content-addressed storage over
-//! [`object_store`], shared with Scatterbase, whose blobs are the same objects under the
-//! same layout (0039 §22).
+//! The blob store (0039 §3, §4; 03 §8, 12 §2): content-addressed storage over a small
+//! [`Backend`] trait of its own (0039 A17), shared with Scatterbase, whose blobs are the same
+//! objects under the same layout (0039 §22).
 //!
 //! - [`BlobStore`] is the store over one backend. [`BlobStore::filesystem`] is the `fs`
-//!   backend, a directory; the `s3` backend is not built yet and will come in through
-//!   [`BlobStore::new`], which takes any `object_store` backend.
+//!   backend, [`Filesystem`], a directory; the `s3` backend is not built yet and will come
+//!   in through [`BlobStore::new`], which takes any [`Backend`].
 //! - [`Scope`] and [`Key`] are the storage scopes and the key layout of 0039 §3–4; [`Prefix`]
 //!   names the sets a listing walks and a prefix deletion clears.
 //! - [`Sha256`], [`Sha1`], [`Digest`] and [`Hasher`] are the hashes: SHA-256 addresses the
@@ -25,11 +25,13 @@
 //! Async, like `scatter-log-postgres` (22 §1.2 rule 2 names the pure crates; this is not one).
 //! No `triplespace-*` crate is reachable from here (rule 1).
 
+pub mod backend;
 pub mod error;
 pub mod hash;
 pub mod key;
 pub mod store;
 
+pub use backend::{Backend, BackendError, Filesystem, Location};
 pub use bytes::Bytes;
 pub use error::BlobError;
 pub use hash::{Digest, Hasher, Sha1, Sha256};

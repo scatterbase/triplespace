@@ -20,7 +20,7 @@
 
 use std::fmt;
 
-use object_store::path::Path;
+use crate::backend::Location as Path;
 
 use crate::hash::{HashParseError, Sha1, Sha256};
 
@@ -313,7 +313,7 @@ impl Key {
     /// The key as the backend's path.
     #[must_use]
     pub fn path(&self) -> Path {
-        Path::from_iter(self.segments())
+        Path::from_segments(self.segments())
     }
 
     /// Reads a key back from a backend path, as a listing returns it. A path the layout
@@ -321,7 +321,7 @@ impl Key {
     /// report such an object as a stray rather than skipping it.
     pub fn parse(path: &Path) -> Result<Self, KeyError> {
         let layout = || KeyError::Layout(path.to_string());
-        let parts: Vec<String> = path.parts().map(|p| p.as_ref().to_owned()).collect();
+        let parts: Vec<String> = path.segments().collect();
         let [scope, kind, rest @ ..] = parts.as_slice() else {
             return Err(layout());
         };
@@ -394,19 +394,19 @@ impl Prefix {
     /// Everything in a scope: a tenant's files as one set of objects (0039 §4, §14).
     #[must_use]
     pub fn scope(scope: &Scope) -> Self {
-        Self(Path::from_iter([scope.as_str()]))
+        Self(Path::from_segments([scope.as_str()]))
     }
 
     /// One kind of object within a scope.
     #[must_use]
     pub fn kind(scope: &Scope, kind: Kind) -> Self {
-        Self(Path::from_iter([scope.as_str(), kind.segment()]))
+        Self(Path::from_segments([scope.as_str(), kind.segment()]))
     }
 
     /// Every derived rendering of one object (0039 §6).
     #[must_use]
     pub fn thumbs(scope: &Scope, hash: Sha256) -> Self {
-        Self(Path::from_iter([
+        Self(Path::from_segments([
             scope.as_str(),
             Kind::Thumb.segment(),
             &hash.hex(),
@@ -415,7 +415,7 @@ impl Prefix {
 
     /// One foreign repository's cache (0039 §11).
     pub fn cache(scope: &Scope, repo: &str) -> Result<Self, KeyError> {
-        Ok(Self(Path::from_iter([
+        Ok(Self(Path::from_segments([
             scope.as_str(),
             Kind::Cache.segment(),
             segment(repo)?,
@@ -431,7 +431,7 @@ impl Prefix {
     /// One job's output.
     #[must_use]
     pub fn job(scope: &Scope, job: u64) -> Self {
-        Self(Path::from_iter([
+        Self(Path::from_segments([
             scope.as_str(),
             Kind::Job.segment(),
             &job.to_string(),
@@ -543,7 +543,7 @@ mod tests {
         ];
         for p in bad {
             assert!(
-                Key::parse(&Path::from(p.as_str())).is_err(),
+                Key::parse(&Path::parse(p.as_str())).is_err(),
                 "{p} is a stray"
             );
         }

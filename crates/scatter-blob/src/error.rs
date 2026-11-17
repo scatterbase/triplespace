@@ -1,5 +1,6 @@
 //! The store's errors (0033 §14: one `thiserror` enum per crate boundary).
 
+use crate::backend::BackendError;
 use crate::key::KeyError;
 
 /// What a store operation can fail with.
@@ -25,13 +26,13 @@ pub enum BlobError {
     Source(#[source] Box<dyn std::error::Error + Send + Sync + 'static>),
     /// The backend failed.
     #[error(transparent)]
-    Store(object_store::Error),
+    Store(BackendError),
 }
 
-impl From<object_store::Error> for BlobError {
-    fn from(e: object_store::Error) -> Self {
+impl From<BackendError> for BlobError {
+    fn from(e: BackendError) -> Self {
         match e {
-            object_store::Error::NotFound { path, .. } => Self::NotFound { location: path },
+            BackendError::NotFound { location } => Self::NotFound { location },
             other => Self::Store(other),
         }
     }

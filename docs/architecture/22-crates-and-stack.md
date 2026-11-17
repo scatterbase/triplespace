@@ -77,7 +77,7 @@ The crate map is [`../registry/crates.toml`](../registry/crates.toml): one entry
 |  | [`scatter-merge`](CRATES.md#scatter-merge) | Line-based three-way merge of text with hunk classification, and the unified diff writer | — | pure, wasm |  |
 |  | [`scatter-challenge`](CRATES.md#scatter-challenge) | The proof-of-work challenge of 0087 §3: the challenge string, its MAC given a key and a binding, the SHA-256 work… | — |  | yes |
 |  | [`scatter-log-postgres`](CRATES.md#scatter-log-postgres) | `LogStore` over the `log` schema of 0013 §2, and that schema's migrations | `scatter-log`, `scatter-integrity`, `tokio-postgres`, `zstd`, `hmac` |  | yes |
-|  | [`scatter-blob`](CRATES.md#scatter-blob) | The blob store over `object_store`: the `fs` and `s3` backends, storage scopes and the content-addressed key layout,… | `object_store` |  | yes |
+|  | [`scatter-blob`](CRATES.md#scatter-blob) | The blob store over its own backend trait: the `fs` and `s3` backends, storage scopes and the content-addressed key layout,… | — |  | yes |
 |  | [`scatter-integrity`](CRATES.md#scatter-integrity) | Signed checkpoints, inclusion and consistency proofs, erasure bookkeeping, export bundles and `verify`, checked per part | `scatter-log`, `scatter-blob` |  | yes |
 |  | [`scatter-quadstore`](CRATES.md#scatter-quadstore) | The quad-store trait: lookup with wildcards, deltas, and its two backends | `oxrdf` |  |  |
 |  | [`scatter-projection`](CRATES.md#scatter-projection) | The projection trait, including the transactional variant `Backend::apply_in` that applies inside the appending… | `scatter-log` |  | yes |
