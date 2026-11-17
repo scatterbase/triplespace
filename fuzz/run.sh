@@ -23,5 +23,9 @@ esac
 
 python3 "$root/fuzz/seed.py" "$target"
 cd "$root"
+# cargo-fuzz builds for the triple it was itself built for unless told otherwise, and a
+# prebuilt cargo-fuzz (CI's, through cargo-binstall) is a static musl binary: the sanitizer
+# then refuses the static libc and the build fails. Build for the toolchain's own host.
+host=$(rustc +nightly -vV | sed -n 's/^host: //p')
 # shellcheck disable=SC2086
-exec cargo +nightly fuzz run "$target" -- -max_total_time="$seconds" -rss_limit_mb=2560 $opts
+exec cargo +nightly fuzz run --target "$host" "$target" -- -max_total_time="$seconds" -rss_limit_mb=2560 $opts

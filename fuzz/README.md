@@ -31,7 +31,8 @@ plus `seeds/markdown/`, and the CBOR byte strings of the log test vectors. The c
 `artifacts/` and `target/` are gitignored.
 
 A crash lands in `fuzz/artifacts/<target>/`; reproduce it with
-`cargo +nightly fuzz run <target> fuzz/artifacts/<target>/<file>`.
+`cargo +nightly fuzz run --target x86_64-unknown-linux-gnu <target> fuzz/artifacts/<target>/<file>`
+(your host triple, `rustc -vV`; see `docs/testing/gotchas.md`).
 
 `.github/workflows/fuzz.yml` runs every target nightly and on manual dispatch, never on a
 pull request, and uploads the artifacts of a failed run.
