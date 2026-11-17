@@ -54,11 +54,11 @@ The proof-of-work challenge of [0087](../decisions/0087-account-registration-and
 
 ### scatter-blob
 
-**Depends on:** `object_store`
+**Depends on:** —
 
-The blob store over `object_store`: the `fs` and `s3` backends, storage scopes and the content-addressed key layout, streaming SHA-256 and SHA-1, copy-if-absent, ranged and streamed reads, prefix deletion, and the listing the orphan sweep and `verify` walk ([0039](../decisions/0039-files-and-media.md) §3–4). Shared with Scatterbase, whose blobs are the same objects. Async, like `scatter-log-postgres`
+The blob store over its own backend trait ([0039](../decisions/0039-files-and-media.md) A17): the `fs` and `s3` backends, storage scopes and the content-addressed key layout, streaming SHA-256 and SHA-1, copy-if-absent, ranged and streamed reads, prefix deletion, and the listing the orphan sweep and `verify` walk ([0039](../decisions/0039-files-and-media.md) §3–4). Shared with Scatterbase, whose blobs are the same objects. Async, like `scatter-log-postgres`
 
-**As built** (`scatter-blob`, from its `//!` docs and `implements` claims): The blob store (0039 §3, §4; 03 §8, 12 §2): content-addressed storage over `object_store`, shared with Scatterbase, whose blobs are the same objects under the same layout (0039 §22). Claims no section in full yet.
+**As built** (`scatter-blob`, from its `//!` docs and `implements` claims): The blob store (0039 §3, §4; 03 §8, 12 §2): content-addressed storage over a small `Backend` trait of its own (0039 A17), shared with Scatterbase, whose blobs are the same objects under the same layout (0039 §22). Claims no section in full yet.
 
 ### scatter-integrity
 

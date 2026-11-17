@@ -1250,9 +1250,9 @@ Everything derived from shared source graphs alone is computed once, for the ins
 
 ## 8. The blob store
 
-*Sources: [0039](../decisions/0039-files-and-media.md) §3; [0033](../decisions/0033-backend-stack.md) §5.*
+*Sources: [0039](../decisions/0039-files-and-media.md) §3, A17; [0033](../decisions/0033-backend-stack.md) §5, A32.*
 
-**Bytes live in a blob store, addressed by SHA-256.** A substrate crate, `scatter-blob`, defines the store over the [`object_store`](https://crates.io/crates/object_store) crate (Apache Arrow), which gives one interface to a local directory, S3 and S3-compatible services (MinIO, Ceph RGW, Garage, Cloudflare R2), Google Cloud Storage and Azure. Two backends are supported and tested:
+**Bytes live in a blob store, addressed by SHA-256.** A substrate crate, `scatter-blob`, defines the store over a small backend trait of its own: put (replacing, or only if absent), a streamed write that takes its key only when it completes, copy-if-absent, whole, ranged and streamed reads, metadata, delete, and a listing under a prefix ([0039](../decisions/0039-files-and-media.md) A17). It implements the `fs` backend itself, on tokio's filesystem calls, and the `s3` backend implements the same trait when it is built, on a client not yet chosen that does not bring in `chrono`. The store was first built over the [`object_store`](https://crates.io/crates/object_store) crate (Apache Arrow), which was dropped when `chrono`, part of its public API, was declared unmaintained; the `fs` backend keeps the directory form `object_store` gave it, so a directory written by either is read by the other: each key segment percent-encoded with the same characters, writes made under a temporary `{path}#{n}` name that is never listed, and the directories a deletion empties removed. Two backends are supported and tested:
 
 | Backend | What it is | When |
 |---|---|---|
@@ -1297,7 +1297,7 @@ Objects under `sha256/` are **immutable**: a key's bytes never change, and ident
 
 ### 9.2 Layers
 
-*Sources: [0014](../decisions/0014-caches-and-search.md) §2; [0033](../decisions/0033-backend-stack.md) §5.*
+*Sources: [0014](../decisions/0014-caches-and-search.md) §2; [0033](../decisions/0033-backend-stack.md) §5, A32; [0039](../decisions/0039-files-and-media.md) A17.*
 
 | Layer | Technology | Holds | Bounded by |
 |---|---|---|---|
@@ -1316,7 +1316,7 @@ L1 is the layer MediaWiki fills with memcached. Valkey is chosen over memcached 
 | In-process cache (L0) | `moka` | As 0014. |
 | Valkey (L1) | `redis` (redis-rs) with its tokio connection manager | Works against Valkey unchanged. Prefix deletion for erasure (§9.6) uses `SCAN` + `UNLINK`. |
 | OpenSearch | `reqwest` with typed request and response structs | The surface used (index, bulk, msearch, aliases, `version_type: external`) is small; a typed client module in `triplespace-search` is easier to keep current than the official client crate. |
-| Blob storage | `object_store` (Apache Arrow), local-filesystem and S3 backends, in `scatter-blob` | §8 |
+| Blob storage | `scatter-blob`'s own backend trait; the `fs` backend on tokio's filesystem calls, the `s3` client not yet chosen ([0039](../decisions/0039-files-and-media.md) A17) | §8 |
 | Thumbnails | `image` for raster formats, `resvg` for SVG, in `scatter-files` | [0039](../decisions/0039-files-and-media.md) §6 |
 
 ### 9.3 Versions and `ETag`

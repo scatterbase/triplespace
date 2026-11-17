@@ -79,10 +79,10 @@ contents = """
 [[crate]]
 names = ["scatter-blob"]
 layer = "substrate"
-summary = "The blob store over `object_store`: the `fs` and `s3` backends, storage scopes and the content-addressed key layout,…"
-depends = ["object_store"]
+summary = "The blob store over its own backend trait: the `fs` and `s3` backends, storage scopes and the content-addressed key layout,…"
+depends = []
 contents = """
-The blob store over `object_store`: the `fs` and `s3` backends, storage scopes and the content-addressed key layout, streaming SHA-256 and SHA-1, copy-if-absent, ranged and streamed reads, prefix deletion, and the listing the orphan sweep and `verify` walk ([0039](../decisions/0039-files-and-media.md) §3–4). Shared with Scatterbase, whose blobs are the same objects. Async, like `scatter-log-postgres`
+The blob store over its own backend trait ([0039](../decisions/0039-files-and-media.md) A17): the `fs` and `s3` backends, storage scopes and the content-addressed key layout, streaming SHA-256 and SHA-1, copy-if-absent, ranged and streamed reads, prefix deletion, and the listing the orphan sweep and `verify` walk ([0039](../decisions/0039-files-and-media.md) §3–4). Shared with Scatterbase, whose blobs are the same objects. Async, like `scatter-log-postgres`
 """
 
 [[crate]]

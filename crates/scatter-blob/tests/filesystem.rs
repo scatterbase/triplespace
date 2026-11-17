@@ -515,3 +515,42 @@ async fn a_second_store_over_the_same_directory_reads_the_same_objects() {
         .unwrap();
     assert!(dup.existed);
 }
+
+#[tokio::test]
+async fn the_directory_keeps_the_form_object_store_gave_it() {
+    // 03 §8, 0039 A17: a directory written over `object_store` is read unchanged. A segment
+    // is percent-encoded on disk, a `#{digits}` name is a write in progress and never listed,
+    // and deleting an object removes the directories it leaves empty.
+    let (dir, store) = store();
+    let root = dir.path().join("blobs");
+    let key = Key::stash(lb(), "a#b%c").unwrap();
+    store.put_at(&key, Bytes::from_static(b"x")).await.unwrap();
+    assert!(root.join("librarybase/stash/a%23b%25c").is_file());
+    assert_eq!(store.get(&key).await.unwrap().as_ref(), b"x");
+
+    // An object an earlier version wrote, by name, and a write it left unfinished.
+    std::fs::write(root.join("librarybase/stash/old"), b"old").unwrap();
+    std::fs::write(root.join("librarybase/stash/old#1"), b"partial").unwrap();
+    let old = Key::stash(lb(), "old").unwrap();
+    assert_eq!(store.get(&old).await.unwrap().as_ref(), b"old");
+    let mut listed: Vec<_> = store
+        .list(&Prefix::kind(&lb(), Kind::Stash))
+        .map(|e| e.unwrap().key.unwrap())
+        .collect()
+        .await;
+    listed.sort_by_key(ToString::to_string);
+    let mut expected = vec![key.clone(), old.clone()];
+    expected.sort_by_key(ToString::to_string);
+    assert_eq!(listed, expected, "the parsed key round-trips the encoding");
+
+    let stored = store.put(&lb(), Bytes::from_static(b"y")).await.unwrap();
+    let address = Key::sha256(lb(), stored.digest.sha256);
+    let hex = stored.digest.sha256.hex();
+    let shard = root.join("librarybase/sha256").join(&hex[0..2]);
+    assert!(shard.is_dir());
+    store.delete(&address).await.unwrap();
+    assert!(
+        !shard.exists(),
+        "the emptied shard directories go with the object"
+    );
+}
