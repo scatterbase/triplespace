@@ -227,3 +227,8 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
   `usr/include/c++/v1`, libfuzzer-sys's C++ build fails with `'cassert' file not found`
   although the SDK has it: point cc-rs at the SDK's copy,
   `CXXFLAGS="-I$(xcrun --show-sdk-path)/usr/include/c++/v1"`. Linux CI needs nothing.
+  cargo-fuzz builds for the triple it was compiled for, not the toolchain's host: a prebuilt
+  cargo-fuzz from cargo-binstall (what CI's `install-action` falls back to) is a musl binary,
+  and a bare `cargo fuzz run` then fails with `sanitizer is incompatible with statically
+  linked libc`. `run.sh` passes `--target` with the nightly host triple; pass it by hand when
+  reproducing a crash too.
