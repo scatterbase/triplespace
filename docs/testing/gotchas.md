@@ -32,7 +32,7 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
   session's zone, against a UTC string (2026-11-06, Homebrew Postgres 18 in
   `America/Los_Angeles`). Everything after that check in the test is not run. A session
   option in the test URL does not reach it, since the test rebuilds the URL for its scratch
-  database; `ALTER ROLE <you> SET timezone = 'UTC'` on the test server makes it pass.
+  database; `ALTER ROLE <you> SET timezone = 'UTC'` on the test server makes it pass (SCA-432).
 - A test that `ORDER BY`s text and asserts the order depends on the server's collation: the
   sandbox's Postgres (`C`) puts `Portland` before `city`, CI's Postgres 18 service container
   (`en_US.UTF-8`) puts `city` first (2026-11-08, `create_entities`). Sort in Rust, or order
@@ -77,7 +77,7 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
   (`kill $(pgrep -x triplespace-ser)`; the name is cut to 15 characters).
 - `triplespace instance create` refuses an owner password under 8 characters only after it has
   written the instance, so a short test password leaves an instance nobody can log in to.
-  Use 8 or more.
+  Use 8 or more (SCA-433).
 - A test adoption that fails leaves an empty `view`, and an empty `view` passes the rebuild
   equivalence diff vacuously. Check `adopt`'s stderr and the row counts before trusting
   `REBUILD-IDENTICAL`.
@@ -115,6 +115,7 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
   FIFO or `/dev/stdin`. For a whole-dump load, recompress the zindex archive to gzip, which it
   reads at hundreds of MB/s: `zstd -dc zindex/entities.jsonl.zst | pigz -1 -p 14 >
   wd-full.json.gz` (211 GB, 43 min on 16 cores; the dump's order, one entity per line).
+  Both limits are SCA-435.
 - A statement ID's part after the `$` is not always a UUID: Wikibase accepts any 8-4-4-4-12
   letters and digits, and Wikidata has IDs written by hand under that rule
   (`Q126373047$5627445f-43cb-ed6d-3adb-tracklists01`, and Q126373054). Until 0017 A13 the
@@ -142,8 +143,8 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
 - The Mac's Python is 3.10: `docs/check.sh` adds the vendored `tomli` wheel itself; a checker
   run directly needs `PYTHONPATH=docs/tomli-2.4.1-py3-none-any.whl`.
 - `ui/e2e/run.sh` uses GNU `date -d`; macOS's `date` has no `-d`, so put a `date` that is
-  MacPorts' or Homebrew's `gdate` first on `PATH` (a one-file shim directory does). The suite
-  also needs `npx playwright install chromium` once, and a Postgres admin URL
+  MacPorts' or Homebrew's `gdate` first on `PATH` (a one-file shim directory does;
+  SCA-434). The suite also needs `npx playwright install chromium` once, and a Postgres admin URL
   (`postgres://jh@localhost/postgres`): it creates its own `tse2e` database.
 
 ## Git history
@@ -206,14 +207,14 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
   granted. Needles in a leak probe must be specific: the fixture holds an item labelled "The
   Secret life of Adolf Hitler", and a page title that contains the hidden user's name echoes it.
 - A test that inserts into `view.acl` directly (bypassing records) must move the ACL frontier
-  (`offset` and row count), or the hidden-set cache answers "nothing hidden" from before.
+  (`offset` and row count), or the hidden-set cache answers "nothing hidden" from before (SCA-437).
 - `tests/moderation.rs` has helpers for more accounts: `instance(name)` (a fresh database per
   test), `account(router, name, password)` (`action=createaccount`, solving the challenge) and
   `grant(app, name, group)` (a membership record written through the pipeline).
 - REST handlers that return the Action API's `ApiError` need `#[allow(clippy::result_large_err)]`
   (as `triplespace-api-rest/src/acl.rs` does module-wide; SCA-387).
 - Entities have no `view.page` row: code that checks "does this page ID exist" must also look in
-  `view.entity`.
+  `view.entity` (SCA-436).
 - An XML dump's entity JSON carries no snak `datatype`; `sync` fills them from the dump's property
   pages (`DumpPropertyTypes`). The API's `wbgetentities` carries them, so the follower applies no
   typing; a mock wiki built from dump text must add them or every state reads as changed.
