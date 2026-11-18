@@ -2493,14 +2493,25 @@ async fn accountability() {
         !l.to_string().contains("Dave"),
         "the rights log hides the name: {l}"
     );
-    // `list=blocks` lists the block in force, with the name hidden from outsiders.
+    // `list=blocks` leaves out a block whose name is hidden from the caller, as MediaWiki
+    // does without `hideuser`: its reason, blocker and time would describe the person,
+    // and its `userid` would lead to the account.
     let b = anon.api("action=query&list=blocks").await;
-    let blocks = b["query"]["blocks"].as_array().unwrap();
-    assert_eq!(blocks.len(), 1, "{b}");
-    assert_eq!(blocks[0]["userhidden"], true, "{b}");
-    assert!(blocks[0].get("user").is_none(), "{b}");
-    assert_eq!(blocks[0]["expiry"], "infinite", "{b}");
-    assert_eq!(blocks[0]["by"], "Alice", "{b}");
+    assert_eq!(b["query"]["blocks"], json!([]), "{b}");
+    // Nor does the account's key lead to the name: the issuer is public and the user ID
+    // may be known, but `list=users` answers `missing` to whoever may not see the name.
+    let issuer = anon
+        .api("action=query&meta=siteinfo&siprop=triplespace")
+        .await["query"]["triplespace"]["issuer"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let id = dave.api("action=query&meta=userinfo").await["query"]["userinfo"]["id"].clone();
+    let u = anon
+        .api(&format!("action=query&list=users&ususers={issuer}:{id}"))
+        .await;
+    assert_eq!(u["query"]["users"][0]["missing"], true, "{u}");
+    assert!(!u.to_string().contains("Dave"), "{u}");
     let b = alice.api("action=query&list=blocks&bkusers=Dave").await;
     assert_eq!(
         b["query"]["blocks"],

@@ -216,6 +216,10 @@ pub async fn users(ctx: &Ctx, query: &mut Map<String, Value>) -> Result<(), ApiE
     let mut out = Vec::new();
     for name in ctx.params.list("ususers") {
         let found = match crate::activity::actor_key_of(ctx, &name).await? {
+            // A key leads to its account even when the name is hidden (09 §6.3), but the
+            // answer names the account, so it is `missing` to whoever may not see the
+            // name, however the account was asked for. Failing to decide hides it.
+            Some(key) if crate::activity::name_hidden(ctx, &key).await => None,
             Some(key) => ctx
                 .db()
                 .query_opt(

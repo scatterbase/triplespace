@@ -274,7 +274,62 @@ fn store_err(e: impl std::fmt::Display) -> IngestError {
 ///
 /// The store's; the tenant has no `log` partition.
 pub async fn submit(store: &PgIngest, s: &Submission) -> Result<u64, IngestError> {
+    Ok(enqueue(store, s, None)
+        .await?
+        .expect("a submission with no limit is queued"))
+}
+
+/// [`submit`], unless the submitter already has `limit` jobs of the kind on the tenant,
+/// queued or running: then `None`, and nothing is written. The count and the write are one
+/// transaction under a lock on the submitter's jobs of the kind, so that requests at once
+/// cannot each count fewer than `limit` and all queue.
+///
+/// # Errors
+///
+/// As [`submit`].
+pub async fn submit_within(
+    store: &PgIngest,
+    s: &Submission,
+    limit: i64,
+) -> Result<Option<u64>, IngestError> {
+    enqueue(store, s, Some(limit)).await
+}
+
+async fn enqueue(
+    store: &PgIngest,
+    s: &Submission,
+    limit: Option<i64>,
+) -> Result<Option<u64>, IngestError> {
     let mut cx = store.begin().await?;
+    if let Some(limit) = limit {
+        let lock = format!(
+            "ts-job-submit\u{1f}{}\u{1f}{}\u{1f}{}",
+            s.tenant,
+            s.actor,
+            s.kind.name()
+        );
+        cx.conn()
+            .execute(
+                "SELECT pg_advisory_xact_lock(hashtextextended($1, 0))",
+                &[&lock],
+            )
+            .await
+            .map_err(store_err)?;
+        let held: i64 = cx
+            .conn()
+            .query_one(
+                "SELECT count(*) FROM ops.job_queue
+                 WHERE tenant = $1 AND kind = $2 AND actor_key = $3",
+                &[&s.tenant, &s.kind.name(), &s.actor],
+            )
+            .await
+            .map_err(store_err)?
+            .get(0);
+        if held >= limit {
+            store.commit(cx).await?;
+            return Ok(None);
+        }
+    }
     let partition = store
         .partition(&mut cx, &s.tenant, "log")
         .await?
@@ -300,7 +355,7 @@ pub async fn submit(store: &PgIngest, s: &Submission) -> Result<u64, IngestError
         .await
         .map_err(store_err)?;
     store.commit(cx).await?;
-    Ok(id)
+    Ok(Some(id))
 }
 
 /// A queued job, as the API and the job page read it.

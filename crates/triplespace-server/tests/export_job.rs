@@ -894,3 +894,69 @@ async fn an_export_whose_runner_died_runs_again() {
     }
     let _ = std::fs::remove_dir_all(&dir);
 }
+
+/// Queuing does not starve the pool (0104 A9): a request holds no connection while it
+/// queues, so more queued exports at once than the pool has connections are all answered,
+/// each queued or refused at the account's limit, instead of waiting on one another for
+/// ever.
+#[tokio::test]
+async fn concurrent_queued_exports_all_answer() {
+    let Some((database, key_file, dir)) = setup("tsexport_burst").await else {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    };
+    let blobs = dir.join("blobs");
+    let (_app, api) = app(&database, &key_file, Some(&blobs)).await;
+    let mut owner = Client::new(&api);
+    owner.login("Owner").await;
+    let imported = owner.import(&dump_xml()).await;
+    assert_eq!(imported["error"], Value::Null, "{imported}");
+    set_setting(&database, "export.sync_revisions", "1").await;
+    let body = json!({
+        "pages": ["Project:Home", "Project:Scope"],
+        "history": true,
+        "token": owner.token("csrf").await,
+    });
+    // Twice the test pool's four connections.
+    let burst: Vec<_> = (0..8)
+        .map(|_| {
+            let mut c = Client {
+                router: api.clone(),
+                cookie: owner.cookie.clone(),
+            };
+            let body = body.clone();
+            tokio::spawn(async move { c.export(&body).await.status })
+        })
+        .collect();
+    let answered = tokio::time::timeout(Duration::from_secs(30), async {
+        let mut statuses = Vec::new();
+        for h in burst {
+            statuses.push(h.await.unwrap());
+        }
+        statuses
+    })
+    .await
+    .expect("every request is answered: none waits on the pool for ever");
+    assert!(
+        answered
+            .iter()
+            .all(|s| *s == StatusCode::ACCEPTED || *s == StatusCode::TOO_MANY_REQUESTS),
+        "{answered:?}"
+    );
+    // And the account's limit holds under the burst: no runner has taken any, so exactly
+    // the limit was queued and the rest refused, however the requests interleaved.
+    let limit = usize::try_from(triplespace_api_rest::export_job::MAX_QUEUED).unwrap();
+    let queued = answered
+        .iter()
+        .filter(|s| **s == StatusCode::ACCEPTED)
+        .count();
+    assert_eq!(queued, limit, "{answered:?}");
+    let rows: i64 = query(
+        &database,
+        "SELECT count(*) FROM ops.job_queue WHERE kind = 'export'",
+    )
+    .await[0]
+        .get(0);
+    assert_eq!(rows, i64::try_from(limit).unwrap());
+    let _ = std::fs::remove_dir_all(&dir);
+}

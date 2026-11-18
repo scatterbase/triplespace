@@ -64,22 +64,27 @@ pub async fn actor_key_of(ctx: &Ctx, name: &str) -> Result<Option<String>, tokio
     let key: String = row.get(0);
     let by_key: bool = row.get(1);
     // A hidden name does not lead to its account for those outside the group (09 §6.3);
-    // a key, which never contains a name, still does. Failing to decide hides it.
-    if !by_key {
-        let effective = &ctx.caller.effective;
-        let hidden = triplespace_projections::acl_read::hidden_actors(
-            ctx.db(),
-            &ctx.tenant.slug,
-            std::slice::from_ref(&key),
-            |g| effective.reads_in(g),
-            scatter_actors::Timestamp(crate::edit::now_micros()),
-        )
-        .await;
-        if hidden.map_or(true, |h| h.contains(&key)) {
-            return Ok(None);
-        }
+    // a key, which never contains a name, still does.
+    if !by_key && name_hidden(ctx, &key).await {
+        return Ok(None);
     }
     Ok(Some(key))
+}
+
+/// Whether the caller may not see the name of the actor `key` (09 §6.3). Failing to
+/// decide hides it.
+pub async fn name_hidden(ctx: &Ctx, key: &str) -> bool {
+    let effective = &ctx.caller.effective;
+    let key = key.to_string();
+    triplespace_projections::acl_read::hidden_actors(
+        ctx.db(),
+        &ctx.tenant.slug,
+        std::slice::from_ref(&key),
+        |g| effective.reads_in(g),
+        scatter_actors::Timestamp(crate::edit::now_micros()),
+    )
+    .await
+    .map_or(true, |h| h.contains(&key))
 }
 
 /// The numeric user ID MediaWiki clients expect: the number after the issuer in the

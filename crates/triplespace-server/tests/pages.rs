@@ -783,6 +783,42 @@ async fn api(database: &str, key_file: &std::path::Path) {
     let targets: Vec<String> = rows.iter().map(|r| r.get(0)).collect();
     assert_eq!(targets, ["4:Home", "5:Home"]);
 
+    // `appendtext` on a page whose latest text is not stored, as a withheld or erased text
+    // leaves it, is refused as MediaWiki refuses content it cannot load, and the page keeps
+    // what it had rather than becoming the fragment.
+    let made = c
+        .post(
+            "action=edit",
+            &format!("title=Project:Unstored&text=Original&token={}", enc(&csrf)),
+        )
+        .await;
+    let revid = made["edit"]["newrevid"].as_i64().unwrap();
+    db.execute(
+        "DELETE FROM view.entity_revision WHERE tenant = $1 AND revid = $2",
+        &[&TENANT, &revid],
+    )
+    .await
+    .unwrap();
+    for param in ["appendtext", "prependtext"] {
+        let refused = c
+            .post(
+                "action=edit",
+                &format!("title=Project:Unstored&{param}=More&token={}", enc(&csrf)),
+            )
+            .await;
+        assert_eq!(
+            refused["error"]["code"], "missingcontent-pageid",
+            "{param}: {refused}"
+        );
+    }
+    let latest = c
+        .get("action=query&prop=revisions&titles=Project:Unstored&rvprop=ids")
+        .await;
+    assert_eq!(
+        latest["query"]["pages"][0]["revisions"][0]["revid"], revid,
+        "nothing was saved: {latest}"
+    );
+
     // A base by time: the latest revision's own timestamp, shown to the second, names it
     // and not the revision before it, however far into the second it was made. The
     // revision is made in a second of its own, after the earlier ones.
