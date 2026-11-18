@@ -3058,6 +3058,82 @@ fn a_closed_days_compaction_goes_on_from_where_it_got_to() {
     });
 }
 
+// 0092 A9: a run that stops when caught up compacts beside its batches, at least a window,
+// and leaves the rest of a closed day's compaction, and the day's finish, to the next run:
+// a follower run as passes, by a timer or the job queue, never stops for a whole day's
+// compaction.
+#[test]
+fn a_pass_leaves_the_rest_of_a_days_compaction_to_the_next() {
+    pollster::block_on(async {
+        use scatter_ingest::compact::WINDOW;
+        const DAY: u64 = 86_400_000_000;
+        let (store, pipeline) = setup();
+        let mut source = Scripted {
+            store: &store,
+            batches: std::collections::VecDeque::new(),
+            read: 0,
+            log: Vec::new(),
+            state: scatter_ingest::FollowState::default(),
+        };
+        let first = follow_at(
+            (&store, &pipeline),
+            &mut source,
+            vec![
+                vec![xd_state("XDQ1", "One", 10), xd_state("XDQ2", "Two", 20)],
+                vec![xd_state("XDQ1", "Uno", 21)],
+            ],
+            NOW,
+        )
+        .await;
+        // A closed day three windows long, as a large day is; the offsets past the mirror's
+        // end hold nothing, and compacting them removes nothing.
+        let job = source.state.open.take().unwrap();
+        source.state.closing = Some(scatter_ingest::Closing {
+            job,
+            partition: MIRROR_XD,
+            to: 3 * WINDOW,
+            at: 0,
+            removed: 0,
+        });
+        let finished = |store: &MemoryIngest| {
+            store.records(INSTANCE_LOG).into_iter().any(|r| {
+                r.header().key.as_deref() == Some(&first.job_id.to_string())
+                    && params_of(&r).get("counts").is_some()
+            })
+        };
+
+        // A pass with nothing to write compacts one window, and leaves the rest.
+        follow_at((&store, &pipeline), &mut source, vec![], NOW + DAY).await;
+        let c = source
+            .state
+            .closing
+            .clone()
+            .expect("the day is still closing");
+        assert_eq!((c.at, c.removed), (WINDOW, 1), "XDQ1 lost offset 0");
+        assert!(!finished(&store));
+        assert_eq!(store.records(MIRROR_XD).len(), 2);
+
+        // Each later pass goes on from there, and the last one finishes the day's job.
+        follow_at((&store, &pipeline), &mut source, vec![], NOW + DAY).await;
+        assert_eq!(
+            source.state.closing.as_ref().map(|c| c.at),
+            Some(2 * WINDOW)
+        );
+        follow_at((&store, &pipeline), &mut source, vec![], NOW + DAY).await;
+        assert_eq!(source.state.closing, None);
+        assert!(finished(&store));
+        let finish = store
+            .records(INSTANCE_LOG)
+            .into_iter()
+            .find(|r| {
+                r.header().key.as_deref() == Some(&first.job_id.to_string())
+                    && params_of(r).get("counts").is_some()
+            })
+            .unwrap();
+        assert_eq!(params_of(&finish)["compacted"], 1);
+    });
+}
+
 /// One run of the follower over `items`, a batch each, at `at`.
 async fn follow_at(
     (store, pipeline): (&MemoryIngest, &Pipeline<MemoryIngest>),

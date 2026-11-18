@@ -4,7 +4,8 @@
 //! `follow --provider {slug}` continues from the follower's stored position, else from
 //! the end of the provider's last dump sync (`sync` records it), else from `--from`.
 //! `--once` reads until the wiki has nothing newer and stops; without it the follower
-//! polls every `follow.interval` seconds until interrupted.
+//! runs until interrupted, waiting `follow.interval` seconds between polls once caught up
+//! and saying so on stderr. A closed day's compaction runs beside those waits (0092 A9).
 //!
 //! The windows come from the instance settings `follow.settle` and `follow.tail` (0092
 //! §6), read from the primary tenant's settings as the server would.
@@ -329,42 +330,42 @@ pub async fn run(args: Follow) -> Result<()> {
         scatter_adapter_mediawiki::recentchanges::iso(source.poller().time)
     );
 
-    loop {
-        // Boxed: the follower's future is too large to keep in this one's.
-        let outcome = Box::pin(run_follow(
-            &store,
-            &pipeline,
-            &tenant,
-            &provider.slug,
-            Attestation::by(&farm.operator().to_string()),
-            &mut source,
-            registry,
-            now,
-            args.batch.max(1),
-            true,
-        ))
-        .await
-        .context("follow")?;
-        let pos = position(&client, &who.tenant, &who.kind, &provider.slug).await?;
-        println!(
-            "{} rows in {} batch(es): {} created, {} updated, {} unchanged, {} rejected, {} tombstoned, {} redirected; {} late, {} stale; at {}",
-            outcome.rows,
-            outcome.batches,
-            outcome.counts.created,
-            outcome.counts.merged,
-            outcome.counts.unchanged,
-            outcome.counts.rejected,
-            outcome.counts.tombstoned,
-            outcome.counts.other,
-            outcome.late,
-            outcome.stale,
-            pos.rc_time
-                .map(scatter_adapter_mediawiki::recentchanges::iso)
-                .unwrap_or_default()
-        );
-        if args.once {
-            return Ok(());
-        }
-        tokio::time::sleep(Duration::from_secs(interval)).await;
+    if !args.once {
+        // Until stopped: one run that waits between polls itself, so that a closed day's
+        // compaction runs beside the waits as well as the batches (0092 A9).
+        source = source.waiting(Duration::from_secs(interval), |line| eprintln!("{line}"));
     }
+    // Boxed: the follower's future is too large to keep in this one's.
+    let outcome = Box::pin(run_follow(
+        &store,
+        &pipeline,
+        &tenant,
+        &provider.slug,
+        Attestation::by(&farm.operator().to_string()),
+        &mut source,
+        registry,
+        now,
+        args.batch.max(1),
+        args.once,
+    ))
+    .await
+    .context("follow")?;
+    let pos = position(&client, &who.tenant, &who.kind, &provider.slug).await?;
+    println!(
+        "{} rows in {} batch(es): {} created, {} updated, {} unchanged, {} rejected, {} tombstoned, {} redirected; {} late, {} stale; at {}",
+        outcome.rows,
+        outcome.batches,
+        outcome.counts.created,
+        outcome.counts.merged,
+        outcome.counts.unchanged,
+        outcome.counts.rejected,
+        outcome.counts.tombstoned,
+        outcome.counts.other,
+        outcome.late,
+        outcome.stale,
+        pos.rc_time
+            .map(scatter_adapter_mediawiki::recentchanges::iso)
+            .unwrap_or_default()
+    );
+    Ok(())
 }

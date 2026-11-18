@@ -146,6 +146,9 @@ pub async fn record_load<C: GenericClient>(
     Ok(moved > 0)
 }
 
+/// How long a follower waits before polling again once caught up, and where it says so.
+type Wait = (std::time::Duration, fn(&str));
+
 /// A registry provider's follower over its wiki, or a tenant's entity source's (0078 §4):
 /// the same poll, the source's position and records under the tenant.
 pub struct ProviderFollower<'a, C: GenericClient> {
@@ -168,6 +171,9 @@ pub struct ProviderFollower<'a, C: GenericClient> {
     retry: Vec<(EntityId, Option<u64>)>,
     /// Whether the last head request had no continuation.
     at_head: bool,
+    /// How long to wait before polling again once caught up, and where to say so; `None`
+    /// polls again at once, for a run that stops when caught up (0092 A9).
+    wait: Option<Wait>,
 }
 
 /// Why a follower could not start.
@@ -306,6 +312,7 @@ impl<'a, C: GenericClient> ProviderFollower<'a, C> {
                 .filter_map(|(id, revid)| EntityId::parse(id).ok().map(|id| (id, *revid)))
                 .collect(),
             at_head: false,
+            wait: None,
         })
     }
 
@@ -486,6 +493,15 @@ pub struct Saved {
 }
 
 impl<C: GenericClient + Sync> ProviderFollower<'_, C> {
+    /// Waits `interval` before each poll that follows one that caught up, telling `report`
+    /// where the follower stands as it starts to wait: for a follower that runs until
+    /// stopped, so that a closed day's compaction runs beside the wait (0092 A9).
+    #[must_use]
+    pub fn waiting(mut self, interval: std::time::Duration, report: fn(&str)) -> Self {
+        self.wait = Some((interval, report));
+        self
+    }
+
     /// The position as it stands now.
     fn saved(&self) -> Saved {
         Saved {
@@ -508,6 +524,16 @@ impl<C: GenericClient + Sync> ChangeSource for ProviderFollower<'_, C> {
     type Position = Saved;
 
     async fn next(&mut self) -> Result<(ChangeBatch, Saved), IngestError> {
+        if self.at_head
+            && let Some((interval, report)) = self.wait
+        {
+            report(&format!(
+                "caught up at {}; polling again in {}s",
+                scatter_adapter_mediawiki::recentchanges::iso(self.poller.time),
+                interval.as_secs()
+            ));
+            tokio::time::sleep(interval).await;
+        }
         let now = (self.now)();
         let upstream = |e: &dyn std::fmt::Display| IngestError::Store(format!("upstream: {e}"));
         let query = self.poller.query(now, true);

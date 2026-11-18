@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-26
-- **Updated:** 2026-11-15 (A8)
+- **Updated:** 2026-11-18 (A9)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0011](0011-logs.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0027](0027-preferences-and-portability.md), [0040](0040-instance-prerogatives.md), [0067](0067-proposals.md), [0085](0085-settings-and-preferences.md), [0088](0088-external-identity-providers.md), [0091](0091-one-wikibase-adapter.md)
 
@@ -172,3 +172,11 @@ Replaced text: §2, in 05 §5.7 of this ADR.
 
 Replaced text: A7 (2), in 05 §5.7 of this ADR.
 
+### A9. A run that stops when caught up leaves the rest of the day's compaction to the next
+
+- **Date:** 2026-11-18
+- **Source:** Direct: James, 2026-11-18 ("Make the recommended fix"), on Claude's report of the whole-dump mirror's second day close; the calls below unconfirmed
+- **Change:** amends §2 (A8 (3))
+- **Summary:** A8 had a run with `once` complete the closed day's compaction before it returned. `triplespace follow` without `--once` was a loop of such runs with a wait between them, and the job queue's follower is a pass with `once` each time, so once the follower had caught up, the first run after midnight compacted the whole day with nothing written beside it. On the whole-dump mirror, the close of 2026-11-17 (2,290,119 offsets) stopped the follower from 00:00:11 to 00:47, and it fell 0.8 hours behind; the first close had not shown it, because the follower was still catching up and its run never ended. Now: (1) no run completes a compaction before it returns; a run that stops when caught up compacts beside its batches, at least a window, and leaves the rest, and the day's finish, to the next run, as it leaves the day's open job. (2) `triplespace follow` without `--once` is one run that never stops when caught up: its change source waits `follow.interval` before the poll that follows a caught-up one, saying so on stderr in place of the summary line each run printed, and the compaction runs beside that wait as well as beside the batches. (3) The job queue's follower still runs passes, so its compaction moves at least a window a pass; a day that closes while an earlier one is still compacting still completes the earlier one first. Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.7.
+
+Replaced text: A8 (3), in 05 §5.7 of this ADR.

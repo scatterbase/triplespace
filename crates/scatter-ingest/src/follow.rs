@@ -17,7 +17,8 @@
 //! the keys written since the job opened keep their newest record, and the one carrying
 //! their highest revision ID, and lose the rest ([`crate::compact`]). The compaction runs
 //! beside the next day's batches, a window at a time, and the closed day's job is finished
-//! once it is done (A8), so that following never waits for a whole day's compaction.
+//! once it is done (A8), so that following never waits for a whole day's compaction. A run
+//! that stops when caught up leaves the rest to the next run (A9).
 
 use std::cell::Cell;
 use std::collections::BTreeMap;
@@ -62,7 +63,8 @@ pub trait ChangeSource {
     type Position: Send;
 
     /// The next batch, with the position it leaves. An empty batch with `caught_up` set
-    /// means "nothing new".
+    /// means "nothing new". A source followed without `once` waits between polls once it is
+    /// caught up, and the day's compaction runs beside that wait (0092 A9).
     fn next(
         &mut self,
     ) -> impl Future<Output = Result<(ChangeBatch, Self::Position), IngestError>> + Send;
@@ -337,9 +339,10 @@ pub struct FollowOutcome {
 /// (A6), committed as its own unit of work under the load lock; the position, and the jobs
 /// as they stand, are saved once the batch is committed. The day's first batch starts the
 /// job, and the first batch of a later day closes it first: a registry provider's mirror is
-/// compacted by the day's keys beside the batches that follow, at least a window a batch,
-/// and the job is finished when that is done (A7, A8); a run with `once` finishes it before
-/// it returns. While a batch is written,
+/// compacted by the day's keys beside the batches that follow, and beside the source's
+/// waits between polls, at least a window a batch, and the job is finished when that is
+/// done (A7, A8, A9). A run with `once` leaves what it has not compacted to the next run,
+/// as it leaves the day's open job. While a batch is written,
 /// the next one is read: the wait on the upstream overlaps the writing, batches are still
 /// written one at a time and in order, and each position is saved after its own batch, so
 /// a crash replays at most the batch read ahead. `tenant` is `""` for a registry
@@ -474,12 +477,6 @@ pub async fn run_follow<S: IngestStore, C: ChangeSource>(
             out.counts.add(&o.counts);
         }
         compacted?;
-        // A run that ends here leaves no compaction behind it.
-        if last && let Some(c) = closing.as_mut() {
-            c.removed +=
-                Box::pin(compact(store, c.partition, c.at, c.to, WINDOW, |_, _| {})).await?;
-            c.at = c.to;
-        }
         Box::pin(finish_closed(
             store,
             pipeline,
