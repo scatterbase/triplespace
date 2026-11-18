@@ -291,10 +291,10 @@ async fn reports_are_built_kept_and_served() {
 
     // Round 1: main-namespace pages, links to titles no page has, categories.
     for (title, text) in [
-        ("A lone page", "Nothing links here and it links nowhere."),
+        ("Alone", "Nothing links here and it links nowhere."),
         (
             "A linker",
-            "[[A nowhere]] and [[A nowhere 2]] and [[A lone page]]. [[Category:Testing]] [[Category:Other]]",
+            "[[A nowhere]] and [[A nowhere 2]] and [[Alone]]. [[Category:Testing]] [[Category:Other]]",
         ),
         ("A second linker", "[[A nowhere]] again, and [[A linker]]."),
     ] {
@@ -346,10 +346,10 @@ async fn reports_are_built_kept_and_served() {
     assert_eq!(count(&e, "WantedPages", "0:A nowhere"), Some(2));
     assert_eq!(count(&e, "MostLinkedPages", "0:A nowhere"), Some(2));
     assert_eq!(count(&e, "WantedPages", "0:A nowhere 2"), Some(1));
-    assert!(listed(&e, "DeadendPages", "0:A lone page"));
-    assert!(listed(&e, "UncategorizedPages", "0:A lone page"));
+    assert!(listed(&e, "DeadendPages", "0:Alone"));
+    assert!(listed(&e, "UncategorizedPages", "0:Alone"));
     assert!(
-        !listed(&e, "LonelyPages", "0:A lone page"),
+        !listed(&e, "LonelyPages", "0:Alone"),
         "A linker links to it"
     );
     assert!(listed(&e, "LonelyPages", "0:A second linker"));
@@ -361,7 +361,7 @@ async fn reports_are_built_kept_and_served() {
     for (title, text) in [
         (
             "A linker",
-            "[[A nowhere]] and [[A lone page]]. [[Category:Testing]] [[Category:Other]]",
+            "[[A nowhere]] and [[Alone]]. [[Category:Testing]] [[Category:Other]]",
         ),
         ("A nowhere", "Now it exists. [[Category:Testing]]"),
         ("Category:Testing", "The testing category."),
@@ -415,7 +415,7 @@ async fn reports_are_built_kept_and_served() {
     // A linker's links and memberships no longer count.
     assert!(!listed(&e, "MostCategories", "0:A linker"));
     assert!(
-        listed(&e, "LonelyPages", "0:A lone page"),
+        listed(&e, "LonelyPages", "0:Alone"),
         "its one link is deleted"
     );
     assert_eq!(count(&e, "MostLinkedCategories", "14:Testing"), Some(1));

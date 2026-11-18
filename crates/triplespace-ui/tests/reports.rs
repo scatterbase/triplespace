@@ -41,7 +41,7 @@ fn querypage(q: &str) -> Value {
             true,
         ),
         "LonelyPages" => (
-            json!([{"value": "", "ns": 0, "title": "A lone page"}]),
+            json!([{"value": "", "ns": 0, "title": "Alone"}]),
             state("projection", "none", 7),
             false,
         ),
@@ -221,7 +221,7 @@ async fn lonely_pages_say_what_they_count_and_how_far_behind() {
     assert_eq!(status, StatusCode::OK);
     assert!(html.contains("Only links count here"));
     assert!(html.contains("7 changes are still being applied"));
-    assert!(html.contains(">A lone page</a></li>"));
+    assert!(html.contains(">Alone</a></li>"));
 }
 
 #[tokio::test]
