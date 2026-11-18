@@ -379,7 +379,11 @@ pub async fn post(
         Ok(p) => p,
         Err(Refusal::Refused(status, code, message)) => return error(status, code, message),
         // 21 §4.2: a larger one becomes an export job, for an account to come back to.
+        // The request's connection goes back to the pool first: queuing takes connections
+        // of its own from the same pool, and a request holding one while it waits for
+        // another deadlocks the pool once as many queue at once as it has connections.
         Err(Refusal::TooLarge(e)) => {
+            drop(client);
             return crate::export_job::queue(&app, &tenant, &caller, &headers, request, &e).await;
         }
         Err(Refusal::Internal(e)) => return internal(&e),

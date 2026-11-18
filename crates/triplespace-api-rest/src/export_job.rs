@@ -145,39 +145,16 @@ pub(crate) async fn queue(
     if let Some(object) = request.as_object_mut() {
         object.remove("token");
     }
-    // No more than a few at once for one account: queuing an export costs its
-    // submitter nothing, and each is a long read of the database.
-    let waiting = match app.pool().get().await {
-        Ok(client) => client
-            .query_one(
-                "SELECT count(*) FROM ops.job_queue
-                 WHERE tenant = $1 AND kind = 'export' AND actor_key = $2",
-                &[&tenant.slug, &actor],
-            )
-            .await
-            .map(|r| r.get::<_, i64>(0)),
-        Err(e) => return internal(&e),
-    };
-    match waiting {
-        Ok(n) if n >= MAX_QUEUED => {
-            return error(
-                StatusCode::TOO_MANY_REQUESTS,
-                "export-queue-full",
-                format!(
-                    "{MAX_QUEUED} of your exports are already queued or running; wait for one to finish"
-                ),
-            );
-        }
-        Ok(_) => {}
-        Err(e) => return internal(&e),
-    }
     // The format written out, so that the job's record and a reader of the queue need
     // not know the default.
     let format = format_of(&request).unwrap_or("xml");
     if let Some(object) = request.as_object_mut() {
         object.insert("format".into(), format.into());
     }
-    let submitted = jobs::submit(
+    // No more than a few at once for one account: queuing an export costs its
+    // submitter nothing, and each is a long read of the database. The count is taken in
+    // the transaction that queues, so requests at once cannot all pass it.
+    let submitted = jobs::submit_within(
         app.store(),
         &Submission {
             tenant: tenant.slug.clone(),
@@ -186,10 +163,20 @@ pub(crate) async fn queue(
             payload: None,
             actor,
         },
+        MAX_QUEUED,
     )
     .await;
     let job = match submitted {
-        Ok(id) => id,
+        Ok(Some(id)) => id,
+        Ok(None) => {
+            return error(
+                StatusCode::TOO_MANY_REQUESTS,
+                "export-queue-full",
+                format!(
+                    "{MAX_QUEUED} of your exports are already queued or running; wait for one to finish"
+                ),
+            );
+        }
         Err(e) => return internal(&e),
     };
     let url = url_of(tenant, job);

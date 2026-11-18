@@ -7,7 +7,8 @@
 //! with neither (0008 A40). A newer record than the base is `editconflict`, naming the
 //! current revision, and the text is not saved.
 //!
-//! The text is `text`, or `appendtext`/`prependtext` around the current text; the
+//! The text is `text`, or `appendtext`/`prependtext` around the current text, refused
+//! with MediaWiki's `missingcontent-pageid` where the latest text is not stored; the
 //! pre-save transform runs on `wikitext` (`~~~~`). Saving the text the page already has
 //! is `nochange`, as in MediaWiki, and writes nothing. `createonly` and `nocreate` are
 //! MediaWiki's; `section` is not supported yet. A User page may be created only for a
@@ -231,6 +232,15 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     let mut text = if let Some(t) = ctx.params.get("text") {
         t.to_string()
     } else if ctx.params.get("appendtext").is_some() || ctx.params.get("prependtext").is_some() {
+        // A page whose latest text is not stored (withheld or erased) has nothing to add
+        // to: refused as MediaWiki refuses content it cannot load, rather than saving the
+        // fragment alone in place of the page.
+        if let (Some(p), None) = (&existing, &current_text) {
+            return Err(ApiError::new(
+                "missingcontent-pageid",
+                format!("Missing content for page ID {}.", p.page_id),
+            ));
+        }
         format!(
             "{}{}{}",
             ctx.params.get("prependtext").unwrap_or(""),

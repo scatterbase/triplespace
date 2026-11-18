@@ -20,8 +20,9 @@
 //! **`list=blocks`** (`bkusers`, `bklimit`): the blocks in force, newest first, as
 //! `Special:BlockList` shows them: `id` (the block's log ID), `user`, `userid`, `by`,
 //! `byid`, `timestamp`, `expiry`, `reason`, `nocreate`, and Triplespace's `ts-removes`.
-//! A blocked account whose name is hidden from the caller is `userhidden`, with no name,
-//! as the feeds mark it (09 §6.3); the suppression group sees the name and `ts-hidden`.
+//! A block on an account whose name is hidden from the caller is left out, as MediaWiki
+//! leaves it out for those without `hideuser` (09 §6.3), so a page may hold fewer than
+//! `bklimit`; the suppression group sees the block with the name and `ts-hidden`.
 
 use scatter_actors::Timestamp;
 use scatter_actors::acl::{Acl, ReadKind, Target};
@@ -361,21 +362,23 @@ pub async fn list(
     let mut out = Vec::new();
     for r in &rows {
         let key: String = r.get(0);
+        // A block on an account whose name is hidden from the caller is left out, as
+        // MediaWiki leaves it out for those without `hideuser`: its reason, blocker and
+        // time describe the person, and its `userid` leads to the account (09 §6.3).
+        if hidden.contains(&key) {
+            continue;
+        }
         let mut b = serde_json::Map::new();
         if let Some(id) = r.get::<_, Option<i64>>(4) {
             b.insert("id".into(), json!(id));
         }
         b.insert("userid".into(), json!(crate::activity::user_id(Some(&key))));
-        if hidden.contains(&key) {
-            b.insert("userhidden".into(), json!(true));
-        } else {
-            b.insert(
-                "user".into(),
-                json!(r.get::<_, Option<String>>(3).unwrap_or(key.clone())),
-            );
-            if hidden_at_all.contains(&key) {
-                b.insert("ts-hidden".into(), json!(true));
-            }
+        b.insert(
+            "user".into(),
+            json!(r.get::<_, Option<String>>(3).unwrap_or(key.clone())),
+        );
+        if hidden_at_all.contains(&key) {
+            b.insert("ts-hidden".into(), json!(true));
         }
         if let Some(by) = r.get::<_, Option<String>>(5) {
             let name = ctx
