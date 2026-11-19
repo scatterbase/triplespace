@@ -621,6 +621,82 @@ pub struct ChangesPage {
     pub pager: Option<Pager>,
     /// The introduction of contributions asked for no one.
     pub intro: Option<String>,
+    /// A Contributions header's operator relation (0024 §9).
+    pub accounts: Option<AccountsLine>,
+}
+
+/// The operator relation in a Contributions header (0024 §9; 19 §2.5): a subsidiary's
+/// header names and links its operator; a primary account's lists its subsidiaries. Each
+/// name links to that account's contributions.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct AccountsLine {
+    /// "Bot operated by", around the operator.
+    pub operated_by: Option<OperatedBy>,
+    /// "Subsidiary accounts:", and each one.
+    pub subsidiaries: Option<SubsidiaryList>,
+}
+
+/// "Bot operated by {Name}".
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct OperatedBy {
+    /// The text before the name.
+    pub before: String,
+    /// The operator.
+    pub operator: Choice,
+    /// The text after it.
+    pub after: String,
+}
+
+/// A primary account's subsidiaries.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct SubsidiaryList {
+    /// "Subsidiary accounts:".
+    pub label: String,
+    /// Each one, with "retired" or "pending approval" where it is.
+    pub items: Vec<(Choice, Option<String>)>,
+}
+
+/// The header's model, or `None` for an account with neither end of the relation.
+#[must_use]
+pub fn accounts_line(m: &Messages, r: &triplespace_client::Relations) -> Option<AccountsLine> {
+    let contributions = |name: &str| {
+        choice(
+            format!("/wiki/Special:Contributions/{}", title_url(name)),
+            name.to_string(),
+        )
+    };
+    let operated_by = r.bot.as_ref().map(|b| {
+        let text = m.get(match b.status.as_str() {
+            "pending" => "ts-identity-bot-pending",
+            "retired" => "ts-identity-bot-retired",
+            _ => "ts-identity-bot",
+        });
+        let (before, after) = text.split_once("$1").unwrap_or((text.as_str(), ""));
+        OperatedBy {
+            before: before.to_string(),
+            operator: contributions(&b.operator),
+            after: after.to_string(),
+        }
+    });
+    let subsidiaries = (!r.subsidiaries.is_empty()).then(|| SubsidiaryList {
+        label: m.get("ts-contributions-subsidiaries"),
+        items: r
+            .subsidiaries
+            .iter()
+            .map(|(name, status)| {
+                let note = match status.as_str() {
+                    "retired" => Some(m.get("ts-account-subsidiary-retired")),
+                    "pending" => Some(m.get("ts-account-subsidiary-pending")),
+                    _ => None,
+                };
+                (contributions(name), note)
+            })
+            .collect(),
+    });
+    (operated_by.is_some() || subsidiaries.is_some()).then_some(AccountsLine {
+        operated_by,
+        subsidiaries,
+    })
 }
 
 fn choice(href: String, label: String) -> Choice {
@@ -1443,6 +1519,18 @@ async fn serve_page(
             Err(e) => return pages::api_failed(&cx, headers, &e),
         }
     }
+    // The header names the operator relation; it is an addition, so a failed lookup
+    // leaves it out (0024 §9, A25).
+    let accounts = match (which, &ask.user) {
+        (Which::Contributions, Some(u)) => match site.client().relations(&incoming, u).await {
+            Ok(f) => {
+                cx.inputs.push(f.cache);
+                accounts_line(&cx.m, &f.value)
+            }
+            Err(_) => None,
+        },
+        _ => None,
+    };
     let m = &cx.m;
     let empty = match (&page, &ask.user, which) {
         (Some(p), Some(u), Which::Contributions) if p.rows.is_empty() => {
@@ -1472,6 +1560,7 @@ async fn serve_page(
                 .and_then(|p| pager_model(m, &ask, p.next.as_deref())),
             intro: (page.is_none() && ask.user.is_none() && which == Which::Contributions)
                 .then(|| m.get("ts-contributions-intro")),
+            accounts,
         },
     );
     let title = match (which, &ask.user) {
@@ -1543,6 +1632,47 @@ pub async fn contributions(
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 0024 §9 (19 §2.5): a subsidiary's header names its operator; a primary account's
+    /// lists its subsidiaries, retired ones marked; an account with neither has no line.
+    #[test]
+    fn a_contributions_header_names_the_operator_relation() {
+        use triplespace_client::{BotOf, Relations};
+        let m = Messages::for_language("en");
+        assert_eq!(accounts_line(&m, &Relations::default()), None);
+        let bot = accounts_line(
+            &m,
+            &Relations {
+                bot: Some(BotOf {
+                    operator: "Alice Smith".into(),
+                    status: "active".into(),
+                    flagged: true,
+                    request_page: None,
+                }),
+                subsidiaries: vec![],
+            },
+        )
+        .unwrap();
+        assert_eq!(bot.operated_by.as_ref().unwrap().before, "Bot operated by ");
+        assert_eq!(
+            bot.operated_by.as_ref().unwrap().operator.href,
+            "/wiki/Special:Contributions/Alice_Smith"
+        );
+        let person = accounts_line(
+            &m,
+            &Relations {
+                bot: None,
+                subsidiaries: vec![
+                    ("AliceBot".into(), "active".into()),
+                    ("Old Bot".into(), "retired".into()),
+                ],
+            },
+        )
+        .unwrap();
+        let s = person.subsidiaries.as_ref().unwrap();
+        assert_eq!(s.items[1].0.href, "/wiki/Special:Contributions/Old_Bot");
+        assert_eq!(s.items[1].1.as_deref(), Some("retired"));
+    }
 
     // 0085 §4; 19 §2.8: a settings change reads as what it changed, each setting with its
     // value before and after.

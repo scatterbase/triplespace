@@ -77,6 +77,7 @@ pub mod reports;
 pub mod search;
 pub mod set_terms;
 pub mod settings;
+pub mod subsidiaries;
 pub mod tenants;
 pub mod undelete;
 pub mod userrights;

@@ -253,6 +253,8 @@ pub enum ChipKind {
     Rank,
     /// The instance itself, as the server's operator (0095 §3).
     Operator,
+    /// A subsidiary that holds `bot`, on its user page (0024 §9).
+    Bot,
 }
 
 /// A chip.
@@ -320,6 +322,7 @@ impl<'a> Chip<'a> {
             ChipKind::Best => "ts-chip ts-chip--best".into(),
             ChipKind::Rank => "ts-chip ts-chip--rank".into(),
             ChipKind::Operator => "ts-chip ts-chip--operator".into(),
+            ChipKind::Bot => "ts-chip ts-chip--bot".into(),
         }
     }
 }

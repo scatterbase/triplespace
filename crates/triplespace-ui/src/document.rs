@@ -48,14 +48,14 @@ use axum::response::Response;
 use scatter_titles::Namespaces;
 use serde::Serialize;
 use triplespace_client::{
-    About, CacheInfo, ClientError, DiffAsk, DiffSide, EditForm, Incoming, Lookup, PageDiff, Parsed,
-    Saved, Source,
+    About, BotOf, CacheInfo, ClientError, DiffAsk, DiffSide, EditForm, Incoming, Lookup, PageDiff,
+    Parsed, Saved, Source,
 };
 
 use crate::Site;
 use crate::codex::{
-    Action as ButtonAction, Button, ButtonModel, ChipModel, Field, FieldModel, Message,
-    MessageKind, MessageModel, Weight,
+    Action as ButtonAction, Button, ButtonModel, Chip, ChipKind, ChipModel, Field, FieldModel,
+    Message, MessageKind, MessageModel, Weight,
 };
 use crate::diffview::{self, View};
 use crate::entity::history;
@@ -227,14 +227,98 @@ pub enum Subtitle {
     },
 }
 
-/// The identity line of a page: its kind, and the Restricted pill where its visibility
-/// is not public.
+/// The identity line of a page: its kind, or for a subsidiary's user page who operates
+/// it, and the Restricted pill where its visibility is not public.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Identity {
     /// "page".
     pub kind: String,
+    /// "Bot operated by {Name}", in place of the kind on a subsidiary's user page.
+    pub bot: Option<BotLine>,
     /// The pill.
     pub restricted: Option<Restricted>,
+}
+
+/// A subsidiary's user page's identity line (0024 §9; 19 §1.3): "Bot operated by
+/// {Name}", the name linked to the operator's user page; "(pending approval)" while
+/// pending, and "Retired" once retired; the Bot chip when it holds `bot`; and **Request
+/// bot approval**, for its operator while it does not, where the wiki names a page for it.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct BotLine {
+    /// The text before the operator's name.
+    pub before: String,
+    /// The operator, linked to their user page.
+    pub operator: Choice,
+    /// The text after it.
+    pub after: String,
+    /// The Bot chip.
+    pub chip: Option<ChipModel>,
+    /// **Request bot approval**.
+    pub request: Option<Choice>,
+}
+
+/// The account a title is the user page of: `User:{name}`, not a subpage.
+fn user_page_of(title: &str) -> Option<&str> {
+    title
+        .strip_prefix("User:")
+        .filter(|n| !n.is_empty() && !n.contains('/'))
+}
+
+/// The identity line's model for a subsidiary, as the API names it.
+fn bot_line(m: &Messages, bot: &BotOf, viewer: Option<&str>) -> BotLine {
+    let key = match bot.status.as_str() {
+        "pending" => "ts-identity-bot-pending",
+        "retired" => "ts-identity-bot-retired",
+        _ => "ts-identity-bot",
+    };
+    let text = m.get(key);
+    let (before, after) = text.split_once("$1").unwrap_or((text.as_str(), ""));
+    BotLine {
+        before: before.to_string(),
+        operator: choice(
+            format!("/wiki/User:{}", title_url(&bot.operator)),
+            bot.operator.clone(),
+        ),
+        after: after.to_string(),
+        chip: bot
+            .flagged
+            .then(|| Chip::new(ChipKind::Bot, &m.get("ts-chip-bot")).model()),
+        request: bot
+            .request_page
+            .as_ref()
+            .filter(|_| !bot.flagged && viewer == Some(bot.operator.as_str()))
+            .map(|p| {
+                choice(
+                    format!("/wiki/{}", title_url(p)),
+                    m.get("ts-identity-bot-request"),
+                )
+            }),
+    }
+}
+
+/// The identity line of a subsidiary's user page, drawn; `None` for any other page. The
+/// line is an addition to the page, so a failed lookup leaves it out rather than failing
+/// the page.
+async fn bot_identity(
+    site: &Site,
+    cx: &mut Context,
+    incoming: &Incoming,
+    title: &str,
+    restricted: Option<Restricted>,
+) -> Option<String> {
+    let name = user_page_of(title)?;
+    let fetched = site.client().bot_of(incoming, name).await.ok()?;
+    cx.inputs.push(fetched.cache);
+    let bot = fetched.value?;
+    let line = bot_line(&cx.m, &bot, cx.user.as_deref());
+    Some(cx.draw(
+        "document/identity.html",
+        Identity {
+            kind: cx.m.get("ts-kind-page"),
+            bot: Some(line),
+            restricted,
+        },
+    ))
 }
 
 /// One line of the **About this page** panel.
@@ -539,7 +623,13 @@ async fn read(
                     {
                         return r;
                     }
-                    missing(&cx, headers, title, render)
+                    // A subsidiary's user page names its operator before it is written.
+                    let identity = if render {
+                        None
+                    } else {
+                        bot_identity(site, &mut cx, incoming, &title, None).await
+                    };
+                    missing_with(&cx, headers, title, render, identity)
                 }
                 "nosuchrevid" | "nosuchpageid" | "permissiondenied" if oldid.is_some() => {
                     no_revision(&cx, headers, title, oldid.unwrap_or(0))
@@ -566,6 +656,24 @@ async fn read(
         return pages::fragment(&cx, headers, StatusCode::OK, || content_html(&cx, &parsed));
     }
     let watch = crate::watch::control(site, &cx, incoming, &parsed.title).await;
+    let restricted = parsed.visibility.as_ref().map(|v| Restricted {
+        tip: crate::frame::restricted_tip(&cx.m, &v.groups, &v.sets),
+        text: cx.m.get("ts-restricted"),
+    });
+    let identity_html =
+        match bot_identity(site, &mut cx, incoming, &parsed.title, restricted.clone()).await {
+            Some(html) => Some(html),
+            None => restricted.map(|r| {
+                cx.draw(
+                    "document/identity.html",
+                    Identity {
+                        kind: cx.m.get("ts-kind-page"),
+                        bot: None,
+                        restricted: Some(r),
+                    },
+                )
+            }),
+        };
     // The panel is its own request (19 §3.1); a page reads without it.
     let about = match site.client().page_about(incoming, &parsed.title).await {
         Ok(f) => {
@@ -581,18 +689,7 @@ async fn read(
         title: parsed.title.clone(),
         returnto: Some(parsed.title.clone()),
         watch,
-        identity_html: parsed.visibility.as_ref().map(|v| {
-            cx.draw(
-                "document/identity.html",
-                Identity {
-                    kind: m.get("ts-kind-page"),
-                    restricted: Some(Restricted {
-                        tip: crate::frame::restricted_tip(m, &v.groups, &v.sets),
-                        text: m.get("ts-restricted"),
-                    }),
-                },
-            )
-        }),
+        identity_html,
         subtitle_html: subtitle_model(m, &parsed, oldid)
             .map(|subtitle| cx.draw("document/subtitle.html", SubtitleCtx { subtitle })),
         tabs: tabs(m, &cx.site.sitename, &parsed.title, true, TabName::Read),
@@ -753,6 +850,17 @@ fn formats(sitename: &str, title: &str) -> Vec<String> {
 /// A title with no page: the generated main page for the main page's title, the `404`
 /// of a missing page otherwise.
 fn missing(cx: &Context, headers: &HeaderMap, title: String, render: bool) -> Response {
+    missing_with(cx, headers, title, render, None)
+}
+
+/// [`missing`], with an identity line drawn already.
+fn missing_with(
+    cx: &Context,
+    headers: &HeaderMap,
+    title: String,
+    render: bool,
+    identity_html: Option<String>,
+) -> Response {
     if pages::is_mainpage(&title, &cx.site) {
         if render {
             return pages::fragment(cx, headers, StatusCode::OK, || home::content(cx));
@@ -780,6 +888,7 @@ fn missing(cx: &Context, headers: &HeaderMap, title: String, render: bool) -> Re
         );
         Page {
             returnto: Some(title.clone()),
+            identity_html,
             tabs: tabs(m, &cx.site.sitename, &title, false, TabName::Read),
             actions: actions(m, &title, false, cx.moderation_tabs()),
             title,
@@ -1982,5 +2091,60 @@ mod tests {
         );
         assert!(!new.exists);
         assert_eq!(new.base, None);
+    }
+
+    /// 0024 §9 (19 §1.3): a subsidiary's user page names its operator, linked; the Bot
+    /// chip shows only with the flag; Request bot approval only to the operator, while it is
+    /// not flagged; pending and retired say so.
+    #[test]
+    fn a_subsidiarys_identity_line() {
+        assert_eq!(user_page_of("User:Alice Bot"), Some("Alice Bot"));
+        assert_eq!(user_page_of("User:Alice/common.js"), None);
+        assert_eq!(user_page_of("Project:Bots"), None);
+        let m = Messages::for_language("en");
+        let skins = crate::skin::Skins::load(None);
+        let plain = skins.get("plain").expect("plain");
+        let draw = |bot: &BotOf, viewer: Option<&str>| {
+            plain
+                .render(
+                    "document/identity.html",
+                    &m,
+                    Identity {
+                        kind: m.get("ts-kind-page"),
+                        bot: Some(bot_line(&m, bot, viewer)),
+                        restricted: None,
+                    },
+                )
+                .unwrap()
+        };
+        let mut bot = BotOf {
+            operator: "Alice Smith".into(),
+            status: "active".into(),
+            flagged: false,
+            request_page: Some("Project:Bot requests".into()),
+        };
+        let html = draw(&bot, Some("Alice Smith"));
+        assert!(
+            html.contains("Bot operated by <a href=\"/wiki/User:Alice_Smith\">Alice Smith</a>"),
+            "{html}"
+        );
+        assert!(!html.contains("ts-chip--bot"), "{html}");
+        assert!(
+            html.contains("href=\"/wiki/Project:Bot_requests\">Request bot approval</a>"),
+            "{html}"
+        );
+        assert!(!draw(&bot, Some("Bob")).contains("Request bot approval"));
+        assert!(!draw(&bot, None).contains("Request bot approval"));
+        bot.flagged = true;
+        let html = draw(&bot, Some("Alice Smith"));
+        assert!(
+            html.contains("<span class=\"ts-chip ts-chip--bot\">Bot</span>"),
+            "{html}"
+        );
+        assert!(!html.contains("Request bot approval"), "{html}");
+        bot.status = "pending".into();
+        assert!(draw(&bot, None).contains("</a> (pending approval)"));
+        bot.status = "retired".into();
+        assert!(draw(&bot, None).contains("Retired bot operated by <a"));
     }
 }

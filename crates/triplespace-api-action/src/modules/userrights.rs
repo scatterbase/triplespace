@@ -17,7 +17,12 @@
 //! `Special:UserRights` and `Special:Block` read: each named account's `userid`, `name`,
 //! its groups (explicit memberships with `*` and `user`), `groupmemberships` with each
 //! expiry, and `blockinfo` for a block in force (`blockexpiry`, `ts-blockremoves`). A name
-//! hidden from the caller, or unknown, is `missing`, as MediaWiki answers.
+//! hidden from the caller, or unknown, is `missing`, as MediaWiki answers. Triplespace adds
+//! `usprop=operator`, for a subsidiary: its operator's name, its `subsidiarystatus`, and,
+//! while it is not in `bot`, `botrequestpage` where `subsidiaries.request_page` is set; and
+//! `usprop=subsidiaries`, for a primary account: its subsidiaries' names and statuses
+//! (0024 §8, A24). An operator or subsidiary whose name is hidden from the caller is left
+//! out, as the name would be.
 
 use std::collections::BTreeMap;
 
@@ -295,8 +300,98 @@ pub async fn users(ctx: &Ctx, query: &mut Map<String, Value>) -> Result<(), ApiE
                 },
             );
         }
+        if want("operator") || want("subsidiaries") {
+            subsidiary_props(ctx, &key, want("operator"), want("subsidiaries"), &mut u).await?;
+        }
         out.push(Value::Object(u));
     }
     query.insert("users".into(), Value::Array(out));
+    Ok(())
+}
+
+/// `usprop=operator` and `usprop=subsidiaries` (0024 §8, A24): the operator relation, which
+/// is public (07 §4.1), from either end.
+async fn subsidiary_props(
+    ctx: &Ctx,
+    key: &str,
+    operator: bool,
+    subsidiaries: bool,
+    u: &mut Map<String, Value>,
+) -> Result<(), ApiError> {
+    let Some(row) = ctx
+        .db()
+        .query_opt(
+            "SELECT kind, status, operator FROM view.actor WHERE tenant = $1 AND actor_key = $2",
+            &[&ctx.tenant.slug, &key],
+        )
+        .await?
+    else {
+        return Ok(());
+    };
+    let kind: String = row.get(0);
+    let status: String = row.get(1);
+    if operator
+        && kind == "bot"
+        && let Some(op) = row.get::<_, Option<String>>(2)
+        && !crate::activity::name_hidden(ctx, &op).await
+        && let Some(name) = ctx
+            .db()
+            .query_opt(
+                "SELECT name FROM view.actor WHERE tenant = $1 AND actor_key = $2",
+                &[&ctx.tenant.slug, &op],
+            )
+            .await?
+            .and_then(|r| r.get::<_, Option<String>>(0))
+    {
+        u.insert("operator".into(), json!(name));
+        u.insert("subsidiarystatus".into(), json!(status));
+        let flagged = ctx
+            .db()
+            .query_opt(
+                "SELECT 1 FROM view.membership
+                 WHERE tenant IN ($1, '') AND actor_key = $2 AND \"group\" = 'bot'
+                   AND (expires IS NULL OR expires > $3)",
+                &[
+                    &ctx.tenant.slug,
+                    &key,
+                    &i64::try_from(now_micros()).unwrap_or(i64::MAX),
+                ],
+            )
+            .await?
+            .is_some();
+        if !flagged && status != "retired" {
+            let (settings, _) =
+                triplespace_accounts::settings::load(ctx.db(), Some(&ctx.tenant.slug)).await?;
+            if let Some(page) = settings
+                .value("subsidiaries.request_page")
+                .and_then(|v| v.as_str().map(str::to_string))
+                .filter(|p| !p.is_empty())
+            {
+                u.insert("botrequestpage".into(), json!(page));
+            }
+        }
+    }
+    if subsidiaries && kind == "registered" {
+        let rows = ctx
+            .db()
+            .query(
+                "SELECT actor_key, name, status FROM view.actor
+                 WHERE tenant = $1 AND operator = $2 AND kind = 'bot'
+                 ORDER BY lower(name)",
+                &[&ctx.tenant.slug, &key],
+            )
+            .await?;
+        let mut list = Vec::new();
+        for r in &rows {
+            let sub: String = r.get(0);
+            if crate::activity::name_hidden(ctx, &sub).await {
+                continue;
+            }
+            if let Some(name) = r.get::<_, Option<String>>(1) {
+                list.push(json!({"name": name, "status": r.get::<_, String>(2)}));
+            }
+        }
+        u.insert("subsidiaries".into(), Value::Array(list));
+    }
     Ok(())
 }

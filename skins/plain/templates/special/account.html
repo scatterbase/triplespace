@@ -3,8 +3,11 @@
     each way to log in with its dates and Remove (disabled, with the note saying why, for
     the last one), then the issuers still to add; then the Email addresses section: each
     address with its state, a code field for an unverified one, Make primary for a verified
-    one, Remove (disabled for the primary while it cannot go), and the form that adds one.
-    Every form posts back to the page. Works without JavaScript. -#}
+    one, Remove (disabled for the primary while it cannot go), and the form that adds one;
+    then the Subsidiaries section (0024 §9): a key just issued, shown once; each subsidiary
+    with its state, its keys (private) with Revoke, the form that issues a key, Rename, and
+    Retire or Reactivate; and the form that creates one. Every form posts back to the page.
+    Works without JavaScript. -#}
 {%- import "codex.html" as codex -%}
 {%- import "account.html" as account -%}
 <div class="ts-account">{% if notice %}{{ codex.message(notice) }}{% endif -%}
@@ -34,5 +37,22 @@
 </ul>{% endif -%}
 {%- if e.add %}<form class="ts-form ts-email__add" method="post" action="{{ e.action }}"><input type="hidden" name="email_action" value="add"><input type="hidden" name="token" value="{{ e.token }}">{{ codex.field(e.add.field) }}{{ codex.button(e.add.button) }}</form>{% endif -%}
 {%- if e.add_note %}<p class="ts-email__note">{{ e.add_note }}</p>{% endif -%}
+</section>{% endif -%}
+{%- if subsidiaries %}{% set u = subsidiaries %}<section class="ts-subsidiaries" id="subsidiaries" aria-labelledby="ts-subsidiaries-heading"><h2 id="ts-subsidiaries-heading">{{ u.heading }} <span class="ts-signin__private">{{ u.public }}</span></h2><p class="ts-subsidiaries__intro">{{ u.intro }}</p>
+{%- if u.issued %}<div class="ts-subsidiaries__issued cdx-message cdx-message--block cdx-message--warning" role="alert"><div class="cdx-message__content"><p><strong>{{ u.issued.heading }}</strong></p><p>{{ u.issued.warning }}</p><dl class="ts-subsidiaries__secret">{% for r in u.issued.rows %}<dt>{{ r[0] }}</dt><dd><code>{{ r[1] }}</code></dd>{% endfor %}</dl></div></div>{% endif -%}
+{%- if u.empty %}<p class="ts-subsidiaries__none">{{ u.empty }}</p>{% endif -%}
+{%- for b in u.items %}<div class="ts-subsidiary" id="subsidiary-{{ b.slug }}"><h3 class="ts-subsidiary__name"><a href="{{ b.href }}">{{ b.name }}</a> <span class="ts-subsidiary__state">{{ b.state }}</span></h3>
+<h4 class="ts-subsidiary__keys-heading">{{ b.keys_heading }} <span class="ts-signin__private">{{ u.private }}</span></h4>
+{%- if b.no_keys %}<p class="ts-subsidiary__none">{{ b.no_keys }}</p>{% endif -%}
+{%- if b.keys %}<ul class="ts-subsidiary__keys">{% for k in b.keys %}<li class="ts-key{% if k.revoked %} ts-key--revoked{% endif %}"><span class="ts-key__label">{{ k.label }}</span> <code class="ts-key__login">{{ k.login }}</code> <span class="ts-key__grants">{{ k.grants }}</span> <span class="ts-signin__dates">{{ k.dates }}</span>{% if k.revoked %} <span class="ts-key__revoked">{{ k.revoked }}</span>{% endif -%}
+{%- if k.revoke %}<form class="ts-key__revoke" method="post" action="{{ u.action }}"><input type="hidden" name="subsidiary_action" value="revoke"><input type="hidden" name="subsidiary" value="{{ b.name }}"><input type="hidden" name="key_id" value="{{ k.key_id }}"><input type="hidden" name="token" value="{{ u.token }}">{{ codex.button(k.revoke) }}</form>{% endif %}</li>{% endfor %}</ul>{% endif -%}
+{%- if b.issue %}{% set f = b.issue %}<details class="ts-subsidiary__issue"><summary>{{ f.heading }}</summary><form class="ts-form" method="post" action="{{ u.action }}"><input type="hidden" name="subsidiary_action" value="issue"><input type="hidden" name="subsidiary" value="{{ b.name }}"><input type="hidden" name="token" value="{{ u.token }}">{{ codex.field(f.label) }}<fieldset class="ts-subsidiary__grants"><legend>{{ f.grants_legend }}</legend><p class="ts-subsidiary__note">{{ f.grants_note }}</p>
+{%- for g in f.grants %}<span class="cdx-checkbox"><span class="cdx-checkbox__wrapper"><input class="cdx-checkbox__input" type="checkbox" id="{{ g.id }}" name="{{ g.name }}" value="1"{% if g.description %} aria-describedby="{{ g.id }}-d"{% endif %}><span class="cdx-checkbox__icon"></span><span class="cdx-checkbox__label cdx-label"><label class="cdx-label__label" for="{{ g.id }}"><span class="cdx-label__label__text"><code>{{ g.label }}</code></span></label>{% if g.description %}<span class="cdx-label__description" id="{{ g.id }}-d">{{ g.description }}</span>{% endif %}</span></span></span>{% endfor -%}
+</fieldset>{{ codex.field(f.expires) }}{{ codex.button(f.button) }}</form></details>{% endif -%}
+{%- if b.rename %}<form class="ts-form ts-subsidiary__rename" method="post" action="{{ u.action }}"><input type="hidden" name="subsidiary_action" value="rename"><input type="hidden" name="subsidiary" value="{{ b.name }}"><input type="hidden" name="token" value="{{ u.token }}">{{ codex.field(b.rename.field) }}{{ codex.button(b.rename.button) }}</form>{% endif -%}
+<form class="ts-subsidiary__status" method="post" action="{{ u.action }}"><input type="hidden" name="subsidiary_action" value="{{ b.status_action }}"><input type="hidden" name="subsidiary" value="{{ b.name }}"><input type="hidden" name="token" value="{{ u.token }}">{{ codex.button(b.status_button) }} <span class="ts-subsidiary__note">{{ b.status_note }}</span></form>
+</div>{% endfor -%}
+{%- if u.create %}<form class="ts-form ts-subsidiaries__create" method="post" action="{{ u.action }}"><input type="hidden" name="subsidiary_action" value="create"><input type="hidden" name="token" value="{{ u.token }}">{{ codex.field(u.create.field) }}{{ codex.button(u.create.button) }}</form>{% endif -%}
+{%- if u.create_note %}<p class="ts-subsidiaries__note">{{ u.create_note }}</p>{% endif -%}
 </section>{% endif -%}
 </div>

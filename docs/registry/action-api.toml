@@ -515,7 +515,7 @@ sources = "[0012](../decisions/0012-api-requirements.md) §4, A73"
 [[module]]
 kind = "query"
 modules = ["list=users"]
-changes = "`usprop=linkedaccounts` (public links, [0007](../decisions/0007-actor-identity.md) §7), `usprop=operator` (for bots), `usprop=subsidiaries` (a primary account's subsidiaries), `usprop=groups|rights|blockinfo`. The existing `cancreate` checks names at first login"
+changes = "`usprop=linkedaccounts` (public links, [0007](../decisions/0007-actor-identity.md) §7), `usprop=operator` (for bots: `operator`, `subsidiarystatus`, and `botrequestpage` while not in `bot`), `usprop=subsidiaries` (a primary account's subsidiaries, each `{name, status}`), `usprop=groups|rights|blockinfo`. The existing `cancreate` checks names at first login"
 sources = "[0012](../decisions/0012-api-requirements.md) §4; [0016](../decisions/0016-permissions-and-access-control.md) §7; [0024](../decisions/0024-subsidiary-accounts.md) §8"
 
 [[module]]

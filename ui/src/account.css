@@ -129,3 +129,71 @@
 .ts-signin__remove {
 	margin-inline-start: auto;
 }
+
+/* The Subsidiaries section of Special:Account (ADR 0024 §9): each subsidiary with its keys,
+   and the key just issued, shown once. */
+.ts-subsidiary {
+	margin-bottom: var( --spacing-150, 1.5rem );
+	padding: var( --spacing-100, 1rem );
+	border: 1px solid var( --border-color-subtle, #c8ccd1 );
+	border-radius: var( --border-radius-base, 2px );
+}
+
+.ts-subsidiary__name {
+	margin-top: 0;
+}
+
+.ts-subsidiary__state,
+.ts-subsidiary__note,
+.ts-subsidiary__none,
+.ts-subsidiaries__note,
+.ts-key__grants {
+	color: var( --color-subtle, #54595d );
+	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-subsidiary__keys {
+	padding: 0;
+	list-style: none;
+}
+
+.ts-key {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --spacing-50, 0.5rem );
+	align-items: baseline;
+	padding: var( --spacing-50, 0.5rem ) 0;
+	border-bottom: 1px solid var( --border-color-subtle, #c8ccd1 );
+}
+
+.ts-key__label {
+	font-weight: var( --font-weight-bold, 700 );
+}
+
+.ts-key--revoked .ts-key__label,
+.ts-key--revoked .ts-key__login {
+	text-decoration: line-through;
+}
+
+.ts-key__revoke {
+	margin-inline-start: auto;
+}
+
+.ts-subsidiary__issue,
+.ts-subsidiary__rename,
+.ts-subsidiary__status {
+	margin-top: var( --spacing-75, 0.75rem );
+}
+
+.ts-subsidiary__grants {
+	display: flex;
+	flex-direction: column;
+	gap: var( --spacing-25, 0.25rem );
+	border: 0;
+	padding: 0;
+}
+
+.ts-subsidiaries__secret dd {
+	margin: 0 0 var( --spacing-50, 0.5rem );
+	overflow-wrap: anywhere;
+}
