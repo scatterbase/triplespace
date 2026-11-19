@@ -7503,6 +7503,841 @@
           }
         }
       }
+    },
+    "/account/subsidiaries": {
+      "get": {
+        "operationId": "listSubsidiaries",
+        "summary": "List one's subsidiaries",
+        "description": "Holder only. The caller's subsidiaries, retired ones included, each with its API keys (never a secret or a hash); whether the caller may create one (`createaccount`), the cap `subsidiaries.max_per_account`, how many unretired subsidiaries count against it, the suggested name `{Name}Bot`, and the grants a key may carry besides `basic`. Never cached. (ADR 0024 §8; 07 §4.2, §4.4.)",
+        "responses": {
+          "200": {
+            "description": "The subsidiaries.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "subsidiaries": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/Subsidiary"
+                      }
+                    },
+                    "can_create": {
+                      "type": "boolean"
+                    },
+                    "max": {
+                      "type": "integer"
+                    },
+                    "held": {
+                      "type": "integer"
+                    },
+                    "suggested": {
+                      "type": "string"
+                    },
+                    "grants": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "name": {
+                            "type": "string"
+                          },
+                          "description": {
+                            "type": "string"
+                          }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`notloggedin`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`ts-not-primary`: the caller is a subsidiary or a temporary account; `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "createSubsidiary",
+        "summary": "Create a subsidiary",
+        "description": "Creates a subsidiary account operated by the caller: an actor record of kind `bot` attested by the caller (`newusers/create2`). It is active, never pending, and holds no explicit group; a bureaucrat adds it to `bot`. Needs `createaccount`. (ADR 0024 §8; 07 §4.2, §4.4.)",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "name"
+                ],
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "token": {
+                    "type": "string",
+                    "description": "The CSRF token, where the request carries a session cookie."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The subsidiary created.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "created": {
+                      "type": "object",
+                      "properties": {
+                        "name": {
+                          "type": "string"
+                        },
+                        "actor": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`invaliduser` or `badbody`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`notloggedin`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`ts-not-primary`: the caller is a subsidiary or a temporary account; `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`userexists`, `ts-name-reserved`, or `ts-subsidiary-limit`: the caller holds `subsidiaries.max_per_account` unretired subsidiaries.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/account/subsidiaries/{name}/rename": {
+      "post": {
+        "operationId": "renameSubsidiary",
+        "summary": "Rename a subsidiary",
+        "description": "Renames the caller's subsidiary; the old name is released and never reused. (ADR 0024 §8; 07 §4.2, §4.4.)",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The subsidiary's name."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "to"
+                ],
+                "properties": {
+                  "to": {
+                    "type": "string"
+                  },
+                  "token": {
+                    "type": "string",
+                    "description": "The CSRF token, where the request carries a session cookie."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The subsidiary as it now is.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "subsidiary": {
+                      "$ref": "#/components/schemas/Subsidiary"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`invaliduser` or `badbody`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`notloggedin`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`ts-not-primary`: the caller is a subsidiary or a temporary account; `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-no-subsidiary`: the caller operates no subsidiary of that name.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`userexists`, `ts-name-reserved` or `ts-subsidiary-retired`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/account/subsidiaries/{name}/retire": {
+      "post": {
+        "operationId": "retireSubsidiary",
+        "summary": "Retire a subsidiary",
+        "description": "Revokes every key of the caller's subsidiary, ending every session opened with one, and writes an actor record with status `retired`. History and operator are kept. (ADR 0024 §8; 07 §4.2, §4.4.)",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The subsidiary's name."
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "The CSRF token, where the request carries a session cookie."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The subsidiary as it now is.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "subsidiary": {
+                      "$ref": "#/components/schemas/Subsidiary"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`notloggedin`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`ts-not-primary`: the caller is a subsidiary or a temporary account; `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-no-subsidiary`: the caller operates no subsidiary of that name.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`ts-subsidiary-retired`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/account/subsidiaries/{name}/reactivate": {
+      "post": {
+        "operationId": "reactivateSubsidiary",
+        "summary": "Reactivate a subsidiary",
+        "description": "Writes an actor record with status `active` for the caller's retired subsidiary; it then needs a new key. (ADR 0024 §8; 07 §4.2, §4.4.)",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The subsidiary's name."
+          }
+        ],
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [],
+                "properties": {
+                  "token": {
+                    "type": "string",
+                    "description": "The CSRF token, where the request carries a session cookie."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "The subsidiary as it now is.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "subsidiary": {
+                      "$ref": "#/components/schemas/Subsidiary"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`notloggedin`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`ts-not-primary`: the caller is a subsidiary or a temporary account; `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-no-subsidiary`: the caller operates no subsidiary of that name.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`ts-subsidiary-active`: it is not retired.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/account/subsidiaries/{name}/keys": {
+      "get": {
+        "operationId": "listSubsidiaryKeys",
+        "summary": "List a subsidiary's API keys",
+        "description": "Holder only: label, grants, expiry, last use and revocation of each key of the caller's subsidiary, newest first; never a secret or a hash. (ADR 0024 §4, §8; 07 §5.)",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The subsidiary's name."
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The keys.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "keys": {
+                      "type": "array",
+                      "items": {
+                        "$ref": "#/components/schemas/ApiKey"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`notloggedin`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`ts-not-primary`: the caller is a subsidiary or a temporary account; `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-no-subsidiary`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "operationId": "issueSubsidiaryKey",
+        "summary": "Issue an API key",
+        "description": "Issues a key for the caller's active subsidiary. `basic` is always granted; every other grant must be registered. The answer holds the secret, which is shown here once and stored only as a hash; `login` is the bot-password login name `{name}@{label}`. (ADR 0024 §4, §8; 07 §5.)",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The subsidiary's name."
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "label"
+                ],
+                "properties": {
+                  "label": {
+                    "type": "string",
+                    "description": "1–64 letters, digits, `-`, `_` or `.`; unique per subsidiary."
+                  },
+                  "grants": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "expires_days": {
+                    "type": [
+                      "integer",
+                      "null"
+                    ],
+                    "description": "Days until the key expires, 1–3650; never by default."
+                  },
+                  "token": {
+                    "type": "string",
+                    "description": "The CSRF token, where the request carries a session cookie."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "201": {
+            "description": "The key issued, with its secret.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "issued": {
+                      "type": "object",
+                      "properties": {
+                        "key_id": {
+                          "type": "string"
+                        },
+                        "label": {
+                          "type": "string"
+                        },
+                        "login": {
+                          "type": "string"
+                        },
+                        "secret": {
+                          "type": "string"
+                        },
+                        "bearer": {
+                          "type": "string",
+                          "description": "`{key ID}.{secret}`, for `Authorization: Bearer`."
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`ts-bad-key`: the label or a grant is refused; `badbody`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`notloggedin`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`ts-not-primary`: the caller is a subsidiary or a temporary account; `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-no-subsidiary`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`ts-subsidiary-retired`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "operationId": "revokeSubsidiaryKey",
+        "summary": "Revoke an API key",
+        "description": "Revokes the key and ends every session opened with it. A request made with a session cookie carries its CSRF token as the `token` query parameter. (ADR 0024 §4, §8; 07 §5.)",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            },
+            "description": "The subsidiary's name."
+          },
+          {
+            "name": "key_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "token",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The key revoked.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "revoked": {
+                      "type": "object",
+                      "properties": {
+                        "key_id": {
+                          "type": "string"
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`badbody`: no `key_id`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "`notloggedin`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`ts-not-primary`: the caller is a subsidiary or a temporary account; `badtoken`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-no-subsidiary`, or `ts-no-key`: no unrevoked key with that ID.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "Not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -11063,6 +11898,78 @@
               "null"
             ],
             "description": "Who made it."
+          }
+        }
+      },
+      "ApiKey": {
+        "type": "object",
+        "properties": {
+          "key_id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "grants": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "created": {
+            "type": "integer",
+            "description": "Seconds since the epoch."
+          },
+          "expires": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "last_used": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "revoked": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          }
+        }
+      },
+      "Subsidiary": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "actor": {
+            "type": "string",
+            "description": "The subsidiary's actor key."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "active",
+              "retired",
+              "pending"
+            ]
+          },
+          "groups": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Explicit memberships; `bot` is the bot flag."
+          },
+          "keys": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/ApiKey"
+            }
           }
         }
       }

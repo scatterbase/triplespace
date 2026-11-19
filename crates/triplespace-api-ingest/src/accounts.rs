@@ -94,7 +94,7 @@ pub enum CreateError {
     Store(String),
 }
 
-fn store_error(e: impl std::fmt::Display) -> CreateError {
+pub(crate) fn store_error(e: impl std::fmt::Display) -> CreateError {
     CreateError::Store(e.to_string())
 }
 
@@ -137,7 +137,7 @@ fn registry() -> &'static IssuerRegistry {
 
 /// [`check_available`], where `derived` says the name was derived from a provider
 /// username and so may carry its issuer's prefix (0102 §1, §2).
-async fn available(
+pub(crate) async fn available(
     cx: &mut PgCx,
     secret: &Secret,
     tenant: &str,
@@ -178,7 +178,7 @@ async fn available(
     Ok(name)
 }
 
-fn draft(
+pub(crate) fn draft(
     payload_type: &str,
     key: &str,
     content: &serde_json::Value,

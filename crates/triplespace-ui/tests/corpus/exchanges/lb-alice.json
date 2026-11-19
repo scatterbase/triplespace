@@ -48661,6 +48661,77 @@
   },
   {
     "method": "GET",
+    "path_and_query": "/w/rest.php/triplespace/v0/account/subsidiaries",
+    "credentialed": true,
+    "status": 200,
+    "headers": {
+      "cache-control": "private, no-cache",
+      "content-length": "946",
+      "content-type": "application/json; charset=utf-8",
+      "date": "Sun, 15 Nov 2026 21:59:39 GMT",
+      "etag": "\"9448a9fffaf5d1945f5c7bd8a50112d0\"",
+      "vary": "Accept, Accept-Language"
+    },
+    "json": {
+      "can_create": true,
+      "grants": [
+        {
+          "name": "highvolume",
+          "description": "Bot rate limits and the bot flag, if the account holds `bot`"
+        },
+        {
+          "name": "editpage",
+          "description": "Edit document pages, threads and posts"
+        },
+        {
+          "name": "createeditmovepage",
+          "description": "editpage plus creating and moving pages"
+        },
+        {
+          "name": "editentity",
+          "description": "Edit entities: statements, terms, redirects, merges and identity links, and create and link properties"
+        },
+        {
+          "name": "editprotected",
+          "description": "Edits admitted by protection ACLs the account's groups satisfy (0023 §1)"
+        },
+        {
+          "name": "patrol",
+          "description": null
+        },
+        {
+          "name": "delete",
+          "description": null
+        },
+        {
+          "name": "protect",
+          "description": null
+        },
+        {
+          "name": "blockusers",
+          "description": null
+        },
+        {
+          "name": "viewdeleted",
+          "description": null
+        },
+        {
+          "name": "editmywatchlist",
+          "description": null
+        },
+        {
+          "name": "ts-jobs",
+          "description": "Submit, revert and inspect bulk jobs; set retention; convert"
+        }
+      ],
+      "held": 0,
+      "max": 10,
+      "subsidiaries": [],
+      "suggested": "AliceBot"
+    }
+  },
+  {
+    "method": "GET",
     "path_and_query": "/w/rest.php/triplespace/v0/entity/Domain:wikipedia.org/page",
     "credentialed": true,
     "status": 200,

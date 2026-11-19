@@ -53,6 +53,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0021 A27](0021-notifications.md#a27-the-preference-matrix-is-honoured-on-the-web-and-the-inbox-filters-by-reason) | 2026-11-10 | The preference matrix is honoured on the web, and the inbox filters by reason |
 | [0021 A28](0021-notifications.md#a28-mentions-in-document-pages-the-rename-reason-and-bundling) | 2026-11-10 | Mentions in document pages, the `rename` reason, and bundling |
 | [0023 A17](0023-moderation.md#a17-partial-undelete-and-hidden-events-the-calls-made-building-them) | 2026-10-30 | Partial undelete and hidden events: the calls made building them |
+| [0024 A23](0024-subsidiary-accounts.md#a23-the-account-pages-subsidiaries-section-and-its-routes) | 2026-11-19 | The account page's Subsidiaries section and its routes |
 | [0026 A8](0026-sitelinks.md#a8-a-stray-does-not-gain-an-escape-from-a-decoded-digit) | 2026-11-06 | A stray `%` does not gain an escape from a decoded digit |
 | [0029 A11](0029-resolver-namespaces.md#a11-a-doi-is-percent-decoded-only-when-written-as-a-uri) | 2026-11-06 | A DOI is percent-decoded only when written as a URI |
 | [0033 A25](0033-backend-stack.md#a25-tls-to-postgres-when-the-url-says-sslmoderequire) | 2026-10-31 | TLS to Postgres when the URL says `sslmode=require` |

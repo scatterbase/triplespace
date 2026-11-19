@@ -164,6 +164,11 @@ fn key_of(code: &str) -> Option<&'static str> {
         "ts-account-pending" => "ts-login-pending",
         "ts-account-rejected" => "ts-login-rejected-external",
         "ts-account-requested" => "ts-createaccount-requested",
+        "ts-subsidiary-created" => "ts-account-subsidiary-created",
+        "ts-subsidiary-renamed" => "ts-account-subsidiary-renamed",
+        "ts-subsidiary-retired" => "ts-account-subsidiary-retired-notice",
+        "ts-subsidiary-reactivated" => "ts-account-subsidiary-reactivated",
+        "ts-key-revoked" => "ts-account-key-revoked-notice",
         "ts-linked" => "ts-account-linked",
         "ts-unlinked" => "ts-account-unlinked",
         "userexists" => "ts-createaccount-userexists",
@@ -216,6 +221,8 @@ pub struct AccountPage {
     pub methods: Option<SignInMethods>,
     /// The Email addresses section (0100 §6).
     pub email: Option<EmailSection>,
+    /// The Subsidiaries section (0024 §9).
+    pub subsidiaries: Option<crate::special::subsidiaries::SubsidiariesSection>,
 }
 
 /// The Email addresses section (19 §2.4): each address with its state and its forms, and
@@ -558,6 +565,18 @@ async fn render(
     incoming: &triplespace_client::Incoming,
     notice: Option<(MessageKind, String)>,
 ) -> Response {
+    render_with(site, cx, headers, incoming, notice, None).await
+}
+
+/// [`render`], with a key just issued shown once in the Subsidiaries section.
+async fn render_with(
+    site: &Site,
+    cx: &mut Context,
+    headers: &HeaderMap,
+    incoming: &triplespace_client::Incoming,
+    notice: Option<(MessageKind, String)>,
+    issued: Option<&serde_json::Value>,
+) -> Response {
     if cx.user.is_none() {
         let model = AccountPage {
             notice: None,
@@ -568,6 +587,7 @@ async fn render(
             )),
             methods: None,
             email: None,
+            subsidiaries: None,
         };
         return account_page(cx, headers, notice, model);
     }
@@ -580,6 +600,7 @@ async fn render(
                 login: None,
                 methods: None,
                 email: None,
+                subsidiaries: None,
             };
             return account_page(cx, headers, notice, model);
         }
@@ -589,10 +610,16 @@ async fn render(
         Ok(e) => e,
         Err(e) => return pages::api_failed(cx, headers, &e),
     };
+    // A subsidiary or a temporary account operates none, and has no section (07 §4.1).
+    let subsidiaries = match site.client().subsidiaries(incoming).await {
+        Ok(s) => s,
+        Err(e) => return pages::api_failed(cx, headers, &e),
+    };
     let t = match site.client().token(incoming, "csrf").await {
         Ok(t) => t,
         Err(e) => return pages::api_failed(cx, headers, &e),
     };
+    let action = format!("/w/index.php?title={}", title_url(TITLE));
     let model = AccountPage {
         notice: None,
         login_needed: None,
@@ -601,6 +628,9 @@ async fn render(
         email: email
             .as_ref()
             .map(|e| email_model(&cx.m, e, &t.value.value)),
+        subsidiaries: subsidiaries.as_ref().map(|s| {
+            crate::special::subsidiaries::model(&cx.m, s, &action, &t.value.value, issued)
+        }),
     };
     pages::with_cookies(account_page(cx, headers, notice, model), &t.set_cookies)
 }
@@ -712,8 +742,104 @@ async fn post_email(
     }
 }
 
-/// `POST Special:Account`: removes a sign-in method, or with `email_action` acts on an
-/// email address.
+/// `POST Special:Account` with `subsidiary_action` (0024 §9): creates, renames, retires
+/// or reactivates a subsidiary, or issues or revokes one of its keys. A key just issued
+/// is shown on the page that answers, once; every other write returns to the section
+/// with a notice.
+async fn post_subsidiary(
+    site: &Site,
+    cx: &mut Context,
+    headers: &HeaderMap,
+    incoming: &triplespace_client::Incoming,
+    form: &BTreeMap<String, String>,
+) -> Response {
+    use crate::special::subsidiaries::{Ask, ask, notice, refusal};
+    let token = form.get("token").map_or("", String::as_str);
+    let Some(a) = ask(form) else {
+        let text = cx.m.get("ts-account-subsidiary-failed");
+        return render(
+            site,
+            cx,
+            headers,
+            incoming,
+            Some((MessageKind::Error, text)),
+        )
+        .await;
+    };
+    let client = site.client();
+    let answer = match &a {
+        Ask::Create(name) => client.create_subsidiary(incoming, name, token).await,
+        Ask::Rename { name, to } => {
+            client
+                .change_subsidiary(incoming, name, "rename", Some(to), token)
+                .await
+        }
+        Ask::Status { name, action } => {
+            client
+                .change_subsidiary(incoming, name, action, None, token)
+                .await
+        }
+        Ask::Issue {
+            name,
+            label,
+            grants,
+            expires_days,
+        } => {
+            client
+                .issue_key(incoming, name, label, grants, *expires_days, token)
+                .await
+        }
+        Ask::Revoke { name, key_id } => client.revoke_key(incoming, name, key_id, token).await,
+    };
+    match answer {
+        Ok(Ok(body)) if matches!(a, Ask::Issue { .. }) => {
+            let text = cx.m.get("ts-account-key-issued-notice");
+            let page = render_with(
+                site,
+                cx,
+                headers,
+                incoming,
+                Some((MessageKind::Success, text)),
+                Some(&body["issued"]),
+            )
+            .await;
+            // The secret is on this page alone: no cache keeps it.
+            no_store(page)
+        }
+        Ok(Ok(_)) => pages::see_other(
+            &format!(
+                "/wiki/{}?tsnotice={}#subsidiaries",
+                title_url(TITLE),
+                notice(&a)
+            ),
+            &[],
+        ),
+        Ok(Err((code, body))) => {
+            let text = refusal(&cx.m, &code, &body);
+            render(
+                site,
+                cx,
+                headers,
+                incoming,
+                Some((MessageKind::Error, text)),
+            )
+            .await
+        }
+        Err(e) => pages::api_failed(cx, headers, &e),
+    }
+}
+
+/// Marks a response as not to be stored anywhere.
+fn no_store(mut r: Response) -> Response {
+    r.headers_mut().insert(
+        axum::http::header::CACHE_CONTROL,
+        axum::http::HeaderValue::from_static("no-store"),
+    );
+    r
+}
+
+/// `POST Special:Account`: removes a sign-in method, with `email_action` acts on an
+/// email address, or with `subsidiary_action` on a subsidiary.
 pub async fn post(
     site: &Site,
     headers: &HeaderMap,
@@ -727,6 +853,9 @@ pub async fn post(
     };
     if form.contains_key("email_action") {
         return post_email(site, &mut cx, headers, &incoming, form).await;
+    }
+    if form.contains_key("subsidiary_action") {
+        return post_subsidiary(site, &mut cx, headers, &incoming, form).await;
     }
     let field = |k: &str| form.get(k).map_or("", String::as_str);
     match site
@@ -873,6 +1002,7 @@ mod tests {
             login: None,
             methods: Some(sign_in_model(&m, a, "t&k")),
             email: None,
+            subsidiaries: None,
         };
         let last = AccountInfo {
             name: None,

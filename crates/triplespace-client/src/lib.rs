@@ -45,6 +45,7 @@ pub mod rights;
 pub mod search;
 pub mod session;
 pub mod settings;
+pub mod subsidiaries;
 pub mod tenancy;
 pub mod theme;
 pub mod threads;
@@ -82,6 +83,9 @@ pub use rights::{
     UserGroups,
 };
 pub use search::{Hit, Hits, PageHit, PageHits};
+pub use subsidiaries::{
+    GrantListing, KeyListing, Subsidiaries, SubsidiaryListing, SubsidiaryOutcome,
+};
 pub use tenancy::{
     Invitation, InvitationInfo, PrimaryOffer, Tenancy, TenantAsk, TenantRequest, TenantRow,
 };
