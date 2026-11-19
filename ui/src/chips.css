@@ -71,6 +71,12 @@
 	color: var( --color-progressive, #36c );
 }
 
+/* A subsidiary that holds the bot flag, on its user page (ADR 0024 §9). */
+.ts-chip--bot {
+	background-color: var( --background-color-neutral, #eaecf0 );
+	color: var( --color-base, #202122 );
+}
+
 a .ts-chip {
 	text-decoration: none;
 }

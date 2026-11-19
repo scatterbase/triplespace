@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-19 (A23)
+- **Updated:** 2026-11-19 (A24)
 - **Author:** James Hare / Claude Fable
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
@@ -291,3 +291,10 @@ Replaced text: 07 §6.3.
 - **Source:** Direct: Claude, while building `Special:Account`'s Subsidiaries section and `/account/subsidiaries`, 2026-11-19; unconfirmed
 - **Change:** extends §2, §8, §9
 - **Summary:** Five calls made building the operator's half of §2, §8 and §9. (1) `subsidiaries.max_per_account` counts the operator's subsidiaries that are not retired, so retiring one frees a place; reactivating one is not refused at the cap. (2) A key's secret is shown on the page that answers the issue form, never through a redirect, and that page is sent with `Cache-Control: no-store`, so the secret is in no URL, history entry or cache; the API's answer gives the bot-password login name `{name}@{label}`, the secret, and the bearer form `{key ID}.{secret}`. (3) `GET /account/subsidiaries` also lists the grants a key may carry, since the site reaches the grant registry only through the API (22 §1.2 rule 6), and whether the reader may create one, the cap and how many count against it, and the suggestion. (4) A key is revoked with `DELETE /account/subsidiaries/{name}/keys?key_id=…`, and its expiry is given in whole days, 1 to 3650. (5) Renaming, retiring and reactivating are the operator's alone, and a retired subsidiary is neither renamed nor issued a key until reactivated. Not built yet: `subsidiaries.name_pattern`, a key's IP ranges, the warning before a key expires, and signing keys. Chapter text: 07 §4.2, 07 §4.4, 19 §2.4.
+
+### A24. A subsidiary's user page reads its operator from `list=users`
+
+- **Date:** 2026-11-19
+- **Source:** Direct: Claude, while building the identity line of a subsidiary's user page, 2026-11-19; unconfirmed
+- **Change:** extends §8, §9
+- **Summary:** Four calls made building the user-page half of §9. (1) `list=users&usprop=operator` answers, for a subsidiary, its operator's name, `subsidiarystatus` (`active`, `pending` or `retired`), and `botrequestpage` while it holds no `bot` and `subsidiaries.request_page` is set, so the page needs one request and no `GET /settings`; `usprop=subsidiaries` answers a primary account's subsidiaries as `{name, status}`. An operator or subsidiary whose name is hidden from the reader is left out. (2) **Request bot approval** is shown to the operator alone, since nobody else can act on it. (3) A retired subsidiary's line reads "Retired bot operated by {Name}", beside 07 §4.3's "(pending approval)". (4) The line replaces the page kind, shows on the user page before it is written, and is left out rather than failing the page when the lookup fails. Chapter text: 19 §1.3.

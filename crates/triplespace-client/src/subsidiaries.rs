@@ -2,11 +2,13 @@
 //! /account/subsidiaries` and the writes `Special:Account`'s Subsidiaries section posts
 //! through: create, rename, retire, reactivate, issue a key and revoke one. Each write
 //! carries the session's CSRF token; a refusal comes back as its code with the API's
-//! body, for the page to show.
+//! body, for the page to show. And `list=users&usprop=operator|groups`, which a
+//! subsidiary's user page reads for its identity line (0024 §9, A24).
 
 use axum::http::{Method, StatusCode};
 use serde_json::{Value, json};
 
+use crate::api::{CacheInfo, Fetched, check};
 use crate::{Client, ClientError, Incoming};
 
 const REST: &str = "/w/rest.php/triplespace/v0";
@@ -78,6 +80,19 @@ pub struct GrantListing {
     pub description: Option<String>,
 }
 
+/// A subsidiary as its user page names it: who operates it, and how it stands.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct BotOf {
+    /// The operator's name.
+    pub operator: String,
+    /// `active`, `pending` or `retired`.
+    pub status: String,
+    /// Whether it holds `bot`, the bot flag.
+    pub flagged: bool,
+    /// Where **Request bot approval** links, while it is not flagged.
+    pub request_page: Option<String>,
+}
+
 /// A write's answer: the API's body, or the refusal's code with it.
 pub type SubsidiaryOutcome = Result<Value, (String, Value)>;
 
@@ -103,6 +118,45 @@ fn query(value: &str) -> String {
 }
 
 impl Client {
+    /// `list=users&usprop=operator|groups` for one name: `Some` for a subsidiary whose
+    /// operator the reader may see, `None` for any other account or none.
+    ///
+    /// # Errors
+    ///
+    /// The API away or unreadable.
+    pub async fn bot_of(
+        &self,
+        incoming: &Incoming,
+        name: &str,
+    ) -> Result<Fetched<Option<BotOf>>, ClientError> {
+        let r = self
+            .get(
+                incoming,
+                &format!(
+                    "/w/api.php?action=query&list=users&usprop=operator%7Cgroups&ususers={}&format=json&formatversion=2",
+                    query(name)
+                ),
+            )
+            .await?;
+        let v = check(&r)?;
+        let u = &v["query"]["users"][0];
+        let value = u["operator"].as_str().map(|op| BotOf {
+            operator: op.to_string(),
+            status: u["subsidiarystatus"]
+                .as_str()
+                .unwrap_or("active")
+                .to_string(),
+            flagged: u["groups"]
+                .as_array()
+                .is_some_and(|g| g.iter().any(|x| x == "bot")),
+            request_page: u["botrequestpage"].as_str().map(str::to_string),
+        });
+        Ok(Fetched {
+            value,
+            cache: CacheInfo::of(&r),
+        })
+    }
+
     /// `GET /account/subsidiaries`; `None` for a reader who operates none, being logged
     /// out, a subsidiary or a temporary account.
     pub async fn subsidiaries(

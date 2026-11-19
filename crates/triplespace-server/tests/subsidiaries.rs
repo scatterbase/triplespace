@@ -564,5 +564,100 @@ async fn subsidiaries_and_their_keys() {
     assert_eq!(r.status, StatusCode::OK, "{}", r.text);
     assert!(r.text.contains("That name is taken."), "{}", r.text);
 
+    // 0024 §9 (19 §1.3; 0024 A24): the subsidiary's user page names its operator, even
+    // before the page is written; the operator's does not.
+    let mut reader = Client {
+        router: site.clone(),
+        cookie: None,
+        bearer: None,
+    };
+    let r = reader.page("/wiki/User:Alice_Reports").await;
+    assert_eq!(r.status, StatusCode::NOT_FOUND, "a page not yet written");
+    assert!(
+        r.text
+            .contains("Bot operated by <a href=\"/wiki/User:Alice\">Alice</a>"),
+        "{}",
+        r.text
+    );
+    assert!(!r.text.contains("ts-chip--bot"), "{}", r.text);
+    assert!(!r.text.contains("Request bot approval"), "{}", r.text);
+    let r = reader.page("/wiki/User:Alice").await;
+    assert!(!r.text.contains("Bot operated by"), "{}", r.text);
+    let u = reader
+        .api(&format!(
+            "action=query&list=users&ususers={}&usprop=operator|subsidiaries",
+            enc("Alice|Alice Reports")
+        ))
+        .await;
+    let users = u["query"]["users"].as_array().unwrap();
+    let alice = users.iter().find(|x| x["name"] == "Alice").unwrap();
+    assert!(
+        alice["subsidiaries"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .any(|x| x["name"] == "Alice Reports" && x["status"] == "active"),
+        "{u}"
+    );
+    let reports = users.iter().find(|x| x["name"] == "Alice Reports").unwrap();
+    assert_eq!(reports["operator"], "Alice", "{u}");
+    assert_eq!(reports["subsidiarystatus"], "active", "{u}");
+    assert!(reports.get("subsidiaries").is_none(), "{u}");
+
+    // With `subsidiaries.request_page` set, the operator sees where to ask for the flag.
+    let token = c.csrf().await;
+    let base = c.rest("GET", "/settings", None).await.body["base"].clone();
+    let r = c
+        .rest(
+            "PATCH",
+            "/settings",
+            Some(json!({
+                "set": {"subsidiaries.request_page": "Project:Bot requests"},
+                "base": base,
+                "token": token,
+            })),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let r = c.page("/wiki/User:Alice_Reports").await;
+    assert!(
+        r.text
+            .contains("href=\"/wiki/Project:Bot_requests\">Request bot approval</a>"),
+        "{}",
+        r.text
+    );
+    let r = reader.page("/wiki/User:Alice_Reports").await;
+    assert!(!r.text.contains("Request bot approval"), "{}", r.text);
+
+    // A bureaucrat flags it: the Bot chip, and nothing left to request.
+    let t = c
+        .api("action=query&meta=tokens&type=userrights")
+        .await["query"]["tokens"]["userrightstoken"]
+        .as_str()
+        .unwrap()
+        .to_string();
+    let ur = c
+        .api_post(&format!(
+            "action=userrights&user={}&add=bot&token={}",
+            enc("Alice Reports"),
+            enc(&t)
+        ))
+        .await;
+    assert!(ur.get("error").is_none(), "{ur}");
+    let r = c.page("/wiki/User:Alice_Reports").await;
+    assert!(r.text.contains("ts-chip ts-chip--bot"), "{}", r.text);
+    assert!(!r.text.contains("Request bot approval"), "{}", r.text);
+    // Retired, it says so.
+    let r = c
+        .write(
+            "POST",
+            "/account/subsidiaries/Alice_Indexer/retire",
+            json!({}),
+        )
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.body);
+    let r = reader.page("/wiki/User:Alice_Indexer").await;
+    assert!(r.text.contains("Retired bot operated by"), "{}", r.text);
+
     let _ = std::fs::remove_dir_all(&dir);
 }
