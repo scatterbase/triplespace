@@ -659,5 +659,26 @@ async fn subsidiaries_and_their_keys() {
     let r = reader.page("/wiki/User:Alice_Indexer").await;
     assert!(r.text.contains("Retired bot operated by"), "{}", r.text);
 
+    // 0024 §9 (19 §2.5): Contributions headers name the relation from either end.
+    let r = reader
+        .page("/wiki/Special:Contributions/Alice_Reports")
+        .await;
+    assert_eq!(r.status, StatusCode::OK, "{}", r.text);
+    assert!(
+        r.text
+            .contains("Bot operated by <a href=\"/wiki/Special:Contributions/Alice\">Alice</a>"),
+        "{}",
+        r.text
+    );
+    let r = reader.page("/wiki/Special:Contributions/Alice").await;
+    assert!(r.text.contains("Subsidiary accounts:"), "{}", r.text);
+    assert!(
+        r.text
+            .contains("<a href=\"/wiki/Special:Contributions/Alice_Reports\">Alice Reports</a>"),
+        "{}",
+        r.text
+    );
+    assert!(r.text.contains("Alice Indexer</a> (retired)"), "{}", r.text);
+
     let _ = std::fs::remove_dir_all(&dir);
 }

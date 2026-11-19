@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-19 (A24)
+- **Updated:** 2026-11-19 (A25)
 - **Author:** James Hare / Claude Fable
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
@@ -298,3 +298,10 @@ Replaced text: 07 §6.3.
 - **Source:** Direct: Claude, while building the identity line of a subsidiary's user page, 2026-11-19; unconfirmed
 - **Change:** extends §8, §9
 - **Summary:** Four calls made building the user-page half of §9. (1) `list=users&usprop=operator` answers, for a subsidiary, its operator's name, `subsidiarystatus` (`active`, `pending` or `retired`), and `botrequestpage` while it holds no `bot` and `subsidiaries.request_page` is set, so the page needs one request and no `GET /settings`; `usprop=subsidiaries` answers a primary account's subsidiaries as `{name, status}`. An operator or subsidiary whose name is hidden from the reader is left out. (2) **Request bot approval** is shown to the operator alone, since nobody else can act on it. (3) A retired subsidiary's line reads "Retired bot operated by {Name}", beside 07 §4.3's "(pending approval)". (4) The line replaces the page kind, shows on the user page before it is written, and is left out rather than failing the page when the lookup fails. Chapter text: 19 §1.3.
+
+### A25. The Contributions header's operator relation
+
+- **Date:** 2026-11-19
+- **Source:** Direct: Claude, while building the Contributions header of §9, 2026-11-19; unconfirmed
+- **Change:** extends §9
+- **Summary:** Three calls made building it. (1) Both ends of the relation link to the other account's contributions, not its user page, since the reader is following contributions. (2) A primary account's header lists every subsidiary whose name the reader may see, retired and pending ones marked, in name order. (3) The header reads `list=users&usprop=operator|subsidiaries` (A24), and is left out rather than failing the page when that lookup fails. Chapter text: 19 §2.5.

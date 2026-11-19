@@ -429,6 +429,7 @@
 	"ts-contributions-user": "User",
 	"ts-contributions-intro": "Enter a user name to see what they have changed.",
 	"ts-contributions-none": "$1 has made no changes in this period.",
+	"ts-contributions-subsidiaries": "Subsidiary accounts:",
 	"ts-changes-filter-label": "Filter the changes",
 	"ts-changes-kinds": "Show",
 	"ts-changes-kind-edits": "Edits",

@@ -230,7 +230,7 @@ For an actor of another tenant on the same instance the third view is complete, 
 
 - **The header** shows the account's linked accounts, as links to their upstream pages. Only links the holder created are shown.
 - **Jobs run for the user** appear as single rows, and can be filtered out.
-- **A bot account** names its operator: a subsidiary's header names and links its operator, and a primary account's header lists its subsidiaries ([0024](../decisions/0024-subsidiary-accounts.md) §9).
+- **A bot account** names its operator: a subsidiary's header names and links its operator, and a primary account's header lists its subsidiaries, retired and pending ones marked; each name links to that account's contributions, and the line is read from `list=users` and left out if that fails ([0024](../decisions/0024-subsidiary-accounts.md) §9, A25).
 - **Pages are addressed by current name.** Old names do not resolve ([0008](../decisions/0008-namespaces-and-document-pages.md) §6).
 - **Contributions of `instance:{farm code}`** at a tenant list the instance acts on that tenant; at the farm base, for `ts-viewoperator`, every instance act on every tenant with the operator who carried it out ([0040](../decisions/0040-instance-prerogatives.md) §7; [08](08-tenants-and-instances.md)).
 

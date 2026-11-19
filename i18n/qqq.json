@@ -429,6 +429,7 @@
 	"ts-contributions-user": "Label of the user name field on Special:Contributions.\n{{Identical|User}}",
 	"ts-contributions-intro": "Shown on Special:Contributions when no user is named.",
 	"ts-contributions-none": "Shown on Special:Contributions when the user made no changes in the chosen period. Parameters:\n* $1 - the user's name",
+	"ts-contributions-subsidiaries": "Label before the list of a primary account's subsidiary accounts, each linked to its contributions, in the header of Special:Contributions (0024 §9; 19 §2.5).",
 	"ts-changes-filter-label": "Accessible name of the filter form on Special:RecentChanges and Special:Contributions.",
 	"ts-changes-kinds": "Legend of the row-kind checkboxes in the filter form.\n{{Identical|Show}}",
 	"ts-changes-kind-edits": "Checkbox label: local edits to entities and pages.\n{{Identical|Edit}}",

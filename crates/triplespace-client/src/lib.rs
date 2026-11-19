@@ -84,7 +84,7 @@ pub use rights::{
 };
 pub use search::{Hit, Hits, PageHit, PageHits};
 pub use subsidiaries::{
-    BotOf, GrantListing, KeyListing, Subsidiaries, SubsidiaryListing, SubsidiaryOutcome,
+    BotOf, GrantListing, KeyListing, Relations, Subsidiaries, SubsidiaryListing, SubsidiaryOutcome,
 };
 pub use tenancy::{
     Invitation, InvitationInfo, PrimaryOffer, Tenancy, TenantAsk, TenantRequest, TenantRow,

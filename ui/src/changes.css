@@ -74,6 +74,11 @@
 	font-size: var( --font-size-small, 0.875rem );
 }
 
+/* A Contributions header's operator relation (ADR 0024 §9). */
+.ts-changes__accounts {
+	margin: 0;
+}
+
 /* The rows are one table (`ts-changes__table`): a column per field, so a row with no
  * size, user or summary leaves its cell empty and the fields still line up. Each day is
  * a row group headed by its date. On a narrow screen the table scrolls in its wrapper,

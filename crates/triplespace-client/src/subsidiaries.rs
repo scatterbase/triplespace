@@ -93,6 +93,16 @@ pub struct BotOf {
     pub request_page: Option<String>,
 }
 
+/// An account's operator relation, from either end: the subsidiary's operator, or the
+/// primary account's subsidiaries (`list=users&usprop=operator|subsidiaries`).
+#[derive(Debug, Clone, PartialEq, Eq, Default)]
+pub struct Relations {
+    /// For a subsidiary whose operator the reader may see.
+    pub bot: Option<BotOf>,
+    /// For a primary account: its subsidiaries the reader may see, `(name, status)`.
+    pub subsidiaries: Vec<(String, String)>,
+}
+
 /// A write's answer: the API's body, or the refusal's code with it.
 pub type SubsidiaryOutcome = Result<Value, (String, Value)>;
 
@@ -129,18 +139,47 @@ impl Client {
         incoming: &Incoming,
         name: &str,
     ) -> Result<Fetched<Option<BotOf>>, ClientError> {
+        self.users_props(incoming, name, "operator%7Cgroups")
+            .await
+            .map(|f| Fetched {
+                value: f.value.bot,
+                cache: f.cache,
+            })
+    }
+
+    /// `list=users&usprop=operator|subsidiaries|groups` for one name: both ends of the
+    /// operator relation, which a Contributions header names (0024 §9).
+    ///
+    /// # Errors
+    ///
+    /// The API away or unreadable.
+    pub async fn relations(
+        &self,
+        incoming: &Incoming,
+        name: &str,
+    ) -> Result<Fetched<Relations>, ClientError> {
+        self.users_props(incoming, name, "operator%7Csubsidiaries%7Cgroups")
+            .await
+    }
+
+    async fn users_props(
+        &self,
+        incoming: &Incoming,
+        name: &str,
+        props: &str,
+    ) -> Result<Fetched<Relations>, ClientError> {
         let r = self
             .get(
                 incoming,
                 &format!(
-                    "/w/api.php?action=query&list=users&usprop=operator%7Cgroups&ususers={}&format=json&formatversion=2",
+                    "/w/api.php?action=query&list=users&usprop={props}&ususers={}&format=json&formatversion=2",
                     query(name)
                 ),
             )
             .await?;
         let v = check(&r)?;
         let u = &v["query"]["users"][0];
-        let value = u["operator"].as_str().map(|op| BotOf {
+        let bot = u["operator"].as_str().map(|op| BotOf {
             operator: op.to_string(),
             status: u["subsidiarystatus"]
                 .as_str()
@@ -151,8 +190,21 @@ impl Client {
                 .is_some_and(|g| g.iter().any(|x| x == "bot")),
             request_page: u["botrequestpage"].as_str().map(str::to_string),
         });
+        let subsidiaries = u["subsidiaries"]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(|x| {
+                        Some((
+                            x["name"].as_str()?.to_string(),
+                            x["status"].as_str().unwrap_or("active").to_string(),
+                        ))
+                    })
+                    .collect()
+            })
+            .unwrap_or_default();
         Ok(Fetched {
-            value,
+            value: Relations { bot, subsidiaries },
             cache: CacheInfo::of(&r),
         })
     }
