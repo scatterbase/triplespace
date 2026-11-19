@@ -2688,16 +2688,39 @@ struct Scripted<'a> {
     store: &'a MemoryIngest,
     batches: std::collections::VecDeque<scatter_ingest::ChangeBatch>,
     read: u32,
-    log: Vec<String>,
-    state: scatter_ingest::FollowState,
+    log: Log,
+    /// A position whose save fails, as a crash before the batch's last commit would.
+    fail_save: Option<u32>,
 }
 
-impl scatter_ingest::ChangeSource for Scripted<'_> {
+/// What a scripted follower did, in order: shared with its saver.
+type Log = std::sync::Arc<std::sync::Mutex<Vec<String>>>;
+
+/// The follower's jobs as the memory store committed them.
+fn saved(store: &MemoryIngest) -> scatter_ingest::FollowState {
+    store
+        .state()
+        .rows
+        .get(&("follow".to_string(), "state".to_string()))
+        .map(|v| serde_json::from_str(v).unwrap())
+        .unwrap_or_default()
+}
+
+/// Sets the follower's jobs, as a run that stopped would have left them.
+fn set_saved(store: &MemoryIngest, state: &scatter_ingest::FollowState) {
+    store.state().rows.insert(
+        ("follow".into(), "state".into()),
+        serde_json::to_string(state).unwrap(),
+    );
+}
+
+impl scatter_ingest::ChangeSource<MemoryIngest> for Scripted<'_> {
     type Position = u32;
+    type Saver = ScriptedSave;
 
     async fn next(&mut self) -> Result<(scatter_ingest::ChangeBatch, u32), IngestError> {
         self.read += 1;
-        self.log.push(format!("read {}", self.read));
+        self.log.lock().unwrap().push(format!("read {}", self.read));
         let batch = self
             .batches
             .pop_front()
@@ -2709,25 +2732,51 @@ impl scatter_ingest::ChangeSource for Scripted<'_> {
     }
 
     async fn state(&mut self) -> Result<scatter_ingest::FollowState, IngestError> {
-        Ok(self.state.clone())
+        Ok(saved(self.store))
     }
 
+    fn saver(&self) -> ScriptedSave {
+        ScriptedSave(self.log.clone(), self.fail_save)
+    }
+}
+
+/// Saves a scripted follower's jobs in the memory store's unit of work, and logs each
+/// position with the mirror's records as that unit of work holds them.
+struct ScriptedSave(Log, Option<u32>);
+
+impl scatter_ingest::SavePosition<MemoryIngest> for ScriptedSave {
+    type Position = u32;
+
     async fn save(
-        &mut self,
-        at: u32,
-        state: scatter_ingest::FollowState,
+        &self,
+        cx: &mut scatter_ingest::memory::MemoryCx,
+        at: Option<&u32>,
+        state: &scatter_ingest::FollowState,
     ) -> Result<(), IngestError> {
-        let held = self.store.records(MIRROR_XD).len();
-        self.log.push(format!("save {at} with {held}"));
-        self.state = state;
+        if at.is_some() && at == self.1.as_ref() {
+            return Err(IngestError::Store("the process died".into()));
+        }
+        if let Some(at) = at {
+            let held = cx
+                .state
+                .partitions
+                .get(&MIRROR_XD)
+                .map_or(0, |p| p.live().count());
+            self.0
+                .lock()
+                .unwrap()
+                .push(format!("save {at} with {held}"));
+        }
+        cx.put("follow", "state", &serde_json::to_string(state).unwrap());
         Ok(())
     }
 }
 
-// 0092 §3: the follower reads the next batch while it writes one, and still writes the
-// batches in order and saves each batch's position only after its records.
+// 0092 §3, A10: the follower reads the next batch while it writes one, and still writes
+// the batches in order and saves each batch's position with its records, in the unit of
+// work that commits them.
 #[test]
-fn the_follower_reads_ahead_and_saves_each_position_after_its_batch() {
+fn the_follower_reads_ahead_and_saves_each_position_with_its_batch() {
     pollster::block_on(async {
         let (store, pipeline) = setup();
         let batch = |items: Vec<SyncItem>, caught_up: bool| scatter_ingest::ChangeBatch {
@@ -2748,8 +2797,8 @@ fn the_follower_reads_ahead_and_saves_each_position_after_its_batch() {
             ]
             .into(),
             read: 0,
-            log: Vec::new(),
-            state: scatter_ingest::FollowState::default(),
+            log: Log::default(),
+            fail_save: None,
         };
         let out = scatter_ingest::run_follow(
             &store,
@@ -2765,15 +2814,17 @@ fn the_follower_reads_ahead_and_saves_each_position_after_its_batch() {
         )
         .await
         .unwrap();
-        // The mirror holds 1, 3, then 4 records: each save follows its own batch.
+        // The unit of work holds 1, 3, then 4 records as it saves: each position is saved
+        // with its own batch. The memory store writes without waiting, so each save comes
+        // before the read beside it is first polled.
         assert_eq!(
-            source.log,
+            *source.log.lock().unwrap(),
             [
                 "read 1",
-                "read 2",
                 "save 1 with 1",
-                "read 3",
+                "read 2",
                 "save 2 with 3",
+                "read 3",
                 "save 3 with 4",
             ]
         );
@@ -2804,8 +2855,8 @@ fn a_follower_writes_under_one_job_a_day() {
             store: &store,
             batches: std::collections::VecDeque::new(),
             read: 0,
-            log: Vec::new(),
-            state: scatter_ingest::FollowState::default(),
+            log: Log::default(),
+            fail_save: None,
         };
         let starts = |store: &MemoryIngest| -> Vec<String> {
             events(store, INSTANCE_LOG)
@@ -2836,7 +2887,7 @@ fn a_follower_writes_under_one_job_a_day() {
         assert_eq!(first.job_id, second.job_id);
         let day_job = first.job_id;
         assert_eq!(starts(&store), [day_job.to_string()]);
-        let open = source.state.open.clone().unwrap();
+        let open = saved(&store).open.unwrap();
         assert_eq!(
             (open.id, open.batches, open.counts.created),
             (day_job, 3, 3)
@@ -2913,7 +2964,7 @@ fn a_follower_writes_under_one_job_a_day() {
             3,
             "the day's job, the load's, the next day's"
         );
-        let open = source.state.open.clone().unwrap();
+        let open = saved(&store).open.unwrap();
         assert_eq!(
             (open.id, open.batches, open.day),
             (next.job_id, 1, (NOW + DAY) / DAY)
@@ -2932,8 +2983,8 @@ fn a_follower_compacts_its_mirror_as_the_day_closes() {
             store: &store,
             batches: std::collections::VecDeque::new(),
             read: 0,
-            log: Vec::new(),
-            state: scatter_ingest::FollowState::default(),
+            log: Log::default(),
+            fail_save: None,
         };
         let first = follow_at(
             (&store, &pipeline),
@@ -2945,7 +2996,7 @@ fn a_follower_compacts_its_mirror_as_the_day_closes() {
             NOW,
         )
         .await;
-        assert_eq!(source.state.open.as_ref().unwrap().compact_from, Some(0));
+        assert_eq!(saved(&store).open.unwrap().compact_from, Some(0));
         assert_eq!(
             store.records(MIRROR_XD).len(),
             3,
@@ -2985,7 +3036,7 @@ fn a_follower_compacts_its_mirror_as_the_day_closes() {
             .expect("the day's job is finished");
         assert_eq!(params_of(&finish)["compacted"], 1);
         // The next day's job compacts from where the mirror stood when it opened.
-        let next = source.state.open.clone().unwrap();
+        let next = saved(&store).open.unwrap();
         assert_eq!(next.compact_from, Some(3));
         // 0092 A8: the compaction ran beside the next day's first batch, so the closed
         // day's job is finished after the next day's has started, and nothing is left.
@@ -3001,7 +3052,7 @@ fn a_follower_compacts_its_mirror_as_the_day_closes() {
                 ("finish".into(), first.job_id.to_string()),
             ]
         );
-        assert_eq!(source.state.closing, None);
+        assert_eq!(saved(&store).closing, None);
     });
 }
 
@@ -3016,8 +3067,8 @@ fn a_closed_days_compaction_goes_on_from_where_it_got_to() {
             store: &store,
             batches: std::collections::VecDeque::new(),
             read: 0,
-            log: Vec::new(),
-            state: scatter_ingest::FollowState::default(),
+            log: Log::default(),
+            fail_save: None,
         };
         let first = follow_at(
             (&store, &pipeline),
@@ -3031,16 +3082,22 @@ fn a_closed_days_compaction_goes_on_from_where_it_got_to() {
         .await;
         // As a run stopped mid-compaction leaves it: the day closed, offset 0 done, and
         // 5 removed by then.
-        let job = source.state.open.take().unwrap();
-        source.state.closing = Some(scatter_ingest::Closing {
-            job,
-            partition: MIRROR_XD,
-            to: 3,
-            at: 1,
-            removed: 5,
-        });
+        let job = saved(&store).open.unwrap();
+        set_saved(
+            &store,
+            &scatter_ingest::FollowState {
+                open: None,
+                closing: Some(scatter_ingest::Closing {
+                    job,
+                    partition: MIRROR_XD,
+                    to: 3,
+                    at: 1,
+                    removed: 5,
+                }),
+            },
+        );
         follow_at((&store, &pipeline), &mut source, vec![], NOW + DAY).await;
-        assert_eq!(source.state, scatter_ingest::FollowState::default());
+        assert_eq!(saved(&store), scatter_ingest::FollowState::default());
         let finish = store
             .records(INSTANCE_LOG)
             .into_iter()
@@ -3072,8 +3129,8 @@ fn a_pass_leaves_the_rest_of_a_days_compaction_to_the_next() {
             store: &store,
             batches: std::collections::VecDeque::new(),
             read: 0,
-            log: Vec::new(),
-            state: scatter_ingest::FollowState::default(),
+            log: Log::default(),
+            fail_save: None,
         };
         let first = follow_at(
             (&store, &pipeline),
@@ -3087,14 +3144,20 @@ fn a_pass_leaves_the_rest_of_a_days_compaction_to_the_next() {
         .await;
         // A closed day three windows long, as a large day is; the offsets past the mirror's
         // end hold nothing, and compacting them removes nothing.
-        let job = source.state.open.take().unwrap();
-        source.state.closing = Some(scatter_ingest::Closing {
-            job,
-            partition: MIRROR_XD,
-            to: 3 * WINDOW,
-            at: 0,
-            removed: 0,
-        });
+        let job = saved(&store).open.unwrap();
+        set_saved(
+            &store,
+            &scatter_ingest::FollowState {
+                open: None,
+                closing: Some(scatter_ingest::Closing {
+                    job,
+                    partition: MIRROR_XD,
+                    to: 3 * WINDOW,
+                    at: 0,
+                    removed: 0,
+                }),
+            },
+        );
         let finished = |store: &MemoryIngest| {
             store.records(INSTANCE_LOG).into_iter().any(|r| {
                 r.header().key.as_deref() == Some(&first.job_id.to_string())
@@ -3104,23 +3167,16 @@ fn a_pass_leaves_the_rest_of_a_days_compaction_to_the_next() {
 
         // A pass with nothing to write compacts one window, and leaves the rest.
         follow_at((&store, &pipeline), &mut source, vec![], NOW + DAY).await;
-        let c = source
-            .state
-            .closing
-            .clone()
-            .expect("the day is still closing");
+        let c = saved(&store).closing.expect("the day is still closing");
         assert_eq!((c.at, c.removed), (WINDOW, 1), "XDQ1 lost offset 0");
         assert!(!finished(&store));
         assert_eq!(store.records(MIRROR_XD).len(), 2);
 
         // Each later pass goes on from there, and the last one finishes the day's job.
         follow_at((&store, &pipeline), &mut source, vec![], NOW + DAY).await;
-        assert_eq!(
-            source.state.closing.as_ref().map(|c| c.at),
-            Some(2 * WINDOW)
-        );
+        assert_eq!(saved(&store).closing.map(|c| c.at), Some(2 * WINDOW));
         follow_at((&store, &pipeline), &mut source, vec![], NOW + DAY).await;
-        assert_eq!(source.state.closing, None);
+        assert_eq!(saved(&store).closing, None);
         assert!(finished(&store));
         let finish = store
             .records(INSTANCE_LOG)
@@ -3135,6 +3191,95 @@ fn a_pass_leaves_the_rest_of_a_days_compaction_to_the_next() {
 }
 
 /// One run of the follower over `items`, a batch each, at `at`.
+// 0092 A10: a batch's units of work save the day's job as they commit, so a batch cut off
+// before its last commit leaves the job it started saved, and the next run goes on under
+// that job rather than starting a second one for the day; the position is saved only with
+// the batch's last unit, so the batch is read again.
+#[test]
+fn a_batch_cut_off_leaves_its_job_saved_and_its_position_not() {
+    pollster::block_on(async {
+        let (store, pipeline) = setup();
+        let items = || vec![xd_state("XDQ1", "One", 10), xd_state("XDQ2", "Two", 20)];
+        let mut source = Scripted {
+            store: &store,
+            batches: [scatter_ingest::ChangeBatch {
+                rows: 2,
+                items: items(),
+                caught_up: true,
+                ..Default::default()
+            }]
+            .into(),
+            read: 0,
+            log: Log::default(),
+            fail_save: Some(1),
+        };
+        // A unit of work an item: the first commits, the second does not.
+        let cut = follow_by_one((&store, &pipeline), &mut source).await;
+        assert!(cut.is_err());
+        let open = saved(&store)
+            .open
+            .expect("the batch's first unit saved the job");
+        assert_eq!(
+            (open.batches, open.rows),
+            (0, 0),
+            "the batch is not counted"
+        );
+        assert_eq!(store.records(MIRROR_XD).len(), 1, "XDQ1's unit committed");
+        assert!(
+            !source
+                .log
+                .lock()
+                .unwrap()
+                .iter()
+                .any(|l| l.starts_with("save")),
+            "no position was saved"
+        );
+
+        // The batch read again, as the unsaved position has it, under the same job.
+        source.fail_save = None;
+        source.batches = [scatter_ingest::ChangeBatch {
+            rows: 2,
+            items: items(),
+            caught_up: true,
+            ..Default::default()
+        }]
+        .into();
+        let again = follow_by_one((&store, &pipeline), &mut source)
+            .await
+            .unwrap();
+        assert_eq!(again.job_id, open.id);
+        let starts: Vec<_> = events(&store, INSTANCE_LOG)
+            .into_iter()
+            .filter(|(a, _)| a == "start")
+            .collect();
+        assert_eq!(starts, [("start".to_string(), open.id.to_string())]);
+        let open = saved(&store).open.unwrap();
+        assert_eq!((open.batches, open.rows), (1, 2));
+        assert_eq!(open.counts.created + open.counts.unchanged, 2);
+        assert_eq!(store.records(MIRROR_XD).len(), 2);
+    });
+}
+
+/// Runs the follower once at `NOW`, a unit of work an item.
+async fn follow_by_one(
+    (store, pipeline): (&MemoryIngest, &Pipeline<MemoryIngest>),
+    source: &mut Scripted<'_>,
+) -> Result<scatter_ingest::FollowOutcome, IngestError> {
+    scatter_ingest::run_follow(
+        store,
+        pipeline,
+        "",
+        "internetdomains",
+        Attestation::by("instance:scatter"),
+        source,
+        registry(),
+        || NOW,
+        1,
+        true,
+    )
+    .await
+}
+
 async fn follow_at(
     (store, pipeline): (&MemoryIngest, &Pipeline<MemoryIngest>),
     source: &mut Scripted<'_>,

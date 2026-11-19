@@ -678,16 +678,46 @@ pub async fn run_sync_in<S: IngestStore>(
         registry,
         now,
         batch,
+        &mut (),
     )
     .await?;
     Ok(outcome)
 }
 
+/// What a sync does in each of its units of work before it commits it: a follower's
+/// batch saves its jobs there, and in the last its position, so that they commit with the
+/// records they describe (0092 A10).
+pub trait BeforeCommit<S: IngestStore> {
+    /// Called in `cx` before it commits, with the job, the counts so far, and whether
+    /// this is the sync's last unit of work.
+    fn before_commit(
+        &mut self,
+        cx: &mut S::Cx,
+        job: &Job,
+        counts: &Counts,
+        last: bool,
+    ) -> impl Future<Output = Result<(), IngestError>> + Send;
+}
+
+/// Nothing before a commit: a load's sync.
+impl<S: IngestStore> BeforeCommit<S> for () {
+    async fn before_commit(
+        &mut self,
+        _: &mut S::Cx,
+        _: &Job,
+        _: &Counts,
+        _: bool,
+    ) -> Result<(), IngestError> {
+        Ok(())
+    }
+}
+
 /// A follower's batch (0092 A6): [`run_sync_in`] in `upsert` mode under the follower's open
-/// job, started here when `job` is `None`, and left open for the next batch. Returns the
-/// batch's counts, and the job with its rejects and hash mismatches so far.
+/// job, started here when `job` is `None`, and left open for the next batch, with `hook`
+/// run in each unit of work before it commits (A10). Returns the batch's counts, and the
+/// job with its rejects and hash mismatches so far.
 #[allow(clippy::too_many_arguments)]
-pub async fn sync_batch<S: IngestStore>(
+pub async fn sync_batch<S: IngestStore, H: BeforeCommit<S> + Send>(
     store: &S,
     pipeline: &Pipeline<S>,
     tenant: &str,
@@ -698,6 +728,7 @@ pub async fn sync_batch<S: IngestStore>(
     registry: &Registry,
     now: u64,
     batch: usize,
+    hook: &mut H,
 ) -> Result<(SyncOutcome, Job), IngestError> {
     sync_job(
         store,
@@ -712,14 +743,16 @@ pub async fn sync_batch<S: IngestStore>(
         registry,
         now,
         batch,
+        hook,
     )
     .await
 }
 
 /// A sync under a job: `job`, or one started here (marking dead loads interrupted), and
-/// finished here when `finish` is set.
+/// finished here when `finish` is set, with `hook` run in each unit of work before it
+/// commits.
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
-async fn sync_job<S: IngestStore>(
+async fn sync_job<S: IngestStore, H: BeforeCommit<S> + Send>(
     store: &S,
     pipeline: &Pipeline<S>,
     tenant: &str,
@@ -732,6 +765,7 @@ async fn sync_job<S: IngestStore>(
     registry: &Registry,
     now: u64,
     batch: usize,
+    hook: &mut H,
 ) -> Result<(SyncOutcome, Job), IngestError> {
     let graph = header.graph();
     let (graph, slug) = match &graph {
@@ -840,6 +874,7 @@ async fn sync_job<S: IngestStore>(
             break;
         }
         if !first_unit {
+            hook.before_commit(&mut cx, &job, &counts, false).await?;
             store.commit(cx).await?;
             cx = store.begin().await?;
         }
@@ -1235,6 +1270,7 @@ async fn sync_job<S: IngestStore>(
         job.finish(store, pipeline, &mut cx, &counts, extra, now)
             .await?;
     }
+    hook.before_commit(&mut cx, &job, &counts, true).await?;
     store.commit(cx).await?;
     Ok((
         SyncOutcome {

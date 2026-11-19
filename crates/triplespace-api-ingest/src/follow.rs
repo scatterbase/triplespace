@@ -4,8 +4,9 @@
 //! Each `next` is one poll: the head request (and, once caught up, the tail pass), the
 //! changed titles turned into upstream IDs, their current states read in one request per
 //! fifty (five hundred with the higher limits), and each state through the provider's
-//! key-mapped adapter into the sync items the mirror writes. `save` stores the position, and
-//! the day's open job (0092 A6), in `ops.repo_cursor` once the batch is committed.
+//! key-mapped adapter into the sync items the mirror writes. Its [`Saver`] stores the
+//! position, and the follower's jobs (0092 A6, A8), in `ops.repo_cursor`, in the units of
+//! work that commit the batch, so that they commit together (A10).
 //!
 //! The follower continues a load (0092 §5): with no position of its own it starts at
 //! `loaded_to`, the end of the last dump sync, and it refuses to start from a time the
@@ -17,13 +18,16 @@ use scatter_adapter_mediawiki::{Change, Poller, Windows};
 use scatter_adapter_wikibase::follow::{EntityNamespaces, Fetched, entity_id_of, read_entities};
 use scatter_adapter_wikibase::{Index, KeyMappedAdapter, KeyRules, Outcome};
 use scatter_ingest::IngestError;
-use scatter_ingest::follow::{ChangeBatch, ChangeSource, FollowJob, FollowState};
+use scatter_ingest::follow::{ChangeBatch, ChangeSource, FollowJob, FollowState, SavePosition};
 use scatter_ingest::sync::SyncItem;
 use scatter_providers::Provider;
 use scatter_wikibase_changeset::{Adapter, Upstream, WikibaseAdapter};
 use scatter_wikibase_model::id::EntityId;
 use tokio_postgres::GenericClient;
+use triplespace_projections::PgCx;
 use triplespace_upstream::Wiki;
+
+use crate::PgIngest;
 
 /// The position row's kind for a registry provider.
 pub const KIND_PROVIDER: &str = "provider";
@@ -151,8 +155,7 @@ type Wait = (std::time::Duration, fn(&str));
 
 /// A registry provider's follower over its wiki, or a tenant's entity source's (0078 §4):
 /// the same poll, the source's position and records under the tenant.
-pub struct ProviderFollower<'a, C: GenericClient> {
-    client: &'a C,
+pub struct ProviderFollower<'a> {
     wiki: &'a Wiki,
     provider: &'a Provider,
     /// `""` for a registry provider; the tenant for its source.
@@ -165,7 +168,7 @@ pub struct ProviderFollower<'a, C: GenericClient> {
     now: fn() -> u64,
     late: u64,
     stale: u64,
-    /// The jobs, as the last save left them (0092 A6, A8).
+    /// The jobs, as the row held them when the follower started (0092 A6, A8).
     state: FollowState,
     /// IDs whose state lagged the row that named them, read again next time.
     retry: Vec<(EntityId, Option<u64>)>,
@@ -202,7 +205,7 @@ pub enum StartError {
     Failed(String),
 }
 
-impl<'a, C: GenericClient> ProviderFollower<'a, C> {
+impl<'a> ProviderFollower<'a> {
     /// Starts a follower for `provider`: from its stored position, else from the end of
     /// its last load, else from `from` (epoch seconds).
     ///
@@ -210,8 +213,8 @@ impl<'a, C: GenericClient> ProviderFollower<'a, C> {
     ///
     /// [`StartError`].
     #[allow(clippy::too_many_arguments)]
-    pub async fn start(
-        client: &'a C,
+    pub async fn start<C: GenericClient>(
+        client: &C,
         wiki: &'a Wiki,
         provider: &'a Provider,
         registry: &'static scatter_providers::Registry,
@@ -294,7 +297,6 @@ impl<'a, C: GenericClient> ProviderFollower<'a, C> {
         }
 
         Ok(Self {
-            client,
             wiki,
             provider,
             tenant: tenant.to_string(),
@@ -481,7 +483,7 @@ impl<'a, C: GenericClient> ProviderFollower<'a, C> {
 /// An entity a change row named, the revision it named, and its page ID.
 type Named = (EntityId, Option<u64>, Option<u64>);
 
-/// Where a follower stands after a batch, as [`ChangeSource::save`] stores it.
+/// Where a follower stands after a batch, as its [`Saver`] stores it.
 #[derive(Debug, Clone)]
 pub struct Saved {
     time: u64,
@@ -492,7 +494,7 @@ pub struct Saved {
     stale: u64,
 }
 
-impl<C: GenericClient + Sync> ProviderFollower<'_, C> {
+impl ProviderFollower<'_> {
     /// Waits `interval` before each poll that follows one that caught up, telling `report`
     /// where the follower stands as it starts to wait: for a follower that runs until
     /// stopped, so that a closed day's compaction runs beside the wait (0092 A9).
@@ -520,8 +522,9 @@ impl<C: GenericClient + Sync> ProviderFollower<'_, C> {
     }
 }
 
-impl<C: GenericClient + Sync> ChangeSource for ProviderFollower<'_, C> {
+impl ChangeSource<PgIngest> for ProviderFollower<'_> {
     type Position = Saved;
+    type Saver = Saver;
 
     async fn next(&mut self) -> Result<(ChangeBatch, Saved), IngestError> {
         if self.at_head
@@ -589,19 +592,90 @@ impl<C: GenericClient + Sync> ChangeSource for ProviderFollower<'_, C> {
         Ok(self.state.clone())
     }
 
-    async fn save(&mut self, at: Saved, jobs: FollowState) -> Result<(), IngestError> {
-        let job_value = Some(&jobs)
+    fn saver(&self) -> Saver {
+        Saver {
+            tenant: self.tenant.clone(),
+            kind: self.kind,
+            name: self.provider.slug.clone(),
+            now: self.now,
+        }
+    }
+}
+
+/// Saves a follower's row in `ops.repo_cursor` in the ingest's units of work, so that it
+/// commits with the records and job records it describes (0092 A10).
+#[derive(Debug, Clone)]
+pub struct Saver {
+    tenant: String,
+    kind: &'static str,
+    name: String,
+    now: fn() -> u64,
+}
+
+impl Saver {
+    /// The saver of the follower `kind` (`provider` or `source`) of `name` for `tenant`
+    /// (`""` for a registry provider), with `now` for the lag it records.
+    #[must_use]
+    pub fn new(tenant: &str, kind: &'static str, name: &str, now: fn() -> u64) -> Self {
+        Self {
+            tenant: tenant.to_string(),
+            kind,
+            name: name.to_string(),
+            now,
+        }
+    }
+}
+
+impl Saved {
+    /// A position at `time` (epoch seconds), with nothing seen, nothing to retry and no
+    /// continuation.
+    #[must_use]
+    pub fn at(time: u64) -> Self {
+        Self {
+            time,
+            cont: None,
+            seen: serde_json::json!([]),
+            retry: serde_json::json!([]),
+            late: 0,
+            stale: 0,
+        }
+    }
+}
+
+impl SavePosition<PgIngest> for Saver {
+    type Position = Saved;
+
+    async fn save(
+        &self,
+        cx: &mut PgCx,
+        at: Option<&Saved>,
+        jobs: &FollowState,
+    ) -> Result<(), IngestError> {
+        let job_value = Some(jobs)
             .filter(|s| !s.is_empty())
             .map(serde_json::to_value)
             .transpose()
             .map_err(|e| IngestError::Store(e.to_string()))?;
+        let store = |e: tokio_postgres::Error| IngestError::Store(e.to_string());
+        let Some(at) = at else {
+            // The jobs alone: the row is there, since a follower starts from one.
+            cx.conn()
+                .execute(
+                    "UPDATE ops.repo_cursor SET job = $4, updated = now()
+                     WHERE tenant = $1 AND kind = $2 AND name = $3",
+                    &[&self.tenant, &self.kind, &self.name, &job_value],
+                )
+                .await
+                .map_err(store)?;
+            return Ok(());
+        };
         let now = (self.now)();
         let time = i64::try_from(at.time).unwrap_or(i64::MAX);
-        let (cont, seen, retry) = (at.cont, at.seen, at.retry);
+        let (cont, seen, retry) = (&at.cont, &at.seen, &at.retry);
         let lag = i32::try_from(now.saturating_sub(at.time)).unwrap_or(i32::MAX);
         let late = i64::try_from(at.late).unwrap_or(i64::MAX);
         let stale = i64::try_from(at.stale).unwrap_or(i64::MAX);
-        self.client
+        cx.conn()
             .execute(
                 "INSERT INTO ops.repo_cursor (tenant, kind, name, rc_time, rc_continue, rc_seen,
                                               rc_retry, handed_over, late, stale, lag_seconds,
@@ -615,11 +689,11 @@ impl<C: GenericClient + Sync> ChangeSource for ProviderFollower<'_, C> {
                      lag_seconds = EXCLUDED.lag_seconds, job = EXCLUDED.job, updated = now()",
                 &[
                     &self.kind,
-                    &self.provider.slug,
+                    &self.name,
                     &time,
-                    &cont,
-                    &seen,
-                    &retry,
+                    cont,
+                    seen,
+                    retry,
                     &late,
                     &stale,
                     &lag,
@@ -628,8 +702,7 @@ impl<C: GenericClient + Sync> ChangeSource for ProviderFollower<'_, C> {
                 ],
             )
             .await
-            .map_err(|e| IngestError::Store(e.to_string()))?;
-        self.state = jobs;
+            .map_err(store)?;
         Ok(())
     }
 }
