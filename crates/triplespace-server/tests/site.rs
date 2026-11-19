@@ -514,8 +514,9 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
 /// A change source with one batch, for [`follow_one_edit`].
 struct OneBatch(Option<scatter_ingest::ChangeBatch>);
 
-impl scatter_ingest::ChangeSource for OneBatch {
+impl<S: scatter_ingest::IngestStore> scatter_ingest::ChangeSource<S> for OneBatch {
     type Position = ();
+    type Saver = NoSave;
 
     async fn next(
         &mut self,
@@ -531,10 +532,22 @@ impl scatter_ingest::ChangeSource for OneBatch {
         Ok(scatter_ingest::FollowState::default())
     }
 
+    fn saver(&self) -> NoSave {
+        NoSave
+    }
+}
+
+/// Saves nothing, for [`OneBatch`].
+struct NoSave;
+
+impl<S: scatter_ingest::IngestStore> scatter_ingest::SavePosition<S> for NoSave {
+    type Position = ();
+
     async fn save(
-        &mut self,
-        (): (),
-        _: scatter_ingest::FollowState,
+        &self,
+        _: &mut S::Cx,
+        _: Option<&()>,
+        _: &scatter_ingest::FollowState,
     ) -> Result<(), scatter_ingest::IngestError> {
         Ok(())
     }

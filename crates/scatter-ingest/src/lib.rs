@@ -41,7 +41,8 @@ pub use adopt::{Adoption, AdoptionOutcome, Floors};
 pub use batch::{BatchOutcome, run_batch, run_batch_in};
 pub use bootstrap::{Prepare, Prepared, Warm, run_bootstrap};
 pub use follow::{
-    ChangeBatch, ChangeSource, Closing, FollowJob, FollowOutcome, FollowState, run_follow,
+    ChangeBatch, ChangeSource, Closing, FollowJob, FollowOutcome, FollowState, SavePosition,
+    run_follow,
 };
 pub use import::{
     HeldPage, HeldRevision, Import, ImportHost, ImportOutcome, ImportPage, ImportRevision,
@@ -49,7 +50,7 @@ pub use import::{
 };
 pub use job::{Counts, Job, Reject};
 pub use store::{Cursor, IngestStore, Sequence};
-pub use sync::{SyncItem, SyncOutcome, run_sync};
+pub use sync::{BeforeCommit, SyncItem, SyncOutcome, run_sync};
 pub use write::{
     Attestation, BlockEntry, BlockPayload, MintedValue, RawRecord, Request, Written, write_many,
     write_operation, write_raw, write_raw_many,

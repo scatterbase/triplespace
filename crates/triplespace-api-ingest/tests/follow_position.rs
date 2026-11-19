@@ -22,6 +22,11 @@ async fn connect(config: &Config) -> Client {
 }
 
 async fn fresh(admin: Config) -> Client {
+    fresh_named(admin).await.0
+}
+
+/// A migrated database, and its name.
+async fn fresh_named(admin: Config) -> (Client, String) {
     let name = format!(
         "tsfollowpos_test_{}_{}",
         std::process::id(),
@@ -40,7 +45,7 @@ async fn fresh(admin: Config) -> Client {
         .apply(&mut client)
         .await
         .expect("migrate");
-    client
+    (client, name)
 }
 
 const LOAD: u64 = 1_793_101_295; // 2026-10-27T11:54:55Z
@@ -167,4 +172,70 @@ async fn the_open_job_is_kept_with_the_position() {
             .unwrap()
     );
     assert_eq!(at(&client).await.state, state, "a load leaves the jobs");
+}
+
+/// 0092 A10: the follower's row is written in the store's unit of work, so it commits with
+/// what the unit of work wrote, and a unit of work rolled back leaves it as it was.
+#[tokio::test]
+async fn the_position_commits_with_the_unit_of_work() {
+    use scatter_ingest::SavePosition;
+    use scatter_projection::Backend;
+    use triplespace_api_ingest::PgIngest;
+    use triplespace_api_ingest::follow::{Saved, Saver};
+
+    let Some(admin) = admin_config() else {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    };
+    let (client, name) = fresh_named(admin).await;
+    assert!(
+        record_load(&client, "", KIND_PROVIDER, "wikidata", LOAD)
+            .await
+            .unwrap()
+    );
+    let url = std::env::var("TRIPLESPACE_TEST_DATABASE_URL").unwrap();
+    let url = url
+        .rsplit_once('/')
+        .map(|(head, _)| format!("{head}/{name}"))
+        .unwrap();
+    let pool = triplespace_db::pool::pool(&url, 2).unwrap();
+    let store = PgIngest::new(triplespace_projections::PgBackend::new(pool));
+    let saver = Saver::new("", KIND_PROVIDER, "wikidata", || LATER);
+    let state = |id| scatter_ingest::FollowState {
+        open: Some(scatter_ingest::FollowJob {
+            id,
+            day: 20_776,
+            ..Default::default()
+        }),
+        closing: None,
+    };
+
+    // Rolled back: neither the jobs nor the position.
+    let mut cx = store.begin().await.unwrap();
+    saver.save(&mut cx, None, &state(1)).await.unwrap();
+    saver
+        .save(&mut cx, Some(&Saved::at(LATER)), &state(1))
+        .await
+        .unwrap();
+    store.rollback(cx).await.unwrap();
+    let p = at(&client).await;
+    assert!(p.state.is_empty());
+    assert_eq!(p.rc_time, None);
+
+    // The jobs alone leave the position; the jobs with a position move both.
+    let mut cx = store.begin().await.unwrap();
+    saver.save(&mut cx, None, &state(2)).await.unwrap();
+    store.commit(cx).await.unwrap();
+    let p = at(&client).await;
+    assert_eq!(p.state, state(2));
+    assert_eq!(p.rc_time, None);
+    let mut cx = store.begin().await.unwrap();
+    saver
+        .save(&mut cx, Some(&Saved::at(LATER)), &state(3))
+        .await
+        .unwrap();
+    store.commit(cx).await.unwrap();
+    let p = at(&client).await;
+    assert_eq!(p.state, state(3));
+    assert_eq!(p.rc_time, Some(LATER));
 }

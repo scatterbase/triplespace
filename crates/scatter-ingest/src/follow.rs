@@ -1,11 +1,13 @@
 //! Following a provider by its changes (0092 §1–§3): a loop that asks a [`ChangeSource`]
 //! for the next batch of changed entities, writes them through the sync job as `upsert`
-//! items, and tells the source to save its position in the same unit of work's wake.
+//! items, and saves the source's position in the unit of work that commits them.
 //!
 //! The ingester names no API. A source is the surfaces' (`triplespace-api-ingest`), over
 //! the adapters and the upstream client; this crate sees only [`SyncItem`]s and an opaque
-//! position, as its `FilterHook` sees no filter language (0030 §7). The version cursor,
-//! not the position, is what keeps a replayed row from writing anything (0092 §3): the
+//! position, as its `FilterHook` sees no filter language (0030 §7). The source's
+//! [`SavePosition`] writes the position, and the jobs with it, in the store's units of
+//! work, so that they commit with the records and job records they describe (0092 A10).
+//! The version cursor is still what keeps a replayed row from writing anything (§3): the
 //! sync skips an entity whose recorded revision is not older.
 //!
 //! A follower writes under one job a day (0092 A6): the day's first batch starts it, every
@@ -35,7 +37,7 @@ use crate::IngestError;
 use crate::compact::{WINDOW, compact, mirror_of};
 use crate::job::{Counts, Job, Reject};
 use crate::store::IngestStore;
-use crate::sync::{SyncItem, sync_batch};
+use crate::sync::{BeforeCommit, SyncItem, sync_batch};
 use crate::write::Attestation;
 
 /// One poll's worth of changes, as the source turned them into sync items.
@@ -54,13 +56,17 @@ pub struct ChangeBatch {
     pub caught_up: bool,
 }
 
-/// Where changes come from, and where the position goes (0092 §1, §3).
+/// Where changes come from, and where the position goes (0092 §1, §3), for a follower
+/// that writes to the store `S`.
 ///
 /// A batch carries the position it leaves, so that the loop can read the next batch while
-/// this one is written and still save each position only after its own batch.
-pub trait ChangeSource {
-    /// Where the source stands after a batch, as `save` stores it.
-    type Position: Send;
+/// this one is written and still save each position with its own batch.
+pub trait ChangeSource<S: IngestStore> {
+    /// Where the source stands after a batch, as its saver stores it.
+    type Position: Send + Sync;
+
+    /// What saves the position and the jobs.
+    type Saver: SavePosition<S, Position = Self::Position> + Send + Sync;
 
     /// The next batch, with the position it leaves. An empty batch with `caught_up` set
     /// means "nothing new". A source followed without `once` waits between polls once it is
@@ -69,17 +75,101 @@ pub trait ChangeSource {
         &mut self,
     ) -> impl Future<Output = Result<(ChangeBatch, Self::Position), IngestError>> + Send;
 
-    /// The follower's jobs, as the last `save` left them.
+    /// The follower's jobs, as the last save before this run left them.
     fn state(&mut self) -> impl Future<Output = Result<FollowState, IngestError>> + Send;
 
-    /// Saves a position a batch left, with the follower's jobs as they stand after that
-    /// batch: called after that batch's records are committed, never before, so that a
-    /// crash between the two replays rather than skips (0092 §3).
+    /// The saver, which writes in the follower's units of work while the source reads on.
+    fn saver(&self) -> Self::Saver;
+}
+
+/// Saves a follower's position and jobs in a unit of work of the store `S` (0092 A10).
+pub trait SavePosition<S: IngestStore> {
+    /// The source's position.
+    type Position;
+
+    /// Writes the follower's jobs as `state` has them, and `at` when given, in `cx`, to
+    /// commit with it. Without `at` the position stays as it was: a unit of work before
+    /// a batch's last, a day's close, or a window of its compaction.
     fn save(
-        &mut self,
-        at: Self::Position,
-        state: FollowState,
+        &self,
+        cx: &mut S::Cx,
+        at: Option<&Self::Position>,
+        state: &FollowState,
     ) -> impl Future<Output = Result<(), IngestError>> + Send;
+}
+
+/// Saves in a unit of work of its own: a batch with nothing to write, or a compaction's
+/// progress.
+async fn save_alone<S: IngestStore, V: SavePosition<S>>(
+    store: &S,
+    saver: &V,
+    at: Option<&V::Position>,
+    state: &FollowState,
+) -> Result<(), IngestError> {
+    let mut cx = store.begin().await?;
+    saver.save(&mut cx, at, state).await?;
+    store.commit(cx).await?;
+    Ok(())
+}
+
+/// A batch's [`BeforeCommit`] (0092 A10): the jobs in each of its units of work, with the
+/// day's job as it was before the batch, or as the batch started it; and in its last, the
+/// job with the batch counted, and the position the batch leaves. A crash in between
+/// replays the batch under the same job.
+struct BatchSave<'a, V: SavePosition<S>, S: IngestStore> {
+    saver: &'a V,
+    at: &'a V::Position,
+    /// The day's job before the batch; `None` before the day's first.
+    open: Option<FollowJob>,
+    /// The closing day, as it stood when the batch began.
+    closing: Option<Closing>,
+    day: u64,
+    compact_from: Option<u64>,
+    rows: u64,
+    late: u64,
+    stale: u64,
+    /// The day's job as the last unit of work saved it.
+    saved: Option<FollowJob>,
+    store: std::marker::PhantomData<fn(&S)>,
+}
+
+impl<V, S> BeforeCommit<S> for BatchSave<'_, V, S>
+where
+    S: IngestStore,
+    V: SavePosition<S> + Sync,
+    V::Position: Sync,
+{
+    async fn before_commit(
+        &mut self,
+        cx: &mut S::Cx,
+        job: &Job,
+        counts: &Counts,
+        last: bool,
+    ) -> Result<(), IngestError> {
+        let mut f = self.open.clone().unwrap_or_else(|| FollowJob {
+            id: job.id,
+            day: self.day,
+            compact_from: self.compact_from,
+            ..FollowJob::default()
+        });
+        if last {
+            f.counts.add(counts);
+            f.batches += 1;
+            f.rows += self.rows;
+            f.late += self.late;
+            f.stale += self.stale;
+            f.rejected_total = job.rejected_total;
+            f.rejects.clone_from(&job.rejects);
+            f.hash_mismatches.clone_from(&job.hash_mismatches);
+        }
+        let state = FollowState {
+            open: Some(f.clone()),
+            closing: self.closing.clone(),
+        };
+        self.saver.save(cx, last.then_some(self.at), &state).await?;
+        self.saved = Some(f);
+        Ok(())
+    }
 }
 
 /// A follower's jobs between batches and between runs: the day's open job (0092 A6), and
@@ -213,14 +303,18 @@ async fn handle_of<S: IngestStore>(
     job
 }
 
-/// Finishes a day's job with its counts, and what the poll read, as its finish record.
-async fn finish_day<S: IngestStore>(
+/// Finishes a day's job with its counts, and what the poll read, as its finish record,
+/// and saves the jobs as `after` has them in the same unit of work (0092 A10).
+#[allow(clippy::too_many_arguments)]
+async fn finish_day<S: IngestStore, V: SavePosition<S>>(
     store: &S,
     pipeline: &Pipeline<S>,
     job: &Job,
     open: &FollowJob,
     compacted: Option<u64>,
     now: u64,
+    saver: &V,
+    after: &FollowState,
 ) -> Result<(), IngestError> {
     let mut extra = serde_json::Map::new();
     for (k, v) in [
@@ -237,6 +331,7 @@ async fn finish_day<S: IngestStore>(
     let mut cx = store.begin().await?;
     job.finish(store, pipeline, &mut cx, &open.counts, extra, now)
         .await?;
+    saver.save(&mut cx, None, after).await?;
     store.commit(cx).await?;
     Ok(())
 }
@@ -295,9 +390,11 @@ async fn counted<F: Future>(f: F, busy: &Cell<u8>) -> F::Output {
     out
 }
 
-/// Finishes a closing day's job if its compaction is done, taking it out of `closing`.
+/// Finishes a closing day's job if its compaction is done, taking it out of `closing`,
+/// and saves the jobs, `open` and no closing day, with the finish record. Returns whether
+/// it finished it.
 #[allow(clippy::too_many_arguments)]
-async fn finish_closed<S: IngestStore>(
+async fn finish_closed<S: IngestStore, V: SavePosition<S>>(
     store: &S,
     pipeline: &Pipeline<S>,
     tenant: &str,
@@ -306,14 +403,30 @@ async fn finish_closed<S: IngestStore>(
     closing: &mut Option<Closing>,
     handle: &mut Option<Job>,
     now: u64,
-) -> Result<(), IngestError> {
+    saver: &V,
+    open: Option<&FollowJob>,
+) -> Result<bool, IngestError> {
     let Some(c) = closing.as_ref().filter(|c| c.at >= c.to) else {
-        return Ok(());
+        return Ok(false);
     };
     let job = handle_of(store, tenant, slug, attestation, &c.job, handle.take()).await?;
-    finish_day(store, pipeline, &job, &c.job, Some(c.removed), now).await?;
+    let after = FollowState {
+        open: open.cloned(),
+        closing: None,
+    };
+    finish_day(
+        store,
+        pipeline,
+        &job,
+        &c.job,
+        Some(c.removed),
+        now,
+        saver,
+        &after,
+    )
+    .await?;
     *closing = None;
-    Ok(())
+    Ok(true)
 }
 
 /// What a run did.
@@ -336,20 +449,21 @@ pub struct FollowOutcome {
 /// Runs a follower until the source is caught up, or forever when `once` is false.
 ///
 /// Each batch is a sync in `upsert` mode (0092 §2) under the follower's job for the day
-/// (A6), committed as its own unit of work under the load lock; the position, and the jobs
-/// as they stand, are saved once the batch is committed. The day's first batch starts the
-/// job, and the first batch of a later day closes it first: a registry provider's mirror is
-/// compacted by the day's keys beside the batches that follow, and beside the source's
-/// waits between polls, at least a window a batch, and the job is finished when that is
-/// done (A7, A8, A9). A run with `once` leaves what it has not compacted to the next run,
-/// as it leaves the day's open job. While a batch is written,
-/// the next one is read: the wait on the upstream overlaps the writing, batches are still
-/// written one at a time and in order, and each position is saved after its own batch, so
-/// a crash replays at most the batch read ahead. `tenant` is `""` for a registry
-/// provider's mirror and the tenant for its entity source `slug` (0078 §4), with `registry`
-/// the tenant's table of names.
+/// (A6), committed in units of work under the load lock; each unit saves the jobs, and the
+/// last the position the batch leaves, so that what is saved commits with the records and
+/// job records it describes (A10). The day's first batch starts the job, and the first
+/// batch of a later day closes it first: a registry provider's mirror is compacted by the
+/// day's keys beside the batches that follow, and beside the source's waits between polls,
+/// at least a window a batch, and the job is finished when that is done (A7, A8, A9), its
+/// finish record committed with the jobs that no longer hold it. A run with `once` leaves
+/// what it has not compacted to the next run, as it leaves the day's open job. While a
+/// batch is written, the next one is read: the wait on the upstream overlaps the writing,
+/// batches are still written one at a time and in order, and each position is saved with
+/// its own batch, so a crash replays at most the batch it interrupted. `tenant` is `""` for
+/// a registry provider's mirror and the tenant for its entity source `slug` (0078 §4), with
+/// `registry` the tenant's table of names.
 #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
-pub async fn run_follow<S: IngestStore, C: ChangeSource>(
+pub async fn run_follow<S: IngestStore, C: ChangeSource<S>>(
     store: &S,
     pipeline: &Pipeline<S>,
     tenant: &str,
@@ -366,6 +480,7 @@ pub async fn run_follow<S: IngestStore, C: ChangeSource>(
         mut open,
         mut closing,
     } = source.state().await?;
+    let saver = source.saver();
     let mut job: Option<Job> = None;
     let mut closing_job: Option<Job> = None;
     let mut ahead = source.next().await?;
@@ -401,6 +516,8 @@ pub async fn run_follow<S: IngestStore, C: ChangeSource>(
                     &mut closing,
                     &mut closing_job,
                     now(),
+                    &saver,
+                    Some(&f),
                 ))
                 .await?;
             }
@@ -412,10 +529,26 @@ pub async fn run_follow<S: IngestStore, C: ChangeSource>(
                 }
                 Err(f) => {
                     let handle = handle_of(store, tenant, slug, &attestation, &f, handle).await?;
-                    finish_day(store, pipeline, &handle, &f, None, now()).await?;
+                    let after = FollowState {
+                        open: None,
+                        closing: closing.clone(),
+                    };
+                    Box::pin(finish_day(
+                        store,
+                        pipeline,
+                        &handle,
+                        &f,
+                        None,
+                        now(),
+                        &saver,
+                        &after,
+                    ))
+                    .await?;
                 }
             }
         }
+        let closing_then = closing.clone();
+        let writes = !items.is_empty();
         // Boxed: with the read ahead and the compaction beside it, the three would make a
         // large future.
         let write = Box::pin(async {
@@ -433,6 +566,19 @@ pub async fn run_follow<S: IngestStore, C: ChangeSource>(
                 Some(f) => Some(handle_of(store, tenant, slug, &attestation, f, job.take()).await?),
                 None => None,
             };
+            let mut save = BatchSave {
+                saver: &saver,
+                at: &at,
+                open: open.clone(),
+                closing: closing_then.clone(),
+                day: today,
+                compact_from,
+                rows,
+                late,
+                stale,
+                saved: None,
+                store: std::marker::PhantomData,
+            };
             let (o, j) = sync_batch(
                 store,
                 pipeline,
@@ -444,21 +590,14 @@ pub async fn run_follow<S: IngestStore, C: ChangeSource>(
                 registry,
                 now(),
                 batch,
+                &mut save,
             )
             .await?;
-            let f = open.get_or_insert_with(|| FollowJob {
-                id: j.id,
-                day: today,
-                compact_from,
-                ..FollowJob::default()
-            });
-            f.counts.add(&o.counts);
-            f.batches += 1;
-            f.rejected_total = j.rejected_total;
-            f.rejects.clone_from(&j.rejects);
-            f.hash_mismatches.clone_from(&j.hash_mismatches);
             job = Some(j);
-            Ok(Some(o))
+            let f = save.saved.ok_or_else(|| {
+                IngestError::Store("a follower's batch committed without saving".into())
+            })?;
+            Ok(Some((o, f)))
         });
         let busy = Cell::new(if last { 1 } else { 2 });
         let beside = Box::pin(compact_beside(store, closing.as_mut(), &busy));
@@ -473,11 +612,12 @@ pub async fn run_follow<S: IngestStore, C: ChangeSource>(
             .await;
             (written, Some(next), compacted)
         };
-        if let Some(o) = written? {
+        if let Some((o, f)) = written? {
             out.counts.add(&o.counts);
+            open = Some(f);
         }
         compacted?;
-        Box::pin(finish_closed(
+        let finished = Box::pin(finish_closed(
             store,
             pipeline,
             tenant,
@@ -486,23 +626,29 @@ pub async fn run_follow<S: IngestStore, C: ChangeSource>(
             &mut closing,
             &mut closing_job,
             now(),
+            &saver,
+            open.as_ref(),
         ))
         .await?;
-        if let Some(f) = open.as_mut() {
-            out.job_id = f.id;
+        if !writes && let Some(f) = open.as_mut() {
             f.rows += rows;
             f.late += late;
             f.stale += stale;
         }
-        source
-            .save(
-                at,
-                FollowState {
-                    open: open.clone(),
-                    closing: closing.clone(),
-                },
-            )
-            .await?;
+        if let Some(f) = open.as_ref() {
+            out.job_id = f.id;
+        }
+        let state = FollowState {
+            open: open.clone(),
+            closing: closing.clone(),
+        };
+        // A batch that wrote saved its position with its records; one that did not saves
+        // it now, and a compaction that moved on without finishing saves how far it got.
+        if !writes {
+            save_alone(store, &saver, Some(&at), &state).await?;
+        } else if !finished && closing != closing_then {
+            save_alone(store, &saver, None, &state).await?;
+        }
         match next {
             None => return Ok(out),
             Some(next) => ahead = next?,

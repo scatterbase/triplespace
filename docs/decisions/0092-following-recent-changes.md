@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-26
-- **Updated:** 2026-11-18 (A9)
+- **Updated:** 2026-11-19 (A10)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0011](0011-logs.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0027](0027-preferences-and-portability.md), [0040](0040-instance-prerogatives.md), [0067](0067-proposals.md), [0085](0085-settings-and-preferences.md), [0088](0088-external-identity-providers.md), [0091](0091-one-wikibase-adapter.md)
 
@@ -180,3 +180,12 @@ Replaced text: A7 (2), in 05 §5.7 of this ADR.
 - **Summary:** A8 had a run with `once` complete the closed day's compaction before it returned. `triplespace follow` without `--once` was a loop of such runs with a wait between them, and the job queue's follower is a pass with `once` each time, so once the follower had caught up, the first run after midnight compacted the whole day with nothing written beside it. On the whole-dump mirror, the close of 2026-11-17 (2,290,119 offsets) stopped the follower from 00:00:11 to 00:47, and it fell 0.8 hours behind; the first close had not shown it, because the follower was still catching up and its run never ended. Now: (1) no run completes a compaction before it returns; a run that stops when caught up compacts beside its batches, at least a window, and leaves the rest, and the day's finish, to the next run, as it leaves the day's open job. (2) `triplespace follow` without `--once` is one run that never stops when caught up: its change source waits `follow.interval` before the poll that follows a caught-up one, saying so on stderr in place of the summary line each run printed, and the compaction runs beside that wait as well as beside the batches. (3) The job queue's follower still runs passes, so its compaction moves at least a window a pass; a day that closes while an earlier one is still compacting still completes the earlier one first. Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.7.
 
 Replaced text: A8 (3), in 05 §5.7 of this ADR.
+
+### A10. The position and the jobs commit with what they describe
+
+- **Date:** 2026-11-19
+- **Source:** Direct: James, 2026-11-19 ("Yes"), to Claude's proposal to start SCA-285 by moving the follower's position into the batch's transaction; the calls below unconfirmed
+- **Change:** amends §2 (A6)
+- **Summary:** §3 has the position written in the transaction that writes the records it covers ([05](../architecture/05-providers-and-ingest.md) §5.7), but the follower saved it, with its jobs, in a statement of its own after the batch had committed. A crash between the two replayed the batch and counted it twice, as A6 said. Worse, a batch commits in several units of work, the first of which starts a new day's job, so a crash before the save left a job started and not saved: the next run started a second job for the day, and the first stayed `running` until that start marked it interrupted. A closed day's finish record and the jobs that no longer held it were committed apart in the same way. The calls made: (1) each unit of work of a batch saves the jobs, with the day's job as it stood before the batch, or as the batch started it; the batch's last unit saves the position the batch leaves and the day's job with the batch counted. A batch cut off part way is read again under the same job and counted once, the items its committed units wrote then counting as unchanged. (2) A day's finish record is committed with the jobs that no longer hold it. (3) A batch with nothing to write saves the position in a unit of work of its own, and a compaction that moved on without finishing saves its progress in one after the batch; a crash still loses only the progress not yet saved (A8 (4)). (4) The change source gives the follower a saver that writes in the store's units of work, so that the next batch is still read while one is written. Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.7.
+
+Replaced text: A6, in 05 §5.7 of this ADR.

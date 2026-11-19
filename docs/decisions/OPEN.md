@@ -89,6 +89,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0092 A7](0092-following-recent-changes.md#a7-a-follower-compacts-its-mirror-as-the-days-job-closes) | 2026-11-11 | A follower compacts its mirror as the day's job closes |
 | [0092 A8](0092-following-recent-changes.md#a8-a-days-compaction-runs-beside-the-next-days-batches) | 2026-11-15 | A day's compaction runs beside the next day's batches |
 | [0092 A9](0092-following-recent-changes.md#a9-a-run-that-stops-when-caught-up-leaves-the-rest-of-the-days-compaction-to-the-next) | 2026-11-18 | A run that stops when caught up leaves the rest of the day's compaction to the next |
+| [0092 A10](0092-following-recent-changes.md#a10-the-position-and-the-jobs-commit-with-what-they-describe) | 2026-11-19 | The position and the jobs commit with what they describe |
 | [0097 A3](0097-versioning-and-skins.md#a3-fragments-are-compared-as-normalized-dom) | 2026-10-30 | Fragments are compared as normalized DOM |
 | [0097 A4](0097-versioning-and-skins.md#a4-drawings-are-svg-the-binary-makes) | 2026-10-30 | Drawings are SVG the binary makes |
 | [0097 A6](0097-versioning-and-skins.md#a6-a-part-of-a-later-group-is-carried-as-html-until-that-group-switches) | 2026-10-30 | A part of a later group is carried as HTML until that group switches |
