@@ -229,6 +229,17 @@ impl EntityId {
         self.0.split_once(':')
     }
 
+    /// Whether this ID may be a member of an identity cluster. Keyed entities that are names,
+    /// keywords and notations, never join one (0009 §8): their keyed-type registry entry sets
+    /// `clusters = false`. Every other ID may, a keyed ID of an unknown type included, since
+    /// whether the type exists is checked elsewhere.
+    #[must_use]
+    pub fn joins_clusters(&self) -> bool {
+        self.keyed_parts()
+            .and_then(|(name, _)| KeyedRegistry::default_registry().by_name(name))
+            .is_none_or(|t| t.clusters)
+    }
+
     /// The Wikibase `entity-type` this ID's own shape implies, where it can: `item` for a
     /// local or foreign `Q`, `property` for `P`, `lexeme` for `L`, `mediainfo` for a local
     /// `M` (0041 §7), the type name for a keyed ID. Other foreign type codes need the

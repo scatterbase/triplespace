@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-15 (A16)
+- **Updated:** 2026-11-20 (A17)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0000](0000-init.md), [0006](0006-log-integrity-and-erasure.md), [0008](0008-namespaces-and-document-pages.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
@@ -222,3 +222,10 @@ Replaced text: 05 §4.1 of this ADR; 05 §8.6 of this ADR; 22 §2.1, the row of 
 - **Source:** 0110 §1
 - **Change:** extends §1
 - **Summary:** A fourth keyed type, `remote`, names a page or revision on a site that a registered host runs, by the host, the site's name, `p` or `r`, and the number the host gave it: `remote:wikimedia:enwiki-p12`. Its normalizer reads nothing but the key. Chapter text: 04 §3.1, §3.11.
+
+### A17. Only `same-as` with a keyword or notation is refused
+
+- **Date:** 2026-11-20
+- **Source:** Direct: Claude, while building the write-time refusal of keyword and notation links, 2026-11-20; unconfirmed
+- **Change:** extends §8
+- **Summary:** Write-time validation refuses a `same-as` with a member whose keyed type the registry marks `clusters = false` (keyword, notation), as the mismatched-types problem `LinkTypes`; `different-from` with such a member, and the removal of an existing link, are accepted, since neither joins a cluster and a link written before the refusal must stay removable. The rule was stated in §8 but not enforced: `clusters` was parsed and never read. Chapter text: 04 §4.1.

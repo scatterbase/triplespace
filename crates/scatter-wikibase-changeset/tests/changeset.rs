@@ -697,6 +697,38 @@ fn different_from_and_removing_a_link() {
     assert_eq!(removed.link_ids().map(<[EntityId]>::len), Some(2));
 }
 
+/// 0009 §8: keyed entities that are names never join a cluster: "`same-as` with a keyword or
+/// notation on either side is rejected at write time". A Domain names a thing, so it still
+/// links; a `different-from` and the removal of a link join nothing, so they are not refused.
+#[test]
+fn keywords_and_notations_never_join_a_cluster() {
+    for ids in [
+        ["keyword:machine-learning", "Q1"],
+        ["Q1", "keyword:machine-learning"],
+        ["notation:osm:amenity", "WDQ5"],
+    ] {
+        let mut link = op(json!({"op": "same-as", "ids": ids}));
+        link.complete(&ProviderOrder::default());
+        assert_eq!(
+            problems(&link, "local", None),
+            vec![Problem::LinkTypes],
+            "{ids:?}"
+        );
+    }
+    let mut domain = op(json!({"op": "same-as", "ids": ["Q1", "domain:example.org"]}));
+    domain.complete(&ProviderOrder::default());
+    assert!(problems(&domain, "local", None).is_empty());
+
+    let apart = op(
+        json!({"op": "different-from", "id": "keyword:machine-learning", "ids": ["keyword:machine-learning", "Q1"]}),
+    );
+    assert!(problems(&apart, "local", None).is_empty());
+    let removed = op(
+        json!({"op": "remove", "id": "keyword:machine-learning", "link": {"op": "same-as", "ids": ["keyword:machine-learning", "Q1"]}}),
+    );
+    assert!(problems(&removed, "local", None).is_empty());
+}
+
 #[test]
 fn property_type_problems() {
     // P31 is an item property: a string value is the wrong value type.
