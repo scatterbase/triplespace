@@ -14,7 +14,7 @@
 
 use std::collections::BTreeMap;
 
-use scatter_adapter_mediawiki::{Change, Poller, Windows};
+use mwrecent::{Change, Poller, Query, Windows};
 use scatter_adapter_wikibase::follow::{EntityNamespaces, Fetched, entity_id_of, read_entities};
 use scatter_adapter_wikibase::{Index, KeyMappedAdapter, KeyRules, Outcome};
 use scatter_ingest::IngestError;
@@ -301,8 +301,8 @@ impl<'a> ProviderFollower<'a> {
         {
             return Err(StartError::Gap {
                 name: provider.slug.clone(),
-                position: scatter_adapter_mediawiki::recentchanges::iso(time),
-                oldest: scatter_adapter_mediawiki::recentchanges::iso(oldest),
+                position: mwrecent::iso(time),
+                oldest: mwrecent::iso(oldest),
             });
         }
 
@@ -542,7 +542,7 @@ impl ChangeSource<PgIngest> for ProviderFollower<'_> {
         {
             report(&format!(
                 "caught up at {}; polling again in {}s",
-                scatter_adapter_mediawiki::recentchanges::iso(self.poller.time),
+                mwrecent::iso(self.poller.time),
                 interval.as_secs()
             ));
             tokio::time::sleep(interval).await;
@@ -552,7 +552,7 @@ impl ChangeSource<PgIngest> for ProviderFollower<'_> {
         let query = self.poller.query(now, true);
         let body = self
             .wiki
-            .get(&query.params)
+            .get(&params_of(&query))
             .await
             .map_err(|e| upstream(&e))?;
         let head = self
@@ -574,7 +574,7 @@ impl ChangeSource<PgIngest> for ProviderFollower<'_> {
         {
             let body = self
                 .wiki
-                .get(&tail.params)
+                .get(&params_of(&tail))
                 .await
                 .map_err(|e| upstream(&e))?;
             let tail = self
@@ -838,8 +838,17 @@ fn revision_time_of(body: &str) -> Option<u64> {
     pages.iter().find_map(|p| {
         p.pointer("/revisions/0/timestamp")
             .and_then(serde_json::Value::as_str)
-            .and_then(scatter_adapter_mediawiki::recentchanges::parse_iso)
+            .and_then(mwrecent::parse_iso)
     })
+}
+
+/// A poller's query as the upstream client takes it.
+fn params_of(query: &Query) -> Vec<(&str, String)> {
+    query
+        .params
+        .iter()
+        .map(|(k, v)| (k.as_str(), v.clone()))
+        .collect()
 }
 
 /// Whether a follower at `position` has lost changes (0092 §3, A13): the wiki keeps
@@ -877,7 +886,7 @@ async fn oldest_change(
     let v: serde_json::Value = serde_json::from_str(&body).unwrap_or_default();
     Ok(v.pointer("/query/recentchanges/0/timestamp")
         .and_then(|t| t.as_str())
-        .and_then(scatter_adapter_mediawiki::recentchanges::parse_iso))
+        .and_then(mwrecent::parse_iso))
 }
 
 #[cfg(test)]

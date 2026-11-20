@@ -1,10 +1,11 @@
-//! Round trips over real dumps (0047 §8.1; 0005 A119): each sample in `docs/samples/`
-//! read, written again, and read back to the same pages and the same `<siteinfo>`.
+//! Round trips over real dumps (0047 §8.1; 0112 §2): each sample in `docs/samples/`
+//! read, written again, and read back to the same pages and the same `<siteinfo>`, through
+//! RevisionChest's `mwdump`, which reads every import and writes every `Special:Export`.
 
 use std::io::BufReader;
 use std::path::PathBuf;
 
-use scatter_mediawiki_xml::{DumpPage, SiteInfo, Writer, XmlDump};
+use mwdump::{DumpReader, Page, SiteInfo, Writer};
 
 fn sample(path: &str) -> PathBuf {
     PathBuf::from(env!("CARGO_MANIFEST_DIR"))
@@ -12,7 +13,7 @@ fn sample(path: &str) -> PathBuf {
         .join(path)
 }
 
-fn read(path: &str) -> (SiteInfo, Vec<DumpPage>) {
+fn read(path: &str) -> (SiteInfo, Vec<Page>) {
     let file = std::fs::File::open(sample(path)).unwrap_or_else(|e| panic!("{path}: {e}"));
     let gzip = std::path::Path::new(path)
         .extension()
@@ -22,9 +23,9 @@ fn read(path: &str) -> (SiteInfo, Vec<DumpPage>) {
     } else {
         Box::new(BufReader::new(bzip2::read::MultiBzDecoder::new(file)))
     };
-    let mut dump = XmlDump::new(reader);
-    let pages: Vec<DumpPage> = dump.by_ref().map(|p| p.unwrap()).collect();
-    (dump.siteinfo().clone(), pages)
+    let mut dump = DumpReader::new(reader).pages();
+    let pages: Vec<Page> = dump.by_ref().map(|p| p.unwrap()).collect();
+    (dump.site_info().cloned().unwrap_or_default(), pages)
 }
 
 fn round_trip(path: &str, pages_expected: usize, revisions_expected: usize) {
@@ -33,23 +34,23 @@ fn round_trip(path: &str, pages_expected: usize, revisions_expected: usize) {
     let revisions: usize = pages.iter().map(|p| p.revisions.len()).sum();
     assert_eq!(revisions, revisions_expected, "{path}");
     assert!(
-        !site.sitename.is_empty() && !site.namespaces.is_empty(),
+        site.sitename.as_deref().is_some_and(|s| !s.is_empty()) && !site.namespaces.is_empty(),
         "{path}"
     );
 
     let mut w = Writer::new(Vec::new());
     w.start(&site).unwrap();
     for p in &pages {
-        w.page(p).unwrap();
+        w.page(&p.header, &p.revisions).unwrap();
     }
     let written = w.finish().unwrap();
 
-    let mut again = XmlDump::new(written.as_slice());
-    let back: Vec<DumpPage> = again.by_ref().map(|p| p.unwrap()).collect();
-    assert_eq!(again.siteinfo(), &site, "{path}: siteinfo");
+    let mut again = DumpReader::new(written.as_slice()).pages();
+    let back: Vec<Page> = again.by_ref().map(|p| p.unwrap()).collect();
+    assert_eq!(again.site_info(), Some(&site), "{path}: siteinfo");
     assert_eq!(back.len(), pages.len());
     for (a, b) in pages.iter().zip(&back) {
-        assert_eq!(a, b, "{path}: page {}", a.title);
+        assert_eq!(a, b, "{path}: page {}", a.header.title);
     }
     // Every revision carried its own sha1, which the writer kept rather than recomputed.
     assert!(
@@ -92,11 +93,8 @@ fn the_sample_text_survives_escaping() {
             .contains(r##"("<font color="#ba0000"><u>Sarah</u></font>")"##)
     );
     let mut w = Writer::new(Vec::new());
-    w.page(&DumpPage {
-        revisions: vec![first.clone()],
-        ..pages[0].clone()
-    })
-    .unwrap();
+    w.page(&pages[0].header, std::slice::from_ref(first))
+        .unwrap();
     let out = String::from_utf8(w.finish().unwrap()).unwrap();
     assert!(
         out.contains("(&quot;&lt;font color=&quot;#ba0000&quot;&gt;")

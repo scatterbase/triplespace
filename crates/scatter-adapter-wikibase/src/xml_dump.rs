@@ -1,28 +1,34 @@
-//! A MediaWiki XML dump (export format 0.10/0.11), streamed one `<page>` at a time with
-//! its revisions: the reader lives in `scatter-mediawiki-xml` since 0005 A119, and this
-//! module is the adapter's door to it, with [`open`], which decompresses a dump file by
-//! its extension, which the pure crate cannot.
+//! A MediaWiki XML dump (export format 0.10/0.11), a page at a time with its revisions:
+//! the reader is RevisionChest's `mwdump` since 0112 §2 (before, `scatter-mediawiki-xml`,
+//! 0005 A119), and this module is the adapter's door to it, with [`open`], which
+//! decompresses a dump file by its extension.
 
 use std::io::BufRead;
 use std::path::Path;
 
-pub use scatter_mediawiki_xml::{DumpPage, Revision, SiteInfo, Slot, XmlDump, XmlError};
+pub use mwdump::{Page, PageHeader, Pages, Revision, SiteInfo, Slot};
 
 use crate::DumpError;
 
-/// Opens a dump file, decompressing by extension.
+/// The pages of a dump read from `reader`.
+pub fn pages<R: BufRead>(reader: R) -> Pages<R> {
+    mwdump::DumpReader::new(reader).pages()
+}
+
+/// Opens a dump file, decompressing by extension. The reader is boxed: it is large, and a
+/// caller that holds it across an await would otherwise carry it in its future.
 ///
 /// # Errors
 ///
 /// The file cannot be opened.
-pub fn open(path: &Path) -> Result<XmlDump<Box<dyn BufRead + Send>>, DumpError> {
-    Ok(XmlDump::new(crate::open(path)?))
+pub fn open(path: &Path) -> Result<Box<Pages<Box<dyn BufRead + Send>>>, DumpError> {
+    Ok(Box::new(pages(crate::open(path)?)))
 }
 
-impl From<XmlError> for DumpError {
-    fn from(e: XmlError) -> Self {
+impl From<mwdump::DumpError> for DumpError {
+    fn from(e: mwdump::DumpError) -> Self {
         match e {
-            XmlError::Io(e) => Self::Io(e),
+            mwdump::DumpError::Io(e) => Self::Io(e),
             other => Self::Xml(other.to_string()),
         }
     }
@@ -108,8 +114,8 @@ pub(crate) mod tests {
 "#;
 
     #[test]
-    fn the_reader_is_the_pure_crates() {
-        let pages: Vec<super::DumpPage> = super::XmlDump::new(SAMPLE.as_bytes())
+    fn the_reader_is_mwdumps() {
+        let pages: Vec<super::Page> = super::pages(SAMPLE.as_bytes())
             .map(Result::unwrap)
             .collect();
         assert_eq!(pages.len(), 4);

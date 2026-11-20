@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-20
+- **Updated:** 2026-11-20 (A1)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0011](0011-logs.md), [0015](0015-record-format-and-partition-registry.md), [0054](0054-forking-a-mirrored-page.md), [0092](0092-following-recent-changes.md)
 
@@ -64,10 +65,19 @@ And his answers of 2026-11-20 to the choices put while drafting: Triplespace's c
 
 ## Open questions
 
-- **Q1. The retired crate in the map.** `crates.toml`'s `[[retired]]` entries name the crate that now holds a retired one, and the checker requires it to be in the map; `mwdump` is not a workspace crate. When `scatter-mediawiki-xml` is deleted, either its entry goes with no `[[retired]]` row, or the map learns external successors.
+- **Q1. The retired crate in the map.** *Settled by A1.*
 
 ## References
 
 - [RevisionChest](https://github.com/internetarchive/RevisionChest): `mwdump`, `mwrev`, `mwrecent`, `revisionchest-meta` and the binary
 - [`mwrev` on crates.io](https://crates.io/crates/mwrev)
 - SCA-441 and its sub-issues: SCA-442 (publish `mwrev`), SCA-443 (`mwrecent`), SCA-444 (`mwdump`'s slots, hidden comments and writer), SCA-449 (`sync` on `mwrecent`), SCA-450 (publish `mwdump` and `mwrecent`), SCA-454 (the switch-over)
+
+## Amendment log
+
+### A1. A retired crate's successor may be a published crate outside the workspace
+
+- **Date:** 2026-11-20
+- **Source:** Direct: James, design discussion of 2026-11-20
+- **Change:** extends §6
+- **Summary:** A `[[retired]]` row in the crate map may name a successor outside the workspace, marked `external = true`; `crates.py` accepts it, and the generated crate table says it is a published crate. `scatter-mediawiki-xml` is retired that way into `mwdump`, so the ADRs that name it keep reading as references to its new home. James chose this over naming a workspace crate as the successor, which would have been less accurate, since the reading now lives in `mwdump`. Settles Q1. Made in the switch-over (SCA-454), which also takes `mwdump` 0.1.1's `pages()`, a page at a time, for the callers that work on whole pages. Chapter text: 22 §2.1 (`crates.toml`), §4.11.

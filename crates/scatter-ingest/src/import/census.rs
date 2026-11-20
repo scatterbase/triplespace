@@ -12,7 +12,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use scatter_mediawiki_xml::DumpPage;
+use mwdump::Page;
 use serde::{Deserialize, Serialize};
 
 /// What the registry says of a call, as the scanner reports it.
@@ -131,7 +131,7 @@ const MODULE: i64 = 828;
 /// Takes the census of an export's pages, each with its class, scanning the latest
 /// revision of every page the job imports or converts with `scan`.
 pub fn census<'a>(
-    pages: impl IntoIterator<Item = (&'a DumpPage, PageClass)>,
+    pages: impl IntoIterator<Item = (&'a Page, PageClass)>,
     scan: &dyn Fn(&str) -> TextUses,
 ) -> Census {
     let mut c = Census::default();
@@ -140,7 +140,7 @@ pub fn census<'a>(
     for (page, class) in pages {
         c.pages += 1;
         c.revisions += page.revisions.len() as u64;
-        *c.by_namespace.entry(page.ns).or_default() += 1;
+        *c.by_namespace.entry(page.header.ns).or_default() += 1;
         if page.revisions.len() > 1 {
             history = true;
         }
@@ -153,10 +153,10 @@ pub fn census<'a>(
                     c.talk += 1;
                 } else {
                     c.imported += 1;
-                    c.titles.push((page.ns, page.title.clone()));
-                    if page.ns == TEMPLATE {
+                    c.titles.push((page.header.ns, page.header.title.clone()));
+                    if page.header.ns == TEMPLATE {
                         c.templates_in_file.insert(local_title(page));
-                    } else if page.ns == MODULE {
+                    } else if page.header.ns == MODULE {
                         c.modules_in_file.insert(local_title(page));
                     }
                 }
@@ -202,38 +202,39 @@ pub fn census<'a>(
 }
 
 /// A page's title without its namespace prefix.
-fn local_title(page: &DumpPage) -> String {
-    if page.ns == 0 {
-        return page.title.clone();
+fn local_title(page: &Page) -> String {
+    if page.header.ns == 0 {
+        return page.header.title.clone();
     }
-    page.title
+    page.header
+        .title
         .split_once(':')
-        .map_or_else(|| page.title.clone(), |(_, t)| t.to_string())
+        .map_or_else(|| page.header.title.clone(), |(_, t)| t.to_string())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
-    use scatter_mediawiki_xml::Revision;
+    use mwdump::{PageHeader, Revision};
 
-    fn page(ns: i64, title: &str, texts: &[&str]) -> DumpPage {
-        DumpPage {
-            title: title.into(),
-            ns,
-            id: 1,
-            redirect: None,
-            revisions: texts
-                .iter()
-                .enumerate()
-                .map(|(i, t)| Revision {
-                    id: i as u64 + 1,
-                    parent_id: (i > 0).then_some(i as u64),
-                    text: (*t).to_string(),
-                    model: Some("wikitext".into()),
-                    ..Revision::default()
-                })
-                .collect(),
-        }
+    fn page(ns: i64, title: &str, texts: &[&str]) -> Page {
+        let mut header = PageHeader::default();
+        header.title = title.into();
+        header.ns = ns;
+        header.id = 1;
+        let revisions = texts
+            .iter()
+            .enumerate()
+            .map(|(i, t)| {
+                let mut r = Revision::default();
+                r.id = i as u64 + 1;
+                r.parent_id = (i > 0).then_some(i as u64);
+                r.text = (*t).to_string();
+                r.model = Some("wikitext".into());
+                r
+            })
+            .collect();
+        Page::new(header, revisions)
     }
 
     fn scanner(text: &str) -> TextUses {

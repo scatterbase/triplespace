@@ -1,5 +1,5 @@
 //! The general import job of 0008 §9 (10 §6; 0005 A119): the pages of any MediaWiki's
-//! XML export, read through `scatter-mediawiki-xml` by the surface that runs the job,
+//! XML export, read through RevisionChest's `mwdump` by the surface that runs the job,
 //! become page records in the tenant's `pages` partition. Unlike the adoption job
 //! ([`crate::adopt`]), which keeps the source's page and revision IDs, an import goes
 //! through the load path as every ingest does: the page IDs and revision IDs are the

@@ -22,13 +22,13 @@
 
 use std::collections::BTreeMap;
 
+use mwdump::{Page, Revision as DumpRevision};
 use scatter_actors::ActorKey;
 use scatter_ingest::IngestStore;
 use scatter_ingest::adopt::Author;
 use scatter_ingest::import::surrogate;
 use scatter_ingest::write::{Attestation, Request};
 use scatter_log_postgres::PgClient;
-use scatter_mediawiki_xml::{DumpPage, Revision as DumpRevision};
 use scatter_projection::{Backend, Pipeline};
 use scatter_talk::{Blame, Conversion, Markup, Options, Revision, Site, Stamp, attribute, convert};
 use scatter_talk_import::{PlannedThread, Source, plan};
@@ -112,8 +112,8 @@ impl TalkCounts {
 /// Whether a dump page is a talk page this run converts: a talk namespace whose model is
 /// `triplespace-talk` here (0008 §9), carrying wikitext on the source.
 #[must_use]
-pub fn is_talk_page(page: &DumpPage) -> bool {
-    let Ok(ns) = i32::try_from(page.ns) else {
+pub fn is_talk_page(page: &Page) -> bool {
+    let Ok(ns) = i32::try_from(page.header.ns) else {
         return false;
     };
     let Some(namespace) = Namespaces::embedded().get(ns) else {
@@ -241,7 +241,7 @@ pub async fn convert_page(
     pipeline: &Pipeline<PgIngest>,
     cx: &mut PgCx,
     ctx: &TalkContext<'_>,
-    page: &DumpPage,
+    page: &Page,
     surrogates: &mut BTreeMap<(String, String), String>,
     now: u64,
 ) -> Result<TalkOutcome, TalkError> {
@@ -254,7 +254,7 @@ pub async fn convert_page(
             "the source hid the current text".into(),
         ));
     }
-    if page.redirect.is_some() || is_redirect(&current.text) {
+    if page.header.redirect.is_some() || is_redirect(&current.text) {
         // A talk page that redirects holds no discussion; threads live on the target,
         // which is converted on its own. Nothing is written for it.
         return Ok(TalkOutcome::Deferred("a redirect".into()));
@@ -264,7 +264,7 @@ pub async fn convert_page(
             "its subject is not here (no account, or a deferred page)".into(),
         ));
     };
-    if already_converted(store, cx, ctx.tenant, &home, &page.title).await? {
+    if already_converted(store, cx, ctx.tenant, &home, &page.header.title).await? {
         return Ok(TalkOutcome::Present);
     }
 
@@ -296,12 +296,12 @@ pub async fn convert_page(
 
     let source = Source {
         repository: Some(ctx.source.to_string()),
-        page: page.title.clone(),
+        page: page.header.title.clone(),
         revision: Some(current.id),
         archive: None,
         revision_time: stamp_of(&current.timestamp),
     };
-    let planned = plan(&conv, &page.title, &source);
+    let planned = plan(&conv, &page.header.title, &source);
     let (mut threads, mut posts) = (0u64, 0u64);
     for t in &planned {
         posts += write_thread(store, pipeline, cx, ctx, t, &home, surrogates, now).await?;
@@ -364,7 +364,7 @@ pub async fn convert_all(
     store: &PgIngest,
     pipeline: &Pipeline<PgIngest>,
     ctx: &TalkContext<'_>,
-    pages: impl Iterator<Item = DumpPage>,
+    pages: impl Iterator<Item = Page>,
     now: u64,
 ) -> Result<TalkCounts, TalkError> {
     let mut counts = TalkCounts::default();
@@ -381,7 +381,10 @@ pub async fn convert_all(
                 Err(e) => {
                     let _ = Backend::rollback(store, cx).await;
                     surrogates = before;
-                    eprintln!("deferring talk page {} (`{}`): {e}", page.id, page.title);
+                    eprintln!(
+                        "deferring talk page {} (`{}`): {e}",
+                        page.header.id, page.header.title
+                    );
                     counts.add(&TalkOutcome::Deferred(format!("the write failed: {e}")));
                     continue;
                 }
@@ -389,7 +392,10 @@ pub async fn convert_all(
         if let TalkOutcome::Deferred(why) = &outcome {
             let _ = Backend::rollback(store, cx).await;
             surrogates = before;
-            eprintln!("deferring talk page {} (`{}`): {why}", page.id, page.title);
+            eprintln!(
+                "deferring talk page {} (`{}`): {why}",
+                page.header.id, page.header.title
+            );
         } else {
             Backend::commit(store, cx).await?;
         }
@@ -405,17 +411,21 @@ async fn home_of(
     pipeline: &Pipeline<PgIngest>,
     cx: &mut PgCx,
     ctx: &TalkContext<'_>,
-    page: &DumpPage,
+    page: &Page,
     surrogates: &mut BTreeMap<(String, String), String>,
     now: u64,
 ) -> Result<Option<Target>, TalkError> {
-    let ns = i32::try_from(page.ns).unwrap_or(0);
+    let ns = i32::try_from(page.header.ns).unwrap_or(0);
     let namespaces = Namespaces::embedded();
     if namespaces.get(ns).is_none() {
         return Ok(None);
     }
     let subject_ns = ns - 1;
-    let (_, name) = page.title.split_once(':').unwrap_or(("", &page.title));
+    let (_, name) = page
+        .header
+        .title
+        .split_once(':')
+        .unwrap_or(("", &page.header.title));
     if subject_ns == 2 {
         // User talk: the account's actor key, where the account is here; a subpage of
         // a user talk page has no home of its own.
@@ -507,7 +517,7 @@ fn is_redirect(text: &str) -> bool {
 /// The actor name a dump revision carries: the account's name, the IP, or a marker for a
 /// hidden one, as the blame compares signatures against it.
 fn actor_name(r: &DumpRevision) -> String {
-    if let Some((_, name)) = &r.user {
+    if let Some((_, name)) = r.user_id.zip(r.user_name.as_ref()) {
         name.clone()
     } else if let Some(ip) = &r.ip {
         ip.clone()
@@ -525,14 +535,14 @@ fn stamp_of(s: &str) -> Option<Stamp> {
 /// The accounts a dump names, name → user ID, from its revisions' contributors: what an
 /// import's [`Authors::Imported`] resolves against.
 #[must_use]
-pub fn accounts_of<'a>(pages: impl Iterator<Item = &'a DumpPage>) -> BTreeMap<String, u64> {
+pub fn accounts_of<'a>(pages: impl Iterator<Item = &'a Page>) -> BTreeMap<String, u64> {
     let mut out: BTreeMap<String, u64> = BTreeMap::new();
     for page in pages {
         for r in &page.revisions {
-            if let Some((id, name)) = &r.user
-                && *id > 0
+            if let Some((id, name)) = r.user_id.zip(r.user_name.as_ref())
+                && id > 0
             {
-                out.entry(name.clone()).or_insert(*id);
+                out.entry(name.clone()).or_insert(id);
             }
         }
     }
@@ -540,12 +550,12 @@ pub fn accounts_of<'a>(pages: impl Iterator<Item = &'a DumpPage>) -> BTreeMap<St
 }
 
 /// The same from a name → ID map built page by page, for a streaming pass.
-pub fn observe_accounts(into: &mut BTreeMap<String, u64>, page: &DumpPage) {
+pub fn observe_accounts(into: &mut BTreeMap<String, u64>, page: &Page) {
     for r in &page.revisions {
-        if let Some((id, name)) = &r.user
-            && *id > 0
+        if let Some((id, name)) = r.user_id.zip(r.user_name.as_ref())
+            && id > 0
         {
-            into.entry(name.clone()).or_insert(*id);
+            into.entry(name.clone()).or_insert(id);
         }
     }
 }

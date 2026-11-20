@@ -327,11 +327,7 @@ impl Watch {
             SyncItem::State { upstream, .. }
             | SyncItem::Deleted { upstream, .. }
             | SyncItem::Redirected { upstream, .. } => {
-                if let Some(t) = upstream
-                    .time
-                    .as_deref()
-                    .and_then(scatter_adapter_mediawiki::recentchanges::parse_iso)
-                {
+                if let Some(t) = upstream.time.as_deref().and_then(mwrecent::parse_iso) {
                     self.latest = self.latest.max(Some(t));
                 }
             }
@@ -443,7 +439,7 @@ async fn run_sync(args: Sync) -> Result<()> {
             .context("record where the load ended")?;
         println!(
             "  loaded to  {}{}",
-            scatter_adapter_mediawiki::recentchanges::iso(latest),
+            mwrecent::iso(latest),
             if moved {
                 ""
             } else {
@@ -1033,7 +1029,7 @@ mod tests {
         }
         assert_eq!(
             watch.finish().unwrap(),
-            scatter_adapter_mediawiki::recentchanges::parse_iso("2026-10-02T00:00:00Z"),
+            mwrecent::parse_iso("2026-10-02T00:00:00Z"),
             "the newest upstream time among the items"
         );
         let tsv = std::fs::read_to_string(&file).unwrap();

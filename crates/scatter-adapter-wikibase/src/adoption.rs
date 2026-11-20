@@ -23,7 +23,7 @@ use scatter_wikibase_model::statement::{Snak, SnakKind};
 use scatter_wikibase_model::value::{DataType, DataValue};
 
 use crate::DumpError;
-use crate::xml_dump::{DumpPage, Revision};
+use crate::xml_dump::{Page, Revision};
 
 /// The content models of entity pages.
 pub const ENTITY_MODELS: &[&str] = &["wikibase-item", "wikibase-property", "wikibase-lexeme"];
@@ -55,10 +55,12 @@ impl Contributor {
     /// The contributor of a revision.
     #[must_use]
     pub fn of(r: &Revision) -> Self {
-        match (&r.user, &r.ip, r.user_hidden) {
+        // A registered user is one the dump names and numbers both.
+        let user = r.user_id.zip(r.user_name.as_ref());
+        match (user, &r.ip, r.user_hidden) {
             (_, _, true) | (None, None, false) => Self::Hidden,
             (Some((0, name)), _, _) => Self::Imported(name.clone()),
-            (Some((id, _)), _, _) => Self::Account(*id),
+            (Some((id, _)), _, _) => Self::Account(id),
             (None, Some(ip), _) => Self::Ip(ip.clone()),
         }
     }
@@ -147,9 +149,9 @@ pub struct Survey {
 
 impl Survey {
     /// Observes a page.
-    pub fn observe(&mut self, page: &DumpPage) {
+    pub fn observe(&mut self, page: &Page) {
         self.pages += 1;
-        self.max_page_id = self.max_page_id.max(page.id);
+        self.max_page_id = self.max_page_id.max(page.header.id);
         if page.revisions.len() > 1 {
             self.pages_with_history += 1;
         }
@@ -170,7 +172,7 @@ impl Survey {
             }
             match Contributor::of(r) {
                 Contributor::Account(id) => {
-                    if let Some((_, name)) = &r.user {
+                    if let Some(name) = &r.user_name {
                         self.accounts.insert(id, name.clone());
                     }
                 }
@@ -185,7 +187,7 @@ impl Survey {
                 .as_deref()
                 .is_some_and(|m| ENTITY_MODELS.contains(&m))
         {
-            if page.redirect.is_some() || is_redirect_json(&latest.text) {
+            if page.header.redirect.is_some() || is_redirect_json(&latest.text) {
                 self.redirects += 1;
             } else {
                 self.entities += 1;
@@ -198,7 +200,12 @@ impl Survey {
             }
             // The ID is in the title's last segment: `Item:Q6`, `Q6`.
             // (Entity pages; every other page is counted below.)
-            let id_text = page.title.rsplit(':').next().unwrap_or(&page.title);
+            let id_text = page
+                .header
+                .title
+                .rsplit(':')
+                .next()
+                .unwrap_or(&page.header.title);
             if let Ok(id) = EntityId::parse(id_text)
                 && let (Some(t), Some(n)) = (id.implied_entity_type(), id.numeric_id())
             {
@@ -356,7 +363,7 @@ pub fn type_snaks(entity: &mut Entity, types: &impl PropertyTypes) -> BTreeMap<E
 /// page that is not an entity (another namespace, a redirect, an empty text), with the
 /// reason counted by the caller's [`Survey`].
 pub fn adopt_page(
-    page: &DumpPage,
+    page: &Page,
     sources: &BTreeMap<String, String>,
     registry: &Registry,
     types: &impl PropertyTypes,
@@ -364,7 +371,7 @@ pub fn adopt_page(
     let Some(latest) = page.latest() else {
         return Ok(None);
     };
-    if page.redirect.is_some()
+    if page.header.redirect.is_some()
         || !latest
             .model
             .as_deref()
@@ -374,8 +381,8 @@ pub fn adopt_page(
         return Ok(None);
     }
     let parsed = Entity::from_json(&latest.text).map_err(|e| DumpError::Entity {
-        line: usize::try_from(page.id).unwrap_or(0),
-        message: format!("page {} (`{}`): {e}", page.id, page.title),
+        line: usize::try_from(page.header.id).unwrap_or(0),
+        message: format!("page {} (`{}`): {e}", page.header.id, page.header.title),
     })?;
     let mut entity = parsed.entity;
     home_form(&mut entity, sources, registry)?;
@@ -387,7 +394,7 @@ pub fn adopt_page(
         source_revid: latest.id,
         source_parentid: None,
         source_time: latest.timestamp.clone(),
-        source_pageid: page.id,
+        source_pageid: page.header.id,
         minor: false,
         withheld: Vec::new(),
         comment: None,
@@ -408,7 +415,7 @@ fn redirect_target(text: &str) -> Option<EntityId> {
 /// model is not an entity model). A revision that cannot be read is listed in
 /// [`AdoptedPage::unreadable`] and left out, and the next one names no parent.
 pub fn adopt_history(
-    page: &DumpPage,
+    page: &Page,
     sources: &BTreeMap<String, String>,
     registry: &Registry,
     types: &impl PropertyTypes,
@@ -423,10 +430,15 @@ pub fn adopt_history(
     {
         return Ok(None);
     }
-    let id_text = page.title.rsplit(':').next().unwrap_or(&page.title);
+    let id_text = page
+        .header
+        .title
+        .rsplit(':')
+        .next()
+        .unwrap_or(&page.header.title);
     let id = EntityId::parse(id_text).map_err(|e| DumpError::Entity {
-        line: usize::try_from(page.id).unwrap_or(0),
-        message: format!("page {} (`{}`): {e}", page.id, page.title),
+        line: usize::try_from(page.header.id).unwrap_or(0),
+        message: format!("page {} (`{}`): {e}", page.header.id, page.header.title),
     })?;
     let mut revisions: Vec<&Revision> = page.revisions.iter().collect();
     revisions.sort_by_key(|r| r.id);
@@ -491,7 +503,7 @@ pub fn adopt_history(
             source_revid: r.id,
             source_parentid: r.parent_id.filter(|p| adopted.contains(p)),
             source_time: r.timestamp.clone(),
-            source_pageid: page.id,
+            source_pageid: page.header.id,
             minor: r.minor,
             withheld,
             comment: if r.comment_hidden {
@@ -510,11 +522,10 @@ pub fn adopt_history(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::xml_dump::XmlDump;
 
     #[test]
     fn survey_and_adoption_over_the_sample() {
-        let pages: Vec<DumpPage> = XmlDump::new(crate::xml_dump::tests::SAMPLE.as_bytes())
+        let pages: Vec<Page> = crate::xml_dump::pages(crate::xml_dump::tests::SAMPLE.as_bytes())
             .map(Result::unwrap)
             .collect();
         let mut survey = Survey::default();
@@ -616,7 +627,7 @@ mod tests {
 
     #[test]
     fn history_is_adopted_revision_by_revision() {
-        let pages: Vec<DumpPage> = XmlDump::new(HISTORY.as_bytes())
+        let pages: Vec<Page> = crate::xml_dump::pages(HISTORY.as_bytes())
             .map(Result::unwrap)
             .collect();
         let mut survey = Survey::default();
@@ -691,7 +702,7 @@ mod tests {
 
     #[test]
     fn a_current_dump_is_recognised() {
-        let pages: Vec<DumpPage> = XmlDump::new(crate::xml_dump::tests::SAMPLE.as_bytes())
+        let pages: Vec<Page> = crate::xml_dump::pages(crate::xml_dump::tests::SAMPLE.as_bytes())
             .map(Result::unwrap)
             .collect();
         let mut current = Survey::default();

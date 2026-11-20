@@ -16,14 +16,14 @@ use scatter_wikibase_model::id::EntityId;
 use crate::DumpError;
 use crate::adoption::{ENTITY_MODELS, is_redirect_json};
 use crate::json_dump::JsonDump;
-use crate::xml_dump::XmlDump;
+use crate::xml_dump::Pages;
 
 /// The entities of a dump in either format.
 pub enum Entities<R: BufRead> {
     /// A JSON dump.
     Json(JsonDump<R>),
     /// An XML dump, boxed: it keeps the dump's `<siteinfo>`.
-    Xml(Box<XmlDump<R>>),
+    Xml(Box<Pages<R>>),
 }
 
 impl Entities<Box<dyn BufRead + Send>> {
@@ -33,7 +33,7 @@ impl Entities<Box<dyn BufRead + Send>> {
         let mut reader = crate::open(path)?;
         let first = reader.fill_buf()?.first().copied();
         Ok(if first == Some(b'<') {
-            Self::Xml(Box::new(XmlDump::new(reader)))
+            Self::Xml(Box::new(crate::xml_dump::pages(reader)))
         } else {
             Self::Json(JsonDump::new(reader))
         })
@@ -96,7 +96,7 @@ impl<R: BufRead> Entities<R> {
                 {
                     continue;
                 }
-                if page.redirect.is_some() || is_redirect_json(&latest.text) {
+                if page.header.redirect.is_some() || is_redirect_json(&latest.text) {
                     match redirect_of(&latest.text) {
                         Some((from, to)) => {
                             return Some(Ok(DumpEntry::Redirect(DumpRedirect {
@@ -104,7 +104,7 @@ impl<R: BufRead> Entities<R> {
                                 to,
                                 revid: latest.id,
                                 timestamp: latest.timestamp.clone(),
-                                pageid: page.id,
+                                pageid: page.header.id,
                             })));
                         }
                         None => continue,
@@ -114,15 +114,18 @@ impl<R: BufRead> Entities<R> {
                     Entity::from_json(&latest.text)
                         .map(|mut parsed| {
                             let page_info = parsed.page.get_or_insert_with(PageInfo::default);
-                            page_info.pageid = Some(page.id);
+                            page_info.pageid = Some(page.header.id);
                             page_info.lastrevid = Some(latest.id);
                             page_info.modified = Some(latest.timestamp.clone());
                             parsed
                         })
                         .map(|e| DumpEntry::Entity(Box::new(e)))
                         .map_err(|e| DumpError::Entity {
-                            line: usize::try_from(page.id).unwrap_or(0),
-                            message: format!("page {} (`{}`): {e}", page.id, page.title),
+                            line: usize::try_from(page.header.id).unwrap_or(0),
+                            message: format!(
+                                "page {} (`{}`): {e}",
+                                page.header.id, page.header.title
+                            ),
                         }),
                 );
             },
@@ -166,7 +169,7 @@ mod tests {
 
     #[test]
     fn xml_pages_become_entities_with_revisions() {
-        let items: Vec<ParsedEntity> = Entities::Xml(Box::new(XmlDump::new(
+        let items: Vec<ParsedEntity> = Entities::Xml(Box::new(crate::xml_dump::pages(
             crate::xml_dump::tests::SAMPLE.as_bytes(),
         )))
         .map(Result::unwrap)
@@ -179,7 +182,7 @@ mod tests {
 
     #[test]
     fn entries_keep_the_redirects() {
-        let entries: Vec<DumpEntry> = Entities::Xml(Box::new(XmlDump::new(
+        let entries: Vec<DumpEntry> = Entities::Xml(Box::new(crate::xml_dump::pages(
             crate::xml_dump::tests::SAMPLE.as_bytes(),
         )))
         .entries()

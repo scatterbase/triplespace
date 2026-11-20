@@ -8,7 +8,7 @@
 //! [`crate::bundle::Reader`] exactly as the `records` format decides them (21 §4.4): a
 //! withheld or erased text, comment or attestation is written as MediaWiki writes
 //! revision-deleted content, and a record withheld whole is left out, a target with
-//! none left being listed as missing. The XML is written through `scatter-mediawiki-xml`.
+//! none left being listed as missing. The XML is written through RevisionChest's `mwdump` (0112 §2).
 //!
 //! Two phases, so that a refusal (`413` for a selection over `export.sync_revisions`)
 //! comes before any byte of the body: [`plan`] reads the metadata of the revisions the
@@ -24,10 +24,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::io::Write;
 
+use mwdump::{Namespace, PageHeader, Revision, SiteInfo, Writer};
 use scatter_integrity::bundle::Withhold;
 use scatter_log::body::{ATTESTATION, COMMENT, CONTENT};
 use scatter_log_postgres::{PgClient, ids, log};
-use scatter_mediawiki_xml::{DumpPage, Revision, SiteInfo, SiteNamespace, Writer};
 use scatter_wikibase_model::EntityId;
 use tokio_postgres::GenericClient;
 use triplespace_projections::common::target_kind;
@@ -70,31 +70,50 @@ pub fn site_info(
     base: &str,
     generator: &str,
 ) -> SiteInfo {
-    let mut namespaces: Vec<SiteNamespace> = names
+    let mut namespaces: Vec<Namespace> = names
         .source()
         .namespaces
         .iter()
-        .map(|n| SiteNamespace {
-            key: i64::from(n.id),
-            case: if n.case_sensitive {
-                "case-sensitive".into()
+        .map(|n| {
+            let case = if n.case_sensitive {
+                "case-sensitive"
             } else {
-                "first-letter".into()
-            },
-            name: n.name.clone(),
+                "first-letter"
+            };
+            namespace(i64::from(n.id), case, &n.name)
         })
         .collect();
     namespaces.sort_by_key(|n| n.key);
     namespaces.dedup_by_key(|n| n.key);
-    SiteInfo {
-        lang: lang.to_string(),
-        sitename: sitename.to_string(),
-        dbname: dbname.to_string(),
-        base: base.to_string(),
-        generator: generator.to_string(),
-        case: "first-letter".into(),
-        namespaces,
-    }
+    // Every field set, so the writer writes each one as MediaWiki does.
+    let mut site = SiteInfo::default();
+    site.lang = Some(lang.to_string());
+    site.sitename = Some(sitename.to_string());
+    site.dbname = Some(dbname.to_string());
+    site.base = Some(base.to_string());
+    site.generator = Some(generator.to_string());
+    site.case = Some("first-letter".into());
+    site.namespaces = namespaces;
+    site
+}
+
+/// A namespace of the `<siteinfo>`, its case always written.
+fn namespace(key: i64, case: &str, name: &str) -> Namespace {
+    let mut n = Namespace::default();
+    n.key = key;
+    n.case = Some(case.to_string());
+    n.name = name.to_string();
+    n
+}
+
+/// A page's header: its ID, namespace, title and redirect.
+fn page_header(id: u64, ns: i64, title: String, redirect: Option<String>) -> PageHeader {
+    let mut h = PageHeader::default();
+    h.id = id;
+    h.ns = ns;
+    h.title = title;
+    h.redirect = redirect;
+    h
 }
 
 /// A title with its namespace's local name, `Project:Scope`.
@@ -142,7 +161,7 @@ enum Kind {
 /// One page to write, with its revisions oldest first.
 #[derive(Debug, Clone)]
 struct PagePlan {
-    head: DumpPage,
+    head: PageHeader,
     kind: Kind,
     model: String,
     revisions: Vec<RevisionPlan>,
@@ -481,13 +500,7 @@ pub async fn plan<C: PgClient + GenericClient>(
         heads.insert(
             (target_kind::PAGE, page_id.to_string()),
             PagePlan {
-                head: DumpPage {
-                    title: prefixed(&site, ns, r.get(2)),
-                    ns,
-                    id: page_id,
-                    redirect,
-                    revisions: Vec::new(),
-                },
+                head: page_header(page_id, ns, prefixed(&site, ns, r.get(2)), redirect),
                 kind: Kind::Page,
                 model,
                 revisions: Vec::new(),
@@ -515,13 +528,12 @@ pub async fn plan<C: PgClient + GenericClient>(
         heads.insert(
             (target_kind::ENTITY, text.clone()),
             PagePlan {
-                head: DumpPage {
-                    title: prefixed(&site, ns, &title),
+                head: page_header(
+                    u64::try_from(r.get::<_, i64>(2)).unwrap_or_default(),
                     ns,
-                    id: u64::try_from(r.get::<_, i64>(2)).unwrap_or_default(),
-                    redirect: None,
-                    revisions: Vec::new(),
-                },
+                    prefixed(&site, ns, &title),
+                    None,
+                ),
                 kind: Kind::Entity(id),
                 model: model.to_string(),
                 revisions: Vec::new(),
@@ -651,7 +663,7 @@ where
     F: FnMut(Vec<u8>) -> Fut,
     Fut: Future<Output = Result<(), BuildError>>,
 {
-    let io = |e: scatter_mediawiki_xml::XmlError| BuildError::Io(e.to_string());
+    let io = |e: mwdump::DumpError| BuildError::Io(e.to_string());
     let mut w = Writer::new(Vec::new());
     w.start(&plan.site).map_err(io)?;
     for note in &plan.notices {
@@ -691,33 +703,31 @@ where
             } else {
                 content(client, page, r).await?
             };
-            let (user, ip) = match &r.contributor {
-                Contributor::User(id, name) => (Some((*id, name.clone())), None),
-                Contributor::Ip(ip) => (None, Some(ip.clone())),
-                Contributor::Hidden => (None, None),
+            let mut rev = Revision::default();
+            rev.id = r.revid;
+            rev.parent_id = (r.parent != 0).then_some(r.parent);
+            rev.timestamp = iso8601(r.time);
+            match &r.contributor {
+                Contributor::User(id, name) => {
+                    rev.user_id = Some(*id);
+                    rev.user_name = Some(name.clone());
+                }
+                Contributor::Ip(ip) => rev.ip = Some(ip.clone()),
+                Contributor::Hidden => {}
+            }
+            rev.user_hidden = user_hidden || r.contributor == Contributor::Hidden;
+            rev.comment_hidden = comment_hidden;
+            rev.text_hidden = text.is_none();
+            rev.minor = r.minor;
+            rev.comment = if comment_hidden {
+                None
+            } else {
+                r.comment.clone()
             };
-            let rev = Revision {
-                id: r.revid,
-                parent_id: (r.parent != 0).then_some(r.parent),
-                timestamp: iso8601(r.time),
-                user,
-                ip,
-                user_hidden: user_hidden || r.contributor == Contributor::Hidden,
-                comment_hidden,
-                text_hidden: text.is_none(),
-                minor: r.minor,
-                comment: if comment_hidden {
-                    None
-                } else {
-                    r.comment.clone()
-                },
-                origin: Some(r.revid),
-                model: Some(model.clone()),
-                format: Some(format_of(&model)),
-                text: text.unwrap_or_default(),
-                sha1: None,
-                slots: Vec::new(),
-            };
+            rev.origin = Some(r.revid);
+            rev.model = Some(model.clone());
+            rev.format = Some(format_of(&model));
+            rev.text = text.unwrap_or_default();
             w.revision(&rev).map_err(io)?;
             if w.get_mut().len() >= chunk {
                 emit(std::mem::take(w.get_mut())).await?;
@@ -929,21 +939,11 @@ mod tests {
 
     #[test]
     fn titles_take_the_sites_names() {
-        let site = SiteInfo {
-            namespaces: vec![
-                SiteNamespace {
-                    key: 0,
-                    case: "first-letter".into(),
-                    name: String::new(),
-                },
-                SiteNamespace {
-                    key: 4,
-                    case: "first-letter".into(),
-                    name: "Librarybase".into(),
-                },
-            ],
-            ..SiteInfo::default()
-        };
+        let mut site = SiteInfo::default();
+        site.namespaces = vec![
+            namespace(0, "first-letter", ""),
+            namespace(4, "first-letter", "Librarybase"),
+        ];
         assert_eq!(prefixed(&site, 0, "Home"), "Home");
         assert_eq!(prefixed(&site, 4, "Home"), "Librarybase:Home");
         assert_eq!(

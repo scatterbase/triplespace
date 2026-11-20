@@ -21,7 +21,7 @@
 
 use scatter_actors::key::ActorKey;
 use scatter_adapter_wikibase::adoption::Contributor;
-use scatter_adapter_wikibase::xml_dump::DumpPage;
+use scatter_adapter_wikibase::xml_dump::Page;
 use scatter_ingest::adopt::{AdoptedPage, Author};
 use scatter_log::cbor::Value;
 use scatter_pages::{PAYLOAD_PAGE, PageOp, Source, validate, withheld};
@@ -54,7 +54,7 @@ fn hidden_parts(r: &scatter_adapter_wikibase::xml_dump::Revision) -> Vec<String>
 
 /// Why a MediaWiki-namespace page is not a message the instance can use: a revision of a
 /// model other than `wikitext` or `text`.
-fn not_a_message(page: &DumpPage, model: &str) -> Option<String> {
+fn not_a_message(page: &Page, model: &str) -> Option<String> {
     page.revisions
         .iter()
         .map(|r| r.model.as_deref().unwrap_or(model))
@@ -87,9 +87,9 @@ pub fn author(contributor: Contributor, issuer: &str) -> Author {
 
 /// Reads a dump page as document page revisions.
 #[must_use]
-pub fn read_page(page: &DumpPage, issuer: &str, current_only: bool) -> PageRead {
-    let Ok(ns) = i32::try_from(page.ns) else {
-        return PageRead::Deferred(format!("namespace {} is out of range", page.ns));
+pub fn read_page(page: &Page, issuer: &str, current_only: bool) -> PageRead {
+    let Ok(ns) = i32::try_from(page.header.ns) else {
+        return PageRead::Deferred(format!("namespace {} is out of range", page.header.ns));
     };
     let Some(namespace) = Namespaces::embedded().get(ns) else {
         return PageRead::Deferred(format!("namespace {ns} is not registered here"));
@@ -120,11 +120,12 @@ pub fn read_page(page: &DumpPage, issuer: &str, current_only: bool) -> PageRead 
         ));
     }
     let title = if ns == 0 {
-        page.title.clone()
+        page.header.title.clone()
     } else {
-        page.title
+        page.header
+            .title
             .split_once(':')
-            .map_or_else(|| page.title.clone(), |(_, t)| t.to_string())
+            .map_or_else(|| page.header.title.clone(), |(_, t)| t.to_string())
     };
     let revisions: Vec<_> = if current_only {
         page.revisions.last().into_iter().collect()
@@ -168,7 +169,7 @@ pub fn read_page(page: &DumpPage, issuer: &str, current_only: bool) -> PageRead 
         previous_model = Some(rev_model);
         adopted_ids.push(r.id);
         out.push(AdoptedPage {
-            page_id: page.id,
+            page_id: page.header.id,
             payload_type: PAYLOAD_PAGE.into(),
             content: op.to_json(),
             extra: text.map(Value::text).into_iter().collect(),
@@ -195,16 +196,24 @@ mod tests {
     use serde_json::json;
 
     fn revision(id: u64, parent: Option<u64>, text: &str) -> Revision {
-        Revision {
-            id,
-            parent_id: parent,
-            timestamp: format!("2026-01-0{id}T00:00:00Z"),
-            user: Some((7, "Harej".into())),
-            model: Some("wikitext".into()),
-            text: text.into(),
-            comment: Some(format!("edit {id}")),
-            ..Revision::default()
-        }
+        let mut r = Revision::default();
+        r.id = id;
+        r.parent_id = parent;
+        r.timestamp = format!("2026-01-0{id}T00:00:00Z");
+        r.user_id = Some(7);
+        r.user_name = Some("Harej".into());
+        r.model = Some("wikitext".into());
+        r.text = text.into();
+        r.comment = Some(format!("edit {id}"));
+        r
+    }
+
+    fn page(title: &str, ns: i64, id: u64, revisions: Vec<Revision>) -> Page {
+        let mut header = scatter_adapter_wikibase::xml_dump::PageHeader::default();
+        header.title = title.into();
+        header.ns = ns;
+        header.id = id;
+        Page::new(header, revisions)
     }
 
     #[test]
@@ -212,13 +221,12 @@ mod tests {
         let mut second = revision(2, Some(1), "two");
         second.comment_hidden = true;
         second.comment = None;
-        let page = DumpPage {
-            title: "Project:Scope".into(),
-            ns: 4,
-            id: 10,
-            redirect: None,
-            revisions: vec![revision(1, None, "one"), second],
-        };
+        let page = page(
+            "Project:Scope",
+            4,
+            10,
+            vec![revision(1, None, "one"), second],
+        );
         let PageRead::Adopt(revs) = read_page(&page, "lb", false) else {
             panic!("adopted")
         };
@@ -240,25 +248,18 @@ mod tests {
 
     #[test]
     fn talk_and_interface_pages_are_deferred() {
-        let talk = DumpPage {
-            title: "User talk:Harej".into(),
-            ns: 3,
-            id: 1,
-            redirect: None,
-            revisions: vec![revision(1, None, "hi")],
-        };
+        let talk = page("User talk:Harej", 3, 1, vec![revision(1, None, "hi")]);
         assert!(
             matches!(read_page(&talk, "lb", false), PageRead::Deferred(r) if r.contains("threads"))
         );
         // A MediaWiki-namespace message comes as an Interface page, its wikitext kept as
         // `text`; a stylesheet there is ignored (0095 A1).
-        let message = DumpPage {
-            title: "MediaWiki:Sidebar".into(),
-            ns: 8,
-            id: 2,
-            redirect: None,
-            revisions: vec![revision(1, None, "x"), revision(2, Some(1), "y")],
-        };
+        let message = page(
+            "MediaWiki:Sidebar",
+            8,
+            2,
+            vec![revision(1, None, "x"), revision(2, Some(1), "y")],
+        );
         let PageRead::Adopt(revs) = read_page(&message, "lb", false) else {
             panic!("a message is adopted");
         };
@@ -269,21 +270,9 @@ mod tests {
         assert!(revs[1].content.get("model").is_none(), "no model change");
         let mut sheet = revision(3, None, "body {}");
         sheet.model = Some("css".into());
-        let css = DumpPage {
-            title: "MediaWiki:Common.css".into(),
-            ns: 8,
-            id: 4,
-            redirect: None,
-            revisions: vec![sheet],
-        };
+        let css = page("MediaWiki:Common.css", 8, 4, vec![sheet]);
         assert!(matches!(read_page(&css, "lb", false), PageRead::Ignored(_)));
-        let template = DumpPage {
-            title: "Template:Cwbn".into(),
-            ns: 10,
-            id: 3,
-            redirect: None,
-            revisions: vec![revision(1, None, "<div/>")],
-        };
+        let template = page("Template:Cwbn", 10, 3, vec![revision(1, None, "<div/>")]);
         assert!(matches!(read_page(&template, "lb", false), PageRead::Adopt(r) if r.len() == 1));
     }
 }

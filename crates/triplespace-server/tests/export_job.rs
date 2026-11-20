@@ -424,7 +424,8 @@ fn backdate(file: &Path, days: u64) {
 }
 
 fn pages_in(xml: &[u8]) -> (usize, usize) {
-    let pages: Vec<scatter_mediawiki_xml::DumpPage> = scatter_mediawiki_xml::XmlDump::new(xml)
+    let pages: Vec<mwdump::Page> = mwdump::DumpReader::new(xml)
+        .pages()
         .map(|p| p.expect("a well-formed page"))
         .collect();
     (

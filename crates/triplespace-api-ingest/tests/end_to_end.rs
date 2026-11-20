@@ -1359,9 +1359,7 @@ fn import_revision(
         time: 1_767_225_600_000_000 + (day - 1) * 86_400_000_000,
         model: "wikitext".into(),
         text: text.map(str::to_string),
-        sha1: text
-            .map(scatter_mediawiki_xml::sha1_base36)
-            .unwrap_or_default(),
+        sha1: text.map(mwdump::sha1_base36).unwrap_or_default(),
         minor: id.is_multiple_of(2),
         comment: Some(format!("edit {id}")),
         withheld: if text.is_none() {

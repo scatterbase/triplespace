@@ -6,7 +6,7 @@
 //! - [`xml_dump`]: a MediaWiki XML dump (`dumpBackup.php`, Special:Export), streamed page
 //!   by page with each page's revisions: the complete input for an adoption, since it
 //!   carries the page ID, the revision ID and timestamp, the contributor and the entity
-//!   JSON together. The reader is `scatter-mediawiki-xml`'s (0005 A119); the module
+//!   JSON together. The reader is RevisionChest's `mwdump` (0112 §2); the module
 //!   opens the file.
 //! - [`adoption`]: a dump's pages as adopted entities in home form (0035 §3), with the
 //!   [`adoption::Survey`] that derives the sequence floors and the accounts from a pass
@@ -44,7 +44,7 @@ pub use follow::{EntityNamespaces, Fetched, FollowError, entity_id_of, read_enti
 pub use json_dump::{JsonDump, parse_line};
 pub use key_map::{ConfigError, Index, KeyMappedAdapter, KeyRule, KeyRules, MapError, Outcome};
 pub use typing::DumpPropertyTypes;
-pub use xml_dump::{DumpPage, Revision, XmlDump};
+pub use xml_dump::{Page, Pages, Revision};
 
 /// The crate's name, as a provider's `adapter` field names it (0091 §1).
 pub const NAME: &str = env!("CARGO_PKG_NAME");

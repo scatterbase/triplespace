@@ -16,8 +16,8 @@ use std::time::Duration;
 
 use anyhow::{Context, Result, bail};
 use clap::{Args, Subcommand};
-use scatter_adapter_mediawiki::Windows;
-use scatter_adapter_mediawiki::recentchanges::parse_iso;
+use mwrecent::Windows;
+use mwrecent::parse_iso;
 use scatter_ingest::follow::run_follow;
 use scatter_ingest::write::Attestation;
 use scatter_providers::Registry;
@@ -349,7 +349,7 @@ pub async fn run(args: Follow) -> Result<()> {
     eprintln!(
         "following {} from {}",
         provider.slug,
-        scatter_adapter_mediawiki::recentchanges::iso(source.poller().time)
+        mwrecent::iso(source.poller().time)
     );
 
     if !args.once {
@@ -385,9 +385,7 @@ pub async fn run(args: Follow) -> Result<()> {
         outcome.counts.other,
         outcome.late,
         outcome.stale,
-        pos.rc_time
-            .map(scatter_adapter_mediawiki::recentchanges::iso)
-            .unwrap_or_default()
+        pos.rc_time.map(mwrecent::iso).unwrap_or_default()
     );
     Ok(())
 }

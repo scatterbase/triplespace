@@ -22,7 +22,7 @@
 //! the counts, the talk conversion, what was left out and why, and its page) and, when
 //! asked for, `census`.
 
-use scatter_mediawiki_xml::{DumpPage, XmlDump};
+use mwdump::Page;
 use scatter_wikibase_model::sites::SiteRegistry;
 use serde_json::{Value, json};
 use triplespace_api_ingest::import::{ImportRequest, census, issuer_for, run_request};
@@ -104,9 +104,9 @@ async fn fetch(ctx: &Ctx, url: &str, max_bytes: usize) -> Result<Vec<u8>, ApiErr
 }
 
 /// The file's pages.
-fn read(bytes: &[u8]) -> Result<Vec<DumpPage>, ApiError> {
+fn read(bytes: &[u8]) -> Result<Vec<Page>, ApiError> {
     let mut pages = Vec::new();
-    for page in XmlDump::new(bytes) {
+    for page in mwdump::DumpReader::new(bytes).pages() {
         pages.push(page.map_err(|e| {
             ApiError::new(
                 "import-unreadable",

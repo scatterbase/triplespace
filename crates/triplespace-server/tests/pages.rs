@@ -1757,13 +1757,13 @@ fn records_in(bytes: &[u8]) -> u64 {
 /// The MediaWiki XML export of Librarybase pages and items round-trips through the
 /// reader (21 §4.2; 0047 §8.1): `POST /export` with `format: xml` streams a schema-0.11
 /// document holding the pages' revisions and the items' local-graph states, which
-/// `scatter-mediawiki-xml` reads back, writes again and reads to the same pages; a
+/// `mwdump` reads back, writes again and reads to the same pages; a
 /// revision-deleted text is written as MediaWiki writes it; `action=query&export`,
 /// `exportnowrap` and `Special:Export` give the same document.
 #[tokio::test]
 #[allow(clippy::too_many_lines)]
 async fn an_xml_export_of_librarybase_pages_round_trips() {
-    use scatter_mediawiki_xml::Writer;
+    use mwdump::Writer;
     let Some((database, key_file)) = setup("tspages_xml_test").await else {
         eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
         return;
@@ -1809,11 +1809,13 @@ async fn an_xml_export_of_librarybase_pages_round_trips() {
         "{text}"
     );
     let (site, pages) = read(&bytes);
-    assert_eq!(site.sitename, "librarybase");
-    assert_eq!(site.generator, "Triplespace test");
+    assert_eq!(site.sitename.as_deref(), Some("librarybase"));
+    assert_eq!(site.generator.as_deref(), Some("Triplespace test"));
     assert!(
-        site.base.starts_with("https://librarybase.org/wiki/"),
-        "{}",
+        site.base
+            .as_deref()
+            .is_some_and(|b| b.starts_with("https://librarybase.org/wiki/")),
+        "{:?}",
         site.base
     );
     assert!(
@@ -1825,11 +1827,18 @@ async fn an_xml_export_of_librarybase_pages_round_trips() {
         pages.len(),
         1,
         "{:?}",
-        pages.iter().map(|p| &p.title).collect::<Vec<_>>()
+        pages.iter().map(|p| &p.header.title).collect::<Vec<_>>()
     );
-    let home = pages.iter().find(|p| p.ns == 4).expect("Project:Home");
-    assert_eq!(home.id, 489);
-    assert!(home.title.ends_with(":Home"), "{}", home.title);
+    let home = pages
+        .iter()
+        .find(|p| p.header.ns == 4)
+        .expect("Project:Home");
+    assert_eq!(home.header.id, 489);
+    assert!(
+        home.header.title.ends_with(":Home"),
+        "{}",
+        home.header.title
+    );
     assert_eq!(home.revisions.len(), 18, "every revision of the page");
     assert!(
         home.revisions
@@ -1855,13 +1864,13 @@ async fn an_xml_export_of_librarybase_pages_round_trips() {
     );
     assert_eq!(
         latest.sha1.as_deref(),
-        Some(scatter_mediawiki_xml::sha1_base36(&latest.text).as_str())
+        Some(mwdump::sha1_base36(&latest.text).as_str())
     );
     // Written again by the same crate, it reads to the same pages.
     let mut writer = Writer::new(Vec::new());
     writer.start(&site).unwrap();
     for p in &pages {
-        writer.page(p).unwrap();
+        writer.page(&p.header, &p.revisions).unwrap();
     }
     let (site_again, again) = read(&writer.finish().unwrap());
     assert_eq!(site_again, site);
@@ -1922,7 +1931,11 @@ async fn an_xml_export_of_librarybase_pages_round_trips() {
     let bare = resp.into_body().collect().await.unwrap().to_bytes();
     assert!(bare.starts_with(b"<mediawiki "));
     let (_, nowrap) = read(&bare);
-    assert!(nowrap[0].title.ends_with(":Scope"), "{}", nowrap[0].title);
+    assert!(
+        nowrap[0].header.title.ends_with(":Scope"),
+        "{}",
+        nowrap[0].header.title
+    );
 
     // A revision-deleted text is written as MediaWiki writes it, for everyone.
     let t = api_client.get("action=query&meta=tokens&type=login").await;
@@ -1967,7 +1980,7 @@ async fn an_xml_export_of_librarybase_pages_round_trips() {
     let first = &redacted[0].revisions[0];
     assert_eq!(first.id, hidden_id);
     assert!(first.text_hidden && first.text.is_empty());
-    assert!(!first.user_hidden && first.user.is_some());
+    assert!(!first.user_hidden && first.user_id.zip(first.user_name.as_ref()).is_some());
     assert!(redacted[0].revisions[1..].iter().all(|r| !r.text_hidden));
 
     // `Special:Export` through the site: the form, and the file it posts for.
@@ -2138,18 +2151,13 @@ async fn export_from(api: Router, body: Value) -> (StatusCode, axum::http::Heade
 }
 
 /// A MediaWiki XML export read back: its `<siteinfo>` and its pages.
-fn read_xml(
-    bytes: &[u8],
-) -> (
-    scatter_mediawiki_xml::SiteInfo,
-    Vec<scatter_mediawiki_xml::DumpPage>,
-) {
-    let mut dump = scatter_mediawiki_xml::XmlDump::new(bytes);
-    let pages: Vec<scatter_mediawiki_xml::DumpPage> = dump
+fn read_xml(bytes: &[u8]) -> (mwdump::SiteInfo, Vec<mwdump::Page>) {
+    let mut dump = mwdump::DumpReader::new(bytes).pages();
+    let pages: Vec<mwdump::Page> = dump
         .by_ref()
         .map(|p| p.expect("a well-formed page"))
         .collect();
-    (dump.siteinfo().clone(), pages)
+    (dump.site_info().cloned().unwrap_or_default(), pages)
 }
 
 /// Librarybase's items and properties export as Wikibase entity pages (21 §4.2; 0047
@@ -2161,7 +2169,7 @@ fn read_xml(
 #[tokio::test]
 #[allow(clippy::too_many_lines)]
 async fn an_xml_export_of_librarybase_items_round_trips() {
-    use scatter_mediawiki_xml::Writer;
+    use mwdump::Writer;
     if admin_config().is_none() {
         eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
         return;
@@ -2238,13 +2246,13 @@ async fn an_xml_export_of_librarybase_items_round_trips() {
         pages.len(),
         2,
         "{:?}",
-        pages.iter().map(|p| &p.title).collect::<Vec<_>>()
+        pages.iter().map(|p| &p.header.title).collect::<Vec<_>>()
     );
     let q1 = pages
         .iter()
-        .find(|p| p.title == "Item:Q1")
+        .find(|p| p.header.title == "Item:Q1")
         .expect("Item:Q1");
-    assert_eq!(q1.ns, 120);
+    assert_eq!(q1.header.ns, 120);
     assert_eq!(q1.revisions.len(), 6, "every local revision of the item");
     assert_eq!((q1.revisions[0].id, q1.revisions[1].id), (2, 3));
     assert!(
@@ -2252,8 +2260,15 @@ async fn an_xml_export_of_librarybase_items_round_trips() {
             .windows(2)
             .all(|w| w[1].parent_id == Some(w[0].id))
     );
-    assert_eq!(q1.revisions[0].user, Some((3, "Librarybase".into())));
-    assert_eq!(q1.revisions[1].user, Some((0, "imported>Harej".into())));
+    let user = |r: &mwdump::Revision| (r.user_id, r.user_name.clone());
+    assert_eq!(
+        user(&q1.revisions[0]),
+        (Some(3), Some("Librarybase".into()))
+    );
+    assert_eq!(
+        user(&q1.revisions[1]),
+        (Some(0), Some("imported>Harej".into()))
+    );
     assert_eq!(q1.revisions[1].model.as_deref(), Some("wikibase-item"));
     assert_eq!(q1.revisions[1].format.as_deref(), Some("application/json"));
     let state: Value = serde_json::from_str(&q1.revisions[1].text).unwrap();
@@ -2267,9 +2282,9 @@ async fn an_xml_export_of_librarybase_items_round_trips() {
     );
     let p1 = pages
         .iter()
-        .find(|p| p.title == "Property:P1")
+        .find(|p| p.header.title == "Property:P1")
         .expect("Property:P1");
-    assert_eq!(p1.ns, 122);
+    assert_eq!(p1.header.ns, 122);
     assert_eq!(p1.revisions[0].model.as_deref(), Some("wikibase-property"));
     assert_eq!(
         serde_json::from_str::<Value>(&p1.revisions[0].text).unwrap()["datatype"],
@@ -2280,7 +2295,7 @@ async fn an_xml_export_of_librarybase_items_round_trips() {
     let mut w = Writer::new(Vec::new());
     w.start(&site).unwrap();
     for p in &pages {
-        w.page(p).unwrap();
+        w.page(&p.header, &p.revisions).unwrap();
     }
     let (site_again, again) = read_xml(&w.finish().unwrap());
     assert_eq!(site_again, site);

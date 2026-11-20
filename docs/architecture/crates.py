@@ -127,8 +127,8 @@ def load():
     for r in data.get("retired", []):
         if not r.get("name") or not r.get("into"):
             errs.append("a [[retired]] entry lacks name or into")
-        elif r["into"] not in known:
-            errs.append(f"retired `{r['name']}`: into `{r['into']}` is not in the map")
+        elif r["into"] not in known and not r.get("external"):
+            errs.append(f"retired `{r['name']}`: into `{r['into']}` is not in the map (mark `external = true` for a crate outside the workspace)")
         elif r["name"] in known:
             errs.append(f"retired `{r['name']}` is still in the map")
     order = [r.get("layer") for r in rows]
@@ -178,6 +178,8 @@ def table(rows):
         parts = []
         for r in retired:
             how = f"renamed `{r['into']}`" if r.get("renamed") else f"in `{r['into']}`"
+            if r.get("external"):
+                how += ", a published crate outside the workspace"
             if r.get("sources"):
                 how += f", {r['sources']}"
             parts.append(f"`{r['name']}` ({how})")

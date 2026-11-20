@@ -94,7 +94,6 @@ impl PropertyTypes for DumpPropertyTypes {
 mod tests {
     use super::*;
     use crate::Entities;
-    use crate::xml_dump::XmlDump;
 
     /// Stored JSON, as an XML dump carries it: the item comes before the properties that
     /// type it, and no snak has a `datatype`. P9 is used but not defined.
@@ -126,7 +125,7 @@ mod tests {
 </mediawiki>"#;
 
     fn entities() -> Vec<Entity> {
-        Entities::Xml(Box::new(XmlDump::new(DUMP.as_bytes())))
+        Entities::Xml(Box::new(crate::xml_dump::pages(DUMP.as_bytes())))
             .map(|p| p.unwrap().entity)
             .collect()
     }

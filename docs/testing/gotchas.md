@@ -33,6 +33,12 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
   `America/Los_Angeles`). Everything after that check in the test is not run. A session
   option in the test URL does not reach it, since the test rebuilds the URL for its scratch
   database; `ALTER ROLE <you> SET timezone = 'UTC'` on the test server makes it pass (SCA-432).
+- A scratch Postgres started with `pg_ctl` from a shell with no locale set (no `LC_ALL` or
+  `LANG`, as in an agent's shell on macOS) exits at once: its log says `postmaster became
+  multithreaded during startup` and `Set the LC_ALL environment variable to a valid locale`.
+  Start it with `LC_ALL=en_US.UTF-8` (2026-11-20, Homebrew Postgres 18). A socket directory
+  whose path is over 103 bytes (a session's scratchpad) is refused too: start it with
+  `-k '' -c listen_addresses=localhost` and connect over TCP.
 - A test that `ORDER BY`s text and asserts the order depends on the server's collation: the
   sandbox's Postgres (`C`) puts `Portland` before `city`, CI's Postgres 18 service container
   (`en_US.UTF-8`) puts `city` first (2026-11-08, `create_entities`). Sort in Rust, or order
