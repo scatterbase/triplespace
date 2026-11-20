@@ -180,7 +180,8 @@ pub enum Problem {
     },
     /// Two members of one namespace, or two keyed members (0004 §9; 0009 §10).
     LinkNamespace,
-    /// Members of the wrong or differing entity types for the link.
+    /// Members of the wrong or differing entity types for the link, or a `same-as` with a
+    /// keyed type that never joins a cluster, a keyword or notation (0009 §8).
     LinkTypes,
     /// A redirect to itself, across namespaces for items, or between providers.
     RedirectShape,
@@ -476,6 +477,16 @@ fn check_link(
     }
 }
 
+/// Keyed entities that are names, keywords and notations, never join a cluster: a `same-as`
+/// with one on either side is refused as a type mismatch (0009 §8). The keyed-type registry's
+/// `clusters` says which types those are ([`EntityId::joins_clusters`]). `different-from` and
+/// removing a link are not joins, so they are not checked here.
+fn check_clusters(ids: &[EntityId], out: &mut Vec<Problem>) {
+    if !ids.iter().all(EntityId::joins_clusters) && !out.contains(&Problem::LinkTypes) {
+        out.push(Problem::LinkTypes);
+    }
+}
+
 fn shape(op: &Operation, cx: &Context<'_>, out: &mut Vec<Problem>) {
     match op {
         Operation::Put {
@@ -546,6 +557,9 @@ fn shape(op: &Operation, cx: &Context<'_>, out: &mut Vec<Problem>) {
         }
         Operation::SameAs { id, ids } | Operation::DifferentFrom { id, ids } => {
             check_link(id.as_ref(), ids, false, cx, out);
+            if matches!(op, Operation::SameAs { .. }) {
+                check_clusters(ids, out);
+            }
             if id.is_none() {
                 out.push(Problem::WireShape);
             }
