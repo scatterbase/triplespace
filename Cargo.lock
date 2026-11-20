@@ -4269,12 +4269,64 @@ name = "triplespace-ui"
 version = "0.0.1"
 dependencies = [
  "axum",
- "base64 0.23.1",
  "html5ever",
  "http-body-util",
+ "insta",
+ "markup5ever_rcdom",
+ "percent-encoding",
+ "scatter-wikibase-model",
+ "serde",
+ "serde_json",
+ "tokio",
+ "tower",
+ "triplespace-client",
+ "triplespace-ui-accounts",
+ "triplespace-ui-admin",
+ "triplespace-ui-kit",
+ "triplespace-ui-pages",
+ "triplespace-ui-special",
+ "url",
+]
+
+[[package]]
+name = "triplespace-ui-accounts"
+version = "0.0.1"
+dependencies = [
+ "axum",
+ "serde",
+ "serde_json",
+ "tokio",
+ "triplespace-client",
+ "triplespace-ui-kit",
+ "triplespace-ui-pages",
+ "url",
+]
+
+[[package]]
+name = "triplespace-ui-admin"
+version = "0.0.1"
+dependencies = [
+ "axum",
+ "base64 0.23.1",
+ "scatter-titles",
+ "serde",
+ "serde_json",
+ "tokio",
+ "toml",
+ "triplespace-client",
+ "triplespace-ui-kit",
+ "triplespace-ui-pages",
+ "url",
+]
+
+[[package]]
+name = "triplespace-ui-kit"
+version = "0.0.1"
+dependencies = [
+ "axum",
+ "html5ever",
  "icu_locale_core",
  "icu_plurals",
- "insta",
  "markup5ever_rcdom",
  "minijinja",
  "percent-encoding",
@@ -4283,15 +4335,51 @@ dependencies = [
  "scatter-pages",
  "scatter-titles",
  "scatter-wikibase-model",
- "scatter-wikibase-shape",
  "semver",
  "serde",
  "serde_json",
  "sha2 0.11.1",
  "tokio",
  "toml",
- "tower",
  "triplespace-client",
+ "url",
+]
+
+[[package]]
+name = "triplespace-ui-pages"
+version = "0.0.1"
+dependencies = [
+ "axum",
+ "minijinja",
+ "percent-encoding",
+ "scatter-pages",
+ "scatter-titles",
+ "scatter-wikibase-model",
+ "scatter-wikibase-shape",
+ "serde",
+ "serde_json",
+ "tokio",
+ "triplespace-client",
+ "triplespace-ui-kit",
+]
+
+[[package]]
+name = "triplespace-ui-special"
+version = "0.0.1"
+dependencies = [
+ "axum",
+ "base64 0.23.1",
+ "percent-encoding",
+ "scatter-titles",
+ "scatter-wikibase-model",
+ "scatter-wikibase-shape",
+ "serde",
+ "serde_json",
+ "tokio",
+ "toml",
+ "triplespace-client",
+ "triplespace-ui-kit",
+ "triplespace-ui-pages",
  "url",
 ]
 

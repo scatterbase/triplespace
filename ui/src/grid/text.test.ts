@@ -58,7 +58,7 @@ describe( 'the table\'s text', () => {
 	} );
 } );
 
-// The plain forms of special/values.rs.
+// The plain forms of values.rs.
 describe( 'plain values', () => {
 	it( 'read back as they were written', () => {
 		for ( const [ datatype, text ] of [

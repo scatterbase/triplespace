@@ -395,3 +395,19 @@ async fn other_posts_and_an_api_without_login_are_refused() {
     assert_eq!(r.status, StatusCode::NOT_FOUND);
     assert!(!r.body.contains(">Log in</a>"));
 }
+
+// 0113 §1: the router asks each special-page crate in turn; a name one of them serves is
+// answered by it, and a name none serves is the 404.
+#[tokio::test]
+async fn a_special_page_is_served_by_the_crate_that_has_it() {
+    for (path, from) in [
+        ("/wiki/Special:UserLogin", "triplespace-ui-accounts"),
+        ("/wiki/Special:Providers", "triplespace-ui-admin"),
+        ("/wiki/Special:BlankPage", "triplespace-ui-special"),
+    ] {
+        let a = get(path, None).await;
+        assert_ne!(a.status, StatusCode::NOT_FOUND, "{path} ({from})");
+    }
+    let a = get("/wiki/Special:NoSuchPage", None).await;
+    assert_eq!(a.status, StatusCode::NOT_FOUND);
+}

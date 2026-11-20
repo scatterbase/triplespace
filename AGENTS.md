@@ -92,8 +92,8 @@ read, print, copy or commit them.
 4. Each hashed type has exactly one canonical encoding function.
 5. The crates `crates.toml` marks `wasm` (rule 7) build for `wasm32-unknown-unknown`, and so does everything they
    depend on.
-6. The site's crates (`triplespace-ui`, `-client`, `-web`) reach the instance only through its
-   public API.
+6. The site's crates (`triplespace-ui` and the five `triplespace-ui-*` crates under it, `-client`,
+   `-web`) reach the instance only through its public API.
 7. A new crate or dependency edge goes into the crate map (`docs/registry/crates.toml`, shown in 22 §2.1) through an ADR.
 
 ## Checks before calling work done

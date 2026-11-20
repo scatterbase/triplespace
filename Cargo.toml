@@ -19,6 +19,11 @@ members = [
     "crates/triplespace-api-action",
     "crates/triplespace-api-rest",
     "crates/triplespace-client",
+    "crates/triplespace-ui-kit",
+    "crates/triplespace-ui-pages",
+    "crates/triplespace-ui-accounts",
+    "crates/triplespace-ui-admin",
+    "crates/triplespace-ui-special",
     "crates/triplespace-ui",
     "crates/triplespace-web",
     "crates/triplespace-server",
@@ -74,6 +79,11 @@ triplespace-api-action = { path = "crates/triplespace-api-action" }
 triplespace-api-rest = { path = "crates/triplespace-api-rest" }
 triplespace-server = { path = "crates/triplespace-server" }
 triplespace-client = { path = "crates/triplespace-client" }
+triplespace-ui-kit = { path = "crates/triplespace-ui-kit" }
+triplespace-ui-pages = { path = "crates/triplespace-ui-pages" }
+triplespace-ui-accounts = { path = "crates/triplespace-ui-accounts" }
+triplespace-ui-admin = { path = "crates/triplespace-ui-admin" }
+triplespace-ui-special = { path = "crates/triplespace-ui-special" }
 triplespace-ui = { path = "crates/triplespace-ui" }
 triplespace-web = { path = "crates/triplespace-web" }
 triplespace-cli = { path = "crates/triplespace-cli" }

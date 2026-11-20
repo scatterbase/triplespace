@@ -4,7 +4,7 @@
  * which the mapping step then reads as the table's text (0106 §1, §2).
  *
  * - Comma- and tab-separated text, split exactly as the server splits it (`rows_of` in
- *   `crates/triplespace-ui/src/special/create_entities/table.rs`).
+ *   `crates/triplespace-ui-special/src/create_entities/table.rs`).
  * - JSON Lines: one object per line, its keys the columns.
  * - QuickStatements V1, the subset that creates items: `CREATE` and `LAST` lines.
  * - The first worksheet of an .xlsx workbook, read without a dependency: the ZIP's

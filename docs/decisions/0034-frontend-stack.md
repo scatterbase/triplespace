@@ -46,7 +46,7 @@ The backend stack is in 0033.
 
 ### 8. Build
 
-*Current text: [22](../architecture/22-crates-and-stack.md) §5.1.*
+*Current text: [22](../architecture/22-crates-and-stack.md) §5.1; [23](../architecture/23-configuration-and-registry.md) §3.6.*
 
 ### 9. Internationalisation
 

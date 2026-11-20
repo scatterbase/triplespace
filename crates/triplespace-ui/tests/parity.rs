@@ -1,4 +1,4 @@
-//! The skins' parity check (0097 §16, A12; 19 §5.10): every case of the corpus
+//! The skins' parity check (0097 §16, A12; 0113 §2; 19 §5.10): every case of the corpus
 //! (`tests/corpus/cases.json`, and `cases.recorded.json` from a seeded instance) is
 //! rendered with Worksheet, the default skin, and with Plain, and the two are compared as
 //! a browser reads them (`triplespace_ui::parity`) once Worksheet's stylesheet links are

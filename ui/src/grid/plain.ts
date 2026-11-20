@@ -1,6 +1,6 @@
 /**
  * A cell's text as a `datavalue`, in the plain forms of 19 §3.1, as
- * `special/values.rs` reads them on the server: strings and IDs as written, a quantity
+ * `values.rs` reads them on the server: strings and IDs as written, a quantity
  * as a number with its unit's item ID after it where it has one (`12 Q11573`), a time as
  * a year, month or day, monolingual text as `text@lang`, a
  * coordinate as `lat, lon`. And back, for a cell that shows a value to be edited.

@@ -1,0 +1,31 @@
+[package]
+name = "triplespace-ui-special"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "The site's other special pages (ADR 0113): feeds, lists, search, redirects and the entity forms"
+publish = false
+
+[dependencies]
+triplespace-ui-kit.workspace = true
+triplespace-ui-pages.workspace = true
+triplespace-client.workspace = true
+scatter-wikibase-model.workspace = true
+scatter-wikibase-shape.workspace = true
+scatter-titles.workspace = true
+axum.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+base64.workspace = true
+percent-encoding.workspace = true
+tokio = { workspace = true, features = ["macros"] }
+url.workspace = true
+
+[dev-dependencies]
+toml.workspace = true
+
+[lints]
+workspace = true

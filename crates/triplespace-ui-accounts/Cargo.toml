@@ -1,0 +1,23 @@
+[package]
+name = "triplespace-ui-accounts"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "The site's special pages about an account (ADR 0113)"
+publish = false
+
+[dependencies]
+triplespace-ui-kit.workspace = true
+triplespace-ui-pages.workspace = true
+triplespace-client.workspace = true
+axum.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+tokio = { workspace = true, features = ["macros"] }
+url.workspace = true
+
+[lints]
+workspace = true
