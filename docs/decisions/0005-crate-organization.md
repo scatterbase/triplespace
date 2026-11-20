@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-16 (A127)
+- **Updated:** 2026-11-19 (A128)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
@@ -1100,3 +1100,10 @@ Replaced text (22 §2.1, `crates.toml`, the binaries' entry, as it stood):
 - **Source:** 0111 §9
 - **Change:** extends §2
 - **Summary:** `triplespace-cli` holds the provisioner, `triplespace provision`, which carries out tenant requests as the database owner with the instance key, and `tenant create` files a request and runs it at once. No new crate and no new edge. Chapter text: 22 §2.1 (`crates.toml`).
+
+### A128. The reference diff
+
+- **Date:** 2026-11-19
+- **Source:** Direct: Claude, while building the reference diff, 2026-11-19; unconfirmed
+- **Change:** extends §2
+- **Summary:** `scatter-wikibase-changeset` holds the reference diff (`refs`), beside the structured diff of two entity states: every reference of a state keyed by its statement (the GUID with its subject canonical, or the property and main-snak hash where there is none) and by Wikibase's reference hash recomputed from the snaks, never the hash the source wrote; the references added and removed between two states; and the same over a set of keys, so that a fold over an entity's revisions holds the previous state's keys and no earlier entity. Reordering references or their snaks is no change, editing a snak is a removal and an addition, and an absent state has no reference. James asked for it on 2026-11-19 as a new pure crate, for a citation history of Wikidata built outside Triplespace from RevisionChest bundles; it is a module of this crate instead because the crate already diffs two states and the module needs nothing the crate does not depend on. No new crate and no new edge. Chapter text: 22 §2.1 (`crates.toml`).
