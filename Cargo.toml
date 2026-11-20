@@ -161,7 +161,7 @@ anyhow = "1"
 # Dumps (0033 §10): MediaWiki XML and Wikibase JSON dumps, gzip and bzip2 compressed
 quick-xml = "0.42"
 # RevisionChest's library crates (0112 §1): MediaWiki's export XML, and the recent-changes poller
-mwdump = "0.1.1"
+mwdump = "0.1.2"
 mwrecent = "0.1"
 flate2 = "1"
 bzip2 = "0.6"
