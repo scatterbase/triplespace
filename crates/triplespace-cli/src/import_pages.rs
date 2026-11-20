@@ -10,12 +10,12 @@ use std::path::PathBuf;
 
 use anyhow::{Context, Result, bail};
 use clap::Args;
+use mwdump::Page;
 use scatter_actors::key::ActorKey;
 use scatter_adapter_wikibase::xml_dump;
 use scatter_ingest::import::Import as ImportJob;
 use scatter_ingest::import::census::Census;
 use scatter_ingest::write::Attestation;
-use scatter_mediawiki_xml::DumpPage;
 use triplespace_api_ingest::import::{census, ensure_accounts, import_pages_then, issuer_for};
 use triplespace_api_ingest::talk_import::{self, Authors, TalkContext};
 
@@ -54,7 +54,7 @@ pub struct Import {
 }
 
 /// Opens the file as an iterator of its pages, errors written to stderr and counted.
-fn pages(path: &std::path::Path, errors: &mut u64) -> Result<Vec<DumpPage>> {
+fn pages(path: &std::path::Path, errors: &mut u64) -> Result<Vec<Page>> {
     let mut out = Vec::new();
     for page in xml_dump::open(path).context("open file")? {
         match page {

@@ -19,7 +19,7 @@ scatter-actors.workspace = true
 scatter-integrity.workspace = true
 scatter-log.workspace = true
 scatter-log-postgres.workspace = true
-scatter-mediawiki-xml.workspace = true
+mwdump.workspace = true
 scatter-pages.workspace = true
 oxrdf.workspace = true
 flate2.workspace = true
@@ -31,6 +31,7 @@ tokio-postgres.workspace = true
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+bzip2.workspace = true
 
 [lints]
 workspace = true

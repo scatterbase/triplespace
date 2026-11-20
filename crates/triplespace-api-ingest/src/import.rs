@@ -16,6 +16,7 @@
 
 use std::collections::BTreeMap;
 
+use mwdump::{Page, Revision, sha1_base36};
 use scatter_ingest::adopt::Author;
 use scatter_ingest::import::census::{Census, PageClass, Status, TextUses};
 use scatter_ingest::import::{
@@ -25,7 +26,6 @@ use scatter_ingest::import::{
 use scatter_ingest::write::Attestation;
 use scatter_ingest::{IngestError, IngestStore as _};
 use scatter_log_postgres::PgClient;
-use scatter_mediawiki_xml::{DumpPage, Revision, sha1_base36};
 use scatter_pages::{PageOp, validate, withheld};
 use scatter_projection::Pipeline;
 use scatter_titles::Namespaces;
@@ -129,7 +129,7 @@ pub const ENTITY_MODELS: &[&str] = &["wikibase-item", "wikibase-property", "wiki
 
 /// What the import will do with a dump page (10 §6).
 #[must_use]
-pub fn classify(page: &DumpPage) -> PageClass {
+pub fn classify(page: &Page) -> PageClass {
     let model = page
         .revisions
         .last()
@@ -141,8 +141,8 @@ pub fn classify(page: &DumpPage) -> PageClass {
     if crate::talk_import::is_talk_page(page) {
         return PageClass::Talk;
     }
-    let Ok(ns) = i32::try_from(page.ns) else {
-        return PageClass::Deferred(format!("namespace {} is out of range", page.ns));
+    let Ok(ns) = i32::try_from(page.header.ns) else {
+        return PageClass::Deferred(format!("namespace {} is out of range", page.header.ns));
     };
     let Some(namespace) = Namespaces::embedded().get(ns) else {
         return PageClass::Deferred(format!("namespace {ns} is not registered here"));
@@ -173,7 +173,7 @@ pub fn classify(page: &DumpPage) -> PageClass {
 
 /// Why a MediaWiki-namespace page is not a message the instance can use: a revision of a
 /// model other than `wikitext` or `text`.
-fn not_a_message(page: &DumpPage, model: &str) -> Option<String> {
+fn not_a_message(page: &Page, model: &str) -> Option<String> {
     page.revisions
         .iter()
         .map(|r| r.model.as_deref().unwrap_or(model))
@@ -201,7 +201,8 @@ pub fn author_of(r: &Revision, authors: &Authors<'_>) -> Author {
     if r.user_hidden {
         return Author::Hidden;
     }
-    match (&r.user, &r.ip) {
+    // A registered user is one the dump names and numbers both.
+    match (r.user_id.zip(r.user_name.as_ref()), &r.ip) {
         (Some((_, name)), _) => authors.resolve(name),
         (None, Some(ip)) => Author::Surrogate {
             kind: "anonymous".into(),
@@ -212,20 +213,21 @@ pub fn author_of(r: &Revision, authors: &Authors<'_>) -> Author {
 }
 
 /// A page's title without its namespace prefix.
-fn local_title(page: &DumpPage) -> String {
-    if page.ns == 0 {
-        return page.title.clone();
+fn local_title(page: &Page) -> String {
+    if page.header.ns == 0 {
+        return page.header.title.clone();
     }
-    page.title
+    page.header
+        .title
         .split_once(':')
-        .map_or_else(|| page.title.clone(), |(_, t)| t.to_string())
+        .map_or_else(|| page.header.title.clone(), |(_, t)| t.to_string())
 }
 
 /// Reads a dump page the census classed [`PageClass::Page`] as what the job takes;
 /// `Err` names why it cannot be imported, for the rejects.
-pub fn read_page(page: &DumpPage, authors: &Authors<'_>) -> Result<ImportPage, String> {
-    let ns =
-        i32::try_from(page.ns).map_err(|_| format!("namespace {} is out of range", page.ns))?;
+pub fn read_page(page: &Page, authors: &Authors<'_>) -> Result<ImportPage, String> {
+    let ns = i32::try_from(page.header.ns)
+        .map_err(|_| format!("namespace {} is out of range", page.header.ns))?;
     let interface = ns == scatter_titles::INTERFACE;
     let namespace = Namespaces::embedded()
         .get(ns)
@@ -322,7 +324,7 @@ pub fn scan(text: &str) -> TextUses {
 pub async fn census<'a, C: PgClient>(
     db: &C,
     tenant: &str,
-    pages: impl IntoIterator<Item = &'a DumpPage>,
+    pages: impl IntoIterator<Item = &'a Page>,
 ) -> Result<Census, tokio_postgres::Error> {
     let mut c =
         scatter_ingest::import::census::census(pages.into_iter().map(|p| (p, classify(p))), &scan);
@@ -455,7 +457,7 @@ pub async fn import_pages(
     attestation: Attestation,
     import: Import,
     authors: &Authors<'_>,
-    pages: impl IntoIterator<Item = DumpPage>,
+    pages: impl IntoIterator<Item = Page>,
     now: u64,
 ) -> Result<(ImportOutcome, Read), IngestError> {
     import_pages_then(
@@ -483,7 +485,7 @@ pub async fn import_pages_then(
     attestation: Attestation,
     import: Import,
     authors: &Authors<'_>,
-    pages: impl IntoIterator<Item = DumpPage>,
+    pages: impl IntoIterator<Item = Page>,
     now: u64,
     after: impl AsyncFnOnce(u64) -> Result<serde_json::Map<String, serde_json::Value>, IngestError>,
 ) -> Result<(ImportOutcome, Read), IngestError> {
@@ -499,7 +501,7 @@ pub async fn import_pages_then(
                     Some(p)
                 }
                 Err(why) => {
-                    unreadable.push((i + 1, format!("`{}`: {why}", page.title)));
+                    unreadable.push((i + 1, format!("`{}`: {why}", page.header.title)));
                     *read.left_out.entry(why).or_default() += 1;
                     None
                 }
@@ -544,26 +546,24 @@ mod tests {
     use scatter_log::cbor::Value;
 
     fn revision(id: u64, parent: Option<u64>, text: &str) -> Revision {
-        Revision {
-            id,
-            parent_id: parent,
-            timestamp: format!("2026-01-0{id}T00:00:00Z"),
-            user: Some((7, "Harej".into())),
-            model: Some("wikitext".into()),
-            text: text.into(),
-            comment: Some(format!("edit {id}")),
-            ..Revision::default()
-        }
+        let mut r = Revision::default();
+        r.id = id;
+        r.parent_id = parent;
+        r.timestamp = format!("2026-01-0{id}T00:00:00Z");
+        r.user_id = Some(7);
+        r.user_name = Some("Harej".into());
+        r.model = Some("wikitext".into());
+        r.text = text.into();
+        r.comment = Some(format!("edit {id}"));
+        r
     }
 
-    fn page(ns: i64, title: &str, revisions: Vec<Revision>) -> DumpPage {
-        DumpPage {
-            title: title.into(),
-            ns,
-            id: 10,
-            redirect: None,
-            revisions,
-        }
+    fn page(ns: i64, title: &str, revisions: Vec<Revision>) -> Page {
+        let mut header = mwdump::PageHeader::default();
+        header.title = title.into();
+        header.ns = ns;
+        header.id = 10;
+        Page::new(header, revisions)
     }
 
     #[test]
@@ -616,7 +616,8 @@ mod tests {
         second.sha1 = Some("x".into());
         let mut third = revision(3, Some(2), "");
         third.text_hidden = true;
-        third.user = None;
+        third.user_id = None;
+        third.user_name = None;
         third.ip = Some("203.0.113.9".into());
         let p = read_page(
             &page(
@@ -764,7 +765,7 @@ pub async fn run_request<C: PgClient>(
     actor: &str,
     request: &ImportRequest,
     job_id: Option<u64>,
-    pages: Vec<DumpPage>,
+    pages: Vec<Page>,
     now: u64,
     progress: &mut (dyn FnMut(Stage) + Send),
 ) -> Result<ImportReport, IngestError> {
@@ -803,7 +804,7 @@ pub async fn run_request<C: PgClient>(
     // carries their counts. A job is not `finished` with them undone (0104 A8).
     let mut talk = crate::talk_import::TalkCounts::default();
     let convert = !(request.skip_talk || c.talk == 0);
-    let talk_pages: Vec<DumpPage> = if convert {
+    let talk_pages: Vec<Page> = if convert {
         pages
             .iter()
             .filter(|p| crate::talk_import::is_talk_page(p))

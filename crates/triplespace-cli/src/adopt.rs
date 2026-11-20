@@ -293,7 +293,10 @@ pub async fn run(args: Adopt) -> Result<()> {
                         revs.into_iter().map(AdoptedItem::Page).collect()
                     }
                     crate::adopt_pages::PageRead::Deferred(why) => {
-                        eprintln!("deferring page {} (`{}`): {why}", page.id, page.title);
+                        eprintln!(
+                            "deferring page {} (`{}`): {why}",
+                            page.header.id, page.header.title
+                        );
                         *deferred.entry(why).or_default() += 1;
                         Vec::new()
                     }
@@ -313,7 +316,7 @@ pub async fn run(args: Adopt) -> Result<()> {
                             unreadable_revisions += 1;
                             eprintln!(
                                 "skipping revision {revid} of page {} (`{}`): {why}",
-                                page.id, page.title
+                                page.header.id, page.header.title
                             );
                         }
                         a.revisions
@@ -341,7 +344,10 @@ pub async fn run(args: Adopt) -> Result<()> {
                 }
                 Err(e) => {
                     read_errors += 1;
-                    eprintln!("skipping page {} (`{}`): {e}", page.id, page.title);
+                    eprintln!(
+                        "skipping page {} (`{}`): {e}",
+                        page.header.id, page.header.title
+                    );
                     Vec::new()
                 }
             }

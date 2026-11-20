@@ -224,10 +224,7 @@ fn prepare_line<T>(
         .into_iter()
         .map(|item| {
             if let SyncItem::State { upstream, .. } = &item
-                && let Some(t) = upstream
-                    .time
-                    .as_deref()
-                    .and_then(scatter_adapter_mediawiki::recentchanges::parse_iso)
+                && let Some(t) = upstream.time.as_deref().and_then(mwrecent::parse_iso)
             {
                 tally.latest.fetch_max(t, Ordering::Relaxed);
             }

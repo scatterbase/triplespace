@@ -14,9 +14,9 @@ use axum::Router;
 use axum::body::Body;
 use axum::http::{Request, StatusCode, header};
 use http_body_util::BodyExt as _;
+use mwdump::{DumpReader, Page as DumpPage};
 use scatter_ingest::import::Import as ImportJob;
 use scatter_ingest::write::Attestation;
-use scatter_mediawiki_xml::{DumpPage, XmlDump};
 use serde_json::Value;
 use tokio_postgres::{Config, NoTls};
 use tower::ServiceExt as _;
@@ -67,7 +67,10 @@ fn fixture() -> PathBuf {
 fn dump_pages() -> Vec<DumpPage> {
     let file = std::fs::File::open(fixture()).unwrap();
     let reader = std::io::BufReader::new(flate2::read::MultiGzDecoder::new(file));
-    XmlDump::new(reader).map(|p| p.unwrap()).collect()
+    DumpReader::new(reader)
+        .pages()
+        .map(|p| p.unwrap())
+        .collect()
 }
 
 /// An instance with one tenant that adopted nothing.
@@ -298,7 +301,10 @@ async fn librarybase_pages_are_imported_with_history_authors_and_talk() {
     // Each revision keeps its original timestamp and names the upstream revision it came
     // from (0008 A50), and its author is the registered issuer's account, `librarybase:N`
     // (0007 §5), with the name the file gives.
-    let dump_home = dump.iter().find(|p| p.title == "Project:Home").unwrap();
+    let dump_home = dump
+        .iter()
+        .find(|p| p.header.title == "Project:Home")
+        .unwrap();
     let latest = dump_home.latest().unwrap();
     let router = router(&database, &key_file).await;
     let served = api(
@@ -471,7 +477,10 @@ async fn librarybase_pages_are_imported_with_history_authors_and_talk() {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&xml));
-    let exported: Vec<DumpPage> = XmlDump::new(xml.as_slice()).map(|p| p.unwrap()).collect();
+    let exported: Vec<DumpPage> = DumpReader::new(xml.as_slice())
+        .pages()
+        .map(|p| p.unwrap())
+        .collect();
     assert_eq!(exported.len(), 33);
     assert_eq!(
         exported.iter().map(|p| p.revisions.len()).sum::<usize>(),
@@ -1289,26 +1298,29 @@ async fn an_export_walks_a_pages_model_changes() {
         eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
         return;
     };
-    let revision = |id: u64, model: &str, text: &str| scatter_mediawiki_xml::Revision {
-        id,
-        parent_id: (id > 1).then(|| id - 1),
-        timestamp: format!("2026-01-0{id}T00:00:00Z"),
-        user: Some((7, "Jane".into())),
-        model: Some(model.into()),
-        text: text.into(),
-        comment: Some(format!("edit {id}")),
-        ..scatter_mediawiki_xml::Revision::default()
+    let revision = |id: u64, model: &str, text: &str| {
+        let mut r = mwdump::Revision::default();
+        r.id = id;
+        r.parent_id = (id > 1).then(|| id - 1);
+        r.timestamp = format!("2026-01-0{id}T00:00:00Z");
+        r.user_id = Some(7);
+        r.user_name = Some("Jane".into());
+        r.model = Some(model.into());
+        r.text = text.into();
+        r.comment = Some(format!("edit {id}"));
+        r
     };
-    let page = DumpPage {
-        title: "Project:Notes".into(),
-        ns: 4,
-        id: 1,
-        redirect: None,
-        revisions: vec![
+    let mut header = mwdump::PageHeader::default();
+    header.title = "Project:Notes".into();
+    header.ns = 4;
+    header.id = 1;
+    let page = DumpPage::new(
+        header,
+        vec![
             revision(1, "wikitext", "== Notes =="),
             revision(2, "markdown", "## Notes"),
         ],
-    };
+    );
     let farm = triplespace_cli::common::farm_at(&database).await.unwrap();
     let (store, pipeline) = triplespace_cli::common::store(&database, &farm).unwrap();
     let accounts = talk_import::accounts_of(std::iter::once(&page));
@@ -1344,7 +1356,10 @@ async fn an_export_walks_a_pages_model_changes() {
     )
     .await;
     assert_eq!(status, StatusCode::OK, "{}", String::from_utf8_lossy(&xml));
-    let exported: Vec<DumpPage> = XmlDump::new(xml.as_slice()).map(|p| p.unwrap()).collect();
+    let exported: Vec<DumpPage> = DumpReader::new(xml.as_slice())
+        .pages()
+        .map(|p| p.unwrap())
+        .collect();
     assert_eq!(exported.len(), 1);
     let models: Vec<(Option<String>, Option<String>)> = exported[0]
         .revisions

@@ -41,7 +41,6 @@ use scatter_ingest::IngestStore as _;
 use scatter_ingest::job::{Counts, Job};
 use scatter_ingest::store::Sequence;
 use scatter_ingest::write::Attestation;
-use scatter_mediawiki_xml::XmlDump;
 use scatter_projection::{Backend as _, Pipeline};
 use scatter_wikibase_changeset::job::{JobHeader, Mode};
 use tokio_postgres::GenericClient;
@@ -1064,7 +1063,7 @@ async fn run_kind(
                 .as_deref()
                 .ok_or_else(|| store_err("an import job carries its file"))?;
             let mut pages = Vec::new();
-            for page in XmlDump::new(bytes) {
+            for page in mwdump::DumpReader::new(bytes).pages() {
                 pages.push(page.map_err(|e| {
                     store_err(format!("the file is not a MediaWiki XML export: {e}"))
                 })?);

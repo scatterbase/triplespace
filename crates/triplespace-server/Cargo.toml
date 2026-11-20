@@ -42,7 +42,7 @@ tokio = { workspace = true, features = ["macros", "rt-multi-thread", "signal", "
 [dev-dependencies]
 futures-util.workspace = true
 bytes.workspace = true
-scatter-mediawiki-xml.workspace = true
+mwdump.workspace = true
 base64.workspace = true
 scatter-challenge.workspace = true
 scatter-actors.workspace = true

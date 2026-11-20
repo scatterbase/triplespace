@@ -5,6 +5,7 @@
 
 use std::collections::BTreeMap;
 
+use mwdump::sha1_base36;
 use scatter_ingest::IngestError;
 use scatter_ingest::adopt::Author;
 use scatter_ingest::import::{
@@ -15,7 +16,6 @@ use scatter_ingest::memory::{MemoryCx, MemoryIngest};
 use scatter_ingest::write::{Attestation, RawRecord, Request, write_raw};
 use scatter_log::cbor::Value;
 use scatter_log::record::Record;
-use scatter_mediawiki_xml::sha1_base36;
 use scatter_projection::{Backend as _, Pipeline};
 use serde_json::json;
 
