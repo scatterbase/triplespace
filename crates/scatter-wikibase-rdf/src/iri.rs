@@ -9,6 +9,7 @@ use std::fmt::Write as _;
 use oxrdf::NamedNode;
 use scatter_normalize::KeyedRegistry;
 use scatter_providers::{Registry as ProviderRegistry, UpstreamRef};
+use scatter_wikibase_model::hash::Hasher;
 use scatter_wikibase_model::{EntityId, IdForm, StatementId};
 
 /// The bases an instance writes its own nodes under.
@@ -201,8 +202,8 @@ pub struct UpstreamNodes {
     pub statement: NamedNode,
     /// The base its reference and value nodes are under: `http://www.wikidata.org/`.
     pub base: String,
-    /// The provider's code, whose ID forms the node hashes are taken over.
-    pub provider: String,
+    /// The provider's hasher, whose ID forms the node hashes are taken over.
+    pub hasher: Hasher,
 }
 
 /// The IRIs of one instance (or one tenant), for one rendering.
@@ -324,7 +325,7 @@ impl<'r> IriScheme<'r> {
                 escape_iri(id.uuid())
             )),
             base: predicate_base(concept_base),
-            provider: provider.code.clone(),
+            hasher: Hasher::for_provider(provider),
         })
     }
 
@@ -553,7 +554,7 @@ mod tests {
             "http://www.wikidata.org/entity/statement/Q42-F078E5B3-F9A8-480E-B7AC-D97778CBBEF9"
         );
         assert_eq!(u.base, "http://www.wikidata.org/");
-        assert_eq!(u.provider, "WD");
+        assert_eq!(u.hasher, Hasher::mirrored_from("WD"));
         // A key-mapped provider's statement is stored under the keyed subject with the
         // item's UUID; named after the item it was mapped from (0002 A44).
         let keyed = StatementId::parse("domain:wikipedia.org$F078E5B3-F9A8-480E-B7AC-D97778CBBEF9")
@@ -565,7 +566,7 @@ mod tests {
             "https://internetdomains.wiki/entity/statement/Q11-F078E5B3-F9A8-480E-B7AC-D97778CBBEF9"
         );
         assert_eq!(u.base, "https://internetdomains.wiki/");
-        assert_eq!(u.provider, "XD");
+        assert_eq!(u.hasher, Hasher::mirrored_from("XD"));
         // A provider the registry does not know names nothing.
         let unknown = UpstreamRef {
             provider: "ZZ".into(),

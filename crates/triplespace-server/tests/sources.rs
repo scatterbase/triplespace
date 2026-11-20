@@ -237,6 +237,19 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
     })
     .await
     .expect("sync into the source");
+    // The source's own snak and reference hashes are recomputed, IDs in the form the source
+    // wrote them (`lb:P1` as `P1`), so none is kept as a mismatch.
+    let mismatches = query(
+        &database,
+        "SELECT counts->'hash_mismatches' FROM view.job WHERE tenant = 'reader' AND graph = 'source/lb'",
+    )
+    .await;
+    assert_eq!(mismatches.len(), 1);
+    assert_eq!(
+        mismatches[0].get::<_, Option<Value>>(0),
+        None,
+        "every hash matches the source's own"
+    );
     let loaded = query(
         &database,
         "SELECT entity_id FROM view.entity_source WHERE tenant = 'reader' AND graph = 'source/lb' ORDER BY entity_id",

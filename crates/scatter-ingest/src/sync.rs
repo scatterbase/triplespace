@@ -787,7 +787,7 @@ async fn sync_job<S: IngestStore, H: BeforeCommit<S> + Send>(
     let provider = registry
         .by_slug(&slug)
         .ok_or_else(|| IngestError::UnknownProvider(slug.clone()))?;
-    let hasher = Hasher::mirrored_from(&provider.code);
+    let hasher = Hasher::for_provider(provider);
     let graph_name = graph.name();
     // The provider's own form of a foreign ID (`XDQ9` → `Q9`), and back.
     let upstream_of = |id: &EntityId| -> Option<String> {
