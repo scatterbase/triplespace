@@ -2415,6 +2415,7 @@ async fn a_tenant_declares_and_loads_an_entity_source() {
         licence: Some("CC0-1.0".into()),
         number: None,
         promoted_to: None,
+        retired: false,
     };
 
     // 1. A registry name is refused (0078 §3 rule 1); a fresh name is numbered and opens
@@ -2593,7 +2594,7 @@ async fn a_tenant_declares_and_loads_an_entity_source() {
         ["src:Q7"]
     );
 
-    // 4. The instance cannot write a source graph, and the record retires.
+    // 4. The instance cannot write a source graph, and the source retires.
     let err = scatter_ingest::run_sync(
         &store,
         &p,
@@ -2625,12 +2626,13 @@ async fn a_tenant_declares_and_loads_an_entity_source() {
     .await
     .unwrap();
     store.commit(cx).await.unwrap();
+    // The record stays, flagged, so its number stays reserved (0078 A8).
     assert_eq!(
         count(
             &client,
-            "SELECT count(*) FROM view.registry WHERE tenant = 'librarybase' AND kind = 'entity-source'"
+            "SELECT count(*) FROM view.registry WHERE tenant = 'librarybase' AND kind = 'entity-source' AND config->>'retired' = 'true' AND config->>'number' = '4096'"
         )
         .await,
-        0
+        1
     );
 }

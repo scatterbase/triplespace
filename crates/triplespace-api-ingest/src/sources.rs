@@ -5,8 +5,10 @@
 //! partition, written with `ts-config`. The first record gets the lowest free number in
 //! 2^12..2^13 on the tenant, which is never reused, and opens the tenant partition
 //! `source/{name}`, recorded as a `graph:` record beside it (0015 §5). A later record keeps
-//! the number and the partition; `null` retires the record (the partition and its records
-//! stay, as a retired provider's do).
+//! the number and the partition, and may not change what the first fixed (05 §6.4,
+//! `ts-source-binding`). Retiring writes the record again flagged `retired`: the name, the
+//! number and the templates stay reserved, the partition and its records stay, and the IDs
+//! keep resolving. A record written `null` by an older version is read as no record.
 //!
 //! The name may not be one the registry has (0078 §3 rule 1): a provider slug, a keyed
 //! type, a notation scheme. `ts-source-name-taken` is the refusal.
@@ -48,8 +50,8 @@ pub enum SourceWriteError {
     /// The tenant has every number in the range.
     #[error("no source number is free on `{0}`")]
     NoNumber(String),
-    /// There is no record to retire.
-    #[error("source `{0}` is not declared")]
+    /// There is no current record to retire.
+    #[error("source `{0}` is not declared, or is retired already")]
     NothingToRetire(String),
     /// The store failed.
     #[error("store: {0}")]
@@ -88,16 +90,20 @@ pub async fn write(
         .await
         .map_err(store_err)?;
     let Some(mut source) = source else {
-        if existing.is_none() {
+        // Retiring keeps the record, flagged, so that the name, the number and the
+        // templates stay reserved and the IDs keep resolving (05 §6.4).
+        let Some(mut retired) = existing.filter(|e| !e.retired) else {
             return Err(SourceWriteError::NothingToRetire(name.to_string()));
-        }
+        };
+        retired.retired = true;
+        let content = Value::from_json(&serde_json::to_value(&retired).map_err(store_err)?);
         append_record(
             store,
             pipeline,
             cx,
             tenant,
             &format!("{KIND}:{name}"),
-            Value::Null,
+            content,
             actor,
             reason,
             now,
@@ -106,12 +112,17 @@ pub async fn write(
         return Ok(None);
     };
     source.name = name.to_string();
+    // Declared again, a retired source is current again, under its own number.
+    source.retired = false;
     // The number is the server's: the existing one, else the lowest free on the tenant.
     source.number = Some(match existing.as_ref().and_then(|e| e.number) {
         Some(n) => n,
         None => next_number(cx, tenant).await?,
     });
     source.validate(Registry::default_registry())?;
+    if let Some(earlier) = &existing {
+        source.check_binding(earlier)?;
+    }
     if scatter_normalize::KeyedRegistry::default_registry()
         .by_name(name)
         .is_some()
