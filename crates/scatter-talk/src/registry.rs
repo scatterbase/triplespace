@@ -240,4 +240,21 @@ mod tests {
         assert_eq!(normalize_template_name("subst:unsigned_IP"), "Unsigned IP");
         assert_eq!(normalize_template_name("  archive   top "), "Archive top");
     }
+
+    /// The registry of 0090 §5 is refused, not half-read, when it deviates: an unknown
+    /// version, zone rule or template role, or a wrapper without both halves.
+    #[test]
+    fn the_registry_rejects_unknown_entries() {
+        assert!(Markup::from_toml("version = 2\n").is_err());
+        let bad_zone =
+            "version = 1\n[[timestamp]]\nformat = \"H:i, j F Y\"\nzone = \"sometimes\"\n";
+        assert!(Markup::from_toml(bad_zone).is_err());
+        let bad_role = "version = 1\n[[template]]\nrole = \"ping\"\nnames = [\"Ping\"]\n";
+        assert!(Markup::from_toml(bad_role).is_err());
+        let half_wrapper = concat!(
+            "version = 1\n",
+            "[[template]]\nrole = \"wrapper\"\nopen = [\"Archive top\"]\n"
+        );
+        assert!(Markup::from_toml(half_wrapper).is_err());
+    }
 }

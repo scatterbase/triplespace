@@ -375,4 +375,30 @@ mod tests {
         }
         assert!(check_name(&"x".repeat(256)).is_err());
     }
+
+    /// `retired` is a status only a subsidiary can have (07 §1.3; 0024 §1, §2).
+    #[test]
+    fn only_a_subsidiary_can_be_retired() {
+        let key = ActorKey::local(43);
+        let mut retired_person = ActorRecord::registered("P");
+        retired_person.status = ActorStatus::Retired;
+        assert!(matches!(
+            retired_person.validate(&key),
+            Err(ActorRecordError::SubsidiaryStatus("retired"))
+        ));
+    }
+
+    /// A subsidiary retired by its operator or a bureaucrat keeps its operator attribute
+    /// and remains a well-formed subsidiary record (0024 §1; 0024 §2).
+    #[test]
+    fn a_retired_subsidiary_is_a_valid_subsidiary() {
+        let operator = ActorKey::local(42);
+        let key = ActorKey::local(43);
+        let mut retired = ActorRecord::subsidiary("Example-bot", operator);
+        retired.status = ActorStatus::Retired;
+        assert!(retired.validate(&key).is_ok());
+        assert!(retired.is_subsidiary());
+        assert_eq!(retired.status.name(), "retired");
+        assert_eq!(retired.operator, Some(ActorKey::local(42)));
+    }
 }

@@ -414,4 +414,44 @@ mod tests {
         assert_eq!(s.civil(), (2024, 2, 29, 23, 59));
         assert!(Stamp::from_civil(2023, 2, 29, 0, 0).is_none());
     }
+
+    /// A timestamp that prints its zone is read at that zone's offset (0090 §5), and `UTC`,
+    /// `GMT` and `Z` are always 0 ([`Zone::abbreviations`]), even when the table the caller
+    /// derived from siteinfo lists them otherwise.
+    #[test]
+    fn utc_gmt_and_z_are_always_zero() {
+        let zone = Zone {
+            default_offset: 60,
+            abbreviations: vec![("UTC".into(), 90), ("GMT".into(), 90), ("Z".into(), 90)],
+        };
+        let m = Markup::embedded();
+        for abbrev in ["UTC", "GMT", "Z"] {
+            let line = format!("12:00, 5 June 2025 ({abbrev})");
+            let found = find_timestamps(&line, &m.formats, m.months_for("en").unwrap(), &zone);
+            assert_eq!(found[0].when.iso(), "2025-06-05T12:00:00Z", "{abbrev}");
+        }
+    }
+
+    /// "the caller of `scatter-talk` derives both the offset and the table of zone
+    /// abbreviations from siteinfo's `timezone` with the tz database, so the pure crate has
+    /// none of its own" (0090 §5): a `Zone` built from siteinfo values drives both a zoned and
+    /// an unzoned timestamp, and `Zone::default()` is plain UTC.
+    #[test]
+    fn the_wiki_supplies_the_default_offset_and_abbreviations() {
+        let zone = Zone {
+            default_offset: -300,
+            abbreviations: vec![("EDT".into(), -240), ("EST".into(), -300)],
+        };
+        let m = Markup::embedded();
+        let f = |s: &str| {
+            find_timestamps(s, &m.formats, m.months_for("en").unwrap(), &zone)[0]
+                .when
+                .iso()
+        };
+        assert_eq!(f("12:00, 5 June 2025 (EDT)"), "2025-06-05T16:00:00Z");
+        assert_eq!(f("12:00, 5 June 2025 (EST)"), "2025-06-05T17:00:00Z");
+        assert_eq!(f("12:00, 5 June 2025"), "2025-06-05T17:00:00Z");
+        assert_eq!(Zone::default().default_offset, 0);
+        assert!(Zone::default().abbreviations.is_empty());
+    }
 }

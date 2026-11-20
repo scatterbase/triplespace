@@ -549,4 +549,23 @@ mod tests {
             Err(TenancyError::Incomplete { .. })
         ));
     }
+
+    #[test]
+    fn template_mode_defaults_to_none_when_unset() {
+        // With no `config.template` record the instance has neither templates nor locks
+        // (0028 §8): the mode reads as `none` and no key is locked.
+        let policy = TenancyPolicy::default();
+        assert_eq!(policy.template_mode(), "none");
+        assert!(
+            policy
+                .check_locked(
+                    &["site:sitelink-policy".to_string()],
+                    "site:sitelink-policy"
+                )
+                .is_ok()
+        );
+        let mut no_template = TenancyPolicy::default();
+        no_template.switches.remove(CONFIG_TEMPLATE);
+        assert_eq!(no_template.template_mode(), "none");
+    }
 }
