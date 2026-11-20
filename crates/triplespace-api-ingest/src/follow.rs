@@ -185,9 +185,10 @@ pub enum StartError {
     /// Neither a position nor a load to continue from.
     #[error("no position for `{0}`: sync a dump first, or start from a time with `--from`")]
     NoPosition(String),
-    /// The position is older than the wiki's oldest recent change (0092 §3).
+    /// The position is older than the wiki keeps recent changes (`follow.retention`) and
+    /// older than its oldest recent change (0092 §3, A13).
     #[error(
-        "`{name}` is behind the wiki's recent changes (position {position}, oldest change {oldest}): sync a fresh dump to catch up"
+        "`{name}` is behind the wiki's recent changes (position {position}, oldest change {oldest}, older than `follow.retention`): sync a fresh dump to catch up"
     )]
     Gap {
         /// The provider.
@@ -208,7 +209,8 @@ pub enum StartError {
 impl<'a> ProviderFollower<'a> {
     /// Starts a follower for `provider`: from its stored position, else from the end of
     /// its last load, else from the newest revision its graph holds (a lost position,
-    /// 0092 A11), else from `from` (epoch seconds).
+    /// 0092 A11), else from `from` (epoch seconds). `retention` is how long the wiki keeps
+    /// recent changes, in seconds (`follow.retention`), for the gap check ([`is_gap`]).
     ///
     /// # Errors
     ///
@@ -221,6 +223,7 @@ impl<'a> ProviderFollower<'a> {
         registry: &'static scatter_providers::Registry,
         tenant: &str,
         windows: Windows,
+        retention: u64,
         from: Option<u64>,
         now: fn() -> u64,
     ) -> Result<Self, StartError> {
@@ -289,13 +292,12 @@ impl<'a> ProviderFollower<'a> {
             windows,
         );
 
-        // The gap check (0092 §3): the wiki's oldest recent change must be no newer than
-        // the position, or changes between have been lost.
+        // The gap check (0092 §3, A13).
         let oldest = oldest_change(wiki, &namespaces)
             .await
             .map_err(|e| fail(&e))?;
         if let Some(oldest) = oldest
-            && oldest > time
+            && is_gap(time, oldest, now(), retention)
         {
             return Err(StartError::Gap {
                 name: provider.slug.clone(),
@@ -840,6 +842,16 @@ fn revision_time_of(body: &str) -> Option<u64> {
     })
 }
 
+/// Whether a follower at `position` has lost changes (0092 §3, A13): the wiki keeps
+/// recent changes for `retention` seconds, so a position within that window of `now` has
+/// lost nothing, however new the wiki's `oldest` change (a quiet wiki changes rarely).
+/// Beyond the window, a position older than the oldest change the wiki still has is a
+/// gap. All in epoch seconds.
+#[must_use]
+pub fn is_gap(position: u64, oldest: u64, now: u64, retention: u64) -> bool {
+    oldest > position && position < now.saturating_sub(retention)
+}
+
 async fn oldest_change(
     wiki: &Wiki,
     namespaces: &EntityNamespaces,
@@ -870,7 +882,25 @@ async fn oldest_change(
 
 #[cfg(test)]
 mod tests {
-    use super::revision_time_of;
+    use super::{is_gap, revision_time_of};
+
+    // 0092 §3, A13: a quiet wiki within its retention is no gap; beyond it, a position
+    // older than the oldest change the wiki still has is.
+    #[test]
+    fn a_gap_needs_both_the_retention_and_the_oldest_change() {
+        let day = 86_400;
+        let thirty = 30 * day;
+        let now = 1_000 * day;
+        // Twenty quiet days: the wiki's oldest change is newer than the position, but the
+        // position is within what the wiki keeps.
+        assert!(!is_gap(now - 25 * day, now - 5 * day, now, thirty));
+        // Beyond the window, and the wiki's changes start after the position: lost.
+        assert!(is_gap(now - 40 * day, now - 29 * day, now, thirty));
+        // Beyond the window, but the wiki still has a change older than the position.
+        assert!(!is_gap(now - 40 * day, now - 45 * day, now, thirty));
+        // At the window's edge, nothing is lost yet.
+        assert!(!is_gap(now - thirty, now - day, now, thirty));
+    }
 
     #[test]
     fn a_revisions_answer_gives_its_time_in_either_format() {
