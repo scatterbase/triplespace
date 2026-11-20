@@ -42,7 +42,7 @@ pub const TEMPLATE_CONTRACT: &str = "0.1.0";
 /// The `@wikimedia/codex-design-tokens` release the binary pins (19 §5.9), whose major a
 /// skin that stands alone names; `ui/package.json` is the authority, and a test holds
 /// the two together.
-pub const CODEX_TOKENS: &str = "2.7.0";
+pub const CODEX_TOKENS: &str = "2.8.0";
 
 /// The skins the repository ships, embedded in both binaries (0097 §8).
 #[derive(rust_embed::Embed)]
