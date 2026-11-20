@@ -20,9 +20,9 @@ use scatter_titles::{Kind as NsKind, Namespaces};
 use serde::Serialize;
 use triplespace_client::{ClientError, Incoming, NamespaceRow, PageListQuery};
 
-use crate::changes::FormItem;
 use triplespace_ui_kit::Site;
 use triplespace_ui_kit::choice::Choice;
+use triplespace_ui_kit::controls::FormItem;
 use triplespace_ui_kit::features::Feature;
 use triplespace_ui_kit::frame::{Page, title_url};
 use triplespace_ui_kit::i18n::Messages;

@@ -364,4 +364,23 @@ mod tests {
         );
         assert!(datavalue(&m, "geo-shape", "Data:x.map", "P1:Data:x.map").is_ok());
     }
+
+    #[test]
+    fn cells_hold_several_values() {
+        assert_eq!(split_values("a| b |"), vec!["a", "b"]);
+        assert_eq!(split_values("a\\|b|c"), vec!["a|b", "c"]);
+        assert_eq!(split_values(""), Vec::<String>::new());
+        let values = vec!["a|b".to_string(), "c".to_string()];
+        assert_eq!(split_values(&join_values(&values)), values);
+        // 0106 A8: a backslash is escaped too, so one before a bar is not read as its escape.
+        let values = vec![
+            "ends\\".to_string(),
+            "C:\\dir".to_string(),
+            "x\\|y".to_string(),
+        ];
+        assert_eq!(join_values(&values), "ends\\\\|C:\\\\dir|x\\\\\\|y");
+        assert_eq!(split_values(&join_values(&values)), values);
+        // Written by hand, a backslash before anything else stands for itself.
+        assert_eq!(split_values("C:\\dir|\\alpha"), vec!["C:\\dir", "\\alpha"]);
+    }
 }

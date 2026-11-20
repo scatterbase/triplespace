@@ -12,12 +12,13 @@ use std::collections::BTreeMap;
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
 
-use super::table::{join_values, text_of};
+use super::table::text_of;
 use super::{HandoffPage, Typed, error, handoff, open, viewer};
 use triplespace_ui_kit::Site;
 use triplespace_ui_kit::codex::{Action, Button, Message, MessageKind, Weight};
 use triplespace_ui_kit::controls::{ControlModel, FieldRow};
 use triplespace_ui_kit::pages::{self, Params, Peer};
+use triplespace_ui_kit::values::join_values;
 
 /// The page's title.
 pub const TITLE: &str = "Special:QuickStatements";

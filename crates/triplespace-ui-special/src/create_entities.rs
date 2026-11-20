@@ -1283,7 +1283,9 @@ async fn check(
         let units = k.datatype.as_deref() == Some("quantity");
         if items || units {
             for r in &read.rows {
-                for v in table::split_values(r.get(at).map_or("", String::as_str)) {
+                for v in
+                    triplespace_ui_kit::values::split_values(r.get(at).map_or("", String::as_str))
+                {
                     // An item cell's value, or the unit after a quantity's amount.
                     let id = if units {
                         v.split_whitespace().nth(1).unwrap_or_default()

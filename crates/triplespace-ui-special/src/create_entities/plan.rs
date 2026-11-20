@@ -9,8 +9,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value, json};
 
-use super::table::{Column, IdCell, Line, id_cell, row_ref, split_values};
+use super::table::{Column, IdCell, Line, id_cell, row_ref};
 use triplespace_ui_kit::i18n::Messages;
+use triplespace_ui_kit::values::split_values;
 use triplespace_ui_kit::values::{datavalue, datavalue_in, implied_type};
 use triplespace_ui_pages::entity::Lookup;
 
