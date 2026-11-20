@@ -473,4 +473,21 @@ mod tests {
         over.apply(&op(json!({"op": "add", "id": "Q5", "entity": {"type": "item", "id": "Q5", "claims": {}}, "overwrite": true})), None);
         assert!(over.entity.unwrap().labels.is_empty());
     }
+
+    /// A `convert` records the local ID an entity became: "If upstream has conflated two
+    /// things under one ID, the split requires new local entities, with the split recorded
+    /// in the local graph." (0002 §7).
+    #[test]
+    fn a_convert_records_the_local_entity_it_became() {
+        let mut s = LocalState::new();
+        s.apply(
+            &op(json!({"op": "convert", "id": "WDQ42", "local": "Q7"})),
+            None,
+        );
+        assert_eq!(s.converted.as_ref().map(EntityId::as_str), Some("Q7"));
+        let stored = s.to_storage_json();
+        assert_eq!(stored["converted"], json!("Q7"));
+        let back = LocalState::from_storage_json(&stored).unwrap();
+        assert_eq!(back, s);
+    }
 }
