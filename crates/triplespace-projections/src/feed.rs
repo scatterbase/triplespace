@@ -610,10 +610,21 @@ struct Built {
 /// `page_id::text` comparison would scan every page per row). A tenant's feed covers its own rows and the instance's (`tenant = ''`): the shared mirror
 /// partitions' syncs, which a history wants, and the instance log's job events, which
 /// is how a mirror sync appears in recent changes (16 §4.2).
+///
+/// The two are read as two branches, each `a.tenant = …` with its own `ORDER BY … LIMIT`,
+/// merged by `UNION ALL` under the same order and limit. One `a.tenant IN ($1, '')`
+/// condition would keep Postgres from reading `activity_time` (or `activity_actor`,
+/// `activity_target`) in order and stopping at the limit: it would join and sort every
+/// row of the tenant to return one page, seconds on a wiki of 600 000 entities however
+/// quiet it is. Each branch stops at the limit, so the joins run for at most twice the
+/// page. Both branches share the parameters, so the statement keeps one shape per filter
+/// set. A tenant of `''` is read as one branch, or each row would be read twice.
 #[allow(clippy::too_many_lines)]
 fn build(tenant: &str, feed: &Feed, viewer: &Viewer) -> Built {
     let mut params: Vec<Param> = vec![Box::new(tenant.to_string())];
-    let mut sql = String::from(
+    // The conditions after `a.tenant = …`, shared by both branches.
+    let mut sql = String::new();
+    let head = String::from(
         "SELECT a.time, a.partition, a.\"offset\", a.kind, a.source, a.revid, a.logid,
                 a.target_kind, a.target_id, a.target_member, a.actor_key, a.operator,
                 a.requested_by, a.job_id, a.summary_op, a.summary_args, a.comment, a.tags,
@@ -639,8 +650,7 @@ fn build(tenant: &str, feed: &Feed, viewer: &Viewer) -> Built {
            SELECT x.lang, x.text FROM view.term x
            WHERE a.target_kind = 1 AND x.entity_id = a.target_id AND x.tenant IN (a.tenant, '')
              AND x.kind = 1 AND x.lang = ANY($2)
-           ORDER BY array_position($2, x.lang), (x.tenant = a.tenant) DESC LIMIT 1) t ON true
-         WHERE a.tenant IN ($1, '')",
+           ORDER BY array_position($2, x.lang), (x.tenant = a.tenant) DESC LIMIT 1) t ON true",
     );
     params.push(Box::new(feed.languages.clone()));
     let mut push = |sql: &mut String, clause: &str, p: Param| {
@@ -823,14 +833,24 @@ fn build(tenant: &str, feed: &Feed, viewer: &Viewer) -> Built {
         Direction::Older => "DESC",
         Direction::Newer => "ASC",
     };
-    let _ = write!(
-        sql,
-        " ORDER BY a.time {order}, a.partition {order}, a.\"offset\" {order} LIMIT ${}",
-        params.len() + 1
-    );
+    let limit = params.len() + 1;
     params.push(Box::new(
         i64::try_from(feed.limit.clamp(1, MAX_LIMIT) + 1).unwrap_or(i64::MAX),
     ));
+    let branch = |tenant: &str| {
+        format!(
+            "({head} WHERE a.tenant = {tenant}{sql} ORDER BY a.time {order}, a.partition {order}, a.\"offset\" {order} LIMIT ${limit})"
+        )
+    };
+    let sql = if tenant.is_empty() {
+        branch("$1")
+    } else {
+        format!(
+            "{} UNION ALL {} ORDER BY time {order}, partition {order}, \"offset\" {order} LIMIT ${limit}",
+            branch("$1"),
+            branch("''")
+        )
+    };
     Built { sql, params }
 }
 
@@ -1196,6 +1216,21 @@ mod tests {
         let b = build("librarybase", &feed, &Viewer::default());
         assert!(b.sql.contains("> ($8, $9, $10)"));
         assert!(b.sql.contains("ORDER BY a.time ASC"));
+    }
+
+    #[test]
+    fn the_tenant_and_the_instance_are_read_as_two_limited_branches() {
+        let feed = Feed::everything(50);
+        let b = build("librarybase", &feed, &Viewer::default());
+        assert!(!b.sql.contains("IN ($1, '')"), "{}", b.sql);
+        assert_eq!(b.sql.matches(" UNION ALL ").count(), 1, "{}", b.sql);
+        assert!(b.sql.contains("WHERE a.tenant = $1"), "{}", b.sql);
+        assert!(b.sql.contains("WHERE a.tenant = ''"), "{}", b.sql);
+        let limit = format!("LIMIT ${}", b.params.len());
+        assert_eq!(b.sql.matches(&limit).count(), 3, "{}", b.sql);
+        let one = build("", &feed, &Viewer::default());
+        assert!(!one.sql.contains("UNION"), "{}", one.sql);
+        assert!(one.sql.contains("WHERE a.tenant = $1"), "{}", one.sql);
     }
 
     #[test]
