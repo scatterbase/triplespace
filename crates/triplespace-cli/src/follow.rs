@@ -233,7 +233,7 @@ pub async fn tenant_registry(client: &Client, tenant: &str) -> Result<&'static R
 /// The follower's windows and interval from the instance settings (0092 §6).
 /// The follower's settings, in seconds: its windows, `follow.interval` and
 /// `follow.retention` (0092 §6, A13).
-async fn windows_of(client: &Client) -> Result<(Windows, u64, u64)> {
+pub(crate) async fn windows_of(client: &Client) -> Result<(Windows, u64, u64)> {
     let (snapshot, _) = load(client, None).await.context("settings")?;
     let number = |key: &str, default: u64| {
         snapshot

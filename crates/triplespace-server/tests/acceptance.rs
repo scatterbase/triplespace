@@ -226,6 +226,7 @@ async fn a_bot_logs_in_reads_and_edits() {
         rejects: None,
         no_bootstrap: false,
         writers: sync::WRITERS,
+        no_gap_check: true,
     })
     .await
     .expect("sync");

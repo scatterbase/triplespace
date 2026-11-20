@@ -158,6 +158,7 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
         rejects: None,
         no_bootstrap: false,
         writers: sync::WRITERS,
+        no_gap_check: true,
     })
     .await
     .expect("sync");

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-26
-- **Updated:** 2026-11-20 (A13)
+- **Updated:** 2026-11-20 (A14)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0011](0011-logs.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0027](0027-preferences-and-portability.md), [0040](0040-instance-prerogatives.md), [0067](0067-proposals.md), [0085](0085-settings-and-preferences.md), [0088](0088-external-identity-providers.md), [0091](0091-one-wikibase-adapter.md)
 
@@ -216,3 +216,12 @@ Replaced text: 22 §2.1 (`crates.toml`: the entry for `scatter-adapter-mediawiki
 - **Summary:** A position is a gap only when it is older than the wiki keeps recent changes, `follow.retention` (a new `site` setting, default 30 days, Wikimedia's `$wgRCMaxAge`), and older than the oldest change the wiki still has. §3 refused any position older than the oldest change, which refuses a quiet wiki whose newest changes came after a long pause though nothing was lost. MediaWiki does not report `$wgRCMaxAge`, and James chose one setting over a per-provider registry field. Found while rebuilding RevisionChest's `sync` on `mwrecent` (SCA-449), which has the same rule as `--rc-max-age`. The follower command also reads its duration settings as the ISO 8601 durations the registry writes; it read only bare seconds, so a set `follow.settle` or `follow.tail` fell back to its default. Chapter text: 05 §5.7; 23 (the settings catalogue, from `settings.toml`).
 
 Replaced text: 05 §5.7 (the gap paragraph).
+
+### A14. `sync` asks the wiki whether a follower can take over
+
+- **Date:** 2026-11-20
+- **Source:** Direct: James, 2026-11-20 ("Yes"), to Claude's proposal to continue SCA-285 with `sync` warning when a load is older than the wiki's recent changes; the calls below unconfirmed
+- **Change:** extends §5
+- **Summary:** §5 has a load that the wiki's recent changes no longer reach warn at the end of `sync`, but `sync` did not ask the wiki, and the gap was found only when the follower refused to start. The calls made: (1) once a load has recorded its end, `sync` checks the follower's start from it, the end less `follow.tail`, by A13's rule: within `follow.retention` of now it asks nothing; beyond, it reads the wiki's entity namespaces and its oldest recent change, as the follower does, and warns when the start is older, naming both times. (2) The load is written either way, so a check that cannot be made (no `api`, the wiki unreachable) is a note on stderr, never a failure. (3) A load that records nothing, ending no later than the end already recorded (A4), is not checked, since the follower's position is unchanged. (4) `--no-gap-check` skips the check, for a load made offline; the tests use it. Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.9.
+
+Replaced text: 05 §5.9 (the sentence on a load that cannot hand over).
