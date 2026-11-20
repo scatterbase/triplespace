@@ -212,4 +212,49 @@ mod tests {
         assert!(!help.allows_model("sanitized-css"));
         assert!(!r.get(13).expect("Help talk").allows_model("wikitext"));
     }
+
+    /// "`enabled_by`, where a namespace is implemented only while a tenant setting is on"
+    /// (0008 §1).
+    #[test]
+    fn enabled_by_gates_whether_a_namespace_holds_pages() {
+        let r = Namespaces::embedded();
+        let gated = r
+            .iter()
+            .find(|n| n.enabled_by.is_some())
+            .expect("the registry has an enabled_by namespace");
+        assert!(
+            !gated.holds_pages(|_| false),
+            "reserved while its setting is off"
+        );
+        let setting = gated.enabled_by.as_deref().expect("from the find above");
+        assert!(
+            gated.holds_pages(|s| s == setting),
+            "pages once its setting is on"
+        );
+    }
+
+    /// A `resolver` namespace: "It holds no pages, so it has no model" (0008 §1).
+    #[test]
+    fn a_resolver_namespace_holds_no_pages_and_has_no_model() {
+        let r = Namespaces::embedded();
+        let resolver = r
+            .iter()
+            .find(|n| n.kind == Kind::Resolver)
+            .expect("the registry has a resolver namespace");
+        assert!(!resolver.holds_pages(|_| true));
+        assert_eq!(resolver.default_model, None);
+        assert!(resolver.content_models.is_empty());
+    }
+
+    /// "`Special` and `Media` (0039 §1) are virtual" (0008 §1).
+    #[test]
+    fn special_and_media_are_virtual() {
+        let r = Namespaces::embedded();
+        let special = r.by_name("special").expect("Special is in the registry");
+        assert_eq!(special.kind, Kind::Virtual);
+        assert!(!special.holds_pages(|_| true));
+        let media = r.by_name("media").expect("Media is in the registry");
+        assert_eq!(media.kind, Kind::Virtual);
+        assert!(!media.holds_pages(|_| true));
+    }
 }

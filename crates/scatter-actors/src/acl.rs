@@ -1305,4 +1305,31 @@ mod tests {
         one.restrictions.remove("upload");
         assert_eq!(one.validate(), Err(AclError::Blob));
     }
+
+    /// "A search document, feed row, diff, notification or rendered page carries the union
+    /// of its inputs' visibility sets" (0056 §6): an output derived from a taken-down input
+    /// is for nobody, whatever else it is derived from.
+    #[test]
+    fn union_carries_nobody_through() {
+        let td = Acl::takedown(9);
+        let taken = visibility([&td], NOW);
+        assert!(taken.nobody);
+        let secret = Acl::read(Target::Set(2), ReadKind::Confidential, "board", None);
+        let board = visibility([&secret], NOW);
+        assert_eq!(board.groups, ["board"].map(String::from).into());
+        assert!(!board.nobody);
+
+        let u = board.union(&taken);
+        assert!(
+            u.nobody,
+            "an output derived from a taken-down input is for nobody"
+        );
+        assert_eq!(u.groups, ["board"].map(String::from).into());
+
+        // Union with the public form changes nothing about a taken-down input.
+        let with_public = taken.union(&Visibility::default());
+        assert!(with_public.nobody);
+        assert!(with_public.groups.is_empty());
+        assert_eq!(with_public.key(), "!");
+    }
 }

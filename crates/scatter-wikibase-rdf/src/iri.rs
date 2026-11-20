@@ -637,4 +637,20 @@ mod tests {
             "https://scatter.red/notation/osm:amenity=cafe"
         );
     }
+
+    /// "A source declared without an `iri` is unpublished. Its concept IRI is then
+    /// `{base}/entity/{name}:{upstream ID}` under the tenant's base" (0078 §7).
+    #[test]
+    fn unpublished_source_falls_back_to_the_tenant_base() {
+        let s = scheme();
+        // An ID no registry knows takes the fallback branch, which is what an unpublished
+        // source's concept IRI is.
+        let iri = s.concept(&EntityId::parse("mhc:Q1").unwrap());
+        assert_eq!(iri.as_str(), "https://example.org/entity/mhc:Q1");
+        // The tenant's own document node carries the ID form regardless.
+        assert_eq!(
+            s.document(&EntityId::parse("mhc:Q1").unwrap()).as_str(),
+            "https://example.org/wiki/Special:EntityData/mhc:Q1"
+        );
+    }
 }
