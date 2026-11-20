@@ -43,7 +43,7 @@ pub const DEFAULT_PALETTE: &str = "parchment";
 /// The default type set.
 pub const DEFAULT_TYPESET: &str = "default26";
 
-/// Codex 2.7.0's values that a palette's variants lay over, and its text-size modes
+/// Codex 2.8.0's values that a palette's variants lay over, and its text-size modes
 /// (copied from `@wikimedia/codex-design-tokens`; `ui/src/codex-tokens.test.js` holds the
 /// copies to the package).
 const CODEX_LIGHT: &str = include_str!("../codex/theme-wikimedia-ui-root.css");
