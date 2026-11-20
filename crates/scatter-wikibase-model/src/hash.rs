@@ -36,8 +36,9 @@ use crate::value::DataValue;
 /// Computes Wikibase's hashes over the model.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct Hasher {
-    /// The provider whose entities the data came from, if any: its IDs are hashed in the
-    /// bare form the source wrote them (`WDQ42` as `Q42`).
+    /// The prefix of the IDs the data came from, if any: a provider's code (`WD`) or a
+    /// source's name and colon (`lb:`), stripped so that its IDs are hashed in the bare
+    /// form the source wrote them (`WDQ42` and `lb:Q42` as `Q42`).
     source: Option<String>,
 }
 
@@ -104,13 +105,40 @@ impl Hasher {
         }
     }
 
-    /// An ID as the source wrote it.
+    /// Hashes a tenant's entity source's IDs in the bare form the source wrote them
+    /// (`lb:Q1` as `Q1`, 0078 §2), so that a recomputed hash equals the source's own.
+    #[must_use]
+    pub fn mirrored_from_source(name: &str) -> Self {
+        Self {
+            source: Some(format!("{name}:")),
+        }
+    }
+
+    /// The hasher for data mirrored from `provider`: a registry provider's by its code, an
+    /// entity source's by its name.
+    #[must_use]
+    pub fn for_provider(provider: &scatter_providers::Provider) -> Self {
+        if provider.source {
+            Self::mirrored_from_source(&provider.slug)
+        } else {
+            Self::mirrored_from(&provider.code)
+        }
+    }
+
+    /// An ID as the source wrote it: a registry provider's foreign ID without its code
+    /// (`WDQ42`), a source's colon-form ID without its name (`lb:Q1`).
     fn source_form<'a>(&self, id: &'a EntityId) -> &'a str {
         let s = id.as_str();
-        match &self.source {
-            Some(code) if id.form() == IdForm::Foreign && s.starts_with(code.as_str()) => {
-                &s[code.len()..]
-            }
+        let Some(prefix) = self.source.as_deref().filter(|p| !p.is_empty()) else {
+            return s;
+        };
+        let form = if prefix.ends_with(':') {
+            IdForm::Keyed
+        } else {
+            IdForm::Foreign
+        };
+        match s.strip_prefix(prefix) {
+            Some(rest) if id.form() == form => rest,
             _ => s,
         }
     }
@@ -503,6 +531,40 @@ mod tests {
             "C:31:\"DataValues\\MonolingualTextValue\":44:{a:2:{i:0;s:2:\"en\";i:1;s:13:\"Douglas Adams\";}}"
         );
         assert_eq!(h.value(&mono), "1e6977489205086925920c704cb85e51");
+    }
+
+    // 0078 §2: an entity source's IDs (`lb:Q3`) hash as the source wrote them (`Q3`), so a
+    // source's snak hashes equal its own; `mirrored_from("")`, which a source's empty code
+    // gave, stripped nothing.
+    #[test]
+    fn source_ids_hash_in_the_source_form() {
+        let local = Hasher::local();
+        let lb = Hasher::mirrored_from_source("lb");
+        let value = |id: &str| {
+            DataValue::EntityId(EntityIdValue {
+                entity_type: "item".into(),
+                id: EntityId::parse(id).unwrap(),
+            })
+        };
+        assert_eq!(
+            lb.value_serialization(&value("lb:Q3")),
+            local.value_serialization(&value("Q3"))
+        );
+        assert_ne!(
+            Hasher::mirrored_from("").value_serialization(&value("lb:Q3")),
+            local.value_serialization(&value("Q3"))
+        );
+        // Another source's, a provider's or a keyed ID is left as written.
+        for other in ["lbx:Q3", "WDQ3", "domain:example.org"] {
+            assert_eq!(
+                lb.value_serialization(&value(other)),
+                local.value_serialization(&value(other)),
+                "{other}"
+            );
+        }
+        // Properties too: Wikidata's own hash of a `novalue` snak on P2.
+        let s = snak(r#"{"snaktype":"novalue","property":"lb:P2"}"#);
+        assert_eq!(lb.snak(&s), "64baea7b9db49c64f5daf05ddf5162faa28d5e86");
     }
 
     #[test]

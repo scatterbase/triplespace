@@ -726,7 +726,7 @@ impl<'a> Renderer<'a> {
                 u.statement,
                 NodeNames {
                     base: u.base,
-                    hasher: Hasher::mirrored_from(&u.provider),
+                    hasher: u.hasher.clone(),
                 },
             ),
             None => (

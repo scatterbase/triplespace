@@ -37,7 +37,7 @@ pub fn hasher_for(id: &EntityId, registry: &Registry) -> Hasher {
     if id.form() != IdForm::Local
         && let Ok(f) = registry.parse_foreign_id(id.as_str())
     {
-        return Hasher::mirrored_from(&f.provider().code);
+        return Hasher::for_provider(f.provider());
     }
     Hasher::local()
 }

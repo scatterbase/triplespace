@@ -338,7 +338,7 @@ where
     // A load of the same source and graph whose process died is marked so (0011 A36).
     job.interrupt_earlier(store, pipeline, &mut cx, now).await?;
     let prepare = Prepare {
-        hasher: Hasher::mirrored_from(&provider.code),
+        hasher: Hasher::for_provider(provider),
         attestation: job.record_attestation().to_value(),
         now,
         provider_number: u64::from(provider.number),
