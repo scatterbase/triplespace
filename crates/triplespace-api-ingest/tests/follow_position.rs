@@ -239,3 +239,54 @@ async fn the_position_commits_with_the_unit_of_work() {
     assert_eq!(p.state, state(3));
     assert_eq!(p.rc_time, Some(LATER));
 }
+
+/// 0092 A11: a lost position is rebuilt from the newest revision the follower's graph
+/// holds, read from the version cursor; a graph with nothing in it has none, and another
+/// graph's or tenant's revisions do not count.
+#[tokio::test]
+async fn the_newest_revision_a_graph_holds_rebuilds_a_lost_position() {
+    use triplespace_api_ingest::follow::newest_revision;
+
+    let Some(admin) = admin_config() else {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    };
+    let client = fresh(admin).await;
+    assert_eq!(
+        newest_revision(&client, "", "mirror/wikidata")
+            .await
+            .unwrap(),
+        None
+    );
+    for (tenant, entity, graph, version) in [
+        ("", "WDQ1", "mirror/wikidata", Some("900")),
+        ("", "WDQ2", "mirror/wikidata", Some("2572371073")),
+        ("", "WDQ3", "mirror/wikidata", None),
+        ("", "OAW1", "mirror/openalex", Some("2026-11-01")),
+        ("", "Q1", "mirror/other", Some("9999999999")),
+        ("lb", "WDQ4", "mirror/wikidata", Some("9999999999")),
+    ] {
+        client
+            .execute(
+                "INSERT INTO view.entity_source (tenant, entity_id, graph, \"offset\",
+                                                 upstream_version, content_hash, size, synced_at)
+                 VALUES ($1, $2, $3, 0, $4, '\\x00', 1, now())",
+                &[&tenant, &entity, &graph, &version],
+            )
+            .await
+            .unwrap();
+    }
+    assert_eq!(
+        newest_revision(&client, "", "mirror/wikidata")
+            .await
+            .unwrap(),
+        Some(2_572_371_073)
+    );
+    assert_eq!(
+        newest_revision(&client, "", "mirror/openalex")
+            .await
+            .unwrap(),
+        None,
+        "a version that is not a revision ID"
+    );
+}

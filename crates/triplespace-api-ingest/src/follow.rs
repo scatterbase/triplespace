@@ -21,7 +21,7 @@ use scatter_ingest::IngestError;
 use scatter_ingest::follow::{ChangeBatch, ChangeSource, FollowJob, FollowState, SavePosition};
 use scatter_ingest::sync::SyncItem;
 use scatter_providers::Provider;
-use scatter_wikibase_changeset::{Adapter, Upstream, WikibaseAdapter};
+use scatter_wikibase_changeset::{Adapter, Graph, Upstream, WikibaseAdapter};
 use scatter_wikibase_model::id::EntityId;
 use tokio_postgres::GenericClient;
 use triplespace_projections::PgCx;
@@ -207,7 +207,8 @@ pub enum StartError {
 
 impl<'a> ProviderFollower<'a> {
     /// Starts a follower for `provider`: from its stored position, else from the end of
-    /// its last load, else from `from` (epoch seconds).
+    /// its last load, else from the newest revision its graph holds (a lost position,
+    /// 0092 A11), else from `from` (epoch seconds).
     ///
     /// # Errors
     ///
@@ -264,10 +265,17 @@ impl<'a> ProviderFollower<'a> {
         let stored = position(client, tenant, kind, &provider.slug)
             .await
             .map_err(|e| fail(&e))?;
-        let (time, cont, seen) = match (stored.rc_time, stored.loaded_to, from) {
+        // A position and a load's end both lost, with the graph written: the position is
+        // rebuilt from the newest revision the graph holds (0092 A11).
+        let recovered = if stored.rc_time.is_none() && stored.loaded_to.is_none() {
+            recovered(client, wiki, tenant, provider).await?
+        } else {
+            None
+        };
+        let (time, cont, seen) = match (stored.rc_time, stored.loaded_to.or(recovered), from) {
             (Some(t), _, _) => (t, stored.rc_continue.clone(), stored.rc_seen.clone()),
-            // From a load's end, less the tail window (0092 §5): the version cursor skips
-            // what the load wrote.
+            // From a load's end, or the newest revision the graph holds, less the tail
+            // window (0092 §5, A11): the version cursor skips what was written.
             (None, Some(t), _) => (t.saturating_sub(windows.tail), None, Vec::new()),
             (None, None, Some(t)) => (t, None, Vec::new()),
             (None, None, None) => return Err(StartError::NoPosition(provider.slug.clone())),
@@ -749,6 +757,89 @@ async fn restore_index<C: GenericClient>(
 
 /// The wiki's oldest recent change in the entity namespaces, epoch seconds; `None` when
 /// it has none.
+/// Where a follower whose position and load's end are both lost starts, before the tail
+/// window: when the wiki saved the newest revision its graph holds (0092 A11); `None`
+/// when the graph holds none.
+async fn recovered<C: GenericClient>(
+    client: &C,
+    wiki: &Wiki,
+    tenant: &str,
+    provider: &Provider,
+) -> Result<Option<u64>, StartError> {
+    let graph = if tenant.is_empty() {
+        Graph::Mirror(provider.slug.clone())
+    } else {
+        Graph::Source(provider.slug.clone())
+    };
+    let Some(revid) = newest_revision(client, tenant, &graph.name())
+        .await
+        .map_err(|e| StartError::Failed(e.to_string()))?
+    else {
+        return Ok(None);
+    };
+    revision_time(wiki, revid).await?.map(Some).ok_or_else(|| {
+        StartError::Failed(format!(
+            "the position of `{}` is lost, and the wiki has no time for revision {revid}, the newest it holds: start from a time with `--from`",
+            provider.slug
+        ))
+    })
+}
+
+/// The newest upstream revision `graph` holds for `tenant`, by `view.entity_source`'s
+/// version cursor (0092 A11); `None` when it holds none. It reads every row of the graph:
+/// it runs only when a follower's position is lost.
+///
+/// # Errors
+///
+/// The database's.
+pub async fn newest_revision<C: GenericClient>(
+    client: &C,
+    tenant: &str,
+    graph: &str,
+) -> Result<Option<u64>, tokio_postgres::Error> {
+    let row = client
+        .query_one(
+            "SELECT max(upstream_version::bigint) FROM view.entity_source
+             WHERE tenant = $1 AND graph = $2 AND upstream_version ~ '^[0-9]{1,18}$'",
+            &[&tenant, &graph],
+        )
+        .await?;
+    Ok(row
+        .get::<_, Option<i64>>(0)
+        .and_then(|r| u64::try_from(r).ok()))
+}
+
+/// When the wiki saved revision `revid` (epoch seconds); `None` when it has no such
+/// revision, as when it was deleted.
+async fn revision_time(wiki: &Wiki, revid: u64) -> Result<Option<u64>, StartError> {
+    let body = wiki
+        .get(&[
+            ("action", "query".into()),
+            ("prop", "revisions".into()),
+            ("revids", revid.to_string()),
+            ("rvprop", "timestamp".into()),
+        ])
+        .await
+        .map_err(|e| StartError::Failed(e.to_string()))?;
+    Ok(revision_time_of(&body))
+}
+
+/// The timestamp of the one revision a `prop=revisions` answer names, in either format.
+fn revision_time_of(body: &str) -> Option<u64> {
+    let v: serde_json::Value = serde_json::from_str(body).ok()?;
+    let pages = v.pointer("/query/pages")?;
+    let pages: Vec<&serde_json::Value> = match pages {
+        serde_json::Value::Array(a) => a.iter().collect(),
+        serde_json::Value::Object(o) => o.values().collect(),
+        _ => return None,
+    };
+    pages.iter().find_map(|p| {
+        p.pointer("/revisions/0/timestamp")
+            .and_then(serde_json::Value::as_str)
+            .and_then(scatter_adapter_mediawiki::recentchanges::parse_iso)
+    })
+}
+
 async fn oldest_change(
     wiki: &Wiki,
     namespaces: &EntityNamespaces,
@@ -775,4 +866,20 @@ async fn oldest_change(
     Ok(v.pointer("/query/recentchanges/0/timestamp")
         .and_then(|t| t.as_str())
         .and_then(scatter_adapter_mediawiki::recentchanges::parse_iso))
+}
+
+#[cfg(test)]
+mod tests {
+    use super::revision_time_of;
+
+    #[test]
+    fn a_revisions_answer_gives_its_time_in_either_format() {
+        let v2 = r#"{"batchcomplete":true,"query":{"pages":[{"pageid":7,"ns":0,"title":"Q1","revisions":[{"revid":2572371073,"parentid":1,"timestamp":"2026-11-20T00:00:14Z"}]}]}}"#;
+        assert_eq!(revision_time_of(v2), Some(1_795_132_814));
+        let v1 = r#"{"query":{"pages":{"7":{"pageid":7,"revisions":[{"timestamp":"2026-11-20T00:00:14Z"}]}}}}"#;
+        assert_eq!(revision_time_of(v1), Some(1_795_132_814));
+        let gone =
+            r#"{"batchcomplete":true,"query":{"badrevids":{"9":{"revid":9,"missing":true}}}}"#;
+        assert_eq!(revision_time_of(gone), None);
+    }
 }

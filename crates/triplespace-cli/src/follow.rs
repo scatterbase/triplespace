@@ -2,7 +2,8 @@
 //! and `upstream-login`: the optional bot password it logs in with (0092 §10).
 //!
 //! `follow --provider {slug}` continues from the follower's stored position, else from
-//! the end of the provider's last dump sync (`sync` records it), else from `--from`.
+//! the end of the provider's last dump sync (`sync` records it), else, when the position
+//! has been lost, from the newest revision the mirror holds (0092 A11), else from `--from`.
 //! `--once` reads until the wiki has nothing newer and stops; without it the follower
 //! runs until interrupted, waiting `follow.interval` seconds between polls once caught up
 //! and saying so on stderr. A closed day's compaction runs beside those waits (0092 A9).
@@ -49,8 +50,8 @@ pub struct Follow {
     /// Read until the wiki has nothing newer, then stop.
     #[arg(long)]
     pub once: bool,
-    /// Where to start when there is no position and no load: an ISO time
-    /// (`2026-10-01T00:00:00Z`).
+    /// Where to start when there is no position, no load and nothing in the graph: an ISO
+    /// time (`2026-10-01T00:00:00Z`).
     #[arg(long)]
     pub from: Option<String>,
     /// Seconds between polls when not `--once`; else the `follow.interval` setting.
