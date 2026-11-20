@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-17 (A32)
+- **Updated:** 2026-11-20 (A33)
 - **Author:** James Hare / Claude
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0034](0034-frontend-stack.md)
 
@@ -110,7 +110,7 @@ This ADR records the rest. The frontend is in 0034.
 - A small instance needs Postgres and nothing else, on any managed Postgres.
 - Crypto has one provider across TLS and signatures, so audits and FIPS questions have one answer.
 - `scatter-wikitext` owns a vendored parser and a renderer, which is real code to maintain; in return the preview and the server agree by construction.
-- Triplespace's own sync code has to reach RevisionChest's quality for dumps before it can be contributed back.
+- ~~Triplespace's own sync code has to reach RevisionChest's quality for dumps before it can be contributed back.~~ *Triplespace depends on RevisionChest's crates, and its poller moved to RevisionChest as `mwrecent` (A33).*
 - The binary, the OCI image, and the JavaScript and wasm served to browsers are all object code conveyed under GPLv3 §6. Each must come with its corresponding source, or point to where it can be obtained.
 - GPLv3, not AGPL: an operator who modifies Triplespace and only runs it as a service is not required to publish the changes.
 
@@ -386,3 +386,12 @@ Replaced text: 22 §3.3.
 - **Summary:** Blob storage is `scatter-blob`'s own backend trait, with the `fs` backend built in the crate on tokio's filesystem calls; `object_store`, chosen in A2, is no longer a dependency, and with it `chrono` and `humantime` leave the dependency graph, both declared unmaintained (RUSTSEC-2026-0543, RUSTSEC-2026-0542). The `s3` backend's client is not yet chosen; it must pass §16's `cargo deny` check and not bring in `chrono`. The chapter text is 03 §8, §9.2.
 
 Replaced text: 03 §8, §9.2.
+
+### A33. Triplespace depends on RevisionChest's library crates
+
+- **Date:** 2026-11-20
+- **Source:** 0112 §1
+- **Change:** amends §10
+- **Summary:** Triplespace depends on three of RevisionChest's crates from crates.io: `mwrev` (the bundle format), `mwdump` (MediaWiki's export XML) and `mwrecent` (the recent-changes poller); RevisionChest's binary still runs on its own. §10, and fixed point 4 of the Context, held that RevisionChest stays a separate binary that Triplespace does not link, which was decided when it had no library target; it has four crates now, and James decided on 2026-11-19 that Triplespace depends on them. The two stores stay separate (0112 §5), and live sync beyond the poller is still meant to move to RevisionChest later (0112 §3). The list of what RevisionChest's `sync` lacked is gone from the chapter: hidden text and offsets are fixed in RevisionChest 0.2, and the rest is its `sync`'s to fix. Chapter text: 13 §3.5, 22 §4.11.
+
+Replaced text: 13 §3.5.

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-01
-- **Updated:** 2026-11-08 (A9)
+- **Updated:** 2026-11-20 (A10)
 - **Author:** James Hare / Claude Fable
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [0018](0018-tenants.md), [0023](0023-moderation.md), [0024](0024-subsidiary-accounts.md), [0040](0040-instance-prerogatives.md), [0047](0047-special-pages.md), [0051](0051-page-redirects.md), [0052](0052-page-repositories-and-title-inheritance.md), [0054](0054-forking-a-mirrored-page.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
@@ -87,7 +87,7 @@ James's direction, from the design discussion of 2026-10-01:
 - **Template changes upstream now invalidate local renders promptly** (0042 Q5), as a by-product of following the stream.
 - **The rendered HTML is Wikipedia's, so its classes are Wikipedia's.** Infoboxes and navboxes assume Wikipedia's site styles, which [0055](0055-templatestyles-templatedata-and-page-properties.md) §4 lets a tenant supply; until a tenant does, mirrored pages look plainer than upstream.
 - **One `view` table is not a projection** in `proxy` mode, by design, as the render tables already are.
-- **Two new crates.** `scatter-adapter-mediawiki` is the first adapter for a wiki that is not a Wikibase, and RevisionChest's format moves to it.
+- ~~**Two new crates.** `scatter-adapter-mediawiki` is the first adapter for a wiki that is not a Wikibase, and RevisionChest's format moves to it.~~ *The format is read through RevisionChest's `mwrev`, and no reader of it is written here (A10).*
 
 ## Open questions
 
@@ -182,3 +182,12 @@ Replaced text: 13 §2.7 of this ADR; 03 §4.12 of this ADR.
 - **Source:** Direct: James, design discussion of 2026-11-08
 - **Change:** extends §5
 - **Summary:** Asked what `Special:Export` writes for a mirror kept with `full` history (Q4), James chose the latest revision only, whatever history the partition keeps; the rest of Q4, whether any tenant wants every rendering kept, stays open. Chapter text: 13 §2.6.
+
+### A10. RevisionChest stores are read through `mwrev`
+
+- **Date:** 2026-11-20
+- **Source:** 0112 §4, §6
+- **Change:** amends §12
+- **Summary:** `scatter-adapter-mediawiki` reads RevisionChest stores through RevisionChest's `mwrev`, and writes no reader of the `.mwrev.zst` format of its own; the Wikibase adapter reaches bundles through it as before. §12 moved an independent reader from `scatter-adapter-wikidata` into this crate, so that Triplespace would not link RevisionChest; that reader was never written, and RevisionChest now publishes the format as a crate. Chapter text: 13 §3.4, §3.5; 22 §2.1 (`crates.toml`).
+
+Replaced text: 13 §3.4 (the `chest:` row), 13 §3.5, 22 §2.1 (`crates.toml`: the entry for `scatter-adapter-mediawiki`).

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-26
-- **Updated:** 2026-11-20 (A11)
+- **Updated:** 2026-11-20 (A12)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0011](0011-logs.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0027](0027-preferences-and-portability.md), [0040](0040-instance-prerogatives.md), [0067](0067-proposals.md), [0085](0085-settings-and-preferences.md), [0088](0088-external-identity-providers.md), [0091](0091-one-wikibase-adapter.md)
 
@@ -198,3 +198,12 @@ Replaced text: A6, in 05 §5.7 of this ADR.
 - **Summary:** §3 rebuilds a lost position "from the newest upstream time in `view.entity_source`, less `follow.tail`", but the version cursor holds no time: for a Wikibase source its `upstream_version` is the revision ID. The follower refused to start without a position or a load's end, unless given `--from`. The calls made: (1) a follower with neither a position nor a load's end, whose graph holds entities, takes the newest revision ID in `view.entity_source` for its tenant and graph, asks the wiki when that revision was saved (`prop=revisions`), and starts from that time less `follow.tail`; the version cursor skips what is already written, and the gap check applies as to any position. (2) A load's end, when there is one, still comes first; `--from` is used only when the graph holds nothing. (3) The newest revision is read from every row of the graph, about 77 seconds on the whole-dump mirror; that is paid only when a position is lost. (4) A newest revision the wiki no longer has (deleted or suppressed) refuses to start and names `--from`. On the whole-dump mirror, the time rebuilt was 01:39:09 against a saved position of 01:40:10. Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.7.
 
 Replaced text: §3, in 05 §5.7 of this ADR.
+
+### A12. The poller's home is RevisionChest's `mwrecent`
+
+- **Date:** 2026-11-20
+- **Source:** 0112 §6
+- **Change:** amends §8
+- **Summary:** The recent-changes query and batch reading of §1 is RevisionChest's crate `mwrecent`, which both followers use with coalescing by title on, as before; `scatter-adapter-mediawiki`'s `recentchanges` module is retired once they have moved, and `triplespace-repos` may depend on `mwrecent`. The behaviour of §1 is unchanged; RevisionChest's `sync` uses the same poller with coalescing off. Chapter text: 22 §2.1 (`crates.toml`), 22 §4.11.
+
+Replaced text: 22 §2.1 (`crates.toml`: the entry for `scatter-adapter-mediawiki`).

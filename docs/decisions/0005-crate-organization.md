@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-19 (A128)
+- **Updated:** 2026-11-20 (A129)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
@@ -1107,3 +1107,12 @@ Replaced text (22 §2.1, `crates.toml`, the binaries' entry, as it stood):
 - **Source:** Direct: James, confirmed 2026-11-19; Claude's call while building the reference diff, 2026-11-19
 - **Change:** extends §2
 - **Summary:** `scatter-wikibase-changeset` holds the reference diff (`refs`), beside the structured diff of two entity states: every reference of a state keyed by its statement (the GUID with its subject canonical, or the property and main-snak hash where there is none) and by Wikibase's reference hash recomputed from the snaks, never the hash the source wrote; the references added and removed between two states; and the same over a set of keys, so that a fold over an entity's revisions holds the previous state's keys and no earlier entity. Reordering references or their snaks is no change, editing a snak is a removal and an addition, and an absent state has no reference. James asked for it on 2026-11-19 as a new pure crate, for a citation history of Wikidata built outside Triplespace from RevisionChest bundles; it is a module of this crate instead because the crate already diffs two states and the module needs nothing the crate does not depend on. No new crate and no new edge. Chapter text: 22 §2.1 (`crates.toml`).
+
+### A129. RevisionChest's crates in the map; `scatter-mediawiki-xml` to be retired
+
+- **Date:** 2026-11-20
+- **Source:** 0112 §6
+- **Change:** amends §2
+- **Summary:** Four new edges to RevisionChest's crates: `scatter-ingest`, `scatter-adapter-wikibase` and `triplespace-rdf` may depend on `mwdump`, `scatter-adapter-mediawiki` on `mwrev`, and `triplespace-repos` on `mwrecent` (`triplespace-api-ingest` and `triplespace-cli` may already depend on any lower crate). `scatter-mediawiki-xml` (A119) is retired once its callers read and write through `mwdump`; until then its entry stays, because `cargo xtask deps` checks the workspace against the map. How a retired crate whose successor is not a workspace crate is recorded is 0112 Q1. Chapter text: 22 §2.1 (`crates.toml`).
+
+Replaced text: 22 §2.1 (`crates.toml`: the entries for `scatter-mediawiki-xml`, `scatter-ingest`, `scatter-adapter-wikibase`, `scatter-adapter-mediawiki`, `triplespace-rdf` and `triplespace-repos`).
