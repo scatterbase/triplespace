@@ -9,7 +9,6 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | Entry | Date | Title |
 |---|---|---|
 | [0002 A48](0002-source-graphs-and-mass-ingest.md#a48-an-edit-that-only-repeats-a-statement-writes-nothing) | 2026-11-09 | An edit that only repeats a statement writes nothing |
-| [0005 A128](0005-crate-organization.md#a128-the-reference-diff) | 2026-11-19 | The reference diff |
 | [0006 A26](0006-log-integrity-and-erasure.md#a26-a-nesting-depth-limit-for-canonical-cbor) | 2026-11-06 | A nesting-depth limit for canonical CBOR |
 | [0010 A47](0010-site-ui.md#a47-the-acl-site-ui-the-calls-made-building-it) | 2026-10-30 | The ACL site UI: the calls made building it |
 | [0010 A49](0010-site-ui.md#a49-the-compare-form-and-the-diff-views-the-calls-made-building-them) | 2026-11-04 | The compare form and the diff views: the calls made building them |

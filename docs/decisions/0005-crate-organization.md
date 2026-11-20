@@ -1104,6 +1104,6 @@ Replaced text (22 §2.1, `crates.toml`, the binaries' entry, as it stood):
 ### A128. The reference diff
 
 - **Date:** 2026-11-19
-- **Source:** Direct: Claude, while building the reference diff, 2026-11-19; unconfirmed
+- **Source:** Direct: James, confirmed 2026-11-19; Claude's call while building the reference diff, 2026-11-19
 - **Change:** extends §2
 - **Summary:** `scatter-wikibase-changeset` holds the reference diff (`refs`), beside the structured diff of two entity states: every reference of a state keyed by its statement (the GUID with its subject canonical, or the property and main-snak hash where there is none) and by Wikibase's reference hash recomputed from the snaks, never the hash the source wrote; the references added and removed between two states; and the same over a set of keys, so that a fold over an entity's revisions holds the previous state's keys and no earlier entity. Reordering references or their snaks is no change, editing a snak is a removal and an addition, and an absent state has no reference. James asked for it on 2026-11-19 as a new pure crate, for a citation history of Wikidata built outside Triplespace from RevisionChest bundles; it is a module of this crate instead because the crate already diffs two states and the module needs nothing the crate does not depend on. No new crate and no new edge. Chapter text: 22 §2.1 (`crates.toml`).
