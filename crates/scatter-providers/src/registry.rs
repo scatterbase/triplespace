@@ -1076,4 +1076,20 @@ mod tests {
             ActorModel::ProviderOnly
         );
     }
+
+    /// A provider deletes by tombstone unless it opts out: "A provider may instead opt into
+    /// the keyed-style clear of §2.2, a `put` of the empty state in place of a tombstone, by
+    /// the registry flag `deletion = clear`" (0002 §5).
+    #[test]
+    fn deletion_defaults_to_tombstone_when_absent() {
+        let r = Registry::parse(&one("")).unwrap();
+        let z = r.by_slug("zed").unwrap();
+        assert_eq!(
+            z.deletion,
+            Deletion::Tombstone,
+            "an entry with no `deletion` field defaults to Tombstone"
+        );
+        let r2 = Registry::parse(&one("deletion = \"clear\"")).unwrap();
+        assert_eq!(r2.by_slug("zed").unwrap().deletion, Deletion::Clear);
+    }
 }

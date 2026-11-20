@@ -190,4 +190,30 @@ mod tests {
             Some(Limit::concurrent(20))
         );
     }
+
+    /// "`universe` and `temp` get limits below `user`'s" (0024 §5).
+    #[test]
+    fn anon_rows_are_below_user_rows() {
+        let p = RateLimitPolicy::defaults();
+        let anon = evaluate(
+            &Principal::anonymous(),
+            GroupRegistry::default_registry(),
+            GrantRegistry::default_registry(),
+        );
+        let user = eff(&[]);
+        for class in [
+            "edit", "create", "move", "link", "read", "parse", "export", "upstream",
+        ] {
+            let a = p.limit_for(class, &anon).expect(class);
+            let u = p.limit_for(class, &user).expect(class);
+            assert!(
+                a.rate() < u.rate(),
+                "{class}: anon {a:?} not below user {u:?}"
+            );
+        }
+        // The concurrency class too: fewer streams at once.
+        let a = p.limit_for("stream", &anon).unwrap();
+        let u = p.limit_for("stream", &user).unwrap();
+        assert!(a.count < u.count, "stream: anon {a:?} not below user {u:?}");
+    }
 }

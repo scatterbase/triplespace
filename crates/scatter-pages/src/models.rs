@@ -124,4 +124,13 @@ mod tests {
         assert!(!r.get("css").expect("reserved").implemented);
         assert!(r.get("nonsense").is_none());
     }
+
+    /// A retired model is not served: `triplespace-notation` "(was `triplespace-osm-tag`)"
+    /// (0041 §3), so the old ID does not resolve.
+    #[test]
+    fn retired_models_are_not_served() {
+        let r = ContentModels::parse(CONTENT_MODELS_TOML).expect("parses");
+        assert!(r.get("triplespace-osm-tag").is_none());
+        assert!(r.get("triplespace-notation").is_some());
+    }
 }
