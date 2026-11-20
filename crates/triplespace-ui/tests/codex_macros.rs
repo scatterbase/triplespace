@@ -261,12 +261,12 @@ fn watch_control() {
 /// Group 9a (19 §5.10): each form control as `forms.html`'s `control` draws it, in every
 /// kind, with and without help, with no value, with the reader's own text coming back after
 /// an error, and escaped. Until group 11 switched this compared the macro with the built-in
-/// `special::controls::render`, byte for byte in all 480 combinations; with that builder
+/// `controls::render`, byte for byte in all 480 combinations; with that builder
 /// deleted, the snapshot holds the markup it drew.
 #[test]
 fn form_controls() {
     use serde_json::{Value, json};
-    use triplespace_ui::special::controls::{Control, Kind as ControlKind};
+    use triplespace_ui::controls::{Control, Kind as ControlKind};
 
     let skins = Skins::load(None);
     let plain = skins.get("plain").expect("plain");

@@ -1,0 +1,27 @@
+[package]
+name = "triplespace-ui-pages"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "The site's page kinds (ADR 0113): entity, document, talk and table pages"
+publish = false
+
+[dependencies]
+triplespace-ui-kit.workspace = true
+triplespace-client.workspace = true
+scatter-wikibase-model.workspace = true
+scatter-wikibase-shape.workspace = true
+scatter-titles.workspace = true
+scatter-pages.workspace = true
+minijinja.workspace = true
+axum.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+percent-encoding.workspace = true
+tokio = { workspace = true, features = ["macros"] }
+
+[lints]
+workspace = true

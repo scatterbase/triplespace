@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-20 (A129)
+- **Updated:** 2026-11-20 (A131)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
@@ -1116,3 +1116,21 @@ Replaced text (22 §2.1, `crates.toml`, the binaries' entry, as it stood):
 - **Summary:** Four new edges to RevisionChest's crates: `scatter-ingest`, `scatter-adapter-wikibase` and `triplespace-rdf` may depend on `mwdump`, `scatter-adapter-mediawiki` on `mwrev`, and `triplespace-repos` on `mwrecent` (`triplespace-api-ingest` and `triplespace-cli` may already depend on any lower crate). `scatter-mediawiki-xml` (A119) is retired once its callers read and write through `mwdump`; until then its entry stays, because `cargo xtask deps` checks the workspace against the map. How a retired crate whose successor is not a workspace crate is recorded is 0112 Q1. Chapter text: 22 §2.1 (`crates.toml`).
 
 Replaced text: 22 §2.1 (`crates.toml`: the entries for `scatter-mediawiki-xml`, `scatter-ingest`, `scatter-adapter-wikibase`, `scatter-adapter-mediawiki`, `triplespace-rdf` and `triplespace-repos`).
+
+### A130. Rule 10 names the crates the site is assembled from
+
+- **Date:** 2026-11-20
+- **Source:** 0113 §3
+- **Change:** amends §3
+- **Summary:** Rule 10's site crates are `triplespace-ui` with the five crates it is assembled from, `triplespace-client` and `triplespace-web`: the new rendering crates reach no store and no API crate either. `cargo xtask deps` already walks everything `triplespace-ui` depends on, so the check covers them without a change. Chapter text: 22 §1.2 rule 10.
+
+Replaced text: 22 §1.2 (rule 10's list of the site's crates).
+
+### A131. The site's rendering in six crates
+
+- **Date:** 2026-11-20
+- **Source:** 0113 §4
+- **Change:** amends §2
+- **Summary:** Five new crates under `triplespace-ui`, in the surfaces layer: `triplespace-ui-kit`, `triplespace-ui-pages`, and the sibling special-page crates `triplespace-ui-accounts`, `triplespace-ui-admin` and `triplespace-ui-special`. `triplespace-ui` may depend on all five and keeps the router, the dispatcher and `Site`; the pages crate depends on the kit, and each special-page crate on the kit and the pages crate but on no sibling. `triplespace-ui`'s entry is divided among the six: each clause went to the crate that holds what it names, and the unused allowance for `scatter-normalize` and `scatter-providers` to `triplespace-ui-pages`. Chapter text: 22 §2.1 (`crates.toml`), 22 §2.4.
+
+Replaced text: 22 §2.1 (`crates.toml`: the entry for `triplespace-ui`).

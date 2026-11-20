@@ -1,0 +1,35 @@
+[package]
+name = "triplespace-ui-kit"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "The site's rendering kit (ADR 0113): what every page draws and answers with"
+publish = false
+
+[dependencies]
+triplespace-client.workspace = true
+scatter-wikibase-model.workspace = true
+scatter-titles.workspace = true
+scatter-pages.workspace = true
+html5ever.workspace = true
+markup5ever_rcdom.workspace = true
+minijinja.workspace = true
+semver.workspace = true
+axum.workspace = true
+rust-embed.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+toml.workspace = true
+percent-encoding.workspace = true
+icu_plurals.workspace = true
+icu_locale_core.workspace = true
+tokio = { workspace = true, features = ["macros"] }
+url.workspace = true
+reqwest.workspace = true
+
+[lints]
+workspace = true

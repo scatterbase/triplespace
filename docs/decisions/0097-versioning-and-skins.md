@@ -61,7 +61,7 @@ James's direction, from the design discussion of 2026-10-29:
 
 ### 8. Skins (amends 0034 §2)
 
-*Current text: [19](../architecture/19-site-ui.md) §5.2, §5.10; [21](../architecture/21-special-pages.md) §5.6; [23](../architecture/23-configuration-and-registry.md) §3.4.*
+*Current text: [19](../architecture/19-site-ui.md) §5.2, §5.10; [20](../architecture/20-web-tier.md) §1.2; [21](../architecture/21-special-pages.md) §5.6; [23](../architecture/23-configuration-and-registry.md) §3.4, §3.6, §6.*
 
 ### 9. The template contract (extends 0034 §2)
 

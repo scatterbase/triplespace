@@ -10,7 +10,8 @@
 //! equivalent. Entity spelling is not a difference: `&#60;` and `&lt;` are one character.
 //!
 //! The skins' parity check (`tests/parity.rs`, `cargo xtask skin-parity`) and the tests
-//! that hold a template to the markup it replaced use this.
+//! that hold a template to the markup it replaced use this. It stays in the router's
+//! crate with those tests, their fixture API and the corpus (implements 0113 §2).
 
 use std::fmt::Write as _;
 

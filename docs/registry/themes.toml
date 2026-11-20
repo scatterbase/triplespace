@@ -14,7 +14,7 @@
 # Contrast (0086 §2). Each variant is checked as served, merged over Codex's values for its mode. In `light`
 # and `dark` every text pair meets WCAG 2.1 AA (4.5:1) and the boundaries of controls and the focus outline
 # 3:1 (WCAG 1.4.11); in `light-more` and `dark-more` text meets 7:1 (AAA, 1.4.6) and those boundaries 4.5:1.
-# The pairs are crates/triplespace-ui/src/theme.rs's TEXT_PAIRS and UI_PAIRS, plus button labels
+# The pairs are crates/triplespace-ui-kit/src/theme.rs's TEXT_PAIRS and UI_PAIRS, plus button labels
 # (`color-inverted-fixed`, white in every mode, on `background-color-progressive` and its hover and active
 # states, and on `background-color-destructive`) and the error, destructive and success colours on the page
 # and on their subtle backgrounds, and visited and red links (`color-visited`, `color-destructive`) on the

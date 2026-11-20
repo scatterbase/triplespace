@@ -33,7 +33,18 @@ const IMPURE_DEPS: &[&str] = &[
 ];
 
 /// The site's crates (0005 §3 rule 10): they reach the instance only through its API.
-const SITE_CRATES: &[&str] = &["triplespace-ui", "triplespace-client", "triplespace-web"];
+/// The five crates `triplespace-ui` is assembled from are named too (implements 0113 §3),
+/// though the walk from `triplespace-ui` reaches them.
+const SITE_CRATES: &[&str] = &[
+    "triplespace-ui",
+    "triplespace-ui-kit",
+    "triplespace-ui-pages",
+    "triplespace-ui-accounts",
+    "triplespace-ui-admin",
+    "triplespace-ui-special",
+    "triplespace-client",
+    "triplespace-web",
+];
 
 /// Clients of the instance's stores; no crate the site's crates reach may depend on one
 /// (0005 §3 rule 10). `redis` is not here: the response cache's Valkey client holds
