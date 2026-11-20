@@ -80,6 +80,7 @@ pub mod history;
 pub mod invitation;
 pub mod jobs;
 pub mod labels;
+pub mod mirror;
 pub mod page_bundle;
 pub mod provenance;
 pub mod purges;
@@ -221,6 +222,7 @@ rest_operations! {
     post "/jobs/{id}/reject" => jobs::reject;
     post "/jobs/{id}/revert" => jobs::revert;
     post "/jobs/{id}/close" => jobs::close;
+    get "/provider/{code}/mirror" => mirror::handle;
 }
 
 /// The observer of the routes served a process may install (0108 §1): called with

@@ -140,7 +140,8 @@ pub async fn record_load<C: GenericClient>(
              VALUES ($1, $2, $3, to_timestamp($4::bigint), false)
              ON CONFLICT (tenant, kind, name) DO UPDATE
              SET loaded_to = EXCLUDED.loaded_to, handed_over = false, rc_time = NULL,
-                 rc_continue = NULL, rc_seen = NULL, rc_retry = NULL, updated = now()
+                 rc_continue = NULL, rc_seen = NULL, rc_retry = NULL, gap = NULL,
+                 updated = now()
              WHERE ops.repo_cursor.loaded_to IS NULL
                 OR EXCLUDED.loaded_to > ops.repo_cursor.loaded_to",
             &[&tenant, &kind, &name, &t],
@@ -148,6 +149,38 @@ pub async fn record_load<C: GenericClient>(
         .await
         .map_err(|e| IngestError::Store(e.to_string()))?;
     Ok(moved > 0)
+}
+
+/// Records a gap the follower found (0092 §3, A15): the position it refused to start from
+/// and the wiki's oldest recent change, with `now`, for `GET /provider/{code}/mirror` to
+/// report until a position is saved or a load records a new end. Epoch seconds.
+///
+/// # Errors
+///
+/// If the store fails.
+pub async fn record_gap<C: GenericClient>(
+    client: &C,
+    tenant: &str,
+    kind: &str,
+    name: &str,
+    position: u64,
+    oldest: u64,
+    now: u64,
+) -> Result<(), IngestError> {
+    let gap = serde_json::json!({
+        "position": mwrecent::iso(position),
+        "oldest": mwrecent::iso(oldest),
+        "found": mwrecent::iso(now),
+    });
+    client
+        .execute(
+            "INSERT INTO ops.repo_cursor (tenant, kind, name, gap) VALUES ($1, $2, $3, $4)
+             ON CONFLICT (tenant, kind, name) DO UPDATE SET gap = EXCLUDED.gap, updated = now()",
+            &[&tenant, &kind, &name, &gap],
+        )
+        .await
+        .map_err(|e| IngestError::Store(e.to_string()))?;
+    Ok(())
 }
 
 /// How long a follower waits before polling again once caught up, and where it says so.
@@ -299,6 +332,9 @@ impl<'a> ProviderFollower<'a> {
         if let Some(oldest) = oldest
             && is_gap(time, oldest, now(), retention)
         {
+            record_gap(client, tenant, kind, &provider.slug, time, oldest, now())
+                .await
+                .map_err(|e| fail(&e))?;
             return Err(StartError::Gap {
                 name: provider.slug.clone(),
                 position: mwrecent::iso(time),
@@ -696,7 +732,8 @@ impl SavePosition<PgIngest> for Saver {
                  SET rc_time = EXCLUDED.rc_time, rc_continue = EXCLUDED.rc_continue,
                      rc_seen = EXCLUDED.rc_seen, rc_retry = EXCLUDED.rc_retry, handed_over = true,
                      late = EXCLUDED.late, stale = EXCLUDED.stale,
-                     lag_seconds = EXCLUDED.lag_seconds, job = EXCLUDED.job, updated = now()",
+                     lag_seconds = EXCLUDED.lag_seconds, job = EXCLUDED.job, gap = NULL,
+                     updated = now()",
                 &[
                     &self.kind,
                     &self.name,

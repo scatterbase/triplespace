@@ -59,6 +59,15 @@ async fn query(database: &str, sql: &str) -> Vec<tokio_postgres::Row> {
     client.query(sql, &[]).await.unwrap()
 }
 
+async fn connect_to(database: &str) -> tokio_postgres::Client {
+    let config: Config = database.parse().unwrap();
+    let (client, connection) = config.connect(NoTls).await.unwrap();
+    tokio::spawn(async move {
+        let _ = connection.await;
+    });
+    client
+}
+
 struct Client {
     router: Router,
 }
@@ -350,6 +359,60 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
         .raw("/w/rest.php/triplespace/v0/entity/lb:Q999999/provenance")
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // The source's mirror status (18 §3.2; 0092 A15): loaded, not yet followed.
+    let mirror = "/w/rest.php/triplespace/v0/provider/lb/mirror";
+    let (status, body) = c.raw(mirror).await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(body["kind"], "source");
+    assert_eq!(body["followed_by"], "recentchanges");
+    assert_eq!(body["status"], "not-followed");
+    assert!(body["follow"].is_null() && body["gap"].is_null(), "{body}");
+    assert!(body["load"]["loaded_to"].is_string(), "{body}");
+    assert_eq!(body["load"]["handed_over"], false);
+    // A gap the follower found is reported until a position is saved or a load records a
+    // new end.
+    let pg = connect_to(&database).await;
+    triplespace_api_ingest::follow::record_gap(
+        &pg,
+        TENANT,
+        "source",
+        "lb",
+        1_700_000_000,
+        1_790_000_000,
+        1_795_000_000,
+    )
+    .await
+    .unwrap();
+    let (_, body) = c.raw(mirror).await;
+    assert_eq!(body["status"], "follow-gap", "{body}");
+    assert_eq!(body["gap"]["position"], "2023-11-14T22:13:20Z", "{body}");
+    triplespace_api_ingest::follow::record_load(&pg, TENANT, "source", "lb", 1_900_000_000)
+        .await
+        .unwrap();
+    let (_, body) = c.raw(mirror).await;
+    assert_eq!(
+        body["status"], "not-followed",
+        "a new load clears the gap: {body}"
+    );
+    // A registry provider by its code, followed by the instance; anything else is not
+    // found.
+    let (status, body) = c.raw("/w/rest.php/triplespace/v0/provider/WD/mirror").await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        (body["kind"].as_str(), body["slug"].as_str()),
+        (Some("provider"), Some("wikidata"))
+    );
+    assert_eq!(body["status"], "not-followed");
+    for nosuch in ["ZZ", "nosuch"] {
+        let (status, body) = c
+            .raw(&format!(
+                "/w/rest.php/triplespace/v0/provider/{nosuch}/mirror"
+            ))
+            .await;
+        assert_eq!(status, StatusCode::NOT_FOUND, "{nosuch}: {body}");
+        assert_eq!(body["code"], "provider-not-found", "{body}");
+    }
 
     // 4. What the first record fixed stays fixed (05 §6.4).
     let add = |name: &str, iri: &str| source::Add {

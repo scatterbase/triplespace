@@ -438,7 +438,7 @@ mod tests {
         assert_eq!(names[1], "scatter-log-postgres/0002_partition_origin");
         assert_eq!(names[2], "scatter-log-postgres/0003_record_autovacuum");
         assert_eq!(names[3], "triplespace-db/0001_ops");
-        assert!(names.last().unwrap().ends_with("0043_tenant_lifecycle"));
+        assert!(names.last().unwrap().ends_with("0044_follow_gap"));
         assert_eq!(checksum("").len(), 64);
         assert_ne!(checksum("a"), checksum("b"));
     }
