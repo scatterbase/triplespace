@@ -711,6 +711,8 @@
 	"ts-setting-files-types-help": "Help text of the setting `files.types`, under its label on Special:WikiSettings or Special:InstanceSettings. From the settings catalogue (docs/registry/settings.toml).",
 	"ts-setting-follow-interval": "Label of the setting `follow.interval` on Special:WikiSettings or Special:InstanceSettings (ADR 0085 §1, §4). The key is shown beside it.",
 	"ts-setting-follow-interval-help": "Help text of the setting `follow.interval`, under its label on Special:WikiSettings or Special:InstanceSettings. From the settings catalogue (docs/registry/settings.toml).",
+	"ts-setting-follow-retention": "Label of the setting `follow.retention` on Special:WikiSettings or Special:InstanceSettings (ADR 0085 §1, §4). The key is shown beside it.",
+	"ts-setting-follow-retention-help": "Help text of the setting `follow.retention`, under its label on Special:WikiSettings or Special:InstanceSettings. From the settings catalogue (docs/registry/settings.toml). $wgRCMaxAge is MediaWiki's configuration variable and is not translated.",
 	"ts-setting-follow-settle": "Label of the setting `follow.settle` on Special:WikiSettings or Special:InstanceSettings (ADR 0085 §1, §4). The key is shown beside it.",
 	"ts-setting-follow-settle-help": "Help text of the setting `follow.settle`, under its label on Special:WikiSettings or Special:InstanceSettings. From the settings catalogue (docs/registry/settings.toml).",
 	"ts-setting-follow-tail": "Label of the setting `follow.tail` on Special:WikiSettings or Special:InstanceSettings (ADR 0085 §1, §4). The key is shown beside it.",
