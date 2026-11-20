@@ -159,7 +159,7 @@ serde_json = { version = "1", features = ["float_roundtrip"] }
 # earlier releases have open advisories.
 ammonia = "4.2.5"
 # CommonMark for markdown pages and posts (0033 §9.2), without its CLI and highlighting.
-comrak = { version = "0.59", default-features = false }
+comrak = { version = "1.0", default-features = false }
 html5ever = "0.40"
 markup5ever_rcdom = "0.40"
 toml = "1"
