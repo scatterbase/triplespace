@@ -1279,4 +1279,30 @@ mod tests {
         let p = Acl::protect(Target::Page(7), &["edit"], "sysop", None);
         check_lock_out_change(Some(&p), None, &outsider).unwrap();
     }
+
+    /// "The restriction names no group. Nobody reads a taken-down version through any
+    /// tenant, including the tenant's administrators and its suppressors." — 0039 §10.
+    #[test]
+    fn a_takedown_names_no_group_and_nothing_else() {
+        let td = Acl::takedown(5);
+        // Serde shape: no `group` field is serialized for either permission.
+        let json = serde_json::to_string(&td).unwrap();
+        assert!(json.contains(r#""read":{}"#), "{json}");
+        assert!(json.contains(r#""upload":{}"#), "{json}");
+        assert!(!json.contains("\"group\""), "{json}");
+        // The shape validator accepts exactly this and refuses a blob ACL that names a
+        // group or restricts any other permission.
+        assert!(td.validate().is_ok());
+        let mut grouped = Acl::takedown(5);
+        grouped.restrictions.get_mut("read").unwrap().group = Some("suppress".into());
+        assert_eq!(grouped.validate(), Err(AclError::Blob));
+        let mut extra = Acl::takedown(5);
+        extra
+            .restrictions
+            .insert("delete".into(), Restriction::to_nobody());
+        assert_eq!(extra.validate(), Err(AclError::Blob));
+        let mut one = Acl::takedown(5);
+        one.restrictions.remove("upload");
+        assert_eq!(one.validate(), Err(AclError::Blob));
+    }
 }

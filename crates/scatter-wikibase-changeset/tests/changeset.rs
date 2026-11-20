@@ -659,6 +659,21 @@ fn link_problems() {
     assert!(problems(&type_change, "local", None).contains(&Problem::RedirectShape));
 }
 
+/// 0004 §9: `different-from` joins two namespaces as `same-as` does, and `remove` retracts
+/// a link when keyed by its highest-ranked member.
+#[test]
+fn different_from_and_removing_a_link() {
+    let apart = op(json!({"op": "different-from", "ids": ["WDQ1", "OAW7"]}));
+    assert!(problems(&apart, "local", None).is_empty());
+    let same_ns = op(json!({"op": "different-from", "ids": ["WDQ1", "WDQ2"]}));
+    assert!(problems(&same_ns, "local", None).contains(&Problem::LinkNamespace));
+    let removed = op(
+        json!({"op": "remove", "id": "Q456", "link": {"op": "same-as", "ids": ["Q456", "OAW123"]}}),
+    );
+    assert!(problems(&removed, "local", None).is_empty());
+    assert_eq!(removed.link_ids().map(<[EntityId]>::len), Some(2));
+}
+
 #[test]
 fn property_type_problems() {
     // P31 is an item property: a string value is the wrong value type.

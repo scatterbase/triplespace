@@ -537,4 +537,77 @@ mod tests {
         let r = record(&Value::Array(vec![]));
         assert_eq!(Attestation::of(&r), Err(AttestError::Shape("not a map")));
     }
+
+    /// "`job` | The job that wrote it, where one did" — 0040 §3: with no job the field
+    /// is not present at all.
+    #[test]
+    fn job_is_absent_when_no_job_wrote_the_record() {
+        let sk = SigningKey::from_bytes(&[8; 32]);
+        let authority = Authority {
+            partition: 0,
+            offset: 0,
+            leaf: [2; 32],
+        };
+        let att = instance_attestation(
+            &sk,
+            "instance:x",
+            &authority,
+            None,
+            false,
+            &Value::map(vec![(Value::text("op"), Value::text("put"))]),
+            &Value::text("hi"),
+        )
+        .unwrap();
+        assert!(att.get("job").is_none());
+    }
+
+    /// "`binding` | `true` for a prerogative, `false` for a provision" — 0040 §3.
+    #[test]
+    fn binding_is_true_for_a_prerogative_and_false_for_a_provision() {
+        let sk = SigningKey::from_bytes(&[9; 32]);
+        let authority = Authority {
+            partition: 0,
+            offset: 0,
+            leaf: [3; 32],
+        };
+        let content = Value::map(vec![(Value::text("op"), Value::text("put"))]);
+        let comment = Value::text("hi");
+        let prerogative = instance_attestation(
+            &sk,
+            "instance:x",
+            &authority,
+            None,
+            true,
+            &content,
+            &comment,
+        )
+        .unwrap();
+        assert_eq!(prerogative.get("binding"), Some(&Value::Bool(true)));
+        let provision = instance_attestation(
+            &sk,
+            "instance:x",
+            &authority,
+            None,
+            false,
+            &content,
+            &comment,
+        )
+        .unwrap();
+        assert_eq!(provision.get("binding"), Some(&Value::Bool(false)));
+    }
+
+    /// "`authority` | The authority record's partition, offset and leaf hash (0006 §5)"
+    /// — 0040 §3.
+    #[test]
+    fn authority_holds_partition_offset_and_leaf_hash() {
+        let authority = Authority {
+            partition: 12,
+            offset: 34,
+            leaf: [11; 32],
+        };
+        let v = authority.to_value();
+        assert_eq!(v.get("partition"), Some(&Value::Int(12)));
+        assert_eq!(v.get("offset"), Some(&Value::Int(34)));
+        assert_eq!(v.get("leaf"), Some(&Value::Bytes(vec![11; 32])));
+    }
 }

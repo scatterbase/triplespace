@@ -122,4 +122,34 @@ mod tests {
         // A key seen after erasure gets a new surrogate (0007 §5's rule for IPs, applied here).
         assert_eq!(a.surrogate("domain", "personal-name.example"), Ok(2));
     }
+
+    #[test]
+    fn the_allocator_does_not_normalize_keys() {
+        let mut a = InMemorySurrogates::new();
+        // 0009 §7: the allocator takes keys as given, in canonical form, and does not
+        // normalize (the trait's contract); distinct strings are distinct keys.
+        let canonical = a.surrogate("domain", "en.wikipedia.org").unwrap();
+        let other = a.surrogate("domain", "EN.Wikipedia.ORG").unwrap();
+        assert_ne!(
+            canonical, other,
+            "no normalization: different strings, different surrogates"
+        );
+        assert_eq!(a.lookup("domain", "EN.Wikipedia.ORG"), Ok(Some(other)));
+        assert_eq!(a.lookup("domain", "en.wikipedia.org"), Ok(Some(canonical)));
+    }
+
+    #[test]
+    fn lookup_never_mints() {
+        let mut a = InMemorySurrogates::new();
+        // 0009 §7: the surrogate is minted the first time a key is *written to*; a lookup
+        // of an unseen key must not mint one or advance the sequence.
+        assert_eq!(a.lookup("domain", "unseen.example"), Ok(None));
+        let first = a.surrogate("domain", "first.example").unwrap();
+        assert_eq!(first, 1, "the earlier lookup minted nothing");
+        assert_eq!(
+            a.lookup("domain", "unseen.example"),
+            Ok(None),
+            "still unminted"
+        );
+    }
 }
