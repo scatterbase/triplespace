@@ -861,6 +861,44 @@ pub fn is_gap(position: u64, oldest: u64, now: u64, retention: u64) -> bool {
     oldest > position && position < now.saturating_sub(retention)
 }
 
+/// Whether a follower could take over from a load that ends at `loaded_to` (0092 §5): it
+/// starts `tail` seconds before the end, and a start the wiki no longer keeps recent changes
+/// for is a gap (see [`is_gap`]). Returns the wiki's oldest recent change when it is one, for
+/// `sync` to warn at its end. All in epoch seconds.
+///
+/// # Errors
+///
+/// If the wiki cannot be read, or reports no entity namespaces.
+pub async fn handover_gap(
+    wiki: &Wiki,
+    loaded_to: u64,
+    tail: u64,
+    retention: u64,
+    now: u64,
+) -> Result<Option<u64>, String> {
+    let start = loaded_to.saturating_sub(tail);
+    // Within the retention there is no gap, whatever the wiki says: no request is needed.
+    if start >= now.saturating_sub(retention) {
+        return Ok(None);
+    }
+    let body = wiki
+        .get(&[
+            ("action", "query".into()),
+            ("meta", "siteinfo".into()),
+            ("siprop", "namespaces".into()),
+        ])
+        .await
+        .map_err(|e| e.to_string())?;
+    let namespaces = EntityNamespaces::from_siteinfo(&body).map_err(|e| e.to_string())?;
+    if namespaces.by_ns.is_empty() {
+        return Err("the wiki reports no entity namespaces".into());
+    }
+    let oldest = oldest_change(wiki, &namespaces)
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(oldest.filter(|&oldest| is_gap(start, oldest, now, retention)))
+}
+
 async fn oldest_change(
     wiki: &Wiki,
     namespaces: &EntityNamespaces,

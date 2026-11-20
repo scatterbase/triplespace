@@ -223,6 +223,7 @@ async fn an_adoption_and_a_sync_run_through_the_queue() {
         rejects: None,
         no_bootstrap: false,
         writers: sync::WRITERS,
+        no_gap_check: true,
     }))
     .await;
     let synced = queued(&database).await;

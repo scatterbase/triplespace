@@ -28,7 +28,8 @@ use scatter_ingest::write::Attestation;
 use scatter_ingest::{IngestError, Prepared, run_bootstrap};
 use scatter_providers::{Provider, Registry};
 use scatter_wikibase_changeset::{JobHeader, Mode, Upstream, WikibaseAdapter};
-use triplespace_api_ingest::follow::{KIND_PROVIDER, KIND_SOURCE, record_load};
+use triplespace_api_ingest::follow::{KIND_PROVIDER, KIND_SOURCE, handover_gap, record_load};
+use triplespace_upstream::Wiki;
 
 use crate::follow::tenant_registry;
 
@@ -80,6 +81,10 @@ pub struct Sync {
     /// committed in dump order (0013 A82); 1 writes one block at a time.
     #[arg(long, default_value_t = WRITERS)]
     pub writers: usize,
+    /// Does not ask the wiki whether a follower can take over where the load ends (0092 §5).
+    #[arg(long)]
+    #[serde(default)]
+    pub no_gap_check: bool,
 }
 
 /// A bootstrap load's blocks in flight by default (0013 A82): the fastest of 1, 2, 4 and 8 on
@@ -446,6 +451,9 @@ async fn run_sync(args: Sync) -> Result<()> {
                 " (no later than the end recorded: the follower's position is kept)"
             }
         );
+        if moved && !args.no_gap_check {
+            check_handover(&client, provider, &farm.base, latest).await;
+        }
     }
     println!("sync job {} finished", outcome.job_id);
     println!("  created    {}", outcome.counts.created);
@@ -466,6 +474,47 @@ async fn run_sync(args: Sync) -> Result<()> {
         println!("  unreadable {unreadable} (see stderr)");
     }
     Ok(())
+}
+
+/// Warns when the wiki no longer keeps recent changes from where a follower would take over
+/// from this load (0092 §5; 05 §5.9): the follower would stop at the gap. The load is
+/// written either way, so a check that cannot be made is a note, not a failure.
+async fn check_handover(
+    client: &tokio_postgres::Client,
+    provider: &Provider,
+    base: &str,
+    latest: u64,
+) {
+    let Some(api) = provider.api.as_deref() else {
+        return;
+    };
+    let note = |e: &dyn std::fmt::Display| {
+        eprintln!("  could not check that a follower can take over from the load: {e}");
+    };
+    let (windows, _, retention) = match crate::follow::windows_of(client).await {
+        Ok(w) => w,
+        Err(e) => return note(&e),
+    };
+    let agent = format!(
+        "Triplespace/{} ({base}; sync {})",
+        env!("CARGO_PKG_VERSION"),
+        provider.slug
+    );
+    let wiki = match Wiki::new(api, &agent) {
+        Ok(w) => w,
+        Err(e) => return note(&e),
+    };
+    match handover_gap(&wiki, latest, windows.tail, retention, now() / 1_000_000).await {
+        Ok(None) => {}
+        Ok(Some(oldest)) => eprintln!(
+            "warning: `{slug}` keeps recent changes from {}, and the load ends at {}: a \
+             follower cannot take over from it. Sync a newer dump to follow `{slug}`.",
+            mwrecent::iso(oldest),
+            mwrecent::iso(latest),
+            slug = provider.slug
+        ),
+        Err(e) => note(&e),
+    }
 }
 
 /// A bootstrap load (0013 §9): the dump prepared on worker threads

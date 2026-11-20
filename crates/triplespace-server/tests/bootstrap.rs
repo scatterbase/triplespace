@@ -139,6 +139,7 @@ async fn sync_into(database: &str, load: &Load) -> anyhow::Result<()> {
         rejects: None,
         no_bootstrap: load.no_bootstrap,
         writers: load.writers,
+        no_gap_check: true,
     })
     .await
 }
