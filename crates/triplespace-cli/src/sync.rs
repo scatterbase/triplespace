@@ -369,6 +369,10 @@ async fn target(
             format!("`{tenant}` declares no source `{slug}`")
         }
     })?;
+    // A retired source mints nothing new (05 §6.4).
+    if provider.source && provider.retired {
+        bail!("source `{slug}` is retired on `{tenant}`: declare it again with `source add` first");
+    }
     Ok((registry, provider, tenant))
 }
 

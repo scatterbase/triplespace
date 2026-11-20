@@ -71,6 +71,10 @@ pub struct EntitySource {
     /// Empty, or the registry provider code that replaced the source (0078 §9).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub promoted_to: Option<String>,
+    /// Retired: the record is kept, so that the name, the number and the templates stay
+    /// reserved and the source's IDs keep resolving, but it mints nothing new (0078 A8).
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub retired: bool,
 }
 
 /// Why a declaration is not a source.
@@ -91,6 +95,15 @@ pub enum SourceError {
         /// The source.
         name: String,
         /// What is wrong.
+        what: String,
+    },
+    /// A later record changes what the first fixed: the number, or a type's prefix,
+    /// entity type, ID grammar or IRI template (05 §6.4).
+    #[error("source `{name}`: {what} is fixed by its first record (ts-source-binding)")]
+    Binding {
+        /// The source.
+        name: String,
+        /// What changed.
         what: String,
     },
     /// The number is outside the sources' range.
@@ -183,6 +196,51 @@ impl EntitySource {
         Ok(())
     }
 
+    /// Checks a later record of this source against `earlier`, the record it replaces
+    /// (05 §6.4): the number and every type `earlier` declares, with its entity type, ID
+    /// grammar and IRI template, are kept. A type may be added; none may be dropped.
+    ///
+    /// # Errors
+    ///
+    /// [`SourceError::Binding`].
+    pub fn check_binding(&self, earlier: &EntitySource) -> Result<(), SourceError> {
+        let binding = |what: String| SourceError::Binding {
+            name: self.name.clone(),
+            what,
+        };
+        if earlier.number.is_some() && self.number != earlier.number {
+            return Err(binding("the number".into()));
+        }
+        for was in &earlier.types {
+            let Some(now) = self
+                .types
+                .iter()
+                .find(|t| t.upstream_prefix.eq_ignore_ascii_case(&was.upstream_prefix))
+            else {
+                return Err(binding(format!("type `{}`", was.upstream_prefix)));
+            };
+            if now.entity_type != was.entity_type {
+                return Err(binding(format!(
+                    "the entity type of `{}`",
+                    was.upstream_prefix
+                )));
+            }
+            if now.id_grammar != was.id_grammar {
+                return Err(binding(format!(
+                    "the ID grammar of `{}`",
+                    was.upstream_prefix
+                )));
+            }
+            if now.iri != was.iri {
+                return Err(binding(format!(
+                    "the IRI template of `{}`",
+                    was.upstream_prefix
+                )));
+            }
+        }
+        Ok(())
+    }
+
     /// The source as a provider (0078 §4): no code, the name as its slug, its number, no
     /// issuer (shallow mirroring keeps no upstream actors), and the Wikibase adapter.
     /// `None` until the server has assigned a number.
@@ -226,7 +284,7 @@ impl EntitySource {
             id_grammar: IdGrammar::Digits,
             trust: None,
             keys: None,
-            retired: self.promoted_to.is_some(),
+            retired: self.retired || self.promoted_to.is_some(),
             adapter_config: None,
             types,
             chip: None,
@@ -270,6 +328,7 @@ mod tests {
             licence: Some("CC-BY-SA-4.0".into()),
             number: Some(FIRST_SOURCE_NUMBER),
             promoted_to: None,
+            retired: false,
         }
     }
 
@@ -306,6 +365,62 @@ mod tests {
             EntitySource::next_number([FIRST_SOURCE_NUMBER, FIRST_SOURCE_NUMBER + 1]),
             Some(FIRST_SOURCE_NUMBER + 2)
         );
+    }
+
+    // 05 §6.4: a later record keeps the number and every type the first declared; it may
+    // change the label and the endpoints, and add a type.
+    #[test]
+    fn a_later_record_keeps_what_the_first_fixed() {
+        let mut first = source();
+        first.number = Some(4096);
+        let mut later = first.clone();
+        later.label = "Renamed".into();
+        later.api = Some("https://elsewhere.example/w/api.php".into());
+        later.types.push(SourceType {
+            upstream_prefix: "L".into(),
+            entity_type: "lexeme".into(),
+            id_grammar: "digits".into(),
+            iri: "https://creditunions.miraheze.org/entity/{upstream_id}".into(),
+        });
+        assert_eq!(later.check_binding(&first), Ok(()));
+        let refused = |change: &dyn Fn(&mut EntitySource)| {
+            let mut later = first.clone();
+            change(&mut later);
+            later.check_binding(&first).unwrap_err().to_string()
+        };
+        assert!(refused(&|s| s.number = Some(4097)).contains("the number is fixed"));
+        assert!(
+            refused(&|s| s.types[0].iri = "https://x.example/{upstream_id}".into()).contains(
+                "the IRI template of `Q` is fixed by its first record (ts-source-binding)"
+            )
+        );
+        assert!(refused(&|s| s.types[0].entity_type = "lexeme".into()).contains("entity type"));
+        assert!(refused(&|s| s.types[0].id_grammar = "token".into()).contains("ID grammar"));
+        assert!(
+            refused(&|s| {
+                s.types.remove(1);
+            })
+            .contains("type `P`")
+        );
+        // The prefix's case is not a change.
+        assert_eq!(
+            {
+                let mut later = first.clone();
+                later.types[0].upstream_prefix = "q".into();
+                later.check_binding(&first)
+            },
+            Ok(())
+        );
+    }
+
+    // A retired source keeps its place in the tenant's table of names, retired.
+    #[test]
+    fn a_retired_source_is_a_retired_provider() {
+        let mut s = source();
+        s.number = Some(4096);
+        assert!(!s.to_provider().unwrap().retired);
+        s.retired = true;
+        assert!(s.to_provider().unwrap().retired);
     }
 
     #[test]

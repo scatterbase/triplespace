@@ -212,6 +212,10 @@ async fn followed(
             format!("`{tenant}` declares no source `{slug}`")
         }
     })?;
+    // A retired source mints nothing new (05 §6.4).
+    if provider.source && provider.retired {
+        bail!("source `{slug}` is retired on `{tenant}`: declare it again with `source add` first");
+    }
     if provider.adapter.as_deref() != Some(scatter_adapter_wikibase::NAME) {
         bail!("`{slug}` is not a Wikibase; only Wikibase providers are followed yet");
     }

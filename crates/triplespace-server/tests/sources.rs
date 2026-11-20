@@ -156,6 +156,45 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
             .get::<_, i32>(0),
         1
     );
+    // Declared again, the source is updated: the record changes, the number and the
+    // partition stay.
+    source::run(source::SourceCommand::Add(source::Add {
+        which: source::Which {
+            at: at(),
+            name: "lb".into(),
+            reason: "relabelled".into(),
+        },
+        label: "Librarybase".into(),
+        types: vec!["Q=item".into(), "P=property".into()],
+        iri: "https://librarybase.org/entity/{upstream_id}".into(),
+        api: Some("https://librarybase.org/w/api.php".into()),
+        entity_data: None,
+        revision_ids: true,
+        licence: Some("CC0-1.0".into()),
+    }))
+    .await
+    .expect("source add again");
+    let redeclared = query(
+        &database,
+        "SELECT config->>'number', config->>'label' FROM view.registry WHERE tenant = 'reader' AND kind = 'entity-source' AND code = 'lb'",
+    )
+    .await;
+    assert_eq!(
+        (
+            redeclared[0].get::<_, String>(0),
+            redeclared[0].get::<_, String>(1)
+        ),
+        ("4096".to_string(), "Librarybase".to_string())
+    );
+    assert_eq!(
+        query(
+            &database,
+            "SELECT count(*)::int FROM log.partition WHERE tenant = 'reader' AND name = 'source/lb'"
+        )
+        .await[0]
+            .get::<_, i32>(0),
+        1
+    );
     // A registry name is refused (0078 §3 rule 1).
     let taken = source::run(source::SourceCommand::Add(source::Add {
         which: source::Which {
@@ -298,4 +337,120 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
         .raw("/w/rest.php/triplespace/v0/entity/lb:Q999999/provenance")
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // 4. What the first record fixed stays fixed (05 §6.4).
+    let add = |name: &str, iri: &str| source::Add {
+        which: source::Which {
+            at: at(),
+            name: name.into(),
+            reason: String::new(),
+        },
+        label: "Librarybase".into(),
+        types: vec!["Q=item".into(), "P=property".into()],
+        iri: iri.into(),
+        api: Some("https://librarybase.org/w/api.php".into()),
+        entity_data: None,
+        revision_ids: true,
+        licence: Some("CC0-1.0".into()),
+    };
+    let moved = source::run(source::SourceCommand::Add(add(
+        "lb",
+        "https://elsewhere.example/entity/{upstream_id}",
+    )))
+    .await;
+    assert!(
+        moved
+            .as_ref()
+            .is_err_and(|e| e.to_string().contains("ts-source-binding")),
+        "{moved:?}"
+    );
+
+    // 5. Retired, the record stays: its IDs still resolve, it loads nothing, and its number
+    //    is not given to another source.
+    source::run(source::SourceCommand::Retire(source::Which {
+        at: at(),
+        name: "lb".into(),
+        reason: "the test".into(),
+    }))
+    .await
+    .expect("retire");
+    let retired = query(
+        &database,
+        "SELECT config->>'number', config->>'retired' FROM view.registry WHERE tenant = 'reader' AND kind = 'entity-source' AND code = 'lb'",
+    )
+    .await;
+    assert_eq!(
+        (
+            retired[0].get::<_, String>(0),
+            retired[0].get::<_, String>(1)
+        ),
+        ("4096".to_string(), "true".to_string())
+    );
+    let v = c.get("action=wbgetentities&ids=lb:Q1&props=info").await;
+    assert_eq!(v["entities"]["lb:Q1"]["id"], "lb:Q1", "{v}");
+    let again = source::run(source::SourceCommand::Retire(source::Which {
+        at: at(),
+        name: "lb".into(),
+        reason: String::new(),
+    }))
+    .await;
+    assert!(again.is_err(), "retired twice");
+    let load = sync::run(sync::Sync {
+        job_id: None,
+        database: database.clone(),
+        provider: None,
+        tenant: Some(TENANT.into()),
+        source: Some("lb".into()),
+        dump: fixture(),
+        version: Some("sample".into()),
+        snapshot: false,
+        threshold: 100,
+        batch: 50,
+        rejects: None,
+        no_bootstrap: false,
+        writers: sync::WRITERS,
+        no_gap_check: true,
+    })
+    .await;
+    assert!(
+        load.as_ref()
+            .is_err_and(|e| e.to_string().contains("retired")),
+        "{load:?}"
+    );
+    source::run(source::SourceCommand::Add(add(
+        "other",
+        "https://other.example/entity/{upstream_id}",
+    )))
+    .await
+    .expect("another source");
+    let number = |name: &'static str| {
+        let database = database.clone();
+        async move {
+            query(
+                &database,
+                &format!("SELECT config->>'number' FROM view.registry WHERE tenant = 'reader' AND kind = 'entity-source' AND code = '{name}'"),
+            )
+            .await[0]
+                .get::<_, String>(0)
+        }
+    };
+    assert_eq!(number("other").await, "4097", "4096 stays lb's");
+
+    // 6. Declared again, the retired source is current under its own number.
+    source::run(source::SourceCommand::Add(add(
+        "lb",
+        "https://librarybase.org/entity/{upstream_id}",
+    )))
+    .await
+    .expect("lb again");
+    assert_eq!(number("lb").await, "4096");
+    assert!(
+        query(
+            &database,
+            "SELECT config->'retired' FROM view.registry WHERE tenant = 'reader' AND kind = 'entity-source' AND code = 'lb'",
+        )
+        .await[0]
+            .get::<_, Option<serde_json::Value>>(0)
+            .is_none()
+    );
 }

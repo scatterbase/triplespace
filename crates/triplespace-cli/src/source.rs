@@ -1,7 +1,8 @@
 //! `source`: a tenant's entity sources (0078 §1–§4). `source add` writes the
 //! `entity-source:{name}` record as an instance act, the server assigning the number and
 //! opening `source/{name}`; `source list` and `source show` read the tenant's table of
-//! names; `source retire` retires the record (the partition and its records stay).
+//! names; `source retire` flags the record retired (its name and number stay reserved,
+//! and the partition and its records stay); `source add` again makes it current.
 
 use anyhow::{Context, Result, bail};
 use clap::{Args, Subcommand};
@@ -22,7 +23,7 @@ pub enum SourceCommand {
     List(At),
     /// Show one source's record.
     Show(Which),
-    /// Retire a source's record; its partition and records stay.
+    /// Retire a source; its name, number, partition and records stay.
     Retire(Which),
 }
 
@@ -109,6 +110,7 @@ pub async fn run(cmd: SourceCommand) -> Result<()> {
                 licence: args.licence.clone(),
                 number: None,
                 promoted_to: None,
+                retired: false,
             };
             let written = write_source(&args.which, Some(source)).await?;
             if let Some(s) = written {
@@ -133,11 +135,12 @@ pub async fn run(cmd: SourceCommand) -> Result<()> {
             }
             for s in sources {
                 println!(
-                    "{}\t{}\tnumber {}\t{}",
+                    "{}\t{}\tnumber {}\t{}{}",
                     s.name,
                     s.label,
                     s.number.unwrap_or_default(),
-                    s.api.as_deref().unwrap_or("(no api)")
+                    s.api.as_deref().unwrap_or("(no api)"),
+                    if s.retired { "\tretired" } else { "" }
                 );
             }
         }
