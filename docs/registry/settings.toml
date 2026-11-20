@@ -661,6 +661,18 @@ meaning = "How far behind the head the tail pass re-reads, and how long seen rci
 source = "[0092](../decisions/0092-following-recent-changes.md) §6"
 
 [[setting]]
+key = "follow.retention"
+scope = "tenant"
+bound = "tenant"
+group = "mirrors"
+type = "duration"
+default = "P30D"
+default_text = "30 days"
+scope_note = "`site`, per follower: the instance record for a registry provider or a page repository, the tenant's for its entity sources"
+meaning = "How long the followed wiki keeps recent changes ($wgRCMaxAge: 30 days on Wikimedia wikis, 90 by MediaWiki's default). A position within this of now is never a gap; beyond it, a position older than the wiki's oldest change is"
+source = "[0092](../decisions/0092-following-recent-changes.md) §3, A13"
+
+[[setting]]
 key = "fork.allow"
 scope = "tenant"
 bound = "tenant"

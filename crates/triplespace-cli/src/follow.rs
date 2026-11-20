@@ -24,6 +24,7 @@ use scatter_providers::Registry;
 use tokio_postgres::Client;
 use triplespace_accounts::Secret;
 use triplespace_accounts::settings::load;
+use triplespace_accounts::settings::value::duration_seconds;
 use triplespace_accounts::upstream_login::{self, Follower};
 use triplespace_api_ingest::follow::{ProviderFollower, position};
 use triplespace_upstream::Wiki;
@@ -230,15 +231,15 @@ pub async fn tenant_registry(client: &Client, tenant: &str) -> Result<&'static R
 }
 
 /// The follower's windows and interval from the instance settings (0092 §6).
-async fn windows_of(client: &Client) -> Result<(Windows, u64)> {
+/// The follower's settings, in seconds: its windows, `follow.interval` and
+/// `follow.retention` (0092 §6, A13).
+async fn windows_of(client: &Client) -> Result<(Windows, u64, u64)> {
     let (snapshot, _) = load(client, None).await.context("settings")?;
     let number = |key: &str, default: u64| {
         snapshot
             .value(key)
-            .and_then(|v| {
-                v.as_u64()
-                    .or_else(|| v.as_str().and_then(|s| s.parse().ok()))
-            })
+            .as_ref()
+            .and_then(seconds_of)
             .unwrap_or(default)
     };
     let defaults = Windows::default();
@@ -246,7 +247,27 @@ async fn windows_of(client: &Client) -> Result<(Windows, u64)> {
         settle: number("follow.settle", defaults.settle),
         tail: number("follow.tail", defaults.tail),
     };
-    Ok((windows, number("follow.interval", 60)))
+    Ok((
+        windows,
+        number("follow.interval", 60),
+        number("follow.retention", 30 * 86_400),
+    ))
+}
+
+/// A duration setting's value in whole seconds: an ISO 8601 duration as the registry
+/// writes them (`PT15M`), or a bare number of seconds.
+// The duration is checked finite and non-negative before the cast, and saturates at
+// `u64::MAX`, far beyond any window.
+#[allow(clippy::cast_possible_truncation, clippy::cast_sign_loss)]
+fn seconds_of(v: &serde_json::Value) -> Option<u64> {
+    v.as_u64().or_else(|| {
+        let s = v.as_str()?;
+        s.parse().ok().or_else(|| {
+            duration_seconds(s)
+                .filter(|d| d.is_finite() && *d >= 0.0)
+                .map(|d| d.round() as u64)
+        })
+    })
 }
 
 fn seconds() -> u64 {
@@ -261,7 +282,7 @@ fn seconds() -> u64 {
 /// The database's.
 pub async fn interval(args: &Follow) -> Result<u64> {
     let client = connect(&args.database).await?;
-    let (_, setting) = windows_of(&client).await?;
+    let (_, setting, _) = windows_of(&client).await?;
     Ok(args.interval.unwrap_or(setting).max(1))
 }
 
@@ -287,7 +308,7 @@ pub async fn run(args: Follow) -> Result<()> {
         .unwrap_or_default();
     let farm = farm_of(&client).await?;
     let (store, pipeline) = store(&args.database, &farm)?;
-    let (windows, setting_interval) = windows_of(&client).await?;
+    let (windows, setting_interval, retention) = windows_of(&client).await?;
     let interval = args.interval.unwrap_or(setting_interval).max(1);
 
     let agent = format!(
@@ -322,7 +343,7 @@ pub async fn run(args: Follow) -> Result<()> {
         .map(|t| parse_iso(t).with_context(|| format!("`{t}` is not an ISO time")))
         .transpose()?;
     let mut source = ProviderFollower::start(
-        &client, &wiki, provider, registry, &tenant, windows, from, seconds,
+        &client, &wiki, provider, registry, &tenant, windows, retention, from, seconds,
     )
     .await?;
     eprintln!(
@@ -369,4 +390,21 @@ pub async fn run(args: Follow) -> Result<()> {
             .unwrap_or_default()
     );
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::seconds_of;
+    use serde_json::json;
+
+    // 0092 §6: duration settings are ISO 8601, as the registry writes them.
+    #[test]
+    fn duration_settings_are_read_as_the_registry_writes_them() {
+        assert_eq!(seconds_of(&json!("PT15M")), Some(900));
+        assert_eq!(seconds_of(&json!("P30D")), Some(30 * 86_400));
+        assert_eq!(seconds_of(&json!("PT0S")), Some(0));
+        assert_eq!(seconds_of(&json!(120)), Some(120));
+        assert_eq!(seconds_of(&json!("120")), Some(120));
+        assert_eq!(seconds_of(&json!("soon")), None);
+    }
 }

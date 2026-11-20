@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-26
-- **Updated:** 2026-11-20 (A12)
+- **Updated:** 2026-11-20 (A13)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0011](0011-logs.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0027](0027-preferences-and-portability.md), [0040](0040-instance-prerogatives.md), [0067](0067-proposals.md), [0085](0085-settings-and-preferences.md), [0088](0088-external-identity-providers.md), [0091](0091-one-wikibase-adapter.md)
 
@@ -207,3 +207,12 @@ Replaced text: §3, in 05 §5.7 of this ADR.
 - **Summary:** The recent-changes query and batch reading of §1 is RevisionChest's crate `mwrecent`, which both followers use with coalescing by title on, as before; `scatter-adapter-mediawiki`'s `recentchanges` module is retired once they have moved, and `triplespace-repos` may depend on `mwrecent`. The behaviour of §1 is unchanged; RevisionChest's `sync` uses the same poller with coalescing off. Chapter text: 22 §2.1 (`crates.toml`), 22 §4.11.
 
 Replaced text: 22 §2.1 (`crates.toml`: the entry for `scatter-adapter-mediawiki`).
+
+### A13. A gap needs the position to be older than the wiki keeps changes
+
+- **Date:** 2026-11-20
+- **Source:** Direct: James, design discussion of 2026-11-20
+- **Change:** amends §3; extends §6
+- **Summary:** A position is a gap only when it is older than the wiki keeps recent changes, `follow.retention` (a new `site` setting, default 30 days, Wikimedia's `$wgRCMaxAge`), and older than the oldest change the wiki still has. §3 refused any position older than the oldest change, which refuses a quiet wiki whose newest changes came after a long pause though nothing was lost. MediaWiki does not report `$wgRCMaxAge`, and James chose one setting over a per-provider registry field. Found while rebuilding RevisionChest's `sync` on `mwrecent` (SCA-449), which has the same rule as `--rc-max-age`. The follower command also reads its duration settings as the ISO 8601 durations the registry writes; it read only bare seconds, so a set `follow.settle` or `follow.tail` fell back to its default. Chapter text: 05 §5.7; 23 (the settings catalogue, from `settings.toml`).
+
+Replaced text: 05 §5.7 (the gap paragraph).

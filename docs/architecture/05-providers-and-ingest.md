@@ -538,7 +538,7 @@ The job's actor is the instance ([0040](../decisions/0040-instance-prerogatives.
 
 ### 5.7 Keeping mirrored entities current
 
-*Sources: [0070](../decisions/0070-shallow-entity-mirroring.md) §5; [0092](../decisions/0092-following-recent-changes.md) §1, §2, §3, §10.*
+*Sources: [0070](../decisions/0070-shallow-entity-mirroring.md) §5; [0092](../decisions/0092-following-recent-changes.md) §1, §2, §3, §10, A13.*
 
 **The set is followed by the provider's event stream where it has one, by its recent changes where it does not, and checked by a sweep.**
 
@@ -556,7 +556,7 @@ The job's actor is the instance ([0040](../decisions/0040-instance-prerogatives.
 
 **The position is a hint; the version cursor is the guarantee** ([0092](../decisions/0092-following-recent-changes.md) §3). It is kept in `ops.repo_cursor`, written in the transaction that writes the records it covers. A replayed row finds the entity current and writes nothing, and a lost position is rebuilt from the newest upstream time the graph holds, less `follow.tail`: the newest revision ID in `view.entity_source`, which the wiki dates (`prop=revisions`). A load's end, where one is recorded, comes first, and `--from` only when the graph holds nothing ([0092](../decisions/0092-following-recent-changes.md) A11).
 
-**A gap the wiki cannot close.** A wiki keeps a limited window of recent changes (MediaWiki's `$wgRCMaxAge`, 90 days by default). Before resuming, the follower reads the oldest row the wiki still has, and a position older than it is a gap. Under `all` the job stops with `follow-gap` until a new load (§5.9). Under `linked` and `on-demand` it resumes from the oldest row and runs the sweep at once.
+**A gap the wiki cannot close.** A wiki keeps a limited window of recent changes (MediaWiki's `$wgRCMaxAge`, 90 days by default and 30 on Wikimedia wikis), which the wiki does not report: the follower takes it from `follow.retention` (default 30 days). Before resuming, the follower reads the oldest row the wiki still has. A position is a gap when it is older than the window and older than that row; within the window nothing has been lost, however new the oldest row, since a quiet wiki may simply have had no changes since the position ([0092](../decisions/0092-following-recent-changes.md) A13). Under `all` the job stops with `follow-gap` until a new load (§5.9). Under `linked` and `on-demand` it resumes from the oldest row and runs the sweep at once.
 
 `triplespace follow --provider {slug}` or `--tenant {slug} --source {name}` runs a follower in the foreground, and `--once` catches up to the present and exits; a server runs its followers in its background loop.
 
