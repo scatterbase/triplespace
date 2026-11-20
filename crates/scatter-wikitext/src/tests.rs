@@ -227,3 +227,22 @@ fn redirects_and_categories() {
 fn preformatted() {
     assert_eq!(r(" a ''b''\n c"), "<pre>a <i>b</i>c</pre>");
 }
+
+/// `[[:Category:Name]]` is a link to the category page, not membership (0008 §8).
+#[test]
+fn a_leading_colon_category_link_is_not_membership() {
+    let c = config();
+    let e = extract("[[:Category:Name]]", &c, &Title::new(0, "P"));
+    assert!(e.categories.is_empty(), "{:?}", e.categories);
+    assert_eq!(e.links.len(), 1);
+    assert_eq!(e.links[0].target.prefixed(&c), "Category:Name");
+}
+
+/// `<syntaxhighlight>` is rendered as plain `<pre>` (0008 §8).
+#[test]
+fn syntaxhighlight_is_plain_pre() {
+    assert_eq!(
+        r("<syntaxhighlight lang=\"rust\">let x = 1 &amp; 2;</syntaxhighlight>"),
+        "<pre>let x = 1 &amp; 2;</pre>"
+    );
+}

@@ -293,4 +293,30 @@ mod tests {
             "the tenant's unblock lifts only its own"
         );
     }
+
+    /// The instance's layer of a block holds until it expires: an instance block with an
+    /// expiry removes nothing once past it, while the tenant's own unblock lifts only the
+    /// tenant's block (0040 §5: "a global filter's block holds until it expires or the
+    /// instance lifts it").
+    #[test]
+    fn an_instance_block_holds_until_it_expires() {
+        let all: BTreeSet<String> = ["read", "edit", "createpage"]
+            .iter()
+            .map(|s| (*s).to_string())
+            .collect();
+        // The tenant blocks `edit`, then unblocks; the instance blocks `edit` until 100.
+        let tenant = vec![at(10, Block::default_block(None)), at(20, Block::Unblock)];
+        let instance = vec![at(
+            15,
+            Block::Block {
+                removes: BlockScope::Permissions(["edit".to_string()].into()),
+                expires: Some(Timestamp(100)),
+            },
+        )];
+        let b = |t| blocked_in_layers(&tenant, &instance, Timestamp(t), &all);
+        // While unexpired, the instance's block is a floor the tenant's unblock cannot lower.
+        assert_eq!(b(25), ["edit".to_string()].into());
+        // After the expiry the instance's layer removes nothing.
+        assert_eq!(b(100), BTreeSet::new(), "expired");
+    }
 }

@@ -156,4 +156,45 @@ mod tests {
             vec!["P12"]
         );
     }
+
+    /// The six roles have the names and the Wikidata properties 0003 §7 gives them.
+    #[test]
+    fn roles_have_their_documented_names_and_wikidata_properties() {
+        let table = [
+            (Role::TimePoint, "time-point", "P585"),
+            (Role::TimeStart, "time-start", "P580"),
+            (Role::TimeEnd, "time-end", "P582"),
+            (Role::DeprecationReason, "deprecation-reason", "P2241"),
+            (Role::ReferenceWork, "reference-work", "P248"),
+            (Role::SeriesOrdinal, "series-ordinal", "P1545"),
+        ];
+        assert_eq!(Role::ALL.len(), table.len());
+        for (role, name, wikidata) in table {
+            assert_eq!(role.name(), name);
+            assert_eq!(Role::parse(name), Some(role));
+            assert_eq!(role.wikidata(), wikidata, "{name}");
+        }
+        assert_eq!(Role::parse("not-a-role"), None);
+    }
+
+    /// One role can have both a local and a mirrored property, `P12` and `WDP585` both
+    /// `time-point` (0003 §7): `with_mirror` adds the mirrored forms beside the roles
+    /// already mapped.
+    #[test]
+    fn local_and_mirrored_forms_together() {
+        let mut r = Roles::empty();
+        r.add(Role::TimePoint, "P12");
+        let r = r.with_mirror("WD");
+        assert!(r.is("P12", Role::TimePoint), "the local form stays mapped");
+        assert!(
+            r.is("WDP585", Role::TimePoint),
+            "the mirrored form joins it"
+        );
+        // Both properties of the role are listed.
+        assert_eq!(
+            r.properties(Role::TimePoint).collect::<Vec<_>>(),
+            vec!["P12", "WDP585"]
+        );
+        assert_eq!(r.of("P12").collect::<Vec<_>>(), vec![Role::TimePoint]);
+    }
 }

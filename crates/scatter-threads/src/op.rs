@@ -241,3 +241,86 @@ impl ThreadOp {
         serde_json::from_value(value).map_err(|e| e.to_string())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// One of each operation, `create`, `post` and `edit` naming `media` as their media type.
+    fn one_of_each(media: Option<&str>) -> Vec<ThreadOp> {
+        let media_type = media.map(str::to_string);
+        let page = Target::Page(43);
+        vec![
+            ThreadOp::Create {
+                name: "X".into(),
+                target: Target::Page(42),
+                also: Vec::new(),
+                status: None,
+                pinned: false,
+                media_type: media_type.clone(),
+                imported_from: None,
+            },
+            ThreadOp::Post {
+                in_reply_to: Some(7),
+                status: None,
+                media_type: media_type.clone(),
+                heading: None,
+                collapse: None,
+                uncollapse: None,
+                imported_from: None,
+            },
+            ThreadOp::Edit {
+                object: 2,
+                media_type,
+            },
+            ThreadOp::Rename { name: "Y".into() },
+            ThreadOp::Move {
+                target: page.clone(),
+                keep: false,
+            },
+            ThreadOp::Attach {
+                target: page.clone(),
+            },
+            ThreadOp::Detach {
+                target: page.clone(),
+            },
+            ThreadOp::Pin {
+                target: page.clone(),
+            },
+            ThreadOp::Unpin { target: page },
+        ]
+    }
+
+    /// Every operation but `create` and `post` needs a base offset (0019 §1).
+    #[test]
+    fn every_operation_but_create_and_post_needs_a_base() {
+        for op in one_of_each(None) {
+            let first = matches!(op, ThreadOp::Create { .. } | ThreadOp::Post { .. });
+            assert_eq!(op.needs_base(), !first, "{}", op.name());
+        }
+    }
+
+    /// An operation's name is the `op` its content part is written with (0019 §4).
+    #[test]
+    fn names_are_the_content_parts_op() {
+        for op in one_of_each(None) {
+            assert_eq!(op.to_json()["op"].as_str(), Some(op.name()));
+        }
+    }
+
+    /// Only the operations that carry a text part, `create`, `post` and `edit`, name its
+    /// media type (0019 §4).
+    #[test]
+    fn only_text_carrying_operations_name_a_media_type() {
+        for op in one_of_each(Some(WIKITEXT)) {
+            let text = matches!(
+                op,
+                ThreadOp::Create { .. } | ThreadOp::Post { .. } | ThreadOp::Edit { .. }
+            );
+            assert_eq!(op.media_type(), text.then_some(WIKITEXT), "{}", op.name());
+        }
+        for op in one_of_each(None) {
+            assert_eq!(op.media_type(), None, "{}", op.name());
+        }
+    }
+}

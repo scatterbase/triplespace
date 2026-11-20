@@ -429,4 +429,26 @@ mod tests {
         assert_eq!(prefix_for(activitystreams::NS), Some("as"));
         assert_eq!(prefix_for("http://example.org/"), None);
     }
+
+    /// The actor terms 0007 §9 mints under `scatter:` have exactly those names:
+    /// `TemporaryAccount`, `AnonymousActor`, `ImportedActor` and `attributionHidden`.
+    #[test]
+    fn actor_identity_terms_are_minted_under_scatter() {
+        assert_eq!(
+            scatter::TEMPORARY_ACCOUNT.as_str(),
+            "https://scatter.red/terms/v0/TemporaryAccount"
+        );
+        assert_eq!(
+            scatter::ANONYMOUS_ACTOR.as_str(),
+            "https://scatter.red/terms/v0/AnonymousActor"
+        );
+        assert_eq!(
+            scatter::IMPORTED_ACTOR.as_str(),
+            "https://scatter.red/terms/v0/ImportedActor"
+        );
+        assert_eq!(
+            scatter::ATTRIBUTION_HIDDEN.as_str(),
+            "https://scatter.red/terms/v0/attributionHidden"
+        );
+    }
 }
