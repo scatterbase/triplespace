@@ -902,3 +902,49 @@ every run.
 - After A94 the import's largest statements are the previous revision's size read from
   `view.activity` (29.7 s over 34,250 calls) and the actor lookup by name (17.4 s over 7,633 calls,
   2.3 ms each); 14,925 of its 34,296 records were still appended singly.
+
+## 11. Build times of the site crates (2026-11-20)
+
+**What ran.** The site's rendering before and after it was split into six crates
+([0113](../decisions/0113-the-sites-rendering-in-six-crates.md) Q1). Before is `8bf44f7` (the
+parent of the merge of #285: one `triplespace-ui` of 49,700 lines), after is `5bf65dc` (the merge:
+`triplespace-ui-kit`, `-pages`, `-accounts`, `-admin`, `-special` and the router). Each commit was
+exported to its own directory with its own `CARGO_TARGET_DIR`, and built with Rust 1.95.0 in the
+dev profile (dependencies at `opt-level = 2`, workspace crates unoptimized, incremental
+compilation on) with every dependency already built. On an Apple M5 Max: 18 cores (6 performance,
+12 efficiency), 128 GB, macOS 27.2, with other work running on the machine (load average 4–7).
+
+An edit is a new private function appended to the file, so the crate's contents change, not only
+the file's date; each edit was timed five times after one untimed edit, and the clean builds six
+times, alternating the two commits. The figures are medians, wall-clock seconds; the runs of one
+figure lay within 0.3 s of each other for the edits and within 1.4 s for the clean builds. A build
+with nothing to do takes 0.7 s at both commits.
+
+| | Before (one crate) | After (six crates) | Change |
+|---|---|---|---|
+| Clean `cargo build -p triplespace-web`, site crates removed | 12.5 | **8.3** | −34% |
+| Clean `cargo check -p triplespace-web`, likewise | 4.7 | 4.0 | −16% |
+| Edit a special page (`blank.rs`): `check` | 1.00 | **0.51** | −49% |
+| Edit a special page: `build` | 1.89 | **1.09** | −42% |
+| Edit the entity page (`entity/mod.rs`): `check` | 0.94 | 0.81 | −14% |
+| Edit the entity page: `build` | 1.80 | 1.60 | −11% |
+| Edit the kit (`frame.rs`): `check` | 0.94 | 1.08 | **+15%** |
+| Edit the kit: `build` | 1.82 | 2.05 | **+13%** |
+| Edit a special page: `cargo test -p triplespace-ui --no-run` | 2.56 | 2.05 | −20% |
+
+**What it says.**
+
+- **The clean build is a third shorter**, most likely because the three special-page crates compile
+  beside each other once the pages crate is done, where the one crate was a single unit to the
+  compiler's front end; the build was not profiled. A check gains less.
+- **An edit high in the stack costs about half** of what it did, and one to the entity page a
+  little less than before: the crates below the edit are not touched, and the three above the
+  pages crate are compiled together.
+- **An edit to the kit is slower, by about 0.2 s**: all six crates are recompiled and each has its
+  own start-up and metadata, where incremental compilation of the one crate reused most of its
+  work. What goes in the kit costs slightly more to change than it did.
+- **The differences are a second at most on this machine.** Incremental compilation already kept
+  the one crate's rebuilds under two seconds, of which 0.7 s is cargo finding nothing to do. On a slower machine the same ratios should hold and
+  the absolute savings be larger, which was not measured.
+- **Not measured:** one crate for the special pages against the three, which would need the code
+  moved again; a release build; and an edit that changes a public signature in the kit.

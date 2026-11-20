@@ -62,7 +62,7 @@ And his answers of 2026-11-20 to the choices put while drafting: the crates unde
 
 ## Open questions
 
-- **Q1. Whether the split shortens rebuilds enough to notice.** Build times were not measured. If a clean and an incremental build of the site are measured before the code moves, the three special-page crates can be weighed against one.
+- **Q1. Whether the split shortens rebuilds enough to notice.** *Settled by [performance.md](../testing/performance.md) §11: measured on 2026-11-20 after the code moved, against the commit before it. A clean build of the site is a third shorter (12.5 s to 8.3 s), a rebuild after an edit to a special page about half (1.9 s to 1.1 s), and one after an edit to the kit 0.2 s longer; every difference is a second or less on the machine measured, so the split stands on long-term maintainability, the boundaries the compiler now holds, not on build time. The three special-page crates were not measured against one.*
 - **Q2. Whether the forms that create and edit entities are special pages or part of the pages crate.** *Settled by §1.*
 - **Q3. A check of the layers before the crates exist.** *Withdrawn: the crates exist, so the compiler and `cargo xtask deps` hold the layers.*
 - **Q4. The heading of 19 §5.2.** *Settled by §1: retitled "Server rendering, in `triplespace-ui` and the crates under it", as James allowed on 2026-11-20.*
