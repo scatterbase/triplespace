@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-26
-- **Updated:** 2026-11-19 (A10)
+- **Updated:** 2026-11-20 (A11)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0011](0011-logs.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0027](0027-preferences-and-portability.md), [0040](0040-instance-prerogatives.md), [0067](0067-proposals.md), [0085](0085-settings-and-preferences.md), [0088](0088-external-identity-providers.md), [0091](0091-one-wikibase-adapter.md)
 
@@ -189,3 +189,12 @@ Replaced text: A8 (3), in 05 §5.7 of this ADR.
 - **Summary:** §3 has the position written in the transaction that writes the records it covers ([05](../architecture/05-providers-and-ingest.md) §5.7), but the follower saved it, with its jobs, in a statement of its own after the batch had committed. A crash between the two replayed the batch and counted it twice, as A6 said. Worse, a batch commits in several units of work, the first of which starts a new day's job, so a crash before the save left a job started and not saved: the next run started a second job for the day, and the first stayed `running` until that start marked it interrupted. A closed day's finish record and the jobs that no longer held it were committed apart in the same way. The calls made: (1) each unit of work of a batch saves the jobs, with the day's job as it stood before the batch, or as the batch started it; the batch's last unit saves the position the batch leaves and the day's job with the batch counted. A batch cut off part way is read again under the same job and counted once, the items its committed units wrote then counting as unchanged. (2) A day's finish record is committed with the jobs that no longer hold it. (3) A batch with nothing to write saves the position in a unit of work of its own, and a compaction that moved on without finishing saves its progress in one after the batch; a crash still loses only the progress not yet saved (A8 (4)). (4) The change source gives the follower a saver that writes in the store's units of work, so that the next batch is still read while one is written. Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.7.
 
 Replaced text: A6, in 05 §5.7 of this ADR.
+
+### A11. A lost position is rebuilt from the newest revision the graph holds
+
+- **Date:** 2026-11-20
+- **Source:** Direct: James, 2026-11-20 ("Yes"), to Claude's proposal to continue SCA-285 with recovering a lost position from `view.entity_source`; the calls below unconfirmed
+- **Change:** amends §3
+- **Summary:** §3 rebuilds a lost position "from the newest upstream time in `view.entity_source`, less `follow.tail`", but the version cursor holds no time: for a Wikibase source its `upstream_version` is the revision ID. The follower refused to start without a position or a load's end, unless given `--from`. The calls made: (1) a follower with neither a position nor a load's end, whose graph holds entities, takes the newest revision ID in `view.entity_source` for its tenant and graph, asks the wiki when that revision was saved (`prop=revisions`), and starts from that time less `follow.tail`; the version cursor skips what is already written, and the gap check applies as to any position. (2) A load's end, when there is one, still comes first; `--from` is used only when the graph holds nothing. (3) The newest revision is read from every row of the graph, about 77 seconds on the whole-dump mirror; that is paid only when a position is lost. (4) A newest revision the wiki no longer has (deleted or suppressed) refuses to start and names `--from`. On the whole-dump mirror, the time rebuilt was 01:39:09 against a saved position of 01:40:10. Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.7.
+
+Replaced text: §3, in 05 §5.7 of this ADR.
