@@ -17,11 +17,11 @@ use axum::response::Response;
 use serde::Serialize;
 use triplespace_client::ClientError;
 
-use crate::changes::FormItem;
 use triplespace_ui_kit::Site;
 use triplespace_ui_kit::choice::Choice;
 use triplespace_ui_kit::codex::{Action, Button, Weight};
 use triplespace_ui_kit::controls::AskForm;
+use triplespace_ui_kit::controls::FormItem;
 use triplespace_ui_kit::features::Feature;
 use triplespace_ui_kit::frame::{Page, title_url};
 use triplespace_ui_kit::i18n::Messages;

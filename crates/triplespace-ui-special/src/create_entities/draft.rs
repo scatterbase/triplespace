@@ -18,11 +18,9 @@ use scatter_wikibase_shape::table::{
 use serde_json::{Map, Value, json};
 
 use super::plan::Read;
-use super::table::{
-    Column, IdCell, Line, header, id_cell, join_values, lines_of, row_ref, split_values,
-};
+use super::table::{Column, IdCell, Line, header, id_cell, lines_of, row_ref};
 use triplespace_ui_kit::i18n::Messages;
-use triplespace_ui_kit::values::{datavalue, plain};
+use triplespace_ui_kit::values::{datavalue, join_values, plain, split_values};
 use triplespace_ui_pages::entity::Lookup;
 
 /// The prefix of a draft that only stages edits (0106 A1), before the creator's name.

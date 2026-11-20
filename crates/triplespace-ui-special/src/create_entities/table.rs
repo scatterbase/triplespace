@@ -5,7 +5,7 @@
 //!
 //! - The table: tab- or comma-separated, the first row naming the columns ([`Column`]).
 //! - A cell of several values: `|`-separated, `\|` for a literal bar and `\\` for a
-//!   literal backslash ([`split_values`]).
+//!   literal backslash ([`triplespace_ui_kit::values::split_values`]).
 //! - The `id` cell ([`IdCell`]): an item ID to add to, empty to let the preview decide,
 //!   `new` to create whatever matches, `skip` to leave the row out.
 //! - The statements on every item, and the reference on every statement, one
@@ -16,7 +16,6 @@ use serde::{Deserialize, Serialize};
 
 use triplespace_ui_kit::i18n;
 use triplespace_ui_kit::values::implied_type;
-pub use triplespace_ui_kit::values::{join_values, split_values};
 
 /// What a column holds.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -423,25 +422,6 @@ mod tests {
         ] {
             assert_eq!(header(&column(h, "en"), "en"), h);
         }
-    }
-
-    #[test]
-    fn cells_hold_several_values() {
-        assert_eq!(split_values("a| b |"), vec!["a", "b"]);
-        assert_eq!(split_values("a\\|b|c"), vec!["a|b", "c"]);
-        assert_eq!(split_values(""), Vec::<String>::new());
-        let values = vec!["a|b".to_string(), "c".to_string()];
-        assert_eq!(split_values(&join_values(&values)), values);
-        // 0106 A8: a backslash is escaped too, so one before a bar is not read as its escape.
-        let values = vec![
-            "ends\\".to_string(),
-            "C:\\dir".to_string(),
-            "x\\|y".to_string(),
-        ];
-        assert_eq!(join_values(&values), "ends\\\\|C:\\\\dir|x\\\\\\|y");
-        assert_eq!(split_values(&join_values(&values)), values);
-        // Written by hand, a backslash before anything else stands for itself.
-        assert_eq!(split_values("C:\\dir|\\alpha"), vec!["C:\\dir", "\\alpha"]);
     }
 
     #[test]

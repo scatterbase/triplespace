@@ -19,6 +19,7 @@ use triplespace_client::settings::Saved;
 use triplespace_client::{ClientError, JobInfo, RejectAsk};
 
 use triplespace_ui_kit::Site;
+use triplespace_ui_kit::changelist::job_href;
 use triplespace_ui_kit::changelist::{clock, date};
 use triplespace_ui_kit::codex::{Chip, ChipKind, ChipModel, MessageKind};
 use triplespace_ui_kit::frame::{Page, title_url};
@@ -66,8 +67,6 @@ pub struct Link {
     /// The text.
     pub text: String,
 }
-
-pub use triplespace_ui_kit::changelist::job_href as href;
 
 /// A job's status as shown.
 fn status_text(m: &Messages, status: &str) -> String {
@@ -163,7 +162,7 @@ fn row_model(m: &Messages, info: &JobInfo) -> JobRow {
     };
     JobRow {
         job: Link {
-            href: href(info.id),
+            href: job_href(info.id),
             text: m.with("ts-changes-job", &[&info.id.to_string()]),
         },
         status: status_text(m, &info.status),
@@ -374,7 +373,7 @@ pub fn actions_model(m: &Messages, info: &JobInfo, viewer: &Viewer) -> Option<Ac
         return None;
     }
     Some(Actions {
-        action: href(info.id),
+        action: job_href(info.id),
         token: viewer.token.clone(),
         reject,
         revert,
@@ -456,7 +455,7 @@ pub fn job_model(m: &Messages, info: &JobInfo, viewer: &Viewer) -> JobPage {
         header.push(Fact {
             label: m.get("ts-job-reverts"),
             value: m.with("ts-changes-job", &[&r.to_string()]),
-            href: Some(href(r)),
+            href: Some(job_href(r)),
             mono: false,
         });
     }
@@ -464,7 +463,7 @@ pub fn job_model(m: &Messages, info: &JobInfo, viewer: &Viewer) -> JobPage {
         header.push(Fact {
             label: m.get("ts-job-reverted-by"),
             value: m.with("ts-changes-job", &[&r.to_string()]),
-            href: Some(href(r)),
+            href: Some(job_href(r)),
             mono: false,
         });
     }
@@ -472,7 +471,7 @@ pub fn job_model(m: &Messages, info: &JobInfo, viewer: &Viewer) -> JobPage {
         header.push(Fact {
             label: m.get("ts-job-revert-started"),
             value: m.with("ts-changes-job", &[&r.to_string()]),
-            href: Some(href(r)),
+            href: Some(job_href(r)),
             mono: false,
         });
     }
@@ -751,7 +750,7 @@ pub async fn post(
             .close_job(&incoming, id, token)
             .await
             .map(|s| (s, "closed")),
-        _ => return pages::see_other(&href(id), &[]),
+        _ => return pages::see_other(&job_href(id), &[]),
     };
     match outcome {
         Ok((Saved::Ok(v), done)) => {
@@ -760,7 +759,7 @@ pub async fn post(
                 .get("job")
                 .or_else(|| v.get("revert"))
                 .and_then(serde_json::Value::as_u64)
-                .map_or_else(|| href(id), href);
+                .map_or_else(|| job_href(id), job_href);
             pages::see_other(&format!("{to}?done={done}"), &[])
         }
         Ok((Saved::Refused(r), _)) => {
