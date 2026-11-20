@@ -31,6 +31,7 @@ pub mod diff;
 pub mod job;
 pub mod op;
 pub mod rank;
+pub mod refs;
 pub mod validate;
 pub mod wire;
 
@@ -43,5 +44,6 @@ pub use changes::{Changes, Counts};
 pub use job::{Graph, JobHeader, Mode};
 pub use op::{Link, MatchKey, Operation, Resolution, Retention, SitelinkPatch, Upstream, Via};
 pub use rank::ProviderOrder;
+pub use refs::{ReferenceDiff, ReferenceKey, ReferenceUse, ReferenceUses};
 pub use validate::{Context, NoProperties, Problem, PropertyTypes, validate, validate_all};
 pub use wire::{Batch, WireError, WireOp};
