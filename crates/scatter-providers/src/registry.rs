@@ -1047,4 +1047,33 @@ mod tests {
             "{err}"
         );
     }
+
+    /// The provider as a whole is an agent whose IRI comes from the provider registry
+    /// (0007 §6): an entry's `agent_iri` is carried through as written, and is optional.
+    #[test]
+    fn agent_iri_is_taken_from_the_registry() {
+        let r = Registry::parse(&one("agent_iri = \"https://zed.example/org#self\"")).unwrap();
+        assert_eq!(
+            r.by_slug("zed").unwrap().agent_iri.as_deref(),
+            Some("https://zed.example/org#self")
+        );
+        let r = Registry::parse(&one("")).unwrap();
+        assert_eq!(r.by_slug("zed").unwrap().agent_iri, None);
+    }
+
+    /// Whether a provider's revisions name individual actors is a registry field, and an
+    /// entry that names no `actor_model` defaults to `Individual` (0007 §6).
+    #[test]
+    fn actor_model_defaults_to_individual_when_absent() {
+        let r = Registry::parse(&one("")).unwrap();
+        assert_eq!(
+            r.by_slug("zed").unwrap().actor_model,
+            ActorModel::Individual
+        );
+        let r2 = Registry::parse(&one("actor_model = \"provider-only\"")).unwrap();
+        assert_eq!(
+            r2.by_slug("zed").unwrap().actor_model,
+            ActorModel::ProviderOnly
+        );
+    }
 }

@@ -318,4 +318,34 @@ mod tests {
         assert_eq!(normalize_sub("mw:CentralAuth:7654321"), "7654321");
         assert_eq!(normalize_sub(" 7654321 "), "7654321");
     }
+
+    /// Qualification rewrites only `local`: a key that already names its issuer is
+    /// returned as is, so attribution keeps the tenant it was made under (0018 §4).
+    #[test]
+    fn qualification_rewrites_only_local() {
+        let own = ActorKey::parse("librarybase:42").unwrap();
+        assert_eq!(own.qualified("librarybase"), own, "already qualified");
+        let other = ActorKey::parse("example:17").unwrap();
+        assert_eq!(
+            other.qualified("librarybase"),
+            other,
+            "another tenant's actor"
+        );
+        let instance = ActorKey::instance("scatter");
+        assert_eq!(instance.qualified("librarybase"), instance);
+        let surrogate = ActorKey::surrogate(3);
+        assert_eq!(surrogate.qualified("librarybase"), surrogate);
+    }
+
+    /// Reading a key relative to one tenant leaves every other tenant's actor alone:
+    /// an edit made on another wiki stays that wiki's issuer and numeric ID (0018 §4).
+    #[test]
+    fn relative_to_leaves_foreign_issuers_alone() {
+        let other = ActorKey::parse("example:17").unwrap();
+        assert_eq!(other.relative_to("librarybase"), other);
+        let instance = ActorKey::instance("scatter");
+        assert_eq!(instance.relative_to("librarybase"), instance);
+        let surrogate = ActorKey::surrogate(9);
+        assert_eq!(surrogate.relative_to("librarybase"), surrogate);
+    }
 }

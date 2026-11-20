@@ -581,4 +581,60 @@ mod tests {
         assert_eq!(wf_urlencode("Data:Paris (x).map"), "Data:Paris%20(x).map");
         assert_eq!(escape_iri("a b<c>"), "a%20b%3Cc%3E");
     }
+
+    /// A Domain's document node is `Special:EntityData/domain:en.wikipedia.org` on each
+    /// instance's own article path, though its concept IRI is the same everywhere (0009 §6).
+    #[test]
+    fn keyed_document_node_is_instance_data() {
+        let s = scheme();
+        assert_eq!(
+            s.document(&EntityId::parse("domain:en.wikipedia.org").unwrap())
+                .as_str(),
+            "https://example.org/wiki/Special:EntityData/domain:en.wikipedia.org"
+        );
+        // Another instance with a different base mints the same concept IRI but its own
+        // document node.
+        let other = IriScheme::with_default_registries(Namespaces::triplespace(
+            "https://elsewhere.example",
+        ));
+        assert_eq!(
+            other
+                .document(&EntityId::parse("domain:en.wikipedia.org").unwrap())
+                .as_str(),
+            "https://elsewhere.example/wiki/Special:EntityData/domain:en.wikipedia.org"
+        );
+        assert_eq!(
+            other
+                .concept(&EntityId::parse("domain:en.wikipedia.org").unwrap())
+                .as_str(),
+            "https://scatter.red/domain/en.wikipedia.org"
+        );
+    }
+
+    /// The key is used in A-label form, so the IRI is plain ASCII (0009 §6).
+    #[test]
+    fn keyed_concept_iri_uses_the_a_label() {
+        assert_eq!(
+            scheme()
+                .concept(&EntityId::parse("domain:bücher.example").unwrap())
+                .as_str(),
+            "https://scatter.red/domain/xn--bcher-kva.example"
+        );
+    }
+
+    /// Each keyed type's IRI template is registry data (0017 §3): keyword and notation IDs
+    /// take their own templates, a notation key with its scheme and `=` as they are.
+    #[test]
+    fn keyword_and_notation_concepts_follow_their_templates() {
+        let s = scheme();
+        let iri = |id: &str| s.concept(&EntityId::parse(id).unwrap()).into_string();
+        assert_eq!(
+            iri("keyword:saxophone"),
+            "https://scatter.red/keyword/saxophone"
+        );
+        assert_eq!(
+            iri("notation:osm:amenity=cafe"),
+            "https://scatter.red/notation/osm:amenity=cafe"
+        );
+    }
 }

@@ -849,4 +849,19 @@ mod tests {
             "WDQ126373047$5627445f-43cb-ed6d-3adb-tracklists01"
         );
     }
+
+    /// The 0018 §7 rewrite keeps the UUID for a lexeme part's statement too: `L1-F1$…`
+    /// shown under the mirror's ID is `WDL1-F1$…`, whose subject is still the form.
+    #[test]
+    fn a_lexeme_parts_statement_id_is_rewritten_keeping_the_uuid() {
+        let uuid = "c13e7a23-11e7-4c91-a799-3d1806b65444";
+        let f = StatementId::parse(&format!("L1-F1${uuid}")).unwrap();
+        let f2 = f.with_entity(&EntityId::parse("WDL1-F1").unwrap());
+        assert_eq!(f2.canonical_str(), format!("WDL1-F1${uuid}"));
+        assert_eq!(f2.uuid(), uuid);
+        assert_eq!(
+            f2.entity_id().unwrap().lexeme_part().unwrap().0.as_str(),
+            "WDL1"
+        );
+    }
 }

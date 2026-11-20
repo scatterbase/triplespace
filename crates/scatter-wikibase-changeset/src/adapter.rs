@@ -343,3 +343,34 @@ pub fn assign_statement_ids(entity: &mut Entity, hasher: &Hasher) {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// 0002 §8.4: OpenAlex "entities project to `https://openalex.org/{upstream_id}`".
+    #[test]
+    fn openalex_entities_project_to_their_upstream_iri() {
+        let oa = WikibaseAdapter::new("openalex").unwrap();
+        assert_eq!(
+            oa.canonical_iri(&EntityId::parse("OAW123").unwrap())
+                .as_deref(),
+            Some("https://openalex.org/W123")
+        );
+    }
+
+    /// An adopted entity's references under an entity-source prefix are rewritten to
+    /// provider form (0035 §3); a source whose code the provider registry does not know is
+    /// an error naming it, not a silent pass-through.
+    #[test]
+    fn an_unknown_entity_source_code_is_named() {
+        let adapter = WikibaseAdapter::new("librarybase")
+            .unwrap()
+            .home()
+            .with_source("mystery", "ZZ");
+        assert!(matches!(
+            adapter.rewrite_id("mystery:Q1"),
+            Err(AdapterError::UnknownSource(name)) if name == "mystery"
+        ));
+    }
+}

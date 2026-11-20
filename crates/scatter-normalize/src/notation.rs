@@ -569,4 +569,29 @@ mod tests {
             Err(SchemeRegistryError::Duplicate(_))
         ));
     }
+
+    /// A retired scheme stays in the registry, so that its name is never given to another
+    /// vocabulary (0036 §3): `retired = true` parses, and the scheme is still found by name.
+    #[test]
+    fn retired_scheme_is_kept_and_flagged() {
+        let text = concat!(
+            "version = 1\n",
+            "[[scheme]]\n",
+            "name = \"old\"\n",
+            "label = \"Old vocabulary\"\n",
+            "normalizer = \"nfc\"\n",
+            "grammar = \"text\"\n",
+            "retired = true\n",
+            "defined_in = \"0036 §3\"\n",
+            "[[scheme]]\n",
+            "name = \"osm\"\n",
+            "normalizer = \"exact\"\n",
+            "grammar = \"osm-tag\"\n",
+        );
+        let r = SchemeRegistry::parse(text).unwrap();
+        let old = r.by_name("old").unwrap();
+        assert!(old.retired, "the retired flag must be preserved");
+        assert_eq!(old.label, "Old vocabulary");
+        assert!(!r.by_name("osm").unwrap().retired);
+    }
 }

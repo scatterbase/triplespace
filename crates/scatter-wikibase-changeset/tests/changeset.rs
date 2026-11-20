@@ -600,6 +600,29 @@ fn shape_problems() {
     );
 }
 
+/// 0009 §10: of the operations §3.3's table refuses a keyed entity, `tombstone` is checked in
+/// `shape_problems`; `redirect` (from or to a Domain) and `convert` are refused the same way,
+/// while `retain` and a `remove` of a Domain's statements apply to it like any other entity.
+#[test]
+fn keyed_entities_refuse_redirect_and_convert_but_take_retain_and_remove() {
+    let keyed = || Problem::KeyedOperation(id("domain:example.org"));
+    let from = op(json!({"op": "redirect", "from": "domain:example.org", "to": "Q5"}));
+    assert!(problems(&from, "local", None).contains(&keyed()));
+    let to = op(
+        json!({"op": "redirect", "from": "WDQ1", "to": "domain:example.org", "upstream": {"revid": 1}}),
+    );
+    assert!(problems(&to, "mirror/wikidata", Some(Mode::Upsert)).contains(&keyed()));
+    let convert = op(json!({"op": "convert", "id": "domain:example.org", "local": "Q5"}));
+    assert!(problems(&convert, "local", None).contains(&keyed()));
+
+    let retain = op(json!({"op": "retain", "id": "domain:example.org", "policy": "retain"}));
+    assert!(problems(&retain, "local", None).is_empty());
+    let remove = op(
+        json!({"op": "remove", "id": "domain:example.org", "statements": ["domain:example.org$A8C2D6D3-0000-0000-0000-000000000000"]}),
+    );
+    assert!(problems(&remove, "local", None).is_empty());
+}
+
 #[test]
 fn link_problems() {
     let ok = op(json!({"op": "same-as", "ids": ["OAW123", "Q456"]}));
