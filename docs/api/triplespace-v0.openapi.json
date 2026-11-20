@@ -8338,6 +8338,55 @@
           }
         }
       }
+    },
+    "/provider/{code}/mirror": {
+      "get": {
+        "operationId": "getProviderMirror",
+        "summary": "How a mirror is kept current",
+        "description": "How a registry provider's mirror, or a tenant's entity source, is kept current (ADR 0070 §9; 0078 §10; 0092 §7, A15): how it is followed, the follower's position, lag, `late` and `stale` counts and its jobs, a gap it could not cross, and the last load's end. `{code}` is a provider's two-letter code (`WD`) or a source's name (`lb`). The per-type mirror settings, set sizes and queue lengths of shallow mirroring are not reported yet.",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The mirror's status.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MirrorStatus"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` without the `read` right.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`provider-not-found`: neither a provider's code nor a source of the tenant.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -11969,6 +12018,163 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/ApiKey"
+            }
+          }
+        }
+      },
+      "MirrorStatus": {
+        "type": "object",
+        "required": [
+          "code",
+          "kind",
+          "slug",
+          "followed_by",
+          "status",
+          "follow",
+          "gap",
+          "load"
+        ],
+        "properties": {
+          "code": {
+            "type": "string",
+            "description": "As asked: a provider's code or a source's name."
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "provider",
+              "source"
+            ]
+          },
+          "slug": {
+            "type": "string"
+          },
+          "followed_by": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "enum": [
+              "recentchanges",
+              null
+            ],
+            "description": "`recentchanges` for a provider or source with an `api`; null otherwise."
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "following",
+              "follow-gap",
+              "not-followed"
+            ],
+            "description": "`follow-gap` while a gap is recorded; `following` once a follower has saved a position; `not-followed` before."
+          },
+          "follow": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "The follower's position, as it last saved it.",
+            "properties": {
+              "position": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "lag_seconds": {
+                "type": [
+                  "integer",
+                  "null"
+                ]
+              },
+              "late": {
+                "type": "integer"
+              },
+              "stale": {
+                "type": "integer"
+              },
+              "updated": {
+                "type": [
+                  "string",
+                  "null"
+                ],
+                "format": "date-time"
+              },
+              "job": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "description": "The day's open job.",
+                "properties": {
+                  "id": {
+                    "type": "integer"
+                  },
+                  "batches": {
+                    "type": "integer"
+                  },
+                  "rows": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "closing": {
+                "type": [
+                  "object",
+                  "null"
+                ],
+                "description": "A closed day's job while its compaction runs (0092 A8).",
+                "properties": {
+                  "id": {
+                    "type": "integer"
+                  },
+                  "compacted_to": {
+                    "type": "integer"
+                  },
+                  "to": {
+                    "type": "integer"
+                  },
+                  "removed": {
+                    "type": "integer"
+                  }
+                }
+              }
+            }
+          },
+          "gap": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "The position the follower refused to start from and the wiki's oldest recent change (0092 §3, A13).",
+            "properties": {
+              "position": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "oldest": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "found": {
+                "type": "string",
+                "format": "date-time"
+              }
+            }
+          },
+          "load": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "description": "The last load's end and whether the follower has taken over from it (0092 §5).",
+            "properties": {
+              "loaded_to": {
+                "type": "string",
+                "format": "date-time"
+              },
+              "handed_over": {
+                "type": "boolean"
+              }
             }
           }
         }

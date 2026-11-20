@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-26
-- **Updated:** 2026-11-20 (A14)
+- **Updated:** 2026-11-20 (A15)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0011](0011-logs.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0027](0027-preferences-and-portability.md), [0040](0040-instance-prerogatives.md), [0067](0067-proposals.md), [0085](0085-settings-and-preferences.md), [0088](0088-external-identity-providers.md), [0091](0091-one-wikibase-adapter.md)
 
@@ -225,3 +225,12 @@ Replaced text: 05 §5.7 (the gap paragraph).
 - **Summary:** §5 has a load that the wiki's recent changes no longer reach warn at the end of `sync`, but `sync` did not ask the wiki, and the gap was found only when the follower refused to start. The calls made: (1) once a load has recorded its end, `sync` checks the follower's start from it, the end less `follow.tail`, by A13's rule: within `follow.retention` of now it asks nothing; beyond, it reads the wiki's entity namespaces and its oldest recent change, as the follower does, and warns when the start is older, naming both times. (2) The load is written either way, so a check that cannot be made (no `api`, the wiki unreachable) is a note on stderr, never a failure. (3) A load that records nothing, ending no later than the end already recorded (A4), is not checked, since the follower's position is unchanged. (4) `--no-gap-check` skips the check, for a load made offline; the tests use it. Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.9.
 
 Replaced text: 05 §5.9 (the sentence on a load that cannot hand over).
+
+### A15. `GET /provider/{code}/mirror` reports the follower, and a gap is recorded
+
+- **Date:** 2026-11-20
+- **Source:** Direct: James, 2026-11-20 ("Yes"), to Claude's proposal to build the `follow` fields and `follow-gap` on `GET /provider/{code}/mirror` (SCA-285); the calls below unconfirmed
+- **Change:** extends §3, §7
+- **Summary:** §7 lists the follower's position, lag, `late` and `stale` among what `GET /provider/{code}/mirror` reports, and §3 has a job under `all` stop with `follow-gap`, but the route was not built and the gap was not kept: the follower refused to start and said so only on stderr, or in a queued pass's error. The calls made: (1) the route answers anyone with `read` on the tenant, for a registry provider by its code (the instance's follower) and for a source of the tenant by its name; anything else is `404 provider-not-found`. (2) Its body: `kind`, `slug`, `followed_by` (`recentchanges` for a provider or source with an `api`, else null), `status`, `follow` (the position, `lag_seconds` and `updated` as the follower last saved them, `late`, `stale`, the day's open job with its batches and rows, and a closing day's job with its compaction's progress), `gap` and `load` (`loaded_to`, `handed_over`). (3) `status` is `follow-gap` while a gap is recorded, `following` once a position is saved, `not-followed` before; it reads the row, so a follower stopped since its last pass still shows `following` with an old `updated`. (4) The follower records a gap in a new column, `ops.repo_cursor.gap` (the position, the oldest change, when found), as it refuses to start; the next position saved, or a load that records a new end, clears it. (5) The per-type mirror settings, set sizes and queue lengths of shallow mirroring are not reported yet: they come with shallow mirroring (0070 §9, SCA-174). Chapter text: [05](../architecture/05-providers-and-ingest.md) §5.7; [03](../architecture/03-storage-caches-and-search.md) §4.12.
+
+Replaced text: none; 05 §5.7 and 03 §4.12 gain a sentence and a column.
