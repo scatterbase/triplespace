@@ -139,4 +139,48 @@ mod tests {
             "https://librarybase.org/actor/7"
         );
     }
+
+    /// A farm account IRI stays under the reserved path when the farm base is a tenant's
+    /// base: "The farm base may then be any host, including the base of the primary tenant
+    /// or of any other tenant." (0046 §7).
+    #[test]
+    fn farm_iris_keep_the_instance_path_when_the_farm_base_is_a_tenants_base() {
+        let r = IssuerRegistry::default_registry();
+        let ctx = IriContext {
+            tenant_code: "librarybase",
+            tenant_base: "https://librarybase.org",
+            farm_code: "scatter",
+            farm_base: "https://librarybase.org",
+        };
+        let iri = |k: &str| {
+            actor_iri(&ActorKey::parse(k).unwrap(), r, ctx).map(oxrdf::NamedNode::into_string)
+        };
+        assert_eq!(
+            iri("scatter:7").unwrap(),
+            "https://librarybase.org/instance/user/7"
+        );
+        assert_eq!(
+            iri("instance:scatter").unwrap(),
+            "https://librarybase.org/instance/operator"
+        );
+    }
+
+    /// Tenant IRIs are unchanged where the farm base is that tenant's base: "Tenant IRIs and
+    /// origin lines are unchanged, and no tenant route, article path or IRI template may
+    /// begin with `/instance/`." (0046 §7).
+    #[test]
+    fn tenant_iris_are_unchanged_when_the_farm_base_is_the_tenants_base() {
+        let r = IssuerRegistry::default_registry();
+        let ctx = IriContext {
+            tenant_code: "librarybase",
+            tenant_base: "https://librarybase.org",
+            farm_code: "scatter",
+            farm_base: "https://librarybase.org",
+        };
+        let iri = |k: &str| {
+            actor_iri(&ActorKey::parse(k).unwrap(), r, ctx).map(oxrdf::NamedNode::into_string)
+        };
+        assert_eq!(iri("local:42").unwrap(), "https://librarybase.org/user/42");
+        assert_eq!(iri("actor:7").unwrap(), "https://librarybase.org/actor/7");
+    }
 }

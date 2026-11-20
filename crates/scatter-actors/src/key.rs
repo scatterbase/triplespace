@@ -348,4 +348,46 @@ mod tests {
         let surrogate = ActorKey::surrogate(9);
         assert_eq!(surrogate.relative_to("librarybase"), surrogate);
     }
+
+    /// A surrogate key `actor:{n}` validates as a numeric subject without a registry entry:
+    /// "`actor` … never registered and read as the current tenant's" (0007 §1).
+    #[test]
+    fn surrogate_keys_validate_without_a_registry_entry() {
+        let r = IssuerRegistry::default_registry();
+        assert!(
+            ActorKey::surrogate(3).validate(r, &[]).is_ok(),
+            "actor is never registered, yet its keys validate"
+        );
+        assert!(ActorKey::surrogate(3).is_surrogate());
+        assert_eq!(ActorKey::surrogate(3).numeric_subject(), Some(3));
+        assert!(
+            matches!(
+                ActorKey::parse("actor:Jimbo").unwrap().validate(r, &[]),
+                Err(ActorKeyError::NotNumeric(_))
+            ),
+            "a surrogate's subject is still a numeric user ID"
+        );
+    }
+
+    /// A key under a tenant's own issuer code validates even though no registry entry
+    /// carries it: "Tenant issuer codes and the farm code are derived" (0007 §1).
+    #[test]
+    fn tenant_codes_validate_as_numeric_without_a_registry_entry() {
+        let r = IssuerRegistry::default_registry();
+        // A derived code: 26 characters of base32, which no registered code can be.
+        let derived = "abcdefghijklmnopqrstuvwxyz";
+        assert!(r.by_code(derived).is_none());
+        let k = ActorKey::parse(&format!("{derived}:42")).unwrap();
+        assert!(k.validate(r, &[derived]).is_ok());
+        assert_eq!(k.numeric_subject(), Some(42));
+        assert!(
+            matches!(
+                ActorKey::parse(&format!("{derived}:Jimbo"))
+                    .unwrap()
+                    .validate(r, &[derived]),
+                Err(ActorKeyError::NotNumeric(_))
+            ),
+            "a tenant issuer's subjects are numeric user IDs"
+        );
+    }
 }

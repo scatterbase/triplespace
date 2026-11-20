@@ -111,4 +111,13 @@ mod tests {
         let r = render("a ~~~~ b", &wiki, &keep);
         assert!(r.html.contains("a ~~~~ b"), "{}", r.html);
     }
+
+    /// A GitHub-style table renders: "CommonMark with GitHub-style tables" (0008 §5).
+    #[test]
+    fn github_tables_render() {
+        let r = render("| a | b |\n| - | - |\n| 1 | 2 |", &wiki, &keep);
+        assert!(r.html.contains("<table>"), "{}", r.html);
+        assert!(r.html.contains("<th>a</th>"), "{}", r.html);
+        assert!(r.html.contains("<td>2</td>"), "{}", r.html);
+    }
 }
