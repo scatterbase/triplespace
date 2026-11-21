@@ -56,22 +56,26 @@ pub struct Sync {
     #[arg(long, requires = "tenant")]
     pub source: Option<String>,
     /// The dump: a Wikibase JSON dump or a MediaWiki XML dump (`.json`, `.xml`, `.gz`, `.bz2`).
+    /// Without one, the wiki's entity namespaces are crawled through its `api` instead
+    /// (0092 §4): every entity listed is queued for the follower to fetch.
     #[arg(long)]
-    pub dump: PathBuf,
+    pub dump: Option<PathBuf>,
     /// The dump's identity, the source version (`20261001`); the file name by default.
-    #[arg(long)]
+    #[arg(long, requires = "dump")]
     pub version: Option<String>,
-    /// The dump is complete: entities it does not carry are tombstoned afterwards.
+    /// The dump is complete: entities it does not carry are tombstoned afterwards. A crawl
+    /// is always one.
     #[arg(long)]
     pub snapshot: bool,
-    /// The most entities a snapshot sweep may tombstone before the job fails instead.
+    /// The most entities a snapshot sweep may tombstone, or a crawl's sweep queue, before
+    /// the job or the crawl fails instead.
     #[arg(long, default_value_t = 1000)]
     pub threshold: usize,
     /// Entities per unit of work.
     #[arg(long, default_value_t = 200)]
     pub batch: usize,
     /// Writes every reject to this file, one `upstream ID<TAB>reason` line each.
-    #[arg(long)]
+    #[arg(long, requires = "dump")]
     pub rejects: Option<PathBuf>,
     /// Loads through the ordinary sync even where bootstrap mode applies (an empty
     /// instance mirror, no key map, a JSON dump; 0013 §9).
@@ -85,6 +89,13 @@ pub struct Sync {
     #[arg(long)]
     #[serde(default)]
     pub no_gap_check: bool,
+}
+
+impl Sync {
+    /// The dump of a dump sync: a crawl has none.
+    fn dump(&self) -> Result<&std::path::Path> {
+        self.dump.as_deref().context("a dump sync needs `--dump`")
+    }
 }
 
 /// A bootstrap load's blocks in flight by default (0013 A82): the fastest of 1, 2, 4 and 8 on
@@ -386,6 +397,9 @@ async fn run_sync(args: Sync) -> Result<()> {
     let client = connect(&args.database).await?;
     let (registry, provider, tenant) = target(&client, &args).await?;
     let slug = provider.slug.as_str();
+    if args.dump.is_none() {
+        return crawl(&client, &args, registry, provider, &tenant).await;
+    }
     // Every Wikibase provider is read by the one adapter, chosen by the registry entry's
     // `adapter`; a provider whose upstream is not a Wikibase names its own (implements 0091 §1).
     match provider.adapter.as_deref() {
@@ -398,8 +412,9 @@ async fn run_sync(args: Sync) -> Result<()> {
     // A bootstrap load's writers each hold a connection, beside its coordinator's.
     let (store, pipeline) = store_sized(&args.database, &farm, args.writers.max(1) + 4)?;
     let version = args.version.clone().unwrap_or_else(|| {
-        args.dump
-            .file_name()
+        args.dump()
+            .ok()
+            .and_then(std::path::Path::file_name)
             .map(|f| f.to_string_lossy().into_owned())
             .unwrap_or_default()
     });
@@ -480,6 +495,70 @@ async fn run_sync(args: Sync) -> Result<()> {
     Ok(())
 }
 
+/// A load without a dump: a crawl of the wiki's entity namespaces (0092 §4, A16; 05 §5.9),
+/// which queues every entity listed, and the unlisted ones the mirror holds, for the
+/// follower to fetch, and records the time it began as the load's end. It asks the wiki
+/// anonymously, one request at a time.
+async fn crawl(
+    client: &tokio_postgres::Client,
+    args: &Sync,
+    registry: &'static Registry,
+    provider: &Provider,
+    tenant: &str,
+) -> Result<()> {
+    let Some(api) = provider.api.as_deref() else {
+        bail!(
+            "`{}` has no `api` to crawl: name a dump with --dump",
+            provider.slug
+        );
+    };
+    let farm = farm_of(client).await?;
+    let agent = format!(
+        "Triplespace/{} ({}; crawl {})",
+        env!("CARGO_PKG_VERSION"),
+        farm.base,
+        provider.slug
+    );
+    let wiki = Wiki::new(api, &agent)?;
+    let began = now() / 1_000_000;
+    eprintln!("crawling {api}: listing its entity namespaces");
+    let mut shown = 0;
+    let crawled = triplespace_api_ingest::crawl::crawl(
+        client,
+        &wiki,
+        registry,
+        provider,
+        tenant,
+        args.threshold,
+        began,
+        |listed| {
+            if listed >= shown + 10_000 {
+                shown = listed;
+                eprintln!("  listed {listed}");
+            }
+        },
+    )
+    .await?;
+    println!("crawl of `{}` queued", provider.slug);
+    println!("  listed     {}", crawled.listed);
+    println!("  unlisted   {} (queued to be checked)", crawled.unlisted);
+    println!(
+        "  queued     {} (the rest were queued already)",
+        crawled.queued
+    );
+    println!(
+        "  loaded to  {}{}",
+        mwrecent::iso(began),
+        if crawled.moved {
+            ""
+        } else {
+            " (no later than the end recorded: the follower's position is kept)"
+        }
+    );
+    println!("the follower fetches what is queued: `triplespace follow` or a server");
+    Ok(())
+}
+
 /// Warns when the wiki no longer keeps recent changes from where a follower would take over
 /// from this load (0092 §5; 05 §5.9): the follower would stop at the gap. The load is
 /// written either way, so a check that cannot be made is a note, not a failure.
@@ -543,6 +622,7 @@ async fn load_bootstrapped(
         .params
         .insert("bootstrap".into(), serde_json::Value::Bool(true));
     let (workers, adapter) = dump_workers(provider, registry)?;
+    let dump = args.dump()?;
     eprintln!(
         "bootstrap: the mirror is empty; loading in blocks, prepared on {workers} threads (0013 §9)"
     );
@@ -554,7 +634,7 @@ async fn load_bootstrapped(
             // The projections' per-record work runs on the workers too (0013 A74).
             let prepare = prepare.warmed_by(Arc::new(triplespace_projections::common::warm));
             let prepared: Box<dyn Iterator<Item = Result<Prepared, IngestError>>> =
-                match crate::bootstrap::prepared(&args.dump, adapter, prepare, workers, &tally) {
+                match crate::bootstrap::prepared(dump, adapter, prepare, workers, &tally) {
                     Ok(ordered) => Box::new(ordered),
                     Err(e) => Box::new(std::iter::once(Err(e))),
                 };
@@ -623,7 +703,7 @@ async fn load(
             watch,
         )
         .await
-    } else if parses_apart(provider, &args.dump)? {
+    } else if parses_apart(provider, args.dump()?)? {
         load_parsed_apart(
             store,
             pipeline,
@@ -667,7 +747,7 @@ async fn load_in_order(
     attestation: Attestation,
     watch: &mut Watch,
 ) -> Result<(scatter_ingest::SyncOutcome, u64, Option<u64>)> {
-    let items = prepare_wikibase(provider, registry, &args.dump)?;
+    let items = prepare_wikibase(provider, registry, args.dump()?)?;
     let unreadable = items.unreadable_counter();
     let outcome = run_sync_in(
         store,
@@ -703,7 +783,7 @@ async fn load_parsed_apart(
 ) -> Result<(scatter_ingest::SyncOutcome, u64, Option<u64>)> {
     let (workers, adapter) = dump_workers(provider, registry)?;
     let tally = std::sync::Arc::new(crate::bootstrap::Tally::default());
-    let items = crate::bootstrap::items(&args.dump, &adapter, workers, &tally, |item| item)?;
+    let items = crate::bootstrap::items(args.dump()?, &adapter, workers, &tally, |item| item)?;
     let outcome = run_sync_in(
         store,
         pipeline,
@@ -765,7 +845,7 @@ async fn bootstraps(
     if args.no_bootstrap || !tenant.is_empty() || !KeyRules::from_provider(provider)?.is_empty() {
         return Ok(false);
     }
-    if Entities::open(&args.dump).context("open dump")?.is_xml() {
+    if Entities::open(args.dump()?).context("open dump")?.is_xml() {
         return Ok(false);
     }
     let row = client

@@ -97,6 +97,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0092 A11](0092-following-recent-changes.md#a11-a-lost-position-is-rebuilt-from-the-newest-revision-the-graph-holds) | 2026-11-20 | A lost position is rebuilt from the newest revision the graph holds |
 | [0092 A14](0092-following-recent-changes.md#a14-sync-asks-the-wiki-whether-a-follower-can-take-over) | 2026-11-20 | `sync` asks the wiki whether a follower can take over |
 | [0092 A15](0092-following-recent-changes.md#a15-get-providercodemirror-reports-the-follower-and-a-gap-is-recorded) | 2026-11-20 | `GET /provider/{code}/mirror` reports the follower, and a gap is recorded |
+| [0092 A16](0092-following-recent-changes.md#a16-a-crawl-queues-what-it-lists-and-its-sweep-asks-the-wiki) | 2026-11-21 | A crawl queues what it lists, and its sweep asks the wiki |
 | [0097 A3](0097-versioning-and-skins.md#a3-fragments-are-compared-as-normalized-dom) | 2026-10-30 | Fragments are compared as normalized DOM |
 | [0097 A4](0097-versioning-and-skins.md#a4-drawings-are-svg-the-binary-makes) | 2026-10-30 | Drawings are SVG the binary makes |
 | [0097 A6](0097-versioning-and-skins.md#a6-a-part-of-a-later-group-is-carried-as-html-until-that-group-switches) | 2026-10-30 | A part of a later group is carried as HTML until that group switches |

@@ -150,7 +150,7 @@ async fn the_web_tier_and_the_embedded_site_serve_the_same_pages() {
         provider: Some("internetdomains".into()),
         tenant: None,
         source: None,
-        dump: fixtures.join("internetdomains.json"),
+        dump: Some(fixtures.join("internetdomains.json")),
         version: Some("20261001".into()),
         snapshot: false,
         threshold: 1000,

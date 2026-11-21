@@ -218,7 +218,7 @@ async fn a_bot_logs_in_reads_and_edits() {
         provider: Some("internetdomains".into()),
         tenant: None,
         source: None,
-        dump: xd,
+        dump: Some(xd),
         version: Some("20261001".into()),
         snapshot: false,
         threshold: 1000,

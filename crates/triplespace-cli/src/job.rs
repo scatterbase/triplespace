@@ -196,7 +196,9 @@ pub async fn run(command: JobCommand) -> Result<()> {
         JobCommand::Start {
             kind: StartKind::Sync(mut args),
         } => {
-            args.dump = server_path(&args.dump)?;
+            if let Some(dump) = &args.dump {
+                args.dump = Some(server_path(dump)?);
+            }
             if let Some(rejects) = &args.rejects {
                 args.rejects = Some(std::path::absolute(rejects)?);
             }

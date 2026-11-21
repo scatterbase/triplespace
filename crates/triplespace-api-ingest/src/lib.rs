@@ -26,6 +26,7 @@ pub mod acl;
 pub mod backup_keys;
 pub mod batch;
 pub mod blocks;
+pub mod crawl;
 pub mod diff;
 pub mod fetch;
 pub mod follow;
