@@ -680,3 +680,102 @@ impl Operation {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// A `put` carries `size` and `prev_size`, the sizes of the new and previous states: "The sizes of the new and previous states (0012 §2.4)" (0012 §2.2).
+    #[test]
+    fn a_put_carries_size_and_prev_size() {
+        let id = EntityId::parse("Q1").unwrap();
+        let entity = Entity::new(id.clone(), EntityType::Item);
+        let op = Operation::Put {
+            id: id.clone(),
+            entity,
+            upstream: Upstream::revision(42, Some("2024-01-01T00:00:00Z")),
+            prev_upstream: Some(Upstream::revision(41, None)),
+            first_seen: Some(1_000),
+            size: Some(700),
+            prev_size: Some(650),
+            changes: None,
+            delta: None,
+            upstream_id: None,
+            upstream_aliases: Vec::new(),
+        };
+        let line = serde_json::to_string(&op).unwrap();
+        assert!(line.contains(r#""size":700"#));
+        assert!(line.contains(r#""prev_size":650"#));
+        assert!(line.contains(r#""first_seen":1000"#));
+        let back: Operation = serde_json::from_str(&line).unwrap();
+        match back {
+            Operation::Put {
+                size, prev_size, ..
+            } => {
+                assert_eq!(size, Some(700));
+                assert_eq!(prev_size, Some(650));
+            }
+            other => panic!("not a put: {:?}", other.name()),
+        }
+    }
+
+    /// `changes` is omitted from the wire when absent: "A summary of what changed." (0012 §2.2).
+    #[test]
+    fn a_put_without_changes_omits_the_field() {
+        let id = EntityId::parse("Q1").unwrap();
+        let entity = Entity::new(id.clone(), EntityType::Item);
+        let op = Operation::Put {
+            id: id.clone(),
+            entity,
+            upstream: Upstream::revision(42, None),
+            prev_upstream: None,
+            first_seen: None,
+            size: None,
+            prev_size: None,
+            changes: None,
+            delta: None,
+            upstream_id: None,
+            upstream_aliases: Vec::new(),
+        };
+        let line = serde_json::to_string(&op).unwrap();
+        assert!(!line.contains("changes"));
+        assert!(!line.contains("delta"));
+        let back: Operation = serde_json::from_str(&line).unwrap();
+        match back {
+            Operation::Put { changes, delta, .. } => {
+                assert!(changes.is_none());
+                assert!(delta.is_none());
+            }
+            other => panic!("not a put: {:?}", other.name()),
+        }
+    }
+
+    /// A `put` carries `delta`, the statement-level difference, through the wire: "Optional. The
+    /// statement-level difference." (0012 §2.2).
+    #[test]
+    fn a_put_with_a_delta_carries_it() {
+        let id = EntityId::parse("Q1").unwrap();
+        let with = Operation::Put {
+            id: id.clone(),
+            entity: Entity::new(id.clone(), EntityType::Item),
+            upstream: Upstream::revision(42, None),
+            prev_upstream: None,
+            first_seen: None,
+            size: None,
+            prev_size: None,
+            changes: None,
+            delta: Some(serde_json::json!({"P1": [{"op": "added"}]})),
+            upstream_id: None,
+            upstream_aliases: Vec::new(),
+        };
+        let line = serde_json::to_string(&with).unwrap();
+        assert!(line.contains(r#""delta":{"P1":"#));
+        let back: Operation = serde_json::from_str(&line).unwrap();
+        match back {
+            Operation::Put { delta, .. } => {
+                assert_eq!(delta, Some(serde_json::json!({"P1": [{"op": "added"}]})));
+            }
+            other => panic!("not a put: {:?}", other.name()),
+        }
+    }
+}

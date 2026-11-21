@@ -779,4 +779,95 @@ mod tests {
             );
         }
     }
+
+    /// The source rows of the graph table: "config` (source, `logged`, public)", "accounts`
+    /// (source, `logged`, private)", "log/{provider}` (source, `hashed`, internal)" and the rest
+    /// (0005 §4.1). Merged from nine GLM tests, one per row.
+    #[test]
+    fn source_graphs_have_the_integrity_and_export_of_the_table() {
+        let r = GraphRegistry::embedded();
+        let expected = [
+            ("config", Integrity::Logged, Export::Public, History::Full),
+            ("local", Integrity::Logged, Export::Public, History::Full),
+            ("pages", Integrity::Logged, Export::Public, History::Full),
+            (
+                "accounts",
+                Integrity::Logged,
+                Export::Private,
+                History::Full,
+            ),
+            ("actors", Integrity::Logged, Export::Internal, History::Full),
+            ("log", Integrity::Logged, Export::Internal, History::Full),
+            ("logins", Integrity::Logged, Export::Private, History::Full),
+            (
+                "log/{provider}",
+                Integrity::Hashed,
+                Export::Internal,
+                History::Full,
+            ),
+            (
+                "actors/{provider}",
+                Integrity::Hashed,
+                Export::Internal,
+                History::Latest,
+            ),
+        ];
+        for (name, integrity, export, history) in expected {
+            let (g, slug) = r
+                .lookup(name)
+                .unwrap_or_else(|| panic!("{name} is registered"));
+            assert_eq!(slug, None, "{name} is the row itself");
+            assert_eq!(g.kind, Kind::Source, "{name} is a source graph");
+            assert_eq!(g.integrity, Some(integrity), "{name} integrity");
+            assert_eq!(g.export, export, "{name} export");
+            assert_eq!(g.history, Some(history), "{name} history");
+        }
+        assert_eq!(r.lookup("logins").unwrap().0.scope, Scope::Instance);
+        for (name, slug, full) in [
+            ("log/{provider}", "wikidata", "log/wikidata"),
+            ("actors/{provider}", "openalex", "actors/openalex"),
+        ] {
+            let g = r.lookup(name).unwrap().0;
+            assert_eq!(g.per, Some(Per::Provider), "{name} is per provider");
+            assert_eq!(g.instantiate(slug), full);
+        }
+    }
+
+    /// Scatterbase correspondence: "local`, `mirror/{provider}`, `metadata`, `log`, `pages`, `accounts`, `actors`, `config` and `resolved` on Triplespace's side against `claim`, `foreign`, `meta`, `mutable` and `server` on Scatterbase's" (0005 §4.1).
+    #[test]
+    fn scatterbase_correspondence_matches_the_documented_pairs() {
+        let r = GraphRegistry::embedded();
+        let scatterbase = |name: &str| {
+            r.lookup(name)
+                .unwrap_or_else(|| panic!("{name} is registered"))
+                .0
+                .scatterbase
+                .clone()
+        };
+        assert_eq!(scatterbase("config").as_deref(), Some("server"));
+        assert_eq!(scatterbase("local").as_deref(), Some("claim"));
+        assert_eq!(scatterbase("log").as_deref(), Some("meta"));
+        assert_eq!(scatterbase("actors").as_deref(), Some("mutable"));
+        assert_eq!(scatterbase("accounts").as_deref(), Some("mutable"));
+        assert_eq!(scatterbase("mirror/{provider}").as_deref(), Some("foreign"));
+    }
+
+    /// `metadata` has no Scatterbase correspondence: "The table shows a correspondence, not an identity" (0005 §4.1).
+    #[test]
+    fn metadata_has_no_scatterbase_correspondence() {
+        let r = GraphRegistry::embedded();
+        let (g, slug) = r.lookup("metadata").expect("metadata is registered");
+        assert_eq!(slug, None, "metadata is not a template");
+        assert_eq!(
+            g.scatterbase, None,
+            "metadata corresponds to no Scatterbase graph"
+        );
+        assert_eq!(g.kind, Kind::Projection, "metadata is a projection");
+        assert_eq!(g.history, None, "a projection has no history policy");
+        assert_eq!(g.integrity, None, "a projection has no integrity policy");
+        assert!(
+            g.payload_types.is_empty(),
+            "a projection has no payload types"
+        );
+    }
 }

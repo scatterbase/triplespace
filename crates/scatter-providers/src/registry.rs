@@ -1107,4 +1107,68 @@ mod tests {
         let r2 = Registry::parse(&one("deletion = \"clear\"")).unwrap();
         assert_eq!(r2.by_slug("zed").unwrap().deletion, Deletion::Clear);
     }
+
+    /// GDELT's adapter is `scatter-adapter-gdelt`: "The adapter is `scatter-adapter-gdelt` (22)" (0037 §1).
+    #[test]
+    fn gdelt_adapter_is_scatter_adapter_gdelt() {
+        let r = Registry::default_registry();
+        let gd = r.by_slug("gdelt").expect("GD registered");
+        assert_eq!(gd.adapter.as_deref(), Some("scatter-adapter-gdelt"));
+        // The other providers name their own adapters, so the column is per provider.
+        assert_eq!(
+            r.by_slug("openalex").unwrap().adapter.as_deref(),
+            Some("scatter-adapter-openalex")
+        );
+        assert_eq!(
+            r.by_slug("openstreetmap").unwrap().adapter.as_deref(),
+            Some("scatter-adapter-openstreetmap")
+        );
+        assert_eq!(
+            r.by_slug("musicbrainz").unwrap().adapter.as_deref(),
+            Some("scatter-adapter-musicbrainz")
+        );
+    }
+
+    /// GDELT has `revision_ids = false`, so `n` in the revision-ID range is the mirror
+    /// record's offset: "and `revision_ids = false`, so `n` in the revision-ID range is the
+    /// mirror record's offset" (0037 §1).
+    #[test]
+    fn gdelt_publishes_no_revision_ids() {
+        let r = Registry::default_registry();
+        let gd = r.by_slug("gdelt").expect("GD registered");
+        assert!(!gd.revision_ids);
+        // The consequence the claim states: a revision URL is never built for GD, whose `n`
+        // is the mirror record's offset, while a provider with `revision_ids = true` gets one.
+        assert_eq!(gd.revision_url("12345"), None);
+        let wd = r.by_slug("wikidata").unwrap();
+        assert!(wd.revision_url("2251512453").is_some());
+    }
+
+    /// CAMEO code type `C` uses grammar `digits`, canonical as given with leading zeros
+    /// kept: "the code as GDELT prints it, leading zeros kept; grammar `digits`, canonical as
+    /// given" (0037 §1).
+    #[test]
+    fn gdelt_cameo_codes_are_digits_canonical_as_given() {
+        let r = Registry::default_registry();
+        let gd = r.by_slug("gdelt").expect("GD registered");
+        let cameo = gd.entity_type('C').expect("GD mints C");
+        assert_eq!(cameo.id_grammar, IdGrammar::Digits);
+        assert_eq!(cameo.canonical_rest("0311").as_deref(), Some("0311"));
+    }
+
+    /// Themes and CAMEO codes are provider items, not keyed types: "They are finite
+    /// vocabularies that GDELT defines and lists" (0037 §1).
+    #[test]
+    fn gdelt_themes_and_cameo_codes_are_not_key_mapped() {
+        let r = Registry::default_registry();
+        let gd = r.by_slug("gdelt").expect("GD registered");
+        for code in ['C', 'T'] {
+            let t = gd.entity_type(code).expect("GD mints the type");
+            assert!(!t.key_mapped, "type {code} must not be key-mapped");
+            assert_eq!(t.entity_type, "item");
+        }
+        // The contrast the claim draws: a keyed type is key-mapped.
+        let oa = r.by_slug("openalex").unwrap();
+        assert!(oa.entity_type('K').unwrap().key_mapped);
+    }
 }

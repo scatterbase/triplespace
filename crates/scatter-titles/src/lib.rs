@@ -257,4 +257,103 @@ mod tests {
         assert_eq!(media.kind, Kind::Virtual);
         assert!(!media.holds_pages(|_| true));
     }
+
+    /// claim 4: "Talk namespaces exist only for implemented subject namespaces, at the next odd number" (0008 §2).
+    #[test]
+    fn talk_namespaces_exist_only_for_implemented_subject_namespaces_at_the_next_odd_number() {
+        let r = Namespaces::parse(NAMESPACES_TOML).expect("the embedded registry parses");
+        for n in r.iter() {
+            if let Some(talk) = n.talk {
+                let t = r.get(talk).expect("the talk namespace is in the registry");
+                assert_eq!(talk % 2, 1, "the talk number of {} is odd", n.canonical);
+                assert_eq!(
+                    talk,
+                    n.id + 1,
+                    "the talk number of {} is the next odd number",
+                    n.canonical
+                );
+                if t.kind == Kind::Pages {
+                    assert!(
+                        t.allows_model("triplespace-talk"),
+                        "the talk namespace of {} allows triplespace-talk",
+                        n.canonical
+                    );
+                    assert_eq!(
+                        t.default_model.as_deref(),
+                        Some("triplespace-talk"),
+                        "the talk namespace of {} defaults to triplespace-talk",
+                        n.canonical
+                    );
+                } else {
+                    assert!(
+                        matches!(t.kind, Kind::Virtual | Kind::Reserved),
+                        "the talk namespace of {} is virtual or reserved",
+                        n.canonical
+                    );
+                }
+            }
+        }
+    }
+
+    /// claim 24: "Every talk namespace of kind `pages` has the single model `triplespace-talk`, which is also its default" (0008 §2).
+    #[test]
+    fn every_talk_namespace_of_kind_pages_has_the_single_model_triplespace_talk() {
+        let r = Namespaces::parse(NAMESPACES_TOML).expect("the embedded registry parses");
+        for talk in r
+            .iter()
+            .filter(|n| n.canonical.ends_with(" talk") && n.kind == Kind::Pages)
+        {
+            assert_eq!(
+                talk.content_models,
+                vec!["triplespace-talk".to_string()],
+                "{} allows only triplespace-talk",
+                talk.canonical
+            );
+            assert_eq!(
+                talk.default_model.as_deref(),
+                Some("triplespace-talk"),
+                "{} defaults to triplespace-talk",
+                talk.canonical
+            );
+        }
+    }
+
+    /// claim 7: "A resolver's talk number is `reserved`" (0008 §2).
+    #[test]
+    fn a_resolvers_talk_number_is_reserved() {
+        let r = Namespaces::parse(NAMESPACES_TOML).expect("the embedded registry parses");
+        for n in r.iter().filter(|n| n.kind == Kind::Resolver) {
+            let talk = n.talk.expect("a resolver namespace has a talk number");
+            let t = r
+                .get(talk)
+                .expect("the resolver's talk namespace is in the registry");
+            assert_eq!(
+                t.kind,
+                Kind::Reserved,
+                "the talk namespace of {} is reserved",
+                n.canonical
+            );
+            assert!(
+                !t.holds_pages(|_| true),
+                "the talk namespace of {} holds no pages",
+                n.canonical
+            );
+        }
+    }
+
+    /// claim 33: "Thread, Board and Domain do not allow subpages; Template, Module, Table, Query and Scope do; namespace 0 does not (§3.3); Project does (§3.5)" (0008 §2).
+    #[test]
+    fn subpage_flags_match_the_catalogue() {
+        let r = Namespaces::parse(NAMESPACES_TOML).expect("the embedded registry parses");
+        for id in [214, 310, 210] {
+            let n = r.get(id).expect("the namespace is in the registry");
+            assert!(!n.subpages, "{} does not allow subpages", n.canonical);
+        }
+        for id in [10, 828, 218, 124, 312] {
+            let n = r.get(id).expect("the registry has this namespace");
+            assert!(n.subpages, "{} allows subpages", n.canonical);
+        }
+        assert!(!r.get(0).expect("the main namespace").subpages);
+        assert!(r.get(4).expect("Project").subpages);
+    }
 }

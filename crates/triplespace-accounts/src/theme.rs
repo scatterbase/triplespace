@@ -502,4 +502,67 @@ mod tests {
         assert_eq!(named("typesets", "default26")["fallback"], "noto");
         assert!(named("typesets", "basic").get("fallback").is_none());
     }
+
+    /// The layer `noto` is named by `default26`, `hyperlegible` and `opendyslexic`: "The layer `noto`, which `default26`, `hyperlegible` and `opendyslexic` name" (0094 §1).
+    #[test]
+    fn the_noto_layer_is_named_by_the_three_shipped_type_sets() {
+        let c = Catalogue::shipped();
+        for name in ["default26", "hyperlegible", "opendyslexic"] {
+            let t = c.typeset(name).expect(name);
+            assert_eq!(t.fallback.as_deref(), Some("noto"), "{name}");
+        }
+    }
+
+    /// `parchment` keys both, changing only the colours that carry meaning (error, destructive, success, warning, visited, and their subtle backgrounds): "parchment` keys both, changing only the colours that carry meaning (error, destructive, success, warning, visited, and their subtle backgrounds)" (0094 §4).
+    #[test]
+    fn parchment_alternates_change_only_meaning_colours() {
+        let c = Catalogue::shipped();
+        let p = c.palette("parchment").unwrap();
+
+        // The tokens that carry meaning, per the claim.
+        let meaning = |t: &str| {
+            t.starts_with("color-error")
+                || t.starts_with("color-destructive")
+                || t.starts_with("color-success")
+                || t.starts_with("color-warning")
+                || t.starts_with("color-visited")
+                || t.starts_with("background-color-error")
+                || t.starts_with("background-color-destructive")
+                || t.starts_with("background-color-success")
+                || t.starts_with("background-color-warning")
+                || t.starts_with("border-color-error")
+                || t.starts_with("border-color-destructive")
+                || t.starts_with("border-color-success")
+                || t.starts_with("border-color-warning")
+        };
+
+        for key in ["rg", "by"] {
+            let alt = p.alternate.get(key).unwrap();
+            for variant in [
+                (&alt.light, &p.light),
+                (alt.dark.as_ref().unwrap(), p.dark.as_ref().unwrap()),
+                (
+                    alt.light_more.as_ref().unwrap(),
+                    p.light_more.as_ref().unwrap(),
+                ),
+                (
+                    alt.dark_more.as_ref().unwrap(),
+                    p.dark_more.as_ref().unwrap(),
+                ),
+            ] {
+                let (over, base) = variant;
+                for (token, value) in over {
+                    assert!(
+                        meaning(token),
+                        "{key} changes {token}, which carries no meaning"
+                    );
+                    assert_ne!(
+                        base.get(token),
+                        Some(value),
+                        "{key} leaves {token} at the palette's own value"
+                    );
+                }
+            }
+        }
+    }
 }

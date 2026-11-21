@@ -399,4 +399,72 @@ mod tests {
             "provenance still lists the suppressed member"
         );
     }
+
+    /// Otherwise the rank comes from the highest-ranked mirror graph, in the same provider order as §4.4: "Otherwise the rank comes from the highest-ranked mirror graph" (0004 §8).
+    #[test]
+    fn rank_comes_from_the_highest_ranked_mirror_when_local_does_not_say() {
+        let mut m1 = mirror();
+        m1.statements
+            .get_mut(&EntityId::parse("P1").unwrap())
+            .unwrap()[0]
+            .rank = Rank::Deprecated;
+        let contributions = [
+            Contribution {
+                graph: "mirror/first".into(),
+                entity: m1,
+                upstream_id: None,
+            },
+            Contribution {
+                graph: "mirror/second".into(),
+                entity: mirror(),
+                upstream_id: None,
+            },
+        ];
+        let r = resolve(&contributions, &BTreeMap::new()).unwrap();
+        let p1 = &r.entity.statements[&EntityId::parse("P1").unwrap()];
+        assert_eq!(
+            p1[0].rank,
+            Rank::Deprecated,
+            "the first mirror in provider order wins the rank"
+        );
+        assert_eq!(
+            p1[0].id.as_ref().unwrap().as_str(),
+            M1,
+            "the ID comes from the highest-ranked graph that asserts it"
+        );
+        assert_eq!(
+            p1[0].references.len(),
+            1,
+            "the second mirror's duplicate reference is dropped"
+        );
+        assert_eq!(
+            r.statements[0].graphs,
+            vec!["mirror/first", "mirror/second"]
+        );
+    }
+
+    /// To remove the fused statement, every member is suppressed: "To remove the fused statement, every member is suppressed" (0004 §8).
+    #[test]
+    fn suppressing_every_member_removes_the_fused_statement() {
+        let mut corrections = BTreeMap::new();
+        corrections.insert(StatementId::parse(L1).unwrap(), Correction::Suppress);
+        corrections.insert(StatementId::parse(M1).unwrap(), Correction::Suppress);
+        let contributions = [
+            Contribution {
+                graph: "local".into(),
+                entity: local(),
+                upstream_id: None,
+            },
+            Contribution {
+                graph: "mirror/x".into(),
+                entity: mirror(),
+                upstream_id: None,
+            },
+        ];
+        let r = resolve(&contributions, &corrections).unwrap();
+        let p1 = &r.entity.statements[&EntityId::parse("P1").unwrap()];
+        assert_eq!(p1.len(), 1, "only b remains");
+        assert_eq!(p1[0].id.as_ref().unwrap().as_str(), M2);
+        assert_eq!(r.statements.len(), 2);
+    }
 }
