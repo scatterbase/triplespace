@@ -1171,4 +1171,82 @@ mod tests {
         let oa = r.by_slug("openalex").unwrap();
         assert!(oa.entity_type('K').unwrap().key_mapped);
     }
+
+    /// `sync_deltas` takes the values `summary` and `full`: "with the values `summary` and `full" (0012 §2.2).
+    #[test]
+    fn sync_deltas_takes_summary_and_full() {
+        let one = |extra: &str| {
+            format!("version = 1\n[[provider]]\ncode = \"ZQ\"\nslug = \"z\"\nnumber = 99\n{extra}")
+        };
+        let r = Registry::parse(&one("sync_deltas = \"full\"")).unwrap();
+        assert_eq!(r.by_slug("z").unwrap().sync_deltas, SyncDeltas::Full);
+        let r = Registry::parse(&one("sync_deltas = \"summary\"")).unwrap();
+        assert_eq!(r.by_slug("z").unwrap().sync_deltas, SyncDeltas::Summary);
+        let err = Registry::parse(&one("sync_deltas = \"purge\"")).expect_err("bad value");
+        assert!(
+            matches!(
+                err,
+                RegistryError::BadField {
+                    field: "sync_deltas",
+                    ..
+                }
+            ),
+            "{err}"
+        );
+    }
+
+    /// Commons is the source of type `M` under Wikidata's provider: "Commons is the source of type `M` under Wikidata's provider" (0012 §2.2).
+    #[test]
+    fn commons_is_the_source_of_type_m_under_wikidata() {
+        let r = Registry::default_registry();
+        let wd = r.by_slug("wikidata").unwrap();
+        let m = wd.entity_type('M').expect("WD mints M");
+        assert_eq!(m.entity_type, "mediainfo");
+        assert_eq!(
+            m.iri_for("M123"),
+            "https://commons.wikimedia.org/entity/M123"
+        );
+        // The contrast the claim draws: no other provider mints a MediaInfo type.
+        assert!(
+            r.providers()
+                .iter()
+                .filter(|p| p.entity_type('M').is_some())
+                .all(|p| p.slug == "wikidata"),
+            "only Wikidata mints type M"
+        );
+    }
+
+    /// A MediaInfo entity is the `mediainfo` slot of a File page, not a namespace of its own: "the `mediainfo` slot of a File page, not a namespace of its own" (0012 §2.2).
+    #[test]
+    fn mediainfo_is_the_mediainfo_slot_of_a_file_page() {
+        let r = Registry::default_registry();
+        let wd = r.by_slug("wikidata").unwrap();
+        let m = wd.entity_type('M').expect("WD mints M");
+        assert_eq!(m.namespace.as_deref(), Some("File"));
+        assert_eq!(m.entity_type, "mediainfo");
+    }
+
+    /// The provider registry entry records which trust mode a provider has: "The provider registry entry records which" (0022 §2).
+    #[test]
+    fn registry_entry_records_trust_mode() {
+        // A `verified` entry: trust carried through as `Verified`, with the keys URL it names.
+        let text = one("trust = \"verified\"\nkeys = \"https://zed.example/keys.json\"");
+        let r = Registry::parse(&text).unwrap();
+        let z = r.by_slug("zed").unwrap();
+        assert_eq!(
+            z.trust,
+            Some(Trust::Verified),
+            "trust = \"verified\" is recorded"
+        );
+        assert_eq!(z.keys.as_deref(), Some("https://zed.example/keys.json"));
+
+        // A `stream` entry: trust carried through as `Stream`.
+        let text = one("trust = \"stream\"");
+        let r = Registry::parse(&text).unwrap();
+        assert_eq!(
+            r.by_slug("zed").unwrap().trust,
+            Some(Trust::Stream),
+            "trust = \"stream\" is recorded"
+        );
+    }
 }

@@ -456,4 +456,42 @@ mod tests {
                 .is_err()
         );
     }
+
+    /// A retired source's IDs keep parsing and resolving read-only: "its IDs keep parsing and resolving read-only" (0078 §9).
+    #[test]
+    fn a_retired_sources_ids_keep_parsing_and_resolving() {
+        let mut s = source();
+        s.number = Some(4096);
+        s.retired = true;
+        let p = s.to_provider().unwrap();
+        assert!(p.retired);
+        let r = Registry::default_registry().with_sources(vec![p]).unwrap();
+        let id = r.parse_foreign_id("opencredit:Q8").unwrap();
+        assert_eq!(id.upstream_id(), "Q8");
+        assert_eq!(
+            id.concept_iri().as_str(),
+            "https://creditunions.miraheze.org/entity/Q8"
+        );
+        let p = r.by_slug("opencredit").unwrap();
+        assert_eq!(
+            r.from_upstream(p, "P3").unwrap().to_string(),
+            "opencredit:P3"
+        );
+    }
+
+    /// A later record may change `entity_data`: "A later record may change its label, `api`, `entity_data`," (0078 §9).
+    #[test]
+    fn a_later_record_may_change_entity_data() {
+        let first = source();
+        let mut later = first.clone();
+        assert!(first.entity_data.is_none());
+        later.entity_data =
+            Some("https://creditunions.miraheze.org/wiki/Special:EntityData/".into());
+        assert_eq!(later.check_binding(&first), Ok(()));
+        // The change reaches the provider the record makes.
+        assert_eq!(
+            later.to_provider().unwrap().entity_data.as_deref(),
+            Some("https://creditunions.miraheze.org/wiki/Special:EntityData/")
+        );
+    }
 }

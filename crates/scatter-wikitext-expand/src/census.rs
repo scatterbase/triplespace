@@ -378,4 +378,27 @@ mod tests {
         let u = scan("Just <b>text</b> with a < b and [[links]].");
         assert_eq!(u, Uses::default());
     }
+
+    /// Parser functions of Semantic MediaWiki, Cargo and Page Forms are registered with status `chip`: "Parser functions of Semantic MediaWiki, Cargo and Page Forms are registered with status `chip" (0096 §4).
+    #[test]
+    fn extension_parser_functions_are_chips() {
+        let text = "{{#ask: [[Has author::Jane Doe]] |?Name}} {{#cargo_query: table=x}} {{#forminput: form=y}}";
+        let u = scan(text);
+        assert_eq!(u.functions["#ask"], Status::Chip, "#ask must be a chip");
+        assert_eq!(
+            u.functions["#cargo_query"],
+            Status::Chip,
+            "#cargo_query must be a chip"
+        );
+        assert_eq!(
+            u.functions["#forminput"],
+            Status::Chip,
+            "#forminput must be a chip"
+        );
+        assert_eq!(
+            u.functions["#ask"].name(),
+            "chip",
+            "the status's name is the registry's spelling"
+        );
+    }
 }

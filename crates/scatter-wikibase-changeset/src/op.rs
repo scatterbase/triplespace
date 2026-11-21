@@ -778,4 +778,36 @@ mod tests {
             other => panic!("not a put: {:?}", other.name()),
         }
     }
+
+    /// Upstream edits and upstream log events keep their upstream timestamps: "Upstream edits and upstream log events keep their upstream timestamps." (0012 §2.4).
+    #[test]
+    fn a_put_keeps_its_upstream_timestamp() {
+        let id = EntityId::parse("Q1").unwrap();
+        let entity = Entity::new(id.clone(), EntityType::Item);
+        let op = Operation::Put {
+            id: id.clone(),
+            entity,
+            upstream: Upstream::revision(42, Some("2024-01-01T00:00:00Z")),
+            prev_upstream: None,
+            first_seen: None,
+            size: None,
+            prev_size: None,
+            changes: None,
+            delta: None,
+            upstream_id: None,
+            upstream_aliases: Vec::new(),
+        };
+        let line = serde_json::to_string(&op).unwrap();
+        assert!(
+            line.contains(r#""time":"2024-01-01T00:00:00Z""#),
+            "the upstream timestamp must survive the wire: {line}"
+        );
+        let back: Operation = serde_json::from_str(&line).unwrap();
+        match back {
+            Operation::Put { upstream, .. } => {
+                assert_eq!(upstream.time.as_deref(), Some("2024-01-01T00:00:00Z"));
+            }
+            other => panic!("not a put: {:?}", other.name()),
+        }
+    }
 }
