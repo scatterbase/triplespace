@@ -651,7 +651,7 @@ sources = "[0070](../decisions/0070-shallow-entity-mirroring.md) §9; [0078](../
 
 [[route]]
 routes = ["POST /provider/{code}/mirror/fetch"]
-purpose = "With a list of IDs, enqueues them (the `ts-runjob` right)"
+purpose = "With a list of IDs, as the provider writes them or as they are stored, enqueues them with the reason `manual` (the `ts-runjob` right; [0070](../decisions/0070-shallow-entity-mirroring.md) A12)"
 sources = "[0070](../decisions/0070-shallow-entity-mirroring.md) §9; [0078](../decisions/0078-entity-sources.md) §10"
 
 [[route]]

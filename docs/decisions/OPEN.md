@@ -78,6 +78,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0070 A9](0070-shallow-entity-mirroring.md#a9-the-fetch-job-is-the-followers-poll) | 2026-11-21 | The fetch job is the follower's poll |
 | [0070 A10](0070-shallow-entity-mirroring.md#a10-a-linked-entity-is-queued-by-a-projection-of-its-own) | 2026-11-21 | A linked entity is queued by a projection of its own |
 | [0070 A11](0070-shallow-entity-mirroring.md#a11-the-follower-keeps-to-the-set-and-walks-the-closure-settings-held-per-provider) | 2026-11-21 | The follower keeps to the set and walks the closure; settings held per provider |
+| [0070 A12](0070-shallow-entity-mirroring.md#a12-the-mirror-route-reports-each-type-and-queues-by-hand) | 2026-11-21 | The mirror route reports each type, and queues by hand |
 | [0077 A6](0077-special-version.md#a6-licensing-loose-ends-from-building-specialversion) | 2026-10-30 | Licensing: loose ends from building Special:Version |
 | [0077 A8](0077-special-version.md#a8-the-licence-header-on-built-javascript-and-css) | 2026-11-15 | The licence header on built JavaScript and CSS |
 | [0078 A8](0078-entity-sources.md#a8-retiring-keeps-the-record-a-later-record-is-checked-against-it) | 2026-11-20 | Retiring keeps the record; a later record is checked against it |

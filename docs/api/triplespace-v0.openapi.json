@@ -8343,7 +8343,7 @@
       "get": {
         "operationId": "getProviderMirror",
         "summary": "How a mirror is kept current",
-        "description": "How a registry provider's mirror, or a tenant's entity source, is kept current (ADR 0070 §9; 0078 §10; 0092 §7, A15): how it is followed, the follower's position, lag, `late` and `stale` counts and its jobs, a gap it could not cross, and the last load's end. `{code}` is a provider's two-letter code (`WD`) or a source's name (`lb`). The per-type mirror settings, set sizes and queue lengths of shallow mirroring are not reported yet.",
+        "description": "How a registry provider's mirror, or a tenant's entity source, is kept current (ADR 0070 §9; 0078 §10; 0092 §7, A15): how it is followed, the follower's position, lag, `late` and `stale` counts and its jobs, a gap it could not cross, and the last load's end. `{code}` is a provider's two-letter code (`WD`) or a source's name (`lb`). `queued` is the fetch queue's length and `types` each entity type's `entities.mirror` setting and set size, both counted to at most 10,000 (0070 A9, A12).",
         "parameters": [
           {
             "name": "code",
@@ -8377,6 +8377,112 @@
           },
           "404": {
             "description": "`provider-not-found`: neither a provider's code nor a source of the tenant.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/provider/{code}/mirror/fetch": {
+      "post": {
+        "operationId": "fetchProviderEntities",
+        "summary": "Queue entities to fetch",
+        "description": "Queues entities in the fetch queue for the provider's or source's follower, with the reason `manual`, as `triplespace fetch` does (ADR 0070 §9, A9). An ID may be written as the provider writes it (`Q42`) or as it is stored (`WDQ42`, `lb:Q42`); one already queued keeps its row. Needs `ts-runjob`.",
+        "parameters": [
+          {
+            "name": "code",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": [
+                  "ids"
+                ],
+                "properties": {
+                  "token": {
+                    "type": "string"
+                  },
+                  "ids": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Queued.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "queued",
+                    "asked"
+                  ],
+                  "properties": {
+                    "queued": {
+                      "type": "integer",
+                      "description": "Rows added: an entity already queued is not counted."
+                    },
+                    "asked": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`badbody`, or `ts-not-this-provider` for an ID of another provider.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` without `ts-runjob`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`provider-not-found`: neither a provider's code nor a source of the tenant.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "`ts-no-api`: the provider or source has no `api` to fetch from.",
             "content": {
               "application/json": {
                 "schema": {
@@ -12033,7 +12139,8 @@
           "follow",
           "gap",
           "load",
-          "queued"
+          "queued",
+          "types"
         ],
         "properties": {
           "code": {
@@ -12181,6 +12288,31 @@
           "queued": {
             "type": "integer",
             "description": "Entities waiting in the fetch queue for the follower to read (0070 §3, A9), counted to at most 10,000."
+          },
+          "types": {
+            "type": "object",
+            "description": "Per entity type (`item`, `property`, …): the `entities.mirror` setting the follower applies, with its default and a loaded mirror's `all` (0070 A11), and how many entities of the type the mirror holds, counted to at most 10,000.",
+            "additionalProperties": {
+              "type": "object",
+              "required": [
+                "setting",
+                "size"
+              ],
+              "properties": {
+                "setting": {
+                  "type": "string",
+                  "enum": [
+                    "off",
+                    "on-demand",
+                    "linked",
+                    "all"
+                  ]
+                },
+                "size": {
+                  "type": "integer"
+                }
+              }
+            }
           }
         }
       }

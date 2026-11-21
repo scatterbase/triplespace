@@ -23,9 +23,9 @@ pub const CLOSURE_DEPTH: i16 = 6;
 pub struct Policy {
     /// `entities.mirror` for the provider: entity type → value.
     mirror: BTreeMap<String, String>,
-    /// Whether the mirror has been loaded, by a dump or a crawl: a type with no setting is
-    /// then followed whole (0070 A11).
-    loaded: bool,
+    /// What a type with no setting gets: `all` once the mirror has been loaded, by a dump
+    /// or a crawl (0070 A11); else `linked`, or `off` for a source without an `api`.
+    unset: &'static str,
     /// Closure properties, as upstream writes them (`P31`).
     pub closure: Vec<String>,
     /// How many closure steps are walked.
@@ -33,14 +33,26 @@ pub struct Policy {
 }
 
 impl Policy {
+    /// The setting that applies to `entity_type`: the one set, else the default; a
+    /// property is always at least `on-demand` (0070 §2.1).
+    #[must_use]
+    pub fn setting(&self, entity_type: &str) -> &str {
+        let v = self
+            .mirror
+            .get(entity_type)
+            .map_or(self.unset, String::as_str);
+        if v == "off" && entity_type == "property" {
+            "on-demand"
+        } else {
+            v
+        }
+    }
+
     /// Whether every recent change of `entity_type` is fetched (`all`), rather than only
     /// those of entities the mirror holds (0070 §5; 05 §5.7).
     #[must_use]
     pub fn whole(&self, entity_type: &str) -> bool {
-        match self.mirror.get(entity_type) {
-            Some(v) => v == "all",
-            None => self.loaded,
-        }
+        self.setting(entity_type) == "all"
     }
 }
 
@@ -118,9 +130,16 @@ pub async fn policy<C: GenericClient>(
         .and_then(|v| v.as_i64())
         .and_then(|d| i16::try_from(d).ok())
         .unwrap_or(CLOSURE_DEPTH);
+    let unset = if loaded {
+        "all"
+    } else if provider.source && provider.api.is_none() {
+        "off"
+    } else {
+        "linked"
+    };
     Ok(Policy {
         mirror,
-        loaded,
+        unset,
         closure,
         depth,
     })
@@ -138,14 +157,23 @@ mod tests {
             mirror: [("item".to_string(), "linked".to_string())]
                 .into_iter()
                 .chain([("property".to_string(), "all".to_string())])
+                .chain([("lexeme".to_string(), "off".to_string())])
                 .collect(),
+            unset: "linked",
             ..Policy::default()
         };
         assert!(!p.whole("item"));
         assert!(p.whole("property"));
-        assert!(!p.whole("lexeme"));
-        p.loaded = true;
+        assert!(!p.whole("form"));
+        assert_eq!(p.setting("lexeme"), "off");
+        p.unset = "all";
         assert!(!p.whole("item"), "a setting wins over the load");
-        assert!(p.whole("lexeme"));
+        assert!(p.whole("form"));
+        p.mirror.insert("property".into(), "off".into());
+        assert_eq!(
+            p.setting("property"),
+            "on-demand",
+            "a property is at least on demand"
+        );
     }
 }

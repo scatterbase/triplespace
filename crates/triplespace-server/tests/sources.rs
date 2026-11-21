@@ -89,6 +89,94 @@ impl Client {
         )
     }
 
+    /// A request with a session cookie, answering the reply and the cookie it set.
+    async fn send(
+        &self,
+        method: &str,
+        uri: &str,
+        cookie: Option<&str>,
+        form: Option<(&str, String)>,
+    ) -> (StatusCode, Value, Option<String>) {
+        let mut req = Request::builder()
+            .method(method)
+            .uri(uri)
+            .header(header::HOST, HOST);
+        if let Some(c) = cookie {
+            req = req.header(header::COOKIE, format!("triplespace_session={c}"));
+        }
+        let body = match form {
+            Some((ct, b)) => {
+                req = req.header(header::CONTENT_TYPE, ct);
+                Body::from(b)
+            }
+            None => Body::empty(),
+        };
+        let mut req = req.body(body).unwrap();
+        req.extensions_mut()
+            .insert(axum::extract::ConnectInfo(std::net::SocketAddr::from((
+                [203, 0, 113, 9],
+                50000,
+            ))));
+        let response = self.router.clone().oneshot(req).await.unwrap();
+        let status = response.status();
+        let set = response
+            .headers()
+            .get(header::SET_COOKIE)
+            .and_then(|v| v.to_str().ok())
+            .and_then(|v| v.strip_prefix("triplespace_session="))
+            .and_then(|v| v.split(';').next())
+            .map(str::to_string);
+        let bytes = response.into_body().collect().await.unwrap().to_bytes();
+        (
+            status,
+            serde_json::from_slice(&bytes).unwrap_or(Value::Null),
+            set,
+        )
+    }
+
+    /// The owner's session cookie and a CSRF token for it.
+    async fn owner_session(&self) -> (String, String) {
+        let api = |q: &str| format!("/w/api.php?{q}&format=json&formatversion=2");
+        let (_, v, cookie) = self
+            .send(
+                "GET",
+                &api("action=query&meta=tokens&type=login"),
+                None,
+                None,
+            )
+            .await;
+        let mut cookie = cookie.expect("a session for the login");
+        let token = v["query"]["tokens"]["logintoken"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        let form = format!(
+            "action=clientlogin&username=Reader&password=owner-secret-1234&logintoken={}\
+             &loginreturnurl=https://{HOST}/&format=json&formatversion=2",
+            token.replace('+', "%2B").replace('\\', "%5C")
+        );
+        let (_, v, set) = self
+            .send(
+                "POST",
+                "/w/api.php",
+                Some(&cookie),
+                Some(("application/x-www-form-urlencoded", form)),
+            )
+            .await;
+        assert_eq!(v["clientlogin"]["status"], "PASS", "{v}");
+        if let Some(c) = set {
+            cookie = c;
+        }
+        let (_, v, _) = self
+            .send("GET", &api("action=query&meta=tokens"), Some(&cookie), None)
+            .await;
+        let csrf = v["query"]["tokens"]["csrftoken"]
+            .as_str()
+            .unwrap()
+            .to_string();
+        (cookie, csrf)
+    }
+
     async fn get(&self, q: &str) -> Value {
         let (status, v) = self
             .raw(&format!("/w/api.php?{q}&format=json&formatversion=2"))
@@ -369,6 +457,63 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
     assert_eq!(body["status"], "not-followed");
     assert!(body["follow"].is_null() && body["gap"].is_null(), "{body}");
     assert_eq!(body["queued"], 0, "nothing waits to be fetched");
+    // Per type, the setting the follower applies and the set's size (0070 §9, A11, A12):
+    // a loaded source with no setting is followed whole.
+    assert_eq!(body["types"]["item"]["setting"], "all", "{body}");
+    assert!(
+        body["types"]["item"]["size"].as_i64().unwrap() > 0,
+        "{body}"
+    );
+    assert!(body["types"]["property"]["size"].is_i64(), "{body}");
+
+    // Queuing by hand needs `ts-runjob` (0070 §9): the owner has it.
+    let fetch = "/w/rest.php/triplespace/v0/provider/lb/mirror/fetch";
+    let (status, body, _) = c
+        .send(
+            "POST",
+            fetch,
+            None,
+            Some(("application/json", r#"{"ids": ["Q5"]}"#.into())),
+        )
+        .await;
+    assert!(status.is_client_error(), "anonymous: {status} {body}");
+    let (cookie, csrf) = c.owner_session().await;
+    let post = |ids: Value| {
+        (
+            "application/json",
+            serde_json::json!({"token": csrf, "ids": ids}).to_string(),
+        )
+    };
+    let (status, body, _) = c
+        .send(
+            "POST",
+            fetch,
+            Some(&cookie),
+            Some(post(serde_json::json!(["Q5", "lb:Q6", "Q5"]))),
+        )
+        .await;
+    assert_eq!(status, StatusCode::OK, "{body}");
+    assert_eq!(
+        (body["queued"].as_u64(), body["asked"].as_u64()),
+        (Some(2), Some(3))
+    );
+    let (status, body, _) = c
+        .send(
+            "POST",
+            fetch,
+            Some(&cookie),
+            Some(post(serde_json::json!(["WDQ5"]))),
+        )
+        .await;
+    assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
+    assert_eq!(body["code"], "ts-not-this-provider", "{body}");
+    let (_, body) = c.raw(mirror).await;
+    assert_eq!(body["queued"], 2, "{body}");
+    connect_to(&database)
+        .await
+        .execute("DELETE FROM ops.entity_fetch", &[])
+        .await
+        .unwrap();
     assert!(body["load"]["loaded_to"].is_string(), "{body}");
     assert_eq!(body["load"]["handed_over"], false);
     // A gap the follower found is reported until a position is saved or a load records a
