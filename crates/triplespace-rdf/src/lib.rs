@@ -687,13 +687,16 @@ async fn write_files(
         KeyedRegistry::default_registry(),
     );
     let base = iris.namespaces().base.clone();
+    let entity_base = iris.namespaces().entity();
     let walk = Walk {
         tx,
         req,
         local_graph: GraphName::NamedNode(NamedNode::new_unchecked(format!("{base}graph/local"))),
         local_partition: tx.partition_of(req.tenant, "local").await.map_err(db)?,
         iris,
-        hasher: Hasher::local(),
+        hasher: Hasher::local().with_iris(std::sync::Arc::new(
+            scatter_wikibase_model::value_iri::ValueIris::new(req.registry, Some(&entity_base)),
+        )),
     };
     let mut files = Files::create(dir)?;
     files.open(&base, taken)?;

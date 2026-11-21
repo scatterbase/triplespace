@@ -150,7 +150,7 @@ pub async fn handle(
     // A keyed ID no graph holds is an empty entity, as `wbgetentities` serves it (0009 §4).
     let entity = current.as_ref().map_or_else(
         || entity_json::empty_keyed(&r.id),
-        |c| entity_json::present(c, registry),
+        |c| entity_json::present(c, registry, &r.tenant.base),
     );
     // The data type of each property a snak names without saying it, from the
     // property's current state.

@@ -127,7 +127,7 @@ fn no_such_claim(guid: &str) -> ApiError {
 
 /// The hasher for an entity's own hashes.
 fn hasher(ctx: &Ctx, id: &EntityId) -> Hasher {
-    entity_json::hasher_for(id, ctx.app.registry())
+    entity_json::hasher_for(id, ctx.app.registry(), &ctx.tenant.base)
 }
 
 /// Saves `after` for the subject and reloads it.
@@ -143,6 +143,11 @@ async fn save(
             "The edit changes the entity's ID.",
         ));
     }
+    // Value IRIs in the stored form (0004 A20) before the edit is compared with what is
+    // stored: a client writes `unit`, `globe` and `calendarmodel` as IRIs.
+    let mut stored = after.clone();
+    entity_json::value_iris(ctx.registry().await?, &ctx.tenant.base).store_entity(&mut stored);
+    let after = &stored;
     let ops = match &subject.before {
         Some(c) => edit::operations(Some(c), after),
         None if subject.id.form() == IdForm::Keyed => {
@@ -181,7 +186,9 @@ fn entity_response(
     lastrevid: Option<u64>,
     changed: bool,
 ) -> ApiResponse {
-    let mut entity = current.map_or(Value::Null, |c| entity_json::present(c, ctx.app.registry()));
+    let mut entity = current.map_or(Value::Null, |c| {
+        entity_json::present(c, ctx.app.registry(), &ctx.tenant.base)
+    });
     if let Value::Object(m) = &mut entity {
         if let Some(r) = lastrevid {
             m.insert("lastrevid".into(), json!(r));

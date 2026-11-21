@@ -40,6 +40,10 @@ pub struct Hasher {
     /// source's name and colon (`lb:`), stripped so that its IDs are hashed in the bare
     /// form the source wrote them (`WDQ42` and `lb:Q42` as `Q42`).
     source: Option<String>,
+    /// The map from stored value IDs to the IRIs Wikibase hashes and serves (0004 A20):
+    /// a `unit`, `globe` or `calendarmodel` is expanded before it is hashed or written.
+    /// `None` takes the stored value as it is.
+    iris: Option<std::sync::Arc<crate::value_iri::ValueIris>>,
 }
 
 /// The PHP classes an entity ID is serialized under, by Wikibase `entity-type`.
@@ -93,7 +97,10 @@ impl Hasher {
     /// Hashes IDs as stored: for the tenant's own data.
     #[must_use]
     pub fn local() -> Self {
-        Self { source: None }
+        Self {
+            source: None,
+            iris: None,
+        }
     }
 
     /// Hashes IDs under the given two-letter provider code in the bare form that provider
@@ -102,6 +109,7 @@ impl Hasher {
     pub fn mirrored_from(provider_code: &str) -> Self {
         Self {
             source: Some(provider_code.to_ascii_uppercase()),
+            iris: None,
         }
     }
 
@@ -111,6 +119,7 @@ impl Hasher {
     pub fn mirrored_from_source(name: &str) -> Self {
         Self {
             source: Some(format!("{name}:")),
+            iris: None,
         }
     }
 
@@ -148,6 +157,7 @@ impl Hasher {
     /// `getSerializationForHash()` of a data value: the pre-7.4 `Serializable` form.
     #[must_use]
     pub fn value_serialization(&self, value: &DataValue) -> String {
+        let value = &*self.expanded(value);
         match value {
             DataValue::String(s) => php::class_wrapper(STRING_VALUE, s),
             // The EntitySchema extension's value is not an `EntityIdValue`, though its
@@ -263,7 +273,8 @@ impl Hasher {
     /// `latitude|longitude|precision|globe` with PHP's `(string)$float`.
     #[must_use]
     pub fn value(&self, value: &DataValue) -> String {
-        if let DataValue::GlobeCoordinate(g) = value {
+        let expanded = self.expanded(value);
+        if let DataValue::GlobeCoordinate(g) = &*expanded {
             let mut s = String::new();
             php::float_to_string(&mut s, g.latitude);
             s.push('|');
@@ -276,7 +287,37 @@ impl Hasher {
             s.push_str(&g.globe);
             return md5_hex(&s);
         }
-        md5_hex(&self.value_serialization(value))
+        md5_hex(&self.value_serialization(&expanded))
+    }
+
+    /// Expands value IRIs through `iris` (0004 A20): what Wikibase hashes and serves for
+    /// stored IDs in a value's `unit`, `globe` or `calendarmodel`.
+    #[must_use]
+    pub fn with_iris(mut self, iris: std::sync::Arc<crate::value_iri::ValueIris>) -> Self {
+        self.iris = Some(iris);
+        self
+    }
+
+    /// The map the hasher expands value IRIs through, if it has one.
+    #[must_use]
+    pub fn iris(&self) -> Option<&crate::value_iri::ValueIris> {
+        self.iris.as_deref()
+    }
+
+    /// `value` with its value IRIs expanded, where the hasher has a map and the value has
+    /// one to expand.
+    fn expanded<'v>(&self, value: &'v DataValue) -> std::borrow::Cow<'v, DataValue> {
+        match (&self.iris, value) {
+            (
+                Some(iris),
+                DataValue::Quantity(_) | DataValue::GlobeCoordinate(_) | DataValue::Time(_),
+            ) => {
+                let mut v = value.clone();
+                crate::value_iri::ValueIris::map_value(&mut v, |s| iris.expand(s));
+                std::borrow::Cow::Owned(v)
+            }
+            _ => std::borrow::Cow::Borrowed(value),
+        }
     }
 
     /// `SnakList::getHash()`: the SHA-1 of the distinct snak hashes, sorted and joined
@@ -484,6 +525,36 @@ mod tests {
             h.snak(&snak(r#"{"snaktype":"somevalue","property":"P4"}"#)),
             "ede91cc55952400386a2401405bb09e446b1867b"
         );
+    }
+
+    // 0004 A20: a value IRI stored as an ID hashes and is served as Wikibase's IRI.
+    #[test]
+    fn value_iris_stored_as_ids_hash_and_serve_as_iris() {
+        use crate::value_iri::ValueIris;
+        let iris = std::sync::Arc::new(ValueIris::new(
+            scatter_providers::Registry::default_registry(),
+            Some("https://reader.example/entity/"),
+        ));
+        let written = snak(
+            r#"{"snaktype":"value","property":"P4","datavalue":{"value":{"time":"+1952-03-11T00:00:00Z","timezone":0,"before":0,"after":0,"precision":11,"calendarmodel":"http://www.wikidata.org/entity/Q1985727"},"type":"time"}}"#,
+        );
+        let mut stored = written.clone();
+        if let SnakKind::Value(v) = &mut stored.kind {
+            ValueIris::map_value(v, |s| iris.store(s));
+            let DataValue::Time(t) = v else { panic!() };
+            assert_eq!(t.calendarmodel, "WDQ1985727");
+        }
+        let plain = Hasher::local();
+        let expanding = Hasher::local().with_iris(iris);
+        assert_eq!(expanding.snak(&stored), plain.snak(&written));
+        let served = stored.to_wire(crate::json::Form::Wikibase(&expanding).wire());
+        assert_eq!(
+            served["datavalue"]["value"]["calendarmodel"],
+            "http://www.wikidata.org/entity/Q1985727"
+        );
+        // The stored form keeps the ID.
+        let kept = serde_json::to_value(&stored).unwrap();
+        assert_eq!(kept["datavalue"]["value"]["calendarmodel"], "WDQ1985727");
     }
 
     #[test]

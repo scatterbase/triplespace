@@ -101,6 +101,12 @@ pub trait Adapter {
     /// foreign ID, the key's for a keyed one; a local ID has none here.
     fn canonical_iri(&self, id: &EntityId) -> Option<String>;
 
+    /// The map value IRIs are stored through (0004 A20): a `unit`, `globe` or
+    /// `calendarmodel` IRI becomes the entity ID it names. `None` keeps them as written.
+    fn value_iris(&self) -> Option<&scatter_wikibase_model::value_iri::ValueIris> {
+        None
+    }
+
     /// The key map, for a key-mapped provider.
     fn key_map(&self) -> Option<&dyn KeyMap> {
         None
@@ -146,7 +152,7 @@ pub trait Adapter {
         Ok(())
     }
 
-    /// Rewrites a snak's property and entity value.
+    /// Rewrites a snak's property, its entity value, and the IRIs in its value.
     fn rewrite_snak(&self, snak: &mut Snak) -> Result<(), AdapterError> {
         snak.property = self.rewrite_id(snak.property.as_str())?;
         if let scatter_wikibase_model::statement::SnakKind::Value(DataValue::EntityId(v)) =
@@ -154,7 +160,18 @@ pub trait Adapter {
         {
             v.id = self.rewrite_id(v.id.as_str())?;
         }
+        self.store_value_iris(snak);
         Ok(())
+    }
+
+    /// Stores the IRIs in a snak's value as the entity IDs they name: a quantity's unit, a
+    /// coordinate's globe, a time's calendar model (0004 A20).
+    fn store_value_iris(&self, snak: &mut Snak) {
+        if let (Some(iris), scatter_wikibase_model::statement::SnakKind::Value(v)) =
+            (self.value_iris(), &mut snak.kind)
+        {
+            scatter_wikibase_model::value_iri::ValueIris::map_value(v, |s| iris.store(s));
+        }
     }
 
     /// Rewrites snak groups, keys included.
@@ -180,6 +197,9 @@ pub struct WikibaseAdapter {
     home: bool,
     /// The source's entity-source table (wikibase-compat §5.1): prefix → provider code.
     sources: BTreeMap<String, String>,
+    /// Value IRIs to stored IDs (0004 A20): under the registry's templates, and in
+    /// adoption mode the source's own as local IDs.
+    iris: std::sync::Arc<scatter_wikibase_model::value_iri::ValueIris>,
 }
 
 impl WikibaseAdapter {
@@ -197,6 +217,9 @@ impl WikibaseAdapter {
             registry,
             home: false,
             sources: BTreeMap::new(),
+            iris: std::sync::Arc::new(scatter_wikibase_model::value_iri::ValueIris::new(
+                registry, None,
+            )),
         })
     }
 
@@ -205,6 +228,17 @@ impl WikibaseAdapter {
     #[must_use]
     pub fn home(mut self) -> Self {
         self.home = true;
+        // The source's own concept IRIs name the tenant's local entities.
+        let base = self
+            .provider
+            .types
+            .first()
+            .and_then(|t| t.iri.split_once("{upstream_id}"))
+            .map(|(base, _)| base.to_string());
+        self.iris = std::sync::Arc::new(scatter_wikibase_model::value_iri::ValueIris::new(
+            self.registry,
+            base.as_deref(),
+        ));
         self
     }
 
@@ -226,6 +260,10 @@ impl WikibaseAdapter {
 impl Adapter for WikibaseAdapter {
     fn provider(&self) -> &Provider {
         &self.provider
+    }
+
+    fn value_iris(&self) -> Option<&scatter_wikibase_model::value_iri::ValueIris> {
+        Some(&self.iris)
     }
 
     fn rewrite_id(&self, upstream: &str) -> Result<EntityId, AdapterError> {

@@ -42,6 +42,7 @@ pub mod search;
 pub mod sites;
 pub mod statement;
 pub mod value;
+pub mod value_iri;
 
 pub use entity::{Entity, EntityType, PageInfo, ParsedEntity, Sitelink, Term};
 pub use hash::{HashMismatches, Hasher};

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-10-09 (A22)
+- **Updated:** 2026-11-21 (A23)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0000](0000-init.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
@@ -255,3 +255,11 @@ Replaced text: 04 §4.6.
 
 Replaced text: 04 §4.10.
 
+### A23. How value IRIs are stored, served and hashed
+
+- **Date:** 2026-11-21
+- **Source:** Direct: Claude, while building A20 for SCA-282 on James's go-ahead (2026-11-21, "You may proceed to the next thing"); unconfirmed
+- **Change:** extends §7
+- **Summary:** A20 stores a value's `unit`, `globe` and `calendarmodel` as the entity ID it names and expands it on output, but does not say how an IRI is read, what happens to one no template matches, or which hashes see the expanded form. The calls made: (1) The map is the provider registry's concept IRI templates, a type's `{iri before {upstream_id}}{upstream prefix}` read as `{code}{type letter}` (a source's as `{name}:{upstream prefix}`), with the upstream ID's digits after either, and the tenant's `{base}/entity/` for its own IDs, checked first: a tenant whose base is a registered provider's template is that provider's own wiki, and its IRIs are its local IDs. Key-mapped types are not mapped. (2) An IRI no template matches is kept as written and served as it is, and so is a value stored before A20 was built; existing records are not converted, and a mirror written before is loaded again, as 0015 A64 has it. (3) The adapter stores them on ingest, and in adoption mode the source's own IRIs become local IDs. A local edit through the Action API stores them before it is compared with the stored entity, since the client writes IRIs; the bulk batch job of 0002 §8.5, which no surface runs yet, must do the same when one does. (4) Wherever a hash reaches a client or is matched against one a client sends, it is taken over the expanded form, as Wikibase takes it: the served JSON, the RDF value nodes, the hashes a claim or reference edit names, and the ingest guard against upstream's hashes. Hashes no client sees (a deterministic statement ID, the fusing of statements, a diff) are taken over the stored form. (5) A value's unit, globe or calendar model names its entity for the `fetch_queue` projection as an entity value does (0070 A10), so a linked unit is mirrored and labelled. Chapter text: 04 §4.7.
+
+Replaced text: none; 04 §4.7 gains a paragraph.

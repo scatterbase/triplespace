@@ -54,6 +54,7 @@ scatter-threads.workspace = true
 scatter-log.workspace = true
 scatter-log-postgres.workspace = true
 scatter-wikibase-changeset.workspace = true
+scatter-wikibase-model.workspace = true
 scatter-integrity.workspace = true
 tower.workspace = true
 http-body-util.workspace = true

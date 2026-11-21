@@ -787,7 +787,11 @@ async fn sync_job<S: IngestStore, H: BeforeCommit<S> + Send>(
     let provider = registry
         .by_slug(&slug)
         .ok_or_else(|| IngestError::UnknownProvider(slug.clone()))?;
-    let hasher = Hasher::for_provider(provider);
+    // The guard recomputes Wikibase's hashes over value IRIs as upstream wrote them, which
+    // the adapter stored as IDs (0004 A20).
+    let hasher = Hasher::for_provider(provider).with_iris(std::sync::Arc::new(
+        scatter_wikibase_model::value_iri::ValueIris::new(registry, None),
+    ));
     let graph_name = graph.name();
     // The provider's own form of a foreign ID (`XDQ9` → `Q9`), and back.
     let upstream_of = |id: &EntityId| -> Option<String> {
