@@ -27,6 +27,7 @@ pub mod backup_keys;
 pub mod batch;
 pub mod blocks;
 pub mod diff;
+pub mod fetch;
 pub mod follow;
 pub mod groups;
 pub mod import;

@@ -5,8 +5,10 @@
 //! and the last load's end and whether the follower has taken over from it.
 //!
 //! `{code}` is a registry provider's two-letter code (`WD`) or a source's name (`lb`):
-//! uppercase codes and lowercase source names never clash. The per-type mirror settings,
-//! set sizes and queue lengths of shallow mirroring (0070 §9) are not reported yet.
+//! uppercase codes and lowercase source names never clash. `queued` is how many entities
+//! wait in the fetch queue for the follower (0070 §3, A9), counted to at most
+//! [`QUEUED_CAP`] so that a crawl's long queue is not counted whole on each read. The per-type mirror settings
+//! and set sizes of shallow mirroring (0070 §9) are not reported yet.
 
 use axum::extract::{Extension, Path, State};
 use axum::http::{HeaderMap, StatusCode};
@@ -19,6 +21,9 @@ use triplespace_projections::read::iso8601;
 
 use crate::entity_route::{error, internal};
 use crate::settings::prelude;
+
+/// The most queued entities the route counts.
+pub const QUEUED_CAP: u64 = 10_000;
 
 /// The mirror's status.
 pub async fn handle(
@@ -75,7 +80,15 @@ pub async fn handle(
         Ok(r) => r,
         Err(e) => return internal(&e),
     };
-    let body = status(&code, kind, &slug, api, row.as_ref());
+    let queued =
+        match triplespace_api_ingest::fetch::queued(&**client, &cursor_tenant, &slug, QUEUED_CAP)
+            .await
+        {
+            Ok(n) => n,
+            Err(e) => return internal(&e),
+        };
+    let mut body = status(&code, kind, &slug, api, row.as_ref());
+    body["queued"] = json!(queued);
     http_cache::respond(
         &headers,
         StatusCode::OK,

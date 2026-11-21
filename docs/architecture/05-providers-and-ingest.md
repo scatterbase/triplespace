@@ -518,7 +518,9 @@ Not yet: eviction from the set is an open question of [0070](../decisions/0070-s
 
 ### 5.5 Fetching and records
 
-*Sources: [0070](../decisions/0070-shallow-entity-mirroring.md) §3; [0078](../decisions/0078-entity-sources.md) §4; [0092](../decisions/0092-following-recent-changes.md) §1.*
+*Sources: [0070](../decisions/0070-shallow-entity-mirroring.md) §3, A9; [0078](../decisions/0078-entity-sources.md) §4; [0092](../decisions/0092-following-recent-changes.md) §1.*
+
+**The fetch is the follower's poll** ([0070](../decisions/0070-shallow-entity-mirroring.md) A9). Each poll of a provider's or source's follower (§5.7) takes the oldest 500 entities waiting in `ops.entity_fetch` for it, less those the batch still being written took, and reads them with the entities its recent changes named; the batch's last unit of work deletes their rows, each unless it was queued again after it was taken, so a crash leaves them queued. A follower with entities still waiting is not caught up and polls again at once, and one with no position, no load and nothing in its graph starts from now when entities wait, as a shallow mirror does. `triplespace fetch` queues entities by hand, with the reason `manual`. What follows describes the job's requests, records and actor, which the follower's are:
 
 **A fetch is an instance job per provider**, run by the instance ([0040](../decisions/0040-instance-prerogatives.md) §6; [08](08-tenants-and-instances.md)), like a page repository's sync job ([0053](../decisions/0053-mirrored-pages.md) §5; [13](13-mirrored-pages.md)):
 

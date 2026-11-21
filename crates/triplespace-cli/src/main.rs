@@ -12,7 +12,7 @@ static GLOBAL: mimalloc::MiMalloc = mimalloc::MiMalloc;
 use anyhow::Result;
 use clap::{Parser, Subcommand};
 use triplespace_cli::{
-    accounts, adopt, backup_key, challenge, compact, dump, env_file, follow, forwarder,
+    accounts, adopt, backup_key, challenge, compact, dump, env_file, fetch, follow, forwarder,
     import_pages, instance, job, log_bundle, logins, oauth_client, provision, restore, rights,
     settings, setup, source, status, sync, tenant,
 };
@@ -59,6 +59,8 @@ enum Command {
     Sync(sync::Sync),
     /// Follow a provider's wiki by its recent changes (0092 §1).
     Follow(follow::Follow),
+    /// Queue entities for a provider's or source's follower to fetch (0070 §3).
+    Fetch(fetch::Fetch),
     /// Compact a provider's mirror by the keys of a range of its records (0013 §3, A96).
     Compact(compact::Compact),
     /// The bot password a provider's follower logs in with (0092 §10).
@@ -196,6 +198,7 @@ async fn run() -> Result<()> {
         Command::Job { command } => job::run(command).await,
         Command::Sync(args) => sync::run(args).await,
         Command::Follow(args) => follow::run(args).await,
+        Command::Fetch(args) => fetch::run(args).await,
         Command::Compact(args) => compact::run(args).await,
         Command::UpstreamLogin { command } => follow::run_login(command).await,
         Command::Source { command } => source::run(command).await,

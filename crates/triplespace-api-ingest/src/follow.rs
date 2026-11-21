@@ -11,6 +11,13 @@
 //! The follower continues a load (0092 §5): with no position of its own it starts at
 //! `loaded_to`, the end of the last dump sync, and it refuses to start from a time the
 //! wiki no longer keeps recent changes for (a gap), since a load is the only way across one.
+//!
+//! The follower is also the fetch job (0070 §3, A9): each poll takes the oldest entities
+//! waiting in `ops.entity_fetch` for its provider or source ([`crate::fetch`]), up to
+//! [`FETCH_PER_POLL`], reads them with the entities the changes named, and its saver
+//! deletes their rows in the unit of work that commits the batch. A follower with
+//! entities waiting is not caught up, and one with no position and nothing loaded starts
+//! from now when entities wait, as a shallow mirror does.
 
 use std::collections::BTreeMap;
 
@@ -28,6 +35,9 @@ use triplespace_projections::PgCx;
 use triplespace_upstream::Wiki;
 
 use crate::PgIngest;
+
+/// The most queued entities a poll takes (0070 A9): ten requests of fifty.
+pub const FETCH_PER_POLL: usize = 500;
 
 /// The position row's kind for a registry provider.
 pub const KIND_PROVIDER: &str = "provider";
@@ -190,6 +200,13 @@ type Wait = (std::time::Duration, fn(&str));
 /// the same poll, the source's position and records under the tenant.
 pub struct ProviderFollower<'a> {
     wiki: &'a Wiki,
+    /// Where the fetch queue is read (0070 A9).
+    db: &'a tokio_postgres::Client,
+    /// The queued entities the last poll took: its batch may still be being written, so the
+    /// next poll leaves them.
+    taken: Vec<String>,
+    /// Whether more entities waited than the last poll took.
+    queue_more: bool,
     provider: &'a Provider,
     /// `""` for a registry provider; the tenant for its source.
     tenant: String,
@@ -248,9 +265,9 @@ impl<'a> ProviderFollower<'a> {
     /// # Errors
     ///
     /// [`StartError`].
-    #[allow(clippy::too_many_arguments)]
-    pub async fn start<C: GenericClient>(
-        client: &C,
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+    pub async fn start(
+        client: &'a tokio_postgres::Client,
         wiki: &'a Wiki,
         provider: &'a Provider,
         registry: &'static scatter_providers::Registry,
@@ -314,6 +331,16 @@ impl<'a> ProviderFollower<'a> {
             // window (0092 §5, A11): the version cursor skips what was written.
             (None, Some(t), _) => (t.saturating_sub(windows.tail), None, Vec::new()),
             (None, None, Some(t)) => (t, None, Vec::new()),
+            // Nothing loaded, but entities wait to be fetched: a shallow mirror, followed
+            // from now (0070 A9).
+            (None, None, None)
+                if crate::fetch::queued(client, tenant, &provider.slug, 1)
+                    .await
+                    .map_err(|e| fail(&e))?
+                    > 0 =>
+            {
+                (now(), None, Vec::new())
+            }
             (None, None, None) => return Err(StartError::NoPosition(provider.slug.clone())),
         };
         let poller = Poller::restore(
@@ -344,6 +371,9 @@ impl<'a> ProviderFollower<'a> {
 
         Ok(Self {
             wiki,
+            db: client,
+            taken: Vec::new(),
+            queue_more: false,
             provider,
             tenant: tenant.to_string(),
             kind,
@@ -533,6 +563,8 @@ type Named = (EntityId, Option<u64>, Option<u64>);
 #[derive(Debug, Clone)]
 pub struct Saved {
     time: u64,
+    /// The queued entities the batch fetched, deleted as it commits (0070 A9).
+    fetched: Vec<crate::fetch::Taken>,
     cont: Option<serde_json::Value>,
     seen: serde_json::Value,
     retry: serde_json::Value,
@@ -554,6 +586,7 @@ impl ProviderFollower<'_> {
     fn saved(&self) -> Saved {
         Saved {
             time: self.poller.time,
+            fetched: Vec::new(),
             cont: self.poller.cont.as_ref().map(|c| serde_json::json!(c)),
             seen: serde_json::json!(self.poller.seen()),
             retry: serde_json::json!(
@@ -574,6 +607,7 @@ impl ChangeSource<PgIngest> for ProviderFollower<'_> {
 
     async fn next(&mut self) -> Result<(ChangeBatch, Saved), IngestError> {
         if self.at_head
+            && !self.queue_more
             && let Some((interval, report)) = self.wait
         {
             report(&format!(
@@ -621,6 +655,25 @@ impl ChangeSource<PgIngest> for ProviderFollower<'_> {
             late = u64::try_from(tail.changes.len()).unwrap_or(u64::MAX);
             ids.extend(self.ids_of(&tail.changes));
         }
+        // The fetch queue (0070 A9): the oldest entities waiting, less those the batch still
+        // being written took.
+        let (taken, more) = crate::fetch::take(
+            self.db,
+            &self.tenant,
+            &self.provider.slug,
+            FETCH_PER_POLL,
+            &self.taken,
+        )
+        .await
+        .map_err(|e| IngestError::Store(e.to_string()))?;
+        self.queue_more = more;
+        self.taken = taken.iter().map(|(id, _)| id.clone()).collect();
+        // An ID that does not parse is dropped from the queue with the rest.
+        ids.extend(
+            taken
+                .iter()
+                .filter_map(|(id, _)| EntityId::parse(id).ok().map(|id| (id, None, None))),
+        );
         let (items, stale) = self.states(ids).await?;
         self.late += late;
         self.stale += stale;
@@ -629,9 +682,11 @@ impl ChangeSource<PgIngest> for ProviderFollower<'_> {
             rows,
             late,
             stale,
-            caught_up: self.at_head,
+            caught_up: self.at_head && !self.queue_more,
         };
-        Ok((batch, self.saved()))
+        let mut saved = self.saved();
+        saved.fetched = taken;
+        Ok((batch, saved))
     }
 
     async fn state(&mut self) -> Result<FollowState, IngestError> {
@@ -679,6 +734,7 @@ impl Saved {
     pub fn at(time: u64) -> Self {
         Self {
             time,
+            fetched: Vec::new(),
             cont: None,
             seen: serde_json::json!([]),
             retry: serde_json::json!([]),
@@ -715,6 +771,9 @@ impl SavePosition<PgIngest> for Saver {
                 .map_err(store)?;
             return Ok(());
         };
+        crate::fetch::done(cx.conn(), &self.tenant, &self.name, &at.fetched)
+            .await
+            .map_err(store)?;
         let now = (self.now)();
         let time = i64::try_from(at.time).unwrap_or(i64::MAX);
         let (cont, seen, retry) = (&at.cont, &at.seen, &at.retry);

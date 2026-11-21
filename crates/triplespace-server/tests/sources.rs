@@ -368,6 +368,7 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
     assert_eq!(body["followed_by"], "recentchanges");
     assert_eq!(body["status"], "not-followed");
     assert!(body["follow"].is_null() && body["gap"].is_null(), "{body}");
+    assert_eq!(body["queued"], 0, "nothing waits to be fetched");
     assert!(body["load"]["loaded_to"].is_string(), "{body}");
     assert_eq!(body["load"]["handed_over"], false);
     // A gap the follower found is reported until a position is saved or a load records a

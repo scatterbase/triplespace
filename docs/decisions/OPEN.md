@@ -75,6 +75,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0056 A27](0056-security-model.md#a27-entities-the-live-attack-and-tiers-78-the-calls-made-building-them) | 2026-10-30 | Entities, the live attack and tiers 7–8: the calls made building them |
 | [0057 A10](0057-web-tier.md#a10-stopping-on-sigterm-and-the-build-id-a-component-sends) | 2026-11-15 | Stopping on `SIGTERM`, and the build ID a component sends |
 | [0066 A3](0066-lexemes.md#a3-the-part-suffix-belongs-to-the-lexeme-entity-type-not-to-a-grammar) | 2026-11-04 | The part suffix belongs to the lexeme entity type, not to a grammar |
+| [0070 A9](0070-shallow-entity-mirroring.md#a9-the-fetch-job-is-the-followers-poll) | 2026-11-21 | The fetch job is the follower's poll |
 | [0077 A6](0077-special-version.md#a6-licensing-loose-ends-from-building-specialversion) | 2026-10-30 | Licensing: loose ends from building Special:Version |
 | [0077 A8](0077-special-version.md#a8-the-licence-header-on-built-javascript-and-css) | 2026-11-15 | The licence header on built JavaScript and CSS |
 | [0078 A8](0078-entity-sources.md#a8-retiring-keeps-the-record-a-later-record-is-checked-against-it) | 2026-11-20 | Retiring keeps the record; a later record is checked against it |

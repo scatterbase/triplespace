@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-07
-- **Updated:** 2026-10-26 (A8)
+- **Updated:** 2026-11-21 (A9)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0040](0040-instance-prerogatives.md), [0053](0053-mirrored-pages.md), [0065](0065-mediainfo-captions-and-commons.md), [0067](0067-proposals.md), [0071](0071-derived-statements-from-mirrored-pages.md)
 
@@ -180,4 +180,13 @@ Replaced text: 05 §5.5.
 - **Summary:** A provider or entity source with an `api` and no `events` is followed by polling `list=recentchanges`, as the Wikidata Query Service's updater did: deduped by `rcid`, coalesced by title, read by time near the present, with a tail pass, every `follow.interval`. Chapter text: 05 §5.5, §5.7, §5.9; 03 §4.12; 18 §3.2.
 
 Replaced text: 05 §5.7 of this ADR; 03 §4.12 of this ADR; 18 §3.2 of this ADR.
+
+### A9. The fetch job is the follower's poll
+
+- **Date:** 2026-11-21
+- **Source:** Direct: James, 2026-11-21, choosing to fold the fetch job into the follower over a separate `fetch` job kind; the other calls below are Claude's while building it, unconfirmed
+- **Change:** amends §3; extends §9, §10
+- **Summary:** §3 makes the fetch a long-running job per provider beside the follower, but the follower (0092) already reads `wbgetentities` fifty IDs at a time, writes under one job a day and saves its position with each batch; a second job would repeat that and take turns with it on the load lock. The fetch job is now the follower's poll. (1) Each poll takes the oldest 500 rows of `ops.entity_fetch` for its provider or source, less those the batch still being written took, reads them with the entities the recent changes named, and the batch's last unit of work deletes their rows, each unless it was queued again after it was taken; a follower with rows still waiting is not caught up and polls again at once. (2) A follower with no position, no load and nothing in its graph starts from now when rows wait, instead of refusing: a shallow mirror has no load to start from. (3) A row names the entity as the upstream knows it (`Q42`), so a source's `lb:Q42` and a provider's `WDQ42` queue as `Q42`; the reasons gain `crawl` (0092 §4). (4) `triplespace fetch` queues entities by hand, reason `manual`. (5) `GET /provider/{code}/mirror` reports `queued`, counted to at most 10,000. (6) The queue is carried in a backup, as queued jobs are. A miss for an entity the mirror does not hold already wrote nothing (A5), and still does. `attempts` is not yet counted: a failed request fails the poll and leaves the rows queued. Chapter text: 05 §5.5; 03 §4.12; 18 §3.2.
+
+Replaced text: 05 §5.5 of this ADR ("A fetch is an instance job per provider", a job beside the follower).
 

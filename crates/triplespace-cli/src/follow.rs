@@ -190,7 +190,7 @@ pub async fn run_login(cmd: UpstreamLogin) -> Result<()> {
 
 /// The provider or source to follow, in the table of names it is looked up in: the
 /// registry for a provider, the tenant's table ([`tenant_registry`]) for a source.
-async fn followed(
+pub(crate) async fn followed(
     client: &Client,
     provider: Option<&str>,
     tenant: Option<&str>,

@@ -646,7 +646,7 @@ sources = "[0067](../decisions/0067-proposals.md) §7"
 
 [[route]]
 routes = ["GET /provider/{code}/mirror"]
-purpose = "Per type, the setting, the set size, the queue length; how the provider is followed (`events` or `recentchanges`), the follower's position and lag, its `late` and `stale` counts, and the last load's position and whether it handed over: the live counters that `siprop=triplespace` does not carry (§2.2); a source's name in place of `{code}`, since lowercase source names and uppercase provider codes never clash"
+purpose = "Per type, the setting and the set size; the fetch queue's length (`queued`, counted to at most 10,000; [0070](../decisions/0070-shallow-entity-mirroring.md) A9); how the provider is followed (`events` or `recentchanges`), the follower's position and lag, its `late` and `stale` counts, and the last load's position and whether it handed over: the live counters that `siprop=triplespace` does not carry (§2.2); a source's name in place of `{code}`, since lowercase source names and uppercase provider codes never clash"
 sources = "[0070](../decisions/0070-shallow-entity-mirroring.md) §9; [0078](../decisions/0078-entity-sources.md) §10; [0092](../decisions/0092-following-recent-changes.md) §7"
 
 [[route]]

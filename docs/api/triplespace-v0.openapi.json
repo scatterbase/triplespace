@@ -12032,7 +12032,8 @@
           "status",
           "follow",
           "gap",
-          "load"
+          "load",
+          "queued"
         ],
         "properties": {
           "code": {
@@ -12176,6 +12177,10 @@
                 "type": "boolean"
               }
             }
+          },
+          "queued": {
+            "type": "integer",
+            "description": "Entities waiting in the fetch queue for the follower to read (0070 §3, A9), counted to at most 10,000."
           }
         }
       }
