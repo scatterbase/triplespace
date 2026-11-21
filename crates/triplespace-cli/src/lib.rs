@@ -26,6 +26,7 @@ pub mod log_bundle;
 pub mod logins;
 pub mod oauth_client;
 pub mod probe;
+pub mod provider;
 pub mod provision;
 pub mod restore;
 pub mod rights;

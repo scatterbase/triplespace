@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-08
-- **Updated:** 2026-11-15 (A11)
+- **Updated:** 2026-11-21 (A12)
 - **Author:** James Hare / Claude Fable
 - **Uses:** [0007](0007-actor-identity.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0047](0047-special-pages.md)
 
@@ -180,3 +180,9 @@ Replaced text: 16 §2.2.
 - **Change:** extends §11
 - **Summary:** A keyed batch stays `running` until its submitter closes it (§1), and the page never did, so a finished run read as running for good. When its run ends the page closes the batch, as the submitter it acts for, and the job reads `closed`. A batch rejected during the run is left as it is. If the closing fails, the report says so and names the job, whose page can close it. A later run under the same batch value opens a new job, as §1 has it for a closed batch.
 
+### A12. A follower's failed pass is tried again
+
+- **Date:** 2026-11-21
+- **Source:** Direct: Claude, while building `instance provider add` (0018 A40), 2026-11-21; unconfirmed
+- **Change:** extends §4
+- **Summary:** A `follow` row whose pass fails is put back as a pass that succeeded is, not to be claimed before `follow.interval` has passed, and the failure is reported in the server's log; it is not failed and removed as other jobs are. A follower runs for as long as the instance mirrors the provider, and a failure that removed its row ended the following for good over a lagged replica or a dropped connection, which upstream wikis have daily; the next pass starts from the position the last good pass saved, so nothing is skipped. Cancelling the row stops a follower that keeps failing, since between passes the row waits unclaimed. This also answers how long a follower waits on a wiki lagged past its retries: it waits out its interval and tries again. Chapter text: 16 §2.2.

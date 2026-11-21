@@ -73,7 +73,7 @@ impl Work for SyncWork {
 }
 
 /// A `follow` job: one pass of `triplespace follow`, after which the row waits the
-/// follower's interval and is claimed again. The follower's own job, one a day, is the
+/// follower's interval and is claimed again, whether the pass succeeded or failed. The follower's own job, one a day, is the
 /// one its records name (0092 A6); the queue row's ID is the row's alone.
 #[derive(Debug, Clone)]
 pub struct FollowWork {
@@ -92,9 +92,21 @@ impl Work for FollowWork {
             args.key_file.clone_from(&self.key_file);
             args.once = true;
             let wait = follow::interval(&args).await.map_err(|e| failed(&e))?;
-            on_thread(move || follow::run(args))
-                .await?
-                .map_err(|e| failed(&e))?;
+            let provider = args
+                .provider
+                .clone()
+                .or(args.source.clone())
+                .unwrap_or_default();
+            // A pass that fails (the wiki lagged past its retries, the network dropped) is
+            // reported and tried again after the interval, from the position the last good
+            // pass saved, so that a follower outlives a bad hour upstream (0104 A12); `job
+            // cancel` stops one that keeps failing, since between passes it waits unclaimed.
+            if let Err(e) = on_thread(move || follow::run(args)).await? {
+                eprintln!(
+                    "follow `{provider}` (job {}): the pass failed, trying again in {wait} s: {e:#}",
+                    job.job_id
+                );
+            }
             Ok(Outcome::Again(Duration::from_secs(wait)))
         })
     }

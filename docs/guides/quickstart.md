@@ -198,6 +198,11 @@ Node 22 or later, and PostgreSQL (CI uses 18). A small instance needs Postgres a
    triplespace follow --provider wikidata            # keeps polling; --once to catch up and stop
    ```
 
+   An instance created without `--provider wikidata` opens the mirror later with
+   `triplespace instance provider add wikidata`, which also queues its follower for the server
+   to run. Without a dump, the mirror is shallow: it holds the Wikidata items your wiki links,
+   fetched as they are linked, and keeps them current.
+
    `--snapshot` declares a dump complete, so entities it no longer carries are tombstoned.
    `triplespace upstream-login set` stores a bot password for the follower to use. A `.bz2`
    dump is decompressed on one core; for a full Wikidata load, recompress it to `.gz` first

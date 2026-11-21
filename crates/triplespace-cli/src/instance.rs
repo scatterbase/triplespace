@@ -13,6 +13,7 @@ use anyhow::{Context, Result, bail};
 use clap::Args;
 use scatter_actors::issuer::derived_code;
 use scatter_actors::tenancy::TenancyRegistry;
+use scatter_log::cbor::Value;
 use scatter_log::header::CONFIG_PARTITION;
 use scatter_log::registry::{GraphRegistry, PAYLOAD_CONFIG, Scope};
 use scatter_log_postgres::{log, sequences};
@@ -181,6 +182,35 @@ pub async fn create_with(args: Create, password: Option<&str>) -> Result<()> {
     Ok(())
 }
 
+/// Opens an instance partition for the registry graph `name` and records it in the
+/// instance `config` as its `graph:` record, attested by `attest`: what `instance create`
+/// does for the instance log and the mirrors, and `instance provider add` for a mirror on
+/// a running instance. Returns the partition. Runs inside the caller's transaction.
+pub async fn open_graph(
+    client: &tokio_postgres::Client,
+    registry: &GraphRegistry,
+    name: &str,
+    farm_base: &str,
+    t: u64,
+    attest: &impl Fn(&Value, &Value) -> Result<Value>,
+) -> Result<u64> {
+    let (partition, entry) = open_partition(client, registry, name, None, farm_base).await?;
+    log::append(
+        client,
+        CONFIG_PARTITION,
+        draft_attested(
+            PAYLOAD_CONFIG,
+            &entry.key(),
+            &serde_json::to_value(&entry)?,
+            None,
+            t,
+            attest,
+        )?,
+    )
+    .await?;
+    Ok(partition)
+}
+
 /// Writes the instance's records and its primary tenant's (see the module docs).
 #[allow(clippy::too_many_lines)]
 async fn write(
@@ -233,13 +263,7 @@ async fn write(
     let mut names = vec!["log".to_string(), "logins".to_string()];
     names.extend(mirrors);
     for name in &names {
-        let (_, entry) = open_partition(client, &registry, name, None, farm_base).await?;
-        log::append(
-            client,
-            CONFIG_PARTITION,
-            instance_record(&entry.key(), &serde_json::to_value(&entry)?)?,
-        )
-        .await?;
+        open_graph(client, &registry, name, farm_base, t, &attest).await?;
     }
     // The settings registry, copied into the instance `config` as `setting:` records
     // (0085 §1), so an instance's own registrations sit beside the shipped ones.

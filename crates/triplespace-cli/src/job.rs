@@ -318,6 +318,25 @@ fn server_path(path: &std::path::Path) -> Result<PathBuf> {
 
 /// Queues a job whose parameters are a command's own arguments (0104 A9): for `tenant`,
 /// or the instance when it is empty, where the job's actor is the farm's operator.
+/// Queues the instance's follower for the mirror of `provider`, as `job start follow
+/// --provider` does: what `instance provider add` runs after opening the mirror.
+pub async fn start_follow(database: &str, provider: &str) -> Result<()> {
+    let args = crate::follow::Follow {
+        database: database.to_string(),
+        provider: Some(provider.to_string()),
+        tenant: None,
+        source: None,
+        once: false,
+        from: None,
+        interval: None,
+        batch: 200,
+        key_file: std::path::PathBuf::from("triplespace.key"),
+        anonymous: false,
+        api: None,
+    };
+    start_work(database, Kind::Follow, "", None, &args).await
+}
+
 async fn start_work<T: serde::Serialize>(
     database: &str,
     kind: Kind,

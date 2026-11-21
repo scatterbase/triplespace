@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-16 (A39)
+- **Updated:** 2026-11-21 (A40)
 - **Author:** James Hare / Claude Fable
 - **Uses:** [0003](0003-statement-ui.md), [0008](0008-namespaces-and-document-pages.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md), [0017](0017-entity-id-grammar.md), [0022](0022-federation.md), [0023](0023-moderation.md), [0028](0028-tenancy-policy.md)
 
@@ -436,3 +436,10 @@ Replaced text: 08 §1.1, §6.3.
 - **Source:** Direct: James, design discussion of 2026-11-16
 - **Change:** extends §10
 - **Summary:** A frozen tenant is refused writes by a trigger on each of its record tables, which refuses every insert, rather than by a check in the server, so that no process that writes, the ingester and jobs included, can append to it. Chapter text: 08 §6.3; 03 §1.2.
+
+### A40. A provider's mirror can be opened on a running instance
+
+- **Date:** 2026-11-21
+- **Source:** Direct: James, 2026-11-21: "That sounds fine to me", to an operator command that opens a provider's mirror on a running instance as `instance create --provider` does; the command's form, the follower it queues and what it refuses, Claude, while building it, 2026-11-21; unconfirmed
+- **Change:** extends §2
+- **Summary:** `triplespace instance provider add {slug}` opens a registry provider's `mirror/{slug}` partition and its `graph:` record on a running instance, in one transaction, attested as `instance create` attests them, and queues the provider's follower (`--no-follow` leaves it out). Before this a mirror could be opened only when the instance was created, so an instance running already, Librarybase's staging among them, could not mirror Wikidata. It refuses a provider already mirrored, one not in the registry, and an entity source, which a tenant declares. The mirror starts empty and so shallow (0070 A11). No command closes a mirror. Chapter text: 08 §2.1; 16 §2.2.
