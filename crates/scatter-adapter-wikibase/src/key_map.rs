@@ -669,6 +669,10 @@ impl Adapter for KeyMappedAdapter {
         self.inner.canonical_iri(id)
     }
 
+    fn value_iris(&self) -> Option<&scatter_wikibase_model::value_iri::ValueIris> {
+        self.inner.value_iris()
+    }
+
     /// The provider's one rule, when it has exactly one.
     fn key_map(&self) -> Option<&dyn KeyMap> {
         match self.rules.rules.as_slice() {
@@ -693,6 +697,7 @@ impl Adapter for KeyMappedAdapter {
                 }
             }
         }
+        self.store_value_iris(snak);
         Ok(())
     }
 }

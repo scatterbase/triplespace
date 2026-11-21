@@ -4,8 +4,8 @@
 //! (0070 A9). The write does not wait for it.
 //!
 //! An entity is named by being a statement's, a qualifier's or a reference's property or
-//! value, the subject of a local statement, override or removal, or an ID of a `same-as`
-//! or `retain`, in a change set on any graph of a tenant other than a mirror (`local`,
+//! value, or a value's unit, globe or calendar model (0004 A20), the subject of a local
+//! statement, override or removal, or an ID of a `same-as` or `retain`, in a change set on any graph of a tenant other than a mirror (`local`,
 //! `pages`, a derived graph). It is queued when its provider or source has an `api`, the
 //! tenant's `entities.mirror` for its provider and type is `linked` or `all` (`linked`
 //! when unset), and `view.entity_source` holds no row for it. A replay queues again only
@@ -97,6 +97,9 @@ pub fn named(op: &Operation) -> BTreeSet<EntityId> {
     for i in ids {
         id(i);
     }
+    for i in value_ids(op) {
+        id(&i);
+    }
     out
 }
 
@@ -135,6 +138,58 @@ fn snak_ids<'a>(property: &'a EntityId, kind: &'a SnakKind, out: &mut Vec<&'a En
     if let SnakKind::Value(DataValue::EntityId(v)) = kind {
         out.push(&v.id);
     }
+}
+
+/// The entity a value's unit, globe or calendar model names, in its stored form (0004
+/// A20); `None` for `"1"`, an IRI kept as written, or another kind of value.
+fn value_id(kind: &SnakKind) -> Option<EntityId> {
+    let s = match kind {
+        SnakKind::Value(DataValue::Quantity(q)) => &q.unit,
+        SnakKind::Value(DataValue::GlobeCoordinate(g)) => &g.globe,
+        SnakKind::Value(DataValue::Time(t)) => &t.calendarmodel,
+        _ => return None,
+    };
+    EntityId::parse(s).ok()
+}
+
+/// The units, globes and calendar models `op` names.
+fn value_ids(op: &Operation) -> Vec<EntityId> {
+    let mut out = Vec::new();
+    let mut statement = |s: &Statement| {
+        out.extend(s.snaks().filter_map(|n| value_id(&n.kind)));
+    };
+    match op {
+        Operation::Create { entity, .. }
+        | Operation::CreateOrAdd { entity, .. }
+        | Operation::Adopt {
+            entity: Some(entity),
+            ..
+        } => entity.all_statements().for_each(&mut statement),
+        Operation::Add {
+            claims,
+            references,
+            qualifiers,
+            entity,
+            ..
+        } => {
+            claims.values().flatten().for_each(&mut statement);
+            if let Some(e) = entity {
+                e.all_statements().for_each(&mut statement);
+            }
+            for r in references.values().flatten() {
+                for snaks in r.snaks.values() {
+                    out.extend(snaks.iter().filter_map(|n| value_id(&n.kind)));
+                }
+            }
+            for groups in qualifiers.values() {
+                for snaks in groups.values() {
+                    out.extend(snaks.iter().filter_map(|n| value_id(&n.kind)));
+                }
+            }
+        }
+        _ => {}
+    }
+    out
 }
 
 /// The tenant's `entities.mirror` (0070 §2.1; 05 §5.2), or the instance's default for it

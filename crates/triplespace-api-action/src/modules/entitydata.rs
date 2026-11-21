@@ -219,7 +219,8 @@ async fn rdf(
         registry,
         scatter_normalize::KeyedRegistry::default_registry(),
     );
-    let hasher = Hasher::local();
+    let hasher =
+        Hasher::local().with_iris(crate::entity_json::value_iris(registry, &ctx.tenant.base));
     let renderer = Renderer::new(&iris, &hasher, flavor.produce()).with_upstream(&upstream);
     let mut triples = renderer.entity(&entity, page.as_ref());
 

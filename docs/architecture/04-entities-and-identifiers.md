@@ -583,7 +583,7 @@ Property links come only from local assertions. Wikidata's P1628 ("equivalent pr
 
 ### 4.7 Values
 
-*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §7.*
+*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §7, A23.*
 
 The resolved view compares values by a canonical form:
 
@@ -591,6 +591,8 @@ The resolved view compares values by a canonical form:
 - **Literal values** compare by a **normalized key**, derived per data type. A property can override its data type's normalizer.
 
 **The `unit` of a quantity, the `globe` of a coordinate and the `calendarmodel` of a time are entity IDs in the stored form:** `"unit": "WDQ11573"`, `"unit": "Q7"`, `"unit": "1"` unchanged for a dimensionless quantity, never a concept IRI under some base. They are expanded through the current IRI template on output, as every ID is ([08](08-tenants-and-instances.md)); the adapter rewrites them on ingest as it rewrites every other ID ([05](05-providers-and-ingest.md) §3.4); the content hash is over the stored form; and they participate in `entity_ref` and in rewriting (§4.12) as entity values do. [wikibase-compat.md §4](../api/wikibase-compat.md) describes the serialization.
+
+**The map is the registry's concept IRI templates and the tenant's own `{base}/entity/`** ([0004](../decisions/0004-identity-clusters-and-equivalence.md) A23), the tenant's checked first, so that a tenant whose base is a registered provider's names its own entities locally. An IRI no template matches is kept as written and served as it is, as is a value stored before the rule was built. The adapter stores them on ingest; a local edit stores them before it is compared with what is stored. Every hash a client sees or sends back is taken over the expanded form, as Wikibase takes it (the served JSON, RDF value nodes, the hashes a claim or reference edit names, the ingest guard); hashes no client sees are taken over the stored form. A value's unit, globe or calendar model names its entity for shallow mirroring as an entity value does ([05](05-providers-and-ingest.md) §5.3).
 
 | Data type | Normalized key |
 |---|---|

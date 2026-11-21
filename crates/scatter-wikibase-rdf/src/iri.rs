@@ -325,7 +325,9 @@ impl<'r> IriScheme<'r> {
                 escape_iri(id.uuid())
             )),
             base: predicate_base(concept_base),
-            hasher: Hasher::for_provider(provider),
+            hasher: Hasher::for_provider(provider).with_iris(std::sync::Arc::new(
+                scatter_wikibase_model::value_iri::ValueIris::new(self.providers, None),
+            )),
         })
     }
 
@@ -554,7 +556,13 @@ mod tests {
             "http://www.wikidata.org/entity/statement/Q42-F078E5B3-F9A8-480E-B7AC-D97778CBBEF9"
         );
         assert_eq!(u.base, "http://www.wikidata.org/");
-        assert_eq!(u.hasher, Hasher::mirrored_from("WD"));
+        // The provider's own hashes, over value IRIs as it wrote them (0004 A20).
+        assert_eq!(
+            u.hasher,
+            Hasher::mirrored_from("WD").with_iris(std::sync::Arc::new(
+                scatter_wikibase_model::value_iri::ValueIris::new(s.providers, None)
+            ))
+        );
         // A key-mapped provider's statement is stored under the keyed subject with the
         // item's UUID; named after the item it was mapped from (0002 A44).
         let keyed = StatementId::parse("domain:wikipedia.org$F078E5B3-F9A8-480E-B7AC-D97778CBBEF9")
@@ -566,7 +574,13 @@ mod tests {
             "https://internetdomains.wiki/entity/statement/Q11-F078E5B3-F9A8-480E-B7AC-D97778CBBEF9"
         );
         assert_eq!(u.base, "https://internetdomains.wiki/");
-        assert_eq!(u.hasher, Hasher::mirrored_from("XD"));
+        // The provider's own hashes, over value IRIs as it wrote them (0004 A20).
+        assert_eq!(
+            u.hasher,
+            Hasher::mirrored_from("XD").with_iris(std::sync::Arc::new(
+                scatter_wikibase_model::value_iri::ValueIris::new(s.providers, None)
+            ))
+        );
         // A provider the registry does not know names nothing.
         let unknown = UpstreamRef {
             provider: "ZZ".into(),

@@ -150,6 +150,13 @@ impl Snak {
             (None, None) => {}
         }
         if let SnakKind::Value(v) = &self.kind {
+            // Value IRIs as Wikibase writes them, where the form expands them (0004 A20).
+            let expanded = wire.hasher.and_then(|h| h.iris()).map(|iris| {
+                let mut v = v.clone();
+                crate::value_iri::ValueIris::map_value(&mut v, |s| iris.expand(s));
+                v
+            });
+            let v = expanded.as_ref().unwrap_or(v);
             m.insert("datavalue".into(), v.to_wire(wire.numeric_ids));
         }
         if let Some(dt) = &self.datatype {

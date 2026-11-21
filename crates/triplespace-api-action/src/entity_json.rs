@@ -30,27 +30,43 @@ pub fn title_of(id: &EntityId, entity_type: &EntityType) -> (i64, String) {
 
 pub use triplespace_projections::read::iso8601;
 
-/// The hasher for an entity's snak and reference hashes: the provider's for a foreign
-/// ID, the local one otherwise.
+/// The map between value IRIs and stored IDs on the tenant at `base` (0004 A20): the
+/// registry's templates, and the tenant's `{base}/entity/` for its own IDs.
 #[must_use]
-pub fn hasher_for(id: &EntityId, registry: &Registry) -> Hasher {
-    if id.form() != IdForm::Local
+pub fn value_iris(
+    registry: &Registry,
+    base: &str,
+) -> std::sync::Arc<scatter_wikibase_model::value_iri::ValueIris> {
+    std::sync::Arc::new(scatter_wikibase_model::value_iri::ValueIris::new(
+        registry,
+        Some(&format!("{}/entity/", base.trim_end_matches('/'))),
+    ))
+}
+
+/// The hasher for an entity's snak and reference hashes on the tenant at `base`: the
+/// provider's for a foreign ID, the local one otherwise, expanding value IRIs as they are
+/// served (0004 A20).
+#[must_use]
+pub fn hasher_for(id: &EntityId, registry: &Registry, base: &str) -> Hasher {
+    let hasher = if id.form() != IdForm::Local
         && let Ok(f) = registry.parse_foreign_id(id.as_str())
     {
-        return Hasher::for_provider(f.provider());
-    }
-    Hasher::local()
+        Hasher::for_provider(f.provider())
+    } else {
+        Hasher::local()
+    };
+    hasher.with_iris(value_iris(registry, base))
 }
 
 /// Adds a keyed entity's derived label and alias (0009 §5); now in the projections, so
 /// that `Special:EntityData` and the dumps serve the same terms.
 pub use triplespace_projections::read::add_derived_terms;
 
-/// The served JSON of a present entity.
+/// The served JSON of a present entity on the tenant at `base`.
 #[must_use]
-pub fn present(current: &Current, registry: &Registry) -> Value {
+pub fn present(current: &Current, registry: &Registry, base: &str) -> Value {
     let (entity, page) = served(current);
-    let text = entity.to_wikibase_json(&hasher_for(&entity.id, registry), Some(&page));
+    let text = entity.to_wikibase_json(&hasher_for(&entity.id, registry, base), Some(&page));
     serde_json::from_str(&text).unwrap_or(Value::Null)
 }
 

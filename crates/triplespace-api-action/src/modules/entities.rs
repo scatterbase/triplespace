@@ -103,7 +103,7 @@ pub async fn entity_json(ctx: &Ctx, id: &EntityId, as_given: &str) -> Result<Val
             if !crate::pages::entity_readable(ctx, id.as_str(), serving_graph(&current)).await? {
                 return Ok(missing());
             }
-            Ok(entity_json::present(&current, registry))
+            Ok(entity_json::present(&current, registry, &ctx.tenant.base))
         }
         None if id.form() == IdForm::Keyed && !entity_json::is_source_id(id, registry) => {
             if !crate::pages::entity_readable(ctx, id.as_str(), None).await? {
@@ -123,7 +123,7 @@ pub async fn entity_json(ctx: &Ctx, id: &EntityId, as_given: &str) -> Result<Val
                 {
                     return Ok(missing());
                 }
-                let mut v = entity_json::present(&current, registry);
+                let mut v = entity_json::present(&current, registry, &ctx.tenant.base);
                 v["redirects"] = json!({"from": as_given, "to": target.as_str()});
                 return Ok(v);
             }
