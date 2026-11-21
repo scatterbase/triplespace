@@ -126,7 +126,21 @@ impl Wiki {
     ///
     /// [`UpstreamError`] after the retries, or at once for any other failure.
     pub async fn get(&self, params: &[(&str, String)]) -> Result<String, UpstreamError> {
-        self.send(params, false).await
+        self.send(params, false, true).await
+    }
+
+    /// A `GET` on behalf of a reader waiting for a page, without `maxlag`, which the API's
+    /// etiquette asks of work no one waits for (0070 A13): the label cache's reads. A `429`
+    /// or a `503` is still retried.
+    ///
+    /// # Errors
+    ///
+    /// As [`Wiki::get`].
+    pub async fn get_interactive(
+        &self,
+        params: &[(&str, String)],
+    ) -> Result<String, UpstreamError> {
+        self.send(params, false, false).await
     }
 
     /// A `POST`, otherwise as [`Wiki::get`].
@@ -135,10 +149,15 @@ impl Wiki {
     ///
     /// As [`Wiki::get`].
     pub async fn post(&self, params: &[(&str, String)]) -> Result<String, UpstreamError> {
-        self.send(params, true).await
+        self.send(params, true, true).await
     }
 
-    async fn send(&self, params: &[(&str, String)], post: bool) -> Result<String, UpstreamError> {
+    async fn send(
+        &self,
+        params: &[(&str, String)],
+        post: bool,
+        maxlag: bool,
+    ) -> Result<String, UpstreamError> {
         let _gate = self.gate.lock().await;
         let mut params: Vec<(&str, String)> = params.to_vec();
         for (k, v) in [
@@ -146,6 +165,9 @@ impl Wiki {
             ("formatversion", "2"),
             ("maxlag", &MAXLAG.to_string()),
         ] {
+            if k == "maxlag" && !maxlag {
+                continue;
+            }
             if !params.iter().any(|(key, _)| *key == k) {
                 params.push((k, v.to_string()));
             }

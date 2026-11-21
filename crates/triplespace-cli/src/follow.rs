@@ -190,7 +190,7 @@ pub async fn run_login(cmd: UpstreamLogin) -> Result<()> {
 
 /// The provider or source to follow, in the table of names it is looked up in: the
 /// registry for a provider, the tenant's table ([`tenant_registry`]) for a source.
-async fn followed(
+pub(crate) async fn followed(
     client: &Client,
     provider: Option<&str>,
     tenant: Option<&str>,
@@ -349,7 +349,8 @@ pub async fn run(args: Follow) -> Result<()> {
     let mut source = ProviderFollower::start(
         &client, &wiki, provider, registry, &tenant, windows, retention, from, seconds,
     )
-    .await?;
+    .await?
+    .reporting(|line| eprintln!("{line}"));
     eprintln!(
         "following {} from {}",
         provider.slug,

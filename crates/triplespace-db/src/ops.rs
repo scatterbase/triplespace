@@ -54,6 +54,9 @@ pub const OPS_TABLES: &[(&str, Backup)] = &[
     // Followers' positions (0092 §3): a hint the version cursor could rebuild, carried
     // because it is small and saves polling from the start.
     ("repo_cursor", Backup::Carried),
+    // Entities waiting to be fetched into a mirror (0070 §3): carried, so that a restore
+    // fetches what was waiting, as queued jobs are.
+    ("entity_fetch", Backup::Carried),
     // Part of every cache key (03 §9.6): starting again from 0 could meet entries a CDN
     // still holds from before.
     ("visibility_epoch", Backup::Carried),

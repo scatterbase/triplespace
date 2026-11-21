@@ -22,6 +22,7 @@ pub mod common;
 pub mod entities;
 pub mod entity_sources;
 pub mod feed;
+pub mod fetch_queue;
 pub mod jobs;
 pub mod moderation;
 pub mod pages;
@@ -71,5 +72,6 @@ pub fn milestone_pipeline<B: Backend<Cx = PgCx>>(
         .with(threads::ThreadProjection)?
         .with(moderation::ModerationProjection)?
         .with(EntityProjection::default())?
-        .with(ActivityProjection)
+        .with(ActivityProjection)?
+        .with(fetch_queue::FetchQueueProjection)
 }

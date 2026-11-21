@@ -215,7 +215,7 @@ async fn an_adoption_and_a_sync_run_through_the_queue() {
         provider: Some("internetdomains".into()),
         tenant: None,
         source: None,
-        dump: mirror,
+        dump: Some(mirror),
         version: Some("20261001".into()),
         snapshot: false,
         threshold: 1000,

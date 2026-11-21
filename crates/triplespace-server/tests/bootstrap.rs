@@ -131,7 +131,7 @@ async fn sync_into(database: &str, load: &Load) -> anyhow::Result<()> {
         provider: Some("librarybase".into()),
         tenant: None,
         source: None,
-        dump: load.dump.clone(),
+        dump: Some(load.dump.clone()),
         version: Some("20261001".into()),
         snapshot: false,
         threshold: 1000,

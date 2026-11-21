@@ -26,7 +26,7 @@ TYPES = {"boolean", "integer", "duration", "size", "text", "string", "url", "lan
          "repository-list", "property-list", "namespace-list", "site", "licence", "collation", "pattern", "schedule",
          "site-asset", "palette", "typeset"}
 FIELDS = {"key", "scope", "bound", "ceiling", "tenant_may_narrow", "group", "type", "choices", "values", "default",
-          "default_text", "no_default", "media", "by_rule", "scope_note", "right", "reported", "meaning", "source", "retired"}
+          "default_text", "no_default", "media", "by_rule", "scope_note", "right", "reported", "meaning", "source", "retired", "per"}
 CANON_VALUES = {"palette": "a palette", "typeset": "a type set", "boolean": "off, on", "integer": "integer", "duration": "duration", "size": "size", "text": "text",
                 "url": "URL", "language": "a language", "language-list": "language list", "file": "a `File:` title"}
 

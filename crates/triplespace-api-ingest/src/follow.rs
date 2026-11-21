@@ -11,6 +11,13 @@
 //! The follower continues a load (0092 §5): with no position of its own it starts at
 //! `loaded_to`, the end of the last dump sync, and it refuses to start from a time the
 //! wiki no longer keeps recent changes for (a gap), since a load is the only way across one.
+//!
+//! The follower is also the fetch job (0070 §3, A9): each poll takes the oldest entities
+//! waiting in `ops.entity_fetch` for its provider or source ([`crate::fetch`]), up to
+//! [`FETCH_PER_POLL`], reads them with the entities the changes named, and its saver
+//! deletes their rows in the unit of work that commits the batch. A follower with
+//! entities waiting is not caught up, and one with no position and nothing loaded starts
+//! from now when entities wait, as a shallow mirror does.
 
 use std::collections::BTreeMap;
 
@@ -23,11 +30,19 @@ use scatter_ingest::sync::SyncItem;
 use scatter_providers::Provider;
 use scatter_wikibase_changeset::{Adapter, Graph, Upstream, WikibaseAdapter};
 use scatter_wikibase_model::id::EntityId;
+use scatter_wikibase_model::statement::SnakKind;
+use scatter_wikibase_model::value::DataValue;
 use tokio_postgres::GenericClient;
 use triplespace_projections::PgCx;
 use triplespace_upstream::Wiki;
 
 use crate::PgIngest;
+
+/// The most queued entities a poll takes (0070 A9): ten requests of fifty.
+pub const FETCH_PER_POLL: usize = 500;
+
+/// How many polls may fail to read a queued entity before its row is dropped (0070 A9).
+pub const FETCH_ATTEMPTS: i32 = 5;
 
 /// The position row's kind for a registry provider.
 pub const KIND_PROVIDER: &str = "provider";
@@ -190,6 +205,22 @@ type Wait = (std::time::Duration, fn(&str));
 /// the same poll, the source's position and records under the tenant.
 pub struct ProviderFollower<'a> {
     wiki: &'a Wiki,
+    /// Where the fetch queue is read (0070 A9).
+    db: &'a tokio_postgres::Client,
+    /// The queued entities the last poll took: its batch may still be being written, so the
+    /// next poll leaves them.
+    taken: Vec<String>,
+    /// Whether more entities waited than the last poll took.
+    queue_more: bool,
+    /// The closure depth of each entity the last poll took from the queue.
+    depths: BTreeMap<String, i16>,
+    /// What the follower mirrors (0070 §2, §5).
+    policy: crate::shallow::Policy,
+    /// The graph it writes, `mirror/{slug}` or `source/{name}`.
+    graph: String,
+    registry: &'static scatter_providers::Registry,
+    /// Where to say what each poll took from the queue.
+    report: Option<fn(&str)>,
     provider: &'a Provider,
     /// `""` for a registry provider; the tenant for its source.
     tenant: String,
@@ -248,9 +279,9 @@ impl<'a> ProviderFollower<'a> {
     /// # Errors
     ///
     /// [`StartError`].
-    #[allow(clippy::too_many_arguments)]
-    pub async fn start<C: GenericClient>(
-        client: &C,
+    #[allow(clippy::too_many_arguments, clippy::too_many_lines)]
+    pub async fn start(
+        client: &'a tokio_postgres::Client,
         wiki: &'a Wiki,
         provider: &'a Provider,
         registry: &'static scatter_providers::Registry,
@@ -314,8 +345,21 @@ impl<'a> ProviderFollower<'a> {
             // window (0092 §5, A11): the version cursor skips what was written.
             (None, Some(t), _) => (t.saturating_sub(windows.tail), None, Vec::new()),
             (None, None, Some(t)) => (t, None, Vec::new()),
+            // Nothing loaded, but entities wait to be fetched: a shallow mirror, followed
+            // from now (0070 A9).
+            (None, None, None)
+                if crate::fetch::queued(client, tenant, &provider.slug, 1)
+                    .await
+                    .map_err(|e| fail(&e))?
+                    > 0 =>
+            {
+                (now(), None, Vec::new())
+            }
             (None, None, None) => return Err(StartError::NoPosition(provider.slug.clone())),
         };
+        let policy = crate::shallow::policy(client, tenant, provider, stored.loaded_to.is_some())
+            .await
+            .map_err(|e| fail(&e))?;
         let poller = Poller::restore(
             time,
             cont,
@@ -344,6 +388,18 @@ impl<'a> ProviderFollower<'a> {
 
         Ok(Self {
             wiki,
+            db: client,
+            taken: Vec::new(),
+            queue_more: false,
+            depths: BTreeMap::new(),
+            policy,
+            graph: if provider.source {
+                format!("source/{}", provider.slug)
+            } else {
+                format!("mirror/{}", provider.slug)
+            },
+            registry,
+            report: None,
             provider,
             tenant: tenant.to_string(),
             kind,
@@ -371,39 +427,213 @@ impl<'a> ProviderFollower<'a> {
     }
 
     /// The entity IDs a batch of changes names, with the revision and page ID each row
-    /// carried.
-    fn ids_of(&self, changes: &[Change]) -> Vec<Named> {
-        changes
+    /// carried: of a type followed whole, every one; of any other, those the mirror holds
+    /// (0070 §5; 05 §5.7).
+    async fn ids_of(&self, changes: &[Change]) -> Result<Vec<Named>, IngestError> {
+        let mut out = Vec::new();
+        let mut check: Vec<(Named, String)> = Vec::new();
+        for c in changes {
+            let Some(id) = entity_id_of(&c.title, c.ns, &self.namespaces) else {
+                continue;
+            };
+            let whole = self
+                .namespaces
+                .by_ns
+                .get(&c.ns)
+                .is_some_and(|t| self.policy.whole(t));
+            if whole {
+                out.push((id, c.revid, c.pageid));
+            } else if let Ok(stored) = self.adapter.rewrite_id(id.as_str()) {
+                check.push(((id, c.revid, c.pageid), stored.as_str().to_string()));
+            }
+        }
+        if check.is_empty() {
+            return Ok(out);
+        }
+        let stored: Vec<&str> = check.iter().map(|(_, s)| s.as_str()).collect();
+        let held: std::collections::BTreeSet<String> = self
+            .db
+            .query(
+                "SELECT entity_id FROM view.entity_source
+                 WHERE tenant = $1 AND graph = $2 AND entity_id = ANY($3)",
+                &[&self.tenant, &self.graph, &stored],
+            )
+            .await
+            .map_err(|e| IngestError::Store(e.to_string()))?
             .iter()
-            .filter_map(|c| {
-                entity_id_of(&c.title, c.ns, &self.namespaces).map(|id| (id, c.revid, c.pageid))
-            })
-            .collect()
+            .map(|r| r.get(0))
+            .collect();
+        out.extend(
+            check
+                .into_iter()
+                .filter(|(_, s)| held.contains(s))
+                .map(|(named, _)| named),
+        );
+        Ok(out)
     }
 
-    /// Reads the current states of `ids` and turns them into sync items.
-    async fn states(&mut self, ids: Vec<Named>) -> Result<(Vec<SyncItem>, u64), IngestError> {
+    /// Queues the closure values of the states in `items` (0070 §2.3; 05 §5.3): the values
+    /// of each closure property, of this provider or source, one step deeper than the
+    /// entity, up to the depth, unless the mirror holds them already.
+    ///
+    /// implements 0070 §2.3 (A11)
+    /// Returns whether it queued any, so that the follower is not caught up.
+    async fn queue_closure(&self, items: &[SyncItem]) -> Result<bool, IngestError> {
+        if self.policy.closure.is_empty() || self.policy.depth <= 0 {
+            return Ok(false);
+        }
+        let properties: Vec<EntityId> = self
+            .policy
+            .closure
+            .iter()
+            .filter_map(|p| self.adapter.rewrite_id(p).ok())
+            .collect();
+        let mut by_depth: BTreeMap<i16, Vec<(String, String)>> = BTreeMap::new();
+        for item in items {
+            let SyncItem::State { entity, .. } = item else {
+                continue;
+            };
+            let Ok(own) = self.registry.parse_foreign_id(entity.id.as_str()) else {
+                continue;
+            };
+            let depth = self.depths.get(&own.upstream_id()).copied().unwrap_or(0) + 1;
+            if depth > self.policy.depth {
+                continue;
+            }
+            for p in &properties {
+                for st in entity.statements.get(p).into_iter().flatten() {
+                    let SnakKind::Value(DataValue::EntityId(v)) = &st.mainsnak.kind else {
+                        continue;
+                    };
+                    let Ok(f) = self.registry.parse_foreign_id(v.id.as_str()) else {
+                        continue;
+                    };
+                    if f.provider().slug == self.provider.slug {
+                        by_depth
+                            .entry(depth)
+                            .or_default()
+                            .push((f.upstream_id(), v.id.as_str().to_string()));
+                    }
+                }
+            }
+        }
+        let mut queued = 0;
+        for (depth, ids) in by_depth {
+            queued += crate::fetch::enqueue_closure(
+                self.db,
+                &self.tenant,
+                &self.provider.slug,
+                &self.graph,
+                &ids,
+                depth,
+            )
+            .await
+            .map_err(|e| IngestError::Store(e.to_string()))?;
+        }
+        Ok(queued > 0)
+    }
+
+    /// Says, through `report`, what each poll takes from the fetch queue.
+    #[must_use]
+    pub fn reporting(mut self, report: fn(&str)) -> Self {
+        self.report = Some(report);
+        self
+    }
+
+    /// One `wbgetentities` request for `ids`.
+    async fn get_entities(
+        &self,
+        ids: &[&EntityId],
+    ) -> Result<BTreeMap<String, Fetched>, IngestError> {
+        let body = self
+            .wiki
+            .get(&[
+                ("action", "wbgetentities".into()),
+                (
+                    "ids",
+                    ids.iter()
+                        .map(|id| id.as_str())
+                        .collect::<Vec<_>>()
+                        .join("|"),
+                ),
+            ])
+            .await
+            .map_err(|e| IngestError::Store(format!("upstream: {e}")))?;
+        read_entities(&body).map_err(|e| IngestError::Store(e.to_string()))
+    }
+
+    /// Reads the queued entities `ids` (0070 A9) into `fetched`. A request that fails does
+    /// not fail the poll: its IDs are asked one at a time, and one that still fails counts
+    /// an attempt on its row and is left for a later poll, or, at [`FETCH_ATTEMPTS`],
+    /// dropped from the queue as a reject of the follower's job. Returns the IDs left
+    /// queued, which the batch must not delete, and the rejects.
+    async fn queued_states(
+        &self,
+        ids: &[EntityId],
+        fetched: &mut BTreeMap<String, Fetched>,
+    ) -> Result<(Vec<String>, Vec<SyncItem>), IngestError> {
+        let mut failed: Vec<(String, String)> = Vec::new();
+        for chunk in ids.chunks(self.wiki.ids_limit()) {
+            let refs: Vec<&EntityId> = chunk.iter().collect();
+            match self.get_entities(&refs).await {
+                Ok(got) => fetched.extend(got),
+                Err(_) if chunk.len() > 1 => {
+                    for id in chunk {
+                        match self.get_entities(&[id]).await {
+                            Ok(got) => fetched.extend(got),
+                            Err(e) => failed.push((id.as_str().to_string(), e.to_string())),
+                        }
+                    }
+                }
+                Err(e) => failed.push((chunk[0].as_str().to_string(), e.to_string())),
+            }
+        }
+        if failed.is_empty() {
+            return Ok((Vec::new(), Vec::new()));
+        }
+        let ids: Vec<String> = failed.iter().map(|(id, _)| id.clone()).collect();
+        let dropped = crate::fetch::failed(
+            self.db,
+            &self.tenant,
+            &self.provider.slug,
+            &ids,
+            FETCH_ATTEMPTS,
+        )
+        .await
+        .map_err(|e| IngestError::Store(e.to_string()))?;
+        let mut kept = Vec::new();
+        let mut rejects = Vec::new();
+        for (id, reason) in failed {
+            if dropped.contains(&id) {
+                rejects.push(SyncItem::Rejected {
+                    upstream_id: id,
+                    reason: format!("not fetched after {FETCH_ATTEMPTS} attempts: {reason}"),
+                });
+            } else {
+                kept.push(id);
+            }
+        }
+        Ok((kept, rejects))
+    }
+
+    /// Reads the current states of `ids`, the entities the changes named, and of `queued`,
+    /// the entities taken from the fetch queue, and turns them into sync items. Returns the
+    /// items, the stale count, and the queued IDs left queued ([`Self::queued_states`]).
+    async fn states(
+        &mut self,
+        mut ids: Vec<Named>,
+        queued: Vec<EntityId>,
+    ) -> Result<(Vec<SyncItem>, u64, Vec<String>), IngestError> {
         let mut items = Vec::new();
         let mut stale = 0;
         let mut fetched = BTreeMap::new();
         for chunk in ids.chunks(self.wiki.ids_limit()) {
-            let body = self
-                .wiki
-                .get(&[
-                    ("action", "wbgetentities".into()),
-                    (
-                        "ids",
-                        chunk
-                            .iter()
-                            .map(|(id, _, _)| id.as_str())
-                            .collect::<Vec<_>>()
-                            .join("|"),
-                    ),
-                ])
-                .await
-                .map_err(|e| IngestError::Store(format!("upstream: {e}")))?;
-            fetched.extend(read_entities(&body).map_err(|e| IngestError::Store(e.to_string()))?);
+            let refs: Vec<&EntityId> = chunk.iter().map(|(id, _, _)| id).collect();
+            fetched.extend(self.get_entities(&refs).await?);
         }
+        let (kept, rejects) = self.queued_states(&queued, &mut fetched).await?;
+        items.extend(rejects);
+        ids.extend(queued.into_iter().map(|id| (id, None, None)));
         // Observe every state first, so that a key moved between two items in one batch
         // settles before either is written.
         for f in fetched.values() {
@@ -437,7 +667,7 @@ impl<'a> ProviderFollower<'a> {
             }
             self.items_of(f, revid, pageid, &mut items);
         }
-        Ok((items, stale))
+        Ok((items, stale, kept))
     }
 
     /// The sync items one fetched entity becomes.
@@ -533,6 +763,8 @@ type Named = (EntityId, Option<u64>, Option<u64>);
 #[derive(Debug, Clone)]
 pub struct Saved {
     time: u64,
+    /// The queued entities the batch fetched, deleted as it commits (0070 A9).
+    fetched: Vec<crate::fetch::Taken>,
     cont: Option<serde_json::Value>,
     seen: serde_json::Value,
     retry: serde_json::Value,
@@ -554,6 +786,7 @@ impl ProviderFollower<'_> {
     fn saved(&self) -> Saved {
         Saved {
             time: self.poller.time,
+            fetched: Vec::new(),
             cont: self.poller.cont.as_ref().map(|c| serde_json::json!(c)),
             seen: serde_json::json!(self.poller.seen()),
             retry: serde_json::json!(
@@ -574,6 +807,7 @@ impl ChangeSource<PgIngest> for ProviderFollower<'_> {
 
     async fn next(&mut self) -> Result<(ChangeBatch, Saved), IngestError> {
         if self.at_head
+            && !self.queue_more
             && let Some((interval, report)) = self.wait
         {
             report(&format!(
@@ -602,7 +836,7 @@ impl ChangeSource<PgIngest> for ProviderFollower<'_> {
             .into_iter()
             .map(|(id, revid)| (id, revid, None))
             .collect();
-        ids.extend(self.ids_of(&head.changes));
+        ids.extend(self.ids_of(&head.changes).await?);
         let mut late = 0;
         self.at_head = !head.more;
         if self.at_head
@@ -619,9 +853,46 @@ impl ChangeSource<PgIngest> for ProviderFollower<'_> {
                 .map_err(|e| IngestError::Store(e.to_string()))?;
             rows += u64::try_from(tail.rows).unwrap_or(u64::MAX);
             late = u64::try_from(tail.changes.len()).unwrap_or(u64::MAX);
-            ids.extend(self.ids_of(&tail.changes));
+            ids.extend(self.ids_of(&tail.changes).await?);
         }
-        let (items, stale) = self.states(ids).await?;
+        // The fetch queue (0070 A9): the oldest entities waiting, less those the batch still
+        // being written took.
+        let (taken, more) = crate::fetch::take(
+            self.db,
+            &self.tenant,
+            &self.provider.slug,
+            FETCH_PER_POLL,
+            &self.taken,
+        )
+        .await
+        .map_err(|e| IngestError::Store(e.to_string()))?;
+        self.queue_more = more;
+        self.depths = taken.iter().map(|((id, _), d)| (id.clone(), *d)).collect();
+        let taken: Vec<crate::fetch::Taken> = taken.into_iter().map(|(t, _)| t).collect();
+        self.taken = taken.iter().map(|(id, _)| id.clone()).collect();
+        if let Some(report) = self.report
+            && !taken.is_empty()
+        {
+            report(&format!(
+                "fetching {} queued entities{}",
+                taken.len(),
+                if more { "; more wait" } else { "" }
+            ));
+        }
+        // An ID that does not parse is dropped from the queue with the rest.
+        let queued: Vec<EntityId> = taken
+            .iter()
+            .filter_map(|(id, _)| EntityId::parse(id).ok())
+            .collect();
+        let (items, stale, kept) = self.states(ids, queued).await?;
+        if self.queue_closure(&items).await? {
+            self.queue_more = true;
+        }
+        // What failed and has attempts left stays queued.
+        let taken: Vec<crate::fetch::Taken> = taken
+            .into_iter()
+            .filter(|(id, _)| !kept.contains(id))
+            .collect();
         self.late += late;
         self.stale += stale;
         let batch = ChangeBatch {
@@ -629,9 +900,11 @@ impl ChangeSource<PgIngest> for ProviderFollower<'_> {
             rows,
             late,
             stale,
-            caught_up: self.at_head,
+            caught_up: self.at_head && !self.queue_more,
         };
-        Ok((batch, self.saved()))
+        let mut saved = self.saved();
+        saved.fetched = taken;
+        Ok((batch, saved))
     }
 
     async fn state(&mut self) -> Result<FollowState, IngestError> {
@@ -679,6 +952,7 @@ impl Saved {
     pub fn at(time: u64) -> Self {
         Self {
             time,
+            fetched: Vec::new(),
             cont: None,
             seen: serde_json::json!([]),
             retry: serde_json::json!([]),
@@ -715,6 +989,9 @@ impl SavePosition<PgIngest> for Saver {
                 .map_err(store)?;
             return Ok(());
         };
+        crate::fetch::done(cx.conn(), &self.tenant, &self.name, &at.fetched)
+            .await
+            .map_err(store)?;
         let now = (self.now)();
         let time = i64::try_from(at.time).unwrap_or(i64::MAX);
         let (cont, seen, retry) = (&at.cont, &at.seen, &at.retry);

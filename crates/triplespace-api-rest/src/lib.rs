@@ -223,6 +223,7 @@ rest_operations! {
     post "/jobs/{id}/revert" => jobs::revert;
     post "/jobs/{id}/close" => jobs::close;
     get "/provider/{code}/mirror" => mirror::handle;
+    post "/provider/{code}/mirror/fetch" => mirror::fetch;
 }
 
 /// The observer of the routes served a process may install (0108 §1): called with

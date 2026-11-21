@@ -75,6 +75,11 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0056 A27](0056-security-model.md#a27-entities-the-live-attack-and-tiers-78-the-calls-made-building-them) | 2026-10-30 | Entities, the live attack and tiers 7–8: the calls made building them |
 | [0057 A10](0057-web-tier.md#a10-stopping-on-sigterm-and-the-build-id-a-component-sends) | 2026-11-15 | Stopping on `SIGTERM`, and the build ID a component sends |
 | [0066 A3](0066-lexemes.md#a3-the-part-suffix-belongs-to-the-lexeme-entity-type-not-to-a-grammar) | 2026-11-04 | The part suffix belongs to the lexeme entity type, not to a grammar |
+| [0070 A9](0070-shallow-entity-mirroring.md#a9-the-fetch-job-is-the-followers-poll) | 2026-11-21 | The fetch job is the follower's poll |
+| [0070 A10](0070-shallow-entity-mirroring.md#a10-a-linked-entity-is-queued-by-a-projection-of-its-own) | 2026-11-21 | A linked entity is queued by a projection of its own |
+| [0070 A11](0070-shallow-entity-mirroring.md#a11-the-follower-keeps-to-the-set-and-walks-the-closure-settings-held-per-provider) | 2026-11-21 | The follower keeps to the set and walks the closure; settings held per provider |
+| [0070 A12](0070-shallow-entity-mirroring.md#a12-the-mirror-route-reports-each-type-and-queues-by-hand) | 2026-11-21 | The mirror route reports each type, and queues by hand |
+| [0070 A13](0070-shallow-entity-mirroring.md#a13-a-read-queues-what-is-not-held-the-label-cache-is-in-the-process-nothing-to-re-render) | 2026-11-21 | A read queues what is not held; the label cache is in the process; nothing to re-render |
 | [0077 A6](0077-special-version.md#a6-licensing-loose-ends-from-building-specialversion) | 2026-10-30 | Licensing: loose ends from building Special:Version |
 | [0077 A8](0077-special-version.md#a8-the-licence-header-on-built-javascript-and-css) | 2026-11-15 | The licence header on built JavaScript and CSS |
 | [0078 A8](0078-entity-sources.md#a8-retiring-keeps-the-record-a-later-record-is-checked-against-it) | 2026-11-20 | Retiring keeps the record; a later record is checked against it |
@@ -95,6 +100,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0092 A11](0092-following-recent-changes.md#a11-a-lost-position-is-rebuilt-from-the-newest-revision-the-graph-holds) | 2026-11-20 | A lost position is rebuilt from the newest revision the graph holds |
 | [0092 A14](0092-following-recent-changes.md#a14-sync-asks-the-wiki-whether-a-follower-can-take-over) | 2026-11-20 | `sync` asks the wiki whether a follower can take over |
 | [0092 A15](0092-following-recent-changes.md#a15-get-providercodemirror-reports-the-follower-and-a-gap-is-recorded) | 2026-11-20 | `GET /provider/{code}/mirror` reports the follower, and a gap is recorded |
+| [0092 A16](0092-following-recent-changes.md#a16-a-crawl-queues-what-it-lists-and-its-sweep-asks-the-wiki) | 2026-11-21 | A crawl queues what it lists, and its sweep asks the wiki |
 | [0097 A3](0097-versioning-and-skins.md#a3-fragments-are-compared-as-normalized-dom) | 2026-10-30 | Fragments are compared as normalized DOM |
 | [0097 A4](0097-versioning-and-skins.md#a4-drawings-are-svg-the-binary-makes) | 2026-10-30 | Drawings are SVG the binary makes |
 | [0097 A6](0097-versioning-and-skins.md#a6-a-part-of-a-later-group-is-carried-as-html-until-that-group-switches) | 2026-10-30 | A part of a later group is carried as HTML until that group switches |

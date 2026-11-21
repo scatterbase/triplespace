@@ -46,6 +46,9 @@ pub struct SettingDef {
     /// For a `choice`: the values.
     #[serde(default)]
     pub choices: Vec<String>,
+    /// `provider` or `provider-type` for a setting held per provider (0070 §2.1).
+    #[serde(default)]
+    pub per: Option<String>,
     /// The registry default.
     #[serde(default)]
     pub default: Option<Value>,
@@ -63,6 +66,15 @@ pub struct SettingDef {
     /// the help message is missing.
     #[serde(default)]
     pub meaning: Option<String>,
+}
+
+impl SettingDef {
+    /// The type the value is edited as: JSON for a setting held per provider, whose value
+    /// is a map of the type's values.
+    #[must_use]
+    pub fn edited_as(&self) -> &str {
+        if self.per.is_some() { "json" } else { &self.ty }
+    }
 }
 
 /// The allowed values of a tenancy switch.

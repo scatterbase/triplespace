@@ -127,6 +127,11 @@ pub async fn entity_json(ctx: &Ctx, id: &EntityId, as_given: &str) -> Result<Val
                 v["redirects"] = json!({"from": as_given, "to": target.as_str()});
                 return Ok(v);
             }
+            // Read and not held: queued for its mirror, which the answer does not wait for
+            // (0070 §2.1, A13).
+            triplespace_api_ingest::shallow::queue_read(ctx.db(), registry, &ctx.tenant.slug, id)
+                .await
+                .map_err(|e| ApiError::internal(e.to_string()))?;
             Ok(missing())
         }
     }

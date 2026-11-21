@@ -140,6 +140,13 @@ pub(crate) async fn resolve(
     // A keyed ID no graph holds is still an entity (0009 §4); a source's is not.
     let keyed = id.form() == IdForm::Keyed
         && !triplespace_api_action::entity_json::is_source_id(&id, registry);
+    if !held && !keyed && id.form() != IdForm::Local {
+        // Read and not held: queued for its mirror, which this answer does not wait for
+        // (0070 §2.1, A13).
+        triplespace_api_ingest::shallow::queue_read(client, registry, &tenant.slug, &id)
+            .await
+            .map_err(|e| internal(&e))?;
+    }
     if !readable || (!held && !keyed) {
         return Err(error(
             StatusCode::NOT_FOUND,

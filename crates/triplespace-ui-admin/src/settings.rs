@@ -499,7 +499,7 @@ fn row_model(
 ) -> SettingRow {
     let id = format!("ts-s-{}", def.key);
     let help_id = format!("{id}-help");
-    let kind = Kind::of(&def.ty);
+    let kind = Kind::of(def.edited_as());
     let name = format!("v.{}", def.key);
     let label_text = label(m, def);
     let help_text = help(m, def);
@@ -855,7 +855,7 @@ fn default_control_model(
     id: &str,
     name: &str,
 ) -> ControlModel {
-    let kind = Kind::of(&def.ty);
+    let kind = Kind::of(def.edited_as());
     let no_default = m.get("ts-settings-no-default");
     if kind == Kind::Boolean {
         let choices = vec!["true".to_string(), "false".to_string()];
@@ -907,14 +907,14 @@ fn defaults_model(
     let editable = loaded.token.is_some() && may_configure(schema, &loaded.settings);
     let keys: Vec<&str> = tenant_defs
         .iter()
-        .filter(|d| Kind::of(&d.ty) != Kind::ReadOnly)
+        .filter(|d| Kind::of(d.edited_as()) != Kind::ReadOnly)
         .map(|d| d.key.as_str())
         .collect();
     let rows = tenant_defs
         .iter()
         .filter_map(|def| {
             let ts = schema.tenant_settings.get(&def.key)?;
-            let kind = Kind::of(&def.ty);
+            let kind = Kind::of(def.edited_as());
             let id = format!("ts-d-{}", def.key);
             let name = format!("d.{}", def.key);
             let label_text = label(m, def);
@@ -1238,7 +1238,7 @@ fn defaults_patch(
             .get(*key)
             .cloned()
             .unwrap_or_default();
-        let kind = Kind::of(&def.ty);
+        let kind = Kind::of(def.edited_as());
         match default_value(kind, f.get(&format!("d.{key}")).map(String::as_str)) {
             Err(e) => errors.entry((*key).to_string()).or_default().push(e),
             Ok(None) => {
@@ -1274,7 +1274,7 @@ fn group_patch(
         let Some(def) = loaded.schema.settings.iter().find(|d| d.key == *key) else {
             continue;
         };
-        let kind = Kind::of(&def.ty);
+        let kind = Kind::of(def.edited_as());
         let current = loaded
             .settings
             .settings

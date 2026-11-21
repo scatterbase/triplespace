@@ -16,6 +16,30 @@ const MAX_TEXT: usize = 100_000;
 
 /// Checks a value against a setting's type and choices; `Err` says why it does not fit.
 pub fn check(def: &SettingDef, v: &Value) -> Result<(), String> {
+    use super::registry::Per;
+    let map = |v: &Value, what: &str, each: &dyn Fn(&Value) -> Result<(), String>| {
+        let o = v
+            .as_object()
+            .ok_or_else(|| format!("not a map from {what}"))?;
+        for (k, item) in o {
+            if k.trim().is_empty() {
+                return Err(format!("an empty {what}"));
+            }
+            each(item).map_err(|e| format!("`{k}`: {e}"))?;
+        }
+        Ok(())
+    };
+    match def.per {
+        Per::One => check_one(def, v),
+        Per::Provider => map(v, "provider", &|item| check_one(def, item)),
+        Per::ProviderType => map(v, "provider", &|types| {
+            map(types, "entity type", &|item| check_one(def, item))
+        }),
+    }
+}
+
+/// Checks one value against the setting's type, whatever `per` says.
+fn check_one(def: &SettingDef, v: &Value) -> Result<(), String> {
     match def.ty {
         SettingType::Boolean => v
             .as_bool()
@@ -289,6 +313,21 @@ mod tests {
 
     fn def(key: &str) -> &'static SettingDef {
         SettingsRegistry::embedded().get(key).unwrap()
+    }
+
+    // 0070 §2.1, §2.3: a setting held per provider is a map of its type's values, and per
+    // provider and entity type a map of maps.
+    #[test]
+    fn per_provider_values_are_maps_of_the_type() {
+        let closure = def("entities.closure");
+        assert!(check(closure, &json!({"WD": ["P31", "P279"], "lb": []})).is_ok());
+        assert!(check(closure, &json!(["P31"])).is_err(), "one list for all");
+        assert!(check(closure, &json!({"WD": ["Q5"]})).is_err());
+        let mirror = def("entities.mirror");
+        assert!(check(mirror, &json!({"WD": {"item": "linked", "lexeme": "off"}})).is_ok());
+        assert!(check(mirror, &json!({"WD": {"item": "most"}})).is_err());
+        assert!(check(mirror, &json!({"WD": "linked"})).is_err());
+        assert!(check(mirror, &json!({"": {"item": "all"}})).is_err());
     }
 
     #[test]

@@ -23,6 +23,9 @@
 //!   instance's term languages only; where the chain asks for another language first,
 //!   the entity's record is read for it, as `wbgetentities` reads it.
 //! - A keyed entity's derived label (0009 §5) stands in for a `mul` label it lacks.
+//! - A foreign or source entity the instance does not hold takes its label from the label
+//!   cache (0070 §4, A13; [`triplespace_api_ingest::labels`]), which asks the provider's
+//!   or source's wiki on a miss; what the wiki does not answer in time is left out.
 
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -374,6 +377,33 @@ pub async fn handle(
             label = better(label, derived(&id, &chain));
             by_id.insert(row.id, label);
         }
+        // Entities no graph holds: from the label cache, which asks upstream on a miss.
+        let unheld: Vec<EntityId> = asked
+            .iter()
+            .filter(|(_, id)| {
+                let key = aliases.get(id.as_str()).map_or(id.as_str(), String::as_str);
+                id.form() != IdForm::Local && !by_id.contains_key(key)
+            })
+            .map(|(_, id)| id.clone())
+            .collect();
+        let cached = if unheld.is_empty() {
+            BTreeMap::new()
+        } else {
+            let agent = format!(
+                "Triplespace/{} ({}; labels)",
+                env!("CARGO_PKG_VERSION"),
+                app.config().farm.base
+            );
+            triplespace_api_ingest::labels::labels(
+                client,
+                registry,
+                &tenant.slug,
+                &unheld,
+                &chain,
+                &agent,
+            )
+            .await
+        };
         for (given, id) in &asked {
             let key = aliases.get(id.as_str()).map_or(id.as_str(), String::as_str);
             let label = match by_id.get(key) {
@@ -386,7 +416,7 @@ pub async fn handle(
                 {
                     derived(id, &chain)
                 }
-                None => None,
+                None => cached.get(id.as_str()).and_then(|l| along(l, &chain)),
             };
             if let Some(l) = label {
                 labels.insert(given.clone(), l);

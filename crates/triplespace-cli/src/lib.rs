@@ -14,6 +14,7 @@ pub mod common;
 pub mod compact;
 pub mod dump;
 pub mod env_file;
+pub mod fetch;
 pub mod follow;
 pub mod forwarder;
 pub mod import_pages;
