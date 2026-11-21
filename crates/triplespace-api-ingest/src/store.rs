@@ -345,6 +345,19 @@ impl IngestStore for PgIngest {
         .map_err(db)
     }
 
+    async fn written_head(
+        &self,
+        cx: &mut PgCx,
+        partition: u64,
+    ) -> Result<scatter_ingest::WrittenHead, IngestError> {
+        let (head, sealed) = log::written_head(&*cx, partition).await?;
+        Ok(scatter_ingest::WrittenHead {
+            size: head.size,
+            root: head.root,
+            sealed,
+        })
+    }
+
     async fn partition_size(&self, cx: &mut PgCx, partition: u64) -> Result<u64, IngestError> {
         Ok(log::head(&*cx, partition).await?.size)
     }

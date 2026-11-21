@@ -56,6 +56,10 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "0003_record_autovacuum",
         sql: include_str!("../migrations/0003_record_autovacuum.sql"),
     },
+    Migration {
+        name: "0004_manifest_key",
+        sql: include_str!("../migrations/0004_manifest_key.sql"),
+    },
 ];
 
 /// Applies every migration, in order. Each is idempotent, so this can run at every start.

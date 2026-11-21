@@ -748,3 +748,153 @@ async fn record_partitions_vacuum_after_a_hundredth() {
         .unwrap();
     assert_eq!(autovacuum_options(&client).await, vec![expected; 3]);
 }
+
+// 0006 A24; 0013 A57: every record of a tenant's `local`, `pages`, `log` and `actors`
+// takes a log ID at append; a record that brings its own keeps it; a mirror's takes none.
+#[tokio::test]
+async fn a_tenant_partition_record_takes_a_log_id_at_append() {
+    if skipped() {
+        return;
+    }
+    let mut client = fresh().await;
+    sequences::create(&client, "acme", &["item"]).await.unwrap();
+    let tx = client.transaction().await.unwrap();
+    let info = |tenant: Option<&str>, name: &str| {
+        let mut i = scatter_log_postgres::partition::PartitionInfo::unnamed(0);
+        i.tenant = tenant.map(str::to_string);
+        i.name = name.into();
+        i
+    };
+    let segments = Segments::new(2).unwrap();
+    log::create_partition(&tx, 11, segments, &info(Some("acme"), "local"))
+        .await
+        .unwrap();
+    log::create_partition(&tx, 12, segments, &info(None, "mirror/wikidata"))
+        .await
+        .unwrap();
+    let mut own = draft(2);
+    own.logid = Some(9_000);
+    for d in [draft(0), draft(1), own] {
+        log::append(&tx, 11, d).await.unwrap();
+    }
+    log::append(&tx, 12, draft(3)).await.unwrap();
+    let logids = |p: i64| {
+        let tx = &tx;
+        async move {
+            tx.query(
+                "SELECT logid FROM log.record WHERE partition = $1 ORDER BY \"offset\"",
+                &[&p],
+            )
+            .await
+            .unwrap()
+            .iter()
+            .map(|r| r.get::<_, Option<i64>>(0))
+            .collect::<Vec<_>>()
+        }
+    };
+    assert_eq!(logids(11).await, [Some(1), Some(2), Some(9_000)]);
+    assert_eq!(logids(12).await, [None]);
+}
+
+// 0006 A24: one manifest per sealed segment, keyed `(partition, segment)`, never re-signed;
+// the migration that keys it so runs again harmlessly.
+#[tokio::test]
+async fn a_segment_has_one_manifest() {
+    if skipped() {
+        return;
+    }
+    let client = fresh().await;
+    let key: Vec<String> = client
+        .query(
+            "SELECT a.attname::text FROM pg_index i
+             JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey)
+             WHERE i.indrelid = 'log.segment_manifest'::regclass AND i.indisprimary
+             ORDER BY a.attname",
+            &[],
+        )
+        .await
+        .unwrap()
+        .iter()
+        .map(|r| r.get(0))
+        .collect();
+    assert_eq!(key, ["partition", "segment"]);
+    let replaces: i64 = client
+        .query_one(
+            "SELECT count(*) FROM information_schema.columns
+             WHERE table_schema = 'log' AND table_name = 'segment_manifest' AND column_name = 'replaces'",
+            &[],
+        )
+        .await
+        .unwrap()
+        .get(0);
+    assert_eq!(replaces, 0);
+    migrate(&client).await.expect("migrations run again");
+}
+
+// 0006 A24: a `hashed` partition has segment manifests and no checkpoints.
+#[tokio::test]
+async fn a_hashed_partition_takes_no_checkpoint() {
+    if skipped() {
+        return;
+    }
+    let key = ed25519_dalek::SigningKey::from_bytes(&[3; 32]);
+    let client = fresh().await;
+    let mut info = scatter_log_postgres::partition::PartitionInfo::unnamed(21);
+    info.integrity = scatter_log::registry::Integrity::Hashed;
+    log::create_partition(&client, 21, Segments::new(1).unwrap(), &info)
+        .await
+        .unwrap();
+    let mut store = PgLog::new(client);
+    store.append(21, draft(0)).await.unwrap();
+    let cp = checkpoint(&store, 21, "h/log/mirror", &key).await.unwrap();
+    let mut cps = PgCheckpoints::new(reconnect_same(store.client()).await);
+    let refused = cps.put(21, &cp).await.unwrap_err().to_string();
+    assert!(refused.contains("only a `logged` partition"), "{refused}");
+    assert!(cps.list(21).await.unwrap().is_empty());
+}
+
+// 0006 A24, A36: what a job's finish record names of a partition it wrote: its head, and
+// for a `hashed` partition the last sealed segment and its root, the root its manifest signs.
+#[tokio::test]
+async fn a_written_head_names_the_last_sealed_segment() {
+    if skipped() {
+        return;
+    }
+    let key = ed25519_dalek::SigningKey::from_bytes(&[3; 32]);
+    let client = fresh().await;
+    let mut hashed = scatter_log_postgres::partition::PartitionInfo::unnamed(31);
+    hashed.integrity = scatter_log::registry::Integrity::Hashed;
+    log::create_partition(&client, 31, Segments::new(1).unwrap(), &hashed)
+        .await
+        .unwrap();
+    log::create_partition(
+        &client,
+        32,
+        Segments::new(1).unwrap(),
+        &scatter_log_postgres::partition::PartitionInfo::unnamed(32),
+    )
+    .await
+    .unwrap();
+    for n in 0..3 {
+        log::append(&client, 31, draft(n)).await.unwrap();
+        log::append(&client, 32, draft(n)).await.unwrap();
+    }
+    let (head, sealed) = log::written_head(&client, 31).await.unwrap();
+    assert_eq!(head.size, 3);
+    let (n, root) = sealed.expect("segment 0 of two records is sealed");
+    assert_eq!(n, 0);
+    let store = PgLog::new(client);
+    let manifest = segment_manifest(&store, 31, 0, "h/log/mirror", &key)
+        .await
+        .unwrap();
+    assert_eq!(
+        root, manifest.checkpoint.root,
+        "the root its manifest signs"
+    );
+    let (head, sealed) = log::written_head(store.client(), 32).await.unwrap();
+    assert_eq!(head.size, 3);
+    assert!(
+        sealed.is_none(),
+        "a logged partition is checkpointed, not sealed"
+    );
+}

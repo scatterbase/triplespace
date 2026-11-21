@@ -11,6 +11,9 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0002 A48](0002-source-graphs-and-mass-ingest.md#a48-an-edit-that-only-repeats-a-statement-writes-nothing) | 2026-11-09 | An edit that only repeats a statement writes nothing |
 | [0004 A23](0004-identity-clusters-and-equivalence.md#a23-how-value-iris-are-stored-served-and-hashed) | 2026-11-21 | How value IRIs are stored, served and hashed |
 | [0006 A26](0006-log-integrity-and-erasure.md#a26-a-nesting-depth-limit-for-canonical-cbor) | 2026-11-06 | A nesting-depth limit for canonical CBOR |
+| [0006 A35](0006-log-integrity-and-erasure.md#a35-the-log-id-at-append-where-a-client-sees-it-and-one-manifest-per-segment) | 2026-11-21 | The log ID at append, where a client sees it, and one manifest per segment |
+| [0006 A36](0006-log-integrity-and-erasure.md#a36-a-jobs-end-names-the-heads-it-left-unsigned-checkpoints-for-logged-partitions-only) | 2026-11-21 | A job's end names the heads it left, unsigned; checkpoints for `logged` partitions only |
+| [0006 A37](0006-log-integrity-and-erasure.md#a37-the-verifier-checks-that-a-config-partition-begins-with-its-founding-record) | 2026-11-21 | The verifier checks that a `config` partition begins with its founding record |
 | [0009 A17](0009-keyed-entity-types-and-domain.md#a17-only-same-as-with-a-keyword-or-notation-is-refused) | 2026-11-20 | Only `same-as` with a keyword or notation is refused |
 | [0010 A47](0010-site-ui.md#a47-the-acl-site-ui-the-calls-made-building-it) | 2026-10-30 | The ACL site UI: the calls made building it |
 | [0010 A49](0010-site-ui.md#a49-the-compare-form-and-the-diff-views-the-calls-made-building-them) | 2026-11-04 | The compare form and the diff views: the calls made building them |
@@ -45,6 +48,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0013 A104](0013-postgres-storage.md#a104-the-large-tables-vacuum-after-a-hundredth-of-their-rows-change) | 2026-11-15 | The large tables vacuum after a hundredth of their rows change |
 | [0015 A65](0015-record-format-and-partition-registry.md#a65-where-a-mirror-records-page-id-comes-from-when-its-content-carries-none) | 2026-11-15 | Where a mirror record's page ID comes from when its content carries none |
 | [0015 A66](0015-record-format-and-partition-registry.md#a66-a-followers-deletions-and-redirects-carry-their-page-ids-offsets-per-provider) | 2026-11-15 | A follower's deletions and redirects carry their page IDs; offsets per provider |
+| [0015 A68](0015-record-format-and-partition-registry.md#a68-offsets-for-a-provider-without-page-or-revision-ids-from-the-writer) | 2026-11-21 | Offsets for a provider without page or revision IDs, from the writer |
 | [0016 A42](0016-permissions-and-access-control.md#a42-delegated-administration-the-calls-made-while-drafting-and-building-tier-4) | 2026-10-30 | Delegated administration: the calls made while drafting and building tier 4 |
 | [0018 A33](0018-tenants.md#a33-multi-tenant-round-1-the-assumptions-the-implementation-made) | 2026-10-30 | Multi-tenant round 1: the assumptions the implementation made |
 | [0018 A36](0018-tenants.md#a36-instances-and-tenants-created-by-question-and-answer) | 2026-11-12 | Instances and tenants created by question and answer |

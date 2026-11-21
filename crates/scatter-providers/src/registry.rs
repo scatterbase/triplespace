@@ -72,6 +72,8 @@ impl EntityType {
 
 /// A provider registry entry.
 #[derive(Debug, Clone, PartialEq)]
+// Independent flags of a registry entry, each a field of `providers.toml`.
+#[allow(clippy::struct_excessive_bools)]
 pub struct Provider {
     /// The two-letter code that prefixes entity IDs minted by the provider.
     pub code: String,
@@ -85,6 +87,10 @@ pub struct Provider {
     pub issuer: String,
     /// Whether the provider publishes revision IDs.
     pub revision_ids: bool,
+    /// Whether the provider publishes page IDs: a MediaWiki provider does, and its
+    /// records' page IDs are `number << 40 | upstream page ID`; one that does not gives
+    /// each key `number << 40 | offset of its first record` (0015 A50, A66).
+    pub page_ids: bool,
     /// The article path of the provider's wiki, where it has one.
     pub article_path: Option<String>,
     /// The provider's API endpoint.
@@ -352,8 +358,14 @@ struct RawRegistry {
     providers: Vec<RawProvider>,
 }
 
+/// A provider publishes page IDs unless its entry says otherwise.
+fn publishes_page_ids() -> bool {
+    true
+}
+
 #[derive(Deserialize)]
 #[serde(deny_unknown_fields)]
+#[allow(clippy::struct_excessive_bools)]
 struct RawProvider {
     code: Option<String>,
     slug: String,
@@ -362,6 +374,8 @@ struct RawProvider {
     issuer: Option<String>,
     #[serde(default)]
     revision_ids: bool,
+    #[serde(default = "publishes_page_ids")]
+    page_ids: bool,
     article_path: Option<String>,
     api: Option<String>,
     entity_data: Option<String>,
@@ -529,6 +543,7 @@ impl RawProvider {
             number,
             issuer,
             revision_ids: p.revision_ids,
+            page_ids: p.page_ids,
             article_path: p.article_path,
             api: p.api,
             entity_data: p.entity_data,

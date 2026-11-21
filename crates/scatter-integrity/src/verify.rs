@@ -167,6 +167,13 @@ pub enum Problem {
         /// The offset.
         offset: u64,
     },
+    /// Offset 0 of a `config` partition is not its founding record (0015 A52; REVIEW
+    /// G22): a `key:` record under a founding attestation, with no authority on the
+    /// instance's, and on a tenant's the instance's founding record, `(instance config, 0)`.
+    NotFounded {
+        /// What is wrong.
+        reason: String,
+    },
     /// The checkpoint store failed.
     Checkpoints(String),
 }
@@ -484,6 +491,9 @@ fn check_signature(record: &Record, what: &Verify<'_>, report: &mut Report) {
             return;
         }
     };
+    if what.is_config && offset == 0 {
+        check_founding(record, &attestation, what, report);
+    }
     match &attestation {
         Attestation::Unsigned | Attestation::Unverifiable => {}
         Attestation::Client(_) => {
@@ -517,6 +527,47 @@ fn check_signature(record: &Record, what: &Verify<'_>, report: &mut Report) {
                 Ok(true) => report.signatures += 1,
                 Ok(false) => {}
                 Err(error) => report.problems.push(Problem::Signature { offset, error }),
+            }
+        }
+    }
+}
+
+/// Offset 0 of a `config` partition is its founding record (0015 A52; 0006 A37): a `key:`
+/// record under a founding attestation, which the key chain then checks is signed by the
+/// key it registers; the instance's cites no authority, and a tenant's cites the instance's
+/// founding record. The leaf it cites is in another partition, and is not checked here.
+fn check_founding(
+    record: &Record,
+    attestation: &Attestation,
+    what: &Verify<'_>,
+    report: &mut Report,
+) {
+    let mut bad = |reason: &str| {
+        report.problems.push(Problem::NotFounded {
+            reason: reason.into(),
+        });
+    };
+    if !KeyChain::is_key_record(record) {
+        return bad("it is not a `key:` record");
+    }
+    let Attestation::Founding { authority, .. } = attestation else {
+        return bad("it is not under a founding attestation");
+    };
+    let instance = what.partition == scatter_log::header::CONFIG_PARTITION;
+    match (instance, authority) {
+        (true, None) => {}
+        (true, Some(_)) => bad("the instance's founding record cites an authority"),
+        (false, None) => bad("a tenant's founding record cites no authority"),
+        (false, Some(bytes)) => {
+            let cited = scatter_log::cbor::decode(bytes).ok().and_then(|v| {
+                Some((
+                    v.get("partition")
+                        .and_then(scatter_log::cbor::Value::as_u64)?,
+                    v.get("offset").and_then(scatter_log::cbor::Value::as_u64)?,
+                ))
+            });
+            if cited != Some((scatter_log::header::CONFIG_PARTITION, 0)) {
+                bad("a tenant's founding record must cite the instance's, `(instance config, 0)`");
             }
         }
     }
@@ -620,6 +671,40 @@ mod tests {
         }
     }
 
+    /// A `config` partition founded as an instance founds one (0015 A52): its `key:`
+    /// record under the founding attestation of `key`, citing `authority`.
+    async fn founded(
+        store: &mut MemoryStore,
+        partition: u64,
+        key: &SigningKey,
+        authority: Option<&crate::attest::Authority>,
+    ) {
+        let mut genesis = Genesis {
+            partition,
+            scope: if partition == CONFIG_PARTITION {
+                Scope::Instance
+            } else {
+                Scope::Tenant
+            },
+            key: KeyEntry::ed25519(key.verifying_key().to_bytes()),
+            segment_exponent: 16,
+            appended_at: 1,
+            founding: Value::Null,
+            attestation: Value::map(vec![(
+                Value::text("actor"),
+                Value::text("instance:scatter"),
+            )]),
+            comment: None,
+        };
+        let (content, comment) = genesis.founding_parts();
+        genesis.founding =
+            crate::attest::founding_attestation(key, &content, &comment, authority).unwrap();
+        genesis
+            .append(store, &GraphRegistry::embedded())
+            .await
+            .unwrap();
+    }
+
     struct Fixture {
         store: MemoryStore,
         cps: MemoryCheckpoints,
@@ -629,26 +714,8 @@ mod tests {
 
     async fn fixture() -> Fixture {
         let key = SigningKey::from_bytes(&[11; 32]);
-        let entry = KeyEntry::ed25519(key.verifying_key().to_bytes());
         let mut store = MemoryStore::new();
-        let registry = GraphRegistry::embedded();
-        Genesis {
-            partition: CONFIG_PARTITION,
-            scope: Scope::Instance,
-            key: entry,
-            segment_exponent: 16,
-            appended_at: 1,
-            founding: Value::map(Vec::new()),
-
-            attestation: Value::map(vec![(
-                Value::text("actor"),
-                Value::text("instance:scatter"),
-            )]),
-            comment: None,
-        }
-        .append(&mut store, &registry)
-        .await
-        .unwrap();
+        founded(&mut store, CONFIG_PARTITION, &key, None).await;
         let chain =
             KeyChain::from_records([store.read(0, 0).await.unwrap().record().unwrap()]).unwrap();
         store
@@ -732,6 +799,100 @@ mod tests {
             let report = verify(&f.store, &f.cps, &config).await;
             assert!(report.is_clean(), "{:?}", report.problems);
             assert_eq!(report.records, 2);
+        });
+    }
+
+    // REVIEW G22 (0015 A52; 0006 A37): offset 0 of a `config` partition is its founding
+    // record; the instance's cites no authority, a tenant's cites `(instance config, 0)`.
+    #[test]
+    fn a_config_partition_begins_with_its_founding_record() {
+        pollster::block_on(async {
+            let key = SigningKey::from_bytes(&[11; 32]);
+            let founded_by = |authority: Option<(u64, u64)>| {
+                authority.map(|(partition, offset)| crate::attest::Authority {
+                    partition,
+                    offset,
+                    leaf: [0; 32],
+                })
+            };
+            let not_founded = |report: &Report| -> Vec<String> {
+                report
+                    .problems
+                    .iter()
+                    .filter_map(|p| match p {
+                        Problem::NotFounded { reason } => Some(reason.clone()),
+                        _ => None,
+                    })
+                    .collect()
+            };
+            for (partition, authority, expected) in [
+                (CONFIG_PARTITION, None, None),
+                (5, Some((CONFIG_PARTITION, 0)), None),
+                (
+                    CONFIG_PARTITION,
+                    Some((CONFIG_PARTITION, 0)),
+                    Some("cites an authority"),
+                ),
+                (5, None, Some("cites no authority")),
+                (
+                    5,
+                    Some((CONFIG_PARTITION, 1)),
+                    Some("must cite the instance's"),
+                ),
+            ] {
+                let mut store = MemoryStore::new();
+                founded(&mut store, partition, &key, founded_by(authority).as_ref()).await;
+                let chain = KeyChain::from_records([store
+                    .read(partition, 0)
+                    .await
+                    .unwrap()
+                    .record()
+                    .unwrap()])
+                .unwrap();
+                let config = Verify {
+                    partition,
+                    origin: "farm/log/config",
+                    is_config: true,
+                    ..what(&chain, Level::Bodies)
+                };
+                let report = verify(&store, &MemoryCheckpoints::new(), &config).await;
+                let found = not_founded(&report);
+                match expected {
+                    None => assert!(found.is_empty(), "{partition}: {found:?}"),
+                    Some(text) => assert!(
+                        found.iter().any(|r| r.contains(text)),
+                        "{partition} {authority:?}: {found:?}"
+                    ),
+                }
+            }
+            // A `key:` record without a founding attestation is not one.
+            let mut store = MemoryStore::new();
+            Genesis {
+                partition: CONFIG_PARTITION,
+                scope: Scope::Instance,
+                key: KeyEntry::ed25519(key.verifying_key().to_bytes()),
+                segment_exponent: 16,
+                appended_at: 1,
+                founding: Value::map(Vec::new()),
+                attestation: Value::map(Vec::new()),
+                comment: None,
+            }
+            .append(&mut store, &GraphRegistry::embedded())
+            .await
+            .unwrap();
+            let chain = KeyChain::from_records([store.read(0, 0).await.unwrap().record().unwrap()])
+                .unwrap();
+            let config = Verify {
+                partition: CONFIG_PARTITION,
+                origin: "farm/log/config",
+                is_config: true,
+                ..what(&chain, Level::Bodies)
+            };
+            let report = verify(&store, &MemoryCheckpoints::new(), &config).await;
+            assert_eq!(
+                not_founded(&report),
+                ["it is not under a founding attestation"]
+            );
         });
     }
 

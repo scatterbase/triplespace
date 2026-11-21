@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-30
-- **Updated:** 2026-11-16 (A11)
+- **Updated:** 2026-11-21 (A12)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0010](0010-site-ui.md), [0039](0039-files-and-media.md), [0047](0047-special-pages.md)
 
@@ -182,3 +182,12 @@ Replaced text: 08 §7.4, §7.5.
 - **Summary:** One member of `owner` on the primary tenant may offer the primary role; it needs no second owner, since the receiving tenant's acceptance is the second party. An offer is open for seven days, no longer a placeholder. Chapter text: 08 §7.5.
 
 Replaced text: 08 §7.5.
+
+### A12. The instance `config` in the order `instance create` writes it
+
+- **Date:** 2026-11-21
+- **Source:** Direct: James, 2026-11-21 ("Yes, make those changes"), to Claude's proposal to state the order by role; confirms the "config order" call of 0018 A33
+- **Change:** amends §2
+- **Summary:** §2 had offsets 1 and 2 of the instance `config` be the primary tenant's `tenant:` record and the first `primary` record, but a `config` partition registers itself with `graph:config` at offset 1 (0015 §3), the instance's own partitions are registered before their first records, and the `farm` record carries the code derived from the founding record; `instance create` has written them in that order since multi-tenant round 1 (0018 A33). The order is stated by role: offset 0 the founding record; then `graph:config`; the `farm` record; the `graph:` records of the instance's own partitions; the settings and tenancy records; then the primary tenant's `tenant:` record and the first `primary` record. Every record after offset 0 that `instance create` writes is attested by `instance:{farm code}` with the founding record as authority, since no account of the primary tenant exists yet, so a single-tenant instance still needs no authority record and no `ts-prerogative` path before its first entity. The verifier checks offset 0 alone (0006 A37). Chapter text: 08 §7.2; 01 §2.4.
+
+Replaced text: 08 §7.2 ("offset 0 is the founding record (§2.2), and offsets 1 and 2, the `tenant:` and `primary` records, are attested by `instance:{farm code}` with the founding record as authority"); 01 §2.4 ("Offsets 1 and 2 of the instance `config`, the primary tenant's `tenant:` record and the first `primary` record, are attested by `instance:{farm code}` with the founding record as authority ([08] §7.2).").

@@ -366,19 +366,33 @@ pub async fn write_to<S: IngestStore>(
     }
     // The page ID: a mirrored entity's, from the upstream page ID its content carries;
     // else the key's, the adoption's, or a fresh one (0015 §2, A64; 0035 §4).
+    // A provider without page or revision IDs takes this record's offset (0015 A66): the
+    // partition's size, since one load of a mirror runs at a time (0011 A37).
+    let offset_ids = offset_ids(graph, registry)?;
+    let offset = match offset_ids {
+        Some(_) => Some(store.partition_size(cx, partition).await?),
+        None => None,
+    };
     let page_id = match ranged_page_id(graph, op, registry)? {
         Some(p) => p,
         None => match store.page_id_of(cx, &request.tenant, &key).await? {
             Some(p) => p,
-            None => match op {
-                Operation::Adopt { source_pageid, .. } => *source_pageid,
+            None => match (op, offset_ids, offset) {
+                (Operation::Adopt { source_pageid, .. }, _, _) => *source_pageid,
+                (_, Some(ids), Some(at)) if ids.pages => at_offset(ids.number, at)?,
                 _ => store.next_id(cx, owner, &Sequence::Page).await?,
             },
         },
     };
     // The revision ID (0013 §6; 0015 §2).
     let revid = match graph {
-        Graph::Mirror(_) | Graph::Source(_) => upstream_revid(graph, op, registry)?,
+        Graph::Mirror(_) | Graph::Source(_) => match upstream_revid(graph, op, registry)? {
+            Some(r) => Some(r),
+            None => match (offset_ids, offset) {
+                (Some(ids), Some(at)) if ids.revisions => Some(at_offset(ids.number, at)?),
+                _ => None,
+            },
+        },
         Graph::Local | Graph::Pages => match request.revid {
             Some(n) => Some(n),
             None => Some(store.next_id(cx, owner, &Sequence::Revision).await?),
@@ -428,9 +442,48 @@ fn ranged_page_id(
     let provider = registry
         .by_slug(slug)
         .ok_or_else(|| IngestError::UnknownProvider(slug.clone()))?;
+    // A provider that publishes no page IDs takes offsets, never a page ID a record
+    // happens to carry, so that the two never share its range (0015 A66).
+    if !provider.page_ids {
+        return Ok(None);
+    }
     global_id(u64::from(provider.number), n)
         .map(Some)
         .ok_or_else(|| IngestError::Adapter(format!("upstream page ID {n} is out of range")))
+}
+
+/// What of a mirror or source record's IDs comes from its offset (0015 A50, A66): those of
+/// a provider that publishes no page IDs, or no revision IDs, which take
+/// `number << 40 | offset` instead. `None` for any other graph or provider.
+#[derive(Debug, Clone, Copy)]
+struct OffsetIds {
+    number: u64,
+    /// A new key's page ID is its first record's offset.
+    pages: bool,
+    /// Every record's revision ID is its offset.
+    revisions: bool,
+}
+
+fn offset_ids(graph: &Graph, registry: &Registry) -> Result<Option<OffsetIds>, IngestError> {
+    let (Graph::Mirror(slug) | Graph::Source(slug)) = graph else {
+        return Ok(None);
+    };
+    let provider = registry
+        .by_slug(slug)
+        .ok_or_else(|| IngestError::UnknownProvider(slug.clone()))?;
+    let ids = OffsetIds {
+        number: u64::from(provider.number),
+        pages: !provider.page_ids,
+        revisions: !provider.revision_ids,
+    };
+    Ok((ids.pages || ids.revisions).then_some(ids))
+}
+
+/// `number << 40 | offset`, an ID in a provider's range from a record's offset.
+fn at_offset(number: u64, offset: u64) -> Result<u64, IngestError> {
+    global_id(number, offset).ok_or_else(|| {
+        IngestError::Adapter(format!("offset {offset} is out of a provider's range"))
+    })
 }
 
 /// The revision ID of a mirror or source record: the provider's range, at the upstream
@@ -831,6 +884,16 @@ async fn write_entries<S: IngestStore>(
     distinct.sort();
     distinct.dedup();
     let mut page_ids = store.page_ids_of(cx, tenant, &distinct).await?;
+    // A provider without page or revision IDs takes each record's offset: the block is
+    // appended from the partition's size, in order (0015 A66).
+    let offset_ids = match (upstream, registry) {
+        (true, Some(r)) => offset_ids(graph, r)?,
+        _ => None,
+    };
+    let base = match offset_ids {
+        Some(_) => store.partition_size(cx, partition).await?,
+        None => 0,
+    };
     let mut fresh = 0usize;
     {
         let mut first_seen = std::collections::BTreeSet::new();
@@ -846,7 +909,7 @@ async fn write_entries<S: IngestStore>(
                 Some(k) => !page_ids.contains_key(k) && first_seen.insert(k.as_str()),
                 None => true,
             };
-            if new && brings.is_none() {
+            if new && brings.is_none() && !offset_ids.is_some_and(|ids| ids.pages) {
                 fresh += 1;
             }
         }
@@ -873,13 +936,15 @@ async fn write_entries<S: IngestStore>(
     }
     .into_iter();
     let mut settled = Vec::with_capacity(entries.len());
-    for (entry, (subject, key, brings, derived)) in entries.iter().zip(keyed) {
+    for (i, (entry, (subject, key, brings, derived))) in entries.iter().zip(keyed).enumerate() {
+        let at = base + i as u64;
         let mut next_page = || {
             brings.map_or_else(
-                || {
-                    fresh
+                || match offset_ids {
+                    Some(ids) if ids.pages => at_offset(ids.number, at),
+                    _ => fresh
                         .next()
-                        .ok_or_else(|| IngestError::Store("a page ID for each new key".into()))
+                        .ok_or_else(|| IngestError::Store("a page ID for each new key".into())),
                 },
                 Ok,
             )
@@ -903,7 +968,13 @@ async fn write_entries<S: IngestStore>(
             (p.to_string(), p)
         };
         let revid = match (entry.payload, upstream) {
-            (BlockPayload::Operation(op), true) => upstream_revid(graph, op, providers()?)?,
+            (BlockPayload::Operation(op), true) => match upstream_revid(graph, op, providers()?)? {
+                Some(r) => Some(r),
+                None => match offset_ids {
+                    Some(ids) if ids.revisions => Some(at_offset(ids.number, at)?),
+                    _ => None,
+                },
+            },
             _ => Some(match entry.request.revid {
                 Some(n) => n,
                 None => revids

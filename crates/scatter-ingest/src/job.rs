@@ -108,6 +108,9 @@ pub struct Job {
     pub rejects: Vec<Reject>,
     /// How many were rejected in all.
     pub rejected_total: u64,
+    /// The partitions the job wrote, with their graph names, whose heads its finish
+    /// record names (0006 A24, A36): its graph's, and any a caller adds with [`Self::wrote`].
+    pub written: BTreeMap<u64, String>,
 }
 
 impl Job {
@@ -182,7 +185,11 @@ impl Job {
             hash_mismatches: BTreeMap::new(),
             rejects: Vec::new(),
             rejected_total: 0,
+            written: BTreeMap::new(),
         };
+        if let Some(p) = store.partition(cx, tenant, &job.header.graph).await? {
+            job.written.insert(p, job.header.graph.clone());
+        }
         let draft = job
             .event(store, cx, "start", serde_json::Value::Object(params), now)
             .await?;
@@ -256,8 +263,14 @@ impl Job {
         }
     }
 
-    /// Appends the finish record with the counts, the hash mismatches, the rejects, and
-    /// whatever else the job has to say (`checkpoint`, `sweep`, `floors`).
+    /// Names another partition the job writes, of graph `graph`, for its finish record.
+    pub fn wrote(&mut self, partition: u64, graph: &str) {
+        self.written.insert(partition, graph.to_string());
+    }
+
+    /// Appends the finish record with the counts, the hash mismatches, the rejects, the
+    /// head of each partition the job wrote (`heads`, unsigned: a job never signs; 0006
+    /// A24, A36), and whatever else the job has to say (`sweep`, `floors`).
     pub async fn finish<S: IngestStore>(
         &self,
         store: &S,
@@ -283,6 +296,13 @@ impl Job {
                 "rejects".into(),
                 serde_json::to_value(&self.rejects).map_err(|e| e.to_string())?,
             );
+        }
+        let mut heads = Vec::new();
+        for (p, graph) in &self.written {
+            heads.push(store.written_head(cx, *p).await?.to_json(graph));
+        }
+        if !heads.is_empty() {
+            params.insert("heads".into(), serde_json::Value::Array(heads));
         }
         let draft = self
             .event(store, cx, "finish", serde_json::Value::Object(params), now)
@@ -408,6 +428,7 @@ impl Job {
             hash_mismatches: BTreeMap::new(),
             rejects: Vec::new(),
             rejected_total: 0,
+            written: BTreeMap::new(),
         })
     }
 

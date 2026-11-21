@@ -445,6 +445,7 @@ async fn two_tenants_on_one_instance() {
                     p,
                     scatter_integrity::Problem::Signature { .. }
                         | scatter_integrity::Problem::MisplacedFounding { .. }
+                        | scatter_integrity::Problem::NotFounded { .. }
                         | scatter_integrity::Problem::StaleInstanceKey { .. }
                 )
             })
