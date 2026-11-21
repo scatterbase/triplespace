@@ -30,6 +30,8 @@ use scatter_ingest::sync::SyncItem;
 use scatter_providers::Provider;
 use scatter_wikibase_changeset::{Adapter, Graph, Upstream, WikibaseAdapter};
 use scatter_wikibase_model::id::EntityId;
+use scatter_wikibase_model::statement::SnakKind;
+use scatter_wikibase_model::value::DataValue;
 use tokio_postgres::GenericClient;
 use triplespace_projections::PgCx;
 use triplespace_upstream::Wiki;
@@ -210,6 +212,15 @@ pub struct ProviderFollower<'a> {
     taken: Vec<String>,
     /// Whether more entities waited than the last poll took.
     queue_more: bool,
+    /// The closure depth of each entity the last poll took from the queue.
+    depths: BTreeMap<String, i16>,
+    /// What the follower mirrors (0070 §2, §5).
+    policy: crate::shallow::Policy,
+    /// The graph it writes, `mirror/{slug}` or `source/{name}`.
+    graph: String,
+    registry: &'static scatter_providers::Registry,
+    /// Where to say what each poll took from the queue.
+    report: Option<fn(&str)>,
     provider: &'a Provider,
     /// `""` for a registry provider; the tenant for its source.
     tenant: String,
@@ -346,6 +357,9 @@ impl<'a> ProviderFollower<'a> {
             }
             (None, None, None) => return Err(StartError::NoPosition(provider.slug.clone())),
         };
+        let policy = crate::shallow::policy(client, tenant, provider, stored.loaded_to.is_some())
+            .await
+            .map_err(|e| fail(&e))?;
         let poller = Poller::restore(
             time,
             cont,
@@ -377,6 +391,15 @@ impl<'a> ProviderFollower<'a> {
             db: client,
             taken: Vec::new(),
             queue_more: false,
+            depths: BTreeMap::new(),
+            policy,
+            graph: if provider.source {
+                format!("source/{}", provider.slug)
+            } else {
+                format!("mirror/{}", provider.slug)
+            },
+            registry,
+            report: None,
             provider,
             tenant: tenant.to_string(),
             kind,
@@ -404,14 +427,115 @@ impl<'a> ProviderFollower<'a> {
     }
 
     /// The entity IDs a batch of changes names, with the revision and page ID each row
-    /// carried.
-    fn ids_of(&self, changes: &[Change]) -> Vec<Named> {
-        changes
+    /// carried: of a type followed whole, every one; of any other, those the mirror holds
+    /// (0070 §5; 05 §5.7).
+    async fn ids_of(&self, changes: &[Change]) -> Result<Vec<Named>, IngestError> {
+        let mut out = Vec::new();
+        let mut check: Vec<(Named, String)> = Vec::new();
+        for c in changes {
+            let Some(id) = entity_id_of(&c.title, c.ns, &self.namespaces) else {
+                continue;
+            };
+            let whole = self
+                .namespaces
+                .by_ns
+                .get(&c.ns)
+                .is_some_and(|t| self.policy.whole(t));
+            if whole {
+                out.push((id, c.revid, c.pageid));
+            } else if let Ok(stored) = self.adapter.rewrite_id(id.as_str()) {
+                check.push(((id, c.revid, c.pageid), stored.as_str().to_string()));
+            }
+        }
+        if check.is_empty() {
+            return Ok(out);
+        }
+        let stored: Vec<&str> = check.iter().map(|(_, s)| s.as_str()).collect();
+        let held: std::collections::BTreeSet<String> = self
+            .db
+            .query(
+                "SELECT entity_id FROM view.entity_source
+                 WHERE tenant = $1 AND graph = $2 AND entity_id = ANY($3)",
+                &[&self.tenant, &self.graph, &stored],
+            )
+            .await
+            .map_err(|e| IngestError::Store(e.to_string()))?
             .iter()
-            .filter_map(|c| {
-                entity_id_of(&c.title, c.ns, &self.namespaces).map(|id| (id, c.revid, c.pageid))
-            })
-            .collect()
+            .map(|r| r.get(0))
+            .collect();
+        out.extend(
+            check
+                .into_iter()
+                .filter(|(_, s)| held.contains(s))
+                .map(|(named, _)| named),
+        );
+        Ok(out)
+    }
+
+    /// Queues the closure values of the states in `items` (0070 §2.3; 05 §5.3): the values
+    /// of each closure property, of this provider or source, one step deeper than the
+    /// entity, up to the depth, unless the mirror holds them already.
+    /// Returns whether it queued any, so that the follower is not caught up.
+    async fn queue_closure(&self, items: &[SyncItem]) -> Result<bool, IngestError> {
+        if self.policy.closure.is_empty() || self.policy.depth <= 0 {
+            return Ok(false);
+        }
+        let properties: Vec<EntityId> = self
+            .policy
+            .closure
+            .iter()
+            .filter_map(|p| self.adapter.rewrite_id(p).ok())
+            .collect();
+        let mut by_depth: BTreeMap<i16, Vec<(String, String)>> = BTreeMap::new();
+        for item in items {
+            let SyncItem::State { entity, .. } = item else {
+                continue;
+            };
+            let Ok(own) = self.registry.parse_foreign_id(entity.id.as_str()) else {
+                continue;
+            };
+            let depth = self.depths.get(&own.upstream_id()).copied().unwrap_or(0) + 1;
+            if depth > self.policy.depth {
+                continue;
+            }
+            for p in &properties {
+                for st in entity.statements.get(p).into_iter().flatten() {
+                    let SnakKind::Value(DataValue::EntityId(v)) = &st.mainsnak.kind else {
+                        continue;
+                    };
+                    let Ok(f) = self.registry.parse_foreign_id(v.id.as_str()) else {
+                        continue;
+                    };
+                    if f.provider().slug == self.provider.slug {
+                        by_depth
+                            .entry(depth)
+                            .or_default()
+                            .push((f.upstream_id(), v.id.as_str().to_string()));
+                    }
+                }
+            }
+        }
+        let mut queued = 0;
+        for (depth, ids) in by_depth {
+            queued += crate::fetch::enqueue_closure(
+                self.db,
+                &self.tenant,
+                &self.provider.slug,
+                &self.graph,
+                &ids,
+                depth,
+            )
+            .await
+            .map_err(|e| IngestError::Store(e.to_string()))?;
+        }
+        Ok(queued > 0)
+    }
+
+    /// Says, through `report`, what each poll takes from the fetch queue.
+    #[must_use]
+    pub fn reporting(mut self, report: fn(&str)) -> Self {
+        self.report = Some(report);
+        self
     }
 
     /// One `wbgetentities` request for `ids`.
@@ -710,7 +834,7 @@ impl ChangeSource<PgIngest> for ProviderFollower<'_> {
             .into_iter()
             .map(|(id, revid)| (id, revid, None))
             .collect();
-        ids.extend(self.ids_of(&head.changes));
+        ids.extend(self.ids_of(&head.changes).await?);
         let mut late = 0;
         self.at_head = !head.more;
         if self.at_head
@@ -727,7 +851,7 @@ impl ChangeSource<PgIngest> for ProviderFollower<'_> {
                 .map_err(|e| IngestError::Store(e.to_string()))?;
             rows += u64::try_from(tail.rows).unwrap_or(u64::MAX);
             late = u64::try_from(tail.changes.len()).unwrap_or(u64::MAX);
-            ids.extend(self.ids_of(&tail.changes));
+            ids.extend(self.ids_of(&tail.changes).await?);
         }
         // The fetch queue (0070 A9): the oldest entities waiting, less those the batch still
         // being written took.
@@ -741,13 +865,27 @@ impl ChangeSource<PgIngest> for ProviderFollower<'_> {
         .await
         .map_err(|e| IngestError::Store(e.to_string()))?;
         self.queue_more = more;
+        self.depths = taken.iter().map(|((id, _), d)| (id.clone(), *d)).collect();
+        let taken: Vec<crate::fetch::Taken> = taken.into_iter().map(|(t, _)| t).collect();
         self.taken = taken.iter().map(|(id, _)| id.clone()).collect();
+        if let Some(report) = self.report
+            && !taken.is_empty()
+        {
+            report(&format!(
+                "fetching {} queued entities{}",
+                taken.len(),
+                if more { "; more wait" } else { "" }
+            ));
+        }
         // An ID that does not parse is dropped from the queue with the rest.
         let queued: Vec<EntityId> = taken
             .iter()
             .filter_map(|(id, _)| EntityId::parse(id).ok())
             .collect();
         let (items, stale, kept) = self.states(ids, queued).await?;
+        if self.queue_closure(&items).await? {
+            self.queue_more = true;
+        }
         // What failed and has attempts left stays queued.
         let taken: Vec<crate::fetch::Taken> = taken
             .into_iter()

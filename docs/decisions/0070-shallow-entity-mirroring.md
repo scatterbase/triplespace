@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-07
-- **Updated:** 2026-11-21 (A10)
+- **Updated:** 2026-11-21 (A11)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0040](0040-instance-prerogatives.md), [0053](0053-mirrored-pages.md), [0065](0065-mediainfo-captions-and-commons.md), [0067](0067-proposals.md), [0071](0071-derived-statements-from-mirrored-pages.md)
 
@@ -199,3 +199,11 @@ Replaced text: 05 §5.5 of this ADR ("A fetch is an instance job per provider", 
 
 Replaced text: 05 §5.3 of this ADR ("The `entity_ref` projection, a tier-2 step of composition, adds a row to `ops.entity_fetch` for each foreign entity ID it writes as a target that has no `view.entity_source` row for its provider").
 
+### A11. The follower keeps to the set and walks the closure; settings held per provider
+
+- **Date:** 2026-11-21
+- **Source:** Direct: Claude, while building the rest of shallow mirroring on James's go-ahead (2026-11-21, "You can finish the rest of SCA-174"); unconfirmed
+- **Change:** amends §5, §2.3; extends §2.1, §10
+- **Summary:** §5 follows only the set under `linked` and `on-demand` and §2.3 walks closure properties to `entities.closure_depth`, but the follower fetched every recent change, nothing walked the closure, and `entities.mirror` and `entities.closure`, which §2.1 and §2.3 hold per provider, could not be written: the settings registry checked one value of the type. The calls made: (1) The follower fetches a recent change of an entity only when its type is followed whole, or when the mirror holds the entity (a `view.entity_source` row in its graph). A type is followed whole under `all`, and, where `entities.mirror` names nothing for the type, when the mirror has been loaded (a dump sync or a crawl has recorded an end): a load makes a mirror whole, and a mirror loaded before shallow mirroring, such as Internet Domains', keeps following new entities without a setting. A registry provider's follower reads the instance's settings; a source's, its tenant's, else the instance's. (2) The closure is walked by the follower, not by a projection: each state it writes queues the values of its closure properties that are entities of the same provider or source, with the reason `closure`, one step deeper than the entity, unless the mirror holds them; an entity queued for itself, or named by a recent change, is at depth 0, and nothing deeper than `entities.closure_depth` is queued. `ops.entity_fetch` gains `depth` for it. A follower that queued closure values is not caught up, so `follow --once` fetches them in the same run. (3) `entities.closure` for `WD` defaults to P31, P279, P131 and P17 at the instance and at a tenant; for any other provider and for a source it is empty. (4) A setting entry in `settings.toml` may say `per = "provider"`, whose value is a map from a provider's code or a source's name to a value of its type, or `per = "provider-type"`, a map from provider to a map from entity type to one; `entities.closure` is the first and `entities.mirror` the second. The settings page edits such a value as JSON. (5) A follower says on stderr what each poll takes from the queue. Chapter text: 05 §5.3, §5.7; 23 §3.1; 03 §4.12.
+
+Replaced text: 05 §5.3 ("Not yet: the re-rendering, `on-demand` fetches on read, closure and `prefetch`."); 05 §5.7 ("under `linked` and `on-demand`, those for entities already in the set (a `view.entity_source` row)").

@@ -36,6 +36,7 @@ pub mod jobs;
 pub mod membership;
 pub mod revert;
 pub mod settings;
+pub mod shallow;
 pub mod sources;
 pub mod store;
 pub mod subsidiaries;

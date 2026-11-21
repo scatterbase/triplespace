@@ -28,6 +28,8 @@
 #               namespace-list | site | licence | collation | pattern | schedule | palette | typeset; or site-asset, a pinned
 #               version of a local file the setting uses for a site function, public while named (0085 §8).
 # media         For type "site-asset": the media types it accepts.
+# per           "provider": the value is a map from a provider's code or a source's name to a value of
+#               `type`; "provider-type": a map from provider to a map from entity type to one (0070 A11).
 # choices       For type "choice": the permitted values.
 # values        The catalogue's "Values" text, where it says more than the type does.
 # default       The registry default, as a value of the type.
@@ -281,6 +283,7 @@ scope = "tenant"
 bound = "tenant"
 group = "entities"
 type = "property-list"
+per = "provider"
 values = "a property list"
 no_default = true
 default_text = "0070 §2.3's list for Wikidata; empty for an entity source"
@@ -316,6 +319,7 @@ bound = "tenant"
 group = "entities"
 type = "choice"
 choices = ["off", "on-demand", "linked", "all"]
+per = "provider-type"
 no_default = true
 default_text = "`linked`; for an entity source, `linked` with an `api` and `off` without"
 scope_note = "`site`, per provider and entity type"

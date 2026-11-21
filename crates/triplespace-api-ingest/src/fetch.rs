@@ -50,8 +50,8 @@ impl Reason {
 }
 
 /// Queues `ids`, upstream IDs of the provider or source `provider`, for `tenant` (`""` for
-/// a registry provider). An ID already queued keeps its row. Returns how many were queued
-/// now.
+/// a registry provider), at closure depth 0. An ID already queued keeps its row. Returns
+/// how many were queued now.
 ///
 /// # Errors
 ///
@@ -72,6 +72,40 @@ pub async fn enqueue<C: GenericClient>(
              SELECT $1, $2, id, $4 FROM unnest($3::text[]) AS id
              ON CONFLICT (tenant, provider, entity_id) DO NOTHING",
             &[&tenant, &provider, &ids, &reason.as_str()],
+        )
+        .await
+}
+
+/// Queues `ids`, the closure values of an entity at depth `depth - 1` (0070 §2.3), with the
+/// reason `closure`, leaving out those `graph` holds already: closure stops at an entity
+/// already mirrored. Returns how many were queued now.
+///
+/// # Errors
+///
+/// The database's.
+pub async fn enqueue_closure<C: GenericClient>(
+    client: &C,
+    tenant: &str,
+    provider: &str,
+    graph: &str,
+    ids: &[(String, String)],
+    depth: i16,
+) -> Result<u64, tokio_postgres::Error> {
+    if ids.is_empty() {
+        return Ok(0);
+    }
+    let upstream: Vec<&str> = ids.iter().map(|(u, _)| u.as_str()).collect();
+    let stored: Vec<&str> = ids.iter().map(|(_, s)| s.as_str()).collect();
+    client
+        .execute(
+            "INSERT INTO ops.entity_fetch (tenant, provider, entity_id, reason, depth)
+             SELECT $1, $2, c.upstream, 'closure', $6
+             FROM unnest($3::text[], $4::text[]) AS c(upstream, stored)
+             WHERE NOT EXISTS (SELECT 1 FROM view.entity_source s
+                               WHERE s.tenant = $1 AND s.graph = $5
+                                 AND s.entity_id = c.stored)
+             ON CONFLICT (tenant, provider, entity_id) DO NOTHING",
+            &[&tenant, &provider, &upstream, &stored, &graph, &depth],
         )
         .await
 }
@@ -104,7 +138,8 @@ pub async fn queued<C: GenericClient>(
 pub type Taken = (String, SystemTime);
 
 /// The oldest `limit` entities waiting for `provider` under `tenant`, leaving out
-/// `except` (those a batch still being written took), and whether more wait.
+/// `except` (those a batch still being written took), each with its closure depth, and
+/// whether more wait.
 ///
 /// # Errors
 ///
@@ -115,11 +150,11 @@ pub async fn take<C: GenericClient>(
     provider: &str,
     limit: usize,
     except: &[String],
-) -> Result<(Vec<Taken>, bool), tokio_postgres::Error> {
+) -> Result<(Vec<(Taken, i16)>, bool), tokio_postgres::Error> {
     let want = i64::try_from(limit).unwrap_or(i64::MAX - 1) + 1;
     let rows = client
         .query(
-            "SELECT entity_id, enqueued FROM ops.entity_fetch
+            "SELECT entity_id, enqueued, depth FROM ops.entity_fetch
              WHERE tenant = $1 AND provider = $2 AND NOT (entity_id = ANY($3))
              ORDER BY enqueued, entity_id LIMIT $4",
             &[&tenant, &provider, &except, &want],
@@ -129,7 +164,7 @@ pub async fn take<C: GenericClient>(
     Ok((
         rows.iter()
             .take(limit)
-            .map(|r| (r.get(0), r.get(1)))
+            .map(|r| ((r.get(0), r.get(1)), r.get(2)))
             .collect(),
         more,
     ))

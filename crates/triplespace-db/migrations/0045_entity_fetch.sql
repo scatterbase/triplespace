@@ -4,7 +4,9 @@
 -- slug or the source's name; `entity_id` is the ID as the upstream wiki knows it (`Q42`),
 -- so that a busy entity is queued once whatever form named it. The follower of the
 -- provider or source drains it with its polls (0070 A9), deleting the rows a batch fetched
--- in the transaction that commits the batch. Idempotent.
+-- in the transaction that commits the batch. `depth` is how many closure steps led to the
+-- entity: 0 for one queued for itself, n + 1 for a closure value of one at n, so that
+-- the walk stops at `entities.closure_depth` (0070 §2.3). Idempotent.
 
 CREATE TABLE IF NOT EXISTS ops.entity_fetch (
   tenant    text        NOT NULL DEFAULT '',
@@ -13,6 +15,7 @@ CREATE TABLE IF NOT EXISTS ops.entity_fetch (
   reason    text        NOT NULL CHECK (reason IN ('read', 'linked', 'closure', 'event', 'sweep', 'manual', 'crawl')),
   enqueued  timestamptz NOT NULL DEFAULT now(),
   attempts  integer     NOT NULL DEFAULT 0,
+  depth     smallint    NOT NULL DEFAULT 0,
   PRIMARY KEY (tenant, provider, entity_id)
 );
 

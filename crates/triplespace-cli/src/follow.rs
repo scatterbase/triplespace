@@ -349,7 +349,8 @@ pub async fn run(args: Follow) -> Result<()> {
     let mut source = ProviderFollower::start(
         &client, &wiki, provider, registry, &tenant, windows, retention, from, seconds,
     )
-    .await?;
+    .await?
+    .reporting(|line| eprintln!("{line}"));
     eprintln!(
         "following {} from {}",
         provider.slug,

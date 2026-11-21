@@ -248,6 +248,31 @@ impl SettingType {
     }
 }
 
+/// Whether a setting holds one value, or one per provider (0070 §2.1, §2.3): a map from a
+/// provider's code or a source's name to the value, or to a map from entity type to it.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default)]
+pub enum Per {
+    /// One value.
+    #[default]
+    One,
+    /// `{provider: value}`.
+    Provider,
+    /// `{provider: {entity type: value}}`.
+    ProviderType,
+}
+
+impl Per {
+    /// The registry word, `None` for one value.
+    #[must_use]
+    pub fn as_str(self) -> Option<&'static str> {
+        match self {
+            Self::One => None,
+            Self::Provider => Some("provider"),
+            Self::ProviderType => Some("provider-type"),
+        }
+    }
+}
+
 /// One registered setting.
 #[derive(Debug, Clone, PartialEq)]
 pub struct SettingDef {
@@ -267,6 +292,8 @@ pub struct SettingDef {
     pub ty: SettingType,
     /// For `choice`: the permitted values.
     pub choices: Vec<String>,
+    /// One value, or one per provider (or per provider and entity type).
+    pub per: Per,
     /// The registry default; `None` for an entry marked `no_default`.
     pub default: Option<Value>,
     /// For `site-asset`: the media types it accepts.
@@ -323,6 +350,9 @@ impl SettingDef {
         }
         m.insert("group".into(), Value::String(self.group.clone()));
         m.insert("type".into(), Value::String(self.ty.as_str().into()));
+        if let Some(per) = self.per.as_str() {
+            m.insert("per".into(), Value::String(per.into()));
+        }
         if !self.choices.is_empty() {
             m.insert("choices".into(), serde_json::json!(self.choices));
         }
@@ -406,6 +436,12 @@ impl SettingDef {
                 "`choices` goes with type `choice`, and only with it".into()
             ));
         }
+        let per = match v.get("per").and_then(Value::as_str) {
+            None => Per::One,
+            Some("provider") => Per::Provider,
+            Some("provider-type") => Per::ProviderType,
+            Some(other) => return Err(bad(format!("per `{other}`"))),
+        };
         let default = v.get("default").cloned();
         let no_default = flag("no_default");
         if default.is_some() == no_default {
@@ -440,6 +476,7 @@ impl SettingDef {
             bound,
             ty,
             choices,
+            per,
             default,
             media,
             text,
