@@ -696,4 +696,87 @@ mod tests {
         wrong.key_id.replace_range(0..1, "x");
         assert!(!wrong.id_matches());
     }
+
+    /// Farm partitions: "actors/{farm}` (`logged`, `full`, internal), `accounts/{farm}` (`logged`, `full`, private) and `log/{farm}` (`logged`, `full`, internal)" (0018 §2).
+    #[test]
+    fn farm_partitions_are_logged_full_and_internal_or_private() {
+        let r = GraphRegistry::embedded();
+        let expected = [
+            (
+                "actors/{farm}",
+                Integrity::Logged,
+                History::Full,
+                Export::Internal,
+            ),
+            (
+                "accounts/{farm}",
+                Integrity::Logged,
+                History::Full,
+                Export::Private,
+            ),
+            (
+                "log/{farm}",
+                Integrity::Logged,
+                History::Full,
+                Export::Internal,
+            ),
+        ];
+        for (name, integrity, history, export) in expected {
+            let (g, slug) = r.lookup(name).unwrap();
+            assert_eq!(g.name, name);
+            assert_eq!(slug, None, "{name} is a template, not an exact name");
+            assert_eq!(g.integrity, Some(integrity), "{name} integrity");
+            assert_eq!(g.history, Some(history), "{name} history");
+            assert_eq!(g.export, export, "{name} export");
+            assert_eq!(g.kind, Kind::Source, "{name} is a source partition");
+            assert_eq!(g.per, Some(Per::Farm), "{name} is per farm");
+        }
+    }
+
+    /// Tenant partitions: "local`, `pages`, `log`, `config`, `actors`, `accounts" (0018 §2).
+    #[test]
+    fn tenant_scope_covers_local_pages_log_config_actors_accounts() {
+        let r = GraphRegistry::embedded();
+        for name in ["local", "pages", "actors", "accounts"] {
+            let (g, slug) = r.lookup(name).unwrap();
+            assert_eq!(slug, None, "{name} is not a template");
+            assert_eq!(g.scope, Scope::Tenant, "{name} is a tenant partition");
+            assert_eq!(g.kind, Kind::Source, "{name} is a source partition");
+        }
+        // `config` and `log` are shared: each tenant has its own and the instance
+        // holds one too, so their scope is `both`, not `tenant`.
+        for name in ["config", "log"] {
+            let (g, slug) = r.lookup(name).unwrap();
+            assert_eq!(slug, None, "{name} is not a template");
+            assert_eq!(g.scope, Scope::Both, "{name} is shared with the instance");
+            assert_eq!(g.kind, Kind::Source, "{name} is a source partition");
+        }
+    }
+
+    /// Instance partitions: "config`, `log`, `mirror/{provider}`, `actors/{provider}`, `log/{provider}`, `files/{repo}" (0018 §2).
+    #[test]
+    fn instance_scope_covers_config_log_provider_and_repo_partitions() {
+        let r = GraphRegistry::embedded();
+        for name in ["config", "log"] {
+            let (g, slug) = r.lookup(name).unwrap();
+            assert_eq!(slug, None, "{name} is not a template");
+            assert_eq!(g.scope, Scope::Both, "{name} is shared with tenants");
+            assert_eq!(g.kind, Kind::Source, "{name} is a source partition");
+        }
+        for name in [
+            "mirror/{provider}",
+            "actors/{provider}",
+            "log/{provider}",
+            "files/{repo}",
+        ] {
+            let (g, slug) = r.lookup(name).unwrap();
+            assert_eq!(slug, None, "{name} is the template row itself");
+            assert_eq!(g.scope, Scope::Instance, "{name} is an instance partition");
+            assert_eq!(g.kind, Kind::Source, "{name} is a source partition");
+            assert!(
+                g.per.is_some(),
+                "{name} is instantiated per provider or repo"
+            );
+        }
+    }
 }

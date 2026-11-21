@@ -163,3 +163,51 @@ pub async fn tenancy<C: GenericClient>(
         .filter_map(|r| Some((r.get::<_, String>(0), r.get::<_, Option<String>>(1)?)))
         .collect())
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    /// The `tenant` record keeps the slug and base URI, and a provider tenant's record parses the same: "The `tenant` record keeps slug, base URI and, for a provider tenant, its code and number" (0046 §2).
+    #[test]
+    fn the_tenant_record_keeps_slug_base_and_provider_fields() {
+        // `TenantEntry::from_config` takes the slug from the record's key and the rest
+        // from the content; a record without `base` or `issuer` is not a tenant this
+        // version can serve, so a full record parses and a bare one does not.
+        let full = serde_json::json!({
+            "base": "https://librarybase.org",
+            "issuer": "LB",
+            "adopted_from": "https://www.wikidata.org",
+            "status": "active"
+        });
+        let entry =
+            TenantEntry::from_config("library".to_string(), &full).expect("a full record parses");
+        assert_eq!(entry.slug, "library");
+        assert_eq!(entry.base, "https://librarybase.org");
+        assert_eq!(entry.issuer, "LB");
+        assert_eq!(
+            entry.adopted_from.as_deref(),
+            Some("https://www.wikidata.org")
+        );
+        assert_eq!(entry.status, "active");
+        assert!(entry.writable());
+
+        // A provider tenant keeps its code and number in the same record; the entry
+        // built from it still parses, and the slug stays the record's key.
+        let provider = serde_json::json!({
+            "base": "https://librarybase.org",
+            "issuer": "LB",
+            "code": "LB",
+            "number": 1
+        });
+        let entry = TenantEntry::from_config("library".to_string(), &provider)
+            .expect("a provider record parses");
+        assert_eq!(entry.slug, "library");
+        assert_eq!(entry.base, "https://librarybase.org");
+        assert_eq!(entry.issuer, "LB");
+
+        // A record without a base is not a tenant this version can serve.
+        let bare = serde_json::json!({ "issuer": "LB" });
+        assert!(TenantEntry::from_config("library".to_string(), &bare).is_none());
+    }
+}

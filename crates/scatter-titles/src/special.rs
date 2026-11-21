@@ -147,4 +147,27 @@ mod tests {
         assert!(!r.get("MyPage").unwrap().is_listed(), "a redirecting page");
         assert!(r.get("Nonsense").is_none());
     }
+
+    /// The MediaWiki names of pages Triplespace renamed reach the renamed page: "They also
+    /// cover the MediaWiki names of pages Triplespace renamed" (0047 §2).
+    #[test]
+    fn mediawiki_names_of_renamed_pages_reach_them() {
+        let r = SpecialPages::embedded();
+        for (alias, name) in [
+            ("AbuseFilter", "EditFilter"),
+            ("AbuseLog", "EditFilterLog"),
+            ("OAuthListConsumers", "OAuthConsumers"),
+            ("OAuthConsumerRegistration", "OAuthConsumers"),
+            ("OAuthManageConsumers", "OAuthConsumers"),
+            ("GlobalUserRights", "GlobalGroupMembership"),
+            ("ListGlobalBlocks", "GlobalBlockList"),
+        ] {
+            assert_eq!(
+                r.get(alias).expect(alias).name,
+                name,
+                "{alias} reaches {name}"
+            );
+            assert_eq!(r.get(name).expect(name).name, name);
+        }
+    }
 }
