@@ -1190,3 +1190,86 @@ async fn a_rebuild_in_the_wrong_order_fails_loudly() {
         .unwrap();
     p.catch_up(&backend, &store, LOCAL, 10).await.unwrap();
 }
+
+fn item_statement(p: &str, v: &str, id: &str) -> serde_json::Value {
+    json!({"mainsnak": {"snaktype": "value", "property": p,
+            "datavalue": {"value": {"entity-type": "item", "id": v}, "type": "wikibase-entityid"},
+            "datatype": "wikibase-item"},
+        "type": "statement", "rank": "normal", "id": id})
+}
+
+// 0070 §2.2, A10: a tenant's write that names a foreign entity no mirror holds queues it for
+// its provider's follower; one the mirror holds, a keyed ID, and a type the tenant's
+// `entities.mirror` turns off are not queued.
+#[tokio::test]
+async fn a_linked_foreign_entity_is_queued_for_its_mirror() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let client = seed(client).await;
+    let mut statement = item_statement("P7", "WDQ42", "Q6$00000000-0000-0000-0000-000000000067");
+    statement["qualifiers"] = json!({"P8": [{"snaktype": "value", "property": "P8",
+        "datavalue": {"value": {"entity-type": "item", "id": "XDQ10"}, "type": "wikibase-entityid"},
+        "datatype": "wikibase-item"}]});
+    statement["references"] = json!([{"snaks": {"P9": [{"snaktype": "value", "property": "P9",
+        "datavalue": {"value": {"entity-type": "item", "id": "WDQ43"}, "type": "wikibase-entityid"},
+        "datatype": "wikibase-item"}]}}]);
+    let mut store = PgLog::new(client);
+    let mut edit = draft(
+        PAYLOAD_CHANGESET,
+        "Q6",
+        &json!({"op": "add", "id": "Q6", "claims": {"P7": [statement]}}),
+        None,
+        Some(6),
+    );
+    edit.revid = Some(902);
+    store.append(LOCAL, edit).await.unwrap();
+    let p = pipeline();
+    for partition in ALL {
+        p.catch_up(&backend, &store, partition, 2).await.unwrap();
+    }
+    let client = store.into_inner();
+    let queue = || async {
+        sorted(
+            &client,
+            "SELECT tenant || '|' || provider || '|' || entity_id || '|' || reason FROM ops.entity_fetch",
+        )
+        .await
+    };
+    assert_eq!(
+        queue().await,
+        ["|wikidata|Q42|linked", "|wikidata|Q43|linked"],
+        "the value and the reference value; the mirrored qualifier value is not queued"
+    );
+
+    // Off for Wikidata's items on this tenant: a later link queues nothing.
+    client
+        .execute(
+            "INSERT INTO view.registry (tenant, kind, code, config, \"offset\")
+             VALUES ($1, 'site', 'entities.mirror', $2, 1)",
+            &[
+                &TENANT,
+                &json!({"kind": "site", "name": "entities.mirror", "value": {"WD": {"item": "off"}}}),
+            ],
+        )
+        .await
+        .unwrap();
+    let mut store = PgLog::new(client);
+    let mut edit = draft(
+        PAYLOAD_CHANGESET,
+        "Q6",
+        &json!({"op": "add", "id": "Q6", "claims": {"P7": [item_statement("P7", "WDQ44", "Q6$00000000-0000-0000-0000-000000000068")]}}),
+        None,
+        Some(6),
+    );
+    edit.revid = Some(903);
+    store.append(LOCAL, edit).await.unwrap();
+    p.catch_up(&backend, &store, LOCAL, 2).await.unwrap();
+    let client = store.into_inner();
+    assert_eq!(
+        sorted(&client, "SELECT entity_id FROM ops.entity_fetch").await,
+        ["Q42", "Q43"],
+        "`off` queues nothing"
+    );
+}

@@ -327,6 +327,7 @@ async fn the_backup_key_set() {
             "ops.job_queue",
             "ops.forwarder_key",
             "ops.repo_cursor",
+            "ops.entity_fetch",
             "ops.visibility_epoch"
         ]
     );

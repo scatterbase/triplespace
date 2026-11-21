@@ -58,8 +58,8 @@ fn item(id: &str, label: &str, revid: u64) -> Value {
 /// What the stub wiki was asked: each request's line.
 type Asked = std::sync::Arc<std::sync::Mutex<Vec<String>>>;
 
-/// A wiki with no recent changes whose `wbgetentities` knows `Q1` and `Q2`, and reports
-/// any other ID missing.
+/// A wiki with no recent changes whose `wbgetentities` knows `Q1` and `Q2`, fails any
+/// request that names `Q666`, and reports any other ID missing.
 async fn wiki() -> (String, Asked) {
     use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
@@ -87,7 +87,9 @@ async fn wiki() -> (String, Asked) {
                 let text = String::from_utf8_lossy(&request).into_owned();
                 let line = text.lines().next().unwrap_or_default().to_string();
                 noted.lock().unwrap().push(line.clone());
-                let answer = if line.contains("wbgetentities") {
+                let answer = if line.contains("wbgetentities") && line.contains("Q666") {
+                    json!({"error": {"code": "internal_api_error", "info": "boom"}})
+                } else if line.contains("wbgetentities") {
                     let ids = line
                         .split(['?', '&', ' '])
                         .find_map(|p| p.strip_prefix("ids="))
@@ -210,7 +212,7 @@ async fn queued_entities_are_fetched_by_the_followers_poll() {
         source: Some("lb".into()),
         ids: ids.iter().map(ToString::to_string).collect(),
     };
-    fetch::run(queue(&["Q1", "lb:Q2", "Q404", "lb:Q1"]))
+    fetch::run(queue(&["Q1", "lb:Q2", "Q404", "lb:Q1", "Q666"]))
         .await
         .expect("fetch");
     assert_eq!(
@@ -220,7 +222,7 @@ async fn queued_entities_are_fetched_by_the_followers_poll() {
              WHERE tenant = 'reader' AND provider = 'lb' ORDER BY entity_id"
         )
         .await,
-        ["Q1 manual", "Q2 manual", "Q404 manual"]
+        ["Q1 manual", "Q2 manual", "Q404 manual", "Q666 manual"]
     );
     assert!(fetch::run(queue(&["xx:Q3"])).await.is_err());
 
@@ -244,6 +246,25 @@ async fn queued_entities_are_fetched_by_the_followers_poll() {
         ["lb:Q1", "lb:Q2"],
         "the two the wiki has; the missing one writes nothing (A5)"
     );
+    // The request that named `Q666` failed: the rest were asked one at a time, and
+    // `Q666` alone stays queued with an attempt counted.
+    assert_eq!(
+        strings(
+            &database,
+            "SELECT entity_id || ' ' || attempts FROM ops.entity_fetch WHERE tenant = 'reader'"
+        )
+        .await,
+        ["Q666 1"],
+        "the rows fetched went with the batch"
+    );
+    // At the last attempt the row is dropped, as a reject of the follower's open job.
+    triplespace_cli::common::connect(&database)
+        .await
+        .unwrap()
+        .execute("UPDATE ops.entity_fetch SET attempts = 4", &[])
+        .await
+        .unwrap();
+    follow::run(follow_args()).await.expect("follow again");
     assert_eq!(
         strings(
             &database,
@@ -251,8 +272,15 @@ async fn queued_entities_are_fetched_by_the_followers_poll() {
         )
         .await,
         ["0"],
-        "the rows went with the batch"
+        "dropped after five attempts"
     );
+    let rejects = strings(
+        &database,
+        "SELECT (job->'open'->'rejects')::text FROM ops.repo_cursor WHERE tenant = 'reader' AND name = 'lb'",
+    )
+    .await
+    .join(" ");
+    assert!(rejects.contains("Q666"), "{rejects}");
     assert_eq!(
         strings(
             &database,

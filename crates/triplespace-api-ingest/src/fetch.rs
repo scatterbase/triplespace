@@ -162,3 +162,37 @@ pub async fn done<C: GenericClient>(
         .await?;
     Ok(())
 }
+
+/// Counts a failed attempt on each of `ids`, and drops the rows that have now failed
+/// `max` times. Returns the IDs dropped.
+///
+/// # Errors
+///
+/// The database's.
+pub async fn failed<C: GenericClient>(
+    client: &C,
+    tenant: &str,
+    provider: &str,
+    ids: &[String],
+    max: i32,
+) -> Result<Vec<String>, tokio_postgres::Error> {
+    if ids.is_empty() {
+        return Ok(Vec::new());
+    }
+    client
+        .execute(
+            "UPDATE ops.entity_fetch SET attempts = attempts + 1
+             WHERE tenant = $1 AND provider = $2 AND entity_id = ANY($3)",
+            &[&tenant, &provider, &ids],
+        )
+        .await?;
+    let rows = client
+        .query(
+            "DELETE FROM ops.entity_fetch
+             WHERE tenant = $1 AND provider = $2 AND entity_id = ANY($3) AND attempts >= $4
+             RETURNING entity_id",
+            &[&tenant, &provider, &ids, &max],
+        )
+        .await?;
+    Ok(rows.iter().map(|r| r.get(0)).collect())
+}

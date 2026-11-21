@@ -39,6 +39,9 @@ use crate::PgIngest;
 /// The most queued entities a poll takes (0070 A9): ten requests of fifty.
 pub const FETCH_PER_POLL: usize = 500;
 
+/// How many polls may fail to read a queued entity before its row is dropped (0070 A9).
+pub const FETCH_ATTEMPTS: i32 = 5;
+
 /// The position row's kind for a registry provider.
 pub const KIND_PROVIDER: &str = "provider";
 /// The position row's kind for a tenant's entity source.
@@ -411,29 +414,100 @@ impl<'a> ProviderFollower<'a> {
             .collect()
     }
 
-    /// Reads the current states of `ids` and turns them into sync items.
-    async fn states(&mut self, ids: Vec<Named>) -> Result<(Vec<SyncItem>, u64), IngestError> {
+    /// One `wbgetentities` request for `ids`.
+    async fn get_entities(
+        &self,
+        ids: &[&EntityId],
+    ) -> Result<BTreeMap<String, Fetched>, IngestError> {
+        let body = self
+            .wiki
+            .get(&[
+                ("action", "wbgetentities".into()),
+                (
+                    "ids",
+                    ids.iter()
+                        .map(|id| id.as_str())
+                        .collect::<Vec<_>>()
+                        .join("|"),
+                ),
+            ])
+            .await
+            .map_err(|e| IngestError::Store(format!("upstream: {e}")))?;
+        read_entities(&body).map_err(|e| IngestError::Store(e.to_string()))
+    }
+
+    /// Reads the queued entities `ids` (0070 A9) into `fetched`. A request that fails does
+    /// not fail the poll: its IDs are asked one at a time, and one that still fails counts
+    /// an attempt on its row and is left for a later poll, or, at [`FETCH_ATTEMPTS`],
+    /// dropped from the queue as a reject of the follower's job. Returns the IDs left
+    /// queued, which the batch must not delete, and the rejects.
+    async fn queued_states(
+        &self,
+        ids: &[EntityId],
+        fetched: &mut BTreeMap<String, Fetched>,
+    ) -> Result<(Vec<String>, Vec<SyncItem>), IngestError> {
+        let mut failed: Vec<(String, String)> = Vec::new();
+        for chunk in ids.chunks(self.wiki.ids_limit()) {
+            let refs: Vec<&EntityId> = chunk.iter().collect();
+            match self.get_entities(&refs).await {
+                Ok(got) => fetched.extend(got),
+                Err(_) if chunk.len() > 1 => {
+                    for id in chunk {
+                        match self.get_entities(&[id]).await {
+                            Ok(got) => fetched.extend(got),
+                            Err(e) => failed.push((id.as_str().to_string(), e.to_string())),
+                        }
+                    }
+                }
+                Err(e) => failed.push((chunk[0].as_str().to_string(), e.to_string())),
+            }
+        }
+        if failed.is_empty() {
+            return Ok((Vec::new(), Vec::new()));
+        }
+        let ids: Vec<String> = failed.iter().map(|(id, _)| id.clone()).collect();
+        let dropped = crate::fetch::failed(
+            self.db,
+            &self.tenant,
+            &self.provider.slug,
+            &ids,
+            FETCH_ATTEMPTS,
+        )
+        .await
+        .map_err(|e| IngestError::Store(e.to_string()))?;
+        let mut kept = Vec::new();
+        let mut rejects = Vec::new();
+        for (id, reason) in failed {
+            if dropped.contains(&id) {
+                rejects.push(SyncItem::Rejected {
+                    upstream_id: id,
+                    reason: format!("not fetched after {FETCH_ATTEMPTS} attempts: {reason}"),
+                });
+            } else {
+                kept.push(id);
+            }
+        }
+        Ok((kept, rejects))
+    }
+
+    /// Reads the current states of `ids`, the entities the changes named, and of `queued`,
+    /// the entities taken from the fetch queue, and turns them into sync items. Returns the
+    /// items, the stale count, and the queued IDs left queued ([`Self::queued_states`]).
+    async fn states(
+        &mut self,
+        mut ids: Vec<Named>,
+        queued: Vec<EntityId>,
+    ) -> Result<(Vec<SyncItem>, u64, Vec<String>), IngestError> {
         let mut items = Vec::new();
         let mut stale = 0;
         let mut fetched = BTreeMap::new();
         for chunk in ids.chunks(self.wiki.ids_limit()) {
-            let body = self
-                .wiki
-                .get(&[
-                    ("action", "wbgetentities".into()),
-                    (
-                        "ids",
-                        chunk
-                            .iter()
-                            .map(|(id, _, _)| id.as_str())
-                            .collect::<Vec<_>>()
-                            .join("|"),
-                    ),
-                ])
-                .await
-                .map_err(|e| IngestError::Store(format!("upstream: {e}")))?;
-            fetched.extend(read_entities(&body).map_err(|e| IngestError::Store(e.to_string()))?);
+            let refs: Vec<&EntityId> = chunk.iter().map(|(id, _, _)| id).collect();
+            fetched.extend(self.get_entities(&refs).await?);
         }
+        let (kept, rejects) = self.queued_states(&queued, &mut fetched).await?;
+        items.extend(rejects);
+        ids.extend(queued.into_iter().map(|id| (id, None, None)));
         // Observe every state first, so that a key moved between two items in one batch
         // settles before either is written.
         for f in fetched.values() {
@@ -467,7 +541,7 @@ impl<'a> ProviderFollower<'a> {
             }
             self.items_of(f, revid, pageid, &mut items);
         }
-        Ok((items, stale))
+        Ok((items, stale, kept))
     }
 
     /// The sync items one fetched entity becomes.
@@ -669,12 +743,16 @@ impl ChangeSource<PgIngest> for ProviderFollower<'_> {
         self.queue_more = more;
         self.taken = taken.iter().map(|(id, _)| id.clone()).collect();
         // An ID that does not parse is dropped from the queue with the rest.
-        ids.extend(
-            taken
-                .iter()
-                .filter_map(|(id, _)| EntityId::parse(id).ok().map(|id| (id, None, None))),
-        );
-        let (items, stale) = self.states(ids).await?;
+        let queued: Vec<EntityId> = taken
+            .iter()
+            .filter_map(|(id, _)| EntityId::parse(id).ok())
+            .collect();
+        let (items, stale, kept) = self.states(ids, queued).await?;
+        // What failed and has attempts left stays queued.
+        let taken: Vec<crate::fetch::Taken> = taken
+            .into_iter()
+            .filter(|(id, _)| !kept.contains(id))
+            .collect();
         self.late += late;
         self.stale += stale;
         let batch = ChangeBatch {
