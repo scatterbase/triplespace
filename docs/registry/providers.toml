@@ -9,6 +9,9 @@
 #              or the provider itself for providers without individual actors (0007 §6).
 # revision_ids true if the provider publishes revision IDs; then n is the upstream revision ID,
 #              otherwise n is the mirror record's offset.
+# page_ids     false if the provider publishes no page IDs; then each key's page ID is
+#              number << 40 | offset of the key's first record, otherwise number << 40 | the
+#              upstream page ID (0015 A50, A66). Default true.
 # adapter      The crate that implements the provider's adapter (0002 §8.4), one per provider (0002 A28).
 #              Every MediaWiki+Wikibase provider names scatter-adapter-wikibase, parameterised by its
 #              entry (0091 §1).
@@ -179,6 +182,7 @@ chip_background = "#F6E5E2"
 number = 3
 issuer = "openalex"
 revision_ids = false             # no revision history; n is the mirror record's offset (0015 §2)
+page_ids = false                 # no page IDs; a key's first record's offset (0015 A66)
 api = "https://api.openalex.org/"
 adapter = "scatter-adapter-openalex"
 actor_model = "provider-only"
@@ -273,6 +277,7 @@ chip_background = "#F5E3EE"
 number = 4
 issuer = "musicbrainz"
 revision_ids = false             # no per-entity revision IDs; n is the mirror record's offset (0015 §2)
+page_ids = false                 # no page IDs; a key's first record's offset (0015 A66)
 api = "https://musicbrainz.org/ws/2/"
 adapter = "scatter-adapter-musicbrainz"
 actor_model = "provider-only"
@@ -443,6 +448,7 @@ chip_background = "#ECF1DC"
 number = 6
 issuer = "openstreetmap"
 revision_ids = false             # versions are per object and changesets are not global revisions; n is the mirror record's offset (0015 §2)
+page_ids = false                 # no page IDs; a key's first record's offset (0015 A66)
 article_path = "https://www.openstreetmap.org/"
 api = "https://api.openstreetmap.org/api/0.6/"
 adapter = "scatter-adapter-openstreetmap"
@@ -551,6 +557,7 @@ chip_background = "#E8E9EC"
 number = 8
 issuer = "gdelt"
 revision_ids = false             # append-only files; n is the mirror record's offset (0015 §2)
+page_ids = false                 # no page IDs; a key's first record's offset (0015 A66)
 article_path = "https://www.gdeltproject.org/"
 api = "http://data.gdeltproject.org/gdeltv2/"
 adapter = "scatter-adapter-gdelt"

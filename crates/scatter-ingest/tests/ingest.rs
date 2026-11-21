@@ -3339,3 +3339,91 @@ fn params_of_attestation_job(record: &Record) -> Option<u64> {
     let attestation = record.body().attestation().value().ok()??;
     attestation.get("job").and_then(Value::as_u64)
 }
+
+/// A provider that publishes no page IDs and no revision IDs, OpenAlex, gives each key the
+/// page ID of its first record's offset and each record the revision ID of its own, in its
+/// range, one at a time and in a block alike (0015 A50, A66).
+#[test]
+fn a_provider_without_page_ids_takes_offsets() {
+    pollster::block_on(async {
+        const MIRROR_OA: u64 = 0x23;
+        let oa = u64::from(registry().by_slug("openalex").unwrap().number);
+        let ranged = |n: u64| (oa << 40) | n;
+        let put = |id: &str| {
+            op(json!({"op": "put", "id": id, "entity": item(id, id, &json!({})), "upstream": {}}))
+        };
+        let ops = [
+            put("OAW1"),
+            put("OAW2"),
+            put("OAW1"),
+            put("OAW3"),
+            put("OAW2"),
+            put("OAW4"),
+        ];
+        let request = Request::new(TENANT, Attestation::by("librarybase:1"), NOW);
+        let run = |block: bool| {
+            let ops = ops.clone();
+            let request = request.clone();
+            async move {
+                let (store, pipeline) = setup();
+                store.create_partition(MIRROR_OA, "", "mirror/openalex");
+                let mut cx = store.begin().await.unwrap();
+                if block {
+                    let entries: Vec<_> = ops
+                        .iter()
+                        .map(|o| BlockEntry {
+                            request: &request,
+                            payload: BlockPayload::Operation(o),
+                        })
+                        .collect();
+                    write_many(
+                        &store,
+                        &pipeline,
+                        &mut cx,
+                        MIRROR_OA,
+                        &Graph::Mirror("openalex".into()),
+                        &entries,
+                        scatter_projection::Budget::NONE,
+                        registry(),
+                    )
+                    .await
+                    .unwrap();
+                } else {
+                    for o in &ops {
+                        write_operation(&store, &pipeline, &mut cx, &request, o, registry())
+                            .await
+                            .unwrap();
+                    }
+                }
+                let next = store.next_id(&mut cx, "", &Sequence::Page).await.unwrap();
+                store.commit(cx).await.unwrap();
+                let ids: Vec<_> = store
+                    .records(MIRROR_OA)
+                    .iter()
+                    .map(|r| {
+                        let h = r.header();
+                        (h.key.clone().unwrap(), h.page_id.unwrap(), h.revid.unwrap())
+                    })
+                    .collect();
+                (ids, next)
+            }
+        };
+        let (one, next_one) = run(false).await;
+        let (many, next_many) = run(true).await;
+        assert_eq!(
+            one,
+            vec![
+                ("OAW1".to_string(), ranged(0), ranged(0)),
+                ("OAW2".to_string(), ranged(1), ranged(1)),
+                ("OAW1".to_string(), ranged(0), ranged(2)),
+                ("OAW3".to_string(), ranged(3), ranged(3)),
+                ("OAW2".to_string(), ranged(1), ranged(4)),
+                ("OAW4".to_string(), ranged(5), ranged(5)),
+            ],
+            "a key's page ID is its first record's offset; a record's revision ID its own"
+        );
+        assert_eq!(many, one, "a block derives the same IDs");
+        assert_eq!(next_one, 1, "nothing was drawn from the page sequence");
+        assert_eq!(next_many, 1);
+    });
+}

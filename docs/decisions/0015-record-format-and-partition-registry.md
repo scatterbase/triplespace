@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-16 (A67)
+- **Updated:** 2026-11-21 (A68)
 - **Author:** James Hare / Claude Fable
 - **Uses:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md)
 
@@ -597,3 +597,12 @@ Replaced text: 01 §2.5.
 - **Source:** Direct: James, design discussion of 2026-11-16
 - **Change:** extends §3
 - **Summary:** A tenant `config` record of kind `remote-host`, keyed by the host's name, declares a host for the tenant's own remote keys (0110 A3). Chapter text: 23 §2.2.
+
+### A68. Offsets for a provider without page or revision IDs, from the writer
+
+- **Date:** 2026-11-21
+- **Source:** Direct: Claude, while finishing REVIEW G18 for SCA-282 on James's go-ahead (2026-11-21, "proceed to the next part of SCA-282"); unconfirmed
+- **Change:** extends §2; amends A66
+- **Summary:** A66 (2) has a provider that publishes no page IDs give each key `provider_number << 40 | offset of its first record`, declared on its registry entry, and notes that the append would have to fill field 9 from the offset it assigns; the registry file has said since §2 that a provider without revision IDs takes `n` from the mirror record's offset. Neither was built: such a provider drew page IDs from `log."instance.page_id"` and wrote no revision ID. The calls made: (1) A registry entry declares `page_ids = false`; the default is `true`. OpenAlex, MusicBrainz, OpenStreetMap and GDELT, the four with `revision_ids = false`, declare it; a tenant's entity source, a Wikibase, publishes page IDs. (2) The writer, not the append, takes the offset: the partition's size in its unit of work, and in a block the size plus the record's place in it, since one load of a mirror or source runs at a time under the load lock (0011 A37) and a block is appended in order from that size. A record written outside the lock would race; none is. (3) A new key's page ID is its first record's offset; a later record keeps its key's. A page ID a record of such a provider carries is ignored, so that its range holds offsets only. (4) A provider with `revision_ids = false` gives each record the revision ID `provider_number << 40 | its offset`, where the operation carries no upstream revision. Chapter text: 01 §2.5.
+
+Replaced text: A66 ("(2) is not yet built, and until it is such a provider still draws from `log."instance.page_id"`: the log store assigns a record's offset when it appends it, after its header, field 9 included, is fixed, so the append has to fill field 9 from the offset it assigns.")

@@ -273,6 +273,8 @@ impl EntitySource {
             number,
             issuer: String::new(),
             revision_ids: self.revision_ids,
+            // A source is a Wikibase: its entities have page IDs (0078 §1).
+            page_ids: true,
             article_path: None,
             api: self.api.clone(),
             entity_data: self.entity_data.clone(),
