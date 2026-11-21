@@ -137,13 +137,16 @@ fn snak_ids<'a>(property: &'a EntityId, kind: &'a SnakKind, out: &mut Vec<&'a En
     }
 }
 
-/// The tenant's `entities.mirror` (0070 §2.1; 05 §5.2), or the instance's where the tenant
-/// sets none: `{code or source name: {entity type: value}}`.
+/// The tenant's `entities.mirror` (0070 §2.1; 05 §5.2), or the instance's default for it
+/// (`template:site:entities.mirror`) where the tenant sets none: `{code or source name:
+/// {entity type: value}}`.
 async fn mirror_setting(cx: &PgCx, tenant: &str) -> Result<serde_json::Value, String> {
     let rows = cx
         .query(
-            "SELECT tenant, config->'value' FROM view.registry
-             WHERE tenant IN ('', $1) AND kind = 'site' AND code = 'entities.mirror'",
+            "SELECT tenant, coalesce(config->'record'->'value', config->'value')
+             FROM view.registry
+             WHERE (tenant = $1 AND kind = 'site' AND code = 'entities.mirror')
+                OR (tenant = '' AND kind = 'template' AND code = 'site:entities.mirror')",
             &[&tenant],
         )
         .await

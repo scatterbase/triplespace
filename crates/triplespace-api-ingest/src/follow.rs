@@ -475,6 +475,8 @@ impl<'a> ProviderFollower<'a> {
     /// Queues the closure values of the states in `items` (0070 §2.3; 05 §5.3): the values
     /// of each closure property, of this provider or source, one step deeper than the
     /// entity, up to the depth, unless the mirror holds them already.
+    ///
+    /// implements 0070 §2.3 (A11)
     /// Returns whether it queued any, so that the follower is not caught up.
     async fn queue_closure(&self, items: &[SyncItem]) -> Result<bool, IngestError> {
         if self.policy.closure.is_empty() || self.policy.depth <= 0 {

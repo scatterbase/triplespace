@@ -12,6 +12,8 @@
 //!
 //! The listed IDs are kept in a temporary table on the crawl's connection, not in memory,
 //! so that a large wiki costs the crawl no more than its requests.
+//!
+//! implements 0092 §4 (A16)
 
 use scatter_adapter_wikibase::follow::{EntityNamespaces, entity_id_of};
 use scatter_providers::{Provider, Registry};

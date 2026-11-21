@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-07
-- **Updated:** 2026-11-21 (A12)
+- **Updated:** 2026-11-21 (A13)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0011](0011-logs.md), [0014](0014-caches-and-search.md), [0017](0017-entity-id-grammar.md), [0018](0018-tenants.md), [0022](0022-federation.md), [0040](0040-instance-prerogatives.md), [0053](0053-mirrored-pages.md), [0065](0065-mediainfo-captions-and-commons.md), [0067](0067-proposals.md), [0071](0071-derived-statements-from-mirrored-pages.md)
 
@@ -216,3 +216,12 @@ Replaced text: 05 §5.3 ("Not yet: the re-rendering, `on-demand` fetches on read
 - **Summary:** §9 has `GET /provider/{code}/mirror` report each type's setting and set size and `POST /provider/{code}/mirror/fetch` queue IDs with `ts-runjob`, but neither was built. The calls made: (1) `types` is a map from each entity type the provider or source registers to `setting`, the `entities.mirror` value its follower applies (A11: the one set, else `all` once loaded, else `linked`, or `off` for a source without an `api`; a property at least `on-demand`), and `size`, how many entities of the type its graph holds, counted to at most 10,000 as `queued` is, rather than kept as a counter. (2) `POST /provider/{code}/mirror/fetch` takes `{"ids": [...]}` with a CSRF token, each ID as the provider writes it (`Q42`) or as it is stored (`WDQ42`, `lb:Q42`), queues them with the reason `manual` as `triplespace fetch` does, and answers `queued` (rows added) and `asked`; an ID of another provider is `400 ts-not-this-provider`, a provider or source without an `api` `409 ts-no-api`. Chapter text: 18 §3.2 (the route table, from `routes.toml`, and the contract).
 
 Replaced text: none.
+
+### A13. A read queues what is not held; the label cache is in the process; nothing to re-render
+
+- **Date:** 2026-11-21
+- **Source:** Direct: Claude, while building the rest of shallow mirroring on James's go-ahead (2026-11-21, "You can finish the rest of SCA-174"); unconfirmed
+- **Change:** amends §4, §2.2; extends §2.1
+- **Summary:** §2.1 has `on-demand` fetch an entity the first time it is read, §4 serves the labels of entities not mirrored from an L1/L2 cache, and §2.2 has a fetch re-render the pages that use the entity through `view.entity_ref` and a bulk job `prefetch`; none was built, there is no L1 (Valkey) layer yet, nothing writes `view.entity_ref`, and no bulk job reads a change-set file with a `start` line. The calls made: (1) A read that finds a foreign or source entity no graph holds, through `wbgetentities` or any REST entity route (the entity page's bundle among them), queues it with the reason `read` when its provider or source has an `api` and is not retired and the reading tenant's `entities.mirror` for its type is `on-demand`, `linked` (the default) or `all`, a property at least `on-demand`; the answer is `missing` or `404` as before and does not wait. Anyone who can read may cause such a row; an ID the provider does not have costs one request and is dropped (A5). (2) The label cache lives in the serving process: an entry per entity as stored, language chain and, for a source's entity, tenant, filled by `wbgetentities&props=labels&languages={chain}` and kept for `entities.label_ttl`; an entity upstream reports missing is kept as having no labels. `GET /labels` takes from it what `view.term` and the records do not answer. At most 100 entities are asked upstream per call, each request within 3 seconds, and what is not answered is shown as its bare ID; these requests carry no `maxlag`, since a reader is waiting for them, which the API's etiquette leaves to work no one waits for. A shared L1 replaces it when one is built. (3) There is nothing to re-render: no page is cached by the instance, a page is composed from `view` on each request, and a label's staleness in an HTTP cache is accepted up to `s-maxage` (03 §10.3). `view.entity_ref` is not needed for it. (4) `prefetch` is not built, since no bulk job of change sets reads a `start` line yet; the `fetch_queue` projection (A10) already queues each block's linked entities as the block commits, so the fetch runs beside a bulk write without it. Chapter text: 05 §5.3, §5.6.
+
+Replaced text: 05 §5.3 ("Not yet: the re-rendering, `on-demand` fetches on read and `prefetch`.").

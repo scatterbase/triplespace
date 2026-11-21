@@ -456,7 +456,22 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
     assert_eq!(body["followed_by"], "recentchanges");
     assert_eq!(body["status"], "not-followed");
     assert!(body["follow"].is_null() && body["gap"].is_null(), "{body}");
-    assert_eq!(body["queued"], 0, "nothing waits to be fetched");
+    // The read of `lb:Q999999` above found nothing and queued it (0070 A13).
+    assert_eq!(
+        body["queued"], 1,
+        "the unheld read waits to be fetched: {body}"
+    );
+    assert_eq!(
+        query(
+            &database,
+            "SELECT entity_id || ' ' || reason FROM ops.entity_fetch WHERE tenant = 'reader'"
+        )
+        .await
+        .iter()
+        .map(|r| r.get::<_, String>(0))
+        .collect::<Vec<_>>(),
+        ["Q999999 read"]
+    );
     // Per type, the setting the follower applies and the set's size (0070 §9, A11, A12):
     // a loaded source with no setting is followed whole.
     assert_eq!(body["types"]["item"]["setting"], "all", "{body}");
@@ -508,7 +523,7 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
     assert_eq!(status, StatusCode::BAD_REQUEST, "{body}");
     assert_eq!(body["code"], "ts-not-this-provider", "{body}");
     let (_, body) = c.raw(mirror).await;
-    assert_eq!(body["queued"], 2, "{body}");
+    assert_eq!(body["queued"], 3, "{body}");
     connect_to(&database)
         .await
         .execute("DELETE FROM ops.entity_fetch", &[])

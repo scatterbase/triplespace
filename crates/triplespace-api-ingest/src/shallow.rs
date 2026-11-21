@@ -2,7 +2,8 @@
 //! follows whole, and which properties it walks for closure and how far.
 //!
 //! A registry provider's mirror is the instance's, so its follower reads the instance's
-//! settings; a source's follower reads its tenant's, else the instance's. `entities.mirror`
+//! defaults (`template:site:{key}`); a source's follower reads its tenant's settings, else
+//! those defaults. `entities.mirror`
 //! is `{code or source name: {entity type: value}}` and `entities.closure` is
 //! `{code or source name: [property, …]}`, with Wikidata's four properties when unset for
 //! `WD` (0070 §2.3) and none for anything else.
@@ -56,16 +57,23 @@ impl Policy {
     }
 }
 
-/// The value of the `site` setting `code` for `tenant`, else the instance's.
-async fn site_value<C: GenericClient>(
+/// The value of the `site` setting `code` for `tenant`, else the instance's default for it
+/// (`template:site:{code}`, 23 §3.1); for `tenant` `""`, the instance's default alone.
+///
+/// # Errors
+///
+/// The database's.
+pub async fn site_value<C: GenericClient>(
     client: &C,
     tenant: &str,
     code: &str,
 ) -> Result<Option<serde_json::Value>, tokio_postgres::Error> {
     let rows = client
         .query(
-            "SELECT tenant, config->'value' FROM view.registry
-             WHERE tenant IN ('', $1) AND kind = 'site' AND code = $2",
+            "SELECT tenant, coalesce(config->'record'->'value', config->'value')
+             FROM view.registry
+             WHERE (tenant = $1 AND $1 <> '' AND kind = 'site' AND code = $2)
+                OR (tenant = '' AND kind = 'template' AND code = 'site:' || $2)",
             &[&tenant, &code],
         )
         .await?;
@@ -143,6 +151,52 @@ pub async fn policy<C: GenericClient>(
         closure,
         depth,
     })
+}
+
+/// Queues `id`, a foreign or source entity read on `tenant` that the instance does not
+/// hold, with the reason `read` (0070 §2.1, A13): when its provider or source has an `api`
+/// and is not retired, and the tenant's `entities.mirror` for its type is `on-demand`,
+/// `linked` (the default) or `all`; a property is always at least `on-demand`. Returns
+/// whether a row was added.
+///
+/// # Errors
+///
+/// The database's.
+pub async fn queue_read<C: GenericClient>(
+    client: &C,
+    registry: &scatter_providers::Registry,
+    tenant: &str,
+    id: &scatter_wikibase_model::id::EntityId,
+) -> Result<bool, tokio_postgres::Error> {
+    let Ok(f) = registry.parse_foreign_id(id.as_str()) else {
+        return Ok(false);
+    };
+    let p = f.provider();
+    if p.api.is_none() || p.retired {
+        return Ok(false);
+    }
+    let key = if p.source { &p.slug } else { &p.code };
+    let entity_type = f.entity_type().entity_type.as_str();
+    let setting = site_value(client, tenant, "entities.mirror")
+        .await?
+        .and_then(|v| v.get(key)?.get(entity_type)?.as_str().map(str::to_string));
+    let reads = match setting.as_deref() {
+        None | Some("on-demand" | "linked" | "all") => true,
+        Some(_) => entity_type == "property",
+    };
+    if !reads {
+        return Ok(false);
+    }
+    let queue_tenant = if p.source { tenant } else { "" };
+    let n = crate::fetch::enqueue(
+        client,
+        queue_tenant,
+        &p.slug,
+        &[f.upstream_id()],
+        crate::fetch::Reason::Read,
+    )
+    .await?;
+    Ok(n > 0)
 }
 
 #[cfg(test)]
