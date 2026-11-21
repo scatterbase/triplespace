@@ -450,6 +450,86 @@ async fn a_follower_runs_a_pass_at_a_time() {
     let _ = std::fs::remove_dir_all(&dir);
 }
 
+/// A wiki that answers every request with an API error, which the follower does not retry.
+async fn broken_wiki() -> String {
+    use tokio::io::{AsyncReadExt as _, AsyncWriteExt as _};
+    let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+    let address = listener.local_addr().unwrap();
+    tokio::spawn(async move {
+        loop {
+            let Ok((mut socket, _)) = listener.accept().await else {
+                return;
+            };
+            tokio::spawn(async move {
+                let mut chunk = [0u8; 4096];
+                let _ = socket.read(&mut chunk).await;
+                let answer =
+                    r#"{"error":{"code":"internal_api_error_DBQueryError","info":"broken"}}"#;
+                let _ = socket
+                    .write_all(
+                        format!(
+                            "HTTP/1.1 200 OK\r\ncontent-type: application/json\r\n\
+                             content-length: {}\r\nconnection: close\r\n\r\n{answer}",
+                            answer.len()
+                        )
+                        .as_bytes(),
+                    )
+                    .await;
+            });
+        }
+    });
+    format!("http://{address}/w/api.php")
+}
+
+// 0104 A12: a pass that fails puts the row back as one that succeeded does, unclaimed and
+// waiting its interval, rather than failing the follower and removing it.
+#[tokio::test]
+async fn a_followers_failed_pass_is_tried_again() {
+    let Some((database, dir)) = setup("tsjobkinds_followfail").await else {
+        eprintln!("TRIPLESPACE_TEST_DATABASE_URL is not set; skipping");
+        return;
+    };
+    let farm = triplespace_cli::common::farm_at(&database).await.unwrap();
+    let (store, pipeline) = triplespace_cli::common::store(&database, &farm).unwrap();
+    let key_file = dir.join("triplespace.key");
+    start(StartKind::Follow(follow::Follow {
+        database: database.clone(),
+        provider: Some("internetdomains".into()),
+        tenant: None,
+        source: None,
+        once: false,
+        from: Some("2026-11-12T00:00:00Z".into()),
+        interval: Some(3600),
+        batch: 200,
+        key_file: key_file.clone(),
+        anonymous: true,
+        api: Some(broken_wiki().await),
+    }))
+    .await;
+    let row = queued(&database).await;
+    let followers = job_work::with_followers(Runner::only("follow"), &database, &key_file);
+    let ran = jobs::run_once(&store, &pipeline, &followers, triplespace_cli::common::now)
+        .await
+        .unwrap()
+        .expect("the follower waited");
+    assert_eq!((ran.job_id, ran.error), (row, None));
+    assert_eq!(
+        rows(
+            &database,
+            "SELECT job_id::text, (claimed_at IS NULL)::text,
+                    (not_before > now() + interval '50 minutes')::text
+             FROM ops.job_queue"
+        )
+        .await,
+        vec![vec![
+            Some(row.to_string()),
+            Some("true".into()),
+            Some("true".into())
+        ]]
+    );
+    let _ = std::fs::remove_dir_all(&dir);
+}
+
 // 0104 §4 (A9); 0013 §4 (A103): the followers' runner is the one on the accounts login,
 // because a follower logs in upstream with a bot password kept in `private`. On the
 // public API's login the password cannot be read, and the pass goes on anonymously; on

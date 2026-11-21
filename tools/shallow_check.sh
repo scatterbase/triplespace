@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
-# Shallow mirroring against live Wikidata (0070; SCA-174): a database loaded from the
-# Librarybase sample fixture, a bot account, the API on its own, and then shallow_check.py,
-# which links ten Wikidata items from a Librarybase item and checks their labels, their
-# fetch, their statements, the closure and the set. It reads www.wikidata.org: a few dozen
+# Shallow mirroring against live Wikidata (0070; SCA-174), as an operator sets it up: a
+# database loaded from the Librarybase sample fixture, the Wikidata mirror opened on it
+# afterwards with `instance provider add` (0018 A40), which queues the follower, a bot
+# account, the server with its job runner, and then shallow_check.py, which links ten
+# Wikidata items from a Librarybase item and checks their labels, their fetch by the
+# server's follower, their statements, the closure and the set. It reads www.wikidata.org: a few dozen
 # requests, anonymous, one at a time. The closure is walked one step
 # (`entities.closure_depth` 1 at the instance) to keep it at that.
 #
@@ -49,7 +51,7 @@ psql "$admin" -q -c "DROP DATABASE IF EXISTS $db WITH (FORCE)" -c "CREATE DATABA
 export TRIPLESPACE_DATABASE_URL="$url"
 echo 'shallow-owner-secret-1234' >"$work/owner.pw"
 "$bin/triplespace" instance create --farm-slug scatter --tenant $tenant --base https://librarybase.org \
-	--key-file "$work/k.key" --provider wikidata --adopt https://librarybase.org/ \
+	--key-file "$work/k.key" --adopt https://librarybase.org/ \
 	--owner 7 --owner-name Alice --owner-password-file "$work/owner.pw" >/dev/null
 
 step "adopt $(basename "$fixture")"
@@ -57,6 +59,11 @@ step "adopt $(basename "$fixture")"
 	--source https://librarybase.org/ --version sample --frozen 2>&1 | tail -n 3
 "$bin/triplespace" settings set --instance --tenancy config.template defaults >/dev/null
 "$bin/triplespace" settings set --instance --default entities.closure_depth 1 >/dev/null
+# A pass every 15 s rather than every minute, so that the check waits less for the server's.
+"$bin/triplespace" settings set --instance --default follow.interval PT15S >/dev/null
+
+step "open the Wikidata mirror on the running instance"
+"$bin/triplespace" instance provider add wikidata --key-file "$work/k.key"
 
 step "bot account"
 "$bin/triplespace" subsidiary create --tenant $tenant --name ShallowBot --operator Alice --group bot >/dev/null

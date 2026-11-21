@@ -13,8 +13,8 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use triplespace_cli::{
     accounts, adopt, backup_key, challenge, compact, dump, env_file, fetch, follow, forwarder,
-    import_pages, instance, job, log_bundle, logins, oauth_client, provision, restore, rights,
-    settings, setup, source, status, sync, tenant,
+    import_pages, instance, job, log_bundle, logins, oauth_client, provider, provision, restore,
+    rights, settings, setup, source, status, sync, tenant,
 };
 
 /// Triplespace: a Wikibase as an append-only log.
@@ -167,6 +167,11 @@ enum InstanceCommand {
         #[command(subcommand)]
         command: forwarder::Forwarder,
     },
+    /// Provider mirrors on a running instance (0018 A40).
+    Provider {
+        #[command(subcommand)]
+        command: provider::Provider,
+    },
 }
 
 fn main() -> Result<()> {
@@ -191,6 +196,9 @@ async fn run() -> Result<()> {
         Command::Instance {
             command: InstanceCommand::Forwarder { command },
         } => forwarder::run(command).await,
+        Command::Instance {
+            command: InstanceCommand::Provider { command },
+        } => provider::run(command).await,
         Command::Tenant { command } => tenant::run(command).await,
         Command::Provision(args) => provision::run(args).await,
         Command::Adopt(args) => adopt::run(args).await,

@@ -2,7 +2,9 @@
 """Shallow mirroring against live Wikidata (0070; SCA-174), against a server
 `shallow_check.sh` sets up: a Librarybase tenant links ten Wikidata items, sees their
 labels at once from the label cache, has them fetched by the Wikidata follower with their
-statements and their closure, and a second pass fetches nothing outside the set.
+statements and their closure, and a second pass fetches nothing outside the set. The
+follower is the server's own, the `follow` job `instance provider add` queued; each step
+waits for a pass of it to end.
 
 Each step is a check; any failure exits 1. Editing an item upstream and seeing the follower
 bring the edit in is not automated, since it needs an account on Wikidata: the script says
@@ -90,24 +92,34 @@ def main():
     queued = sql(args.db, "SELECT entity_id FROM ops.entity_fetch WHERE tenant = '' AND provider = 'wikidata'")
     check("the linked items are queued", set(wd) <= set(queued), f"queued: {queued}")
 
-    # 3. One follower pass fetches them, with their statements, and their closure.
-    env = dict(os.environ, TRIPLESPACE_DATABASE_URL=args.db)
-    follow = [f"{args.bin}/triplespace", "follow", "--provider", "wikidata", "--once",
-              "--anonymous", "--key-file", args.key_file]
+    # 3. A pass of the server's follower fetches them, with their statements, and their
+    # closure. The pass ends when the follow row is put back: unclaimed, with a new
+    # `not_before`.
+    def follower():
+        rows = sql(args.db, "SELECT coalesce(claimed_by, '') || '|' || coalesce(not_before::text, '') FROM ops.job_queue"
+                            " WHERE tenant = '' AND kind = 'follow' AND params->>'provider' = 'wikidata'")
+        return rows[0] if rows else None
 
-    def follow_once():
-        # Wikidata answers `maxlag` while its query service lags; a server's follower polls
-        # again, and so does this, a few times.
-        for _ in range(6):
-            run = subprocess.run(follow, env=env, capture_output=True, text=True)
-            if run.returncode == 0 or "maxlag" not in run.stderr:
-                return run
-            print("  (Wikidata is lagged; trying again in 30 s)")
-            time.sleep(30)
-        return run
+    def follow_once(timeout=600):
+        """Waits for the next pass of the server's follower to end; whether one did."""
+        before = follower()
+        if before is None:
+            return False
+        deadline = time.time() + timeout
+        while time.time() < deadline:
+            time.sleep(2)
+            now = follower()
+            if now is None:
+                return False
+            if now != before and now.startswith("|"):
+                return True
+        return False
 
-    run = follow_once()
-    check("the follower runs", run.returncode == 0, run.stderr[-800:])
+    # A pass may be under way as the links are made; the first whole pass after them is
+    # the one that fetches.
+    follow_once()
+    ran = follow_once()
+    check("the server's follower runs", ran, "no pass ended; see the server log")
     got = action(action="wbgetentities", ids="|".join(stored))["entities"]
     held = [i for i in stored if "missing" not in got.get(i, {"missing": ""})]
     check("the linked items are mirrored", len(held) == len(stored), f"{held}")
@@ -131,10 +143,9 @@ def main():
 
     # 4. A second pass fetches nothing outside the set: the set does not grow by itself.
     before = sql(args.db, "SELECT count(*) FROM view.entity_source WHERE graph = 'mirror/wikidata'")
-    run = follow_once()
+    ran = follow_once()
     after = sql(args.db, "SELECT count(*) FROM view.entity_source WHERE graph = 'mirror/wikidata'")
-    check("a second pass keeps to the set", run.returncode == 0 and before == after,
-          f"{before} → {after}; {run.stderr[-400:]}")
+    check("a second pass keeps to the set", ran and before == after, f"{before} → {after}")
 
     print("skip an upstream edit brought in by the follower: editing Wikidata needs an account,"
           " so it is not automated")

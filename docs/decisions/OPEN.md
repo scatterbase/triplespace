@@ -52,6 +52,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0016 A42](0016-permissions-and-access-control.md#a42-delegated-administration-the-calls-made-while-drafting-and-building-tier-4) | 2026-10-30 | Delegated administration: the calls made while drafting and building tier 4 |
 | [0018 A33](0018-tenants.md#a33-multi-tenant-round-1-the-assumptions-the-implementation-made) | 2026-10-30 | Multi-tenant round 1: the assumptions the implementation made |
 | [0018 A36](0018-tenants.md#a36-instances-and-tenants-created-by-question-and-answer) | 2026-11-12 | Instances and tenants created by question and answer |
+| [0018 A40](0018-tenants.md#a40-a-providers-mirror-can-be-opened-on-a-running-instance) | 2026-11-21 | A provider's mirror can be opened on a running instance |
 | [0019 A31](0019-discussions.md#a31-a-threads-actions-from-the-page-the-calls-made-building-them) | 2026-11-05 | A thread's actions from the page: the calls made building them |
 | [0020 A20](0020-change-feeds.md#a20-there-is-no-actionunwatch) | 2026-11-09 | There is no `action=unwatch` |
 | [0021 A23](0021-notifications.md#a23-accountability-the-calls-made-building-tier-5) | 2026-10-30 | Accountability: the calls made building tier 5 |
@@ -126,6 +127,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0104 A7](0104-batches-and-the-job-runner.md#a7-claims-are-one-per-partition-and-capped-and-a-job-that-fails-before-it-starts-is-a-failed-job) | 2026-11-13 | Claims are one per partition and capped, and a job that fails before it starts is a failed job |
 | [0104 A8](0104-batches-and-the-job-runner.md#a8-a-job-that-lost-its-claim-is-stopped-and-an-imports-talk-pages-are-its-own-work) | 2026-11-13 | A job that lost its claim is stopped, and an import's talk pages are its own work |
 | [0104 A9](0104-batches-and-the-job-runner.md#a9-exports-adoptions-syncs-and-followers-join-the-queue) | 2026-11-13 | Exports, adoptions, syncs and followers join the queue |
+| [0104 A12](0104-batches-and-the-job-runner.md#a12-a-followers-failed-pass-is-tried-again) | 2026-11-21 | A follower's failed pass is tried again |
 | [0106 A5](0106-create-entities-grid-and-drafts.md#a5-what-a-draft-needed-to-hold-the-tables-text-found-while-building) | 2026-11-10 | What a draft needed to hold the table's text, found while building |
 | [0106 A6](0106-create-entities-grid-and-drafts.md#a6-how-the-grid-and-the-mapping-step-are-built-found-while-building) | 2026-11-10 | How the grid and the mapping step are built, found while building |
 | [0106 A7](0106-create-entities-grid-and-drafts.md#a7-a-quantitys-unit-in-the-text-found-while-building) | 2026-11-10 | A quantity's unit in the text, found while building |
