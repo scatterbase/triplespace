@@ -404,11 +404,11 @@ What it does not carry: the primary tenant's records are not instance records; i
 
 ### 7.2 The `primary` record
 
-*Sources: [0046](../decisions/0046-primary-tenant.md) §2.*
+*Sources: [0046](../decisions/0046-primary-tenant.md) §2, A12.*
 
 The role is held by one `config` record of an instance-scope kind, **`primary`**, keyed `primary`, whose content is the tenant's slug and, for a transfer, the offer it accepts (§7.5). The `tenant` record keeps slug, base URI and, for a provider tenant, its code and number, and carries no primary flag (§2.5).
 
-`instance create` appends the first `primary` record after the instance `key:` and the primary tenant's `tenant:` record: offset 0 is the founding record (§2.2), and offsets 1 and 2, the `tenant:` and `primary` records, are attested by `instance:{farm code}` with the founding record as authority, since no account of the primary tenant exists yet to attest them. A single-tenant instance therefore needs no authority record and no `ts-prerogative` path before its first entity. The instance `config` partition is `logged` and `full`, so its history answers "which tenant was primary at offset *n*" without a separate table, which §7.1 relies on.
+`instance create` writes the instance `config` in this order: offset 0 the founding record (§2.2); `graph:config`, by which the partition registers itself ([0015](../decisions/0015-record-format-and-partition-registry.md) §3); the `farm` record, with the farm code derived from the founding record; the `graph:` records of the instance's own partitions, each before that partition's first record; the settings and tenancy records; then the primary tenant's `tenant:` record and the first `primary` record. Every record after offset 0 that it writes is attested by `instance:{farm code}` with the founding record as authority, since no account of the primary tenant exists yet to attest them ([0046](../decisions/0046-primary-tenant.md) A12). A single-tenant instance therefore needs no authority record and no `ts-prerogative` path before its first entity. The instance `config` partition is `logged` and `full`, so its history answers "which tenant was primary at offset *n*" without a separate table, which §7.1 relies on.
 
 ### 7.3 Any tenant may be primary
 

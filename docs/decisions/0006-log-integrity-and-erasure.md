@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-21 (A36)
+- **Updated:** 2026-11-21 (A37)
 - **Author:** James Hare / Claude Opus
 
 ## Context
@@ -413,3 +413,12 @@ Replaced text: none; 01 §2.5 gains a sentence.
 - **Summary:** A24 has a `hashed` partition's job-end "checkpoint" be the manifest of its last sealed segment plus an unsigned head offset, and 01 §4.2 has a `logged` partition checkpointed at the end of every job, but 0013 A57 lets no job sign: the signing worker, and until it signs on a cadence `triplespace checkpoint`, is the only signer. James: a job records the heads it left and signs nothing. The calls made: (1) A job's finish record carries `heads`, one entry for each partition it wrote: the graph name (not the partition ID, which is 64 random bits and no JSON number), the size and the Merkle root in hex, read in the job's own unit of work, and for a `hashed` partition `sealed`, the number and root of its last sealed segment, the root its manifest signs. (2) A job's partitions are its graph's and those its code names besides: an adoption names `pages` and `actors` as well as `local`. (3) The checkpoint or manifest that covers a head is the signer's, later; a verifier links the two by size or by segment number. (4) The log store refuses a checkpoint for a partition that is not `logged`, whoever stores it, a restore included. (5) A root covers salted leaves, so two runs that write the same records name the same sizes and different roots. Chapter text: 01 §4.2; 16 §2.2.
 
 Replaced text: 01 §4.2 ("at the end of every job ([0002] §8.3);"); 16 §2.2 ("It also carries the checkpoint written at the end of the job ([01] §4.2).").
+
+### A37. The verifier checks that a `config` partition begins with its founding record
+
+- **Date:** 2026-11-21
+- **Source:** Direct: Claude, while finishing REVIEW G22 for SCA-282 on James's go-ahead (2026-11-21, "Commit and work on the next part of SCA-282"); unconfirmed
+- **Change:** extends §6
+- **Summary:** 0015 A52 (REVIEW G22) has offset 0 of every `config` partition carry the founding attestation, signed by the key the record registers, and a tenant's cite the instance's founding record as its authority. The verifier flagged a founding attestation at any other offset, and the key chain checked a signed first key record against the key it registers, but nothing required offset 0 to be a founding record, and a tenant's authority was not read. The calls made: (1) Verifying a `config` partition checks that offset 0 is a `key:` record under a founding attestation; an unsigned key record, or a record of another kind, is a problem (`NotFounded`), and the key chain goes on checking that the signature is by the key the record registers. (2) The instance's founding record cites no authority; a tenant's cites partition 0 at offset 0. (3) The leaf the authority cites is in another partition, which a partition's own verification does not read; it is left to a check across partitions. Chapter text: 01 §2.4.
+
+Replaced text: none; 01 §2.4 gains a sentence.

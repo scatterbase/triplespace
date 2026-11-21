@@ -665,23 +665,27 @@ mod tests {
             let _ = fs::remove_dir_all(&dest);
             let key = SigningKey::from_bytes(&[21; 32]);
             let mut store = MemoryStore::new();
-            Genesis {
+            // Founded as an instance founds its config (0015 A52).
+            let mut genesis = Genesis {
                 partition: CONFIG_PARTITION,
                 scope: Scope::Instance,
                 key: KeyEntry::ed25519(key.verifying_key().to_bytes()),
                 segment_exponent: 16,
                 appended_at: 1,
-                founding: Value::map(Vec::new()),
-
+                founding: Value::Null,
                 attestation: Value::map(vec![(
                     Value::text("actor"),
                     Value::text("instance:scatter"),
                 )]),
                 comment: None,
-            }
-            .append(&mut store, &GraphRegistry::embedded())
-            .await
-            .unwrap();
+            };
+            let (content, comment) = genesis.founding_parts();
+            genesis.founding =
+                crate::attest::founding_attestation(&key, &content, &comment, None).unwrap();
+            genesis
+                .append(&mut store, &GraphRegistry::embedded())
+                .await
+                .unwrap();
             let config_origin = instance_origin("farm.example", "config");
             let local_origin = tenant_origin("librarybase.org", "local");
             store
