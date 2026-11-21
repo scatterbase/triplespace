@@ -323,4 +323,26 @@ mod tests {
         assert_eq!(doc.statement_keywords, vec!["P2=Q4"]);
         assert_eq!(doc.statement_count, 3);
     }
+
+    /// The search documents carry source-form IDs (`WDQ5` where Wikidata wrote `Q5`): "the search documents, the RDF dump and the update stream carry `WDQ5` where Wikidata wrote `Q5`" (0004 §4).
+    #[test]
+    fn search_documents_carry_source_form_ids() {
+        // A mirrored Wikidata item, whose source form is `WDQ42`.
+        let w: Entity = serde_json::from_str(r#"{"type":"item","id":"WDQ42"}"#)
+            .map(|p: crate::entity::ParsedEntity| p.entity)
+            .unwrap();
+        let doc = entity_document(&w, &ctx(&[], &[]));
+        assert_eq!(doc.id, "WDQ42");
+
+        // The same holds for a foreign entity value inside a statement keyword: the
+        // identity canon leaves every ID as its source wrote it, so `WDQ3` stays `WDQ3`.
+        let e: Entity = serde_json::from_str(
+            r#"{"type":"item","id":"Q1","claims":{"P2":[
+                {"mainsnak":{"snaktype":"value","property":"P2","datatype":"wikibase-item","datavalue":{"value":{"entity-type":"item","id":"WDQ3"},"type":"wikibase-entityid"}},"rank":"normal"}]}}"#,
+        )
+        .map(|p: crate::entity::ParsedEntity| p.entity)
+        .unwrap();
+        let doc = entity_document(&e, &ctx(&[], &[]));
+        assert_eq!(doc.statement_keywords, vec!["P2=WDQ3"]);
+    }
 }
