@@ -1578,4 +1578,43 @@ mod tests {
         assert_eq!(dark["color-base"], "#eaecf0");
         assert!(light.len() > 150 && dark.len() > 90);
     }
+
+    /// One stylesheet per palette and one per type set, named under `/ui/theme/` by the
+    /// record's offset and hash, immutable and rebuildable from the log for earlier offsets:
+    /// "One stylesheet per palette and one per type set, named under `/ui/theme/` by the record's offset and hash, immutable and rebuildable from the log for earlier offsets" (0094 §2).
+    #[test]
+    fn one_sheet_per_record_named_by_offset_and_hash() {
+        let theme = Theme::shipped();
+        let palette_href = theme
+            .href(Sheet::Palette, DEFAULT_PALETTE)
+            .expect("palette sheet");
+        let typeset_href = theme
+            .href(Sheet::Typeset, DEFAULT_TYPESET)
+            .expect("typeset sheet");
+        assert!(palette_href.starts_with("/ui/theme/"));
+        assert!(typeset_href.starts_with("/ui/theme/"));
+        // The name carries more than the record's name.
+        assert_ne!(palette_href, format!("/ui/theme/{DEFAULT_PALETTE}.css"));
+        assert_ne!(typeset_href, format!("/ui/theme/{DEFAULT_TYPESET}.css"));
+        // The same record names the same sheet, and the sheet named is the one it builds.
+        assert_eq!(
+            theme.href(Sheet::Palette, DEFAULT_PALETTE),
+            Some(palette_href)
+        );
+        assert_eq!(
+            theme.href(Sheet::Typeset, DEFAULT_TYPESET),
+            Some(typeset_href)
+        );
+        assert_eq!(
+            theme.css(Sheet::Palette, DEFAULT_PALETTE),
+            theme.palette_css(DEFAULT_PALETTE)
+        );
+        assert_eq!(
+            theme.css(Sheet::Typeset, DEFAULT_TYPESET),
+            theme.typeset_css(DEFAULT_TYPESET)
+        );
+        // A record the wiki does not offer has no sheet.
+        assert_eq!(theme.href(Sheet::Palette, "no-such-palette"), None);
+        assert_eq!(theme.css(Sheet::Palette, "no-such-palette"), None);
+    }
 }
