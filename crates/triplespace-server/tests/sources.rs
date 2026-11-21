@@ -448,6 +448,53 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 
+    // `registry check` reads the tenant's sources (0078 §9): `lb` declares Librarybase's
+    // templates, so it is reported promotable; the check changes nothing.
+    triplespace_cli::registry::run(triplespace_cli::registry::RegistryCommand::Check(
+        triplespace_cli::registry::Check {
+            database: database.clone(),
+            tenant: Some("reader".into()),
+        },
+    ))
+    .await
+    .expect("registry check");
+    let declared =
+        triplespace_projections::entity_sources::declared(&connect_to(&database).await, "reader")
+            .await
+            .unwrap();
+    assert!(
+        triplespace_api_ingest::sources::findings(
+            &declared[0],
+            scatter_providers::Registry::default_registry()
+        )
+        .iter()
+        .any(|l| l.contains("promoted to LB"))
+    );
+
+    // The tenant's sources (0078 §10): `GET /entity-sources`, and the same list in
+    // `siprop=triplespace`.
+    let (status, listed) = c.raw("/w/rest.php/triplespace/v0/entity-sources").await;
+    assert_eq!(status, StatusCode::OK, "{listed}");
+    let sources = listed["sources"].as_array().expect("a list");
+    assert_eq!(sources.len(), 1, "{listed}");
+    assert_eq!(sources[0]["name"], "lb");
+    assert_eq!(sources[0]["label"], "Librarybase");
+    assert!(
+        sources[0]["number"].as_u64().is_some_and(|n| n >= 4096),
+        "{listed}"
+    );
+    assert_eq!(
+        sources[0]["types"][0]["iri"],
+        "https://librarybase.org/entity/{upstream_id}"
+    );
+    assert_eq!(sources[0]["promoted_to"], Value::Null);
+    assert_eq!(sources[0]["retired"], false);
+    let site = c.get("action=query&meta=siteinfo&siprop=triplespace").await;
+    assert_eq!(
+        site["query"]["triplespace"]["entity_sources"], listed["sources"],
+        "{site}"
+    );
+
     // The source's mirror status (18 §3.2; 0092 A15): loaded, not yet followed.
     let mirror = "/w/rest.php/triplespace/v0/provider/lb/mirror";
     let (status, body) = c.raw(mirror).await;

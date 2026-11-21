@@ -240,8 +240,8 @@ sources = "[0012](../decisions/0012-api-requirements.md) §5"
 
 [[route]]
 routes = ["GET /entity-sources"]
-purpose = "The tenant's sources: name, label, namespace, types with IRI templates (absent for an unpublished source), `promoted_to`, and for a tenant source its `tenant` and `base`, with its types as read from the provider. Public, as `GET /resolvers` is"
-sources = "[0078](../decisions/0078-entity-sources.md) §10; [0080](../decisions/0080-tenants-as-entity-sources.md) §8"
+purpose = "The tenant's sources, as `{\"sources\": [...]}`: name, label, number, namespace, types with IRI templates (absent for an unpublished source), `api`, `entity_data`, `revision_ids`, licence, `promoted_to`, `retired`, and for a tenant source its `tenant` and `base`, with its types as read from the provider. `namespace` waits for the source's namespace (05 §6.5), and `tenant` and `base` for tenant sources (0080); until sources can be unpublished every source's templates are shown (0078 A9). Public, as `GET /resolvers` is"
+sources = "[0078](../decisions/0078-entity-sources.md) §10, A9; [0080](../decisions/0080-tenants-as-entity-sources.md) §8"
 
 [[route]]
 routes = ["GET /entity/E1"]

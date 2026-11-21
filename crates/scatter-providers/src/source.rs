@@ -141,6 +141,20 @@ impl EntitySource {
         if registry.by_slug(&self.name).is_some() {
             return Err(SourceError::NameTaken(self.name.clone()));
         }
+        self.validate_shape()
+    }
+
+    /// The shape rules alone, without the registry's: what a later record of a source
+    /// already declared is held to, since a source keeps a name a registry update added
+    /// later (05 §6.3 rule 2).
+    ///
+    /// # Errors
+    ///
+    /// [`SourceError`].
+    pub fn validate_shape(&self) -> Result<(), SourceError> {
+        if !is_source_name(&self.name) {
+            return Err(SourceError::Name(self.name.clone()));
+        }
         let types = |what: String| SourceError::Types {
             name: self.name.clone(),
             what,
@@ -194,6 +208,22 @@ impl EntitySource {
             });
         }
         Ok(())
+    }
+
+    /// The registry provider this unpromoted source can be promoted to (05 §6.8): one
+    /// that declares every one of the source's IRI templates.
+    #[must_use]
+    pub fn promotable_to<'r>(&self, registry: &'r Registry) -> Option<&'r Provider> {
+        if self.promoted_to.as_deref().is_some_and(|c| !c.is_empty()) || self.types.is_empty() {
+            return None;
+        }
+        registry.providers().iter().find(|p| {
+            !p.source
+                && self
+                    .types
+                    .iter()
+                    .all(|t| p.types.iter().any(|pt| pt.iri == t.iri))
+        })
     }
 
     /// Checks a later record of this source against `earlier`, the record it replaces
@@ -447,12 +477,20 @@ mod tests {
         assert!(r.parse_foreign_id("opencredit:X8").is_err());
         assert_eq!(r.parse_foreign_id("WDQ42").unwrap().to_string(), "WDQ42");
         assert!(r.by_number(FIRST_SOURCE_NUMBER).is_some());
-        // A source may not take a registry name.
-        let mut taken = source().to_provider().unwrap();
-        taken.slug = "librarybase".into();
+        // A source with a name a registry update gave a provider shadows the provider's
+        // slug on its tenant; the provider is still reached by its code (05 §6.3 rule 2).
+        let mut shadowing = source().to_provider().unwrap();
+        shadowing.slug = "librarybase".into();
+        let r = Registry::default_registry()
+            .with_sources(vec![shadowing.clone()])
+            .unwrap();
+        assert!(r.by_slug("librarybase").unwrap().source);
+        assert_eq!(r.by_code("LB").unwrap().slug, "librarybase");
+        assert!(!r.by_code("LB").unwrap().source);
+        // Two sources of one name are refused.
         assert!(
             Registry::default_registry()
-                .with_sources(vec![taken])
+                .with_sources(vec![shadowing.clone(), shadowing])
                 .is_err()
         );
     }

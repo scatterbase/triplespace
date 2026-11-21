@@ -1,8 +1,8 @@
 # 0091. One Wikibase adapter; key maps are configuration
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-26
-- **Updated:** 2026-10-30 (A2)
+- **Updated:** 2026-11-21 (A3)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0003](0003-statement-ui.md), [0017](0017-entity-id-grammar.md), [0035](0035-adopting-a-wikibase.md), [0048](0048-notation.md), [0070](0070-shallow-entity-mirroring.md), [0078](0078-entity-sources.md)
 
@@ -100,3 +100,10 @@ Replaced text: Consequences of this ADR.
 - **Date:** 2026-10-30
 - **Source:** 0050 §14
 - **Change:** relocates §1–§5
+
+### A3. Concept links name Wikidata items; deprecated properties are skipped
+
+- **Date:** 2026-11-21
+- **Source:** Direct: James, 2026-11-21, choosing between options put to him: concept links become item values naming the Wikidata item, and a deprecated property's uses are dropped while the property is still mirrored; the deprecation mark (an English label opening with `(DEPRECATED)`), the property becoming one of items, and a follower reading the marks from the mirror's labels, Claude, while building them, 2026-11-21; unconfirmed
+- **Change:** extends §2
+- **Summary:** The two vocabulary keys beside a key map are read. A value of a `concept_link_properties` property that is a Wikidata ID written as a string (`"Q787417"`) becomes an item value naming the item in Wikidata's stored form (`WDQ787417`), and the property's datatype becomes `wikibase-item`, so a tag links into the Wikidata mirror and its label shows; it stays an ordinary statement, never `same-as`. With `skip_deprecated_properties = true`, a property whose English label opens with `(DEPRECATED)`, the OpenStreetMap wiki's mark, is skipped wherever it is used (statements, qualifiers and reference snaks; a reference left empty goes), and is still mirrored itself. A concept-link entry that is not a property is a configuration error. Chapter text: 05 §4.1, §8.9.

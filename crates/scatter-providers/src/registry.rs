@@ -776,7 +776,10 @@ impl Registry {
 
     /// A tenant's table of names (0078 §3): this registry with the tenant's entity
     /// sources added as providers ([`crate::EntitySource::to_provider`]). A source whose
-    /// name the registry has, or whose number another entry has, is refused (rule 1).
+    /// name a registry provider has shadows that provider's slug, which a registry update
+    /// can bring about: the provider is still reached by its code (rule 2). Two sources of
+    /// one name, or a number another entry has, are refused.
+    /// This implements 0078 §3 rule 2 (A7).
     ///
     /// # Errors
     ///
@@ -790,9 +793,14 @@ impl Registry {
                     p.slug
                 )));
             }
-            if out.by_slug.contains_key(&p.slug) {
+            // A registry update may add a slug a tenant already uses for a source: the
+            // source keeps it on the tenant, and the provider is reached there by its code
+            // (05 §6.3 rule 2). Two sources of one name are the writer's to prevent.
+            if let Some(&i) = out.by_slug.get(&p.slug)
+                && out.providers[i].source
+            {
                 return Err(RegistryError::Toml(format!(
-                    "`{}` is a name the registry has (ts-source-name-taken)",
+                    "two sources are named `{}`",
                     p.slug
                 )));
             }

@@ -73,6 +73,7 @@ pub mod backup_keys;
 pub mod diff;
 pub mod email;
 mod entity_route;
+pub mod entity_sources;
 pub mod export;
 pub mod export_job;
 pub mod groups;
@@ -228,6 +229,7 @@ rest_operations! {
     post "/jobs/{id}/reject" => jobs::reject;
     post "/jobs/{id}/revert" => jobs::revert;
     post "/jobs/{id}/close" => jobs::close;
+    get "/entity-sources" => entity_sources::handle;
     get "/provider/{code}/mirror" => mirror::handle;
     post "/provider/{code}/mirror/fetch" => mirror::fetch;
 }

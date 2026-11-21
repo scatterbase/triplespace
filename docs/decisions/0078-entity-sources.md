@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-08
-- **Updated:** 2026-11-20 (A8)
+- **Updated:** 2026-11-21 (A9)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0022](0022-federation.md), [0024](0024-subsidiary-accounts.md), [0026](0026-sitelinks.md), [0043](0043-lua-modules.md), [0044](0044-tenant-relative-ids.md), [0048](0048-notation.md), [0052](0052-page-repositories-and-title-inheritance.md), [0056](0056-security-model.md), [0065](0065-mediainfo-captions-and-commons.md), [0071](0071-derived-statements-from-mirrored-pages.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
@@ -178,3 +178,10 @@ Replaced text: 05 §6.2.
 - **Summary:** §9 retires a source by writing its record null, and `view.registry` then drops the row, so the writer no longer saw the source: the next source declared on the tenant took the retired number (4096 went to a new source while `source/lb`'s records still used it), a retired source declared again got a new number, and its IDs stopped resolving. Nor was a later record checked against the first, so a changed IRI template was accepted. Redeclaring a current source already updated it. The calls made: (1) retiring writes the record again with `retired: true`; the row stays in the table of names, so the name, the number and the templates stay reserved and the IDs keep resolving, and a retired source is a retired provider, which `sync` and `follow` refuse. (2) Declaring a retired source again makes it current under its own number; retiring one already retired is refused. (3) A later record is checked against the one it replaces and refused with `ts-source-binding` when it changes the number, or for a type the earlier record declares, its entity type, ID grammar or IRI template, or drops the type; a new type may be added. The prefix's case is not a change. (4) A record written null by an earlier version is still read as no record; none exists outside tests. Chapter text: [05](../architecture/05-providers-and-ingest.md) §6.8.
 
 Replaced text: 05 §6.8 (the binding paragraph).
+
+### A9. `GET /entity-sources` lists every field of a source record
+
+- **Date:** 2026-11-21
+- **Source:** Direct: Claude, while building `GET /entity-sources` and siteinfo `entity_sources` (SCA-285), 2026-11-21; unconfirmed
+- **Change:** extends §10
+- **Summary:** `GET /entity-sources` answers `{"sources": [...]}`, and `siprop=triplespace` carries the same list as `entity_sources`. Each source has its name, label, number, types (upstream prefix, entity type, ID grammar and IRI template), `api`, `entity_data`, `revision_ids`, licence, `promoted_to` (null when unpromoted) and `retired`. That is every field of the `entity-source` record; §10 named fewer, and a reader on another instance needs the endpoints and the number as much as the templates. `namespace` is absent until the source's namespace is built (05 §6.5), and `tenant` and `base` until tenant sources are (0080). Sources cannot yet be unpublished, so every source's templates are shown. Retired sources are listed, flagged, since their IDs still resolve (A8). Chapter text: 18 §3.2.

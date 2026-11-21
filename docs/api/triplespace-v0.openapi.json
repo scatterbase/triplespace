@@ -8801,6 +8801,35 @@
           }
         }
       }
+    },
+    "/entity-sources": {
+      "get": {
+        "operationId": "getEntitySources",
+        "summary": "The tenant's entity sources",
+        "description": "The entity sources the tenant declares (ADR 0078 §10, A9), the list `siprop=triplespace` carries as `entity_sources`: each source's name, label, number, types with their IRI templates, `api`, `entity_data`, `revision_ids`, licence, `promoted_to` (null when unpromoted) and `retired`. A reader on another instance reads it to rewrite references to the tenant's source entities by IRI.",
+        "responses": {
+          "200": {
+            "description": "The sources, in name order.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EntitySources"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "`permissiondenied` without the `read` right.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {
@@ -12781,6 +12810,102 @@
           },
           "pageid": {
             "type": "integer"
+          }
+        }
+      },
+      "EntitySources": {
+        "type": "object",
+        "required": [
+          "sources"
+        ],
+        "properties": {
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "name",
+                "label",
+                "types",
+                "revision_ids",
+                "retired"
+              ],
+              "properties": {
+                "name": {
+                  "type": "string",
+                  "description": "The prefix of the source's IDs: `lb` in `lb:Q1`."
+                },
+                "label": {
+                  "type": "string"
+                },
+                "number": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ],
+                  "description": "The source's provider number, 4096 to 8191."
+                },
+                "types": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "upstream_prefix",
+                      "entity_type",
+                      "id_grammar",
+                      "iri"
+                    ],
+                    "properties": {
+                      "upstream_prefix": {
+                        "type": "string"
+                      },
+                      "entity_type": {
+                        "type": "string"
+                      },
+                      "id_grammar": {
+                        "type": "string"
+                      },
+                      "iri": {
+                        "type": "string",
+                        "description": "The concept IRI template over `{upstream_id}`."
+                      }
+                    }
+                  }
+                },
+                "api": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "entity_data": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "revision_ids": {
+                  "type": "boolean"
+                },
+                "licence": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "An SPDX identifier."
+                },
+                "promoted_to": {
+                  "type": [
+                    "string",
+                    "null"
+                  ],
+                  "description": "The registry provider code that replaced the source."
+                },
+                "retired": {
+                  "type": "boolean"
+                }
+              }
+            }
           }
         }
       }

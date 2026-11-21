@@ -311,6 +311,22 @@ impl<'a> ProviderFollower<'a> {
         let index = restore_index(client, tenant, &provider.slug, &rules)
             .await
             .map_err(|e| fail(&e))?;
+        let index = if rules.skips_deprecated() {
+            let prefix = inner
+                .rewrite_id("P1")
+                .ok()
+                .and_then(|p| p.as_str().strip_suffix('1').map(str::to_string));
+            match prefix {
+                Some(prefix) => index.with_deprecated(
+                    deprecated_properties(client, tenant, &prefix)
+                        .await
+                        .map_err(|e| fail(&e))?,
+                ),
+                None => index,
+            }
+        } else {
+            index
+        };
         let adapter = KeyMappedAdapter::new(inner, rules, index);
 
         let body = wiki
@@ -1069,6 +1085,34 @@ async fn restore_index<C: GenericClient>(
         .filter_map(|(from, keyed)| key_holder.get(&keyed).map(|to| (from, to.clone())))
         .collect::<Vec<_>>();
     Ok(Index::restore(mapped, aliases))
+}
+
+/// The properties a mirror holds whose English label marks them deprecated, upstream form
+/// (`P4`), from their stored form under `prefix` (`OWP`): for a follower that continues a
+/// load which skipped them (0091 A3).
+async fn deprecated_properties<C: GenericClient>(
+    client: &C,
+    tenant: &str,
+    prefix: &str,
+) -> Result<Vec<String>, IngestError> {
+    let rows = client
+        .query(
+            "SELECT entity_id FROM view.term
+             WHERE tenant = $1 AND kind = 1 AND lang = 'en'
+               AND starts_with(entity_id, $2) AND starts_with(ltrim(text), '(DEPRECATED)')",
+            &[&tenant, &prefix],
+        )
+        .await
+        .map_err(|e| IngestError::Store(e.to_string()))?;
+    Ok(rows
+        .iter()
+        .filter_map(|r| {
+            let id: String = r.get(0);
+            id.strip_prefix(prefix)
+                .filter(|n| !n.is_empty() && n.bytes().all(|b| b.is_ascii_digit()))
+                .map(|n| format!("P{n}"))
+        })
+        .collect())
 }
 
 /// The wiki's oldest recent change in the entity namespaces, epoch seconds; `None` when

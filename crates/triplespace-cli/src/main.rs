@@ -13,8 +13,8 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use triplespace_cli::{
     accounts, adopt, backup_key, challenge, compact, dump, env_file, fetch, follow, forwarder,
-    import_pages, instance, job, log_bundle, logins, oauth_client, provider, provision, restore,
-    rights, settings, setup, source, sparql_sync, status, sync, tenant,
+    import_pages, instance, job, log_bundle, logins, oauth_client, provider, provision, registry,
+    restore, rights, settings, setup, source, sparql_sync, status, sync, tenant,
 };
 
 /// Triplespace: a Wikibase as an append-only log.
@@ -74,6 +74,11 @@ enum Command {
     Source {
         #[command(subcommand)]
         command: source::SourceCommand,
+    },
+    /// What the registry this binary embeds means for the tenants' sources (0078 §3, §9).
+    Registry {
+        #[command(subcommand)]
+        command: registry::RegistryCommand,
     },
     /// Passwords of primary accounts (0007 §3).
     Password {
@@ -213,6 +218,7 @@ async fn run() -> Result<()> {
         Command::Compact(args) => compact::run(args).await,
         Command::UpstreamLogin { command } => follow::run_login(command).await,
         Command::Source { command } => source::run(command).await,
+        Command::Registry { command } => registry::run(command).await,
         Command::Password {
             command: PasswordCommand::Set(args),
         } => accounts::run_password_set(args).await,

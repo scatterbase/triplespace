@@ -1078,6 +1078,12 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                 if ctx.app.config().mode == Mode::Development {
                     t["insecure"] = json!(true);
                 }
+                // The tenant's entity sources (0078 §10), as `GET /entity-sources` lists them.
+                t["entity_sources"] = triplespace_projections::entity_sources::public(
+                    &triplespace_projections::entity_sources::declared(ctx.db(), &slug)
+                        .await
+                        .map_err(ApiError::internal)?,
+                );
                 // Registration (0087 §9): what is asked of a client before it asks.
                 let (challenge, account) = super::account::Policy::load(ctx).await?.report();
                 t["challenge"] = challenge;

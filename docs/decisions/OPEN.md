@@ -94,6 +94,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0077 A6](0077-special-version.md#a6-licensing-loose-ends-from-building-specialversion) | 2026-10-30 | Licensing: loose ends from building Special:Version |
 | [0077 A8](0077-special-version.md#a8-the-licence-header-on-built-javascript-and-css) | 2026-11-15 | The licence header on built JavaScript and CSS |
 | [0078 A8](0078-entity-sources.md#a8-retiring-keeps-the-record-a-later-record-is-checked-against-it) | 2026-11-20 | Retiring keeps the record; a later record is checked against it |
+| [0078 A9](0078-entity-sources.md#a9-get-entity-sources-lists-every-field-of-a-source-record) | 2026-11-21 | `GET /entity-sources` lists every field of a source record |
 | [0082 A2](0082-source-form-and-the-shared-view.md#a2-the-instances-content-languages) | 2026-11-04 | The instance's content languages |
 | [0085 A2](0085-settings-and-preferences.md#a2-settings-the-calls-made-building-the-backend-slice) | 2026-10-30 | Settings: the calls made building the backend slice |
 | [0085 A4](0085-settings-and-preferences.md#a4-preferences-controls-that-suit-their-keys-and-tabs-as-panes) | 2026-11-09 | Preferences: controls that suit their keys, and tabs as panes |
@@ -103,6 +104,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0086 A11](0086-theming.md#a11-greenbar-and-cyanotype-original-palettes-with-type-sets-made-for-them) | 2026-11-01 | Greenbar and Cyanotype, original palettes with type sets made for them |
 | [0086 A12](0086-theming.md#a12-links-on-the-pages-canvas-and-codexs-values-under-every-palette) | 2026-11-04 | Links on the page's canvas, and Codex's values under every palette |
 | [0087 A6](0087-account-registration-and-challenges.md#a6-registration-loose-ends-from-building-the-challenge) | 2026-10-30 | Registration: loose ends from building the challenge |
+| [0091 A3](0091-one-wikibase-adapter.md#a3-concept-links-name-wikidata-items-deprecated-properties-are-skipped) | 2026-11-21 | Concept links name Wikidata items; deprecated properties are skipped |
 | [0092 A3](0092-following-recent-changes.md#a3-a-state-that-will-not-parse-is-rejected-and-the-follower-goes-on) | 2026-11-09 | A state that will not parse is rejected, and the follower goes on |
 | [0092 A7](0092-following-recent-changes.md#a7-a-follower-compacts-its-mirror-as-the-days-job-closes) | 2026-11-11 | A follower compacts its mirror as the day's job closes |
 | [0092 A8](0092-following-recent-changes.md#a8-a-days-compaction-runs-beside-the-next-days-batches) | 2026-11-15 | A day's compaction runs beside the next day's batches |
