@@ -357,13 +357,17 @@ async fn page_columns(cx: &PgCx, record: &Record) -> Result<Columns, String> {
             redirect,
         } => {
             let from = title_before(cx, record).await?;
-            let prefixed =
-                |ns: i32, title: &str| match scatter_titles::Namespaces::embedded().get(ns) {
-                    Some(n) if ns != 0 => {
-                        format!("{}:{title}", n.name.as_ref().unwrap_or(&n.canonical))
-                    }
-                    _ => title.to_string(),
-                };
+            // The tenant's namespaces, its own included (10 §1.3 rule 4).
+            let tenant = partition_info(cx, h.partition).await?.tenant;
+            let table = crate::pages::TenantNames::load(cx.conn(), &tenant)
+                .await?
+                .namespaces();
+            let prefixed = |ns: i32, title: &str| match table.get(ns) {
+                Some(n) if ns != 0 => {
+                    format!("{}:{title}", n.name.as_ref().unwrap_or(&n.canonical))
+                }
+                _ => title.to_string(),
+            };
             let mut params = serde_json::json!({
                 "target_ns": ns,
                 "target_title": prefixed(*ns, title),

@@ -49,7 +49,7 @@ use scatter_titles::Namespaces;
 use serde::Serialize;
 use triplespace_client::{
     About, BotOf, CacheInfo, ClientError, DiffAsk, DiffSide, EditForm, Incoming, Lookup, PageDiff,
-    Parsed, Saved, Source,
+    Parsed, Saved, SiteInfo, Source,
 };
 
 use crate::entity::history;
@@ -103,7 +103,7 @@ enum TabName {
 /// A page's tabs (19 §1.3): Read, Edit (Create for a free title), History, Links here
 /// (`Special:WhatLinksHere`, which a free title has too: its wanted links) and Discussion,
 /// the talk page, for a page that exists. `sitename` is the site's name for `Project:`.
-fn tabs(m: &Messages, sitename: &str, title: &str, exists: bool, current: TabName) -> Vec<Tab> {
+fn tabs(m: &Messages, site: &SiteInfo, title: &str, exists: bool, current: TabName) -> Vec<Tab> {
     let base = format!("/wiki/{}", title_url(title));
     let tab = |name: TabName, key: &str, href: String| Tab {
         label: m.get(key),
@@ -130,7 +130,7 @@ fn tabs(m: &Messages, sitename: &str, title: &str, exists: bool, current: TabNam
         ));
     }
     v.push(links_here_tab(m, title));
-    if exists && let Some(talk) = talk_tab(m, sitename, title) {
+    if exists && let Some(talk) = talk_tab(m, site, title) {
         v.push(talk);
     }
     v
@@ -147,8 +147,11 @@ pub(crate) fn links_here_tab(m: &Messages, title: &str) -> Tab {
 
 /// The Discussion tab of a page or an entity (19 §1.3; 0019 §2): its talk page, which
 /// lists its threads or offers to start one. `None` where the namespace has no talk pages.
-pub(crate) fn talk_tab(m: &Messages, sitename: &str, title: &str) -> Option<Tab> {
-    let talk = triplespace_ui_kit::titles::talk_of(&pages::canonical(title, sitename))?;
+pub(crate) fn talk_tab(m: &Messages, site: &SiteInfo, title: &str) -> Option<Tab> {
+    let talk = triplespace_ui_kit::titles::talk_of_with(
+        &pages::canonical(title, &site.sitename),
+        &site.own_namespaces,
+    )?;
     Some(Tab {
         label: m.get("ts-tab-discussion"),
         href: format!("/wiki/{}", title_url(&talk)),
@@ -692,7 +695,7 @@ async fn read(
         identity_html,
         subtitle_html: subtitle_model(m, &parsed, oldid)
             .map(|subtitle| cx.draw("document/subtitle.html", SubtitleCtx { subtitle })),
-        tabs: tabs(m, &cx.site.sitename, &parsed.title, true, TabName::Read),
+        tabs: tabs(m, &cx.site, &parsed.title, true, TabName::Read),
         actions: actions(m, &parsed.title, true, cx.moderation_tabs()),
         body: cx.draw(
             "document/read.html",
@@ -889,7 +892,7 @@ fn missing_with(
         Page {
             returnto: Some(title.clone()),
             identity_html,
-            tabs: tabs(m, &cx.site.sitename, &title, false, TabName::Read),
+            tabs: tabs(m, &cx.site, &title, false, TabName::Read),
             actions: actions(m, &title, false, cx.moderation_tabs()),
             title,
             body,
@@ -1111,7 +1114,7 @@ fn edit_page(
             ),
             doc_title: None,
             returnto: Some(d.title.clone()),
-            tabs: tabs(m, &cx.site.sitename, &d.title, d.exists, TabName::Edit),
+            tabs: tabs(m, &cx.site, &d.title, d.exists, TabName::Edit),
             actions: actions(m, &d.title, d.exists, cx.moderation_tabs()),
             body,
             ..Page::default()
@@ -1235,7 +1238,7 @@ fn unsupported(cx: &Context, headers: &HeaderMap, s: &Source) -> Response {
     pages::respond(cx, headers, StatusCode::OK, |m| Page {
         title: s.title.clone(),
         returnto: Some(s.title.clone()),
-        tabs: tabs(m, &cx.site.sitename, &s.title, true, TabName::Edit),
+        tabs: tabs(m, &cx.site, &s.title, true, TabName::Edit),
         actions: actions(m, &s.title, true, cx.moderation_tabs()),
         body: cx.message(
             MessageKind::Notice,
@@ -1384,7 +1387,7 @@ async fn page_history(
     pages::respond(&cx, headers, StatusCode::OK, |m| Page {
         title: info.title.clone(),
         returnto: Some(info.title.clone()),
-        tabs: tabs(m, &cx.site.sitename, &info.title, true, TabName::History),
+        tabs: tabs(m, &cx.site, &info.title, true, TabName::History),
         actions: actions(m, &info.title, true, cx.moderation_tabs()),
         body: history::body(&cx, &info.title, &ask, None, &rows.value),
         ..Page::default()
@@ -1774,7 +1777,7 @@ async fn page_diff(
         Page {
             doc_title: Some(m.with("ts-pagediff-title", &[&page_title])),
             returnto: Some(page_title.clone()),
-            tabs: tabs(m, &cx.site.sitename, &page_title, true, TabName::History),
+            tabs: tabs(m, &cx.site, &page_title, true, TabName::History),
             actions: actions(m, &page_title, true, cx.moderation_tabs()),
             title: page_title.clone(),
             body,
@@ -1822,6 +1825,13 @@ pub async fn serve(
 mod tests {
     use super::*;
     use triplespace_client::PageCategory;
+
+    fn site(name: &str) -> SiteInfo {
+        SiteInfo {
+            sitename: name.into(),
+            ..SiteInfo::default()
+        }
+    }
 
     fn params(pairs: &[(&str, &str)]) -> Params {
         Params::new(
@@ -1936,14 +1946,26 @@ mod tests {
     #[test]
     fn tabs_of_a_page_and_a_missing_one() {
         let m = Messages::for_language("en");
-        let t = tabs(&m, "Librarybase", "Project:Home", true, TabName::History);
+        let t = tabs(
+            &m,
+            &site("Librarybase"),
+            "Project:Home",
+            true,
+            TabName::History,
+        );
         assert_eq!(t.len(), 5);
         // 19 §1.3: Links here and the talk page close the row.
         assert_eq!(t[3].href, "/wiki/Special:WhatLinksHere/Project:Home");
         assert_eq!(t[4].href, "/wiki/Project_talk:Home");
         assert_eq!(t[4].label, m.get("ts-tab-discussion"));
         // The site's own name for the namespace leads to the same talk page.
-        let own = tabs(&m, "Librarybase", "Librarybase:Home", true, TabName::Read);
+        let own = tabs(
+            &m,
+            &site("Librarybase"),
+            "Librarybase:Home",
+            true,
+            TabName::Read,
+        );
         assert_eq!(own[4].href, "/wiki/Project_talk:Home");
         let a = actions(
             &m,
@@ -1965,7 +1987,13 @@ mod tests {
         assert_eq!(t[1].href, "/wiki/Project:Home?action=edit");
         assert_eq!(t[1].label, m.get("ts-tab-edit"));
         assert!(t[2].current);
-        let t = tabs(&m, "Librarybase", "Project:New one", false, TabName::Read);
+        let t = tabs(
+            &m,
+            &site("Librarybase"),
+            "Project:New one",
+            false,
+            TabName::Read,
+        );
         // A free title has no talk page (14 §1.3), but its wanted links are listed.
         assert_eq!(t.len(), 3);
         assert_eq!(t[2].label, m.get("ts-tab-links-here"));

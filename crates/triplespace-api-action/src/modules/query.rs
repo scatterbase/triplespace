@@ -13,7 +13,6 @@ use scatter_providers::Registry;
 // a client that validates against paraminfo, as Pywikibot does, sees each of them.
 use crate::api::ACTION_MODULES;
 use scatter_wikibase_model::value::DataType;
-use serde::Deserialize;
 use serde_json::{Map, Value, json};
 use triplespace_accounts::session;
 use triplespace_projections::pages::TenantNames;
@@ -424,26 +423,6 @@ async fn userinfo(ctx: &Ctx, query: &mut Map<String, Value>) -> Result<(), ApiEr
     Ok(())
 }
 
-#[derive(Deserialize)]
-struct NamespaceRow {
-    id: i64,
-    canonical: String,
-    kind: String,
-    #[serde(default)]
-    case: Option<String>,
-    #[serde(default)]
-    subpages: Option<bool>,
-    #[serde(default)]
-    default_model: Option<String>,
-    #[serde(default)]
-    enabled_by: Option<String>,
-}
-
-#[derive(Deserialize)]
-struct NamespaceFile {
-    namespace: Vec<NamespaceRow>,
-}
-
 /// `meta=allmessages` (0095 §8): the wiki's overrides over the messages the build ships.
 async fn allmessages(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), ApiError> {
     let p = &ctx.params;
@@ -490,37 +469,37 @@ fn namespaces(names: &TenantNames) -> Value {
         .into_iter()
         .map(|n| (n.id, n.name))
         .collect();
-    let file: NamespaceFile = toml::from_str(include_str!(
-        "../../../../docs/registry/namespaces.toml"
-    ))
-    .unwrap_or(NamespaceFile {
-        namespace: Vec::new(),
-    });
     let mut out = Map::new();
-    for ns in file.namespace {
+    // The registry's namespaces and the tenant's own (10 §1.3 rule 4).
+    for ns in names.namespaces().iter() {
         // Only Lua's namespaces are gated (`wikitext.lua`), and Lua is not built.
         let enabled = ns.enabled_by.is_none();
-        if !enabled || !(ns.kind == "pages" || ns.kind == "virtual") {
+        if !enabled
+            || !matches!(
+                ns.kind,
+                scatter_titles::Kind::Pages | scatter_titles::Kind::Virtual
+            )
+        {
             continue;
         }
         let name = local
-            .get(&i32::try_from(ns.id).unwrap_or(i32::MIN))
+            .get(&ns.id)
             .cloned()
             .unwrap_or_else(|| ns.canonical.clone());
         let mut row = Map::new();
         row.insert("id".into(), json!(ns.id));
         row.insert(
             "case".into(),
-            json!(ns.case.unwrap_or_else(|| "first-letter".into())),
+            json!(ns.case.clone().unwrap_or_else(|| "first-letter".into())),
         );
         row.insert("name".into(), json!(name));
-        row.insert("subpages".into(), json!(ns.subpages.unwrap_or(false)));
+        row.insert("subpages".into(), json!(ns.subpages));
         if !ns.canonical.is_empty() {
             row.insert("canonical".into(), json!(ns.canonical));
         }
         row.insert("content".into(), json!(ns.id == 0));
         row.insert("nonincludable".into(), json!(false));
-        if let Some(m) = ns.default_model
+        if let Some(m) = &ns.default_model
             && m != "wikitext"
         {
             row.insert("defaultcontentmodel".into(), json!(m));
@@ -1078,6 +1057,28 @@ async fn siteinfo(ctx: &mut Ctx, query: &mut Map<String, Value>) -> Result<(), A
                 if ctx.app.config().mode == Mode::Development {
                     t["insecure"] = json!(true);
                 }
+                // The tenant's own namespaces (10 §1.3 rule 4), for the site's titles.
+                let names = TenantNames::load(ctx.db(), &slug)
+                    .await
+                    .map_err(ApiError::internal)?;
+                let table = names.namespaces();
+                t["own_namespaces"] = json!(
+                    table
+                        .iter()
+                        .filter(|n| scatter_titles::Namespaces::embedded().get(n.id).is_none())
+                        .map(|n| json!({
+                            "id": n.id,
+                            "canonical": n.canonical,
+                            "aliases": n.aliases,
+                            "kind": match n.kind {
+                                scatter_titles::Kind::Pages => "pages",
+                                scatter_titles::Kind::Resolver => "resolver",
+                                scatter_titles::Kind::Virtual => "virtual",
+                                scatter_titles::Kind::Reserved => "reserved",
+                            },
+                        }))
+                        .collect::<Vec<_>>()
+                );
                 // The tenant's entity sources (0078 §10), as `GET /entity-sources` lists them.
                 t["entity_sources"] = triplespace_projections::entity_sources::public(
                     &triplespace_projections::entity_sources::declared(ctx.db(), &slug)

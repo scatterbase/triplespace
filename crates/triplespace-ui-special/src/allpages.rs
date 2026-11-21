@@ -170,10 +170,15 @@ fn split(rows: &[NamespaceRow], text: &str) -> (Option<i64>, String) {
 
 /// Whether the namespace holds document pages a list may show.
 fn listable(id: i64) -> bool {
-    i32::try_from(id)
-        .ok()
-        .and_then(|n| Namespaces::embedded().get(n))
-        .is_some_and(|n| n.kind == NsKind::Pages && !n.is_entity_namespace())
+    let Ok(n) = i32::try_from(id) else {
+        return false;
+    };
+    match Namespaces::embedded().get(n) {
+        Some(n) => n.kind == NsKind::Pages && !n.is_entity_namespace(),
+        // A subject namespace of the wiki's own (10 §1.3 rule 4), which siteinfo lists
+        // where it holds pages.
+        None => scatter_titles::is_tenant_number(n) && n % 2 == 0,
+    }
 }
 
 impl Ask {

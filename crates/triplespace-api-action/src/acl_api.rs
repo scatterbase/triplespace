@@ -125,11 +125,10 @@ async fn chain_of(ctx: &Ctx, target: &Target) -> Result<Option<Vec<Acl>>, ApiErr
             )
         }
         Target::Namespace(n) => {
-            let holds = i32::try_from(*n).ok().is_some_and(|ns| {
-                scatter_titles::Namespaces::embedded()
-                    .get(ns)
-                    .is_some_and(|x| x.holds_pages(|_| false))
-            });
+            let site = crate::pages::Site::load_for(ctx.db(), tenant).await?;
+            let holds = i32::try_from(*n)
+                .ok()
+                .is_some_and(|ns| site.holds_pages(ns));
             if !holds {
                 return Ok(None);
             }

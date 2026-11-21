@@ -56,8 +56,8 @@ pub mod watch;
 pub use account::{LoginResult, WithCookies};
 pub use activity::{ActivityPage, ActivityQuery, ActivityRow, UpstreamRef};
 pub use api::{
-    CacheInfo, ChipColours, Fetched, MessageQuery, MessageRow, NamespaceRow, ProviderInfo,
-    ProviderType, SiteInfo, UserInfo,
+    CacheInfo, ChipColours, Fetched, MessageQuery, MessageRow, NamespaceRow, OwnNamespace,
+    ProviderInfo, ProviderType, SiteInfo, UserInfo,
 };
 pub use create::{Created, TermEdit};
 pub use email::{EmailAddress, EmailInfo, EmailOutcome};

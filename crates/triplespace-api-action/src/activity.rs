@@ -99,9 +99,10 @@ pub fn user_id(key: Option<&str>) -> u64 {
         .unwrap_or(0)
 }
 
-/// The namespace number and title of a row's target (namespaces.toml; 0017 §1).
+/// The namespace number and title of a row's target (namespaces.toml; 0017 §1), a page's
+/// namespace named from the tenant's table, its own namespaces included.
 #[must_use]
-pub fn title_of(row: &Row) -> Option<(i64, String)> {
+pub fn title_of(row: &Row, namespaces: &scatter_titles::Namespaces) -> Option<(i64, String)> {
     let t = &row.target;
     match t.kind? {
         target_kind::ENTITY => {
@@ -126,7 +127,7 @@ pub fn title_of(row: &Row) -> Option<(i64, String)> {
             // `view.page` keeps the title without its namespace; a row's title has it,
             // canonically written.
             let (ns, title) = t.page.clone()?;
-            let prefixed = match scatter_titles::Namespaces::embedded().get(ns) {
+            let prefixed = match namespaces.get(ns) {
                 Some(n) if ns != 0 => {
                     format!("{}:{title}", n.name.as_ref().unwrap_or(&n.canonical))
                 }
@@ -201,7 +202,13 @@ fn wants(props: &[String], p: &str) -> bool {
 /// boolean is spelt.
 #[must_use]
 #[allow(clippy::too_many_lines)]
-pub fn mw_row(ctx: &Ctx, row: &Row, props: &[String], module: &str) -> Value {
+pub fn mw_row(
+    ctx: &Ctx,
+    namespaces: &scatter_titles::Namespaces,
+    row: &Row,
+    props: &[String],
+    module: &str,
+) -> Value {
     let v2 = ctx.formatversion == 2;
     let flag = |m: &mut Map<String, Value>, name: &str, on: bool| {
         if v2 {
@@ -236,8 +243,8 @@ pub fn mw_row(ctx: &Ctx, row: &Row, props: &[String], module: &str) -> Value {
                     from.to_string(),
                 )
             })
-            .or_else(|| title_of(row)),
-        _ => title_of(row),
+            .or_else(|| title_of(row, namespaces)),
+        _ => title_of(row, namespaces),
     };
     if action_hidden {
         flag(&mut m, "actionhidden", true);
@@ -402,7 +409,7 @@ fn page_url(tenant: &Tenant, title: &str) -> String {
 /// The Triplespace shape of a row (16 §3.1).
 #[must_use]
 #[allow(clippy::too_many_lines)]
-pub fn ts_row(tenant: &Tenant, row: &Row) -> Value {
+pub fn ts_row(tenant: &Tenant, namespaces: &scatter_titles::Namespaces, row: &Row) -> Value {
     let hidden_user = row.visibility & visibility::USER != 0 || row.actor.hidden;
     let hidden_comment = row.visibility & visibility::COMMENT != 0;
     let mut m = Map::new();
@@ -419,7 +426,7 @@ pub fn ts_row(tenant: &Tenant, row: &Row) -> Value {
     if let Some(l) = row.logid {
         m.insert("logid".into(), json!(l));
     }
-    let title = title_of(row);
+    let title = title_of(row, namespaces);
     if let Some(kind) = row.target.kind {
         let mut t = Map::new();
         t.insert(
@@ -662,15 +669,27 @@ mod tests {
     #[test]
     fn titles_follow_the_namespace_registry() {
         let mut r = row();
-        assert_eq!(title_of(&r), Some((120, "Item:Q6".into())));
+        assert_eq!(
+            title_of(&r, scatter_titles::Namespaces::embedded()),
+            Some((120, "Item:Q6".into()))
+        );
         r.target.entity_type = Some("property".into());
         r.target.id = Some("P4".into());
-        assert_eq!(title_of(&r), Some((122, "Property:P4".into())));
+        assert_eq!(
+            title_of(&r, scatter_titles::Namespaces::embedded()),
+            Some((122, "Property:P4".into()))
+        );
         r.target.id = Some("domain:wikipedia.org".into());
-        assert_eq!(title_of(&r), Some((210, "Domain:wikipedia.org".into())));
+        assert_eq!(
+            title_of(&r, scatter_titles::Namespaces::embedded()),
+            Some((210, "Domain:wikipedia.org".into()))
+        );
         r.target.kind = Some(target_kind::PAGE);
         r.target.page = Some((4, "Home".into()));
-        assert_eq!(title_of(&r), Some((4, "Project:Home".into())));
+        assert_eq!(
+            title_of(&r, scatter_titles::Namespaces::embedded()),
+            Some((4, "Project:Home".into()))
+        );
     }
 
     #[test]
@@ -690,7 +709,7 @@ mod tests {
 
     #[test]
     fn the_triplespace_row_has_the_shape_of_16_3_1() {
-        let v = ts_row(&tenant(), &row());
+        let v = ts_row(&tenant(), scatter_titles::Namespaces::embedded(), &row());
         assert_eq!(v["kind"], "edit");
         assert_eq!(v["time"], "2025-09-25T00:26:40Z");
         assert_eq!(v["record"]["offset"], 9);
@@ -709,7 +728,7 @@ mod tests {
         let mut r = row();
         r.actor.hidden = true;
         r.visibility = visibility::COMMENT;
-        let v = ts_row(&tenant(), &r);
+        let v = ts_row(&tenant(), scatter_titles::Namespaces::embedded(), &r);
         assert_eq!(v["actor"], json!({"hidden": true}));
         assert_eq!(v["summary"], json!({"hidden": true}));
         assert!(v.get("comment").is_none());

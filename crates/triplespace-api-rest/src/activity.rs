@@ -352,7 +352,12 @@ pub(crate) async fn serve(
         Ok(p) => p,
         Err(e) => return internal(&e),
     };
-    let mut body = body(&ctx.tenant, &feed, &page);
+    let names =
+        match triplespace_projections::pages::TenantNames::load(ctx.db(), &ctx.tenant.slug).await {
+            Ok(n) => n,
+            Err(e) => return internal(&e),
+        };
+    let mut body = body(&ctx.tenant, &names, &feed, &page);
     if let Some((holder, watches, x)) = &holding {
         if let Some(rows) = body["rows"].as_array_mut() {
             for (v, r) in rows.iter_mut().zip(&page.rows) {
@@ -398,8 +403,18 @@ pub(crate) async fn serve(
 }
 
 /// The response body.
-fn body(tenant: &Tenant, feed: &Feed, page: &feed::Page) -> Value {
-    let rows: Vec<Value> = page.rows.iter().map(|r| ts_row(tenant, r)).collect();
+fn body(
+    tenant: &Tenant,
+    names: &triplespace_projections::pages::TenantNames,
+    feed: &Feed,
+    page: &feed::Page,
+) -> Value {
+    let namespaces = names.namespaces();
+    let rows: Vec<Value> = page
+        .rows
+        .iter()
+        .map(|r| ts_row(tenant, &namespaces, r))
+        .collect();
     let mut v = json!({
         "rows": rows,
         "set": match &feed.set {
@@ -494,7 +509,12 @@ mod tests {
             host: "t.example".into(),
             writable: true,
         };
-        let b = body(&tenant, &Feed::everything(5), &feed::Page::default());
+        let b = body(
+            &tenant,
+            &triplespace_projections::pages::TenantNames::default(),
+            &Feed::everything(5),
+            &feed::Page::default(),
+        );
         for key in b.as_object().unwrap().keys() {
             assert!(props.contains_key(key), "{key} is not in ActivityPage");
         }

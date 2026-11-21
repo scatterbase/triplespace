@@ -62,8 +62,8 @@ fn immobile(title: &str) -> ApiError {
 /// Whether a title may hold a `wikitext` page, so that a redirect may be left there
 /// (10 §2.5): the namespace's default model is `wikitext`, or it allows `wikitext` at
 /// `/doc` subpages (Module, Table, Query, Scope).
-fn takes_redirect(ns: i32, title: &str) -> bool {
-    Namespaces::embedded().get(ns).is_some_and(|n| {
+fn takes_redirect(namespaces: &Namespaces, ns: i32, title: &str) -> bool {
+    namespaces.get(ns).is_some_and(|n| {
         n.default_model.as_deref() == Some("wikitext")
             || (n.allows_model("wikitext") && n.subpages && title.ends_with("/doc"))
     })
@@ -71,12 +71,12 @@ fn takes_redirect(ns: i32, title: &str) -> bool {
 
 /// Whether a page of `model` may be moved: a directly edited text model, which excludes
 /// entities, threads, boards and talk pages.
-fn movable(ns: i32, model: &str) -> bool {
+fn movable(namespaces: &Namespaces, ns: i32, model: &str) -> bool {
     let models = scatter_pages::ContentModels::embedded();
     models
         .get(model)
         .is_some_and(|m| m.direct_editing && m.implemented)
-        && Namespaces::embedded()
+        && namespaces
             .get(ns)
             .is_some_and(|n| n.holds_pages(|_| true) && !n.is_entity_namespace())
 }
@@ -181,10 +181,11 @@ async fn check(
     let at = scatter_actors::Timestamp(now_micros());
     let from = site.prefixed(page.ns, &page.title);
     let to = site.prefixed(ns, &title);
-    if !movable(page.ns, &page.model) {
+    if !movable(&site.namespaces, page.ns, &page.model) {
         return Err(immobile(&from));
     }
-    let dest = Namespaces::embedded()
+    let dest = site
+        .namespaces
         .get(ns)
         .filter(|n| site.holds_pages(ns) && !n.is_entity_namespace())
         .ok_or_else(|| immobile(&to))?;
@@ -352,11 +353,7 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     let (from_ns, from_title) = (page.ns, page.title.clone());
     let mut steps = vec![check(ctx, &site, page, to.namespace, to.text.clone()).await?];
     let mut skipped: Vec<Value> = Vec::new();
-    if with_subpages
-        && Namespaces::embedded()
-            .get(from_ns)
-            .is_some_and(|n| n.subpages)
-    {
+    if with_subpages && site.namespaces.get(from_ns).is_some_and(|n| n.subpages) {
         for sub in subpages(ctx, from_ns, &from_title).await? {
             let rest = sub.title[from_title.len()..].to_string();
             let new_title = format!("{}{rest}", to.text);
@@ -444,7 +441,8 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
                 return Err(ApiError::new("failed-save", e.to_string()));
             }
         }
-        let leaves_redirect = !noredirect && takes_redirect(step.page.ns, &step.page.title);
+        let leaves_redirect =
+            !noredirect && takes_redirect(&site.namespaces, step.page.ns, &step.page.title);
         let redirect_id = if leaves_redirect {
             match store.next_id(&mut cx, &tenant, &Sequence::Page).await {
                 Ok(id) => Some(id),

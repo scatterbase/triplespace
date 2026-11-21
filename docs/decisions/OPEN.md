@@ -14,6 +14,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0006 A35](0006-log-integrity-and-erasure.md#a35-the-log-id-at-append-where-a-client-sees-it-and-one-manifest-per-segment) | 2026-11-21 | The log ID at append, where a client sees it, and one manifest per segment |
 | [0006 A36](0006-log-integrity-and-erasure.md#a36-a-jobs-end-names-the-heads-it-left-unsigned-checkpoints-for-logged-partitions-only) | 2026-11-21 | A job's end names the heads it left, unsigned; checkpoints for `logged` partitions only |
 | [0006 A37](0006-log-integrity-and-erasure.md#a37-the-verifier-checks-that-a-config-partition-begins-with-its-founding-record) | 2026-11-21 | The verifier checks that a `config` partition begins with its founding record |
+| [0008 A54](0008-namespaces-and-document-pages.md#a54-a-tenants-own-namespaces-take-effect) | 2026-11-21 | A tenant's own namespaces take effect |
 | [0009 A17](0009-keyed-entity-types-and-domain.md#a17-only-same-as-with-a-keyword-or-notation-is-refused) | 2026-11-20 | Only `same-as` with a keyword or notation is refused |
 | [0010 A47](0010-site-ui.md#a47-the-acl-site-ui-the-calls-made-building-it) | 2026-10-30 | The ACL site UI: the calls made building it |
 | [0010 A49](0010-site-ui.md#a49-the-compare-form-and-the-diff-views-the-calls-made-building-them) | 2026-11-04 | The compare form and the diff views: the calls made building them |

@@ -35,10 +35,7 @@ const USER_TALK: i32 = 3;
 /// The subject namespace of a talk namespace; `None` for a namespace that is no other's talk.
 #[must_use]
 pub fn subject_ns(ns: i32) -> Option<i32> {
-    Namespaces::embedded()
-        .iter()
-        .find(|n| n.talk == Some(ns) && n.id != ns)
-        .map(|n| n.id)
+    scatter_titles::subject_number(ns)
 }
 
 async fn actor_named<C: PgClient>(
@@ -244,10 +241,7 @@ pub async fn expand<C: PgClient>(
                 if let Some((ns, title)) = id.split_once(':')
                     && let Ok(ns) = ns.parse::<i32>()
                 {
-                    let talk = Namespaces::embedded()
-                        .get(ns)
-                        .and_then(|n| n.talk)
-                        .unwrap_or(ns);
+                    let talk = scatter_titles::talk_number(ns).unwrap_or(ns);
                     for r in client
                         .query(
                             "SELECT page_id FROM view.page WHERE tenant = $1 AND ns IN ($2, $3) AND title = $4 AND NOT deleted",

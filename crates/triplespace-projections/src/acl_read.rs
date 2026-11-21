@@ -336,8 +336,10 @@ pub async fn hidden<C: PgClient>(
                  JOIN view.page p ON p.tenant = r.tenant AND p.ns = r.ns
                   AND p.title COLLATE \"C\" > (r.title || '/') COLLATE \"C\"
                   AND p.title COLLATE \"C\" < (r.title || '0') COLLATE \"C\"
-                 WHERE r.tenant = $1 AND r.page_id = ANY($2) AND r.ns = ANY($3)",
-                &[&tenant, &roots, &subpage_namespaces()],
+                 WHERE r.tenant = $1 AND r.page_id = ANY($2)
+                   AND (r.ns = ANY($3) OR ((r.ns >= 3000 OR r.ns BETWEEN 100 AND 199)
+                        AND r.ns % 2 = 0 AND NOT r.ns = ANY($4)))",
+                &[&tenant, &roots, &subpage_namespaces(), &registry_numbers()],
             )
             .await
             .map_err(|e| sql(&e))?;
@@ -491,13 +493,31 @@ pub async fn hidden_actors<C: PgClient>(
     Ok(out)
 }
 
-/// The namespaces where `/` makes subpages (namespaces.toml).
+/// Every number the registry lists.
+fn registry_numbers() -> Vec<i32> {
+    scatter_titles::Namespaces::embedded()
+        .iter()
+        .map(|n| n.id)
+        .collect()
+}
+
+/// The registry's namespaces where `/` makes subpages (namespaces.toml).
 fn subpage_namespaces() -> Vec<i32> {
     scatter_titles::Namespaces::embedded()
         .iter()
         .filter(|n| n.subpages)
         .map(|n| n.id)
         .collect()
+}
+
+/// Whether `/` makes subpages in `ns`: a registry namespace that has them, or a tenant's
+/// own subject namespace, which always does (10 §1.3 rule 4), so that no read of the
+/// tenant's names is needed on this path.
+fn has_subpages(ns: i32) -> bool {
+    match scatter_titles::Namespaces::embedded().get(ns) {
+        Some(n) => n.subpages,
+        None => scatter_titles::is_tenant_number(ns) && ns % 2 == 0,
+    }
 }
 
 /// The titles of a subpage's ancestors, nearest first: `A/B/C` → `A/B`, `A`.
@@ -521,7 +541,7 @@ async fn ancestors<C: PgClient>(
     ns: i32,
     title: &str,
 ) -> Result<Vec<u64>, String> {
-    if !subpage_namespaces().contains(&ns) {
+    if !has_subpages(ns) {
         return Ok(Vec::new());
     }
     let titles = ancestor_titles(title);

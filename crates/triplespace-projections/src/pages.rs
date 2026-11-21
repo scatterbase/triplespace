@@ -17,8 +17,8 @@
 //!   entity namespace by entity ID (`1`); interwiki links are not rows.
 //!
 //! Links and categories are read with `scatter-wikitext`'s extraction from the stored
-//! text, over the namespace registry. A tenant's local Project name (its site name,
-//! 0008 A37) is not yet one of the names it reads.
+//! text, over the tenant's names: the registry's namespaces under the tenant's local
+//! names (0008 A37), with the tenant's own namespaces (10 §1.3 rule 4; 0008 A54).
 
 use std::collections::BTreeSet;
 use std::sync::OnceLock;
@@ -77,6 +77,97 @@ pub struct TenantNames {
     pub site_name: Option<String>,
     /// Per namespace number: the fixed local name, and the aliases.
     pub overrides: std::collections::BTreeMap<i32, (Option<String>, Vec<String>)>,
+    /// The tenant's own namespaces, numbered outside the registry (10 §1.3 rule 4; 0008
+    /// A54), with their talk namespaces.
+    pub added: Vec<scatter_titles::Namespace>,
+}
+
+/// A tenant's own namespace from its `namespace` record, where the record's number is not
+/// the registry's (0008 A54): the registry row's fields, with `namespace_kind` for the
+/// row's `kind`, since a record's `kind` is always `namespace` (payloads.md §1.2). A
+/// `pages` namespace without models holds wikitext, as Project does. Its talk namespace,
+/// at the next number, comes with it: `reserved` for a resolver,
+/// otherwise a `triplespace-talk` namespace named `{canonical} talk` (10 §1.3 rule 2). The
+/// subject's number is even and its talk's the next; a record with an odd number is
+/// refused by rule 4 when the table is built.
+/// `None` for a record that does not read as a namespace.
+#[must_use]
+pub fn own_namespace(
+    id: i32,
+    config: &serde_json::Value,
+) -> Option<Vec<scatter_titles::Namespace>> {
+    use scatter_titles::{Kind, Namespace};
+    let text = |k: &str| {
+        config[k]
+            .as_str()
+            .filter(|s| !s.is_empty())
+            .map(str::to_string)
+    };
+    let list = |k: &str| -> Vec<String> {
+        config[k]
+            .as_array()
+            .map(|a| {
+                a.iter()
+                    .filter_map(serde_json::Value::as_str)
+                    .map(str::to_string)
+                    .collect()
+            })
+            .unwrap_or_default()
+    };
+    let canonical = text("canonical")?;
+    let kind: Kind =
+        serde_json::from_value(config["namespace_kind"].clone()).unwrap_or(Kind::Pages);
+    let mut models = list("content_models");
+    let mut default_model = text("default_model");
+    if kind == Kind::Pages && models.is_empty() {
+        models = vec!["wikitext".into()];
+        default_model.get_or_insert_with(|| "wikitext".into());
+    }
+    // A subject takes an even number and its talk the next (10 §1.3 rule 2).
+    let talk = id + 1;
+    let subject = Namespace {
+        id,
+        canonical: canonical.clone(),
+        name: text("name"),
+        kind,
+        content_models: models,
+        default_model,
+        normalizer: text("normalizer")
+            .or_else(|| (kind == Kind::Pages).then(|| "first-letter".into())),
+        case: text("case").or_else(|| Some("first-letter".into())),
+        // A tenant's own page namespace has subpages, as Project does, so that the ACL
+        // path can tell without reading the tenant's names.
+        subpages: kind == Kind::Pages,
+        talk: Some(talk),
+        enabled_by: None,
+        aliases: list("aliases"),
+    };
+    let talk_ns = Namespace {
+        id: talk,
+        canonical: format!("{canonical} talk"),
+        name: None,
+        kind: if kind == Kind::Pages {
+            Kind::Pages
+        } else {
+            Kind::Reserved
+        },
+        content_models: if kind == Kind::Pages {
+            vec!["triplespace-talk".into()]
+        } else {
+            vec![]
+        },
+        default_model: (kind == Kind::Pages).then(|| "triplespace-talk".into()),
+        normalizer: None,
+        case: Some("first-letter".into()),
+        subpages: false,
+        talk: None,
+        enabled_by: None,
+        aliases: list("aliases")
+            .iter()
+            .map(|a| format!("{a} talk"))
+            .collect(),
+    };
+    Some(vec![subject, talk_ns])
 }
 
 /// The `view.registry` rows [`TenantNames`] reads, for a tenant (`$1`): its `site.name`,
@@ -93,6 +184,7 @@ impl TenantNames {
         let mut own = None;
         let mut default = None;
         let mut overrides = std::collections::BTreeMap::new();
+        let mut added = Vec::new();
         for (tenant, kind, code, config) in rows {
             match kind.as_str() {
                 "site" => own = config["value"].as_str().map(str::to_string),
@@ -105,6 +197,10 @@ impl TenantNames {
                         .and_then(|n| i32::try_from(n).ok())
                         .or_else(|| code.parse().ok());
                     let Some(id) = id else { continue };
+                    if Namespaces::embedded().get(id).is_none() {
+                        added.extend(own_namespace(id, config).unwrap_or_default());
+                        continue;
+                    }
                     let name = config["name"]
                         .as_str()
                         .filter(|n| !n.is_empty())
@@ -126,7 +222,35 @@ impl TenantNames {
         Self {
             site_name: own.or(default).or_else(|| Some(slug.to_string())),
             overrides,
+            added,
         }
+    }
+
+    /// The tenant's namespace table: the registry with its own namespaces added, built
+    /// once per set of names. A namespace rule 4 refuses (a number or name taken) is left
+    /// out; the writer refuses it, so one here is from another version.
+    #[must_use]
+    pub fn namespaces(&self) -> std::sync::Arc<Namespaces> {
+        use std::collections::HashMap;
+        use std::sync::{Arc, Mutex};
+        static CACHE: OnceLock<Mutex<HashMap<Vec<scatter_titles::Namespace>, Arc<Namespaces>>>> =
+            OnceLock::new();
+        let cache = CACHE.get_or_init(|| Mutex::new(HashMap::new()));
+        let mut map = cache
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        map.entry(self.added.clone())
+            .or_insert_with(|| {
+                let mut table = Namespaces::embedded().clone();
+                // A subject and its talk namespace go in together, or not at all.
+                for pair in self.added.chunks(2) {
+                    if let Ok(t) = table.with_tenant(pair.iter().cloned(), &[]) {
+                        table = t;
+                    }
+                }
+                Arc::new(table)
+            })
+            .clone()
     }
 
     /// Reads a tenant's names.
@@ -149,7 +273,8 @@ impl TenantNames {
     /// The wikitext configuration source these names give.
     #[must_use]
     pub fn source(&self) -> ConfigSource {
-        let namespaces = Namespaces::embedded()
+        let table = self.namespaces();
+        let namespaces = table
             .iter()
             .map(|n| {
                 let mut ns = Namespace::new(n.id, &n.canonical);
@@ -176,7 +301,7 @@ impl TenantNames {
                     ns.name = local;
                     ns = ns.canonical(&n.canonical);
                 }
-                for a in &aliases {
+                for a in aliases.iter().chain(&n.aliases) {
                     ns = ns.alias(a);
                 }
                 ns
@@ -1117,6 +1242,78 @@ mod tests {
         let aliases = names.aliases();
         assert!(aliases.contains(&(4, "LB".into())));
         assert!(aliases.contains(&(6, "Image".into())));
+    }
+
+    // 10 §1.3 rule 4 (0008 A54): a `namespace` record with a number the registry does not
+    // list adds the tenant's own namespace, with its talk namespace, to the names titles
+    // and links are read with; one rule 4 refuses is left out.
+    #[test]
+    fn a_tenants_own_namespaces_join_its_names() {
+        use serde_json::json;
+        let row = |tenant: &str, kind: &str, code: &str, config: serde_json::Value| {
+            (
+                tenant.to_string(),
+                kind.to_string(),
+                code.to_string(),
+                config,
+            )
+        };
+        let names = TenantNames::from_rows(
+            "lb",
+            &[
+                row(
+                    "lb",
+                    "namespace",
+                    "3000",
+                    json!({"kind": "namespace", "id": 3000, "canonical": "Recipe",
+                           "aliases": ["R"]}),
+                ),
+                row(
+                    "lb",
+                    "namespace",
+                    "3002",
+                    json!({"kind": "namespace", "id": 3002, "canonical": "MHC",
+                           "namespace_kind": "resolver", "aliases": ["mhc"]}),
+                ),
+                row(
+                    "lb",
+                    "namespace",
+                    "3004",
+                    json!({"kind": "namespace", "id": 3004, "canonical": "Help"}),
+                ),
+                row(
+                    "lb",
+                    "namespace",
+                    "250",
+                    json!({"kind": "namespace", "id": 250, "canonical": "Out of range"}),
+                ),
+            ],
+        );
+        let table = names.namespaces();
+        let recipe = table.get(3000).unwrap();
+        assert!(recipe.holds_pages(|_| false) && recipe.allows_model("wikitext"));
+        let talk = table.get(3001).unwrap();
+        assert_eq!(talk.canonical, "Recipe talk");
+        assert!(talk.allows_model("triplespace-talk"));
+        assert_eq!(
+            table.get(3002).unwrap().kind,
+            scatter_titles::Kind::Resolver
+        );
+        assert_eq!(
+            table.get(3003).unwrap().kind,
+            scatter_titles::Kind::Reserved
+        );
+        assert!(table.get(3004).is_none(), "Help is the registry's name");
+        assert!(table.get(250).is_none(), "250 is not a tenant's number");
+        let c = names.config();
+        assert_eq!(c.namespace_by_name("recipe").map(|n| n.id), Some(3000));
+        assert_eq!(c.namespace_by_name("R").map(|n| n.id), Some(3000));
+        assert_eq!(c.namespace_by_name("mhc").map(|n| n.id), Some(3002));
+        let ex =
+            scatter_wikitext::extract("[[R:Soup]] [[Recipe talk:Soup]]", &c, &Title::new(0, "X"));
+        assert_eq!(ex.links[0].target, Title::new(3000, "Soup"));
+        assert_eq!(ex.links[1].target, Title::new(3001, "Soup"));
+        assert!(names.aliases().contains(&(3000, "R".into())));
     }
 
     #[test]
