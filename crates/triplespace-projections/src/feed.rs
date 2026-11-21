@@ -338,7 +338,7 @@ pub struct Row {
     pub source: String,
     /// The revision ID.
     pub revid: Option<u64>,
-    /// The log ID.
+    /// The log ID, for a log event.
     pub logid: Option<u64>,
     /// The target.
     pub target: Target,
@@ -872,7 +872,13 @@ fn row_of(r: &tokio_postgres::Row) -> Result<Row, String> {
         kind: r.get(3),
         source: r.get(4),
         revid: u(r.get(5))?,
-        logid: u(r.get(6))?,
+        // Every record of a tenant's own partitions takes a log ID (0006 A24), but only a
+        // log event's is a log entry's ID, as `rc_logid` is 0 on an edit in MediaWiki.
+        logid: if r.get::<_, Option<String>>(25).is_some() {
+            u(r.get(6))?
+        } else {
+            None
+        },
         target: Target {
             kind: target_kind,
             id: r.get(8),

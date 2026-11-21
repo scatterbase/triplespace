@@ -111,7 +111,8 @@ pub async fn covering<C: PgClient>(
         .transpose()
 }
 
-/// Stores a segment manifest. A later one for the same segment is a new row.
+/// Stores a segment manifest. A segment has one, signed once (0006 A24): a second for a
+/// segment that has one is not stored, and the first stays.
 pub async fn put_manifest<C: PgClient>(
     client: &C,
     partition: u64,
@@ -121,7 +122,8 @@ pub async fn put_manifest<C: PgClient>(
     client
         .execute(
             "INSERT INTO log.segment_manifest (partition, segment, root, signed_note, sealed_at)
-             VALUES ($1, $2, $3, $4, $5)",
+             VALUES ($1, $2, $3, $4, $5)
+             ON CONFLICT (partition, segment) DO NOTHING",
             &[
                 &partition_to_db(partition),
                 &db(n)?,
@@ -135,15 +137,15 @@ pub async fn put_manifest<C: PgClient>(
     Ok(())
 }
 
-/// The latest manifest of every sealed segment, by segment.
+/// The manifest of every sealed segment, by segment.
 pub async fn manifests<C: PgClient>(
     client: &C,
     partition: u64,
 ) -> Result<Vec<(u64, SignedCheckpoint)>, CheckpointStoreError> {
     let rows = client
         .query(
-            "SELECT DISTINCT ON (segment) segment, signed_note FROM log.segment_manifest
-             WHERE partition = $1 ORDER BY segment, sealed_at DESC",
+            "SELECT segment, signed_note FROM log.segment_manifest
+             WHERE partition = $1 ORDER BY segment",
             &[&partition_to_db(partition)],
         )
         .await

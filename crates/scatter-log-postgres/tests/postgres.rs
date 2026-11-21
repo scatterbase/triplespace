@@ -748,3 +748,85 @@ async fn record_partitions_vacuum_after_a_hundredth() {
         .unwrap();
     assert_eq!(autovacuum_options(&client).await, vec![expected; 3]);
 }
+
+// 0006 A24; 0013 A57: every record of a tenant's `local`, `pages`, `log` and `actors`
+// takes a log ID at append; a record that brings its own keeps it; a mirror's takes none.
+#[tokio::test]
+async fn a_tenant_partition_record_takes_a_log_id_at_append() {
+    if skipped() {
+        return;
+    }
+    let mut client = fresh().await;
+    sequences::create(&client, "acme", &["item"]).await.unwrap();
+    let tx = client.transaction().await.unwrap();
+    let info = |tenant: Option<&str>, name: &str| {
+        let mut i = scatter_log_postgres::partition::PartitionInfo::unnamed(0);
+        i.tenant = tenant.map(str::to_string);
+        i.name = name.into();
+        i
+    };
+    let segments = Segments::new(2).unwrap();
+    log::create_partition(&tx, 11, segments, &info(Some("acme"), "local"))
+        .await
+        .unwrap();
+    log::create_partition(&tx, 12, segments, &info(None, "mirror/wikidata"))
+        .await
+        .unwrap();
+    let mut own = draft(2);
+    own.logid = Some(9_000);
+    for d in [draft(0), draft(1), own] {
+        log::append(&tx, 11, d).await.unwrap();
+    }
+    log::append(&tx, 12, draft(3)).await.unwrap();
+    let logids = |p: i64| {
+        let tx = &tx;
+        async move {
+            tx.query(
+                "SELECT logid FROM log.record WHERE partition = $1 ORDER BY \"offset\"",
+                &[&p],
+            )
+            .await
+            .unwrap()
+            .iter()
+            .map(|r| r.get::<_, Option<i64>>(0))
+            .collect::<Vec<_>>()
+        }
+    };
+    assert_eq!(logids(11).await, [Some(1), Some(2), Some(9_000)]);
+    assert_eq!(logids(12).await, [None]);
+}
+
+// 0006 A24: one manifest per sealed segment, keyed `(partition, segment)`, never re-signed;
+// the migration that keys it so runs again harmlessly.
+#[tokio::test]
+async fn a_segment_has_one_manifest() {
+    if skipped() {
+        return;
+    }
+    let client = fresh().await;
+    let key: Vec<String> = client
+        .query(
+            "SELECT a.attname::text FROM pg_index i
+             JOIN pg_attribute a ON a.attrelid = i.indrelid AND a.attnum = ANY (i.indkey)
+             WHERE i.indrelid = 'log.segment_manifest'::regclass AND i.indisprimary
+             ORDER BY a.attname",
+            &[],
+        )
+        .await
+        .unwrap()
+        .iter()
+        .map(|r| r.get(0))
+        .collect();
+    assert_eq!(key, ["partition", "segment"]);
+    let replaces: i64 = client
+        .query_one(
+            "SELECT count(*) FROM information_schema.columns
+             WHERE table_schema = 'log' AND table_name = 'segment_manifest' AND column_name = 'replaces'",
+            &[],
+        )
+        .await
+        .unwrap()
+        .get(0);
+    assert_eq!(replaces, 0);
+    migrate(&client).await.expect("migrations run again");
+}

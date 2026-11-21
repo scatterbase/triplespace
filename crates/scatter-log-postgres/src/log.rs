@@ -224,6 +224,51 @@ pub async fn partitions<C: PgClient>(client: &C) -> Result<Vec<u64>, StoreError>
 struct PartitionRow {
     size: u64,
     segments: Segments,
+    /// The tenant, for a tenant partition.
+    tenant: Option<String>,
+    /// The partition's name: `local`, `pages`, `mirror/wikidata`, …
+    name: String,
+}
+
+/// The tenant partitions every record of which takes a log ID at append, whether or not
+/// it projects as a log event (0006 A24; 0013 A57): `local`, `pages`, `log` and
+/// `actors`.
+const LOGGED_NAMES: [&str; 4] = ["local", "pages", "log", "actors"];
+
+impl PartitionRow {
+    /// The tenant whose log IDs a record of this partition takes, if it takes one.
+    fn log_id_tenant(&self) -> Option<&str> {
+        self.tenant
+            .as_deref()
+            .filter(|t| !t.is_empty() && LOGGED_NAMES.contains(&self.name.as_str()))
+    }
+}
+
+/// Gives each of `drafts` without a log ID the next of its tenant's, where `row` is a
+/// partition whose records all take one.
+async fn fill_log_ids<'d, C: PgClient>(
+    client: &C,
+    row: &PartitionRow,
+    drafts: impl Iterator<Item = &'d mut Draft>,
+) -> Result<(), StoreError> {
+    let Some(tenant) = row.log_id_tenant() else {
+        return Ok(());
+    };
+    let missing: Vec<&mut Draft> = drafts.filter(|d| d.logid.is_none()).collect();
+    if missing.is_empty() {
+        return Ok(());
+    }
+    let ids = crate::sequences::next_n(
+        client,
+        tenant,
+        &crate::sequences::Sequence::Log,
+        missing.len(),
+    )
+    .await?;
+    for (d, id) in missing.into_iter().zip(ids) {
+        d.logid = Some(id);
+    }
+    Ok(())
 }
 
 async fn partition_row<C: PgClient>(
@@ -232,9 +277,9 @@ async fn partition_row<C: PgClient>(
     lock: bool,
 ) -> Result<PartitionRow, StoreError> {
     let sql = if lock {
-        "SELECT next_offset, segment_k FROM log.partition WHERE partition = $1 FOR UPDATE"
+        "SELECT next_offset, segment_k, tenant, name FROM log.partition WHERE partition = $1 FOR UPDATE"
     } else {
-        "SELECT next_offset, segment_k FROM log.partition WHERE partition = $1"
+        "SELECT next_offset, segment_k, tenant, name FROM log.partition WHERE partition = $1"
     };
     let row = client
         .query_opt(sql, &[&partition_to_db(partition)])
@@ -249,6 +294,8 @@ async fn partition_row<C: PgClient>(
     Ok(PartitionRow {
         size: from_db(row.get(0))?,
         segments,
+        tenant: row.get(2),
+        name: row.get(3),
     })
 }
 
@@ -352,6 +399,8 @@ pub async fn append_sealed_with<C: PgClient>(
     frontiers: &mut Frontiers,
 ) -> Result<(Appended, Record), StoreError> {
     let row = partition_row(client, partition, true).await?;
+    let mut draft = draft;
+    fill_log_ids(client, &row, std::iter::once(&mut draft)).await?;
     let record = draft.seal(partition, row.size);
     insert_record(client, partition, &record, 0).await?;
     let appended = advance(client, partition, row.size, record.leaf(), frontiers).await?;
@@ -409,6 +458,8 @@ pub async fn append_many<C: PgClient>(
         return Ok(Vec::new());
     }
     let row = partition_row(client, partition, true).await?;
+    let mut drafts = drafts;
+    fill_log_ids(client, &row, drafts.iter_mut().map(|(d, _)| d)).await?;
     let records: Vec<Record> = drafts
         .into_iter()
         .zip(row.size..)

@@ -178,6 +178,10 @@ async fn seed(client: Client) -> Client {
         .await
         .unwrap();
     let client = store.into_inner();
+    // The tenant's sequences: its records take log IDs at append (0006 A24).
+    scatter_log_postgres::sequences::create(&client, TENANT, &["item"])
+        .await
+        .unwrap();
     for (partition, tenant, name) in [
         (LOCAL, Some(TENANT), "local"),
         (TENANT_LOG, Some(TENANT), "log"),

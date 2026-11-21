@@ -11,6 +11,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0002 A48](0002-source-graphs-and-mass-ingest.md#a48-an-edit-that-only-repeats-a-statement-writes-nothing) | 2026-11-09 | An edit that only repeats a statement writes nothing |
 | [0004 A23](0004-identity-clusters-and-equivalence.md#a23-how-value-iris-are-stored-served-and-hashed) | 2026-11-21 | How value IRIs are stored, served and hashed |
 | [0006 A26](0006-log-integrity-and-erasure.md#a26-a-nesting-depth-limit-for-canonical-cbor) | 2026-11-06 | A nesting-depth limit for canonical CBOR |
+| [0006 A35](0006-log-integrity-and-erasure.md#a35-the-log-id-at-append-where-a-client-sees-it-and-one-manifest-per-segment) | 2026-11-21 | The log ID at append, where a client sees it, and one manifest per segment |
 | [0009 A17](0009-keyed-entity-types-and-domain.md#a17-only-same-as-with-a-keyword-or-notation-is-refused) | 2026-11-20 | Only `same-as` with a keyword or notation is refused |
 | [0010 A47](0010-site-ui.md#a47-the-acl-site-ui-the-calls-made-building-it) | 2026-10-30 | The ACL site UI: the calls made building it |
 | [0010 A49](0010-site-ui.md#a49-the-compare-form-and-the-diff-views-the-calls-made-building-them) | 2026-11-04 | The compare form and the diff views: the calls made building them |

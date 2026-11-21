@@ -889,11 +889,19 @@ async fn views(client: &Client) -> BTreeMap<String, Vec<String>> {
     .await;
     let mut out = BTreeMap::new();
     for table in tables {
-        let found = rows(
-            client,
-            &format!("SELECT row_to_json(t)::text FROM view.\"{table}\" t"),
-        )
-        .await;
+        // A record that is not a log event takes the next log ID as it is appended (0006
+        // A24), so a block, which appends in another order than one record at a time,
+        // numbers those differently; only a log event's log ID is compared.
+        let sql = if table == "activity" {
+            "SELECT (row_to_json(t)::jsonb
+                     || CASE WHEN t.log_type IS NULL THEN '{\"logid\": null}'::jsonb
+                             ELSE '{}'::jsonb END)::text
+             FROM view.activity t"
+                .to_string()
+        } else {
+            format!("SELECT row_to_json(t)::text FROM view.\"{table}\" t")
+        };
+        let found = rows(client, &sql).await;
         out.insert(table, found);
     }
     out

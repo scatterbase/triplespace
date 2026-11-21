@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-13 (A34)
+- **Updated:** 2026-11-21 (A35)
 - **Author:** James Hare / Claude Opus
 
 ## Context
@@ -396,3 +396,11 @@ Replaced text: 01 §4.2.
 
 Replaced text: 01 §4.2.
 
+### A35. The log ID at append, where a client sees it, and one manifest per segment
+
+- **Date:** 2026-11-21
+- **Source:** Direct: Claude, while building A24's log ID rule for SCA-282 on James's go-ahead (2026-11-21, "Yes"); unconfirmed
+- **Change:** extends §4
+- **Summary:** A24 has every record of a tenant's `local`, `pages`, `log` and `actors` partitions take a log ID at append, but only the writers of log events drew one. The calls made: (1) The Postgres log store assigns it as it appends a draft without one, from the tenant's `log_id` sequence, under the append lock; a record that brings its own keeps it, and a restore, which copies records as they were written, assigns nothing. (2) A client sees a log ID only on a log event: the activity feed, `list=recentchanges` and the REST activity routes leave it out of a row with no log type, as MediaWiki gives an edit `rc_logid` 0, so that a client never reads an edit's number as a log entry's. (3) A block appends in another order than one record at a time (a new author's actor record before the block that names it), so the two number records that are not log events differently; a log event's log ID, the records' keys, revision IDs and page IDs are the same either way. (4) A24 keys `log.segment_manifest` by `(partition, segment)` without `replaces`, which the schema had not done: a migration does it, keeping the newest manifest where an earlier store kept several for one segment, since that is the one it served; a second manifest for a segment that has one is not stored, and the first stays. Chapter text: 01 §2.5; 03 §2 already shows the key.
+
+Replaced text: none; 01 §2.5 gains a sentence.
