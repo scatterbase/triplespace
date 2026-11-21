@@ -23,6 +23,33 @@ use crate::IngestError;
 /// Why a store without concurrent bootstrap blocks refuses to write one.
 const NOT_CONCURRENT: &str = "this store writes one bootstrap block at a time";
 
+/// A partition's head as a job leaves it ([`IngestStore::written_head`]).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct WrittenHead {
+    /// The number of records: the next offset.
+    pub size: u64,
+    /// The tree head over them.
+    pub root: [u8; 32],
+    /// For a `hashed` partition, the last sealed segment's number and root.
+    pub sealed: Option<(u64, [u8; 32])>,
+}
+
+impl WrittenHead {
+    /// The JSON a finish record carries for the partition of graph `graph`.
+    #[must_use]
+    pub fn to_json(&self, graph: &str) -> serde_json::Value {
+        let mut m = serde_json::json!({
+            "graph": graph,
+            "size": self.size,
+            "root": scatter_log::hash::hex(&self.root),
+        });
+        if let Some((n, root)) = &self.sealed {
+            m["sealed"] = serde_json::json!({"segment": n, "root": scatter_log::hash::hex(root)});
+        }
+        m
+    }
+}
+
 /// A per-tenant sequence (0013 §6). The instance's own sequences are under the tenant `""`.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum Sequence {
@@ -194,6 +221,15 @@ pub trait IngestStore: Backend {
         let _ = (cx, wait);
         async { Ok(()) }
     }
+
+    /// What a job's finish record says of a partition it wrote (0006 A24, A36): its size
+    /// and root inside the unit of work, and for a `hashed` partition its last sealed
+    /// segment's number and root. Nothing is signed.
+    fn written_head(
+        &self,
+        cx: &mut Self::Cx,
+        partition: u64,
+    ) -> impl Future<Output = Result<WrittenHead, IngestError>> + Send;
 
     /// How many records a partition holds: its next offset. Zero is the empty partition a
     /// bootstrap load requires (0013 §9).

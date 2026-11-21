@@ -830,3 +830,71 @@ async fn a_segment_has_one_manifest() {
     assert_eq!(replaces, 0);
     migrate(&client).await.expect("migrations run again");
 }
+
+// 0006 A24: a `hashed` partition has segment manifests and no checkpoints.
+#[tokio::test]
+async fn a_hashed_partition_takes_no_checkpoint() {
+    if skipped() {
+        return;
+    }
+    let key = ed25519_dalek::SigningKey::from_bytes(&[3; 32]);
+    let client = fresh().await;
+    let mut info = scatter_log_postgres::partition::PartitionInfo::unnamed(21);
+    info.integrity = scatter_log::registry::Integrity::Hashed;
+    log::create_partition(&client, 21, Segments::new(1).unwrap(), &info)
+        .await
+        .unwrap();
+    let mut store = PgLog::new(client);
+    store.append(21, draft(0)).await.unwrap();
+    let cp = checkpoint(&store, 21, "h/log/mirror", &key).await.unwrap();
+    let mut cps = PgCheckpoints::new(reconnect_same(store.client()).await);
+    let refused = cps.put(21, &cp).await.unwrap_err().to_string();
+    assert!(refused.contains("only a `logged` partition"), "{refused}");
+    assert!(cps.list(21).await.unwrap().is_empty());
+}
+
+// 0006 A24, A36: what a job's finish record names of a partition it wrote: its head, and
+// for a `hashed` partition the last sealed segment and its root, the root its manifest signs.
+#[tokio::test]
+async fn a_written_head_names_the_last_sealed_segment() {
+    if skipped() {
+        return;
+    }
+    let key = ed25519_dalek::SigningKey::from_bytes(&[3; 32]);
+    let client = fresh().await;
+    let mut hashed = scatter_log_postgres::partition::PartitionInfo::unnamed(31);
+    hashed.integrity = scatter_log::registry::Integrity::Hashed;
+    log::create_partition(&client, 31, Segments::new(1).unwrap(), &hashed)
+        .await
+        .unwrap();
+    log::create_partition(
+        &client,
+        32,
+        Segments::new(1).unwrap(),
+        &scatter_log_postgres::partition::PartitionInfo::unnamed(32),
+    )
+    .await
+    .unwrap();
+    for n in 0..3 {
+        log::append(&client, 31, draft(n)).await.unwrap();
+        log::append(&client, 32, draft(n)).await.unwrap();
+    }
+    let (head, sealed) = log::written_head(&client, 31).await.unwrap();
+    assert_eq!(head.size, 3);
+    let (n, root) = sealed.expect("segment 0 of two records is sealed");
+    assert_eq!(n, 0);
+    let store = PgLog::new(client);
+    let manifest = segment_manifest(&store, 31, 0, "h/log/mirror", &key)
+        .await
+        .unwrap();
+    assert_eq!(
+        root, manifest.checkpoint.root,
+        "the root its manifest signs"
+    );
+    let (head, sealed) = log::written_head(store.client(), 32).await.unwrap();
+    assert_eq!(head.size, 3);
+    assert!(
+        sealed.is_none(),
+        "a logged partition is checkpointed, not sealed"
+    );
+}

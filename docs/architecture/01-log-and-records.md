@@ -338,7 +338,7 @@ The hash function is fixed for a partition when the partition is created, and is
 
 ### 4.2 Checkpoints
 
-*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §6, A33; [0081](../decisions/0081-recovery-keys-and-continuations.md) §5, §6.*
+*Sources: [0006](../decisions/0006-log-integrity-and-erasure.md) §6, A33, A36; [0081](../decisions/0081-recovery-keys-and-continuations.md) §5, §6.*
 
 **Format.** Checkpoints use the [C2SP tlog-checkpoint](https://c2sp.org/tlog-checkpoint) format, signed as a [C2SP signed note](https://c2sp.org/signed-note):
 
@@ -350,11 +350,11 @@ The hash function is fixed for a partition when the partition is created, and is
 
 **When checkpoints are written**, for a `logged` partition:
 
-- at the end of every job ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.3);
+- after the end of every job, whose finish record names the head of each partition it wrote, unsigned: its size and root, and for a `hashed` partition the number and root of its last sealed segment, which the signer's checkpoint or manifest then covers, since a job never signs ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.3; [0006](../decisions/0006-log-integrity-and-erasure.md) A36);
 - after every `atomic` batch;
 - in steady state, at least every N records or T seconds, whichever comes first, and only when the partition has grown. N and T are instance configuration, by default 4,096 records and 60 seconds ([0006](../decisions/0006-log-integrity-and-erasure.md) A34).
 
-Records appended after the latest checkpoint are durable but not yet signed. A `hashed` partition has no checkpoints: a job that ends there records the manifest of the last sealed segment and an unsigned head offset, and the records of the open segment are uncommitted until the segment is sealed and its manifest signed (§1.2).
+Records appended after the latest checkpoint are durable but not yet signed. A `hashed` partition has no checkpoints, and the log store refuses one for it: a job that ends there records the manifest of the last sealed segment and an unsigned head offset, and the records of the open segment are uncommitted until the segment is sealed and its manifest signed (§1.2).
 
 **Who signs.** Checkpoints and segment manifests are signed by the projection worker, under an advisory lock per partition, and it is the only process that holds the instance key; an API replica or a bulk job appends and never signs. The signing worker reads the persisted tree (§4.1), so a checkpoint covers only complete subtrees that every appender has closed. **Until that worker signs on a cadence**, `triplespace checkpoint` signs: the head of every `logged` partition that has grown since its latest checkpoint and the manifest of every full segment of a `hashed` one, with the instance key, which it refuses unless the key is the chain's current one, each partition under the worker's advisory lock, `hashtextextended('checkpoint:{partition}', 0)`. An operator runs it by hand, by cron, and before an export ([0006](../decisions/0006-log-integrity-and-erasure.md) A28). **A partition's origin is recorded when the partition is created**, in its registry row, derived from the tenant's base at that time, or the farm's, and every checkpoint and manifest is signed under it, so a tenant aliased later still signs under the host its log began at; a row created before the column existed takes its first checkpoint's or manifest's origin, then the current host ([0006](../decisions/0006-log-integrity-and-erasure.md) A29, A33).
 

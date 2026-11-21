@@ -340,6 +340,12 @@ pub async fn run_adoption<S: IngestStore>(
         .params
         .insert("history".into(), history_name(adoption.history).into());
     let mut job = Job::start(store, pipeline, &mut cx, tenant, header, attestation, now).await?;
+    // Besides its graph, an adoption writes the tenant's pages and actors (0006 A36).
+    for graph in ["pages", "actors"] {
+        if let Some(p) = store.partition(&mut cx, tenant, graph).await? {
+            job.wrote(p, graph);
+        }
+    }
     set_floors(store, &mut cx, tenant, &adoption.floors).await?;
 
     // Accounts (0035 §5): the source's users under the tenant's issuer, skipping any

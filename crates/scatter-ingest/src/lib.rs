@@ -49,7 +49,7 @@ pub use import::{
     run_import,
 };
 pub use job::{Counts, Job, Reject};
-pub use store::{Cursor, IngestStore, Sequence};
+pub use store::{Cursor, IngestStore, Sequence, WrittenHead};
 pub use sync::{BeforeCommit, SyncItem, SyncOutcome, run_sync};
 pub use write::{
     Attestation, BlockEntry, BlockPayload, MintedValue, RawRecord, Request, Written, write_many,

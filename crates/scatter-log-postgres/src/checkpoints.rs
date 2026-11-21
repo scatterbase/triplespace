@@ -48,16 +48,19 @@ fn key_id_of(checkpoint: &SignedCheckpoint) -> String {
         .unwrap_or_default()
 }
 
-/// Stores a checkpoint, replacing one of the same size.
+/// Stores a checkpoint, replacing one of the same size. Only a `logged` partition has
+/// checkpoints (0006 A24): a `hashed` one has segment manifests, and a checkpoint for it,
+/// or for a partition that does not exist, is refused.
 pub async fn put<C: PgClient>(
     client: &C,
     partition: u64,
     checkpoint: &SignedCheckpoint,
 ) -> Result<(), CheckpointStoreError> {
-    client
+    let n = client
         .execute(
             "INSERT INTO log.checkpoint (partition, tree_size, root, key_id, signed_note, written_at)
-             VALUES ($1, $2, $3, $4, $5, $6)
+             SELECT $1, $2, $3, $4, $5, $6
+             WHERE (SELECT integrity FROM log.partition WHERE partition = $1) = 'logged'
              ON CONFLICT (partition, tree_size) DO UPDATE
              SET root = EXCLUDED.root, key_id = EXCLUDED.key_id, signed_note = EXCLUDED.signed_note,
                  written_at = EXCLUDED.written_at",
@@ -72,6 +75,11 @@ pub async fn put<C: PgClient>(
         )
         .await
         .map_err(|e| storage(&e))?;
+    if n == 0 {
+        return Err(CheckpointStoreError::Storage(format!(
+            "partition {partition:#018x} is not `logged`: only a `logged` partition has checkpoints"
+        )));
+    }
     Ok(())
 }
 

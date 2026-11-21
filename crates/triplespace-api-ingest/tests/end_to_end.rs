@@ -901,10 +901,36 @@ async fn views(client: &Client) -> BTreeMap<String, Vec<String>> {
         } else {
             format!("SELECT row_to_json(t)::text FROM view.\"{table}\" t")
         };
-        let found = rows(client, &sql).await;
+        let mut found = rows(client, &sql).await;
+        if table == "activity" {
+            found = found.iter().map(|r| without_head_roots(r)).collect();
+        }
         out.insert(table, found);
     }
     out
+}
+
+/// An activity row with the roots of a job's `heads` taken out: a root covers the records'
+/// salted leaves, so no two runs share it; the sizes and graphs stay (0006 A36).
+fn without_head_roots(row: &str) -> String {
+    let mut v: serde_json::Value = serde_json::from_str(row).unwrap();
+    if let Some(heads) = v
+        .pointer_mut("/params/heads")
+        .and_then(serde_json::Value::as_array_mut)
+    {
+        for h in heads {
+            if let Some(o) = h.as_object_mut() {
+                o.remove("root");
+                if let Some(sealed) = o
+                    .get_mut("sealed")
+                    .and_then(serde_json::Value::as_object_mut)
+                {
+                    sealed.remove("root");
+                }
+            }
+        }
+    }
+    v.to_string()
 }
 
 /// A block (`write_many`; 0013 A87) over Postgres, where it is a binary `COPY` and the

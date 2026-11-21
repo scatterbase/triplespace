@@ -309,6 +309,44 @@ pub async fn head<C: PgClient>(client: &C, partition: u64) -> Result<Head, Store
     })
 }
 
+/// The head of `partition` and, for a `hashed` one, its last sealed segment's number and
+/// root: what a job's finish record says of a partition it wrote (0006 A24, A36), unsigned.
+/// Read inside the caller's transaction, so it covers what that transaction appended.
+///
+/// # Errors
+///
+/// [`StoreError`].
+pub async fn written_head<C: PgClient>(
+    client: &C,
+    partition: u64,
+) -> Result<(Head, Option<(u64, Hash)>), StoreError> {
+    let head = head(client, partition).await?;
+    let integrity: String = client
+        .query_one(
+            "SELECT integrity FROM log.partition WHERE partition = $1",
+            &[&partition_to_db(partition)],
+        )
+        .await
+        .map_err(|e| storage_error(&e))?
+        .get(0);
+    let full = head.segments.full_segments(head.size);
+    let sealed = if integrity == "hashed" && full > 0 {
+        let n = full - 1;
+        let root = merkle::subtree_root(
+            client,
+            partition,
+            u32::from(head.segments.exponent()),
+            n,
+            head.size,
+        )
+        .await?;
+        Some((n, root))
+    } else {
+        None
+    };
+    Ok((head, sealed))
+}
+
 async fn insert_record<C: PgClient>(
     client: &C,
     partition: u64,

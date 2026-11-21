@@ -459,6 +459,25 @@ impl IngestStore for MemoryIngest {
         }
     }
 
+    /// The size and root; the store keeps no integrity mode, so no sealed segment.
+    async fn written_head(
+        &self,
+        cx: &mut MemoryCx,
+        partition: u64,
+    ) -> Result<crate::store::WrittenHead, IngestError> {
+        let p = cx
+            .state
+            .partitions
+            .get(&partition)
+            .ok_or_else(|| store(format!("no partition {partition:#x}")))?;
+        let leaves: Vec<_> = p.records.iter().map(Record::leaf).collect();
+        Ok(crate::store::WrittenHead {
+            size: leaves.len() as u64,
+            root: scatter_log::tree::root_of(&leaves),
+            sealed: None,
+        })
+    }
+
     async fn partition_size(&self, cx: &mut MemoryCx, partition: u64) -> Result<u64, IngestError> {
         cx.state
             .partitions

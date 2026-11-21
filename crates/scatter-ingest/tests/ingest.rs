@@ -122,7 +122,7 @@ fn events(store: &MemoryIngest, partition: u64) -> Vec<(String, String)> {
 }
 
 fn params_of(record: &Record) -> serde_json::Value {
-    record
+    let mut params = record
         .body()
         .content()
         .value()
@@ -131,7 +131,26 @@ fn params_of(record: &Record) -> serde_json::Value {
         .get("params")
         .unwrap()
         .to_json()
-        .unwrap()
+        .unwrap();
+    // A head's root covers the records' salted leaves, so no two runs share it; its size
+    // and graph are compared (0006 A36).
+    if let Some(heads) = params
+        .get_mut("heads")
+        .and_then(serde_json::Value::as_array_mut)
+    {
+        for h in heads {
+            if let Some(o) = h.as_object_mut() {
+                o.remove("root");
+                if let Some(sealed) = o
+                    .get_mut("sealed")
+                    .and_then(serde_json::Value::as_object_mut)
+                {
+                    sealed.remove("root");
+                }
+            }
+        }
+    }
+    params
 }
 
 // --- the write path ----------------------------------------------------------------------
@@ -1829,6 +1848,11 @@ fn a_sync_in_blocks_writes_what_one_item_at_a_time_writes() {
             "the same records, field by field"
         );
         assert_eq!(jobs_block, jobs_one, "the same job records");
+        // The first pass's finish names the head of the partition it wrote (0006 A36).
+        assert_eq!(
+            jobs_one[1]["heads"],
+            serde_json::json!([{"graph": "mirror/internetdomains", "size": 4}])
+        );
     });
 }
 
