@@ -209,22 +209,76 @@ pub fn parse_start_tag(
 							});
 						} else {
 							match &tag_name as _ {
-								"math" | "nowiki" => {
-									parse_plain_text_tag(
-										state,
-										start_position,
-										tag_end_position,
+								// Fork: `pre` and `includeonly` hold text, not
+								// wikitext, as `nowiki` does.
+								"math" | "nowiki" | "pre" | "includeonly" => {
+									// Fork: with no end tag after it, the whole
+									// start tag is text, found by a search that
+									// goes on from the last, so `<nowiki>`
+									// repeated stays linear.
+									if state.has_end_tag(
 										&tag_name,
-									);
+										tag_end_position,
+									) {
+										parse_plain_text_tag(
+											state,
+											start_position,
+											tag_end_position,
+											&tag_name,
+										);
+									} else {
+										state.warnings.push(crate::Warning {
+											end: tag_end_position,
+											message: crate::WarningMessage::MissingEndTagRewinding,
+											start: start_position,
+										});
+										state.scan_position = tag_end_position;
+									}
 								}
 								_ => {
-									state.push_open_node(
+									let type_ = crate::OpenNodeType::Tag {
+										name: tag_name,
+										content_start: tag_end_position,
+									};
+									// Fork: as MediaWiki reads an extension tag,
+									// its content runs to the first end tag of
+									// its name, so one of the same name inside it
+									// is text; and a start tag with no end tag
+									// after it is text, found once by a search
+									// that goes on from the last.
+									let name = match &type_ {
 										crate::OpenNodeType::Tag {
-											name: tag_name,
-											content_start: tag_end_position,
-										},
-										tag_end_position,
-									);
+											name,
+											..
+										} => name.to_string(),
+										_ => unreachable!(),
+									};
+									let nested = state.stack.iter().any(|n| {
+										matches!(
+											&n.type_,
+											crate::OpenNodeType::Tag { name: open, .. }
+												if *open == name
+										)
+									});
+									if nested
+										|| !state.has_end_tag(
+											&name,
+											tag_end_position,
+										) {
+										// The whole start tag is text, and the
+										// scan goes on after it.
+										state.warnings.push(crate::Warning {
+											end: tag_end_position,
+											message: crate::WarningMessage::MissingEndTagRewinding,
+											start: start_position,
+										});
+										state.scan_position = tag_end_position;
+									} else {
+										state.push_open_node(
+											type_,
+											tag_end_position,
+										);
+									}
 								}
 							}
 						}

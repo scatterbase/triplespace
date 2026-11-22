@@ -9,7 +9,7 @@ copied, never moved, so a run can be repeated from the same start.
 
   wikitext     every revision of Librarybase's wikitext pages (docs/samples/librarybase/parse)
                and the head of each talk page of docs/samples/enwiki-talk/current.xml.bz2
-  wikitext_parse  the same seeds as wikitext
+  wikitext_parse, wikitext_expand  the same seeds as wikitext
   markdown     the repository's own Markdown (README, docs/) and fuzz/seeds/markdown/
   cbor_record  every CBOR byte string of the log test vectors (docs/api/vectors/log-v1.json)
 
@@ -97,6 +97,7 @@ def cbor_record() -> int:
 TARGETS = {
     "wikitext": wikitext,
     "wikitext_parse": lambda: wikitext("wikitext_parse"),
+    "wikitext_expand": lambda: wikitext("wikitext_expand"),
     "markdown": markdown,
     "cbor_record": cbor_record,
 }

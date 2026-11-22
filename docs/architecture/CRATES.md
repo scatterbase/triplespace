@@ -136,7 +136,7 @@ The namespace registry, embedding `docs/registry/namespaces.toml`, and the speci
 
 **Depends on:** — · **Rules:** pure, wasm
 
-The wikitext parser `scatter-wikitext` lowers from: a fork of `parse-wiki-text-2` 0.2.0, with the fixes that were Triplespace's patches to the vendored copy, published on crates.io under its own name and upstream's MIT-0 licence, which covers Scatter's changes too ([0115](../decisions/0115-publishing-the-shared-crates.md) §5; [0033](../decisions/0033-backend-stack.md) §9.1)
+The wikitext parser `scatter-wikitext` lowers from: a fork of `parse-wiki-text-2` 0.2.0, with the fixes that were Triplespace's patches to the vendored copy, published on crates.io under its own name and upstream's MIT-0 licence, which covers Scatter's changes too ([0115](../decisions/0115-publishing-the-shared-crates.md) §5; [0033](../decisions/0033-backend-stack.md) §9.1); the step budget ([0033](../decisions/0033-backend-stack.md) A36), brace matching as the preprocessor's, and MediaWiki's rules for bold and italic, the `quotes` module ([0115](../decisions/0115-publishing-the-shared-crates.md) A2)
 
 **As built** (`scatter-wikitext-parse`, from its `//!` docs and `implements` claims): Parse wiki text from Mediawiki into a tree of elements. Claims no section in full yet.
 

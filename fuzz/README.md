@@ -9,6 +9,7 @@ cargo-deny never see it. It reaches the crates under test by path.
 |---|---|---|
 | `wikitext` | `scatter_wikitext::render` and `extract` (0008 §8; 0033 §9.1) | no panic; returns within the parser's step budget |
 | `wikitext_parse` | `scatter_wikitext_parse::Configuration::parse_with_budget` (0115 §5) | no panic; every node's position is consistent (the checks of `crates/scatter-wikitext-parse/tests/check/mod.rs`) |
+| `wikitext_expand` | `scatter_wikitext_expand::expand_for_view`, `call_spans` and `census::scan` (0042 §4, §18) | no panic; terminates, with every call span inside the text |
 | `markdown` | `scatter_pages::markdown::render` with the `scatter-wikitext` sanitizer (0008 §5; 0033 §9.2) | no panic |
 | `cbor_record` | `scatter_log::cbor::decode`, `decode_prefix`, `Header`, `Body` and `Record::decode` (0006 §2–3, §5) | no panic |
 

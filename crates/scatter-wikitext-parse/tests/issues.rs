@@ -39,7 +39,7 @@ fn step_budget() {
 	// A budget of exactly the steps it takes is enough.
 	assert!(c.parse_with_budget(page, full.steps).is_ok());
 
-	let s = "{{".repeat(500);
+	let s = "a [[b]] ".repeat(5_000);
 	let stop = |budget| match c.parse_with_budget(&s, budget) {
 		Err(ParseError::BudgetExhausted { steps, output }) => {
 			assert_eq!(steps, budget);
@@ -103,4 +103,11 @@ fn positions() {
 		.map(|c| &s[c.start..c.end])
 		.collect();
 	assert_eq!(cells, ["|a", "||b\nmore", "!c\nd"]);
+
+	// An empty parameter ends where it starts (found by the fuzz target).
+	let o = c.parse_without_timeout("{{| }}").unwrap();
+	let Node::Template { parameters, .. } = &o.nodes[0] else {
+		panic!("a template")
+	};
+	assert_eq!((parameters[0].start, parameters[0].end), (4, 4));
 }

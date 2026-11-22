@@ -282,16 +282,30 @@ fn a_leading_colon_file_link_links_to_the_description_page() {
 /// browser, and nested unclosed openers no longer take exponential time or memory.
 #[test]
 fn parse_budget() {
-    let text = "{{".repeat(20_000);
-    let rendered = render(&text, &config(), &Fixture, &Title::new(4, "T"));
-    assert!(
-        rendered.html.contains("<pre>{{{{"),
-        "{}",
-        &rendered.html[..80]
-    );
+    // No input known takes more than a few dozen steps a byte (0115 §5), so the fallback
+    // is shown with a small budget: the source, as text.
+    let text = "== A ==\n[[B]] and {{C}}\n";
+    let rendered = crate::render_within(text, &config(), &Fixture, &Title::new(4, "T"), &[], 5);
+    assert!(rendered.html.contains("<pre>== A =="), "{}", rendered.html);
     assert_eq!(
         rendered.warnings,
         ["0..0: parse stopped at its step budget"]
+    );
+    // Unmatched braces and unclosed tables are text from the start (0115 §5) and render
+    // as it, inside the real budget.
+    let tables = "{|\n|a\n".repeat(3_000) + "|}";
+    let tables = render(&tables, &config(), &Fixture, &Title::new(4, "T"));
+    assert!(tables.warnings.iter().all(|w| !w.contains("budget")));
+    let braces = render(
+        &"{{".repeat(20_000),
+        &config(),
+        &Fixture,
+        &Title::new(4, "T"),
+    );
+    assert!(
+        braces
+            .html
+            .starts_with("<div class=\"mw-parser-output\"><p>{{{{")
     );
     // An ordinary page is well inside it.
     assert!(r("== A ==\n[[B]] {{C}}\n").contains("<h2>"));

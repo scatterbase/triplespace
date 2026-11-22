@@ -150,7 +150,9 @@ pub fn parse_template_end(state: &mut crate::State) {
 					Some(name) => {
 						let parameters_length = parameters.len();
 						let parameter = &mut parameters[parameters_length - 1];
-						parameter.end = position;
+						// Fork: an empty parameter ends where it starts; skipping
+						// whitespace both ways had its end before its start.
+						parameter.end = position.max(parameter.start);
 						parameter.value =
 							std::mem::replace(&mut state.nodes, nodes);
 						name
@@ -223,7 +225,9 @@ pub fn parse_template_separator(state: &mut crate::State) {
 			} else {
 				let parameters_length = parameters.len();
 				let parameter = &mut parameters[parameters_length - 1];
-				parameter.end = position;
+				// Fork: an empty parameter ends where it starts; skipping
+				// whitespace both ways had its end before its start.
+				parameter.end = position.max(parameter.start);
 				parameter.value = std::mem::replace(&mut state.nodes, vec![]);
 			}
 			parameters.push(crate::Parameter {
@@ -243,8 +247,11 @@ pub fn parse_template_start(state: &mut crate::State) {
 	debug_assert_eq!(state.get_byte(scan_position), Some(b'{'));
 	debug_assert_eq!(state.get_byte(scan_position + 1), Some(b'{'));
 
-	// if the template has three braces it is a parameter
-	if state.get_byte(state.scan_position + 2) == Some(b'{') {
+	// Fork: the matching pass says whether it is a parameter.
+	if matches!(
+		state.braces.opens.get(&scan_position),
+		Some((crate::braces::Kind::Argument, _))
+	) {
 		let position = state.skip_whitespace_forwards(scan_position + 3);
 		state.push_open_node(
 			crate::OpenNodeType::Parameter {

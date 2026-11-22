@@ -132,6 +132,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0111 A2](0111-creating-a-tenant-by-request.md#a2-calls-made-building-the-requests-api-page-and-invitation) | 2026-11-16 | Calls made building the requests' API, page and invitation |
 | [0111 A3](0111-creating-a-tenant-by-request.md#a3-calls-made-building-freezing-deleting-and-the-primary-roles-acceptance) | 2026-11-16 | Calls made building freezing, deleting and the primary role's acceptance |
 | [0114 A2](0114-badges.md#a2-badges-drawn-everywhere-the-site-names-an-entity) | 2026-11-22 | Badges drawn everywhere the site names an entity |
+| [0115 A2](0115-publishing-the-shared-crates.md#a2-bold-and-italic-move-into-the-parser-tag-balancing-and-paragraphs-stay) | 2026-11-22 | Bold and italic move into the parser; tag balancing and paragraphs stay |
 
 ## Open questions
 

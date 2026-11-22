@@ -41,7 +41,15 @@ pub fn parse<'a>(
 ) -> Result<crate::Output<'a>, ParseError<'a>> {
 	let max_duration = limits.max_duration;
 	let mut state = crate::State {
+		braces: crate::braces::match_braces(wiki_text, &|name| {
+			matches!(
+				configuration.tag_name_map.get(name),
+				Some(crate::TagClass::ExtensionTag)
+			)
+		}),
 		failed_at_end: Default::default(),
+		next_end_tag: Default::default(),
+		last_table_end: wiki_text.rfind("|}"),
 		flushed_position: 0,
 		nodes: vec![],
 		scan_position: 0,
@@ -102,11 +110,13 @@ pub fn parse<'a>(
 
 				// rewind until we find a text node
 				if let Some(crate::OpenNode {
-					nodes,
-					start,
+					mut nodes,
+					mut start,
 					type_,
 				}) = state.stack.pop()
 				{
+					let is_table =
+						matches!(type_, crate::OpenNodeType::Table(..));
 					state
 						.failed_at_end
 						.insert((start, std::mem::discriminant(&type_)));
@@ -115,6 +125,33 @@ pub fn parse<'a>(
 						message: crate::WarningMessage::MissingEndTagRewinding,
 						start,
 					});
+					// Fork: a table that found no `|}` before the end leaves none
+					// for the tables around it, since a `|}` closes the innermost
+					// table first: they are rewound with it, back to the outermost,
+					// as rewinding each and parsing to the end again would leave
+					// them, without the parse after each.
+					while is_table
+						&& matches!(
+							state.stack.last(),
+							Some(crate::OpenNode {
+								type_: crate::OpenNodeType::Table(..),
+								..
+							})
+						) {
+						let outer = state.stack.pop().unwrap();
+						state.failed_at_end.insert((
+							outer.start,
+							std::mem::discriminant(&outer.type_),
+						));
+						state.warnings.push(crate::Warning {
+							end: state.scan_position,
+							message:
+								crate::WarningMessage::MissingEndTagRewinding,
+							start: outer.start,
+						});
+						nodes = outer.nodes;
+						start = outer.start;
+					}
 					state.rewind(nodes, start);
 				} else {
 					break;
@@ -235,9 +272,23 @@ pub fn parse<'a>(
 				}
 			}
 			Some(b'{') => {
-				if state.get_byte(state.scan_position + 1) == Some(b'{') {
+				// Fork: only braces the matching pass found open a call; others
+				// are text, with the warning a rewind of them used to give.
+				if state.braces.opens.contains_key(&state.scan_position) {
 					crate::template::parse_template_start(&mut state);
 				} else {
+					if state
+						.braces
+						.unmatched_opens
+						.contains(&state.scan_position)
+					{
+						state.warnings.push(crate::Warning {
+							end: wiki_text.len(),
+							message:
+								crate::WarningMessage::MissingEndTagRewinding,
+							start: state.scan_position,
+						});
+					}
 					state.scan_position += 1;
 				}
 			}
@@ -263,9 +314,21 @@ pub fn parse<'a>(
 				_ => state.scan_position += 1,
 			},
 			Some(b'}') => {
-				if state.get_byte(state.scan_position + 1) == Some(b'}') {
+				// Fork: only a matched closer closes a call.
+				if state.braces.closes.contains_key(&state.scan_position) {
 					crate::template::parse_template_end(&mut state);
 				} else {
+					if state
+						.braces
+						.unmatched_closes
+						.contains(&state.scan_position)
+					{
+						state.warnings.push(crate::Warning {
+							end: state.scan_position + 2,
+							message: crate::WarningMessage::UnexpectedEndTag,
+							start: state.scan_position,
+						});
+					}
 					state.scan_position += 1;
 				}
 			}
@@ -290,7 +353,7 @@ pub fn parse<'a>(
 					execution_time: elapsed.unwrap_or_default(),
 					output: crate::Output {
 						nodes: state.nodes,
-						warnings: state.warnings,
+						warnings: dedup(state.warnings),
 						steps,
 					},
 				});
@@ -313,7 +376,7 @@ pub fn parse<'a>(
 				steps: limits.max_steps,
 				output: crate::Output {
 					nodes: state.nodes,
-					warnings: state.warnings,
+					warnings: dedup(state.warnings),
 					steps,
 				},
 			});
@@ -324,7 +387,17 @@ pub fn parse<'a>(
 	state.flush(end_position);
 	Ok(crate::Output {
 		nodes: state.nodes,
-		warnings: state.warnings,
+		warnings: dedup(state.warnings),
 		steps,
 	})
+}
+
+/// Fork: each warning once, in the order first given. Re-reading text after a rewind
+/// gave some twice.
+fn dedup(warnings: Vec<crate::Warning>) -> Vec<crate::Warning> {
+	let mut seen = std::collections::HashSet::new();
+	warnings
+		.into_iter()
+		.filter(|w| seen.insert((w.start, w.end, w.message)))
+		.collect()
 }

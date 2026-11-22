@@ -715,6 +715,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "scatter-wikitext-expand"
+version = "0.1.1"
+dependencies = [
+ "serde",
+ "toml",
+]
+
+[[package]]
 name = "scatter-wikitext-parse"
 version = "0.1.0"
 
@@ -966,6 +974,7 @@ dependencies = [
  "scatter-log",
  "scatter-pages",
  "scatter-wikitext",
+ "scatter-wikitext-expand",
  "scatter-wikitext-parse",
 ]
 

@@ -152,7 +152,19 @@ pub fn render_marked(
     page: &Title,
     marks: &[Mark],
 ) -> Rendered {
-    let Ok(output) = config.parser.parse_with_budget(text, parse_budget(text)) else {
+    render_within(text, config, resolver, page, marks, parse_budget(text))
+}
+
+/// Renders within a step budget; the source as text when the parse reaches it.
+fn render_within(
+    text: &str,
+    config: &Config,
+    resolver: &dyn Resolver,
+    page: &Title,
+    marks: &[Mark],
+    budget: u64,
+) -> Rendered {
+    let Ok(output) = config.parser.parse_with_budget(text, budget) else {
         // Never fail: show the source as text.
         let mut pre = Element::new("pre", Vec::new(), Some(0..text.len()));
         pre.push_text(text);

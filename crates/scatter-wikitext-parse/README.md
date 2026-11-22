@@ -25,8 +25,13 @@ its URL protocols and its magic words. `Configuration::new` takes these from a
 
 It does not expand templates: a template call is a node, as written. Expand first, with a
 preprocessor such as [`scatter-wikitext-expand`](https://crates.io/crates/scatter-wikitext-expand),
-then parse the result. Bold and italic come back as toggles and HTML tags as separate start and
-end nodes, as the parser meets them; turning them into a balanced tree is the caller's work.
+then parse the result. Braces are matched as MediaWiki's preprocessor matches them, so a call the
+preprocessor left as written is the template node here, and unmatched braces are text.
+
+Bold and italic come back as toggles, where the parser meets each run of apostrophes; the
+`quotes` module turns a line's runs into the elements they open and close, by MediaWiki's rules.
+HTML tags come back as separate start and end nodes; balancing them into a tree, and making
+paragraphs, is HTML's business and the caller's.
 
 **Bounding the work.** `parse_with_budget` stops after a given number of steps, one step being a
 turn of the parser's main loop, and returns the output so far. Ordinary pages take one or two

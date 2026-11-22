@@ -8,7 +8,7 @@ warn: [Warning(UnexpectedEndTag)]
 
 case: {{{
 node: [Text({{{)]
-warn: [Warning(MissingEndTagRewinding), Warning(MissingEndTagRewinding)]
+warn: [Warning(MissingEndTagRewinding)]
 
 case: {{{\talpha}}}
 node: [Parameter(, [Text(alpha)])]
@@ -23,8 +23,8 @@ node: [Parameter(, [Italic])]
 warn: []
 
 case: {{{[[alpha|beta}}}
-node: [Parameter([Text(beta)], [Text([[alpha)])]
-warn: [Warning(UnexpectedEndTagRewinding)]
+node: [Text({{{[[alpha|beta}}})]
+warn: [Warning(MissingEndTagRewinding), Warning(UnexpectedEndTag), Warning(MissingEndTagRewinding)]
 
 case: {{{alpha\t|beta}}}
 node: [Parameter([Text(beta)], [Text(alpha)])]
@@ -52,7 +52,7 @@ warn: []
 
 case: {{{alpha|
 node: [Text({{{alpha|)]
-warn: [Warning(MissingEndTagRewinding), Warning(MissingEndTagRewinding)]
+warn: [Warning(MissingEndTagRewinding)]
 
 case: {{{alpha|\tbeta}}}
 node: [Parameter([Text(\tbeta)], [Text(alpha)])]
@@ -104,7 +104,7 @@ warn: [Warning(UselessTextInParameter)]
 
 case: {{{alpha|beta|
 node: [Text({{{alpha|beta|)]
-warn: [Warning(UselessTextInParameter), Warning(MissingEndTagRewinding), Warning(MissingEndTagRewinding)]
+warn: [Warning(MissingEndTagRewinding)]
 
 case: {{{alpha|beta|\n}}}
 node: [Parameter([Text(beta)], [Text(alpha)])]

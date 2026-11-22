@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-22
-- **Updated:** 2026-11-22 (A1)
+- **Updated:** 2026-11-22 (A2)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0042](0042-template-expansion-and-parsoid.md), [0097](0097-versioning-and-skins.md)
 
@@ -42,6 +42,10 @@ Then, offered the four steps that finish this work (the pull request for the for
 Offered the changes proposed for the fork itself (a step budget instead of a timeout, the positions `scatter-wikitext` searched the source for, a fuzz target for the parser alone, and the stale fuzz lock file), confirming 0115 A1 in the same message:
 
 - **"Before merging, I want you to make your additional proposed changes and then include them in the pull request"**.
+
+Offered further work on the parser (a linear rewind, checking that the expander and the parser read calls alike, and moving bold and italic, tag balancing and paragraphs into the parser), confirming 0033 A37 in the same exchange:
+
+- **"Work on 3, 4, 5"**.
 
 ## Decision
 
@@ -122,3 +126,11 @@ The plan for the other strong candidates. Each depends on the questions before i
 - **Source:** Direct: Claude, while building the class prefix, 2026-11-22; confirmed by James, 2026-11-22
 - **Change:** extends §6
 - **Summary:** `ConfigSource::default()` gives `class_prefix` the value `wt-`, so a caller outside Triplespace gets `wt-chip` and `wt-repeat`, and Triplespace's configuration sets `ts-`. Q2's recommendation named only Triplespace's prefix. An empty default was not taken because `chip` and `repeat` alone would collide with a host page's own classes, and `ts-` because it names Triplespace in a crate meant to know nothing of it. Chapter text: 11 §1.2.
+
+### A2. Bold and italic move into the parser; tag balancing and paragraphs stay
+
+- **Date:** 2026-11-22
+- **Source:** Direct: Claude, while building the parser's structure, 2026-11-22; unconfirmed
+- **Change:** extends §5
+- **Summary:** MediaWiki's rules for bold and italic are in `scatter-wikitext-parse`, as its `quotes` module, and `scatter-wikitext` uses them; balancing HTML tags and making paragraphs stay in `scatter-wikitext`. James asked for all three to move. The apostrophe rules read only the runs of a line and are wikitext's own, of use to any reader of the parser's output. Tag balancing and paragraphs are HTML tree construction (which elements close a paragraph, implied end tags, reopening formatting elements, `tree::Builder`), which a renderer needs and a parser of wikitext does not, so moving them would put an HTML tree builder in the parser. Chapter text: 22 §3.6.
+

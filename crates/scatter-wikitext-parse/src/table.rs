@@ -658,18 +658,24 @@ pub fn start_table(
 			_ => break,
 		}
 	}
-	state.push_open_node(
-		crate::OpenNodeType::Table(crate::state::Table {
-			attributes: vec![],
-			before: vec![],
-			captions: vec![],
-			child_element_attributes: None,
-			rows: vec![],
-			start: 0,
-			state: crate::state::TableState::TableAttributes,
-		}),
-		position,
-	);
+	let type_ = crate::OpenNodeType::Table(crate::state::Table {
+		attributes: vec![],
+		before: vec![],
+		captions: vec![],
+		child_element_attributes: None,
+		rows: vec![],
+		start: 0,
+		state: crate::state::TableState::TableAttributes,
+	});
+	// Fork: a table with no `|}` anywhere after it cannot be closed, so opening it
+	// rewinds it at once, as parsing to the end and rewinding it would.
+	if state
+		.last_table_end
+		.map_or(true, |end| end < state.scan_position + 2)
+	{
+		state.cannot_close(state.scan_position, &type_);
+	}
+	state.push_open_node(type_, position);
 }
 
 fn get_table<'a, 'b>(

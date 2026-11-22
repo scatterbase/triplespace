@@ -22,6 +22,7 @@
 
 use std::collections::HashMap;
 
+use scatter_wikitext_parse::quotes::{self, Quote, QuotePlan};
 use scatter_wikitext_parse::{
     DefinitionListItem, DefinitionListItemType, ListItem, Node as P, Positioned as _, TableCaption,
     TableCellType, TableRow,
@@ -82,41 +83,6 @@ struct Para {
     last: Last,
     pending: Option<Pending>,
     in_block: bool,
-}
-
-/// One apostrophe event.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Q {
-    OpenB,
-    OpenI,
-    CloseB,
-    CloseI,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum Run {
-    I,
-    B,
-    Bi,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum QState {
-    None,
-    B,
-    I,
-    /// `<b><i>`: bold opened first.
-    Bi,
-    /// `<i><b>`: italic opened first.
-    Ib,
-}
-
-/// What each apostrophe node of a line does.
-#[derive(Default)]
-struct QuotePlan {
-    /// By node start: literal apostrophes written first, then the events.
-    at: HashMap<usize, (usize, Vec<Q>)>,
-    end: Vec<Q>,
 }
 
 pub(crate) struct Lowerer<'s, 'c> {
@@ -744,7 +710,11 @@ impl<'s, 'c> Lowerer<'s, 'c> {
                 self.b.text(&character.to_string(), Some(*start..*end));
             }
             P::Bold { start, .. } | P::Italic { start, .. } | P::BoldItalic { start, .. } => {
-                let (literal, events) = self.plan.at.get(start).cloned().unwrap_or_default();
+                let (literal, events) = self
+                    .plan
+                    .at(*start)
+                    .map(|r| (r.literal, r.events.clone()))
+                    .unwrap_or_default();
                 if literal > 0 {
                     self.b.text(&"'".repeat(literal), None);
                 }
@@ -1221,120 +1191,47 @@ impl<'s, 'c> Lowerer<'s, 'c> {
             .count()
     }
 
-    fn quote_events(&mut self, events: &[Q]) {
+    fn quote_events(&mut self, events: &[Quote]) {
         for e in events {
             match e {
-                Q::OpenB => self.b.open("b", Vec::new(), None),
-                Q::OpenI => self.b.open("i", Vec::new(), None),
-                Q::CloseB => self.b.close("b"),
-                Q::CloseI => self.b.close("i"),
+                Quote::OpenBold => self.b.open("b", Vec::new(), None),
+                Quote::OpenItalic => self.b.open("i", Vec::new(), None),
+                Quote::CloseBold => self.b.close("b"),
+                Quote::CloseItalic => self.b.close("i"),
             }
         }
     }
 
+    /// Bold and italic for one line, by MediaWiki's apostrophe rules, which the parser
+    /// carries (0115 §5).
     fn plan_quotes(&self, items: &[Item<'s, '_>]) -> QuotePlan {
-        let mut tokens: Vec<(usize, Run, usize)> = Vec::new();
+        let mut runs = Vec::new();
         for item in items {
             if let Item::Node(n) = item {
-                collect_quotes(n, &mut tokens, self);
+                collect_quotes(n, &mut runs);
             }
         }
-        tokens.sort_by_key(|t| t.0);
-        let italics = tokens
-            .iter()
-            .filter(|t| matches!(t.1, Run::I | Run::Bi))
-            .count();
-        let bolds = tokens
-            .iter()
-            .filter(|t| matches!(t.1, Run::B | Run::Bi))
-            .count();
-        if italics % 2 == 1 && bolds % 2 == 1 {
-            let mut single = None;
-            let mut multi = None;
-            let mut space = None;
-            for (k, &(start, run, literal)) in tokens.iter().enumerate() {
-                if run != Run::B {
-                    continue;
-                }
-                let at = start + literal;
-                let mut before = self.src[..at].chars().rev();
-                let x1 = before.next();
-                let x2 = before.next();
-                if x1 == Some(' ') {
-                    space.get_or_insert(k);
-                } else if x2 == Some(' ') {
-                    single = Some(k);
-                    break;
-                } else {
-                    multi.get_or_insert(k);
-                }
-            }
-            if let Some(k) = single.or(multi).or(space) {
-                tokens[k].1 = Run::I;
-                tokens[k].2 += 1;
-            }
-        }
-        let mut plan = QuotePlan::default();
-        let mut st = QState::None;
-        for k in 0..tokens.len() {
-            let (start, run, literal) = tokens[k];
-            let next = tokens.get(k + 1).map(|t| t.1);
-            let (events, next_st) = transition(st, run, next);
-            st = next_st;
-            plan.at.insert(start, (literal, events));
-        }
-        plan.end = match st {
-            QState::None => vec![],
-            QState::B => vec![Q::CloseB],
-            QState::I => vec![Q::CloseI],
-            QState::Bi => vec![Q::CloseI, Q::CloseB],
-            QState::Ib => vec![Q::CloseB, Q::CloseI],
-        };
-        plan
+        quotes::plan_line(self.src, &runs)
     }
 }
 
-fn transition(st: QState, run: Run, next: Option<Run>) -> (Vec<Q>, QState) {
-    use Q::{CloseB, CloseI, OpenB, OpenI};
-    match (run, st) {
-        (Run::I, QState::I) => (vec![CloseI], QState::None),
-        (Run::I, QState::Bi) => (vec![CloseI], QState::B),
-        (Run::I, QState::Ib) => (vec![CloseB, CloseI, OpenB], QState::B),
-        (Run::I, QState::None) => (vec![OpenI], QState::I),
-        (Run::I, QState::B) => (vec![OpenI], QState::Bi),
-        (Run::B, QState::B) => (vec![CloseB], QState::None),
-        (Run::B, QState::Bi) => (vec![CloseI, CloseB, OpenI], QState::I),
-        (Run::B, QState::Ib) => (vec![CloseB], QState::I),
-        (Run::B, QState::None) => (vec![OpenB], QState::B),
-        (Run::B, QState::I) => (vec![OpenB], QState::Ib),
-        (Run::Bi, QState::B) => (vec![CloseB, OpenI], QState::I),
-        (Run::Bi, QState::I) => (vec![CloseI, OpenB], QState::B),
-        (Run::Bi, QState::Bi) => (vec![CloseI, CloseB], QState::None),
-        (Run::Bi, QState::Ib) => (vec![CloseB, CloseI], QState::None),
-        (Run::Bi, QState::None) => match next {
-            Some(Run::B | Run::Bi) => (vec![OpenI, OpenB], QState::Ib),
-            Some(Run::I) | None => (vec![OpenB, OpenI], QState::Bi),
-        },
+fn collect_quotes(n: &P<'_>, out: &mut Vec<(usize, quotes::Run)>) {
+    if let Some(run) = quotes::run_of(n) {
+        out.push(run);
+        return;
     }
-}
-
-fn collect_quotes(n: &P<'_>, out: &mut Vec<(usize, Run, usize)>, l: &Lowerer<'_, '_>) {
-    let run = |start: usize, consumed: usize| l.run_length(start).saturating_sub(consumed);
     match n {
-        P::Italic { start, .. } => out.push((*start, Run::I, run(*start, 2))),
-        P::Bold { start, .. } => out.push((*start, Run::B, run(*start, 3))),
-        P::BoldItalic { start, .. } => out.push((*start, Run::Bi, run(*start, 5))),
         P::Link { text: children, .. }
         | P::ExternalLink {
             nodes: children, ..
         } => {
             for c in children {
-                collect_quotes(c, out, l);
+                collect_quotes(c, out);
             }
         }
         P::Tag { name, nodes, .. } if matches!(name.as_ref(), "noinclude" | "onlyinclude") => {
             for c in nodes {
-                collect_quotes(c, out, l);
+                collect_quotes(c, out);
             }
         }
         _ => {}

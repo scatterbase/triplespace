@@ -7,7 +7,9 @@ The first release of the fork, from `parse-wiki-text-2` 0.2.0 (upstream
 `b13cfc0fddfd7432f196dbd16e2cdc29b7e37072`). The crate is renamed, and its library is
 `scatter_wikitext_parse`. Each change to the code is marked in the source with a `Fork:`
 comment. Upstream's tests in `tests/` still pass, except `issue_1`, which recorded the
-exponential case fixed below as a timeout and now asserts that it finishes.
+exponential case fixed below as a timeout and now asserts that it finishes, and two cases of
+`tests/cases/template.test` and `parameter.test` (`{{[[alpha|beta}}` and its argument form),
+which are text now, as MediaWiki reads them; warnings those files recorded twice are given once.
 
 Added:
 
@@ -18,8 +20,26 @@ Added:
 - **More positions.** `Node::Link` has `trail_start`, where the link trail starts after `]]`.
   `Node::Tag` has `content_start` and `content_end`, the extent of the content between the start
   and end tags. A caller no longer searches the source for them.
+- **Bold and italic** (`quotes`): `plan_line` applies MediaWiki's apostrophe rules to the
+  runs of a line and says, for each run, the literal apostrophes it writes and the elements it
+  opens and closes, and what closes at the end of the line.
 - `HTML_ENTITIES` is public, so callers decode attribute values with the same table as the
   parser.
+
+Changed, to read text as MediaWiki does:
+
+- **Braces are matched as the preprocessor matches them**, before parsing (`src/braces.rs`): a
+  run of closing braces closes the innermost frame only when it is one of braces, three for an
+  argument and two for a template; a `[[` still open stops a `}}` from closing; braces left
+  unmatched are text, with the warning their rewind used to give. `{{[[a|b}}` is text, and
+  `{{{{{a}}}` is `{{` and an argument. `scatter-wikitext-expand`'s `call_spans` gives the same
+  calls on every text tested.
+- **Extension tags**: the content runs to the first end tag of the name (`</name>`, whitespace
+  allowed before `>`), so a start tag of the same name inside it is text; a start tag with no
+  end tag after it is text, the whole start tag; a tag inside another must end before the outer
+  one's end tag. `pre` and `includeonly` hold text, as `nowiki` does.
+- **Link targets**: a target cannot hold an extension tag; a comment in a target is stepped
+  over when it ends on the line, and makes the link text when it does not.
 
 Fixed:
 
@@ -36,6 +56,12 @@ Fixed:
   of its own text, and one at the end of the text ended past it (`src/line.rs`); a comment never
   closed ended after the trailing whitespace of the line or list item that held it
   (`src/comment.rs`).
+- **The rest of the quadratic cases.** A table with no `|}` after it, an extension tag with no
+  end tag and a run of unmatched braces are text from the start, found by searches that go on
+  from the last; nested tables unclosed at the end are rewound together, since a `|}` closes the
+  innermost first (checked against the parser before the change on 4 million random inputs).
+  No input tried takes more than a few dozen steps a byte.
+- **An empty parameter ended before it started** (`src/template.rs`): `{{| }}`.
 - **A parse stopped at its limit could panic** (`src/parse.rs`): the output so far was cut at the
   scan position, which may lie inside a character. It is cut at the boundary before it.
 

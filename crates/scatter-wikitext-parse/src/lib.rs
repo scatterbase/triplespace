@@ -119,6 +119,7 @@
 struct ReadmeDoctests;
 
 mod bold_italic;
+mod braces;
 mod case_folding_simple;
 mod character_entity;
 mod comment;
@@ -133,6 +134,7 @@ mod list;
 mod magic_word;
 mod parse;
 mod positioned;
+pub mod quotes;
 mod redirect;
 mod state;
 mod table;

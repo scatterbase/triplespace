@@ -114,6 +114,38 @@ pub fn parse_link_start(
 				);
 				break;
 			}
+			// Fork: a comment is read before links are: a target steps over one
+			// that ends on its line, and is no target when it does not.
+			Some(b'<')
+				if state.wiki_text[target_end_position..]
+					.starts_with("<!--") =>
+			{
+				match state.wiki_text[target_end_position + 4..].find("-->") {
+					Some(offset)
+						if !state.wiki_text[target_end_position
+							..target_end_position + 4 + offset]
+							.contains('\n') =>
+					{
+						target_end_position += 4 + offset + 3;
+					}
+					_ => {
+						parse_unexpected_end(state, target_end_position);
+						break;
+					}
+				}
+			}
+			// Fork: an extension tag is read before links are, as MediaWiki's
+			// preprocessor reads it, so a target cannot hold one.
+			Some(b'<')
+				if starts_extension_tag(
+					state.wiki_text,
+					target_end_position,
+					configuration,
+				) =>
+			{
+				parse_unexpected_end(state, target_end_position);
+				break;
+			}
 			Some(b'|') => {
 				state.push_open_node(
 					crate::OpenNodeType::Link {
@@ -215,4 +247,28 @@ fn parse_unexpected_end(state: &mut crate::State, target_end_position: usize) {
 		start: state.scan_position,
 	});
 	state.scan_position += 1;
+}
+
+/// Fork: whether an extension tag's start or end tag begins at `position`.
+fn starts_extension_tag(
+	wiki_text: &str,
+	position: usize,
+	configuration: &crate::Configuration,
+) -> bool {
+	let bytes = wiki_text.as_bytes();
+	let mut start = position + 1;
+	if bytes.get(start) == Some(&b'/') {
+		start += 1;
+	}
+	let end = bytes[start..]
+		.iter()
+		.position(|c| !c.is_ascii_alphanumeric())
+		.map_or(bytes.len(), |p| start + p);
+	end > start
+		&& matches!(
+			configuration
+				.tag_name_map
+				.get(&wiki_text[start..end].to_ascii_lowercase()),
+			Some(crate::TagClass::ExtensionTag)
+		)
 }

@@ -84,6 +84,21 @@ pub fn expand_for_view(text: &str, host: &dyn ExpandHost) -> String {
     expand_for_view_mapped(text, host).text
 }
 
+/// Where each of a text's outermost calls (`{{…}}` and `{{{…}}}`) starts and ends, in
+/// bytes, as the preprocessor matches its braces for viewing the page (0042 §4): calls
+/// inside comments and extension tags are not calls, and calls nested in a call are
+/// inside its range. A renderer or another parser can check its own reading against it.
+#[must_use]
+pub fn call_spans(text: &str) -> Vec<std::ops::Range<usize>> {
+    preprocess(text, Mode::View, Registry::embedded())
+        .iter()
+        .filter_map(|n| match n {
+            PNode::Template { at, end, .. } | PNode::Argument { at, end, .. } => Some(*at..*end),
+            PNode::Text(_) => None,
+        })
+        .collect()
+}
+
 /// A call in the page's own text that transcluded a page (0042 §4, A22; 11 §1.4).
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Call {
@@ -119,7 +134,7 @@ pub fn expand_for_view_mapped(text: &str, host: &dyn ExpandHost) -> Expansion {
     let mut out = String::with_capacity(text.len());
     let mut calls = Vec::new();
     for n in &nodes {
-        if let PNode::Template { parts, at } = n {
+        if let PNode::Template { parts, at, .. } = n {
             let start = out.len();
             if let Some(name) = e.template(n, parts, &mut out) {
                 calls.push(Call {
@@ -145,10 +160,14 @@ enum PNode {
     Template {
         parts: Vec<Vec<PNode>>,
         at: usize,
+        /// Where its `}}` ends.
+        end: usize,
     },
-    /// `{{{…}}}`: the name, then the default.
+    /// `{{{…}}}`: the name, then the default; `at` and `end` as for a template.
     Argument {
         parts: Vec<Vec<PNode>>,
+        at: usize,
+        end: usize,
     },
 }
 
@@ -242,19 +261,32 @@ fn tag_at(src: &str, i: usize) -> Option<(String, bool, bool, usize)> {
 /// Where the end tag `</name>` after `from` ends, case-insensitively; the end of the text
 /// when there is none.
 fn end_of_element(src: &str, from: usize, name: &str) -> usize {
-    let lower = src[from..].to_ascii_lowercase();
-    let close = format!("</{name}");
-    let mut search = 0;
-    while let Some(p) = lower[search..].find(&close) {
-        let at = from + search + p;
-        if let Some((n, true, _, end)) = tag_at(src, at)
-            && n == name
+    closing_tag_end(src, from, name).unwrap_or(src.len())
+}
+
+/// Where the closing tag of `name` after `from` ends, if there is one: `</name>` in any
+/// case, with whitespace allowed before the `>` and nothing else, as MediaWiki's
+/// preprocessor reads an end tag (`</ref name=x>` is not one).
+fn closing_tag_end(src: &str, from: usize, name: &str) -> Option<usize> {
+    let b = src.as_bytes();
+    let mut position = from;
+    while let Some(offset) = src.get(position..)?.find("</") {
+        let at = position + offset;
+        let name_end = at + 2 + name.len();
+        if b.get(at + 2..name_end)
+            .is_some_and(|n| n.eq_ignore_ascii_case(name.as_bytes()))
         {
-            return end;
+            let mut i = name_end;
+            while matches!(b.get(i), Some(b' ' | b'\t' | b'\n')) {
+                i += 1;
+            }
+            if b.get(i) == Some(&b'>') {
+                return Some(i + 1);
+            }
         }
-        search += p + close.len();
+        position = at + 2;
     }
-    src.len()
+    None
 }
 
 // One state machine over the text, as the preprocessor's own is; splitting it would
@@ -292,6 +324,7 @@ fn preprocess(text: &str, mode: Mode, registry: &Registry) -> Vec<PNode> {
         };
     }
 
+    let mut unclosed: std::collections::HashSet<String> = std::collections::HashSet::new();
     while i < b.len() {
         let c = b[i];
         if c == b'<' {
@@ -331,12 +364,19 @@ fn preprocess(text: &str, mode: Mode, registry: &Registry) -> Vec<PNode> {
                         continue;
                     }
                     (n, _) if !closing && registry.is_extension_tag(n) => {
-                        // Its content is the extension's, never expanded.
-                        i = if self_closing {
-                            end
+                        // Its content is the extension's, never expanded. With no closing
+                        // tag the start tag is text and the scan goes on after it, as
+                        // MediaWiki's preprocessor does (only the inclusion tags above run
+                        // to the end); a name found unclosed once is unclosed from then
+                        // on, which keeps `<nowiki><nowiki>…` linear.
+                        if self_closing || unclosed.contains(n) {
+                            i = end;
+                        } else if let Some(close) = closing_tag_end(src, end, n) {
+                            i = close;
                         } else {
-                            end_of_element(src, end, n)
-                        };
+                            unclosed.insert(n.to_string());
+                            i = end;
+                        }
                         continue;
                     }
                     _ => {}
@@ -401,11 +441,16 @@ fn preprocess(text: &str, mode: Mode, registry: &Registry) -> Vec<PNode> {
                 let parts = std::mem::take(&mut f.parts);
                 // The innermost braces close: this element starts after those left open.
                 let node = if matching == 3 {
-                    PNode::Argument { parts }
+                    PNode::Argument {
+                        parts,
+                        at: f.start + f.count,
+                        end: close_end,
+                    }
                 } else {
                     PNode::Template {
                         parts,
                         at: f.start + f.count,
+                        end: close_end,
                     }
                 };
                 m -= matching;
@@ -419,6 +464,13 @@ fn preprocess(text: &str, mode: Mode, registry: &Registry) -> Vec<PNode> {
                     push_text(parent, &"{".repeat(f.count));
                     parent.push(node);
                 }
+            }
+            if pos == i {
+                // A lone `}` closes nothing and is text. Without this the scan did not
+                // move, and `{{}` looped for ever.
+                text_start = i;
+                i += 1;
+                continue;
             }
             i = pos;
             text_start = i;
@@ -443,7 +495,7 @@ fn write_source(n: &PNode, out: &mut String) {
             return;
         }
         PNode::Template { parts, .. } => ("{{", "}}", parts),
-        PNode::Argument { parts } => ("{{{", "}}}", parts),
+        PNode::Argument { parts, .. } => ("{{{", "}}}", parts),
     };
     out.push_str(open);
     for (i, part) in parts.iter().enumerate() {
@@ -470,7 +522,7 @@ impl Expander<'_> {
         for n in nodes {
             match n {
                 PNode::Text(t) => out.push_str(t),
-                PNode::Argument { parts } => match parts.get(1) {
+                PNode::Argument { parts, .. } => match parts.get(1) {
                     // No frame here has arguments: the default, or the text as written.
                     Some(default) => self.expand(default, out),
                     None => write_source(n, out),
@@ -622,6 +674,27 @@ mod tests {
 
     fn x(s: &str) -> String {
         expand_for_view(s, &host())
+    }
+
+    /// A lone `}` inside an open call is text (0042 §4: random input must terminate,
+    /// 22 §4.9). `{{}` looped for ever before 0.1.1.
+    #[test]
+    fn lone_closing_brace() {
+        assert_eq!(x("{{}"), "{{}");
+        assert_eq!(x("{{a}"), "{{a}");
+        assert_eq!(x("a{{}b}}c"), "a[[:Template:}b]]c");
+        assert_eq!(x("{{{}"), "{{{}");
+        // Every short text over the brace alphabet terminates.
+        let pieces = ["{", "}", "[", "]", "|", "a", "\n"];
+        let mut stack = vec![String::new()];
+        while let Some(s) = stack.pop() {
+            let _ = x(&s);
+            if s.len() < 6 {
+                for p in pieces {
+                    stack.push(format!("{s}{p}"));
+                }
+            }
+        }
     }
 
     #[test]

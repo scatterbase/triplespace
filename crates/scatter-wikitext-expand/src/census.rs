@@ -182,7 +182,7 @@ impl Census<'_> {
         for n in nodes {
             match n {
                 PNode::Text(_) => {}
-                PNode::Argument { parts } => {
+                PNode::Argument { parts, .. } => {
                     for p in parts {
                         self.nodes(p);
                     }
@@ -289,8 +289,10 @@ impl Census<'_> {
             if self.registry.is_extension_tag(&name) {
                 let status = Status::of(self.registry.tag_status(&name));
                 self.uses.tags.insert(name.clone(), status);
-                if !self_closing {
-                    let close = crate::end_of_element(text, end, &name);
+                // With no closing tag the start tag is text, as the preprocessor reads it.
+                if let (false, Some(close)) =
+                    (self_closing, crate::closing_tag_end(text, end, &name))
+                {
                     let inner_end = text[..close]
                         .rfind("</")
                         .filter(|&c| c >= end)
