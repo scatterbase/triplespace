@@ -4,6 +4,8 @@
 			"Triplespace contributors"
 		]
 	},
+	"ts-badge-deprecated": "deprecated",
+	"ts-badge-deprecated-tip": "Its source has retired this property. Its values are kept, but should not be added again.",
 	"ts-search-placeholder": "Search items, properties, domains and pages",
 	"ts-search-label": "Search",
 	"ts-search-button": "Search",

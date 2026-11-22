@@ -347,6 +347,7 @@ async fn wbeditentity(ctx: &Ctx, meta: &EditMeta) -> Result<ApiResponse, ApiErro
             "The \"data\" parameter must be a JSON object.",
         ));
     };
+    check_badges(ctx, &data).await?;
     let (subject, is_new) = subject_from_id_or_new(ctx).await?;
     let h = hasher(ctx, &subject.id);
     let mut current: Value = if ctx.params.flag("clear") || is_new {
@@ -371,6 +372,46 @@ async fn wbeditentity(ctx: &Ctx, meta: &EditMeta) -> Result<ApiResponse, ApiErro
         .as_ref()
         .is_none_or(|b| b.lastrevid != lastrevid);
     Ok(entity_response(ctx, now.as_ref(), lastrevid, changed))
+}
+
+/// Refuses a sitelink whose `badges` name an item that is not a `stored` badge of the
+/// tenant's badge registry, as Wikibase refuses an item not in `badgeItems` (06 §4.1;
+/// implements 0114 §5 (A1)).
+async fn check_badges(ctx: &Ctx, data: &Map<String, Value>) -> Result<(), ApiError> {
+    let Some(links) = data.get("sitelinks") else {
+        return Ok(());
+    };
+    let named: Vec<String> = term_items(links)
+        .iter()
+        .filter(|l| !is_remove(l))
+        .flat_map(|l| {
+            l.get("badges")
+                .and_then(Value::as_array)
+                .into_iter()
+                .flatten()
+                .filter_map(Value::as_str)
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        })
+        .collect();
+    if named.is_empty() {
+        return Ok(());
+    }
+    let registry = triplespace_projections::badges::registry(&ctx.client, &ctx.tenant.slug)
+        .await
+        .map_err(ApiError::internal)?
+        .map_err(|e| ApiError::new("ts-badges-local", format!("badges.local: {e}")))?;
+    let allowed = registry.stored();
+    for badge in named {
+        let ok = EntityId::parse(&badge).is_ok_and(|id| allowed.contains(&id));
+        if !ok {
+            return Err(ApiError::new(
+                "not-badge",
+                format!("Only items specified in the config can be badges: {badge}."),
+            ));
+        }
+    }
+    Ok(())
 }
 
 fn is_remove(v: &Value) -> bool {

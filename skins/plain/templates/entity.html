@@ -148,7 +148,7 @@
 
 {#- A statement group in its shape. -#}
 {%- macro group(g) -%}
-<section class="ts-group ts-group--{{ g.shape }}" id="{{ g.pid }}" data-region="statements/{{ g.pid }}" data-shape="{{ g.shape }}"><div class="ts-group__property">{{ link(g.property) }}
+<section class="ts-group ts-group--{{ g.shape }}" id="{{ g.pid }}" data-region="statements/{{ g.pid }}" data-shape="{{ g.shape }}"><div class="ts-group__property">{{ link(g.property) }}{% for b in g.badges %} {{ codex.chip(b) }}{% endfor %}
 {%- if g.count %}<span class="ts-group__count">{{ g.count }}</span>{% endif -%}
 {%- if g.edit %}<button type="button" class="cdx-button cdx-button--action-progressive cdx-button--weight-quiet ts-edit" data-ts-edit="group" data-property="{{ g.pid }}" aria-label="{{ g.edit.label }}" hidden>{{ g.edit.text }}</button>{% endif -%}
 </div><div class="ts-group__body">
@@ -200,6 +200,7 @@
 {%- if i.adopted %} <span aria-hidden="true">·</span> <span>{{ i.adopted }}</span>{% endif -%}
 {%- if i.iri %} <span aria-hidden="true">·</span> <a href="{{ i.iri[0] }}" class="external" rel="noopener" dir="ltr">{{ i.iri[1] }} ↗</a>{% endif -%}
 {%- if i.restricted %} <span aria-hidden="true">·</span> <span class="ts-chip ts-chip--restricted" title="{{ i.restricted.tip }}"><span class="ts-chip__lock" aria-hidden="true">🔒</span> {{ i.restricted.text }}<span class="ts-visually-hidden">: {{ i.restricted.tip }}</span></span>{% endif -%}
+{%- for b in i.badges %} {{ codex.chip(b) }}{% endfor -%}
 {%- endmacro -%}
 
 {#- The terms region. -#}

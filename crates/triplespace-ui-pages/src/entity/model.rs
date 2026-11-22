@@ -490,6 +490,8 @@ pub struct GroupModel {
     pub shape: String,
     /// The property, linked.
     pub property: Link,
+    /// The property's badges (19 §1.6).
+    pub badges: Vec<ChipModel>,
     /// "N values", for more than one.
     pub count: Option<String>,
     /// The edit button, for a viewer who may edit.
@@ -691,6 +693,8 @@ pub struct Identity {
     pub iri: Option<(String, String)>,
     /// The **Restricted** pill (19 §1.3).
     pub restricted: Option<Restricted>,
+    /// The entity's badges (19 §1.6).
+    pub badges: Vec<ChipModel>,
 }
 
 /// The **Restricted** pill.
@@ -1680,6 +1684,7 @@ impl Render<'_> {
             pid: property.to_string(),
             shape: c.g.shape.name().to_string(),
             property: self.property_link_model(property),
+            badges: self.badge_chips(property),
             count: (st.len() > 1).then(|| self.m.with("ts-values-count", &[&st.len().to_string()])),
             edit: self.editable.then(|| Edit {
                 label: self
@@ -2107,7 +2112,44 @@ impl Render<'_> {
                 .map(|from| self.m.with("ts-adopted-from", &[from])),
             iri,
             restricted,
+            badges: self.badge_chips(id.as_str()),
         }
+    }
+
+    /// The badges an entity or property carries, as chips: each named by its message
+    /// where the badge registry gives one, else by its item's label, else its ID, with
+    /// the message's tip as its tooltip (0114 §4: the identity line and property rows).
+    #[must_use]
+    pub fn badge_chips(&self, id: &str) -> Vec<ChipModel> {
+        let registry = scatter_wikibase_model::badges::BadgeRegistry::default_registry();
+        self.lookup
+            .badges(id)
+            .iter()
+            .map(|item| {
+                let message = EntityId::parse(item)
+                    .ok()
+                    .and_then(|i| registry.get(&i).and_then(|b| b.message.clone()));
+                let (text, tip) = match message {
+                    Some(key) => {
+                        let tip_key = format!("{key}-tip");
+                        let tip = self.m.has(&tip_key).then(|| self.m.get(&tip_key));
+                        (self.m.get(&key), tip)
+                    }
+                    None => (
+                        self.lookup
+                            .label(item)
+                            .map_or_else(|| item.clone(), |(t, _)| t.to_string()),
+                        None,
+                    ),
+                };
+                Chip {
+                    kind: ChipKind::Badge,
+                    text: &text,
+                    title: tip.as_deref(),
+                }
+                .model()
+            })
+            .collect()
     }
 }
 

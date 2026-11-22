@@ -209,7 +209,7 @@ Nothing else is folded: `/Foo` and `/Foo/` are different URLs, as they are to th
 
 **A link to the tenant's own pages is stored by page ID,** not URL (§4.6). The normalizer is the `url` data type's key in the normalizer table of [04](04-entities-and-identifiers.md) §4.7, and the `url` data type used by statements gets it too.
 
-**Badges** are item IDs, stored as written and compared by cluster like any entity value ([04](04-entities-and-identifiers.md) §4.7). Which items may be badges are the `stored` badges of the badge registry and of the tenant's `badges.local` (§6.3), as `$wgWBRepoSettings['badgeItems']` lists them on a Wikibase. A local write that names any other item is refused; a mirrored sitelink keeps the badges upstream gave it, and one that neither list names is drawn as a plain link to its item.
+**Badges** are item IDs, stored as written and compared by cluster like any entity value ([04](04-entities-and-identifiers.md) §4.7). Which items may be badges are the `stored` badges of the badge registry and of the tenant's `badges.local` (§6.3), as `$wgWBRepoSettings['badgeItems']` lists them on a Wikibase. A local write that names any other item is refused with Wikibase's `not-badge`; a mirrored sitelink keeps the badges upstream gave it, and one that neither list names is drawn as a plain link to its item.
 
 ### 4.2 The host is the site ID; one link per host; one item per URL
 
@@ -354,18 +354,19 @@ A badge marks one of three things, and its **source** fixes which:
 | `rank` | A statement | The statement has the badge's rank. `preferred` is the "Best value" badge, drawn as [19](19-site-ui.md) §4.4 says |
 
 - **A stored badge belongs to its sitelink.** *Featured article* marks one wiki's article about the item, not the item, so it is drawn on that link and never on the entity.
-- **A computed badge is never stored.** `class` and `rank` badges are worked out when the entity is read, from what the resolved view holds ([02](02-graphs-rdf-and-query.md)). They are not in the entity's JSON, its records or its RDF, and they change as soon as the statements they rest on change. The API's entity JSON stays canonical Wikibase JSON, with stored badges only.
+- **A computed badge is never stored.** `class` and `rank` badges are worked out when the entity is read, from what the resolved view holds ([02](02-graphs-rdf-and-query.md)). They are not in the entity's JSON, its records or its RDF, and they change as soon as the statements they rest on change. The API's entity JSON stays canonical Wikibase JSON, with stored badges only; the computed ones are reported beside it, for any client: `wbgetentities` gives them in `ts-badges` when `props` names it, and the page bundle in `badges`, for the entity and each property its statements use ([18](18-api.md) §2.3, §3.2).
 - **`instance-of` and `subclass-of` are roles** (§1.2), bound in the instance record to `WDP31` and `WDP279` on an instance that mirrors Wikidata. A provider's adapter may write a class statement onto a mirrored entity with them, as the OpenStreetMap wiki's adapter marks the properties that wiki retires ([05](05-providers-and-ingest.md) §4.1). A tenant binds its own properties to the same roles to badge its own items.
+- **A walk is bounded.** The `instance-of` and `subclass-of` roles are read in Wikidata's mirrored form (`WDP31`, `WDP279`) until the instance's role records are read, as the statement UI's roles are. One request reads each class once, and at most 200 class entities; past that it stops with what it found.
 - **A class badge needs the class items.** The shallow mirror fetches the `subclass-of` chain above a class as it fetches any closure property's values ([05](05-providers-and-ingest.md) §5.3); the badge's own class is in the set from the start, so a badge never waits on a reader.
 
 ### 6.3 The badge registry and a tenant's own badges
 
 *Sources: [0114](../decisions/0114-badges.md) §3.*
 
-**The badges an instance knows are listed in [`badges.toml`](../registry/badges.toml),** which `scatter-wikibase-model` embeds, beside the sitelink model that checks a written sitelink's badges against it. Each entry names the badge's item, its source, its class for a `class` badge or its rank for a `rank` badge, an icon from Codex's icon set, and its order where several badges stand together. The defaults are:
+**The badges an instance knows are listed in [`badges.toml`](../registry/badges.toml),** which `scatter-wikibase-model` embeds, beside the sitelink model that checks a written sitelink's badges against it. Each entry names the badge's item, its source, its class for a `class` badge or its rank for a `rank` badge, an icon from Codex's icon set, its order where several badges stand together, and optionally an interface `message` whose text the badge shows in place of its item's label, with that message's `-tip` as its tooltip. The defaults are:
 
 - **`stored`:** Wikidata's sitelink badges, the same set Wikidata accepts (*featured article* Q17437796, *good article* Q17437798, *recommended article*, *featured list*, *good list*, *featured portal*, the Wikisource proofreading states, *digital document*, and the two *sitelink to redirect* badges);
-- **`class`:** *obsolete predicate* (Q142241643), the class of a property, key or attribute its source has deprecated or retired, of which Wikidata's *obsolete Wikidata property* (Q18644427) is a subclass. Its badge reads "(deprecated)";
-- **`rank`:** *preferred rank* (Q71533031), the "Best value" badge.
+- **`class`:** *obsolete predicate* (Q142241643), the class of a property, key or attribute its source has deprecated or retired, of which Wikidata's *obsolete Wikidata property* (Q18644427) is a subclass. Its badge reads "deprecated" (`ts-badge-deprecated`);
+- **`rank`:** *preferred rank* (Q71533031), the "Best value" badge (`ts-best-value`).
 
 **A tenant adds badges of its own** in the `badges.local` setting, with the same fields as a registry entry: an item of its own or a mirrored one, and the class or the stored use it stands for. A tenant badge cannot take the item of a registry badge, and cannot add a `rank` badge, since only the three ranks exist. The stored badges a sitelink may carry are the registry's and the tenant's together (§4.1).

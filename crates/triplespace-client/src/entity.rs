@@ -60,6 +60,9 @@ pub struct Bundle {
     pub visibility: Option<crate::pages::Visibility>,
     /// Whether the ID asked for is an alias of this entity (05 §4.1).
     pub redirected: bool,
+    /// The `class` badges of the entity and of the properties its statements use, by ID
+    /// (06 §6.2).
+    pub badges: BTreeMap<String, Vec<String>>,
 }
 
 /// A label and its language.
@@ -288,6 +291,10 @@ impl Client {
                         .unwrap_or_default(),
                     visibility: v.get("visibility").and_then(crate::pages::Visibility::of),
                     redirected: v.contains_key("redirects"),
+                    badges: v
+                        .remove("badges")
+                        .and_then(|b| serde_json::from_value(b).ok())
+                        .unwrap_or_default(),
                 })
             }
             StatusCode::NOT_FOUND => None,

@@ -39,6 +39,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
+use scatter_wikibase_model::badges::BadgeRegistry;
 use scatter_wikibase_model::entity::Entity;
 use scatter_wikibase_model::id::{EntityId, IdForm};
 use scatter_wikibase_model::statement::{Snak, SnakKind};
@@ -140,6 +141,8 @@ pub struct Lookup {
     labels: BTreeMap<String, (String, String)>,
     /// Each property's data type.
     datatypes: BTreeMap<String, String>,
+    /// The `class` badges of the entity and the properties it uses (06 §6.2).
+    badges: BTreeMap<String, Vec<String>>,
 }
 
 impl Lookup {
@@ -175,7 +178,19 @@ impl Lookup {
                 .map(|(id, l)| (id, (l.value, l.language)))
                 .collect(),
             datatypes: BTreeMap::new(),
+            badges: BTreeMap::new(),
         }
+    }
+
+    /// Adds the `class` badges the page bundle gives.
+    pub fn add_badges(&mut self, badges: BTreeMap<String, Vec<String>>) {
+        self.badges.extend(badges);
+    }
+
+    /// The badge items an entity or property carries, in drawing order.
+    #[must_use]
+    pub fn badges(&self, id: &str) -> &[String] {
+        self.badges.get(id).map_or(&[], Vec::as_slice)
     }
 
     /// Adds the data types the page bundle gives for the properties whose snaks do not
@@ -436,6 +451,7 @@ pub async fn serve(
     };
     let visibility = bundle.visibility;
     let datatypes = bundle.datatypes;
+    let badges = bundle.badges;
     let redirected = bundle.redirected;
     let provenance = bundle.provenance;
     let parsed = match Entity::from_value(bundle.entity) {
@@ -474,7 +490,18 @@ pub async fn serve(
         .await;
     }
     let chain = cx.m.term_chain();
-    let ids = referenced(&entity, &cx.site);
+    let mut ids = referenced(&entity, &cx.site);
+    // A badge without a message of its own is named by its item's label (06 §6.1).
+    for item in badges.values().flatten() {
+        let named = EntityId::parse(item).ok().is_some_and(|id| {
+            BadgeRegistry::default_registry()
+                .get(&id)
+                .is_some_and(|b| b.message.is_some())
+        });
+        if !named && !ids.contains(item) {
+            ids.push(item.clone());
+        }
+    }
     let mut lookup = if ids.is_empty() {
         Lookup::default()
     } else {
@@ -494,6 +521,7 @@ pub async fn serve(
     };
     lookup.add_self(&entity, &chain);
     lookup.add_datatypes(datatypes);
+    lookup.add_badges(badges);
     let history_tab =
         !render && TabName::of(query) == TabName::History && cx.features.has(Feature::History);
     let history = if history_tab {

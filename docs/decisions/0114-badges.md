@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-22
+- **Updated:** 2026-11-22 (A1)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0003](0003-statement-ui.md), [0026](0026-sitelinks.md), [0070](0070-shallow-entity-mirroring.md), [0091](0091-one-wikibase-adapter.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
@@ -66,9 +67,20 @@ He confirmed the design put to him that day: a badge is always an item; it diffe
 
 ## Open questions
 
-- **Q1. Badges in the API.** Whether the REST entity response and `wbgetentities` should carry an entity's computed badges, for clients other than the site, and in what field, since Wikibase's JSON has none.
+- **Q1. Badges in the API.** *Settled by A1.*
 
 ## References
 
 - Wikidata items checked on 2026-11-22: Q142241643 *obsolete predicate*, Q18644427 *obsolete Wikidata property*, Q71533031 *preferred rank*, and the sitelink badges listed in `badges.toml`.
 - [Wikibase: badges](https://www.mediawiki.org/wiki/Wikibase/DataModel#Badges)
+
+## Amendment log
+
+### A1. Computed badges in the API, and what building them decided
+
+- **Date:** 2026-11-22
+- **Source:** Direct: James, 2026-11-22, answering Q1: the API returns computed badges for clients other than the site. Their fields (`ts-badges` on `wbgetentities` when `props` names it, `badges` in the page bundle), the registry's `message` field, the `not-badge` refusal, the bound of 200 class reads, reading the roles in Wikidata's mirrored form, and leaving the item's description, the icon and the link undrawn, Claude, while building them, 2026-11-22; confirmed by James, 2026-11-22
+- **Change:** extends §2, §3, §4, §5
+- **Summary:** `wbgetentities` reports the `class` badges of the entities it serves in a `ts-badges` map beside `entities` when `props` includes `ts-badges`, worked out before `props` filters the claims; the page bundle gives them in `badges` for the entity and each property its statements use. A registry entry may name an interface `message` whose text the badge shows in place of its item's label, with its `-tip` as the tooltip: `ts-best-value` and `ts-badge-deprecated`. A local sitelink naming an item that is not a stored badge is refused with `not-badge`. A walk reads the `instance-of` and `subclass-of` roles as `WDP31` and `WDP279` and at most 200 class entities a request. The site draws a badge's text and tooltip only. Chapter text: 06 §4.1, §6.2, §6.3; 19 §1.6; 18 §2.3, §3.2 (registry).
+
+Replaced text: 06 §4.1, §6.2, §6.3; 19 §1.6.

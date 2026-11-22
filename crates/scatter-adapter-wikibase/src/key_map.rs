@@ -25,10 +25,13 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use scatter_normalize::{KeyedRegistry, KeyedType, SchemeRegistry};
 use scatter_providers::Provider;
-use scatter_wikibase_changeset::{Adapter, AdapterError, KeyMap, Upstream, WikibaseAdapter};
+use scatter_wikibase_changeset::{
+    Adapter, AdapterError, KeyMap, Upstream, WikibaseAdapter, deterministic_statement_id,
+};
 use scatter_wikibase_model::entity::{Entity, EntityType, ParsedEntity};
+use scatter_wikibase_model::hash::Hasher;
 use scatter_wikibase_model::id::{EntityId, IdForm};
-use scatter_wikibase_model::statement::{Snak, SnakKind};
+use scatter_wikibase_model::statement::{Snak, SnakKind, Statement};
 use scatter_wikibase_model::value::{DataType, DataValue};
 
 /// Why a provider's key map could not be read (0091 §2). A configuration error is
@@ -192,12 +195,14 @@ struct Vocabulary {
     /// The stored prefix of a Wikidata ID, the registry's `wikidata` code (`WD`); `None`
     /// leaves concept links as strings.
     concept_prefix: Option<String>,
-    /// `skip_deprecated_properties`.
-    skip_deprecated: bool,
+    /// `mark_deprecated_properties`, stored form: the property and class of the statement
+    /// written onto a property the wiki marks deprecated (`WDP31` → `WDQ142241643`,
+    /// *obsolete predicate*; 0091 A4, 0114 §2).
+    deprecated_mark: Option<Box<(EntityId, EntityId)>>,
 }
 
 /// The vocabulary settings beside a key map (0091 §2 (A3)): `concept_link_properties`, each
-/// an upstream property ID, and `skip_deprecated_properties`.
+/// an upstream property ID, and `mark_deprecated_properties`, a Wikidata property and class.
 fn vocabulary(provider: &Provider) -> Result<Vocabulary, ConfigError> {
     let Some(cfg) = provider.adapter_config.as_ref() else {
         return Ok(Vocabulary::default());
@@ -220,22 +225,38 @@ fn vocabulary(provider: &Provider) -> Result<Vocabulary, ConfigError> {
             }
         }
     }
-    let skip_deprecated = cfg
-        .get("skip_deprecated_properties")
-        .is_some_and(|v| v.as_bool() == Some(true));
+    let deprecated_mark = match cfg.get("mark_deprecated_properties") {
+        None => None,
+        Some(mark) => {
+            let bad = |value: String| ConfigError::NotAnId {
+                provider: provider.slug.clone(),
+                field: "mark_deprecated_properties",
+                value,
+            };
+            let part = |key: &str, kind: &str| {
+                let text = mark.get(key).and_then(|v| v.as_str()).unwrap_or_default();
+                let id = EntityId::parse(text).map_err(|_| bad(mark.to_string()))?;
+                if id.form() != IdForm::Local || id.implied_entity_type() != Some(kind) {
+                    return Err(bad(text.to_string()));
+                }
+                let prefix = wikidata_prefix().ok_or_else(|| bad(text.to_string()))?;
+                EntityId::parse(&format!("{prefix}{text}")).map_err(|_| bad(text.to_string()))
+            };
+            Some(Box::new((
+                part("property", "property")?,
+                part("class", "item")?,
+            )))
+        }
+    };
     Ok(Vocabulary {
-        concept_prefix: concept_prefix(&concept_links),
+        concept_prefix: (!concept_links.is_empty()).then(wikidata_prefix).flatten(),
         concept_links,
-        skip_deprecated,
+        deprecated_mark,
     })
 }
 
-/// The stored prefix concept links name Wikidata items under, the registry's `wikidata`
-/// code, where there are concept links.
-fn concept_prefix(concept_links: &BTreeSet<EntityId>) -> Option<String> {
-    if concept_links.is_empty() {
-        return None;
-    }
+/// The stored prefix Wikidata IDs are written under, the registry's `wikidata` code.
+fn wikidata_prefix() -> Option<String> {
     scatter_providers::Registry::default_registry()
         .by_slug("wikidata")
         .map(|p| p.code.clone())
@@ -248,8 +269,8 @@ const DEPRECATED_MARK: &str = "(DEPRECATED)";
 impl KeyRules {
     /// The rules of a provider's registry entry, over the default keyed-type and scheme
     /// registries, with `class_property`, `identity_property_on_mapped`,
-    /// `concept_link_properties` and `skip_deprecated_properties`; a provider without
-    /// `key_map` has none (implements 0091 §2 (A3)).
+    /// `concept_link_properties` and `mark_deprecated_properties`; a provider without
+    /// `key_map` has none (implements 0091 §2 (A4)).
     pub fn from_provider(provider: &Provider) -> Result<Self, ConfigError> {
         Self::with_registries(
             provider,
@@ -379,10 +400,10 @@ impl KeyRules {
         EntityId::parse(&format!("{prefix}{value}")).ok()
     }
 
-    /// Whether `entity` is a property the wiki marks deprecated, and this provider skips
+    /// Whether `entity` is a property the wiki marks deprecated, and this provider marks
     /// such properties.
     fn deprecated(&self, entity: &Entity) -> bool {
-        self.vocabulary.skip_deprecated
+        self.vocabulary.deprecated_mark.is_some()
             && entity.entity_type == EntityType::Property
             && entity
                 .labels
@@ -402,10 +423,14 @@ impl KeyRules {
         self.rules.is_empty()
     }
 
-    /// Whether the provider skips the properties the wiki marks deprecated.
+    /// The statement written onto a property the wiki marks deprecated, stored form: its
+    /// property and class (0091 A4).
     #[must_use]
-    pub fn skips_deprecated(&self) -> bool {
-        self.vocabulary.skip_deprecated
+    pub fn deprecated_mark(&self) -> Option<(&EntityId, &EntityId)> {
+        self.vocabulary
+            .deprecated_mark
+            .as_deref()
+            .map(|(p, c)| (p, c))
     }
 
     /// The index of the rule onto a keyed type, by the type's name.
@@ -479,8 +504,6 @@ pub struct Index {
     conflicts: BTreeSet<String>,
     redirects: BTreeMap<String, String>,
     aliases: BTreeMap<String, Vec<String>>,
-    /// Properties the wiki marks deprecated, upstream form, when the provider skips them.
-    deprecated: BTreeSet<String>,
 }
 
 impl Index {
@@ -492,14 +515,6 @@ impl Index {
         entity: &Entity,
         rules: &KeyRules,
     ) -> Result<Option<String>, MapError> {
-        if entity.entity_type == EntityType::Property {
-            let id = entity.id.as_str().to_string();
-            if rules.deprecated(entity) {
-                self.deprecated.insert(id);
-            } else {
-                self.deprecated.remove(&id);
-            }
-        }
         let Some((rule, id)) = rules.map(entity)? else {
             return Ok(None);
         };
@@ -544,19 +559,6 @@ impl Index {
         }
         index.finish();
         index
-    }
-
-    /// Adds the properties a mirror holds as deprecated (upstream form), for a follower
-    /// that continues it: those it reads again are observed afresh.
-    #[must_use]
-    pub fn with_deprecated(mut self, properties: impl IntoIterator<Item = String>) -> Self {
-        self.deprecated.extend(properties);
-        self
-    }
-
-    /// The properties the wiki marks deprecated, upstream form, in ID order.
-    pub fn deprecated(&self) -> impl Iterator<Item = &str> {
-        self.deprecated.iter().map(String::as_str)
     }
 
     /// Observes an upstream redirect (`Q18817` → `Q738`), IDs in the provider's form.
@@ -706,7 +708,7 @@ impl KeyMappedAdapter {
         .with_pageid(parsed.page.as_ref().and_then(|p| p.pageid));
         let mut entity = parsed.entity;
         let upstream_id = entity.id.as_str().to_string();
-        self.skip_deprecated(&mut entity);
+        let deprecated = self.rules.deprecated(&entity);
         if entity.entity_type == EntityType::Property
             && self.rules.vocabulary.concept_prefix.is_some()
             && self.rules.vocabulary.concept_links.contains(&entity.id)
@@ -735,6 +737,9 @@ impl KeyMappedAdapter {
             }
         };
         self.rewrite_entity(&mut entity)?;
+        if deprecated {
+            self.mark_deprecated(&mut entity);
+        }
         if let Some(rule) = rule.map(|i| &self.rules.rules[i]) {
             // A mapped item is its keyed type (0009 §3), whatever type it had upstream.
             entity.entity_type = EntityType::parse(&rule.keyed.name);
@@ -764,23 +769,36 @@ impl KeyMappedAdapter {
         })
     }
 
-    /// Drops the statements, qualifiers and reference snaks of the properties the wiki
-    /// marks deprecated, upstream form; a reference left empty goes with them (0091 A3).
-    fn skip_deprecated(&self, entity: &mut Entity) {
-        let skipped = |p: &EntityId| self.index.deprecated.contains(p.as_str());
-        if self.index.deprecated.is_empty() {
+    /// Writes the deprecation mark onto a property the wiki marks deprecated, stored form:
+    /// `WDP31` → `WDQ142241643`, *obsolete predicate*, once, with an ID derived from the
+    /// property and the value. Its uses are kept: the mark draws a "(deprecated)" badge
+    /// beside them (0091 A4; 0114 §2).
+    fn mark_deprecated(&self, entity: &mut Entity) {
+        let Some((property, class)) = self.rules.deprecated_mark() else {
+            return;
+        };
+        let value = DataValue::EntityId(scatter_wikibase_model::value::EntityIdValue {
+            entity_type: "item".into(),
+            id: class.clone(),
+        });
+        let group = entity.statements.entry(property.clone()).or_default();
+        if group
+            .iter()
+            .any(|s| s.mainsnak.data_value() == Some(&value))
+        {
             return;
         }
-        entity.statements.retain(|p, _| !skipped(p));
-        for group in entity.statements.values_mut() {
-            for s in group {
-                s.qualifiers.retain(|p, _| !skipped(p));
-                for r in &mut s.references {
-                    r.snaks.retain(|p, _| !skipped(p));
-                }
-                s.references.retain(|r| !r.snaks.is_empty());
-            }
-        }
+        let mut statement = Statement::new(Snak::value(
+            property.clone(),
+            value,
+            Some(DataType::WikibaseItem),
+        ));
+        statement.id = Some(deterministic_statement_id(
+            &entity.id,
+            &statement,
+            &Hasher::local(),
+        ));
+        group.push(statement);
     }
 
     /// An upstream redirect (`from` → `to`, in the provider's form) as the mirror records
@@ -1464,15 +1482,20 @@ adapter = "scatter-adapter-wikibase"
         }
     }
 
-    // 0091 §2 (A3): the OSM wiki's vocabulary settings. A property whose English label
-    // opens with "(DEPRECATED)" is skipped wherever it is used, while the property itself
-    // is still mirrored; a concept link's string `Q787417` becomes an item value naming
-    // `WDQ787417`, and its property a property of items.
+    // 0091 §2 (A3, A4): the OSM wiki's vocabulary settings. A property whose English label
+    // opens with "(DEPRECATED)" is written as an instance of obsolete predicate
+    // (`WDP31` → `WDQ142241643`, 0114 §2) and its uses are kept; a concept link's string
+    // `Q787417` becomes an item value naming `WDQ787417`, and its property a property of
+    // items.
     #[test]
-    fn the_osm_wiki_skips_deprecated_properties_and_links_concepts_to_wikidata() {
+    fn the_osm_wiki_marks_deprecated_properties_and_links_concepts_to_wikidata() {
         let provider = Registry::default_registry().by_slug("osmwiki").unwrap();
         let rules = KeyRules::from_provider(provider).unwrap();
-        assert!(rules.skips_deprecated());
+        let (mark_property, mark_class) = rules.deprecated_mark().unwrap();
+        assert_eq!(
+            (mark_property.as_str(), mark_class.as_str()),
+            ("WDP31", "WDQ142241643")
+        );
         let image = json!([{"mainsnak": {"snaktype": "value", "property": "P28", "datatype": "string",
                 "datavalue": {"value": "Highway.png", "type": "string"}},
             "qualifiers": {"P4": [{"snaktype": "value", "property": "P4", "datatype": "string",
@@ -1520,32 +1543,37 @@ adapter = "scatter-adapter-wikibase"
             let _ = index.observe(&parsed(e).entity, &rules);
         }
         index.finish();
-        assert_eq!(index.deprecated().collect::<Vec<_>>(), ["P4"]);
         let adapter = KeyMappedAdapter::new(WikibaseAdapter::new("osmwiki").unwrap(), rules, index);
         let out: Vec<Entity> = entities
             .iter()
             .map(|e| state(adapter.sync_item(parsed(e)).unwrap()))
             .collect();
 
-        // The deprecated property is still mirrored.
+        // The deprecated property is mirrored, marked as an instance of obsolete predicate,
+        // once, with a stable ID.
+        let p = |id: &str| EntityId::parse(id).unwrap();
         assert_eq!(out[0].id.as_str(), "OWP4");
+        let mark = &out[0].statements[&p("WDP31")];
+        assert_eq!(mark.len(), 1);
+        assert!(
+            matches!(mark[0].mainsnak.data_value(), Some(DataValue::EntityId(v)) if v.id.as_str() == "WDQ142241643"),
+            "{mark:?}"
+        );
+        assert!(mark[0].id.as_ref().unwrap().as_str().starts_with("OWP4$"));
+        let again = state(adapter.sync_item(parsed(&entities[0])).unwrap());
+        assert_eq!(again.statements[&p("WDP31")], *mark);
+        // A property not so marked gets nothing.
+        assert!(!out[1].statements.contains_key(&p("WDP31")));
         // The concept-link property is one of items now.
         assert_eq!(out[2].datatype, Some(DataType::WikibaseItem));
         let key = &out[3];
         assert_eq!(key.id.as_str(), "notation:osm:highway");
-        let p = |id: &str| EntityId::parse(id).unwrap();
-        assert!(
-            !key.statements.contains_key(&p("OWP4")),
-            "{:?}",
-            key.statements.keys()
-        );
+        // The deprecated property's uses are kept: statement, qualifier and reference.
+        assert_eq!(key.statements[&p("OWP4")].len(), 1);
         let image = &key.statements[&p("OWP28")][0];
-        assert!(
-            image.qualifiers.is_empty(),
-            "the deprecated qualifier is dropped"
-        );
-        assert_eq!(image.references.len(), 1, "the reference left empty goes");
-        assert!(image.references[0].snaks.contains_key(&p("OWP31")));
+        assert!(image.qualifiers.contains_key(&p("OWP4")));
+        assert_eq!(image.references.len(), 2);
+        assert!(image.references[0].snaks.contains_key(&p("OWP4")));
         let concept = &key.statements[&p("OWP12")][0].mainsnak;
         assert_eq!(concept.datatype, Some(DataType::WikibaseItem));
         assert!(

@@ -2,7 +2,8 @@
 #
 # Every badge is an item, which gives it its name and tooltip; an entry here says only what the badge
 # marks and where it comes from (`source`), and how it is drawn (`icon`, a Codex icon name; `order`,
-# lowest first where several stand together).
+# lowest first where several stand together; `message`, an interface message whose text the badge
+# shows in place of its item's label).
 #
 #   source = "stored"  a sitelink badge, as in Wikibase: the items a sitelink's `badges` may name
 #   source = "class"   an entity that is an instance of `class` (instance-of, then subclass-of)
@@ -15,6 +16,7 @@ item = "WDQ71533031"   # preferred rank
 source = "rank"
 rank = "preferred"
 icon = "check"
+message = "ts-best-value"
 order = 10
 
 [[badge]]
@@ -22,6 +24,7 @@ item = "WDQ142241643"  # obsolete predicate
 source = "class"
 class = "WDQ142241643"
 icon = "cancel"
+message = "ts-badge-deprecated"
 order = 20
 
 [[badge]]

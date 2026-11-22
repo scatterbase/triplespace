@@ -4,6 +4,8 @@
 			"Triplespace contributors"
 		]
 	},
+	"ts-badge-deprecated": "The badge on a property, or an entity, that is an instance of obsolete predicate (Q142241643): its source has deprecated or retired it (ADR 0114; chapter 19 \u00a71.6). Shown after the property's name.",
+	"ts-badge-deprecated-tip": "Tooltip of the deprecated badge (ADR 0114; chapter 19 \u00a71.6).",
 	"ts-search-placeholder": "Placeholder of the search box in the global header. Search covers entity labels and aliases, domain keys, and page titles (ADR 0010 §3).",
 	"ts-search-label": "Accessible label of the search box in the global header.",
 	"ts-search-button": "Label of the button beside the search box.\n{{Identical|Search}}",

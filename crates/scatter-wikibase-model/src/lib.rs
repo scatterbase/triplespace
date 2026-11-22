@@ -32,6 +32,7 @@
 
 #![forbid(unsafe_code)]
 
+pub mod badges;
 pub mod entity;
 pub mod hash;
 pub mod id;
@@ -44,6 +45,7 @@ pub mod statement;
 pub mod value;
 pub mod value_iri;
 
+pub use badges::{Badge, BadgeError, BadgeRegistry, BadgeSource};
 pub use entity::{Entity, EntityType, PageInfo, ParsedEntity, Sitelink, Term};
 pub use hash::{HashMismatches, Hasher};
 pub use id::{EntityId, IdForm, IdParseError, LexemePart, StatementId, Subject};

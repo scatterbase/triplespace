@@ -539,8 +539,10 @@ actor_model = "individual"
   identity_property_on_mapped = "drop"
   # Concept links (0036 §5): statements on the mapped entity, never same-as. notation has clusters = false.
   concept_link_properties = ["P7", "P12"]     # Wikidata equivalent, Wikidata concept
-  # Properties marked DEPRECATED upstream are skipped.
-  skip_deprecated_properties = true
+  # A property whose English label opens with "(DEPRECATED)" is written as an instance of
+  # obsolete predicate (Wikidata's P31 and Q142241643) and its uses kept; the mark draws the
+  # "(deprecated)" badge (0091 A4; 0114 §2).
+  mark_deprecated_properties = { property = "P31", class = "Q142241643" }
 
   [[provider.type]]
   code = "Q"

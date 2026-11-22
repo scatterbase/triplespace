@@ -113,7 +113,7 @@ Later ADRs add marks of the same kind: the Bot chip on a subsidiary's user page 
 
 *Sources: [0114](../decisions/0114-badges.md) §4.*
 
-**A badge is drawn one way wherever it appears** ([06](06-statements-and-properties.md) §6): its icon from the badge registry, then its item's label in the reader's language, as a small outlined tag after the thing it marks. Hovering or focusing it shows the item's description, and the tag links to the item. Several badges on one thing stand in the registry's order. A badge is text, not colour alone, so it reads the same in every palette and to a screen reader.
+**A badge is drawn one way wherever it appears** ([06](06-statements-and-properties.md) §6): its item's label in the reader's language, or the interface message the badge registry names for it, as a small outlined tag after the thing it marks. Hovering or focusing it shows the message's tip where it has one. The item's description as the tooltip, the registry's icon and a link to the item are not drawn yet. Several badges on one thing stand in the registry's order. A badge is text, not colour alone, so it reads the same in every palette and to a screen reader.
 
 | Marks | Where it is drawn |
 |---|---|
@@ -121,7 +121,7 @@ Later ADRs add marks of the same kind: the Bot chip on a subsidiary's user page 
 | A sitelink (`stored`) | After the link on the Sitelinks tab (§6.4), and on `Special:PagesWithBadges` |
 | A statement (`rank`) | The "Best value" badge of §4.4 and §4.8 |
 
-The *obsolete predicate* badge reads "(deprecated)". On a property row it marks the property, and the row's values are drawn as they otherwise would be: a retired property's statements are kept and shown, so a reader sees what was said and that it should not be said again.
+The *obsolete predicate* badge reads "deprecated". On a property row it marks the property, and the row's values are drawn as they otherwise would be: a retired property's statements are kept and shown, so a reader sees what was said and that it should not be said again.
 
 ## 2. Search, addresses and accounts
 

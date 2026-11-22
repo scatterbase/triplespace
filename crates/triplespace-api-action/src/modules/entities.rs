@@ -4,8 +4,10 @@
 //! that is not an ID. `titles` with `sites` is not served (no sitelinks in the milestone).
 
 use scatter_normalize::keyed::KeyedRegistry;
+use scatter_wikibase_model::badges::BadgeRegistry;
 use scatter_wikibase_model::id::{EntityId, IdForm};
 use serde_json::{Value, json};
+use triplespace_projections::badges::ClassWalk;
 
 use crate::api::Ctx;
 use crate::edit;
@@ -164,11 +166,32 @@ pub async fn wbgetentities(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     let languages = ctx.params.list("languages");
     ctx.caller.require("read")?;
     let mut entries = Vec::new();
+    // Triplespace's: the `class` badges of each entity served, when `props` asks for
+    // `ts-badges` (0114 §2, A1), read before `props` filters the claims away.
+    let mut badges = serde_json::Map::new();
+    let badge_registry = if props.iter().any(|p| p == "ts-badges") {
+        Some(tenant_badges(ctx).await?)
+    } else {
+        None
+    };
+    let mut walk = match &badge_registry {
+        Some(b) => Some(
+            ClassWalk::new(&ctx.client, &ctx.tenant.slug, ctx.registry().await?, b)
+                .await
+                .map_err(ApiError::internal)?,
+        ),
+        None => None,
+    };
     for given in ids {
         let id = parse_id(&given)?;
         let mut v = entity_json(ctx, &id, &given).await?;
         ctx.cache_tags.push(format!("entity:{}", id.as_str()));
         if v.get("missing").is_none() {
+            if let Some(walk) = walk.as_mut()
+                && let Some((key, found)) = class_badges(ctx, walk, &v, &id).await?
+            {
+                badges.insert(key, found);
+            }
             entity_json::filter(&mut v, &props, &languages);
         }
         // Keyed by the canonical ID, as Wikibase keys by the normalized one; a redirect
@@ -212,5 +235,52 @@ pub async fn wbgetentities(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     if !visibility.is_empty() {
         out["ts-visibility"] = Value::Object(visibility);
     }
+    if !badges.is_empty() {
+        out["ts-badges"] = Value::Object(badges);
+    }
     Ok(ApiResponse::ok(out))
+}
+
+/// The tenant's badge registry; the instance's where `badges.local` does not read.
+async fn tenant_badges(ctx: &Ctx) -> Result<BadgeRegistry, ApiError> {
+    Ok(
+        triplespace_projections::badges::registry(&ctx.client, &ctx.tenant.slug)
+            .await
+            .map_err(ApiError::internal)?
+            .unwrap_or_else(|_| BadgeRegistry::default_registry().clone()),
+    )
+}
+
+/// The `class` badges of one served entity, keyed as the response keys it: `None` where
+/// it carries none (0114 §2, A1).
+async fn class_badges(
+    ctx: &Ctx,
+    walk: &mut ClassWalk<'_>,
+    served: &Value,
+    id: &EntityId,
+) -> Result<Option<(String, Value)>, ApiError> {
+    let Ok(parsed) = scatter_wikibase_model::entity::Entity::from_value(served.clone()) else {
+        return Ok(None);
+    };
+    let found = walk
+        .badges(
+            &ctx.client,
+            ctx.app.order(),
+            &ctx.tenant.slug,
+            &parsed.entity,
+        )
+        .await
+        .map_err(ApiError::internal)?;
+    if found.is_empty() {
+        return Ok(None);
+    }
+    let key = served
+        .get("id")
+        .and_then(Value::as_str)
+        .unwrap_or(id.as_str())
+        .to_string();
+    Ok(Some((
+        key,
+        Value::Array(found.iter().map(|b| json!(b.as_str())).collect()),
+    )))
 }

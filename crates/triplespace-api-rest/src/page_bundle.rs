@@ -8,12 +8,17 @@
 //!   "provenance": { … },      // as `GET /entity/{id}/provenance` serves it
 //!   "datatypes": { "P7": "external-id" },   // only for snaks that do not say theirs
 //!   "visibility": { … },      // only for a restricted entity, as `ts-visibility`
+//!   "badges": { "Q6": ["WDQ142241643"] },   // `class` badges of it and its properties
 //!   "redirects": { "from": "XDQ9", "to": "domain:example.org" } }   // only for an alias
 //! ```
 //!
 //! A snak carries its property's data type when it was written with one; `datatypes`
 //! gives it for the properties of the snaks that were not, so that the page need not
 //! fetch each property to tell an identifier from a statement.
+//!
+//! `badges` gives the `class` badges (0114 §2) of the entity and of each property its
+//! statements use, as `wbgetentities` reports them in `ts-badges`, for those that carry
+//! any: a retired property's row is drawn with its "(deprecated)" badge.
 //!
 //! The provenance carries the identity-line facts (who minted the ID, the canonical ID,
 //! each graph's sync state and history policy, retention). It answers as
@@ -79,6 +84,7 @@ fn body(
     provenance: Value,
     datatypes: &BTreeMap<String, String>,
     visibility: Option<Value>,
+    badges: &BTreeMap<String, Vec<String>>,
     alias: Option<&str>,
 ) -> Value {
     let mut out = serde_json::Map::new();
@@ -91,6 +97,9 @@ fn body(
     let mut out = Value::Object(out);
     if let Some(v) = visibility {
         out["visibility"] = v;
+    }
+    if !badges.is_empty() {
+        out["badges"] = json!(badges);
     }
     if let Some(from) = alias {
         out["redirects"] = json!({"from": from, "to": id});
@@ -186,12 +195,18 @@ pub async fn handle(
             Err(e) => return internal(&e),
         }
     };
+    let badges = match class_badges(&app, &client, &r.tenant.slug, registry, current.as_ref()).await
+    {
+        Ok(b) => b,
+        Err(e) => return internal(&e),
+    };
     let body = body(
         r.id.as_str(),
         entity,
         provenance,
         &datatypes,
         visibility,
+        &badges,
         r.alias_of.as_ref().map(EntityId::as_str),
     )
     .to_string();
@@ -204,6 +219,48 @@ pub async fn handle(
         class,
         &[format!("entity:{}", r.id.as_str())],
     )
+}
+
+/// The `class` badges of the entity and of each property its statements use, by ID, for
+/// those that carry any (implements 0114 §2 (A1)).
+async fn class_badges(
+    app: &App,
+    client: &deadpool_postgres::Object,
+    tenant: &str,
+    providers: &scatter_providers::Registry,
+    current: Option<&read::Current>,
+) -> Result<BTreeMap<String, Vec<String>>, String> {
+    let mut out = BTreeMap::new();
+    let Some(current) = current else {
+        return Ok(out);
+    };
+    let badges = triplespace_projections::badges::registry(client, tenant)
+        .await?
+        .unwrap_or_else(|_| {
+            scatter_wikibase_model::badges::BadgeRegistry::default_registry().clone()
+        });
+    let mut walk =
+        triplespace_projections::badges::ClassWalk::new(client, tenant, providers, &badges).await?;
+    let entity = &current.resolved.entity;
+    let mut put = |id: &EntityId, found: Vec<EntityId>| {
+        if !found.is_empty() {
+            out.insert(
+                id.as_str().to_string(),
+                found.iter().map(|b| b.as_str().to_string()).collect(),
+            );
+        }
+    };
+    let own = walk.badges(client, app.order(), tenant, entity).await?;
+    put(&entity.id, own);
+    for property in entity.statements.keys() {
+        if let Some(p) = read::current(client, app.order(), tenant, property).await? {
+            let found = walk
+                .badges(client, app.order(), tenant, &p.resolved.entity)
+                .await?;
+            put(property, found);
+        }
+    }
+    Ok(out)
 }
 
 #[cfg(test)]
@@ -242,6 +299,7 @@ mod tests {
             json!({"id": "Q6"}),
             &BTreeMap::new(),
             None,
+            &BTreeMap::new(),
             None,
         );
         for key in schema["required"].as_array().unwrap() {
@@ -253,12 +311,14 @@ mod tests {
         assert!(plain.get("visibility").is_none());
         assert!(plain.get("datatypes").is_none());
         assert!(plain.get("redirects").is_none());
+        assert!(plain.get("badges").is_none());
         let aliased = body(
             "domain:example.org",
             json!({}),
             json!({}),
             &BTreeMap::from([("P7".to_string(), "external-id".to_string())]),
             Some(json!({"groups": ["staff"]})),
+            &BTreeMap::from([("P4".to_string(), vec!["WDQ142241643".to_string()])]),
             Some("XDQ9"),
         );
         assert_eq!(
@@ -266,6 +326,7 @@ mod tests {
             json!({"from": "XDQ9", "to": "domain:example.org"})
         );
         assert_eq!(aliased["datatypes"], json!({"P7": "external-id"}));
+        assert_eq!(aliased["badges"], json!({"P4": ["WDQ142241643"]}));
         for key in aliased.as_object().unwrap().keys() {
             assert!(
                 schema["properties"].get(key).is_some(),
