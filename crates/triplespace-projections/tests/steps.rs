@@ -3,6 +3,7 @@
 //! edits it, a key-mapped provider mirrors a Domain the tenant also asserts about, jobs
 //! start and finish, and the rows come out as 0013 §5 describes them.
 
+use std::sync::Arc;
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use ed25519_dalek::SigningKey;
@@ -17,12 +18,13 @@ use scatter_log::registry::{
 use scatter_log::store::{Draft, LogStore};
 use scatter_log::tree::Segments;
 use scatter_log_postgres::{PartitionInfo, PgLog, log};
-use scatter_projection::Pipeline;
+use scatter_projection::{Consumer, Pipeline, Worker};
 use serde_json::json;
 use tokio_postgres::{Client, Config, NoTls};
 use triplespace_projections::common::{
     PAYLOAD_CHANGESET, PAYLOAD_KEYED_SURROGATE, PAYLOAD_LOGEVENT,
 };
+use triplespace_projections::refs::RefCountConsumer;
 use triplespace_projections::{Farm, PgBackend, milestone_pipeline};
 
 static COUNTER: AtomicU32 = AtomicU32::new(0);
@@ -1090,6 +1092,7 @@ async fn snapshot(client: &Client) -> Vec<String> {
         "view.entity_source",
         "view.term",
         "view.identifier",
+        "view.entity_ref",
         "view.keyed_map",
         "view.job",
         "view.job_reject",
@@ -1276,4 +1279,93 @@ async fn a_linked_foreign_entity_is_queued_for_its_mirror() {
         ["Q42", "Q43"],
         "`off` queues nothing"
     );
+}
+
+// 03 §4.2, §4.3 (0013 A108): composition writes a row of `view.entity_ref` for each entity
+// a resolved state refers to, with the roles it is referred to in, whether or not any
+// graph holds the target; the worker folds the changes into `view.entity_ref_count`.
+#[tokio::test]
+async fn references_are_indexed_and_counted() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let client = seed(client).await;
+    let sid = "Q6$00000000-0000-0000-0000-000000000067";
+    let mut statement = item_statement("P7", "WDQ42", sid);
+    statement["qualifiers"] = json!({"P8": [{"snaktype": "value", "property": "P8",
+        "datavalue": {"value": {"entity-type": "item", "id": "WDQ42"}, "type": "wikibase-entityid"},
+        "datatype": "wikibase-item"}]});
+    statement["references"] = json!([{"snaks": {"P9": [{"snaktype": "value", "property": "P9",
+        "datavalue": {"value": {"entity-type": "item", "id": "Q6"}, "type": "wikibase-entityid"},
+        "datatype": "wikibase-item"}]}}]);
+    let mut store = PgLog::new(client);
+    let mut edit = draft(
+        PAYLOAD_CHANGESET,
+        "Q6",
+        &json!({"op": "add", "id": "Q6", "claims": {"P7": [statement]}}),
+        None,
+        Some(6),
+    );
+    edit.revid = Some(902);
+    store.append(LOCAL, edit).await.unwrap();
+    let p = pipeline();
+    for partition in ALL {
+        p.catch_up(&backend, &store, partition, 2).await.unwrap();
+    }
+    let worker = Worker::new()
+        .with(Arc::new(RefCountConsumer) as Arc<dyn Consumer<PgBackend>>)
+        .unwrap();
+    let refs = "SELECT target_id || '|' || roles FROM view.entity_ref
+                WHERE tenant = 'librarybase' AND source_id = 'Q6' AND target_id IN ('P7', 'P8', 'P9', 'WDQ42', 'Q6')";
+    let counts = "SELECT target_id || '|' || refs FROM view.entity_ref_count
+                  WHERE tenant = 'librarybase' AND target_id IN ('P7', 'P8', 'P9', 'WDQ42', 'Q6')";
+    {
+        let client = store.client();
+        // The value is referred to as a main value and a qualifier's; the entity's
+        // reference to itself is no row.
+        assert_eq!(
+            sorted(client, refs).await,
+            ["P7|1", "P8|2", "P9|4", "WDQ42|3"]
+        );
+        // Nothing is counted until the worker folds what composition appended.
+        assert!(sorted(client, counts).await.is_empty());
+        assert!(
+            count(
+                client,
+                "SELECT count(*) FROM ops.projection_work WHERE projection = 'ref_count'"
+            )
+            .await
+                > 0,
+            "the fold is queued"
+        );
+    }
+    worker.run_until_idle(&backend, 100).await.unwrap();
+    {
+        let client = store.client();
+        assert_eq!(
+            sorted(client, counts).await,
+            ["P7|1", "P8|1", "P9|1", "WDQ42|1"]
+        );
+        assert_eq!(
+            count(client, "SELECT count(*) FROM view.entity_ref_delta").await,
+            0
+        );
+    }
+
+    // The statement removed: its rows go, and the counts with them.
+    let mut edit = draft(
+        PAYLOAD_CHANGESET,
+        "Q6",
+        &json!({"op": "remove", "id": "Q6", "statements": [sid]}),
+        None,
+        Some(6),
+    );
+    edit.revid = Some(903);
+    store.append(LOCAL, edit).await.unwrap();
+    p.catch_up(&backend, &store, LOCAL, 2).await.unwrap();
+    worker.run_until_idle(&backend, 100).await.unwrap();
+    let client = store.into_inner();
+    assert!(sorted(&client, refs).await.is_empty());
+    assert!(sorted(&client, counts).await.is_empty());
 }

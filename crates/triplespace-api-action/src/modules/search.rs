@@ -1,4 +1,4 @@
-//! Search without a search index (implements 0014 §8 (A30); 03 §11.6): the Postgres
+//! Search without a search index (implements 0014 §8 (A31); 03 §11.6): the Postgres
 //! fallback behind `wbsearchentities`, `list=prefixsearch`, `list=search` and the REST
 //! API's `GET /suggest`.
 //!
@@ -6,7 +6,8 @@
 //!   language chain, the tenant's rows and the shared rows (mirrored entities) together.
 //!   A result is one per identity cluster, the member the local preference selects
 //!   (`canonical_id`, 0004 §4) where the caller may read it. An exact match leads, then
-//!   the entities most referred to (`view.entity_ref`), then the shorter text.
+//!   the entities most referred to (`view.entity_ref_count`, summed over the cluster:
+//!   03 §4.2), then the shorter text.
 //! - **Pages** are found by a prefix of their title on `view.page`, and by the words of
 //!   their title and latest text in `view.page_text`.
 //! - Every result filters by the caller's hidden set (09 §5.3; 03 §11.5): a confidential
@@ -145,7 +146,8 @@ pub async fn entity_hits(
                ORDER BY exact DESC, length(t.text), t.entity_id
                LIMIT $9
              ), c AS (
-               SELECT DISTINCT ON (r.id) r.id, r.type, r.page_id, m.kind, m.lang, m.text, m.exact
+               SELECT DISTINCT ON (r.id) r.id, r.type, r.page_id, m.kind, m.lang, m.text, m.exact,
+                      e.cluster_id AS cluster
                FROM m
                JOIN view.entity e ON e.id = m.entity_id AND e.tenant IN ($1, '')
                  AND NOT e.deleted AND e.type = ANY($5)
@@ -161,8 +163,11 @@ pub async fn entity_hits(
              SELECT c.id, c.type, c.page_id, c.kind, c.lang, c.text
              FROM c
              ORDER BY c.exact DESC,
-                      (SELECT count(*) FROM view.entity_ref f
-                       WHERE f.tenant IN ($1, '') AND f.target_id = c.id) DESC,
+                      (SELECT coalesce(sum(n.refs), 0) FROM view.entity_ref_count n
+                       WHERE n.tenant IN ($1, '')
+                         AND n.target_id = ANY(c.id || ARRAY(
+                               SELECT x.id FROM view.entity x
+                               WHERE x.tenant IN ($1, '') AND x.cluster_id = c.cluster))) DESC,
                       length(c.text), c.kind, c.id
              LIMIT $6 OFFSET $10",
             &[

@@ -13,9 +13,9 @@
 //! tenant's `(tenant, id)` row; a record in a shared mirror partition recomputes the shared
 //! `('', id)` row and the row of every tenant that holds one for the key.
 //!
-//! `term` and `identifier` are tables of this projection rather than projections of their
-//! own: they are derived from the same resolution pass, and splitting them would resolve
-//! each subject three times. Clusters are not handled yet: every ID is its own canonical
+//! `term`, `identifier` and `entity_ref` ([`crate::refs`]) are tables of this projection
+//! rather than projections of their own: they are derived from the same resolution pass,
+//! and splitting them would resolve each subject once for each. Clusters are not handled yet: every ID is its own canonical
 //! ID, and there is no fan-out to referrers.
 
 use std::collections::BTreeMap;
@@ -76,7 +76,7 @@ fn sql(e: &tokio_postgres::Error) -> String {
     crate::common::describe(e)
 }
 
-/// `view.entity`, `view.term`, `view.identifier`.
+/// `view.entity`, `view.term`, `view.identifier`, `view.entity_ref`.
 #[derive(Debug, Clone)]
 pub struct EntityProjection {
     /// Provider slugs in the instance's order (0004 §4), for the order of mirror graphs.
@@ -268,6 +268,7 @@ impl EntityProjection {
                 .await
                 .map_err(|e| sql(&e))?;
         }
+        n += crate::refs::write(cx, tenant, &[id.as_str()], &[]).await?;
         n += cx
             .execute(
                 "DELETE FROM view.entity WHERE tenant = $1 AND id = $2",
@@ -408,7 +409,7 @@ impl EntityProjection {
                 time_of(headers.iter().map(|h| h.appended_at).min().unwrap_or(0))
             })
             .to_owned();
-        // The three writes are independent once resolution is done; issued together they
+        // The four writes are independent once resolution is done; issued together they
         // go down the connection in one flush (tokio-postgres pipelines concurrently
         // polled queries), and the order within each pair (delete, then insert) holds.
         let id_text = id.as_str();
@@ -444,12 +445,14 @@ impl EntityProjection {
             .await
             .map_err(|e| sql(&e))
         };
-        let (n, terms, identifiers) = tokio::try_join!(
+        let targets = crate::refs::rows(&resolved.entity);
+        let (n, terms, identifiers, refs) = tokio::try_join!(
             entity_row,
             Self::write_terms(cx, tenant, id, &resolved),
             Self::write_identifiers(cx, tenant, id, &resolved),
+            crate::refs::write_one(cx, tenant, id, &targets),
         )?;
-        Ok(n + terms + identifiers)
+        Ok(n + terms + identifiers + refs)
     }
 
     /// Replaces the subject's `view.term` rows: one delete, one multi-row insert.
@@ -832,6 +835,7 @@ impl EntityProjection {
                     .into_iter()
                     .map(|((p, key, g), sid)| (p.to_string(), key, g.to_string(), sid.to_string()))
                     .collect(),
+                refs: crate::refs::rows(&resolved.entity),
             }))
         };
         let resolved: Vec<_> = if taken.len() < 64 {
@@ -916,6 +920,8 @@ struct LocalRows {
     terms: Vec<(i16, String, i16, String)>,
     /// `(property, value key, graph, statement ID)`.
     identifiers: Vec<(String, String, String, String)>,
+    /// `(target, roles)`: its `view.entity_ref` rows ([`crate::refs::rows`]).
+    refs: Vec<(String, i16)>,
 }
 
 /// Writes [`LocalRows`] for a block (0013 A95): one upsert of `view.entity`, and the
@@ -981,7 +987,7 @@ async fn write_local_rows(cx: &PgCx, tenant: &str, rows: &[LocalRows]) -> Result
         .await
         .map_err(|e| sql(&e))
     };
-    // A delete and its insert in order; the three tables together.
+    // A delete and its insert in order; the tables together.
     let term_rows = async {
         let mut n = cx
             .execute(
@@ -1026,8 +1032,17 @@ async fn write_local_rows(cx: &PgCx, tenant: &str, rows: &[LocalRows]) -> Result
         }
         Ok::<u64, String>(n)
     };
-    let (a, b, c) = tokio::try_join!(entity_rows, term_rows, identifier_rows)?;
-    Ok(a + b + c)
+    let refs: Vec<(&str, &str, i16)> = rows
+        .iter()
+        .flat_map(|r| {
+            r.refs
+                .iter()
+                .map(|(t, roles)| (r.id.as_str(), t.as_str(), *roles))
+        })
+        .collect();
+    let ref_rows = crate::refs::write(cx, tenant, &ids, &refs);
+    let (a, b, c, d) = tokio::try_join!(entity_rows, term_rows, identifier_rows, ref_rows)?;
+    Ok(a + b + c + d)
 }
 
 /// One mirrored entity's shared rows, computed from its own state alone
@@ -1053,6 +1068,8 @@ pub(crate) struct RowCore {
     terms: Vec<(i16, String, i16, String)>,
     /// `(property, value key, graph, statement ID)`.
     identifiers: Vec<(String, String, String, String)>,
+    /// `(target, roles)`: its `view.entity_ref` rows ([`crate::refs::rows`]).
+    refs: Vec<(String, i16)>,
 }
 
 impl RowCore {
@@ -1095,6 +1112,7 @@ impl RowCore {
                 .into_iter()
                 .map(|((p, key, g), sid)| (p.to_string(), key, g.to_string(), sid.to_string()))
                 .collect(),
+            refs: crate::refs::rows(&resolved.entity),
         })
     }
 
@@ -1253,6 +1271,16 @@ async fn write_shared_rows(cx: &PgCx, rows: &[SharedRows]) -> Result<u64, String
             .await
             .map_err(|e| sql(&e))?;
     }
+    let refs: Vec<(&str, &str, i16)> = rows
+        .iter()
+        .flat_map(|r| {
+            r.core
+                .refs
+                .iter()
+                .map(|(t, roles)| (r.id.as_str(), t.as_str(), *roles))
+        })
+        .collect();
+    n += crate::refs::write(cx, "", &ids, &refs).await?;
     Ok(n)
 }
 
@@ -1404,6 +1432,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for EntityProjection {
         Box::pin(async move {
             let info = partition_info(cx, partition).await?;
             // A tenant partition resets the tenant's rows; a shared one the shared rows.
+            crate::refs::reset(cx, &info.tenant).await?;
             for table in ["view.term", "view.identifier"] {
                 cx.execute(
                     &format!("DELETE FROM {table} WHERE tenant = $1"),

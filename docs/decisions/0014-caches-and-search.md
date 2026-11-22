@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-21 (A30)
+- **Updated:** 2026-11-21 (A31)
 - **Author:** James Hare / Claude Fable
 - **Uses:** [0000](0000-init.md), [0003](0003-statement-ui.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
@@ -343,3 +343,11 @@ Replaced text: 03 §12.1.
 
 Replaced text: 03 §11.6; 19 §2.1.
 
+### A31. Entity search ranks by the folded reference counter
+
+- **Date:** 2026-11-21
+- **Source:** Direct: Claude, while building the reference index and its counter (SCA-464), 2026-11-21; unconfirmed
+- **Change:** amends §7, §8
+- **Summary:** Entity results are ordered by the reference counter of 0013 A108, `view.entity_ref_count` for the tenant and for the shared rows, summed over the result's cluster, in place of a count over `view.entity_ref` at query time; `incoming_links` in the search document is the same number. This also corrects what A30 left unsaid: when A30 was written nothing wrote `view.entity_ref`, so its ordering by references had no references to order by on a real instance, and results fell to the exact match and the shorter text; the tests of A30 wrote the table directly. The ranking stays among the 2,000 best-matching terms. The counter makes each candidate's count one lookup, but ordering every entity that matches a short prefix by its count needs an index ordered by the count, which is the search index's job (§7) and not the fallback's. A count lags an edit by the worker. Chapter text: 03 §11.3, §11.6.
+
+Replaced text: 03 §11.6 ("a count over `view.entity_ref`"); 03 §11.3 ("`view.entity.ref_count`").

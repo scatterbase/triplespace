@@ -27,6 +27,7 @@ pub mod jobs;
 pub mod moderation;
 pub mod pages;
 pub mod read;
+pub mod refs;
 pub mod registry;
 pub mod reports;
 pub mod revision_state;
