@@ -81,7 +81,7 @@ a.ts-chip--badge:hover {
 
 .ts-chip__icon {
 	flex: none;
-	fill: currentColor;
+	fill: currentcolor;
 }
 
 /* The instance itself, acting as the server's operator (ADR 0095 §3). */
