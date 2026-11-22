@@ -4086,6 +4086,7 @@ dependencies = [
  "mimalloc",
  "mwdump",
  "mwrecent",
+ "reqwest",
  "scatter-actors",
  "scatter-adapter-wikibase",
  "scatter-challenge",

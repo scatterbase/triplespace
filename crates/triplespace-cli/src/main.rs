@@ -14,7 +14,7 @@ use clap::{Parser, Subcommand};
 use triplespace_cli::{
     accounts, adopt, backup_key, challenge, compact, dump, env_file, fetch, follow, forwarder,
     import_pages, instance, job, log_bundle, logins, oauth_client, provider, provision, restore,
-    rights, settings, setup, source, status, sync, tenant,
+    rights, settings, setup, source, sparql_sync, status, sync, tenant,
 };
 
 /// Triplespace: a Wikibase as an append-only log.
@@ -61,6 +61,8 @@ enum Command {
     Follow(follow::Follow),
     /// Queue entities for a provider's or source's follower to fetch (0070 §3).
     Fetch(fetch::Fetch),
+    /// Keep a triplestore current from an instance's SPARQL Update stream (0032 §6).
+    SparqlSync(sparql_sync::SparqlSync),
     /// Compact a provider's mirror by the keys of a range of its records (0013 §3, A96).
     Compact(compact::Compact),
     /// The bot password a provider's follower logs in with (0092 §10).
@@ -207,6 +209,7 @@ async fn run() -> Result<()> {
         Command::Sync(args) => sync::run(args).await,
         Command::Follow(args) => follow::run(args).await,
         Command::Fetch(args) => fetch::run(args).await,
+        Command::SparqlSync(args) => sparql_sync::run(args).await.map(|_| ()),
         Command::Compact(args) => compact::run(args).await,
         Command::UpstreamLogin { command } => follow::run_login(command).await,
         Command::Source { command } => source::run(command).await,

@@ -551,6 +551,91 @@ async fn a_dump_with_the_stream_applied_is_the_later_dump() {
     );
     drop(body);
 
+    // `triplespace sparql-sync` (02 §6.4): from the first dump's cursor it posts the
+    // stream to a store's update endpoint with the store's token, the marker triple with
+    // it, and commits the cursor to its state file once the store has answered.
+    let received = std::sync::Arc::new(std::sync::Mutex::new(Vec::<(String, String)>::new()));
+    let store = {
+        let received = received.clone();
+        Router::new().route(
+            "/update",
+            axum::routing::post(move |headers: axum::http::HeaderMap, body: String| {
+                let received = received.clone();
+                async move {
+                    let auth = headers
+                        .get(header::AUTHORIZATION)
+                        .and_then(|v| v.to_str().ok())
+                        .unwrap_or_default()
+                        .to_string();
+                    received.lock().unwrap().push((auth, body));
+                    StatusCode::NO_CONTENT
+                }
+            }),
+        )
+    };
+    // The instance as a consumer reaches it: by its own host name.
+    let instance = router_with(app.clone(), triplespace_api_rest::routes()).layer(
+        axum::middleware::map_request(|mut req: Request<Body>| async move {
+            req.headers_mut()
+                .insert(header::HOST, header::HeaderValue::from_static(HOST));
+            req
+        }),
+    );
+    let mut bases = Vec::new();
+    for service in [instance, store] {
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.unwrap();
+        bases.push(format!("http://{}", listener.local_addr().unwrap()));
+        tokio::spawn(async move {
+            let _ = axum::serve(listener, service).await;
+        });
+    }
+    let state = dir.join("store.cursor");
+    let token_file = dir.join("store.token");
+    std::fs::write(&token_file, "store-secret\n").unwrap();
+    let sync = |from: Option<String>| triplespace_cli::sparql_sync::SparqlSync {
+        source: bases[0].clone(),
+        graphs: "resolved".into(),
+        endpoint: format!("{}/update", bases[1]),
+        token_file: Some(token_file.clone()),
+        state: state.clone(),
+        from,
+        limit: 1000,
+        interval: 1,
+        once: true,
+    };
+    assert!(
+        triplespace_cli::sparql_sync::run(sync(None)).await.is_err(),
+        "no state file and no --from"
+    );
+    let reached = triplespace_cli::sparql_sync::run(sync(Some(from.to_string())))
+        .await
+        .unwrap();
+    assert_eq!(reached, next);
+    assert_eq!(std::fs::read_to_string(&state).unwrap().trim(), next);
+    {
+        let got = received.lock().unwrap();
+        assert_eq!(got.len(), 1, "one batch");
+        assert_eq!(got[0].0, "Bearer store-secret");
+        assert!(got[0].1.contains("\"First, renamed\"@en"), "{}", got[0].1);
+        assert!(
+            got[0].1.trim_end().ends_with(&format!(
+                "INSERT DATA {{ <{}/.well-known/query> <https://scatter.red/terms/v0/cursor> \"{next}\" }}",
+                bases[0]
+            )),
+            "{}",
+            got[0].1
+        );
+    }
+    // Run again: it resumes from the state file and has nothing to send.
+    triplespace_cli::sparql_sync::run(sync(None)).await.unwrap();
+    assert_eq!(received.lock().unwrap().len(), 1);
+    // A cursor of another epoch stops it, naming the dumps.
+    std::fs::write(&state, "0:0\n").unwrap();
+    let gone = triplespace_cli::sparql_sync::run(sync(None))
+        .await
+        .unwrap_err();
+    assert!(gone.to_string().contains("/dumps/"), "{gone}");
+
     // The retention sweep (03 §4.11): nothing is thirty days old; with no retention at
     // all every delta goes, and the stream cannot be resumed from before them.
     assert_eq!(updates::sweep(&client).await.unwrap(), 0);
