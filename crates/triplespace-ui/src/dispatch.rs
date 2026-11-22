@@ -23,7 +23,7 @@ use triplespace_ui_kit::pages::{
 };
 use triplespace_ui_kit::titles::special_name;
 use triplespace_ui_kit::watch;
-use triplespace_ui_pages::{discussion, document, entity, home, moderation};
+use triplespace_ui_pages::{discussion, document, entity, home, moderation, resolver};
 
 use crate::routes::{self, Target};
 
@@ -260,14 +260,11 @@ pub async fn wiki(
     headers: HeaderMap,
     peer: Peer,
 ) -> Response {
-    dispatch(
-        &site,
-        &headers,
-        peer,
-        display_title(&title),
-        &Params::new(query),
-    )
-    .await
+    let params = Params::new(query);
+    if resolver::is_resolver_title(&title) && !params.map.contains_key("action") {
+        return resolver::serve(&site, &headers, peer, &title, &params).await;
+    }
+    dispatch(&site, &headers, peer, display_title(&title), &params).await
 }
 
 /// `/w/index.php` and `/index.php`: the title in `title=`.
@@ -278,7 +275,12 @@ pub async fn index_php(
     peer: Peer,
 ) -> Response {
     let params = Params::new(query);
-    let title = display_title(params.map.get("title").map_or("", String::as_str));
+    let raw = params.map.get("title").map_or("", String::as_str);
+    if resolver::is_resolver_title(raw) && !params.map.contains_key("action") {
+        let raw = raw.to_string();
+        return resolver::serve(&site, &headers, peer, &raw, &params).await;
+    }
+    let title = display_title(raw);
     dispatch(&site, &headers, peer, title, &params).await
 }
 

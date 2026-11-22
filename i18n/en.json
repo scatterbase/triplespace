@@ -2392,5 +2392,12 @@
 	"ts-tenants-accept-intro": "This wiki has been offered the primary role. Accepting it makes this wiki's owners the operators of the whole instance.",
 	"ts-tenants-accept-offer": "Offered by $1, open until $2.",
 	"ts-tenants-accept-submit": "Accept the primary role",
-	"ts-tenants-accept-filed": "The acceptance was filed. The provisioner carries it out in a moment."
+	"ts-tenants-accept-filed": "The acceptance was filed. The provisioner carries it out in a moment.",
+	"ts-resolver-none": "No item has the $1 $2.",
+	"ts-resolver-several": "Several items have the $1 $2:",
+	"ts-resolver-duplicates": "They may be duplicates to merge.",
+	"ts-resolver-values": "$1 has more than one $2, so $3 does not name it alone. Its values:",
+	"ts-resolver-invalid": "This is not a valid $1.",
+	"ts-resolver-external": "$1 $2 outside this wiki",
+	"ts-resolver-create": "Create an item with this $1"
 }

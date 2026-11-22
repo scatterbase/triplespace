@@ -716,8 +716,8 @@ sources = "[0047](../decisions/0047-special-pages.md) §11"
 
 [[route]]
 routes = ["GET /resolve?q="]
-purpose = "Resolves any string to its canonical page through the title resolver (§3.3)"
-sources = "[0012](../decisions/0012-api-requirements.md) §5; [0029](../decisions/0029-resolver-namespaces.md) §6; [0051](../decisions/0051-page-redirects.md) §7; [0078](../decisions/0078-entity-sources.md) §10"
+purpose = "Resolves any string to its canonical page through the title resolver (§3.3): `kind` `entity`, `resolver` (with `target`, or `candidates` and their `values`) or `page`; `404 unresolved` with `suggestions` where nothing is named. Only resolvers bound to a property serve"
+sources = "[0012](../decisions/0012-api-requirements.md) §5; [0029](../decisions/0029-resolver-namespaces.md) §6, A12; [0051](../decisions/0051-page-redirects.md) §7; [0078](../decisions/0078-entity-sources.md) §10"
 
 [[route]]
 routes = ["GET /resolvers"]

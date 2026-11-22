@@ -2392,5 +2392,12 @@
 	"ts-tenants-accept-intro": "Special:Tenants on an offered wiki: what accepting means.",
 	"ts-tenants-accept-offer": "Special:Tenants on an offered wiki: an offer. $1: who made it; $2: the date it expires.",
 	"ts-tenants-accept-submit": "Special:Tenants on an offered wiki: the button that accepts.",
-	"ts-tenants-accept-filed": "Special:Tenants on an offered wiki: notice after accepting."
+	"ts-tenants-accept-filed": "Special:Tenants on an offered wiki: notice after accepting.",
+	"ts-resolver-none": "On a page in a resolver namespace (DOI:…) when no item carries the key.\n\nParameters:\n* $1 - the resolver's name, such as \"DOI\"\n* $2 - the key, such as 10.1000/xyz",
+	"ts-resolver-several": "On a page in a resolver namespace (DOI:…) above the list of the items that carry the key.\n\nParameters:\n* $1 - the resolver's name, such as \"DOI\"\n* $2 - the key",
+	"ts-resolver-duplicates": "Under the list of items that share one resolver key, such as a DOI.",
+	"ts-resolver-values": "On a page in a resolver namespace (DOI:…) when the one item that carries the key carries other values for it too; the item and its values are listed below.\n\nParameters:\n* $1 - the item's label\n* $2 - the resolver's name, such as \"DOI\"\n* $3 - the key",
+	"ts-resolver-invalid": "On a page in a resolver namespace (DOI:…) whose title is not a valid key.\n\nParameters:\n* $1 - the resolver's name, such as \"DOI\"",
+	"ts-resolver-external": "Link to where a resolver's key resolves outside the wiki, such as https://doi.org/….\n\nParameters:\n* $1 - the resolver's name, such as \"DOI\"\n* $2 - the key",
+	"ts-resolver-create": "Link, for a signed-in reader, that opens the new-item form with the resolver's statement filled in.\n\nParameters:\n* $1 - the resolver's name, such as \"DOI\""
 }

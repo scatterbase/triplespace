@@ -12,6 +12,8 @@
 # case         "fold" (case-insensitive: the key is casefolded) or "keep".
 # external     Where the key resolves outside the instance; {key} is the canonical key.
 # namespace    The MediaWiki namespace (namespaces.toml); its number is pending registration.
+# wikidata     Wikidata's property for the role. An instance mirroring Wikidata binds the role to
+#              it in the mirrored form (`WDP356`) (0029 A12).
 
 version = 1
 
@@ -20,6 +22,7 @@ name = "doi"
 label = "DOI"
 namespace = "DOI"
 binding = "doi"                        # bound on a Wikidata-mirroring tenant to WDP356
+wikidata = "P356"
 grammar = "10\\.[0-9]{4,9}/.+"
 normalizer = "strip a leading https://doi.org/, http://dx.doi.org/, doi.org/ or doi:; percent-decode; trim"
 case = "fold"

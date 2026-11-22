@@ -126,7 +126,7 @@ A resolver is a namespace whose titles are keys of a property bound to it by rol
 
 ### 3.1 A resolver is a namespace bound to a property
 
-*Sources: [0029](../decisions/0029-resolver-namespaces.md) §1.*
+*Sources: [0029](../decisions/0029-resolver-namespaces.md) §1, A12.*
 
 A resolver is a registry entry, a `config` record of kind `resolver` in the tenant `config` ([23](23-configuration-and-registry.md) §2.2), with defaults in `docs/registry/resolvers.toml`. It records:
 
@@ -141,6 +141,8 @@ A resolver is a registry entry, a `config` record of kind `resolver` in the tena
 
 **The binding is a role, so the property may come from any provider.** A tenant binds the role to the properties it holds, exactly as it binds `time-point` for the statement UI. Where two bound properties are joined by `equivalent-property` ([04](04-entities-and-identifiers.md) §4.6) they are already one predicate in the resolved view; where they are not, the resolver reads both. The normalizer of a resolver **is** the normalizer of its property's values ([04](04-entities-and-identifiers.md) §4.7): registering a resolver for a role sets the normalizer for every property bound to it, so that the index and the lookup agree by construction. A property whose values a resolver normalizes with casefolding therefore compares its values case-insensitively everywhere, in statement fusion as in lookup, which is the right answer for a DOI and is why a resolver declares its case rule rather than leaving it to each property. Registering a resolver for a role whose properties already hold values, or changing a resolver's normalizer, is a normalizer change: it enqueues the per-property rebuild job that recomputes the stored keys, which carry the normalizer's version, and bumps the rendering version of the update stream ([04](04-entities-and-identifiers.md) §4.7); the lookup reads rows of the new version as the job writes them.
 
+**Until a tenant binds roles of its own, a resolver binds Wikidata's property** for its role, named by the registry's `wikidata` field (`P356` for DOI), in the form an instance mirroring Wikidata holds it, `WDP356`, as the statement UI reads its roles ([0029](../decisions/0029-resolver-namespaces.md) A12). A bound property's values are compared by the resolver's key everywhere: `view.identifier` is keyed so, a match key's lookup reads it so, and statement fusion, the merge of an identical statement and an import's diff compare so, so a DOI written in either case is one value. The stored value is kept as its graph wrote it. Rows indexed before were re-keyed by a migration where they were bare ASCII DOIs, and any other takes its key when its entity is next composed.
+
 **DOI is the first resolver, and is not a keyed type.** A DOI is a value an entity carries, not a subject to say things about, and a citation record stays an item with a DOI statement. The `doi:` prefix reserved for a keyed type is withdrawn.
 
 ### 3.2 The `resolver` namespace kind
@@ -153,7 +155,7 @@ A resolver is a registry entry, a `config` record of kind `resolver` in the tena
 
 ### 3.3 Resolution
 
-*Sources: [0029](../decisions/0029-resolver-namespaces.md) §3.*
+*Sources: [0029](../decisions/0029-resolver-namespaces.md) §3, A12.*
 
 Viewing `DOI:10.1000/xyz`, or calling `GET /resolve?q=doi:10.1000/xyz` ([18](18-api.md)), does the following:
 
@@ -168,7 +170,7 @@ Viewing `DOI:10.1000/xyz`, or calling `GET /resolve?q=doi:10.1000/xyz` ([18](18-
 | Several entities | A disambiguation page listing them with their labels and descriptions, in `Special:ItemDisambiguation`'s layout ([21](21-special-pages.md)), and a note that this may be a duplicate to merge ([04](04-entities-and-identifiers.md) §4.2) |
 | One entity with several values for the property | A disambiguation page showing the entity and each of its values, since the key does not name the entity unambiguously |
 
-The lookup never guesses: any case but the first shows a page. It is also cheap: one primary-key range read per bound property.
+The lookup never guesses: any case but the first shows a page. The site reads the title as the path gives it, underscores kept, since the resolver's grammar decides what a key holds; the no-entity page and the page for an invalid key answer `404`, as a missing page does, and *Create an item with this DOI* is offered to a signed-in reader, whom `Special:NewItem` admits ([0029](../decisions/0029-resolver-namespaces.md) A12). It is also cheap: one primary-key range read per bound property.
 
 **Match keys.** A resolver's property is a natural candidate for a uniqueness constraint ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8.5; `match_key` in [03](03-storage-caches-and-search.md) §4.3), and a tenant that adds one will see the "several entities" page only for values that predate the constraint. The two are kept separate: a match key refuses a duplicate at write; a resolver tolerates it at read and shows it.
 

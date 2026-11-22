@@ -438,6 +438,104 @@
         }
       }
     },
+    "/resolve": {
+      "get": {
+        "operationId": "getResolve",
+        "summary": "Resolve a string to the page it names",
+        "description": "Any string to the page it names, through the title resolver (ADR 0029 §3, §6; chapter 18 §3.3; chapter 6 §3.3). Tried in order: an entity ID the instance holds (`WDQ65`, `Item:Q6`, `domain:example.org`), reached through its cluster; a notation key (`osm:amenity=cafe`); a resolver-prefixed string (`doi:10.1000/xyz`, `DOI:10.1000/xyz`), then a bare string that is a valid key of exactly one resolver; and last a main-namespace title. For a resolver, `target` is present when exactly one entity holds exactly one value for the key; otherwise `candidates` lists the entities that hold it (none, several, or one with each of its `values`), at most 50. A prefixed string that is not a valid key has `invalid`. Where an entity answered, a main-namespace page of the same title is in `also`. Only resolvers bound to a property serve; one bound to sitelinks does not yet. Nothing named is `404 unresolved`, with `suggestions` naming the keyed-type ID a bare key would be. What the caller may not read is not resolved to, so the response is public only for a caller without credentials; it carries the `Cache-Tag` of each entity it names.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "The string, at most 512 bytes.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "What the string names.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Tag": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Resolution"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "The client's copy, named by `If-None-Match`, is current."
+          },
+          "400": {
+            "description": "`q` is missing or too long, `limit` is out of range, or `language` holds something that is not a language code or names more languages than the route takes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller lacks `read`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The host is not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "The string names nothing the wiki holds (`unresolved`).",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Unresolved"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/version": {
       "get": {
         "operationId": "getVersion",
@@ -12838,6 +12936,139 @@
             "type": "integer"
           }
         }
+      },
+      "Resolution": {
+        "type": "object",
+        "required": [
+          "q",
+          "kind"
+        ],
+        "properties": {
+          "q": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "entity",
+              "resolver",
+              "page"
+            ]
+          },
+          "id": {
+            "type": "string",
+            "description": "`entity`: the canonical member of the entity's cluster."
+          },
+          "title": {
+            "type": "string",
+            "description": "`entity` and `page`: the page's title."
+          },
+          "ns": {
+            "type": "integer",
+            "description": "`page`: its namespace, 0."
+          },
+          "pageid": {
+            "type": "integer",
+            "description": "`page`: its page ID."
+          },
+          "also": {
+            "type": "object",
+            "description": "`entity`: the main-namespace page with the same title, as a `page` answer gives it."
+          },
+          "resolver": {
+            "type": "string",
+            "description": "`resolver`: its name, `doi`."
+          },
+          "label": {
+            "type": "string",
+            "description": "`resolver`: its display name, `DOI`."
+          },
+          "namespace": {
+            "type": "string",
+            "description": "`resolver`: its namespace, `DOI`."
+          },
+          "key": {
+            "type": "string",
+            "description": "`resolver`: the normalized key."
+          },
+          "external": {
+            "type": "string",
+            "description": "`resolver`: where the key resolves outside the instance."
+          },
+          "properties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "`resolver`: the properties bound to it, which the lookup read."
+          },
+          "target": {
+            "type": "object",
+            "required": [
+              "id",
+              "title"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              }
+            },
+            "description": "`resolver`: the one entity holding the key, holding one value for it."
+          },
+          "candidates": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "id",
+                "title",
+                "values"
+              ],
+              "properties": {
+                "id": {
+                  "type": "string"
+                },
+                "title": {
+                  "type": "string"
+                },
+                "values": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  },
+                  "description": "Its values for the resolver's properties, as keys."
+                }
+              }
+            },
+            "description": "`resolver`, without `target`: the entities holding the key."
+          },
+          "invalid": {
+            "type": "string",
+            "description": "`resolver`: why the string is not a valid key."
+          }
+        }
+      },
+      "Unresolved": {
+        "allOf": [
+          {
+            "$ref": "#/components/schemas/Error"
+          },
+          {
+            "type": "object",
+            "properties": {
+              "suggestions": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "The keyed-type IDs a bare key would be: `domain:example.org`."
+              }
+            }
+          }
+        ]
       },
       "EntitySources": {
         "type": "object",

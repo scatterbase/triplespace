@@ -17,7 +17,7 @@ use scatter_wikibase_changeset::{Operation, SitelinkPatch};
 use scatter_wikibase_model::entity::Entity;
 use scatter_wikibase_model::hash::Hasher;
 use scatter_wikibase_model::id::{EntityId, StatementId};
-use scatter_wikibase_model::key::{Identity, statement_key};
+use scatter_wikibase_model::key::{Bound, statement_key};
 use scatter_wikibase_model::statement::Statement;
 
 /// The statement with this GUID in an entity.
@@ -48,13 +48,13 @@ fn merges_away(
     new: &Statement,
 ) -> bool {
     let h = Hasher::local();
-    let key = statement_key(new, &Identity);
+    let key = statement_key(new, Bound::embedded());
     was.statements.get(property).is_some_and(|group| {
         group.iter().any(|old| {
             old.id
                 .as_ref()
                 .is_some_and(|g| is_local(g) && by_guid(after, g).is_some())
-                && statement_key(old, &Identity) == key
+                && statement_key(old, Bound::embedded()) == key
                 && new.references.iter().all(|r| {
                     old.references
                         .iter()

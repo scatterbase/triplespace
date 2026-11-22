@@ -32,6 +32,7 @@ pub mod read;
 pub mod refs;
 pub mod registry;
 pub mod reports;
+pub mod resolvers;
 pub mod revision_state;
 pub mod revisions;
 pub mod sources;

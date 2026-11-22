@@ -12,7 +12,7 @@ use scatter_log_postgres::{log, sequences};
 use scatter_projection::{Backend, ProjectionError, QueueLag, Queued, Work};
 use scatter_wikibase_changeset::{MatchKey, Operation};
 use scatter_wikibase_model::id::EntityId;
-use scatter_wikibase_model::key::{Identity, value_key};
+use scatter_wikibase_model::key::value_key;
 use scatter_wikibase_model::value::{DataType, DataValue};
 use triplespace_projections::common::Partitions;
 use triplespace_projections::{PgBackend, PgCx};
@@ -687,7 +687,7 @@ impl IngestStore for PgIngest {
                         &DataValue::String(value.clone()),
                         Some(&DataType::ExternalId),
                         property,
-                        &Identity,
+                        triplespace_projections::resolvers::bound(),
                     );
                     let row = cx
                         .query_opt(

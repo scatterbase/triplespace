@@ -14,7 +14,7 @@ use scatter_wikibase_model::entity::{Entity, EntityType, Sitelink};
 use scatter_wikibase_model::hash::Hasher;
 use scatter_wikibase_model::id::{EntityId, Subject};
 use scatter_wikibase_model::json::Form;
-use scatter_wikibase_model::key::{Identity, statement_key};
+use scatter_wikibase_model::key::{Bound, statement_key};
 use scatter_wikibase_model::statement::{Rank, Statement};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
@@ -335,11 +335,11 @@ impl LocalState {
 /// snak and qualifiers key the same), in which case the incoming references are merged
 /// onto it.
 fn add_statement(e: &mut Entity, property: &EntityId, incoming: &Statement) {
-    let key = statement_key(incoming, &Identity);
+    let key = statement_key(incoming, Bound::embedded());
     let group = e.statements.entry(property.clone()).or_default();
     if let Some(existing) = group
         .iter_mut()
-        .find(|s| statement_key(s, &Identity) == key)
+        .find(|s| statement_key(s, Bound::embedded()) == key)
     {
         for r in &incoming.references {
             if !existing.references.contains(r) {
