@@ -501,4 +501,141 @@ mod tests {
         assert_eq!(e.statements[&EntityId::parse("WDP356").unwrap()].len(), 1);
         assert_eq!(e.statements[&EntityId::parse("WDP1").unwrap()].len(), 2);
     }
+
+    /// The resolved view keeps every ID as the graph that asserted it wrote it (no rewriting
+    /// by identity clusters): "It keeps every ID as the graph that asserted it wrote it" (0002 §3).
+    #[test]
+    fn keeps_every_id_as_the_graph_that_asserted_it_wrote_it() {
+        let contributions = [
+            Contribution {
+                graph: "local".into(),
+                entity: local(),
+                upstream_id: None,
+            },
+            Contribution {
+                graph: "mirror/internetdomains".into(),
+                entity: mirror(),
+                upstream_id: None,
+            },
+        ];
+        let r = resolve(&contributions, &BTreeMap::new()).unwrap();
+        // The fused "a" statement keeps the local graph's own ID, not a canonical one.
+        let p1 = &r.entity.statements[&EntityId::parse("P1").unwrap()];
+        assert_eq!(p1[0].id.as_ref().unwrap().as_str(), L1);
+        // The mirror's own IDs survive as the fused statement's members, unrewritten.
+        assert_eq!(
+            r.statements[0].members,
+            vec![
+                StatementId::parse(L1).unwrap(),
+                StatementId::parse(M1).unwrap()
+            ]
+        );
+        // The mirror-only statement keeps the mirror's own ID.
+        assert_eq!(p1[1].id.as_ref().unwrap().as_str(), M2);
+        assert_eq!(
+            r.statements[1].members,
+            vec![StatementId::parse(M2).unwrap()]
+        );
+    }
+
+    /// Where two graphs give one host different URLs for an entity, the local graph wins,
+    /// then the provider order: "the local graph wins, then the provider order" (0002 §3).
+    #[test]
+    fn local_graph_wins_a_sitelink_then_the_provider_order() {
+        let with_link = |url: &str| {
+            entity(json!({"type": "item", "id": "Q1",
+                "labels": {"en": {"language": "en", "value": "example.org"}},
+                "sitelinks": {"example.org": {"site": "example.org", "title": "example.org", "url": url}}}))
+        };
+        let contributions = [
+            Contribution {
+                graph: "local".into(),
+                entity: with_link("https://example.org/local"),
+                upstream_id: None,
+            },
+            Contribution {
+                graph: "mirror/internetdomains".into(),
+                entity: with_link("https://example.org/mirror"),
+                upstream_id: None,
+            },
+        ];
+        let r = resolve(&contributions, &BTreeMap::new()).unwrap();
+        assert_eq!(
+            r.entity.sitelinks["example.org"].url.as_deref(),
+            Some("https://example.org/local"),
+            "the local graph wins the site"
+        );
+        // Without a local link, the provider order decides.
+        let contributions = [
+            Contribution {
+                graph: "mirror/first".into(),
+                entity: with_link("https://example.org/mirror"),
+                upstream_id: None,
+            },
+            Contribution {
+                graph: "mirror/second".into(),
+                entity: with_link("https://example.org/second"),
+                upstream_id: None,
+            },
+        ];
+        let r = resolve(&contributions, &BTreeMap::new()).unwrap();
+        assert_eq!(
+            r.entity.sitelinks["example.org"].url.as_deref(),
+            Some("https://example.org/mirror"),
+            "the first provider in order wins the site"
+        );
+    }
+
+    /// Statements, references and values are already IRI nodes, so one graph can annotate
+    /// a node that another graph asserts: "one graph can annotate a node that another graph asserts" (0002 §3).
+    #[test]
+    fn one_graph_annotates_a_node_another_graph_asserts() {
+        // The mirror asserts the "a" statement; the local graph annotates the same node
+        // with an extra reference and a preferred rank, without restating its ID.
+        let mut local_annotation = local();
+        local_annotation
+            .statements
+            .get_mut(&EntityId::parse("P1").unwrap())
+            .unwrap()[0]
+            .id = None;
+        let contributions = [
+            Contribution {
+                graph: "mirror/internetdomains".into(),
+                entity: mirror(),
+                upstream_id: None,
+            },
+            Contribution {
+                graph: "local".into(),
+                entity: local_annotation,
+                upstream_id: None,
+            },
+        ];
+        let r = resolve(&contributions, &BTreeMap::new()).unwrap();
+        let p1 = &r.entity.statements[&EntityId::parse("P1").unwrap()];
+        assert_eq!(
+            p1.len(),
+            2,
+            "the annotated statement fused with the mirror's"
+        );
+        assert_eq!(
+            p1[0].id.as_ref().unwrap().as_str(),
+            M1,
+            "the node stays the mirror's"
+        );
+        assert_eq!(
+            p1[0].references.len(),
+            2,
+            "the local graph's reference annotates the mirror's node"
+        );
+        assert_eq!(
+            r.statements[0].graphs,
+            vec!["mirror/internetdomains", "local"],
+            "both graphs assert the one node"
+        );
+        assert_eq!(
+            r.statements[0].members,
+            vec![StatementId::parse(M1).unwrap()],
+            "only the mirror's member has an ID"
+        );
+    }
 }

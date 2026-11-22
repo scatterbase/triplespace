@@ -559,4 +559,48 @@ mod tests {
         assert!(!r.get(0).expect("the main namespace").subpages);
         assert!(r.get(4).expect("Project").subpages);
     }
+
+    /// Domain's normalizer is the Domain normalizer, named `domain`: "The Domain normalizer (0009 §2; 04)" (0009 §11).
+    #[test]
+    fn domain_normalizer_is_domain() {
+        let r = Namespaces::parse(NAMESPACES_TOML).expect("the embedded registry parses");
+        let domain = r.get(210).expect("Domain is in the registry");
+        assert_eq!(
+            domain.normalizer.as_deref(),
+            Some("domain"),
+            "Domain's normalizer is named for the type"
+        );
+        assert_eq!(
+            domain.entity_id("wikipedia.org").as_deref(),
+            Some("domain:wikipedia.org"),
+            "the normalizer prefixes the key with the type's name"
+        );
+    }
+
+    /// Domain allows no content model other than `triplespace-domain`: "with the model `triplespace-domain" (0009 §11).
+    #[test]
+    fn domain_allows_only_triplespace_domain() {
+        let r = Namespaces::parse(NAMESPACES_TOML).expect("the embedded registry parses");
+        let domain = r.get(210).expect("Domain is in the registry");
+        assert!(
+            domain.allows_model("triplespace-domain"),
+            "Domain allows its own model"
+        );
+        for model in [
+            "wikitext",
+            "markdown",
+            "json",
+            "yaml",
+            "text",
+            "triplespace-talk",
+            "triplespace-keyword",
+        ] {
+            assert!(!domain.allows_model(model), "Domain does not allow {model}");
+        }
+        assert_eq!(
+            domain.content_models,
+            vec!["triplespace-domain".to_string()],
+            "Domain's only allowed model is triplespace-domain"
+        );
+    }
 }

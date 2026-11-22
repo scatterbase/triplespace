@@ -1360,4 +1360,74 @@ mod tests {
             "trust = \"stream\" is recorded"
         );
     }
+
+    /// Each node, way and relation is a foreign item under its type code: "Each node, way and relation is a foreign item under its type code" (0036 §2).
+    #[test]
+    fn osm_mints_node_way_relation_as_foreign_items() {
+        let r = Registry::default_registry();
+        let os = r.by_slug("openstreetmap").expect("OS registered");
+        for code in ['N', 'W', 'R'] {
+            let t = os.entity_type(code).expect("OS mints the type");
+            assert_eq!(t.entity_type, "item", "OS type {code} is an item");
+            assert_eq!(t.code, code);
+        }
+        // The contrast the claim draws: no other type code of OS exists.
+        assert_eq!(os.types.len(), 3);
+    }
+
+    /// The type code is what separates node 1 from way 1: "the type code is what separates node 1 from way 1" (0036 §2).
+    #[test]
+    fn osm_type_code_separates_node_1_from_way_1() {
+        let r = Registry::default_registry();
+        let os = r.by_slug("openstreetmap").expect("OS registered");
+        // The same upstream ID resolves to different types only through the code.
+        let from_upstream = |code: char| {
+            let t = os.entity_type(code).unwrap();
+            t.iri_for("1")
+        };
+        assert_ne!(from_upstream('N'), from_upstream('W'));
+        assert_eq!(from_upstream('N'), "https://www.openstreetmap.org/node/1");
+        assert_eq!(from_upstream('W'), "https://www.openstreetmap.org/way/1");
+        // The prefixed IDs differ only in the type code, the upstream ID being equal.
+        let n_id = r.from_upstream_typed(os, 'N', "1").expect("OSN1 parses");
+        let w_id = r.from_upstream_typed(os, 'W', "1").expect("OSW1 parses");
+        assert_ne!(n_id, w_id);
+    }
+
+    /// `revision_ids = false`: OSM versions are per object and changesets are not a global revision sequence, so `n` is the mirror record's offset: "revision_ids = false`: OSM versions are per object and changesets are not a global revision sequence, so `n` is the mirror record's offset" (0036 §2).
+    #[test]
+    fn osm_publishes_no_revision_ids() {
+        let r = Registry::default_registry();
+        let os = r.by_slug("openstreetmap").expect("OS registered");
+        assert!(!os.revision_ids, "OS has revision_ids = false");
+        // The consequence the claim states: a revision URL is never built for OS, whose `n`
+        // is the mirror record's offset, while a provider with `revision_ids = true` gets one.
+        assert_eq!(os.revision_url("12345"), None);
+        let wd = r.by_slug("wikidata").unwrap();
+        assert!(wd.revision_url("2251512453").is_some());
+    }
+
+    /// They are two providers rather than five types under `OS` because `revision_ids` is one flag per provider: "They are two providers rather than five types under `OS` because `revision_ids` is one flag per provider" (0036 §2).
+    #[test]
+    fn osm_and_osmwiki_are_two_providers_with_one_revision_flag_each() {
+        let r = Registry::default_registry();
+        let os = r.by_slug("openstreetmap").expect("OS registered");
+        let ow = r.by_slug("osmwiki").expect("OW registered");
+        // The flag is per provider: OS has it false, OW true, so the types cannot share one entry.
+        assert!(!os.revision_ids);
+        assert!(ow.revision_ids);
+        assert_ne!(os.number, ow.number);
+        assert_ne!(os.code, ow.code);
+    }
+
+    /// The issuers' user IDs are unrelated (OS uses OSM user IDs, OW uses wiki user IDs): "the issuers' user IDs are unrelated" (0036 §2).
+    #[test]
+    fn osm_and_osmwiki_issuers_are_unrelated() {
+        let r = Registry::default_registry();
+        let os = r.by_slug("openstreetmap").expect("OS registered");
+        let ow = r.by_slug("osmwiki").expect("OW registered");
+        assert_ne!(os.issuer, ow.issuer);
+        assert_eq!(os.issuer, "openstreetmap");
+        assert_eq!(ow.issuer, "osmwiki");
+    }
 }
