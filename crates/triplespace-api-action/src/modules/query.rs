@@ -117,6 +117,9 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
             "prefixsearch" => {
                 super::search::prefixsearch(ctx, &mut query, &mut body).await?;
             }
+            "search" => {
+                super::search::search(ctx, &mut query, &mut body).await?;
+            }
             "backlinks" => {
                 super::backlinks::backlinks(ctx, &mut query, &mut body, &mut response).await?;
             }
@@ -1276,6 +1279,7 @@ const QUERY_MODULES: &[(&str, &[&str])] = &[
             "logevents",
             "allpages",
             "prefixsearch",
+            "search",
             "backlinks",
             "protectedpages",
             "protectedtitles",
@@ -1759,6 +1763,37 @@ fn module_parameters(name: &str) -> Vec<Value> {
                 json!(0),
             )),
         ],
+        "search" => vec![
+            Value::Object(parameter(0, "search", json!("string"))),
+            Value::Object(with_default(
+                multi(parameter(1, "namespace", json!("namespace")), 50),
+                json!(0),
+            )),
+            Value::Object(with_default(
+                limit_parameter(parameter(2, "limit", json!("limit")), 500, 5000),
+                json!(10),
+            )),
+            Value::Object(with_default(
+                parameter(3, "offset", json!("integer")),
+                json!(0),
+            )),
+            Value::Object(parameter(4, "what", json!(["title", "text", "nearmatch"]))),
+            Value::Object(with_default(
+                multi(parameter(5, "info", json!(["totalhits"])), 50),
+                json!("totalhits"),
+            )),
+            Value::Object(with_default(
+                multi(
+                    parameter(
+                        6,
+                        "prop",
+                        json!(["size", "wordcount", "timestamp", "snippet", "titlesnippet"]),
+                    ),
+                    50,
+                ),
+                json!("size|wordcount|timestamp|snippet"),
+            )),
+        ],
         "backlinks" => vec![
             Value::Object(parameter(0, "title", json!("string"))),
             Value::Object(parameter(1, "pageid", json!("integer"))),
@@ -2095,6 +2130,7 @@ pub fn paraminfo_modules(requested: &[String]) -> Vec<Value> {
                             "protectedpages" => "pr",
                             "protectedtitles" => "pt",
                             "prefixsearch" | "protectedsets" => "ps",
+                            "search" => "sr",
                             "users" => "us",
                             "blocks" => "bk",
                             "querypage" => "qp",

@@ -1,7 +1,7 @@
 /**
- * The suggestions of the header's search box (ADR 0034 §4; chapter 19 §2.1): entities
- * by label or alias, a kind at a time, then pages by title, with a "Go to" first when
- * the text is an ID.
+ * The suggestions of the header's search box (ADR 0034 §4; chapter 19 §2.1), from one
+ * call of `GET /suggest` (chapter 3 §11.6): entities by label or alias, a kind at a
+ * time, then pages by title, with a "Go to" first when the text names a page.
  */
 import type { SearchResult } from '@wikimedia/codex';
 import type { Api } from '../edit/api';
@@ -9,8 +9,10 @@ import { format } from '../i18n/format';
 
 /** What the server writes beside the box (`ts-search-data`). */
 export interface SearchData {
-	/** The interface language, which the labels are searched in. */
+	/** The interface language. */
 	lang: string;
+	/** The languages the labels are searched in, most wanted first; `lang` alone without. */
+	chain?: string[];
 	/** The kinds of entity to suggest, in the order they are listed. */
 	kinds: string[];
 	/** Whether pages are suggested, by title. */
@@ -76,52 +78,55 @@ export function looksLikeId( text: string ): boolean {
 	return /^[A-Za-z]{0,3}[PQpq][1-9]\d*$/.test( text );
 }
 
+interface Text {
+	value: string;
+}
+
 interface EntityHit {
 	id: string;
 	title?: string;
-	display?: { label?: { value: string }; description?: { value: string } };
+	label?: Text;
+	description?: Text;
 }
 
-async function entities(
-	api: Api, data: SearchData, query: string, kind: string,
-): Promise<SearchResult[]> {
-	const body = await api.get( {
-		action: 'wbsearchentities',
-		search: query,
-		language: data.lang,
-		type: kind,
-		limit: PER_KIND,
-	} );
-	return ( ( body.search ?? [] ) as EntityHit[] ).map( ( h ) => ( {
+interface PageHit {
+	title: string;
+}
+
+interface Group {
+	kind: string;
+	hits: ( EntityHit | PageHit )[];
+}
+
+/** What `GET /suggest` answers. */
+interface Suggestions {
+	goto?: { kind: string; id?: string; title: string };
+	groups?: Group[];
+}
+
+function entity( h: EntityHit ): SearchResult {
+	return {
 		value: h.id,
-		label: h.display?.label?.value ?? h.id,
-		description: h.display?.description?.value ?? null,
-		supportingText: h.display?.label?.value ? `(${ h.id })` : undefined,
+		label: h.label?.value ?? h.id,
+		description: h.description?.value ?? null,
+		supportingText: h.label?.value ? `(${ h.id })` : undefined,
 		url: pagePath( h.title ?? h.id ),
-	} ) );
+	};
 }
 
-async function pages( api: Api, data: SearchData, query: string ): Promise<SearchResult[]> {
-	const body = await api.get( {
-		action: 'query',
-		list: 'prefixsearch',
-		pssearch: query,
-		psnamespace: '*',
-		pslimit: PER_KIND,
-	} );
-	const hits = ( ( body.query as { prefixsearch?: { title: string }[] } | undefined )
-		?.prefixsearch ?? [] );
-	return hits.map( ( h ) => ( {
+function page( data: SearchData, h: PageHit ): SearchResult {
+	return {
 		value: `page:${ h.title }`,
 		label: h.title,
 		description: message( data, 'ts-typeahead-page' ),
 		url: pagePath( h.title ),
-	} ) );
+	};
 }
 
 /**
- * The suggestions for a text: a "Go to" for an ID nothing else names, then each kind of
- * entity, then pages. A kind whose call fails is left out; the rest still show.
+ * The suggestions for a text: a "Go to" for the page it names, then each kind of
+ * entity, then pages. When the call fails, nothing is suggested but a "Go to" for a
+ * text shaped as an ID, which the search page resolves.
  *
  * @param api The API client
  * @param data The search data
@@ -133,18 +138,25 @@ export async function suggest( api: Api, data: SearchData, text: string ): Promi
 	if ( !query ) {
 		return [];
 	}
-	const calls = data.kinds.map( ( k ) => entities( api, data, query, k ) );
-	if ( data.pages ) {
-		calls.push( pages( api, data, query ) );
+	let body: Suggestions = {};
+	try {
+		body = await api.rest( 'suggest', {
+			q: query,
+			language: ( data.chain ?? [ data.lang ] ).join( '|' ),
+			limit: PER_KIND,
+		} ) as Suggestions;
+	} catch {
+		// Nothing to list; the text may still be an ID.
 	}
-	const settled = await Promise.allSettled( calls );
 	const found: SearchResult[] = [];
 	const seen = new Set<string | number>();
-	for ( const s of settled ) {
-		if ( s.status !== 'fulfilled' ) {
+	for ( const g of body.groups ?? [] ) {
+		const pages = g.kind === 'page';
+		if ( pages ? !data.pages : !data.kinds.includes( g.kind ) ) {
 			continue;
 		}
-		for ( const r of s.value ) {
+		for ( const h of g.hits ) {
+			const r = pages ? page( data, h as PageHit ) : entity( h as EntityHit );
 			if ( !seen.has( r.value ) ) {
 				seen.add( r.value );
 				found.push( r );
@@ -152,20 +164,29 @@ export async function suggest( api: Api, data: SearchData, text: string ): Promi
 		}
 	}
 	const out = found.slice( 0, MOST );
-	if ( looksLikeId( query ) ) {
-		const id = query.toUpperCase();
-		const at = out.findIndex( ( r ) => String( r.value ).toUpperCase() === id );
-		if ( at > 0 ) {
-			// The entity the ID names leads.
-			out.unshift( ...out.splice( at, 1 ) );
-		} else if ( at < 0 ) {
-			out.unshift( {
-				value: `goto:${ query }`,
-				label: message( data, 'ts-typeahead-goto', query ),
-				url: searchUrl( query, false ),
-			} );
-			out.splice( MOST );
+	// What the text names leads: the hit itself where it is listed, a "Go to" otherwise.
+	const go = body.goto;
+	const named = go ?
+		( go.kind === 'page' ? `page:${ go.title }` : String( go.id ) ) :
+		( looksLikeId( query ) ? query.toUpperCase() : undefined );
+	if ( named !== undefined ) {
+		const key = named.toUpperCase();
+		const at = found.findIndex( ( r ) => String( r.value ).toUpperCase() === key );
+		if ( at >= 0 ) {
+			const lead = found[ at ];
+			const rest = out.filter( ( r ) => r !== lead );
+			return [ lead, ...rest ].slice( 0, MOST );
 		}
+		out.unshift( go ? {
+			value: `goto:${ go.title }`,
+			label: message( data, 'ts-typeahead-goto', go.title ),
+			url: pagePath( go.title ),
+		} : {
+			value: `goto:${ query }`,
+			label: message( data, 'ts-typeahead-goto', query ),
+			url: searchUrl( query, false ),
+		} );
+		out.splice( MOST );
 	}
 	return out;
 }

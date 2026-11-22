@@ -45,6 +45,7 @@ export class Api {
 	public constructor(
 		private readonly fetcher: Fetcher = ( i, init ) => fetch( i, init ),
 		private readonly endpoint = '/w/api.php',
+		private readonly restBase = '/w/rest.php/triplespace/v0',
 	) {}
 
 	private async answer( r: Response ): Promise<Record<string, unknown>> {
@@ -75,6 +76,32 @@ export class Api {
 			cache: 'no-cache',
 		} );
 		return this.answer( r );
+	}
+
+	/**
+	 * A `GET` of a REST route (chapter 18 §3).
+	 *
+	 * @param route The route, relative to the REST base: `suggest`
+	 * @param params The parameters
+	 * @return The response body
+	 */
+	public async rest(
+		route: string, params: Record<string, Param>,
+	): Promise<Record<string, unknown>> {
+		const q = new URLSearchParams();
+		for ( const [ k, v ] of Object.entries( params ) ) {
+			if ( v !== undefined && v !== false ) {
+				q.set( k, v === true ? '1' : String( v ) );
+			}
+		}
+		const r = await this.fetcher( `${ this.restBase }/${ route }?${ q.toString() }`, {
+			credentials: 'same-origin',
+			cache: 'no-cache',
+		} );
+		if ( !r.ok ) {
+			throw new ApiError( 'http', `HTTP ${ r.status }`, {} );
+		}
+		return await r.json() as Record<string, unknown>;
 	}
 
 	/**

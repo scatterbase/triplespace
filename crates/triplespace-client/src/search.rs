@@ -46,9 +46,12 @@ pub struct PageHit {
     pub ns: i64,
     /// The page ID.
     pub page_id: u64,
+    /// Where its text holds the words asked for, around the first of them, as plain
+    /// text; `list=search` alone gives one.
+    pub snippet: Option<String>,
 }
 
-/// A page of `list=prefixsearch` results.
+/// A page of `list=prefixsearch` or `list=search` results.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
 pub struct PageHits {
     /// The results.
@@ -57,9 +60,20 @@ pub struct PageHits {
     pub next: Option<u32>,
 }
 
-/// The results of a `list=prefixsearch` response.
-fn page_hits_of(v: &Value) -> PageHits {
-    let hits = v["query"]["prefixsearch"]
+/// An API snippet as plain text: the marks around the words taken off, the entities read.
+fn plain_snippet(html: &str) -> String {
+    html.replace("<span class=\"searchmatch\">", "")
+        .replace("</span>", "")
+        .replace("&lt;", "<")
+        .replace("&gt;", ">")
+        .replace("&quot;", "\"")
+        .replace("&amp;", "&")
+}
+
+/// The results of a `list=prefixsearch` response, or with `list` as `search` and `sr`,
+/// of a `list=search` one.
+fn page_hits_of(v: &Value, list: &str, prefix: &str) -> PageHits {
+    let hits = v["query"][list]
         .as_array()
         .map(|a| {
             a.iter()
@@ -68,12 +82,16 @@ fn page_hits_of(v: &Value) -> PageHits {
                         title: h["title"].as_str()?.to_string(),
                         ns: h["ns"].as_i64().unwrap_or(0),
                         page_id: h["pageid"].as_u64().unwrap_or(0),
+                        snippet: h["snippet"]
+                            .as_str()
+                            .map(plain_snippet)
+                            .filter(|s| !s.is_empty()),
                     })
                 })
                 .collect()
         })
         .unwrap_or_default();
-    let next = v["continue"]["psoffset"]
+    let next = v["continue"][format!("{prefix}offset")]
         .as_u64()
         .and_then(|n| u32::try_from(n).ok());
     PageHits { hits, next }
@@ -171,7 +189,36 @@ impl Client {
         let r = self.get(incoming, &q).await?;
         let v = check(&r)?;
         Ok(Fetched {
-            value: page_hits_of(&v),
+            value: page_hits_of(&v, "prefixsearch", "ps"),
+            cache: CacheInfo::of(&r),
+        })
+    }
+
+    /// `list=search` for `search` among document pages: those whose title or text holds
+    /// its words, or whose title begins with it, in every namespace that holds pages
+    /// unless the text begins with a namespace prefix, from `offset`, at most `limit`.
+    ///
+    /// # Errors
+    ///
+    /// The API's refusal, or the API away or unreadable.
+    pub async fn text_search(
+        &self,
+        incoming: &Incoming,
+        search: &str,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Fetched<PageHits>, ClientError> {
+        let mut q = format!(
+            "/w/api.php?action=query&list=search&format=json&formatversion=2&srsearch={}&srnamespace=*&srprop=snippet&srinfo=&srlimit={limit}",
+            utf8_percent_encode(search, QUERY),
+        );
+        if offset > 0 {
+            let _ = write!(q, "&sroffset={offset}");
+        }
+        let r = self.get(incoming, &q).await?;
+        let v = check(&r)?;
+        Ok(Fetched {
+            value: page_hits_of(&v, "search", "sr"),
             cache: CacheInfo::of(&r),
         })
     }
@@ -201,22 +248,55 @@ mod tests {
 
     #[test]
     fn page_results_parse_the_mediawiki_shape() {
-        let h = page_hits_of(&serde_json::json!({
-            "query": {"prefixsearch": [
-                {"ns": 4, "title": "Project:About", "pageid": 12},
-                {"ns": 0, "title": "Abstract", "pageid": 3}
-            ]},
-            "continue": {"psoffset": 2, "continue": "-||"}
-        }));
+        let h = page_hits_of(
+            &serde_json::json!({
+                "query": {"prefixsearch": [
+                    {"ns": 4, "title": "Project:About", "pageid": 12},
+                    {"ns": 0, "title": "Abstract", "pageid": 3}
+                ]},
+                "continue": {"psoffset": 2, "continue": "-||"}
+            }),
+            "prefixsearch",
+            "ps",
+        );
         assert_eq!(h.hits.len(), 2);
         assert_eq!(
             (h.hits[0].ns, h.hits[0].title.as_str(), h.hits[0].page_id),
             (4, "Project:About", 12)
         );
         assert_eq!(h.next, Some(2));
+        assert_eq!(h.hits[0].snippet, None);
         assert_eq!(
-            page_hits_of(&serde_json::json!({"query": {"prefixsearch": []}})).next,
+            page_hits_of(
+                &serde_json::json!({"query": {"prefixsearch": []}}),
+                "prefixsearch",
+                "ps"
+            )
+            .next,
             None
         );
+    }
+
+    // 0014 §8: `list=search` results carry a snippet, read as plain text.
+    #[test]
+    fn text_results_carry_a_plain_snippet() {
+        let h = page_hits_of(
+            &serde_json::json!({
+                "query": {"search": [
+                    {"ns": 4, "title": "Project:About", "pageid": 12,
+                     "snippet": "An <span class=\"searchmatch\">open</span> library &amp; more, 1 &lt; 2"},
+                    {"ns": 0, "title": "Open", "pageid": 3, "snippet": ""}
+                ]},
+                "continue": {"sroffset": 20, "continue": "-||"}
+            }),
+            "search",
+            "sr",
+        );
+        assert_eq!(
+            h.hits[0].snippet.as_deref(),
+            Some("An open library & more, 1 < 2")
+        );
+        assert_eq!(h.hits[1].snippet, None);
+        assert_eq!(h.next, Some(20));
     }
 }

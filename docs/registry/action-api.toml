@@ -466,6 +466,12 @@ sources = "[0052](../decisions/0052-page-repositories-and-title-inheritance.md) 
 
 [[module]]
 kind = "query"
+modules = ["list=search"]
+changes = "Without a search index: pages by the words of their title and text or a prefix of their title, redirects left out; `srnamespace=*` is every namespace that holds document pages, and entities are listed, by their terms, only for an entity namespace it names; the snippet is cut from the stored text ([03](03-storage-caches-and-search.md) §11.6)"
+sources = "[0014](../decisions/0014-caches-and-search.md) §8, A30"
+
+[[module]]
+kind = "query"
 modules = ["list=proposals"]
 changes = "Proposals"
 sources = "[0067](../decisions/0067-proposals.md) §7"

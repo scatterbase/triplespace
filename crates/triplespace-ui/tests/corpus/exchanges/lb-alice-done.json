@@ -6,10 +6,10 @@
     "status": 200,
     "headers": {
       "cache-control": "private, no-cache",
-      "content-length": "89237",
+      "content-length": "89215",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 21:59:46 GMT",
-      "etag": "\"a374cd607cec1b8be6a7169878bc602b\"",
+      "date": "Sat, 21 Nov 2026 21:13:20 GMT",
+      "etag": "\"dc2a08535dbb19e760adbd3eaf5de83e\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -24,7 +24,7 @@
           "case": "first-letter",
           "centralidlookupprovider": "local",
           "dbtype": "postgres",
-          "dbversion": "16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)",
+          "dbversion": "18.7 (Homebrew)",
           "fallback": [],
           "generator": "MediaWiki 1.43.9 (Triplespace 0.0.1)",
           "imagelimits": {
@@ -75,7 +75,7 @@
             "4": 250,
             "5": 300
           },
-          "time": "2026-11-15T21:59:46Z",
+          "time": "2026-11-21T21:13:20Z",
           "timeoffset": 0,
           "timezone": "UTC",
           "uploadsenabled": false,
@@ -514,7 +514,7 @@
           "api_version": 6,
           "at_farm": true,
           "build": {
-            "commit": "bc4e0dab40a05fb6d32c047b566a43c606594d5e",
+            "commit": "f59a497590235e8cacf8572dc0f0c14d9812530d",
             "modified": true,
             "version": "0.0.1"
           },
@@ -566,7 +566,7 @@
             "history": true
           },
           "farm": "scatter",
-          "farm_code": "7rjsqybowymh43u47s2voktzbf",
+          "farm_code": "fxoscfiize3udkip7obvitp4yo",
           "grants": [
             "basic",
             "highvolume",
@@ -590,7 +590,7 @@
           "interface": {
             "messages": {}
           },
-          "issuer": "evgrxivwayreefwxqsk4wbcg2f",
+          "issuer": "dkl5ddjcqbi6fovfvxncwj7nor",
           "login": [],
           "primary": "librarybase",
           "providers": [
@@ -3151,15 +3151,15 @@
       "cache-control": "private, no-cache",
       "content-length": "93",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 21:59:46 GMT",
-      "etag": "\"c0254e63fd581f3409369735ed2320b6\"",
+      "date": "Sat, 21 Nov 2026 21:13:20 GMT",
+      "etag": "\"28e40ea33af2610bdc0a6babed5abb2d\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
       "batchcomplete": true,
       "query": {
         "tokens": {
-          "csrftoken": "ImCg3yWgkq_bJzCCjtEGcI4OxK9DFOJA+\\"
+          "csrftoken": "mN1Wocd8uehIvGLomUi5X6FMtJo6iuD7+\\"
         }
       }
     }
@@ -3171,10 +3171,10 @@
     "status": 200,
     "headers": {
       "cache-control": "private, no-cache",
-      "content-length": "3125",
+      "content-length": "3143",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 21:59:46 GMT",
-      "etag": "\"d6c5b650ac9bbbbaa497191ca28e1a5c\"",
+      "date": "Sat, 21 Nov 2026 21:13:20 GMT",
+      "etag": "\"35cebb4b2f011b0547ace116c7b1d86e\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -3182,7 +3182,7 @@
       "query": {
         "notifications": {
           "alert": {
-            "continue": "1794779938|11",
+            "continue": "1795295574|11",
             "count": "7",
             "list": [
               {
@@ -3192,20 +3192,20 @@
                 },
                 "category": "ts-reply",
                 "id": 11,
-                "revid": 248273,
+                "revid": 248274,
                 "section": "alert",
                 "timestamp": {
-                  "mw": "20261115215858",
-                  "unix": "1794779938",
-                  "utciso8601": "2026-11-15T21:58:58Z",
-                  "utcmw": "20261115215858",
-                  "utcunix": "1794779938"
+                  "mw": "20261121211254",
+                  "unix": "1795295574",
+                  "utciso8601": "2026-11-21T21:12:54Z",
+                  "utcmw": "20261121211254",
+                  "utcunix": "1795295574"
                 },
                 "title": {
-                  "full": "Thread:2026-11-15/Is five a city?",
+                  "full": "Thread:2026-11-21/Is five a city?",
                   "namespace": "Thread",
                   "namespace-key": 214,
-                  "text": "2026-11-15/Is five a city?"
+                  "text": "2026-11-21/Is five a city?"
                 },
                 "ts-params": null,
                 "ts-reason": "reply",
@@ -3221,14 +3221,14 @@
               }
             ],
             "rawcount": 7,
-            "seenTime": "2026-11-15T21:59:44Z"
+            "seenTime": "2026-11-21T21:13:19Z"
           },
           "count": "7",
           "message": {
             "count": "0",
             "list": [],
             "rawcount": 0,
-            "seenTime": "2026-11-15T21:59:44Z"
+            "seenTime": "2026-11-21T21:13:19Z"
           },
           "rawcount": 7
         },
@@ -3342,6 +3342,7 @@
             "ts-backup-keys",
             "ts-config",
             "ts-convert",
+            "ts-createtenant",
             "ts-editpost",
             "ts-erase",
             "ts-expunge",
@@ -3381,7 +3382,7 @@
       "cache-control": "private, no-cache",
       "content-length": "25",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 21:59:46 GMT",
+      "date": "Sat, 21 Nov 2026 21:13:20 GMT",
       "etag": "\"1b93036d44139baa5e61a025acae2959\"",
       "vary": "Accept, Accept-Language"
     },

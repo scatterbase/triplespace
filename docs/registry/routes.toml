@@ -845,9 +845,9 @@ purpose = "Open tasks about a subject"
 sources = "[0061](../decisions/0061-sprints-and-tasks.md) §10"
 
 [[route]]
-routes = ["GET /suggest?q="]
-purpose = "Suggestions grouped across entity types, providers, keyed types and page titles"
-sources = "[0012](../decisions/0012-api-requirements.md) §5"
+routes = ["GET /suggest?q=&language=&limit="]
+purpose = "What the search box offers for a text: `goto`, where the text names an entity by its ID or key or is the exact title of a page, and the hits grouped by kind (items, properties, domains, pages), at most `limit` of each. Entities match by a prefix of a label or alias along the `language` chain, one per cluster, mirrored ones among them, a foreign hit naming its `provider`; pages by a prefix of their title. Filtered for the caller, so public only without credentials ([03](03-storage-caches-and-search.md) §11.6)"
+sources = "[0012](../decisions/0012-api-requirements.md) §5, A96; [0014](../decisions/0014-caches-and-search.md) A30"
 
 [[route]]
 routes = ["GET /table/{pageid}/export?format=tsv|csv"]

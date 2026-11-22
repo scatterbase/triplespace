@@ -26,6 +26,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0012 A90](0012-api-requirements.md#a90-an-action-that-changes-nothing-warns) | 2026-11-09 | An action that changes nothing warns |
 | [0012 A92](0012-api-requirements.md#a92-the-page-bundle-and-bulk-labels-are-built-their-shapes-and-the-public-form) | 2026-11-15 | The page bundle and bulk labels are built: their shapes and the public form |
 | [0012 A93](0012-api-requirements.md#a93-the-viewers-session-facts-are-one-call) | 2026-11-15 | The viewer's session facts are one call |
+| [0012 A96](0012-api-requirements.md#a96-the-suggest-routes-parameters-and-response) | 2026-11-21 | The suggest route's parameters and response |
 | [0013 A70](0013-postgres-storage.md#a70-how-a-load-enters-bootstrap-mode) | 2026-11-05 | How a load enters bootstrap mode |
 | [0013 A71](0013-postgres-storage.md#a71-bootstrap-projections-run-per-block-during-the-load) | 2026-11-05 | Bootstrap projections run per block, during the load |
 | [0013 A73](0013-postgres-storage.md#a73-a-bootstrap-load-refreshes-the-planners-statistics-as-its-tables-double) | 2026-11-05 | A bootstrap load refreshes the planner's statistics as its tables double |
@@ -46,6 +47,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0013 A96](0013-postgres-storage.md#a96-compaction-keeps-the-record-that-claims-a-keys-highest-revision-and-runs-by-a-range-of-offsets) | 2026-11-11 | Compaction keeps the record that claims a key's highest revision, and runs by a range of offsets |
 | [0013 A103](0013-postgres-storage.md#a103-the-followers-runner-is-the-one-on-the-accounts-login) | 2026-11-13 | The followers' runner is the one on the accounts login |
 | [0013 A104](0013-postgres-storage.md#a104-the-large-tables-vacuum-after-a-hundredth-of-their-rows-change) | 2026-11-15 | The large tables vacuum after a hundredth of their rows change |
+| [0014 A30](0014-caches-and-search.md#a30-the-postgres-fallback-as-built-ranking-the-page-text-index-and-the-suggest-response) | 2026-11-21 | The Postgres fallback as built: ranking, the page text index, and the suggest response |
 | [0015 A65](0015-record-format-and-partition-registry.md#a65-where-a-mirror-records-page-id-comes-from-when-its-content-carries-none) | 2026-11-15 | Where a mirror record's page ID comes from when its content carries none |
 | [0015 A66](0015-record-format-and-partition-registry.md#a66-a-followers-deletions-and-redirects-carry-their-page-ids-offsets-per-provider) | 2026-11-15 | A follower's deletions and redirects carry their page IDs; offsets per provider |
 | [0015 A68](0015-record-format-and-partition-registry.md#a68-offsets-for-a-provider-without-page-or-revision-ids-from-the-writer) | 2026-11-21 | Offsets for a provider without page or revision IDs, from the writer |

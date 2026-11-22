@@ -8,6 +8,8 @@
 //!   `move` stores the text it kept; a revision whose source withheld the text has no row.
 //! - **`view.redirect`**: the target of a redirect's latest text, resolved to a page ID
 //!   where one exists, and kept resolved as pages are created and moved.
+//! - **`view.page_text`**: the words of the title and of the latest text, which
+//!   `list=search` reads where there is no search index (0014 §8; 03 §11.6).
 //! - **`view.page_link`** and **`view.page_category`**: the rows the stored text makes,
 //!   with `from_render = false`; the rows expanded text adds are the refresh job's
 //!   (0083 §6). Links to titles are recorded by namespace and title (`6`, `{ns}:{title}`),
@@ -323,6 +325,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for PageProjection {
                 "DELETE FROM view.page_link WHERE tenant = $1 AND NOT from_render",
                 "DELETE FROM view.page_category WHERE tenant = $1 AND NOT from_render",
                 "DELETE FROM view.redirect WHERE tenant = $1",
+                "DELETE FROM view.page_text WHERE tenant = $1",
                 "DELETE FROM view.page WHERE tenant = $1 AND NOT reserved",
             ] {
                 cx.execute(q, &[&info.tenant]).await.map_err(|e| sql(&e))?;
@@ -861,9 +864,35 @@ pub async fn text_at<C: PgClient>(
     }))
 }
 
-/// Rewrites the rows the page's latest text makes: its redirect, links and categories,
-/// adding to `touched` the report keys of every title link and category it removes or
-/// writes (0047 §4.3).
+/// The most bytes of a page's text whose words are indexed for search (03 §11.6): a
+/// `tsvector` holds at most a megabyte, and a text of this length stays under it
+/// whatever its words. What a longer page says after this point is not found by its
+/// words; its title and the rest are.
+pub const SEARCHABLE_BYTES: usize = 256 * 1024;
+
+/// The part of a text whose words are indexed: the whole of it up to
+/// [`SEARCHABLE_BYTES`], cut at a character.
+#[must_use]
+pub fn searchable(text: &str) -> &str {
+    if text.len() <= SEARCHABLE_BYTES {
+        return text;
+    }
+    let mut end = SEARCHABLE_BYTES;
+    while !text.is_char_boundary(end) {
+        end -= 1;
+    }
+    &text[..end]
+}
+
+/// Writes a page's row of `view.page_text` (0014 §8; 03 §11.6): the
+/// words of its title, without the namespace, and of its latest text.
+const INDEX_WORDS_SQL: &str = "INSERT INTO view.page_text (tenant, page_id, tsv)
+     VALUES ($1, $2, setweight(to_tsvector('simple', $3), 'A') || setweight(to_tsvector('simple', $4), 'D'))
+     ON CONFLICT (tenant, page_id) DO UPDATE SET tsv = EXCLUDED.tsv";
+
+/// Rewrites the rows the page's latest text makes: its words for search, its redirect,
+/// links and categories, adding to `touched` the report keys of every title link and
+/// category it removes or writes (0047 §4.3).
 async fn index_text(
     cx: &PgCx,
     tenant: &str,
@@ -879,6 +908,13 @@ async fn index_text(
     let namespaces = Namespaces::embedded();
     let mut rows = 0u64;
 
+    rows += cx
+        .execute(
+            INDEX_WORDS_SQL,
+            &[&tenant, &page_id, &page.text, &searchable(text)],
+        )
+        .await
+        .map_err(|e| sql(&e))?;
     cx.execute(
         "UPDATE view.page SET is_redirect = $3 WHERE tenant = $1 AND page_id = $2",
         &[&tenant, &page_id, &ex.redirect.is_some()],

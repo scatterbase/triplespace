@@ -16,9 +16,10 @@
 //!   one kind, paged by `offset` and `limit` (MediaWiki's parameters).
 //!
 //! Entities are found by the API's `wbsearchentities`: labels and aliases, by prefix, in
-//! the interface language and its fallbacks (0014 §8). Pages are found by their titles,
-//! through `list=prefixsearch` over every namespace that holds pages, unless the text
-//! begins with a namespace prefix; page text joins when its index does (0010 §3, A4).
+//! the interface language and its fallbacks (0014 §8). Pages are found by the words of
+//! their title and text and by the beginning of their title, through `list=search` over
+//! every namespace that holds pages, unless the text begins with a namespace prefix
+//! (0010 §3, A4); a page found by its text shows where the words are.
 
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
@@ -228,7 +229,8 @@ fn id_chip_model(id: &str) -> Option<ChipModel> {
     }
 }
 
-/// One result's model: an entity's label with its chip and description, or a page's title.
+/// One result's model: an entity's label with its chip and description, or a page's title
+/// with the part of its text that matched.
 fn hit_model(m: &Messages, h: &Hit, kind: Kind) -> HitModel {
     let lang = m.lang();
     if kind.is_pages() {
@@ -241,7 +243,11 @@ fn hit_model(m: &Messages, h: &Hit, kind: Kind) -> HitModel {
                 ltr: false,
             },
             chip: None,
-            description: None,
+            // Where the page's text holds the words, around the first of them.
+            description: h.description.as_ref().map(|(text, l)| LangText {
+                text: text.clone(),
+                lang: lang_of(l, lang),
+            }),
             alias: None,
         };
     }
@@ -609,7 +615,7 @@ async fn fetch(
             if k.is_pages() {
                 return Some(
                     client
-                        .prefix_search(incoming, &ask.text, ask.limit, ask.offset)
+                        .text_search(incoming, &ask.text, ask.limit, ask.offset)
                         .await
                         .map(|Fetched { value, cache }| Fetched {
                             value: Hits {
@@ -618,6 +624,7 @@ async fn fetch(
                                     .into_iter()
                                     .map(|p| Hit {
                                         title: p.title,
+                                        description: p.snippet.map(|s| (s, lang.to_string())),
                                         ..Hit::default()
                                     })
                                     .collect(),

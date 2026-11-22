@@ -11,7 +11,7 @@
 	"ts-typeahead-footer": "Search for “$1”",
 	"ts-typeahead-page": "Page",
 	"ts-search-title": "Search",
-	"ts-search-intro": "Search the labels and aliases of items, properties and domains, and the titles of pages. An ID such as Q42, a domain such as wikipedia.org, or the exact title of a page goes straight to its page.",
+	"ts-search-intro": "Search the labels and aliases of items, properties and domains, and the titles and text of pages. An ID such as Q42, a domain such as wikipedia.org, or the exact title of a page goes straight to its page.",
 	"ts-search-go-to": "Go to $1",
 	"ts-search-no-entity": "There is no entity at $1.",
 	"ts-search-none": "No items, properties, domains or pages match “$1”.",

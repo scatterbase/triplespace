@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-16 (A95)
+- **Updated:** 2026-11-21 (A96)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0001](0001-revision-metadata-rdf.md), [0004](0004-identity-clusters-and-equivalence.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0008](0008-namespaces-and-document-pages.md), [0010](0010-site-ui.md), [0011](0011-logs.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
@@ -834,3 +834,10 @@ Replaced text: 18 §3.2.
 - **Source:** 0028 §11
 - **Change:** extends §4, §5
 - **Summary:** The Action API gains, at the farm base, `action=globalblock`, `meta=globaluserinfo`, `list=globalallusers` and `list=globalblocks` with CentralAuth's meaning, and `meta=siteinfo&siprop=triplespace` reports the tenancy preset and switches. The REST API gains `GET /tenancy` and `GET /farm/users/{id}`. This records an extension made when 0028 was written, on 2026-09-27: its heading has said so since then and the chapter text has carried it, but this log had no entry. No text changes with this entry. Chapter text: 18 §1.2, §2.2, §2.3, §3.2.
+
+### A96. The suggest route's parameters and response
+
+- **Date:** 2026-11-21
+- **Source:** Direct: Claude, while building search on Postgres (SCA-274), 2026-11-21; unconfirmed
+- **Change:** extends §5
+- **Summary:** `GET /suggest` takes `q`, an optional `language` chain separated by `|` to which no fallback is added, and `limit` per group, and answers the text's Go to, where it names a page, and its hits grouped by kind: items, properties, domains, pages. It is filtered for its caller, so public only without credentials. The decision is 0014 A30; the chapter text is 03 §11.6 and the catalogue row in 18 §3.2, and the OpenAPI document holds the schema.

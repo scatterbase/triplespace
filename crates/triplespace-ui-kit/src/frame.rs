@@ -170,7 +170,8 @@ pub struct Model {
     pub search: Option<crate::codex::SearchModel>,
     /// What the search box's suggestions start from (19 §5.3), a JSON object for a
     /// `<script type="application/json" id="ts-search-data">` beside the box: the
-    /// language, the kinds of entity to suggest, whether pages are suggested, and the
+    /// language and the chain its labels are searched in, the kinds of entity to suggest,
+    /// whether pages are suggested, and the
     /// `ts-typeahead-*` messages. `None` where the site offers no search.
     pub search_data: Option<String>,
     /// The signed-in viewer's account menu.
@@ -375,6 +376,7 @@ pub fn model(
     let search_data = search.as_ref().map(|_| {
         serde_json::json!({
             "lang": m.lang(),
+            "chain": m.term_chain(),
             "kinds": ["item", "property", "domain"],
             "pages": f.has(Feature::Pages),
             "messages": m.with_prefix("ts-typeahead-"),
@@ -644,7 +646,7 @@ mod tests {
         assert!(html.contains("name=\"search\""));
         // 0034 §4: what the box's suggestions start from is written beside it.
         assert!(html.contains(
-            r#"<script type="application/json" id="ts-search-data">{"kinds":["item","property","domain"],"lang":"en","messages":{"ts-typeahead-footer":"#
+            r#"<script type="application/json" id="ts-search-data">{"chain":["en","mul"],"kinds":["item","property","domain"],"lang":"en","messages":{"ts-typeahead-footer":"#
         ));
         assert!(html.contains("href=\"/wiki/Project:Home\">Librarybase</a>"));
         assert!(html.contains("aria-current=\"page\">Read</a>"));
