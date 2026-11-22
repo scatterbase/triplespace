@@ -608,6 +608,6 @@ Replaced text: 10 §6.1.
 ### A54. A tenant's own namespaces take effect
 
 - **Date:** 2026-11-21
-- **Source:** Direct: Claude, while building tenant-defined namespaces (SCA-458), 2026-11-21; unconfirmed
+- **Source:** Direct: Claude, while building tenant-defined namespaces (SCA-458), 2026-11-21; confirmed by James, 2026-11-21
 - **Change:** extends §2
 - **Summary:** A tenant `namespace` record with a number rule 4 leaves to tenants adds that namespace to the tenant, where before only a registered number's names could be changed. The record carries the row's kind as `namespace_kind`, since the record's own `kind` is `namespace`. A subject takes an even number and its talk namespace comes with it at the next, a `triplespace-talk` namespace or, for a resolver, a reserved one; a `pages` namespace without models holds `wikitext` and has subpages. Fixing these by rule lets the talk mapping and the subpage check on the ACL path work without reading the tenant's names. The tenant's table is read by the Action API, link extraction, the activity and watch projections and the site, which `siprop=triplespace` tells of the tenant's namespaces as `own_namespaces`. A record rule 4 would refuse adds nothing; the writer and its refusals are SCA-430's. Chapter text: 10 §1.3.

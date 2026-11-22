@@ -106,6 +106,17 @@ pub enum SourceError {
         /// What changed.
         what: String,
     },
+    /// A type's IRI template is a registry provider's: the tenant adds the provider to
+    /// its `providers` list instead (05 §6.8).
+    #[error(
+        "source `{name}`: its IRI templates are registry provider {code}'s; add the provider instead (ts-source-is-provider)"
+    )]
+    IsProvider {
+        /// The source.
+        name: String,
+        /// The provider's code.
+        code: String,
+    },
     /// The number is outside the sources' range.
     #[error("source `{name}`: number {number} is outside 4096..8191")]
     Number {
@@ -141,12 +152,19 @@ impl EntitySource {
         if registry.by_slug(&self.name).is_some() {
             return Err(SourceError::NameTaken(self.name.clone()));
         }
+        if let Some(p) = self.duplicates(registry) {
+            return Err(SourceError::IsProvider {
+                name: self.name.clone(),
+                code: p.code.clone(),
+            });
+        }
         self.validate_shape()
     }
 
     /// The shape rules alone, without the registry's: what a later record of a source
     /// already declared is held to, since a source keeps a name a registry update added
-    /// later (05 §6.3 rule 2).
+    /// later (05 §6.3 rule 2), and a provider added later that duplicates it is a
+    /// promotion, not a refusal (05 §6.8).
     ///
     /// # Errors
     ///
@@ -208,6 +226,19 @@ impl EntitySource {
             });
         }
         Ok(())
+    }
+
+    /// The registry provider one of whose type IRI templates this source declares too, if
+    /// any: a declaration of it is refused (05 §6.8), and a source that predates the
+    /// provider can be promoted to it.
+    #[must_use]
+    pub fn duplicates<'r>(&self, registry: &'r Registry) -> Option<&'r Provider> {
+        registry.providers().iter().find(|p| {
+            !p.source
+                && p.types
+                    .iter()
+                    .any(|pt| self.types.iter().any(|t| t.iri == pt.iri))
+        })
     }
 
     /// The registry provider this unpromoted source can be promoted to (05 §6.8): one
@@ -294,6 +325,7 @@ impl EntitySource {
                 label: None,
                 id_grammar: t.id_grammar.parse().unwrap_or_default(),
                 key_mapped: false,
+                page_id_slot: None,
             })
             .collect();
         Some(Provider {

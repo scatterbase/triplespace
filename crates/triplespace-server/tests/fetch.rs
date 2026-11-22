@@ -178,7 +178,7 @@ async fn queued_entities_are_fetched_by_the_followers_poll() {
         },
         label: "Librarybase".into(),
         types: vec!["Q=item".into(), "P=property".into()],
-        iri: "https://librarybase.org/entity/{upstream_id}".into(),
+        iri: "https://lb.example/entity/{upstream_id}".into(),
         api: Some(api.clone()),
         entity_data: None,
         revision_ids: true,

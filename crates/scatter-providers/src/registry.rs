@@ -40,9 +40,46 @@ pub struct EntityType {
     /// Upstream entities of this type are written under a keyed type's keys (0009 §9),
     /// never under this prefix. The code stays reserved.
     pub key_mapped: bool,
+    /// For a provider without page IDs, the type's slot (0–7) in the computed half of its
+    /// range: a key's page ID is then computed from its numeric upstream ID, the same on
+    /// every instance, rather than taken from an offset (0015 A69).
+    pub page_id_slot: Option<u8>,
 }
 
+/// The bit that marks a computed page number in a provider's range (0015 A69): offsets
+/// stay below it.
+pub const COMPUTED_PAGE: u64 = 1 << 39;
+
+/// The bits of a computed page number that hold the upstream number (0015 A69).
+pub const COMPUTED_BITS: u32 = 36;
+
 impl EntityType {
+    /// The page number (the part below the provider's number) computed for a key of this
+    /// type from the rest of its ID, `2^39 | slot << 36 | number` (0015 A69): `None` where
+    /// the type has no slot or the rest is not a number, and an error where the number
+    /// does not fit.
+    ///
+    /// # Errors
+    ///
+    /// The number, where it is 2^36 or more.
+    pub fn computed_page(&self, rest: &str) -> Option<Result<u64, u64>> {
+        let slot = self.page_id_slot?;
+        if rest.is_empty() || !rest.bytes().all(|b| b.is_ascii_digit()) {
+            return None;
+        }
+        // `0231` and `231` would compute the same page: a leading zero is refused.
+        if rest.len() > 1 && rest.starts_with('0') {
+            return Some(Err(0));
+        }
+        let Ok(n) = rest.parse::<u64>() else {
+            return Some(Err(u64::MAX));
+        };
+        if n >= 1 << COMPUTED_BITS {
+            return Some(Err(n));
+        }
+        Some(Ok(COMPUTED_PAGE | u64::from(slot) << COMPUTED_BITS | n))
+    }
+
     /// The concept IRI for an upstream ID of this type, as a string.
     #[must_use]
     pub fn iri_for(&self, upstream_id: &str) -> String {
@@ -317,6 +354,14 @@ pub enum RegistryError {
         /// The shared code.
         code: char,
     },
+    /// A type's page-ID slot is not 0–7, or another type of the provider has it.
+    #[error("provider `{slug}`, type `{code}`: page_id_slot must be 0–7 and unique to the type")]
+    BadPageSlot {
+        /// The provider's slug.
+        slug: String,
+        /// The type.
+        code: char,
+    },
     /// A type's IRI template does not contain `{upstream_id}`.
     #[error("provider `{slug}`, type `{code}`: IRI template `{iri}` has no `{{upstream_id}}`")]
     BadIriTemplate {
@@ -411,6 +456,8 @@ struct RawType {
     id_grammar: Option<String>,
     #[serde(default)]
     key_mapped: bool,
+    #[serde(default)]
+    page_id_slot: Option<u8>,
 }
 
 /// The value `value` names in `table`, the first entry when absent (the default), or
@@ -588,6 +635,17 @@ fn validate_types(
                 code: code_char,
             });
         }
+        if let Some(slot) = t.page_id_slot
+            && (slot > 7
+                || types
+                    .iter()
+                    .any(|e: &EntityType| e.page_id_slot == Some(slot)))
+        {
+            return Err(RegistryError::BadPageSlot {
+                slug: slug.to_string(),
+                code: code_char,
+            });
+        }
         if !t.iri.contains("{upstream_id}") {
             return Err(RegistryError::BadIriTemplate {
                 slug: slug.to_string(),
@@ -611,6 +669,7 @@ fn validate_types(
             label: t.label,
             id_grammar: type_grammar,
             key_mapped: t.key_mapped,
+            page_id_slot: t.page_id_slot,
         });
     }
     Ok(types)
@@ -1166,6 +1225,50 @@ mod tests {
 
     /// Themes and CAMEO codes are provider items, not keyed types: "They are finite
     /// vocabularies that GDELT defines and lists" (0037 §1).
+    // 0015 A69: a type with a page slot computes `2^39 | slot << 36 | number`; a type
+    // without one, a number with a leading zero or one past 2^36 does not.
+    #[test]
+    fn page_ids_are_computed_from_upstream_numbers_where_a_type_has_a_slot() {
+        let r = Registry::default_registry();
+        let oa = r.by_slug("openalex").unwrap();
+        let w = oa.entity_type('W').unwrap();
+        assert_eq!(w.computed_page("42"), Some(Ok((1 << 39) | 0x2a)));
+        let g = oa.entity_type('G').unwrap();
+        assert_eq!(g.computed_page("1"), Some(Ok((1 << 39) | (7 << 36) | 1)));
+        assert_eq!(w.computed_page("042"), Some(Err(0)));
+        assert!(matches!(
+            w.computed_page(&(1u64 << 36).to_string()),
+            Some(Err(_))
+        ));
+        assert_eq!(w.computed_page("x1"), None);
+        let os = r.by_slug("openstreetmap").unwrap();
+        assert_eq!(os.entity_type('R').unwrap().page_id_slot, Some(2));
+        let gd = r.by_slug("gdelt").unwrap();
+        assert_eq!(gd.entity_type('D').unwrap().computed_page("1"), None);
+        assert_eq!(
+            r.by_slug("musicbrainz")
+                .unwrap()
+                .types
+                .iter()
+                .filter(|t| t.page_id_slot.is_some())
+                .count(),
+            0
+        );
+        // Every slotted provider publishes no page IDs, and its slots are 0–7 and unique.
+        for p in r.providers() {
+            let slots: Vec<u8> = p.types.iter().filter_map(|t| t.page_id_slot).collect();
+            if !slots.is_empty() {
+                assert!(!p.page_ids, "{}", p.slug);
+            }
+        }
+        let slotted =
+            one("page_ids = false").replace("code = \"Q\"\n", "code = \"Q\"\npage_id_slot = 8\n");
+        assert!(matches!(
+            Registry::parse(&slotted),
+            Err(RegistryError::BadPageSlot { .. })
+        ));
+    }
+
     #[test]
     fn gdelt_themes_and_cameo_codes_are_not_key_mapped() {
         let r = Registry::default_registry();

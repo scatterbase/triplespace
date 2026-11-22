@@ -641,6 +641,18 @@ meaning = "How often a follower without an event stream polls the wiki's recent 
 source = "[0092](../decisions/0092-following-recent-changes.md) §6"
 
 [[setting]]
+key = "follow.max_failures"
+scope = "tenant"
+bound = "tenant"
+group = "mirrors"
+type = "integer"
+values = "1 to 1000"
+default = 10
+scope_note = "`site`, per follower, as `follow.interval`"
+meaning = "How many passes in a row a queued follower may fail before its job fails. After each failed pass it waits twice as long as after the last, starting from `follow.interval` and up to an hour; a pass that succeeds starts the count again"
+source = "[0104](../decisions/0104-batches-and-the-job-runner.md) A12"
+
+[[setting]]
 key = "follow.settle"
 scope = "tenant"
 bound = "tenant"

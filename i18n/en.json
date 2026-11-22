@@ -711,6 +711,8 @@
 	"ts-setting-files-types-help": "The types the instance allows; a tenant site setting may narrow the list but not widen it.",
 	"ts-setting-follow-interval": "Follow interval",
 	"ts-setting-follow-interval-help": "How often a follower without an event stream polls the wiki's recent changes.",
+	"ts-setting-follow-max_failures": "Most failed passes in a row",
+	"ts-setting-follow-max_failures-help": "How many passes in a row a queued follower may fail before its job fails. After each failure it waits twice as long, up to an hour.",
 	"ts-setting-follow-retention": "Follow retention",
 	"ts-setting-follow-retention-help": "How long the followed wiki keeps recent changes ($wgRCMaxAge: 30 days on Wikimedia wikis, 90 by MediaWiki's default). A follower's position within this of now is never a gap; beyond it, a position older than the wiki's oldest change is.",
 	"ts-setting-follow-settle": "Follow settle window",

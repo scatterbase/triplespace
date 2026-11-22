@@ -290,6 +290,35 @@ pub async fn interval(args: &Follow) -> Result<u64> {
     Ok(args.interval.unwrap_or(setting).max(1))
 }
 
+/// `follow.max_failures` (0104 A12): how many passes in a row a queued follower may fail
+/// before its job fails.
+///
+/// # Errors
+///
+/// The database's.
+pub async fn max_failures(args: &Follow) -> Result<u32> {
+    let client = connect(&args.database).await?;
+    let (snapshot, _) = load(&client, None).await.context("settings")?;
+    Ok(snapshot
+        .value("follow.max_failures")
+        .and_then(|v| v.as_u64())
+        .and_then(|n| u32::try_from(n).ok())
+        .unwrap_or(10)
+        .max(1))
+}
+
+/// The longest a queued follower waits after a failed pass (0104 A12).
+pub const MAX_BACKOFF: u64 = 3600;
+
+/// How long a queued follower waits after its `failures`-th failed pass in a row (from
+/// 1): `interval`, then twice that, and so on, up to [`MAX_BACKOFF`] (or `interval`, where
+/// that is longer).
+#[must_use]
+pub fn backoff(interval: u64, failures: u32) -> u64 {
+    let doubled = interval.saturating_mul(1u64 << failures.saturating_sub(1).min(32));
+    doubled.min(MAX_BACKOFF.max(interval))
+}
+
 /// Runs the follower.
 pub async fn run(args: Follow) -> Result<()> {
     let client = connect(&args.database).await?;

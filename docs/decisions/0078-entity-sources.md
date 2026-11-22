@@ -182,6 +182,6 @@ Replaced text: 05 §6.8 (the binding paragraph).
 ### A9. `GET /entity-sources` lists every field of a source record
 
 - **Date:** 2026-11-21
-- **Source:** Direct: Claude, while building `GET /entity-sources` and siteinfo `entity_sources` (SCA-285), 2026-11-21; unconfirmed
+- **Source:** Direct: Claude, while building `GET /entity-sources` and siteinfo `entity_sources` (SCA-285), 2026-11-21; confirmed by James, 2026-11-21
 - **Change:** extends §10
 - **Summary:** `GET /entity-sources` answers `{"sources": [...]}`, and `siprop=triplespace` carries the same list as `entity_sources`. Each source has its name, label, number, types (upstream prefix, entity type, ID grammar and IRI template), `api`, `entity_data`, `revision_ids`, licence, `promoted_to` (null when unpromoted) and `retired`. That is every field of the `entity-source` record; §10 named fewer, and a reader on another instance needs the endpoints and the number as much as the templates. `namespace` is absent until the source's namespace is built (05 §6.5), and `tenant` and `base` until tenant sources are (0080). Sources cannot yet be unpublished, so every source's templates are shown. Retired sources are listed, flagged, since their IDs still resolve (A8). Chapter text: 18 §3.2.

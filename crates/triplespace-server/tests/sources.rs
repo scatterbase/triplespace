@@ -230,7 +230,7 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
         },
         label: "Librarybase as a source".into(),
         types: vec!["Q=item".into(), "P=property".into()],
-        iri: "https://librarybase.org/entity/{upstream_id}".into(),
+        iri: "https://lb.example/entity/{upstream_id}".into(),
         api: Some("https://librarybase.org/w/api.php".into()),
         entity_data: None,
         revision_ids: true,
@@ -263,7 +263,7 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
         },
         label: "Librarybase".into(),
         types: vec!["Q=item".into(), "P=property".into()],
-        iri: "https://librarybase.org/entity/{upstream_id}".into(),
+        iri: "https://lb.example/entity/{upstream_id}".into(),
         api: Some("https://librarybase.org/w/api.php".into()),
         entity_data: None,
         revision_ids: true,
@@ -313,6 +313,30 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
             .as_ref()
             .is_err_and(|e| e.to_string().contains("ts-source-name-taken")),
         "{taken:?}"
+    );
+
+    // A source with a registry provider's templates is refused: the tenant adds the
+    // provider instead (05 §6.8).
+    let duplicate = source::run(source::SourceCommand::Add(source::Add {
+        which: source::Which {
+            at: at(),
+            name: "lbcopy".into(),
+            reason: String::new(),
+        },
+        label: "x".into(),
+        types: vec!["Q=item".into()],
+        iri: "https://librarybase.org/entity/{upstream_id}".into(),
+        api: None,
+        entity_data: None,
+        revision_ids: false,
+        licence: None,
+    }))
+    .await;
+    assert!(
+        duplicate
+            .as_ref()
+            .is_err_and(|e| e.to_string().contains("ts-source-is-provider")),
+        "{duplicate:?}"
     );
 
     // 2. The load from the dump (0092 §4), recording where it ended (0092 §5).
@@ -448,8 +472,8 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
 
-    // `registry check` reads the tenant's sources (0078 §9): `lb` declares Librarybase's
-    // templates, so it is reported promotable; the check changes nothing.
+    // `registry check` reads the tenant's sources (0078 §9): `lb` names no registry
+    // provider's graph, so there is nothing to report; the check changes nothing.
     triplespace_cli::registry::run(triplespace_cli::registry::RegistryCommand::Check(
         triplespace_cli::registry::Check {
             database: database.clone(),
@@ -467,8 +491,7 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
             &declared[0],
             scatter_providers::Registry::default_registry()
         )
-        .iter()
-        .any(|l| l.contains("promoted to LB"))
+        .is_empty()
     );
 
     // The tenant's sources (0078 §10): `GET /entity-sources`, and the same list in
@@ -485,7 +508,7 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
     );
     assert_eq!(
         sources[0]["types"][0]["iri"],
-        "https://librarybase.org/entity/{upstream_id}"
+        "https://lb.example/entity/{upstream_id}"
     );
     assert_eq!(sources[0]["promoted_to"], Value::Null);
     assert_eq!(sources[0]["retired"], false);
@@ -723,7 +746,7 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
     // 6. Declared again, the retired source is current under its own number.
     source::run(source::SourceCommand::Add(add(
         "lb",
-        "https://librarybase.org/entity/{upstream_id}",
+        "https://lb.example/entity/{upstream_id}",
     )))
     .await
     .expect("lb again");

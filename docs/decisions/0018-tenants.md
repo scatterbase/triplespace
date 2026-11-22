@@ -440,6 +440,6 @@ Replaced text: 08 §1.1, §6.3.
 ### A40. A provider's mirror can be opened on a running instance
 
 - **Date:** 2026-11-21
-- **Source:** Direct: James, 2026-11-21: "That sounds fine to me", to an operator command that opens a provider's mirror on a running instance as `instance create --provider` does; the command's form, the follower it queues and what it refuses, Claude, while building it, 2026-11-21; unconfirmed
+- **Source:** Direct: James, 2026-11-21: "That sounds fine to me", to an operator command that opens a provider's mirror on a running instance as `instance create --provider` does; the command's form, the follower it queues and what it refuses, Claude, while building it, 2026-11-21; confirmed by James, 2026-11-21
 - **Change:** extends §2
 - **Summary:** `triplespace instance provider add {slug}` opens a registry provider's `mirror/{slug}` partition and its `graph:` record on a running instance, in one transaction, attested as `instance create` attests them, and queues the provider's follower (`--no-follow` leaves it out). Before this a mirror could be opened only when the instance was created, so an instance running already, Librarybase's staging among them, could not mirror Wikidata. It refuses a provider already mirrored, one not in the registry, and an entity source, which a tenant declares. The mirror starts empty and so shallow (0070 A11). No command closes a mirror. Chapter text: 08 §2.1; 16 §2.2.
