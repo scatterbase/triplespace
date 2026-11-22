@@ -328,7 +328,8 @@ async fn the_backup_key_set() {
             "ops.forwarder_key",
             "ops.repo_cursor",
             "ops.entity_fetch",
-            "ops.visibility_epoch"
+            "ops.visibility_epoch",
+            "ops.tenant_epoch"
         ]
     );
     let live_sequences: Vec<(String, i64, bool)> = triplespace_cli::common::connect(&database)

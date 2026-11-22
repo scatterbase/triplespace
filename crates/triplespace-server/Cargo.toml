@@ -19,6 +19,7 @@ default = ["mimalloc"]
 mimalloc = ["dep:mimalloc"]
 
 [dependencies]
+triplespace-rdf.workspace = true
 mimalloc = { workspace = true, optional = true }
 triplespace-api-action.workspace = true
 triplespace-api-rest.workspace = true

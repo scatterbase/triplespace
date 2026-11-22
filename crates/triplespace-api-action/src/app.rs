@@ -156,6 +156,7 @@ impl App {
             .with_all(pipeline.consumers())
             .and_then(|w| w.with(Arc::new(triplespace_projections::reports::ReportConsumer)))
             .and_then(|w| w.with(Arc::new(triplespace_projections::refs::RefCountConsumer)))
+            .and_then(|w| w.with(Arc::new(triplespace_rdf::updates::DeltaConsumer)))
             .map_err(|e| e.to_string())?;
         // Mirror order: every registered provider, registry order (the tenant's opt-in
         // order is a later refinement, 0018 §6).

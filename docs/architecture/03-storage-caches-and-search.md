@@ -952,18 +952,37 @@ CREATE INDEX rdf_delta_tenant ON view.rdf_delta (tenant, seq);
 CREATE INDEX rdf_delta_entity ON view.rdf_delta (entity_id, seq);   -- the erasure purge (0032 §5)
 CREATE INDEX rdf_delta_record ON view.rdf_delta (partition, "offset");   -- the erasure purge of metadata-only rows
 
+CREATE TABLE view.rdf_shown (              -- what the stream last showed: the old side of the next delta (0032 A15)
+  tenant text NOT NULL DEFAULT '', graph text NOT NULL, entity_id text NOT NULL,
+  provider text, triples bytea NOT NULL,   -- sorted N-Triples lines, lz4
+  PRIMARY KEY (tenant, graph, entity_id)
+);
+CREATE TABLE view.rdf_overlay (            -- the spans of seq over which a tenant overlaid a shared entity (0032 A16)
+  tenant text NOT NULL, entity_id text NOT NULL, from_seq bigint NOT NULL, to_seq bigint,
+  PRIMARY KEY (tenant, entity_id, from_seq)
+);
+CREATE TABLE view.rdf_node (               -- how many entities show each reference or value node (0032 A17)
+  tenant text NOT NULL DEFAULT '', graph text NOT NULL, node text NOT NULL, uses integer NOT NULL,
+  PRIMARY KEY (tenant, graph, node)
+);
+
 CREATE TABLE ops.tenant_epoch (            -- the stream epoch per tenant
   tenant text PRIMARY KEY,                 -- '' for the shared stream
-  epoch bigint NOT NULL DEFAULT 0, rendering_version integer NOT NULL
+  epoch bigint NOT NULL DEFAULT 0, rendering_version integer NOT NULL,
+  enabled boolean NOT NULL DEFAULT true,   -- work is queued while it is
+  filled boolean NOT NULL DEFAULT false,   -- the consumer has recorded what the graphs show
+  horizon bigint NOT NULL DEFAULT 0        -- the seq before which the stream cannot be resumed
 );
 ```
 
-- **The delta is a tier-3 consumer** (§6.1), behind the `site` setting `updates.enabled` (default off). It consumes composition events, reads the old state from `view.graph_state` and the previous composed row and the new state from the composed row, renders both to triples and stores the difference. It is computed in no write and in no composition; an instance that does not serve the stream pays nothing for it, and bootstrap and bulk modes produce no deltas.
+- **The delta is a tier-3 consumer** (§6.1), behind the `site` setting `updates.enabled` (default off). It consumes composition events, renders the entity's public form as a dump would, compares it with what the stream last showed (`view.rdf_shown`, which it then replaces) and stores the difference; the first thing it does for a tenant is the fill that records every entity without a delta (02 §6.2; 0032 A15). It is computed in no write and in no composition; an instance that does not serve the stream pays nothing for it, and bootstrap and bulk modes produce no deltas.
 - **`seq` is the cursor, assigned by a single sequencer.** The one delta consumer assigns `seq` as it writes, so insert order is commit order and a consumer reading `seq > cursor` never skips a row that committed late; it is one sequence for the instance, so every tenant's stream is a filter over one total order, and it can be served from a replica. Consumers apply events in `seq` order and never see two events for one entity out of order.
 - **A transaction is one event.** Every row carries the `txn` of the appending transaction whose records caused it (`txn bigint NOT NULL`, indexed with `seq`); the consumer delivers the deltas of one transaction, an edit or one block of a bulk job, as one event whose cursor is the transaction's last `seq`, so a consumer applies an edit atomically and never sees half of it.
 - **Retention is a window.** Rows older than `updates.retention` (`site` configuration, default 30 days) are deleted by a daily sweep. A consumer whose cursor has fallen out of the window is told to reload ([0032](../decisions/0032-sparql-update-stream.md) §6). This is how a Kafka-fed updater behaves, with the window as the topic's retention.
 - **The table is stored, not recomputed.** A rebuild of `view` **truncates** `rdf_delta` rather than replaying it, since replaying a `latest` mirror would emit all of Wikidata's RDF into a thirty-day window to no purpose; delta production restarts at the rebuild's head, and consumers reload from the post-rebuild dump as they do after bootstrap ([02](02-graphs-rdf-and-query.md)). Every cursor carries an **epoch**: `ops.tenant_epoch` holds one per tenant, and one for the shared stream, bumped by a rebuild, by a change to the tenant's provider list or isolation, and by a base alias, so a tenant that opts in to a provider tells only its own consumers to reload. The epoch carries a **rendering version** that a change to `scatter-wikibase-rdf`, `triplespace-rdf` or a normalizer increments, because `DELETE DATA` matches only byte-identical triples; the lexical forms are pinned as a fixture in `wikibase-compat.md`. A cursor from an earlier epoch is refused with the reload response, as an expired one is.
 - **Erasure purge** finds rows by `entity_id` and, for metadata-only rows, by `(partition, "offset")` (§9.6).
+- **`txn` is stamped when the work is queued.** Composition queues the delta consumer's work in its own transaction, and the work key carries `pg_current_xact_id()`; no record and no other table holds a transaction ID (0032 A15). Both sides of a delta are sorted N-Triples lines, compressed by TOAST's lz4, and `seq` comes from a sequence the consumer draws on while it holds one advisory lock for the instance (0032 A17).
+- **A backup carries `ops.tenant_epoch`** and none of the `view` tables here. A restore begins a new epoch for every stream that was on and has it record its graphs again, since the rebuild left no deltas and a cursor from before the restore must not pass as current (0032 A17).
 - **A delta is never a record.** Nothing here enters the log; the stream is derived, unverifiable and rebuildable, which is what distinguishes it from the verified sync of [0022](../decisions/0022-federation.md) Part A.
 
 ### 4.12 Page repositories, mirrored pages, forks, shallow mirrors and derivations

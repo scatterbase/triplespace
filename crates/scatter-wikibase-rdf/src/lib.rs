@@ -24,8 +24,7 @@
 //!   formatter-URL configuration, which no instance has; the predicates are declared on the
 //!   property as Wikibase declares them.
 //! - Lexemes, MediaInfo and the keyed types' extra nodes (0066 §6, 0065, 0048 §5), the
-//!   skolemized form and the triple-set diff (0032 §9), the schema.org profile (0076 §2–3),
-//!   and the fused cluster body (0082 §7).
+//!   schema.org profile (0076 §2–3), and the fused cluster body (0082 §7).
 //! - [`Renderer::with_upstream`] names the statements given to it as their upstream
 //!   names them (05 §1.5; 0002 A43), each after the entity its upstream names it by, which
 //!   for a key-mapped provider's statement is the item mapped onto its keyed subject
@@ -35,11 +34,13 @@
 //! About 0001 §3 (02 §4.2): built for entities, in both flavors; the page subjects of
 //! 02 §5.4 and the skolemized form of 02 §4.3 are not.
 
+mod delta;
 mod iri;
 mod render;
 mod time;
 mod write;
 
+pub use delta::{Delta, GraphDelta, canonical_lines, diff, update_request};
 pub use iri::{
     Family, IriScheme, Namespaces, PropertyIris, UpstreamNodes, escape_iri, rawurlencode,
     wf_urlencode,

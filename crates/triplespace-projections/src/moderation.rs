@@ -124,12 +124,17 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for ModerationProjection {
                 Target::Page(id) => page(cx, &tenant, *id, acl.as_ref()).await?,
                 Target::Entity(id) => {
                     let deleted = acl.as_ref().is_some_and(deletes);
-                    cx.execute(
-                        "UPDATE view.entity SET deleted = $3 WHERE tenant = $1 AND id = $2",
-                        &[&tenant, id, &deleted],
-                    )
-                    .await
-                    .map_err(|e| sql(&e))?
+                    let n = cx
+                        .execute(
+                            "UPDATE view.entity SET deleted = $3 WHERE tenant = $1 AND id = $2",
+                            &[&tenant, id, &deleted],
+                        )
+                        .await
+                        .map_err(|e| sql(&e))?;
+                    // A read restriction changes what the public form holds, with or
+                    // without a deletion: the stream removes or restores it (02 §6.3).
+                    crate::rdf_work::queue(cx, &tenant, &[id.as_str()]).await?;
+                    n
                 }
                 Target::Record { partition, offset } => {
                     let own = crate::activity::own_visibility(cx, *partition, *offset).await?;

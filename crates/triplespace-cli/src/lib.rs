@@ -34,6 +34,7 @@ pub mod sealed;
 pub mod settings;
 pub mod setup;
 pub mod source;
+pub mod sparql_sync;
 pub mod status;
 pub mod sync;
 pub mod tenant;

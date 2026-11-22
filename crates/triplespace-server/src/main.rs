@@ -340,6 +340,35 @@ async fn background(app: &triplespace_api_action::App, workers: usize) {
             }
         });
     }
+    // The update stream's housekeeping (02 §6.2; 03 §4.11): streams follow their tenants'
+    // `updates.enabled`, and deltas past `updates.retention` are swept, the first on
+    // every pass and the second on every sixtieth, which is hourly.
+    {
+        let app = app.clone();
+        tokio::spawn(async move {
+            let mut every = tokio::time::interval(PROBE_EVERY);
+            let mut pass: u32 = 0;
+            loop {
+                every.tick().await;
+                let client = match app.pool().get().await {
+                    Ok(c) => c,
+                    Err(e) => {
+                        eprintln!("update stream: {e}");
+                        continue;
+                    }
+                };
+                if let Err(e) = triplespace_rdf::updates::reconcile(&**client).await {
+                    eprintln!("update stream: {e}");
+                }
+                if pass.is_multiple_of(60)
+                    && let Err(e) = triplespace_rdf::updates::sweep(&**client).await
+                {
+                    eprintln!("update stream: retention sweep: {e}");
+                }
+                pass = pass.wrapping_add(1);
+            }
+        });
+    }
     // The workers over the work queue (03 §6.1). Each runs a pass, then goes again at once
     // while there is work and waits when there is none; the queue's per-tenant locks share
     // the tenants between them. A consumer's failure is logged once per batch and recorded
