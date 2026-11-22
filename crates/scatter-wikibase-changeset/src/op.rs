@@ -810,4 +810,36 @@ mod tests {
             other => panic!("not a put: {:?}", other.name()),
         }
     }
+
+    /// A `redirect` in a mirror graph records an upstream merge: "In a mirror graph, records an upstream merge." (0002 §8.2).
+    #[test]
+    fn a_redirect_with_an_upstream_version_is_a_mirror_operation() {
+        let op = Operation::Redirect {
+            from: EntityId::parse("Q1").unwrap(),
+            to: EntityId::parse("Q2").unwrap(),
+            upstream: Some(Upstream::revision(42, Some("2024-01-01T00:00:00Z"))),
+        };
+        assert!(
+            op.is_mirror(),
+            "a redirect carrying an upstream version belongs in mirror/{{provider}}"
+        );
+        let line = serde_json::to_string(&op).unwrap();
+        assert!(
+            line.contains(r#""op":"redirect""#),
+            "serialized as a redirect: {line}"
+        );
+        assert!(
+            line.contains(r#""revid":42"#),
+            "the upstream merge's revision survives the wire: {line}"
+        );
+        let back: Operation = serde_json::from_str(&line).unwrap();
+        match back {
+            Operation::Redirect { from, to, upstream } => {
+                assert_eq!(from.as_str(), "Q1");
+                assert_eq!(to.as_str(), "Q2");
+                assert_eq!(upstream.map(|u| u.revid), Some(Some(42)));
+            }
+            other => panic!("not a redirect: {:?}", other.name()),
+        }
+    }
 }
