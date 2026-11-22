@@ -14,6 +14,11 @@
 //!
 //! Pure: no I/O. The caller supplies the text, the history and the site.
 
+// The README's example compiles and runs as a doctest (0115 §3).
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct ReadmeDoctests;
+
 mod blame;
 mod dt;
 mod registry;

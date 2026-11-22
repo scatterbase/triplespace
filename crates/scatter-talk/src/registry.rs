@@ -2,6 +2,10 @@
 //!
 //! The registry is universal: every entry applies on every wiki where it matches. What is
 //! specific to a wiki (its language, timezone and namespace names) comes from [`crate::Site`].
+//!
+//! The crate reads it as `registry/talk-markup.toml`, a symlink to the repository's file, which
+//! `cargo package` stores as a file, so the published crate carries the registry it was tested
+//! with (0115 §2).
 
 use std::sync::OnceLock;
 
@@ -10,7 +14,7 @@ use serde::Deserialize;
 use crate::time::Format;
 
 /// The embedded registry file.
-pub const TALK_MARKUP_TOML: &str = include_str!("../../../docs/registry/talk-markup.toml");
+pub const TALK_MARKUP_TOML: &str = include_str!("../registry/talk-markup.toml");
 
 /// The parsed registry: timestamp formats, month names, undated-signature marks and template
 /// names by role.
@@ -220,6 +224,19 @@ impl Markup {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn embedded_registry_is_the_repository_s() {
+        // In the repository the symlink is the file; this fails a checkout that did not
+        // make the symlink, or a copy that has drifted (0115 §2).
+        let docs = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../docs/registry/talk-markup.toml"
+        );
+        if let Ok(text) = std::fs::read_to_string(docs) {
+            assert_eq!(TALK_MARKUP_TOML, text);
+        }
+    }
 
     #[test]
     fn embedded_registry_parses() {

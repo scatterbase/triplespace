@@ -287,7 +287,7 @@ The product starts at `0.1.0`, which the first publication carries.
 
 ### 3.6 Publishing a shared crate
 
-*Sources: [0115](../decisions/0115-publishing-the-shared-crates.md) §1, §2, §3, §4, §5, §7, §8, A2.*
+*Sources: [0115](../decisions/0115-publishing-the-shared-crates.md) §1, §2, §3, §4, §5, §7, §8, §9, A2.*
 
 **James publishes, by hand.** A shared crate goes to crates.io when James runs `cargo publish -p {crate}` with his own token, from a commit on `main`, and tags that commit `{crate}-vX.Y.Z` (§3.5). Agents prepare a release and leave it for him: they never hold a crates.io token and never publish. Nothing in CI publishes; a workflow that publishes on a tag, with a token secret or crates.io's trusted publishing, would be a decision of its own ([0115](../decisions/0115-publishing-the-shared-crates.md) §1).
 
@@ -301,6 +301,8 @@ The product starts at `0.1.0`, which the first publication carries.
 4. **A `README.md`** for crates.io says what the crate does, what it does not do yet, and how to use it, with an example that runs as a doctest. It says that the code comments cite Triplespace's ADRs and chapters, and where they are published. The rustdoc keeps those citations (24 §15).
 5. **Metadata:** `readme`, `homepage`, `keywords`, `categories`, the workspace's `license` and `repository`.
 6. **The first version is `0.1.0`**, and `cargo publish --dry-run` passes. From then on the crate's own version follows §3.5: a breaking change raises the minor under 0.x, and the patch goes up in the repository once a version is published.
+
+`scatter-talk` follows `scatter-wikitext`, which it uses only to decode entities and escape anchors: it is general already, since every public function takes the `Markup` registry and the `Site` built from siteinfo as values, and it carries `talk-markup.toml` as `registry/talk-markup.toml` ([0115](../decisions/0115-publishing-the-shared-crates.md) §9).
 
 **Which crates are published is what their manifests say**: a `scatter-*` crate without `publish = false`, at the version its `{crate}-v…` tags name. No list is kept here.
 

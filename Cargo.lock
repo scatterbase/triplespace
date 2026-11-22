@@ -3053,7 +3053,7 @@ dependencies = [
 
 [[package]]
 name = "scatter-talk"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "bzip2",
  "flate2",
@@ -3170,7 +3170,7 @@ dependencies = [
 
 [[package]]
 name = "scatter-wikitext"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "ammonia",
  "html5ever",

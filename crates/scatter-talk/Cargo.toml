@@ -1,13 +1,18 @@
 [package]
 name = "scatter-talk"
-version = "0.0.1"
+version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
-description = "Converting wikitext talk pages into threads, comment by comment (ADR 0090), embedding docs/registry/talk-markup.toml"
-publish = false
+description = "Split MediaWiki talk pages into threads and comments: authors, times, replies and DiscussionTools IDs, with no I/O"
+readme = "README.md"
+homepage = "https://triplespace.readthedocs.io/"
+keywords = ["mediawiki", "wikitext", "wikipedia", "talk-page", "discussion"]
+categories = ["parser-implementations", "text-processing"]
+# Published on crates.io (0115 §1, §9); the registry file and LICENSE are symlinks into the
+# repository, which `cargo package` stores as files (0115 §2).
 
 [dependencies]
 scatter-wikitext.workspace = true
