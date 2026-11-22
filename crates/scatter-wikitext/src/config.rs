@@ -1,10 +1,11 @@
 //! What the parser and renderer need to know about a site: its namespaces, interwiki
 //! prefixes, URL protocols, extension tags, behaviour switches and interface messages.
 //!
-//! The crate does not read the registries itself (22 §2.1 lists no dependency for it);
-//! the caller builds a [`ConfigSource`] from `namespaces.toml`, `wikitext-functions.toml`
-//! and the tenant's settings, and [`Config::new`] turns it into the parser's
-//! configuration (0033 §9.1).
+//! The crate reads no configuration itself: the caller builds a [`ConfigSource`], from a
+//! wiki's siteinfo or its own registries (Triplespace's `namespaces.toml` and
+//! `wikitext-functions.toml`), and [`Config::new`] turns it into the parser's
+//! configuration (0033 §9.1). [`ConfigSource::default`] is MediaWiki's for an English
+//! wiki.
 
 /// One namespace, with the names a link may use for it.
 #[derive(Clone, Debug)]
