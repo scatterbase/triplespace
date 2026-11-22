@@ -1,16 +1,20 @@
 [package]
 name = "scatter-normalize"
-version = "0.0.1"
+version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
-description = "Keyed entity types and their normalizers, normalized value keys, the URL normalizer and resolver normalizers"
-publish = false
+description = "Normalizers and comparison keys for Wikibase values: URLs, hosts (UTS 46), value keys by data type, and resolver keys such as DOIs"
+readme = "README.md"
+homepage = "https://triplespace.readthedocs.io/"
+keywords = ["wikibase", "wikidata", "normalization", "url", "doi"]
+categories = ["text-processing", "encoding"]
+# Published on crates.io (0115 §1, §11); the registry file and LICENSE are symlinks into the
+# repository, which `cargo package` stores as files (0115 §2).
 
 [dependencies]
-oxrdf.workspace = true
 idna.workspace = true
 url.workspace = true
 percent-encoding.workspace = true
@@ -19,10 +23,6 @@ icu_casemap.workspace = true
 serde.workspace = true
 thiserror.workspace = true
 toml.workspace = true
-
-# oxrdf → rand → getrandom needs the JavaScript backend in the browser (.cargo/config.toml).
-[target.'cfg(target_family = "wasm")'.dependencies]
-getrandom = { workspace = true, features = ["wasm_js"] }
 
 [dev-dependencies]
 proptest.workspace = true

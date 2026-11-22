@@ -15,6 +15,7 @@ scatter-wikibase-rdf.workspace = true
 scatter-wikibase-model.workspace = true
 scatter-providers.workspace = true
 scatter-normalize.workspace = true
+scatter-keyed.workspace = true
 scatter-actors.workspace = true
 scatter-integrity.workspace = true
 scatter-log.workspace = true

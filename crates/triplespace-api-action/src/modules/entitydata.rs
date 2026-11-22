@@ -217,7 +217,7 @@ async fn rdf(
     let iris = IriScheme::new(
         Namespaces::triplespace(&ctx.tenant.base),
         registry,
-        scatter_normalize::KeyedRegistry::default_registry(),
+        scatter_keyed::KeyedRegistry::default_registry(),
     );
     let hasher =
         Hasher::local().with_iris(crate::entity_json::value_iris(registry, &ctx.tenant.base));

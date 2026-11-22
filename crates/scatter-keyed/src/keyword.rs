@@ -32,7 +32,7 @@ pub enum KeywordError {
 /// Normalizes `input` to a Keyword key.
 ///
 /// ```
-/// use scatter_normalize::keyword::normalize;
+/// use scatter_keyed::keyword::normalize;
 /// assert_eq!(normalize("Machine Learning").unwrap(), "machine-learning");
 /// assert_eq!(normalize("Type 1 diabetes").unwrap(), "type-1-diabetes");
 /// assert_eq!(normalize("  DNA  ").unwrap(), "dna");
@@ -40,7 +40,7 @@ pub enum KeywordError {
 /// assert!(normalize("2024").is_err());
 /// ```
 pub fn normalize(input: &str) -> Result<String, KeywordError> {
-    let folded = crate::casefold(&input.nfkc().collect::<String>());
+    let folded = scatter_normalize::casefold(&input.nfkc().collect::<String>());
     let mut key = String::with_capacity(folded.len());
     let mut pending_hyphen = false;
     for c in folded.chars() {

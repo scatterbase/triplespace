@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-22 (A132)
+- **Updated:** 2026-11-22 (A133)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
@@ -1143,3 +1143,11 @@ Replaced text: 22 §2.1 (`crates.toml`: the entry for `triplespace-ui`).
 - **Summary:** A `scatter-*` crate that is ready is published to crates.io from this workspace, and Scatterbase and other Rust code take it from there; one not yet ready stays `publish = false` and is taken as a Git dependency pinned to a commit. The shared crates no longer move to a repository of their own when Scatterbase first depends on them: publishing does not need it, and a separate repository would split every change across the line into two. James publishes by hand (22 §3.6). Chapter text: 22 §3.4, 22 §3.6.
 
 Replaced text: 22 §3.4 (the sentences on Git dependencies and a repository of the crates' own).
+
+### A133. A shared crate mixing core Wikibase with Triplespace's extensions is a pair
+
+- **Date:** 2026-11-22
+- **Source:** 0115 §10
+- **Change:** extends §3
+- **Summary:** A shared crate that mixes core Wikibase with Triplespace's extensions to it is split into a base crate, holding what any Wikibase can use, and an extension crate named for what it holds, over it; the base knows nothing of the extension, both are `scatter-*` and shared with Scatterbase, and both are published once ready. James set it as a general rule while the first such crate, `scatter-normalize`, was being readied for publication; it decides the shape of `scatter-wikibase-model` and `scatter-wikibase-rdf` too. Chapter text: 22 §1.2 rule 12.
+

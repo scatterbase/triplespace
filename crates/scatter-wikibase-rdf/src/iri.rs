@@ -7,7 +7,7 @@
 use std::fmt::Write as _;
 
 use oxrdf::NamedNode;
-use scatter_normalize::KeyedRegistry;
+use scatter_keyed::KeyedRegistry;
 use scatter_providers::{Registry as ProviderRegistry, UpstreamRef};
 use scatter_wikibase_model::hash::Hasher;
 use scatter_wikibase_model::{EntityId, IdForm, StatementId};

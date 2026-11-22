@@ -131,7 +131,7 @@ pub fn add_derived_terms(entity: &mut scatter_wikibase_model::entity::Entity) {
     else {
         return;
     };
-    let Some(kt) = scatter_normalize::KeyedRegistry::default_registry().by_name(&t) else {
+    let Some(kt) = scatter_keyed::KeyedRegistry::default_registry().by_name(&t) else {
         return;
     };
     let Some(label) = kt.derived_label(&key) else {

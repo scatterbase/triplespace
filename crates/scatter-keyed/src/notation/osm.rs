@@ -38,7 +38,7 @@ pub enum OsmNotationError {
 /// Checks that `input` is a valid OSM tag or key and returns it unchanged.
 ///
 /// ```
-/// use scatter_normalize::notation::osm::normalize;
+/// use scatter_keyed::notation::osm::normalize;
 /// assert_eq!(normalize("amenity").unwrap(), "amenity");
 /// assert_eq!(normalize("amenity=cafe").unwrap(), "amenity=cafe");
 /// assert_eq!(normalize("addr:street=Main Street").unwrap(), "addr:street=Main Street");
@@ -48,7 +48,7 @@ pub enum OsmNotationError {
 /// ```
 pub fn normalize(input: &str) -> Result<String, OsmNotationError> {
     let err = |f: fn(String) -> OsmNotationError| f(input.to_string());
-    if !crate::is_nfc(input) {
+    if !scatter_normalize::is_nfc(input) {
         return Err(err(OsmNotationError::NotNfc));
     }
     if input.chars().any(char::is_control) {

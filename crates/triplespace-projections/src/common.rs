@@ -493,7 +493,7 @@ pub async fn header_key_for<C: PgClient>(
         return Ok(Some(id.as_str().to_string()));
     }
     let (keyed_type, key) = id.keyed_parts().ok_or("a keyed ID has a type and a key")?;
-    if scatter_normalize::KeyedRegistry::default_registry()
+    if scatter_keyed::KeyedRegistry::default_registry()
         .by_name(keyed_type)
         .is_none()
     {
