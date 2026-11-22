@@ -309,6 +309,10 @@ fn known() -> BTreeMap<u64, String> {
 
 #[test]
 fn librarybase_renders_as_librarybase_does() {
+    // The samples are in the Triplespace repository, not in the published package.
+    if !fixtures().is_dir() {
+        return;
+    }
     let (fixture, revisions) = load();
     let known = known();
     let mut failures = Vec::new();

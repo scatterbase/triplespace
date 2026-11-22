@@ -103,7 +103,9 @@ pub(crate) struct Lowerer<'s, 'c> {
 }
 
 /// Elements a [`crate::render`] tree uses to mark where `__TOC__` was.
-pub(crate) const TOC_MARKER: &str = "ts-toc-marker";
+/// An element name no text can produce (the sanitizer escapes unknown tags), replaced
+/// before the tree is serialized.
+pub(crate) const TOC_MARKER: &str = "wt-toc-marker";
 
 impl<'s, 'c> Lowerer<'s, 'c> {
     pub(crate) fn new(

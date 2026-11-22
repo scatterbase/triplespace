@@ -3,7 +3,7 @@
 # not take the workspace's licence, lints or edition, and `rustfmt.toml` is upstream's.
 [package]
 name = "scatter-wikitext-parse"
-version = "0.1.0"
+version = "0.1.1"
 authors = [
 	"Fredrik Portström <https://portstrom.com>",
 	"Sören Meier <s@renmeier.ch>",
