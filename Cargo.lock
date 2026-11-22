@@ -2963,7 +2963,7 @@ dependencies = [
 
 [[package]]
 name = "scatter-keyed"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "getrandom 0.3.4",
  "oxrdf",
@@ -3021,7 +3021,7 @@ dependencies = [
 
 [[package]]
 name = "scatter-normalize"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "icu_casemap",
  "idna",

@@ -289,7 +289,7 @@ The product starts at `0.1.0`, which the first publication carries.
 
 ### 3.6 Publishing a shared crate
 
-*Sources: [0115](../decisions/0115-publishing-the-shared-crates.md) §1, §2, §3, §4, §5, §7, §8, §9, §11, A2.*
+*Sources: [0115](../decisions/0115-publishing-the-shared-crates.md) §1, §2, §3, §4, §5, §7, §8, §9, §11, §12, A2.*
 
 **James publishes, by hand.** A shared crate goes to crates.io when James runs `cargo publish -p {crate}` with his own token, from a commit on `main`, and tags that commit `{crate}-vX.Y.Z` (§3.5). Agents prepare a release and leave it for him: they never hold a crates.io token and never publish. Nothing in CI publishes; a workflow that publishes on a tag, with a token secret or crates.io's trusted publishing, would be a decision of its own ([0115](../decisions/0115-publishing-the-shared-crates.md) §1).
 
@@ -307,6 +307,8 @@ The product starts at `0.1.0`, which the first publication carries.
 `scatter-talk` follows `scatter-wikitext`, which it uses only to decode entities and escape anchors: it is general already, since every public function takes the `Markup` registry and the `Site` built from siteinfo as values, and it carries `talk-markup.toml` as `registry/talk-markup.toml` ([0115](../decisions/0115-publishing-the-shared-crates.md) §9).
 
 `scatter-normalize` is the base of the first pair of §1.2 rule 12: the URL and UTS 46 host normalizers, value keys by Wikibase data type, and resolvers with `resolvers.toml`. Keyed entity types, which are Triplespace's extension to Wikibase, are `scatter-keyed` over it: the keyed-type registry, the keyword and notation grammars with the notation scheme registry, surrogates, and `keyed-types.toml` and `notation-schemes.toml`. A keyed registry takes the scheme registry it normalizes notations against as a value (`KeyedRegistry::parse_with_schemes`), where it had consulted the embedded one. Both are published, at 0.1.0 ([0115](../decisions/0115-publishing-the-shared-crates.md) §11).
+
+`scatter-vocab` stays one crate. It is already a gathering of many vocabularies (PROV-O, PAV, SIOC, FOAF, Activity Streams, Dublin Core, schema.org, SKOS, the Wikibase ontology), and `scatter:` is one more, published at `https://scatter.red/terms/v0/`: a list of names is not a crate that mixes core Wikibase with Triplespace's extensions, so §1.2 rule 12 does not split it. It is published when a published crate first depends on it ([0115](../decisions/0115-publishing-the-shared-crates.md) §12).
 
 **Which crates are published is what their manifests say**: a `scatter-*` crate without `publish = false`, at the version its `{crate}-v…` tags name. No list is kept here.
 
