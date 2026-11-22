@@ -11,7 +11,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use scatter_providers::Registry;
-use scatter_wikibase_model::badges::{BadgeError, BadgeRegistry};
+use scatter_wikibase_fusion::badges::{BadgeError, BadgeRegistry};
 use scatter_wikibase_model::entity::Entity;
 use scatter_wikibase_model::id::EntityId;
 use scatter_wikibase_model::statement::Rank;

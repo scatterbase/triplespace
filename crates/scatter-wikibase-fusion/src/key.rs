@@ -5,7 +5,7 @@
 //! ID of its cluster (0004 §4), and every literal value reduced to its normalized key
 //! (0004 §7, [`scatter_normalize::ValueKey`]). Statements with the same key fuse into one
 //! in the resolved view; references are combined, with duplicates removed by the
-//! reference hash ([`crate::hash::Hasher::reference`]).
+//! reference hash ([`scatter_wikibase_model::hash::Hasher::reference`]).
 //!
 //! What "canonical" means is the resolved view's business, not this crate's: cluster
 //! membership, a property's resolver binding and the tenant's URL schemes are passed in
@@ -21,9 +21,9 @@ use std::fmt::Write as _;
 use scatter_normalize::{Resolver, ResolverRegistry, ValueKey};
 use sha2::Digest as _;
 
-use crate::id::EntityId;
-use crate::statement::{Snak, SnakKind, Statement};
-use crate::value::{DataType, DataValue};
+use scatter_wikibase_model::id::EntityId;
+use scatter_wikibase_model::statement::{Snak, SnakKind, Statement};
+use scatter_wikibase_model::value::{DataType, DataValue};
 
 /// Separates the parts of a snak key.
 const UNIT: char = '\u{1F}';
@@ -150,11 +150,13 @@ pub fn value_key(
             q.lower_bound.as_deref(),
             q.upper_bound.as_deref(),
         ),
-        DataValue::GlobeCoordinate(_) | DataValue::Unknown { .. } => {
+        // `DataValue` is non-exhaustive outside its crate: a coordinate, an unknown value
+        // type or one added later.
+        _ => {
             // Everything else: the exact value, as its canonical JSON.
             ValueKey::exact(
                 value.value_type_name(),
-                &crate::json::canonical(&value.to_wire(false)),
+                &scatter_wikibase_model::json::canonical(&value.to_wire(false)),
             )
         }
     }

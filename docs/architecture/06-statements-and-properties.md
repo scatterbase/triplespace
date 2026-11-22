@@ -363,9 +363,9 @@ A badge marks one of three things, and its **source** fixes which:
 
 ### 6.3 The badge registry and a tenant's own badges
 
-*Sources: [0114](../decisions/0114-badges.md) §3.*
+*Sources: [0114](../decisions/0114-badges.md) §3.; [0115](../decisions/0115-publishing-the-shared-crates.md) §13*
 
-**The badges an instance knows are listed in [`badges.toml`](../registry/badges.toml),** which `scatter-wikibase-model` embeds, beside the sitelink model that checks a written sitelink's badges against it. Each entry names the badge's item, its source, its class for a `class` badge or its rank for a `rank` badge, an icon from Codex's icon set, its order where several badges stand together, and optionally an interface `message` whose text the badge shows in place of its item's label, with that message's `-tip` as its tooltip. The defaults are:
+**The badges an instance knows are listed in [`badges.toml`](../registry/badges.toml),** which `scatter-wikibase-fusion` embeds; the sitelink model in `scatter-wikibase-model` holds a written sitelink's badges, and they are checked against the registry ([0115](../decisions/0115-publishing-the-shared-crates.md) §13). Each entry names the badge's item, its source, its class for a `class` badge or its rank for a `rank` badge, an icon from Codex's icon set, its order where several badges stand together, and optionally an interface `message` whose text the badge shows in place of its item's label, with that message's `-tip` as its tooltip. The defaults are:
 
 - **`stored`:** Wikidata's sitelink badges, the same set Wikidata accepts (*featured article* Q17437796, *good article* Q17437798, *recommended article*, *featured list*, *good list*, *featured portal*, the Wikisource proofreading states, *digital document*, and the two *sitelink to redirect* badges);
 - **`class`:** *obsolete predicate* (Q142241643), the class of a property, key or attribute its source has deprecated or retired, of which Wikidata's *obsolete Wikidata property* (Q18644427) is a subclass. Its badge reads "deprecated" (`ts-badge-deprecated`);

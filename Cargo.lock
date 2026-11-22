@@ -2895,6 +2895,7 @@ dependencies = [
  "scatter-normalize",
  "scatter-providers",
  "scatter-wikibase-changeset",
+ "scatter-wikibase-ids",
  "scatter-wikibase-model",
  "serde",
  "serde_json",
@@ -2935,6 +2936,7 @@ dependencies = [
  "scatter-projection",
  "scatter-providers",
  "scatter-wikibase-changeset",
+ "scatter-wikibase-ids",
  "scatter-wikibase-model",
  "serde",
  "serde_json",
@@ -3124,11 +3126,36 @@ version = "0.0.1"
 dependencies = [
  "indexmap",
  "scatter-providers",
+ "scatter-wikibase-fusion",
+ "scatter-wikibase-ids",
  "scatter-wikibase-model",
  "serde",
  "serde_json",
  "sha1",
  "thiserror",
+]
+
+[[package]]
+name = "scatter-wikibase-fusion"
+version = "0.0.1"
+dependencies = [
+ "scatter-keyed",
+ "scatter-normalize",
+ "scatter-providers",
+ "scatter-wikibase-model",
+ "serde",
+ "serde_json",
+ "sha2 0.11.1",
+ "thiserror",
+ "toml",
+]
+
+[[package]]
+name = "scatter-wikibase-ids"
+version = "0.0.1"
+dependencies = [
+ "scatter-providers",
+ "scatter-wikibase-model",
 ]
 
 [[package]]
@@ -3160,6 +3187,7 @@ dependencies = [
  "scatter-normalize",
  "scatter-providers",
  "scatter-vocab",
+ "scatter-wikibase-ids",
  "scatter-wikibase-model",
  "serde_json",
  "sha2 0.11.1",
@@ -3170,6 +3198,7 @@ name = "scatter-wikibase-resolve"
 version = "0.0.1"
 dependencies = [
  "scatter-normalize",
+ "scatter-wikibase-fusion",
  "scatter-wikibase-model",
  "serde_json",
 ]
@@ -3990,6 +4019,8 @@ dependencies = [
  "scatter-threads",
  "scatter-titles",
  "scatter-wikibase-changeset",
+ "scatter-wikibase-fusion",
+ "scatter-wikibase-ids",
  "scatter-wikibase-model",
  "scatter-wikibase-rdf",
  "scatter-wikibase-resolve",
@@ -4038,6 +4069,7 @@ dependencies = [
  "scatter-threads",
  "scatter-titles",
  "scatter-wikibase-changeset",
+ "scatter-wikibase-fusion",
  "scatter-wikibase-model",
  "scatter-wikitext-expand",
  "serde",
@@ -4073,6 +4105,7 @@ dependencies = [
  "scatter-providers",
  "scatter-threads",
  "scatter-wikibase-changeset",
+ "scatter-wikibase-fusion",
  "scatter-wikibase-model",
  "scatter-wikibase-resolve",
  "serde",
@@ -4202,6 +4235,7 @@ dependencies = [
  "scatter-threads",
  "scatter-titles",
  "scatter-wikibase-changeset",
+ "scatter-wikibase-fusion",
  "scatter-wikibase-model",
  "scatter-wikibase-resolve",
  "scatter-wikitext",
@@ -4231,6 +4265,7 @@ dependencies = [
  "scatter-pages",
  "scatter-projection",
  "scatter-providers",
+ "scatter-wikibase-ids",
  "scatter-wikibase-model",
  "scatter-wikibase-rdf",
  "serde",
@@ -4358,6 +4393,7 @@ dependencies = [
  "rust-embed",
  "scatter-pages",
  "scatter-titles",
+ "scatter-wikibase-fusion",
  "scatter-wikibase-model",
  "semver",
  "serde",
@@ -4378,6 +4414,7 @@ dependencies = [
  "percent-encoding",
  "scatter-pages",
  "scatter-titles",
+ "scatter-wikibase-fusion",
  "scatter-wikibase-model",
  "scatter-wikibase-shape",
  "serde",

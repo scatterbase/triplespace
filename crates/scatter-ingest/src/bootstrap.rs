@@ -339,7 +339,7 @@ where
     job.interrupt_earlier(store, pipeline, &mut cx, now).await?;
     let prepare = Prepare {
         hasher: Hasher::for_provider(provider).with_iris(std::sync::Arc::new(
-            scatter_wikibase_model::value_iri::ValueIris::new(registry, None),
+            scatter_wikibase_ids::value_iri::ValueIris::new(registry, None),
         )),
         attestation: job.record_attestation().to_value(),
         now,

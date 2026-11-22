@@ -63,6 +63,12 @@ After `scatter-normalize` and `scatter-keyed` were published, on Q4:
 
 - **"Keep scatter-vocab as one crate. It's already a combination of many different vocabularies"**.
 
+On Q7, `scatter-wikibase-model`, after its entity IDs were found to be read inside serde's deserialization of Wikibase JSON, where a grammar cannot easily be passed in:
+
+- Asked how the base should handle IDs, he chose **opaque IDs and an extension trait**: the base's `EntityId` keeps Wikibase's own shapes and carries other well-formed IDs as written, and Triplespace's forms move to a trait in an extension crate. Over a grammar passed into parsing, and the model made generic over its ID type.
+- Asked how the extension crates are named, he chose **two crates**, `scatter-wikibase-ids` and `scatter-wikibase-fusion`.
+- Asked how it is delivered, he chose **in phases**: first the fusion keys, the search document, badges and value IRIs; then the ID forms and keyed data types.
+
 ## Decision
 
 ### 1. Shared crates are published to crates.io from this workspace (amends 0005 §6)
@@ -113,6 +119,10 @@ After `scatter-normalize` and `scatter-keyed` were published, on Q4:
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §3.6.*
 
+### 13. `scatter-wikibase-model` is split into a base, `scatter-wikibase-ids` and `scatter-wikibase-fusion`
+
+*Current text: [03](../architecture/03-storage-caches-and-search.md) §11.3; [06](../architecture/06-statements-and-properties.md) §6.3; [22](../architecture/22-crates-and-stack.md) §3.6.*
+
 ## Alternatives considered
 
 - **A checked copy of each registry file inside the crate**, with a checker that fails when it differs from `docs/registry/`. It works on every platform, but it is a second copy to regenerate after every registry edit.
@@ -139,7 +149,7 @@ The plan for the other strong candidates. Each depends on the questions before i
 - **Q4. `scatter-vocab`.** *Settled by §12.*
 - **Q5. `scatter-providers`.** Its whole API is Triplespace's provider model: two-letter codes, revision IDs packed as `number << 40 | n`, tenant entity sources, adapters, trust and chip colours. Only `IdGrammar` is general. *Recommendation:* never publish it. Instead, take it out of the dependency tree of the published Wikibase crates (Q7, Q8), and leave it a shared crate for Scatterbase as it is.
 - **Q6. `scatter-normalize`.** *Settled by §11.*
-- **Q7. `scatter-wikibase-model`.** The general core is entities, statements, values, canonical JSON, Wikibase's own hashes over its emulation of PHP `serialize()`, and the site list. Triplespace's part is the three ID forms and tenant-relative IDs in `EntityId::parse`, the `wikibase-domain`, `-keyword` and `-notation` data types, `value_iri`, the search document, fusion keys, badges and `Hasher::for_provider`; `EntityId::joins_clusters` consults the keyed registry's default. Options: (a) one crate whose `EntityId` parses plain Wikibase IDs and takes any further forms through a grammar passed in, with Triplespace's forms, search, keys and badges in a crate above it; (b) make the model generic over its ID type; (c) leave it unpublished. *Recommendation: (a), done last.* Seventeen crates depend on it, so a crate above it that re-exports the core keeps most of them unchanged. The Triplespace data types can become `DataType::Other`. `sites.toml`, which is generated from Wikimedia's site matrix and is general, goes behind a `sites` feature. The crate above is named in the change that makes it, through 0005 §2. §10 now decides the shape: a base crate of pure Wikibase and an extension crate named for what it holds, both published.
+- **Q7. `scatter-wikibase-model`.** *Settled by §13.*
 - **Q8. `scatter-wikibase-rdf`.** The renderer, both flavours, the dump header, N-Triples and Turtle are general Wikibase RDF 1.0.0. `IriScheme` resolves foreign, source and keyed IDs through the provider and keyed registries, and `with_default_registries` and `Namespaces::triplespace` are Triplespace's. *Recommendation:* concept and document IRIs come through a trait. The registry-backed implementation moves to `triplespace-rdf`, which drops the dependencies on `scatter-providers` and `scatter-normalize`. Publish after Q7. §10 now decides the shape: a base crate of pure Wikibase and an extension crate named for what it holds, both published.
 - **Q9. The order.** *Recommendation:* the wikitext line first, since it is smaller and nearly ready (Q1, Q2, Q3). Then the general part of `scatter-normalize` (Q6) and `scatter-vocab` (Q4). Then the Wikibase model (Q7) and RDF (Q8), whose split touches most of the workspace.
 - **Q10. Checks in CI for published crates.** *Settled by §7.*

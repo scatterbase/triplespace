@@ -36,8 +36,8 @@ pub use triplespace_projections::read::iso8601;
 pub fn value_iris(
     registry: &Registry,
     base: &str,
-) -> std::sync::Arc<scatter_wikibase_model::value_iri::ValueIris> {
-    std::sync::Arc::new(scatter_wikibase_model::value_iri::ValueIris::new(
+) -> std::sync::Arc<scatter_wikibase_ids::value_iri::ValueIris> {
+    std::sync::Arc::new(scatter_wikibase_ids::value_iri::ValueIris::new(
         registry,
         Some(&format!("{}/entity/", base.trim_end_matches('/'))),
     ))

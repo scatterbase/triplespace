@@ -10,7 +10,7 @@
 use scatter_keyed::SchemeRegistry;
 pub use scatter_normalize::Resolver;
 use scatter_normalize::ResolverRegistry;
-use scatter_wikibase_model::key::Bound;
+use scatter_wikibase_fusion::key::Bound;
 
 use crate::acl_read::Hidden;
 

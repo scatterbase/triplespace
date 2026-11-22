@@ -11,11 +11,11 @@ use std::sync::OnceLock;
 
 use serde::{Deserialize, Serialize};
 
-use crate::id::{EntityId, IdForm};
-use crate::statement::Rank;
+use scatter_wikibase_model::id::{EntityId, IdForm};
+use scatter_wikibase_model::statement::Rank;
 
 /// The default badge registry, `docs/registry/badges.toml`, embedded at build time.
-pub const BADGES_TOML: &str = include_str!("../../../docs/registry/badges.toml");
+pub const BADGES_TOML: &str = include_str!("../registry/badges.toml");
 
 /// Where a badge comes from, which fixes what it marks (06 §6.2).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

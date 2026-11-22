@@ -9,12 +9,12 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use scatter_wikibase_fusion::key::{Bound, statement_key};
 use scatter_wikibase_model::StatementId;
 use scatter_wikibase_model::entity::{Entity, EntityType, Sitelink};
 use scatter_wikibase_model::hash::Hasher;
 use scatter_wikibase_model::id::{EntityId, Subject};
 use scatter_wikibase_model::json::Form;
-use scatter_wikibase_model::key::{Bound, statement_key};
 use scatter_wikibase_model::statement::{Rank, Statement};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};

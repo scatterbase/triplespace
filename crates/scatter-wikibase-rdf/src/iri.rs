@@ -326,7 +326,7 @@ impl<'r> IriScheme<'r> {
             )),
             base: predicate_base(concept_base),
             hasher: Hasher::for_provider(provider).with_iris(std::sync::Arc::new(
-                scatter_wikibase_model::value_iri::ValueIris::new(self.providers, None),
+                scatter_wikibase_ids::value_iri::ValueIris::new(self.providers, None),
             )),
         })
     }
@@ -560,7 +560,7 @@ mod tests {
         assert_eq!(
             u.hasher,
             Hasher::mirrored_from("WD").with_iris(std::sync::Arc::new(
-                scatter_wikibase_model::value_iri::ValueIris::new(s.providers, None)
+                scatter_wikibase_ids::value_iri::ValueIris::new(s.providers, None)
             ))
         );
         // A key-mapped provider's statement is stored under the keyed subject with the
@@ -578,7 +578,7 @@ mod tests {
         assert_eq!(
             u.hasher,
             Hasher::mirrored_from("XD").with_iris(std::sync::Arc::new(
-                scatter_wikibase_model::value_iri::ValueIris::new(s.providers, None)
+                scatter_wikibase_ids::value_iri::ValueIris::new(s.providers, None)
             ))
         );
         // A provider the registry does not know names nothing.

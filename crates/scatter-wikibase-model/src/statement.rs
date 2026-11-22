@@ -153,7 +153,7 @@ impl Snak {
             // Value IRIs as Wikibase writes them, where the form expands them (0004 A20).
             let expanded = wire.hasher.and_then(|h| h.iris()).map(|iris| {
                 let mut v = v.clone();
-                crate::value_iri::ValueIris::map_value(&mut v, |s| iris.expand(s));
+                crate::iris::map_value_iris(&mut v, |s| iris.expand(s));
                 v
             });
             let v = expanded.as_ref().unwrap_or(v);

@@ -100,7 +100,7 @@ mod tests {
     // 0114 §4: every icon the default badge registry names is carried.
     #[test]
     fn the_registry_icons_are_carried() {
-        for b in scatter_wikibase_model::badges::BadgeRegistry::default_registry().badges() {
+        for b in scatter_wikibase_fusion::badges::BadgeRegistry::default_registry().badges() {
             assert!(icon(&b.icon).is_some(), "{}", b.icon);
         }
         assert!(icon("tag").is_some(), "the default for a tenant's badge");

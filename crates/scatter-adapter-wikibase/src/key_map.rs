@@ -837,7 +837,7 @@ impl Adapter for KeyMappedAdapter {
         self.inner.canonical_iri(id)
     }
 
-    fn value_iris(&self) -> Option<&scatter_wikibase_model::value_iri::ValueIris> {
+    fn value_iris(&self) -> Option<&scatter_wikibase_ids::value_iri::ValueIris> {
         self.inner.value_iris()
     }
 

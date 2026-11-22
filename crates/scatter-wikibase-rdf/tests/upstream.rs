@@ -189,7 +189,7 @@ fn shared_lines(base: &str) -> Vec<String> {
     let registry = Registry::default_registry();
     let iris = IriScheme::with_default_registries(Namespaces::triplespace(base));
     let hasher = Hasher::local().with_iris(std::sync::Arc::new(
-        scatter_wikibase_model::value_iri::ValueIris::new(
+        scatter_wikibase_ids::value_iri::ValueIris::new(
             registry,
             Some(&iris.namespaces().entity()),
         ),

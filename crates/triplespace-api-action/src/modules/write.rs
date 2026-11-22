@@ -705,9 +705,9 @@ async fn wbcreateclaim(ctx: &Ctx, meta: &EditMeta) -> Result<ApiResponse, ApiErr
     // The statement the entity already has that says the same (0002 §8.5: the same main
     // snak and qualifiers), if any: the new one merges onto it.
     let key = |s: &Statement| {
-        scatter_wikibase_model::key::statement_key(
+        scatter_wikibase_fusion::key::statement_key(
             s,
-            scatter_wikibase_model::key::Bound::embedded(),
+            scatter_wikibase_fusion::key::Bound::embedded(),
         )
     };
     let wanted = key(&statement);
