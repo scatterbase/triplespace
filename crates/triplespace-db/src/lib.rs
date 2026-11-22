@@ -216,6 +216,10 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "0046_page_text",
         sql: include_str!("../migrations/0046_page_text.sql"),
     },
+    Migration {
+        name: "0047_entity_ref",
+        sql: include_str!("../migrations/0047_entity_ref.sql"),
+    },
 ];
 
 /// The crate name migrations are recorded under.

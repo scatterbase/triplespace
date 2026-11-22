@@ -439,7 +439,7 @@ mod tests {
         assert_eq!(names[2], "scatter-log-postgres/0003_record_autovacuum");
         assert_eq!(names[3], "scatter-log-postgres/0004_manifest_key");
         assert_eq!(names[4], "triplespace-db/0001_ops");
-        assert!(names.last().unwrap().ends_with("0046_page_text"));
+        assert!(names.last().unwrap().ends_with("0047_entity_ref"));
         assert_eq!(checksum("").len(), 64);
         assert_ne!(checksum("a"), checksum("b"));
     }

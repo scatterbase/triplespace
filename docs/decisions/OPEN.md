@@ -47,7 +47,9 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0013 A96](0013-postgres-storage.md#a96-compaction-keeps-the-record-that-claims-a-keys-highest-revision-and-runs-by-a-range-of-offsets) | 2026-11-11 | Compaction keeps the record that claims a key's highest revision, and runs by a range of offsets |
 | [0013 A103](0013-postgres-storage.md#a103-the-followers-runner-is-the-one-on-the-accounts-login) | 2026-11-13 | The followers' runner is the one on the accounts login |
 | [0013 A104](0013-postgres-storage.md#a104-the-large-tables-vacuum-after-a-hundredth-of-their-rows-change) | 2026-11-15 | The large tables vacuum after a hundredth of their rows change |
+| [0013 A108](0013-postgres-storage.md#a108-the-reference-index-as-built-keyed-by-id-with-a-folded-counter) | 2026-11-21 | The reference index as built: keyed by ID, with a folded counter |
 | [0014 A30](0014-caches-and-search.md#a30-the-postgres-fallback-as-built-ranking-the-page-text-index-and-the-suggest-response) | 2026-11-21 | The Postgres fallback as built: ranking, the page text index, and the suggest response |
+| [0014 A31](0014-caches-and-search.md#a31-entity-search-ranks-by-the-folded-reference-counter) | 2026-11-21 | Entity search ranks by the folded reference counter |
 | [0015 A65](0015-record-format-and-partition-registry.md#a65-where-a-mirror-records-page-id-comes-from-when-its-content-carries-none) | 2026-11-15 | Where a mirror record's page ID comes from when its content carries none |
 | [0015 A66](0015-record-format-and-partition-registry.md#a66-a-followers-deletions-and-redirects-carry-their-page-ids-offsets-per-provider) | 2026-11-15 | A follower's deletions and redirects carry their page IDs; offsets per provider |
 | [0015 A68](0015-record-format-and-partition-registry.md#a68-offsets-for-a-provider-without-page-or-revision-ids-from-the-writer) | 2026-11-21 | Offsets for a provider without page or revision IDs, from the writer |

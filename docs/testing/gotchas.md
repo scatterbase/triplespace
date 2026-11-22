@@ -242,3 +242,12 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
   and a bare `cargo fuzz run` then fails with `sanitizer is incompatible with statically
   linked libc`. `run.sh` passes `--target` with the nightly host triple; pass it by hand when
   reproducing a crash too.
+- A test that writes rows of `view` directly proves the reader and nothing else. Entity
+  search was ranked by `view.entity_ref` and tested by inserting its rows, while no
+  projection wrote the table: the ranking passed its tests and did nothing on a real
+  instance. Where a reader depends on a table, have one test reach it through a real write
+  and the worker (`references_written_by_edits_order_the_results` in
+  `crates/triplespace-server/tests/search.rs` is the pattern), and check that something
+  writes the table before building on it: `grep -rn 'INSERT INTO view.<table>' crates/*/src`.
+- On a Mac, Homebrew's Postgres refuses to start from a shell with no locale ("postmaster
+  became multithreaded during startup"): start it with `LC_ALL=C`.
