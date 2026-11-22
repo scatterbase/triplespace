@@ -241,7 +241,8 @@ async fn a_retired_property_carries_its_badge_everywhere() {
         ),
         entity("property", "P1", "old link", &[("P31", "Q18644427")]),
         entity("property", "P2", "current link", &[]),
-        entity("item", "Q5", "a thing", &[("P1", "Q5"), ("P2", "Q5")]),
+        entity("item", "Q7", "a retired thing", &[("P31", "Q142241643")]),
+        entity("item", "Q5", "a thing", &[("P1", "Q5"), ("P2", "Q7")]),
     ];
     let dir = std::env::temp_dir().join(format!("tsbadges-{}", std::process::id()));
     std::fs::create_dir_all(&dir).unwrap();
@@ -291,22 +292,36 @@ async fn a_retired_property_carries_its_badge_everywhere() {
     let bundle: Value = serde_json::from_str(&bundle.body).unwrap();
     assert_eq!(
         bundle["badges"],
-        json!({"WDP1": ["WDQ142241643"]}),
+        json!({"WDP1": ["WDQ142241643"], "WDQ7": ["WDQ142241643"]}),
         "{bundle}"
     );
     // The retired property's statement is still there.
     assert!(bundle["entity"]["claims"]["WDP1"].is_array(), "{bundle}");
 
-    // The entity page draws the badge beside the retired property, and only there.
+    // The entity page draws the badge beside the retired property and after the value
+    // that is an instance of the class, and nowhere else: one component, with its icon,
+    // its tooltip and a link to its item (19 §1.6).
     let page = owner.get("/wiki/Item:WDQ5").await;
     assert_eq!(page.status, StatusCode::OK, "{}", page.body);
     assert_eq!(
         page.body.matches("ts-chip--badge").count(),
-        1,
+        2,
         "{}",
         page.body
     );
-    assert!(page.body.contains(">deprecated</span>"), "{}", page.body);
+    assert!(page.body.contains("deprecated</a>"), "{}", page.body);
+    assert!(
+        page.body.contains(r#"href="/wiki/Item:WDQ142241643""#),
+        "{}",
+        page.body
+    );
+    assert!(page.body.contains("ts-chip__icon"), "{}", page.body);
+    assert!(
+        page.body
+            .contains(r#"title="Its source has retired this property"#),
+        "{}",
+        page.body
+    );
     // The property's own page draws it in the identity line.
     let property = owner.get("/wiki/Property:WDP1").await;
     assert!(
@@ -342,5 +357,27 @@ async fn a_retired_property_carries_its_badge_everywhere() {
         json!(["WDQ17437796"]),
         "{ok}"
     );
+    // A stored badge is drawn on its sitelink, named by its item and linked to it.
+    let featured = ok["entity"]["id"].as_str().unwrap().to_string();
+    let sitelinks = owner
+        .get(&format!("/wiki/Item:{featured}?tab=sitelinks"))
+        .await;
+    assert!(
+        sitelinks.body.contains(r#"href="/wiki/Item:WDQ17437796""#),
+        "{}",
+        sitelinks.body
+    );
+    assert!(
+        sitelinks.body.contains("ts-chip--badge"),
+        "{}",
+        sitelinks.body
+    );
+
+    // Search results carry the badges of the entities found.
+    let found = owner
+        .get("/wiki/Special:Search?search=old+link&fulltext=1")
+        .await;
+    assert_eq!(found.status, StatusCode::OK, "{}", found.body);
+    assert!(found.body.contains("ts-chip--badge"), "{}", found.body);
     let _ = std::fs::remove_dir_all(&dir);
 }

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-22
-- **Updated:** 2026-11-22 (A1)
+- **Updated:** 2026-11-22 (A2)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0003](0003-statement-ui.md), [0026](0026-sitelinks.md), [0070](0070-shallow-entity-mirroring.md), [0091](0091-one-wikibase-adapter.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
@@ -84,3 +84,12 @@ He confirmed the design put to him that day: a badge is always an item; it diffe
 - **Summary:** `wbgetentities` reports the `class` badges of the entities it serves in a `ts-badges` map beside `entities` when `props` includes `ts-badges`, worked out before `props` filters the claims; the page bundle gives them in `badges` for the entity and each property its statements use. A registry entry may name an interface `message` whose text the badge shows in place of its item's label, with its `-tip` as the tooltip: `ts-best-value` and `ts-badge-deprecated`. A local sitelink naming an item that is not a stored badge is refused with `not-badge`. A walk reads the `instance-of` and `subclass-of` roles as `WDP31` and `WDP279` and at most 200 class entities a request. The site draws a badge's text and tooltip only. Chapter text: 06 §4.1, §6.2, §6.3; 19 §1.6; 18 §2.3, §3.2 (registry).
 
 Replaced text: 06 §4.1, §6.2, §6.3; 19 §1.6.
+
+### A2. Badges drawn everywhere the site names an entity
+
+- **Date:** 2026-11-22
+- **Source:** Direct: James, 2026-11-22, asking for the rest of 0114 to be built. How it is drawn and fed (badges carried on every entity link of an entity page, the bundle's badges for item values up to 100, the labels route's `describe`, two more calls on `Special:Search`, Codex's icons drawn inline, "Best value" unlinked in its own colours), Claude, while building it, 2026-11-22; unconfirmed
+- **Change:** extends §2, §4
+- **Summary:** Every badge is drawn by one component: icon, text (message or item label), tooltip (message tip or item description), linked to its item, except "Best value". On an entity page every link to an entity carries its `class` badges, so property rows, values, qualifiers and units show them; sitelinks show their stored badges; `Special:Search` shows its results' badges. The page bundle's `badges` covers the item values the statements name, properties first, at most 100 entities besides the entity itself. `GET /labels` takes `describe`, up to 50 IDs whose descriptions it returns too, which the entity page sends in its one labels call. Chapter text: 06 §6.2; 19 §1.6; 18 §3.2 (registry).
+
+Replaced text: 06 §6.2; 19 §1.6.

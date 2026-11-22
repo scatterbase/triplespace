@@ -31,6 +31,7 @@
 
 pub mod appearance;
 pub mod assets;
+pub mod badge;
 pub mod changelist;
 pub mod choice;
 pub mod codex;

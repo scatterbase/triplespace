@@ -113,13 +113,15 @@ Later ADRs add marks of the same kind: the Bot chip on a subsidiary's user page 
 
 *Sources: [0114](../decisions/0114-badges.md) §4.*
 
-**A badge is drawn one way wherever it appears** ([06](06-statements-and-properties.md) §6): its item's label in the reader's language, or the interface message the badge registry names for it, as a small outlined tag after the thing it marks. Hovering or focusing it shows the message's tip where it has one. The item's description as the tooltip, the registry's icon and a link to the item are not drawn yet. Several badges on one thing stand in the registry's order. A badge is text, not colour alone, so it reads the same in every palette and to a screen reader.
+**A badge is drawn one way wherever it appears** ([06](06-statements-and-properties.md) §6): the registry's icon (a tenant's own badge, a tag), then the interface message the badge registry names for it or else its item's label in the reader's language, as a small outlined tag after the thing it marks, linked to the item. Hovering or focusing it shows the message's tip, or else the item's description. Icons are Codex's, drawn inline. "Best value" is drawn so too, in its own colours and without a link, since it marks a rank rather than an item a reader visits.
 
 | Marks | Where it is drawn |
 |---|---|
-| An entity (`class`) | In the page header's identity line, after the title (§1.3), and after the entity's label wherever the entity is a value, a property row's label or a search result |
+| An entity (`class`) | In the page header's identity line, after the title (§1.3); on an entity page, after every link to an entity, so after a property row's label, a value, a qualifier and a unit; and after a result on `Special:Search` |
 | A sitelink (`stored`) | After the link on the Sitelinks tab (§6.4), and on `Special:PagesWithBadges` |
 | A statement (`rank`) | The "Best value" badge of §4.4 and §4.8 |
+
+An entity page has its badges from the page bundle, and its badge items' labels and descriptions from the one labels call it already makes (`describe`), so the four-call budget of §5.1 holds. `Special:Search` asks `wbgetentities` for its results' `ts-badges`, then the labels route for the badge items, two calls more where there are results.
 
 The *obsolete predicate* badge reads "deprecated". On a property row it marks the property, and the row's values are drawn as they otherwise would be: a retired property's statements are kept and shown, so a reader sees what was said and that it should not be said again.
 

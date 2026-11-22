@@ -16,9 +16,10 @@
 //! gives it for the properties of the snaks that were not, so that the page need not
 //! fetch each property to tell an identifier from a statement.
 //!
-//! `badges` gives the `class` badges (0114 §2) of the entity and of each property its
-//! statements use, as `wbgetentities` reports them in `ts-badges`, for those that carry
-//! any: a retired property's row is drawn with its "(deprecated)" badge.
+//! `badges` gives the `class` badges (0114 §2) of the entity, of each property its
+//! statements use and of each item they name as a value (at most 100 of these), as
+//! `wbgetentities` reports them in `ts-badges`, for those that carry any: a retired
+//! property's row is drawn with its "deprecated" badge.
 //!
 //! The provenance carries the identity-line facts (who minted the ID, the canonical ID,
 //! each graph's sync state and history policy, retention). It answers as
@@ -221,8 +222,35 @@ pub async fn handle(
     )
 }
 
-/// The `class` badges of the entity and of each property its statements use, by ID, for
-/// those that carry any (implements 0114 §2 (A1)).
+/// The most entities, beyond the entity itself, whose `class` badges one bundle works out:
+/// its properties first, then the items its statements name as values.
+const MAX_BADGED: usize = 100;
+
+/// The properties and item values an entity's statements use, properties first, each once,
+/// the entity itself left out.
+fn badged_ids(entity: &scatter_wikibase_model::entity::Entity) -> Vec<EntityId> {
+    use scatter_wikibase_model::value::DataValue;
+    let mut seen = BTreeSet::new();
+    let mut out = Vec::new();
+    let mut push = |id: &EntityId| {
+        if *id != entity.id && seen.insert(id.clone()) {
+            out.push(id.clone());
+        }
+    };
+    for p in entity.statements.keys() {
+        push(p);
+    }
+    for s in entity.statements.values().flatten() {
+        if let Some(DataValue::EntityId(v)) = s.mainsnak.data_value() {
+            push(&v.id);
+        }
+    }
+    out
+}
+
+/// The `class` badges of the entity, of each property its statements use and of each item
+/// they name as a value, by ID, for those that carry any, at most [`MAX_BADGED`] of the
+/// others (implements 0114 §2 (A2)).
 async fn class_badges(
     app: &App,
     client: &deadpool_postgres::Object,
@@ -252,12 +280,12 @@ async fn class_badges(
     };
     let own = walk.badges(client, app.order(), tenant, entity).await?;
     put(&entity.id, own);
-    for property in entity.statements.keys() {
-        if let Some(p) = read::current(client, app.order(), tenant, property).await? {
+    for id in badged_ids(entity).into_iter().take(MAX_BADGED) {
+        if let Some(c) = read::current(client, app.order(), tenant, &id).await? {
             let found = walk
-                .badges(client, app.order(), tenant, &p.resolved.entity)
+                .badges(client, app.order(), tenant, &c.resolved.entity)
                 .await?;
-            put(property, found);
+            put(&id, found);
         }
     }
     Ok(out)

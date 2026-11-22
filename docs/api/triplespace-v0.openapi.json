@@ -253,6 +253,15 @@
             }
           },
           {
+            "name": "describe",
+            "in": "query",
+            "required": false,
+            "description": "Up to 50 IDs, separated by `|`, whose descriptions are wanted too, in the same chain: `descriptions` in the answer. A badge's tooltip is its item's description (chapter 19 §1.6).",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
             "name": "If-None-Match",
             "in": "header",
             "required": false,
@@ -9200,6 +9209,13 @@
           "labels": {
             "type": "object",
             "description": "By each ID as it was given; an ID with no label in the chain is absent.",
+            "additionalProperties": {
+              "$ref": "#/components/schemas/Label"
+            }
+          },
+          "descriptions": {
+            "type": "object",
+            "description": "Only where `describe` was given: each described ID's description in the chain, as `labels` gives labels; one with none in the chain is left out.",
             "additionalProperties": {
               "$ref": "#/components/schemas/Label"
             }

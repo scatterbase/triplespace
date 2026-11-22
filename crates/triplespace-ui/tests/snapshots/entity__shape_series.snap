@@ -17,7 +17,10 @@ expression: "html.replace(\"><\", \">\\n<\")"
 </span> <span class="ts-subtle">in <bdi>
 <span class="ts-time">1 April 2020</span>
 </bdi>
-</span> <span class="ts-chip ts-chip--best" title="Queries and infoboxes return only this value">Best value</span>
+</span> <span class="ts-chip ts-chip--badge ts-chip--best" title="Queries and infoboxes return only this value">
+<svg class="ts-chip__icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+<path d="M18.154 3.837 8 16.8H6.65l-4.8-3.6 1.2-1.6 4.02 3.015 9.517-12.02z"/>
+</svg> Best value</span>
 </div>
 </div>
 <div class="ts-views">
@@ -76,7 +79,10 @@ expression: "html.replace(\"><\", \">\\n<\")"
 <span class="ts-time">1 April 2020</span>
 </th>
 <td class="cdx-table__table__cell--align-number">
-<span class="ts-number">3,898,747</span> <span class="ts-chip ts-chip--best" title="Queries and infoboxes return only this value">Best value</span>
+<span class="ts-number">3,898,747</span> <span class="ts-chip ts-chip--badge ts-chip--best" title="Queries and infoboxes return only this value">
+<svg class="ts-chip__icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+<path d="M18.154 3.837 8 16.8H6.65l-4.8-3.6 1.2-1.6 4.02 3.015 9.517-12.02z"/>
+</svg> Best value</span>
 <dl class="ts-qualifiers">
 <div class="ts-qualifiers__row">
 <dt>

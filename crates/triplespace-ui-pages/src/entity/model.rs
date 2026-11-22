@@ -13,7 +13,7 @@ use std::collections::BTreeMap;
 
 use scatter_wikibase_model::id::{EntityId, IdForm};
 use scatter_wikibase_model::sites::SiteRegistry;
-use scatter_wikibase_model::statement::{Snak, SnakGroups, SnakKind, Statement};
+use scatter_wikibase_model::statement::{Rank, Snak, SnakGroups, SnakKind, Statement};
 use scatter_wikibase_model::value::{
     DataType, DataValue, EntityIdValue, GlobeCoordinate, Quantity, Time,
 };
@@ -22,6 +22,7 @@ use scatter_wikibase_shape::{Group, Role, Shape, Thresholds, classify};
 use serde::Serialize;
 
 use super::{Render, chart, values};
+use triplespace_ui_kit::badge::BadgeModel;
 use triplespace_ui_kit::codex::{Align, Chip, ChipKind, ChipModel, TableModel};
 use triplespace_ui_kit::frame::title_url;
 use triplespace_ui_kit::html::linkable;
@@ -42,6 +43,8 @@ pub struct Link {
     pub label: Option<String>,
     /// The label's language, where it differs from the page's.
     pub lang: Option<String>,
+    /// The entity's `class` badges, drawn after the link (19 §1.6).
+    pub badges: Vec<BadgeModel>,
 }
 
 /// A data value (wikibase-compat §3.3), as a snak says it.
@@ -214,7 +217,7 @@ pub struct StatementModel {
     /// The main value.
     pub main: Value,
     /// The "Best value" badge.
-    pub badge: Option<ChipModel>,
+    pub badge: Option<BadgeModel>,
     /// The chips for where it comes from.
     pub chips: Vec<ChipModel>,
     /// Its footnote markers.
@@ -290,7 +293,7 @@ pub enum CellContent {
         /// Whether the main value is wrapped as the statement's main.
         span: bool,
         /// The "Best value" badge.
-        badge: Option<ChipModel>,
+        badge: Option<BadgeModel>,
         /// The chips.
         chips: Vec<ChipModel>,
         /// The qualifiers.
@@ -429,7 +432,7 @@ pub struct Headline {
     /// "in 2024", where it has a point in time.
     pub when: Option<Rich>,
     /// The "Best value" badge.
-    pub badge: Option<ChipModel>,
+    pub badge: Option<BadgeModel>,
 }
 
 /// A group's deprecated values.
@@ -490,8 +493,6 @@ pub struct GroupModel {
     pub shape: String,
     /// The property, linked.
     pub property: Link,
-    /// The property's badges (19 §1.6).
-    pub badges: Vec<ChipModel>,
     /// "N values", for more than one.
     pub count: Option<String>,
     /// The edit button, for a viewer who may edit.
@@ -675,7 +676,7 @@ pub struct Sitelink {
     /// The title.
     pub title: String,
     /// The badges.
-    pub badges: Vec<Link>,
+    pub badges: Vec<BadgeModel>,
 }
 
 /// The identity line (0010 §2).
@@ -694,7 +695,7 @@ pub struct Identity {
     /// The **Restricted** pill (19 §1.3).
     pub restricted: Option<Restricted>,
     /// The entity's badges (19 §1.6).
-    pub badges: Vec<ChipModel>,
+    pub badges: Vec<BadgeModel>,
 }
 
 /// The **Restricted** pill.
@@ -840,12 +841,14 @@ impl Render<'_> {
                 id: id.to_string(),
                 label: Some(text.to_string()),
                 lang: lang_of(lang, self.m.lang()),
+                badges: self.badges_of(id),
             },
             None => Link {
                 href,
                 id: id.to_string(),
                 label: None,
                 lang: None,
+                badges: self.badges_of(id),
             },
         }
     }
@@ -972,16 +975,25 @@ impl Render<'_> {
         }
     }
 
-    fn badge_model(&self, c: &Card, i: usize) -> Option<ChipModel> {
-        c.best(i).then(|| {
-            let (text, tip) = (self.m.get("ts-best-value"), self.m.get("ts-best-value-tip"));
-            Chip {
-                kind: ChipKind::Best,
-                text: &text,
-                title: Some(&tip),
-            }
-            .model()
-        })
+    /// The "Best value" badge of a preferred statement: the badge registry's `rank`
+    /// badge, drawn as every badge is (0114 §4).
+    fn badge_model(&self, c: &Card, i: usize) -> Option<BadgeModel> {
+        if !c.best(i) {
+            return None;
+        }
+        let registry = scatter_wikibase_model::badges::BadgeRegistry::default_registry();
+        Some(registry.for_rank(Rank::Preferred).map_or_else(
+            || {
+                BadgeModel::new(
+                    self.m.get("ts-best-value"),
+                    Some(self.m.get("ts-best-value-tip")),
+                    None,
+                    "check",
+                    true,
+                )
+            },
+            |b| self.badge(b.item.as_str()),
+        ))
     }
 
     fn marks_model(&self, c: &Card, i: usize) -> Vec<Mark> {
@@ -1684,7 +1696,6 @@ impl Render<'_> {
             pid: property.to_string(),
             shape: c.g.shape.name().to_string(),
             property: self.property_link_model(property),
-            badges: self.badge_chips(property),
             count: (st.len() > 1).then(|| self.m.with("ts-values-count", &[&st.len().to_string()])),
             edit: self.editable.then(|| Edit {
                 label: self
@@ -1889,11 +1900,7 @@ impl Render<'_> {
                 href,
                 lang: lang_of(&lang, self.m.lang()),
                 title: l.title.clone(),
-                badges: l
-                    .badges
-                    .iter()
-                    .map(|b| self.id_link_model(b.as_str(), "item"))
-                    .collect(),
+                badges: l.badges.iter().map(|b| self.badge(b.as_str())).collect(),
             });
         }
         SitelinksModel {
@@ -2112,44 +2119,30 @@ impl Render<'_> {
                 .map(|from| self.m.with("ts-adopted-from", &[from])),
             iri,
             restricted,
-            badges: self.badge_chips(id.as_str()),
+            badges: self.badges_of(id.as_str()),
         }
     }
 
-    /// The badges an entity or property carries, as chips: each named by its message
-    /// where the badge registry gives one, else by its item's label, else its ID, with
-    /// the message's tip as its tooltip (0114 §4: the identity line and property rows).
+    /// The `class` badges an entity or property carries (0114 §4).
     #[must_use]
-    pub fn badge_chips(&self, id: &str) -> Vec<ChipModel> {
-        let registry = scatter_wikibase_model::badges::BadgeRegistry::default_registry();
+    pub fn badges_of(&self, id: &str) -> Vec<BadgeModel> {
         self.lookup
             .badges(id)
             .iter()
-            .map(|item| {
-                let message = EntityId::parse(item)
-                    .ok()
-                    .and_then(|i| registry.get(&i).and_then(|b| b.message.clone()));
-                let (text, tip) = match message {
-                    Some(key) => {
-                        let tip_key = format!("{key}-tip");
-                        let tip = self.m.has(&tip_key).then(|| self.m.get(&tip_key));
-                        (self.m.get(&key), tip)
-                    }
-                    None => (
-                        self.lookup
-                            .label(item)
-                            .map_or_else(|| item.clone(), |(t, _)| t.to_string()),
-                        None,
-                    ),
-                };
-                Chip {
-                    kind: ChipKind::Badge,
-                    text: &text,
-                    title: tip.as_deref(),
-                }
-                .model()
-            })
+            .map(|item| self.badge(item))
             .collect()
+    }
+
+    /// One badge by its item, as [`super::badge_model`] draws it, with what the page
+    /// knows of the item.
+    #[must_use]
+    pub fn badge(&self, item: &str) -> BadgeModel {
+        super::badge_model(
+            self.m,
+            item,
+            self.lookup.label(item).map(|(t, _)| t),
+            self.lookup.description(item),
+        )
     }
 }
 

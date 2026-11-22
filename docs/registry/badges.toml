@@ -42,7 +42,7 @@ order = 31
 [[badge]]
 item = "WDQ17559452"   # recommended article
 source = "stored"
-icon = "thumbUp"
+icon = "heart"
 order = 32
 
 [[badge]]

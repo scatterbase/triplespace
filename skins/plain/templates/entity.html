@@ -11,6 +11,7 @@
 {%- else -%}
 <a href="{{ l.href }}"><span class="ts-mono">{{ l.id }}</span></a>
 {%- endif -%}
+{%- for b in l.badges %} {{ codex.badge(b) }}{% endfor -%}
 {%- endmacro -%}
 
 {#- A quantity's unit or a coordinate's globe. -#}
@@ -23,11 +24,7 @@
 {#- A data value. -#}
 {%- macro value(v) -%}
 {%- if v.kind == "entity" -%}
-{%- if v.link.label is not none -%}
-<a href="{{ v.link.href }}" title="{{ v.link.id }}"{% if v.link.lang %} lang="{{ v.link.lang }}" dir="auto"{% endif %}>{{ v.link.label }}</a>
-{%- else -%}
-<a href="{{ v.link.href }}"><span class="ts-mono">{{ v.link.id }}</span></a>
-{%- endif -%}
+{{ link(v.link) }}
 {%- elif v.kind == "time" %}<span class="ts-time">{{ v.text }}</span>{% if v.julian %} <span class="ts-subtle">{{ msg("plain-time-julian") }}</span>{% endif %}
 {%- elif v.kind == "text" %}<bdi>{{ v.text }}</bdi>
 {%- elif v.kind == "quantity" %}<span class="ts-number">{{ v.amount }}</span>{% if v.plus %}±{{ v.plus }}{% endif %}{% if v.bounds %} <span class="ts-subtle">[{{ v.bounds[0] }}, {{ v.bounds[1] }}]</span>{% endif %}{% if v.unit %} <span class="ts-unit">{{ unit(v.unit) }}</span>{% endif %}
@@ -87,7 +84,7 @@
 
 {#- The value line of a statement, then its period, then its qualifiers. -#}
 {%- macro body(s) -%}
-<div class="ts-statement__value"><span class="ts-statement__main">{{ value(s.main) }}</span>{% if s.badge %} {{ codex.chip(s.badge) }}{% endif %}{% if s.chips %}{{ chips(s.chips) }}{% endif %}{% if s.marks %}{{ marks(s.marks) }}{% endif %}</div>
+<div class="ts-statement__value"><span class="ts-statement__main">{{ value(s.main) }}</span>{% if s.badge %} {{ codex.badge(s.badge) }}{% endif %}{% if s.chips %}{{ chips(s.chips) }}{% endif %}{% if s.marks %}{{ marks(s.marks) }}{% endif %}</div>
 {%- if s.period %}<p class="ts-period">{{ rich(s.period) }}</p>{% endif -%}
 {%- if s.qualifiers %}{{ snaks(s.qualifiers, "ts-qualifiers") }}{% endif -%}
 {%- endmacro -%}
@@ -96,7 +93,7 @@
 {%- macro items(list, chips_shape) -%}
 {%- for s in list -%}
 {%- if chips_shape -%}
-<li class="ts-chips__item"{% if s.id %} id="{{ s.id }}"{% endif %}><span class="ts-statement__main">{{ value(s.main) }}</span>{% if s.badge %} {{ codex.chip(s.badge) }}{% endif %}{% if s.chips %}{{ chips(s.chips) }}{% endif %}{% if s.marks %}{{ marks(s.marks) }}{% endif %}</li>
+<li class="ts-chips__item"{% if s.id %} id="{{ s.id }}"{% endif %}><span class="ts-statement__main">{{ value(s.main) }}</span>{% if s.badge %} {{ codex.badge(s.badge) }}{% endif %}{% if s.chips %}{{ chips(s.chips) }}{% endif %}{% if s.marks %}{{ marks(s.marks) }}{% endif %}</li>
 {%- else -%}
 <li class="ts-statement"{% if s.ordinal is not none %} value="{{ s.ordinal }}"{% endif %}{% if s.id %} id="{{ s.id }}"{% endif %}>{{ body(s) }}</li>
 {%- endif -%}
@@ -114,7 +111,7 @@
 {%- elif c.kind == "value" %}{{ value(c.value) }}
 {%- elif c.kind == "rich" %}{{ rich(c.rich) }}
 {%- elif c.kind == "marks" %}{{ marks(c.marks) }}
-{%- elif c.kind == "statement" %}{% if c.span %}<span class="ts-statement__main">{{ value(c.main) }}</span>{% else %}{{ value(c.main) }}{% endif %}{% if c.badge %} {{ codex.chip(c.badge) }}{% endif %}{% if c.chips %}{{ chips(c.chips) }}{% endif %}{% if c.qualifiers %}{{ snaks(c.qualifiers, "ts-qualifiers") }}{% endif %}{% if c.marks %}{{ marks(c.marks) }}{% endif %}
+{%- elif c.kind == "statement" %}{% if c.span %}<span class="ts-statement__main">{{ value(c.main) }}</span>{% else %}{{ value(c.main) }}{% endif %}{% if c.badge %} {{ codex.badge(c.badge) }}{% endif %}{% if c.chips %}{{ chips(c.chips) }}{% endif %}{% if c.qualifiers %}{{ snaks(c.qualifiers, "ts-qualifiers") }}{% endif %}{% if c.marks %}{{ marks(c.marks) }}{% endif %}
 {%- endif -%}
 {%- endmacro -%}
 
@@ -148,7 +145,7 @@
 
 {#- A statement group in its shape. -#}
 {%- macro group(g) -%}
-<section class="ts-group ts-group--{{ g.shape }}" id="{{ g.pid }}" data-region="statements/{{ g.pid }}" data-shape="{{ g.shape }}"><div class="ts-group__property">{{ link(g.property) }}{% for b in g.badges %} {{ codex.chip(b) }}{% endfor %}
+<section class="ts-group ts-group--{{ g.shape }}" id="{{ g.pid }}" data-region="statements/{{ g.pid }}" data-shape="{{ g.shape }}"><div class="ts-group__property">{{ link(g.property) }}
 {%- if g.count %}<span class="ts-group__count">{{ g.count }}</span>{% endif -%}
 {%- if g.edit %}<button type="button" class="cdx-button cdx-button--action-progressive cdx-button--weight-quiet ts-edit" data-ts-edit="group" data-property="{{ g.pid }}" aria-label="{{ g.edit.label }}" hidden>{{ g.edit.text }}</button>{% endif -%}
 </div><div class="ts-group__body">
@@ -157,7 +154,7 @@
 {%- elif b.shape == "single" %}<div class="ts-statement ts-statement--headline"{% if b.statement.id %} id="{{ b.statement.id }}"{% endif %}>{{ body(b.statement) }}</div>
 {%- elif b.shape == "list" %}{{ split_list(b.visible, b.more, b.chips, "ts-group__values") }}{% if b.folded %}<details class="ts-fold"><summary>{{ b.folded.summary }}</summary>{{ list(b.folded.items, b.chips, "ts-group__values") }}</details>{% endif %}
 {%- elif b.shape == "timeline" %}{{ b.axis_html|safe }}{{ split_list(b.visible, b.more, false, "ts-group__values ts-timeline") }}
-{%- elif b.shape == "series" %}<div class="ts-statement ts-statement--headline"><div class="ts-statement__value"><span class="ts-statement__main">{{ value(b.headline.main) }}</span>{% if b.headline.when %} <span class="ts-subtle">{{ rich(b.headline.when) }}</span>{% endif %}{% if b.headline.badge %} {{ codex.chip(b.headline.badge) }}{% endif %}</div></div>
+{%- elif b.shape == "series" %}<div class="ts-statement ts-statement--headline"><div class="ts-statement__value"><span class="ts-statement__main">{{ value(b.headline.main) }}</span>{% if b.headline.when %} <span class="ts-subtle">{{ rich(b.headline.when) }}</span>{% endif %}{% if b.headline.badge %} {{ codex.badge(b.headline.badge) }}{% endif %}</div></div>
 {%- if b.views %}{{ views(b.views, b.chart_html|safe, split_grid(b.table)) }}{% else %}{{ split_grid(b.table) }}{% endif %}
 {%- elif b.shape == "table" %}{% if b.views %}{{ views(b.views, split_grid(b.table), grid(b.matrix)) }}{% else %}{{ split_grid(b.table) }}{% endif %}
 {%- elif b.shape == "numbered" %}{{ split_list(b.visible, b.more, false, "ts-numbered") }}
@@ -200,7 +197,7 @@
 {%- if i.adopted %} <span aria-hidden="true">·</span> <span>{{ i.adopted }}</span>{% endif -%}
 {%- if i.iri %} <span aria-hidden="true">·</span> <a href="{{ i.iri[0] }}" class="external" rel="noopener" dir="ltr">{{ i.iri[1] }} ↗</a>{% endif -%}
 {%- if i.restricted %} <span aria-hidden="true">·</span> <span class="ts-chip ts-chip--restricted" title="{{ i.restricted.tip }}"><span class="ts-chip__lock" aria-hidden="true">🔒</span> {{ i.restricted.text }}<span class="ts-visually-hidden">: {{ i.restricted.tip }}</span></span>{% endif -%}
-{%- for b in i.badges %} {{ codex.chip(b) }}{% endfor -%}
+{%- for b in i.badges %} {{ codex.badge(b) }}{% endfor -%}
 {%- endmacro -%}
 
 {#- The terms region. -#}
@@ -217,7 +214,7 @@
 <div class="ts-sitelinks" data-region="sitelinks">
 {%- if s.empty %}<p class="ts-empty">{{ s.empty }}</p>{% endif -%}
 {%- for h in s.hosts %}<section class="ts-sitelinks__host"><h3><a href="{{ h.href }}">{{ codex.chip(h.chip) }}</a></h3><ul>
-{%- for i in h.items %}<li>{% if i.href %}<a href="{{ i.href }}" class="external" rel="noopener">{% endif %}<span{% if i.lang %} lang="{{ i.lang }}" dir="auto"{% endif %}>{{ i.title }}</span>{% if i.href %}</a>{% endif %}{% for b in i.badges %} {{ link(b) }}{% endfor %}</li>{% endfor -%}
+{%- for i in h.items %}<li>{% if i.href %}<a href="{{ i.href }}" class="external" rel="noopener">{% endif %}<span{% if i.lang %} lang="{{ i.lang }}" dir="auto"{% endif %}>{{ i.title }}</span>{% if i.href %}</a>{% endif %}{% for b in i.badges %} {{ codex.badge(b) }}{% endfor %}</li>{% endfor -%}
 </ul></section>{% endfor -%}
 </div>
 {%- endmacro -%}

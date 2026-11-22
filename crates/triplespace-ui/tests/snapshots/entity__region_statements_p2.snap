@@ -12,7 +12,10 @@ expression: "html.replace(\"><\", \">\\n<\")"
 <li class="ts-chips__item" id="Q6$00000002-0000-0000-0000-000000000000">
 <span class="ts-statement__main">
 <a href="/wiki/Item:Q2" title="Q2">number</a>
-</span> <span class="ts-chip ts-chip--best" title="Queries and infoboxes return only this value">Best value</span>
+</span> <span class="ts-chip ts-chip--badge ts-chip--best" title="Queries and infoboxes return only this value">
+<svg class="ts-chip__icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
+<path d="M18.154 3.837 8 16.8H6.65l-4.8-3.6 1.2-1.6 4.02 3.015 9.517-12.02z"/>
+</svg> Best value</span>
 </li>
 </ul>
 <details class="ts-fold">

@@ -33,6 +33,13 @@
 <span class="{{ c.classes }}"{% if c.title %} title="{{ c.title }}"{% endif %}>{{ c.text }}</span>
 {%- endmacro -%}
 
+{#- A badge (19 §1.6): its icon and text, linked to its item, with its tooltip. -#}
+{%- macro badge(b) -%}
+{%- if b.href %}<a class="{{ b.classes }}" href="{{ b.href }}"{% else %}<span class="{{ b.classes }}"{% endif %}{% if b.tip %} title="{{ b.tip }}"{% endif %}>
+{%- if b.icon_html %}<svg class="ts-chip__icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 20 20" aria-hidden="true" focusable="false">{{ b.icon_html|safe }}</svg> {% endif %}{{ b.text }}
+{%- if b.href %}</a>{% else %}</span>{% endif -%}
+{%- endmacro -%}
+
 {%- macro table(t) -%}
 <div class="cdx-table">
 	{%- if t.header %}
