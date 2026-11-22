@@ -69,6 +69,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0024 A25](0024-subsidiary-accounts.md#a25-the-contributions-headers-operator-relation) | 2026-11-19 | The Contributions header's operator relation |
 | [0026 A8](0026-sitelinks.md#a8-a-stray-does-not-gain-an-escape-from-a-decoded-digit) | 2026-11-06 | A stray `%` does not gain an escape from a decoded digit |
 | [0029 A11](0029-resolver-namespaces.md#a11-a-doi-is-percent-decoded-only-when-written-as-a-uri) | 2026-11-06 | A DOI is percent-decoded only when written as a URI |
+| [0032 A17](0032-sparql-update-stream.md#a17-calls-made-building-the-stream-shared-nodes-the-epoch-row-the-head-the-routes) | 2026-11-22 | Calls made building the stream: shared nodes, the epoch row, the head, the routes |
 | [0033 A25](0033-backend-stack.md#a25-tls-to-postgres-when-the-url-says-sslmoderequire) | 2026-10-31 | TLS to Postgres when the URL says `sslmode=require` |
 | [0033 A28](0033-backend-stack.md#a28-dependabot-keeps-dependency-versions-current) | 2026-11-09 | Dependabot keeps dependency versions current |
 | [0033 A30](0033-backend-stack.md#a30-dependabot-ignores-a-major-release-that-cannot-be-taken-yet) | 2026-11-10 | Dependabot ignores a major release that cannot be taken yet |

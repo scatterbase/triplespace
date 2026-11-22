@@ -60,6 +60,9 @@ pub const OPS_TABLES: &[(&str, Backup)] = &[
     // Part of every cache key (03 §9.6): starting again from 0 could meet entries a CDN
     // still holds from before.
     ("visibility_epoch", Backup::Carried),
+    // A cursor is meaningful against its epoch alone (03 §4.11): starting again from 0
+    // would let a cursor from before the restore pass as current.
+    ("tenant_epoch", Backup::Carried),
     // The restore's own migrations write it.
     ("migration", Backup::Left),
     // The rebuild writes positions and has no queued fan-out left over.

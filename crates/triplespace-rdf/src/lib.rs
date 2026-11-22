@@ -20,15 +20,18 @@
 //! once `manifest.json` is written beside them, so a reader never sees half a dump; the
 //! oldest beyond `keep` are then removed. Nothing here serves them.
 //!
-//! **Not yet:** the full dump, which needs the metadata graph; the update-stream cursor
-//! every dump is to be stamped with, which needs the stream (`cursor` is `null` in the
-//! manifest); parallel workers sharing the exported snapshot, which the snapshot is
+//! Every dump is stamped with the update-stream cursor it continues into (02 §6.4), in the
+//! manifest and on each RDF file's first line: `null` and `none` where the tenant's stream
+//! is off.
+//!
+//! **Not yet:** the full dump, which needs the metadata graph; parallel workers sharing the exported snapshot, which the snapshot is
 //! exported for.
 //!
 //! About 0013 §8 (02 §4.1) and 0022 §1 (17 §1.1).
 
 pub mod bundle;
 pub mod records;
+pub mod updates;
 pub mod xml;
 
 use std::fs::{self, File};
@@ -143,7 +146,8 @@ pub struct Manifest {
     pub replica: bool,
     /// Wikibase's RDF format version.
     pub rdf_format: String,
-    /// The update-stream cursor the dump continues into; `None` until the stream exists.
+    /// The update-stream cursor the dump continues into, `{epoch}:{seq}`; `None` while the
+    /// tenant's stream is off.
     pub cursor: Option<String>,
     /// Entities in the resolved view written.
     pub entities: u64,
@@ -452,10 +456,12 @@ impl Files {
     }
 
     /// The first line of every RDF file, and the dump header of the resolved view's.
-    fn open(&mut self, base: &str, taken: &str) -> Result<(), DumpError> {
-        // Every dump is stamped on its first line; the cursor comes with the update stream.
-        let stamp =
-            format!("# Triplespace dump of {base} taken {taken}; update-stream cursor: none");
+    fn open(&mut self, base: &str, taken: &str, cursor: Option<&str>) -> Result<(), DumpError> {
+        // Every dump is stamped on its first line with the cursor it was taken at.
+        let stamp = format!(
+            "# Triplespace dump of {base} taken {taken}; update-stream cursor: {}",
+            cursor.unwrap_or("none")
+        );
         for out in [
             &mut self.wikibase,
             &mut self.wikibase_skolem,
@@ -699,7 +705,13 @@ async fn write_files(
         )),
     };
     let mut files = Files::create(dir)?;
-    files.open(&base, taken)?;
+    // Read in the dump's own snapshot, so that the cursor names exactly the deltas whose
+    // effect the snapshot holds.
+    let cursor = updates::head(tx, req.tenant)
+        .await
+        .map_err(db)?
+        .map(|h| h.cursor.to_string());
+    files.open(&base, taken, cursor.as_deref())?;
 
     let ids: Vec<String> = tx
         .query(
@@ -736,7 +748,7 @@ async fn write_files(
         name: name.to_string(),
         replica: req.replica,
         rdf_format: FORMAT_VERSION.to_string(),
-        cursor: None,
+        cursor,
         entities,
         local_entities,
         bundle: None,

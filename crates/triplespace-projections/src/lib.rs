@@ -26,6 +26,7 @@ pub mod fetch_queue;
 pub mod jobs;
 pub mod moderation;
 pub mod pages;
+pub mod rdf_work;
 pub mod read;
 pub mod refs;
 pub mod registry;

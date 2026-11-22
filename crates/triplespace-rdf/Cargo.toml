@@ -19,6 +19,7 @@ scatter-actors.workspace = true
 scatter-integrity.workspace = true
 scatter-log.workspace = true
 scatter-log-postgres.workspace = true
+scatter-projection.workspace = true
 mwdump.workspace = true
 scatter-pages.workspace = true
 oxrdf.workspace = true

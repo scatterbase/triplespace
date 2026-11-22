@@ -4208,6 +4208,7 @@ dependencies = [
  "scatter-log-postgres",
  "scatter-normalize",
  "scatter-pages",
+ "scatter-projection",
  "scatter-providers",
  "scatter-wikibase-model",
  "scatter-wikibase-rdf",
@@ -4261,6 +4262,7 @@ dependencies = [
  "triplespace-db",
  "triplespace-notify",
  "triplespace-projections",
+ "triplespace-rdf",
  "triplespace-ui",
  "url",
 ]

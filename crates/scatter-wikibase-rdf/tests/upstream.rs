@@ -174,3 +174,60 @@ fn key_mapped_statements_keep_the_items_upstream_nodes() {
         ]
     );
 }
+
+/// A mirrored entity as a dump renders it for the tenant at `base`: the tenant's
+/// namespaces, and value hashing over the tenant's entity base.
+fn shared_lines(base: &str) -> Vec<String> {
+    let entity = Entity::from_value(serde_json::json!({
+        "type": "item", "id": "WDQ42",
+        "labels": {"en": {"language": "en", "value": "Douglas Adams"}},
+        "sitelinks": {"enwiki": {"site": "enwiki", "title": "Douglas Adams", "badges": ["WDQ17437796"]}},
+        "claims": {"WDP31": [statement(UPSTREAM, "WDP248", "WDQ36578", "WD")]},
+    }))
+    .unwrap()
+    .entity;
+    let registry = Registry::default_registry();
+    let iris = IriScheme::with_default_registries(Namespaces::triplespace(base));
+    let hasher = Hasher::local().with_iris(std::sync::Arc::new(
+        scatter_wikibase_model::value_iri::ValueIris::new(
+            registry,
+            Some(&iris.namespaces().entity()),
+        ),
+    ));
+    let upstream: BTreeMap<StatementId, UpstreamRef> = [(
+        StatementId::parse(UPSTREAM).unwrap(),
+        UpstreamRef::of(&registry.parse_foreign_id("WDQ42").unwrap()),
+    )]
+    .into();
+    let page = scatter_wikibase_model::PageInfo {
+        lastrevid: Some(7),
+        modified: Some("2026-11-22T00:00:00Z".into()),
+        ..Default::default()
+    };
+    let triples = Renderer::new(&iris, &hasher, Flavor::Dump.produce())
+        .with_upstream(&upstream)
+        .entity(&entity, Some(&page));
+    scatter_wikibase_rdf::canonical_lines(&triples)
+}
+
+// 08 §10.5: a shared-row delta is stored once and read by every tenant that reads its
+// provider. That holds only if a mirrored entity's rendering depends on the reading tenant
+// through its base alone: rendered under the reserved base and given a tenant's base in
+// its place, it is byte for byte what that tenant's dump holds.
+#[test]
+fn a_mirrored_entity_differs_between_tenants_by_base_only() {
+    const RESERVED: &str = "https://tenant.invalid/";
+    let shared = shared_lines(RESERVED);
+    assert!(
+        shared.iter().any(|l| l.contains(RESERVED)),
+        "the document node is the tenant's"
+    );
+    for base in ["https://librarybase.org/", "https://other.example/"] {
+        let mut substituted: Vec<String> = shared
+            .iter()
+            .map(|l| l.replace(&format!("<{RESERVED}"), &format!("<{base}")))
+            .collect();
+        substituted.sort_unstable();
+        assert_eq!(substituted, shared_lines(base), "{base}");
+    }
+}

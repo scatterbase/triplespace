@@ -786,6 +786,14 @@ pub async fn restore_with(args: &Restore, migrator: &Migrator) -> Result<Restore
     client
         .execute("UPDATE ops.visibility_epoch SET epoch = $1", &[&epoch])
         .await?;
+    // The rebuild left no deltas and nothing shown (03 §4.11): every stream that was on
+    // starts a new epoch and records its graphs again before it serves.
+    client
+        .execute(
+            "UPDATE ops.tenant_epoch SET epoch = epoch + 1, filled = false",
+            &[],
+        )
+        .await?;
 
     // The grants of every partition the restore made.
     migrator.apply(&mut client).await.context("grants")?;

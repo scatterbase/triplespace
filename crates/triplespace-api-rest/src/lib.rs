@@ -92,6 +92,7 @@ pub mod suggest;
 pub mod tenancy;
 pub mod tenancy_requests;
 pub mod threads;
+pub mod updates;
 pub mod version;
 pub mod watchlist;
 
@@ -201,6 +202,9 @@ rest_operations! {
     delete "/group/{name}" => groups::delete;
     get "/acl/empty-groups" => acl::empty_groups;
     get "/purges" => purges::list;
+    get "/updates" => updates::poll;
+    get "/updates/cursor" => updates::cursor;
+    get "/updates/stream" => updates::stream;
     get "/watchlist" => watchlist::list;
     post "/watchlist/seen" => watchlist::seen;
     put "/watchlist/{kind}/{id}" => watchlist::put;

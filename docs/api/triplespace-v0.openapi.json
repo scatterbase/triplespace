@@ -8602,6 +8602,205 @@
           }
         }
       }
+    },
+    "/updates": {
+      "get": {
+        "operationId": "pollUpdates",
+        "summary": "The SPARQL Update stream, polled",
+        "description": "The events after `from` as one `application/sparql-update` document (architecture 02 §6.4; ADR 0032 §6): one `DELETE DATA { … } ; INSERT DATA { … }` request per event, each preceded by a `#` comment line with its cursor and provenance and followed by `;`. An event is the deltas of one composing transaction. The next cursor is in the `Updates-Cursor` header and in `Link: rel=\"next\"`. Public form only; needs `read`.",
+        "parameters": [
+          {
+            "name": "graphs",
+            "in": "query",
+            "description": "`resolved` (the default), `local`, or both separated by a comma. With one graph the triples carry no `GRAPH` clause.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "The cursor to resume after, `{epoch}:{seq}`: a dump's, or the last event's.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "description": "The most deltas to return (1000 by default); an event is never cut.",
+            "schema": {
+              "type": "integer",
+              "maximum": 10000
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The events after `from`, oldest first; empty when there are none.",
+            "content": {
+              "application/sparql-update": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`ts-updates-from` or `ts-updates-graphs`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-updates-off`: the wiki serves no update stream.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`ts-updates-gone`: the cursor is of another epoch or older than the horizon. The body names `dumps`, where the newest dump continues into the window, and the current `cursor`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/updates/cursor": {
+      "get": {
+        "operationId": "getUpdatesCursor",
+        "summary": "The update stream's head",
+        "description": "The tenant's epoch and the newest `seq`, as the cursor a dump taken now would carry, and the horizon before which the stream cannot be resumed (architecture 02 §6.4).",
+        "responses": {
+          "200": {
+            "description": "The head of the stream.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "required": [
+                    "epoch",
+                    "seq",
+                    "cursor",
+                    "horizon",
+                    "graphs"
+                  ],
+                  "properties": {
+                    "epoch": {
+                      "type": "integer"
+                    },
+                    "seq": {
+                      "type": "integer"
+                    },
+                    "cursor": {
+                      "type": "string"
+                    },
+                    "horizon": {
+                      "type": "integer"
+                    },
+                    "graphs": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-updates-off`: the wiki serves no update stream.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/updates/stream": {
+      "get": {
+        "operationId": "streamUpdates",
+        "summary": "The SPARQL Update stream, as server-sent events",
+        "description": "Each event is one composing transaction (architecture 02 §6.4; ADR 0032 §6): its `id` is the cursor `{epoch}:{seq}`, its `event` is `update`, its `data` is one SPARQL 1.1 Update request, and a leading comment line carries its provenance. `Last-Event-ID` resumes, as `from` does. Public form only; needs `read`.",
+        "parameters": [
+          {
+            "name": "graphs",
+            "in": "query",
+            "description": "`resolved` (the default), `local`, or both separated by a comma. With one graph the triples carry no `GRAPH` clause.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "description": "The cursor to resume after, `{epoch}:{seq}`: a dump's, or the last event's.",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The events after the cursor, then each new one as it is stored.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "`ts-updates-from` or `ts-updates-graphs`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "`ts-updates-off`: the wiki serves no update stream.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "410": {
+            "description": "`ts-updates-gone`: the cursor is of another epoch or older than the horizon. The body names `dumps`, where the newest dump continues into the window, and the current `cursor`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

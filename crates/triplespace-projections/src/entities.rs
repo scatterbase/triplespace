@@ -269,6 +269,7 @@ impl EntityProjection {
                 .map_err(|e| sql(&e))?;
         }
         n += crate::refs::write(cx, tenant, &[id.as_str()], &[]).await?;
+        crate::rdf_work::queue(cx, tenant, &[id.as_str()]).await?;
         n += cx
             .execute(
                 "DELETE FROM view.entity WHERE tenant = $1 AND id = $2",
@@ -452,6 +453,7 @@ impl EntityProjection {
             Self::write_identifiers(cx, tenant, id, &resolved),
             crate::refs::write_one(cx, tenant, id, &targets),
         )?;
+        crate::rdf_work::queue(cx, tenant, &[id.as_str()]).await?;
         Ok(n + terms + identifiers + refs)
     }
 
@@ -1042,6 +1044,7 @@ async fn write_local_rows(cx: &PgCx, tenant: &str, rows: &[LocalRows]) -> Result
         .collect();
     let ref_rows = crate::refs::write(cx, tenant, &ids, &refs);
     let (a, b, c, d) = tokio::try_join!(entity_rows, term_rows, identifier_rows, ref_rows)?;
+    crate::rdf_work::queue(cx, tenant, &ids).await?;
     Ok(a + b + c + d)
 }
 
@@ -1281,6 +1284,7 @@ async fn write_shared_rows(cx: &PgCx, rows: &[SharedRows]) -> Result<u64, String
         })
         .collect();
     n += crate::refs::write(cx, "", &ids, &refs).await?;
+    crate::rdf_work::queue(cx, "", &ids).await?;
     Ok(n)
 }
 
