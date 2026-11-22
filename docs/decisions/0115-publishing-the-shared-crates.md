@@ -47,6 +47,10 @@ Offered further work on the parser (a linear rewind, checking that the expander 
 
 - **"Work on 3, 4, 5"**.
 
+After `scatter-wikitext` was published, on Q3:
+
+- **"Let's bump the patch version and work on scatter-talk"**.
+
 ## Decision
 
 ### 1. Shared crates are published to crates.io from this workspace (amends 0005 §6)
@@ -81,6 +85,10 @@ Offered further work on the parser (a linear rewind, checking that the expander 
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §3.6.*
 
+### 9. `scatter-talk` is published after `scatter-wikitext`
+
+*Current text: [22](../architecture/22-crates-and-stack.md) §3.6.*
+
 ## Alternatives considered
 
 - **A checked copy of each registry file inside the crate**, with a checker that fails when it differs from `docs/registry/`. It works on every platform, but it is a second copy to regenerate after every registry edit.
@@ -103,7 +111,7 @@ The plan for the other strong candidates. Each depends on the questions before i
 
 - **Q1. The vendored `parse-wiki-text-2`.** *Settled by §5.*
 - **Q2. `scatter-wikitext`'s CSS classes.** *Settled by §6.*
-- **Q3. `scatter-talk`.** It is nearly general already: every public function takes the `Markup` registry explicitly, and English Wikipedia's conventions (`Site::english()`, the English months, `{{Unsigned}}`) are data in `talk-markup.toml` or in a `Site` built from siteinfo. It needs `scatter-wikitext` only for `decode_entities` and `escape_id`. *Recommendation:* publish it after `scatter-wikitext`, with `talk-markup.toml` as a symlink (§2) and its Cargo description rewritten without the ADR number.
+- **Q3. `scatter-talk`.** *Settled by §9.*
 - **Q4. `scatter-vocab`.** Most of it is the IRIs of public vocabularies (PROV-O, PAV, SIOC, FOAF, Activity Streams, Dublin Core, schema.org, SKOS, the Wikibase ontology…). The `scatter` module is `https://scatter.red/terms/v0/`, which is itself a published vocabulary that Triplespace shares with Scatterbase (0001 A2), and `scatter-wikibase-rdf` does not use it. *Recommendation:* publish it as it is, when `scatter-wikibase-rdf` needs it published. It is of little use on its own.
 - **Q5. `scatter-providers`.** Its whole API is Triplespace's provider model: two-letter codes, revision IDs packed as `number << 40 | n`, tenant entity sources, adapters, trust and chip colours. Only `IdGrammar` is general. *Recommendation:* never publish it. Instead, take it out of the dependency tree of the published Wikibase crates (Q7, Q8), and leave it a shared crate for Scatterbase as it is.
 - **Q6. `scatter-normalize`.** It holds two things. One is general: the URL normalizer, the UTS 46 host normalizer, keywords, value keys by Wikibase data type, and the resolver normalizers. The other is Triplespace's: keyed types, notation schemes, surrogates, and `keyed-types.toml` and `notation-schemes.toml`. The keyed types are a closed `match` on `domain`, `keyword` and `notation` (`keyed.rs`), not the open registry they look like, and `notation::normalize` and keyed-type normalization consult the default scheme registry, which a caller cannot replace. *Recommendation:* bring `scatter-keyed` back, retiring the "formerly `scatter-keyed`" merge (22 §2.1): keyed types, notation, surrogates and their two registries go there; `scatter-normalize` keeps the general part and `resolvers.toml`, and is published. The hidden default-registry calls go in the same change. This changes the crate map through 0005 §2.

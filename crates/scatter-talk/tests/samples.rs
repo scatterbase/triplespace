@@ -216,6 +216,10 @@ fn fallback_keys(
 #[test]
 fn agrees_with_discussiontools() {
     let dir = samples();
+    // The samples are in the Triplespace repository, not in the published package.
+    if !dir.is_dir() {
+        return;
+    }
     let manifest: Value =
         serde_json::from_slice(&read_sample(&dir, "manifest.json")).expect("json");
     let mut texts: BTreeMap<(String, u64), String> = BTreeMap::new();
@@ -309,6 +313,9 @@ fn agrees_with_discussiontools() {
 
 #[test]
 fn attribution_from_history() {
+    if !samples().is_dir() {
+        return;
+    }
     let revs = read_dump(&samples(), "history.xml.gz");
     let (markup, site) = (Markup::embedded(), Site::english());
     let mut blame = Blame::new(markup, &site);

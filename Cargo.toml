@@ -106,7 +106,7 @@ scatter-titles = { path = "crates/scatter-titles" }
 scatter-wikitext = { path = "crates/scatter-wikitext", version = "0.1.0" }
 scatter-wikitext-parse = { path = "crates/scatter-wikitext-parse", version = "0.1.0" }
 scatter-wikitext-expand = { path = "crates/scatter-wikitext-expand", version = "0.1.1" }
-scatter-talk = { path = "crates/scatter-talk" }
+scatter-talk = { path = "crates/scatter-talk", version = "0.1.0" }
 scatter-talk-import = { path = "crates/scatter-talk-import" }
 scatter-threads = { path = "crates/scatter-threads" }
 
