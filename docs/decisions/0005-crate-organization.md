@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-20 (A131)
+- **Updated:** 2026-11-22 (A132)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
@@ -1134,3 +1134,12 @@ Replaced text: 22 §1.2 (rule 10's list of the site's crates).
 - **Summary:** Five new crates under `triplespace-ui`, in the surfaces layer: `triplespace-ui-kit`, `triplespace-ui-pages`, and the sibling special-page crates `triplespace-ui-accounts`, `triplespace-ui-admin` and `triplespace-ui-special`. `triplespace-ui` may depend on all five and keeps the router, the dispatcher and `Site`; the pages crate depends on the kit, and each special-page crate on the kit and the pages crate but on no sibling. `triplespace-ui`'s entry is divided among the six: each clause went to the crate that holds what it names, and the unused allowance for `scatter-normalize` and `scatter-providers` to `triplespace-ui-pages`. Chapter text: 22 §2.1 (`crates.toml`), 22 §2.4.
 
 Replaced text: 22 §2.1 (`crates.toml`: the entry for `triplespace-ui`).
+
+### A132. Shared crates are published to crates.io from this workspace
+
+- **Date:** 2026-11-22
+- **Source:** 0115 §1
+- **Change:** amends §6
+- **Summary:** A `scatter-*` crate that is ready is published to crates.io from this workspace, and Scatterbase and other Rust code take it from there; one not yet ready stays `publish = false` and is taken as a Git dependency pinned to a commit. The shared crates no longer move to a repository of their own when Scatterbase first depends on them: publishing does not need it, and a separate repository would split every change across the line into two. James publishes by hand (22 §3.6). Chapter text: 22 §3.4, 22 §3.6.
+
+Replaced text: 22 §3.4 (the sentences on Git dependencies and a repository of the crates' own).

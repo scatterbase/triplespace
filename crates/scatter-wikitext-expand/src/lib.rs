@@ -29,6 +29,11 @@
 
 #![forbid(unsafe_code)]
 
+// The README's example compiles and runs as a doctest (0115 §3).
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct ReadmeDoctests;
+
 pub mod census;
 mod pst;
 mod registry;

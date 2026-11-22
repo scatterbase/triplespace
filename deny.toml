@@ -68,7 +68,8 @@ license-files = [{ path = "LICENSE", hash = 0x80667642 }]
 [bans]
 multiple-versions = "warn"
 wildcards = "deny"
-# Workspace crates depend on each other by path, without a version (they are not published).
+# Workspace crates depend on each other by path; the published scatter-* crates also name a
+# version, so the path is replaced by it on crates.io (0115 §1).
 allow-wildcard-paths = true
 highlight = "all"
 deny = [
