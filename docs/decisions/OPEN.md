@@ -69,7 +69,6 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0033 A28](0033-backend-stack.md#a28-dependabot-keeps-dependency-versions-current) | 2026-11-09 | Dependabot keeps dependency versions current |
 | [0033 A30](0033-backend-stack.md#a30-dependabot-ignores-a-major-release-that-cannot-be-taken-yet) | 2026-11-10 | Dependabot ignores a major release that cannot be taken yet |
 | [0033 A31](0033-backend-stack.md#a31-a-database-ahead-of-the-binary) | 2026-11-13 | A database ahead of the binary |
-| [0033 A37](0033-backend-stack.md#a37-the-budget-is-64-steps-a-byte-a-million-at-least) | 2026-11-22 | The budget is 64 steps a byte, a million at least |
 | [0034 A15](0034-frontend-stack.md#a15-uselangqqx-shows-message-keys) | 2026-11-04 | `uselang=qqx` shows message keys |
 | [0034 A17](0034-frontend-stack.md#a17-thread-fragments-the-browsers-language-and-the-media-origin-the-calls-made-building-them) | 2026-11-10 | Thread fragments, the browser's language, and the media origin: the calls made building them |
 | [0034 A18](0034-frontend-stack.md#a18-the-job-progress-bar-is-built-alias-chips-wait-on-codex) | 2026-11-10 | The job progress bar is built; alias chips wait on Codex |

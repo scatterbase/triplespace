@@ -424,7 +424,7 @@ Replaced text: 22 §4.6, 11 §1.2.
 ### A37. The budget is 64 steps a byte, a million at least
 
 - **Date:** 2026-11-22
-- **Source:** Direct: Claude, while building the step budget, 2026-11-22; unconfirmed
+- **Source:** Direct: Claude, while building the step budget, 2026-11-22; confirmed by James, 2026-11-22
 - **Change:** extends §9.1
 - **Summary:** `scatter-wikitext` gives the parser 64 steps for each byte of the text, and a million at least. Measured on the repository's samples (158 Librarybase revisions and 9 English Wikipedia talk pages), pages take 0.9 steps a byte at the median and 1.6 at most, at about 7 ns a step, so the budget leaves forty times the worst page's need, and stops a pathological input within a fraction of a second: a 2 MB page gets about 130 million steps, under a second. Chapter text: 22 §4.6.
 
