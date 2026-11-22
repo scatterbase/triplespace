@@ -130,7 +130,7 @@ The plan for the other strong candidates. Each depends on the questions before i
 ### A2. Bold and italic move into the parser; tag balancing and paragraphs stay
 
 - **Date:** 2026-11-22
-- **Source:** Direct: Claude, while building the parser's structure, 2026-11-22; unconfirmed
+- **Source:** Direct: Claude, while building the parser's structure, 2026-11-22; confirmed by James, 2026-11-22
 - **Change:** extends §5
 - **Summary:** MediaWiki's rules for bold and italic are in `scatter-wikitext-parse`, as its `quotes` module, and `scatter-wikitext` uses them; balancing HTML tags and making paragraphs stay in `scatter-wikitext`. James asked for all three to move. The apostrophe rules read only the runs of a line and are wikitext's own, of use to any reader of the parser's output. Tag balancing and paragraphs are HTML tree construction (which elements close a paragraph, implied end tags, reopening formatting elements, `tree::Builder`), which a renderer needs and a parser of wikitext does not, so moving them would put an HTML tree builder in the parser. Chapter text: 22 §3.6.
 
