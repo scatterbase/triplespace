@@ -363,7 +363,7 @@ pub fn names_page(site: &Site, search: &str, hit: &PageHit) -> bool {
 
 /// The document pages whose title begins with `search`, a case-insensitive prefix on
 /// `view.page` (03 §11.2), from `offset`, at most `limit`; and whether there are more.
-/// `namespaces` as [`page_scope`] reads them. An exact title comes first, then shorter
+/// `namespaces` as `page_scope` reads them. An exact title comes first, then shorter
 /// titles before longer, so that the closest match leads.
 ///
 /// # Errors
