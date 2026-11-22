@@ -523,7 +523,6 @@ Every unsettled question in every ADR (24 §8), with its first sentence. Settle 
 | [0104 Q3](0104-batches-and-the-job-runner.md) | The queue beyond one process | The runner claims queued jobs with the database's row locks, so several server processes could share the queue; nothing partitions the work between them yet, and a job that one process started is finished by that process… |
 | [0109 Q1](0109-the-documentation-site.md) | Rustdoc and the command line's reference | Both need the workspace compiled, which may not fit Read the Docs' build time. |
 | [0111 Q1](0111-creating-a-tenant-by-request.md) | A delay or a second approval | Requests are carried out at once. |
-| [0115 Q4](0115-publishing-the-shared-crates.md) | `scatter-vocab` | Most of it is the IRIs of public vocabularies (PROV-O, PAV, SIOC, FOAF, Activity Streams, Dublin Core, schema.org, SKOS, the Wikibase ontology…). |
 | [0115 Q5](0115-publishing-the-shared-crates.md) | `scatter-providers` | Its whole API is Triplespace's provider model: two-letter codes, revision IDs packed as `number << 40 \| n`, tenant entity sources, adapters, trust and chip colours. |
 | [0115 Q7](0115-publishing-the-shared-crates.md) | `scatter-wikibase-model` | The general core is entities, statements, values, canonical JSON, Wikibase's own hashes over its emulation of PHP `serialize()`, and the site list. |
 | [0115 Q8](0115-publishing-the-shared-crates.md) | `scatter-wikibase-rdf` | The renderer, both flavours, the dump header, N-Triples and Turtle are general Wikibase RDF 1.0.0. |

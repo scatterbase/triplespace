@@ -59,6 +59,10 @@ After `scatter-talk` was published, offered Q6:
 - Asked what `scatter-normalize`'s base holds, he chose **the general normalizers, value keys and resolvers**.
 - Asked whether the principle is a standing rule or settles only Q6 to Q8, he chose **a standing rule**.
 
+After `scatter-normalize` and `scatter-keyed` were published, on Q4:
+
+- **"Keep scatter-vocab as one crate. It's already a combination of many different vocabularies"**.
+
 ## Decision
 
 ### 1. Shared crates are published to crates.io from this workspace (amends 0005 §6)
@@ -105,6 +109,10 @@ After `scatter-talk` was published, offered Q6:
 
 *Current text: [04](../architecture/04-entities-and-identifiers.md) §3.8, §3.10, §3.12; [19](../architecture/19-site-ui.md) §5.4; [22](../architecture/22-crates-and-stack.md) §3.6; [23](../architecture/23-configuration-and-registry.md) §4.1, §4.3.*
 
+### 12. `scatter-vocab` stays one crate
+
+*Current text: [22](../architecture/22-crates-and-stack.md) §3.6.*
+
 ## Alternatives considered
 
 - **A checked copy of each registry file inside the crate**, with a checker that fails when it differs from `docs/registry/`. It works on every platform, but it is a second copy to regenerate after every registry edit.
@@ -128,7 +136,7 @@ The plan for the other strong candidates. Each depends on the questions before i
 - **Q1. The vendored `parse-wiki-text-2`.** *Settled by §5.*
 - **Q2. `scatter-wikitext`'s CSS classes.** *Settled by §6.*
 - **Q3. `scatter-talk`.** *Settled by §9.*
-- **Q4. `scatter-vocab`.** Most of it is the IRIs of public vocabularies (PROV-O, PAV, SIOC, FOAF, Activity Streams, Dublin Core, schema.org, SKOS, the Wikibase ontology…). The `scatter` module is `https://scatter.red/terms/v0/`, which is itself a published vocabulary that Triplespace shares with Scatterbase (0001 A2), and `scatter-wikibase-rdf` does not use it. *Recommendation:* publish it as it is, when `scatter-wikibase-rdf` needs it published. It is of little use on its own.
+- **Q4. `scatter-vocab`.** *Settled by §12.*
 - **Q5. `scatter-providers`.** Its whole API is Triplespace's provider model: two-letter codes, revision IDs packed as `number << 40 | n`, tenant entity sources, adapters, trust and chip colours. Only `IdGrammar` is general. *Recommendation:* never publish it. Instead, take it out of the dependency tree of the published Wikibase crates (Q7, Q8), and leave it a shared crate for Scatterbase as it is.
 - **Q6. `scatter-normalize`.** *Settled by §11.*
 - **Q7. `scatter-wikibase-model`.** The general core is entities, statements, values, canonical JSON, Wikibase's own hashes over its emulation of PHP `serialize()`, and the site list. Triplespace's part is the three ID forms and tenant-relative IDs in `EntityId::parse`, the `wikibase-domain`, `-keyword` and `-notation` data types, `value_iri`, the search document, fusion keys, badges and `Hasher::for_provider`; `EntityId::joins_clusters` consults the keyed registry's default. Options: (a) one crate whose `EntityId` parses plain Wikibase IDs and takes any further forms through a grammar passed in, with Triplespace's forms, search, keys and badges in a crate above it; (b) make the model generic over its ID type; (c) leave it unpublished. *Recommendation: (a), done last.* Seventeen crates depend on it, so a crate above it that re-exports the core keeps most of them unchanged. The Triplespace data types can become `DataType::Other`. `sites.toml`, which is generated from Wikimedia's site matrix and is general, goes behind a `sites` feature. The crate above is named in the change that makes it, through 0005 §2. §10 now decides the shape: a base crate of pure Wikibase and an extension crate named for what it holds, both published.
