@@ -322,7 +322,8 @@ is defined with the crate that embeds that registry: `provider` (`providers.toml
 `scatter-providers`), `issuer` (`issuers.toml`), `group` (`groups.toml`, with `scope`
 for a global group), `tenancy` (one switch: `{"kind": "tenancy", "value": "any"}`),
 `keyed-type`, `resolver`, `notation-scheme`, `namespace` (for a registered number, `name`
-and `aliases` give the tenant's local name and its other names; 0008 A37), `site-alias`, `thread-status`,
+and `aliases` give the tenant's local name and its other names, 0008 A37; for a number of the
+tenant's own, the row with `namespace_kind` for the row's `kind`, 0008 A54), `site-alias`, `thread-status`,
 `content-model`, `special-page`; `site` is `{"kind": "site", "value": …}` with the
 setting's own scalar or object; `role`, `reconcile`, `providers`, `sitelink-policy`,
 `view-pin`, `template`, `provider-readers`, `federation-policy`, `consumer`,

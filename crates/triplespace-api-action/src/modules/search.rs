@@ -326,18 +326,19 @@ fn page_scope(
     search: &str,
     asked: Option<Vec<i32>>,
 ) -> Option<(Vec<i32>, String)> {
-    use scatter_titles::Namespaces;
     use scatter_wikitext::{Title, parse_target};
 
+    // The tenant's table, its own namespaces included (0008 A54).
     let holds_pages = |ns: i32| {
         site.holds_pages(ns)
-            && Namespaces::embedded()
+            && site
+                .namespaces
                 .get(ns)
                 .is_some_and(|n| !n.is_entity_namespace())
     };
     let mut namespaces: Vec<i32> = match asked {
         None => vec![0],
-        Some(list) if list.is_empty() => Namespaces::embedded().iter().map(|n| n.id).collect(),
+        Some(list) if list.is_empty() => site.namespaces.iter().map(|n| n.id).collect(),
         Some(list) => list,
     };
     // A namespace prefix in the text picks that namespace; the text is what follows it.

@@ -888,6 +888,85 @@ async fn api(database: &str, key_file: &std::path::Path) {
     let targets: Vec<String> = rows.iter().map(|r| r.get(0)).collect();
     assert_eq!(targets, ["4:Home", "5:Home"]);
 
+    // A namespace of the wiki's own (10 §1.3 rule 4; 0008 A54): a record numbered 3000
+    // adds `Recipe` and `Recipe talk`. Pages are made in it, links through its alias are
+    // recorded as links into it, and siteinfo and `list=allpages` list it.
+    namespace_record(
+        database,
+        3000,
+        &serde_json::json!({"kind": "namespace", "id": 3000, "canonical": "Recipe",
+                            "namespace_kind": "pages", "aliases": ["R"]}),
+    )
+    .await;
+    let soup = c
+        .post(
+            "action=edit",
+            &format!(
+                "title=Recipe:Soup&text={}&createonly=1&token={}",
+                enc("Hot."),
+                enc(&csrf)
+            ),
+        )
+        .await;
+    assert_eq!(soup["edit"]["result"], "Success", "{soup}");
+    let info = c.get("action=query&titles=Recipe:Soup&prop=info").await;
+    assert_eq!(info["query"]["pages"][0]["ns"], 3000, "{info}");
+    let linking = c
+        .post(
+            "action=edit",
+            &format!(
+                "title=Project:Menu&text={}&createonly=1&token={}",
+                enc("[[R:Soup]] and [[Recipe talk:Soup]]"),
+                enc(&csrf)
+            ),
+        )
+        .await;
+    assert_eq!(linking["edit"]["result"], "Success", "{linking}");
+    let parsed = c.get("action=parse&page=Project:Menu&prop=links").await;
+    let links = parsed["parse"]["links"].as_array().unwrap();
+    assert!(
+        links.iter().any(|l| l["ns"] == 3000 && l["exists"] == true),
+        "{parsed}"
+    );
+    assert!(links.iter().any(|l| l["ns"] == 3001), "{parsed}");
+    let site_ns = c
+        .get("action=query&meta=siteinfo&siprop=namespaces|triplespace")
+        .await;
+    assert_eq!(
+        site_ns["query"]["namespaces"]["3000"]["name"], "Recipe",
+        "{site_ns}"
+    );
+    assert_eq!(
+        site_ns["query"]["namespaces"]["3001"]["defaultcontentmodel"],
+        "triplespace-talk"
+    );
+    assert_eq!(
+        site_ns["query"]["triplespace"]["own_namespaces"][0]["id"], 3000,
+        "{site_ns}"
+    );
+    let all = c.get("action=query&list=allpages&apnamespace=3000").await;
+    assert_eq!(all["query"]["allpages"][0]["title"], "Recipe:Soup", "{all}");
+    let back = c
+        .get("action=query&list=backlinks&bltitle=Recipe:Soup")
+        .await;
+    assert_eq!(back["query"]["backlinks"][0]["ns"], 4, "{back}");
+    assert!(
+        back["query"]["backlinks"][0]["title"]
+            .as_str()
+            .is_some_and(|t| t.ends_with(":Menu")),
+        "{back}"
+    );
+    // A record numbered outside rule 4 adds nothing: `Nowhere:X` stays a main-namespace
+    // title.
+    namespace_record(
+        database,
+        250,
+        &serde_json::json!({"kind": "namespace", "id": 250, "canonical": "Nowhere"}),
+    )
+    .await;
+    let nowhere = c.get("action=query&titles=Nowhere:X&prop=info").await;
+    assert_eq!(nowhere["query"]["pages"][0]["ns"], 0, "{nowhere}");
+
     // `appendtext` on a page whose latest text is not stored, as a withheld or erased text
     // leaves it, is refused as MediaWiki refuses content it cannot load, and the page keeps
     // what it had rather than becoming the fragment.

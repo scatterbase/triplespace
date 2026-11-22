@@ -255,6 +255,8 @@ pub enum ChipKind {
     Operator,
     /// A subsidiary that holds `bot`, on its user page (0024 §9).
     Bot,
+    /// A badge on an entity or a property (0114 §4; 19 §1.6).
+    Badge,
 }
 
 /// A chip.
@@ -323,6 +325,7 @@ impl<'a> Chip<'a> {
             ChipKind::Rank => "ts-chip ts-chip--rank".into(),
             ChipKind::Operator => "ts-chip ts-chip--operator".into(),
             ChipKind::Bot => "ts-chip ts-chip--bot".into(),
+            ChipKind::Badge => "ts-chip ts-chip--badge".into(),
         }
     }
 }

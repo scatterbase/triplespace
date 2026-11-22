@@ -7,7 +7,7 @@
 <li class="ts-hit"><div class="ts-hit__head"><a href="{{ h.href }}" class="ts-hit__title">
 {%- if h.title.mono %}<span class="ts-mono"{% if h.title.ltr %} dir="ltr"{% endif %}>{{ h.title.text }}</span>
 {%- else %}<span{{ lang(h.title) }}>{{ h.title.text }}</span>{% endif %}</a>
-{%- if h.chip %} {{ codex.chip(h.chip) }}{% endif %}</div>
+{%- if h.chip %} {{ codex.chip(h.chip) }}{% endif %}{% for b in h.badges %} {{ codex.badge(b) }}{% endfor %}</div>
 {%- if h.description %}<p class="ts-hit__description"{{ lang(h.description) }}>{{ h.description.text }}</p>{% endif -%}
 {%- if h.alias %}<p class="ts-hit__match">{{ h.alias.before }}<bdi><span{{ lang(h.alias.alias) }}>{{ h.alias.alias.text }}</span></bdi>{{ h.alias.after }}</p>{% endif -%}
 </li>

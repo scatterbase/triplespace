@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-21 (A68)
+- **Updated:** 2026-11-21 (A69)
 - **Author:** James Hare / Claude Fable
 - **Uses:** [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [0009](0009-keyed-entity-types-and-domain.md), [0016](0016-permissions-and-access-control.md)
 
@@ -601,8 +601,17 @@ Replaced text: 01 §2.5.
 ### A68. Offsets for a provider without page or revision IDs, from the writer
 
 - **Date:** 2026-11-21
-- **Source:** Direct: Claude, while finishing REVIEW G18 for SCA-282 on James's go-ahead (2026-11-21, "proceed to the next part of SCA-282"); unconfirmed
+- **Source:** Direct: Claude, while finishing REVIEW G18 for SCA-282 on James's go-ahead (2026-11-21, "proceed to the next part of SCA-282"); confirmed by James, 2026-11-21, as amended by A69
 - **Change:** extends §2; amends A66
 - **Summary:** A66 (2) has a provider that publishes no page IDs give each key `provider_number << 40 | offset of its first record`, declared on its registry entry, and notes that the append would have to fill field 9 from the offset it assigns; the registry file has said since §2 that a provider without revision IDs takes `n` from the mirror record's offset. Neither was built: such a provider drew page IDs from `log."instance.page_id"` and wrote no revision ID. The calls made: (1) A registry entry declares `page_ids = false`; the default is `true`. OpenAlex, MusicBrainz, OpenStreetMap and GDELT, the four with `revision_ids = false`, declare it; a tenant's entity source, a Wikibase, publishes page IDs. (2) The writer, not the append, takes the offset: the partition's size in its unit of work, and in a block the size plus the record's place in it, since one load of a mirror or source runs at a time under the load lock (0011 A37) and a block is appended in order from that size. A record written outside the lock would race; none is. (3) A new key's page ID is its first record's offset; a later record keeps its key's. A page ID a record of such a provider carries is ignored, so that its range holds offsets only. (4) A provider with `revision_ids = false` gives each record the revision ID `provider_number << 40 | its offset`, where the operation carries no upstream revision. Chapter text: 01 §2.5.
 
 Replaced text: A66 ("(2) is not yet built, and until it is such a provider still draws from `log."instance.page_id"`: the log store assigns a record's offset when it appends it, after its header, field 9 included, is fixed, so the append has to fill field 9 from the offset it assigns.")
+
+### A69. A page ID computed from a numeric upstream ID
+
+- **Date:** 2026-11-21
+- **Source:** Direct: James, 2026-11-21, reviewing A68: "What about a deterministic identifier intrinsic to the data?", and approving its build; the layout (the half of the range, three bits of slot, 36 of number), the slots and the refusals, Claude, while building it, 2026-11-21; unconfirmed
+- **Change:** amends A68
+- **Summary:** A key of a provider without page IDs has a page ID computed from its upstream number where its type's IDs are numbers, the same on every instance whatever order it loaded in, where A68 took the offset of the key's first record, which differs between instances. A type declares `page_id_slot`, 0 to 7 and unique to the provider, and its key's page number is `2^39 | slot << 36 | upstream number`; offsets stay below 2^39, so one provider's range holds both without collision. Slots: OpenAlex W, A, S, I, T, P, F, G (0 to 7), OpenStreetMap N, W, R (0 to 2), GDELT E (0). OpenAlex keywords (key-mapped), GDELT's GKG records, CAMEO codes (which have leading zeros) and tokens, and MusicBrainz (UUIDs, which no 40 bits hold without collisions) keep A68's offsets. A number of 2^36 or more, about 6.9 × 10^10, five times OpenStreetMap's node count in November 2026, or one written with a leading zero, is refused for the record rather than given an offset, which would make the ID depend on the instance again. Revision IDs stay offsets: these providers publish none, and nothing in the data tells one version from the next. Chapter text: 01 §2.5; providers.toml.
+
+Replaced text: none in the chapters; A68's own (1) and (3), that every key of such a provider has its first record's offset as its page ID, now hold only for a type without a slot.

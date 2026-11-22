@@ -224,6 +224,10 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "0048_rdf_delta",
         sql: include_str!("../migrations/0048_rdf_delta.sql"),
     },
+    Migration {
+        name: "0049_job_failures",
+        sql: include_str!("../migrations/0049_job_failures.sql"),
+    },
 ];
 
 /// The crate name migrations are recorded under.

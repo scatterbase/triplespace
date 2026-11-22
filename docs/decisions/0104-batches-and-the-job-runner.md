@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-08
-- **Updated:** 2026-11-21 (A12)
+- **Updated:** 2026-11-21 (A13)
 - **Author:** James Hare / Claude Fable
 - **Uses:** [0007](0007-actor-identity.md), [0024](0024-subsidiary-accounts.md), [0030](0030-edit-filters.md), [0047](0047-special-pages.md)
 
@@ -183,6 +183,15 @@ Replaced text: 16 §2.2.
 ### A12. A follower's failed pass is tried again
 
 - **Date:** 2026-11-21
-- **Source:** Direct: Claude, while building `instance provider add` (0018 A40), 2026-11-21; unconfirmed
+- **Source:** Direct: Claude, while building `instance provider add` (0018 A40), 2026-11-21; confirmed by James, 2026-11-21, as amended by A13
 - **Change:** extends §4
 - **Summary:** A `follow` row whose pass fails is put back as a pass that succeeded is, not to be claimed before `follow.interval` has passed, and the failure is reported in the server's log; it is not failed and removed as other jobs are. A follower runs for as long as the instance mirrors the provider, and a failure that removed its row ended the following for good over a lagged replica or a dropped connection, which upstream wikis have daily; the next pass starts from the position the last good pass saved, so nothing is skipped. Cancelling the row stops a follower that keeps failing, since between passes the row waits unclaimed. This also answers how long a follower waits on a wiki lagged past its retries: it waits out its interval and tries again. Chapter text: 16 §2.2.
+
+### A13. A failing follower backs off, and gives up after a number of failures
+
+- **Date:** 2026-11-21
+- **Source:** Direct: James, 2026-11-21, reviewing A12: "an exponential backoff with a configurable number of retries with some sensible default"; the doubling from `follow.interval`, the hour's cap, the default of 10 and the count kept in the queue row, Claude's proposal, approved by James the same day
+- **Change:** amends A12
+- **Summary:** A follower whose pass fails waits twice as long as after its last failure before the next pass, starting from `follow.interval` and capped at an hour (or the interval, where that is longer), and its job fails as other jobs do once `follow.max_failures` passes in a row have failed, a tenant setting, 10 by default, about six hours of failures at a one-minute interval. A pass that succeeds starts the count again. A12 retried at the interval for ever. The count of failures in a row is kept in the queue row, `ops.job_queue.failures`, which a failed pass raises and a successful one sets to 0. Chapter text: 16 §2.2; 23 (the setting).
+
+Replaced text: 16 §2.2 ("put back the same way, so that a follower outlives a bad hour upstream; the next pass starts from the position the last good one saved, and cancelling the row stops a follower that keeps failing").

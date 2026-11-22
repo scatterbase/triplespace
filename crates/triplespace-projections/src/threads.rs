@@ -464,9 +464,7 @@ async fn talk_page(
                 .map_err(|e| sql(&e))?
                 .and_then(|r| {
                     let ns: i32 = r.get(0);
-                    Namespaces::embedded()
-                        .get(ns)
-                        .and_then(|n| n.talk)
+                    scatter_titles::talk_number(ns)
                         .filter(|t| *t != ns)
                         .map(|t| (t, r.get::<_, String>(1)))
                 });

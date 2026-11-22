@@ -97,17 +97,28 @@ impl Work for FollowWork {
                 .clone()
                 .or(args.source.clone())
                 .unwrap_or_default();
+            let max = follow::max_failures(&args).await.map_err(|e| failed(&e))?;
             // A pass that fails (the wiki lagged past its retries, the network dropped) is
-            // reported and tried again after the interval, from the position the last good
-            // pass saved, so that a follower outlives a bad hour upstream (0104 A12); `job
-            // cancel` stops one that keeps failing, since between passes it waits unclaimed.
-            if let Err(e) = on_thread(move || follow::run(args)).await? {
-                eprintln!(
-                    "follow `{provider}` (job {}): the pass failed, trying again in {wait} s: {e:#}",
-                    job.job_id
-                );
+            // reported and tried again from the position the last good pass saved, after a
+            // wait that doubles with each failure in a row, up to an hour; after
+            // `follow.max_failures` in a row the job fails as other jobs do (0104 A12, A13).
+            match on_thread(move || follow::run(args)).await? {
+                Ok(()) => Ok(Outcome::Again(Duration::from_secs(wait))),
+                Err(e) => {
+                    let failures = job.failures + 1;
+                    if failures >= max {
+                        return Err(failed(&e.context(format!(
+                            "{failures} passes in a row failed (follow.max_failures)"
+                        ))));
+                    }
+                    let after = follow::backoff(wait, failures);
+                    eprintln!(
+                        "follow `{provider}` (job {}): pass {failures} of {max} in a row failed, trying again in {after} s: {e:#}",
+                        job.job_id
+                    );
+                    Ok(Outcome::Retry(Duration::from_secs(after)))
+                }
             }
-            Ok(Outcome::Again(Duration::from_secs(wait)))
         })
     }
 }

@@ -9,11 +9,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | Entry | Date | Title |
 |---|---|---|
 | [0002 A48](0002-source-graphs-and-mass-ingest.md#a48-an-edit-that-only-repeats-a-statement-writes-nothing) | 2026-11-09 | An edit that only repeats a statement writes nothing |
-| [0004 A23](0004-identity-clusters-and-equivalence.md#a23-how-value-iris-are-stored-served-and-hashed) | 2026-11-21 | How value IRIs are stored, served and hashed |
 | [0006 A26](0006-log-integrity-and-erasure.md#a26-a-nesting-depth-limit-for-canonical-cbor) | 2026-11-06 | A nesting-depth limit for canonical CBOR |
-| [0006 A35](0006-log-integrity-and-erasure.md#a35-the-log-id-at-append-where-a-client-sees-it-and-one-manifest-per-segment) | 2026-11-21 | The log ID at append, where a client sees it, and one manifest per segment |
-| [0006 A36](0006-log-integrity-and-erasure.md#a36-a-jobs-end-names-the-heads-it-left-unsigned-checkpoints-for-logged-partitions-only) | 2026-11-21 | A job's end names the heads it left, unsigned; checkpoints for `logged` partitions only |
-| [0006 A37](0006-log-integrity-and-erasure.md#a37-the-verifier-checks-that-a-config-partition-begins-with-its-founding-record) | 2026-11-21 | The verifier checks that a `config` partition begins with its founding record |
 | [0009 A17](0009-keyed-entity-types-and-domain.md#a17-only-same-as-with-a-keyword-or-notation-is-refused) | 2026-11-20 | Only `same-as` with a keyword or notation is refused |
 | [0010 A47](0010-site-ui.md#a47-the-acl-site-ui-the-calls-made-building-it) | 2026-10-30 | The ACL site UI: the calls made building it |
 | [0010 A49](0010-site-ui.md#a49-the-compare-form-and-the-diff-views-the-calls-made-building-them) | 2026-11-04 | The compare form and the diff views: the calls made building them |
@@ -52,11 +48,10 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0014 A31](0014-caches-and-search.md#a31-entity-search-ranks-by-the-folded-reference-counter) | 2026-11-21 | Entity search ranks by the folded reference counter |
 | [0015 A65](0015-record-format-and-partition-registry.md#a65-where-a-mirror-records-page-id-comes-from-when-its-content-carries-none) | 2026-11-15 | Where a mirror record's page ID comes from when its content carries none |
 | [0015 A66](0015-record-format-and-partition-registry.md#a66-a-followers-deletions-and-redirects-carry-their-page-ids-offsets-per-provider) | 2026-11-15 | A follower's deletions and redirects carry their page IDs; offsets per provider |
-| [0015 A68](0015-record-format-and-partition-registry.md#a68-offsets-for-a-provider-without-page-or-revision-ids-from-the-writer) | 2026-11-21 | Offsets for a provider without page or revision IDs, from the writer |
+| [0015 A69](0015-record-format-and-partition-registry.md#a69-a-page-id-computed-from-a-numeric-upstream-id) | 2026-11-21 | A page ID computed from a numeric upstream ID |
 | [0016 A42](0016-permissions-and-access-control.md#a42-delegated-administration-the-calls-made-while-drafting-and-building-tier-4) | 2026-10-30 | Delegated administration: the calls made while drafting and building tier 4 |
 | [0018 A33](0018-tenants.md#a33-multi-tenant-round-1-the-assumptions-the-implementation-made) | 2026-10-30 | Multi-tenant round 1: the assumptions the implementation made |
 | [0018 A36](0018-tenants.md#a36-instances-and-tenants-created-by-question-and-answer) | 2026-11-12 | Instances and tenants created by question and answer |
-| [0018 A40](0018-tenants.md#a40-a-providers-mirror-can-be-opened-on-a-running-instance) | 2026-11-21 | A provider's mirror can be opened on a running instance |
 | [0019 A31](0019-discussions.md#a31-a-threads-actions-from-the-page-the-calls-made-building-them) | 2026-11-05 | A thread's actions from the page: the calls made building them |
 | [0020 A20](0020-change-feeds.md#a20-there-is-no-actionunwatch) | 2026-11-09 | There is no `action=unwatch` |
 | [0021 A23](0021-notifications.md#a23-accountability-the-calls-made-building-tier-5) | 2026-10-30 | Accountability: the calls made building tier 5 |
@@ -86,11 +81,6 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0056 A27](0056-security-model.md#a27-entities-the-live-attack-and-tiers-78-the-calls-made-building-them) | 2026-10-30 | Entities, the live attack and tiers 7–8: the calls made building them |
 | [0057 A10](0057-web-tier.md#a10-stopping-on-sigterm-and-the-build-id-a-component-sends) | 2026-11-15 | Stopping on `SIGTERM`, and the build ID a component sends |
 | [0066 A3](0066-lexemes.md#a3-the-part-suffix-belongs-to-the-lexeme-entity-type-not-to-a-grammar) | 2026-11-04 | The part suffix belongs to the lexeme entity type, not to a grammar |
-| [0070 A9](0070-shallow-entity-mirroring.md#a9-the-fetch-job-is-the-followers-poll) | 2026-11-21 | The fetch job is the follower's poll |
-| [0070 A10](0070-shallow-entity-mirroring.md#a10-a-linked-entity-is-queued-by-a-projection-of-its-own) | 2026-11-21 | A linked entity is queued by a projection of its own |
-| [0070 A11](0070-shallow-entity-mirroring.md#a11-the-follower-keeps-to-the-set-and-walks-the-closure-settings-held-per-provider) | 2026-11-21 | The follower keeps to the set and walks the closure; settings held per provider |
-| [0070 A12](0070-shallow-entity-mirroring.md#a12-the-mirror-route-reports-each-type-and-queues-by-hand) | 2026-11-21 | The mirror route reports each type, and queues by hand |
-| [0070 A13](0070-shallow-entity-mirroring.md#a13-a-read-queues-what-is-not-held-the-label-cache-is-in-the-process-nothing-to-re-render) | 2026-11-21 | A read queues what is not held; the label cache is in the process; nothing to re-render |
 | [0077 A6](0077-special-version.md#a6-licensing-loose-ends-from-building-specialversion) | 2026-10-30 | Licensing: loose ends from building Special:Version |
 | [0077 A8](0077-special-version.md#a8-the-licence-header-on-built-javascript-and-css) | 2026-11-15 | The licence header on built JavaScript and CSS |
 | [0078 A8](0078-entity-sources.md#a8-retiring-keeps-the-record-a-later-record-is-checked-against-it) | 2026-11-20 | Retiring keeps the record; a later record is checked against it |
@@ -103,6 +93,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0086 A11](0086-theming.md#a11-greenbar-and-cyanotype-original-palettes-with-type-sets-made-for-them) | 2026-11-01 | Greenbar and Cyanotype, original palettes with type sets made for them |
 | [0086 A12](0086-theming.md#a12-links-on-the-pages-canvas-and-codexs-values-under-every-palette) | 2026-11-04 | Links on the page's canvas, and Codex's values under every palette |
 | [0087 A6](0087-account-registration-and-challenges.md#a6-registration-loose-ends-from-building-the-challenge) | 2026-10-30 | Registration: loose ends from building the challenge |
+| [0091 A3](0091-one-wikibase-adapter.md#a3-concept-links-name-wikidata-items-deprecated-properties-are-skipped) | 2026-11-21 | Concept links name Wikidata items; deprecated properties are skipped |
 | [0092 A3](0092-following-recent-changes.md#a3-a-state-that-will-not-parse-is-rejected-and-the-follower-goes-on) | 2026-11-09 | A state that will not parse is rejected, and the follower goes on |
 | [0092 A7](0092-following-recent-changes.md#a7-a-follower-compacts-its-mirror-as-the-days-job-closes) | 2026-11-11 | A follower compacts its mirror as the day's job closes |
 | [0092 A8](0092-following-recent-changes.md#a8-a-days-compaction-runs-beside-the-next-days-batches) | 2026-11-15 | A day's compaction runs beside the next day's batches |
@@ -111,7 +102,6 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0092 A11](0092-following-recent-changes.md#a11-a-lost-position-is-rebuilt-from-the-newest-revision-the-graph-holds) | 2026-11-20 | A lost position is rebuilt from the newest revision the graph holds |
 | [0092 A14](0092-following-recent-changes.md#a14-sync-asks-the-wiki-whether-a-follower-can-take-over) | 2026-11-20 | `sync` asks the wiki whether a follower can take over |
 | [0092 A15](0092-following-recent-changes.md#a15-get-providercodemirror-reports-the-follower-and-a-gap-is-recorded) | 2026-11-20 | `GET /provider/{code}/mirror` reports the follower, and a gap is recorded |
-| [0092 A16](0092-following-recent-changes.md#a16-a-crawl-queues-what-it-lists-and-its-sweep-asks-the-wiki) | 2026-11-21 | A crawl queues what it lists, and its sweep asks the wiki |
 | [0097 A3](0097-versioning-and-skins.md#a3-fragments-are-compared-as-normalized-dom) | 2026-10-30 | Fragments are compared as normalized DOM |
 | [0097 A4](0097-versioning-and-skins.md#a4-drawings-are-svg-the-binary-makes) | 2026-10-30 | Drawings are SVG the binary makes |
 | [0097 A6](0097-versioning-and-skins.md#a6-a-part-of-a-later-group-is-carried-as-html-until-that-group-switches) | 2026-10-30 | A part of a later group is carried as HTML until that group switches |
@@ -132,7 +122,6 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0104 A7](0104-batches-and-the-job-runner.md#a7-claims-are-one-per-partition-and-capped-and-a-job-that-fails-before-it-starts-is-a-failed-job) | 2026-11-13 | Claims are one per partition and capped, and a job that fails before it starts is a failed job |
 | [0104 A8](0104-batches-and-the-job-runner.md#a8-a-job-that-lost-its-claim-is-stopped-and-an-imports-talk-pages-are-its-own-work) | 2026-11-13 | A job that lost its claim is stopped, and an import's talk pages are its own work |
 | [0104 A9](0104-batches-and-the-job-runner.md#a9-exports-adoptions-syncs-and-followers-join-the-queue) | 2026-11-13 | Exports, adoptions, syncs and followers join the queue |
-| [0104 A12](0104-batches-and-the-job-runner.md#a12-a-followers-failed-pass-is-tried-again) | 2026-11-21 | A follower's failed pass is tried again |
 | [0106 A5](0106-create-entities-grid-and-drafts.md#a5-what-a-draft-needed-to-hold-the-tables-text-found-while-building) | 2026-11-10 | What a draft needed to hold the table's text, found while building |
 | [0106 A6](0106-create-entities-grid-and-drafts.md#a6-how-the-grid-and-the-mapping-step-are-built-found-while-building) | 2026-11-10 | How the grid and the mapping step are built, found while building |
 | [0106 A7](0106-create-entities-grid-and-drafts.md#a7-a-quantitys-unit-in-the-text-found-while-building) | 2026-11-10 | A quantity's unit in the text, found while building |
@@ -141,6 +130,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0111 A1](0111-creating-a-tenant-by-request.md#a1-calls-made-building-the-provisioner) | 2026-11-16 | Calls made building the provisioner |
 | [0111 A2](0111-creating-a-tenant-by-request.md#a2-calls-made-building-the-requests-api-page-and-invitation) | 2026-11-16 | Calls made building the requests' API, page and invitation |
 | [0111 A3](0111-creating-a-tenant-by-request.md#a3-calls-made-building-freezing-deleting-and-the-primary-roles-acceptance) | 2026-11-16 | Calls made building freezing, deleting and the primary role's acceptance |
+| [0114 A2](0114-badges.md#a2-badges-drawn-everywhere-the-site-names-an-entity) | 2026-11-22 | Badges drawn everywhere the site names an entity |
 
 ## Open questions
 

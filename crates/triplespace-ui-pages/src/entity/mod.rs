@@ -39,6 +39,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
+use scatter_wikibase_model::badges::BadgeRegistry;
 use scatter_wikibase_model::entity::Entity;
 use scatter_wikibase_model::id::{EntityId, IdForm};
 use scatter_wikibase_model::statement::{Snak, SnakKind};
@@ -133,6 +134,42 @@ pub fn unit_id(iri: &str, site: &SiteInfo) -> Option<String> {
     None
 }
 
+/// One badge by its item (19 §1.6): named by the interface message the badge registry
+/// gives it, with that message's tip, or else by the item's `label` and `description`, or
+/// its ID; with the registry's icon (a tenant's own badge, `tag`), linked to the item,
+/// except "Best value", which marks a rank rather than naming an item a reader visits
+/// (implements 0114 §4 (A2)).
+#[must_use]
+pub fn badge_model(
+    m: &Messages,
+    item: &str,
+    label: Option<&str>,
+    description: Option<&str>,
+) -> triplespace_ui_kit::badge::BadgeModel {
+    use scatter_wikibase_model::badges::BadgeSource;
+    let entry = EntityId::parse(item)
+        .ok()
+        .and_then(|i| BadgeRegistry::default_registry().get(&i));
+    let (text, tip) = match entry.and_then(|b| b.message.as_deref()) {
+        Some(key) => {
+            let tip_key = format!("{key}-tip");
+            (m.get(key), m.has(&tip_key).then(|| m.get(&tip_key)))
+        }
+        None => (
+            label.map_or_else(|| item.to_string(), str::to_string),
+            description.map(str::to_string),
+        ),
+    };
+    let best = entry.is_some_and(|b| matches!(b.source, BadgeSource::Rank { .. }));
+    triplespace_ui_kit::badge::BadgeModel::new(
+        text,
+        tip,
+        (!best).then(|| entity_href(item, "item")),
+        entry.map_or("tag", |b| b.icon.as_str()),
+        best,
+    )
+}
+
 /// The labels and data types of the entities a page refers to.
 #[derive(Debug, Clone, Default)]
 pub struct Lookup {
@@ -140,6 +177,10 @@ pub struct Lookup {
     labels: BTreeMap<String, (String, String)>,
     /// Each property's data type.
     datatypes: BTreeMap<String, String>,
+    /// The `class` badges of the entity and the properties it uses (06 §6.2).
+    badges: BTreeMap<String, Vec<String>>,
+    /// The descriptions of badge items, for their tooltips (19 §1.6).
+    descriptions: BTreeMap<String, String>,
 }
 
 impl Lookup {
@@ -175,7 +216,31 @@ impl Lookup {
                 .map(|(id, l)| (id, (l.value, l.language)))
                 .collect(),
             datatypes: BTreeMap::new(),
+            badges: BTreeMap::new(),
+            descriptions: BTreeMap::new(),
         }
+    }
+
+    /// Adds descriptions, by ID.
+    pub fn add_descriptions(&mut self, descriptions: BTreeMap<String, String>) {
+        self.descriptions.extend(descriptions);
+    }
+
+    /// An entity's description, where the page has it.
+    #[must_use]
+    pub fn description(&self, id: &str) -> Option<&str> {
+        self.descriptions.get(id).map(String::as_str)
+    }
+
+    /// Adds the `class` badges the page bundle gives.
+    pub fn add_badges(&mut self, badges: BTreeMap<String, Vec<String>>) {
+        self.badges.extend(badges);
+    }
+
+    /// The badge items an entity or property carries, in drawing order.
+    #[must_use]
+    pub fn badges(&self, id: &str) -> &[String] {
+        self.badges.get(id).map_or(&[], Vec::as_slice)
     }
 
     /// Adds the data types the page bundle gives for the properties whose snaks do not
@@ -349,7 +414,9 @@ fn tabs(m: &Messages, title: &str, current: TabName, items: bool, history: bool)
     // Links here and Discussion close the row, as on a document page (19 §1.3). An
     // entity's title is canonical (`Item:Q42`), so no site name is needed for its talk.
     v.push(crate::document::links_here_tab(m, title));
-    if let Some(talk) = crate::document::talk_tab(m, "", title) {
+    if let Some(talk) =
+        crate::document::talk_tab(m, &triplespace_client::SiteInfo::default(), title)
+    {
         v.push(talk);
     }
     v
@@ -434,6 +501,7 @@ pub async fn serve(
     };
     let visibility = bundle.visibility;
     let datatypes = bundle.datatypes;
+    let badges = bundle.badges;
     let redirected = bundle.redirected;
     let provenance = bundle.provenance;
     let parsed = match Entity::from_value(bundle.entity) {
@@ -472,16 +540,44 @@ pub async fn serve(
         .await;
     }
     let chain = cx.m.term_chain();
-    let ids = referenced(&entity, &cx.site);
+    let mut ids = referenced(&entity, &cx.site);
+    // A badge's item: named by its label unless the registry gives it a message, and
+    // described in its tooltip (06 §6.1; 19 §1.6). The sitelinks' stored badges too.
+    let mut describe: Vec<String> = Vec::new();
+    let stored = entity
+        .sitelinks
+        .values()
+        .flat_map(|l| l.badges.iter().map(|b| b.as_str().to_string()));
+    for item in badges.values().flatten().cloned().chain(stored) {
+        let named = EntityId::parse(&item).ok().is_some_and(|id| {
+            BadgeRegistry::default_registry()
+                .get(&id)
+                .is_some_and(|b| b.message.is_some())
+        });
+        if !named && !describe.contains(&item) {
+            describe.push(item.clone());
+        }
+        if !ids.contains(&item) {
+            ids.push(item);
+        }
+    }
     let mut lookup = if ids.is_empty() {
         Lookup::default()
     } else {
         // Every label the page shows, in one call for up to a thousand entities
-        // (19 §5.1 rule 5).
-        match client.labels(&incoming, &ids, &chain).await {
+        // (19 §5.1 rule 5), with the badges' descriptions.
+        match client.labels_with(&incoming, &ids, &chain, &describe).await {
             Ok(f) => {
                 cx.inputs.push(f.cache);
-                Lookup::from_labels(f.value)
+                let (labels, descriptions) = f.value;
+                let mut lookup = Lookup::from_labels(labels);
+                lookup.add_descriptions(
+                    descriptions
+                        .into_iter()
+                        .map(|(k, l)| (k, l.value))
+                        .collect(),
+                );
+                lookup
             }
             Err(e) => {
                 eprintln!("triplespace-ui: labels for {title}: {e}");
@@ -492,6 +588,7 @@ pub async fn serve(
     };
     lookup.add_self(&entity, &chain);
     lookup.add_datatypes(datatypes);
+    lookup.add_badges(badges);
     let history_tab =
         !render && TabName::of(query) == TabName::History && cx.features.has(Feature::History);
     let history = if history_tab {

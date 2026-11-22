@@ -29,6 +29,39 @@ pub async fn declared<C: PgClient>(client: &C, tenant: &str) -> Result<Vec<Entit
         .collect())
 }
 
+/// A tenant's sources as `GET /entity-sources` and `siprop=triplespace`'s `entity_sources`
+/// report them (0078 §10), in name order: each source's name, label, number, types with
+/// their IRI templates, endpoints, licence, `promoted_to` and `retired`. Nothing in a
+/// record is private: it is the tenant's public configuration, and a reader on another
+/// instance reads it to rewrite references by IRI (05 §6.7).
+#[must_use]
+pub fn public(sources: &[EntitySource]) -> serde_json::Value {
+    serde_json::Value::Array(
+        sources
+            .iter()
+            .map(|s| {
+                serde_json::json!({
+                    "name": s.name,
+                    "label": s.label,
+                    "number": s.number,
+                    "types": s.types.iter().map(|t| serde_json::json!({
+                        "upstream_prefix": t.upstream_prefix,
+                        "entity_type": t.entity_type,
+                        "id_grammar": t.id_grammar,
+                        "iri": t.iri,
+                    })).collect::<Vec<_>>(),
+                    "api": s.api,
+                    "entity_data": s.entity_data,
+                    "revision_ids": s.revision_ids,
+                    "licence": s.licence,
+                    "promoted_to": s.promoted_to.as_deref().filter(|c| !c.is_empty()),
+                    "retired": s.retired,
+                })
+            })
+            .collect(),
+    )
+}
+
 /// One declared source by name.
 ///
 /// # Errors

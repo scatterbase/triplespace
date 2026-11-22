@@ -35,6 +35,29 @@ pub fn talk_of(title: &str) -> Option<String> {
     (talk.kind == NsKind::Pages).then(|| format!("{}:{rest}", talk.canonical))
 }
 
+/// The talk page of a title on a wiki with namespaces of its own (10 §1.3 rule 4): a title
+/// in one of `own` has its talk namespace's, `{canonical} talk:{rest}`, where the subject
+/// holds pages; any other title is [`talk_of`]'s.
+pub fn talk_of_with(title: &str, own: &[triplespace_client::OwnNamespace]) -> Option<String> {
+    if let Some((prefix, rest)) = title.split_once(':') {
+        let p = prefix.replace('_', " ");
+        let p = p.trim();
+        let named = |n: &triplespace_client::OwnNamespace| {
+            n.canonical.eq_ignore_ascii_case(p)
+                || n.aliases.iter().any(|a| a.eq_ignore_ascii_case(p))
+        };
+        if let Some(n) = own.iter().find(|n| named(n)) {
+            if n.id % 2 == 1 {
+                return Some(format!("{}:{}", n.canonical, rest.trim()));
+            }
+            let talk = own.iter().find(|t| t.id == n.id + 1)?;
+            return (n.kind == "pages" && talk.kind == "pages")
+                .then(|| format!("{}:{}", talk.canonical, rest.trim()));
+        }
+    }
+    talk_of(title)
+}
+
 /// A special page's name from its title: `Special:Search/foo` → `Search`, with the
 /// first letter upper-cased, as MediaWiki's titles have it.
 #[must_use]
@@ -48,7 +71,42 @@ pub fn special_name(title: &str) -> Option<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::special_name;
+    use super::{special_name, talk_of_with};
+    use triplespace_client::OwnNamespace;
+
+    // 10 §1.3 rule 4: a title in the wiki's own namespace has its own talk namespace.
+    #[test]
+    fn own_namespaces_have_talk_pages() {
+        let ns = |id, c: &str, a: &[&str], k: &str| OwnNamespace {
+            id,
+            canonical: c.into(),
+            aliases: a.iter().map(|s| (*s).to_string()).collect(),
+            kind: k.into(),
+        };
+        let own = [
+            ns(3000, "Recipe", &["R"], "pages"),
+            ns(3001, "Recipe talk", &[], "pages"),
+            ns(3002, "MHC", &["mhc"], "resolver"),
+            ns(3003, "MHC talk", &[], "reserved"),
+        ];
+        assert_eq!(
+            talk_of_with("Recipe:Soup", &own).as_deref(),
+            Some("Recipe talk:Soup")
+        );
+        assert_eq!(
+            talk_of_with("r:Soup", &own).as_deref(),
+            Some("Recipe talk:Soup")
+        );
+        assert_eq!(
+            talk_of_with("Recipe talk:Soup", &own).as_deref(),
+            Some("Recipe talk:Soup")
+        );
+        assert_eq!(talk_of_with("mhc:Q1", &own), None);
+        assert_eq!(
+            talk_of_with("Project:Home", &own).as_deref(),
+            Some("Project talk:Home")
+        );
+    }
 
     #[test]
     fn names() {

@@ -26,7 +26,6 @@ use scatter_ingest::write::{Attestation, RawRecord, Request, write_raw};
 use scatter_log::cbor::Value as Cbor;
 use scatter_pages::{PAYLOAD_PAGE, PageOp, validate};
 use scatter_projection::Backend as _;
-use scatter_titles::Namespaces;
 use serde_json::{Value, json};
 
 use crate::api::Ctx;
@@ -182,7 +181,8 @@ pub async fn run(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     if ns == scatter_titles::INTERFACE {
         held("editinterface")?;
     }
-    let namespace = Namespaces::embedded()
+    let namespace = site
+        .namespaces
         .get(ns)
         .ok_or_else(|| ApiError::new("invalidtitle", format!("Bad title \"{prefixed}\".")))?;
     if !site.holds_pages(ns) {

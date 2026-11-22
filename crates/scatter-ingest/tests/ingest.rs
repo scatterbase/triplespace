@@ -3340,90 +3340,108 @@ fn params_of_attestation_job(record: &Record) -> Option<u64> {
     attestation.get("job").and_then(Value::as_u64)
 }
 
-/// A provider that publishes no page IDs and no revision IDs, OpenAlex, gives each key the
-/// page ID of its first record's offset and each record the revision ID of its own, in its
-/// range, one at a time and in a block alike (0015 A50, A66).
+/// A provider that publishes no page IDs and no revision IDs gives each record the revision
+/// ID of its own offset, in its range. A key of a type with a page slot, an OpenAlex work,
+/// has the page ID its upstream number computes, the same on every instance; a key of a
+/// type without one, a GDELT GKG record, its first record's offset. One at a time and in a
+/// block alike (0015 A50, A66, A69).
 #[test]
-fn a_provider_without_page_ids_takes_offsets() {
+fn a_provider_without_page_ids_computes_or_takes_offsets() {
     pollster::block_on(async {
-        const MIRROR_OA: u64 = 0x23;
-        let oa = u64::from(registry().by_slug("openalex").unwrap().number);
-        let ranged = |n: u64| (oa << 40) | n;
+        async fn run(
+            slug: &str,
+            partition: u64,
+            ops: &[Operation],
+            block: bool,
+        ) -> (Vec<(String, u64, u64)>, u64) {
+            let request = Request::new(TENANT, Attestation::by("librarybase:1"), NOW);
+            let (store, pipeline) = setup();
+            store.create_partition(partition, "", &format!("mirror/{slug}"));
+            let mut cx = store.begin().await.unwrap();
+            if block {
+                let entries: Vec<_> = ops
+                    .iter()
+                    .map(|o| BlockEntry {
+                        request: &request,
+                        payload: BlockPayload::Operation(o),
+                    })
+                    .collect();
+                write_many(
+                    &store,
+                    &pipeline,
+                    &mut cx,
+                    partition,
+                    &Graph::Mirror(slug.into()),
+                    &entries,
+                    scatter_projection::Budget::NONE,
+                    registry(),
+                )
+                .await
+                .unwrap();
+            } else {
+                for o in ops {
+                    write_operation(&store, &pipeline, &mut cx, &request, o, registry())
+                        .await
+                        .unwrap();
+                }
+            }
+            let next = store.next_id(&mut cx, "", &Sequence::Page).await.unwrap();
+            store.commit(cx).await.unwrap();
+            let ids = store
+                .records(partition)
+                .iter()
+                .map(|r| {
+                    let h = r.header();
+                    (h.key.clone().unwrap(), h.page_id.unwrap(), h.revid.unwrap())
+                })
+                .collect();
+            (ids, next)
+        }
         let put = |id: &str| {
             op(json!({"op": "put", "id": id, "entity": item(id, id, &json!({})), "upstream": {}}))
         };
-        let ops = [
-            put("OAW1"),
-            put("OAW2"),
-            put("OAW1"),
-            put("OAW3"),
-            put("OAW2"),
-            put("OAW4"),
-        ];
-        let request = Request::new(TENANT, Attestation::by("librarybase:1"), NOW);
-        let run = |block: bool| {
-            let ops = ops.clone();
-            let request = request.clone();
-            async move {
-                let (store, pipeline) = setup();
-                store.create_partition(MIRROR_OA, "", "mirror/openalex");
-                let mut cx = store.begin().await.unwrap();
-                if block {
-                    let entries: Vec<_> = ops
-                        .iter()
-                        .map(|o| BlockEntry {
-                            request: &request,
-                            payload: BlockPayload::Operation(o),
-                        })
-                        .collect();
-                    write_many(
-                        &store,
-                        &pipeline,
-                        &mut cx,
-                        MIRROR_OA,
-                        &Graph::Mirror("openalex".into()),
-                        &entries,
-                        scatter_projection::Budget::NONE,
-                        registry(),
-                    )
-                    .await
-                    .unwrap();
-                } else {
-                    for o in &ops {
-                        write_operation(&store, &pipeline, &mut cx, &request, o, registry())
-                            .await
-                            .unwrap();
-                    }
-                }
-                let next = store.next_id(&mut cx, "", &Sequence::Page).await.unwrap();
-                store.commit(cx).await.unwrap();
-                let ids: Vec<_> = store
-                    .records(MIRROR_OA)
-                    .iter()
-                    .map(|r| {
-                        let h = r.header();
-                        (h.key.clone().unwrap(), h.page_id.unwrap(), h.revid.unwrap())
-                    })
-                    .collect();
-                (ids, next)
-            }
-        };
-        let (one, next_one) = run(false).await;
-        let (many, next_many) = run(true).await;
+
+        // OpenAlex works: W has slot 0, so `OAW42` is page `2^39 | 42`.
+        let oa = u64::from(registry().by_slug("openalex").unwrap().number);
+        let ranged = |n: u64| (oa << 40) | n;
+        let work = |n: u64| ranged((1 << 39) | n);
+        let ops = [put("OAW1"), put("OAW42"), put("OAW1")];
+        let (one, next_one) = run("openalex", 0x23, &ops, false).await;
+        let (many, next_many) = run("openalex", 0x23, &ops, true).await;
         assert_eq!(
             one,
             vec![
-                ("OAW1".to_string(), ranged(0), ranged(0)),
-                ("OAW2".to_string(), ranged(1), ranged(1)),
-                ("OAW1".to_string(), ranged(0), ranged(2)),
-                ("OAW3".to_string(), ranged(3), ranged(3)),
-                ("OAW2".to_string(), ranged(1), ranged(4)),
-                ("OAW4".to_string(), ranged(5), ranged(5)),
+                ("OAW1".to_string(), work(1), ranged(0)),
+                ("OAW42".to_string(), work(42), ranged(1)),
+                ("OAW1".to_string(), work(1), ranged(2)),
             ],
-            "a key's page ID is its first record's offset; a record's revision ID its own"
+            "a work's page ID is computed from its number; a record's revision ID its offset"
         );
         assert_eq!(many, one, "a block derives the same IDs");
-        assert_eq!(next_one, 1, "nothing was drawn from the page sequence");
-        assert_eq!(next_many, 1);
+        assert_eq!(
+            (next_one, next_many),
+            (1, 1),
+            "nothing drawn from the page sequence"
+        );
+
+        // GDELT GKG records have no slot: a key's first record's offset.
+        let gd = u64::from(registry().by_slug("gdelt").unwrap().number);
+        let at = |n: u64| (gd << 40) | n;
+        let ops = [
+            put("GDD20261121000000-1"),
+            put("GDD20261121000000-2"),
+            put("GDD20261121000000-1"),
+        ];
+        let (one, _) = run("gdelt", 0x24, &ops, false).await;
+        let (many, _) = run("gdelt", 0x24, &ops, true).await;
+        assert_eq!(
+            one,
+            vec![
+                ("GDD20261121000000-1".to_string(), at(0), at(0)),
+                ("GDD20261121000000-2".to_string(), at(1), at(1)),
+                ("GDD20261121000000-1".to_string(), at(0), at(2)),
+            ]
+        );
+        assert_eq!(many, one);
     });
 }

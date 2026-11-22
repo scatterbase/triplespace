@@ -39,6 +39,8 @@ pub struct Site {
     pub lang: String,
     /// The tenant's table of names (0078 §3), which says which foreign IDs name an entity.
     pub registry: &'static scatter_providers::Registry,
+    /// The tenant's namespaces: the registry's, with the tenant's own (10 §1.3 rule 4).
+    pub namespaces: Arc<Namespaces>,
 }
 
 impl Site {
@@ -66,6 +68,7 @@ impl Site {
             .map_err(ApiError::internal)?;
         names.site_name = Some(name.clone());
         Ok(Self {
+            namespaces: names.namespaces(),
             config: names.config(),
             name,
             lang,
@@ -77,7 +80,7 @@ impl Site {
     /// Lua (`wikitext.lua`, 0043), which is not built, so they hold none yet.
     #[must_use]
     pub fn holds_pages(&self, ns: i32) -> bool {
-        Namespaces::embedded()
+        self.namespaces
             .get(ns)
             .is_some_and(|n| n.holds_pages(|_| false))
     }
@@ -97,6 +100,7 @@ pub(crate) fn tests_site() -> Site {
         name: "Librarybase".into(),
         lang: "en".into(),
         registry: scatter_providers::Registry::default_registry(),
+        namespaces: Arc::new(Namespaces::embedded().clone()),
     }
 }
 
@@ -398,7 +402,7 @@ pub fn resolve_title(site: &Site, title: &str) -> Option<Title> {
     if t.interwiki.is_some() || t.text.is_empty() {
         return None;
     }
-    let ns = Namespaces::embedded().get(t.namespace)?;
+    let ns = site.namespaces.get(t.namespace)?;
     if ns.is_entity_namespace() {
         return None;
     }
@@ -427,9 +431,7 @@ pub fn entity_of_title(site: &Site, title: &str) -> Option<scatter_wikibase_mode
     if t.interwiki.is_some() || t.text.is_empty() {
         return None;
     }
-    let id = Namespaces::embedded()
-        .get(t.namespace)?
-        .entity_id(&t.text)?;
+    let id = site.namespaces.get(t.namespace)?.entity_id(&t.text)?;
     crate::modules::entities::parse_id(&id)
         .ok()
         .filter(|id| crate::modules::entities::check_form(id, site.registry).is_ok())
@@ -622,6 +624,7 @@ pub async fn expand(
 /// The resolver over what was read for one render.
 pub struct Links {
     config: Arc<Config>,
+    namespaces: Arc<Namespaces>,
     base: String,
     /// The pages that exist, each with where it redirects to, as a prefixed title,
     /// when it is a redirect whose target is known.
@@ -638,7 +641,8 @@ impl Resolver for Links {
                 ..PageInfo::default()
             };
         }
-        if let Some(id) = Namespaces::embedded()
+        if let Some(id) = self
+            .namespaces
             .get(t.namespace)
             .and_then(|n| n.entity_id(&t.text))
         {
@@ -687,7 +691,7 @@ impl Links {
         page: &Title,
     ) -> Result<Self, ApiError> {
         let ex = scatter_wikitext::extract(text, &site.config, page);
-        let namespaces = Namespaces::embedded();
+        let namespaces = &*site.namespaces;
         let mut nss: Vec<i32> = Vec::new();
         let mut titles: Vec<String> = Vec::new();
         let mut ids: Vec<String> = Vec::new();
@@ -766,6 +770,7 @@ impl Links {
         }
         Ok(Self {
             config: site.config.clone(),
+            namespaces: site.namespaces.clone(),
             base: String::new(),
             pages,
             entities,

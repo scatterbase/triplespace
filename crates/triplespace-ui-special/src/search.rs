@@ -33,6 +33,7 @@ use serde::Serialize;
 use triplespace_client::{ClientError, Fetched, Hit, Hits, Lookup, SiteInfo};
 
 use triplespace_ui_kit::Site;
+use triplespace_ui_kit::badge::BadgeModel;
 use triplespace_ui_kit::choice::{Choice, Switch};
 use triplespace_ui_kit::codex::{
     Chip, ChipKind, ChipModel, Message, MessageKind, MessageModel, SearchInput, SearchModel,
@@ -148,6 +149,8 @@ pub struct HitModel {
     pub description: Option<LangText>,
     /// The alias that matched, where an alias did.
     pub alias: Option<AliasMatch>,
+    /// The entity's `class` badges (19 §1.6).
+    pub badges: Vec<BadgeModel>,
 }
 
 /// One kind's results.
@@ -249,6 +252,7 @@ fn hit_model(m: &Messages, h: &Hit, kind: Kind) -> HitModel {
                 lang: lang_of(l, lang),
             }),
             alias: None,
+            badges: Vec::new(),
         };
     }
     let title = match &h.label {
@@ -300,6 +304,7 @@ fn hit_model(m: &Messages, h: &Hit, kind: Kind) -> HitModel {
             lang: lang_of(l, lang),
         }),
         alias,
+        badges: Vec::new(),
     }
 }
 
@@ -680,6 +685,64 @@ async fn existing_page(
     }
 }
 
+/// The `class` badges of the entities found, by each hit's `href`: one `wbgetentities`
+/// call for the hits' `ts-badges`, and, where any has a badge, one labels call for the
+/// badges' items (19 §1.6; 0114 §4).
+async fn hit_badges(
+    site: &Site,
+    cx: &mut Context,
+    incoming: &triplespace_client::Incoming,
+    results: &[(Kind, Hits)],
+) -> Result<BTreeMap<String, Vec<BadgeModel>>, ClientError> {
+    let hits: Vec<(String, String)> = results
+        .iter()
+        .filter(|(k, _)| !k.is_pages())
+        .flat_map(|(k, h)| {
+            h.hits
+                .iter()
+                .map(|x| (x.id.clone(), entity::entity_href(&x.id, k.entity_type)))
+        })
+        .collect();
+    if hits.is_empty() {
+        return Ok(BTreeMap::new());
+    }
+    let ids: Vec<String> = hits.iter().map(|(id, _)| id.clone()).collect();
+    let client = site.client();
+    let found = client.entities(incoming, &ids, "ts-badges", "").await?;
+    cx.inputs.push(found.cache);
+    let by_id = found.value.badges;
+    if by_id.is_empty() {
+        return Ok(BTreeMap::new());
+    }
+    let mut items: Vec<String> = by_id.values().flatten().cloned().collect();
+    items.sort();
+    items.dedup();
+    let chain = cx.m.term_chain();
+    let terms = client.labels_with(incoming, &items, &chain, &items).await?;
+    cx.inputs.push(terms.cache);
+    let (labels, descriptions) = terms.value;
+    let mut out = BTreeMap::new();
+    for (id, href) in hits {
+        if let Some(badges) = by_id.get(&id) {
+            out.insert(
+                href,
+                badges
+                    .iter()
+                    .map(|item| {
+                        entity::badge_model(
+                            &cx.m,
+                            item,
+                            labels.get(item).map(|l| l.value.as_str()),
+                            descriptions.get(item).map(|l| l.value.as_str()),
+                        )
+                    })
+                    .collect(),
+            );
+        }
+    }
+    Ok(out)
+}
+
 /// `Special:Search`.
 pub async fn serve(
     site: &Site,
@@ -731,7 +794,19 @@ pub async fn serve(
         }
     }
 
-    let model = page_model(&cx.m, &ask, missing.as_deref(), go.as_deref(), &results);
+    let mut model = page_model(&cx.m, &ask, missing.as_deref(), go.as_deref(), &results);
+    if let Some(r) = model.results.as_mut() {
+        match hit_badges(site, &mut cx, &incoming, &results).await {
+            Ok(badges) => {
+                for hit in r.groups.iter_mut().flat_map(|g| g.hits.iter_mut()) {
+                    if let Some(b) = badges.get(&hit.href) {
+                        hit.badges.clone_from(b);
+                    }
+                }
+            }
+            Err(e) => eprintln!("triplespace-ui: badges for search results: {e}"),
+        }
+    }
     let body = cx.draw("special/search.html", model);
     pages::respond(&cx, headers, StatusCode::OK, |m| Page {
         title: m.get("ts-search-title"),

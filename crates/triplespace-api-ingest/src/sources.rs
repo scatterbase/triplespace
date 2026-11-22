@@ -35,6 +35,48 @@ use crate::PgIngest;
 /// The segment exponent of a source partition, as the tenant's others (0001 §4).
 const SEGMENT_K: u8 = 16;
 
+/// What the registry means for one source, as lines `registry check` prints (0078 §3 rule
+/// 2, §9): the names it shadows, and
+/// the provider it can be promoted to.
+#[must_use]
+pub fn findings(source: &scatter_providers::EntitySource, registry: &Registry) -> Vec<String> {
+    let name = &source.name;
+    let mut out = Vec::new();
+    if let Some(p) = registry.by_slug(name).filter(|p| !p.source) {
+        out.push(format!(
+            "`{name}` shadows provider `{}`, which is reached as {} on this tenant",
+            p.slug, p.code
+        ));
+    }
+    if scatter_normalize::KeyedRegistry::default_registry()
+        .by_name(name)
+        .is_some()
+    {
+        out.push(format!("`{name}` shadows the keyed type `{name}`"));
+    }
+    if scatter_normalize::ResolverRegistry::default_registry()
+        .by_name(name)
+        .is_some()
+    {
+        out.push(format!("`{name}` shadows the resolver `{name}`"));
+    }
+    if scatter_normalize::SchemeRegistry::default_registry()
+        .by_name(name)
+        .is_some()
+    {
+        out.push(format!("`{name}` shadows the notation scheme `{name}`"));
+    }
+    if !source.retired
+        && let Some(p) = source.promotable_to(registry)
+    {
+        out.push(format!(
+            "`{name}` can be promoted to {} (`{}`), which has its IRI templates",
+            p.code, p.slug
+        ));
+    }
+    out
+}
+
 /// Why a source write was refused; the caller rolls back.
 #[derive(Debug, thiserror::Error)]
 pub enum SourceWriteError {
@@ -119,17 +161,21 @@ pub async fn write(
         Some(n) => n,
         None => next_number(cx, tenant).await?,
     });
-    source.validate(Registry::default_registry())?;
+    // The registry's names are checked when a source is first declared: a source keeps a
+    // name a registry update adds later (05 §6.3 rule 2).
     if let Some(earlier) = &existing {
+        source.validate_shape()?;
         source.check_binding(earlier)?;
+    } else {
+        source.validate(Registry::default_registry())?;
     }
-    if scatter_normalize::KeyedRegistry::default_registry()
+    let registry_name = scatter_normalize::KeyedRegistry::default_registry()
         .by_name(name)
         .is_some()
         || scatter_normalize::SchemeRegistry::default_registry()
             .by_name(name)
-            .is_some()
-    {
+            .is_some();
+    if existing.is_none() && registry_name {
         return Err(SourceWriteError::NameTaken(name.to_string()));
     }
 
@@ -274,4 +320,47 @@ fn random_partition() -> Result<u64, SourceWriteError> {
     let mut bytes = [0u8; 8];
     getrandom::fill(&mut bytes).map_err(|e| store_err(format!("random partition ID: {e}")))?;
     Ok(u64::from_le_bytes(bytes).max(1))
+}
+
+#[cfg(test)]
+mod registry_check_tests {
+    use super::*;
+    use scatter_providers::EntitySource;
+
+    fn source(name: &str, iri: &str) -> EntitySource {
+        serde_json::from_value(serde_json::json!({
+            "name": name, "label": name,
+            "types": [{"upstream_prefix": "Q", "entity_type": "item", "iri": iri}],
+        }))
+        .unwrap()
+    }
+
+    // 0078 §3 rule 2, §9: a name the registry has is shadowed, and a source a provider
+    // covers is promotable; a source of its own graph is neither.
+    #[test]
+    fn a_check_lists_shadowed_names_and_promotable_sources() {
+        let registry = Registry::default_registry();
+        let lb = findings(
+            &source("wikidata", "https://librarybase.org/entity/{upstream_id}"),
+            registry,
+        );
+        assert_eq!(lb.len(), 2, "{lb:?}");
+        assert!(lb[0].contains("shadows provider `wikidata`") && lb[0].contains("WD"));
+        assert!(lb[1].contains("promoted to LB"));
+        assert!(
+            findings(&source("doi", "https://x.example/{upstream_id}"), registry)
+                .iter()
+                .any(|l| l.contains("resolver") || l.contains("keyed type"))
+        );
+        assert!(
+            findings(
+                &source("mhc", "https://mhc.example/{upstream_id}"),
+                registry
+            )
+            .is_empty()
+        );
+        let mut retired = source("lb", "https://librarybase.org/entity/{upstream_id}");
+        retired.retired = true;
+        assert!(findings(&retired, registry).is_empty());
+    }
 }

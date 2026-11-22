@@ -130,6 +130,18 @@ meaning = "Whether an account request asks for a statement of up to 1,000 charac
 source = "[0087](../decisions/0087-account-registration-and-challenges.md) §6"
 
 [[setting]]
+key = "badges.local"
+scope = "tenant"
+bound = "tenant"
+group = "entities"
+type = "json"
+values = "list of badges, each with the fields of a `badges.toml` entry; `source` is `stored` or `class`"
+default = []
+default_text = "empty"
+meaning = "The tenant's own badges, beside the registry's ([06](06-statements-and-properties.md) §6.3)"
+source = "[0114](../decisions/0114-badges.md) §3"
+
+[[setting]]
 key = "blocks.max_per_page"
 scope = "tenant"
 bound = "tenant"
@@ -639,6 +651,18 @@ default_text = "1 minute"
 scope_note = "`site`, per follower: the instance record for a registry provider or a page repository, the tenant's for its entity sources"
 meaning = "How often a follower without an event stream polls the wiki's recent changes"
 source = "[0092](../decisions/0092-following-recent-changes.md) §6"
+
+[[setting]]
+key = "follow.max_failures"
+scope = "tenant"
+bound = "tenant"
+group = "mirrors"
+type = "integer"
+values = "1 to 1000"
+default = 10
+scope_note = "`site`, per follower, as `follow.interval`"
+meaning = "How many passes in a row a queued follower may fail before its job fails. After each failed pass it waits twice as long as after the last, starting from `follow.interval` and up to an hour; a pass that succeeds starts the count again"
+source = "[0104](../decisions/0104-batches-and-the-job-runner.md) A12"
 
 [[setting]]
 key = "follow.settle"

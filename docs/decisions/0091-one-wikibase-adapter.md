@@ -1,8 +1,8 @@
 # 0091. One Wikibase adapter; key maps are configuration
 
-- **Status:** Proposed
+- **Status:** Accepted
 - **Date:** 2026-10-26
-- **Updated:** 2026-10-30 (A2)
+- **Updated:** 2026-11-22 (A4)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0003](0003-statement-ui.md), [0017](0017-entity-id-grammar.md), [0035](0035-adopting-a-wikibase.md), [0048](0048-notation.md), [0070](0070-shallow-entity-mirroring.md), [0078](0078-entity-sources.md)
 
@@ -100,3 +100,19 @@ Replaced text: Consequences of this ADR.
 - **Date:** 2026-10-30
 - **Source:** 0050 §14
 - **Change:** relocates §1–§5
+
+### A3. Concept links name Wikidata items; deprecated properties are skipped
+
+- **Date:** 2026-11-21
+- **Source:** Direct: James, 2026-11-21, choosing between options put to him: concept links become item values naming the Wikidata item, and a deprecated property's uses are dropped while the property is still mirrored; the deprecation mark (an English label opening with `(DEPRECATED)`), the property becoming one of items, and a follower reading the marks from the mirror's labels, Claude, while building them, 2026-11-21; unconfirmed
+- **Change:** extends §2
+- **Summary:** The two vocabulary keys beside a key map are read. A value of a `concept_link_properties` property that is a Wikidata ID written as a string (`"Q787417"`) becomes an item value naming the item in Wikidata's stored form (`WDQ787417`), and the property's datatype becomes `wikibase-item`, so a tag links into the Wikidata mirror and its label shows; it stays an ordinary statement, never `same-as`. With `skip_deprecated_properties = true`, a property whose English label opens with `(DEPRECATED)`, the OpenStreetMap wiki's mark, is skipped wherever it is used (statements, qualifiers and reference snaks; a reference left empty goes), and is still mirrored itself. A concept-link entry that is not a property is a configuration error. Chapter text: 05 §4.1, §8.9.
+
+### A4. Deprecated properties are marked, not skipped
+
+- **Date:** 2026-11-22
+- **Source:** Direct: James, design discussion of 2026-11-22: a deprecated property is marked by a statement on the property, reusing Wikidata's concepts, and its statements are kept with a "(deprecated)" badge; the class is *obsolete predicate* (Q142241643), which he created. The setting `mark_deprecated_properties`, its `P31` property, the derived statement ID and dropping the follower's restored set, Claude, while building it, 2026-11-22; confirmed by James, 2026-11-22
+- **Change:** amends §2
+- **Summary:** `skip_deprecated_properties` is replaced by `mark_deprecated_properties = { property, class }`, Wikidata IDs. A property whose English label opens with `(DEPRECATED)` gets one statement `WDP31` → `WDQ142241643` with a deterministic ID; its uses are no longer dropped. The mark is the `class` badge of 0114 §2. A follower no longer restores the set of deprecated properties, since each property is judged by its own label. Chapter text: 05 §4.1, §8.9.
+
+Replaced text: 05 §4.1, §8.9.

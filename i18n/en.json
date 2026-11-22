@@ -4,6 +4,8 @@
 			"Triplespace contributors"
 		]
 	},
+	"ts-badge-deprecated": "deprecated",
+	"ts-badge-deprecated-tip": "Its source has retired this property. Its values are kept, but should not be added again.",
 	"ts-search-placeholder": "Search items, properties, domains and pages",
 	"ts-search-label": "Search",
 	"ts-search-button": "Search",
@@ -617,6 +619,8 @@
 	"ts-setting-account-request_expiry-help": "How long an account request stays open before it is deleted.",
 	"ts-setting-account-request_statement": "Account request statement",
 	"ts-setting-account-request_statement-help": "Whether an account request asks for a statement of up to 1,000 characters.",
+	"ts-setting-badges-local": "Badges of this wiki",
+	"ts-setting-badges-local-help": "Badges this wiki adds to the instance's. Each names an item and either the class whose instances carry it or that sitelinks may carry it.",
 	"ts-setting-blocks-max_per_page": "Blocks max per page",
 	"ts-setting-blocks-max_per_page-help": "Bounds blocks per render.",
 	"ts-setting-blocks-max_rows": "Blocks max rows",
@@ -711,6 +715,8 @@
 	"ts-setting-files-types-help": "The types the instance allows; a tenant site setting may narrow the list but not widen it.",
 	"ts-setting-follow-interval": "Follow interval",
 	"ts-setting-follow-interval-help": "How often a follower without an event stream polls the wiki's recent changes.",
+	"ts-setting-follow-max_failures": "Most failed passes in a row",
+	"ts-setting-follow-max_failures-help": "How many passes in a row a queued follower may fail before its job fails. After each failure it waits twice as long, up to an hour.",
 	"ts-setting-follow-retention": "Follow retention",
 	"ts-setting-follow-retention-help": "How long the followed wiki keeps recent changes ($wgRCMaxAge: 30 days on Wikimedia wikis, 90 by MediaWiki's default). A follower's position within this of now is never a gap; beyond it, a position older than the wiki's oldest change is.",
 	"ts-setting-follow-settle": "Follow settle window",

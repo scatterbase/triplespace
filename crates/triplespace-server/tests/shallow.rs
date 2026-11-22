@@ -201,7 +201,7 @@ async fn the_follower_keeps_to_the_set_and_walks_the_closure_to_its_depth() {
         },
         label: "Librarybase".into(),
         types: vec!["Q=item".into(), "P=property".into()],
-        iri: "https://librarybase.org/entity/{upstream_id}".into(),
+        iri: "https://lb.example/entity/{upstream_id}".into(),
         api: Some(api.clone()),
         entity_data: None,
         revision_ids: true,

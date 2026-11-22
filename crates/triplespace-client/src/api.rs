@@ -143,6 +143,23 @@ pub struct SiteInfo {
     pub export: ExportInfo,
     /// `triplespace.import`: what `Special:Import` takes (0047 A36).
     pub import: ImportInfo,
+    /// `triplespace.own_namespaces`: the tenant's own namespaces, numbered outside the
+    /// registry (10 §1.3 rule 4), each subject followed by its talk namespace.
+    pub own_namespaces: Vec<OwnNamespace>,
+}
+
+/// A namespace of the tenant's own, as `triplespace.own_namespaces` reports it.
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Deserialize)]
+pub struct OwnNamespace {
+    /// Its number: even for a subject, the next odd number for its talk.
+    pub id: i32,
+    /// Its canonical name.
+    pub canonical: String,
+    /// Its other names.
+    #[serde(default)]
+    pub aliases: Vec<String>,
+    /// `pages`, `resolver` or `reserved`.
+    pub kind: String,
 }
 
 /// What `triplespace.import` reports: the tenant's `import.max_upload`.
@@ -573,6 +590,11 @@ impl Client {
                 section(&ts["import"], "triplespace.import")?
             } else {
                 ImportInfo::default()
+            },
+            own_namespaces: if ts["own_namespaces"].is_array() {
+                section(&ts["own_namespaces"], "triplespace.own_namespaces")?
+            } else {
+                Vec::new()
             },
         };
         Ok(Fetched { value, cache })

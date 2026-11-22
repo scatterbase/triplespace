@@ -487,7 +487,15 @@ fn revision_row(
         );
     }
     // Triplespace's additions, as on `list=recentchanges`.
-    let extra = mw_row(ctx, row, props, "revisions");
+    // Only the keys below are read, none of which is a title, so the registry's
+    // namespaces serve.
+    let extra = mw_row(
+        ctx,
+        scatter_titles::Namespaces::embedded(),
+        row,
+        props,
+        "revisions",
+    );
     for key in ["source", "job", "operator", "upstream"] {
         if let Some(v) = extra.get(key) {
             m.insert(key.into(), v.clone());

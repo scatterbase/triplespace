@@ -481,8 +481,8 @@ async fn broken_wiki() -> String {
     format!("http://{address}/w/api.php")
 }
 
-// 0104 A12: a pass that fails puts the row back as one that succeeded does, unclaimed and
-// waiting its interval, rather than failing the follower and removing it.
+// 0104 A12: a pass that fails puts the row back, unclaimed, to wait twice as long as after
+// the last failure; after `follow.max_failures` in a row the job fails.
 #[tokio::test]
 async fn a_followers_failed_pass_is_tried_again() {
     let Some((database, dir)) = setup("tsjobkinds_followfail").await else {
@@ -499,7 +499,7 @@ async fn a_followers_failed_pass_is_tried_again() {
         source: None,
         once: false,
         from: Some("2026-11-12T00:00:00Z".into()),
-        interval: Some(3600),
+        interval: Some(60),
         batch: 200,
         key_file: key_file.clone(),
         anonymous: true,
@@ -508,24 +508,55 @@ async fn a_followers_failed_pass_is_tried_again() {
     .await;
     let row = queued(&database).await;
     let followers = job_work::with_followers(Runner::only("follow"), &database, &key_file);
-    let ran = jobs::run_once(&store, &pipeline, &followers, triplespace_cli::common::now)
-        .await
-        .unwrap()
-        .expect("the follower waited");
-    assert_eq!((ran.job_id, ran.error), (row, None));
-    assert_eq!(
+    let client = triplespace_cli::common::connect(&database).await.unwrap();
+    let pass = || async {
+        jobs::run_once(&store, &pipeline, &followers, triplespace_cli::common::now)
+            .await
+            .unwrap()
+            .expect("the follower waited")
+    };
+    let state = || async {
         rows(
             &database,
-            "SELECT job_id::text, (claimed_at IS NULL)::text,
-                    (not_before > now() + interval '50 minutes')::text
-             FROM ops.job_queue"
+            "SELECT failures::text, (claimed_at IS NULL)::text,
+                    round(extract(epoch FROM not_before - now()))::text
+             FROM ops.job_queue",
         )
-        .await,
-        vec![vec![
-            Some(row.to_string()),
-            Some("true".into()),
-            Some("true".into())
-        ]]
+        .await
+    };
+    // The first failure waits the interval, the second twice it, the third four times.
+    for (n, wait) in [(1, 60), (2, 120), (3, 240)] {
+        let ran = pass().await;
+        assert_eq!((ran.job_id, ran.error), (row, None));
+        let s = state().await;
+        assert_eq!(s[0][0].as_deref(), Some(n.to_string().as_str()), "{s:?}");
+        assert_eq!(s[0][1].as_deref(), Some("true"));
+        let left: i64 = s[0][2].as_deref().unwrap().parse().unwrap();
+        assert!(
+            (wait - 2..=wait).contains(&left),
+            "pass {n}: {left} s, not {wait}"
+        );
+        client
+            .execute("UPDATE ops.job_queue SET not_before = now()", &[])
+            .await
+            .unwrap();
+    }
+    // At `follow.max_failures` in a row the job fails as other jobs do.
+    client
+        .execute("UPDATE ops.job_queue SET failures = 9", &[])
+        .await
+        .unwrap();
+    let ran = pass().await;
+    assert!(
+        ran.error
+            .as_deref()
+            .is_some_and(|e| e.contains("10 passes in a row failed")),
+        "{:?}",
+        ran.error
+    );
+    assert_eq!(
+        one(&database, "SELECT count(*)::text FROM ops.job_queue").await,
+        "0"
     );
     let _ = std::fs::remove_dir_all(&dir);
 }

@@ -16,6 +16,9 @@
 //! - Each ID is resolved through its identity cluster (0004 §4): where the entity has no
 //!   label in a language, the cluster's canonical member's is taken, then another
 //!   member's.
+//! - `describe`, optional, names up to 50 IDs whose descriptions are wanted too, in the
+//!   same chain, read from each entity's record: `descriptions` in the answer, keyed as
+//!   `labels` is. A badge's tooltip is its item's description (19 §1.6).
 //! - **The public form only.** The labels are those anyone may read: an entity under a
 //!   `read` restriction, a deleted one, and every entity of a private wiki is left out,
 //!   whoever asks. The response is therefore cacheable by its URL and not by viewer.
@@ -68,6 +71,24 @@ fn params(query: Option<&str>) -> (Vec<String>, Vec<String>) {
         }
     }
     (ids, languages)
+}
+
+/// The most IDs `describe` takes.
+pub const MAX_DESCRIBED: usize = 50;
+
+/// `describe`, the IDs whose descriptions are wanted too, `|`-separated, each once.
+fn describe_param(query: Option<&str>) -> Vec<String> {
+    let mut out: Vec<String> = Vec::new();
+    for (k, v) in url::form_urlencoded::parse(query.unwrap_or_default().as_bytes()) {
+        if k == "describe" {
+            for part in v.split('|').map(str::trim).filter(|p| !p.is_empty()) {
+                if !out.iter().any(|x| x == part) {
+                    out.push(part.to_string());
+                }
+            }
+        }
+    }
+    out
 }
 
 /// Whether a string is shaped as a language code: letters, digits and hyphens.
@@ -213,6 +234,13 @@ pub async fn handle(
 ) -> Response {
     let bad = |code: &str, message: String| error(StatusCode::BAD_REQUEST, code, message);
     let (given, chain) = params(query.as_deref());
+    let describe = describe_param(query.as_deref());
+    if describe.len() > MAX_DESCRIBED {
+        return bad(
+            "toomanyvalues",
+            format!("`describe` takes at most {MAX_DESCRIBED} IDs"),
+        );
+    }
     if given.is_empty() {
         return bad(
             "param-missing",
@@ -423,7 +451,34 @@ pub async fn handle(
             }
         }
     }
-    let body = body(&chain, &labels).to_string();
+    // The descriptions `describe` asks for, from each entity's record, in the chain: what
+    // a badge's tooltip shows (19 §1.6; 0114 A2). Only what anyone may read.
+    let mut descriptions = Map::new();
+    for given in &describe {
+        let Ok(id) = parse_id(given).map(|id| entity_json::canonical_in(id, registry)) else {
+            continue;
+        };
+        let current = match read::current(client, app.order(), &tenant.slug, &id).await {
+            Ok(Some(c)) => c,
+            Ok(None) => continue,
+            Err(e) => return internal(&e),
+        };
+        let graph = current.contributions.first().map(|c| c.graph.as_str());
+        if hidden.every_entity() || hidden.entity(id.as_str(), graph) {
+            continue;
+        }
+        if let Some(l) = along(&current.resolved.entity.descriptions, &chain) {
+            descriptions.insert(
+                given.clone(),
+                json!({"language": chain[l.at], "value": l.text}),
+            );
+        }
+    }
+    let mut body = body(&chain, &labels);
+    if !descriptions.is_empty() {
+        body["descriptions"] = Value::Object(descriptions);
+    }
+    let body = body.to_string();
     let credentialed = caller.has_session() || bearer(&headers).is_some();
     let class = Class::Public.permitted(&method, credentialed, false, false);
     // No tag per entity: a label's staleness is accepted up to `s-maxage`, and a tag

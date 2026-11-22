@@ -12,6 +12,10 @@
 # page_ids     false if the provider publishes no page IDs; then each key's page ID is
 #              number << 40 | offset of the key's first record, otherwise number << 40 | the
 #              upstream page ID (0015 A50, A66). Default true.
+# page_id_slot On a [[provider.type]] of a provider with page_ids = false whose upstream IDs are
+#              numbers: 0–7, unique to the type. A key's page ID is then computed,
+#              number << 40 | 2^39 | slot << 36 | its upstream number, the same on every
+#              instance, rather than taken from an offset (0015 A69).
 # adapter      The crate that implements the provider's adapter (0002 §8.4), one per provider (0002 A28).
 #              Every MediaWiki+Wikibase provider names scatter-adapter-wikibase, parameterised by its
 #              entry (0091 §1).
@@ -190,6 +194,7 @@ actor_model = "provider-only"
 
   [[provider.type]]
   code = "W"
+  page_id_slot = 0           # page ID computed from the numeric ID (0015 A69)
   entity_type = "item"
   upstream_prefix = "W"
   iri = "https://openalex.org/{upstream_id}"
@@ -198,6 +203,7 @@ actor_model = "provider-only"
 
   [[provider.type]]
   code = "A"
+  page_id_slot = 1           # page ID computed from the numeric ID (0015 A69)
   entity_type = "item"
   upstream_prefix = "A"
   iri = "https://openalex.org/{upstream_id}"
@@ -206,6 +212,7 @@ actor_model = "provider-only"
 
   [[provider.type]]
   code = "S"
+  page_id_slot = 2           # page ID computed from the numeric ID (0015 A69)
   entity_type = "item"
   upstream_prefix = "S"
   iri = "https://openalex.org/{upstream_id}"
@@ -214,6 +221,7 @@ actor_model = "provider-only"
 
   [[provider.type]]
   code = "I"
+  page_id_slot = 3           # page ID computed from the numeric ID (0015 A69)
   entity_type = "item"
   upstream_prefix = "I"
   iri = "https://openalex.org/{upstream_id}"
@@ -222,6 +230,7 @@ actor_model = "provider-only"
 
   [[provider.type]]
   code = "T"
+  page_id_slot = 4           # page ID computed from the numeric ID (0015 A69)
   entity_type = "item"
   upstream_prefix = "T"
   iri = "https://openalex.org/{upstream_id}"
@@ -240,6 +249,7 @@ actor_model = "provider-only"
 
   [[provider.type]]
   code = "P"
+  page_id_slot = 5           # page ID computed from the numeric ID (0015 A69)
   entity_type = "item"
   upstream_prefix = "P"
   iri = "https://openalex.org/{upstream_id}"
@@ -248,6 +258,7 @@ actor_model = "provider-only"
 
   [[provider.type]]
   code = "F"
+  page_id_slot = 6           # page ID computed from the numeric ID (0015 A69)
   entity_type = "item"
   upstream_prefix = "F"
   iri = "https://openalex.org/{upstream_id}"
@@ -256,6 +267,7 @@ actor_model = "provider-only"
 
   [[provider.type]]
   code = "G"
+  page_id_slot = 7           # page ID computed from the numeric ID (0015 A69)
   entity_type = "item"
   upstream_prefix = "G"
   iri = "https://openalex.org/{upstream_id}"
@@ -458,6 +470,7 @@ deletion = "clear"
 
   [[provider.type]]
   code = "N"
+  page_id_slot = 0           # page ID computed from the numeric ID (0015 A69)
   entity_type = "item"
   upstream_prefix = ""
   iri = "https://www.openstreetmap.org/node/{upstream_id}"
@@ -466,6 +479,7 @@ deletion = "clear"
 
   [[provider.type]]
   code = "W"
+  page_id_slot = 1           # page ID computed from the numeric ID (0015 A69)
   entity_type = "item"
   upstream_prefix = ""
   iri = "https://www.openstreetmap.org/way/{upstream_id}"
@@ -474,6 +488,7 @@ deletion = "clear"
 
   [[provider.type]]
   code = "R"
+  page_id_slot = 2           # page ID computed from the numeric ID (0015 A69)
   entity_type = "item"
   upstream_prefix = ""
   iri = "https://www.openstreetmap.org/relation/{upstream_id}"
@@ -524,8 +539,10 @@ actor_model = "individual"
   identity_property_on_mapped = "drop"
   # Concept links (0036 §5): statements on the mapped entity, never same-as. notation has clusters = false.
   concept_link_properties = ["P7", "P12"]     # Wikidata equivalent, Wikidata concept
-  # Properties marked DEPRECATED upstream are skipped.
-  skip_deprecated_properties = true
+  # A property whose English label opens with "(DEPRECATED)" is written as an instance of
+  # obsolete predicate (Wikidata's P31 and Q142241643) and its uses kept; the mark draws the
+  # "(deprecated)" badge (0091 A4; 0114 §2).
+  mark_deprecated_properties = { property = "P31", class = "Q142241643" }
 
   [[provider.type]]
   code = "Q"
@@ -566,6 +583,7 @@ actor_model = "provider-only"
 
   [[provider.type]]
   code = "E"
+  page_id_slot = 0           # page ID computed from the numeric ID (0015 A69)
   entity_type = "item"
   upstream_prefix = ""
   iri = "https://scatter.red/gdelt/event/{upstream_id}"

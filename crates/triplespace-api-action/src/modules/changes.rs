@@ -392,12 +392,13 @@ async fn run(
     let page = feed::query(ctx.db(), &ctx.tenant.slug, &feed, &viewer(ctx).await?)
         .await
         .map_err(ApiError::internal)?;
+    let site = crate::pages::Site::load(ctx).await?;
     let mut rows: Vec<Value> = Vec::with_capacity(page.rows.len());
     let all_revisions = ctx.params.flag("wlallrev");
     let mut targets_seen: Vec<(Option<i16>, Option<String>)> = Vec::new();
     for r in &page.rows {
         let Some((holder, watches, x)) = &holding else {
-            rows.push(mw_row(ctx, r, &props, module.name()));
+            rows.push(mw_row(ctx, &site.namespaces, r, &props, module.name()));
             continue;
         };
         // Without `wlallrev`, a page shows its newest change only, as MediaWiki's does
@@ -407,7 +408,7 @@ async fn run(
             continue;
         }
         targets_seen.push(key);
-        let mut row = mw_row(ctx, r, &props, "recentchanges");
+        let mut row = mw_row(ctx, &site.namespaces, r, &props, "recentchanges");
         if let Value::Object(m) = &mut row {
             m.remove("rcid");
             if props.iter().any(|p| p == "notificationtimestamp") {

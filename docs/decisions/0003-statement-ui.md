@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-16 (A18)
+- **Updated:** 2026-11-22 (A19)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0000](0000-init.md), [0001](0001-revision-metadata-rdf.md), [0002](0002-source-graphs-and-mass-ingest.md), [MediaWiki API contract](../api/mediawiki-compat.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
@@ -233,3 +233,12 @@ Replaced text: 19 §4.5, §4.8.
 - **Source:** Direct: James, design discussion of 2026-11-16
 - **Change:** extends §7
 - **Summary:** `revision-of` names the `wikibase-remote` property that says which page a remote revision key belongs to (0110 A4). Chapter text: 06 §1.2.
+
+### A19. The "Best value" badge is one of the badges
+
+- **Date:** 2026-11-22
+- **Source:** 0114 §4
+- **Change:** amends §4, §9
+- **Summary:** The "Best value" badge is the `rank` badge of *preferred rank* (Q71533031), drawn by the one badge component every badge uses, with its tooltip from that item's description where the reader's language has one. The component table's "Best value badge" row becomes "Badge". Chapter text: 19 §1.6, §4.4, §4.8.
+
+Replaced text: 19 §4.4, §4.8.

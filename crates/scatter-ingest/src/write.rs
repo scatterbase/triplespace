@@ -373,12 +373,17 @@ pub async fn write_to<S: IngestStore>(
         Some(_) => Some(store.partition_size(cx, partition).await?),
         None => None,
     };
+    let computed = match &offset_ids {
+        Some(ids) if ids.pages => ids.computed(&key).transpose()?,
+        _ => None,
+    };
     let page_id = match ranged_page_id(graph, op, registry)? {
         Some(p) => p,
         None => match store.page_id_of(cx, &request.tenant, &key).await? {
             Some(p) => p,
-            None => match (op, offset_ids, offset) {
+            None => match (op, &offset_ids, offset) {
                 (Operation::Adopt { source_pageid, .. }, _, _) => *source_pageid,
+                (_, Some(_), _) if computed.is_some() => computed.unwrap_or_default(),
                 (_, Some(ids), Some(at)) if ids.pages => at_offset(ids.number, at)?,
                 _ => store.next_id(cx, owner, &Sequence::Page).await?,
             },
@@ -388,7 +393,7 @@ pub async fn write_to<S: IngestStore>(
     let revid = match graph {
         Graph::Mirror(_) | Graph::Source(_) => match upstream_revid(graph, op, registry)? {
             Some(r) => Some(r),
-            None => match (offset_ids, offset) {
+            None => match (&offset_ids, offset) {
                 (Some(ids), Some(at)) if ids.revisions => Some(at_offset(ids.number, at)?),
                 _ => None,
             },
@@ -455,9 +460,14 @@ fn ranged_page_id(
 /// What of a mirror or source record's IDs comes from its offset (0015 A50, A66): those of
 /// a provider that publishes no page IDs, or no revision IDs, which take
 /// `number << 40 | offset` instead. `None` for any other graph or provider.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
 struct OffsetIds {
     number: u64,
+    /// The provider's code, which a key starts with (`OA` in `OAW42`).
+    code: String,
+    /// Its types, whose `page_id_slot` computes a key's page ID from its numeric upstream
+    /// ID instead of an offset (0015 A69).
+    types: Vec<scatter_providers::EntityType>,
     /// A new key's page ID is its first record's offset.
     pages: bool,
     /// Every record's revision ID is its offset.
@@ -473,10 +483,29 @@ fn offset_ids(graph: &Graph, registry: &Registry) -> Result<Option<OffsetIds>, I
         .ok_or_else(|| IngestError::UnknownProvider(slug.clone()))?;
     let ids = OffsetIds {
         number: u64::from(provider.number),
+        code: provider.code.clone(),
+        types: provider.types.clone(),
         pages: !provider.page_ids,
         revisions: !provider.revision_ids,
     };
     Ok((ids.pages || ids.revisions).then_some(ids))
+}
+
+impl OffsetIds {
+    /// A new key's page ID computed from its upstream number, where its type has a slot
+    /// (0015 A69): `None` where it takes an offset.
+    fn computed(&self, key: &str) -> Option<Result<u64, IngestError>> {
+        let rest = key.strip_prefix(self.code.as_str())?;
+        let mut chars = rest.chars();
+        let code = chars.next()?;
+        let t = self.types.iter().find(|t| t.code == code)?;
+        Some(match t.computed_page(chars.as_str())? {
+            Ok(n) => at_offset(self.number, n),
+            Err(_) => Err(IngestError::Adapter(format!(
+                "`{key}`: its number does not fit its type's page slot (0015 A69)"
+            ))),
+        })
+    }
 }
 
 /// `number << 40 | offset`, an ID in a provider's range from a record's offset.
@@ -909,7 +938,7 @@ async fn write_entries<S: IngestStore>(
                 Some(k) => !page_ids.contains_key(k) && first_seen.insert(k.as_str()),
                 None => true,
             };
-            if new && brings.is_none() && !offset_ids.is_some_and(|ids| ids.pages) {
+            if new && brings.is_none() && !offset_ids.as_ref().is_some_and(|ids| ids.pages) {
                 fresh += 1;
             }
         }
@@ -938,9 +967,16 @@ async fn write_entries<S: IngestStore>(
     let mut settled = Vec::with_capacity(entries.len());
     for (i, (entry, (subject, key, brings, derived))) in entries.iter().zip(keyed).enumerate() {
         let at = base + i as u64;
+        let computed = match (&offset_ids, &key) {
+            (Some(ids), Some(k)) if ids.pages => ids.computed(k).transpose()?,
+            _ => None,
+        };
         let mut next_page = || {
+            if let Some(c) = computed {
+                return Ok(c);
+            }
             brings.map_or_else(
-                || match offset_ids {
+                || match &offset_ids {
                     Some(ids) if ids.pages => at_offset(ids.number, at),
                     _ => fresh
                         .next()
@@ -970,7 +1006,7 @@ async fn write_entries<S: IngestStore>(
         let revid = match (entry.payload, upstream) {
             (BlockPayload::Operation(op), true) => match upstream_revid(graph, op, providers()?)? {
                 Some(r) => Some(r),
-                None => match offset_ids {
+                None => match &offset_ids {
                     Some(ids) if ids.revisions => Some(at_offset(ids.number, at)?),
                     _ => None,
                 },

@@ -178,7 +178,7 @@ async fn a_read_queues_what_is_not_held_and_labels_come_from_the_cache() {
         },
         label: "Librarybase".into(),
         types: vec!["Q=item".into(), "P=property".into()],
-        iri: "https://librarybase.org/entity/{upstream_id}".into(),
+        iri: "https://lb.example/entity/{upstream_id}".into(),
         api: Some(api.clone()),
         entity_data: None,
         revision_ids: true,

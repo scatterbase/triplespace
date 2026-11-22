@@ -80,7 +80,12 @@ pub enum Kind {
 /// What a namespace's pages are, from the namespace registry's default model.
 #[must_use]
 pub fn kind_of(ns: i64) -> Option<Kind> {
-    let n = Namespaces::embedded().get(i32::try_from(ns).ok()?)?;
+    let ns = i32::try_from(ns).ok()?;
+    let Some(n) = Namespaces::embedded().get(ns) else {
+        // A talk namespace of the wiki's own (10 §1.3 rules 2 and 4): the odd number after
+        // its subject's.
+        return scatter_titles::subject_number(ns).map(|_| Kind::Talk);
+    };
     match n.default_model.as_deref() {
         Some("triplespace-talk") => Some(Kind::Talk),
         Some("triplespace-thread") => Some(Kind::Thread),

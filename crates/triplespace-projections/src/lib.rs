@@ -18,6 +18,7 @@ pub mod acl_read;
 pub mod activity;
 pub mod actors;
 pub mod backend;
+pub mod badges;
 pub mod common;
 pub mod entities;
 pub mod entity_sources;

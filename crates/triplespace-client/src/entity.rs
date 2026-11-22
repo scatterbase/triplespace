@@ -60,6 +60,9 @@ pub struct Bundle {
     pub visibility: Option<crate::pages::Visibility>,
     /// Whether the ID asked for is an alias of this entity (05 §4.1).
     pub redirected: bool,
+    /// The `class` badges of the entity and of the properties its statements use, by ID
+    /// (06 §6.2).
+    pub badges: BTreeMap<String, Vec<String>>,
 }
 
 /// A label and its language.
@@ -101,6 +104,9 @@ pub struct Entities {
     pub missing: Vec<String>,
     /// The visibility of each restricted entity served (`ts-visibility`; 19 §1.3).
     pub visibility: BTreeMap<String, crate::pages::Visibility>,
+    /// The `class` badges of each entity served that carries any, where `props` asked for
+    /// `ts-badges` (06 §6.2).
+    pub badges: BTreeMap<String, Vec<String>>,
 }
 
 fn entities_of(v: &Value) -> Entities {
@@ -111,6 +117,13 @@ fn entities_of(v: &Value) -> Entities {
                 out.missing.push(k.clone());
             } else {
                 out.found.insert(k.clone(), e.clone());
+            }
+        }
+    }
+    if let Some(map) = v["ts-badges"].as_object() {
+        for (k, b) in map {
+            if let Ok(items) = serde_json::from_value(b.clone()) {
+                out.badges.insert(k.clone(), items);
             }
         }
     }
@@ -288,6 +301,10 @@ impl Client {
                         .unwrap_or_default(),
                     visibility: v.get("visibility").and_then(crate::pages::Visibility::of),
                     redirected: v.contains_key("redirects"),
+                    badges: v
+                        .remove("badges")
+                        .and_then(|b| serde_json::from_value(b).ok())
+                        .unwrap_or_default(),
                 })
             }
             StatusCode::NOT_FOUND => None,
@@ -305,19 +322,43 @@ impl Client {
         ids: &[String],
         chain: &[String],
     ) -> Result<Fetched<BTreeMap<String, Label>>, ClientError> {
+        let f = self.labels_with(incoming, ids, chain, &[]).await?;
+        Ok(Fetched {
+            value: f.value.0,
+            cache: f.cache,
+        })
+    }
+
+    /// [`Self::labels`], with the descriptions of `describe` too (at most 50; the route's
+    /// `describe`), for badge tooltips (19 §1.6): the labels, then the descriptions.
+    pub async fn labels_with(
+        &self,
+        incoming: &Incoming,
+        ids: &[String],
+        chain: &[String],
+        describe: &[String],
+    ) -> Result<Fetched<(BTreeMap<String, Label>, BTreeMap<String, Label>)>, ClientError> {
         #[derive(Deserialize)]
         struct Answer {
             #[serde(default)]
             labels: BTreeMap<String, Label>,
+            #[serde(default)]
+            descriptions: BTreeMap<String, Label>,
         }
         let mut out = BTreeMap::new();
+        let mut described = BTreeMap::new();
         let mut caches = Vec::new();
         let language = utf8_percent_encode(&chain.join("|"), QUERY).to_string();
-        for call in label_calls(ids) {
-            let path = format!(
+        let describe = &describe[..describe.len().min(50)];
+        for (n, call) in label_calls(ids).into_iter().enumerate() {
+            let mut path = format!(
                 "/w/rest.php/triplespace/v0/labels?ids={}&language={language}",
                 utf8_percent_encode(&call.join("|"), QUERY)
             );
+            if n == 0 && !describe.is_empty() {
+                path.push_str("&describe=");
+                path.push_str(&utf8_percent_encode(&describe.join("|"), QUERY).to_string());
+            }
             let r = self.get(incoming, &path).await?;
             if r.status != StatusCode::OK {
                 return Err(rest_error(&r));
@@ -325,10 +366,11 @@ impl Client {
             let a: Answer = serde_json::from_slice(&r.body)
                 .map_err(|e| ClientError::Unexpected(format!("labels: {e}")))?;
             out.extend(a.labels);
+            described.extend(a.descriptions);
             caches.push(CacheInfo::of(&r));
         }
         Ok(Fetched {
-            value: out,
+            value: (out, described),
             cache: CacheInfo::combine(&caches),
         })
     }
@@ -365,6 +407,7 @@ impl Client {
             out.found.extend(e.found);
             out.missing.extend(e.missing);
             out.visibility.extend(e.visibility);
+            out.badges.extend(e.badges);
             caches.push(CacheInfo::of(&r));
         }
         Ok(Fetched {

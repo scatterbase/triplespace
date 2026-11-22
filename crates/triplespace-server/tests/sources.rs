@@ -230,7 +230,7 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
         },
         label: "Librarybase as a source".into(),
         types: vec!["Q=item".into(), "P=property".into()],
-        iri: "https://librarybase.org/entity/{upstream_id}".into(),
+        iri: "https://lb.example/entity/{upstream_id}".into(),
         api: Some("https://librarybase.org/w/api.php".into()),
         entity_data: None,
         revision_ids: true,
@@ -263,7 +263,7 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
         },
         label: "Librarybase".into(),
         types: vec!["Q=item".into(), "P=property".into()],
-        iri: "https://librarybase.org/entity/{upstream_id}".into(),
+        iri: "https://lb.example/entity/{upstream_id}".into(),
         api: Some("https://librarybase.org/w/api.php".into()),
         entity_data: None,
         revision_ids: true,
@@ -313,6 +313,30 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
             .as_ref()
             .is_err_and(|e| e.to_string().contains("ts-source-name-taken")),
         "{taken:?}"
+    );
+
+    // A source with a registry provider's templates is refused: the tenant adds the
+    // provider instead (05 §6.8).
+    let duplicate = source::run(source::SourceCommand::Add(source::Add {
+        which: source::Which {
+            at: at(),
+            name: "lbcopy".into(),
+            reason: String::new(),
+        },
+        label: "x".into(),
+        types: vec!["Q=item".into()],
+        iri: "https://librarybase.org/entity/{upstream_id}".into(),
+        api: None,
+        entity_data: None,
+        revision_ids: false,
+        licence: None,
+    }))
+    .await;
+    assert!(
+        duplicate
+            .as_ref()
+            .is_err_and(|e| e.to_string().contains("ts-source-is-provider")),
+        "{duplicate:?}"
     );
 
     // 2. The load from the dump (0092 §4), recording where it ended (0092 §5).
@@ -447,6 +471,52 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
         .raw("/w/rest.php/triplespace/v0/entity/lb:Q999999/provenance")
         .await;
     assert_eq!(status, StatusCode::NOT_FOUND);
+
+    // `registry check` reads the tenant's sources (0078 §9): `lb` names no registry
+    // provider's graph, so there is nothing to report; the check changes nothing.
+    triplespace_cli::registry::run(triplespace_cli::registry::RegistryCommand::Check(
+        triplespace_cli::registry::Check {
+            database: database.clone(),
+            tenant: Some("reader".into()),
+        },
+    ))
+    .await
+    .expect("registry check");
+    let declared =
+        triplespace_projections::entity_sources::declared(&connect_to(&database).await, "reader")
+            .await
+            .unwrap();
+    assert!(
+        triplespace_api_ingest::sources::findings(
+            &declared[0],
+            scatter_providers::Registry::default_registry()
+        )
+        .is_empty()
+    );
+
+    // The tenant's sources (0078 §10): `GET /entity-sources`, and the same list in
+    // `siprop=triplespace`.
+    let (status, listed) = c.raw("/w/rest.php/triplespace/v0/entity-sources").await;
+    assert_eq!(status, StatusCode::OK, "{listed}");
+    let sources = listed["sources"].as_array().expect("a list");
+    assert_eq!(sources.len(), 1, "{listed}");
+    assert_eq!(sources[0]["name"], "lb");
+    assert_eq!(sources[0]["label"], "Librarybase");
+    assert!(
+        sources[0]["number"].as_u64().is_some_and(|n| n >= 4096),
+        "{listed}"
+    );
+    assert_eq!(
+        sources[0]["types"][0]["iri"],
+        "https://lb.example/entity/{upstream_id}"
+    );
+    assert_eq!(sources[0]["promoted_to"], Value::Null);
+    assert_eq!(sources[0]["retired"], false);
+    let site = c.get("action=query&meta=siteinfo&siprop=triplespace").await;
+    assert_eq!(
+        site["query"]["triplespace"]["entity_sources"], listed["sources"],
+        "{site}"
+    );
 
     // The source's mirror status (18 §3.2; 0092 A15): loaded, not yet followed.
     let mirror = "/w/rest.php/triplespace/v0/provider/lb/mirror";
@@ -676,7 +746,7 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
     // 6. Declared again, the retired source is current under its own number.
     source::run(source::SourceCommand::Add(add(
         "lb",
-        "https://librarybase.org/entity/{upstream_id}",
+        "https://lb.example/entity/{upstream_id}",
     )))
     .await
     .expect("lb again");

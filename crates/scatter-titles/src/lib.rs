@@ -24,7 +24,7 @@ pub const INTERFACE: i32 = 8;
 pub const TEMPLATE: i32 = 10;
 
 /// Whether a namespace holds pages (0041 §4).
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum Kind {
     /// It holds pages, of the models it names.
@@ -38,7 +38,7 @@ pub enum Kind {
 }
 
 /// One namespace.
-#[derive(Debug, Clone, PartialEq, Eq, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Deserialize)]
 pub struct Namespace {
     /// Its number.
     pub id: i32,
@@ -70,6 +70,79 @@ pub struct Namespace {
     /// The `site` setting that turns it on, while it is otherwise reserved.
     #[serde(default)]
     pub enabled_by: Option<String>,
+    /// Its other names on a tenant, from the tenant's `namespace` record (0008 A37); the
+    /// registry gives none.
+    #[serde(default)]
+    pub aliases: Vec<String>,
+}
+
+/// Why a tenant's own namespace is refused (10 §1.3 rule 4).
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum NamespaceError {
+    /// The number is not 3000 or above, nor in 100–199, or the registry lists it
+    /// (`ts-namespace-number`).
+    Number(i32),
+    /// A name or alias is another namespace's name or alias on the tenant
+    /// (`ts-namespace-name-taken`).
+    NameTaken {
+        /// The namespace refused.
+        id: i32,
+        /// The name it shares.
+        name: String,
+    },
+}
+
+impl std::fmt::Display for NamespaceError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::Number(n) => write!(
+                f,
+                "namespace {n}: a tenant's own namespaces take 3000 and above or 100–199, \
+                 outside the registry's numbers (ts-namespace-number)"
+            ),
+            Self::NameTaken { id, name } => write!(
+                f,
+                "namespace {id}: `{name}` is already a namespace's name on this wiki \
+                 (ts-namespace-name-taken)"
+            ),
+        }
+    }
+}
+
+impl std::error::Error for NamespaceError {}
+
+/// Whether `id` is a number a tenant may give a namespace of its own (10 §1.3 rule 4),
+/// leaving aside whether the registry lists it.
+#[must_use]
+pub fn is_tenant_number(id: i32) -> bool {
+    id >= 3000 || (100..=199).contains(&id)
+}
+
+/// The talk namespace of `ns`: the registry's, or for a tenant's own namespace the next
+/// odd number, since a tenant's subject namespaces take even numbers (10 §1.3 rule 2).
+/// `None` where there is none.
+#[must_use]
+pub fn talk_number(ns: i32) -> Option<i32> {
+    match Namespaces::embedded().get(ns) {
+        Some(n) => n.talk,
+        None => (is_tenant_number(ns) && ns % 2 == 0).then_some(ns + 1),
+    }
+}
+
+/// The subject namespace of the talk namespace `ns`: the registry's, or for a tenant's
+/// own talk namespace (odd) the number before it. `None` for a subject namespace.
+#[must_use]
+pub fn subject_number(ns: i32) -> Option<i32> {
+    match Namespaces::embedded()
+        .iter()
+        .find(|n| n.talk == Some(ns) && n.id != ns)
+    {
+        Some(n) => Some(n.id),
+        None if Namespaces::embedded().get(ns).is_none() => {
+            (is_tenant_number(ns) && ns % 2 == 1).then_some(ns - 1)
+        }
+        None => None,
+    }
 }
 
 impl Namespace {
@@ -158,15 +231,145 @@ impl Namespaces {
             .find(|n| n.canonical.to_lowercase() == want)
     }
 
-    /// Every namespace, in registry order.
+    /// Every namespace, in registry order, then a tenant's own in number order.
     pub fn iter(&self) -> impl Iterator<Item = &Namespace> {
         self.rows.iter()
     }
+
+    /// A namespace by any of its names: canonical, local or an alias, ignoring case and
+    /// treating `_` as a space.
+    #[must_use]
+    pub fn by_any_name(&self, name: &str) -> Option<&Namespace> {
+        let want = name.replace('_', " ").trim().to_lowercase();
+        self.rows
+            .iter()
+            .find(|n| names(n).any(|x| x.to_lowercase() == want))
+    }
+
+    /// The registry with a tenant's own namespaces added (10 §1.3 rule 4): each must take
+    /// a number the registry leaves to tenants and does not list, and no name or alias
+    /// another namespace has, `taken` included (the tenant's interwiki prefixes).
+    ///
+    /// # Errors
+    ///
+    /// [`NamespaceError`] for the first namespace refused.
+    pub fn with_tenant(
+        &self,
+        added: impl IntoIterator<Item = Namespace>,
+        taken: &[&str],
+    ) -> Result<Self, NamespaceError> {
+        let mut out = self.clone();
+        let mut added: Vec<Namespace> = added.into_iter().collect();
+        added.sort_by_key(|n| n.id);
+        for n in added {
+            // A subject takes an even number and its talk the next (10 §1.3 rule 2).
+            let paired = match n.talk {
+                Some(t) => n.id % 2 == 0 && t == n.id + 1,
+                None => n.id % 2 == 1,
+            };
+            if !is_tenant_number(n.id) || out.get(n.id).is_some() || !paired {
+                return Err(NamespaceError::Number(n.id));
+            }
+            for name in names(&n) {
+                let lower = name.to_lowercase();
+                let clash = out
+                    .rows
+                    .iter()
+                    .any(|o| names(o).any(|x| x.to_lowercase() == lower))
+                    || taken.iter().any(|t| t.to_lowercase() == lower);
+                if clash {
+                    return Err(NamespaceError::NameTaken {
+                        id: n.id,
+                        name: name.to_string(),
+                    });
+                }
+            }
+            out.rows.push(n);
+        }
+        Ok(out)
+    }
+}
+
+/// A namespace's names, canonical first, the main namespace's empty name left out.
+fn names(n: &Namespace) -> impl Iterator<Item = &str> {
+    std::iter::once(n.canonical.as_str())
+        .chain(n.name.as_deref())
+        .chain(n.aliases.iter().map(String::as_str))
+        .filter(|x| !x.is_empty())
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn own(id: i32, canonical: &str, aliases: &[&str]) -> Namespace {
+        Namespace {
+            id,
+            canonical: canonical.into(),
+            name: None,
+            kind: Kind::Resolver,
+            content_models: vec![],
+            default_model: None,
+            normalizer: None,
+            case: None,
+            subpages: false,
+            talk: Some(id + 1),
+            enabled_by: None,
+            aliases: aliases.iter().map(|a| (*a).to_string()).collect(),
+        }
+    }
+
+    // 10 §1.3 rule 4: a tenant's own namespaces take 3000 and up or 100–199, outside the
+    // registry's numbers, and no name another namespace has.
+    #[test]
+    fn a_tenant_adds_namespaces_of_its_own_under_rule_4() {
+        let r = Namespaces::embedded();
+        let t = r
+            .with_tenant([own(3000, "MHC", &["mhc", "Miraheze Communities"])], &[])
+            .unwrap();
+        assert_eq!(t.get(3000).unwrap().canonical, "MHC");
+        assert_eq!(
+            t.by_any_name("miraheze_communities").map(|n| n.id),
+            Some(3000)
+        );
+        assert_eq!(t.by_any_name("Project").map(|n| n.id), Some(4));
+        assert!(r.get(3000).is_none(), "the registry itself is untouched");
+        assert!(r.with_tenant([own(150, "Local", &[])], &[]).is_ok());
+        // A subject is even, its talk the next number.
+        assert_eq!(
+            r.with_tenant([own(3001, "Odd", &[])], &[]).unwrap_err(),
+            NamespaceError::Number(3001)
+        );
+        assert_eq!(talk_number(3000), Some(3001));
+        assert_eq!(subject_number(3001), Some(3000));
+        assert_eq!(subject_number(3000), None);
+        assert_eq!(talk_number(4), Some(5));
+        assert_eq!(subject_number(5), Some(4));
+        for bad in [2999, 200, 99] {
+            assert_eq!(
+                r.with_tenant([own(bad, "X", &[])], &[]).unwrap_err(),
+                NamespaceError::Number(bad)
+            );
+        }
+        // 120 is Item, in 100–199 but the registry's.
+        assert_eq!(
+            r.with_tenant([own(120, "X", &[])], &[]).unwrap_err(),
+            NamespaceError::Number(120)
+        );
+        assert!(matches!(
+            r.with_tenant([own(3000, "Item", &[])], &[]).unwrap_err(),
+            NamespaceError::NameTaken { id: 3000, .. }
+        ));
+        assert!(matches!(
+            r.with_tenant([own(3000, "A", &["b"]), own(3002, "B", &[])], &[])
+                .unwrap_err(),
+            NamespaceError::NameTaken { id: 3002, .. }
+        ));
+        assert!(matches!(
+            r.with_tenant([own(3000, "W", &[])], &["w"]).unwrap_err(),
+            NamespaceError::NameTaken { .. }
+        ));
+    }
 
     #[test]
     fn the_embedded_registry_parses() {

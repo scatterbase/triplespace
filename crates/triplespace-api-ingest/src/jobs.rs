@@ -132,6 +132,9 @@ pub enum Outcome {
     /// The work is a pass of something that goes on (a follower): the row is put back,
     /// unclaimed, to be claimed again once this long has passed (0104 A9).
     Again(Duration),
+    /// A pass of something that goes on failed: the row is put back as for
+    /// [`Outcome::Again`], its count of failed passes in a row raised by one (0104 A12).
+    Retry(Duration),
 }
 
 /// A boxed future, as [`Work`] returns it.
@@ -501,6 +504,8 @@ pub struct Claimed {
     /// The job ID an earlier runner ran it under before it died, if any: marked
     /// interrupted by this claim.
     pub resumes: Option<u64>,
+    /// How many passes in a row have failed, for work that goes on (0104 A12).
+    pub failures: u32,
 }
 
 /// The header of a job's start record where the runner writes it for the kind: a dump's
@@ -703,7 +708,7 @@ async fn claim_step(
         row = cx
             .conn()
             .query_opt(
-                "SELECT q.tenant, q.job_id, q.kind, q.params, q.payload, q.actor_key, q.claimed_at IS NOT NULL, q.attempts
+                "SELECT q.tenant, q.job_id, q.kind, q.params, q.payload, q.actor_key, q.claimed_at IS NOT NULL, q.attempts, q.failures
                  FROM ops.job_queue q
                  WHERE q.partition = $3
                    AND (q.claimed_at IS NULL OR q.heartbeat < now() - make_interval(secs => $1::double precision))
@@ -741,6 +746,7 @@ async fn claim_step(
     let actor: String = row.get(5);
     let was_claimed: bool = row.get(6);
     let attempts = u32::try_from(row.get::<_, i32>(7)).unwrap_or(0);
+    let failures = u32::try_from(row.get::<_, i32>(8)).unwrap_or(0);
     let old = u64::try_from(old_id).map_err(store_err)?;
     if !was_claimed {
         cx.conn()
@@ -761,6 +767,7 @@ async fn claim_step(
             payload,
             actor,
             resumes: None,
+            failures,
         }));
     }
     // The earlier runner died. Its job is interrupted where it had started, and the
@@ -818,6 +825,7 @@ async fn claim_step(
         payload,
         actor,
         resumes: Some(old),
+        failures,
     }))
 }
 
@@ -979,17 +987,20 @@ pub async fn run_claimed(
             )),
         });
     }
-    if let Ok(Outcome::Again(after)) = result {
+    if let Ok(Outcome::Again(after) | Outcome::Retry(after)) = result {
         // A pass of something that goes on: the row waits, unclaimed, for its next pass,
-        // its attempts counted afresh, since a pass that ended is not a run that died.
+        // its attempts counted afresh, since a pass that ended is not a run that died. A
+        // failed pass counts one more failure in a row; one that succeeded, none (0104 A12).
+        let failed = matches!(result, Ok(Outcome::Retry(_)));
         cx.conn()
             .execute(
                 "UPDATE ops.job_queue
                  SET claimed_by = NULL, claimed_at = NULL, heartbeat = NULL, attempts = 0,
                      progress = NULL,
+                     failures = CASE WHEN $4 THEN failures + 1 ELSE 0 END,
                      not_before = now() + make_interval(secs => $3::double precision)
                  WHERE tenant = $1 AND job_id = $2",
-                &[&tenant, &id, &after.as_secs_f64()],
+                &[&tenant, &id, &after.as_secs_f64(), &failed],
             )
             .await
             .map_err(store_err)?;

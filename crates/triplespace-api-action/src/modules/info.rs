@@ -516,7 +516,8 @@ pub async fn allpages(
             )
             .await?
     };
-    if scatter_titles::Namespaces::embedded()
+    if site
+        .namespaces
         .get(ns)
         .is_some_and(scatter_titles::Namespace::is_entity_namespace)
     {
