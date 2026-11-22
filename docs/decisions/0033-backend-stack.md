@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-20 (A33)
+- **Updated:** 2026-11-22 (A34)
 - **Author:** James Hare / Claude
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0034](0034-frontend-stack.md)
 
@@ -395,3 +395,10 @@ Replaced text: 03 §8, §9.2.
 - **Summary:** Triplespace depends on three of RevisionChest's crates from crates.io: `mwrev` (the bundle format), `mwdump` (MediaWiki's export XML) and `mwrecent` (the recent-changes poller); RevisionChest's binary still runs on its own. §10, and fixed point 4 of the Context, held that RevisionChest stays a separate binary that Triplespace does not link, which was decided when it had no library target; it has four crates now, and James decided on 2026-11-19 that Triplespace depends on them. The two stores stay separate (0112 §5), and live sync beyond the poller is still meant to move to RevisionChest later (0112 §3). The list of what RevisionChest's `sync` lacked is gone from the chapter: hidden text and offsets are fixed in RevisionChest 0.2, and the rest is its `sync`'s to fix. Chapter text: 13 §3.5, 22 §4.11.
 
 Replaced text: 13 §3.5.
+
+### A34. A published crate embeds its registry files through symlinks
+
+- **Date:** 2026-11-22
+- **Source:** 0115 §2
+- **Change:** extends §12
+- **Summary:** A crate published on crates.io embeds each registry file it needs as `registry/{file}.toml`, a symlink under its own directory to `docs/registry/{file}.toml`, because `cargo package` takes only what is under the crate's directory and stores a symlink's target as a file. `docs/registry/` stays the only copy in the repository, and a test in the crate fails when the embedded text differs from it. The crates that are not published keep embedding `docs/registry/` directly. Chapter text: 23 §4.1, 22 §3.6.

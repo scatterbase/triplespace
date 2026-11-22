@@ -199,7 +199,7 @@ The split is of code that already works, and changes no behaviour: no page, rout
 
 ## 3. Build order, naming, licensing and repository
 
-*Sources: [0005](../decisions/0005-crate-organization.md) §6, §7; [0033](../decisions/0033-backend-stack.md) §1, §16; [0035](../decisions/0035-adopting-a-wikibase.md) §8; [0043](../decisions/0043-lua-modules.md) §14; [0057](../decisions/0057-web-tier.md) §12.*
+*Sources: [0005](../decisions/0005-crate-organization.md) §6, §7; [0033](../decisions/0033-backend-stack.md) §1, §16; [0035](../decisions/0035-adopting-a-wikibase.md) §8; [0043](../decisions/0043-lua-modules.md) §14; [0057](../decisions/0057-web-tier.md) §12; [0115](../decisions/0115-publishing-the-shared-crates.md) §1.*
 
 ### 3.1 Build order
 
@@ -243,9 +243,9 @@ Shared crates carry the `scatter-` prefix. Crates that only Triplespace uses car
 
 ### 3.4 Repository and supply chain
 
-*Sources: [0005](../decisions/0005-crate-organization.md) §6; [0033](../decisions/0033-backend-stack.md) §16, A28, A30; [0097](../decisions/0097-versioning-and-skins.md) §3.*
+*Sources: [0005](../decisions/0005-crate-organization.md) §6; [0033](../decisions/0033-backend-stack.md) §16, A28, A30; [0097](../decisions/0097-versioning-and-skins.md) §3; [0115](../decisions/0115-publishing-the-shared-crates.md) §1.*
 
-Every crate lives in one Cargo workspace in the Triplespace repository, under `crates/`. Scatterbase takes Git dependencies pinned to a commit. The `scatter-*` crates move to their own repository when Scatterbase first depends on them. **Each `scatter-*` crate has its own version**, whose contract is its public Rust API under the Cargo SemVer rules, checked by `cargo-semver-checks` against its last published version once it has one; the other crates are `publish = false` and carry the product's version from `[workspace.package]` (§3.5; [0097](../decisions/0097-versioning-and-skins.md) §3).
+Every crate lives in one Cargo workspace in the Triplespace repository, under `crates/`. **A `scatter-*` crate that is ready is published to crates.io from this workspace**, and Scatterbase and any other Rust code take it from there; one that is not yet ready is `publish = false`, and Scatterbase takes it as a Git dependency pinned to a commit. The shared crates stay in this repository: publishing needs no repository of their own ([0115](../decisions/0115-publishing-the-shared-crates.md) §1; §3.6). **Each `scatter-*` crate has its own version**, whose contract is its public Rust API under the Cargo SemVer rules, checked by `cargo-semver-checks` against its last published version once it has one; the other crates are `publish = false` and carry the product's version from `[workspace.package]` (§3.5; [0097](../decisions/0097-versioning-and-skins.md) §3).
 
 - `cargo-deny` checks licences (the allowlist of §3.3), bans (no duplicate crypto providers, no `openssl-sys`), advisories and sources.
 - **Dependabot keeps dependency versions current** (`.github/dependabot.yml`; [0033](../decisions/0033-backend-stack.md) A28). It opens pull requests for the Cargo workspace, the npm packages of `ui/`, the documentation site's Python packages and the workflows' actions weekly, and for the fuzz workspace and the client libraries of `tools/client_compat.sh` monthly. Minor and patch releases are grouped into one pull request per ecosystem; a major release gets its own; each client library gets its own, since its client-compatibility run in CI is the verdict on the bump. A major release that cannot be taken until something else moves is ignored in the file, with the reason beside it, and the entry is removed when the reason goes: `getrandom` (the workspace names it to turn on `wasm_js` for the copy `oxrdf`'s `rand` uses, so a newer major fails the wasm32 build), `eslint` (`eslint-config-wikimedia` needs ESLint 8) and `typescript` (`vue-tsc` needs TypeScript below 7) ([0033](../decisions/0033-backend-stack.md) A30). Each pull request passes the same CI as any other, `cargo-deny` included; the generated-files workflow and the ADR preview leave Dependabot's pull requests alone. The Rust toolchain is not updated this way: it moves deliberately (§4.2).
@@ -283,6 +283,27 @@ Every crate lives in one Cargo workspace in the Triplespace repository, under `c
 - **Features and breaking changes are developed on branches**, with their bump, so that `main` stays fit to publish; a fix to a published line that `main` has moved past is made on a `release/X.Y` branch cut from that line's tag.
 
 The product starts at `0.1.0`, which the first publication carries.
+
+### 3.6 Publishing a shared crate
+
+*Sources: [0115](../decisions/0115-publishing-the-shared-crates.md) §1, §2, §3, §4.*
+
+**James publishes, by hand.** A shared crate goes to crates.io when James runs `cargo publish -p {crate}` with his own token, from a commit on `main`, and tags that commit `{crate}-vX.Y.Z` (§3.5). Agents prepare a release and leave it for him: they never hold a crates.io token and never publish. Nothing in CI publishes; a workflow that publishes on a tag, with a token secret or crates.io's trusted publishing, would be a decision of its own ([0115](../decisions/0115-publishing-the-shared-crates.md) §1).
+
+**A published crate carries its registry files as symlinks.** `cargo package` packages only what is under the crate's directory, so `include_str!("../../../docs/registry/…")` builds in the workspace and fails from crates.io. A published crate instead holds `registry/{file}.toml`, a symlink to `docs/registry/{file}.toml`, and embeds that path; `cargo package` stores the target's contents as a file, so the published crate carries the registry it was tested with, and `docs/registry/` stays the one copy in the repository. A test in the crate compares the embedded text with `docs/registry/{file}.toml` when that file is there, which fails a checkout that did not make the symlink (Windows without `core.symlinks`) and a copy that has drifted. The crate's `LICENSE` is a symlink to the repository's, the same way ([0115](../decisions/0115-publishing-the-shared-crates.md) §2; [23](23-configuration-and-registry.md) §4.1).
+
+**What a crate needs before its first publication** ([0115](../decisions/0115-publishing-the-shared-crates.md) §3):
+
+1. **Every dependency is on crates.io.** A workspace dependency names a `version` beside its `path` in `[workspace.dependencies]`, so crates.io gets the version; a crate it depends on is published first; a vendored crate is published under its own name or folded into the crate as a module, keeping its licence.
+2. **Its registry files are symlinks**, as above.
+3. **Its public API holds what its name says.** A Triplespace-only concept (provider-prefixed IDs, tenants, the `scatter:` vocabulary, Triplespace's CSS classes) is behind a trait, a table passed in or a feature, or moves to a `triplespace-*` crate, and no public function consults a built-in default registry where the caller cannot pass one (§1.2 rule 3).
+4. **A `README.md`** for crates.io says what the crate does, what it does not do yet, and how to use it, with an example that runs as a doctest. It says that the code comments cite Triplespace's ADRs and chapters, and where they are published. The rustdoc keeps those citations (24 §15).
+5. **Metadata:** `readme`, `homepage`, `keywords`, `categories`, the workspace's `license` and `repository`.
+6. **The first version is `0.1.0`**, and `cargo publish --dry-run` passes. From then on the crate's own version follows §3.5: a breaking change raises the minor under 0.x, and the patch goes up in the repository once a version is published.
+
+**Which crates are published is what their manifests say**: a `scatter-*` crate without `publish = false`, at the version its `{crate}-v…` tags name. No list is kept here.
+
+`scatter-wikitext-expand` is the first because it is general (MediaWiki's preprocessor, with what it needs from a wiki coming through `ExpandHost`) and nearly ready: its dependencies are `serde` and `toml`, and it embeds one registry file, `wikitext-functions.toml`. It is published as the slice it is, transclusion without arguments, the census and the pre-save transform, and its README says so; each later slice that breaks its API raises the minor ([0115](../decisions/0115-publishing-the-shared-crates.md) §4).
 
 ## 4. The backend stack
 

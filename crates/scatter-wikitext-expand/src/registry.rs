@@ -1,14 +1,17 @@
 //! The registry of variables, parser functions, extension tags and behaviour switches,
 //! embedding `docs/registry/wikitext-functions.toml` (0042 §5; 11 §2.1).
+//!
+//! The crate reads it as `registry/wikitext-functions.toml`, a symlink to the repository's
+//! file, which `cargo package` stores as a file, so the published crate carries the registry it
+//! was tested with (implements 0115 §2).
 
 use std::collections::{BTreeMap, HashSet};
 use std::sync::OnceLock;
 
 use serde::Deserialize;
 
-/// The registry file, as embedded.
-pub const WIKITEXT_FUNCTIONS_TOML: &str =
-    include_str!("../../../docs/registry/wikitext-functions.toml");
+/// The registry file, as embedded: the default a caller may replace with [`Registry::parse`].
+pub const WIKITEXT_FUNCTIONS_TOML: &str = include_str!("../registry/wikitext-functions.toml");
 
 #[derive(Deserialize)]
 struct Entry {
@@ -159,6 +162,21 @@ impl Registry {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    /// 0115 §2: the embedded file is the repository's registry, byte for byte. In a checkout
+    /// the symlink makes this so; a checkout without symlinks (Windows without
+    /// `core.symlinks`) or a copy that has drifted fails here. A packaged crate has no
+    /// `docs/` beside it, and has nothing to compare.
+    #[test]
+    fn embedded_file_is_the_repository_registry() {
+        let docs = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../docs/registry/wikitext-functions.toml"
+        );
+        if let Ok(text) = std::fs::read_to_string(docs) {
+            assert_eq!(WIKITEXT_FUNCTIONS_TOML, text);
+        }
+    }
 
     #[test]
     fn the_embedded_registry_parses() {

@@ -169,6 +169,13 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
 
 ## The code
 
+- Published crates (22 §3.6) hold symlinks: `registry/*.toml` into `docs/registry/` and
+  `LICENSE` to the root's. A checkout without symlink support (Windows without
+  `git config core.symlinks true`, or a tar copy that dropped them) leaves text files holding
+  the target path; the crate then fails to parse its registry, and its
+  `embedded_file_is_the_repository_registry` test fails. Edit the file in `docs/registry/`, never
+  through the link's path with a tool that replaces the link by a file (2026-11-22,
+  `scatter-wikitext-expand`).
 - A test that creates an instance without adopting a wiki cannot name its tenant `librarybase`:
   `instance create` refuses it, "`librarybase` is a registered issuer code". The tests that use
   that slug pass `adopt`; any other slug works (2026-11-21, `triplespace-server --test search`).
