@@ -1527,7 +1527,7 @@ Field semantics follow WikibaseCirrusSearch where a field exists there, so that 
 
 ### 11.3 Indexing is a projection
 
-*Sources: [0014](../decisions/0014-caches-and-search.md) §7; [0056](../decisions/0056-security-model.md) §8; [0083](../decisions/0083-write-path-in-three-tiers.md) §3.*
+*Sources: [0014](../decisions/0014-caches-and-search.md) §7; [0056](../decisions/0056-security-model.md) §8; [0083](../decisions/0083-write-path-in-three-tiers.md) §3.; [0115](../decisions/0115-publishing-the-shared-crates.md) §13*
 
 The search indexer is a tier-3 consumer (§6.1), with its own queue, rate and lag, off during bootstrap and bulk modes:
 
@@ -1538,7 +1538,7 @@ The search indexer is a tier-3 consumer (§6.1), with its own queue, rate and la
 - **Bootstrap** indexes from `view` in one pass after the set-based composition, with the refresh interval raised and replicas set to zero for the duration, as CirrusSearch's reindex does.
 - **Reindexing** into a new index and swapping an alias is the only way a mapping changes. The alias is what queries name.
 
-**Mappings.** The mappings and analysis settings are committed as JSON under `docs/search/`, versioned, and named in the alias, so a running instance can report which mapping it serves. Building a document from the resolved JSON is pure and lives in `scatter-wikibase-model` as a function, so the audit tooling can produce the same documents without a server.
+**Mappings.** The mappings and analysis settings are committed as JSON under `docs/search/`, versioned, and named in the alias, so a running instance can report which mapping it serves. Building a document from the resolved JSON is pure and lives in `scatter-wikibase-fusion` as a function ([0115](../decisions/0115-publishing-the-shared-crates.md) §13), so the audit tooling can produce the same documents without a server.
 
 **Consistency.** The index is eventually consistent with `view`, by the consumer's lag. A suggestion may name an entity whose page has moved on; the page is served from `view`, and the difference is the lag reported by `ops.projection_work`.
 

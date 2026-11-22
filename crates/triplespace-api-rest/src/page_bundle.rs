@@ -265,7 +265,7 @@ async fn class_badges(
     let badges = triplespace_projections::badges::registry(client, tenant)
         .await?
         .unwrap_or_else(|_| {
-            scatter_wikibase_model::badges::BadgeRegistry::default_registry().clone()
+            scatter_wikibase_fusion::badges::BadgeRegistry::default_registry().clone()
         });
     let mut walk =
         triplespace_projections::badges::ClassWalk::new(client, tenant, providers, &badges).await?;

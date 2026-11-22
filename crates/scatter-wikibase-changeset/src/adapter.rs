@@ -103,7 +103,7 @@ pub trait Adapter {
 
     /// The map value IRIs are stored through (0004 A20): a `unit`, `globe` or
     /// `calendarmodel` IRI becomes the entity ID it names. `None` keeps them as written.
-    fn value_iris(&self) -> Option<&scatter_wikibase_model::value_iri::ValueIris> {
+    fn value_iris(&self) -> Option<&scatter_wikibase_ids::value_iri::ValueIris> {
         None
     }
 
@@ -170,7 +170,7 @@ pub trait Adapter {
         if let (Some(iris), scatter_wikibase_model::statement::SnakKind::Value(v)) =
             (self.value_iris(), &mut snak.kind)
         {
-            scatter_wikibase_model::value_iri::ValueIris::map_value(v, |s| iris.store(s));
+            scatter_wikibase_ids::value_iri::ValueIris::map_value(v, |s| iris.store(s));
         }
     }
 
@@ -199,7 +199,7 @@ pub struct WikibaseAdapter {
     sources: BTreeMap<String, String>,
     /// Value IRIs to stored IDs (0004 A20): under the registry's templates, and in
     /// adoption mode the source's own as local IDs.
-    iris: std::sync::Arc<scatter_wikibase_model::value_iri::ValueIris>,
+    iris: std::sync::Arc<scatter_wikibase_ids::value_iri::ValueIris>,
 }
 
 impl WikibaseAdapter {
@@ -217,7 +217,7 @@ impl WikibaseAdapter {
             registry,
             home: false,
             sources: BTreeMap::new(),
-            iris: std::sync::Arc::new(scatter_wikibase_model::value_iri::ValueIris::new(
+            iris: std::sync::Arc::new(scatter_wikibase_ids::value_iri::ValueIris::new(
                 registry, None,
             )),
         })
@@ -235,7 +235,7 @@ impl WikibaseAdapter {
             .first()
             .and_then(|t| t.iri.split_once("{upstream_id}"))
             .map(|(base, _)| base.to_string());
-        self.iris = std::sync::Arc::new(scatter_wikibase_model::value_iri::ValueIris::new(
+        self.iris = std::sync::Arc::new(scatter_wikibase_ids::value_iri::ValueIris::new(
             self.registry,
             base.as_deref(),
         ));
@@ -262,7 +262,7 @@ impl Adapter for WikibaseAdapter {
         &self.provider
     }
 
-    fn value_iris(&self) -> Option<&scatter_wikibase_model::value_iri::ValueIris> {
+    fn value_iris(&self) -> Option<&scatter_wikibase_ids::value_iri::ValueIris> {
         Some(&self.iris)
     }
 

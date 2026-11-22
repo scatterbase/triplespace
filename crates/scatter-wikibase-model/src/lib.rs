@@ -18,10 +18,9 @@
 //! one Wikidata serves for mirrored data; [`hash::Hasher::reconcile`] is the ingest guard
 //! that checks it does, and keeps upstream's hash in place where it does not.
 //!
-//! Two functions over the model serve the resolved view and the index: [`key::statement_key`],
-//! the key statements fuse by (0004 §8), with the canonical IDs and resolvers passed in
-//! through [`key::Canon`]; and [`search::entity_document`], one document of the `entities`
-//! index (0014 §7), which carries its target's visibility set as `read_groups` (0056 §8).
+//! What Triplespace adds over the model is in the crates above it (0115 §13): statement keys,
+//! the search document and badges in `scatter-wikibase-fusion`, and value IRIs stored as
+//! entity IDs in `scatter-wikibase-ids`, which the [`Hasher`] reaches through [`ValueIriMap`].
 //!
 //! Canonical JSON ([`json::canonical`]) sorts object keys the way the core deterministic
 //! CBOR encoding does (by encoded bytes: shorter keys first, then bytewise), so that
@@ -32,27 +31,22 @@
 
 #![forbid(unsafe_code)]
 
-pub mod badges;
 pub mod entity;
 pub mod hash;
 pub mod id;
+pub mod iris;
 pub mod json;
-pub mod key;
 mod php;
-pub mod search;
 pub mod sites;
 pub mod statement;
 pub mod value;
-pub mod value_iri;
 
-pub use badges::{Badge, BadgeError, BadgeRegistry, BadgeSource};
 pub use entity::{Entity, EntityType, PageInfo, ParsedEntity, Sitelink, Term};
 pub use hash::{HashMismatches, Hasher};
 pub use id::{EntityId, IdForm, IdParseError, LexemePart, StatementId, Subject};
+pub use iris::{ValueIriMap, map_value_iris};
 pub use json::{Form, JsonError};
-pub use key::{Canon, Identity, snak_key, statement_key, value_key};
 pub use php::float_string as php_float_string;
-pub use search::{DocumentContext, EntityDocument, entity_document};
 pub use sites::{Site, SiteRegistry, SiteRegistryError};
 pub use statement::{Rank, Reference, Snak, SnakKind, Statement};
 pub use value::{

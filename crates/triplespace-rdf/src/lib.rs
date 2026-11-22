@@ -701,7 +701,7 @@ async fn write_files(
         local_partition: tx.partition_of(req.tenant, "local").await.map_err(db)?,
         iris,
         hasher: Hasher::local().with_iris(std::sync::Arc::new(
-            scatter_wikibase_model::value_iri::ValueIris::new(req.registry, Some(&entity_base)),
+            scatter_wikibase_ids::value_iri::ValueIris::new(req.registry, Some(&entity_base)),
         )),
     };
     let mut files = Files::create(dir)?;

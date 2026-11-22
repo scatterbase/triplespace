@@ -20,11 +20,11 @@ use scatter_keyed::{KeyedRegistry, keyword};
 use scatter_normalize::domain;
 use serde::Serialize;
 
-use crate::entity::Entity;
-use crate::id::{EntityId, IdForm};
 use crate::key::Canon;
-use crate::statement::{Rank, SnakKind};
-use crate::value::DataValue;
+use scatter_wikibase_model::entity::Entity;
+use scatter_wikibase_model::id::{EntityId, IdForm};
+use scatter_wikibase_model::statement::{Rank, SnakKind};
+use scatter_wikibase_model::value::DataValue;
 
 /// What the indexer knows beyond the entity itself.
 pub struct DocumentContext<'a> {
@@ -133,19 +133,18 @@ pub fn entity_document(entity: &Entity, ctx: &DocumentContext<'_>) -> EntityDocu
         let SnakKind::Value(value) = &statement.mainsnak.kind else {
             continue;
         };
-        let token = match value {
-            DataValue::EntityId(e) => Some(ctx.canon.canonical_id(&e.id).to_string()),
-            DataValue::String(s)
-                if statement
-                    .mainsnak
-                    .datatype
-                    .as_ref()
-                    .is_some_and(|d| *d == crate::value::DataType::ExternalId) =>
-            {
-                Some(s.clone())
-            }
-            _ => None,
-        };
+        let token =
+            match value {
+                DataValue::EntityId(e) => Some(ctx.canon.canonical_id(&e.id).to_string()),
+                DataValue::String(s)
+                    if statement.mainsnak.datatype.as_ref().is_some_and(|d| {
+                        *d == scatter_wikibase_model::value::DataType::ExternalId
+                    }) =>
+                {
+                    Some(s.clone())
+                }
+                _ => None,
+            };
         if let Some(token) = token {
             statement_keywords.push(format!("{property}={token}"));
         }
@@ -274,7 +273,7 @@ mod tests {
         let d: Entity = serde_json::from_str(
             r#"{"type":"domain","id":"domain:en.wikipedia.org","labels":{"mul":{"language":"mul","value":"en.wikipedia.org"}}}"#,
         )
-        .map(|p: crate::entity::ParsedEntity| p.entity)
+        .map(|p: scatter_wikibase_model::entity::ParsedEntity| p.entity)
         .unwrap();
         let doc = entity_document(&d, &ctx(&[], &[]));
         assert_eq!(doc.key.as_deref(), Some("en.wikipedia.org"));
@@ -291,7 +290,7 @@ mod tests {
         );
         let k: Entity =
             serde_json::from_str(r#"{"type":"keyword","id":"keyword:machine-learning"}"#)
-                .map(|p: crate::entity::ParsedEntity| p.entity)
+                .map(|p: scatter_wikibase_model::entity::ParsedEntity| p.entity)
                 .unwrap();
         let doc = entity_document(&k, &ctx(&[], &[]));
         assert_eq!(
@@ -303,7 +302,7 @@ mod tests {
             Some(&*keyword::display("machine-learning"))
         );
         let w: Entity = serde_json::from_str(r#"{"type":"item","id":"WDQ42"}"#)
-            .map(|p: crate::entity::ParsedEntity| p.entity)
+            .map(|p: scatter_wikibase_model::entity::ParsedEntity| p.entity)
             .unwrap();
         let doc = entity_document(&w, &ctx(&[], &[]));
         assert_eq!(doc.provider.as_deref(), Some("WD"));
@@ -318,7 +317,7 @@ mod tests {
                 {"mainsnak":{"snaktype":"value","property":"P2","datatype":"wikibase-item","datavalue":{"value":{"entity-type":"item","id":"Q4"},"type":"wikibase-entityid"}},"rank":"normal"},
                 {"mainsnak":{"snaktype":"somevalue","property":"P2"},"rank":"normal"}]}}"#,
         )
-        .map(|p: crate::entity::ParsedEntity| p.entity)
+        .map(|p: scatter_wikibase_model::entity::ParsedEntity| p.entity)
         .unwrap();
         let doc = entity_document(&e, &ctx(&[], &[]));
         assert_eq!(doc.statement_keywords, vec!["P2=Q4"]);
@@ -330,7 +329,7 @@ mod tests {
     fn search_documents_carry_source_form_ids() {
         // A mirrored Wikidata item, whose source form is `WDQ42`.
         let w: Entity = serde_json::from_str(r#"{"type":"item","id":"WDQ42"}"#)
-            .map(|p: crate::entity::ParsedEntity| p.entity)
+            .map(|p: scatter_wikibase_model::entity::ParsedEntity| p.entity)
             .unwrap();
         let doc = entity_document(&w, &ctx(&[], &[]));
         assert_eq!(doc.id, "WDQ42");
@@ -341,7 +340,7 @@ mod tests {
             r#"{"type":"item","id":"Q1","claims":{"P2":[
                 {"mainsnak":{"snaktype":"value","property":"P2","datatype":"wikibase-item","datavalue":{"value":{"entity-type":"item","id":"WDQ3"},"type":"wikibase-entityid"}},"rank":"normal"}]}}"#,
         )
-        .map(|p: crate::entity::ParsedEntity| p.entity)
+        .map(|p: scatter_wikibase_model::entity::ParsedEntity| p.entity)
         .unwrap();
         let doc = entity_document(&e, &ctx(&[], &[]));
         assert_eq!(doc.statement_keywords, vec!["P2=WDQ3"]);

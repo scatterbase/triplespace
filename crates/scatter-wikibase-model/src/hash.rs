@@ -34,7 +34,7 @@ use crate::statement::{Rank, Reference, Snak, SnakKind, Statement};
 use crate::value::DataValue;
 
 /// Computes Wikibase's hashes over the model.
-#[derive(Debug, Clone, Default, PartialEq, Eq)]
+#[derive(Debug, Clone, Default)]
 pub struct Hasher {
     /// The prefix of the IDs the data came from, if any: a provider's code (`WD`) or a
     /// source's name and colon (`lb:`), stripped so that its IDs are hashed in the bare
@@ -43,8 +43,23 @@ pub struct Hasher {
     /// The map from stored value IDs to the IRIs Wikibase hashes and serves (0004 A20):
     /// a `unit`, `globe` or `calendarmodel` is expanded before it is hashed or written.
     /// `None` takes the stored value as it is.
-    iris: Option<std::sync::Arc<crate::value_iri::ValueIris>>,
+    iris: Option<std::sync::Arc<dyn crate::iris::ValueIriMap>>,
 }
+
+/// Two hashers are equal when they strip the same source prefix and expand value IRIs
+/// through equal maps, compared by their debug form since a map is a trait object.
+impl PartialEq for Hasher {
+    fn eq(&self, other: &Self) -> bool {
+        self.source == other.source
+            && match (&self.iris, &other.iris) {
+                (None, None) => true,
+                (Some(a), Some(b)) => format!("{a:?}") == format!("{b:?}"),
+                _ => false,
+            }
+    }
+}
+
+impl Eq for Hasher {}
 
 /// The PHP classes an entity ID is serialized under, by Wikibase `entity-type`.
 fn entity_id_class(entity_type: &str) -> &'static str {
@@ -293,14 +308,14 @@ impl Hasher {
     /// Expands value IRIs through `iris` (0004 A20): what Wikibase hashes and serves for
     /// stored IDs in a value's `unit`, `globe` or `calendarmodel`.
     #[must_use]
-    pub fn with_iris(mut self, iris: std::sync::Arc<crate::value_iri::ValueIris>) -> Self {
+    pub fn with_iris(mut self, iris: std::sync::Arc<dyn crate::iris::ValueIriMap>) -> Self {
         self.iris = Some(iris);
         self
     }
 
     /// The map the hasher expands value IRIs through, if it has one.
     #[must_use]
-    pub fn iris(&self) -> Option<&crate::value_iri::ValueIris> {
+    pub fn iris(&self) -> Option<&dyn crate::iris::ValueIriMap> {
         self.iris.as_deref()
     }
 
@@ -313,7 +328,7 @@ impl Hasher {
                 DataValue::Quantity(_) | DataValue::GlobeCoordinate(_) | DataValue::Time(_),
             ) => {
                 let mut v = value.clone();
-                crate::value_iri::ValueIris::map_value(&mut v, |s| iris.expand(s));
+                crate::iris::map_value_iris(&mut v, |s| iris.expand(s));
                 std::borrow::Cow::Owned(v)
             }
             _ => std::borrow::Cow::Borrowed(value),
@@ -530,17 +545,33 @@ mod tests {
     // 0004 A20: a value IRI stored as an ID hashes and is served as Wikibase's IRI.
     #[test]
     fn value_iris_stored_as_ids_hash_and_serve_as_iris() {
-        use crate::value_iri::ValueIris;
-        let iris = std::sync::Arc::new(ValueIris::new(
-            scatter_providers::Registry::default_registry(),
-            Some("https://reader.example/entity/"),
-        ));
+        use std::borrow::Cow;
+        /// A store that keeps Wikidata's Gregorian calendar as `WDQ1985727`.
+        #[derive(Debug)]
+        struct Iris;
+        const IRI: &str = "http://www.wikidata.org/entity/Q1985727";
+        impl crate::iris::ValueIriMap for Iris {
+            fn expand<'a>(&self, stored: &'a str) -> Cow<'a, str> {
+                if stored == "WDQ1985727" {
+                    Cow::Owned(IRI.to_string())
+                } else {
+                    Cow::Borrowed(stored)
+                }
+            }
+        }
+        let iris: std::sync::Arc<dyn crate::iris::ValueIriMap> = std::sync::Arc::new(Iris);
         let written = snak(
             r#"{"snaktype":"value","property":"P4","datavalue":{"value":{"time":"+1952-03-11T00:00:00Z","timezone":0,"before":0,"after":0,"precision":11,"calendarmodel":"http://www.wikidata.org/entity/Q1985727"},"type":"time"}}"#,
         );
         let mut stored = written.clone();
         if let SnakKind::Value(v) = &mut stored.kind {
-            ValueIris::map_value(v, |s| iris.store(s));
+            crate::iris::map_value_iris(v, |s| {
+                if s == IRI {
+                    Cow::Owned("WDQ1985727".to_string())
+                } else {
+                    Cow::Borrowed(s)
+                }
+            });
             let DataValue::Time(t) = v else { panic!() };
             assert_eq!(t.calendarmodel, "WDQ1985727");
         }

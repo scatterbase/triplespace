@@ -981,7 +981,7 @@ impl Render<'_> {
         if !c.best(i) {
             return None;
         }
-        let registry = scatter_wikibase_model::badges::BadgeRegistry::default_registry();
+        let registry = scatter_wikibase_fusion::badges::BadgeRegistry::default_registry();
         Some(registry.for_rank(Rank::Preferred).map_or_else(
             || {
                 BadgeModel::new(

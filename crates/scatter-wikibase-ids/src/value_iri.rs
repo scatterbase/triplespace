@@ -15,7 +15,7 @@ use std::borrow::Cow;
 
 use scatter_providers::Registry;
 
-use crate::id::{EntityId, IdForm};
+use scatter_wikibase_model::id::{EntityId, IdForm};
 
 /// The map between value IRIs and stored IDs for one tenant.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -106,37 +106,39 @@ impl ValueIris {
         Cow::Borrowed(iri)
     }
 
-    /// Rewrites the value IRIs of `value` with `f`: its unit, globe or calendar model.
-    pub fn map_value(value: &mut crate::value::DataValue, f: impl Fn(&str) -> Cow<'_, str>) {
-        use crate::value::DataValue;
-        let field = match value {
-            DataValue::Quantity(q) => &mut q.unit,
-            DataValue::GlobeCoordinate(g) => &mut g.globe,
-            DataValue::Time(t) => &mut t.calendarmodel,
-            _ => return,
-        };
-        if let Cow::Owned(new) = f(field) {
-            *field = new;
-        }
+    /// Rewrites the value IRIs of `value` with `f`: its unit, globe or calendar model
+    /// ([`scatter_wikibase_model::map_value_iris`]).
+    pub fn map_value(
+        value: &mut scatter_wikibase_model::value::DataValue,
+        f: impl Fn(&str) -> Cow<'_, str>,
+    ) {
+        scatter_wikibase_model::map_value_iris(value, f);
     }
 
     /// Rewrites every value IRI in `statement` to the stored form: the main snak's, the
     /// qualifiers' and the references'.
-    pub fn store_statement(&self, statement: &mut crate::statement::Statement) {
+    pub fn store_statement(&self, statement: &mut scatter_wikibase_model::statement::Statement) {
         for snak in statement.snaks_mut() {
-            if let crate::statement::SnakKind::Value(v) = &mut snak.kind {
+            if let scatter_wikibase_model::statement::SnakKind::Value(v) = &mut snak.kind {
                 Self::map_value(v, |s| self.store(s));
             }
         }
     }
 
     /// Rewrites every value IRI in `entity`'s statements to the stored form.
-    pub fn store_entity(&self, entity: &mut crate::entity::Entity) {
+    pub fn store_entity(&self, entity: &mut scatter_wikibase_model::entity::Entity) {
         for group in entity.statements.values_mut() {
             for s in group {
                 self.store_statement(s);
             }
         }
+    }
+}
+
+/// The model's hasher expands stored value IRIs through this map (0004 A20).
+impl scatter_wikibase_model::ValueIriMap for ValueIris {
+    fn expand<'a>(&self, stored: &'a str) -> Cow<'a, str> {
+        ValueIris::expand(self, stored)
     }
 }
 

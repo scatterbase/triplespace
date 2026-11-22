@@ -412,9 +412,11 @@ impl<'de> Deserialize<'de> for DataValue {
 }
 
 impl DataValue {
-    /// Serializes to the wire shape. `numeric_ids` adds `numeric-id` to entity values
-    /// where the ID has one (the Wikibase form); the storage form leaves it out.
-    pub(crate) fn to_wire(&self, numeric_ids: bool) -> serde_json::Value {
+    /// Serializes to the wire shape: the `datavalue` object Wikibase writes. `numeric_ids`
+    /// adds `numeric-id` to entity values where the ID has one (the Wikibase form); the
+    /// storage form leaves it out.
+    #[must_use]
+    pub fn to_wire(&self, numeric_ids: bool) -> serde_json::Value {
         use serde_json::{Map, Value, json};
         let value = match self {
             Self::String(s) => Value::String(s.clone()),

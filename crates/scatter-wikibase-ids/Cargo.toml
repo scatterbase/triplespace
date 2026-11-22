@@ -1,0 +1,18 @@
+[package]
+name = "scatter-wikibase-ids"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "How Triplespace names Wikibase entities: value IRIs stored as entity IDs, and (in 0115 §13's second phase) the foreign, keyed and tenant-relative ID forms"
+# Not yet published: see 0115 §13.
+publish = false
+
+[dependencies]
+scatter-wikibase-model.workspace = true
+scatter-providers.workspace = true
+
+[lints]
+workspace = true

@@ -39,7 +39,7 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
-use scatter_wikibase_model::badges::BadgeRegistry;
+use scatter_wikibase_fusion::badges::BadgeRegistry;
 use scatter_wikibase_model::entity::Entity;
 use scatter_wikibase_model::id::{EntityId, IdForm};
 use scatter_wikibase_model::statement::{Snak, SnakKind};
@@ -146,7 +146,7 @@ pub fn badge_model(
     label: Option<&str>,
     description: Option<&str>,
 ) -> triplespace_ui_kit::badge::BadgeModel {
-    use scatter_wikibase_model::badges::BadgeSource;
+    use scatter_wikibase_fusion::badges::BadgeSource;
     let entry = EntityId::parse(item)
         .ok()
         .and_then(|i| BadgeRegistry::default_registry().get(&i));

@@ -24,10 +24,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
+use scatter_wikibase_fusion::key::{Bound, statement_key};
 use scatter_wikibase_model::entity::Entity;
 use scatter_wikibase_model::hash::Hasher;
 use scatter_wikibase_model::id::StatementId;
-use scatter_wikibase_model::key::{Bound, statement_key};
 use scatter_wikibase_model::statement::{Rank, Statement};
 
 /// One graph's state for the entity.

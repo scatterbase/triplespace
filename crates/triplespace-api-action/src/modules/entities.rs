@@ -4,7 +4,7 @@
 //! that is not an ID. `titles` with `sites` is not served (no sitelinks in the milestone).
 
 use scatter_keyed::keyed::KeyedRegistry;
-use scatter_wikibase_model::badges::BadgeRegistry;
+use scatter_wikibase_fusion::badges::BadgeRegistry;
 use scatter_wikibase_model::id::{EntityId, IdForm};
 use serde_json::{Value, json};
 use triplespace_projections::badges::ClassWalk;

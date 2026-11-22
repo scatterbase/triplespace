@@ -14,10 +14,10 @@
 use std::collections::{BTreeMap, BTreeSet};
 
 use scatter_wikibase_changeset::{Operation, SitelinkPatch};
+use scatter_wikibase_fusion::key::{Bound, statement_key};
 use scatter_wikibase_model::entity::Entity;
 use scatter_wikibase_model::hash::Hasher;
 use scatter_wikibase_model::id::{EntityId, StatementId};
-use scatter_wikibase_model::key::{Bound, statement_key};
 use scatter_wikibase_model::statement::Statement;
 
 /// The statement with this GUID in an entity.
