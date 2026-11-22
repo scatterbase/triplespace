@@ -1,6 +1,6 @@
 # 06. Statements and properties
 
-This chapter describes what a statement means on a Triplespace instance once it is stored: the semantic roles that let shape detection, resolvers and constraints refer to a property without knowing its ID, property constraints and where their violations appear, resolver namespaces, sitelinks as normalized URLs and the pages they pair with items, and the pages that carry statements of their own. It assumes the log and change-set records of [01](01-log-and-records.md), the resolved view of [02](02-graphs-rdf-and-query.md), the `view` tables of [03](03-storage-caches-and-search.md) and the entity IDs, clusters and value normalizers of [04](04-entities-and-identifiers.md). The statement itself is canonical Wikibase JSON in source form: its ID keeps Wikibase's `<EntityId>$<UUID>` form ([04](04-entities-and-identifiers.md) §2.1) with the entity ID its source wrote, and the entity part is rewritten to the consumer's preferred form in responses ([04](04-entities-and-identifiers.md) §4.9, §4.12); its `unit`, `globe` and `calendarmodel` are prefixed entity IDs, expanded to IRIs on output ([04](04-entities-and-identifiers.md) §4.7); statements with the same key fuse in the resolved view ([04](04-entities-and-identifiers.md) §4.8); a `wikibase-notation` property's scheme is [04](04-entities-and-identifiers.md) §3.9. How statements are drawn and edited is [19](19-site-ui.md); the API routes that read and write them are [18](18-api.md).
+This chapter describes what a statement means on a Triplespace instance once it is stored: the semantic roles that let shape detection, resolvers and constraints refer to a property without knowing its ID, property constraints and where their violations appear, resolver namespaces, sitelinks as normalized URLs and the pages they pair with items, the pages that carry statements of their own, and badges. It assumes the log and change-set records of [01](01-log-and-records.md), the resolved view of [02](02-graphs-rdf-and-query.md), the `view` tables of [03](03-storage-caches-and-search.md) and the entity IDs, clusters and value normalizers of [04](04-entities-and-identifiers.md). The statement itself is canonical Wikibase JSON in source form: its ID keeps Wikibase's `<EntityId>$<UUID>` form ([04](04-entities-and-identifiers.md) §2.1) with the entity ID its source wrote, and the entity part is rewritten to the consumer's preferred form in responses ([04](04-entities-and-identifiers.md) §4.9, §4.12); its `unit`, `globe` and `calendarmodel` are prefixed entity IDs, expanded to IRIs on output ([04](04-entities-and-identifiers.md) §4.7); statements with the same key fuse in the resolved view ([04](04-entities-and-identifiers.md) §4.8); a `wikibase-notation` property's scheme is [04](04-entities-and-identifiers.md) §3.9. How statements are drawn and edited is [19](19-site-ui.md); the API routes that read and write them are [18](18-api.md).
 
 ## 1. Semantic roles
 
@@ -28,7 +28,7 @@ Property IDs differ between Wikibases, so shape detection and the rank rules ref
 
 ### 1.2 Roles bound by other ADRs
 
-*Sources: [0003](../decisions/0003-statement-ui.md) §7; [0110](../decisions/0110-remote-pages-and-revisions.md) A4.*
+*Sources: [0003](../decisions/0003-statement-ui.md) §7; [0110](../decisions/0110-remote-pages-and-revisions.md) A4; [0114](../decisions/0114-badges.md) §2.*
 
 Other ADRs bind further roles the same way:
 
@@ -39,7 +39,8 @@ Other ADRs bind further roles the same way:
 - GDELT's document and event properties, such as `document-url`, `published`, `theme`, `event-type` and `mentioned-in` ([0037](../decisions/0037-gdelt-provider.md) §3–4, in [05](05-providers-and-ingest.md));
 - `subject-page` and `subject-thread`, the items that stand for a document page and a thread as values of Wikidata's *allowed entity types* constraint (Q52004125) (§5.3), and `thread-status`, the `string` property that carries a thread's projected status ([0038](../decisions/0038-page-metadata-and-categories.md) §9, in [14](14-discussions.md));
 - `notation-scheme`, the property that restricts which notation schemes a `wikibase-notation` property takes ([0048](../decisions/0048-notation.md) §4, in [04](04-entities-and-identifiers.md) §3.9);
-- `revision-of`, the `wikibase-remote` property that says which page a remote revision key belongs to ([0110](../decisions/0110-remote-pages-and-revisions.md) A4, in [04](04-entities-and-identifiers.md) §3.11).
+- `revision-of`, the `wikibase-remote` property that says which page a remote revision key belongs to ([0110](../decisions/0110-remote-pages-and-revisions.md) A4, in [04](04-entities-and-identifiers.md) §3.11);
+- `instance-of` and `subclass-of`, the class statements a `class` badge is read from (`WDP31` and `WDP279` on an instance that mirrors Wikidata) ([0114](../decisions/0114-badges.md) §2, in §6.2).
 
 ## 2. Property constraints
 
@@ -194,7 +195,7 @@ The `view.sitelink` table is [03](03-storage-caches-and-search.md) §4.3; the RD
 
 ### 4.1 A sitelink is a normalized URL, with badges
 
-*Sources: [0026](../decisions/0026-sitelinks.md) §1.*
+*Sources: [0026](../decisions/0026-sitelinks.md) §1; [0114](../decisions/0114-badges.md) §5.*
 
 A sitelink has a **URL**, a set of **badges** (item IDs, as in Wikibase) and an optional **title** for display. The URL is normalized when it is written, and the normalized form is the link's identity:
 
@@ -208,7 +209,7 @@ Nothing else is folded: `/Foo` and `/Foo/` are different URLs, as they are to th
 
 **A link to the tenant's own pages is stored by page ID,** not URL (§4.6). The normalizer is the `url` data type's key in the normalizer table of [04](04-entities-and-identifiers.md) §4.7, and the `url` data type used by statements gets it too.
 
-**Badges** are item IDs, stored as written and compared by cluster like any entity value ([04](04-entities-and-identifiers.md) §4.7). Which items may be badges is `site` configuration, as `$wgWBRepoSettings['badgeItems']` is.
+**Badges** are item IDs, stored as written and compared by cluster like any entity value ([04](04-entities-and-identifiers.md) §4.7). Which items may be badges are the `stored` badges of the badge registry and of the tenant's `badges.local` (§6.3), as `$wgWBRepoSettings['badgeItems']` lists them on a Wikibase. A local write that names any other item is refused; a mirrored sitelink keeps the badges upstream gave it, and one that neither list names is drawn as a plain link to its item.
 
 ### 4.2 The host is the site ID; one link per host; one item per URL
 
@@ -325,3 +326,46 @@ A page's resolved statements are the union of two kinds:
 **Identical statements fuse.** If an editor asserts a statement that a mapping also projects, the two are fused as statements from two graphs are ([04](04-entities-and-identifiers.md) §4.8), and the provenance lists both. Removing the category leaves the asserted statement. They are two independent claims, not one fact with two definitions, so nothing has to be reconciled.
 
 **Constraints apply to pages.** The constraint projection checks page statements as it checks entity statements (§2.1). Wikidata's *allowed entity types* constraint (Q52004125) lists its allowed types as items; two roles, `subject-page` and `subject-thread`, name the items that stand for "document page" and "thread" (§1.2), so a tenant can mark a property as page-only or keep it off pages. Like every constraint, it reports and never refuses.
+
+## 6. Badges
+
+*Sources: [0114](../decisions/0114-badges.md) §1.*
+
+A **badge** is a short mark drawn beside the thing it qualifies: a Wikipedia article's sitelink marked *featured article*, a statement that is the best value, a property its source has retired. Wikibase has badges only on sitelinks, as items an editor stores there. Triplespace keeps those as they are and adds badges that are computed when an entity is read, so that one kind of mark, with one look, covers all three.
+
+### 6.1 A badge is an item
+
+*Sources: [0114](../decisions/0114-badges.md) §1.*
+
+**Every badge is an item,** as a Wikibase sitelink badge is. The item gives the badge its name and its tooltip: its label and description in the reader's language, read as any value's label is ([05](05-providers-and-ingest.md) §5.6), so a badge is translated wherever its item is. Until its label is known a badge shows its ID. The default badges name Wikidata items (§6.3), so an instance that draws them reads those items' terms like any other Wikidata value's.
+
+The item says what the badge means; the badge registry (§6.3) says only what it marks, where it comes from and which icon it carries. Nothing about a badge is written into the entity it marks.
+
+### 6.2 What a badge marks, and where it comes from
+
+*Sources: [0114](../decisions/0114-badges.md) §2.*
+
+A badge marks one of three things, and its **source** fixes which:
+
+| Source | Marks | The badge is there when |
+|---|---|---|
+| `stored` | A sitelink | Its item is in the sitelink's `badges`, as in Wikibase. An editor writes it, or upstream did |
+| `class` | An entity | The entity is an instance of the badge's class: an `instance-of` value that is the class, or a subclass of it through `subclass-of` values, to `entities.closure_depth` steps, over mirrored and local data |
+| `rank` | A statement | The statement has the badge's rank. `preferred` is the "Best value" badge, drawn as [19](19-site-ui.md) §4.4 says |
+
+- **A stored badge belongs to its sitelink.** *Featured article* marks one wiki's article about the item, not the item, so it is drawn on that link and never on the entity.
+- **A computed badge is never stored.** `class` and `rank` badges are worked out when the entity is read, from what the resolved view holds ([02](02-graphs-rdf-and-query.md)). They are not in the entity's JSON, its records or its RDF, and they change as soon as the statements they rest on change. The API's entity JSON stays canonical Wikibase JSON, with stored badges only.
+- **`instance-of` and `subclass-of` are roles** (§1.2), bound in the instance record to `WDP31` and `WDP279` on an instance that mirrors Wikidata. A provider's adapter may write a class statement onto a mirrored entity with them, as the OpenStreetMap wiki's adapter marks the properties that wiki retires ([05](05-providers-and-ingest.md) §4.1). A tenant binds its own properties to the same roles to badge its own items.
+- **A class badge needs the class items.** The shallow mirror fetches the `subclass-of` chain above a class as it fetches any closure property's values ([05](05-providers-and-ingest.md) §5.3); the badge's own class is in the set from the start, so a badge never waits on a reader.
+
+### 6.3 The badge registry and a tenant's own badges
+
+*Sources: [0114](../decisions/0114-badges.md) §3.*
+
+**The badges an instance knows are listed in [`badges.toml`](../registry/badges.toml),** which `scatter-wikibase-model` embeds, beside the sitelink model that checks a written sitelink's badges against it. Each entry names the badge's item, its source, its class for a `class` badge or its rank for a `rank` badge, an icon from Codex's icon set, and its order where several badges stand together. The defaults are:
+
+- **`stored`:** Wikidata's sitelink badges, the same set Wikidata accepts (*featured article* Q17437796, *good article* Q17437798, *recommended article*, *featured list*, *good list*, *featured portal*, the Wikisource proofreading states, *digital document*, and the two *sitelink to redirect* badges);
+- **`class`:** *obsolete predicate* (Q142241643), the class of a property, key or attribute its source has deprecated or retired, of which Wikidata's *obsolete Wikidata property* (Q18644427) is a subclass. Its badge reads "(deprecated)";
+- **`rank`:** *preferred rank* (Q71533031), the "Best value" badge.
+
+**A tenant adds badges of its own** in the `badges.local` setting, with the same fields as a registry entry: an item of its own or a mirrored one, and the class or the stored use it stands for. A tenant badge cannot take the item of a registry badge, and cannot add a `rank` badge, since only the three ranks exist. The stored badges a sitelink may carry are the registry's and the tenant's together (§4.1).

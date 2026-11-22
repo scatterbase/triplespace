@@ -1,0 +1,97 @@
+# Badges (0114 §3; 06 §6.3).
+#
+# Every badge is an item, which gives it its name and tooltip; an entry here says only what the badge
+# marks and where it comes from (`source`), and how it is drawn (`icon`, a Codex icon name; `order`,
+# lowest first where several stand together).
+#
+#   source = "stored"  a sitelink badge, as in Wikibase: the items a sitelink's `badges` may name
+#   source = "class"   an entity that is an instance of `class` (instance-of, then subclass-of)
+#   source = "rank"    a statement of rank `rank`
+#
+# Items are in stored form (WDQ… for Wikidata). A tenant adds its own in `badges.local`.
+
+[[badge]]
+item = "WDQ71533031"   # preferred rank
+source = "rank"
+rank = "preferred"
+icon = "check"
+order = 10
+
+[[badge]]
+item = "WDQ142241643"  # obsolete predicate
+source = "class"
+class = "WDQ142241643"
+icon = "cancel"
+order = 20
+
+[[badge]]
+item = "WDQ17437796"   # featured article
+source = "stored"
+icon = "star"
+order = 30
+
+[[badge]]
+item = "WDQ17437798"   # good article
+source = "stored"
+icon = "check"
+order = 31
+
+[[badge]]
+item = "WDQ17559452"   # recommended article
+source = "stored"
+icon = "thumbUp"
+order = 32
+
+[[badge]]
+item = "WDQ17506997"   # featured list
+source = "stored"
+icon = "star"
+order = 33
+
+[[badge]]
+item = "WDQ51759403"   # good list
+source = "stored"
+icon = "check"
+order = 34
+
+[[badge]]
+item = "WDQ17580674"   # featured portal
+source = "stored"
+icon = "star"
+order = 35
+
+[[badge]]
+item = "WDQ20748092"   # proofread
+source = "stored"
+icon = "checkAll"
+order = 40
+
+[[badge]]
+item = "WDQ20748093"   # validated
+source = "stored"
+icon = "checkAll"
+order = 41
+
+[[badge]]
+item = "WDQ20748094"   # problematic
+source = "stored"
+icon = "alert"
+order = 42
+
+[[badge]]
+item = "WDQ28064618"   # digital document
+source = "stored"
+icon = "article"
+order = 43
+
+[[badge]]
+item = "WDQ70893996"   # sitelink to redirect
+source = "stored"
+icon = "articleRedirect"
+order = 50
+
+[[badge]]
+item = "WDQ70894304"   # intentional sitelink to redirect
+source = "stored"
+icon = "articleRedirect"
+order = 51

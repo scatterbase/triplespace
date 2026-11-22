@@ -130,6 +130,18 @@ meaning = "Whether an account request asks for a statement of up to 1,000 charac
 source = "[0087](../decisions/0087-account-registration-and-challenges.md) §6"
 
 [[setting]]
+key = "badges.local"
+scope = "tenant"
+bound = "tenant"
+group = "entities"
+type = "json"
+values = "list of badges, each with the fields of a `badges.toml` entry; `source` is `stored` or `class`"
+default = []
+default_text = "empty"
+meaning = "The tenant's own badges, beside the registry's ([06](06-statements-and-properties.md) §6.3)"
+source = "[0114](../decisions/0114-badges.md) §3"
+
+[[setting]]
 key = "blocks.max_per_page"
 scope = "tenant"
 bound = "tenant"

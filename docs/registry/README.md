@@ -15,6 +15,7 @@ This directory is the registry of record for the names and codes that Triplespac
 | `groups.toml` | Default groups, their permissions (and which act on a target), inclusion, delegation and scope, and the default graph ACLs | `scatter-actors` | 0016 §2–4, A35–A38, 0019 §12, 0020 §7, 0021 §9, 0022 §12, 0023 §11, 0024 §11, 0025 §10, 0030 §12, 0047 §12, 0051 §8 |
 | `grants.toml` | API-key grants and the permissions each covers; also the OAuth scopes a consumer may request | `scatter-actors` | 0024 §4, 0025 §2, 0047 §12 |
 | `sites.toml` | Site aliases: MediaWiki site IDs, hosts, article paths and languages, for sitelink compatibility and the `wikimedia` host's links (generated from the Wikimedia site matrix by `tools/sites_gen.py`) | `scatter-wikibase-model` | 0026 §2 |
+| `badges.toml` | Badges: each badge's item, source (`stored`, `class`, `rank`), class or rank, icon and order; the stored ones are the items a sitelink's `badges` may name | `scatter-wikibase-model` (once built) | 0114 §3 |
 | `thread-statuses.toml` | Default thread statuses, with category and order | `scatter-threads` | 0019 §6 (amended), 0054 §5, 0090 §3 |
 | `talk-markup.toml` | The conventions of wikitext talk pages, universal across wikis: timestamp formats as MediaWiki date-format strings, month names by language, the marks before an undated signature, and template names by role (`unsigned`, `outdent`, `wrapper`, `autosign`) | `scatter-talk` | 0090 §5 |
 | `preferences.toml` | Registered preference keys, types and defaults | `triplespace-accounts` | 0027 §1, 0069 §6, 0097 §8 |

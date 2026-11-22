@@ -109,6 +109,20 @@ Chips are the shared marks for kinds of thing. The set is kept small.
 
 Later ADRs add marks of the same kind: the Bot chip on a subsidiary's user page ([0024](../decisions/0024-subsidiary-accounts.md) §9), the `verified` chip on a mirrored entity whose provider is verified ([0022](../decisions/0022-federation.md) §11), the **Restricted** pill with a lock icon ([0056](../decisions/0056-security-model.md) §13), the repository's origin chip (§1.3), filter tags as chips on the rows they mark ([0030](../decisions/0030-edit-filters.md) §10), and the source chips of projected page statements (§1.4) and of statements asserted by a non-dominant graph (§4.6).
 
+### 1.6 Badges
+
+*Sources: [0114](../decisions/0114-badges.md) §4.*
+
+**A badge is drawn one way wherever it appears** ([06](06-statements-and-properties.md) §6): its icon from the badge registry, then its item's label in the reader's language, as a small outlined tag after the thing it marks. Hovering or focusing it shows the item's description, and the tag links to the item. Several badges on one thing stand in the registry's order. A badge is text, not colour alone, so it reads the same in every palette and to a screen reader.
+
+| Marks | Where it is drawn |
+|---|---|
+| An entity (`class`) | In the page header's identity line, after the title (§1.3), and after the entity's label wherever the entity is a value, a property row's label or a search result |
+| A sitelink (`stored`) | After the link on the Sitelinks tab (§6.4), and on `Special:PagesWithBadges` |
+| A statement (`rank`) | The "Best value" badge of §4.4 and §4.8 |
+
+The *obsolete predicate* badge reads "(deprecated)". On a property row it marks the property, and the row's values are drawn as they otherwise would be: a retired property's statements are kept and shown, so a reader sees what was said and that it should not be said again.
+
 ## 2. Search, addresses and accounts
 
 *Sources: [0010](../decisions/0010-site-ui.md) §3, §8, §10, §11, §12; [0018](../decisions/0018-tenants.md) §8; [0027](../decisions/0027-preferences-and-portability.md) §7; [0024](../decisions/0024-subsidiary-accounts.md) §9.*
@@ -570,7 +584,7 @@ In the Matrix, a cell with no statement reads "no value".
 
 ### 4.4 Rank
 
-*Sources: [0003](../decisions/0003-statement-ui.md) §4.*
+*Sources: [0003](../decisions/0003-statement-ui.md) §4; [0114](../decisions/0114-badges.md) §4.*
 
 Rank is shown only when it changes what a reader or a query sees.
 
@@ -581,7 +595,7 @@ Rank is shown only when it changes what a reader or a query sees.
 | Some deprecated | They are taken out of V and folded under "N deprecated". Each is struck through and labeled with its `deprecation-reason` qualifier. |
 | Deprecated only | The group reads "No current value", with the deprecated values expanded beneath. |
 
-- The "Best value" badge has a tooltip: "Queries and infoboxes return only this value". This is what truthy triples mean in practice.
+- The "Best value" badge is the `rank` badge of *preferred rank* (Q71533031), drawn as every badge is (§1.6). Its tooltip is the item's description where the reader's language has one, else "Queries and infoboxes return only this value". This is what truthy triples mean in practice.
 - Rank is set from each value's menu, through two items:
   - **"Make this the best value"**, which reads "Also a best value" when a preferred value already exists;
   - **"Mark as deprecated…"**, which asks for a reason and saves it as the `deprecation-reason` qualifier.
@@ -653,7 +667,7 @@ Statement editing requires JavaScript, as on Wikidata (§5.3).
 
 ### 4.8 Components
 
-*Sources: [0003](../decisions/0003-statement-ui.md) §9; [0031](../decisions/0031-property-constraints.md) §7.*
+*Sources: [0003](../decisions/0003-statement-ui.md) §9; [0031](../decisions/0031-property-constraints.md) §7; [0114](../decisions/0114-badges.md) §4.*
 
 The shapes are arrangements of twelve shared components, not separate widgets.
 
@@ -665,7 +679,7 @@ The shapes are arrangements of twelve shared components, not separate widgets.
 | Value cell | The value, formatted by data type; quantities use tabular numerals |
 | Qualifier column | A header with the qualifier property's label, and a cell for each row |
 | Footnote marker | A numbered pill linking to its entry in the tab's References (§4.5) |
-| Best value badge | A check icon and "Best value", with the tooltip from §4.4 |
+| Badge | A badge as §1.6 draws it; in a group, the "Best value" badge, a check icon and "Best value" with the tooltip from §4.4 |
 | Fold | A disclosure button: "N other values" or "N deprecated" |
 | Source chip | The provider code in monospace, or "Local" |
 | Correction chip | Collapsed, expanded, redundant and dangling states (§4.4) |
@@ -910,11 +924,11 @@ What each action does is [09](09-security-and-moderation.md).
 
 ### 6.4 Sitelinks, resolvers and constraints
 
-*Sources: [0026](../decisions/0026-sitelinks.md) §9; [0029](../decisions/0029-resolver-namespaces.md) §7; [0031](../decisions/0031-property-constraints.md) §7.*
+*Sources: [0026](../decisions/0026-sitelinks.md) §9; [0029](../decisions/0029-resolver-namespaces.md) §7; [0031](../decisions/0031-property-constraints.md) §7; [0114](../decisions/0114-badges.md) §4.*
 
 The models are [06](06-statements-and-properties.md).
 
-**Sitelinks.** The **Sitelinks** tab (§1.3) groups links by host, showing the host as a Domain chip linking to `Domain:{host}`, the title or path, and badges. Adding a link takes a URL and, for an aliased site, offers the site-and-title form with title autocomplete against that site's API, as Wikibase does. A denied host is refused with the list named.
+**Sitelinks.** The **Sitelinks** tab (§1.3) groups links by host, showing the host as a Domain chip linking to `Domain:{host}`, the title or path, and badges (§1.6). Adding a link takes a URL and, for an aliased site, offers the site-and-title form with title autocomplete against that site's API, as Wikibase does. A denied host is refused with the list named.
 
 **Resolvers.** A resolver's disambiguation page and its place in the namespace selector are §2.1.
 

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-15 (A9)
+- **Updated:** 2026-11-22 (A10)
 - **Author:** James Hare / Claude Fable
 - **Uses:** [0016](0016-permissions-and-access-control.md), [0022](0022-federation.md), [Wikibase contract](../api/wikibase-compat.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
@@ -156,3 +156,12 @@ Replaced text: §8 of this ADR.
 - **Source:** 0110 §5
 - **Change:** extends §2
 - **Summary:** `tools/sites_gen.py` writes `sites.toml` from Wikimedia's site matrix: every public wiki, closed and fishbowl wikis included and private wikis left out, with group `special` for the matrix's specials. The same entries are the `wikimedia` host's site list, from which remote keys take their links. Chapter text: 06 §4.3.
+
+### A10. A sitelink's badges are the badge registry's
+
+- **Date:** 2026-11-22
+- **Source:** 0114 §5
+- **Change:** amends §1
+- **Summary:** The items a sitelink's `badges` may name are the `stored` badges of `badges.toml` and of the tenant's `badges.local`, not a `site` setting, which was never registered. A local write naming another item is refused; a mirrored sitelink keeps what upstream gave it. Chapter text: 06 §4.1.
+
+Replaced text: 06 §4.1.

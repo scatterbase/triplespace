@@ -617,6 +617,8 @@
 	"ts-setting-account-request_expiry-help": "Help text of the setting `account.request_expiry`, under its label on Special:WikiSettings or Special:InstanceSettings. From the settings catalogue (docs/registry/settings.toml).",
 	"ts-setting-account-request_statement": "Label of the setting `account.request_statement` on Special:WikiSettings or Special:InstanceSettings (ADR 0085 §1, §4). The key is shown beside it.",
 	"ts-setting-account-request_statement-help": "Help text of the setting `account.request_statement`, under its label on Special:WikiSettings or Special:InstanceSettings. From the settings catalogue (docs/registry/settings.toml).",
+	"ts-setting-badges-local": "Label of the setting `badges.local` on Special:WikiSettings (ADR 0085 §1, §4). The key is shown beside it.",
+	"ts-setting-badges-local-help": "Help text of the setting `badges.local`, under its label on Special:WikiSettings. From the settings catalogue (docs/registry/settings.toml).",
 	"ts-setting-blocks-max_per_page": "Label of the setting `blocks.max_per_page` on Special:WikiSettings or Special:InstanceSettings (ADR 0085 §1, §4). The key is shown beside it.",
 	"ts-setting-blocks-max_per_page-help": "Help text of the setting `blocks.max_per_page`, under its label on Special:WikiSettings or Special:InstanceSettings. From the settings catalogue (docs/registry/settings.toml).",
 	"ts-setting-blocks-max_rows": "Label of the setting `blocks.max_rows` on Special:WikiSettings or Special:InstanceSettings (ADR 0085 §1, §4). The key is shown beside it.",

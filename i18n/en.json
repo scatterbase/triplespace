@@ -617,6 +617,8 @@
 	"ts-setting-account-request_expiry-help": "How long an account request stays open before it is deleted.",
 	"ts-setting-account-request_statement": "Account request statement",
 	"ts-setting-account-request_statement-help": "Whether an account request asks for a statement of up to 1,000 characters.",
+	"ts-setting-badges-local": "Badges of this wiki",
+	"ts-setting-badges-local-help": "Badges this wiki adds to the instance's. Each names an item and either the class whose instances carry it or that sitelinks may carry it.",
 	"ts-setting-blocks-max_per_page": "Blocks max per page",
 	"ts-setting-blocks-max_per_page-help": "Bounds blocks per render.",
 	"ts-setting-blocks-max_rows": "Blocks max rows",
