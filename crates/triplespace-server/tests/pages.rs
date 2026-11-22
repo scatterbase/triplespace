@@ -534,6 +534,111 @@ async fn api(database: &str, key_file: &std::path::Path) {
         "{entity_ns}"
     );
 
+    // search finds pages by the words of their text and title (0014 §8; 03 §11.6),
+    // whatever their case, every word asked for; a title that begins with the text
+    // leads; the snippet marks the words.
+    let words = c
+        .get("action=query&list=search&srsearch=wikiapiary%20CRAWLERS&srnamespace=*")
+        .await;
+    let found = words["query"]["search"].as_array().unwrap();
+    assert_eq!(found.len(), 1, "{words}");
+    assert_eq!(
+        found[0]["title"],
+        format!("{project}:Analytics/EveryMediaWiki"),
+        "{words}"
+    );
+    assert_eq!(found[0]["ns"], 4, "{words}");
+    let snippet = found[0]["snippet"].as_str().unwrap();
+    assert!(
+        snippet.contains("<span class=\"searchmatch\">WikiApiary</span>"),
+        "{words}"
+    );
+    assert!(found[0]["size"].as_u64().unwrap() > 0, "{words}");
+    assert!(found[0]["wordcount"].as_u64().unwrap() > 0, "{words}");
+    assert!(
+        found[0]["timestamp"].as_str().unwrap().ends_with('Z'),
+        "{words}"
+    );
+    assert_eq!(words["query"]["searchinfo"]["totalhits"], 1, "{words}");
+    // The main namespace alone by default; a namespace prefix picks its namespace.
+    let main = c.get("action=query&list=search&srsearch=wikiapiary").await;
+    assert_eq!(main["query"]["search"], serde_json::json!([]), "{main}");
+    let prefixed = c
+        .get("action=query&list=search&srsearch=project%3Awikiapiary&srlimit=1")
+        .await;
+    assert_eq!(
+        prefixed["query"]["search"].as_array().unwrap().len(),
+        1,
+        "{prefixed}"
+    );
+    // A title that begins with the text leads the pages that only mention it, with
+    // continuation; a redirect is not listed.
+    let titled = c
+        .get("action=query&list=search&srsearch=analytics&srnamespace=4&srlimit=1")
+        .await;
+    assert_eq!(
+        titled["query"]["search"][0]["title"],
+        format!("{project}:Analytics"),
+        "{titled}"
+    );
+    assert_eq!(titled["continue"]["sroffset"], 1, "{titled}");
+    assert!(
+        titled["query"]["searchinfo"]["totalhits"].as_u64().unwrap() > 1,
+        "{titled}"
+    );
+    let about = c
+        .get("action=query&list=search&srsearch=about&srnamespace=4&srwhat=title")
+        .await;
+    assert!(
+        about["query"]["search"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .all(|p| p["title"] != format!("{project}:About")),
+        "{about}"
+    );
+    // Every page with text has its words indexed.
+    let unindexed = query(
+        database,
+        "SELECT count(*) FROM view.page p
+         WHERE p.latest_revid IS NOT NULL AND p.len > 0 AND NOT EXISTS (
+           SELECT 1 FROM view.page_text x WHERE x.tenant = p.tenant AND x.page_id = p.page_id)",
+    )
+    .await;
+    assert_eq!(unindexed[0].get::<_, i64>(0), 0);
+
+    // The suggest route offers pages by title, and the exact title of one as a Go to
+    // (19 §2.1), however cased.
+    let suggest = |q: &str| {
+        let req = Request::builder()
+            .uri(format!("/w/rest.php/triplespace/v0/suggest?q={q}"))
+            .header(header::HOST, HOST)
+            .body(Body::empty())
+            .unwrap();
+        let router = c.router.clone();
+        async move {
+            let response = router.oneshot(req).await.unwrap();
+            assert_eq!(response.status(), StatusCode::OK);
+            let bytes = response.into_body().collect().await.unwrap().to_bytes();
+            serde_json::from_slice::<Value>(&bytes).unwrap()
+        }
+    };
+    let offered = suggest("project%3Aanalyt").await;
+    assert_eq!(offered["groups"][0]["kind"], "page", "{offered}");
+    assert_eq!(
+        offered["groups"][0]["hits"][0]["title"],
+        format!("{project}:Analytics"),
+        "{offered}"
+    );
+    assert!(offered.get("goto").is_none(), "{offered}");
+    let named_page = suggest("project%3Aanalytics").await;
+    assert_eq!(named_page["goto"]["kind"], "page", "{named_page}");
+    assert_eq!(
+        named_page["goto"]["title"],
+        format!("{project}:Analytics"),
+        "{named_page}"
+    );
+
     // backlinks lists the pages whose text links to a title (0008 §10): Project:Home
     // links to Project:Principles, by title, and to Item:Q2, by the item's ID.
     for target in ["Project:Principles", "Item:Q2"] {

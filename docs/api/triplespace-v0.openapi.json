@@ -320,6 +320,115 @@
         }
       }
     },
+    "/suggest": {
+      "get": {
+        "operationId": "getSuggest",
+        "summary": "What the search box offers for a text",
+        "description": "Suggestions for a text, grouped by kind (ADR 0012 §5; chapter 19 §2.1; chapter 3 §11.6): items, properties and domains whose label or alias begins with it in a language of the chain, then document pages whose title begins with it. Entities are one per identity cluster, the member the site shows it under; an exact match leads, then the entities most referred to, then the shorter text. Mirrored entities are found with local ones, and a foreign hit names its `provider`. Pages are searched in every namespace that holds pages, unless the text begins with a namespace prefix. `goto` is present when the text names an entity by its ID or key (`Q42`, `wdq42`, `Item:Q42`, `wikipedia.org`), resolved through its cluster, or is the exact title of a page, however cased; the entity is tried first. What the caller may not read is not suggested, so the response is public only for a caller without credentials; it carries the `Cache-Tag` of each entity it names.",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "The text, at most 255 bytes.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "language",
+            "in": "query",
+            "required": false,
+            "description": "The language chain labels and aliases are searched in, most wanted first, separated by `|`: `de|mul|en`. No fallback is added to it. Where it is absent, the site's language, then each shorter prefix of its code, `mul` and `en`.",
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "The most hits of one group, from 1 to 20.",
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "maximum": 20,
+              "default": 4
+            }
+          },
+          {
+            "name": "If-None-Match",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "The suggestions.",
+            "headers": {
+              "ETag": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Control": {
+                "schema": {
+                  "type": "string"
+                }
+              },
+              "Cache-Tag": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Suggestions"
+                }
+              }
+            }
+          },
+          "304": {
+            "description": "The client's copy, named by `If-None-Match`, is current."
+          },
+          "400": {
+            "description": "`q` is missing or too long, `limit` is out of range, or `language` holds something that is not a language code or names more languages than the route takes.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "The caller lacks `read`.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "421": {
+            "description": "The host is not a tenant of this instance.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/version": {
       "get": {
         "operationId": "getVersion",
@@ -12313,6 +12422,166 @@
                 }
               }
             }
+          }
+        }
+      },
+      "Suggestions": {
+        "type": "object",
+        "required": [
+          "q",
+          "language",
+          "groups"
+        ],
+        "properties": {
+          "q": {
+            "type": "string",
+            "description": "The text, trimmed."
+          },
+          "language": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "The language chain searched."
+          },
+          "goto": {
+            "type": "object",
+            "description": "The page the text names: an entity by its ID or key, or a document page by its exact title. Absent when it names none.",
+            "required": [
+              "kind",
+              "title"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string",
+                "enum": [
+                  "entity",
+                  "page"
+                ]
+              },
+              "title": {
+                "type": "string",
+                "description": "The page's prefixed title: `Item:Q42`, `Project:About`."
+              },
+              "id": {
+                "type": "string",
+                "description": "The entity's ID, for an entity: its cluster's canonical member."
+              },
+              "ns": {
+                "type": "integer",
+                "description": "The namespace, for a page."
+              },
+              "pageid": {
+                "type": "integer",
+                "description": "The page ID, for a page."
+              }
+            }
+          },
+          "groups": {
+            "type": "array",
+            "description": "The groups that have a hit, in the order `item`, `property`, `domain`, `page`.",
+            "items": {
+              "$ref": "#/components/schemas/SuggestionGroup"
+            }
+          }
+        }
+      },
+      "SuggestionGroup": {
+        "type": "object",
+        "required": [
+          "kind",
+          "hits"
+        ],
+        "properties": {
+          "kind": {
+            "type": "string",
+            "description": "An entity type (`item`, `property`, `domain`), or `page` for document pages."
+          },
+          "hits": {
+            "type": "array",
+            "description": "Entity hits for an entity type, page hits for `page`, the best first.",
+            "items": {
+              "oneOf": [
+                {
+                  "$ref": "#/components/schemas/SuggestedEntity"
+                },
+                {
+                  "$ref": "#/components/schemas/SuggestedPage"
+                }
+              ]
+            }
+          }
+        }
+      },
+      "SuggestedEntity": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "match"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "description": "The entity's ID: its cluster's canonical member where the caller may read it."
+          },
+          "title": {
+            "type": "string",
+            "description": "Its page's prefixed title."
+          },
+          "label": {
+            "$ref": "#/components/schemas/Label"
+          },
+          "description": {
+            "$ref": "#/components/schemas/Label"
+          },
+          "provider": {
+            "type": "string",
+            "description": "For a foreign entity, the name of the provider that minted its ID: `wikidata`."
+          },
+          "match": {
+            "type": "object",
+            "description": "What matched.",
+            "required": [
+              "type",
+              "language",
+              "text"
+            ],
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "label",
+                  "alias"
+                ]
+              },
+              "language": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      },
+      "SuggestedPage": {
+        "type": "object",
+        "required": [
+          "title",
+          "ns",
+          "pageid"
+        ],
+        "properties": {
+          "title": {
+            "type": "string",
+            "description": "The prefixed title."
+          },
+          "ns": {
+            "type": "integer"
+          },
+          "pageid": {
+            "type": "integer"
           }
         }
       }

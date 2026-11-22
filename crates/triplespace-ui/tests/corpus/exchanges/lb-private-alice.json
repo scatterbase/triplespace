@@ -8,7 +8,7 @@
       "cache-control": "private, no-cache",
       "content-length": "254",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 21:59:48 GMT",
+      "date": "Sat, 21 Nov 2026 21:13:21 GMT",
       "etag": "\"3b6c324b8fc028cd312f959bb84282c0\"",
       "vary": "Accept, Accept-Language"
     },
@@ -46,7 +46,7 @@
       "cache-control": "private, no-cache",
       "content-length": "356",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 21:59:48 GMT",
+      "date": "Sat, 21 Nov 2026 21:13:21 GMT",
       "etag": "\"02fefb3cb24dbbf1fa3c2496eb4746d8\"",
       "vary": "Accept, Accept-Language"
     },
@@ -95,10 +95,10 @@
     "status": 200,
     "headers": {
       "cache-control": "private, no-cache",
-      "content-length": "89238",
+      "content-length": "89216",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 21:59:48 GMT",
-      "etag": "\"1d27e2df12f4663f98ec0ca43cf30ea1\"",
+      "date": "Sat, 21 Nov 2026 21:13:21 GMT",
+      "etag": "\"7f6300eed5bd9bc1b8232fe038cba080\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -113,7 +113,7 @@
           "case": "first-letter",
           "centralidlookupprovider": "local",
           "dbtype": "postgres",
-          "dbversion": "16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)",
+          "dbversion": "18.7 (Homebrew)",
           "fallback": [],
           "generator": "MediaWiki 1.43.9 (Triplespace 0.0.1)",
           "imagelimits": {
@@ -164,7 +164,7 @@
             "4": 250,
             "5": 300
           },
-          "time": "2026-11-15T21:59:48Z",
+          "time": "2026-11-21T21:13:21Z",
           "timeoffset": 0,
           "timezone": "UTC",
           "uploadsenabled": false,
@@ -603,7 +603,7 @@
           "api_version": 6,
           "at_farm": true,
           "build": {
-            "commit": "bc4e0dab40a05fb6d32c047b566a43c606594d5e",
+            "commit": "f59a497590235e8cacf8572dc0f0c14d9812530d",
             "modified": true,
             "version": "0.0.1"
           },
@@ -655,7 +655,7 @@
             "history": true
           },
           "farm": "scatter",
-          "farm_code": "7rjsqybowymh43u47s2voktzbf",
+          "farm_code": "fxoscfiize3udkip7obvitp4yo",
           "grants": [
             "basic",
             "highvolume",
@@ -679,7 +679,7 @@
           "interface": {
             "messages": {}
           },
-          "issuer": "evgrxivwayreefwxqsk4wbcg2f",
+          "issuer": "dkl5ddjcqbi6fovfvxncwj7nor",
           "login": [],
           "primary": "librarybase",
           "providers": [
@@ -3238,10 +3238,10 @@
     "status": 200,
     "headers": {
       "cache-control": "private, no-cache",
-      "content-length": "3253",
+      "content-length": "3271",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 21:59:48 GMT",
-      "etag": "\"77fc76d0f03cdb4ad4c37badfab56159\"",
+      "date": "Sat, 21 Nov 2026 21:13:21 GMT",
+      "etag": "\"5521b11244b84dbc1856dea2a0fe8081\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -3460,6 +3460,7 @@
               "ts-backup-keys",
               "ts-config",
               "ts-convert",
+              "ts-createtenant",
               "ts-editpost",
               "ts-erase",
               "ts-expunge",
@@ -3504,15 +3505,15 @@
       "cache-control": "private, no-cache",
       "content-length": "93",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 21:59:48 GMT",
-      "etag": "\"c0254e63fd581f3409369735ed2320b6\"",
+      "date": "Sat, 21 Nov 2026 21:13:21 GMT",
+      "etag": "\"28e40ea33af2610bdc0a6babed5abb2d\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
       "batchcomplete": true,
       "query": {
         "tokens": {
-          "csrftoken": "ImCg3yWgkq_bJzCCjtEGcI4OxK9DFOJA+\\"
+          "csrftoken": "mN1Wocd8uehIvGLomUi5X6FMtJo6iuD7+\\"
         }
       }
     }
@@ -3524,10 +3525,10 @@
     "status": 200,
     "headers": {
       "cache-control": "private, no-cache",
-      "content-length": "3125",
+      "content-length": "3143",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 21:59:48 GMT",
-      "etag": "\"d6c5b650ac9bbbbaa497191ca28e1a5c\"",
+      "date": "Sat, 21 Nov 2026 21:13:21 GMT",
+      "etag": "\"35cebb4b2f011b0547ace116c7b1d86e\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -3535,7 +3536,7 @@
       "query": {
         "notifications": {
           "alert": {
-            "continue": "1794779938|11",
+            "continue": "1795295574|11",
             "count": "7",
             "list": [
               {
@@ -3545,20 +3546,20 @@
                 },
                 "category": "ts-reply",
                 "id": 11,
-                "revid": 248273,
+                "revid": 248274,
                 "section": "alert",
                 "timestamp": {
-                  "mw": "20261115215858",
-                  "unix": "1794779938",
-                  "utciso8601": "2026-11-15T21:58:58Z",
-                  "utcmw": "20261115215858",
-                  "utcunix": "1794779938"
+                  "mw": "20261121211254",
+                  "unix": "1795295574",
+                  "utciso8601": "2026-11-21T21:12:54Z",
+                  "utcmw": "20261121211254",
+                  "utcunix": "1795295574"
                 },
                 "title": {
-                  "full": "Thread:2026-11-15/Is five a city?",
+                  "full": "Thread:2026-11-21/Is five a city?",
                   "namespace": "Thread",
                   "namespace-key": 214,
-                  "text": "2026-11-15/Is five a city?"
+                  "text": "2026-11-21/Is five a city?"
                 },
                 "ts-params": null,
                 "ts-reason": "reply",
@@ -3574,14 +3575,14 @@
               }
             ],
             "rawcount": 7,
-            "seenTime": "2026-11-15T21:59:44Z"
+            "seenTime": "2026-11-21T21:13:19Z"
           },
           "count": "7",
           "message": {
             "count": "0",
             "list": [],
             "rawcount": 0,
-            "seenTime": "2026-11-15T21:59:44Z"
+            "seenTime": "2026-11-21T21:13:19Z"
           },
           "rawcount": 7
         },
@@ -3695,6 +3696,7 @@
             "ts-backup-keys",
             "ts-config",
             "ts-convert",
+            "ts-createtenant",
             "ts-editpost",
             "ts-erase",
             "ts-expunge",
@@ -3734,7 +3736,7 @@
       "cache-control": "private, no-cache",
       "content-length": "57",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 21:59:48 GMT",
+      "date": "Sat, 21 Nov 2026 21:13:21 GMT",
       "etag": "\"7d2e80cb2e677e36ba0d82df92df964f\"",
       "vary": "Accept, Accept-Language"
     },
@@ -3756,7 +3758,7 @@
       "cache-control": "private, no-cache",
       "content-length": "193",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 21:59:48 GMT",
+      "date": "Sat, 21 Nov 2026 21:13:21 GMT",
       "etag": "\"bc2d7cf79d1bbbc2940e44c79c4d114c\"",
       "vary": "Accept, Accept-Language"
     },
@@ -3786,10 +3788,10 @@
     "status": 200,
     "headers": {
       "cache-control": "private, no-cache",
-      "content-length": "11667",
+      "content-length": "11741",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 21:59:48 GMT",
-      "etag": "\"8ede1c7b2b139f2f03aab71dfcff5f84\"",
+      "date": "Sat, 21 Nov 2026 21:13:21 GMT",
+      "etag": "\"967b9d006478e7c5e22c3d94a872fd2d\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -3801,7 +3803,7 @@
           "origin": "tenant",
           "record": {
             "offset": 10,
-            "partition": "0xadbf7b3500c1c763"
+            "partition": "0xb5433354ca023f7a"
           },
           "value": true
         },
@@ -3845,7 +3847,7 @@
           "origin": "tenant",
           "record": {
             "offset": 8,
-            "partition": "0xadbf7b3500c1c763"
+            "partition": "0xb5433354ca023f7a"
           },
           "value": 10
         },
@@ -3854,7 +3856,7 @@
           "origin": "tenant",
           "record": {
             "offset": 9,
-            "partition": "0xadbf7b3500c1c763"
+            "partition": "0xb5433354ca023f7a"
           },
           "value": 14
         },
@@ -3887,7 +3889,7 @@
           "instance_default": 14,
           "origin": "instance",
           "record": {
-            "offset": 197,
+            "offset": 199,
             "partition": "0x0000000000000000"
           },
           "value": 14
@@ -4021,6 +4023,11 @@
           "can_change": true,
           "origin": "registry",
           "value": "PT1M"
+        },
+        "follow.retention": {
+          "can_change": true,
+          "origin": "registry",
+          "value": "P30D"
         },
         "follow.settle": {
           "can_change": true,
@@ -4545,7 +4552,7 @@
           "locked": true,
           "origin": "locked",
           "record": {
-            "offset": 198,
+            "offset": 200,
             "partition": "0x0000000000000000"
           },
           "value": 5
@@ -4595,10 +4602,10 @@
     "status": 200,
     "headers": {
       "cache-control": "private, no-cache",
-      "content-length": "62808",
+      "content-length": "63516",
       "content-type": "application/json; charset=utf-8",
-      "date": "Sun, 15 Nov 2026 21:59:48 GMT",
-      "etag": "\"c07dcf533980cf4818aa400fb5b8d00b\"",
+      "date": "Sat, 21 Nov 2026 21:13:21 GMT",
+      "etag": "\"0ad73be36eb6e8dd1517257390486a47\"",
       "vary": "Accept, Accept-Language"
     },
     "json": {
@@ -4876,6 +4883,7 @@
           "label": "ts-setting-entities-closure",
           "meaning": "Properties whose values are fetched transitively from every mirrored entity",
           "no_default": true,
+          "per": "provider",
           "scope": "tenant",
           "scope_note": "`site`, per provider",
           "source": "[0070](../decisions/0070-shallow-entity-mirroring.md) §2.3; [0078](../decisions/0078-entity-sources.md) §4",
@@ -4922,6 +4930,7 @@
           "label": "ts-setting-entities-mirror",
           "meaning": "What of a provider's entities is mirrored; properties are always at least `on-demand`",
           "no_default": true,
+          "per": "provider-type",
           "scope": "tenant",
           "scope_note": "`site`, per provider and entity type",
           "source": "[0070](../decisions/0070-shallow-entity-mirroring.md) §2.1; [0078](../decisions/0078-entity-sources.md) §4",
@@ -5225,6 +5234,20 @@
           "scope": "tenant",
           "scope_note": "`site`, per follower: the instance record for a registry provider or a page repository, the tenant's for its entity sources",
           "source": "[0092](../decisions/0092-following-recent-changes.md) §6",
+          "type": "duration"
+        },
+        {
+          "bound": "tenant",
+          "default": "P30D",
+          "default_text": "30 days",
+          "group": "mirrors",
+          "help": "ts-setting-follow-retention-help",
+          "key": "follow.retention",
+          "label": "ts-setting-follow-retention",
+          "meaning": "How long the followed wiki keeps recent changes ($wgRCMaxAge: 30 days on Wikimedia wikis, 90 by MediaWiki's default). A position within this of now is never a gap; beyond it, a position older than the wiki's oldest change is",
+          "scope": "tenant",
+          "scope_note": "`site`, per follower: the instance record for a registry provider or a page repository, the tenant's for its entity sources",
+          "source": "[0092](../decisions/0092-following-recent-changes.md) §3, A13",
           "type": "duration"
         },
         {

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-10-18 (A29)
+- **Updated:** 2026-11-21 (A30)
 - **Author:** James Hare / Claude Fable
 - **Uses:** [0000](0000-init.md), [0003](0003-statement-ui.md), [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0011](0011-logs.md), [0013](0013-postgres-storage.md), [MediaWiki API contract](../api/mediawiki-compat.md)
 
@@ -333,4 +333,13 @@ Replaced text: 03 §12.1, §12.3.
 - **Summary:** `s:{session}` also records the login a session holds and, for a tenant session, the central session it came from. `sc:{central session}` lists the tenant sessions a central session opened, so that logging out everywhere ends them; `authr:{handle hash}` holds a tenant's request at the auth host for ten minutes, and `authc:{code hash}` a login code for 60 seconds. The chapter text is 03 §12.1.
 
 Replaced text: 03 §12.1.
+
+### A30. The Postgres fallback as built: ranking, the page text index, and the suggest response
+
+- **Date:** 2026-11-21
+- **Source:** Direct: Claude, while building search on Postgres (SCA-274), 2026-11-21; unconfirmed
+- **Change:** amends §8
+- **Summary:** The fallback's open points are settled as built. (1) Entity results are ordered by an exact match, then by a count of references over `view.entity_ref`, then by the shorter text, among the 2,000 best-matching terms; there is no `ref_count` column to order by yet. (2) A result is its cluster's canonical member where the caller may read it, else the member that matched. (3) The fallbacks of a requested language are the shorter prefixes of its code, then `mul` and `en`. (4) `view.page_text` holds the title's words at weight A and the first 256 KiB of the latest text at weight D, in the `simple` configuration, written by the page projection. (5) `list=search` matches a page by its words or by a prefix of its title, leaves out redirects, and reads `srnamespace=*` as the document namespaces, listing entities only for an entity namespace it names; its snippet is cut from the stored text with the commonest markup removed, not from a rendering. (6) `list=prefixsearch` stays a search of document pages: the table's "`list=prefixsearch` for entities" is dropped in favour of 0010 A51, by which entities are found by their labels. (7) `GET /suggest` takes `q`, a `language` chain as `GET /labels` does, and `limit`, and answers `{q, language, goto?, groups}`, groups by kind in a fixed order, a foreign hit naming its `provider` rather than providers being groups of their own. (8) Special:Search's Pages group reads `list=search`, and the header's box reads `/suggest`. The chapter text is 03 §11.6 and 19 §2.1.
+
+Replaced text: 03 §11.6; 19 §2.1.
 

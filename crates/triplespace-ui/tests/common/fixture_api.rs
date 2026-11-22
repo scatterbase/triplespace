@@ -318,7 +318,18 @@ impl FixtureApi {
             return (StatusCode::OK, self.search(query), vec![]);
         }
         if query.contains("list=prefixsearch") {
-            return (StatusCode::OK, Self::prefix_search(query), vec![]);
+            return (
+                StatusCode::OK,
+                Self::title_search(query, "prefixsearch", "ps"),
+                vec![],
+            );
+        }
+        if query.contains("list=search") {
+            return (
+                StatusCode::OK,
+                Self::title_search(query, "search", "sr"),
+                vec![],
+            );
         }
         if query.contains("prop=info") && query.contains("titles=") {
             return (StatusCode::OK, Self::page_info(query), vec![]);
@@ -372,14 +383,16 @@ fn normal_title(text: &str) -> String {
 impl FixtureApi {
     /// `list=prefixsearch` over [`PAGES`]: a case-insensitive prefix of the title, in the
     /// title's namespace when the text names one (`Librarybase:Pri`), else in those
-    /// `psnamespace` asks for (`*` for all), as the API answers it.
-    fn prefix_search(query: &str) -> Value {
-        let text = normal_title(&param(query, "pssearch").unwrap_or_default());
-        let namespaces = param(query, "psnamespace").unwrap_or_else(|| "0".into());
-        let limit: usize = param(query, "pslimit")
+    /// `psnamespace` asks for (`*` for all), as the API answers it. With `list` as `search`
+    /// and `p` as `sr`, `list=search` over the same titles: the fixture pages have no
+    /// text, so a title's beginning is all that finds one.
+    fn title_search(query: &str, list: &str, p: &str) -> Value {
+        let text = normal_title(&param(query, &format!("{p}search")).unwrap_or_default());
+        let namespaces = param(query, &format!("{p}namespace")).unwrap_or_else(|| "0".into());
+        let limit: usize = param(query, &format!("{p}limit"))
             .and_then(|l| l.parse().ok())
             .unwrap_or(10);
-        let offset: usize = param(query, "psoffset")
+        let offset: usize = param(query, &format!("{p}offset"))
             .and_then(|l| l.parse().ok())
             .unwrap_or(0);
         let (ns, prefix) = match text.split_once(':') {
@@ -402,9 +415,9 @@ impl FixtureApi {
             .map(|(n, title, id)| json!({"ns": n, "title": title, "pageid": id}))
             .collect();
         let page: Vec<Value> = hits.iter().skip(offset).take(limit).cloned().collect();
-        let mut body = json!({"query": {"prefixsearch": page}});
+        let mut body = json!({"query": {list: page}});
         if hits.len() > offset + limit {
-            body["continue"] = json!({"psoffset": offset + limit, "continue": "-||"});
+            body["continue"] = json!({format!("{p}offset"): offset + limit, "continue": "-||"});
         }
         body
     }

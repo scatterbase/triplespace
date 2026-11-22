@@ -88,6 +88,7 @@ pub mod record;
 pub mod reports;
 pub mod settings;
 pub mod subsidiaries;
+pub mod suggest;
 pub mod tenancy;
 pub mod tenancy_requests;
 pub mod threads;
@@ -133,6 +134,7 @@ rest_operations! {
     get "/entity/{id}/provenance" => provenance::handle;
     get "/entity/{id}/page" => page_bundle::handle;
     get "/labels" => labels::handle;
+    get "/suggest" => suggest::handle;
     get "/version" => version::handle;
     get "/version/licenses/{id}" => version::license;
     get "/activity" => activity::handle;

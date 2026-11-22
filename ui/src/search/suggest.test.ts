@@ -16,27 +16,24 @@ const data: SearchData = {
 };
 
 /**
- * An API that answers from a table keyed by entity type, and `pages` for prefixsearch.
+ * An API that answers `GET /suggest` with a body, or fails.
  *
- * @param answers The answers
- * @param asked Collects each query asked
+ * @param body The answer; `'fail'` for a failure
+ * @param asked Collects each URL asked
  * @return The API
  */
-function api( answers: Record<string, unknown>, asked: string[] = [] ): Api {
+function api( body: unknown, asked: string[] = [] ): Api {
 	return new Api( ( input ) => {
-		const q = new URL( input, 'https://wiki.example' ).searchParams;
-		asked.push( q.toString() );
-		const key = q.get( 'action' ) === 'wbsearchentities' ? String( q.get( 'type' ) ) : 'pages';
-		const body = answers[ key ];
+		asked.push( input );
 		if ( body === 'fail' ) {
 			return Promise.resolve( new Response( 'no', { status: 500 } ) );
 		}
-		return Promise.resolve( new Response( JSON.stringify( body ?? {} ) ) );
+		return Promise.resolve( new Response( JSON.stringify( body ) ) );
 	} );
 }
 
 /**
- * A `wbsearchentities` hit.
+ * An entity hit of `GET /suggest`.
  *
  * @param id The entity's ID
  * @param title Its page title
@@ -48,22 +45,20 @@ function hit( id: string, title: string, label?: string, description?: string ):
 	return {
 		id,
 		title,
-		display: {
-			...( label ? { label: { value: label } } : {} ),
-			...( description ? { description: { value: description } } : {} ),
-		},
+		...( label ? { label: { language: 'en', value: label } } : {} ),
+		...( description ? { description: { language: 'en', value: description } } : {} ),
 	};
 }
 
 describe( 'the header suggestions', () => {
 	it( 'lists entities a kind at a time, then pages, each with its link', async () => {
 		const asked: string[] = [];
-		const found = await suggest( api( {
-			item: { search: [ hit( 'Q6', 'Item:Q6', 'Six & more', 'a number' ) ] },
-			property: { search: [ hit( 'P2', 'Property:P2', 'instance of' ) ] },
-			domain: { search: [ hit( 'domain:six.example', 'Domain:six.example' ) ] },
-			pages: { query: { prefixsearch: [ { title: 'Help:Six pages/Intro' } ] } },
-		}, asked ), data, ' six ' );
+		const found = await suggest( api( { groups: [
+			{ kind: 'item', hits: [ hit( 'Q6', 'Item:Q6', 'Six & more', 'a number' ) ] },
+			{ kind: 'property', hits: [ hit( 'P2', 'Property:P2', 'instance of' ) ] },
+			{ kind: 'domain', hits: [ hit( 'domain:six.example', 'Domain:six.example' ) ] },
+			{ kind: 'page', hits: [ { title: 'Help:Six pages/Intro', ns: 12, pageid: 3 } ] },
+		] }, asked ), { ...data, chain: [ 'de', 'mul', 'en' ] }, ' six ' );
 		expect( found.map( ( r ) => [ r.value, r.label, r.url ] ) ).toEqual( [
 			[ 'Q6', 'Six & more', '/wiki/Item:Q6' ],
 			[ 'P2', 'instance of', '/wiki/Property:P2' ],
@@ -74,40 +69,66 @@ describe( 'the header suggestions', () => {
 		expect( found[ 0 ].supportingText ).toBe( '(Q6)' );
 		expect( found[ 2 ].supportingText ).toBeUndefined();
 		expect( found[ 3 ].description ).toBe( 'Page' );
-		// The text is trimmed, searched in the interface language, one call a kind.
-		expect( asked ).toHaveLength( 4 );
-		expect( asked[ 0 ] ).toContain( 'search=six&language=en&type=item' );
-		expect( asked[ 3 ] ).toContain( 'list=prefixsearch&pssearch=six&psnamespace=*' );
+		// One call: the text trimmed, searched along the chain the server wrote.
+		expect( asked ).toEqual( [
+			'/w/rest.php/triplespace/v0/suggest?q=six&language=de%7Cmul%7Cen&limit=4',
+		] );
 	} );
 
-	it( 'offers Go to first for an ID nothing names, and leads with the entity it names', async () => {
-		const none = await suggest( api( {} ), data, 'q42' );
+	it( 'leads with what the text names: the hit itself, or a Go to', async () => {
+		// An entity the server found by its ID, which no label matched.
+		const go = await suggest( api( {
+			goto: { kind: 'entity', id: 'Q42', title: 'Item:Q42' },
+			groups: [ { kind: 'item', hits: [ hit( 'Q7', 'Item:Q7', 'Q42 the film' ) ] } ],
+		} ), data, 'q42' );
+		expect( go.map( ( r ) => [ r.value, r.label, r.url ] ) ).toEqual( [
+			[ 'goto:Item:Q42', 'Go to Q42', '/wiki/Item:Q42' ],
+			[ 'Q7', 'Q42 the film', '/wiki/Item:Q7' ],
+		] );
+		// One that is also listed leads the list, once.
+		const named = await suggest( api( {
+			goto: { kind: 'entity', id: 'Q6', title: 'Item:Q6' },
+			groups: [ { kind: 'item', hits: [ hit( 'Q60', 'Item:Q60', 'Sixty' ), hit( 'Q6', 'Item:Q6', 'Six' ) ] } ],
+		} ), data, 'Q6' );
+		expect( named.map( ( r ) => r.value ) ).toEqual( [ 'Q6', 'Q60' ] );
+		// A page by its exact title.
+		const titled = await suggest( api( {
+			goto: { kind: 'page', title: 'Help:Six' },
+			groups: [ { kind: 'page', hits: [ { title: 'Help:Sixty' }, { title: 'Help:Six' } ] } ],
+		} ), data, 'help:six' );
+		expect( titled.map( ( r ) => r.value ) ).toEqual( [ 'page:Help:Six', 'page:Help:Sixty' ] );
+		// A text shaped as an ID that the server names nothing for is the search page's
+		// to resolve.
+		const none = await suggest( api( { groups: [] } ), data, 'q42' );
 		expect( none ).toEqual( [ {
 			value: 'goto:q42',
 			label: 'Go to q42',
 			url: '/w/index.php?title=Special%3ASearch&search=q42',
 		} ] );
-		const named = await suggest( api( {
-			item: { search: [ hit( 'Q60', 'Item:Q60', 'Sixty' ), hit( 'Q6', 'Item:Q6', 'Six' ) ] },
-		} ), data, 'Q6' );
-		expect( named.map( ( r ) => r.value ) ).toEqual( [ 'Q6', 'Q60' ] );
 	} );
 
-	it( 'leaves out a kind whose call fails, asks nothing for no text, and caps the list', async () => {
-		const some = await suggest( api( {
-			item: 'fail',
-			property: { search: [ hit( 'P2', 'Property:P2', 'instance of' ) ] },
-		} ), data, 'inst' );
-		expect( some.map( ( r ) => r.value ) ).toEqual( [ 'P2' ] );
+	it( 'lists the kinds the site offers, asks nothing for no text, and caps the list', async () => {
+		const groups = [
+			{ kind: 'item', hits: [ hit( 'Q6', 'Item:Q6', 'Six' ) ] },
+			{ kind: 'lexeme', hits: [ hit( 'L6', 'Lexeme:L6', 'six' ) ] },
+			{ kind: 'page', hits: [ { title: 'Six' } ] },
+		];
+		const some = await suggest( api( { groups } ), { ...data, pages: false }, 'six' );
+		expect( some.map( ( r ) => r.value ) ).toEqual( [ 'Q6' ] );
+		// A failed call suggests nothing, but for an ID.
+		expect( await suggest( api( 'fail' ), data, 'six' ) ).toEqual( [] );
+		expect( ( await suggest( api( 'fail' ), data, 'Q9' ) ).map( ( r ) => r.value ) )
+			.toEqual( [ 'goto:Q9' ] );
 		const asked: string[] = [];
 		expect( await suggest( api( {}, asked ), data, '   ' ) ).toEqual( [] );
 		expect( asked ).toEqual( [] );
 		const many = ( type: string ): unknown => ( {
-			search: [ 1, 2, 3, 4 ].map( ( n ) => hit( `${ type }${ n }`, `T:${ type }${ n }` ) ),
+			kind: type,
+			hits: [ 1, 2, 3, 4 ].map( ( n ) => hit( `${ type }${ n }`, `T:${ type }${ n }` ) ),
 		} );
 		const capped = await suggest( api( {
-			item: many( 'Q' ), property: many( 'P' ), domain: many( 'D' ),
-		} ), { ...data, pages: false }, 'Q9' );
+			groups: [ many( 'item' ), many( 'property' ), many( 'domain' ) ],
+		} ), data, 'Q9' );
 		expect( capped ).toHaveLength( MOST );
 		expect( capped[ 0 ].value ).toBe( 'goto:Q9' );
 	} );

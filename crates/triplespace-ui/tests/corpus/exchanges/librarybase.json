@@ -60,11 +60,11 @@
   },
   {
     "method": "GET",
-    "path_and_query": "/w/api.php?action=query&list=prefixsearch&format=json&formatversion=2&pssearch=six&psnamespace=*&pslimit=7",
+    "path_and_query": "/w/api.php?action=query&list=search&format=json&formatversion=2&srsearch=six&srnamespace=*&srprop=snippet&srinfo=&srlimit=7",
     "status": 200,
     "headers": {
       "cache-control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300",
-      "content-length": "50",
+      "content-length": "44",
       "content-type": "application/json; charset=utf-8",
       "date": "Sun, 15 Nov 2026 21:59:50 GMT",
       "etag": "\"fadb6093475142a9be1af0ab0574f872\"",
@@ -73,7 +73,7 @@
     "json": {
       "batchcomplete": true,
       "query": {
-        "prefixsearch": []
+        "search": []
       }
     }
   },

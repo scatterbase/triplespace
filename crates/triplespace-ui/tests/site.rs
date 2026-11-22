@@ -51,6 +51,8 @@ impl Transport for FakeApi {
                 )
             } else if request.path_and_query.contains("list=prefixsearch") {
                 (json!({"query": {"prefixsearch": []}}), "\"nopages\"")
+            } else if request.path_and_query.contains("list=search") {
+                (json!({"query": {"search": []}}), "\"nopages\"")
             } else if credentialed {
                 (
                     json!({"query": {"userinfo": {"id": 3, "name": "Alice"}}}),

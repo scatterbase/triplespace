@@ -2022,6 +2022,7 @@ async fn what_the_site_reads(router: &Router, database: &str) {
     );
 
     the_page_bundle_and_bulk_labels(router).await;
+    search_and_suggest(router).await;
 
     // Missing and malformed IDs.
     let (status, _, e) = send(
@@ -2040,6 +2041,107 @@ async fn what_the_site_reads(router: &Router, database: &str) {
     .await;
     assert_eq!(status, StatusCode::BAD_REQUEST);
     assert_eq!(e["code"], "invalid-entity-id");
+}
+
+/// Search without a search index (0014 §8; 03 §11.6): `GET /suggest`, and entities
+/// through `list=search`, against the instance `what_the_site_reads` has prepared.
+#[allow(clippy::too_many_lines)]
+async fn search_and_suggest(router: &Router) {
+    let suggest = "/w/rest.php/triplespace/v0/suggest";
+    // Entities by a prefix of a label, grouped by kind; the response names what it
+    // lists, so erasing one purges it.
+    let (status, h, s) = send(router, &format!("{suggest}?q=sev"), &[]).await;
+    assert_eq!(status, StatusCode::OK, "{s}");
+    assert_eq!(s["q"], "sev");
+    assert_eq!(
+        s["language"],
+        json!(["en", "mul"]),
+        "the site's language: {s}"
+    );
+    assert_eq!(s["groups"][0]["kind"], "item", "{s}");
+    let hit = &s["groups"][0]["hits"][0];
+    assert_eq!(hit["id"], "Q7", "{s}");
+    assert_eq!(hit["title"], "Item:Q7");
+    assert_eq!(hit["label"], json!({"language": "en", "value": "Seven"}));
+    assert_eq!(
+        hit["match"],
+        json!({"type": "label", "language": "en", "text": "Seven"})
+    );
+    assert!(s.get("goto").is_none(), "{s}");
+    assert!(
+        h["cache-control"].to_str().unwrap().starts_with("public"),
+        "{h:?}"
+    );
+    assert!(
+        h["cache-tag"].to_str().unwrap().contains("entity:Q7"),
+        "{h:?}"
+    );
+    // A mirrored entity's label finds it as a local one's does: the Domain, by the
+    // label its provider gives it.
+    let (_, _, s) = send(router, &format!("{suggest}?q=wikip&language=en|mul"), &[]).await;
+    let domains = s["groups"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|g| g["kind"] == "domain")
+        .unwrap_or_else(|| panic!("{s}"));
+    assert_eq!(domains["hits"][0]["id"], "domain:wikipedia.org", "{s}");
+    assert_eq!(domains["hits"][0]["title"], "Domain:wikipedia.org", "{s}");
+    // An ID, an entity's title and a bare key are a Go to (19 §2.1), found without
+    // the index: `q7` matches no label.
+    for (q, id, title) in [
+        ("q7", "Q7", "Item:Q7"),
+        ("Item:Q7", "Q7", "Item:Q7"),
+        (
+            "Wikipedia.org",
+            "domain:wikipedia.org",
+            "Domain:wikipedia.org",
+        ),
+    ] {
+        let (_, _, s) = send(router, &format!("{suggest}?q={q}"), &[]).await;
+        assert_eq!(
+            s["goto"],
+            json!({"kind": "entity", "id": id, "title": title}),
+            "{q}: {s}"
+        );
+    }
+    let (_, _, s) = send(router, &format!("{suggest}?q=Q999999"), &[]).await;
+    assert!(s.get("goto").is_none(), "{s}");
+    assert_eq!(s["groups"], json!([]), "{s}");
+    // `limit` bounds each group; the text is required.
+    let (_, _, s) = send(router, &format!("{suggest}?q=s&limit=1"), &[]).await;
+    for g in s["groups"].as_array().unwrap() {
+        assert_eq!(g["hits"].as_array().unwrap().len(), 1, "{s}");
+    }
+    for bad in [
+        "",
+        "?q=",
+        "?q=x&limit=0",
+        "?q=x&limit=21",
+        "?q=x&language=de;x",
+    ] {
+        let (status, _, b) = send(router, &format!("{suggest}{bad}"), &[]).await;
+        assert_eq!(status, StatusCode::BAD_REQUEST, "{bad}: {b}");
+    }
+
+    // `list=search` lists entities for an entity namespace, by their terms, and none
+    // for the main namespace, which holds document pages.
+    let search = "/w/api.php?action=query&list=search&format=json&formatversion=2";
+    let (_, _, r) = send(
+        router,
+        &format!("{search}&srsearch=sev&srnamespace=120"),
+        &[],
+    )
+    .await;
+    assert_eq!(r["query"]["search"][0]["title"], "Item:Q7", "{r}");
+    assert_eq!(r["query"]["search"][0]["ns"], 120, "{r}");
+    assert_eq!(
+        r["query"]["search"][0]["snippet"], "<span class=\"searchmatch\">Seven</span>",
+        "{r}"
+    );
+    assert_eq!(r["query"]["searchinfo"]["totalhits"], 1, "{r}");
+    let (_, _, r) = send(router, &format!("{search}&srsearch=sev"), &[]).await;
+    assert_eq!(r["query"]["search"], json!([]), "{r}");
 }
 
 /// The two routes an entity page is drawn from (0012 §5, A70): the page bundle and the

@@ -169,6 +169,9 @@ strike what stops being true. Implementation status is not kept here (24 §15: `
 
 ## The code
 
+- A test that creates an instance without adopting a wiki cannot name its tenant `librarybase`:
+  `instance create` refuses it, "`librarybase` is a registered issuer code". The tests that use
+  that slug pass `adopt`; any other slug works (2026-11-21, `triplespace-server --test search`).
 - An instance partition's `log.partition.tenant` is NULL, while the `view` tables write the
   instance as `''`: a join between them on the tenant needs
   `p.tenant IS NOT DISTINCT FROM nullif(v.tenant, '')`, or it silently finds nothing (SCA-385).
