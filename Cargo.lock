@@ -3170,7 +3170,7 @@ dependencies = [
 
 [[package]]
 name = "scatter-wikitext"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "ammonia",
  "html5ever",
@@ -3182,7 +3182,7 @@ dependencies = [
 
 [[package]]
 name = "scatter-wikitext-expand"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "serde",
  "toml",
@@ -3190,7 +3190,7 @@ dependencies = [
 
 [[package]]
 name = "scatter-wikitext-parse"
-version = "0.1.0"
+version = "0.1.1"
 
 [[package]]
 name = "schannel"
