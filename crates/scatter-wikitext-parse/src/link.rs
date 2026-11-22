@@ -44,6 +44,7 @@ pub fn parse_link_end<'a>(
 				start,
 				target,
 				text,
+				trail_start: end,
 			}
 		}
 		Some(crate::Namespace::Category) => crate::Node::Category {
@@ -199,6 +200,7 @@ fn parse_end(
 					[target_start_position..target_end_position]
 					.trim_end(),
 				text,
+				trail_start: trail_start_position,
 			});
 		}
 	}

@@ -361,6 +361,11 @@ pub enum Node<'a> {
 
 		/// The text to display for the link.
 		text: Vec<Node<'a>>,
+
+		/// Fork: the byte position where the link trail starts, after `]]`;
+		/// equal to `end` when there is no trail. The trail is the last node of
+		/// `text`.
+		trail_start: usize,
 	},
 
 	/// Magic word. Parsed from the code `__`, a valid magic word and `__`.
@@ -464,6 +469,14 @@ pub enum Node<'a> {
 
 	/// Extension tag. Parsed from code starting with `<` and the tag name of a valid extension tag.
 	Tag {
+		/// Fork: the byte position where the content ends, at the end tag;
+		/// equal to `content_start` when the tag is self-closing.
+		content_end: usize,
+
+		/// Fork: the byte position where the content starts, after the start
+		/// tag. The start tag's attributes lie before it.
+		content_start: usize,
+
 		/// The byte position in the wiki text where the element ends.
 		end: usize,
 
@@ -519,12 +532,17 @@ pub enum Node<'a> {
 
 /// Output of parsing wiki text.
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct Output<'a> {
 	/// The top level of parsed nodes.
 	pub nodes: Vec<Node<'a>>,
 
 	/// Warnings from the parser telling that something is not well-formed.
 	pub warnings: Vec<Warning>,
+
+	/// Fork: the steps the parse took, the unit of
+	/// [`Configuration::parse_with_budget`]'s budget.
+	pub steps: u64,
 }
 
 /// Template parameter.

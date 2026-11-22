@@ -398,7 +398,8 @@ fn parse_line_break(
 					end: position_after_line_break,
 					start: position_before_line_break,
 				});
-				table.start = position_after_line_break;
+				// Fork: the cell goes on, and keeps the start it has; moving it to
+				// the line after put it past the cell's first line.
 				table.state = TableState::CellRemainder;
 				state.flushed_position = position_after_line_break;
 				state.scan_position = position_after_line_break;
@@ -417,7 +418,8 @@ fn parse_line_break(
 					end: position_after_line_break,
 					start: position_before_line_break,
 				});
-				table.start = position_after_line_break;
+				// Fork: the cell goes on, and keeps the start it has; moving it to
+				// the line after put it past the cell's first line.
 				table.state = TableState::HeadingRemainder;
 				state.flushed_position = position_after_line_break;
 				state.scan_position = position_after_line_break;

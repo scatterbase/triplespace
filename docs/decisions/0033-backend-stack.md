@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-22 (A35)
+- **Updated:** 2026-11-22 (A37)
 - **Author:** James Hare / Claude
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0034](0034-frontend-stack.md)
 
@@ -411,3 +411,20 @@ Replaced text: 13 §3.5.
 - **Summary:** The wikitext parser is `scatter-wikitext-parse`, a fork of `parse-wiki-text-2` 0.2.0 that Triplespace maintains as a crate of its own and publishes on crates.io at 0.1.0, under upstream's MIT-0 licence, which covers Scatter's changes too. It replaces the copy vendored into `scatter-wikitext`, which crates.io would refuse as a path dependency. Offering a change upstream becomes optional, where §9.1 had general changes offered upstream; and the crate names `MIT-0` in its manifest, so the `cargo-deny` clarify entry of A22 is gone. Chapter text: 22 §3.3, §3.4, §3.6, §4.6, 11 §1.2.
 
 Replaced text: 22 §3.3, §3.4, §4.6, 11 §1.2.
+
+### A36. The parser's bound is a step budget
+
+- **Date:** 2026-11-22
+- **Source:** Direct: James, design discussion of 2026-11-22
+- **Change:** amends §9.1
+- **Summary:** The parser bounds its work with a step budget, one step being a turn of its main loop, instead of five seconds of wall-clock time on the server and no bound in the browser. James asked for the changes proposed for the fork before its first release, of which this was one. A budget gives the same result on every machine and in the preview, and it reads no clock, which `wasm32-unknown-unknown` lacks. Building it found that nested unclosed openers took exponential time and memory (24 `{{` asked for 3 GiB, which no time limit stops), and `scatter-wikitext-parse` now takes at most quadratic steps on them; the budget bounds what is left. A page that reaches the budget renders as its source, as a timed-out one did. Chapter text: 22 §3.6, §4.6, 11 §1.2.
+
+Replaced text: 22 §4.6, 11 §1.2.
+
+### A37. The budget is 64 steps a byte, a million at least
+
+- **Date:** 2026-11-22
+- **Source:** Direct: Claude, while building the step budget, 2026-11-22; unconfirmed
+- **Change:** extends §9.1
+- **Summary:** `scatter-wikitext` gives the parser 64 steps for each byte of the text, and a million at least. Measured on the repository's samples (158 Librarybase revisions and 9 English Wikipedia talk pages), pages take 0.9 steps a byte at the median and 1.6 at most, at about 7 ns a step, so the budget leaves forty times the worst page's need, and stops a pathological input within a fraction of a second: a 2 MB page gets about 130 million steps, under a second. Chapter text: 22 §4.6.
+

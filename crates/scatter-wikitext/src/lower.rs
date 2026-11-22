@@ -761,7 +761,8 @@ impl<'s, 'c> Lowerer<'s, 'c> {
                 text,
                 start,
                 end,
-            } => self.link(target, text, *start..*end),
+                trail_start,
+            } => self.link(target, text, *start..*end, *trail_start),
             P::Category {
                 target,
                 ordinal,
@@ -819,7 +820,9 @@ impl<'s, 'c> Lowerer<'s, 'c> {
                 nodes,
                 start,
                 end,
-            } => self.extension_tag(name, nodes, *start..*end),
+                content_start,
+                content_end,
+            } => self.extension_tag(name, nodes, *start..*end, *content_start..*content_end),
             P::HorizontalDivider { start, end } => {
                 self.b.void("hr", Vec::new(), Some(*start..*end));
             }
@@ -856,33 +859,30 @@ impl<'s, 'c> Lowerer<'s, 'c> {
         }
     }
 
-    /// The source of an extension tag: its attributes and its raw content.
-    fn tag_parts(&self, span: &Span) -> (&'s str, &'s str) {
-        let raw = &self.src[span.clone()];
-        let open_end = raw.find('>').map_or(raw.len(), |i| i + 1);
-        let attrs = raw[..open_end].trim_start_matches('<');
-        let attrs = attrs.trim_end_matches('>').trim_end_matches('/');
+    /// The source of an extension tag: its attributes and its raw content, from the
+    /// positions the parser gives (0115 §5).
+    fn tag_parts(&self, span: &Span, content: &Span) -> (&'s str, &'s str) {
+        // The start tag is `<name attributes>` or `<name attributes/>`, ending where the
+        // content starts.
+        let start_tag = &self.src[span.start..content.start];
+        let attrs = start_tag
+            .trim_start_matches('<')
+            .trim_end_matches('>')
+            .trim_end_matches('/');
         let attrs = attrs
             .split_once(|c: char| c.is_whitespace())
             .map_or("", |(_, a)| a);
-        if raw[..open_end].ends_with("/>") {
-            return (attrs, "");
-        }
-        let close_start = raw
-            .rfind("</")
-            .filter(|&c| c >= open_end)
-            .unwrap_or(raw.len());
-        (attrs, &raw[open_end..close_start])
+        (attrs, &self.src[content.clone()])
     }
 
-    fn extension_tag(&mut self, name: &str, nodes: &[P<'s>], span: Span) {
+    fn extension_tag(&mut self, name: &str, nodes: &[P<'s>], span: Span, content: Span) {
         match name {
             "nowiki" => {
-                let (_, content) = self.tag_parts(&span);
+                let (_, content) = self.tag_parts(&span, &content);
                 self.b.text(&decode_entities(content), Some(span));
             }
             "pre" | "syntaxhighlight" | "source" => {
-                let (attrs, content) = self.tag_parts(&span);
+                let (attrs, content) = self.tag_parts(&span, &content);
                 let attrs = if name == "pre" {
                     sanitize_attributes("pre", parse_attributes(attrs))
                 } else {
@@ -933,7 +933,7 @@ impl<'s, 'c> Lowerer<'s, 'c> {
 
     // ---- links ---------------------------------------------------------------------
 
-    fn link(&mut self, target: &'s str, text: &[P<'s>], span: Span) {
+    fn link(&mut self, target: &'s str, text: &[P<'s>], span: Span, trail_start: usize) {
         let target_start = target.as_ptr() as usize - self.src.as_ptr() as usize;
         let target_end = target_start + target.len();
         let piped = self.src.as_bytes().get(target_end) == Some(&b'|');
@@ -964,9 +964,6 @@ impl<'s, 'c> Lowerer<'s, 'c> {
         } else {
             self.res.info(&t.title).label
         };
-        let trail_start = self.src[target_end..span.end]
-            .find("]]")
-            .map_or(span.end, |i| target_end + i + 2);
         self.anchor(&t.title, span, |l| {
             let was = std::mem::replace(&mut l.in_link, true);
             if piped {

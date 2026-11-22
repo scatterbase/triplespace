@@ -276,3 +276,23 @@ fn a_leading_colon_file_link_links_to_the_description_page() {
         out.html
     );
 }
+
+/// 0033 §9.1, A36: the parser's work is bounded by a step budget, not a clock, so a
+/// pathological page renders as its source in the same way on every machine and in the
+/// browser, and nested unclosed openers no longer take exponential time or memory.
+#[test]
+fn parse_budget() {
+    let text = "{{".repeat(20_000);
+    let rendered = render(&text, &config(), &Fixture, &Title::new(4, "T"));
+    assert!(
+        rendered.html.contains("<pre>{{{{"),
+        "{}",
+        &rendered.html[..80]
+    );
+    assert_eq!(
+        rendered.warnings,
+        ["0..0: parse stopped at its step budget"]
+    );
+    // An ordinary page is well inside it.
+    assert!(r("== A ==\n[[B]] {{C}}\n").contains("<h2>"));
+}

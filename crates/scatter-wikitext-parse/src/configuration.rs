@@ -159,7 +159,35 @@ impl crate::Configuration {
 		wiki_text: &'a str,
 		max_duration: std::time::Duration,
 	) -> Result<crate::Output<'a>, crate::parse::ParseError<'a>> {
-		crate::parse::parse(self, wiki_text, max_duration)
+		crate::parse::parse(
+			self,
+			wiki_text,
+			crate::parse::Limits {
+				max_duration,
+				max_steps: 0,
+			},
+		)
+	}
+	/// Fork: parses wiki text into structured data, stopping after `max_steps`
+	/// steps with [`ParseError::BudgetExhausted`](crate::ParseError). A step is
+	/// one turn of the parser's main loop, so the result depends only on the
+	/// text and the configuration, not on the machine; and the clock is never
+	/// read, so this runs on `wasm32-unknown-unknown`. Ordinary pages take a
+	/// few steps per byte, and [`Output::steps`](crate::Output) says how many.
+	#[must_use]
+	pub fn parse_with_budget<'a>(
+		&self,
+		wiki_text: &'a str,
+		max_steps: u64,
+	) -> Result<crate::Output<'a>, crate::parse::ParseError<'a>> {
+		crate::parse::parse(
+			self,
+			wiki_text,
+			crate::parse::Limits {
+				max_duration: std::time::Duration::ZERO,
+				max_steps,
+			},
+		)
 	}
 	/// Parses wiki text into structured data with a default timeout of 5 seconds.
 	#[must_use]
@@ -167,7 +195,7 @@ impl crate::Configuration {
 		&self,
 		wiki_text: &'a str,
 	) -> Result<crate::Output<'a>, crate::parse::ParseError<'a>> {
-		crate::parse::parse(self, wiki_text, std::time::Duration::from_secs(5))
+		self.parse_with_timeout(wiki_text, std::time::Duration::from_secs(5))
 	}
 	/// Parses wiki text into structured data with no time out.
 	/// This function may run for extremely long lengths of time on certain articles
@@ -176,7 +204,7 @@ impl crate::Configuration {
 		&self,
 		wiki_text: &'a str,
 	) -> Result<crate::Output<'a>, crate::parse::ParseError<'a>> {
-		crate::parse::parse(self, wiki_text, std::time::Duration::ZERO)
+		self.parse_with_budget(wiki_text, 0)
 	}
 }
 

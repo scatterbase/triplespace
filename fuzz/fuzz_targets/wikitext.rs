@@ -1,7 +1,7 @@
 //! The wikitext parser and renderer over arbitrary text (22 §4.9; 0033 §9.1, §15): any
-//! UTF-8 input must render and extract without a panic, inside the parser's own time
-//! bound (`PARSE_TIMEOUT`, five seconds; the run's `-timeout` is set above it in
-//! `run.sh`). Nothing else is asserted: what the HTML looks like is the golden tests'.
+//! UTF-8 input must render and extract without a panic, inside the parser's step budget
+//! (`parse_budget`, 0033 A36; the run's `-timeout` in `run.sh` catches anything slower).
+//! Nothing else is asserted: what the HTML looks like is the golden tests'.
 
 #![no_main]
 

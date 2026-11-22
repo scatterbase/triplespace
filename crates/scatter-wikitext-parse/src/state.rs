@@ -31,6 +31,8 @@ pub enum OpenNodeType<'a> {
 	Table(Table<'a>),
 	Tag {
 		name: crate::Cow<'a, str>,
+		/// Fork: where the content starts, after the start tag.
+		content_start: usize,
 	},
 	Template {
 		name: Option<Vec<crate::Node<'a>>>,
@@ -42,6 +44,15 @@ pub enum OpenNodeType<'a> {
 }
 
 pub struct State<'a> {
+	/// Fork: the openers that ran to the end of the text unclosed, by
+	/// position and kind. Reaching one again after a rewind, the parser treats
+	/// it as text at once instead of parsing everything after it again, which
+	/// made nested unclosed openers (`{{{{{{…`, tables in tables) take time and
+	/// memory exponential in their number.
+	pub failed_at_end: std::collections::HashSet<(
+		usize,
+		std::mem::Discriminant<OpenNodeType<'a>>,
+	)>,
 	pub flushed_position: usize,
 	pub nodes: Vec<crate::Node<'a>>,
 	pub scan_position: usize,
@@ -93,6 +104,17 @@ impl<'a> State<'a> {
 	) {
 		let scan_position = self.scan_position;
 		self.flush(scan_position);
+		// Fork: an opener known to run unclosed to the end of the text is
+		// rewound at once, exactly as opening it, parsing to the end and
+		// rewinding would leave it, without parsing everything after it again.
+		if self
+			.failed_at_end
+			.contains(&(scan_position, std::mem::discriminant(&type_)))
+		{
+			let nodes = std::mem::take(&mut self.nodes);
+			self.rewind(nodes, scan_position);
+			return;
+		}
 		self.stack.push(OpenNode {
 			nodes: std::mem::replace(&mut self.nodes, vec![]),
 			start: scan_position,

@@ -4,8 +4,9 @@
 
 /// Get's returned if the parsing received an unrecoverable error.
 ///
-/// At the moment, the only error that can occur is a timeout.
+/// The parse stopped at a limit it was given: a time limit or a step budget.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum ParseError<'a> {
 	/// The parsing took too long and was aborted.
 	TimedOut {
@@ -14,15 +15,33 @@ pub enum ParseError<'a> {
 		/// The output that was generated before the parsing was aborted.
 		output: crate::Output<'a>,
 	},
+	/// Fork: the parsing took more steps than its budget and was aborted. A
+	/// step is one turn of the parser's main loop, so the same text and
+	/// configuration stop at the same place on every machine.
+	BudgetExhausted {
+		/// The budget that was exhausted.
+		steps: u64,
+		/// The output that was generated before the parsing was aborted.
+		output: crate::Output<'a>,
+	},
+}
+
+/// The limits a parse runs under. Zero means no limit.
+#[derive(Clone, Copy)]
+pub struct Limits {
+	pub max_duration: std::time::Duration,
+	pub max_steps: u64,
 }
 
 #[must_use]
 pub fn parse<'a>(
 	configuration: &crate::Configuration,
 	wiki_text: &'a str,
-	max_duration: std::time::Duration,
+	limits: Limits,
 ) -> Result<crate::Output<'a>, ParseError<'a>> {
+	let max_duration = limits.max_duration;
 	let mut state = crate::State {
+		failed_at_end: Default::default(),
 		flushed_position: 0,
 		nodes: vec![],
 		scan_position: 0,
@@ -63,6 +82,7 @@ pub fn parse<'a>(
 		}
 	}
 	let mut loop_counter = 0;
+	let mut steps: u64 = 0;
 	// Fork: read the clock only when a timeout was asked for, so that
 	// `parse_without_timeout` runs on targets without one (wasm32-unknown-unknown).
 	let start_time = if max_duration.is_zero() {
@@ -81,9 +101,15 @@ pub fn parse<'a>(
 				}
 
 				// rewind until we find a text node
-				if let Some(crate::OpenNode { nodes, start, .. }) =
-					state.stack.pop()
+				if let Some(crate::OpenNode {
+					nodes,
+					start,
+					type_,
+				}) = state.stack.pop()
 				{
+					state
+						.failed_at_end
+						.insert((start, std::mem::discriminant(&type_)));
 					state.warnings.push(crate::Warning {
 						end: state.scan_position,
 						message: crate::WarningMessage::MissingEndTagRewinding,
@@ -252,19 +278,46 @@ pub fn parse<'a>(
 			loop_counter = 0;
 			let elapsed = start_time.map(|t| t.elapsed());
 			if elapsed.map_or(false, |e| e > max_duration) {
-				state.flush(state.scan_position);
+				// Fork: the scan may stop inside a character; the output so far
+				// ends at the character boundary before it.
+				let mut stop = state.scan_position.min(wiki_text.len());
+				while !wiki_text.is_char_boundary(stop) {
+					stop -= 1;
+				}
+				state.flush(stop);
 
 				return Err(ParseError::TimedOut {
 					execution_time: elapsed.unwrap_or_default(),
 					output: crate::Output {
 						nodes: state.nodes,
 						warnings: state.warnings,
+						steps,
 					},
 				});
 			}
 		}
 
 		loop_counter += 1;
+		// Fork: the step budget, counted on every target and independent of
+		// the clock.
+		steps += 1;
+		if limits.max_steps != 0 && steps > limits.max_steps {
+			// Fork: the scan may stop inside a character; the output so far
+			// ends at the character boundary before it.
+			let mut stop = state.scan_position.min(wiki_text.len());
+			while !wiki_text.is_char_boundary(stop) {
+				stop -= 1;
+			}
+			state.flush(stop);
+			return Err(ParseError::BudgetExhausted {
+				steps: limits.max_steps,
+				output: crate::Output {
+					nodes: state.nodes,
+					warnings: state.warnings,
+					steps,
+				},
+			});
+		}
 	}
 
 	let end_position = state.skip_whitespace_backwards(wiki_text.len());
@@ -272,5 +325,6 @@ pub fn parse<'a>(
 	Ok(crate::Output {
 		nodes: state.nodes,
 		warnings: state.warnings,
+		steps,
 	})
 }

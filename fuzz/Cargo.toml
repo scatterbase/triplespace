@@ -24,11 +24,20 @@ libfuzzer-sys = "0.4"
 scatter-log = { path = "../crates/scatter-log" }
 scatter-pages = { path = "../crates/scatter-pages", features = ["markdown"] }
 scatter-wikitext = { path = "../crates/scatter-wikitext" }
+scatter-wikitext-parse = { path = "../crates/scatter-wikitext-parse" }
 
 # The wikitext parser and renderer of 0008 §8 over any text (0033 §9.1).
 [[bin]]
 name = "wikitext"
 path = "fuzz_targets/wikitext.rs"
+test = false
+doc = false
+bench = false
+
+# The parser alone, with the checks on its positions (0115 §5).
+[[bin]]
+name = "wikitext_parse"
+path = "fuzz_targets/wikitext_parse.rs"
 test = false
 doc = false
 bench = false

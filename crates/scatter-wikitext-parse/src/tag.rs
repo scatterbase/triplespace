@@ -96,7 +96,15 @@ pub fn parse_end_tag(
 							&mut state.nodes,
 							open_node.nodes,
 						);
+						let content_start = match open_node.type_ {
+							crate::OpenNodeType::Tag {
+								content_start, ..
+							} => content_start,
+							_ => unreachable!("matched as a tag"),
+						};
 						state.nodes.push(crate::Node::Tag {
+							content_end: start_position,
+							content_start,
 							end: state.scan_position,
 							name: tag_name,
 							nodes,
@@ -192,6 +200,8 @@ pub fn parse_start_tag(
 							state.flushed_position = tag_end_position;
 							state.scan_position = state.flushed_position;
 							state.nodes.push(crate::Node::Tag {
+								content_end: tag_end_position,
+								content_start: tag_end_position,
 								end: tag_end_position,
 								name: tag_name,
 								nodes: vec![],
@@ -211,6 +221,7 @@ pub fn parse_start_tag(
 									state.push_open_node(
 										crate::OpenNodeType::Tag {
 											name: tag_name,
+											content_start: tag_end_position,
 										},
 										tag_end_position,
 									);
@@ -317,6 +328,8 @@ fn parse_plain_text_end_tag<'a>(
 		state.flushed_position = position_after_end_tag;
 		state.scan_position = position_after_end_tag;
 		state.nodes.push(crate::Node::Tag {
+			content_end: position_before_end_tag,
+			content_start: position_after_start_tag,
 			end: position_after_end_tag,
 			name: end_tag_name,
 			nodes,

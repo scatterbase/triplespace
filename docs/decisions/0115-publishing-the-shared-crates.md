@@ -39,6 +39,10 @@ Then, offered the four steps that finish this work (the pull request for the for
 
 - **"Do all four steps to finish the publishing work"**.
 
+Offered the changes proposed for the fork itself (a step budget instead of a timeout, the positions `scatter-wikitext` searched the source for, a fuzz target for the parser alone, and the stale fuzz lock file), confirming 0115 A1 in the same message:
+
+- **"Before merging, I want you to make your additional proposed changes and then include them in the pull request"**.
+
 ## Decision
 
 ### 1. Shared crates are published to crates.io from this workspace (amends 0005 §6)
@@ -115,6 +119,6 @@ The plan for the other strong candidates. Each depends on the questions before i
 ### A1. The class prefix is `wt-` by default
 
 - **Date:** 2026-11-22
-- **Source:** Direct: Claude, while building the class prefix, 2026-11-22; unconfirmed
+- **Source:** Direct: Claude, while building the class prefix, 2026-11-22; confirmed by James, 2026-11-22
 - **Change:** extends §6
 - **Summary:** `ConfigSource::default()` gives `class_prefix` the value `wt-`, so a caller outside Triplespace gets `wt-chip` and `wt-repeat`, and Triplespace's configuration sets `ts-`. Q2's recommendation named only Triplespace's prefix. An empty default was not taken because `chip` and `repeat` alone would collide with a host page's own classes, and `ts-` because it names Triplespace in a crate meant to know nothing of it. Chapter text: 11 §1.2.

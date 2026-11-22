@@ -15,7 +15,8 @@ knows nothing about Triplespace.
 The parser takes the text of a page and returns its nodes: headings, paragraphs, lists, tables,
 links, external links, images and categories, templates and their parameters, HTML and extension
 tags, comments, magic words, redirects, bold and italic. Every node records where it starts and
-ends, so a caller can map anything it finds back to the source. Malformed markup never fails a
+ends, so a caller can map anything it finds back to the source; a link also says where its trail
+starts, and an extension tag where its content starts and ends. Malformed markup never fails a
 parse; it comes back as warnings beside the nodes.
 
 Parsing depends on the wiki's configuration: its namespaces and their aliases, its extension tags,
@@ -27,8 +28,14 @@ preprocessor such as [`scatter-wikitext-expand`](https://crates.io/crates/scatte
 then parse the result. Bold and italic come back as toggles and HTML tags as separate start and
 end nodes, as the parser meets them; turning them into a balanced tree is the caller's work.
 
-It builds for `wasm32-unknown-unknown`. There, call `parse_without_timeout`, since `parse` and
-`parse_with_timeout` read the clock.
+**Bounding the work.** `parse_with_budget` stops after a given number of steps, one step being a
+turn of the parser's main loop, and returns the output so far. Ordinary pages take one or two
+steps a byte (`Output::steps` says how many), so a budget proportional to the text's length stops a
+pathological input in the same place on every machine. `parse` and `parse_with_timeout` bound it
+by wall-clock time instead, as upstream does.
+
+It builds for `wasm32-unknown-unknown`. There, use `parse_with_budget` or
+`parse_without_timeout`, since `parse` and `parse_with_timeout` read the clock.
 
 ## Example
 

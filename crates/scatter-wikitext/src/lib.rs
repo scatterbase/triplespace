@@ -118,10 +118,12 @@ pub struct Rendered {
     pub warnings: Vec<String>,
 }
 
-/// How long the parser may run on a server before it gives up (0033 §9.1: it bounds its
-/// own running time). The browser preview has no clock and runs without a bound.
-#[cfg(not(target_arch = "wasm32"))]
-const PARSE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(5);
+/// The parser's step budget for a text (0033 §9.1, A36: it bounds its own work): 64
+/// steps a byte, and a million at least. Pages take one or two steps a byte; the budget is
+/// counted, not timed, so the server and the browser preview stop at the same place.
+fn parse_budget(text: &str) -> u64 {
+    (text.len() as u64).saturating_mul(64).max(1_000_000)
+}
 
 /// A range of the text to render whose top-level blocks carry attributes: which template
 /// drew them, as `scatter-wikitext-expand` maps a page's calls to their output (0042 §4).
@@ -150,23 +152,16 @@ pub fn render_marked(
     page: &Title,
     marks: &[Mark],
 ) -> Rendered {
-    #[cfg(not(target_arch = "wasm32"))]
-    let parsed = config.parser.parse_with_timeout(text, PARSE_TIMEOUT);
-    #[cfg(target_arch = "wasm32")]
-    let parsed = config.parser.parse_without_timeout(text);
-    let output = match parsed {
-        Ok(o) => o,
-        Err(scatter_wikitext_parse::ParseError::TimedOut { .. }) => {
-            // Never fail: show the source as text.
-            let mut pre = Element::new("pre", Vec::new(), Some(0..text.len()));
-            pre.push_text(text);
-            let tree = vec![Node::Element(pre)];
-            return finish(
-                tree,
-                Extracted::default(),
-                vec!["0..0: parse timed out".into()],
-            );
-        }
+    let Ok(output) = config.parser.parse_with_budget(text, parse_budget(text)) else {
+        // Never fail: show the source as text.
+        let mut pre = Element::new("pre", Vec::new(), Some(0..text.len()));
+        pre.push_text(text);
+        let tree = vec![Node::Element(pre)];
+        return finish(
+            tree,
+            Extracted::default(),
+            vec!["0..0: parse stopped at its step budget".into()],
+        );
     };
     let warnings = output
         .warnings
@@ -248,11 +243,7 @@ pub fn extract(text: &str, config: &Config, page: &Title) -> Extracted {
             String::new()
         }
     }
-    #[cfg(not(target_arch = "wasm32"))]
-    let parsed = config.parser.parse_with_timeout(text, PARSE_TIMEOUT);
-    #[cfg(target_arch = "wasm32")]
-    let parsed = config.parser.parse_without_timeout(text);
-    let Ok(output) = parsed else {
+    let Ok(output) = config.parser.parse_with_budget(text, parse_budget(text)) else {
         return Extracted::default();
     };
     let mut l = lower::Lowerer::new(text, config, &Nothing, page);
