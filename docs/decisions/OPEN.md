@@ -132,6 +132,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0111 A2](0111-creating-a-tenant-by-request.md#a2-calls-made-building-the-requests-api-page-and-invitation) | 2026-11-16 | Calls made building the requests' API, page and invitation |
 | [0111 A3](0111-creating-a-tenant-by-request.md#a3-calls-made-building-freezing-deleting-and-the-primary-roles-acceptance) | 2026-11-16 | Calls made building freezing, deleting and the primary role's acceptance |
 | [0114 A2](0114-badges.md#a2-badges-drawn-everywhere-the-site-names-an-entity) | 2026-11-22 | Badges drawn everywhere the site names an entity |
+| [0115 A1](0115-publishing-the-shared-crates.md#a1-the-class-prefix-is-wt-by-default) | 2026-11-22 | The class prefix is `wt-` by default |
 
 ## Open questions
 
@@ -522,7 +523,6 @@ Every unsettled question in every ADR (24 §8), with its first sentence. Settle 
 | [0104 Q3](0104-batches-and-the-job-runner.md) | The queue beyond one process | The runner claims queued jobs with the database's row locks, so several server processes could share the queue; nothing partitions the work between them yet, and a job that one process started is finished by that process… |
 | [0109 Q1](0109-the-documentation-site.md) | Rustdoc and the command line's reference | Both need the workspace compiled, which may not fit Read the Docs' build time. |
 | [0111 Q1](0111-creating-a-tenant-by-request.md) | A delay or a second approval | Requests are carried out at once. |
-| [0115 Q2](0115-publishing-the-shared-crates.md) | `scatter-wikitext`'s CSS classes | The render tree emits `ts-chip`, `ts-chip--template`, `ts-chip--unsupported`, `ts-chip--wikitext`, `ts-toc-marker` and `ts-repeat` (`lower.rs`); `ts-repeat` is already optional through `link_marks`. |
 | [0115 Q3](0115-publishing-the-shared-crates.md) | `scatter-talk` | It is nearly general already: every public function takes the `Markup` registry explicitly, and English Wikipedia's conventions (`Site::english()`, the English months, `{{Unsigned}}`) are data in `talk-markup.toml` or in… |
 | [0115 Q4](0115-publishing-the-shared-crates.md) | `scatter-vocab` | Most of it is the IRIs of public vocabularies (PROV-O, PAV, SIOC, FOAF, Activity Streams, Dublin Core, schema.org, SKOS, the Wikibase ontology…). |
 | [0115 Q5](0115-publishing-the-shared-crates.md) | `scatter-providers` | Its whole API is Triplespace's provider model: two-letter codes, revision IDs packed as `number << 40 \| n`, tenant entity sources, adapters, trust and chip colours. |
@@ -530,8 +530,6 @@ Every unsettled question in every ADR (24 §8), with its first sentence. Settle 
 | [0115 Q7](0115-publishing-the-shared-crates.md) | `scatter-wikibase-model` | The general core is entities, statements, values, canonical JSON, Wikibase's own hashes over its emulation of PHP `serialize()`, and the site list. |
 | [0115 Q8](0115-publishing-the-shared-crates.md) | `scatter-wikibase-rdf` | The renderer, both flavours, the dump header, N-Triples and Turtle are general Wikibase RDF 1.0.0. |
 | [0115 Q9](0115-publishing-the-shared-crates.md) | The order | *Recommendation:* the wikitext line first, since it is smaller and nearly ready (Q1, Q2, Q3). |
-| [0115 Q10](0115-publishing-the-shared-crates.md) | Checks in CI for published crates | 22 §3.4 already names `cargo-semver-checks` once a crate is published. |
-| [0115 Q11](0115-publishing-the-shared-crates.md) | `scatter-wikitext-expand` on the wasm list | It builds for `wasm32-unknown-unknown` today and its README says so, but `crates.toml` does not mark it `wasm`, so `cargo xtask wasm` does not keep it so. |
 
 ## Pending registry allocations
 

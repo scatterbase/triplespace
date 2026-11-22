@@ -309,8 +309,10 @@ impl TenantNames {
             .collect();
         ConfigSource {
             namespaces,
-            // The site's links carry the marks of 19 §5.10.
+            // The site's links carry the marks of 19 §5.10, and the renderer's own classes
+            // are the site's `ts-` ones (0115 §6).
             link_marks: true,
+            class_prefix: "ts-".into(),
             ..ConfigSource::default()
         }
     }

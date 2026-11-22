@@ -69,12 +69,13 @@ fn apostrophes() {
 }
 
 /// 19 §5.10: where the site asks for link marks, a second or later link to a page is
-/// `ts-repeat`, beside the class it has, and a redirect's link says where it goes.
-/// Without them the output is MediaWiki's ([`links`]).
+/// `{prefix}repeat`, here `ts-repeat` (0115 §6), beside the class it has, and a redirect's
+/// link says where it goes. Without them the output is MediaWiki's ([`links`]).
 #[test]
 fn link_marks() {
     let c = Config::new(ConfigSource {
         link_marks: true,
+        class_prefix: "ts-".into(),
         ..ConfigSource::default()
     });
     let page = Title::new(4, "Test");
@@ -198,11 +199,21 @@ fn html_and_extension_tags() {
     );
 }
 
+/// A chip's classes take the configured prefix, `wt-` by default (0115 §6).
 #[test]
 fn chips() {
     assert_eq!(
         r("{{Tpl|x}}"),
-        "<p><span class=\"ts-chip ts-chip--wikitext ts-chip--template\" title=\"Template not rendered\"><code>{{Tpl|x}}</code></span></p>"
+        "<p><span class=\"wt-chip wt-chip--wikitext wt-chip--template\" title=\"Template not rendered\"><code>{{Tpl|x}}</code></span></p>"
+    );
+    let ts = Config::new(ConfigSource {
+        class_prefix: "ts-".into(),
+        ..ConfigSource::default()
+    });
+    let html = render("{{Tpl}}", &ts, &Fixture, &Title::new(4, "T")).html;
+    assert!(
+        html.contains("class=\"ts-chip ts-chip--wikitext ts-chip--template\""),
+        "{html}"
     );
     let rendered = render("{{Tpl}}", &config(), &Fixture, &Title::new(4, "T"));
     assert_eq!(rendered.extracted.templates[0].name, "Tpl");

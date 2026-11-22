@@ -1,5 +1,6 @@
 # CI as ADR 0033 §2 specifies it: nextest, clippy -D warnings, cargo-deny, a wasm32 build of
-# every rule-7 crate (0005 §3), and the dependency check against docs/registry/crates.toml (22 §2.1); the
+# every rule-7 crate (0005 §3), and the dependency check against docs/registry/crates.toml (22 §2.1);
+# the publishable crates' dry run and SemVer checks (0115 §7); the
 # front end's lint, tests and build (0034 §8); and the Wikibase client libraries against a
 # running server (test plan §1.3–1.5, tools/client_compat.sh).
 name: CI
@@ -211,6 +212,25 @@ jobs:
       - name: Catalogues checked
         if: always()
         run: python3 tools/probe_report.py --strict "$RUNNER_TEMP/probe.txt"
+
+  # Every crate without `publish = false` is packaged and built from its package, and checked
+  # by cargo-semver-checks against its latest version on crates.io, so that a path-only
+  # dependency, a file outside the crate or an unintended break fails a pull request rather than
+  # James's publication (0115 §7; 22 §3.6).
+  publish:
+    name: Publishable crates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: 1.95.0
+      - uses: Swatinem/rust-cache@v2
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-semver-checks
+      - name: Dry run and SemVer checks
+        run: tools/publish_check.py
 
   deny:
     name: Licences and advisories

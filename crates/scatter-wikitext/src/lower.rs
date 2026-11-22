@@ -129,7 +129,7 @@ pub(crate) struct Lowerer<'s, 'c> {
     plan: QuotePlan,
     skip_apostrophes: usize,
     in_link: bool,
-    /// The local targets the page has linked to so far, for `ts-repeat`.
+    /// The local targets the page has linked to so far, for `{prefix}repeat`.
     linked: std::collections::HashSet<Title>,
     autonumber: usize,
     anchors: HashMap<String, usize>,
@@ -912,15 +912,16 @@ impl<'s, 'c> Lowerer<'s, 'c> {
         } else {
             &m.chip_unsupported
         };
-        let kind = if template {
-            "ts-chip--template"
-        } else {
-            "ts-chip--unsupported"
-        };
+        let kind = if template { "template" } else { "unsupported" };
+        // The renderer's own classes take the configured prefix (0115 §6).
+        let p = &self.cfg.source.class_prefix;
         let mut chip = Element::new(
             "span",
             vec![
-                ("class".into(), format!("ts-chip ts-chip--wikitext {kind}")),
+                (
+                    "class".into(),
+                    format!("{p}chip {p}chip--wikitext {p}chip--{kind}"),
+                ),
                 ("title".into(), title.clone()),
             ],
             Some(span.clone()),
@@ -1019,13 +1020,14 @@ impl<'s, 'c> Lowerer<'s, 'c> {
         } else {
             let info = self.res.info(&title.without_fragment());
             // The marks MediaWiki's links do not carry (19 §5.10), where the site asks
-            // for them: a second or later link to the same page is `ts-repeat`.
+            // for them: a second or later link to the same page is `{prefix}repeat`.
             let marks = self.cfg.source.link_marks;
             let repeat = marks && !self.linked.insert(title.without_fragment());
+            let repeat_class = format!("{}repeat", self.cfg.source.class_prefix);
             let class = |own: Option<&str>| {
                 let mut c: Vec<&str> = own.into_iter().collect();
                 if repeat {
-                    c.push("ts-repeat");
+                    c.push(&repeat_class);
                 }
                 (!c.is_empty()).then(|| ("class".to_string(), c.join(" ")))
             };

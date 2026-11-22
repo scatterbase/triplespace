@@ -89,7 +89,7 @@ The crate map is [`../registry/crates.toml`](../registry/crates.toml): one entry
 |  | [`scatter-titles`](CRATES.md#scatter-titles) | The namespace registry, embedding `docs/registry/namespaces.toml`, and the special-page registry, embedding… | `scatter-pages`, `scatter-normalize` | pure, wasm | yes |
 |  | [`scatter-wikitext-parse`](CRATES.md#scatter-wikitext-parse) | The wikitext parser: a fork of parse-wiki-text-2, published under MIT-0 | — | pure, wasm | yes |
 |  | [`scatter-wikitext`](CRATES.md#scatter-wikitext) | Parsing and rendering the wikitext subset of 0008 §8 | `scatter-wikitext-parse`, `scatter-css` | pure, wasm | yes |
-|  | [`scatter-wikitext-expand`](CRATES.md#scatter-wikitext-expand) | MediaWiki's preprocessor and frame expansion: the preprocessor tree, frames, strip markers, pre-save `subst:`, core… | ICU4X crates ([0033](../decisions/0033-backend-stack.md) §9.3) | pure | yes |
+|  | [`scatter-wikitext-expand`](CRATES.md#scatter-wikitext-expand) | MediaWiki's preprocessor and frame expansion: the preprocessor tree, frames, strip markers, pre-save `subst:`, core… | ICU4X crates ([0033](../decisions/0033-backend-stack.md) §9.3) | pure, wasm | yes |
 |  | [`scatter-css`](CRATES.md#scatter-css) | CSS Syntax Level 3 parsing, the TemplateStyles-policy sanitizer (`validate` and `sanitize`), selector scoping under… | `cssparser`, ([0033](../decisions/0033-backend-stack.md) §16) | pure, wasm |  |
 |  | [`scatter-threads`](CRATES.md#scatter-threads) | The `scatter:v0/thread` payload type and its four parts | `scatter-pages` | pure | yes |
 |  | [`scatter-talk`](CRATES.md#scatter-talk) | The wikitext talk-page splitter: sections, comments, signatures, depth and parents, heading, closing and collapsing… | `scatter-wikitext` | pure | yes |
@@ -287,7 +287,7 @@ The product starts at `0.1.0`, which the first publication carries.
 
 ### 3.6 Publishing a shared crate
 
-*Sources: [0115](../decisions/0115-publishing-the-shared-crates.md) §1, §2, §3, §4, §5.*
+*Sources: [0115](../decisions/0115-publishing-the-shared-crates.md) §1, §2, §3, §4, §5, §7, §8.*
 
 **James publishes, by hand.** A shared crate goes to crates.io when James runs `cargo publish -p {crate}` with his own token, from a commit on `main`, and tags that commit `{crate}-vX.Y.Z` (§3.5). Agents prepare a release and leave it for him: they never hold a crates.io token and never publish. Nothing in CI publishes; a workflow that publishes on a tag, with a token secret or crates.io's trusted publishing, would be a decision of its own ([0115](../decisions/0115-publishing-the-shared-crates.md) §1).
 
@@ -304,7 +304,9 @@ The product starts at `0.1.0`, which the first publication carries.
 
 **Which crates are published is what their manifests say**: a `scatter-*` crate without `publish = false`, at the version its `{crate}-v…` tags name. No list is kept here.
 
-`scatter-wikitext-expand` is the first because it is general (MediaWiki's preprocessor, with what it needs from a wiki coming through `ExpandHost`) and nearly ready: its dependencies are `serde` and `toml`, and it embeds one registry file, `wikitext-functions.toml`. It is published as the slice it is, transclusion without arguments, the census and the pre-save transform, and its README says so; each later slice that breaks its API raises the minor ([0115](../decisions/0115-publishing-the-shared-crates.md) §4).
+**CI checks every publishable crate on every pull request**, in the *Publishable crates* job (`tools/publish_check.py`): `cargo publish --workspace --dry-run` packages each crate without `publish = false`, in dependency order, and builds it from its package, so a path-only dependency, a file outside the crate's directory or a package that does not build fails the pull request rather than James's publication; then `cargo semver-checks` compares each crate crates.io already has with its latest published version, so a breaking change fails unless the version is raised as §3.5 says. A crate with no published version yet is skipped by the second check, since it has nothing to break ([0115](../decisions/0115-publishing-the-shared-crates.md) §7).
+
+`scatter-wikitext-expand` is the first because it is general (MediaWiki's preprocessor, with what it needs from a wiki coming through `ExpandHost`) and nearly ready: its dependencies are `serde` and `toml`, and it embeds one registry file, `wikitext-functions.toml`. It is published as the slice it is, transclusion without arguments, the census and the pre-save transform, and its README says so; each later slice that breaks its API raises the minor ([0115](../decisions/0115-publishing-the-shared-crates.md) §4). Its README also says it builds for `wasm32-unknown-unknown`, so the crate map marks it `wasm` and `cargo xtask wasm` keeps it building there (§1.2 rule 7; [0115](../decisions/0115-publishing-the-shared-crates.md) §8).
 
 `scatter-wikitext-parse` is the parser `scatter-wikitext` depends on: a fork of `parse-wiki-text-2` 0.2.0, published under its own name at 0.1.0 with the fixes that were Triplespace's patches to the vendored copy, so that `scatter-wikitext` can be published after it. It keeps upstream's MIT-0 licence, its authors and its style; Scatter's changes are MIT-0 too, so the licence boundary stays a crate boundary (§3.3). Its `CHANGELOG.md` lists each change from upstream, marked in the source with a `Fork:` comment ([0115](../decisions/0115-publishing-the-shared-crates.md) §5).
 

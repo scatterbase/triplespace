@@ -25,7 +25,7 @@ Whether a tenant runs Lua and which renderer serves its HTML are the `site` sett
 
 ### 1.2 The source parser and the built-in renderer
 
-*Sources: [0033](../decisions/0033-backend-stack.md) §9.1, A35; [0042](../decisions/0042-template-expansion-and-parsoid.md) §7; [0115](../decisions/0115-publishing-the-shared-crates.md) §5.*
+*Sources: [0033](../decisions/0033-backend-stack.md) §9.1, A35; [0042](../decisions/0042-template-expansion-and-parsoid.md) §7; [0115](../decisions/0115-publishing-the-shared-crates.md) §5, §6.*
 
 **Parser.** `scatter-wikitext-parse`, Triplespace's fork of `parse-wiki-text-2` (itself a maintained fork of Fredrik Portström's `parse_wiki_text`), published as a crate of its own under upstream's MIT-0 licence ([22](22-crates-and-stack.md) §3.6). It is pure Rust, gives every node start and end positions, recognises templates, parameters, tags, tables, lists, links, images, categories and comments, reports warnings for malformed markup, and bounds its own running time. Its `Configuration` (namespaces, extension tags, URL protocols) is generated from `namespaces.toml`. A change may be offered upstream where it is general; nothing waits on upstream taking it.
 
@@ -44,6 +44,8 @@ Whether a tenant runs Lua and which renderer serves its HTML are the `site` sett
 | Pre-save transform | `~~~`, `~~~~`, `~~~~~` on wikitext pages and wikitext posts, less a post's trailing signature, which is removed ([0019](../decisions/0019-discussions.md) §5) |
 
 Tags and behaviour switches the registry marks `implemented` (§2.2) are rendered by the built-in renderer, after expansion or without it (§1.1); what the registry marks `ignored` has no effect. Everything else renders as a **visible chip** showing its source: templates, parser functions, magic words and variables, and the extension tags whose registry status is `chip`. Files in wikitext (`File:` and `Image:` links) follow [0039](../decisions/0039-files-and-media.md) §13, in [12](12-files-and-media.md). Categories are listed as plain text ([0010](../decisions/0010-site-ui.md)). Magic links (`ISBN`, `RFC`, `PMID`) are off. The subset itself is [0008](../decisions/0008-namespaces-and-document-pages.md) §8's, in [10](10-pages-and-content-models.md).
+
+**The renderer's own classes take a prefix.** A chip is a `span` with the classes `{prefix}chip`, `{prefix}chip--wikitext` and `{prefix}chip--template` or `{prefix}chip--unsupported`, and a repeated link carries `{prefix}repeat` ([10](10-pages-and-content-models.md) §5.2). The prefix is `class_prefix` in `scatter-wikitext`'s `ConfigSource`: `wt-` by default, and `ts-` wherever Triplespace builds its configuration (`TenantNames::source` in `triplespace-projections`), so the site's markup is `ts-chip` and `ts-repeat` as before. MediaWiki's own classes (`new`, `mw-redirect`, `external`, `mw-parser-output`…) are never prefixed. The marker the renderer puts where the table of contents goes is an internal element, replaced before the tree is serialized, and never reaches the HTML ([0115](../decisions/0115-publishing-the-shared-crates.md) §6).
 
 **The built-in renderer after expansion** renders the expanded text, produced by `scatter-wikitext-expand` (§1.4), with the subset above, and extracts from it. After expansion:
 

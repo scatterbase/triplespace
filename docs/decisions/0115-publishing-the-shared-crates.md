@@ -2,6 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-22
+- **Updated:** 2026-11-22 (A1)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0042](0042-template-expansion-and-parsoid.md), [0097](0097-versioning-and-skins.md)
 
@@ -34,6 +35,10 @@ On Q1, the vendored `parse-wiki-text-2`, later the same day:
 - Asked what becomes of chapter 22's "changes are offered upstream where they are general", he chose **making offering upstream optional**.
 - **"I pick the name "scatter-wikitext-parse". Let's keep the crate MIT-0."**
 
+Then, offered the four steps that finish this work (the pull request for the fork, Q10, Q11 and Q2, each as recommended):
+
+- **"Do all four steps to finish the publishing work"**.
+
 ## Decision
 
 ### 1. Shared crates are published to crates.io from this workspace (amends 0005 §6)
@@ -56,6 +61,18 @@ On Q1, the vendored `parse-wiki-text-2`, later the same day:
 
 *Current text: [11](../architecture/11-rendering-templates-and-modules.md) §1.2; [22](../architecture/22-crates-and-stack.md) §3.3, §3.4, §3.6, §4.6.*
 
+### 6. A renderer's own classes take a configured prefix
+
+*Current text: [10](../architecture/10-pages-and-content-models.md) §5.2; [11](../architecture/11-rendering-templates-and-modules.md) §1.2.*
+
+### 7. CI checks every publishable crate
+
+*Current text: [22](../architecture/22-crates-and-stack.md) §3.6.*
+
+### 8. `scatter-wikitext-expand` is a wasm crate
+
+*Current text: [22](../architecture/22-crates-and-stack.md) §3.6.*
+
 ## Alternatives considered
 
 - **A checked copy of each registry file inside the crate**, with a checker that fails when it differs from `docs/registry/`. It works on every platform, but it is a second copy to regenerate after every registry edit.
@@ -77,7 +94,7 @@ On Q1, the vendored `parse-wiki-text-2`, later the same day:
 The plan for the other strong candidates. Each depends on the questions before it in the order of Q9.
 
 - **Q1. The vendored `parse-wiki-text-2`.** *Settled by §5.*
-- **Q2. `scatter-wikitext`'s CSS classes.** The render tree emits `ts-chip`, `ts-chip--template`, `ts-chip--unsupported`, `ts-chip--wikitext`, `ts-toc-marker` and `ts-repeat` (`lower.rs`); `ts-repeat` is already optional through `link_marks`. `ConfigSource::default()` holds MediaWiki's English core defaults, which is MediaWiki's own default and can stay. *Recommendation:* a `class_prefix` in `ConfigSource`, `ts-` where Triplespace builds one, so Triplespace's markup does not change. Publish after Q1.
+- **Q2. `scatter-wikitext`'s CSS classes.** *Settled by §6.*
 - **Q3. `scatter-talk`.** It is nearly general already: every public function takes the `Markup` registry explicitly, and English Wikipedia's conventions (`Site::english()`, the English months, `{{Unsigned}}`) are data in `talk-markup.toml` or in a `Site` built from siteinfo. It needs `scatter-wikitext` only for `decode_entities` and `escape_id`. *Recommendation:* publish it after `scatter-wikitext`, with `talk-markup.toml` as a symlink (§2) and its Cargo description rewritten without the ADR number.
 - **Q4. `scatter-vocab`.** Most of it is the IRIs of public vocabularies (PROV-O, PAV, SIOC, FOAF, Activity Streams, Dublin Core, schema.org, SKOS, the Wikibase ontology…). The `scatter` module is `https://scatter.red/terms/v0/`, which is itself a published vocabulary that Triplespace shares with Scatterbase (0001 A2), and `scatter-wikibase-rdf` does not use it. *Recommendation:* publish it as it is, when `scatter-wikibase-rdf` needs it published. It is of little use on its own.
 - **Q5. `scatter-providers`.** Its whole API is Triplespace's provider model: two-letter codes, revision IDs packed as `number << 40 | n`, tenant entity sources, adapters, trust and chip colours. Only `IdGrammar` is general. *Recommendation:* never publish it. Instead, take it out of the dependency tree of the published Wikibase crates (Q7, Q8), and leave it a shared crate for Scatterbase as it is.
@@ -85,10 +102,19 @@ The plan for the other strong candidates. Each depends on the questions before i
 - **Q7. `scatter-wikibase-model`.** The general core is entities, statements, values, canonical JSON, Wikibase's own hashes over its emulation of PHP `serialize()`, and the site list. Triplespace's part is the three ID forms and tenant-relative IDs in `EntityId::parse`, the `wikibase-domain`, `-keyword` and `-notation` data types, `value_iri`, the search document, fusion keys, badges and `Hasher::for_provider`; `EntityId::joins_clusters` consults the keyed registry's default. Options: (a) one crate whose `EntityId` parses plain Wikibase IDs and takes any further forms through a grammar passed in, with Triplespace's forms, search, keys and badges in a crate above it; (b) make the model generic over its ID type; (c) leave it unpublished. *Recommendation: (a), done last.* Seventeen crates depend on it, so a crate above it that re-exports the core keeps most of them unchanged. The Triplespace data types can become `DataType::Other`. `sites.toml`, which is generated from Wikimedia's site matrix and is general, goes behind a `sites` feature. The crate above is named in the change that makes it, through 0005 §2.
 - **Q8. `scatter-wikibase-rdf`.** The renderer, both flavours, the dump header, N-Triples and Turtle are general Wikibase RDF 1.0.0. `IriScheme` resolves foreign, source and keyed IDs through the provider and keyed registries, and `with_default_registries` and `Namespaces::triplespace` are Triplespace's. *Recommendation:* concept and document IRIs come through a trait. The registry-backed implementation moves to `triplespace-rdf`, which drops the dependencies on `scatter-providers` and `scatter-normalize`. Publish after Q7.
 - **Q9. The order.** *Recommendation:* the wikitext line first, since it is smaller and nearly ready (Q1, Q2, Q3). Then the general part of `scatter-normalize` (Q6) and `scatter-vocab` (Q4). Then the Wikibase model (Q7) and RDF (Q8), whose split touches most of the workspace.
-- **Q10. Checks in CI for published crates.** 22 §3.4 already names `cargo-semver-checks` once a crate is published. *Recommendation:* add a job that runs `cargo publish --dry-run` and `cargo semver-checks` for every crate without `publish = false`, so a path-only dependency, a registry file outside the crate or an unintended break fails a pull request rather than James's publication.
-- **Q11. `scatter-wikitext-expand` on the wasm list.** It builds for `wasm32-unknown-unknown` today and its README says so, but `crates.toml` does not mark it `wasm`, so `cargo xtask wasm` does not keep it so. *Recommendation:* mark it, through 0005 §2.
+- **Q10. Checks in CI for published crates.** *Settled by §7.*
+- **Q11. `scatter-wikitext-expand` on the wasm list.** *Settled by §8.*
 
 ## References
 
 - [The Cargo book: `cargo package`](https://doc.rust-lang.org/cargo/commands/cargo-package.html) and [publishing on crates.io](https://doc.rust-lang.org/cargo/reference/publishing.html).
 - [`cargo-semver-checks`](https://github.com/obi1kenobi/cargo-semver-checks).
+
+## Amendment log
+
+### A1. The class prefix is `wt-` by default
+
+- **Date:** 2026-11-22
+- **Source:** Direct: Claude, while building the class prefix, 2026-11-22; unconfirmed
+- **Change:** extends §6
+- **Summary:** `ConfigSource::default()` gives `class_prefix` the value `wt-`, so a caller outside Triplespace gets `wt-chip` and `wt-repeat`, and Triplespace's configuration sets `ts-`. Q2's recommendation named only Triplespace's prefix. An empty default was not taken because `chip` and `repeat` alone would collide with a host page's own classes, and `ts-` because it names Triplespace in a crate meant to know nothing of it. Chapter text: 11 §1.2.
