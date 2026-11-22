@@ -751,12 +751,12 @@ Statement editing requires JavaScript, as on Wikidata. Reading, page source edit
 
 ### 5.4 Rust in the browser, in `scatter-wasm`
 
-*Sources: [0034](../decisions/0034-frontend-stack.md) §6; [0042](../decisions/0042-template-expansion-and-parsoid.md) §15.*
+*Sources: [0034](../decisions/0034-frontend-stack.md) §6; [0042](../decisions/0042-template-expansion-and-parsoid.md) §15; [0115](../decisions/0115-publishing-the-shared-crates.md) §11.*
 
 One `wasm-bindgen` crate re-exports what editors need from the pure crates:
 
 - the shape classifier of §4.3;
-- `scatter-normalize` (value normalization and keyed-ID grammars; [04](04-entities-and-identifiers.md), [06](06-statements-and-properties.md));
+- `scatter-normalize` (value normalization; [06](06-statements-and-properties.md)) and `scatter-keyed` (keyed-ID grammars; [04](04-entities-and-identifiers.md); [0115](../decisions/0115-publishing-the-shared-crates.md) §11);
 - `scatter-wikitext` and the `scatter-pages` markdown renderer, for live preview;
 - `scatter-css`, so the editor lints a `sanitized-css` page as it is typed ([0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §2; [11](11-rendering-templates-and-modules.md)).
 

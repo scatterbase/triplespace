@@ -18,6 +18,7 @@ mwdump.workspace = true
 scatter-talk.workspace = true
 reqwest.workspace = true
 scatter-normalize.workspace = true
+scatter-keyed.workspace = true
 scatter-pages = { workspace = true, features = ["markdown"] }
 scatter-log.workspace = true
 scatter-log-postgres.workspace = true

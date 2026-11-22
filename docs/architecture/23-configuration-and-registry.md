@@ -448,7 +448,7 @@ A preference is a key–value pair owned by an account, registered in `docs/regi
 
 ### 4.1 The registry of record
 
-*Sources: [0077](../decisions/0077-special-version.md) §14; [0085](../decisions/0085-settings-and-preferences.md) §1; [0115](../decisions/0115-publishing-the-shared-crates.md) §2.*
+*Sources: [0077](../decisions/0077-special-version.md) §14; [0085](../decisions/0085-settings-and-preferences.md) §1; [0115](../decisions/0115-publishing-the-shared-crates.md) §2, §11.*
 
 The files under `docs/registry/` in the Triplespace repository are the registry of record for the names and codes Triplespace and Scatterbase share ([0015](../decisions/0015-record-format-and-partition-registry.md) §5). The table of files, what each lists and the ADR that defines it is [02](02-graphs-rdf-and-query.md) §1.4, and is not repeated here; this chapter holds what [02](02-graphs-rdf-and-query.md) does not, which is the crate that embeds each file and the changes the registry trailers of later ADRs made to them. `docs/registry/README.md` carries the same table with an "Embedded by" column.
 
@@ -459,7 +459,8 @@ The files under `docs/registry/` in the Triplespace repository are the registry 
 | `issuers.toml`, `groups.toml`, `grants.toml`, `tenancy.toml` | `scatter-actors` |
 | `namespaces.toml`, `special-pages.toml` | `scatter-titles` |
 | `content-models.toml` | `scatter-pages` |
-| `keyed-types.toml`, `notation-schemes.toml`, `resolvers.toml` | `scatter-normalize` |
+| `keyed-types.toml`, `notation-schemes.toml` | `scatter-keyed` |
+| `resolvers.toml` | `scatter-normalize` |
 | `sites.toml` | `scatter-wikibase-model` |
 | `thread-statuses.toml` | `scatter-threads` |
 | `talk-markup.toml` | `scatter-talk` |
@@ -482,13 +483,13 @@ The files are `serde` + `toml`, embedded at build time (`include_str!`) by the c
 
 ### 4.3 Keyed types, notation schemes, namespaces and content models
 
-*Sources: [0036](../decisions/0036-openstreetmap-providers.md) §7; [0048](../decisions/0048-notation.md) §7.*
+*Sources: [0036](../decisions/0036-openstreetmap-providers.md) §7; [0048](../decisions/0048-notation.md) §7; [0115](../decisions/0115-publishing-the-shared-crates.md) §11.*
 
 - **`keyed-types.toml`:** `osm-tag` is replaced by `notation`. The registry had allocated `osm-tag` but no instance holds data under it, so it is replaced rather than retired.
 - **`notation-schemes.toml`:** new, with `osm` and the two candidates ([04](04-entities-and-identifiers.md)).
 - **`namespaces.toml`:** 216 and 217 are renamed from `OSM` and `OSM talk` to `Notation` and `Notation talk`, with normalizer `notation`. The numbers serve the same pages they were allocated for, now with the scheme in the title. They had not been filed on mediawiki.org, so the registration is filed under the new name; the registry README lists 216/217 in the mediawiki.org registration still to be filed. `triplespace-titles` gains the `Notation` namespace ([0048](../decisions/0048-notation.md) §8).
 - **`content-models.toml`:** `triplespace-osm-tag` becomes `triplespace-notation`, entity type `notation`.
-- `scatter-normalize` keeps the `osm-tag` grammar as the `osm` scheme's grammar.
+- `scatter-keyed` keeps the `osm-tag` grammar as the `osm` scheme's grammar ([0115](../decisions/0115-publishing-the-shared-crates.md) §11).
 
 ### 4.4 Resolvers
 

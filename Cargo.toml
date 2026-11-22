@@ -4,6 +4,7 @@ members = [
     "crates/scatter-vocab",
     "crates/scatter-providers",
     "crates/scatter-normalize",
+    "crates/scatter-keyed",
     "crates/scatter-wikibase-model",
     "crates/scatter-wikibase-shape",
     "crates/scatter-wikibase-changeset",
@@ -65,7 +66,8 @@ authors = ["Scatter LLC"]
 # Workspace crates
 scatter-vocab = { path = "crates/scatter-vocab" }
 scatter-providers = { path = "crates/scatter-providers" }
-scatter-normalize = { path = "crates/scatter-normalize" }
+scatter-normalize = { path = "crates/scatter-normalize", version = "0.1.0" }
+scatter-keyed = { path = "crates/scatter-keyed", version = "0.1.0" }
 scatter-wikibase-model = { path = "crates/scatter-wikibase-model" }
 scatter-wikibase-shape = { path = "crates/scatter-wikibase-shape" }
 scatter-wikibase-changeset = { path = "crates/scatter-wikibase-changeset" }

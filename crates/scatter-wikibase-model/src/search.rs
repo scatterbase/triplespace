@@ -16,7 +16,8 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use scatter_normalize::{KeyedRegistry, domain, keyword};
+use scatter_keyed::{KeyedRegistry, keyword};
+use scatter_normalize::domain;
 use serde::Serialize;
 
 use crate::entity::Entity;

@@ -30,7 +30,7 @@
 
 use std::fmt;
 
-use scatter_normalize::KeyedRegistry;
+use scatter_keyed::KeyedRegistry;
 use scatter_providers::Registry as ProviderRegistry;
 use serde::{Deserialize, Serialize};
 
@@ -64,7 +64,7 @@ pub enum IdParseError {
     Foreign(#[from] scatter_providers::IdError),
     /// A keyed ID the keyed-type registry rejects.
     #[error("{0}")]
-    Keyed(#[from] scatter_normalize::KeyError),
+    Keyed(#[from] scatter_keyed::KeyError),
     /// A statement ID without `$`, or whose entity part is not an ID, or whose GUID part
     /// is not 36 hex-and-hyphen characters.
     #[error("`{0}` is not a statement ID (`<EntityId>$<UUID>`)")]

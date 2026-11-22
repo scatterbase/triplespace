@@ -23,7 +23,7 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use scatter_normalize::{KeyedRegistry, KeyedType, SchemeRegistry};
+use scatter_keyed::{KeyedRegistry, KeyedType, SchemeRegistry};
 use scatter_providers::Provider;
 use scatter_wikibase_changeset::{
     Adapter, AdapterError, KeyMap, Upstream, WikibaseAdapter, deterministic_statement_id,
@@ -344,7 +344,7 @@ impl KeyRules {
                     .filter(|t| {
                         !matches!(
                             t.normalize(""),
-                            Err(scatter_normalize::KeyError::NoNormalizer(_))
+                            Err(scatter_keyed::KeyError::NoNormalizer(_))
                         )
                     })
                     .ok_or_else(|| ConfigError::UnknownKeyedType {

@@ -42,7 +42,7 @@ use flate2::Compression;
 use flate2::write::GzEncoder;
 use oxrdf::{GraphName, NamedNode, NamedOrBlankNode, Quad, Term, Triple};
 use scatter_actors::{Effective, ReadDecision, Target as AclTarget, Timestamp, read_decision};
-use scatter_normalize::KeyedRegistry;
+use scatter_keyed::KeyedRegistry;
 use scatter_providers::Registry;
 use scatter_wikibase_model::{EntityId, Hasher, PageInfo};
 use scatter_wikibase_rdf::{

@@ -32,8 +32,8 @@ use scatter_actors::{
     Effective, GrantRegistry, Group, GroupRegistry, Principal, ReadDecision, Timestamp, evaluate,
     read_decision,
 };
+use scatter_keyed::KeyedRegistry;
 use scatter_log_postgres::PgClient;
-use scatter_normalize::KeyedRegistry;
 use scatter_projection::{Backend, BoxFuture, Consumer};
 use scatter_providers::Registry;
 use scatter_wikibase_model::{EntityId, Hasher, PageInfo};

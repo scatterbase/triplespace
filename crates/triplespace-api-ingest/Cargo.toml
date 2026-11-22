@@ -39,6 +39,7 @@ mwrecent.workspace = true
 scatter-adapter-wikibase.workspace = true
 scatter-providers.workspace = true
 scatter-normalize.workspace = true
+scatter-keyed.workspace = true
 getrandom.workspace = true
 triplespace-upstream.workspace = true
 tokio = { workspace = true, features = ["rt", "time", "sync", "macros"] }

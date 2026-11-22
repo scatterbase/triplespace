@@ -65,15 +65,17 @@ impl Normalizer {
     fn apply(self, input: &str) -> Result<String, String> {
         match self {
             Self::Exact => {
-                if crate::is_nfc(input) {
+                if scatter_normalize::is_nfc(input) {
                     Ok(input.to_string())
                 } else {
                     Err("not in Unicode NFC".to_string())
                 }
             }
-            Self::Nfc => Ok(crate::nfc(input)),
-            Self::Casefold => Ok(crate::nfc(&crate::casefold(&crate::nfc(input)))),
-            Self::AsciiLowercase => Ok(crate::nfc(input).to_ascii_lowercase()),
+            Self::Nfc => Ok(scatter_normalize::nfc(input)),
+            Self::Casefold => Ok(scatter_normalize::nfc(&scatter_normalize::casefold(
+                &scatter_normalize::nfc(input),
+            ))),
+            Self::AsciiLowercase => Ok(scatter_normalize::nfc(input).to_ascii_lowercase()),
         }
     }
 }
@@ -381,7 +383,7 @@ impl SchemeRegistry {
     /// Normalizes a key, `OSM:amenity=cafe`, to its canonical form, `osm:amenity=cafe`.
     ///
     /// ```
-    /// use scatter_normalize::notation::SchemeRegistry;
+    /// use scatter_keyed::notation::SchemeRegistry;
     /// let r = SchemeRegistry::default_registry();
     /// assert_eq!(r.normalize_key("OSM:amenity=cafe").unwrap(), "osm:amenity=cafe");
     /// assert_eq!(r.normalize_key("osm:addr:street=Main Street").unwrap(), "osm:addr:street=Main Street");
@@ -406,7 +408,8 @@ pub fn normalize(key: &str) -> Result<String, NotationError> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::{KeyedRegistry, ResolverRegistry};
+    use crate::KeyedRegistry;
+    use scatter_normalize::ResolverRegistry;
 
     fn reg() -> &'static SchemeRegistry {
         SchemeRegistry::default_registry()

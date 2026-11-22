@@ -7,8 +7,9 @@
 //! values with the resolver's normalizer (`crate::entities`), so the lookup and the index
 //! agree by construction (06 §3.1).
 
+use scatter_keyed::SchemeRegistry;
 pub use scatter_normalize::Resolver;
-use scatter_normalize::{ResolverRegistry, SchemeRegistry};
+use scatter_normalize::ResolverRegistry;
 use scatter_wikibase_model::key::Bound;
 
 use crate::acl_read::Hidden;
@@ -75,7 +76,7 @@ pub fn keyed<'a>(q: &str, resolvers: &[&'a Resolver]) -> Option<Keyed<'a>> {
 /// §2): the one bare key that resolves (0029 A9).
 #[must_use]
 pub fn is_notation_key(q: &str) -> bool {
-    scatter_normalize::notation::split(q)
+    scatter_keyed::notation::split(q)
         .is_some_and(|(scheme, _)| SchemeRegistry::default_registry().by_name(scheme).is_some())
 }
 

@@ -4,9 +4,9 @@
 //! A keyed type's entity ID is its normalized natural key with the type's prefix, not a
 //! minted identifier. The registry names each type's namespace, data type, IRI template,
 //! ID prefix and display rule; the grammar and normalizer are implemented by name in
-//! [`crate::domain`], [`crate::keyword`] and [`crate::notation`], because they are code,
-//! not data. A notation's normalizer and grammar are chosen by its scheme, from the
-//! default scheme registry. A registry entry whose name has no implementation is rejected at parse time,
+//! [`scatter_normalize::domain`], [`crate::keyword`] and [`crate::notation`], because they are code,
+//! not data. A notation's normalizer and grammar are chosen by its scheme, from the scheme
+//! registry the keyed registry was built with ([`KeyedRegistry::parse_with_schemes`]). A registry entry whose name has no implementation is rejected at parse time,
 //! so a new keyed type is a registry change and a module, never a silent no-op.
 
 use std::collections::BTreeMap;
@@ -16,7 +16,12 @@ use std::sync::LazyLock;
 use oxrdf::NamedNode;
 use serde::Deserialize;
 
-use crate::{KEYED_TYPES_TOML, domain, keyword, notation};
+use std::sync::Arc;
+
+use scatter_normalize::domain;
+
+use crate::notation::SchemeRegistry;
+use crate::{KEYED_TYPES_TOML, keyword};
 
 /// How a keyed type's label is produced (0009 §5, 0017 §5).
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -46,6 +51,9 @@ pub struct KeyedType {
     pub display: Display,
     /// Whether entities of this type may join identity clusters (0009 §8, 0017 §5).
     pub clusters: bool,
+    /// The notation schemes a `notation` key is normalized against: those of the registry
+    /// the type was parsed with, so a caller's own schemes apply (22 §1.2 rule 3).
+    schemes: Arc<SchemeRegistry>,
 }
 
 impl KeyedType {
@@ -59,7 +67,10 @@ impl KeyedType {
         match self.name.as_str() {
             "domain" => domain::normalize(input).map_err(|e| err(e.to_string())),
             "keyword" => keyword::normalize(input).map_err(|e| err(e.to_string())),
-            "notation" => notation::normalize(input).map_err(|e| err(e.to_string())),
+            "notation" => self
+                .schemes
+                .normalize_key(input)
+                .map_err(|e| err(e.to_string())),
             other => Err(KeyError::NoNormalizer(other.to_string())),
         }
     }
@@ -95,7 +106,7 @@ impl KeyedType {
     pub fn derived_label(&self, key: &str) -> Option<String> {
         match (self.display, self.name.as_str()) {
             (Display::Derived, "domain") => Some(domain::to_unicode(key)),
-            (Display::Derived, "notation") => Some(notation::string_of(key).to_string()),
+            (Display::Derived, "notation") => Some(crate::notation::string_of(key).to_string()),
             (Display::Derived, _) => Some(key.to_string()),
             (Display::Editable, _) => None,
         }
@@ -271,8 +282,15 @@ fn default_true() -> bool {
 }
 
 impl KeyedRegistry {
-    /// Parses and validates a registry in the format of `docs/registry/keyed-types.toml`.
+    /// Parses and validates a registry in the format of `docs/registry/keyed-types.toml`,
+    /// with the embedded notation schemes; [`Self::parse_with_schemes`] takes others.
     pub fn parse(text: &str) -> Result<Self, KeyedTypeError> {
+        Self::parse_with_schemes(text, SchemeRegistry::default_registry().clone())
+    }
+
+    /// Parses and validates a registry, normalizing `notation` keys against `schemes`.
+    pub fn parse_with_schemes(text: &str, schemes: SchemeRegistry) -> Result<Self, KeyedTypeError> {
+        let schemes = Arc::new(schemes);
         let raw: RawRegistry =
             toml::from_str(text).map_err(|e| KeyedTypeError::Toml(e.to_string()))?;
         if raw.version != 1 {
@@ -315,6 +333,7 @@ impl KeyedRegistry {
                 id_prefix: t.id_prefix,
                 display,
                 clusters: t.clusters,
+                schemes: Arc::clone(&schemes),
             });
         }
         let mut by_name = BTreeMap::new();
@@ -382,7 +401,7 @@ impl KeyedRegistry {
     /// The prefix is matched case-insensitively; the key is normalized by the type.
     ///
     /// ```
-    /// use scatter_normalize::KeyedRegistry;
+    /// use scatter_keyed::KeyedRegistry;
     /// let r = KeyedRegistry::default_registry();
     /// let id = r.parse_id("Domain:En.Wikipedia.org").unwrap();
     /// assert_eq!(id.to_string(), "domain:en.wikipedia.org");
@@ -424,6 +443,25 @@ mod tests {
 
     fn reg() -> &'static KeyedRegistry {
         KeyedRegistry::default_registry()
+    }
+
+    /// A keyed registry normalizes notations against the schemes it was built with, not the
+    /// embedded ones (22 §1.2 rule 3; 0115 §3 rule 3).
+    #[test]
+    fn notations_use_the_registry_s_own_schemes() {
+        let schemes = SchemeRegistry::parse(
+            "version = 1\n[[scheme]]\nname = \"isil\"\nlabel = \"ISIL\"\nnormalizer = \"casefold\"\ngrammar = \"text\"\n",
+        )
+        .unwrap();
+        let own = KeyedRegistry::parse_with_schemes(KEYED_TYPES_TOML, schemes).unwrap();
+        let notation = own.by_name("notation").unwrap();
+        assert_eq!(notation.normalize("isil:DE-1").unwrap(), "isil:de-1");
+        assert!(
+            notation.normalize("osm:amenity=cafe").is_err(),
+            "osm is not one of its schemes"
+        );
+        let embedded = reg().by_name("notation").unwrap();
+        assert!(embedded.normalize("isil:DE-1").is_err());
     }
 
     #[test]

@@ -12,6 +12,7 @@ publish = false
 [dependencies]
 scatter-providers.workspace = true
 scatter-normalize.workspace = true
+scatter-keyed.workspace = true
 indexmap.workspace = true
 sha1.workspace = true
 md-5.workspace = true

@@ -14,6 +14,7 @@ scatter-wikibase-changeset.workspace = true
 scatter-wikibase-model.workspace = true
 scatter-providers.workspace = true
 scatter-normalize.workspace = true
+scatter-keyed.workspace = true
 mwdump.workspace = true
 flate2.workspace = true
 bzip2.workspace = true

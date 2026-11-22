@@ -48,7 +48,7 @@ pub fn findings(source: &scatter_providers::EntitySource, registry: &Registry) -
             p.slug, p.code
         ));
     }
-    if scatter_normalize::KeyedRegistry::default_registry()
+    if scatter_keyed::KeyedRegistry::default_registry()
         .by_name(name)
         .is_some()
     {
@@ -60,7 +60,7 @@ pub fn findings(source: &scatter_providers::EntitySource, registry: &Registry) -
     {
         out.push(format!("`{name}` shadows the resolver `{name}`"));
     }
-    if scatter_normalize::SchemeRegistry::default_registry()
+    if scatter_keyed::SchemeRegistry::default_registry()
         .by_name(name)
         .is_some()
     {
@@ -169,10 +169,10 @@ pub async fn write(
     } else {
         source.validate(Registry::default_registry())?;
     }
-    let registry_name = scatter_normalize::KeyedRegistry::default_registry()
+    let registry_name = scatter_keyed::KeyedRegistry::default_registry()
         .by_name(name)
         .is_some()
-        || scatter_normalize::SchemeRegistry::default_registry()
+        || scatter_keyed::SchemeRegistry::default_registry()
             .by_name(name)
             .is_some();
     if existing.is_none() && registry_name {

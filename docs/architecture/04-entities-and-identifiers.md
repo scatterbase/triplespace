@@ -272,7 +272,7 @@ DOI is not a keyed type but a resolver ([0029](../decisions/0029-resolver-namesp
 
 ### 3.8 Notation and its schemes
 
-*Sources: [0048](../decisions/0048-notation.md) §1; [0048](../decisions/0048-notation.md) §2; [0048](../decisions/0048-notation.md) §6; [0036](../decisions/0036-openstreetmap-providers.md) §3.*
+*Sources: [0048](../decisions/0048-notation.md) §1; [0048](../decisions/0048-notation.md) §2; [0048](../decisions/0048-notation.md) §6; [0036](../decisions/0036-openstreetmap-providers.md) §3; [0115](../decisions/0115-publishing-the-shared-crates.md) §11.*
 
 A **notation** is a string that names something in an outside vocabulary, taken exactly as that vocabulary's own rule says. Its **scheme** says which vocabulary. The name follows SKOS, where `skos:notation` is "a string of characters … used to uniquely identify a concept within the scope of a given concept scheme".
 
@@ -293,19 +293,19 @@ A **notation** is a string that names something in an outside vocabulary, taken 
 
 The rest of what §3 says of a Domain applies unchanged: a notation exists because its key is valid, with no create, redirect or delete (§3.3); log headers carry a surrogate, one sequence for the type, not the string (§3.4); upstream items can be key-mapped onto notations ([05](05-providers-and-ingest.md)).
 
-**Schemes** are registry data, in `docs/registry/notation-schemes.toml`, embedded by `scatter-normalize`. Each entry has:
+**Schemes** are registry data, in `docs/registry/notation-schemes.toml`, embedded by `scatter-keyed` ([0115](../decisions/0115-publishing-the-shared-crates.md) §11). Each entry has:
 
 | Field | Meaning |
 |---|---|
 | `name` | Lowercase ASCII letters, digits and single hyphens, starting with a letter, at most 32 characters. No colon |
 | `label` | The vocabulary's name, shown in the UI's identity line ("OSM tag or key") |
 | `normalizer` | One of a fixed set: `exact` (the input must already be NFC and is not changed), `nfc`, `casefold` (NFC, then full Unicode case folding, as §3.7 and [0029](../decisions/0029-resolver-namespaces.md) §1 use it) and `ascii-lowercase` (NFC, then ASCII letters lowercased) |
-| `grammar` | The name of a grammar implemented in `scatter-normalize`, checked after normalizing: `osm-tag` (below), or `text`, which is 1 to 255 characters with no control characters and no leading or trailing whitespace |
+| `grammar` | The name of a grammar implemented in `scatter-keyed`, checked after normalizing: `osm-tag` (below), or `text`, which is 1 to 255 characters with no control characters and no leading or trailing whitespace |
 | `documentation` | Optional. A URL template for the vocabulary's own page about a string, `{string}` being the string |
 | `defined_in` | The ADR that registered the scheme |
 | `retired` | Optional. A retired scheme stays in the file so that its name is never given to another vocabulary |
 
-**A new scheme is a registry change, and a new grammar is code.** A scheme that names a grammar `scatter-normalize` does not implement is rejected when the file is parsed, as an unimplemented keyed type is. The normalizers are a closed set so that the rule that decides identity is never free text.
+**A new scheme is a registry change, and a new grammar is code.** A scheme that names a grammar `scatter-keyed` does not implement is rejected when the file is parsed, as an unimplemented keyed type is. The normalizers are a closed set so that the rule that decides identity is never free text.
 
 **Schemes are allocated in the registry only, never by an instance or a tenant.** A notation's ID and IRI are shared by every instance, so two instances that gave the name `foo` to different vocabularies would describe different things with one IRI. This differs from resolvers, which a tenant may add ([0029](../decisions/0029-resolver-namespaces.md) §8), because a resolver mints no shared identifier. A vocabulary a tenant wants for itself is modelled with ordinary items.
 
@@ -368,9 +368,9 @@ The UI's value editor ([0003](../decisions/0003-statement-ui.md) §8) offers the
 
 ### 3.10 Normalizers and the libraries behind them
 
-*Sources: [0033](../decisions/0033-backend-stack.md) §9.3; [0009](../decisions/0009-keyed-entity-types-and-domain.md) §1.*
+*Sources: [0033](../decisions/0033-backend-stack.md) §9.3; [0009](../decisions/0009-keyed-entity-types-and-domain.md) §1; [0115](../decisions/0115-publishing-the-shared-crates.md) §11.*
 
-Normalizers come from `scatter-normalize` ([22](22-crates-and-stack.md)), which also embeds `notation-schemes.toml`. The backend stack fixes the libraries that identifiers, URLs and case depend on:
+Normalizers come from `scatter-normalize`, and the keyed types' from `scatter-keyed`, which also embeds `notation-schemes.toml` ([22](22-crates-and-stack.md) §3.6; [0115](../decisions/0115-publishing-the-shared-crates.md) §11). The backend stack fixes the libraries that identifiers, URLs and case depend on:
 
 | Concern | Choice |
 |---|---|
@@ -422,15 +422,15 @@ The rest of what §3 says of a Domain applies unchanged: a remote key exists bec
 
 ### 3.12 Hosts
 
-*Sources: [0110](../decisions/0110-remote-pages-and-revisions.md) §2; [0110](../decisions/0110-remote-pages-and-revisions.md) §4; [0110](../decisions/0110-remote-pages-and-revisions.md) A2; [0110](../decisions/0110-remote-pages-and-revisions.md) A3.*
+*Sources: [0110](../decisions/0110-remote-pages-and-revisions.md) §2; [0110](../decisions/0110-remote-pages-and-revisions.md) §4; [0110](../decisions/0110-remote-pages-and-revisions.md) A2; [0110](../decisions/0110-remote-pages-and-revisions.md) A3.; [0115](../decisions/0115-publishing-the-shared-crates.md) §11*
 
-**Hosts are registry data,** in `docs/registry/hosts.toml`, to be embedded by `scatter-normalize` with the type. Each entry has:
+**Hosts are registry data,** in `docs/registry/hosts.toml`, to be embedded by `scatter-keyed` with the type ([0115](../decisions/0115-publishing-the-shared-crates.md) §11). Each entry has:
 
 | Field | Meaning |
 |---|---|
 | `name` | Lowercase ASCII letters, digits and single hyphens, starting with a letter, at most 32 characters; no colon. It joins the table of keyed-type, resolver and scheme names, and no host may share a name with any of them |
 | `label` | The host's name for people ("Wikimedia"), shown in the identity line |
-| `site_grammar` | The name of a grammar implemented in `scatter-normalize` that decides which site names are valid and how they are normalized. None may admit `-`. One exists: `dbname`, 1 to 64 characters of ASCII letters, digits and underscores, starting with a letter, lowercased (`enwiki`, `zh_min_nanwiki`) |
+| `site_grammar` | The name of a grammar implemented in `scatter-keyed` that decides which site names are valid and how they are normalized. None may admit `-`. One exists: `dbname`, 1 to 64 characters of ASCII letters, digits and underscores, starting with a letter, lowercased (`enwiki`, `zh_min_nanwiki`) |
 | `sites` | Optional. Where a site's base URL comes from: `site-aliases`, the default site aliases by site ID ([06](06-statements-and-properties.md) §4.3). Without it the host's keys have no links |
 | `page_url`, `revision_url` | Templates over `{base}`, the site's base URL, and `{n}`, the number |
 | `alias` | Optional. A title alias for the host's keys ([0110](../decisions/0110-remote-pages-and-revisions.md) A2): with `alias = "Wikimedia"`, `Wikimedia:enwiki-p12` is `Remote:wikimedia:enwiki-p12` |
