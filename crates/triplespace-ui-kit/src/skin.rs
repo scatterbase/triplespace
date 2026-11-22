@@ -37,7 +37,7 @@ use crate::i18n::Messages;
 /// The template contract this binary offers (0097 §9): the templates, the view models and
 /// the obligations of 19 §5.10. Major 0 until a skin that stands alone renders every
 /// route.
-pub const TEMPLATE_CONTRACT: &str = "0.1.0";
+pub const TEMPLATE_CONTRACT: &str = "0.2.0";
 
 /// The `@wikimedia/codex-design-tokens` release the binary pins (19 §5.9), whose major a
 /// skin that stands alone names; `ui/package.json` is the authority, and a test holds
@@ -720,7 +720,7 @@ mod tests {
         let skins = Skins::load(None);
         let plain = skins.get("plain").expect("Plain loads");
         let worksheet = skins.get("worksheet").expect("Worksheet loads");
-        assert_eq!(plain.messages().version.as_deref(), Some("0.1.0"));
+        assert_eq!(plain.messages().version.as_deref(), Some("0.1.1"));
         assert!(plain.messages().keys().all(|k| k.starts_with("plain-")));
         assert!(
             plain
@@ -810,7 +810,7 @@ mod tests {
             raw(
                 "child",
                 &[
-                    ("skin.toml", "name = \"child\"\nversion = \"0.1.0\"\nextends = \"plain\"\nstylesheets = [\"c.css\"]\n[requires]\nplain = \"0.1\"\n"),
+                    ("skin.toml", "name = \"child\"\nversion = \"0.1.0\"\nextends = \"plain\"\nstylesheets = [\"c.css\"]\n[requires]\nplain = \"0.2\"\n"),
                     ("c.css", "body{}"),
                 ],
             ),
@@ -819,7 +819,7 @@ mod tests {
             "orphan".to_string(),
             raw(
                 "orphan",
-                &[("skin.toml", "name = \"orphan\"\nversion = \"0.1.0\"\nextends = \"nothing\"\n[requires]\nplain = \"0.1\"\n")],
+                &[("skin.toml", "name = \"orphan\"\nversion = \"0.1.0\"\nextends = \"nothing\"\n[requires]\nplain = \"0.2\"\n")],
             ),
         );
         raw_skins.insert(
@@ -833,7 +833,7 @@ mod tests {
         // extends another has no messages of its own.
         let standalone = |name: &str, extra: &str, files: &[(&str, &str)]| {
             let manifest = format!(
-                "name = \"{name}\"\nversion = \"0.1.0\"\n{extra}[requires]\ntemplate_contract = \"0.1\"\ncodex_tokens = 2\n"
+                "name = \"{name}\"\nversion = \"0.1.0\"\n{extra}[requires]\ntemplate_contract = \"0.2\"\ncodex_tokens = 2\n"
             );
             let mut all = vec![
                 ("skin.toml", manifest.as_str()),
@@ -871,7 +871,7 @@ mod tests {
             raw(
                 "wordy",
                 &[
-                    ("skin.toml", "name = \"wordy\"\nversion = \"0.1.0\"\nextends = \"plain\"\n[messages]\nversion = \"0.1.0\"\n[requires]\nplain = \"0.1\"\n"),
+                    ("skin.toml", "name = \"wordy\"\nversion = \"0.1.0\"\nextends = \"plain\"\n[messages]\nversion = \"0.1.0\"\n[requires]\nplain = \"0.2\"\n"),
                 ],
             ),
         );

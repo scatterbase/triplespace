@@ -54,7 +54,7 @@ pub use notes::Endnotes;
 use triplespace_ui_kit::Site;
 use triplespace_ui_kit::codex::MessageKind;
 use triplespace_ui_kit::features::Feature;
-use triplespace_ui_kit::frame::{Page, Tab, title_url};
+use triplespace_ui_kit::frame::{Item, Page, Tab, title_url};
 use triplespace_ui_kit::i18n::Messages;
 use triplespace_ui_kit::pages::{self, Context, ModerationTabs, Peer};
 
@@ -377,15 +377,20 @@ impl TabName {
 
 fn tabs(m: &Messages, title: &str, current: TabName, items: bool, history: bool) -> Vec<Tab> {
     let base = format!("/wiki/{}", title_url(title));
-    let tab = |name: TabName, key: &str, href: String| Tab {
-        label: m.get(key),
-        href,
-        current: name == current,
+    // The Statements tab is the entity's reading, so its key is MediaWiki's `view`.
+    let tab = |name: TabName, id: &str, key: &str, href: String| {
+        Tab::new(m, id, key, href).current(name == current)
     };
     let mut v = vec![
-        tab(TabName::Statements, "ts-tab-statements", base.clone()),
+        tab(
+            TabName::Statements,
+            "view",
+            "ts-tab-statements",
+            base.clone(),
+        ),
         tab(
             TabName::Identifiers,
+            "identifiers",
             "ts-tab-identifiers",
             format!("{base}?tab=identifiers"),
         ),
@@ -394,12 +399,14 @@ fn tabs(m: &Messages, title: &str, current: TabName, items: bool, history: bool)
     if items {
         v.push(tab(
             TabName::Sitelinks,
+            "sitelinks",
             "ts-tab-sitelinks",
             format!("{base}?tab=sitelinks"),
         ));
     }
     v.push(tab(
         TabName::Labels,
+        "labels",
         "ts-tab-labels",
         format!("{base}?tab=labels"),
     ));
@@ -407,6 +414,7 @@ fn tabs(m: &Messages, title: &str, current: TabName, items: bool, history: bool)
     if history {
         v.push(tab(
             TabName::History,
+            "history",
             "ts-tab-history",
             format!("{base}?action=history"),
         ));
@@ -423,14 +431,30 @@ fn tabs(m: &Messages, title: &str, current: TabName, items: bool, history: bool)
 }
 
 /// The overflow menu (19 §1.3): **Protect…** and **Delete…** for their holders.
-fn actions(m: &Messages, title: &str, offered: ModerationTabs) -> Vec<(String, String)> {
+fn actions(m: &Messages, title: &str, offered: ModerationTabs) -> Vec<Item> {
     let base = format!("/wiki/{}", title_url(title));
     let mut v = Vec::new();
     if offered.protect {
-        v.push((m.get("ts-action-protect"), format!("{base}?action=protect")));
+        v.push(
+            Item::new(
+                m,
+                "protect",
+                "ts-action-protect",
+                format!("{base}?action=protect"),
+            )
+            .needs("protect"),
+        );
     }
     if offered.delete {
-        v.push((m.get("ts-action-delete"), format!("{base}?action=delete")));
+        v.push(
+            Item::new(
+                m,
+                "delete",
+                "ts-action-delete",
+                format!("{base}?action=delete"),
+            )
+            .needs("delete"),
+        );
     }
     v
 }
@@ -825,6 +849,8 @@ fn page(
         has_history,
     );
     let actions = actions(&cx.m, &canonical_title, cx.moderation_tabs());
+    let tools = crate::document::tools(&cx.m, &canonical_title, true);
+    let action = (tab == TabName::History).then_some("history");
     let restricted = visibility.map(|v| model::Restricted {
         tip: triplespace_ui_kit::frame::restricted_tip(&cx.m, &v.groups, &v.sets),
         text: cx.m.get("ts-restricted"),
@@ -844,6 +870,8 @@ fn page(
         subtitle_html: Some(terms),
         tabs,
         actions,
+        tools,
+        action,
         body,
         watch,
         ..Page::default()

@@ -44,6 +44,7 @@ pub mod html;
 pub mod i18n;
 pub mod inline;
 pub mod pages;
+pub mod sidebar;
 pub mod skin;
 pub mod theme;
 pub mod titles;

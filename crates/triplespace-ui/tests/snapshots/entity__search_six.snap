@@ -2,9 +2,15 @@
 source: crates/triplespace-ui/tests/entity.rs
 expression: main_of(&html)
 ---
-<main class="ts-page" id="content">
-	<h1 class="ts-page__title">Search</h1>
-	<div class="ts-page__body">
+<main class="ts-page mw-body" id="content">
+	<div class="mw-indicators">
+	</div>
+	<h1 class="ts-page__title firstHeading mw-first-heading" id="firstHeading">Search</h1>
+	<div id="contentSub">
+	</div>
+	<div class="ts-page__body mw-body-content" id="bodyContent">
+		<div class="ts-sitesub" id="siteSub">From librarybase</div>
+		<div id="mw-content-text">
 		<div class="ts-search">
 <form class="ts-search-form" role="search" aria-label="Search" action="/w/index.php" method="get">
 <input type="hidden" name="title" value="Special:Search">
@@ -51,5 +57,6 @@ expression: main_of(&html)
 </ol>
 </section>
 </div>
+		</div>
 	</div>
 </main>

@@ -64,7 +64,7 @@ use triplespace_ui_kit::codex::{
 };
 use triplespace_ui_kit::controls::{ControlModel, FieldRow, OptionModel};
 use triplespace_ui_kit::diffview::{self, View};
-use triplespace_ui_kit::frame::{Page, Tab, title_url};
+use triplespace_ui_kit::frame::{Item, Page, Tab, title_url};
 use triplespace_ui_kit::i18n::Messages;
 use triplespace_ui_kit::pages::{self, Context, ModerationTabs, Params};
 
@@ -105,15 +105,14 @@ enum TabName {
 /// the talk page, for a page that exists. `sitename` is the site's name for `Project:`.
 fn tabs(m: &Messages, site: &SiteInfo, title: &str, exists: bool, current: TabName) -> Vec<Tab> {
     let base = format!("/wiki/{}", title_url(title));
-    let tab = |name: TabName, key: &str, href: String| Tab {
-        label: m.get(key),
-        href,
-        current: name == current,
+    let tab = |name: TabName, id: &str, key: &str, href: String| {
+        Tab::new(m, id, key, href).current(name == current)
     };
     let mut v = vec![
-        tab(TabName::Read, "ts-tab-read", base.clone()),
+        tab(TabName::Read, "view", "ts-tab-read", base.clone()),
         tab(
             TabName::Edit,
+            "edit",
             if exists {
                 "ts-tab-edit"
             } else {
@@ -125,6 +124,7 @@ fn tabs(m: &Messages, site: &SiteInfo, title: &str, exists: bool, current: TabNa
     if exists {
         v.push(tab(
             TabName::History,
+            "history",
             "ts-tab-history",
             format!("{base}?action=history"),
         ));
@@ -138,11 +138,12 @@ fn tabs(m: &Messages, site: &SiteInfo, title: &str, exists: bool, current: TabNa
 
 /// The Links here tab of a page or an entity (19 §1.3): `Special:WhatLinksHere/{title}`.
 pub(crate) fn links_here_tab(m: &Messages, title: &str) -> Tab {
-    Tab {
-        label: m.get("ts-tab-links-here"),
-        href: format!("/wiki/Special:WhatLinksHere/{}", title_url(title)),
-        current: false,
-    }
+    Tab::new(
+        m,
+        "whatlinkshere",
+        "ts-tab-links-here",
+        format!("/wiki/Special:WhatLinksHere/{}", title_url(title)),
+    )
 }
 
 /// The Discussion tab of a page or an entity (19 §1.3; 0019 §2): its talk page, which
@@ -152,37 +153,77 @@ pub(crate) fn talk_tab(m: &Messages, site: &SiteInfo, title: &str) -> Option<Tab
         &pages::canonical(title, &site.sitename),
         &site.own_namespaces,
     )?;
-    Some(Tab {
-        label: m.get("ts-tab-discussion"),
-        href: format!("/wiki/{}", title_url(&talk)),
-        current: false,
-    })
+    Some(Tab::new(
+        m,
+        "talk",
+        "ts-tab-discussion",
+        format!("/wiki/{}", title_url(&talk)),
+    ))
 }
 
 /// The overflow menu (19 §1.3): **Protect…** for a holder of `protect`, a free title
 /// included, which may be create-protected; **Delete…** for a holder of `delete`, on a page
 /// that exists.
-fn actions(
-    m: &Messages,
-    title: &str,
-    exists: bool,
-    offered: ModerationTabs,
-) -> Vec<(String, String)> {
+fn actions(m: &Messages, title: &str, exists: bool, offered: ModerationTabs) -> Vec<Item> {
     let base = format!("/wiki/{}", title_url(title));
     let mut v = Vec::new();
     if offered.protect {
-        v.push((m.get("ts-action-protect"), format!("{base}?action=protect")));
+        v.push(
+            Item::new(
+                m,
+                "protect",
+                "ts-action-protect",
+                format!("{base}?action=protect"),
+            )
+            .needs("protect"),
+        );
     }
     if offered.r#move && exists {
-        v.push((
-            m.get("ts-action-move"),
-            format!("/wiki/Special:MovePage/{}", title_url(title)),
-        ));
+        v.push(
+            Item::new(
+                m,
+                "move",
+                "ts-action-move",
+                format!("/wiki/Special:MovePage/{}", title_url(title)),
+            )
+            .needs("move"),
+        );
     }
     if offered.delete && exists {
-        v.push((m.get("ts-action-delete"), format!("{base}?action=delete")));
+        v.push(
+            Item::new(
+                m,
+                "delete",
+                "ts-action-delete",
+                format!("{base}?action=delete"),
+            )
+            .needs("delete"),
+        );
     }
     v
+}
+
+/// The tools menu of a page or an entity (0097 §11; 19 §1.3): its related changes and its
+/// information, for a title that exists.
+pub(crate) fn tools(m: &Messages, title: &str, exists: bool) -> Vec<Item> {
+    if !exists {
+        return Vec::new();
+    }
+    let t = title_url(title);
+    vec![
+        Item::new(
+            m,
+            "recentchangeslinked",
+            "ts-tool-related-changes",
+            format!("/wiki/Special:RecentChangesLinked/{t}"),
+        ),
+        Item::new(
+            m,
+            "info",
+            "ts-tool-info",
+            format!("/wiki/Special:PageInfo/{t}"),
+        ),
+    ]
 }
 
 // ---------------------------------------------------------------------------------------
@@ -697,6 +738,7 @@ async fn read(
             .map(|subtitle| cx.draw("document/subtitle.html", SubtitleCtx { subtitle })),
         tabs: tabs(m, &cx.site, &parsed.title, true, TabName::Read),
         actions: actions(m, &parsed.title, true, cx.moderation_tabs()),
+        tools: tools(m, &parsed.title, true),
         body: cx.draw(
             "document/read.html",
             ReadCtx {
@@ -1116,6 +1158,8 @@ fn edit_page(
             returnto: Some(d.title.clone()),
             tabs: tabs(m, &cx.site, &d.title, d.exists, TabName::Edit),
             actions: actions(m, &d.title, d.exists, cx.moderation_tabs()),
+            tools: tools(m, &d.title, d.exists),
+            action: Some("edit"),
             body,
             ..Page::default()
         }
@@ -1240,6 +1284,8 @@ fn unsupported(cx: &Context, headers: &HeaderMap, s: &Source) -> Response {
         returnto: Some(s.title.clone()),
         tabs: tabs(m, &cx.site, &s.title, true, TabName::Edit),
         actions: actions(m, &s.title, true, cx.moderation_tabs()),
+        tools: tools(m, &s.title, true),
+        action: Some("edit"),
         body: cx.message(
             MessageKind::Notice,
             &m.with("ts-pageedit-unsupported", &[&s.model]),
@@ -1389,6 +1435,8 @@ async fn page_history(
         returnto: Some(info.title.clone()),
         tabs: tabs(m, &cx.site, &info.title, true, TabName::History),
         actions: actions(m, &info.title, true, cx.moderation_tabs()),
+        tools: tools(m, &info.title, true),
+        action: Some("history"),
         body: history::body(&cx, &info.title, &ask, None, &rows.value),
         ..Page::default()
     })
@@ -1779,6 +1827,7 @@ async fn page_diff(
             returnto: Some(page_title.clone()),
             tabs: tabs(m, &cx.site, &page_title, true, TabName::History),
             actions: actions(m, &page_title, true, cx.moderation_tabs()),
+            tools: tools(m, &page_title, true),
             title: page_title.clone(),
             body,
             ..Page::default()
@@ -1977,9 +2026,32 @@ mod tests {
                 r#move: true,
             },
         );
-        assert_eq!(a[0].1, "/wiki/Project:Home?action=protect");
-        assert_eq!(a[1].1, "/wiki/Special:MovePage/Project:Home");
-        assert_eq!(a[2].1, "/wiki/Project:Home?action=delete");
+        assert_eq!(a[0].href, "/wiki/Project:Home?action=protect");
+        assert_eq!(a[1].href, "/wiki/Special:MovePage/Project:Home");
+        assert_eq!(a[2].href, "/wiki/Project:Home?action=delete");
+        // 0097 §11: each item has a key, which Plain draws as MediaWiki's ID, and the
+        // right it needs.
+        let keys: Vec<_> = a
+            .iter()
+            .map(|i| (i.key.as_str(), i.right.as_deref()))
+            .collect();
+        assert_eq!(
+            keys,
+            [
+                ("protect", Some("protect")),
+                ("move", Some("move")),
+                ("delete", Some("delete"))
+            ]
+        );
+        let keys: Vec<_> = t.iter().map(|i| i.key.as_str()).collect();
+        assert_eq!(keys, ["view", "edit", "history", "whatlinkshere", "talk"]);
+        let tools = tools(&m, "Project:Home", true);
+        assert_eq!(
+            tools[0].href,
+            "/wiki/Special:RecentChangesLinked/Project:Home"
+        );
+        assert_eq!(tools[1].key, "info");
+        assert!(super::tools(&m, "Project:Home", false).is_empty());
         assert_eq!(
             actions(&m, "Project:Home", true, ModerationTabs::default()).len(),
             0

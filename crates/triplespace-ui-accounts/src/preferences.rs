@@ -662,10 +662,13 @@ async fn render(
     let tabs = model
         .sections
         .iter()
-        .map(|s| Tab {
-            label: s.title.clone(),
-            href: format!("#{}", s.id),
-            current: false,
+        .map(|s| {
+            Tab::labelled(
+                &format!("section-{}", s.id),
+                "",
+                s.title.clone(),
+                format!("#{}", s.id),
+            )
         })
         .collect();
     let html = cx.draw("special/preferences.html", model);

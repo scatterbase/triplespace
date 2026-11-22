@@ -392,7 +392,7 @@ async fn entity_parts_are_drawn_by_the_skin() {
     std::fs::create_dir_all(broken.join("templates/entity")).unwrap();
     std::fs::write(
         broken.join("skin.toml"),
-        "name = \"brokenplain\"\nversion = \"0.1.0\"\n[requires]\ntemplate_contract = \"0.1\"\ncodex_tokens = 2\n",
+        "name = \"brokenplain\"\nversion = \"0.1.0\"\n[requires]\ntemplate_contract = \"0.2\"\ncodex_tokens = 2\n",
     )
     .unwrap();
     // Plain's templates, with the Statements tab drawing a marker instead.

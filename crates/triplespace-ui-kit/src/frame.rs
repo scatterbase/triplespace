@@ -40,15 +40,127 @@ pub fn title_url(title: &str) -> String {
     utf8_percent_encode(&title.replace(' ', "_"), TITLE).to_string()
 }
 
-/// One of the page's tabs.
+/// One item of a menu (0097 §11; 19 §5.10): a page's tab, an entry of the account menu,
+/// a link of the global header. Its **key** is stable and names what it does, not how it
+/// reads (`edit`, `history`, `logout`); Plain draws it as MediaWiki's ID for the item, the
+/// menu's prefix and the key (`ca-edit`, `pt-logout`), so that styles and tools written
+/// for MediaWiki's skins find it (19 §5.10).
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
-pub struct Tab {
-    /// The label.
+pub struct Item {
+    /// What the item does, unique in its menu: the site's are lower-case ASCII letters,
+    /// digits, hyphens and underscores; a link of the wiki's sidebar keeps MediaWiki's,
+    /// its label as written with spaces as hyphens ([`crate::sidebar`]).
+    pub key: String,
+    /// The message its label is drawn from; empty where the label is not one message's
+    /// (a settings group's name, which a registry gives).
+    pub msg: String,
+    /// The label, in the page's language.
     pub label: String,
     /// Where it goes.
     pub href: String,
     /// Whether it is the page being shown.
     pub current: bool,
+    /// An icon hint, a Codex icon's name, for a skin that draws icons.
+    pub icon: Option<String>,
+    /// The right a reader must hold to be offered it; the frame drops it for anyone else.
+    pub right: Option<String>,
+}
+
+impl Item {
+    /// An item labelled by the message `msg`.
+    #[must_use]
+    pub fn new(m: &Messages, key: &str, msg: &str, href: impl Into<String>) -> Self {
+        Self::labelled(key, msg, m.get(msg), href)
+    }
+
+    /// An item whose label is already filled (a message with parameters).
+    #[must_use]
+    pub fn labelled(key: &str, msg: &str, label: String, href: impl Into<String>) -> Self {
+        Self {
+            key: key.to_string(),
+            msg: msg.to_string(),
+            label,
+            href: href.into(),
+            current: false,
+            icon: None,
+            right: None,
+        }
+    }
+
+    /// The same item, marked as the page being shown where `current`.
+    #[must_use]
+    pub fn current(mut self, current: bool) -> Self {
+        self.current = current;
+        self
+    }
+
+    /// The same item, offered only to a holder of `right`.
+    #[must_use]
+    pub fn needs(mut self, right: &str) -> Self {
+        self.right = Some(right.to_string());
+        self
+    }
+
+    /// The same item, with an icon hint.
+    #[must_use]
+    pub fn icon(mut self, icon: &str) -> Self {
+        self.icon = Some(icon.to_string());
+        self
+    }
+}
+
+/// A page's tab: an item of the `page-tabs` menu.
+pub type Tab = Item;
+
+/// The named menus of a page (19 §5.10), each a list of items the binary fills from the
+/// features, the registries, the page and the wiki's `Interface:Sidebar`
+/// ([`crate::sidebar`]) and filters by the reader's rights, so the skin only places and
+/// draws them. A menu with nothing in it is empty, not absent (implements 0097 §11 (A16)).
+#[derive(Debug, Clone, Default, PartialEq, Eq, serde::Serialize)]
+pub struct Menus {
+    /// The global header's links to the site's pages: Recent changes, Jobs, Special
+    /// pages.
+    pub header: Vec<Item>,
+    /// The **New** menu: an item, a property, a page.
+    pub new: Vec<Item>,
+    /// The account menu, or **Log in** for a reader who is not signed in.
+    #[serde(rename = "user-menu")]
+    pub user_menu: Vec<Item>,
+    /// The page's tabs (19 §1.3).
+    #[serde(rename = "page-tabs")]
+    pub page_tabs: Vec<Item>,
+    /// The page's overflow menu: the less common actions, Protect… and Delete… among
+    /// them (19 §1.3).
+    #[serde(rename = "page-actions")]
+    pub page_actions: Vec<Item>,
+    /// Tools about the page shown: its related changes, its information.
+    pub tools: Vec<Item>,
+    /// Markers beside the title, MediaWiki's page status indicators.
+    #[serde(rename = "title-meta")]
+    pub title_meta: Vec<Item>,
+    /// The footer's links.
+    pub footer: Vec<Item>,
+}
+
+impl Menus {
+    /// Each menu without the items whose right the reader does not hold.
+    #[must_use]
+    fn for_reader(mut self, rights: &[String]) -> Self {
+        let held = |i: &Item| i.right.as_ref().is_none_or(|r| rights.contains(r));
+        for menu in [
+            &mut self.header,
+            &mut self.new,
+            &mut self.user_menu,
+            &mut self.page_tabs,
+            &mut self.page_actions,
+            &mut self.tools,
+            &mut self.title_meta,
+            &mut self.footer,
+        ] {
+            menu.retain(held);
+        }
+        self
+    }
 }
 
 /// The signed-in viewer, for the account menu.
@@ -58,8 +170,6 @@ pub struct Account {
     pub name: String,
     /// The account menu's accessible name.
     pub label: String,
-    /// The menu's links, as label and target; the name alone where there are none.
-    pub items: Vec<(String, String)>,
 }
 
 /// What a page puts in the frame.
@@ -79,11 +189,17 @@ pub struct Page {
     pub identity_html: Option<String>,
     /// What goes under the title (an entity's terms), as HTML built from escaped parts.
     pub subtitle_html: Option<String>,
-    /// The tabs.
-    pub tabs: Vec<Tab>,
-    /// The overflow menu's actions, `(label, href)`: the less common ones, Protect… and
-    /// Delete… among them (19 §1.3).
-    pub actions: Vec<(String, String)>,
+    /// The tabs: the `page-tabs` menu.
+    pub tabs: Vec<Item>,
+    /// The overflow menu: the `page-actions` menu, the less common actions, Protect…
+    /// and Delete… among them (19 §1.3).
+    pub actions: Vec<Item>,
+    /// Tools about the page: the `tools` menu.
+    pub tools: Vec<Item>,
+    /// What MediaWiki calls the action, for the `action-*` class on `<body>`: `view`
+    /// unless the page is an edit form (`edit`, `submit`), a history (`history`) or
+    /// another action of a title's.
+    pub action: Option<&'static str>,
     /// The body, as HTML the page built from escaped parts.
     pub body: String,
     /// What the search box already holds.
@@ -125,6 +241,12 @@ pub struct Chrome<'a> {
     pub account_requests: Option<u64>,
     /// A signed-in viewer's unread notifications, where the site shows them (19 §6.2).
     pub notifications: Option<&'a triplespace_client::Counts>,
+    /// A signed-in viewer's tenant-wide rights, which decide the menu items offered
+    /// (0097 §11); empty for a reader who is not signed in.
+    pub rights: &'a [String],
+    /// The wiki's own namespaces, which `<body>`'s namespace class reads before the
+    /// registry's (10 §1.3 rule 4).
+    pub own_namespaces: &'a [triplespace_client::OwnNamespace],
 }
 
 /// The bell (19 §6.2).
@@ -159,10 +281,13 @@ pub struct Model {
     pub identity: Option<String>,
     /// Under the title, HTML.
     pub subtitle: Option<String>,
-    /// The tabs.
-    pub tabs: Vec<Tab>,
-    /// The overflow menu's actions, label and target.
-    pub actions: Vec<(String, String)>,
+    /// The named menus (0097 §11).
+    pub menus: Menus,
+    /// The classes on `<body>`, MediaWiki's (19 §5.10): `mediawiki`, the direction, the
+    /// namespace (`ns-0`, and `ns-subject`, `ns-talk` or `ns-special`), the page
+    /// (`page-…`, `rootpage-…`), the skin (`skin-plain`, whichever skin extends Plain) and
+    /// the action (`action-view`).
+    pub body_class: String,
     /// The body, HTML.
     pub body: String,
     /// The search box, where the site offers search: the skin draws it with its
@@ -178,12 +303,6 @@ pub struct Model {
     pub account: Option<Account>,
     /// The main page's URL.
     pub mainpage_href: String,
-    /// Whether a **Log in** link is offered.
-    pub login: bool,
-    /// The site's links, label and target.
-    pub nav: Vec<(String, String)>,
-    /// The **New** menu, label and target.
-    pub new_menu: Vec<(String, String)>,
     /// Where login and logout return to, as a URL title.
     pub returnto: String,
     /// The stylesheets a page links, in order, before the theme's: the skin chain's.
@@ -388,72 +507,123 @@ pub fn model(
         .returnto
         .as_deref()
         .map_or_else(|| title_url(chrome.mainpage), title_url);
-    let account = user.map(|name| {
-        let mut items = Vec::new();
+    let mut user_menu = Vec::new();
+    if let Some(name) = user {
         if f.has(Feature::Pages) {
-            items.push((
-                m.get("ts-account-userpage"),
+            user_menu.push(Item::new(
+                m,
+                "userpage",
+                "ts-account-userpage",
                 format!("/wiki/User:{}", title_url(name)),
             ));
         }
         if f.has(Feature::Watchlist) {
-            items.push((
-                m.get("ts-watchlist-title"),
-                "/wiki/Special:Watchlist".to_string(),
+            user_menu.push(Item::new(
+                m,
+                "watchlist",
+                "ts-watchlist-title",
+                "/wiki/Special:Watchlist",
             ));
         }
         if f.has(Feature::Account) {
-            items.push((m.get("ts-account"), "/wiki/Special:Account".to_string()));
+            user_menu.push(Item::new(
+                m,
+                "account",
+                "ts-account",
+                "/wiki/Special:Account",
+            ));
         }
         if f.has(Feature::Preferences) {
-            items.push((
-                m.get("ts-preferences"),
-                "/wiki/Special:Preferences".to_string(),
+            user_menu.push(Item::new(
+                m,
+                "preferences",
+                "ts-preferences",
+                "/wiki/Special:Preferences",
             ));
         }
         if let (true, Some(n)) = (f.has(Feature::Register), chrome.account_requests) {
-            items.push((
+            user_menu.push(Item::labelled(
+                "confirmaccounts",
+                "ts-account-requests",
                 m.with("ts-account-requests", &[&n.to_string()]),
-                "/wiki/Special:ConfirmAccounts".to_string(),
+                "/wiki/Special:ConfirmAccounts",
             ));
         }
         if f.has(Feature::Login) {
-            items.push((
-                m.get("ts-logout"),
+            user_menu.push(Item::new(
+                m,
+                "logout",
+                "ts-logout",
                 format!("/wiki/Special:UserLogout?returnto={returnto}"),
             ));
         }
-        Account {
-            name: name.to_string(),
-            label: m.with("ts-account-menu", &[name]),
-            items,
-        }
+    } else if f.has(Feature::Login) {
+        user_menu.push(Item::new(
+            m,
+            "login",
+            "ts-login",
+            format!("/wiki/Special:UserLogin?returnto={returnto}"),
+        ));
+    }
+    let account = user.map(|name| Account {
+        name: name.to_string(),
+        label: m.with("ts-account-menu", &[name]),
     });
-    let mut nav = Vec::new();
+    let mut header = Vec::new();
     if f.has(Feature::RecentChanges) {
-        nav.push((
-            m.get("ts-nav-recentchanges"),
-            "/wiki/Special:RecentChanges".to_string(),
+        header.push(Item::new(
+            m,
+            "recentchanges",
+            "ts-nav-recentchanges",
+            "/wiki/Special:RecentChanges",
         ));
     }
     if f.has(Feature::Jobs) {
-        nav.push((m.get("ts-nav-jobs"), "/wiki/Special:Jobs".to_string()));
+        header.push(Item::new(m, "jobs", "ts-nav-jobs", "/wiki/Special:Jobs"));
     }
-    nav.push((
-        m.get("ts-nav-specialpages"),
-        "/wiki/Special:SpecialPages".to_string(),
+    header.push(Item::new(
+        m,
+        "specialpages",
+        "ts-nav-specialpages",
+        "/wiki/Special:SpecialPages",
     ));
-    let mut new_menu = Vec::new();
+    // The wiki's own links, its `Interface:Sidebar`, join the site's (0097 §11).
+    let header = crate::sidebar::merge(header, crate::sidebar::items(m));
+    let mut new = Vec::new();
     if f.has(Feature::Create) {
-        new_menu.push((m.get("ts-new-item"), "/wiki/Special:NewItem".to_string()));
-        new_menu.push((
-            m.get("ts-new-property"),
-            "/wiki/Special:NewProperty".to_string(),
+        new.push(Item::new(m, "item", "ts-new-item", "/wiki/Special:NewItem"));
+        new.push(Item::new(
+            m,
+            "property",
+            "ts-new-property",
+            "/wiki/Special:NewProperty",
         ));
     }
     if f.has(Feature::Pages) {
-        new_menu.push((m.get("ts-new-page"), "/w/index.php?action=edit".to_string()));
+        new.push(Item::new(
+            m,
+            "page",
+            "ts-new-page",
+            "/w/index.php?action=edit",
+        ));
     }
+    let menus = Menus {
+        header,
+        new,
+        user_menu,
+        page_tabs: page.tabs.clone(),
+        page_actions: page.actions.clone(),
+        tools: page.tools.clone(),
+        title_meta: Vec::new(),
+        footer: Vec::new(),
+    }
+    .for_reader(chrome.rights);
+    let body_class = body_class(
+        m.dir(),
+        page.returnto.as_deref(),
+        page.action,
+        chrome.own_namespaces,
+    );
     // A retired palette among the reader's choices reads as what replaced it (0094 §4).
     let resolved = crate::appearance::resolve(chrome.prefs);
     let prefs = resolved.as_ref().or(chrome.prefs);
@@ -506,16 +676,13 @@ pub fn model(
         doc_title: page.doc_title.clone().unwrap_or_else(|| page.title.clone()),
         identity: page.identity_html.clone(),
         subtitle: page.subtitle_html.clone(),
-        tabs: page.tabs.clone(),
-        actions: page.actions.clone(),
+        menus,
+        body_class,
         body: page.body.clone(),
         search,
         search_data,
         account,
         mainpage_href: format!("/wiki/{}", title_url(chrome.mainpage)),
-        login: f.has(Feature::Login),
-        nav,
-        new_menu,
         returnto,
         stylesheets,
         js: entries.js.clone(),
@@ -537,6 +704,67 @@ pub fn model(
             .filter(|_| user.is_some())
             .map(|w| watch_model(m, w)),
     }
+}
+
+/// MediaWiki's classes on `<body>` (19 §5.10), which site styles written for MediaWiki
+/// key on: `mediawiki`, the direction, the namespace of the title shown (`ns-0` and
+/// `ns-subject`, `ns-1` and `ns-talk`, `ns--1` and `ns-special`), the page and its root
+/// (`page-Main_Page`, `rootpage-Main_Page`), the skin and the action. The skin is
+/// `skin-plain` for every skin that draws Plain's DOM, since the class says which DOM a
+/// style may rely on, and Worksheet's is Plain's. A page that shows no title has no
+/// namespace or page classes.
+fn body_class(
+    dir: &str,
+    title: Option<&str>,
+    action: Option<&str>,
+    own: &[triplespace_client::OwnNamespace],
+) -> String {
+    let mut c = vec!["mediawiki".to_string(), dir.to_string()];
+    if let Some(title) = title.filter(|t| !t.is_empty()) {
+        let (id, _) = crate::titles::namespace_of(title, own);
+        c.push(format!("ns-{id}"));
+        c.push(
+            match id {
+                i if i < 0 => "ns-special",
+                i if i % 2 == 1 => "ns-talk",
+                _ => "ns-subject",
+            }
+            .to_string(),
+        );
+        c.push(format!("page-{}", escape_class(title)));
+        let root = title.split('/').next().unwrap_or(title);
+        c.push(format!("rootpage-{}", escape_class(root)));
+    }
+    c.push("skin-plain".to_string());
+    c.push(format!("action-{}", action.unwrap_or("view")));
+    c.join(" ")
+}
+
+/// A title as a class name, as MediaWiki's `Sanitizer::escapeClass` makes it: spaces,
+/// ASCII punctuation and a leading digit or hyphen become underscores, and underscores
+/// at either end are dropped.
+fn escape_class(title: &str) -> String {
+    let mut s: String = title
+        .chars()
+        .enumerate()
+        .map(|(i, ch)| {
+            let lead = i == 0 && (ch.is_ascii_digit() || ch == '-');
+            let punct = ch.is_ascii()
+                && (ch <= ' ' || (ch.is_ascii_punctuation() && ch != '_' && ch != '-'));
+            if lead || punct || ch == '\u{a0}' {
+                '_'
+            } else {
+                ch
+            }
+        })
+        .collect();
+    while s.starts_with('_') {
+        s.remove(0);
+    }
+    while s.ends_with('_') {
+        s.pop();
+    }
+    s
 }
 
 /// Renders a page in the frame: the skin's `frame.html` over the page's model and `msg`.
@@ -590,11 +818,10 @@ mod tests {
         Page {
             title: "Main Page".into(),
             returnto: Some("Main Page".into()),
-            tabs: vec![Tab {
-                label: "Read".into(),
-                href: "/wiki/Main_Page".into(),
-                current: true,
-            }],
+            tabs: vec![
+                Item::labelled("view", "ts-tab-read", "Read".into(), "/wiki/Main_Page")
+                    .current(true),
+            ],
             body: "<p>x</p>".into(),
             ..Page::default()
         }
@@ -609,6 +836,8 @@ mod tests {
             prefs: None,
             account_requests: None,
             notifications: None,
+            rights: &[],
+            own_namespaces: &[],
         }
     }
 
@@ -773,6 +1002,96 @@ mod tests {
         assert!(signed_in.contains("Alice"));
         assert!(!signed_in.contains("Special:Account"));
         assert!(!signed_in.contains("User:Alice"));
+    }
+
+    /// 0097 §11 and 19 §5.10: Plain draws the IDs and classes MediaWiki's skins share,
+    /// each item's ID from its menu's prefix and its key, and MediaWiki's classes on
+    /// `<body>`; an item whose right the reader lacks is not drawn.
+    #[test]
+    fn plain_draws_mediawiki_names() {
+        let m = Messages::for_language("en");
+        let f = all();
+        let mut p = page();
+        p.title = "Project:Home".into();
+        p.returnto = Some("Project:Home".into());
+        p.tabs.push(Item::new(
+            &m,
+            "edit",
+            "ts-tab-edit",
+            "/wiki/Project:Home?action=edit",
+        ));
+        p.actions = vec![
+            Item::new(&m, "delete", "ts-action-delete", "/x").needs("delete"),
+            Item::new(&m, "protect", "ts-action-protect", "/y").needs("protect"),
+        ];
+        p.tools = vec![Item::new(
+            &m,
+            "info",
+            "ts-tool-info",
+            "/wiki/Special:PageInfo/Project:Home",
+        )];
+        p.action = Some("history");
+        p.subtitle_html = Some("<span>sub</span>".into());
+        let rights = vec!["protect".to_string()];
+        let mut c = chrome(&f);
+        c.rights = &rights;
+        let html = render(&worksheet(), &m, &c, &Theme::shipped(), Some("Alice"), &p).unwrap();
+        for name in [
+            "<body class=\"mediawiki ltr ns-4 ns-subject page-Project_Home rootpage-Project_Home skin-plain action-history\">",
+            "<main class=\"ts-page mw-body\" id=\"content\">",
+            "id=\"firstHeading\"",
+            "class=\"mw-indicators\"",
+            "<div id=\"contentSub\">",
+            "<span>sub</span>",
+            "id=\"bodyContent\"",
+            "<div class=\"ts-sitesub\" id=\"siteSub\">From Librarybase</div>",
+            "<div id=\"mw-content-text\">",
+            "id=\"footer\"",
+            "id=\"searchform\"",
+            "id=\"p-search\"",
+            "id=\"searchInput\"",
+            "id=\"p-navigation\"",
+            "<li id=\"n-recentchanges\" class=\"mw-list-item\">",
+            "<li id=\"n-specialpages\" class=\"mw-list-item\">",
+            "id=\"p-personal\"",
+            "<li id=\"pt-userpage\" class=\"mw-list-item\">",
+            "<li id=\"pt-logout\" class=\"mw-list-item\">",
+            "id=\"p-views\"",
+            "<li id=\"ca-view\" class=\"mw-list-item\"><a class=\"ts-tabs__link\" href=\"/wiki/Main_Page\" aria-current=\"page\">Read</a></li>",
+            "<li id=\"ca-edit\" class=\"mw-list-item\">",
+            "id=\"p-cactions\"",
+            "<li id=\"ca-protect\" class=\"mw-list-item\">",
+            "id=\"p-tb\"",
+            "<li id=\"t-info\" class=\"mw-list-item\">",
+            "<li id=\"ts-new-item\" class=\"mw-list-item\">",
+        ] {
+            assert!(html.contains(name), "{name} in {html}");
+        }
+        // Delete needs a right Alice does not hold.
+        assert!(!html.contains("ca-delete"));
+        // Nobody signed in: Log in is MediaWiki's `pt-login`.
+        let html = render(&worksheet(), &m, &chrome(&f), &Theme::shipped(), None, &p).unwrap();
+        assert!(
+            html.contains("id=\"pt-login\" href=\"/wiki/Special:UserLogin?returnto=Project:Home\"")
+        );
+        assert!(!html.contains("ca-protect"));
+    }
+
+    #[test]
+    fn body_classes() {
+        assert_eq!(
+            body_class("rtl", Some("Special:Search/x y"), None, &[]),
+            "mediawiki rtl ns--1 ns-special page-Special_Search_x_y rootpage-Special_Search skin-plain action-view"
+        );
+        assert_eq!(
+            body_class("ltr", Some("Talk:Main Page"), Some("edit"), &[]),
+            "mediawiki ltr ns-1 ns-talk page-Talk_Main_Page rootpage-Talk_Main_Page skin-plain action-edit"
+        );
+        assert_eq!(
+            body_class("ltr", None, None, &[]),
+            "mediawiki ltr skin-plain action-view"
+        );
+        assert_eq!(escape_class("1 a.b-c"), "a_b-c");
     }
 
     #[test]
