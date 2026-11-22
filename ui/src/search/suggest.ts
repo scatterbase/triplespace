@@ -177,9 +177,10 @@ export async function suggest( api: Api, data: SearchData, text: string ): Promi
 			const rest = out.filter( ( r ) => r !== lead );
 			return [ lead, ...rest ].slice( 0, MOST );
 		}
+		// An entity is named by its ID, as the reader typed it; a page by its title.
 		out.unshift( go ? {
 			value: `goto:${ go.title }`,
-			label: message( data, 'ts-typeahead-goto', go.title ),
+			label: message( data, 'ts-typeahead-goto', go.id ?? go.title ),
 			url: pagePath( go.title ),
 		} : {
 			value: `goto:${ query }`,

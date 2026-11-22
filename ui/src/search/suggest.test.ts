@@ -82,7 +82,7 @@ describe( 'the header suggestions', () => {
 			groups: [ { kind: 'item', hits: [ hit( 'Q7', 'Item:Q7', 'Q42 the film' ) ] } ],
 		} ), data, 'q42' );
 		expect( go.map( ( r ) => [ r.value, r.label, r.url ] ) ).toEqual( [
-			[ 'goto:Item:Q42', 'Go to Item:Q42', '/wiki/Item:Q42' ],
+			[ 'goto:Item:Q42', 'Go to Q42', '/wiki/Item:Q42' ],
 			[ 'Q7', 'Q42 the film', '/wiki/Item:Q7' ],
 		] );
 		// One that is also listed leads the list, once.
