@@ -246,3 +246,22 @@ fn syntaxhighlight_is_plain_pre() {
         "<pre>let x = 1 &amp; 2;</pre>"
     );
 }
+
+/// `[[:File:…]]` links to description pages: "[[:File:…]]` links to description pages" (0008 §8).
+#[test]
+fn a_leading_colon_file_link_links_to_the_description_page() {
+    let c = config();
+    let e = extract("[[:File:Example.png]]", &c, &Title::new(0, "P"));
+    assert_eq!(e.links.len(), 1, "{:?}", e.links);
+    assert_eq!(e.links[0].target.namespace, 6);
+    assert_eq!(e.links[0].target.text, "Example.png");
+    assert!(e.templates.is_empty(), "{:?}", e.templates);
+    let out = render("[[:File:Example.png]]", &c, &Fixture, &Title::new(0, "P"));
+    assert!(
+        out.html.contains(
+            "<a href=\"/wiki/File:Example.png\" title=\"File:Example.png\">File:Example.png</a>"
+        ),
+        "{}",
+        out.html
+    );
+}
