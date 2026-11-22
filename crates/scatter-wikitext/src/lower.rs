@@ -1,4 +1,4 @@
-//! Lowering: parse-wiki-text-2's nodes to the render tree (11 §1.2).
+//! Lowering: scatter-wikitext-parse's nodes to the render tree (11 §1.2).
 //!
 //! The parser's output is half a tree: lists, headings, tables and preformatted blocks
 //! nest, but bold and italic are toggles, HTML tags are flat starts and ends, and
@@ -22,7 +22,8 @@
 
 use std::collections::HashMap;
 
-use parse_wiki_text_2::{
+use scatter_wikitext_parse::quotes::{self, Quote, QuotePlan};
+use scatter_wikitext_parse::{
     DefinitionListItem, DefinitionListItemType, ListItem, Node as P, Positioned as _, TableCaption,
     TableCellType, TableRow,
 };
@@ -84,41 +85,6 @@ struct Para {
     in_block: bool,
 }
 
-/// One apostrophe event.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Q {
-    OpenB,
-    OpenI,
-    CloseB,
-    CloseI,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum Run {
-    I,
-    B,
-    Bi,
-}
-
-#[derive(Clone, Copy, PartialEq, Eq)]
-enum QState {
-    None,
-    B,
-    I,
-    /// `<b><i>`: bold opened first.
-    Bi,
-    /// `<i><b>`: italic opened first.
-    Ib,
-}
-
-/// What each apostrophe node of a line does.
-#[derive(Default)]
-struct QuotePlan {
-    /// By node start: literal apostrophes written first, then the events.
-    at: HashMap<usize, (usize, Vec<Q>)>,
-    end: Vec<Q>,
-}
-
 pub(crate) struct Lowerer<'s, 'c> {
     src: &'s str,
     cfg: &'c Config,
@@ -129,7 +95,7 @@ pub(crate) struct Lowerer<'s, 'c> {
     plan: QuotePlan,
     skip_apostrophes: usize,
     in_link: bool,
-    /// The local targets the page has linked to so far, for `ts-repeat`.
+    /// The local targets the page has linked to so far, for `{prefix}repeat`.
     linked: std::collections::HashSet<Title>,
     autonumber: usize,
     anchors: HashMap<String, usize>,
@@ -744,7 +710,11 @@ impl<'s, 'c> Lowerer<'s, 'c> {
                 self.b.text(&character.to_string(), Some(*start..*end));
             }
             P::Bold { start, .. } | P::Italic { start, .. } | P::BoldItalic { start, .. } => {
-                let (literal, events) = self.plan.at.get(start).cloned().unwrap_or_default();
+                let (literal, events) = self
+                    .plan
+                    .at(*start)
+                    .map(|r| (r.literal, r.events.clone()))
+                    .unwrap_or_default();
                 if literal > 0 {
                     self.b.text(&"'".repeat(literal), None);
                 }
@@ -761,7 +731,8 @@ impl<'s, 'c> Lowerer<'s, 'c> {
                 text,
                 start,
                 end,
-            } => self.link(target, text, *start..*end),
+                trail_start,
+            } => self.link(target, text, *start..*end, *trail_start),
             P::Category {
                 target,
                 ordinal,
@@ -819,7 +790,9 @@ impl<'s, 'c> Lowerer<'s, 'c> {
                 nodes,
                 start,
                 end,
-            } => self.extension_tag(name, nodes, *start..*end),
+                content_start,
+                content_end,
+            } => self.extension_tag(name, nodes, *start..*end, *content_start..*content_end),
             P::HorizontalDivider { start, end } => {
                 self.b.void("hr", Vec::new(), Some(*start..*end));
             }
@@ -856,33 +829,30 @@ impl<'s, 'c> Lowerer<'s, 'c> {
         }
     }
 
-    /// The source of an extension tag: its attributes and its raw content.
-    fn tag_parts(&self, span: &Span) -> (&'s str, &'s str) {
-        let raw = &self.src[span.clone()];
-        let open_end = raw.find('>').map_or(raw.len(), |i| i + 1);
-        let attrs = raw[..open_end].trim_start_matches('<');
-        let attrs = attrs.trim_end_matches('>').trim_end_matches('/');
+    /// The source of an extension tag: its attributes and its raw content, from the
+    /// positions the parser gives (0115 §5).
+    fn tag_parts(&self, span: &Span, content: &Span) -> (&'s str, &'s str) {
+        // The start tag is `<name attributes>` or `<name attributes/>`, ending where the
+        // content starts.
+        let start_tag = &self.src[span.start..content.start];
+        let attrs = start_tag
+            .trim_start_matches('<')
+            .trim_end_matches('>')
+            .trim_end_matches('/');
         let attrs = attrs
             .split_once(|c: char| c.is_whitespace())
             .map_or("", |(_, a)| a);
-        if raw[..open_end].ends_with("/>") {
-            return (attrs, "");
-        }
-        let close_start = raw
-            .rfind("</")
-            .filter(|&c| c >= open_end)
-            .unwrap_or(raw.len());
-        (attrs, &raw[open_end..close_start])
+        (attrs, &self.src[content.clone()])
     }
 
-    fn extension_tag(&mut self, name: &str, nodes: &[P<'s>], span: Span) {
+    fn extension_tag(&mut self, name: &str, nodes: &[P<'s>], span: Span, content: Span) {
         match name {
             "nowiki" => {
-                let (_, content) = self.tag_parts(&span);
+                let (_, content) = self.tag_parts(&span, &content);
                 self.b.text(&decode_entities(content), Some(span));
             }
             "pre" | "syntaxhighlight" | "source" => {
-                let (attrs, content) = self.tag_parts(&span);
+                let (attrs, content) = self.tag_parts(&span, &content);
                 let attrs = if name == "pre" {
                     sanitize_attributes("pre", parse_attributes(attrs))
                 } else {
@@ -912,15 +882,16 @@ impl<'s, 'c> Lowerer<'s, 'c> {
         } else {
             &m.chip_unsupported
         };
-        let kind = if template {
-            "ts-chip--template"
-        } else {
-            "ts-chip--unsupported"
-        };
+        let kind = if template { "template" } else { "unsupported" };
+        // The renderer's own classes take the configured prefix (0115 §6).
+        let p = &self.cfg.source.class_prefix;
         let mut chip = Element::new(
             "span",
             vec![
-                ("class".into(), format!("ts-chip ts-chip--wikitext {kind}")),
+                (
+                    "class".into(),
+                    format!("{p}chip {p}chip--wikitext {p}chip--{kind}"),
+                ),
                 ("title".into(), title.clone()),
             ],
             Some(span.clone()),
@@ -932,7 +903,7 @@ impl<'s, 'c> Lowerer<'s, 'c> {
 
     // ---- links ---------------------------------------------------------------------
 
-    fn link(&mut self, target: &'s str, text: &[P<'s>], span: Span) {
+    fn link(&mut self, target: &'s str, text: &[P<'s>], span: Span, trail_start: usize) {
         let target_start = target.as_ptr() as usize - self.src.as_ptr() as usize;
         let target_end = target_start + target.len();
         let piped = self.src.as_bytes().get(target_end) == Some(&b'|');
@@ -963,9 +934,6 @@ impl<'s, 'c> Lowerer<'s, 'c> {
         } else {
             self.res.info(&t.title).label
         };
-        let trail_start = self.src[target_end..span.end]
-            .find("]]")
-            .map_or(span.end, |i| target_end + i + 2);
         self.anchor(&t.title, span, |l| {
             let was = std::mem::replace(&mut l.in_link, true);
             if piped {
@@ -1019,13 +987,14 @@ impl<'s, 'c> Lowerer<'s, 'c> {
         } else {
             let info = self.res.info(&title.without_fragment());
             // The marks MediaWiki's links do not carry (19 §5.10), where the site asks
-            // for them: a second or later link to the same page is `ts-repeat`.
+            // for them: a second or later link to the same page is `{prefix}repeat`.
             let marks = self.cfg.source.link_marks;
             let repeat = marks && !self.linked.insert(title.without_fragment());
+            let repeat_class = format!("{}repeat", self.cfg.source.class_prefix);
             let class = |own: Option<&str>| {
                 let mut c: Vec<&str> = own.into_iter().collect();
                 if repeat {
-                    c.push("ts-repeat");
+                    c.push(&repeat_class);
                 }
                 (!c.is_empty()).then(|| ("class".to_string(), c.join(" ")))
             };
@@ -1222,120 +1191,47 @@ impl<'s, 'c> Lowerer<'s, 'c> {
             .count()
     }
 
-    fn quote_events(&mut self, events: &[Q]) {
+    fn quote_events(&mut self, events: &[Quote]) {
         for e in events {
             match e {
-                Q::OpenB => self.b.open("b", Vec::new(), None),
-                Q::OpenI => self.b.open("i", Vec::new(), None),
-                Q::CloseB => self.b.close("b"),
-                Q::CloseI => self.b.close("i"),
+                Quote::OpenBold => self.b.open("b", Vec::new(), None),
+                Quote::OpenItalic => self.b.open("i", Vec::new(), None),
+                Quote::CloseBold => self.b.close("b"),
+                Quote::CloseItalic => self.b.close("i"),
             }
         }
     }
 
+    /// Bold and italic for one line, by MediaWiki's apostrophe rules, which the parser
+    /// carries (0115 §5).
     fn plan_quotes(&self, items: &[Item<'s, '_>]) -> QuotePlan {
-        let mut tokens: Vec<(usize, Run, usize)> = Vec::new();
+        let mut runs = Vec::new();
         for item in items {
             if let Item::Node(n) = item {
-                collect_quotes(n, &mut tokens, self);
+                collect_quotes(n, &mut runs);
             }
         }
-        tokens.sort_by_key(|t| t.0);
-        let italics = tokens
-            .iter()
-            .filter(|t| matches!(t.1, Run::I | Run::Bi))
-            .count();
-        let bolds = tokens
-            .iter()
-            .filter(|t| matches!(t.1, Run::B | Run::Bi))
-            .count();
-        if italics % 2 == 1 && bolds % 2 == 1 {
-            let mut single = None;
-            let mut multi = None;
-            let mut space = None;
-            for (k, &(start, run, literal)) in tokens.iter().enumerate() {
-                if run != Run::B {
-                    continue;
-                }
-                let at = start + literal;
-                let mut before = self.src[..at].chars().rev();
-                let x1 = before.next();
-                let x2 = before.next();
-                if x1 == Some(' ') {
-                    space.get_or_insert(k);
-                } else if x2 == Some(' ') {
-                    single = Some(k);
-                    break;
-                } else {
-                    multi.get_or_insert(k);
-                }
-            }
-            if let Some(k) = single.or(multi).or(space) {
-                tokens[k].1 = Run::I;
-                tokens[k].2 += 1;
-            }
-        }
-        let mut plan = QuotePlan::default();
-        let mut st = QState::None;
-        for k in 0..tokens.len() {
-            let (start, run, literal) = tokens[k];
-            let next = tokens.get(k + 1).map(|t| t.1);
-            let (events, next_st) = transition(st, run, next);
-            st = next_st;
-            plan.at.insert(start, (literal, events));
-        }
-        plan.end = match st {
-            QState::None => vec![],
-            QState::B => vec![Q::CloseB],
-            QState::I => vec![Q::CloseI],
-            QState::Bi => vec![Q::CloseI, Q::CloseB],
-            QState::Ib => vec![Q::CloseB, Q::CloseI],
-        };
-        plan
+        quotes::plan_line(self.src, &runs)
     }
 }
 
-fn transition(st: QState, run: Run, next: Option<Run>) -> (Vec<Q>, QState) {
-    use Q::{CloseB, CloseI, OpenB, OpenI};
-    match (run, st) {
-        (Run::I, QState::I) => (vec![CloseI], QState::None),
-        (Run::I, QState::Bi) => (vec![CloseI], QState::B),
-        (Run::I, QState::Ib) => (vec![CloseB, CloseI, OpenB], QState::B),
-        (Run::I, QState::None) => (vec![OpenI], QState::I),
-        (Run::I, QState::B) => (vec![OpenI], QState::Bi),
-        (Run::B, QState::B) => (vec![CloseB], QState::None),
-        (Run::B, QState::Bi) => (vec![CloseI, CloseB, OpenI], QState::I),
-        (Run::B, QState::Ib) => (vec![CloseB], QState::I),
-        (Run::B, QState::None) => (vec![OpenB], QState::B),
-        (Run::B, QState::I) => (vec![OpenB], QState::Ib),
-        (Run::Bi, QState::B) => (vec![CloseB, OpenI], QState::I),
-        (Run::Bi, QState::I) => (vec![CloseI, OpenB], QState::B),
-        (Run::Bi, QState::Bi) => (vec![CloseI, CloseB], QState::None),
-        (Run::Bi, QState::Ib) => (vec![CloseB, CloseI], QState::None),
-        (Run::Bi, QState::None) => match next {
-            Some(Run::B | Run::Bi) => (vec![OpenI, OpenB], QState::Ib),
-            Some(Run::I) | None => (vec![OpenB, OpenI], QState::Bi),
-        },
+fn collect_quotes(n: &P<'_>, out: &mut Vec<(usize, quotes::Run)>) {
+    if let Some(run) = quotes::run_of(n) {
+        out.push(run);
+        return;
     }
-}
-
-fn collect_quotes(n: &P<'_>, out: &mut Vec<(usize, Run, usize)>, l: &Lowerer<'_, '_>) {
-    let run = |start: usize, consumed: usize| l.run_length(start).saturating_sub(consumed);
     match n {
-        P::Italic { start, .. } => out.push((*start, Run::I, run(*start, 2))),
-        P::Bold { start, .. } => out.push((*start, Run::B, run(*start, 3))),
-        P::BoldItalic { start, .. } => out.push((*start, Run::Bi, run(*start, 5))),
         P::Link { text: children, .. }
         | P::ExternalLink {
             nodes: children, ..
         } => {
             for c in children {
-                collect_quotes(c, out, l);
+                collect_quotes(c, out);
             }
         }
         P::Tag { name, nodes, .. } if matches!(name.as_ref(), "noinclude" | "onlyinclude") => {
             for c in nodes {
-                collect_quotes(c, out, l);
+                collect_quotes(c, out);
             }
         }
         _ => {}

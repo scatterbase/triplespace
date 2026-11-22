@@ -41,7 +41,15 @@ pub fn parse_beginning_of_line(
 				let start_position = state.scan_position;
 				loop {
 					match state.get_byte(state.scan_position) {
-						None => return,
+						None => {
+							// Fork: as at the end of the text above; without
+							// this, text already flushed into a block before
+							// a last line of spaces was flushed again after it.
+							if line_start_position.is_none() {
+								state.flushed_position = state.scan_position;
+							}
+							return;
+						}
 						Some(b'\n') => break,
 						Some(b'\t') | Some(b' ') => state.scan_position += 1,
 						Some(b'{')
@@ -60,6 +68,10 @@ pub fn parse_beginning_of_line(
 									state.skip_whitespace_backwards(position);
 								state.flush(position);
 							}
+							// Fork: the block starts at the space that makes it one;
+							// it started at the first character after the spaces,
+							// past the start of its own text.
+							state.scan_position = start_position - 1;
 							state.flushed_position = state.scan_position;
 							state.push_open_node(
 								crate::OpenNodeType::Preformatted,
@@ -256,7 +268,8 @@ fn parse_preformatted_end_of_line(state: &mut crate::State) {
 	state.scan_position += 1;
 	let nodes = std::mem::replace(&mut state.nodes, open_node.nodes);
 	state.nodes.push(crate::Node::Preformatted {
-		end: state.scan_position,
+		// Fork: at the end of the text there is no line break to end after.
+		end: state.scan_position.min(state.wiki_text.len()),
 		nodes,
 		start: open_node.start,
 	});

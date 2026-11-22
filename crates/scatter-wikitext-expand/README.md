@@ -59,7 +59,9 @@ assert_eq!(expand_for_view("{{Greeting}}, world", &Wiki), "Hello, world");
 ```
 
 `expand_for_view_mapped` returns the same text, plus a list showing which part of the output each
-of the page's own calls produced.
+of the page's own calls produced. `call_spans` gives where each of a text's outermost calls starts
+and ends, as the preprocessor matches its braces, for a renderer or a parser to check its own
+reading against.
 
 ## The registry
 
@@ -72,6 +74,15 @@ not expanded) or `ignored`. To read a different list, use `Registry::parse` and 
 function.
 
 The file is CC0-1.0, like everything in Triplespace's `docs/`.
+
+## Changes in 0.1.1
+
+- **0.1.0 could loop for ever** on a lone `}` inside an open call, as in `{{}`. Upgrade.
+- An extension tag with no end tag is text, and expansion goes on after it, as MediaWiki's
+  preprocessor reads it; 0.1.0 treated the rest of the text as the tag's content. Only the
+  inclusion tags run to the end.
+- An end tag is `</name>` with nothing but whitespace before the `>`: `</ref name=x>` is not one.
+- `call_spans`, above.
 
 ## Licence
 

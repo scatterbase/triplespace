@@ -31,8 +31,8 @@ node: [Template([Italic], [])]
 warn: []
 
 case: {{[[alpha|beta}}
-node: [Template([Text([[alpha)], [Parameter(, [Text(beta)])])]
-warn: [Warning(UnexpectedEndTagRewinding)]
+node: [Text({{[[alpha|beta}})]
+warn: [Warning(MissingEndTagRewinding), Warning(UnexpectedEndTag), Warning(MissingEndTagRewinding)]
 
 case: {{alpha
 node: [Text({{alpha)]

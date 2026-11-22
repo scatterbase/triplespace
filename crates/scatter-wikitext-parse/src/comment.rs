@@ -28,8 +28,18 @@ pub fn parse_comment(state: &mut crate::State) {
 	}
 	state.flushed_position = position;
 	state.scan_position = position;
+	// Fork: a comment never closed runs to the end of the text, less its
+	// trailing whitespace, so that it ends inside the line or list item that
+	// holds it, as those end before trailing whitespace.
+	let end = if position >= state.wiki_text.len() {
+		state
+			.skip_whitespace_backwards(position)
+			.max(start_position + 4)
+	} else {
+		position
+	};
 	state.nodes.push(crate::Node::Comment {
-		end: state.scan_position,
+		end: end.min(state.wiki_text.len()),
 		start: start_position,
 	});
 }
@@ -99,7 +109,15 @@ fn parse_end_tag(
 				state.scan_position = state.flushed_position;
 				let nodes =
 					std::mem::replace(&mut state.nodes, open_node.nodes);
+				let content_start = match open_node.type_ {
+					crate::OpenNodeType::Tag { content_start, .. } => {
+						content_start
+					}
+					_ => unreachable!("matched as a tag"),
+				};
 				state.nodes.push(crate::Node::Tag {
+					content_end: tag_start_position,
+					content_start,
 					end: state.scan_position,
 					name: tag_name,
 					nodes,

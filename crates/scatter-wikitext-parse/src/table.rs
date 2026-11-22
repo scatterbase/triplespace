@@ -398,7 +398,8 @@ fn parse_line_break(
 					end: position_after_line_break,
 					start: position_before_line_break,
 				});
-				table.start = position_after_line_break;
+				// Fork: the cell goes on, and keeps the start it has; moving it to
+				// the line after put it past the cell's first line.
 				table.state = TableState::CellRemainder;
 				state.flushed_position = position_after_line_break;
 				state.scan_position = position_after_line_break;
@@ -417,7 +418,8 @@ fn parse_line_break(
 					end: position_after_line_break,
 					start: position_before_line_break,
 				});
-				table.start = position_after_line_break;
+				// Fork: the cell goes on, and keeps the start it has; moving it to
+				// the line after put it past the cell's first line.
 				table.state = TableState::HeadingRemainder;
 				state.flushed_position = position_after_line_break;
 				state.scan_position = position_after_line_break;
@@ -656,18 +658,24 @@ pub fn start_table(
 			_ => break,
 		}
 	}
-	state.push_open_node(
-		crate::OpenNodeType::Table(crate::state::Table {
-			attributes: vec![],
-			before: vec![],
-			captions: vec![],
-			child_element_attributes: None,
-			rows: vec![],
-			start: 0,
-			state: crate::state::TableState::TableAttributes,
-		}),
-		position,
-	);
+	let type_ = crate::OpenNodeType::Table(crate::state::Table {
+		attributes: vec![],
+		before: vec![],
+		captions: vec![],
+		child_element_attributes: None,
+		rows: vec![],
+		start: 0,
+		state: crate::state::TableState::TableAttributes,
+	});
+	// Fork: a table with no `|}` anywhere after it cannot be closed, so opening it
+	// rewinds it at once, as parsing to the end and rewinding it would.
+	if state
+		.last_table_end
+		.map_or(true, |end| end < state.scan_position + 2)
+	{
+		state.cannot_close(state.scan_position, &type_);
+	}
+	state.push_open_node(type_, position);
 }
 
 fn get_table<'a, 'b>(

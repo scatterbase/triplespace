@@ -1,11 +1,11 @@
-// Triplespace: upstream's tests keep upstream's style (see PATCHES.md).
+// Fork: upstream's tests keep upstream's style (see CHANGELOG.md).
 #![allow(clippy::all, clippy::pedantic)]
 
 mod to_test_str;
 
 use to_test_str::ToTestStr;
 
-use parse_wiki_text_2::Configuration;
+use scatter_wikitext_parse::Configuration;
 use std::fs;
 
 struct Case {

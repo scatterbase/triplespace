@@ -125,10 +125,17 @@ pub struct ConfigSource {
     pub link_trail: String,
     /// Interface text.
     pub messages: Messages,
-    /// Whether internal links carry the marks MediaWiki's do not (19 §5.10): `ts-repeat`
-    /// on the second and later links to one target within a page, and a redirect's
-    /// target in its `title`. Off by default, so that the output is MediaWiki's.
+    /// Whether internal links carry the marks MediaWiki's do not (19 §5.10): the
+    /// `{class_prefix}repeat` class on the second and later links to one target within a
+    /// page, and a redirect's target in its `title`. Off by default, so that the output is
+    /// MediaWiki's.
     pub link_marks: bool,
+    /// The prefix of the classes the renderer adds of its own, which MediaWiki's output
+    /// does not have (0115 §6): `{prefix}chip`, `{prefix}chip--wikitext` and
+    /// `{prefix}chip--template` or `{prefix}chip--unsupported` on a chip, and
+    /// `{prefix}repeat` on a repeated link. MediaWiki's own classes (`new`, `mw-redirect`,
+    /// `external`…) are never prefixed. `wt-` by default; Triplespace's site uses `ts-`.
+    pub class_prefix: String,
 }
 
 impl Default for ConfigSource {
@@ -257,6 +264,7 @@ impl Default for ConfigSource {
             link_trail: "abcdefghijklmnopqrstuvwxyz".into(),
             messages: Messages::default(),
             link_marks: false,
+            class_prefix: "wt-".into(),
         }
     }
 }
@@ -265,7 +273,7 @@ impl Default for ConfigSource {
 pub struct Config {
     /// The source it was built from.
     pub source: ConfigSource,
-    pub(crate) parser: parse_wiki_text_2::Configuration,
+    pub(crate) parser: scatter_wikitext_parse::Configuration,
 }
 
 impl std::fmt::Debug for Config {
@@ -305,8 +313,8 @@ impl Config {
         };
         let category = names(CATEGORY);
         let file = names(FILE);
-        let parser =
-            parse_wiki_text_2::Configuration::new(&parse_wiki_text_2::ConfigurationSource {
+        let parser = scatter_wikitext_parse::Configuration::new(
+            &scatter_wikitext_parse::ConfigurationSource {
                 category_namespaces: &as_str(&category),
                 extension_tags: &as_str(&source.extension_tags),
                 file_namespaces: &as_str(&file),
@@ -314,7 +322,8 @@ impl Config {
                 magic_words: &as_str(&source.switches),
                 protocols: &as_str(&source.protocols),
                 redirect_magic_words: &as_str(&source.redirect_words),
-            });
+            },
+        );
         Self { source, parser }
     }
 

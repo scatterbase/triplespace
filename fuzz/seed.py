@@ -9,6 +9,7 @@ copied, never moved, so a run can be repeated from the same start.
 
   wikitext     every revision of Librarybase's wikitext pages (docs/samples/librarybase/parse)
                and the head of each talk page of docs/samples/enwiki-talk/current.xml.bz2
+  wikitext_parse, wikitext_expand  the same seeds as wikitext
   markdown     the repository's own Markdown (README, docs/) and fuzz/seeds/markdown/
   cbor_record  every CBOR byte string of the log test vectors (docs/api/vectors/log-v1.json)
 
@@ -36,11 +37,11 @@ def put(target: str, name: str, data: bytes) -> bool:
     return True
 
 
-def wikitext() -> int:
+def wikitext(target: str = "wikitext") -> int:
     n = 0
     pages = ROOT / "docs/samples/librarybase/parse/pages"
     for wiki in sorted(pages.glob("*/*.wiki")):
-        n += put("wikitext", f"librarybase-{wiki.parent.name}-{wiki.stem}.wiki", wiki.read_bytes())
+        n += put(target, f"librarybase-{wiki.parent.name}-{wiki.stem}.wiki", wiki.read_bytes())
     dump = ROOT / "docs/samples/enwiki-talk/current.xml.bz2"
     if dump.exists():
         ns = {"mw": "http://www.mediawiki.org/xml/export-0.11/"}
@@ -51,7 +52,7 @@ def wikitext() -> int:
                 # Talk pages run to hundreds of kilobytes: the head of each, cut at a
                 # character boundary, still carries signatures, indentation and templates.
                 head = (text.text or "")[:MAX_SEED].encode()[:MAX_SEED]
-                n += put("wikitext", f"enwiki-talk-{i}-head.wiki", head.decode("utf-8", "ignore").encode())
+                n += put(target, f"enwiki-talk-{i}-head.wiki", head.decode("utf-8", "ignore").encode())
     return n
 
 
@@ -93,7 +94,13 @@ def cbor_record() -> int:
     return n
 
 
-TARGETS = {"wikitext": wikitext, "markdown": markdown, "cbor_record": cbor_record}
+TARGETS = {
+    "wikitext": wikitext,
+    "wikitext_parse": lambda: wikitext("wikitext_parse"),
+    "wikitext_expand": lambda: wikitext("wikitext_expand"),
+    "markdown": markdown,
+    "cbor_record": cbor_record,
+}
 
 
 def main(argv):

@@ -1,21 +1,25 @@
 #!/bin/sh
 # Runs one fuzz target for a bounded time, seeded from the repository's fixtures (22 §4.9).
 #
-#   fuzz/run.sh <wikitext|markdown|cbor_record> [seconds]     default 60
+#   fuzz/run.sh <wikitext|wikitext_parse|wikitext_expand|markdown|cbor_record> [seconds]
+#                                                              default 60 seconds
 #
 # Each target's limits live here, so a local run and the nightly workflow agree:
 #   -max_len        the longest input; the parsers take whole pages, the decoder short records
-#   -timeout        above the wikitext parser's own five-second bound (0033 §9.1), so a slow
-#                   input is reported as a timeout rather than hidden by libFuzzer's default
+#   -timeout        well above what the wikitext parser's step budget allows (0033 §9.1, A36),
+#                   so a slow input is reported as a timeout rather than hidden by libFuzzer's
+#                   default
 #   -rss_limit_mb   libFuzzer's default, made explicit
 # Needs a nightly toolchain and cargo-fuzz (`cargo +nightly install cargo-fuzz`).
 set -eu
-target=${1:?target: wikitext, markdown or cbor_record}
+target=${1:?target: wikitext, wikitext_parse, wikitext_expand, markdown or cbor_record}
 seconds=${2:-60}
 root=$(cd "$(dirname "$0")/.." && pwd)
 
 case "$target" in
     wikitext)    opts="-max_len=32768 -timeout=20" ;;
+    wikitext_parse) opts="-max_len=32768 -timeout=20" ;;
+    wikitext_expand) opts="-max_len=32768 -timeout=20" ;;
     markdown)    opts="-max_len=32768 -timeout=20" ;;
     cbor_record) opts="-max_len=4096 -timeout=10" ;;
     *) echo "unknown target: $target" >&2; exit 2 ;;

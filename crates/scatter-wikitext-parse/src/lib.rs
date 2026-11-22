@@ -4,6 +4,9 @@
 
 //! Parse wiki text from Mediawiki into a tree of elements.
 //!
+//! This is `scatter-wikitext-parse`, a fork of `parse-wiki-text-2` 0.2.0 with the fixes its
+//! `CHANGELOG.md` lists. The documentation below is upstream's.
+//!
 //! # Introduction
 //!
 //! Wiki text is a format that follows the PHP maxim “Make everything as inconsistent and confusing as possible”. There are hundreds of millions of interesting documents written in this format, distributed under free licenses on sites that use the Mediawiki software, mainly Wikipedia and Wiktionary. Being able to parse wiki text and process these documents would allow access to a significant part of the world's knowledge.
@@ -78,7 +81,7 @@
 //! Reuse the same configuration when parsing multiple pages for efficiency.
 //!
 //! ```
-//! use parse_wiki_text_2::{Configuration, Node};
+//! use scatter_wikitext_parse::{Configuration, Node};
 //! let wiki_text = "\
 //!		==Our values==\n\
 //!		*Correctness\n\
@@ -106,11 +109,17 @@
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
-// Triplespace: vendored code keeps its upstream style; the workspace's clippy run
-// (`-D warnings`) reaches it as a path dependency.
+// Fork: the crate keeps upstream's style, and the Triplespace workspace's clippy run
+// (`-D warnings`) reaches it as a workspace member.
 #![allow(clippy::all, clippy::pedantic)]
 
+// Fork: the README's example compiles and runs as a doctest (0115 §3).
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct ReadmeDoctests;
+
 mod bold_italic;
+mod braces;
 mod case_folding_simple;
 mod character_entity;
 mod comment;
@@ -125,6 +134,7 @@ mod list;
 mod magic_word;
 mod parse;
 mod positioned;
+pub mod quotes;
 mod redirect;
 mod state;
 mod table;
@@ -135,7 +145,7 @@ mod warning;
 
 pub use configuration::ConfigurationSource;
 use configuration::Namespace;
-/// Triplespace: the named character references the parser decodes, for callers that
+/// The named character references the parser decodes, for callers that
 /// decode attribute values the same way.
 pub use html_entities::HTML_ENTITIES;
 pub use parse::ParseError;
@@ -353,6 +363,11 @@ pub enum Node<'a> {
 
 		/// The text to display for the link.
 		text: Vec<Node<'a>>,
+
+		/// Fork: the byte position where the link trail starts, after `]]`;
+		/// equal to `end` when there is no trail. The trail is the last node of
+		/// `text`.
+		trail_start: usize,
 	},
 
 	/// Magic word. Parsed from the code `__`, a valid magic word and `__`.
@@ -456,6 +471,14 @@ pub enum Node<'a> {
 
 	/// Extension tag. Parsed from code starting with `<` and the tag name of a valid extension tag.
 	Tag {
+		/// Fork: the byte position where the content ends, at the end tag;
+		/// equal to `content_start` when the tag is self-closing.
+		content_end: usize,
+
+		/// Fork: the byte position where the content starts, after the start
+		/// tag. The start tag's attributes lie before it.
+		content_start: usize,
+
 		/// The byte position in the wiki text where the element ends.
 		end: usize,
 
@@ -511,12 +534,17 @@ pub enum Node<'a> {
 
 /// Output of parsing wiki text.
 #[derive(Debug)]
+#[non_exhaustive]
 pub struct Output<'a> {
 	/// The top level of parsed nodes.
 	pub nodes: Vec<Node<'a>>,
 
 	/// Warnings from the parser telling that something is not well-formed.
 	pub warnings: Vec<Warning>,
+
+	/// Fork: the steps the parse took, the unit of
+	/// [`Configuration::parse_with_budget`]'s budget.
+	pub steps: u64,
 }
 
 /// Template parameter.

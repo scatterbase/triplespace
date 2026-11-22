@@ -4,8 +4,9 @@
 
 /// Get's returned if the parsing received an unrecoverable error.
 ///
-/// At the moment, the only error that can occur is a timeout.
+/// The parse stopped at a limit it was given: a time limit or a step budget.
 #[derive(Debug)]
+#[non_exhaustive]
 pub enum ParseError<'a> {
 	/// The parsing took too long and was aborted.
 	TimedOut {
@@ -14,15 +15,41 @@ pub enum ParseError<'a> {
 		/// The output that was generated before the parsing was aborted.
 		output: crate::Output<'a>,
 	},
+	/// Fork: the parsing took more steps than its budget and was aborted. A
+	/// step is one turn of the parser's main loop, so the same text and
+	/// configuration stop at the same place on every machine.
+	BudgetExhausted {
+		/// The budget that was exhausted.
+		steps: u64,
+		/// The output that was generated before the parsing was aborted.
+		output: crate::Output<'a>,
+	},
+}
+
+/// The limits a parse runs under. Zero means no limit.
+#[derive(Clone, Copy)]
+pub struct Limits {
+	pub max_duration: std::time::Duration,
+	pub max_steps: u64,
 }
 
 #[must_use]
 pub fn parse<'a>(
 	configuration: &crate::Configuration,
 	wiki_text: &'a str,
-	max_duration: std::time::Duration,
+	limits: Limits,
 ) -> Result<crate::Output<'a>, ParseError<'a>> {
+	let max_duration = limits.max_duration;
 	let mut state = crate::State {
+		braces: crate::braces::match_braces(wiki_text, &|name| {
+			matches!(
+				configuration.tag_name_map.get(name),
+				Some(crate::TagClass::ExtensionTag)
+			)
+		}),
+		failed_at_end: Default::default(),
+		next_end_tag: Default::default(),
+		last_table_end: wiki_text.rfind("|}"),
 		flushed_position: 0,
 		nodes: vec![],
 		scan_position: 0,
@@ -63,7 +90,8 @@ pub fn parse<'a>(
 		}
 	}
 	let mut loop_counter = 0;
-	// Triplespace: read the clock only when a timeout was asked for, so that
+	let mut steps: u64 = 0;
+	// Fork: read the clock only when a timeout was asked for, so that
 	// `parse_without_timeout` runs on targets without one (wasm32-unknown-unknown).
 	let start_time = if max_duration.is_zero() {
 		None
@@ -81,14 +109,49 @@ pub fn parse<'a>(
 				}
 
 				// rewind until we find a text node
-				if let Some(crate::OpenNode { nodes, start, .. }) =
-					state.stack.pop()
+				if let Some(crate::OpenNode {
+					mut nodes,
+					mut start,
+					type_,
+				}) = state.stack.pop()
 				{
+					let is_table =
+						matches!(type_, crate::OpenNodeType::Table(..));
+					state
+						.failed_at_end
+						.insert((start, std::mem::discriminant(&type_)));
 					state.warnings.push(crate::Warning {
 						end: state.scan_position,
 						message: crate::WarningMessage::MissingEndTagRewinding,
 						start,
 					});
+					// Fork: a table that found no `|}` before the end leaves none
+					// for the tables around it, since a `|}` closes the innermost
+					// table first: they are rewound with it, back to the outermost,
+					// as rewinding each and parsing to the end again would leave
+					// them, without the parse after each.
+					while is_table
+						&& matches!(
+							state.stack.last(),
+							Some(crate::OpenNode {
+								type_: crate::OpenNodeType::Table(..),
+								..
+							})
+						) {
+						let outer = state.stack.pop().unwrap();
+						state.failed_at_end.insert((
+							outer.start,
+							std::mem::discriminant(&outer.type_),
+						));
+						state.warnings.push(crate::Warning {
+							end: state.scan_position,
+							message:
+								crate::WarningMessage::MissingEndTagRewinding,
+							start: outer.start,
+						});
+						nodes = outer.nodes;
+						start = outer.start;
+					}
 					state.rewind(nodes, start);
 				} else {
 					break;
@@ -209,9 +272,23 @@ pub fn parse<'a>(
 				}
 			}
 			Some(b'{') => {
-				if state.get_byte(state.scan_position + 1) == Some(b'{') {
+				// Fork: only braces the matching pass found open a call; others
+				// are text, with the warning a rewind of them used to give.
+				if state.braces.opens.contains_key(&state.scan_position) {
 					crate::template::parse_template_start(&mut state);
 				} else {
+					if state
+						.braces
+						.unmatched_opens
+						.contains(&state.scan_position)
+					{
+						state.warnings.push(crate::Warning {
+							end: wiki_text.len(),
+							message:
+								crate::WarningMessage::MissingEndTagRewinding,
+							start: state.scan_position,
+						});
+					}
 					state.scan_position += 1;
 				}
 			}
@@ -237,9 +314,21 @@ pub fn parse<'a>(
 				_ => state.scan_position += 1,
 			},
 			Some(b'}') => {
-				if state.get_byte(state.scan_position + 1) == Some(b'}') {
+				// Fork: only a matched closer closes a call.
+				if state.braces.closes.contains_key(&state.scan_position) {
 					crate::template::parse_template_end(&mut state);
 				} else {
+					if state
+						.braces
+						.unmatched_closes
+						.contains(&state.scan_position)
+					{
+						state.warnings.push(crate::Warning {
+							end: state.scan_position + 2,
+							message: crate::WarningMessage::UnexpectedEndTag,
+							start: state.scan_position,
+						});
+					}
 					state.scan_position += 1;
 				}
 			}
@@ -252,25 +341,63 @@ pub fn parse<'a>(
 			loop_counter = 0;
 			let elapsed = start_time.map(|t| t.elapsed());
 			if elapsed.map_or(false, |e| e > max_duration) {
-				state.flush(state.scan_position);
+				// Fork: the scan may stop inside a character; the output so far
+				// ends at the character boundary before it.
+				let mut stop = state.scan_position.min(wiki_text.len());
+				while !wiki_text.is_char_boundary(stop) {
+					stop -= 1;
+				}
+				state.flush(stop);
 
 				return Err(ParseError::TimedOut {
 					execution_time: elapsed.unwrap_or_default(),
 					output: crate::Output {
 						nodes: state.nodes,
-						warnings: state.warnings,
+						warnings: dedup(state.warnings),
+						steps,
 					},
 				});
 			}
 		}
 
 		loop_counter += 1;
+		// Fork: the step budget, counted on every target and independent of
+		// the clock.
+		steps += 1;
+		if limits.max_steps != 0 && steps > limits.max_steps {
+			// Fork: the scan may stop inside a character; the output so far
+			// ends at the character boundary before it.
+			let mut stop = state.scan_position.min(wiki_text.len());
+			while !wiki_text.is_char_boundary(stop) {
+				stop -= 1;
+			}
+			state.flush(stop);
+			return Err(ParseError::BudgetExhausted {
+				steps: limits.max_steps,
+				output: crate::Output {
+					nodes: state.nodes,
+					warnings: dedup(state.warnings),
+					steps,
+				},
+			});
+		}
 	}
 
 	let end_position = state.skip_whitespace_backwards(wiki_text.len());
 	state.flush(end_position);
 	Ok(crate::Output {
 		nodes: state.nodes,
-		warnings: state.warnings,
+		warnings: dedup(state.warnings),
+		steps,
 	})
+}
+
+/// Fork: each warning once, in the order first given. Re-reading text after a rewind
+/// gave some twice.
+fn dedup(warnings: Vec<crate::Warning>) -> Vec<crate::Warning> {
+	let mut seen = std::collections::HashSet::new();
+	warnings
+		.into_iter()
+		.filter(|w| seen.insert((w.start, w.end, w.message)))
+		.collect()
 }

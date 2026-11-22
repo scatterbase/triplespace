@@ -96,7 +96,15 @@ pub fn parse_end_tag(
 							&mut state.nodes,
 							open_node.nodes,
 						);
+						let content_start = match open_node.type_ {
+							crate::OpenNodeType::Tag {
+								content_start, ..
+							} => content_start,
+							_ => unreachable!("matched as a tag"),
+						};
 						state.nodes.push(crate::Node::Tag {
+							content_end: start_position,
+							content_start,
 							end: state.scan_position,
 							name: tag_name,
 							nodes,
@@ -192,6 +200,8 @@ pub fn parse_start_tag(
 							state.flushed_position = tag_end_position;
 							state.scan_position = state.flushed_position;
 							state.nodes.push(crate::Node::Tag {
+								content_end: tag_end_position,
+								content_start: tag_end_position,
 								end: tag_end_position,
 								name: tag_name,
 								nodes: vec![],
@@ -199,21 +209,76 @@ pub fn parse_start_tag(
 							});
 						} else {
 							match &tag_name as _ {
-								"math" | "nowiki" => {
-									parse_plain_text_tag(
-										state,
-										start_position,
-										tag_end_position,
+								// Fork: `pre` and `includeonly` hold text, not
+								// wikitext, as `nowiki` does.
+								"math" | "nowiki" | "pre" | "includeonly" => {
+									// Fork: with no end tag after it, the whole
+									// start tag is text, found by a search that
+									// goes on from the last, so `<nowiki>`
+									// repeated stays linear.
+									if state.has_end_tag(
 										&tag_name,
-									);
+										tag_end_position,
+									) {
+										parse_plain_text_tag(
+											state,
+											start_position,
+											tag_end_position,
+											&tag_name,
+										);
+									} else {
+										state.warnings.push(crate::Warning {
+											end: tag_end_position,
+											message: crate::WarningMessage::MissingEndTagRewinding,
+											start: start_position,
+										});
+										state.scan_position = tag_end_position;
+									}
 								}
 								_ => {
-									state.push_open_node(
+									let type_ = crate::OpenNodeType::Tag {
+										name: tag_name,
+										content_start: tag_end_position,
+									};
+									// Fork: as MediaWiki reads an extension tag,
+									// its content runs to the first end tag of
+									// its name, so one of the same name inside it
+									// is text; and a start tag with no end tag
+									// after it is text, found once by a search
+									// that goes on from the last.
+									let name = match &type_ {
 										crate::OpenNodeType::Tag {
-											name: tag_name,
-										},
-										tag_end_position,
-									);
+											name,
+											..
+										} => name.to_string(),
+										_ => unreachable!(),
+									};
+									let nested = state.stack.iter().any(|n| {
+										matches!(
+											&n.type_,
+											crate::OpenNodeType::Tag { name: open, .. }
+												if *open == name
+										)
+									});
+									if nested
+										|| !state.has_end_tag(
+											&name,
+											tag_end_position,
+										) {
+										// The whole start tag is text, and the
+										// scan goes on after it.
+										state.warnings.push(crate::Warning {
+											end: tag_end_position,
+											message: crate::WarningMessage::MissingEndTagRewinding,
+											start: start_position,
+										});
+										state.scan_position = tag_end_position;
+									} else {
+										state.push_open_node(
+											type_,
+											tag_end_position,
+										);
+									}
 								}
 							}
 						}
@@ -301,7 +366,7 @@ fn parse_plain_text_end_tag<'a>(
 			end_tag_name.to_ascii_lowercase().into()
 		};
 	if *start_tag_name == end_tag_name {
-		// Triplespace: the text before the start tag is its own node; without this it
+		// Fork: the text before the start tag is its own node; without this it
 		// was lost.
 		state.flush(position_before_start_tag);
 		let nodes = if position_after_start_tag < position_before_end_tag {
@@ -317,6 +382,8 @@ fn parse_plain_text_end_tag<'a>(
 		state.flushed_position = position_after_end_tag;
 		state.scan_position = position_after_end_tag;
 		state.nodes.push(crate::Node::Tag {
+			content_end: position_before_end_tag,
+			content_start: position_after_start_tag,
 			end: position_after_end_tag,
 			name: end_tag_name,
 			nodes,

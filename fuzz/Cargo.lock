@@ -64,9 +64,9 @@ checksum = "4e7648175b45a9a48536d676f68d918270699102aa8dab5496df06904c914600"
 
 [[package]]
 name = "comrak"
-version = "0.59.0"
+version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3adf553d37681e21753316065ad5a763d9513f81c910e250576c572114a8eb06"
+checksum = "ac117e26984ed52df05f295e84217255ca14b1bed983cbe276abb292edce1189"
 dependencies = [
  "caseless",
  "entities",
@@ -206,9 +206,9 @@ checksum = "09ded33109e99472f809cb7495544506eea45e366725dacf2a383e184f660456"
 
 [[package]]
 name = "form_urlencoded"
-version = "1.2.2"
+version = "1.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb4cb245038516f5f85277875cdaa4f7d2c9a0fa0468de06ed190163b1581fcf"
+checksum = "afa489199eaffb1211795df1c6236ce1ad0d41a6fa45250add73e3b02420f06e"
 dependencies = [
  "percent-encoding",
 ]
@@ -539,10 +539,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "parse-wiki-text-2"
-version = "0.2.0"
-
-[[package]]
 name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -715,8 +711,20 @@ name = "scatter-wikitext"
 version = "0.0.1"
 dependencies = [
  "ammonia",
- "parse-wiki-text-2",
+ "scatter-wikitext-parse",
 ]
+
+[[package]]
+name = "scatter-wikitext-expand"
+version = "0.1.1"
+dependencies = [
+ "serde",
+ "toml",
+]
+
+[[package]]
+name = "scatter-wikitext-parse"
+version = "0.1.0"
 
 [[package]]
 name = "scopeguard"
@@ -966,6 +974,8 @@ dependencies = [
  "scatter-log",
  "scatter-pages",
  "scatter-wikitext",
+ "scatter-wikitext-expand",
+ "scatter-wikitext-parse",
 ]
 
 [[package]]
@@ -997,9 +1007,9 @@ dependencies = [
 
 [[package]]
 name = "url"
-version = "2.5.8"
+version = "2.5.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ff67a8a4397373c3ef660812acab3268222035010ab8680ec4215f38ba3d0eed"
+checksum = "f00cd2407bb42c0ef17be88d4cf020f5cceffd121665bac9b8b9493a369b3b1a"
 dependencies = [
  "form_urlencoded",
  "idna",

@@ -1,7 +1,7 @@
-// Triplespace: upstream's tests keep upstream's style (see PATCHES.md).
+// Fork: upstream's tests keep upstream's style (see CHANGELOG.md).
 #![allow(clippy::all, clippy::pedantic)]
 
-use parse_wiki_text_2::{
+use scatter_wikitext_parse::{
 	DefinitionListItem, ListItem, Node, Parameter, TableCaption, TableCell,
 	TableRow, Warning,
 };
