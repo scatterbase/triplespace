@@ -103,7 +103,7 @@ scatter-projection = { path = "crates/scatter-projection" }
 scatter-pages = { path = "crates/scatter-pages" }
 scatter-titles = { path = "crates/scatter-titles" }
 scatter-wikitext = { path = "crates/scatter-wikitext" }
-scatter-wikitext-expand = { path = "crates/scatter-wikitext-expand", version = "0.1.0" }
+scatter-wikitext-expand = { path = "crates/scatter-wikitext-expand", version = "0.1.1" }
 scatter-talk = { path = "crates/scatter-talk" }
 scatter-talk-import = { path = "crates/scatter-talk-import" }
 scatter-threads = { path = "crates/scatter-threads" }
