@@ -247,7 +247,7 @@ pub struct StatementSources {
 }
 
 /// The error a REST response other than `200` and `404` stands for.
-fn rest_error(r: &crate::ApiResponse) -> ClientError {
+pub(crate) fn rest_error(r: &crate::ApiResponse) -> ClientError {
     let v: Map<String, Value> = serde_json::from_slice(&r.body).unwrap_or_default();
     ClientError::Api {
         code: v

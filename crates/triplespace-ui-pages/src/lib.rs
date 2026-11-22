@@ -18,4 +18,5 @@ pub mod document;
 pub mod entity;
 pub mod home;
 pub mod moderation;
+pub mod resolver;
 pub mod tablepage;

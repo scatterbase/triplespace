@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-06 (A11)
+- **Updated:** 2026-11-22 (A12)
 - **Author:** James Hare / Claude Fable
 - **Uses:** [0002](0002-source-graphs-and-mass-ingest.md), [0004](0004-identity-clusters-and-equivalence.md), [0023](0023-moderation.md), [0026](0026-sitelinks.md), [0028](0028-tenancy-policy.md)
 
@@ -164,3 +164,9 @@ Replaced text: §6 of this ADR.
 
 Replaced text: 06 §3.1.
 
+### A12. Resolver pages and `GET /resolve`, as built
+
+- **Date:** 2026-11-22
+- **Source:** Direct: James, 2026-11-22, confirming the binding to `WDP356` through the `wikidata` field, raw titles with underscores kept, the `404` pages and the uncached `303`, and directing that DOIs and other case-insensitive resolvers' values normalize to lowercase. The rest (the response shapes and statuses, the migration's reach, the create link for signed-in readers only), Claude, while building resolver pages and `GET /resolve` (SCA-459), 2026-11-22; unconfirmed
+- **Change:** extends §1, §3, §6
+- **Summary:** Until a tenant can bind roles of its own, a role-bound resolver binds Wikidata's property for its role, named by a new `wikidata` field in `resolvers.toml` (`P356` for DOI), in the mirrored form `WDP356`, as the statement UI reads its roles; a local DOI property is not bound. A bound property's values are compared by the resolver's key everywhere: `view.identifier` keys them so, a match key's lookup reads them so, and statement fusion, the merge of an identical statement on write and an import's diff compare them so, so a DOI written in either case is one value; the stored value is kept as its graph wrote it. A migration re-keyed the bare ASCII DOIs already indexed (all but a few of Wikidata's); any other row takes its key when its entity is next composed, or by `triplespace rebuild`. `GET /resolve` answers every resolver match with `200`, an invalid key included (`invalid`, why), with `key`, `external`, the bound `properties` and either `target` or `candidates`, at most 50, each with its `values`; a string that names nothing is `404 unresolved`, with `suggestions` for a bare keyed-type key. Only resolvers bound to a property serve; the `URL:` resolver (§5), source IDs (0078 §5) and `redirected_from` are not built. The site reads a resolver title as the path gives it, underscores kept, since the grammar decides what a key holds; the no-entity and invalid-key pages are `404`s, as a missing page is; *Create an item with this DOI* is shown to a signed-in reader, as `Special:NewItem` admits one; and the `303` is not cached. The identity line's "Reached via DOI …" is not drawn yet. Chapter text: 06 §3.1, §3.3; 18 §3.3.

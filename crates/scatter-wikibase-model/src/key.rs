@@ -15,9 +15,10 @@
 //! view key, not a log hash, so it carries no 0006 §2 domain tag; the preimage starts with
 //! a version marker instead, so that a change to the canonical form changes every key.
 
+use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
-use scatter_normalize::{Resolver, ValueKey};
+use scatter_normalize::{Resolver, ResolverRegistry, ValueKey};
 use sha2::Digest as _;
 
 use crate::id::EntityId;
@@ -55,6 +56,68 @@ pub struct Identity;
 impl Canon for Identity {
     fn canonical_id(&self, id: &EntityId) -> EntityId {
         id.clone()
+    }
+}
+
+/// The resolvers bound to properties (0029 §1), and otherwise the identity canon: every
+/// ID is its own canonical ID. A role-bound resolver binds the property of its role that
+/// Wikidata uses, in the form an instance mirroring Wikidata under `code` holds it
+/// (`WDP356`), as the statement UI reads its roles (0003 §7). This is what `view.identifier`
+/// is keyed by, so the lookup of 06 §3.3 and the index agree by construction.
+#[derive(Debug, Clone, Default)]
+pub struct Bound {
+    by_property: BTreeMap<String, Resolver>,
+}
+
+impl Bound {
+    /// The role-bound resolvers of `registry`, bound to their Wikidata properties as an
+    /// instance mirroring Wikidata under `code` holds them; none without a code.
+    #[must_use]
+    pub fn new(registry: &ResolverRegistry, code: Option<&str>) -> Self {
+        let mut by_property = BTreeMap::new();
+        if let Some(code) = code {
+            for r in registry.resolvers() {
+                if let Some(p) = r.wikidata.as_deref().filter(|_| r.binding != "sitelink") {
+                    by_property.insert(format!("{code}{p}"), r.clone());
+                }
+            }
+        }
+        Self { by_property }
+    }
+
+    /// The embedded registry's resolvers, bound as an instance mirroring Wikidata under
+    /// the embedded provider registry's code holds them: the canon the resolved view, the
+    /// identifier index and every comparison of statements use, so that a DOI written in
+    /// either case is one value everywhere (0029 A12).
+    #[must_use]
+    pub fn embedded() -> &'static Self {
+        static BOUND: std::sync::LazyLock<Bound> = std::sync::LazyLock::new(|| {
+            Bound::new(
+                ResolverRegistry::default_registry(),
+                scatter_providers::Registry::default_registry()
+                    .by_slug("wikidata")
+                    .map(|w| w.code.as_str()),
+            )
+        });
+        &BOUND
+    }
+
+    /// The properties bound to the resolver named `name`.
+    pub fn properties<'a>(&'a self, name: &'a str) -> impl Iterator<Item = &'a str> + 'a {
+        self.by_property
+            .iter()
+            .filter(move |(_, r)| r.name == name)
+            .map(|(p, _)| p.as_str())
+    }
+}
+
+impl Canon for Bound {
+    fn canonical_id(&self, id: &EntityId) -> EntityId {
+        id.clone()
+    }
+
+    fn resolver_for(&self, property: &EntityId) -> Option<&Resolver> {
+        self.by_property.get(property.as_str())
     }
 }
 
@@ -156,6 +219,34 @@ mod tests {
                 _ => id.clone(),
             }
         }
+    }
+
+    /// 06 §3.1: the DOI resolver binds Wikidata's DOI property in its mirrored form, and its
+    /// key is the casefolded DOI; a property it does not bind keeps the value as written.
+    #[test]
+    fn a_bound_property_takes_its_resolvers_key() {
+        let bound = Bound::new(ResolverRegistry::default_registry(), Some("WD"));
+        assert_eq!(bound.properties("doi").collect::<Vec<_>>(), ["WDP356"]);
+        let doi = DataValue::String("10.1000/ABC".into());
+        let key = |p: &str, c: &dyn Canon| {
+            value_key(
+                &doi,
+                Some(&DataType::ExternalId),
+                &EntityId::parse(p).unwrap(),
+                c,
+            )
+            .as_str()
+            .to_string()
+        };
+        assert_eq!(key("WDP356", &bound), "external-id\u{1F}10.1000/abc");
+        assert_eq!(key("P356", &bound), "external-id\u{1F}10.1000/ABC");
+        assert_eq!(key("WDP356", &Identity), "external-id\u{1F}10.1000/ABC");
+        assert!(
+            Bound::new(ResolverRegistry::default_registry(), None)
+                .properties("doi")
+                .next()
+                .is_none()
+        );
     }
 
     #[test]

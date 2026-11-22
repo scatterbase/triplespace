@@ -1,0 +1,22 @@
+{#- A title in a resolver namespace that does not redirect (06 §3.3): no entity holds the
+    key, several do, one holds several values, or the key is not valid. `entries` are the
+    entities, with their IDs and descriptions, or the values in the resolver form. -#}
+<div class="ts-resolver">
+<p>{{ text }}</p>
+{%- if entries %}
+<ul class="ts-resolver-entries">
+{%- for e in entries %}
+<li><a href="{{ e.link.href }}">{{ e.link.text }}</a>{% if e.id %} <span class="ts-resolver-id">({{ e.id }})</span>{% endif %}{% if e.description %} – {{ e.description }}{% endif %}</li>
+{%- endfor %}
+</ul>
+{%- endif %}
+{%- if note %}
+<p class="ts-resolver-note">{{ note }}</p>
+{%- endif %}
+{%- if external %}
+<p class="ts-resolver-external"><a class="external" rel="nofollow" href="{{ external.href }}">{{ external.text }}</a></p>
+{%- endif %}
+{%- if create %}
+<p class="ts-resolver-create"><a href="{{ create.href }}">{{ create.text }}</a></p>
+{%- endif %}
+</div>

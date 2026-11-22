@@ -228,6 +228,10 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "0049_job_failures",
         sql: include_str!("../migrations/0049_job_failures.sql"),
     },
+    Migration {
+        name: "0050_resolver_identifier_keys",
+        sql: include_str!("../migrations/0050_resolver_identifier_keys.sql"),
+    },
 ];
 
 /// The crate name migrations are recorded under.

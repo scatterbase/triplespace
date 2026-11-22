@@ -87,6 +87,7 @@ pub mod provenance;
 pub mod purges;
 pub mod record;
 pub mod reports;
+pub mod resolve;
 pub mod settings;
 pub mod subsidiaries;
 pub mod suggest;
@@ -137,6 +138,7 @@ rest_operations! {
     get "/entity/{id}/page" => page_bundle::handle;
     get "/labels" => labels::handle;
     get "/suggest" => suggest::handle;
+    get "/resolve" => resolve::handle;
     get "/version" => version::handle;
     get "/version/licenses/{id}" => version::license;
     get "/activity" => activity::handle;

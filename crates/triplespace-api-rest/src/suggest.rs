@@ -116,10 +116,22 @@ async fn named_entity(
     hidden: &Hidden,
     q: &str,
 ) -> Result<Option<(String, String)>, tokio_postgres::Error> {
+    first_held(db, tenant, registry, hidden, candidate_ids(q)).await
+}
+
+/// The first of `ids` the instance holds and the caller may read: the canonical member of
+/// its cluster, as `(id, type)`.
+pub(crate) async fn first_held(
+    db: &tokio_postgres::Client,
+    tenant: &str,
+    registry: &scatter_providers::Registry,
+    hidden: &Hidden,
+    ids: Vec<String>,
+) -> Result<Option<(String, String)>, tokio_postgres::Error> {
     if hidden.every_entity() {
         return Ok(None);
     }
-    for raw in candidate_ids(q) {
+    for raw in ids {
         let Ok(id) = scatter_wikibase_model::id::EntityId::parse(&raw) else {
             continue;
         };

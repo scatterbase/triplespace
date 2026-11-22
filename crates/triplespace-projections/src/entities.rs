@@ -32,7 +32,7 @@ use scatter_wikibase_changeset::apply::{Correction as LocalCorrection, LocalStat
 use scatter_wikibase_changeset::{Operation, Retention};
 use scatter_wikibase_model::entity::Entity;
 use scatter_wikibase_model::id::{EntityId, IdForm, StatementId};
-use scatter_wikibase_model::key::{Identity, value_key};
+use scatter_wikibase_model::key::value_key;
 use scatter_wikibase_model::statement::SnakKind;
 use scatter_wikibase_model::value::{DataType, DataValue};
 use scatter_wikibase_resolve::{Contribution, Correction, Resolved, resolve};
@@ -1312,8 +1312,9 @@ fn term_rows(e: &Entity) -> Vec<(i16, &str, i16, &str)> {
 }
 
 /// A resolved state's `view.identifier` rows: `(property, value key, graph)` to the
-/// statement ID. The same `(property, value, graph)` asserted twice keeps the later
-/// statement's ID.
+/// statement ID, the value keyed by the resolver bound to its property where one is
+/// ([`crate::resolvers::bound`]; 06 §3.1). The same `(property, value, graph)` asserted twice keeps the
+/// later statement's ID.
 fn identifier_rows(resolved: &Resolved) -> BTreeMap<(&str, String, &str), &str> {
     let mut rows = BTreeMap::new();
     for (s, prov) in resolved.entity.all_statements().zip(&resolved.statements) {
@@ -1326,7 +1327,7 @@ fn identifier_rows(resolved: &Resolved) -> BTreeMap<(&str, String, &str), &str> 
             v,
             Some(&DataType::ExternalId),
             &s.mainsnak.property,
-            &Identity,
+            crate::resolvers::bound(),
         );
         for graph in &prov.graphs {
             rows.insert(

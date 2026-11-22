@@ -475,7 +475,7 @@ Every route under `rest.php/triplespace/v0`, sorted by path. The catalogue is [`
 | `GET /repo/{name}` | The repository's status: mode, set, index date (`index_as_of`), event lag, cache and mirror sizes, the live counters that `siprop=triplespace` does not carry (§2.2) |  | [0053](../decisions/0053-mirrored-pages.md) §10 |
 | `GET /reports` | Every report with its backing, mode, graph scope, lag or `computed_at` | ✓ | [0047](../decisions/0047-special-pages.md) §11 |
 | `GET /reports/{name}?graphs=&limit=&continue=` | A report's rows, with its own filters (`language`, `type`, `datatype`, `state` and so on) | ✓ | [0047](../decisions/0047-special-pages.md) §11 |
-| `GET /resolve?q=` | Resolves any string to its canonical page through the title resolver (§3.3) |  | [0012](../decisions/0012-api-requirements.md) §5; [0029](../decisions/0029-resolver-namespaces.md) §6; [0051](../decisions/0051-page-redirects.md) §7; [0078](../decisions/0078-entity-sources.md) §10 |
+| `GET /resolve?q=` | Resolves any string to its canonical page through the title resolver (§3.3): `kind` `entity`, `resolver` (with `target`, or `candidates` and their `values`) or `page`; `404 unresolved` with `suggestions` where nothing is named. Only resolvers bound to a property serve | ✓ | [0012](../decisions/0012-api-requirements.md) §5; [0029](../decisions/0029-resolver-namespaces.md) §6, A12; [0051](../decisions/0051-page-redirects.md) §7; [0078](../decisions/0078-entity-sources.md) §10 |
 | `GET /resolvers` | The tenant's resolvers with their grammars and bindings (public) |  | [0029](../decisions/0029-resolver-namespaces.md) §6 |
 | `GET /resolvers/{name}/{key}` | The lookup as JSON, with `303` semantics available by `Accept` |  | [0029](../decisions/0029-resolver-namespaces.md) §6 |
 | `POST /schema/{id}/check` | With a subject (ad hoc; rate class `query`) |  | [0064](../decisions/0064-entityschema-and-validation.md) §7 |
@@ -548,9 +548,11 @@ This table is the one index of the routes later ADRs added; [0012](../decisions/
 
 ### 3.3 `GET /resolve`
 
-*Sources: [0012](../decisions/0012-api-requirements.md) §5; [0029](../decisions/0029-resolver-namespaces.md) §6; [0051](../decisions/0051-page-redirects.md) §7; [0078](../decisions/0078-entity-sources.md) §10.*
+*Sources: [0012](../decisions/0012-api-requirements.md) §5; [0029](../decisions/0029-resolver-namespaces.md) §6, A12; [0051](../decisions/0051-page-redirects.md) §7; [0078](../decisions/0078-entity-sources.md) §10.*
 
 `GET /resolve?q=` resolves any string to its canonical page through the title resolver ([10](10-pages-and-content-models.md)). It tries, in order: entity IDs such as `WDQ65`, source IDs among them (`mhc:Q1`, answered with `kind: entity-source`); keyed-type IDs; notation keys ([0048](../decisions/0048-notation.md) §2); then resolver-prefixed strings (`doi:10.1000/xyz`) and bare strings that normalize to a valid key of exactly one resolver; and last main-namespace titles, so that a bare ID still reaches its entity first, and a main-namespace page with the same title is returned in an `also` field. For a resolver match the response carries `kind: resolver`, the resolver, the normalized key and either the target entity or the candidate list. It reports `redirected_from` when it followed a redirect. A string that normalizes to a notation key ([0048](../decisions/0048-notation.md) §2) resolves, as the exception to the bare-key rule; any other bare string that normalizes to a key of some keyed type, such as a domain name, is offered as a suggestion, since bare keys are not IDs ([0017](../decisions/0017-entity-id-grammar.md) §1).
+
+Every resolver match answers `200`: with `key`, the `external` IRI, the bound `properties` and either `target` (one entity holding one value for the key) or `candidates`, at most 50, each with its `values` for the properties, so that the "several values" case of [06](06-statements-and-properties.md) §3.3 can be drawn; a prefixed string that is not a valid key has `invalid`, why. A string that names nothing is `404 unresolved`, with `suggestions` naming the keyed-type IDs a bare key would be. Only resolvers bound to a property serve so far; the `URL:` resolver, source IDs and `redirected_from` wait ([0029](../decisions/0029-resolver-namespaces.md) A12).
 
 ### 3.4 MediaWiki core REST and the Wikibase REST API
 

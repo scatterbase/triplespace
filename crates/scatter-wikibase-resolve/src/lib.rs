@@ -12,8 +12,10 @@
 //! | Sitelinks | Union by site; the first graph in order wins a site |
 //! | Corrections | A rank override applies to the fused statement; a suppression removes the member statement it names, and the fused statement once every member is suppressed |
 //!
-//! Clusters are not handled here yet: every ID is taken as its own canonical ID, which is
-//! the [`Identity`] canon. When `scatter-identity` exists, the canon becomes a parameter.
+//! Clusters are not handled here yet: every ID is taken as its own canonical ID. Values
+//! of a property bound to a resolver are compared by the resolver's key, so a DOI written
+//! in either case is one value ([`Bound::embedded`]; 0029 A12). When `scatter-identity`
+//! exists, the canon becomes a parameter.
 //!
 //! [`resolve`] also says, per fused statement, which graphs assert it, so that the
 //! `identifier` and `statement_assertion` tables can be written from the same pass.
@@ -25,7 +27,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use scatter_wikibase_model::entity::Entity;
 use scatter_wikibase_model::hash::Hasher;
 use scatter_wikibase_model::id::StatementId;
-use scatter_wikibase_model::key::{Identity, statement_key};
+use scatter_wikibase_model::key::{Bound, statement_key};
 use scatter_wikibase_model::statement::{Rank, Statement};
 
 /// One graph's state for the entity.
@@ -122,7 +124,7 @@ pub fn resolve(
             let suppressed =
                 s.id.as_ref()
                     .is_some_and(|id| corrections.get(id) == Some(&Correction::Suppress));
-            let key = statement_key(s, &Identity);
+            let key = statement_key(s, Bound::embedded());
             if let Some(&i) = index.get(&key) {
                 let (base, prov, all_suppressed) = &mut fused[i];
                 prov.graphs.push(c.graph.clone());
@@ -180,7 +182,7 @@ pub fn resolve(
         statements.into_iter().map(|p| (p.key.clone(), p)).collect();
     let ordered: Vec<ResolvedStatement> = entity
         .all_statements()
-        .map(|s| by_key[&statement_key(s, &Identity)].clone())
+        .map(|s| by_key[&statement_key(s, Bound::embedded())].clone())
         .collect();
 
     Some(Resolved {
@@ -466,5 +468,37 @@ mod tests {
         assert_eq!(p1.len(), 1, "only b remains");
         assert_eq!(p1[0].id.as_ref().unwrap().as_str(), M2);
         assert_eq!(r.statements.len(), 2);
+    }
+
+    // 0029 A12: a DOI is one value in either case, so a local and a mirrored statement
+    // of the bound property that differ only in case fuse; an unbound property's do not.
+    #[test]
+    fn a_bound_propertys_values_fuse_by_their_resolvers_key() {
+        let doi = |p: &str, v: &str| {
+            json!({"mainsnak": {"snaktype": "value", "property": p,
+                "datavalue": {"value": v, "type": "string"}, "datatype": "external-id"},
+                "type": "statement", "rank": "normal"})
+        };
+        let item = |claims: serde_json::Value| {
+            entity(json!({"type": "item", "id": "WDQ5", "claims": claims}))
+        };
+        let contributions = [
+            Contribution {
+                graph: "local".into(),
+                entity: item(json!({"WDP356": [doi("WDP356", "10.1000/abc")],
+                                    "WDP1": [doi("WDP1", "abc")]})),
+                upstream_id: None,
+            },
+            Contribution {
+                graph: "mirror/wikidata".into(),
+                entity: item(json!({"WDP356": [doi("WDP356", "10.1000/ABC")],
+                                    "WDP1": [doi("WDP1", "ABC")]})),
+                upstream_id: None,
+            },
+        ];
+        let r = resolve(&contributions, &BTreeMap::new()).unwrap();
+        let e = &r.entity;
+        assert_eq!(e.statements[&EntityId::parse("WDP356").unwrap()].len(), 1);
+        assert_eq!(e.statements[&EntityId::parse("WDP1").unwrap()].len(), 2);
     }
 }

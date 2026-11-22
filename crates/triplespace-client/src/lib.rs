@@ -40,6 +40,7 @@ pub mod pages;
 pub mod register;
 pub mod replay;
 pub mod reports;
+pub mod resolve;
 pub mod revisions;
 pub mod rights;
 pub mod search;

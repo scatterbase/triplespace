@@ -42,6 +42,9 @@ pub struct Resolver {
     pub external: String,
     /// Other titles that resolve here (`Special:ItemByTitle`).
     pub aliases: Vec<String>,
+    /// Wikidata's property for the role (`P356`), which an instance mirroring Wikidata
+    /// holds in its mirrored form (`WDP356`); `None` for a `sitelink` binding.
+    pub wikidata: Option<String>,
 }
 
 /// Why a string is not a key of a resolver.
@@ -225,6 +228,7 @@ struct RawResolver {
     external: String,
     #[serde(default)]
     aliases: Vec<String>,
+    wikidata: Option<String>,
     #[allow(dead_code)]
     grammar: Option<String>,
     #[allow(dead_code)]
@@ -270,6 +274,7 @@ impl ResolverRegistry {
                 case,
                 external: r.external,
                 aliases: r.aliases,
+                wikidata: r.wikidata,
             });
         }
         Ok(Self {
@@ -328,6 +333,7 @@ mod tests {
         let doi = r.by_name("doi").unwrap();
         assert_eq!(doi.case, Case::Fold);
         assert_eq!(doi.binding, "doi");
+        assert_eq!(doi.wikidata.as_deref(), Some("P356"));
         assert_eq!(doi.namespace, "DOI");
         assert_eq!(doi.external_iri("10.1000/x"), "https://doi.org/10.1000/x");
         let url = r.by_binding("sitelink").unwrap();
