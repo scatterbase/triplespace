@@ -6,11 +6,11 @@ rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
-description = "Parsing and rendering the wikitext subset: a vendored parse-wiki-text-2, a render tree with source spans, and the built-in HTML renderer"
+description = "Parsing and rendering the wikitext subset: scatter-wikitext-parse's nodes lowered to a render tree with source spans, and the built-in HTML renderer"
 publish = false
 
 [dependencies]
-parse-wiki-text-2 = { path = "vendor/parse-wiki-text-2" }
+scatter-wikitext-parse.workspace = true
 ammonia.workspace = true
 
 [dev-dependencies]

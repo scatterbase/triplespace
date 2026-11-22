@@ -63,7 +63,7 @@ pub fn parse<'a>(
 		}
 	}
 	let mut loop_counter = 0;
-	// Triplespace: read the clock only when a timeout was asked for, so that
+	// Fork: read the clock only when a timeout was asked for, so that
 	// `parse_without_timeout` runs on targets without one (wasm32-unknown-unknown).
 	let start_time = if max_duration.is_zero() {
 		None

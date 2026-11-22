@@ -1,9 +1,9 @@
-// Triplespace: upstream's tests keep upstream's style (see PATCHES.md).
+// Fork: upstream's tests keep upstream's style (see CHANGELOG.md).
 #![allow(clippy::all, clippy::pedantic)]
 
 use std::time::Duration;
 
-use parse_wiki_text_2::{Configuration, ParseError};
+use scatter_wikitext_parse::{Configuration, ParseError};
 
 const MAX_EXEC: Duration = Duration::from_millis(200);
 

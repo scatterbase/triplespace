@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-27
-- **Updated:** 2026-11-22 (A34)
+- **Updated:** 2026-11-22 (A35)
 - **Author:** James Hare / Claude
 - **Uses:** [0006](0006-log-integrity-and-erasure.md), [0007](0007-actor-identity.md), [0011](0011-logs.md), [0012](0012-api-requirements.md), [0013](0013-postgres-storage.md), [0014](0014-caches-and-search.md), [0015](0015-record-format-and-partition-registry.md), [0019](0019-discussions.md), [0021](0021-notifications.md), [0022](0022-federation.md), [0025](0025-oauth-server.md), [0027](0027-preferences-and-portability.md), [0030](0030-edit-filters.md), [0032](0032-sparql-update-stream.md), [0034](0034-frontend-stack.md)
 
@@ -118,7 +118,7 @@ This ADR records the rest. The frontend is in 0034.
 
 - **Q1. Triplespace's own licence.** *Settled by A1.*
 - **Q2. `minicbor` versus `ciborium`.** *Settled by the `scatter-log` vectors, 2026-10-02: `minicbor` stays, for strict decoding of primitives; the canonical encoder is `scatter-log`'s own. The vectors are `docs/api/vectors/log-v1.json`, derived by an independent Python implementation and checked by the crate.*
-- **Q3.** Whether `parse-wiki-text-2` changes are upstreamed or the vendored copy diverges for good.
+- **Q3. Upstreaming the `parse-wiki-text-2` changes.** *Settled by [0115](0115-publishing-the-shared-crates.md) §5.*
 - **Q4.** MSRV policy: how far behind stable.
 - **Q5.** `aws-lc-rs` versus `ring` if musl or FIPS requirements appear.
 - **Q6.** Whether `refinery` replaces the in-house migration runner.
@@ -402,3 +402,12 @@ Replaced text: 13 §3.5.
 - **Source:** 0115 §2
 - **Change:** extends §12
 - **Summary:** A crate published on crates.io embeds each registry file it needs as `registry/{file}.toml`, a symlink under its own directory to `docs/registry/{file}.toml`, because `cargo package` takes only what is under the crate's directory and stores a symlink's target as a file. `docs/registry/` stays the only copy in the repository, and a test in the crate fails when the embedded text differs from it. The crates that are not published keep embedding `docs/registry/` directly. Chapter text: 23 §4.1, 22 §3.6.
+
+### A35. The parser is a published fork, `scatter-wikitext-parse`
+
+- **Date:** 2026-11-22
+- **Source:** 0115 §5
+- **Change:** amends §9.1, §16
+- **Summary:** The wikitext parser is `scatter-wikitext-parse`, a fork of `parse-wiki-text-2` 0.2.0 that Triplespace maintains as a crate of its own and publishes on crates.io at 0.1.0, under upstream's MIT-0 licence, which covers Scatter's changes too. It replaces the copy vendored into `scatter-wikitext`, which crates.io would refuse as a path dependency. Offering a change upstream becomes optional, where §9.1 had general changes offered upstream; and the crate names `MIT-0` in its manifest, so the `cargo-deny` clarify entry of A22 is gone. Chapter text: 22 §3.3, §3.4, §3.6, §4.6, 11 §1.2.
+
+Replaced text: 22 §3.3, §3.4, §4.6, 11 §1.2.

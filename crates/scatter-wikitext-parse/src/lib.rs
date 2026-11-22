@@ -4,6 +4,9 @@
 
 //! Parse wiki text from Mediawiki into a tree of elements.
 //!
+//! This is `scatter-wikitext-parse`, a fork of `parse-wiki-text-2` 0.2.0 with the fixes its
+//! `CHANGELOG.md` lists. The documentation below is upstream's.
+//!
 //! # Introduction
 //!
 //! Wiki text is a format that follows the PHP maxim “Make everything as inconsistent and confusing as possible”. There are hundreds of millions of interesting documents written in this format, distributed under free licenses on sites that use the Mediawiki software, mainly Wikipedia and Wiktionary. Being able to parse wiki text and process these documents would allow access to a significant part of the world's knowledge.
@@ -78,7 +81,7 @@
 //! Reuse the same configuration when parsing multiple pages for efficiency.
 //!
 //! ```
-//! use parse_wiki_text_2::{Configuration, Node};
+//! use scatter_wikitext_parse::{Configuration, Node};
 //! let wiki_text = "\
 //!		==Our values==\n\
 //!		*Correctness\n\
@@ -106,9 +109,14 @@
 
 #![forbid(unsafe_code)]
 #![warn(missing_docs)]
-// Triplespace: vendored code keeps its upstream style; the workspace's clippy run
-// (`-D warnings`) reaches it as a path dependency.
+// Fork: the crate keeps upstream's style, and the Triplespace workspace's clippy run
+// (`-D warnings`) reaches it as a workspace member.
 #![allow(clippy::all, clippy::pedantic)]
+
+// Fork: the README's example compiles and runs as a doctest (0115 §3).
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct ReadmeDoctests;
 
 mod bold_italic;
 mod case_folding_simple;
@@ -135,7 +143,7 @@ mod warning;
 
 pub use configuration::ConfigurationSource;
 use configuration::Namespace;
-/// Triplespace: the named character references the parser decodes, for callers that
+/// The named character references the parser decodes, for callers that
 /// decode attribute values the same way.
 pub use html_entities::HTML_ENTITIES;
 pub use parse::ParseError;

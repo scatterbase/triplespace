@@ -39,8 +39,8 @@ allow = [
     "GPL-3.0",
     "GPL-3.0-or-later",
     "CC0-1.0",
-    # MIT without the notice condition: the licence of the vendored parse-wiki-text-2
-    # (0033 §9.1, A22).
+    # MIT without the notice condition: the licence of scatter-wikitext-parse, the fork of
+    # parse-wiki-text-2 (0033 §9.1, A22; 0115 §5).
     "MIT-0",
     # The Zero-Clause BSD licence, permissive with no notice condition, as MIT-0 and CC0
     # are: the licence of quoted_printable, which lettre's message builder uses (0100 §5).
@@ -58,12 +58,8 @@ unused-allowed-license = "allow"
 # so these need no list of their own.
 
 # `[[licenses.clarify]]` entries are added here for crates whose licence text cargo-deny
-# cannot classify, such as the vendored `parse-wiki-text-2` (0033 §16). Its manifest names
-# only a licence file, which is MIT-0's text with the 2019 and 2023 copyright lines.
-[[licenses.clarify]]
-crate = "parse-wiki-text-2"
-expression = "MIT-0"
-license-files = [{ path = "LICENSE", hash = 0x80667642 }]
+# cannot classify (0033 §16). There are none: `scatter-wikitext-parse`, which needed one while
+# it was vendored `parse-wiki-text-2` with only a licence file, names `MIT-0` (0115 §5).
 
 [bans]
 multiple-versions = "warn"

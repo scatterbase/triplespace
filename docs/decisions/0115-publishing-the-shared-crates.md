@@ -28,6 +28,12 @@ James's direction, from the design discussion of 2026-11-22:
 - Asked for the first version, he chose **0.1.0 now**, publishing the slice as it is.
 - Asked who publishes, he chose **himself, by hand**, with a workflow on tags left for later.
 
+On Q1, the vendored `parse-wiki-text-2`, later the same day:
+
+- **"I think it would be more straightforward to just fork outright and publish our fork as 0.1.0"**, rather than offering the patches upstream first or asking to co-maintain upstream.
+- Asked what becomes of chapter 22's "changes are offered upstream where they are general", he chose **making offering upstream optional**.
+- **"I pick the name "scatter-wikitext-parse". Let's keep the crate MIT-0."**
+
 ## Decision
 
 ### 1. Shared crates are published to crates.io from this workspace (amends 0005 §6)
@@ -45,6 +51,10 @@ James's direction, from the design discussion of 2026-11-22:
 ### 4. `scatter-wikitext-expand` is the first, at 0.1.0
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §3.6.*
+
+### 5. `scatter-wikitext-parse`: the parser, forked and published at 0.1.0 (amends [0033](0033-backend-stack.md) §9.1, §16; settles 0033 Q3)
+
+*Current text: [11](../architecture/11-rendering-templates-and-modules.md) §1.2; [22](../architecture/22-crates-and-stack.md) §3.3, §3.4, §3.6, §4.6.*
 
 ## Alternatives considered
 
@@ -66,7 +76,7 @@ James's direction, from the design discussion of 2026-11-22:
 
 The plan for the other strong candidates. Each depends on the questions before it in the order of Q9.
 
-- **Q1. The vendored `parse-wiki-text-2`.** `scatter-wikitext` depends on it by path, and crates.io refuses that. Its `PATCHES.md` lists about ten changes, each marked `Triplespace:`: no clock read on wasm, extension-tag order, a link-trail fix, the nowiki text flush, the template span, `&Agrave;`, public `HTML_ENTITIES`, clippy allowances and formatting. Options: (a) offer the patches upstream and depend on its next release, which may not come, since its last release is over a year old (22 §4.6); (b) publish the fork under a name of its own, such as `scatter-parse-wiki-text`, keeping MIT-0, and offer the patches upstream too; (c) fold it into `scatter-wikitext` as a module, keeping its licence file beside it. *Recommendation: (b).* It keeps the licence boundary a crate boundary, as 22 §3.3 has it, and others could use the fixes. Offering the patches upstream costs nothing, and if a release takes them the dependency goes back.
+- **Q1. The vendored `parse-wiki-text-2`.** *Settled by §5.*
 - **Q2. `scatter-wikitext`'s CSS classes.** The render tree emits `ts-chip`, `ts-chip--template`, `ts-chip--unsupported`, `ts-chip--wikitext`, `ts-toc-marker` and `ts-repeat` (`lower.rs`); `ts-repeat` is already optional through `link_marks`. `ConfigSource::default()` holds MediaWiki's English core defaults, which is MediaWiki's own default and can stay. *Recommendation:* a `class_prefix` in `ConfigSource`, `ts-` where Triplespace builds one, so Triplespace's markup does not change. Publish after Q1.
 - **Q3. `scatter-talk`.** It is nearly general already: every public function takes the `Markup` registry explicitly, and English Wikipedia's conventions (`Site::english()`, the English months, `{{Unsigned}}`) are data in `talk-markup.toml` or in a `Site` built from siteinfo. It needs `scatter-wikitext` only for `decode_entities` and `escape_id`. *Recommendation:* publish it after `scatter-wikitext`, with `talk-markup.toml` as a symlink (§2) and its Cargo description rewritten without the ADR number.
 - **Q4. `scatter-vocab`.** Most of it is the IRIs of public vocabularies (PROV-O, PAV, SIOC, FOAF, Activity Streams, Dublin Core, schema.org, SKOS, the Wikibase ontology…). The `scatter` module is `https://scatter.red/terms/v0/`, which is itself a published vocabulary that Triplespace shares with Scatterbase (0001 A2), and `scatter-wikibase-rdf` does not use it. *Recommendation:* publish it as it is, when `scatter-wikibase-rdf` needs it published. It is of little use on its own.

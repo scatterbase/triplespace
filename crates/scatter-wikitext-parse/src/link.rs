@@ -34,7 +34,7 @@ pub fn parse_link_end<'a>(
 					start: end,
 					value: &state.wiki_text[end..trail_end_position],
 				});
-				// Triplespace: the trail is consumed, so it is not also the start of
+				// Fork: the trail is consumed, so it is not also the start of
 				// the text after the link.
 				state.scan_position = trail_end_position;
 				state.flushed_position = trail_end_position;

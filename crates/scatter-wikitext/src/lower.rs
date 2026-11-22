@@ -1,4 +1,4 @@
-//! Lowering: parse-wiki-text-2's nodes to the render tree (11 §1.2).
+//! Lowering: scatter-wikitext-parse's nodes to the render tree (11 §1.2).
 //!
 //! The parser's output is half a tree: lists, headings, tables and preformatted blocks
 //! nest, but bold and italic are toggles, HTML tags are flat starts and ends, and
@@ -22,7 +22,7 @@
 
 use std::collections::HashMap;
 
-use parse_wiki_text_2::{
+use scatter_wikitext_parse::{
     DefinitionListItem, DefinitionListItemType, ListItem, Node as P, Positioned as _, TableCaption,
     TableCellType, TableRow,
 };

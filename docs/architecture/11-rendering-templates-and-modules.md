@@ -25,9 +25,9 @@ Whether a tenant runs Lua and which renderer serves its HTML are the `site` sett
 
 ### 1.2 The source parser and the built-in renderer
 
-*Sources: [0033](../decisions/0033-backend-stack.md) §9.1; [0042](../decisions/0042-template-expansion-and-parsoid.md) §7.*
+*Sources: [0033](../decisions/0033-backend-stack.md) §9.1, A35; [0042](../decisions/0042-template-expansion-and-parsoid.md) §7; [0115](../decisions/0115-publishing-the-shared-crates.md) §5.*
 
-**Parser.** `parse-wiki-text-2` (a maintained fork of Fredrik Portström's `parse_wiki_text`, MIT-style licence without a notice clause) is vendored into `scatter-wikitext`. It is pure Rust, gives every node start and end positions, recognises templates, parameters, tags, tables, lists, links, images, categories and comments, reports warnings for malformed markup, and bounds its own running time. Its `Configuration` (namespaces, extension tags, URL protocols) is generated from `namespaces.toml`. Changes are offered upstream where they are general.
+**Parser.** `scatter-wikitext-parse`, Triplespace's fork of `parse-wiki-text-2` (itself a maintained fork of Fredrik Portström's `parse_wiki_text`), published as a crate of its own under upstream's MIT-0 licence ([22](22-crates-and-stack.md) §3.6). It is pure Rust, gives every node start and end positions, recognises templates, parameters, tags, tables, lists, links, images, categories and comments, reports warnings for malformed markup, and bounds its own running time. Its `Configuration` (namespaces, extension tags, URL protocols) is generated from `namespaces.toml`. A change may be offered upstream where it is general; nothing waits on upstream taking it.
 
 **What the parser must do.** Parse any wikitext without failing, because imported history predates the template-flattening revision ([0008](../decisions/0008-namespaces-and-document-pages.md) §8); recognise what it will not render; keep positions for line-level conflict marking and link autocomplete ([0010](../decisions/0010-site-ui.md)); extract `page_link` rows and categories; build for wasm so the preview ([0034](../decisions/0034-frontend-stack.md)) runs the same code as the server.
 

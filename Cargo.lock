@@ -2188,10 +2188,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "parse-wiki-text-2"
-version = "0.2.0"
-
-[[package]]
 name = "password-hash"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3179,8 +3175,8 @@ dependencies = [
  "ammonia",
  "html5ever",
  "markup5ever_rcdom",
- "parse-wiki-text-2",
  "scatter-wikitext-expand",
+ "scatter-wikitext-parse",
  "serde_json",
 ]
 
@@ -3191,6 +3187,10 @@ dependencies = [
  "serde",
  "toml",
 ]
+
+[[package]]
+name = "scatter-wikitext-parse"
+version = "0.1.0"
 
 [[package]]
 name = "schannel"

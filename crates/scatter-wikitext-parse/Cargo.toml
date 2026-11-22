@@ -1,0 +1,20 @@
+# A fork of parse-wiki-text-2 0.2.0, published under its own name (0115 §5). It keeps
+# upstream's MIT-0 licence, which covers Scatter's changes too, and upstream's style: it does
+# not take the workspace's licence, lints or edition, and `rustfmt.toml` is upstream's.
+[package]
+name = "scatter-wikitext-parse"
+version = "0.1.0"
+authors = [
+	"Fredrik Portström <https://portstrom.com>",
+	"Sören Meier <s@renmeier.ch>",
+	"Scatter LLC",
+]
+description = "Parse MediaWiki wikitext into a tree of elements with source positions: a fork of parse-wiki-text-2"
+edition = "2021"
+rust-version.workspace = true
+license = "MIT-0"
+repository.workspace = true
+homepage = "https://triplespace.readthedocs.io/"
+readme = "README.md"
+keywords = ["mediawiki", "wikitext", "wikipedia", "parser", "wiki"]
+categories = ["parser-implementations", "text-processing"]

@@ -132,11 +132,19 @@ The namespace registry, embedding `docs/registry/namespaces.toml`, and the speci
 
 **As built** (`scatter-titles`, from its `//!` docs and `implements` claims): The namespace registry (0008 §1; 10 §1), embedding `docs/registry/namespaces.toml`. Claims no section in full yet.
 
+### scatter-wikitext-parse
+
+**Depends on:** — · **Rules:** pure, wasm
+
+The wikitext parser `scatter-wikitext` lowers from: a fork of `parse-wiki-text-2` 0.2.0, with the fixes that were Triplespace's patches to the vendored copy, published on crates.io under its own name and upstream's MIT-0 licence, which covers Scatter's changes too ([0115](../decisions/0115-publishing-the-shared-crates.md) §5; [0033](../decisions/0033-backend-stack.md) §9.1)
+
+**As built** (`scatter-wikitext-parse`, from its `//!` docs and `implements` claims): Parse wiki text from Mediawiki into a tree of elements. Claims no section in full yet.
+
 ### scatter-wikitext
 
-**Depends on:** `scatter-css` · **Rules:** pure, wasm
+**Depends on:** `scatter-wikitext-parse`, `scatter-css` · **Rules:** pure, wasm
 
-Parsing and rendering the wikitext subset of [0008](../decisions/0008-namespaces-and-document-pages.md) §8. The link resolver is passed in as a trait. Builds for `wasm32`; extraction of category links, sort keys, `DEFAULTSORT` and `__HIDDENCAT__`, and the leading-colon link ([0038](../decisions/0038-page-metadata-and-categories.md) §3); file embeds with MediaWiki's options, `<gallery>`, `[[:File:…]]` and `[[Media:…]]` links ([0039](../decisions/0039-files-and-media.md) §13); renders expanded text with its strip state, and extracts links, categories, file links, external links and indicators from it; `poem` and `indicator` ([0042](../decisions/0042-template-expansion-and-parsoid.md) §7, §9); the redirect line and `mw-redirect` link classes ([0051](../decisions/0051-page-redirects.md) §1–2); `<templatestyles>` and `<templatedata>`, with TemplateData's schema validation and parameter table ([0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §3, §5). The parser is a vendored `parse-wiki-text-2` ([0033](../decisions/0033-backend-stack.md) §9.1); the scan API: template calls with normalized names, parameters raw and plain, `in_ref` and positions ([0072](../decisions/0072-template-mappings.md) §1, §7); list items with depth and parent, table rows with column names, headings and pseudo-headings, external links and bare URLs ([0073](../decisions/0073-lines-links-and-url-patterns.md) §1–2, §7)
+Parsing and rendering the wikitext subset of [0008](../decisions/0008-namespaces-and-document-pages.md) §8. The link resolver is passed in as a trait. Builds for `wasm32`; extraction of category links, sort keys, `DEFAULTSORT` and `__HIDDENCAT__`, and the leading-colon link ([0038](../decisions/0038-page-metadata-and-categories.md) §3); file embeds with MediaWiki's options, `<gallery>`, `[[:File:…]]` and `[[Media:…]]` links ([0039](../decisions/0039-files-and-media.md) §13); renders expanded text with its strip state, and extracts links, categories, file links, external links and indicators from it; `poem` and `indicator` ([0042](../decisions/0042-template-expansion-and-parsoid.md) §7, §9); the redirect line and `mw-redirect` link classes ([0051](../decisions/0051-page-redirects.md) §1–2); `<templatestyles>` and `<templatedata>`, with TemplateData's schema validation and parameter table ([0055](../decisions/0055-templatestyles-templatedata-and-page-properties.md) §3, §5). The parser is `scatter-wikitext-parse` ([0033](../decisions/0033-backend-stack.md) §9.1; [0115](../decisions/0115-publishing-the-shared-crates.md) §5); the scan API: template calls with normalized names, parameters raw and plain, `in_ref` and positions ([0072](../decisions/0072-template-mappings.md) §1, §7); list items with depth and parent, table rows with column names, headings and pseudo-headings, external links and bare URLs ([0073](../decisions/0073-lines-links-and-url-patterns.md) §1–2, §7)
 
 **As built** (`scatter-wikitext`, from its `//!` docs and `implements` claims): Parsing and rendering the wikitext subset (0008 §8; 11 §1.2). Claims no section in full yet.
 

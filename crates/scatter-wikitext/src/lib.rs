@@ -1,6 +1,6 @@
 //! Parsing and rendering the wikitext subset (0008 §8; 11 §1.2).
 //!
-//! [`render`] parses text with the vendored `parse-wiki-text-2`, lowers its nodes to a
+//! [`render`] parses text with `scatter-wikitext-parse`, lowers its nodes to a
 //! render tree that keeps source spans (the `lower` module), places the table of contents, and
 //! serializes the tree as HTML inside `<div class="mw-parser-output">`, sanitized once
 //! more by `ammonia`. What the page links to, its categories, external links, template
@@ -156,7 +156,7 @@ pub fn render_marked(
     let parsed = config.parser.parse_without_timeout(text);
     let output = match parsed {
         Ok(o) => o,
-        Err(parse_wiki_text_2::ParseError::TimedOut { .. }) => {
+        Err(scatter_wikitext_parse::ParseError::TimedOut { .. }) => {
             // Never fail: show the source as text.
             let mut pre = Element::new("pre", Vec::new(), Some(0..text.len()));
             pre.push_text(text);

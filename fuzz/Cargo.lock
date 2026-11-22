@@ -539,10 +539,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "parse-wiki-text-2"
-version = "0.2.0"
-
-[[package]]
 name = "percent-encoding"
 version = "2.3.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -715,8 +711,12 @@ name = "scatter-wikitext"
 version = "0.0.1"
 dependencies = [
  "ammonia",
- "parse-wiki-text-2",
+ "scatter-wikitext-parse",
 ]
+
+[[package]]
+name = "scatter-wikitext-parse"
+version = "0.1.0"
 
 [[package]]
 name = "scopeguard"

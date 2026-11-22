@@ -265,7 +265,7 @@ impl Default for ConfigSource {
 pub struct Config {
     /// The source it was built from.
     pub source: ConfigSource,
-    pub(crate) parser: parse_wiki_text_2::Configuration,
+    pub(crate) parser: scatter_wikitext_parse::Configuration,
 }
 
 impl std::fmt::Debug for Config {
@@ -305,8 +305,8 @@ impl Config {
         };
         let category = names(CATEGORY);
         let file = names(FILE);
-        let parser =
-            parse_wiki_text_2::Configuration::new(&parse_wiki_text_2::ConfigurationSource {
+        let parser = scatter_wikitext_parse::Configuration::new(
+            &scatter_wikitext_parse::ConfigurationSource {
                 category_namespaces: &as_str(&category),
                 extension_tags: &as_str(&source.extension_tags),
                 file_namespaces: &as_str(&file),
@@ -314,7 +314,8 @@ impl Config {
                 magic_words: &as_str(&source.switches),
                 protocols: &as_str(&source.protocols),
                 redirect_magic_words: &as_str(&source.redirect_words),
-            });
+            },
+        );
         Self { source, parser }
     }
 

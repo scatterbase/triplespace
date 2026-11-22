@@ -141,7 +141,7 @@ impl crate::Configuration {
 				.tag_name_map
 				.insert(tag_name.to_string(), crate::TagClass::Tag);
 		}
-		// Triplespace: extension tags are entered after the HTML tags, so that a name in both
+		// Fork: extension tags are entered after the HTML tags, so that a name in both
 		// lists (`pre`) is an extension tag, whose content is not parsed as wiki text, as in
 		// MediaWiki.
 		for tag_name in source.extension_tags {

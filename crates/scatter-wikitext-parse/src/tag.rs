@@ -301,7 +301,7 @@ fn parse_plain_text_end_tag<'a>(
 			end_tag_name.to_ascii_lowercase().into()
 		};
 	if *start_tag_name == end_tag_name {
-		// Triplespace: the text before the start tag is its own node; without this it
+		// Fork: the text before the start tag is its own node; without this it
 		// was lost.
 		state.flush(position_before_start_tag);
 		let nodes = if position_after_start_tag < position_before_end_tag {

@@ -96,7 +96,7 @@ pub fn parse_template_end(state: &mut crate::State) {
 						let nodes = std::mem::replace(&mut state.nodes, nodes);
 						state.nodes.push(crate::Node::Parameter {
 							default: Some(default.unwrap_or(nodes)),
-							// Triplespace: the end is after the closing `}}}`.
+							// Fork: the end is after the closing `}}}`.
 							end: state.scan_position + 3,
 							name,
 							start,

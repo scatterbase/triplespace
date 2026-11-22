@@ -38,8 +38,10 @@ pub fn escape_attr(s: &str, out: &mut String) {
 fn entities() -> &'static HashMap<&'static str, char> {
     static MAP: OnceLock<HashMap<&'static str, char>> = OnceLock::new();
     MAP.get_or_init(|| {
-        let mut m: HashMap<&'static str, char> =
-            parse_wiki_text_2::HTML_ENTITIES.iter().copied().collect();
+        let mut m: HashMap<&'static str, char> = scatter_wikitext_parse::HTML_ENTITIES
+            .iter()
+            .copied()
+            .collect();
         // `&apos;` is HTML5 and XML, which MediaWiki accepts.
         m.insert("apos", '\'');
         m

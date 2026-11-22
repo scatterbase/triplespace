@@ -249,7 +249,6 @@ Every unsettled question in every ADR (24 §8), with its first sentence. Settle 
 | [0032 Q1](0032-sparql-update-stream.md) | Retention default and the epoch's lifetime | Thirty days is a guess; the right value is the longest a consumer is expected to be down, measured against the table's size at Wikidata scale. |
 | [0032 Q4](0032-sparql-update-stream.md) | Other formats | RDF Patch (Jena's delta format) and LDES both express the same delta; whether to offer either beside SPARQL Update, once a consumer asks. |
 | [0032 Q5](0032-sparql-update-stream.md) | A farm-wide stream | Whether a consumer may subscribe to every tenant's resolved view at the farm base, each event carrying its tenant, under the `feeds.farm_wide` policy of 0028 §9. |
-| [0033 Q3](0033-backend-stack.md) |  | Whether `parse-wiki-text-2` changes are upstreamed or the vendored copy diverges for good. |
 | [0033 Q4](0033-backend-stack.md) |  | MSRV policy: how far behind stable. |
 | [0033 Q5](0033-backend-stack.md) |  | `aws-lc-rs` versus `ring` if musl or FIPS requirements appear. |
 | [0033 Q6](0033-backend-stack.md) |  | Whether `refinery` replaces the in-house migration runner. |
@@ -523,7 +522,6 @@ Every unsettled question in every ADR (24 §8), with its first sentence. Settle 
 | [0104 Q3](0104-batches-and-the-job-runner.md) | The queue beyond one process | The runner claims queued jobs with the database's row locks, so several server processes could share the queue; nothing partitions the work between them yet, and a job that one process started is finished by that process… |
 | [0109 Q1](0109-the-documentation-site.md) | Rustdoc and the command line's reference | Both need the workspace compiled, which may not fit Read the Docs' build time. |
 | [0111 Q1](0111-creating-a-tenant-by-request.md) | A delay or a second approval | Requests are carried out at once. |
-| [0115 Q1](0115-publishing-the-shared-crates.md) | The vendored `parse-wiki-text-2` | `scatter-wikitext` depends on it by path, and crates.io refuses that. |
 | [0115 Q2](0115-publishing-the-shared-crates.md) | `scatter-wikitext`'s CSS classes | The render tree emits `ts-chip`, `ts-chip--template`, `ts-chip--unsupported`, `ts-chip--wikitext`, `ts-toc-marker` and `ts-repeat` (`lower.rs`); `ts-repeat` is already optional through `link_marks`. |
 | [0115 Q3](0115-publishing-the-shared-crates.md) | `scatter-talk` | It is nearly general already: every public function takes the `Markup` registry explicitly, and English Wikipedia's conventions (`Site::english()`, the English months, `{{Unsigned}}`) are data in `talk-markup.toml` or in… |
 | [0115 Q4](0115-publishing-the-shared-crates.md) | `scatter-vocab` | Most of it is the IRIs of public vocabularies (PROV-O, PAV, SIOC, FOAF, Activity Streams, Dublin Core, schema.org, SKOS, the Wikibase ontology…). |
