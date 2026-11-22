@@ -186,6 +186,15 @@
 	margin-inline-start: 0;
 }
 
+/* The page's tools menu (`#p-tb`) follows More, or takes its place at the end. */
+.ts-tabs__tools {
+	align-self: center;
+}
+
+.ts-tabs__views + .ts-tabs__tools {
+	margin-inline-start: auto;
+}
+
 .ts-chip--restricted {
 	border-color: var( --border-color-warning, #ab7f2a );
 	background-color: var( --background-color-warning-subtle, #fdf2d5 );

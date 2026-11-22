@@ -1,9 +1,22 @@
 {#- Plain's frame (19 §1, §5.10): the global header, the page header and tabs, the body
     and the footer; the one template every page kind shares. The view model is
-    `triplespace_ui::frame::Model`; `msg(key)` is the page's message bundle. -#}
+    `triplespace_ui::frame::Model`; `msg(key)` is the page's message bundle.
+
+    Beside Codex's classes and Plain's own, the frame draws the IDs and classes
+    MediaWiki's skins share (19 §5.10): `#content`, `#firstHeading`, `#bodyContent`,
+    `#mw-content-text`, `#siteSub`, `#contentSub`, `#footer`, the portlets (`#p-personal`,
+    `#p-views`, `#p-cactions`, `#p-tb`, `#p-navigation`, `#p-search`) with an ID per item
+    from its key (`ca-edit`, `pt-logout`, `t-info`, `n-recentchanges`), and MediaWiki's
+    classes on `<body>`. -#}
 {%- import "codex.html" as codex -%}
 {%- import "watch.html" as watchctl -%}
 {%- import "appearance.html" as appearance_menu -%}
+{#- A menu's items as MediaWiki's portlet items: `li#{prefix}{key}.mw-list-item`. -#}
+{%- macro items(menu, prefix, link_class) -%}
+{%- for i in menu %}
+<li id="{{ prefix }}{{ i.key }}" class="mw-list-item"><a class="{{ link_class }}" href="{{ i.href }}"{% if i.current %} aria-current="page"{% endif %}>{{ i.label }}</a></li>
+{%- endfor %}
+{%- endmacro -%}
 <!DOCTYPE html>
 <html class="client-nojs {{ html_class }}" lang="{{ lang }}" dir="{{ dir }}"{{ html_attrs|safe }}>
 <head>
@@ -30,33 +43,31 @@
 <script type="module" src="{{ js }}"></script>
 {%- endif %}
 </head>
-<body>
+<body class="{{ body_class }}">
 <a class="ts-skip" href="#content">{{ msg("plain-skip-to-content") }}</a>
 <header class="ts-header">
 	<div class="ts-header__inner">
 		<a class="ts-header__site" href="{{ mainpage_href }}">{{ sitename }}</a>
 		{%- if search %}
-		<form class="ts-header__search" role="search" action="/w/index.php" method="get">
+		<form class="ts-header__search" id="searchform" role="search" action="/w/index.php" method="get">
 			<input type="hidden" name="title" value="Special:Search">
-			{{ codex.search(search) }}
+			<div id="p-search">{{ codex.search(search, "searchInput") }}</div>
 			{%- if search_data %}
 			<script type="application/json" id="ts-search-data">{{ search_data|safe }}</script>
 			{%- endif %}
 		</form>
 		{%- endif %}
-		<nav class="ts-header__nav" aria-label="{{ msg("plain-nav-label") }}">
-			{%- for label, href in nav %}
-			<a class="ts-header__nav-link" href="{{ href }}">{{ label }}</a>
-			{%- endfor %}
+		<nav class="ts-header__nav mw-portlet mw-portlet-navigation" id="p-navigation" aria-label="{{ msg("plain-nav-label") }}">
+			<ul class="ts-header__nav-list">
+			{{- items(menus.header, "n-", "ts-header__nav-link") }}
+			</ul>
 		</nav>
 		<div class="ts-header__end">
-			{%- if new_menu %}
-			<details class="ts-menu">
+			{%- if menus.new %}
+			<details class="ts-menu mw-portlet" id="p-ts-new">
 				<summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet cdx-button--icon-only" aria-label="{{ msg("ts-new") }}" title="{{ msg("ts-new") }}"><svg class="ts-header__icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M11 9h7v2h-7v7H9v-7H2V9h7V2h2z"/></svg></summary>
 				<ul class="ts-menu__items">
-					{%- for label, href in new_menu %}
-					<li><a class="ts-menu__link" href="{{ href }}">{{ label }}</a></li>
-					{%- endfor %}
+					{{- items(menus.new, "ts-new-", "ts-menu__link") }}
 				</ul>
 			</details>
 			{%- endif %}
@@ -71,61 +82,86 @@
 			<span class="ts-menu ts-bell-menu"><a class="ts-bell{% if bell.unseen %} ts-bell--unseen{% endif %}" href="/wiki/Special:Notifications" aria-label="{{ bell.label }}" title="{{ bell.label }}" data-panel-label="{{ msg("ts-notifications-title") }}" data-all="{{ msg("ts-bell-all") }}" data-loading="{{ msg("ts-bell-loading") }}"><svg class="ts-bell__icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false"><path d="M16 7a5.38 5.38 0 0 0-4.46-4.85C11.6 1.46 11.53 0 10 0S8.4 1.46 8.46 2.15A5.38 5.38 0 0 0 4 7v6l-2 2v1h16v-1l-2-2zm-6 13a3 3 0 0 0 3-3H7a3 3 0 0 0 3 3"/></svg>{% if bell.count %}<span class="ts-bell__count" aria-hidden="true">{{ bell.count }}</span>{% endif %}</a></span>
 			{%- endif %}
 			{%- if account %}
-			{%- if not account.items %}
-			<span class="ts-header__user">{{ account.name }}</span>
+			{%- if not menus["user-menu"] %}
+			<span class="ts-header__user" id="p-personal">{{ account.name }}</span>
 			{%- else %}
-			<details class="ts-menu">
+			<details class="ts-menu mw-portlet mw-portlet-personal" id="p-personal">
 				<summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet" aria-label="{{ account.label }}">{{ account.name }}</summary>
 				<ul class="ts-menu__items">
-					{%- for label, href in account.items %}
-					<li><a class="ts-menu__link" href="{{ href }}">{{ label }}</a></li>
-					{%- endfor %}
+					{{- items(menus["user-menu"], "pt-", "ts-menu__link") }}
 				</ul>
 			</details>
 			{%- endif %}
-			{%- elif login %}
-			<a class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet" href="/wiki/Special:UserLogin?returnto={{ returnto }}">{{ msg("ts-login") }}</a>
+			{%- else %}
+			{%- for i in menus["user-menu"] %}
+			<a class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet" id="pt-{{ i.key }}" href="{{ i.href }}">{{ i.label }}</a>
+			{%- endfor %}
 			{%- endif %}
 		</div>
 	</div>
 </header>
-<main class="ts-page" id="content">
+<main class="ts-page mw-body" id="content">
 	{%- if orange_bar %}
 	<div class="cdx-message cdx-message--block cdx-message--warning ts-orange-bar" role="status"><span class="cdx-message__icon"></span><div class="cdx-message__content">{{ orange_bar|safe }}</div></div>
 	{%- endif %}
 	{%- if identity %}
 	<p class="ts-page__identity">{{ identity|safe }}</p>
 	{%- endif %}
-	<h1 class="ts-page__title"{% if title_lang %} lang="{{ title_lang }}" dir="auto"{% endif %}>{{ title }}</h1>
+	<div class="mw-indicators">
+		{%- for i in menus["title-meta"] %}
+		<div id="mw-indicator-{{ i.key }}" class="mw-indicator"><a href="{{ i.href }}">{{ i.label }}</a></div>
+		{%- endfor %}
+	</div>
+	<h1 class="ts-page__title firstHeading mw-first-heading" id="firstHeading"{% if title_lang %} lang="{{ title_lang }}" dir="auto"{% endif %}>{{ title }}</h1>
+	<div id="contentSub">
 	{%- if subtitle %}
 	{{ subtitle|safe }}
 	{%- endif %}
-	{%- if tabs or actions or watch %}
+	</div>
+	{%- if menus["page-tabs"] or menus["page-actions"] or menus.tools or watch %}
 	<nav class="ts-tabs" aria-label="{{ msg("plain-tabs-label") }}">
-		{%- for tab in tabs %}
-		<a class="ts-tabs__link" href="{{ tab.href }}"{% if tab.current %} aria-current="page"{% endif %}>{{ tab.label }}</a>
-		{%- endfor %}
+		{%- if menus["page-tabs"] %}
+		<div class="ts-tabs__views mw-portlet mw-portlet-views" id="p-views">
+			<ul class="ts-tabs__list">
+			{{- items(menus["page-tabs"], "ca-", "ts-tabs__link") }}
+			</ul>
+		</div>
+		{%- endif %}
 		{%- if watch %}
 		{{ watchctl.control(watch) }}
 		{%- endif %}
-		{%- if actions %}
-		<details class="ts-menu ts-tabs__more">
+		{%- if menus["page-actions"] %}
+		<details class="ts-menu ts-tabs__more mw-portlet mw-portlet-cactions" id="p-cactions">
 			<summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet">{{ msg("plain-tabs-more") }}</summary>
 			<ul class="ts-menu__items">
-				{%- for label, href in actions %}
-				<li><a class="ts-menu__link" href="{{ href }}">{{ label }}</a></li>
-				{%- endfor %}
+				{{- items(menus["page-actions"], "ca-", "ts-menu__link") }}
+			</ul>
+		</details>
+		{%- endif %}
+		{%- if menus.tools %}
+		<details class="ts-menu ts-tabs__tools mw-portlet mw-portlet-tb" id="p-tb">
+			<summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet">{{ msg("plain-tools") }}</summary>
+			<ul class="ts-menu__items">
+				{{- items(menus.tools, "t-", "ts-menu__link") }}
 			</ul>
 		</details>
 		{%- endif %}
 	</nav>
 	{%- endif %}
-	<div class="ts-page__body">
+	<div class="ts-page__body mw-body-content" id="bodyContent">
+		<div class="ts-sitesub" id="siteSub">{{ msg("plain-tagline", sitename) }}</div>
+		<div id="mw-content-text">
 		{{ body|safe }}
+		</div>
 	</div>
 </main>
-<footer class="ts-footer">
-	<p>{{ msg("plain-footer-powered") }}</p>
+<footer class="ts-footer mw-footer" id="footer">
+	{%- if menus.footer %}
+	<ul class="ts-footer__places" id="footer-places">
+		{{- items(menus.footer, "footer-places-", "ts-footer__link") }}
+	</ul>
+	{%- endif %}
+	<p id="footer-info-poweredby">{{ msg("plain-footer-powered") }}</p>
 </footer>
 </body>
 </html>

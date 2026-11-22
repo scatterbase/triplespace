@@ -1017,11 +1017,12 @@ fn page_model(
     let mut tabs = Vec::new();
     let mut sections = Vec::new();
     let mut tab = |label: String, id: &str| {
-        tabs.push(Tab {
+        tabs.push(Tab::labelled(
+            &format!("section-{id}"),
+            "",
             label,
-            href: format!("#{id}"),
-            current: false,
-        });
+            format!("#{id}"),
+        ));
     };
     for g in &loaded.schema.groups {
         let title = group_label(m, &g.id, &g.label);

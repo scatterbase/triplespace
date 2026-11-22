@@ -229,6 +229,8 @@ impl Context {
                 .notifications
                 .as_ref()
                 .filter(|_| self.features.has(Feature::Notifications)),
+            rights: &self.rights,
+            own_namespaces: &self.site.own_namespaces,
         }
     }
 }
@@ -443,6 +445,8 @@ fn unavailable(site: &Site, incoming: &Incoming, error: &ClientError, key: &str)
         prefs: None,
         account_requests: None,
         notifications: None,
+        rights: &[],
+        own_namespaces: &[],
     };
     let Some(skin) = site.skins().choose(None, None, None, None) else {
         eprintln!("triplespace-ui: no skin is loaded");
@@ -979,14 +983,14 @@ mod tests {
             &m,
             StatusCode::OK,
             &[info(true, Some("\"a\""), &[])],
-            Some("worksheet 0.1.0"),
+            Some("worksheet 0.2.0"),
         )
         .unwrap();
         let plain = composed_etag(
             &m,
             StatusCode::OK,
             &[info(true, Some("\"a\""), &[])],
-            Some("plain 0.1.0"),
+            Some("plain 0.2.0"),
         )
         .unwrap();
         assert_ne!(worksheet, plain);

@@ -139,7 +139,7 @@ h3 {
 	border-end-start-radius: 0;
 }
 
-.ts-header__nav {
+.ts-header__nav-list {
 	display: flex;
 	flex-wrap: wrap;
 	gap: var( --size-25, 0.25rem ) var( --size-100, 1rem );
@@ -239,6 +239,20 @@ h3 {
 	border-bottom: 1px solid var( --border-color-subtle, #c8ccd1 );
 }
 
+/* The tabs are MediaWiki's `#p-views` portlet, a list (chapter 19 §5.10). */
+.ts-tabs__views {
+	display: flex;
+}
+
+.ts-tabs__list {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --size-25, 0.25rem );
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
 .ts-tabs__link,
 .ts-tabs__link:visited {
 	display: block;
@@ -256,6 +270,21 @@ h3 {
 	padding-block: var( --size-150, 1.5rem );
 	color: var( --color-subtle, #54595d );
 	font-size: var( --font-size-small, 0.875rem );
+}
+
+.ts-footer__places {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var( --size-25, 0.25rem ) var( --size-100, 1rem );
+	margin: 0;
+	padding: 0;
+	list-style: none;
+}
+
+/* MediaWiki's tagline: drawn, and hidden as MediaWiki's skins hide it, so that a wiki's
+   own styles may show it (chapter 19 §5.10). */
+.ts-sitesub {
+	display: none;
 }
 
 @media ( max-width: 640px ) {

@@ -37,7 +37,7 @@ use triplespace_ui_kit::Site;
 use triplespace_ui_kit::choice::Choice;
 use triplespace_ui_kit::codex::{ButtonModel, MessageKind, MessageModel};
 use triplespace_ui_kit::controls::{CheckRow, ControlModel, FieldRow, OptionModel};
-use triplespace_ui_kit::frame::{Page, title_url};
+use triplespace_ui_kit::frame::{Item, Page, title_url};
 use triplespace_ui_kit::i18n::Messages;
 use triplespace_ui_kit::pages::{self, Context, Params};
 
@@ -157,13 +157,15 @@ fn href(title: &str, op: Op, on: Option<&str>) -> String {
 /// The thread page's overflow menu, `(label, href)`: what the viewer may do and the
 /// thread gives something to do.
 #[must_use]
-pub fn menu(cx: &Context, t: &ThreadView) -> Vec<(String, String)> {
+pub fn menu(cx: &Context, t: &ThreadView) -> Vec<Item> {
     if cx.user.is_none() {
         return Vec::new();
     }
     ALL.iter()
         .filter(|op| cx.holds(op.right()) && op.applies(t))
-        .map(|op| (cx.m.get(op.key()), href(&t.title, *op, None)))
+        .map(|op| {
+            Item::new(&cx.m, op.name(), op.key(), href(&t.title, *op, None)).needs(op.right())
+        })
         .collect()
 }
 

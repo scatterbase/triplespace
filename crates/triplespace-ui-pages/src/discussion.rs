@@ -35,7 +35,7 @@ use axum::response::Response;
 use scatter_titles::Namespaces;
 use serde::Serialize;
 use triplespace_client::{
-    CacheInfo, ClientError, Incoming, Lookup, NewThreadOn, PageInfo, PostForm, PostView,
+    CacheInfo, ClientError, Incoming, Lookup, NewThreadOn, PageInfo, PostForm, PostView, SiteInfo,
     ThreadView, Written,
 };
 
@@ -643,28 +643,33 @@ fn login_line(cx: &Context, title: &str, key: &str) -> Option<Choice> {
         })
 }
 
-fn talk_tabs(m: &Messages, talk: &str, subject: &str) -> Vec<Tab> {
-    talk_tabs_at(m, talk, subject, false)
+fn talk_tabs(m: &Messages, site: &SiteInfo, talk: &str, subject: &str) -> Vec<Tab> {
+    talk_tabs_at(m, site, talk, subject, false)
 }
 
-fn talk_tabs_at(m: &Messages, talk: &str, subject: &str, history: bool) -> Vec<Tab> {
+fn talk_tabs_at(
+    m: &Messages,
+    site: &SiteInfo,
+    talk: &str,
+    subject: &str,
+    history: bool,
+) -> Vec<Tab> {
     let base = format!("/wiki/{}", title_url(talk));
     vec![
-        Tab {
-            label: m.get("ts-tab-subject"),
-            href: format!("/wiki/{}", title_url(subject)),
-            current: false,
-        },
-        Tab {
-            label: m.get("ts-tab-discussion"),
-            href: base.clone(),
-            current: !history,
-        },
-        Tab {
-            label: m.get("ts-tab-history"),
-            href: format!("{base}?action=history"),
-            current: history,
-        },
+        Tab::new(
+            m,
+            &triplespace_ui_kit::titles::nstab_key(subject, &site.own_namespaces),
+            "ts-tab-subject",
+            format!("/wiki/{}", title_url(subject)),
+        ),
+        Tab::new(m, "talk", "ts-tab-discussion", base.clone()).current(!history),
+        Tab::new(
+            m,
+            "history",
+            "ts-tab-history",
+            format!("{base}?action=history"),
+        )
+        .current(history),
     ]
 }
 
@@ -675,16 +680,14 @@ fn thread_tabs(m: &Messages, title: &str) -> Vec<Tab> {
 fn thread_tabs_at(m: &Messages, title: &str, history: bool) -> Vec<Tab> {
     let base = thread_href(title);
     vec![
-        Tab {
-            label: m.get("ts-tab-thread"),
-            href: base.clone(),
-            current: !history,
-        },
-        Tab {
-            label: m.get("ts-tab-history"),
-            href: format!("{base}?action=history"),
-            current: history,
-        },
+        Tab::new(m, "view", "ts-tab-thread", base.clone()).current(!history),
+        Tab::new(
+            m,
+            "history",
+            "ts-tab-history",
+            format!("{base}?action=history"),
+        )
+        .current(history),
     ]
 }
 
@@ -726,7 +729,7 @@ async fn history(
         title: prefixed.clone(),
         returnto: Some(prefixed.clone()),
         tabs: match kind {
-            Kind::Talk => talk_tabs_at(m, &prefixed, &subject, true),
+            Kind::Talk => talk_tabs_at(m, &cx.site, &prefixed, &subject, true),
             Kind::Thread => thread_tabs_at(
                 m,
                 prefixed.strip_prefix("Thread:").unwrap_or(&prefixed),
@@ -867,7 +870,7 @@ async fn talk(
     if subject_id.is_none() && talk_id.is_none() && !user_talk {
         return pages::respond(&cx, headers, StatusCode::NOT_FOUND, |m| Page {
             body: cx.message(MessageKind::Notice, &m.get("ts-talk-no-subject")),
-            tabs: talk_tabs(m, &prefixed, &subject),
+            tabs: talk_tabs(m, &cx.site, &prefixed, &subject),
             returnto: Some(prefixed.clone()),
             title: prefixed.clone(),
             ..Page::default()
@@ -983,7 +986,7 @@ async fn talk(
         Page {
             title: prefixed.clone(),
             returnto: Some(prefixed.clone()),
-            tabs: talk_tabs(m, &prefixed, &subject),
+            tabs: talk_tabs(m, &cx.site, &prefixed, &subject),
             body,
             watch,
             ..Page::default()

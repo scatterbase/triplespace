@@ -11,11 +11,12 @@
 <button type="{{ b.kind }}" class="{{ b.classes }}">{{ b.label }}</button>
 {%- endmacro -%}
 
-{%- macro search(s) -%}
+{#- `id`, where given, is the input's: the header's box is MediaWiki's `#searchInput`. -#}
+{%- macro search(s, id=none) -%}
 <div class="cdx-search-input cdx-search-input--has-end-button">
 	<div class="cdx-search-input__input-wrapper">
 		<div class="cdx-text-input">
-			<input class="cdx-text-input__input" type="search" name="{{ s.name }}" value="{{ s.value }}" placeholder="{{ s.placeholder }}" aria-label="{{ s.label }}">
+			<input class="cdx-text-input__input" type="search"{% if id %} id="{{ id }}"{% endif %} name="{{ s.name }}" value="{{ s.value }}" placeholder="{{ s.placeholder }}" aria-label="{{ s.label }}">
 		</div>
 	</div>
 	<button type="submit" class="cdx-button cdx-search-input__end-button">{{ s.button }}</button>

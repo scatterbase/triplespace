@@ -1843,6 +1843,8 @@
 	"ts-tab-discussion": "Discussion",
 	"ts-tab-thread": "Thread",
 	"ts-tab-links-here": "Links here",
+	"ts-tool-related-changes": "Related changes",
+	"ts-tool-info": "Page information",
 	"ts-whatlinkshere-title": "Pages that link here",
 	"ts-whatlinkshere-title-of": "Pages that link to \"$1\"",
 	"ts-whatlinkshere-target": "Page",

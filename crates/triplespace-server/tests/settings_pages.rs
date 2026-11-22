@@ -267,7 +267,7 @@ async fn settings_pages_and_the_appearance_menu() {
     );
     assert!(
         r.body
-            .contains("<h1 class=\"ts-page__title\">Wiki settings</h1>")
+            .contains("<h1 class=\"ts-page__title firstHeading mw-first-heading\" id=\"firstHeading\">Wiki settings</h1>")
     );
     assert!(r.body.contains("id=\"site\""));
     assert!(r.body.contains("id=\"tenancy\""));

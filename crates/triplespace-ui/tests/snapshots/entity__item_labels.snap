@@ -1,28 +1,62 @@
 ---
 source: crates/triplespace-ui/tests/entity.rs
-assertion_line: 74
 expression: main_of(&html)
 ---
-<main class="ts-page" id="content">
+<main class="ts-page mw-body" id="content">
 	<p class="ts-page__identity">
 <span class="ts-chip ts-chip--local">Q6</span> <span>Item</span> <span aria-hidden="true">·</span> <span>Adopted from https://librarybase.org/</span> <span aria-hidden="true">·</span> <a href="https://librarybase.org/entity/Q6" class="external" rel="noopener" dir="ltr">librarybase.org/entity/Q6 ↗</a>
 </p>
-	<h1 class="ts-page__title">Six &amp; more</h1>
+	<div class="mw-indicators">
+	</div>
+	<h1 class="ts-page__title firstHeading mw-first-heading" id="firstHeading">Six &amp; more</h1>
+	<div id="contentSub">
 	<div class="ts-terms" data-region="terms">
 <p class="ts-terms__description">a number</p>
 <p class="ts-terms__aliases">Also known as <span>6 · half dozen</span>
 </p>
 </div>
+	</div>
 	<nav class="ts-tabs" aria-label="Page">
-		<a class="ts-tabs__link" href="/wiki/Item:Q6">Statements</a>
-		<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=identifiers">Identifiers</a>
-		<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=sitelinks">Sitelinks</a>
-		<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=labels" aria-current="page">Labels in other languages</a>
-		<a class="ts-tabs__link" href="/wiki/Item:Q6?action=history">History</a>
-		<a class="ts-tabs__link" href="/wiki/Special:WhatLinksHere/Item:Q6">Links here</a>
-		<a class="ts-tabs__link" href="/wiki/Item_talk:Q6">Discussion</a>
+		<div class="ts-tabs__views mw-portlet mw-portlet-views" id="p-views">
+			<ul class="ts-tabs__list">
+<li id="ca-view" class="mw-list-item">
+<a class="ts-tabs__link" href="/wiki/Item:Q6">Statements</a>
+</li>
+<li id="ca-identifiers" class="mw-list-item">
+<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=identifiers">Identifiers</a>
+</li>
+<li id="ca-sitelinks" class="mw-list-item">
+<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=sitelinks">Sitelinks</a>
+</li>
+<li id="ca-labels" class="mw-list-item">
+<a class="ts-tabs__link" href="/wiki/Item:Q6?tab=labels" aria-current="page">Labels in other languages</a>
+</li>
+<li id="ca-history" class="mw-list-item">
+<a class="ts-tabs__link" href="/wiki/Item:Q6?action=history">History</a>
+</li>
+<li id="ca-whatlinkshere" class="mw-list-item">
+<a class="ts-tabs__link" href="/wiki/Special:WhatLinksHere/Item:Q6">Links here</a>
+</li>
+<li id="ca-talk" class="mw-list-item">
+<a class="ts-tabs__link" href="/wiki/Item_talk:Q6">Discussion</a>
+</li>
+			</ul>
+		</div>
+		<details class="ts-menu ts-tabs__tools mw-portlet mw-portlet-tb" id="p-tb">
+			<summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet">Tools</summary>
+			<ul class="ts-menu__items">
+<li id="t-recentchangeslinked" class="mw-list-item">
+<a class="ts-menu__link" href="/wiki/Special:RecentChangesLinked/Item:Q6">Related changes</a>
+</li>
+<li id="t-info" class="mw-list-item">
+<a class="ts-menu__link" href="/wiki/Special:PageInfo/Item:Q6">Page information</a>
+</li>
+			</ul>
+		</details>
 	</nav>
-	<div class="ts-page__body">
+	<div class="ts-page__body mw-body-content" id="bodyContent">
+		<div class="ts-sitesub" id="siteSub">From librarybase</div>
+		<div id="mw-content-text">
 		<div class="cdx-table">
 	<div class="cdx-table__table-wrapper">
 		<table class="cdx-table__table">
@@ -67,5 +101,6 @@ expression: main_of(&html)
 		</table>
 	</div>
 </div>
+		</div>
 	</div>
 </main>

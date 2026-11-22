@@ -810,7 +810,10 @@ async fn an_entity_page_with_hundreds_of_links_takes_at_most_four_api_calls() {
         assert!(html.contains(">Linked 0</a>"), "the first link's label");
         assert!(html.contains(">Linked 699</a>"), "the last link's label");
         if whole {
-            assert!(html.contains(r#"<div class="ts-watch">"#), "the watch star");
+            assert!(
+                html.contains(r#"<div class="ts-watch mw-watchlink" id="ca-unwatch">"#),
+                "the watch star"
+            );
             assert!(
                 html.contains("ts-watch--on"),
                 "the star says the page is watched"

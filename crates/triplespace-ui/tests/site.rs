@@ -160,7 +160,7 @@ async fn a_signed_in_page_is_private_and_names_the_viewer() {
     )
     .await;
     assert_eq!(status, StatusCode::OK);
-    assert!(html.contains("<span class=\"ts-header__user\">Alice</span>"));
+    assert!(html.contains("<span class=\"ts-header__user\" id=\"p-personal\">Alice</span>"));
     assert!(!html.contains("Special:UserLogin"));
     assert_eq!(h[header::CACHE_CONTROL], "private, no-cache");
     // Siteinfo, and one call for who the viewer is and the bell's counts (19 §5.1

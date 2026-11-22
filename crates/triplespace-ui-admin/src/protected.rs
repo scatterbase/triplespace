@@ -525,23 +525,16 @@ async fn render(
         empty: empty.as_ref().map(|g| empty_model(m, g)),
     };
     let mut tabs = vec![
-        Tab {
-            label: m.get("ts-protectedpages-pages"),
-            href: "#pages".into(),
-            current: false,
-        },
-        Tab {
-            label: m.get("ts-protectedpages-sets"),
-            href: "#sets".into(),
-            current: false,
-        },
+        Tab::new(m, "section-pages", "ts-protectedpages-pages", "#pages"),
+        Tab::new(m, "section-sets", "ts-protectedpages-sets", "#sets"),
     ];
     if empty.is_some() {
-        tabs.push(Tab {
-            label: m.get("ts-protectedpages-empty-groups"),
-            href: "#empty-groups".into(),
-            current: false,
-        });
+        tabs.push(Tab::new(
+            m,
+            "section-empty-groups",
+            "ts-protectedpages-empty-groups",
+            "#empty-groups",
+        ));
     }
     let body = cx.draw("special/protectedpages.html", &model);
     let r = pages::respond(cx, headers, StatusCode::OK, |m| Page {

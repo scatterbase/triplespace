@@ -2,7 +2,7 @@
 source: crates/triplespace-ui/tests/codex_macros.rs
 expression: out
 ---
-<div class="ts-watch">
+<div class="ts-watch mw-watchlink" id="ca-watch">
 <details class="ts-menu ts-watch__menu">
 <summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet">
 <svg class="ts-watch__icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
@@ -95,7 +95,7 @@ expression: out
 </details>
 </div>
 
-<div class="ts-watch">
+<div class="ts-watch mw-watchlink" id="ca-unwatch">
 <details class="ts-menu ts-watch__menu">
 <summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet ts-watch--on" title="Watched until 6 November 2026">
 <svg class="ts-watch__icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false">
@@ -193,7 +193,7 @@ expression: out
 </details>
 </div>
 
-<div class="ts-watch">
+<div class="ts-watch mw-watchlink" id="ca-unwatch">
 <details class="ts-menu ts-watch__menu">
 <summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet ts-watch--on">
 <svg class="ts-watch__icon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 20 20" aria-hidden="true" focusable="false">

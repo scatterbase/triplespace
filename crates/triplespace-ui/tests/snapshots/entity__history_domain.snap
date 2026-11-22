@@ -2,23 +2,56 @@
 source: crates/triplespace-ui/tests/entity.rs
 expression: main
 ---
-<main class="ts-page" id="content">
+<main class="ts-page mw-body" id="content">
 	<p class="ts-page__identity">
 <span class="ts-chip ts-chip--namespace">Domain</span> <span class="ts-mono" dir="ltr">wikipedia.org</span> <span>Named by its key, minted by no one</span>
 </p>
-	<h1 class="ts-page__title">Wikipedia</h1>
+	<div class="mw-indicators">
+	</div>
+	<h1 class="ts-page__title firstHeading mw-first-heading" id="firstHeading">Wikipedia</h1>
+	<div id="contentSub">
 	<div class="ts-terms" data-region="terms">
 <p class="ts-terms__description">the free encyclopedia</p>
 </div>
+	</div>
 	<nav class="ts-tabs" aria-label="Page">
-		<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org">Statements</a>
-		<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org?tab=identifiers">Identifiers</a>
-		<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org?tab=labels">Labels in other languages</a>
-		<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org?action=history" aria-current="page">History</a>
-		<a class="ts-tabs__link" href="/wiki/Special:WhatLinksHere/Domain:wikipedia.org">Links here</a>
-		<a class="ts-tabs__link" href="/wiki/Domain_talk:wikipedia.org">Discussion</a>
+		<div class="ts-tabs__views mw-portlet mw-portlet-views" id="p-views">
+			<ul class="ts-tabs__list">
+<li id="ca-view" class="mw-list-item">
+<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org">Statements</a>
+</li>
+<li id="ca-identifiers" class="mw-list-item">
+<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org?tab=identifiers">Identifiers</a>
+</li>
+<li id="ca-labels" class="mw-list-item">
+<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org?tab=labels">Labels in other languages</a>
+</li>
+<li id="ca-history" class="mw-list-item">
+<a class="ts-tabs__link" href="/wiki/Domain:wikipedia.org?action=history" aria-current="page">History</a>
+</li>
+<li id="ca-whatlinkshere" class="mw-list-item">
+<a class="ts-tabs__link" href="/wiki/Special:WhatLinksHere/Domain:wikipedia.org">Links here</a>
+</li>
+<li id="ca-talk" class="mw-list-item">
+<a class="ts-tabs__link" href="/wiki/Domain_talk:wikipedia.org">Discussion</a>
+</li>
+			</ul>
+		</div>
+		<details class="ts-menu ts-tabs__tools mw-portlet mw-portlet-tb" id="p-tb">
+			<summary class="cdx-button cdx-button--fake-button cdx-button--fake-button--enabled cdx-button--weight-quiet">Tools</summary>
+			<ul class="ts-menu__items">
+<li id="t-recentchangeslinked" class="mw-list-item">
+<a class="ts-menu__link" href="/wiki/Special:RecentChangesLinked/Domain:wikipedia.org">Related changes</a>
+</li>
+<li id="t-info" class="mw-list-item">
+<a class="ts-menu__link" href="/wiki/Special:PageInfo/Domain:wikipedia.org">Page information</a>
+</li>
+			</ul>
+		</details>
 	</nav>
-	<div class="ts-page__body">
+	<div class="ts-page__body mw-body-content" id="bodyContent">
+		<div class="ts-sitesub" id="siteSub">From librarybase</div>
+		<div id="mw-content-text">
 		<div class="ts-history">
 <details class="ts-history__filter">
 <summary>Filter this history</summary>
@@ -136,5 +169,6 @@ expression: main
 </table>
 </div>
 </div>
+		</div>
 	</div>
 </main>
