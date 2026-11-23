@@ -27,7 +27,7 @@ summary = "IRI constants for the scatter: vocabulary and the external vocabulari
 depends = ["oxrdf"]
 pure = true
 contents = """
-IRI constants for the `scatter:` vocabulary (§5) and the external vocabularies [0001](../decisions/0001-revision-metadata-rdf.md) §6, [0007](../decisions/0007-actor-identity.md) §9 and [0011](../decisions/0011-logs.md) §8 reuse: PROV-O, PAV, SIOC, FOAF, Activity Streams 2.0, Dublin Core, schema.org, and the Wikibase ontology; the claim-envelope and key-registration terms of Scatterbase's kernel, and the three its tests use besides ([0005](../decisions/0005-crate-organization.md) A134, A135)
+IRI constants for the `scatter:` vocabulary (§5) and the external vocabularies [0001](../decisions/0001-revision-metadata-rdf.md) §6, [0007](../decisions/0007-actor-identity.md) §9 and [0011](../decisions/0011-logs.md) §8 reuse: PROV-O, PAV, SIOC, FOAF, Activity Streams 2.0, Dublin Core, schema.org, and the Wikibase ontology; the claim-envelope and key-registration terms of Scatterbase's kernel, and `SandboxDomain` ([0005](../decisions/0005-crate-organization.md) A134, A135)
 """
 
 [[crate]]

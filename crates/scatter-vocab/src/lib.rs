@@ -128,9 +128,10 @@ vocabulary! {
         INCLUDES = "includes";
         /// The claim before this one in its signer's chain.
         PREVIOUS_CLAIM = "previousClaim";
-        /// The user's signature over a claim, as `ed25519:{signature}`.
+        /// The user's signature over a claim, a plain literal `ed25519:{signature}` with no
+        /// datatype of its own.
         USER_SIGNATURE = "userSignature";
-        /// The server's signature over a claim it accepted, as `ed25519:{signature}`.
+        /// The server's signature over a claim it accepted, a plain literal like the user's.
         SERVER_SIGNATURE = "serverSignature";
         /// The sequence ID the server gave a claim.
         SEQ_ID = "seqID";
@@ -154,16 +155,10 @@ vocabulary! {
         OWNER = "owner";
         /// The Ed25519 key type, a value of `scatter:keyType`.
         ED25519 = "ed25519";
-        /// The datatype of a signature literal in the kernel's test data. Despite the name,
-        /// the signatures it types are written `ed25519:{signature}` in z-base-32.
-        BASE64 = "Base64";
 
         // Scatterbase: domains (0005 §5, A135).
         /// The domain a store is given when none is configured, `http://{16 letters}.sandbox`.
         SANDBOX_DOMAIN = "SandboxDomain";
-        /// The class a thing is an instance of, where the kernel's test data does not use
-        /// `rdf:type`.
-        INSTANCE_OF = "instanceOf";
     }
 }
 
@@ -504,9 +499,7 @@ mod tests {
             (scatter::OWNER, "owner"),
             (scatter::ED25519, "ed25519"),
             // A135
-            (scatter::BASE64, "Base64"),
             (scatter::SANDBOX_DOMAIN, "SandboxDomain"),
-            (scatter::INSTANCE_OF, "instanceOf"),
         ];
         for (term, local) in expected {
             assert_eq!(
