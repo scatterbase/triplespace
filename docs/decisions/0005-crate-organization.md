@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-22 (A134)
+- **Updated:** 2026-11-23 (A135)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
@@ -1157,3 +1157,10 @@ Replaced text: 22 §3.4 (the sentences on Git dependencies and a repository of t
 - **Source:** Direct: James, design discussion of 2026-11-22
 - **Change:** extends §5
 - **Summary:** The terms Scatterbase's kernel writes for claim envelopes and key registration are constants of `scatter-vocab`'s `scatter` module, contributed by pull request, and the kernel keeps no local copies. James decided it while the kernel was being rebuilt on `oxrdf` and the shared crates, which the missing terms blocked: §5 already made `scatter-vocab` the only place terms are defined, and it held only Triplespace's. Seventeen terms, under the names the kernel uses: the classes `Triple`, `ClaimTriple`, `SignedClaim` and `PublicKey`; the predicates `claimedIn`, `includes`, `previousClaim`, `userSignature`, `serverSignature`, `seqID`, `term`, `priorClaim`, `acknowledgesPriorUse`, `hasPublicKey`, `keyType` and `owner`; and the individual `ed25519`. None collided with a term the crate had, and none was mapped to an existing one: Triplespace's signing keys are `key` records with a `signature` field (0024 §4, 0015 §1), not RDF terms. They are today's terms at `v0`: storing claims as `scatter-log` records and registering keys per actor (22 §1.3) may change what the signature and key terms mean, or retire some. Chapter text: 02 §3.1, 22 §2.1 (`crates.toml`).
+
+### A135. Three more of Scatterbase's terms: `Base64`, `SandboxDomain`, `instanceOf`
+
+- **Date:** 2026-11-23
+- **Source:** Direct: James, design discussion of 2026-11-23
+- **Change:** extends §5
+- **Summary:** `scatter-vocab`'s `scatter` module gains `Base64`, `SandboxDomain` and `instanceOf`, the three terms under `https://scatter.red/terms/v0/` that Scatterbase's kernel names besides the seventeen of A134, so that the kernel keeps no term string of its own. James asked for them once A134 had merged. All three are in the kernel's tests and test data only, written as IRI strings, and no kernel code emits them: `SandboxDomain` is the class of the `.sandbox` domain a store is given by default, `instanceOf` types that domain in one test where the other uses `rdf:type`, and `Base64` is a datatype on signature literals whose values are z-base-32, not base64. They are recorded as the kernel writes them; whether `instanceOf` should give way to `rdf:type`, and `Base64` to a datatype named for what it types, is Scatterbase's to settle at `v0`. None collided with a term the crate had. Chapter text: 02 §3.1, 22 §2.1 (`crates.toml`).

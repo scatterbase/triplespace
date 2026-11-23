@@ -50,7 +50,7 @@ macro_rules! vocabulary {
 
 vocabulary! {
     /// Triplespace's and Scatterbase's own terms (0001 §5–6 as amended by 0005 §5, 0007 §9,
-    /// 0011 §8, 0022; Scatterbase's claim and key terms, 0005 A134).
+    /// 0011 §8, 0022; Scatterbase's claim, key and domain terms, 0005 A134, A135).
     scatter, "https://scatter.red/terms/v0/", "scatter" {
         // Revisions (0001 §6)
         /// A revision of an entity or page on this instance.
@@ -154,6 +154,16 @@ vocabulary! {
         OWNER = "owner";
         /// The Ed25519 key type, a value of `scatter:keyType`.
         ED25519 = "ed25519";
+        /// The datatype of a signature literal in the kernel's test data. Despite the name,
+        /// the signatures it types are written `ed25519:{signature}` in z-base-32.
+        BASE64 = "Base64";
+
+        // Scatterbase: domains (0005 §5, A135).
+        /// The domain a store is given when none is configured, `http://{16 letters}.sandbox`.
+        SANDBOX_DOMAIN = "SandboxDomain";
+        /// The class a thing is an instance of, where the kernel's test data does not use
+        /// `rdf:type`.
+        INSTANCE_OF = "instanceOf";
     }
 }
 
@@ -470,7 +480,7 @@ mod tests {
         }
     }
 
-    /// 0005 §5 (A134): Scatterbase's claim-envelope and key-registration terms are in the
+    /// 0005 §5 (A134, A135): Scatterbase's claim-envelope and key-registration terms are in the
     /// `scatter` module under the names its kernel writes, classes and the `ed25519`
     /// individual included.
     #[test]
@@ -493,6 +503,10 @@ mod tests {
             (scatter::KEY_TYPE, "keyType"),
             (scatter::OWNER, "owner"),
             (scatter::ED25519, "ed25519"),
+            // A135
+            (scatter::BASE64, "Base64"),
+            (scatter::SANDBOX_DOMAIN, "SandboxDomain"),
+            (scatter::INSTANCE_OF, "instanceOf"),
         ];
         for (term, local) in expected {
             assert_eq!(

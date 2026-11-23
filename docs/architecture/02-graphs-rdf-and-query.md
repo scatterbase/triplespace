@@ -192,7 +192,7 @@ Terms Triplespace defines are minted under `https://scatter.red/terms/v0/`, with
 
 - **`scatter-vocab` is the only place terms are defined.** Both products take their term IRIs from it.
 - **`v0` means the vocabulary makes no stability promise yet.** Moving to `v1` is a compatibility commitment, made for both products at once.
-- **Scatterbase's terms are in the same module as Triplespace's.** Its kernel takes the terms of its claim envelopes and key registrations from `scatter-vocab` and defines none of its own ([0005](../decisions/0005-crate-organization.md) A134):
+- **Scatterbase's terms are in the same module as Triplespace's.** Its kernel takes the terms of its claim envelopes and key registrations from `scatter-vocab` and defines none of its own ([0005](../decisions/0005-crate-organization.md) A134, A135):
 
     | Terms | For |
     |---|---|
@@ -202,6 +202,7 @@ Terms Triplespace defines are minted under `https://scatter.red/terms/v0/`, with
     | `scatter:userSignature`, `scatter:serverSignature`, `scatter:seqID` | The user's signature, and the signature and sequence ID the server adds |
     | `scatter:acknowledgesPriorUse`, `scatter:term`, `scatter:priorClaim` | A prior-use acknowledgment: the term it is about and the claim that last used it |
     | `scatter:PublicKey`, `scatter:hasPublicKey`, `scatter:owner`, `scatter:keyType`, `scatter:ed25519` | A registered public key, whose it is, and its algorithm |
+    | `scatter:SandboxDomain`, `scatter:instanceOf`, `scatter:Base64` | In the kernel's tests and test data only: the class of a store's default `.sandbox` domain, a predicate typing it in place of `rdf:type`, and a datatype on signature literals |
 
     They are the terms the kernel writes today. Triplespace emits none of them, and what they say about signatures and keys may change, as `v0` allows, when Scatterbase stores claims as `scatter-log` records and registers keys per actor ([22](22-crates-and-stack.md) §1.3).
 
