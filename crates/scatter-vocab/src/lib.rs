@@ -50,7 +50,7 @@ macro_rules! vocabulary {
 
 vocabulary! {
     /// Triplespace's and Scatterbase's own terms (0001 §5–6 as amended by 0005 §5, 0007 §9,
-    /// 0011 §8, 0022).
+    /// 0011 §8, 0022; Scatterbase's claim and key terms, 0005 A134).
     scatter, "https://scatter.red/terms/v0/", "scatter" {
         // Revisions (0001 §6)
         /// A revision of an entity or page on this instance.
@@ -111,6 +111,49 @@ vocabulary! {
         // Federation (0022)
         /// The checkpoint a mirrored batch was verified against.
         VERIFIED_AGAINST = "verifiedAgainst";
+
+        // Scatterbase: claim envelopes (0005 §5, A134). A claim is
+        // `https://scatter.red/claim/{hash}` and a triple of one
+        // `https://scatter.red/triple/{hash}` (02 §3.1).
+        /// A triple named by its hash, as a stored claim's dataset types each triple it
+        /// includes.
+        TRIPLE = "Triple";
+        /// A triple reified within a claim envelope, typed `rdf:Statement` as well.
+        CLAIM_TRIPLE = "ClaimTriple";
+        /// A claim the server accepted: sequenced, timestamped and signed by it.
+        SIGNED_CLAIM = "SignedClaim";
+        /// The claim a triple was claimed in.
+        CLAIMED_IN = "claimedIn";
+        /// A triple a signed claim includes, the inverse of `scatter:claimedIn`.
+        INCLUDES = "includes";
+        /// The claim before this one in its signer's chain.
+        PREVIOUS_CLAIM = "previousClaim";
+        /// The user's signature over a claim, as `ed25519:{signature}`.
+        USER_SIGNATURE = "userSignature";
+        /// The server's signature over a claim it accepted, as `ed25519:{signature}`.
+        SERVER_SIGNATURE = "serverSignature";
+        /// The sequence ID the server gave a claim.
+        SEQ_ID = "seqID";
+        /// The term a prior-use acknowledgment is about.
+        TERM = "term";
+        /// The claim that last used an acknowledgment's term.
+        PRIOR_CLAIM = "priorClaim";
+        /// A prior-use acknowledgment a claim makes, one for each IRI it uses as a subject
+        /// or object.
+        ACKNOWLEDGES_PRIOR_USE = "acknowledgesPriorUse";
+
+        // Scatterbase: key registration (0005 §5, A134). A key is
+        // `urn:ed25519:{public key}`.
+        /// A registered public key.
+        PUBLIC_KEY = "PublicKey";
+        /// A public key of a server or of whoever a claim is attributed to.
+        HAS_PUBLIC_KEY = "hasPublicKey";
+        /// The algorithm of a public key, such as `scatter:ed25519`.
+        KEY_TYPE = "keyType";
+        /// The owner of a public key, the inverse of `scatter:hasPublicKey`.
+        OWNER = "owner";
+        /// The Ed25519 key type, a value of `scatter:keyType`.
+        ED25519 = "ed25519";
     }
 }
 
@@ -424,6 +467,39 @@ mod tests {
             for (local, _) in terms {
                 assert!(seen.insert(*local), "duplicate term {local}");
             }
+        }
+    }
+
+    /// 0005 §5 (A134): Scatterbase's claim-envelope and key-registration terms are in the
+    /// `scatter` module under the names its kernel writes, classes and the `ed25519`
+    /// individual included.
+    #[test]
+    fn scatterbase_claim_and_key_terms_are_minted_under_scatter() {
+        let expected = [
+            (scatter::TRIPLE, "Triple"),
+            (scatter::CLAIM_TRIPLE, "ClaimTriple"),
+            (scatter::SIGNED_CLAIM, "SignedClaim"),
+            (scatter::CLAIMED_IN, "claimedIn"),
+            (scatter::INCLUDES, "includes"),
+            (scatter::PREVIOUS_CLAIM, "previousClaim"),
+            (scatter::USER_SIGNATURE, "userSignature"),
+            (scatter::SERVER_SIGNATURE, "serverSignature"),
+            (scatter::SEQ_ID, "seqID"),
+            (scatter::TERM, "term"),
+            (scatter::PRIOR_CLAIM, "priorClaim"),
+            (scatter::ACKNOWLEDGES_PRIOR_USE, "acknowledgesPriorUse"),
+            (scatter::PUBLIC_KEY, "PublicKey"),
+            (scatter::HAS_PUBLIC_KEY, "hasPublicKey"),
+            (scatter::KEY_TYPE, "keyType"),
+            (scatter::OWNER, "owner"),
+            (scatter::ED25519, "ed25519"),
+        ];
+        for (term, local) in expected {
+            assert_eq!(
+                term.as_str(),
+                format!("https://scatter.red/terms/v0/{local}")
+            );
+            assert!(scatter::TERMS.contains(&(local, term)));
         }
     }
 

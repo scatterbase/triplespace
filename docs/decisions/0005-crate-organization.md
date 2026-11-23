@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-22 (A133)
+- **Updated:** 2026-11-22 (A134)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
@@ -1151,3 +1151,9 @@ Replaced text: 22 §3.4 (the sentences on Git dependencies and a repository of t
 - **Change:** extends §3
 - **Summary:** A shared crate that mixes core Wikibase with Triplespace's extensions to it is split into a base crate, holding what any Wikibase can use, and an extension crate named for what it holds, over it; the base knows nothing of the extension, both are `scatter-*` and shared with Scatterbase, and both are published once ready. James set it as a general rule while the first such crate, `scatter-normalize`, was being readied for publication; it decides the shape of `scatter-wikibase-model` and `scatter-wikibase-rdf` too. Chapter text: 22 §1.2 rule 12.
 
+### A134. Scatterbase's claim and key terms are in `scatter-vocab`
+
+- **Date:** 2026-11-22
+- **Source:** Direct: James, design discussion of 2026-11-22
+- **Change:** extends §5
+- **Summary:** The terms Scatterbase's kernel writes for claim envelopes and key registration are constants of `scatter-vocab`'s `scatter` module, contributed by pull request, and the kernel keeps no local copies. James decided it while the kernel was being rebuilt on `oxrdf` and the shared crates, which the missing terms blocked: §5 already made `scatter-vocab` the only place terms are defined, and it held only Triplespace's. Seventeen terms, under the names the kernel uses: the classes `Triple`, `ClaimTriple`, `SignedClaim` and `PublicKey`; the predicates `claimedIn`, `includes`, `previousClaim`, `userSignature`, `serverSignature`, `seqID`, `term`, `priorClaim`, `acknowledgesPriorUse`, `hasPublicKey`, `keyType` and `owner`; and the individual `ed25519`. None collided with a term the crate had, and none was mapped to an existing one: Triplespace's signing keys are `key` records with a `signature` field (0024 §4, 0015 §1), not RDF terms. They are today's terms at `v0`: storing claims as `scatter-log` records and registering keys per actor (22 §1.3) may change what the signature and key terms mean, or retire some. Chapter text: 02 §3.1, 22 §2.1 (`crates.toml`).
