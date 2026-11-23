@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-10-29
-- **Updated:** 2026-11-22 (A16)
+- **Updated:** 2026-11-23 (A17)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0012](0012-api-requirements.md), [0028](0028-tenancy-policy.md), [0050](0050-adr-format.md), [0055](0055-templatestyles-templatedata-and-page-properties.md), [0058](0058-packed-record-storage.md), [0085](0085-settings-and-preferences.md)
 
@@ -265,3 +265,10 @@ Replaced text: 19 §5.10 (Plain's DOM: Codex's classes and `ts-` classes only).
 - **Source:** Direct: James, design discussion of 2026-11-22; the reading of MediaWiki's format Claude's, while building it, 2026-11-22; unconfirmed
 - **Change:** extends §11
 - **Summary:** The operator's and a wiki's extra links are the interface message `sidebar`, written on `Interface:Sidebar` in MediaWiki's `MediaWiki:Sidebar` format, the instance's from the primary tenant's page and a wiki's over it as every Interface page is (0095 §2), rather than an instance setting; James chose it among the two A15 named. Claude's calls building it: Plain has no sidebar, so every section's links join the `header` menu after the site's own, in order, rather than each section being a menu of its own; MediaWiki's placeholder sections (`SEARCH`, `TOOLBOX`, `LANGUAGES`) add nothing; a link whose key is one of the site's takes that link's place, the wiki's choice first; a target or label is a message where one exists and the text as written otherwise, a URL where it has a scheme or opens with `//`, and a message whose text is `-` turns a link off, as in MediaWiki; the key is MediaWiki's, the label as written with spaces as hyphens, so `n-recentchanges` stays one link. The build ships none of MediaWiki core's messages (`recentchanges-url`, `mainpage-description`), so a sidebar copied from MediaWiki links those as titles until the wiki writes the messages too. With this, every menu of §11 is filled as it says. Chapter text: 19 §5.10.
+
+### A17. MediaWiki promises only `mw.*`; Plain keeps its MediaWiki names as its own contract
+
+- **Date:** 2026-11-23
+- **Source:** Direct: James, design discussion of 2026-11-23
+- **Change:** extends §8
+- **Summary:** The check A14 asked for is done, and it finds no list to check against: MediaWiki's frontend stable interface policy (2023) holds that HTML and CSS are not stable interfaces and that its stable surface is the `mw` JavaScript object (`mw.util.$content`, `mw.util.addPortletLink`, `mw.util.addSubtitle`, `mw.hook`), while asking particular care, and a release cycle with old and new side by side, of IDs and classes that open with `mw-` and of the classes the parser draws. Plain's names are therefore described as what MediaWiki's skins draw in practice, which site styles and older gadgets rely on, not as a MediaWiki guarantee, and Plain holds them as its own contract. James chose, on Claude's reading of the policy: `#mw-content-subtitle`, which the policy names beside `#contentSub`, is drawn inside it around the subtitle; and a MediaWiki name Plain draws is renamed or removed only after Plain has drawn it beside its replacement for at least one version, the version that drops it being a major. A14's chapter text said a wiki's site styles rely on Plain's DOM, and they cannot: a wiki's site styles are scoped to `.mw-parser-output` (11 §6.4), so they reach rendered content and never the frame; the names serve readers' userstyles, skin stylesheets and tools that read pages, and the text now says so. Chapter text: 19 §5.10.

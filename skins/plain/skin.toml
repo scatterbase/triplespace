@@ -2,7 +2,7 @@
 # its own. Its DOM is the contract other skins' stylesheets, readers' own styles and
 # assistive technology rely on, versioned here. GPL-3.0-or-later with the repository.
 name = "plain"
-version = "0.2.0"
+version = "0.2.1"
 licence = "GPL-3.0-or-later"
 stylesheets = []
 

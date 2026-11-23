@@ -983,14 +983,14 @@ mod tests {
             &m,
             StatusCode::OK,
             &[info(true, Some("\"a\""), &[])],
-            Some("worksheet 0.2.0"),
+            Some("worksheet 0.2.1"),
         )
         .unwrap();
         let plain = composed_etag(
             &m,
             StatusCode::OK,
             &[info(true, Some("\"a\""), &[])],
-            Some("plain 0.2.0"),
+            Some("plain 0.2.1"),
         )
         .unwrap();
         assert_ne!(worksheet, plain);
