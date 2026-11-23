@@ -1,13 +1,18 @@
 [package]
 name = "scatter-wikibase-model"
-version = "0.0.1"
+version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
-description = "The Wikibase data model: entities, terms, sitelinks, statements, snaks, data values and types, the three ID forms, and canonical JSON"
-publish = false
+description = "The Wikibase data model: entities, statements, snaks and values, read from and written to Wikibase's canonical JSON, with Wikibase's own hashes recomputed"
+readme = "README.md"
+homepage = "https://triplespace.readthedocs.io/"
+keywords = ["wikibase", "wikidata", "json", "mediawiki", "knowledge-graph"]
+categories = ["data-structures", "parser-implementations", "encoding"]
+# Published on crates.io (0115 §1, §13); the registry file and LICENSE are symlinks into the
+# repository, which `cargo package` stores as files (0115 §2).
 
 [dependencies]
 scatter-normalize.workspace = true

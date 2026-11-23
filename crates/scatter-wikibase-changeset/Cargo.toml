@@ -11,8 +11,8 @@ publish = false
 
 [dependencies]
 scatter-wikibase-model.workspace = true
-scatter-wikibase-fusion.workspace = true
-scatter-wikibase-ids.workspace = true
+scatter-wikibase-fusion = { workspace = true, features = ["providers"] }
+scatter-wikibase-ids = { workspace = true, features = ["providers"] }
 scatter-keyed.workspace = true
 scatter-providers.workspace = true
 indexmap.workspace = true

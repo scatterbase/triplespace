@@ -224,21 +224,25 @@ mod tests {
         }
     }
 
-    fn q8() -> Entity {
+    /// Wikibase 1.43's Q8, from the repository's samples; `None` in a packaged crate, which
+    /// has no `docs/` (0115 §3).
+    fn q8() -> Option<Entity> {
         let text = std::fs::read_to_string(concat!(
             env!("CARGO_MANIFEST_DIR"),
             "/../../docs/samples/wikibase-1.43/wikibase-Q8.json"
         ))
-        .unwrap();
+        .ok()?;
         let v: serde_json::Value = serde_json::from_str(&text).unwrap();
-        Entity::from_value(v["entities"]["Q8"].clone())
-            .unwrap()
-            .entity
+        Some(
+            Entity::from_value(v["entities"]["Q8"].clone())
+                .unwrap()
+                .entity,
+        )
     }
 
     #[test]
     fn q8_document() {
-        let e = q8();
+        let Some(e) = q8() else { return };
         let d = entity_document(&e, &ctx(&[], &[]));
         assert_eq!(d.id, "Q8");
         assert_eq!(d.entity_type, "item");
@@ -263,7 +267,8 @@ mod tests {
 
     #[test]
     fn read_groups_are_sorted_and_always_written() {
-        let d = entity_document(&q8(), &ctx(&["staff", "board", "staff"], &[]));
+        let Some(e) = q8() else { return };
+        let d = entity_document(&e, &ctx(&["staff", "board", "staff"], &[]));
         assert_eq!(d.read_groups, vec!["board", "staff"]);
         assert!(!d.is_public());
         let json = serde_json::to_string(&d).unwrap();

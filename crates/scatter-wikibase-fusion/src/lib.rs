@@ -12,6 +12,10 @@
 
 #![forbid(unsafe_code)]
 
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct ReadmeDoctests;
+
 pub mod badges;
 pub mod key;
 pub mod search;

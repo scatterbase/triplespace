@@ -14,6 +14,13 @@ use std::path::PathBuf;
 use scatter_wikibase_model::{Entity, Hasher, json};
 use serde_json::Value;
 
+/// The samples are in the Triplespace repository, not in the published package.
+fn samples_present() -> bool {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../docs/samples")
+        .is_dir()
+}
+
 fn snapshots() -> Vec<(String, Value)> {
     let samples = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../docs/samples");
     let mut out = Vec::new();
@@ -63,6 +70,9 @@ fn strip_derived(v: &Value) -> Value {
 
 #[test]
 fn every_snapshot_round_trips() {
+    if !samples_present() {
+        return;
+    }
     for (name, response) in snapshots() {
         for (id, original) in response["entities"].as_object().unwrap() {
             let mut parsed = Entity::from_value(original.clone())
@@ -145,6 +155,9 @@ fn every_snapshot_round_trips() {
 
 #[test]
 fn q8_specifics() {
+    if !samples_present() {
+        return;
+    }
     let (_, response) = snapshots()
         .into_iter()
         .find(|(n, _)| n == "wikibase-Q8.json")

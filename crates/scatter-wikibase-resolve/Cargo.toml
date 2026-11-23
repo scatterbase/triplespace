@@ -11,7 +11,7 @@ publish = false
 
 [dependencies]
 scatter-wikibase-model.workspace = true
-scatter-wikibase-fusion.workspace = true
+scatter-wikibase-fusion = { workspace = true, features = ["providers"] }
 scatter-normalize.workspace = true
 
 [dev-dependencies]

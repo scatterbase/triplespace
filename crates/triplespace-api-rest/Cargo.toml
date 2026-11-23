@@ -30,8 +30,8 @@ scatter-log-postgres.workspace = true
 triplespace-rdf.workspace = true
 scatter-wikibase-changeset.workspace = true
 scatter-wikibase-model.workspace = true
-scatter-wikibase-ids.workspace = true
-scatter-wikibase-fusion.workspace = true
+scatter-wikibase-ids = { workspace = true, features = ["providers"] }
+scatter-wikibase-fusion = { workspace = true, features = ["providers"] }
 scatter-wikibase-resolve.workspace = true
 scatter-providers.workspace = true
 axum.workspace = true

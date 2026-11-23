@@ -18,6 +18,10 @@
 
 #![forbid(unsafe_code)]
 
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct ReadmeDoctests;
+
 mod grammar;
 mod id;
 mod registry;
@@ -32,8 +36,26 @@ pub use source::{
     END_SOURCE_NUMBER, EntitySource, FIRST_SOURCE_NUMBER, SourceError, SourceType, is_source_name,
 };
 
-/// The default registry, `docs/registry/providers.toml`, embedded at build time.
-pub const DEFAULT_TOML: &str = include_str!("../../../docs/registry/providers.toml");
+/// The default registry, embedded at build time from `registry/providers.toml`, a symlink to
+/// the repository's `docs/registry/providers.toml` (0115 §2).
+pub const DEFAULT_TOML: &str = include_str!("../registry/providers.toml");
 
 /// The number of bits in the `n` part of a provider-ranged revision ID (0015 §2).
 pub const REVID_N_BITS: u32 = 40;
+
+#[cfg(test)]
+mod registry_tests {
+    /// The embedded registry is the repository's: this fails a checkout that did not make the
+    /// symlink, or a copy that has drifted (0115 §2). A packaged crate has no `docs/`, and
+    /// skips.
+    #[test]
+    fn embedded_registry_is_the_repository_s() {
+        let docs = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../docs/registry/providers.toml"
+        );
+        if let Ok(text) = std::fs::read_to_string(docs) {
+            assert_eq!(super::DEFAULT_TOML, text);
+        }
+    }
+}

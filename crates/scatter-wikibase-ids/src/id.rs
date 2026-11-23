@@ -12,8 +12,9 @@
 //! and returns it in full canonical form.
 
 use scatter_keyed::KeyedRegistry;
-use scatter_providers::Registry as ProviderRegistry;
 use scatter_wikibase_model::{EntityId, IdParseError};
+
+use crate::provider::ProviderModel;
 
 /// Which of the three forms an ID has.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -41,7 +42,8 @@ pub trait TriplespaceId {
     /// included, since whether the type exists is checked elsewhere.
     fn joins_clusters(&self, keyed: &KeyedRegistry) -> bool;
 
-    /// Checks the ID against the registries and returns it in full canonical form: a
+    /// Checks the ID against a provider model and the keyed-type registry and returns it in
+    /// full canonical form: a
     /// foreign ID's rest canonicalized by its type's grammar, a keyed ID's key normalized.
     /// A local ID has nothing to check beyond its shape.
     ///
@@ -50,7 +52,7 @@ pub trait TriplespaceId {
     /// When the provider registry rejects a foreign ID, or the keyed-type registry a keyed one.
     fn validate(
         &self,
-        providers: &ProviderRegistry,
+        providers: &dyn ProviderModel,
         keyed: &KeyedRegistry,
     ) -> Result<EntityId, IdParseError>;
 }
@@ -79,15 +81,14 @@ impl TriplespaceId for EntityId {
 
     fn validate(
         &self,
-        providers: &ProviderRegistry,
+        providers: &dyn ProviderModel,
         keyed: &KeyedRegistry,
     ) -> Result<EntityId, IdParseError> {
         let canonical = match self.form() {
             IdForm::Local => return Ok(self.clone()),
             IdForm::Foreign => providers
-                .parse_foreign_id(self.as_str())
-                .map_err(|e| IdParseError::Foreign(e.to_string()))?
-                .to_string(),
+                .canonical_foreign_id(self.as_str())
+                .map_err(IdParseError::Foreign)?,
             IdForm::Keyed => keyed
                 .parse_id(self.as_str())
                 .map_err(|e| IdParseError::Keyed(e.to_string()))?
@@ -97,9 +98,10 @@ impl TriplespaceId for EntityId {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "providers"))]
 mod tests {
     use super::*;
+    use scatter_providers::Registry as ProviderRegistry;
 
     fn v(s: &str) -> Result<EntityId, IdParseError> {
         EntityId::parse(s).unwrap().validate(

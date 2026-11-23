@@ -11,7 +11,7 @@ publish = false
 
 [dependencies]
 scatter-wikibase-model.workspace = true
-scatter-wikibase-ids.workspace = true
+scatter-wikibase-ids = { workspace = true, features = ["providers"] }
 serde_json.workspace = true
 
 # The model's oxrdf → rand → getrandom needs the JavaScript backend in the browser.

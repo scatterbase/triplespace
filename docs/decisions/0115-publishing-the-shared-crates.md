@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-22
-- **Updated:** 2026-11-23 (A3)
+- **Updated:** 2026-11-23 (A4)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0042](0042-template-expansion-and-parsoid.md), [0097](0097-versioning-and-skins.md)
 
@@ -74,6 +74,10 @@ For the second phase, after its reach was measured (about 530 uses in 18 crates)
 - Asked where Triplespace's canonicalization of IDs (`wdq42` to `WDQ42`, `QQQ5` to `Q5`) happens once the base stops doing it, he chose **at input boundaries**: wherever Triplespace reads IDs from users, through `scatter-wikibase-ids`, while stored JSON is read by the base as written.
 - Asked how the base serializer gets `numeric-id` and the implied entity type for IDs that are not Wikibase's own shape, he chose **an `IdScheme` hook** passed in with the output form, as `ValueIriMap` reaches the hasher.
 - Asked how it is delivered, he chose **two parts**: first the extension trait, with dependents moved to it and behaviour unchanged; then the base made pure Wikibase.
+
+After the first part and the first step of the second (the base knowing no registry), told that moving canonicalization out of the ID type would make the crates purer but Triplespace less resilient, and offered to stop there and publish:
+
+- **"This sounds like the best option"**.
 
 ## Decision
 
@@ -185,7 +189,16 @@ The plan for the other strong candidates. Each depends on the questions before i
 ### A3. The base keeps canonicalizing IDs until the write path has one place to do it
 
 - **Date:** 2026-11-23
-- **Source:** Direct: Claude, while building 0115 §13's second phase, 2026-11-23; unconfirmed
+- **Source:** Direct: Claude, while building 0115 §13's second phase, 2026-11-23; overturned by James, 2026-11-23 (A4)
 - **Change:** extends §13
 - **Summary:** The second phase's second part is done in two steps. The first is done: provider hashing moved to `scatter-wikibase-ids` (`hasher_for`), and `IdParseError` carries a provider's or keyed-type registry's reason as text, so `scatter-wikibase-model` knows neither registry and depends on neither. The base's `EntityId` still canonicalizes Triplespace's forms (case, the tenant-relative `QQQ5`) and still classifies them for `numeric-id` and the implied entity type, and the keyed data types are still in the model, because client JSON is read into the model by serde in many places across the API and no one place on the write path sees every ID a client writes: `validate_all` is not called outside its crate. Stopping the base's canonicalization before such a place exists would store `wdq42` or `QQQ5` as written, or reject them. The next step is that place, a canonicalizing pass over decoded operations that every write path runs, and then the base change, the `IdScheme` hook and the keyed data types as James chose. Chapter text: 22 §3.6.
+
+### A4. The base keeps its shape rules, and is published
+
+- **Date:** 2026-11-23
+- **Source:** Direct: James, design discussion of 2026-11-23
+- **Change:** amends §13
+- **Summary:** The second phase stops where it is: `scatter-wikibase-model` knows no provider or keyed-type registry, Triplespace's reading of IDs, their validation and provider hashing are in `scatter-wikibase-ids`, and the base keeps its shape rules (case canonicalization, the three-letter and colon ID forms carried as data, the tenant-relative `QQQ5`, the three keyed data types known by name), documented in its README as harmless to anyone else. Canonicalizing in the ID type keeps it on every path that makes an ID, where canonicalizing at each place Triplespace reads input would depend on each such place remembering to, and a missed one would store `wdq42` as written; the crates are purer the other way, but Triplespace is less resilient. It replaces the plan of A3 and of the Direction's answers on canonicalizing at input boundaries and on an `IdScheme` hook. The base is published at 0.1.0. `scatter-wikibase-ids` and `scatter-wikibase-fusion` both depend on `scatter-providers`, which Q5 recommends never publishing, so they wait on Q5. Chapter text: 22 §3.6.
+
+Replaced text: 22 §3.6.
 

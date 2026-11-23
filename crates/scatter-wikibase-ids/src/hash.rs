@@ -4,6 +4,9 @@
 use scatter_providers::Provider;
 use scatter_wikibase_model::Hasher;
 
+// Without the `providers` feature, a caller builds the hasher with
+// `Hasher::mirrored_from` or `Hasher::mirrored_from_source` itself.
+
 /// The hasher for data mirrored from `provider`: a registry provider's IDs without its code
 /// (`WDQ42` as `Q42`), an entity source's without its name (`lb:Q1` as `Q1`, 0078 §2).
 #[must_use]

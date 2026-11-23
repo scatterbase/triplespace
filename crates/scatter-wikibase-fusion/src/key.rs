@@ -85,18 +85,28 @@ impl Bound {
         Self { by_property }
     }
 
+    /// `registry`'s resolvers, bound to Wikidata's properties under the code `providers`
+    /// gives Wikidata (0115 §14); none bound when it has no Wikidata.
+    #[must_use]
+    pub fn for_model(
+        registry: &ResolverRegistry,
+        providers: &dyn scatter_wikibase_ids::ProviderModel,
+    ) -> Self {
+        Self::new(registry, providers.code_for_slug("wikidata").as_deref())
+    }
+
     /// The embedded registry's resolvers, bound as an instance mirroring Wikidata under
     /// the embedded provider registry's code holds them: the canon the resolved view, the
     /// identifier index and every comparison of statements use, so that a DOI written in
-    /// either case is one value everywhere (0029 A12).
+    /// either case is one value everywhere (0029 A12). With the `providers` feature; without
+    /// it, use [`Bound::for_model`] with your provider model.
+    #[cfg(feature = "providers")]
     #[must_use]
     pub fn embedded() -> &'static Self {
         static BOUND: std::sync::LazyLock<Bound> = std::sync::LazyLock::new(|| {
-            Bound::new(
+            Bound::for_model(
                 ResolverRegistry::default_registry(),
-                scatter_providers::Registry::default_registry()
-                    .by_slug("wikidata")
-                    .map(|w| w.code.as_str()),
+                scatter_providers::Registry::default_registry(),
             )
         });
         &BOUND
