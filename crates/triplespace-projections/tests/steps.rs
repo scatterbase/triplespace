@@ -1572,7 +1572,20 @@ async fn a_clusters_members_share_its_fused_body() {
         .all_statements()
         .filter_map(|s| s.id.as_ref().map(ToString::to_string))
         .collect();
-    assert!(statements.contains(&Q6_P2.to_string()), "{statements:?}");
+    // Q6's statement, read as XDQ10's, is named after XDQ10 and keeps its UUID (04 §4.9);
+    // its provenance keeps the GUID as stored.
+    let as_member = Q6_P2.replacen("Q6", "XDQ10", 1);
+    assert!(statements.contains(&as_member), "{statements:?}");
+    assert!(
+        xd.resolved
+            .statements
+            .iter()
+            .any(|p| p.members.iter().any(|m| m.as_str() == Q6_P2))
+    );
+    assert_eq!(
+        xd.cluster.as_ref().map(|m| m.canonical.as_str()),
+        Some("Q6")
+    );
     assert!(xd.local().is_none(), "Q6's local state is not XDQ10's");
     assert_eq!(read("Q6").await.resolved.entity.labels.len(), 2);
     let canonical =

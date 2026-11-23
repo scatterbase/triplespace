@@ -2,12 +2,16 @@
 //! 0009 §4–5; 0017 §1): the Wikibase form with `pageid`, `ns`, `title`, `lastrevid` and
 //! `modified`, a Domain's derived `mul` label, and the `props` and `languages` filters.
 
+use std::collections::BTreeMap;
+
 use scatter_providers::Registry;
 use scatter_wikibase_ids::IdForm;
 use scatter_wikibase_ids::TriplespaceId as _;
 use scatter_wikibase_model::entity::{Entity, EntityType, PageInfo};
 use scatter_wikibase_model::hash::Hasher;
 use scatter_wikibase_model::id::EntityId;
+use scatter_wikibase_model::statement::SnakKind;
+use scatter_wikibase_model::value::DataValue;
 use serde_json::{Map, Value, json};
 use triplespace_projections::read::Current;
 
@@ -67,9 +71,94 @@ pub use triplespace_projections::read::add_derived_terms;
 /// The served JSON of a present entity on the tenant at `base`.
 #[must_use]
 pub fn present(current: &Current, registry: &Registry, base: &str) -> Value {
-    let (entity, page) = served(current);
+    present_preferring(current, registry, base, &BTreeMap::new())
+}
+
+/// [`present`], with each entity value `rewrite` names given in the form it maps it to
+/// (04 §4.12), and, for a member of a cluster that is not its canonical member, the
+/// cluster's canonical member in `canonical`.
+#[must_use]
+pub fn present_preferring(
+    current: &Current,
+    registry: &Registry,
+    base: &str,
+    rewrite: &BTreeMap<String, String>,
+) -> Value {
+    let (mut entity, page) = served(current);
+    rewrite_values(&mut entity, rewrite);
     let text = entity.to_wikibase_json(&hasher_for(&entity.id, registry, base), Some(&page));
-    serde_json::from_str(&text).unwrap_or(Value::Null)
+    let mut v: Value = serde_json::from_str(&text).unwrap_or(Value::Null);
+    if let Some(m) = &current.cluster
+        && m.canonical != entity.id.as_str()
+    {
+        v["canonical"] = json!(m.canonical);
+    }
+    v
+}
+
+/// The entity IDs the values of an entity's statements name: main snaks, qualifiers and
+/// references.
+#[must_use]
+pub fn value_ids(entity: &Entity) -> Vec<String> {
+    let mut out: Vec<String> = entity
+        .all_statements()
+        .flat_map(scatter_wikibase_model::statement::Statement::snaks)
+        .filter_map(|snak| match &snak.kind {
+            SnakKind::Value(DataValue::EntityId(v)) => Some(v.id.as_str().to_string()),
+            _ => None,
+        })
+        .collect();
+    out.sort();
+    out.dedup();
+    out
+}
+
+/// Rewrites each entity value `map` names (04 §4.12). Stored values are not changed; the
+/// rewrite is of what is served.
+pub fn rewrite_values(entity: &mut Entity, map: &BTreeMap<String, String>) {
+    if map.is_empty() {
+        return;
+    }
+    for statement in entity.statements.values_mut().flatten() {
+        for snak in statement.snaks_mut() {
+            if let SnakKind::Value(DataValue::EntityId(v)) = &mut snak.kind
+                && let Some(to) = map.get(v.id.as_str())
+                && let Ok(id) = EntityId::parse(to)
+            {
+                v.id = id;
+                // The hash upstream gave is of the stored value.
+                snak.hash = None;
+            }
+        }
+    }
+}
+
+/// Which form of each value to serve, under the namespace order `prefer` (04 §4.12): the
+/// first namespace in the order that the value or one of its exact matches belongs to;
+/// the value as stored where the order names neither. `matches` maps a value to its
+/// cluster's other members.
+#[must_use]
+pub fn preferred_forms(
+    prefer: &[String],
+    matches: &BTreeMap<String, Vec<String>>,
+) -> BTreeMap<String, String> {
+    let mut out = BTreeMap::new();
+    for (id, others) in matches {
+        let rank = |candidate: &str| {
+            let ns = triplespace_projections::identity::namespace(candidate);
+            prefer.iter().position(|p| p.eq_ignore_ascii_case(&ns))
+        };
+        let best = std::iter::once(id)
+            .chain(others)
+            .filter_map(|c| rank(c).map(|r| (r, c)))
+            .min_by_key(|(r, _)| *r);
+        if let Some((_, to)) = best
+            && to != id
+        {
+            out.insert(id.clone(), to.clone());
+        }
+    }
+    out
 }
 
 /// The entity as it is served, with its derived terms, and its page information: what
@@ -234,6 +323,7 @@ mod tests {
             modified: 0,
             local_offset: None,
             local_revid: None,
+            cluster: None,
         };
         let upstream = upstream_statements(&current, Registry::default_registry());
         let named: Vec<&str> = upstream.keys().map(StatementId::as_str).collect();
@@ -278,6 +368,7 @@ mod tests {
             modified: 0,
             local_offset: None,
             local_revid: None,
+            cluster: None,
         };
         let registry = Registry::default_registry();
         let upstream = upstream_statements(
@@ -330,6 +421,74 @@ mod tests {
         assert_eq!(
             v,
             json!({"type": "item", "id": "Q6", "labels": {"de": {"language": "de", "value": "b"}}})
+        );
+    }
+
+    // 04 §4.12 (0004 A26): a value in a cluster is served in the first namespace of the
+    // order that it or an exact match belongs to, else as stored; a member that is not
+    // canonical names its cluster's canonical member.
+    #[test]
+    fn values_are_served_in_the_preferred_form() {
+        use scatter_wikibase_resolve::{Contribution, resolve};
+        let matches = BTreeMap::from([
+            (
+                "WDQ5".to_string(),
+                vec!["Q9".to_string(), "OAW5".to_string()],
+            ),
+            ("WDQ7".to_string(), vec!["OAW7".to_string()]),
+        ]);
+        let local = preferred_forms(&["local".into()], &matches);
+        assert_eq!(local, BTreeMap::from([("WDQ5".into(), "Q9".into())]));
+        let oa_first = preferred_forms(&["oa".into(), "local".into()], &matches);
+        assert_eq!(
+            oa_first,
+            BTreeMap::from([
+                ("WDQ5".into(), "OAW5".into()),
+                ("WDQ7".into(), "OAW7".into())
+            ])
+        );
+        assert!(
+            preferred_forms(&["wd".into()], &matches).is_empty(),
+            "already in form"
+        );
+
+        let entity = Entity::from_value(json!({"type": "item", "id": "WDQ42", "claims": {"WDP31": [
+            {"mainsnak": {"snaktype": "value", "property": "WDP31", "datatype": "wikibase-item",
+              "datavalue": {"value": {"entity-type": "item", "id": "WDQ5"}, "type": "wikibase-entityid"}},
+             "type": "statement", "rank": "normal", "id": "WDQ42$00000000-0000-0000-0000-000000000001"}]}}))
+        .unwrap()
+        .entity;
+        assert_eq!(value_ids(&entity), ["WDQ5"]);
+        let contributions = vec![Contribution {
+            graph: "mirror/wikidata".into(),
+            entity,
+            upstream_id: None,
+        }];
+        let current = Current {
+            resolved: resolve(&contributions, &BTreeMap::new()).unwrap(),
+            contributions,
+            corrections: BTreeMap::new(),
+            page_id: 1,
+            lastrevid: None,
+            modified: 0,
+            local_offset: None,
+            local_revid: None,
+            cluster: Some(triplespace_projections::identity::Membership {
+                cluster_id: 1,
+                canonical: "Q42".into(),
+                members: vec!["Q42".into(), "WDQ42".into()],
+            }),
+        };
+        let v = present_preferring(
+            &current,
+            Registry::default_registry(),
+            "https://example.org",
+            &local,
+        );
+        assert_eq!(v["canonical"], "Q42");
+        assert_eq!(
+            v["claims"]["WDP31"][0]["mainsnak"]["datavalue"]["value"]["id"],
+            "Q9"
         );
     }
 }

@@ -709,7 +709,7 @@ Conflicts are listed for review, in the same way as the maintenance tooling for 
 
 ### 4.12 Rewriting in responses
 
-*Sources: [0082](../decisions/0082-source-form-and-the-shared-view.md) §3; [0004](../decisions/0004-identity-clusters-and-equivalence.md) §4; [0018](../decisions/0018-tenants.md) §7.*
+*Sources: [0082](../decisions/0082-source-form-and-the-shared-view.md) §3; [0004](../decisions/0004-identity-clusters-and-equivalence.md) §4, A26; [0018](../decisions/0018-tenants.md) §7.*
 
 **A layer on the way out rewrites entity identifiers to the form the consumer prefers.** It is the read-side rewrite that already turns a provider tenant's `Q6` into `LBQ6` or `lb:Q6` for a reader ([0018](../decisions/0018-tenants.md) §5, in [08](08-tenants-and-instances.md); [05](05-providers-and-ingest.md) §6.7), with the cluster map as one more table: where the consumer prefers the local namespace and `WDQ5` has an exact match `Q9`, the response says `Q9`. The store is never rewritten (§4.4); every entry point accepts every form (§2.1); the two together let a consumer round-trip what it was shown without the server remembering what form it gave out.
 
@@ -720,6 +720,8 @@ Conflicts are listed for review, in the same way as the maintenance tooling for 
 **Where it applies:** Action API and REST JSON ([18](18-api.md)); SPARQL result bindings, through the concept-IRI template, since local IRIs dereference ([02](02-graphs-rdf-and-query.md)); search results; and HTML ([19](19-site-ui.md)). It rewrites the entity part of a statement GUID (§4.9) and the entity IDs in `unit`, `globe` and `calendarmodel` (§4.7). It never rewrites inside string literals or URLs. **It runs after the cache:** L1 holds the internal form once per entity version ([03](03-storage-caches-and-search.md)), and the rewrite is applied to a hit on the way out, so there is one cache entry per entity, not one per preference. **Dumps and the update stream are source form** (§4.4): the dump is the internal graph, and a rewritten dump profile, if ever wanted, is a serialization-time pass over a dump and not a stored form.
 
 **`wbgetentities` answers under the requested ID.** A request for a non-canonical member returns the fused body under that ID, with a `canonical` field naming the cluster's canonical member and GUIDs prefixed with the requested ID. The Wikibase redirect shape (`redirects: {from, to}`) is reserved for true redirects: a `redirect` operation or an upstream merge (§4.1). A clustered Wikidata item is therefore never a redirect to a client library.
+
+**What is rewritten, exactly.** A statement GUID is served under the member asked for only where its subject is another member of the cluster; the provenance keeps the GUIDs as stored, and RDF names a mirrored statement after the member that holds it. `prefer` names namespaces as `local`, a provider code, or a keyed type's or source's name, compared without case. A rewritten value's snak hash is recomputed over the value served ([0004](../decisions/0004-identity-clusters-and-equivalence.md) A26).
 
 Two consumers of one tenant may see different IDs for one value, and a URL copied from one view resolves in the other because §2.1 accepts any member; normalization at every entry point is therefore not optional.
 

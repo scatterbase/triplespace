@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-23 (A25)
+- **Updated:** 2026-11-23 (A26)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0000](0000-init.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
@@ -281,3 +281,12 @@ Replaced text: in 04 §4.2, "The links involved are held, not applied."; in 03 �
 - **Summary:** A member of a tenant's cluster is resolved from every member's graphs, and so is read through the API and the site as the cluster's fused body. The calls made: (1) **Every member's row holds the fused body**, under the member's own ID, with the cluster's `cluster_id` and `canonical_id`; it is composed once for each member rather than once for the cluster, since each member's row keeps its own page ID, revision and local offset. A foreign member gets a tenant row of its own, as an entity the tenant asserts something about does. (2) **Graph order across members:** the local graphs first, the canonical member's before the others', then the mirrors and entity sources in provider order, members of equal rank in member order. Every member's local corrections apply. (3) A member's page ID, `lastrevid` and base revision stay its own, and a member no graph holds reads as nothing; its own local state is what a write takes as local. (4) Resolving one member resolves the others on the tenant, and a link, or its removal, resolves every entity it reaches; nothing else is fanned out. (5) Statement GUIDs stay in source form (`XDQ10$…` under `Q6`) until responses are rewritten (§4.9, §4.12); terms and identifiers are written for each member, so a resolver finds the canonical member, and search may list several members until it collapses clusters. Not built yet: rewriting in responses and the `canonical` field, RDF's `owl:sameAs`, search's collapsing, and resolving again what an erased link reached. Chapter text: 04 §4.4.
 
 Replaced text: none; 04 §4.4 gains a paragraph.
+
+### A26. The first rewriting of responses
+
+- **Date:** 2026-11-23
+- **Source:** Direct: James, 2026-11-23 ("Commit, push, move on to the next part"), for SCA-244. How it is built, Claude, while building it, 2026-11-23; unconfirmed
+- **Change:** extends §4
+- **Summary:** A member of a cluster is served as §4.9 and §4.12 say, in part. The calls made: (1) **Statement GUIDs.** A fused statement whose GUID's subject is another member of the cluster is served under the member asked for, its UUID kept; any other GUID is served as stored. The provenance keeps the GUIDs as stored, and RDF names a mirrored statement after the member that holds it, as its upstream does. (2) **`canonical`** is written beside the entity's JSON wherever an entity is served as Wikibase JSON (`wbgetentities`, `Special:EntityData`'s JSON) for a member that is not its cluster's canonical member. (3) **`prefer`** is read by those two, a list of namespace names (`local`, a provider code, a keyed type's or an entity source's name) compared without case; without it, the namespace of the ID asked for. It rewrites entity values in main snaks, qualifiers and references; a rewritten value's snak hash is recomputed over the value served, since upstream's was of the stored value. Not built yet: `unit`, `globe` and `calendarmodel`, property IDs (which wait for `equivalent-property`), the REST routes, the site's page bundle, search and SPARQL bindings, and a write that names another member's statement by the GUID it was served under. Chapter text: 04 §4.12.
+
+Replaced text: none; 04 §4.12 gains a paragraph.

@@ -107,7 +107,13 @@ pub async fn entity_json(ctx: &Ctx, id: &EntityId, as_given: &str) -> Result<Val
             if !crate::pages::entity_readable(ctx, id.as_str(), serving_graph(&current)).await? {
                 return Ok(missing());
             }
-            Ok(entity_json::present(&current, registry, &ctx.tenant.base))
+            let rewrite = preferred(ctx, id, &current).await?;
+            Ok(entity_json::present_preferring(
+                &current,
+                registry,
+                &ctx.tenant.base,
+                &rewrite,
+            ))
         }
         None if id.form() == IdForm::Keyed && !entity_json::is_source_id(id, registry) => {
             if !crate::pages::entity_readable(ctx, id.as_str(), None).await? {
@@ -139,6 +145,33 @@ pub async fn entity_json(ctx: &Ctx, id: &EntityId, as_given: &str) -> Result<Val
             Ok(missing())
         }
     }
+}
+
+/// How the entity values of `current` are served (04 §4.12; 18 §1.6): each one in a
+/// cluster, in the first namespace of `prefer` that it or an exact match belongs to.
+/// `prefer` is a namespace order (`local`, a provider code, a source name); without it,
+/// the namespace of the ID asked for.
+async fn preferred(
+    ctx: &Ctx,
+    id: &EntityId,
+    current: &read::Current,
+) -> Result<std::collections::BTreeMap<String, String>, ApiError> {
+    let ids = entity_json::value_ids(&current.resolved.entity);
+    if ids.is_empty() {
+        return Ok(std::collections::BTreeMap::new());
+    }
+    let matches =
+        triplespace_projections::identity::exact_matches(&ctx.client, &ctx.tenant.slug, &ids)
+            .await
+            .map_err(ApiError::internal)?;
+    if matches.is_empty() {
+        return Ok(std::collections::BTreeMap::new());
+    }
+    let mut prefer = ctx.params.list("prefer");
+    if prefer.is_empty() {
+        prefer.push(triplespace_projections::identity::namespace(id.as_str()));
+    }
+    Ok(entity_json::preferred_forms(&prefer, &matches))
 }
 
 /// Runs `wbgetentities`.

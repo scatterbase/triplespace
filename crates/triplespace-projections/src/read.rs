@@ -34,6 +34,8 @@ pub struct Current {
     pub local_offset: Option<u64>,
     /// The latest local record's revision ID.
     pub local_revid: Option<u64>,
+    /// The cluster it is a member of on the tenant, where it is in one (04 §4).
+    pub cluster: Option<crate::identity::Membership>,
 }
 
 impl Current {
@@ -107,7 +109,9 @@ impl Current {
             })
             .filter_map(|(s, prov)| {
                 let id = s.id.clone()?;
-                let subject = id.entity_id()?;
+                // As stored: a cluster's member reads another's statements under its own
+                // ID (04 §4.9), and its upstream names them after the one that holds them.
+                let subject = prov.members.first().unwrap_or(&id).entity_id()?;
                 let upstream = match subject.form() {
                     scatter_wikibase_ids::IdForm::Foreign => registry
                         .parse_foreign_id(subject.as_str())
@@ -199,13 +203,16 @@ pub async fn current<C: Partitions>(
         return Ok(None);
     }
     // A member of a cluster reads as the cluster's fused body, under its own ID (04 §4.4).
-    let (contributions, corrections, _) =
+    let (contributions, corrections, cluster) =
         order.with_cluster(client, tenant, id, &own, None).await?;
     let crate::entities::Parts { local, headers, .. } = own;
     let Some(mut resolved) = resolve(&contributions, &corrections) else {
         return Ok(None);
     };
     resolved.entity.id = id.clone();
+    if let Some(m) = &cluster {
+        under_member(&mut resolved.entity, m);
+    }
     let page_id = headers
         .iter()
         .filter_map(|h| h.page_id)
@@ -222,7 +229,27 @@ pub async fn current<C: Partitions>(
         resolved,
         contributions,
         corrections,
+        cluster,
     }))
+}
+
+/// Names the fused body's statements after the member it is read as (04 §4.9): a GUID
+/// whose subject is another member of the cluster takes the member's ID and keeps its
+/// UUID, which is the statement's identity. The provenance keeps the GUIDs as stored.
+fn under_member(
+    entity: &mut scatter_wikibase_model::entity::Entity,
+    cluster: &crate::identity::Membership,
+) {
+    let subject = scatter_wikibase_model::id::Subject::Entity(entity.id.clone());
+    for statement in entity.statements.values_mut().flatten() {
+        let Some(guid) = &statement.id else { continue };
+        if let Some(from) = guid.entity_id()
+            && from != entity.id
+            && cluster.members.iter().any(|m| m == from.as_str())
+        {
+            statement.id = Some(guid.with_subject(&subject));
+        }
+    }
 }
 
 /// One graph's cursor for an entity (0002 §8.4), as the provenance response shows it.

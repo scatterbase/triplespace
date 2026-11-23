@@ -407,6 +407,38 @@ pub async fn membership<C: PgClient>(
     }))
 }
 
+/// For each of `ids` that is in a cluster on `tenant`, the other members of its cluster:
+/// the exact matches a response may name it by (04 §4.12). Every cluster is of tier-1
+/// links so far, each an exact match; inferred links, when they are built, will not be.
+///
+/// # Errors
+///
+/// The database's.
+pub async fn exact_matches<C: PgClient>(
+    client: &C,
+    tenant: &str,
+    ids: &[String],
+) -> Result<std::collections::BTreeMap<String, Vec<String>>, String> {
+    let mut out: std::collections::BTreeMap<String, Vec<String>> =
+        std::collections::BTreeMap::new();
+    if ids.is_empty() || tenant.is_empty() {
+        return Ok(out);
+    }
+    let rows = client
+        .query(
+            "SELECT m1.entity_id, m2.entity_id FROM view.cluster_member m1
+               JOIN view.cluster_member m2 ON m2.tenant = m1.tenant AND m2.cluster_id = m1.cluster_id
+              WHERE m1.tenant = $1 AND m1.entity_id = ANY($2) AND m2.entity_id <> m1.entity_id",
+            &[&tenant, &ids],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+    for r in &rows {
+        out.entry(r.get(0)).or_default().push(r.get(1));
+    }
+    Ok(out)
+}
+
 /// The other members of `id`'s cluster on `tenant`, the canonical member first, then in
 /// text order; empty when `id` is in no cluster.
 ///
