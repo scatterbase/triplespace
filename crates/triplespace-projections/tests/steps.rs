@@ -1493,7 +1493,7 @@ async fn tier_one_links_form_clusters_and_hold_conflicts() {
 async fn cluster_state(client: &Client) -> (Vec<String>, Vec<String>) {
     let clusters = sorted(
         client,
-        "SELECT c.canonical_id || ':' || string_agg(m.namespace || '=' || m.entity_id, ',' ORDER BY m.namespace)
+        "SELECT c.canonical_id || ':' || string_agg(m.namespace || '=' || m.entity_id, ',' ORDER BY m.namespace COLLATE \"C\")
            FROM view.cluster c JOIN view.cluster_member m USING (tenant, cluster_id)
           WHERE c.tenant = 'librarybase' GROUP BY c.canonical_id",
     )
