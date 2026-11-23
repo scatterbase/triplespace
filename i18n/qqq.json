@@ -2401,5 +2401,11 @@
 	"ts-resolver-values": "On a page in a resolver namespace (DOI:…) when the one item that carries the key carries other values for it too; the item and its values are listed below.\n\nParameters:\n* $1 - the item's label\n* $2 - the resolver's name, such as \"DOI\"\n* $3 - the key",
 	"ts-resolver-invalid": "On a page in a resolver namespace (DOI:…) whose title is not a valid key.\n\nParameters:\n* $1 - the resolver's name, such as \"DOI\"",
 	"ts-resolver-external": "Link to where a resolver's key resolves outside the wiki, such as https://doi.org/….\n\nParameters:\n* $1 - the resolver's name, such as \"DOI\"\n* $2 - the key",
-	"ts-resolver-create": "Link, for a signed-in reader, that opens the new-item form with the resolver's statement filled in.\n\nParameters:\n* $1 - the resolver's name, such as \"DOI\""
+	"ts-resolver-create": "Link, for a signed-in reader, that opens the new-item form with the resolver's statement filled in.\n\nParameters:\n* $1 - the resolver's name, such as \"DOI\"",
+	"ts-source-none": "On the page of an entity source's ID (MHC:Q1) that the wiki does not know yet.\n\nParameters:\n* $1 - the entity's ID, such as \"mhc:Q1\"\n* $2 - the source's name, such as \"Miraheze Communities\"",
+	"ts-source-external": "Link to a source's entity on the source's own site.\n\nParameters:\n* $1 - the entity's ID, such as \"mhc:Q1\"\n* $2 - the source's name",
+	"ts-source-fetching": "On the page of a source's entity the wiki does not know yet, when it has been queued to be read from the source.\n\nParameters:\n* $1 - the source's name",
+	"ts-source-create": "Link, for a signed-in reader, that opens the new-item form to make a local item that is the same thing as the source's entity.",
+	"ts-source-invalid": "On a page in an entity source's namespace whose title is not one of the source's IDs.\n\nParameters:\n* $1 - the source's name",
+	"ts-new-sameas": "Ticked box on the new-item form: the new item is linked as the same thing as another wiki's or source's item.\n\nParameters:\n* $1 - that item's ID, such as \"mhc:Q1\""
 }

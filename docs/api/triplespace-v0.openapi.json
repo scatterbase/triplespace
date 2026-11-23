@@ -8913,7 +8913,7 @@
       "get": {
         "operationId": "getEntitySources",
         "summary": "The tenant's entity sources",
-        "description": "The entity sources the tenant declares (ADR 0078 §10, A9), the list `siprop=triplespace` carries as `entity_sources`: each source's name, label, number, types with their IRI templates, `api`, `entity_data`, `revision_ids`, licence, `promoted_to` (null when unpromoted) and `retired`. A reader on another instance reads it to rewrite references to the tenant's source entities by IRI.",
+        "description": "The entity sources the tenant declares (ADR 0078 §10, A9, A10), the list `siprop=triplespace` carries as `entity_sources`: each source's name, label, number, types with their IRI templates, `api`, `entity_data`, `revision_ids`, licence, `promoted_to` (null when unpromoted), `retired` and `namespace`, the source's namespace with its number, canonical name and aliases. A reader on another instance reads it to rewrite references to the tenant's source entities by IRI.",
         "responses": {
           "200": {
             "description": "The sources, in name order.",
@@ -12950,14 +12950,19 @@
           "kind": {
             "type": "string",
             "enum": [
+              "entity-source",
               "entity",
               "resolver",
               "page"
             ]
           },
+          "source": {
+            "type": "string",
+            "description": "`entity-source`: the source's name, `mhc`."
+          },
           "id": {
             "type": "string",
-            "description": "`entity`: the canonical member of the entity's cluster."
+            "description": "`entity`: the canonical member of the entity's cluster. `entity-source`: the source entity's canonical ID, `mhc:Q1`."
           },
           "title": {
             "type": "string",
@@ -12981,11 +12986,11 @@
           },
           "label": {
             "type": "string",
-            "description": "`resolver`: its display name, `DOI`."
+            "description": "`resolver`: its display name, `DOI`. `entity-source`: the source's label."
           },
           "namespace": {
             "type": "string",
-            "description": "`resolver`: its namespace, `DOI`."
+            "description": "`resolver`: its namespace, `DOI`. `entity-source`: the canonical name of the source's namespace (ADR 0078 A10)."
           },
           "key": {
             "type": "string",
@@ -12993,7 +12998,7 @@
           },
           "external": {
             "type": "string",
-            "description": "`resolver`: where the key resolves outside the instance."
+            "description": "`resolver`: where the key resolves outside the instance. `entity-source`: the entity's page on the source where it has `entity_data`, else its concept IRI."
           },
           "properties": {
             "type": "array",
@@ -13016,7 +13021,7 @@
                 "type": "string"
               }
             },
-            "description": "`resolver`: the one entity holding the key, holding one value for it."
+            "description": "`resolver`: the one entity holding the key, holding one value for it. `entity-source`: the entity, or the local item the tenant's `same-as` links to it."
           },
           "candidates": {
             "type": "array",
@@ -13047,7 +13052,11 @@
           },
           "invalid": {
             "type": "string",
-            "description": "`resolver`: why the string is not a valid key."
+            "description": "`resolver`: why the string is not a valid key. `entity-source`: why the string is not one of the source's IDs."
+          },
+          "fetching": {
+            "type": "boolean",
+            "description": "`entity-source`, without a target: whether the entity is queued to be read from the source."
           }
         }
       },
@@ -13160,6 +13169,27 @@
                 },
                 "retired": {
                   "type": "boolean"
+                },
+                "namespace": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "description": "The source's namespace (ADR 0078 A10): its number, from 3000, canonical name and aliases; null for a source not written since namespaces were built.",
+                  "properties": {
+                    "id": {
+                      "type": "integer"
+                    },
+                    "canonical": {
+                      "type": "string"
+                    },
+                    "aliases": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  }
                 }
               }
             }

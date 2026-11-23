@@ -26,7 +26,9 @@ use scatter_log::tree::Segments;
 use scatter_log_postgres::log;
 use scatter_log_postgres::partition::PartitionInfo;
 use scatter_projection::{Budget, Pipeline};
-use scatter_providers::{EntitySource, Registry, SourceError};
+use scatter_providers::{
+    EntitySource, FIRST_SOURCE_NAMESPACE, Registry, SourceError, SourceNamespace,
+};
 use triplespace_projections::PgCx;
 use triplespace_projections::entity_sources::{KIND, declared, declared_one};
 
@@ -92,6 +94,10 @@ pub enum SourceWriteError {
     /// The tenant has every number in the range.
     #[error("no source number is free on `{0}`")]
     NoNumber(String),
+    /// The source's namespace takes a name another namespace has on the tenant (05 §6.5,
+    /// `ts-namespace-name-taken`).
+    #[error("{0}")]
+    Namespace(scatter_titles::NamespaceError),
     /// There is no current record to retire.
     #[error("source `{0}` is not declared, or is retired already")]
     NothingToRetire(String),
@@ -163,9 +169,8 @@ pub async fn write(
     });
     // The registry's names are checked when a source is first declared: a source keeps a
     // name a registry update adds later (05 §6.3 rule 2).
-    if let Some(earlier) = &existing {
+    if existing.is_some() {
         source.validate_shape()?;
-        source.check_binding(earlier)?;
     } else {
         source.validate(Registry::default_registry())?;
     }
@@ -177,6 +182,13 @@ pub async fn write(
             .is_some();
     if existing.is_none() && registry_name {
         return Err(SourceWriteError::NameTaken(name.to_string()));
+    }
+    // The namespace once the name is known to be the source's (05 §6.5); then what the
+    // first record fixed, the namespace's number among it.
+    source.namespace = Some(namespace(cx, tenant, name, &source, existing.as_ref()).await?);
+    source.validate_shape()?;
+    if let Some(earlier) = &existing {
+        source.check_binding(earlier)?;
     }
 
     open_partition(store, pipeline, cx, tenant, base, name, actor, reason, now).await?;
@@ -195,6 +207,66 @@ pub async fn write(
     )
     .await?;
     Ok(Some(source))
+}
+
+/// The source's namespace as written (05 §6.5; 0078 A10): the names the declaration gives,
+/// else those it has, else the name in capitals; the source's name always among them; and
+/// its number, else the lowest free even number from 3000 on the tenant. Refused with
+/// `ts-namespace-name-taken` when a name is another namespace's on the tenant.
+async fn namespace(
+    cx: &mut PgCx,
+    tenant: &str,
+    name: &str,
+    source: &EntitySource,
+    existing: Option<&EntitySource>,
+) -> Result<SourceNamespace, SourceWriteError> {
+    let earlier = existing.and_then(|e| e.namespace.clone());
+    let mut ns = source
+        .namespace
+        .clone()
+        .or_else(|| earlier.clone())
+        .unwrap_or_else(|| SourceNamespace::default_for(name));
+    if ns.canonical.trim().is_empty() {
+        ns.canonical = earlier.as_ref().map_or_else(
+            || SourceNamespace::default_for(name).canonical,
+            |e| e.canonical.clone(),
+        );
+    }
+    if !ns.is_named(name) {
+        ns.aliases.push(name.to_string());
+    }
+    let names = triplespace_projections::pages::TenantNames::load(cx.conn(), tenant)
+        .await
+        .map_err(store_err)?;
+    let own = earlier.as_ref().and_then(|e| e.id);
+    // The tenant's table without this source's own namespace, which is being rewritten.
+    let mut table = scatter_titles::Namespaces::embedded().clone();
+    let others: Vec<_> = names
+        .added
+        .iter()
+        .filter(|n| own.is_none_or(|o| n.id != o && n.id != o + 1))
+        .cloned()
+        .collect();
+    for pair in others.chunks(2) {
+        if let Ok(t) = table.with_tenant(pair.iter().cloned(), &[]) {
+            table = t;
+        }
+    }
+    let id = match own {
+        Some(n) => n,
+        None => (FIRST_SOURCE_NAMESPACE..)
+            .step_by(2)
+            .find(|n| table.get(*n).is_none() && table.get(n + 1).is_none())
+            .ok_or_else(|| SourceWriteError::NoNumber(tenant.to_string()))?,
+    };
+    ns.id = Some(id);
+    let mut probe = source.clone();
+    probe.namespace = Some(ns.clone());
+    let pair = triplespace_projections::pages::source_namespaces(&probe);
+    table
+        .with_tenant(pair, &[])
+        .map_err(SourceWriteError::Namespace)?;
+    Ok(ns)
 }
 
 /// The lowest free source number on the tenant (0078 §4).

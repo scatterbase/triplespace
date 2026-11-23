@@ -170,10 +170,37 @@ pub fn own_namespace(
     Some(vec![subject, talk_ns])
 }
 
+/// An entity source's namespace and its talk namespace (05 §6.5): a `resolver` namespace
+/// under the names the source's record gives it, its talk number reserved, as a tenant
+/// `namespace` record of kind `resolver` would make them. Empty for a source that has no
+/// numbered namespace yet.
+#[must_use]
+pub fn source_namespaces(
+    source: &scatter_providers::EntitySource,
+) -> Vec<scatter_titles::Namespace> {
+    let Some(ns) = &source.namespace else {
+        return Vec::new();
+    };
+    let Some(id) = ns.id else {
+        return Vec::new();
+    };
+    own_namespace(
+        id,
+        &serde_json::json!({
+            "canonical": ns.canonical,
+            "aliases": ns.aliases,
+            "namespace_kind": "resolver",
+        }),
+    )
+    .unwrap_or_default()
+}
+
 /// The `view.registry` rows [`TenantNames`] reads, for a tenant (`$1`): its `site.name`,
-/// the instance's default for it, and its `namespace` records.
+/// the instance's default for it, its `namespace` records, and its entity sources, whose
+/// namespaces are the tenant's too (05 §6.5).
 pub const TENANT_NAMES_SQL: &str = "SELECT tenant, kind, code, config FROM view.registry
-    WHERE (tenant = $1 AND ((kind = 'site' AND code = 'site.name') OR kind = 'namespace'))
+    WHERE (tenant = $1 AND ((kind = 'site' AND code = 'site.name') OR kind = 'namespace'
+                            OR kind = 'entity-source'))
        OR (tenant = '' AND kind = 'template' AND code = 'site:site.name')";
 
 impl TenantNames {
@@ -215,6 +242,11 @@ impl TenantNames {
                         })
                         .unwrap_or_default();
                     overrides.insert(id, (name, aliases));
+                }
+                "entity-source" => {
+                    if let Ok(source) = serde_json::from_value(config.clone()) {
+                        added.extend(source_namespaces(&source));
+                    }
                 }
                 _ => {}
             }
@@ -1316,6 +1348,43 @@ mod tests {
         assert_eq!(ex.links[0].target, Title::new(3000, "Soup"));
         assert_eq!(ex.links[1].target, Title::new(3001, "Soup"));
         assert!(names.aliases().contains(&(3000, "R".into())));
+    }
+
+    // 05 §6.5: an entity source's namespace is the tenant's, a resolver with its talk
+    // number reserved; a source without a numbered namespace adds none.
+    #[test]
+    fn a_sources_namespace_joins_its_tenants_names() {
+        use serde_json::json;
+        let source = |name: &str, ns: serde_json::Value| {
+            (
+                "lb".to_string(),
+                "entity-source".to_string(),
+                name.to_string(),
+                json!({"name": name, "label": name, "number": 4096,
+                       "types": [{"upstream_prefix": "Q", "entity_type": "item",
+                                  "iri": format!("https://{name}.example/entity/{{upstream_id}}")}],
+                       "namespace": ns}),
+            )
+        };
+        let names = TenantNames::from_rows(
+            "lb",
+            &[
+                source(
+                    "mhc",
+                    json!({"id": 3000, "canonical": "Miraheze Communities", "aliases": ["mhc"]}),
+                ),
+                source("old", json!({"canonical": "OLD"})),
+            ],
+        );
+        let table = names.namespaces();
+        let mhc = table.get(3000).unwrap();
+        assert_eq!(mhc.kind, scatter_titles::Kind::Resolver);
+        assert_eq!(table.by_any_name("MHC").map(|n| n.id), Some(3000));
+        assert_eq!(
+            table.get(3001).unwrap().kind,
+            scatter_titles::Kind::Reserved
+        );
+        assert!(table.iter().all(|n| n.canonical != "OLD"));
     }
 
     #[test]

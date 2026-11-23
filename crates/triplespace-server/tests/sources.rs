@@ -235,6 +235,8 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
         entity_data: None,
         revision_ids: true,
         licence: Some("CC0-1.0".into()),
+        namespace: None,
+        namespace_aliases: vec![],
     }))
     .await
     .expect("source add");
@@ -268,6 +270,8 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
         entity_data: None,
         revision_ids: true,
         licence: Some("CC0-1.0".into()),
+        namespace: None,
+        namespace_aliases: vec![],
     }))
     .await
     .expect("source add again");
@@ -306,6 +310,8 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
         entity_data: None,
         revision_ids: false,
         licence: None,
+        namespace: None,
+        namespace_aliases: vec![],
     }))
     .await;
     assert!(
@@ -330,6 +336,8 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
         entity_data: None,
         revision_ids: false,
         licence: None,
+        namespace: None,
+        namespace_aliases: vec![],
     }))
     .await;
     assert!(
@@ -659,6 +667,8 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
         entity_data: None,
         revision_ids: true,
         licence: Some("CC0-1.0".into()),
+        namespace: None,
+        namespace_aliases: vec![],
     };
     let moved = source::run(source::SourceCommand::Add(add(
         "lb",

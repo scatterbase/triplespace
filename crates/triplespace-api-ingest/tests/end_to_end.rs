@@ -2448,6 +2448,7 @@ async fn a_tenant_declares_and_loads_an_entity_source() {
         revision_ids: true,
         licence: Some("CC0-1.0".into()),
         number: None,
+        namespace: None,
         promoted_to: None,
         retired: false,
     };

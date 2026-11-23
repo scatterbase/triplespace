@@ -79,6 +79,13 @@ pub struct Add {
     /// The licence of its data, an SPDX identifier.
     #[arg(long)]
     pub licence: Option<String>,
+    /// The canonical name of the source's namespace (05 §6.5); the name in capitals when
+    /// not given, or the name it has already.
+    #[arg(long)]
+    pub namespace: Option<String>,
+    /// Another name of the source's namespace; repeatable. The source's name is always one.
+    #[arg(long = "namespace-alias")]
+    pub namespace_aliases: Vec<String>,
 }
 
 /// Runs a `source` command.
@@ -109,19 +116,28 @@ pub async fn run(cmd: SourceCommand) -> Result<()> {
                 revision_ids: args.revision_ids,
                 licence: args.licence.clone(),
                 number: None,
+                namespace: (args.namespace.is_some() || !args.namespace_aliases.is_empty()).then(
+                    || scatter_providers::SourceNamespace {
+                        id: None,
+                        canonical: args.namespace.clone().unwrap_or_default(),
+                        aliases: args.namespace_aliases.clone(),
+                    },
+                ),
                 promoted_to: None,
                 retired: false,
             };
             let written = write_source(&args.which, Some(source)).await?;
             if let Some(s) = written {
                 println!(
-                    "source `{}` declared on `{}`: number {}, IDs `{}:{}…`, partition source/{}",
+                    "source `{}` declared on `{}`: number {}, IDs `{}:{}…`, partition source/{}, namespace {} ({})",
                     s.name,
                     args.which.at.tenant,
                     s.number.unwrap_or_default(),
                     s.name,
                     s.types.first().map_or("Q", |t| t.upstream_prefix.as_str()),
-                    s.name
+                    s.name,
+                    s.namespace.as_ref().and_then(|n| n.id).unwrap_or_default(),
+                    s.namespace.as_ref().map_or("", |n| n.canonical.as_str()),
                 );
             }
         }

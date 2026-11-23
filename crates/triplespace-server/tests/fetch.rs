@@ -183,6 +183,8 @@ async fn queued_entities_are_fetched_by_the_followers_poll() {
         entity_data: None,
         revision_ids: true,
         licence: Some("CC0-1.0".into()),
+        namespace: None,
+        namespace_aliases: vec![],
     }))
     .await
     .expect("source add");

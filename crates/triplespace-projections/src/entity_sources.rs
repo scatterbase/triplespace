@@ -31,7 +31,8 @@ pub async fn declared<C: PgClient>(client: &C, tenant: &str) -> Result<Vec<Entit
 
 /// A tenant's sources as `GET /entity-sources` and `siprop=triplespace`'s `entity_sources`
 /// report them (0078 §10), in name order: each source's name, label, number, types with
-/// their IRI templates, endpoints, licence, `promoted_to` and `retired`. Nothing in a
+/// their IRI templates, endpoints, licence, `promoted_to`, `retired` and its namespace
+/// (05 §6.5). Nothing in a
 /// record is private: it is the tenant's public configuration, and a reader on another
 /// instance reads it to rewrite references by IRI (05 §6.7).
 #[must_use]
@@ -56,6 +57,11 @@ pub fn public(sources: &[EntitySource]) -> serde_json::Value {
                     "licence": s.licence,
                     "promoted_to": s.promoted_to.as_deref().filter(|c| !c.is_empty()),
                     "retired": s.retired,
+                    "namespace": s.namespace.as_ref().map(|n| serde_json::json!({
+                        "id": n.id,
+                        "canonical": n.canonical,
+                        "aliases": n.aliases,
+                    })),
                 })
             })
             .collect(),

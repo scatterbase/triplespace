@@ -43,10 +43,22 @@ impl ProviderOrder {
         }
     }
 
-    /// The rank of an ID: lower is higher-ranked. Keyed, local, then providers.
+    /// The rank of an ID: lower is higher-ranked. Keyed, local, then providers, then
+    /// entity sources: a colon form whose prefix is no keyed type is a source's ID
+    /// (`mhc:Q1`), and every source ranks after every registry provider (05 §6.6). Among
+    /// sources the tenant's order is not known here, so they tie and the ID text decides.
     #[must_use]
     pub fn rank(&self, id: &EntityId) -> (u8, usize) {
         match id.form() {
+            IdForm::Keyed
+                if id.keyed_parts().is_some_and(|(name, _)| {
+                    scatter_keyed::KeyedRegistry::default_registry()
+                        .by_name(name)
+                        .is_none()
+                }) =>
+            {
+                (4, 0)
+            }
             IdForm::Keyed => (0, 0),
             IdForm::Local => (1, 0),
             IdForm::Foreign => {
@@ -96,6 +108,18 @@ mod tests {
         assert_eq!(order.highest(&ids[..3]), Some(&ids[2]));
         assert_eq!(order.highest(&ids[..2]), Some(&ids[1]));
         assert_eq!(order.highest(std::iter::empty()), None);
+    }
+
+    // 05 §6.6: a local item outranks a source's entity, and so does a registry provider's.
+    #[test]
+    fn a_source_ranks_after_local_and_providers() {
+        let order = ProviderOrder::default();
+        let ids = [id("mhc:Q1"), id("Q500")];
+        assert_eq!(order.highest(&ids), Some(&ids[1]));
+        let ids = [id("mhc:Q1"), id("WDQ1")];
+        assert_eq!(order.highest(&ids), Some(&ids[1]));
+        let ids = [id("mhc:Q1"), id("domain:example.org")];
+        assert_eq!(order.highest(&ids), Some(&ids[1]));
     }
 
     #[test]

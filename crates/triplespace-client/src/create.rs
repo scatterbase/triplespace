@@ -52,6 +52,26 @@ impl Client {
         token: &str,
         batch: Option<&str>,
     ) -> Result<(Created, Option<u64>), ClientError> {
+        let extra: Vec<(&str, &str)> = batch.map(|b| ("batch", b)).into_iter().collect();
+        self.create_entity_with(incoming, kind, data, token, &extra)
+            .await
+    }
+
+    /// [`Self::create_entity`] with more `wbeditentity` parameters: `ts-sameas` for a new
+    /// item minted for a source's entity (05 §6.6), `batch`. The answer names the batch's
+    /// job where there is one.
+    ///
+    /// # Errors
+    ///
+    /// As [`Self::create_entity`].
+    pub async fn create_entity_with(
+        &self,
+        incoming: &Incoming,
+        kind: &str,
+        data: &Value,
+        token: &str,
+        extra: &[(&str, &str)],
+    ) -> Result<(Created, Option<u64>), ClientError> {
         let data = data.to_string();
         let mut form = vec![
             ("action", "wbeditentity"),
@@ -61,9 +81,7 @@ impl Client {
             ("data", &data),
             ("token", token),
         ];
-        if let Some(b) = batch {
-            form.push(("batch", b));
-        }
+        form.extend_from_slice(extra);
         let r = self.post_form(incoming, "/w/api.php", &form).await?;
         let v = check(&r)?;
         Ok((created(&v)?, v["batch"].as_u64()))

@@ -10,6 +10,12 @@
 //!
 //! The forms are tried in order, and the first that names something answers:
 //!
+//! 0. **An entity source's ID**, by the source's name or any name of its namespace
+//!    (`mhc:Q1`, `MHC:Q1`; 05 §6.5): `kind: entity-source`, with the canonical `id`, the
+//!    `external` link, and `target` when the tenant knows the entity, or knows a local item
+//!    a `same-as` links it to (0078 A10); otherwise the fetch is queued where the source
+//!    is mirrored, and `fetching` says so. A string the source's grammar refuses has
+//!    `invalid`, why.
 //! 1. **An entity ID** the instance holds (`WDQ65`, `Item:Q6`, `domain:example.org`),
 //!    reached through its cluster: `kind: entity`.
 //! 2. **A notation key** (`osm:amenity=cafe`), the one bare key that resolves (0029 A9):
@@ -31,6 +37,7 @@
 use axum::extract::{Extension, RawQuery, State};
 use axum::http::{HeaderMap, Method, StatusCode};
 use axum::response::Response;
+use scatter_providers::EntitySource;
 use scatter_wikibase_model::entity::EntityType;
 use scatter_wikibase_model::id::EntityId;
 use serde_json::{Value, json};
@@ -73,6 +80,40 @@ fn suggestions(q: &str) -> Vec<String> {
         .ok()
         .map(|id| vec![id.as_str().to_string()])
         .unwrap_or_default()
+}
+
+/// The source and its canonical ID that a string names (05 §6.5): its prefix is a
+/// source's name or one of its namespace's names, in any case. `Err` with why where the
+/// prefix is a source's and the rest is not one of its IDs.
+fn source_id<'s>(
+    q: &str,
+    sources: &'s [EntitySource],
+    registry: &scatter_providers::Registry,
+) -> Option<(&'s EntitySource, Result<String, String>)> {
+    let (prefix, rest) = q.split_once(':')?;
+    let s = sources.iter().find(|s| {
+        s.name.eq_ignore_ascii_case(prefix.trim())
+            || s.namespace.as_ref().is_some_and(|n| n.is_named(prefix))
+    })?;
+    let id = registry
+        .parse_foreign_id(&format!("{}:{}", s.name, rest.trim()))
+        .map(|f| f.to_string())
+        .map_err(|e| e.to_string());
+    Some((s, id))
+}
+
+/// Where a source's entity is outside the instance: its page on the source where the
+/// source has `entity_data`, else its concept IRI (05 §6.5).
+fn source_external(
+    source: &EntitySource,
+    id: &str,
+    registry: &scatter_providers::Registry,
+) -> Option<String> {
+    let f = registry.parse_foreign_id(id).ok()?;
+    Some(match &source.entity_data {
+        Some(base) => format!("{base}{}", f.upstream_id()),
+        None => f.concept_iri().as_str().to_string(),
+    })
 }
 
 /// An entity's title, by its ID and type.
@@ -220,6 +261,81 @@ pub async fn handle(
             .map(|p| json!({"kind": "page", "title": site.prefixed(p.ns, &p.title), "ns": p.ns, "pageid": p.page_id})),
         Err(e) => return internal(&e),
     };
+
+    // 0. An entity source's ID, by its name or its namespace's (05 §6.5).
+    let sources =
+        match triplespace_projections::entity_sources::declared(client, &tenant.slug).await {
+            Ok(s) => s,
+            Err(e) => return internal(&e),
+        };
+    if let Some((source, id)) = source_id(&q, &sources, registry) {
+        let mut body = json!({
+            "q": q,
+            "kind": "entity-source",
+            "source": source.name,
+            "label": source.label,
+            "namespace": source.namespace.as_ref().map(|n| n.canonical.clone()),
+        });
+        let id = match id {
+            Ok(id) => id,
+            Err(why) => {
+                body["invalid"] = json!(why);
+                return answer(body, &[]);
+            }
+        };
+        body["id"] = json!(id);
+        body["external"] = json!(source_external(source, &id, registry));
+        let mut held =
+            match first_held(client, &tenant.slug, registry, &hidden, vec![id.clone()]).await {
+                Ok(h) => h,
+                Err(e) => return internal(&e),
+            };
+        if held.is_none() {
+            // The local item minted for it, until clusters are projected (0078 A10).
+            let linked =
+                match triplespace_projections::same_as::linked(client, &tenant.slug, &id).await {
+                    Ok(l) => l,
+                    Err(e) => return internal(&e),
+                };
+            held = match first_held(client, &tenant.slug, registry, &hidden, linked).await {
+                Ok(h) => h,
+                Err(e) => return internal(&e),
+            };
+        }
+        let mut tags = vec![format!("entity:{id}")];
+        if let Some((target, entity_type)) = held {
+            body["target"] = json!({"id": target, "title": title(&target, &entity_type)});
+            tags.push(format!("entity:{target}"));
+        } else if let Ok(eid) = EntityId::parse(&id) {
+            let queued =
+                triplespace_api_ingest::shallow::queue_read(client, registry, &tenant.slug, &eid)
+                    .await;
+            let fetching = match queued {
+                Ok(true) => true,
+                // Queued by an earlier view, and not fetched yet.
+                Ok(false) => match registry.parse_foreign_id(&id) {
+                    Ok(f) => match client
+                        .query_one(
+                            "SELECT EXISTS (SELECT 1 FROM ops.entity_fetch
+                                            WHERE tenant = $1 AND provider = $2 AND entity_id = $3)",
+                            &[&tenant.slug, &source.name, &f.upstream_id()],
+                        )
+                        .await
+                    {
+                        Ok(r) => r.get(0),
+                        Err(e) => return internal(&e),
+                    },
+                    Err(_) => false,
+                },
+                Err(e) => return internal(&e),
+            };
+            body["fetching"] = json!(fetching);
+        }
+        if let Some(p) = page.clone() {
+            body["also"] = p;
+        }
+        return answer(body, &tags);
+    }
 
     // 1–2. An entity ID, then a notation key.
     let mut ids = Vec::new();

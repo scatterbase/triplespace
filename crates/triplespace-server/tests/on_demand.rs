@@ -183,6 +183,8 @@ async fn a_read_queues_what_is_not_held_and_labels_come_from_the_cache() {
         entity_data: None,
         revision_ids: true,
         licence: Some("CC0-1.0".into()),
+        namespace: None,
+        namespace_aliases: vec![],
     }))
     .await
     .expect("source add");

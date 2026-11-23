@@ -35,6 +35,7 @@ pub mod reports;
 pub mod resolvers;
 pub mod revision_state;
 pub mod revisions;
+pub mod same_as;
 pub mod sources;
 pub mod tenants;
 pub mod threads;
@@ -77,5 +78,6 @@ pub fn milestone_pipeline<B: Backend<Cx = PgCx>>(
         .with(moderation::ModerationProjection)?
         .with(EntityProjection::default())?
         .with(ActivityProjection)?
-        .with(fetch_queue::FetchQueueProjection)
+        .with(fetch_queue::FetchQueueProjection)?
+        .with(same_as::SameAsProjection)
 }
