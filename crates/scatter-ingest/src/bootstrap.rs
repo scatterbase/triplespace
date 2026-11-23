@@ -340,7 +340,7 @@ where
     // A load of the same source and graph whose process died is marked so (0011 A36).
     job.interrupt_earlier(store, pipeline, &mut cx, now).await?;
     let prepare = Prepare {
-        hasher: Hasher::for_provider(provider).with_iris(std::sync::Arc::new(
+        hasher: scatter_wikibase_ids::hasher_for(provider).with_iris(std::sync::Arc::new(
             scatter_wikibase_ids::value_iri::ValueIris::new(registry, None),
         )),
         attestation: job.record_attestation().to_value(),

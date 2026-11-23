@@ -61,12 +61,13 @@ pub enum IdParseError {
     /// A local ID with something other than digits after its letter.
     #[error("`{0}` is not a local entity ID: one uppercase letter then digits")]
     Local(String),
-    /// A foreign ID the provider registry rejects.
+    /// A foreign ID the provider registry rejects, with the registry's reason (0115 §13: the
+    /// model knows no registry, so the reason is carried as text).
     #[error("{0}")]
-    Foreign(#[from] scatter_providers::IdError),
-    /// A keyed ID the keyed-type registry rejects.
+    Foreign(String),
+    /// A keyed ID the keyed-type registry rejects, with the registry's reason.
     #[error("{0}")]
-    Keyed(#[from] scatter_keyed::KeyError),
+    Keyed(String),
     /// A statement ID without `$`, or whose entity part is not an ID, or whose GUID part
     /// is not 36 hex-and-hyphen characters.
     #[error("`{0}` is not a statement ID (`<EntityId>$<UUID>`)")]

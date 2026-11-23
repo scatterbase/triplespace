@@ -84,8 +84,14 @@ impl TriplespaceId for EntityId {
     ) -> Result<EntityId, IdParseError> {
         let canonical = match self.form() {
             IdForm::Local => return Ok(self.clone()),
-            IdForm::Foreign => providers.parse_foreign_id(self.as_str())?.to_string(),
-            IdForm::Keyed => keyed.parse_id(self.as_str())?.to_string(),
+            IdForm::Foreign => providers
+                .parse_foreign_id(self.as_str())
+                .map_err(|e| IdParseError::Foreign(e.to_string()))?
+                .to_string(),
+            IdForm::Keyed => keyed
+                .parse_id(self.as_str())
+                .map_err(|e| IdParseError::Keyed(e.to_string()))?
+                .to_string(),
         };
         EntityId::parse(&canonical)
     }

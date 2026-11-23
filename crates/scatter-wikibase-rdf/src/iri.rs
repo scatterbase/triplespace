@@ -327,7 +327,7 @@ impl<'r> IriScheme<'r> {
                 escape_iri(id.uuid())
             )),
             base: predicate_base(concept_base),
-            hasher: Hasher::for_provider(provider).with_iris(std::sync::Arc::new(
+            hasher: scatter_wikibase_ids::hasher_for(provider).with_iris(std::sync::Arc::new(
                 scatter_wikibase_ids::value_iri::ValueIris::new(self.providers, None),
             )),
         })

@@ -53,7 +53,7 @@ pub fn hasher_for(id: &EntityId, registry: &Registry, base: &str) -> Hasher {
     let hasher = if id.form() != IdForm::Local
         && let Ok(f) = registry.parse_foreign_id(id.as_str())
     {
-        Hasher::for_provider(f.provider())
+        scatter_wikibase_ids::hasher_for(f.provider())
     } else {
         Hasher::local()
     };

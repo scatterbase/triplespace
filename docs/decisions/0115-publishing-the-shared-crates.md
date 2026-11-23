@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-22
-- **Updated:** 2026-11-22 (A2)
+- **Updated:** 2026-11-23 (A3)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0042](0042-template-expansion-and-parsoid.md), [0097](0097-versioning-and-skins.md)
 
@@ -181,4 +181,11 @@ The plan for the other strong candidates. Each depends on the questions before i
 - **Source:** Direct: Claude, while building the parser's structure, 2026-11-22; confirmed by James, 2026-11-22
 - **Change:** extends §5
 - **Summary:** MediaWiki's rules for bold and italic are in `scatter-wikitext-parse`, as its `quotes` module, and `scatter-wikitext` uses them; balancing HTML tags and making paragraphs stay in `scatter-wikitext`. James asked for all three to move. The apostrophe rules read only the runs of a line and are wikitext's own, of use to any reader of the parser's output. Tag balancing and paragraphs are HTML tree construction (which elements close a paragraph, implied end tags, reopening formatting elements, `tree::Builder`), which a renderer needs and a parser of wikitext does not, so moving them would put an HTML tree builder in the parser. Chapter text: 22 §3.6.
+
+### A3. The base keeps canonicalizing IDs until the write path has one place to do it
+
+- **Date:** 2026-11-23
+- **Source:** Direct: Claude, while building 0115 §13's second phase, 2026-11-23; unconfirmed
+- **Change:** extends §13
+- **Summary:** The second phase's second part is done in two steps. The first is done: provider hashing moved to `scatter-wikibase-ids` (`hasher_for`), and `IdParseError` carries a provider's or keyed-type registry's reason as text, so `scatter-wikibase-model` knows neither registry and depends on neither. The base's `EntityId` still canonicalizes Triplespace's forms (case, the tenant-relative `QQQ5`) and still classifies them for `numeric-id` and the implied entity type, and the keyed data types are still in the model, because client JSON is read into the model by serde in many places across the API and no one place on the write path sees every ID a client writes: `validate_all` is not called outside its crate. Stopping the base's canonicalization before such a place exists would store `wdq42` or `QQQ5` as written, or reject them. The next step is that place, a canonicalizing pass over decoded operations that every write path runs, and then the base change, the `IdScheme` hook and the keyed data types as James chose. Chapter text: 22 §3.6.
 
