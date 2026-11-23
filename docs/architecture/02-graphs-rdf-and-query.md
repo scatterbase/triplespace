@@ -192,7 +192,7 @@ Terms Triplespace defines are minted under `https://scatter.red/terms/v0/`, with
 
 - **`scatter-vocab` is the only place terms are defined.** Both products take their term IRIs from it.
 - **`v0` means the vocabulary makes no stability promise yet.** Moving to `v1` is a compatibility commitment, made for both products at once.
-- **Scatterbase's terms are in the same module as Triplespace's.** Its kernel takes the terms of its claim envelopes and key registrations from `scatter-vocab` and defines none of its own ([0005](../decisions/0005-crate-organization.md) A134):
+- **Scatterbase's terms are in the same module as Triplespace's.** Its kernel takes the terms of its claim envelopes and key registrations from `scatter-vocab` and defines none of its own ([0005](../decisions/0005-crate-organization.md) A134, A135):
 
     | Terms | For |
     |---|---|
@@ -202,8 +202,9 @@ Terms Triplespace defines are minted under `https://scatter.red/terms/v0/`, with
     | `scatter:userSignature`, `scatter:serverSignature`, `scatter:seqID` | The user's signature, and the signature and sequence ID the server adds |
     | `scatter:acknowledgesPriorUse`, `scatter:term`, `scatter:priorClaim` | A prior-use acknowledgment: the term it is about and the claim that last used it |
     | `scatter:PublicKey`, `scatter:hasPublicKey`, `scatter:owner`, `scatter:keyType`, `scatter:ed25519` | A registered public key, whose it is, and its algorithm |
+    | `scatter:SandboxDomain` | The class of the `.sandbox` domain a store is given when none is configured |
 
-    They are the terms the kernel writes today. Triplespace emits none of them, and what they say about signatures and keys may change, as `v0` allows, when Scatterbase stores claims as `scatter-log` records and registers keys per actor ([22](22-crates-and-stack.md) §1.3).
+    A signature is a plain literal, `ed25519:{signature}` in z-base-32, with no datatype, and a thing is typed with `rdf:type`: the `scatter:Base64` datatype and the `scatter:instanceOf` predicate of the kernel's test data are not terms ([0005](../decisions/0005-crate-organization.md) A135). They are the terms the kernel writes today. Triplespace emits none of them, and what they say about signatures and keys may change, as `v0` allows, when Scatterbase stores claims as `scatter-log` records and registers keys per actor ([22](22-crates-and-stack.md) §1.3).
 
 The **vocabulary** namespace is distinct from **instance data** IRIs. Revision, user and graph IRIs belong to each Triplespace instance's own base URI. Only ontology terms live under `scatter.red/terms/`. Identifiers derived only from content, which are the same on every instance, are not instance data, and may also live under `scatter.red`. Scatterbase's `https://scatter.red/claim/` and `https://scatter.red/triple/` IRIs are of this kind, and so are the keyed-type IRIs of [0009](../decisions/0009-keyed-entity-types-and-domain.md) §6, such as `https://scatter.red/domain/{key}`, and the skolem IRIs of §4.3.
 

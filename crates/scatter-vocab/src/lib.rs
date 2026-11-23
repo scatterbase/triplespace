@@ -50,7 +50,7 @@ macro_rules! vocabulary {
 
 vocabulary! {
     /// Triplespace's and Scatterbase's own terms (0001 §5–6 as amended by 0005 §5, 0007 §9,
-    /// 0011 §8, 0022; Scatterbase's claim and key terms, 0005 A134).
+    /// 0011 §8, 0022; Scatterbase's claim, key and domain terms, 0005 A134, A135).
     scatter, "https://scatter.red/terms/v0/", "scatter" {
         // Revisions (0001 §6)
         /// A revision of an entity or page on this instance.
@@ -128,9 +128,10 @@ vocabulary! {
         INCLUDES = "includes";
         /// The claim before this one in its signer's chain.
         PREVIOUS_CLAIM = "previousClaim";
-        /// The user's signature over a claim, as `ed25519:{signature}`.
+        /// The user's signature over a claim, a plain literal `ed25519:{signature}` with no
+        /// datatype of its own.
         USER_SIGNATURE = "userSignature";
-        /// The server's signature over a claim it accepted, as `ed25519:{signature}`.
+        /// The server's signature over a claim it accepted, a plain literal like the user's.
         SERVER_SIGNATURE = "serverSignature";
         /// The sequence ID the server gave a claim.
         SEQ_ID = "seqID";
@@ -154,6 +155,10 @@ vocabulary! {
         OWNER = "owner";
         /// The Ed25519 key type, a value of `scatter:keyType`.
         ED25519 = "ed25519";
+
+        // Scatterbase: domains (0005 §5, A135).
+        /// The domain a store is given when none is configured, `http://{16 letters}.sandbox`.
+        SANDBOX_DOMAIN = "SandboxDomain";
     }
 }
 
@@ -470,7 +475,7 @@ mod tests {
         }
     }
 
-    /// 0005 §5 (A134): Scatterbase's claim-envelope and key-registration terms are in the
+    /// 0005 §5 (A134, A135): Scatterbase's claim-envelope and key-registration terms are in the
     /// `scatter` module under the names its kernel writes, classes and the `ed25519`
     /// individual included.
     #[test]
@@ -493,6 +498,8 @@ mod tests {
             (scatter::KEY_TYPE, "keyType"),
             (scatter::OWNER, "owner"),
             (scatter::ED25519, "ed25519"),
+            // A135
+            (scatter::SANDBOX_DOMAIN, "SandboxDomain"),
         ];
         for (term, local) in expected {
             assert_eq!(

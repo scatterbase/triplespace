@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-22 (A134)
+- **Updated:** 2026-11-23 (A135)
 - **Author:** James Hare / Claude Opus; revision by James Hare / Claude Fable
 - **Uses:** [0000](0000-init.md), [0002](0002-source-graphs-and-mass-ingest.md), [0003](0003-statement-ui.md), [0004](0004-identity-clusters-and-equivalence.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
@@ -1157,3 +1157,10 @@ Replaced text: 22 §3.4 (the sentences on Git dependencies and a repository of t
 - **Source:** Direct: James, design discussion of 2026-11-22
 - **Change:** extends §5
 - **Summary:** The terms Scatterbase's kernel writes for claim envelopes and key registration are constants of `scatter-vocab`'s `scatter` module, contributed by pull request, and the kernel keeps no local copies. James decided it while the kernel was being rebuilt on `oxrdf` and the shared crates, which the missing terms blocked: §5 already made `scatter-vocab` the only place terms are defined, and it held only Triplespace's. Seventeen terms, under the names the kernel uses: the classes `Triple`, `ClaimTriple`, `SignedClaim` and `PublicKey`; the predicates `claimedIn`, `includes`, `previousClaim`, `userSignature`, `serverSignature`, `seqID`, `term`, `priorClaim`, `acknowledgesPriorUse`, `hasPublicKey`, `keyType` and `owner`; and the individual `ed25519`. None collided with a term the crate had, and none was mapped to an existing one: Triplespace's signing keys are `key` records with a `signature` field (0024 §4, 0015 §1), not RDF terms. They are today's terms at `v0`: storing claims as `scatter-log` records and registering keys per actor (22 §1.3) may change what the signature and key terms mean, or retire some. Chapter text: 02 §3.1, 22 §2.1 (`crates.toml`).
+
+### A135. `SandboxDomain` is a term; `instanceOf` and `Base64` are not
+
+- **Date:** 2026-11-23
+- **Source:** Direct: James, design discussion of 2026-11-23
+- **Change:** extends §5
+- **Summary:** `scatter-vocab`'s `scatter` module gains `SandboxDomain`, the class of the `.sandbox` domain a Scatterbase store is given when none is configured, and does not gain the other two terms Scatterbase's kernel named besides the seventeen of A134. James asked for all three once A134 had merged, and on seeing what two of them were, asked for them to be put right instead. `instanceOf` meant what `rdf:type` means, and the kernel's test data typed the same domain with each a line apart: the kernel uses `rdf:type`, which the crate has. `Base64` was a datatype on signature literals in test data alone, misnamed, since a signature is `ed25519:{signature}` in z-base-32, and unused by the code that writes claims, which writes a plain literal: signatures stay plain literals, and no datatype is minted in its place, the prefix already saying what the value is. Scatterbase's tests drop both IRIs. All three were in the kernel's tests and test data only. Chapter text: 02 §3.1, 22 §2.1 (`crates.toml`).
