@@ -1518,3 +1518,120 @@ async fn append_local(
     p.catch_up(backend, &store, LOCAL, 2).await.unwrap();
     store.into_inner()
 }
+
+// 04 §4.4 (0004 A25): each member of a cluster reads as the cluster's fused body, under its
+// own ID, with the cluster's canonical ID in its row; removing the link parts them again.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn a_clusters_members_share_its_fused_body() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let mut store = PgLog::new(seed(client).await);
+    let p = pipeline();
+    for partition in ALL {
+        p.catch_up(&backend, &store, partition, 2).await.unwrap();
+    }
+    let record =
+        |content: serde_json::Value| draft(PAYLOAD_CHANGESET, "Q6", &content, None, Some(6));
+    store
+        .append(
+            LOCAL,
+            record(json!({"op": "same-as", "id": "Q6", "ids": ["Q6", "XDQ10"]})),
+        )
+        .await
+        .unwrap();
+    p.catch_up(&backend, &store, LOCAL, 2).await.unwrap();
+    let client = store.into_inner();
+    let order = triplespace_projections::EntityProjection::default();
+    let read = |id: &'static str| {
+        let (client, order) = (&client, &order);
+        async move {
+            triplespace_projections::read::current(
+                client,
+                order,
+                TENANT,
+                &scatter_wikibase_model::id::EntityId::parse(id).unwrap(),
+            )
+            .await
+            .unwrap()
+            .unwrap()
+        }
+    };
+    let xd = read("XDQ10").await;
+    assert_eq!(xd.resolved.entity.id.as_str(), "XDQ10", "under its own ID");
+    assert_eq!(
+        xd.resolved.entity.labels.get("en").map(String::as_str),
+        Some("Six"),
+        "the local graph comes first"
+    );
+    let statements: Vec<String> = xd
+        .resolved
+        .entity
+        .all_statements()
+        .filter_map(|s| s.id.as_ref().map(ToString::to_string))
+        .collect();
+    assert!(statements.contains(&Q6_P2.to_string()), "{statements:?}");
+    assert!(xd.local().is_none(), "Q6's local state is not XDQ10's");
+    assert_eq!(read("Q6").await.resolved.entity.labels.len(), 2);
+    let canonical =
+        |id: &str| {
+            let client = &client;
+            let id = id.to_string();
+            async move {
+                client
+                .query_one(
+                    "SELECT canonical_id, cluster_id IS NOT NULL, resolved_kind FROM view.entity
+                      WHERE tenant = $1 AND id = $2",
+                    &[&TENANT, &id],
+                )
+                .await
+                .map(|r| (r.get::<_, String>(0), r.get::<_, bool>(1), r.get::<_, String>(2)))
+                .unwrap()
+            }
+        };
+    assert_eq!(
+        canonical("XDQ10").await,
+        ("Q6".into(), true, "materialized".into())
+    );
+    assert_eq!(
+        canonical("Q6").await,
+        ("Q6".into(), true, "materialized".into())
+    );
+
+    // Unlinked, each is itself again.
+    let client = append_local(
+        client,
+        &backend,
+        &p,
+        record(
+            json!({"op": "remove", "id": "Q6", "link": {"op": "same-as", "ids": ["Q6", "XDQ10"]}}),
+        ),
+    )
+    .await;
+    let xd = triplespace_projections::read::current(
+        &client,
+        &order,
+        TENANT,
+        &scatter_wikibase_model::id::EntityId::parse("XDQ10").unwrap(),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        xd.resolved.entity.labels.get("en").map(String::as_str),
+        Some("Registrar")
+    );
+    assert_eq!(
+        client
+            .query_one(
+                "SELECT canonical_id, cluster_id IS NULL FROM view.entity WHERE tenant = $1 AND id = 'XDQ10'",
+                &[&TENANT],
+            )
+            .await
+            .map(|r| (r.get::<_, String>(0), r.get::<_, bool>(1)))
+            .unwrap(),
+        ("XDQ10".into(), true)
+    );
+}

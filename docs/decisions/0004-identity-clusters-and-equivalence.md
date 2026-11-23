@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-25
-- **Updated:** 2026-11-23 (A24)
+- **Updated:** 2026-11-23 (A25)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0000](0000-init.md), [Wikibase data model and ontology contract](../api/wikibase-compat.md)
 
@@ -267,8 +267,17 @@ Replaced text: none; 04 §4.7 gains a paragraph.
 ### A24. Tier-1 clusters, and which links a conflict holds
 
 - **Date:** 2026-11-23
-- **Source:** Direct: James, 2026-11-23, asking for SCA-244 to be built after SCA-460. How it is built, Claude, while building SCA-244's first part, 2026-11-23; unconfirmed
+- **Source:** Direct: James, 2026-11-23, asking for SCA-244 to be built after SCA-460. How it is built, Claude, while building SCA-244's first part, 2026-11-23; call (1) confirmed by James, 2026-11-23, the rest unconfirmed
 - **Change:** extends §2, §3, §10
 - **Summary:** The first clusters are a tenant's own: tier-1 links (`same-as`, and `convert` as the link it makes) and `different-from` from its graphs that are not mirrors, projected into `view.link`, `view.different_from`, `view.cluster` and `view.cluster_member` by the pure crate `scatter-identity`. The calls made: (1) **Which links a conflict holds.** The links of one tier are grouped by the would-be cluster they join, on top of what the higher tiers formed; a group that would hold two members of one namespace, or two IDs a `different-from` keeps apart, is held whole, every link of the group, not only those on the path between the two members. So `Q6 = WDQ1`, `WDQ1 = OAW1` and `OAW1 = WDQ2` are all held, and `Q6` and `WDQ1` stay apart until the conflict is resolved. This is the widest reading of "the links involved" (§2); it keeps the result independent of the order links arrive in, and never applies a link the conflict might be about. (2) A cluster's `cluster_id` is a stable 63-bit hash of its canonical ID, and a conflict's of the smallest ID its links name, so that a rebuild gives the same numbers. (3) `view.link` and `view.different_from` carry the `partition` and `offset` of the record that wrote a local link, so that a reset or an erasure removes it and the clusters around it are recomputed. (4) The interim `view.same_as` of 0078 A10 is dropped; the resolution of an entity source's ID finds the local item minted for it as a member of its cluster. Not built yet: tiers 2 and 3 and the shared rows, `equivalent-property`, aliases, members that are deleted or tombstoned leaving a cluster, `view.entity`'s `cluster_id` and `canonical_id`, and the fused body and rewriting in responses (§4, §8). Chapter text: 04 §4.2; 03 §4.4; 05 §6.5.
 
 Replaced text: in 04 §4.2, "The links involved are held, not applied."; in 03 §4.4, the paragraph and DDL of `view.same_as`; in 05 §6.5, "Until clusters are projected, a local item the tenant's own `same-as` links to `mhc:Q1` is found through `view.same_as` instead (03 §4.4; 0078 A10)."
+
+### A25. A cluster's members read as its fused body
+
+- **Date:** 2026-11-23
+- **Source:** Direct: James, 2026-11-23, asking for SCA-244's next part on the same branch. How it is built, Claude, while building it, 2026-11-23; unconfirmed
+- **Change:** extends §4, §8
+- **Summary:** A member of a tenant's cluster is resolved from every member's graphs, and so is read through the API and the site as the cluster's fused body. The calls made: (1) **Every member's row holds the fused body**, under the member's own ID, with the cluster's `cluster_id` and `canonical_id`; it is composed once for each member rather than once for the cluster, since each member's row keeps its own page ID, revision and local offset. A foreign member gets a tenant row of its own, as an entity the tenant asserts something about does. (2) **Graph order across members:** the local graphs first, the canonical member's before the others', then the mirrors and entity sources in provider order, members of equal rank in member order. Every member's local corrections apply. (3) A member's page ID, `lastrevid` and base revision stay its own, and a member no graph holds reads as nothing; its own local state is what a write takes as local. (4) Resolving one member resolves the others on the tenant, and a link, or its removal, resolves every entity it reaches; nothing else is fanned out. (5) Statement GUIDs stay in source form (`XDQ10$…` under `Q6`) until responses are rewritten (§4.9, §4.12); terms and identifiers are written for each member, so a resolver finds the canonical member, and search may list several members until it collapses clusters. Not built yet: rewriting in responses and the `canonical` field, RDF's `owl:sameAs`, search's collapsing, and resolving again what an erased link reached. Chapter text: 04 §4.4.
+
+Replaced text: none; 04 §4.4 gains a paragraph.

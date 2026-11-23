@@ -15,8 +15,12 @@
 //!
 //! `term`, `identifier` and `entity_ref` ([`crate::refs`]) are tables of this projection
 //! rather than projections of their own: they are derived from the same resolution pass,
-//! and splitting them would resolve each subject once for each. Clusters are not handled yet: every ID is its own canonical
-//! ID, and there is no fan-out to referrers.
+//! and splitting them would resolve each subject once for each.
+//!
+//! Clusters (04 §4.4): a member of a tenant's cluster is resolved from every member's
+//! graphs, so each member's row holds the cluster's fused body under its own ID, with the
+//! cluster's `cluster_id` and `canonical_id`; resolving one member resolves the others, and
+//! a link record resolves every entity it reaches. There is no fan-out to referrers.
 
 use std::collections::BTreeMap;
 use std::sync::Arc;
@@ -107,6 +111,38 @@ pub(crate) struct Local {
     pub(crate) latest: Option<Header>,
     /// Whether the local records are exactly one whole-state record.
     pub(crate) single_whole: bool,
+}
+
+/// One entity's own graphs on a tenant, as [`EntityProjection::parts`] reads them.
+pub(crate) struct Parts {
+    /// Its cursors, in graph order.
+    pub(crate) sources: Vec<Source>,
+    /// What the tenant's local graph holds of it.
+    pub(crate) local: Local,
+    /// Its graphs' states, local first, then the mirrors and sources in provider order.
+    pub(crate) contributions: Vec<Contribution>,
+    /// The headers of the records those states were read from.
+    pub(crate) headers: Vec<Header>,
+    /// How many of the contributions are a mirror's or a source's.
+    pub(crate) mirror_states: usize,
+}
+
+/// The local graph's corrections, as resolution takes them.
+pub(crate) fn corrections_of(local: &Local) -> BTreeMap<StatementId, Correction> {
+    local
+        .state
+        .corrections
+        .iter()
+        .map(|(k, c)| {
+            (
+                k.clone(),
+                match c {
+                    LocalCorrection::Rank(r) => Correction::Rank(*r),
+                    LocalCorrection::Suppress => Correction::Suppress,
+                },
+            )
+        })
+        .collect()
 }
 
 impl EntityProjection {
@@ -259,6 +295,115 @@ impl EntityProjection {
         }
     }
 
+    /// One entity's own graphs on `tenant`: the tenant's local state and each shared or
+    /// tenant mirror's and source's, in graph order.
+    pub(crate) async fn parts<C: Partitions>(
+        &self,
+        client: &C,
+        tenant: &str,
+        id: &EntityId,
+        current: Option<&Record>,
+    ) -> Result<Parts, String> {
+        let mut sources = Self::sources(client, tenant, id).await?;
+        sources.sort_by_key(|s| {
+            (
+                s.graph != "local",
+                self.mirror_rank(&s.graph),
+                s.graph.clone(),
+            )
+        });
+        let has_local = !tenant.is_empty()
+            && sources
+                .iter()
+                .any(|s| s.graph == "local" && s.tenant == tenant);
+        let local = if has_local {
+            Self::local(client, tenant, id).await?
+        } else {
+            Local::default()
+        };
+        let mut contributions = Vec::new();
+        let mut headers: Vec<Header> = local.latest.iter().cloned().collect();
+        if let Some(e) = &local.state.entity {
+            contributions.push(Contribution {
+                graph: "local".to_string(),
+                entity: e.clone(),
+                upstream_id: None,
+            });
+        }
+        let mut mirror_states = 0usize;
+        for s in sources
+            .iter()
+            .filter(|s| s.graph.starts_with("mirror/") || s.graph.starts_with("source/"))
+        {
+            if let Some((entity, header, upstream_id)) = Self::mirror(client, s, current).await? {
+                headers.push(header);
+                mirror_states += 1;
+                contributions.push(Contribution {
+                    graph: s.graph.clone(),
+                    entity,
+                    upstream_id,
+                });
+            }
+        }
+        Ok(Parts {
+            sources,
+            local,
+            contributions,
+            headers,
+            mirror_states,
+        })
+    }
+
+    /// What an entity is resolved from: its own contributions and corrections and, when it
+    /// is in a cluster on `tenant`, every other member's too, so that each member's row is
+    /// the cluster's fused body (04 §4.4; 0004 A25). The local graphs come first, the
+    /// cluster's canonical member's first, then the mirrors and sources in provider order.
+    /// An entity no graph holds is in no cluster's body.
+    pub(crate) async fn with_cluster<C: Partitions>(
+        &self,
+        client: &C,
+        tenant: &str,
+        id: &EntityId,
+        own: &Parts,
+        current: Option<&Record>,
+    ) -> Result<
+        (
+            Vec<Contribution>,
+            BTreeMap<StatementId, Correction>,
+            Option<crate::identity::Membership>,
+        ),
+        String,
+    > {
+        let mut corrections = corrections_of(&own.local);
+        let membership = if tenant.is_empty() || own.contributions.is_empty() {
+            None
+        } else {
+            crate::identity::membership(client, tenant, id.as_str()).await?
+        };
+        let Some(m) = &membership else {
+            return Ok((own.contributions.clone(), corrections, None));
+        };
+        let mut tagged: Vec<(usize, Contribution)> = Vec::new();
+        for (i, member) in m.members.iter().enumerate() {
+            if member == id.as_str() {
+                tagged.extend(own.contributions.iter().cloned().map(|c| (i, c)));
+                continue;
+            }
+            let Ok(other) = EntityId::parse(member) else {
+                continue;
+            };
+            let parts = self.parts(client, tenant, &other, current).await?;
+            corrections.extend(corrections_of(&parts.local));
+            tagged.extend(parts.contributions.into_iter().map(|c| (i, c)));
+        }
+        tagged.sort_by_key(|(i, c)| (c.graph != "local", self.mirror_rank(&c.graph), *i));
+        Ok((
+            tagged.into_iter().map(|(_, c)| c).collect(),
+            corrections,
+            membership,
+        ))
+    }
+
     async fn delete_rows(cx: &PgCx, tenant: &str, id: &EntityId) -> Result<u64, String> {
         let mut n = 0;
         for table in ["view.term", "view.identifier"] {
@@ -305,65 +450,22 @@ impl EntityProjection {
         current: Option<&Record>,
         times: i64,
     ) -> Result<u64, String> {
-        let mut sources = Self::sources(cx, tenant, id).await?;
-        sources.sort_by_key(|s| {
-            (
-                s.graph != "local",
-                self.mirror_rank(&s.graph),
-                s.graph.clone(),
-            )
-        });
-        let has_local = !tenant.is_empty()
-            && sources
-                .iter()
-                .any(|s| s.graph == "local" && s.tenant == tenant);
-        let local = if has_local {
-            Self::local(cx, tenant, id).await?
-        } else {
-            Local::default()
-        };
-        let mut contributions = Vec::new();
-        let mut headers: Vec<Header> = local.latest.iter().cloned().collect();
+        let own = self.parts(cx, tenant, id, current).await?;
+        let (contributions, corrections, membership) =
+            self.with_cluster(cx, tenant, id, &own, current).await?;
+        let Parts {
+            sources,
+            local,
+            headers,
+            mirror_states,
+            contributions: own_contributions,
+        } = own;
         let mut first_seen = sources.iter().map(|s| s.synced_at).min();
-        if let Some(e) = &local.state.entity {
-            contributions.push(Contribution {
-                graph: "local".to_string(),
-                entity: e.clone(),
-                upstream_id: None,
-            });
-        }
-        let mut mirror_states = 0usize;
-        for s in sources
-            .iter()
-            .filter(|s| s.graph.starts_with("mirror/") || s.graph.starts_with("source/"))
-        {
-            if let Some((entity, header, upstream_id)) = Self::mirror(cx, s, current).await? {
-                headers.push(header);
-                mirror_states += 1;
-                contributions.push(Contribution {
-                    graph: s.graph.clone(),
-                    entity,
-                    upstream_id,
-                });
-            }
-        }
-        let corrections: BTreeMap<StatementId, Correction> = local
-            .state
-            .corrections
-            .iter()
-            .map(|(k, c)| {
-                (
-                    k.clone(),
-                    match c {
-                        LocalCorrection::Rank(r) => Correction::Rank(*r),
-                        LocalCorrection::Suppress => Correction::Suppress,
-                    },
-                )
-            })
-            .collect();
-        let Some(resolved) = resolve(&contributions, &corrections) else {
+        let Some(mut resolved) = resolve(&contributions, &corrections) else {
             return Self::delete_rows(cx, tenant, id).await;
         };
+        // The fused body under the member's own ID.
+        resolved.entity.id = id.clone();
         let page_id = headers
             .iter()
             .filter_map(|h| h.page_id)
@@ -374,6 +476,7 @@ impl EntityProjection {
         // built once and the comparison reuses it; the cheap conditions go first.
         let json = resolved.canonical_json();
         let single_source = contributions.len() == 1
+            && own_contributions.len() == 1
             && (mirror_states == 1 || local.single_whole)
             && resolved.equals_given(&json, &contributions[0].entity);
         let (kind, blob): (&str, Option<Vec<u8>>) = if single_source {
@@ -417,14 +520,17 @@ impl EntityProjection {
         // polled queries), and the order within each pair (delete, then insert) holds.
         let id_text = id.as_str();
         let type_name = resolved.entity.entity_type.name();
+        let cluster_id = membership.as_ref().map(|m| m.cluster_id);
+        let canonical_id = membership.as_ref().map(|m| m.canonical.as_str());
         let entity_row = async {
             cx.execute(
                 "INSERT INTO view.entity (tenant, id, type, page_id, surrogate, cluster_id, canonical_id, retention,
                                           first_seen, local_offset, local_revid, resolved_version, generation,
                                           resolved_kind, resolved, resolved_size, deleted)
-                 VALUES ($1, $2, $3, $4, $5, NULL, $2, $6, $7, $8, $9, $13, 0, $10, $11, $12, false)
+                 VALUES ($1, $2, $3, $4, $5, $14, COALESCE($15, $2), $6, $7, $8, $9, $13, 0, $10, $11, $12, false)
                  ON CONFLICT (tenant, id) DO UPDATE SET
                    type = EXCLUDED.type, page_id = EXCLUDED.page_id, surrogate = EXCLUDED.surrogate,
+                   cluster_id = EXCLUDED.cluster_id, canonical_id = EXCLUDED.canonical_id,
                    retention = EXCLUDED.retention, first_seen = LEAST(view.entity.first_seen, EXCLUDED.first_seen),
                    local_offset = EXCLUDED.local_offset, local_revid = EXCLUDED.local_revid,
                    resolved_version = view.entity.resolved_version + $13,
@@ -443,6 +549,8 @@ impl EntityProjection {
                     &blob,
                     &size,
                     &times,
+                    &cluster_id,
+                    &canonical_id,
                 ],
             )
             .await
@@ -607,7 +715,7 @@ impl EntityProjection {
         // A tenant's records, each about one entity, touch that entity's rows alone: the
         // keys together, a key's records in order (0013 A93). A shared partition's
         // records reach every tenant's overlay, and a `convert` two entities: in order.
-        let one_entity = |record: &&Record| matches!(operation(record), Ok(Some(op)) if !matches!(*op, Operation::Convert { .. }));
+        let one_entity = |record: &&Record| matches!(operation(record), Ok(Some(op)) if !crate::identity::is_link(&op));
         if !info.tenant.is_empty() && slow.len() == records.len() && slow.iter().all(one_entity) {
             let tenant = info.tenant.as_str();
             // The entities whose one source is the tenant's `local` graph are resolved
@@ -646,6 +754,7 @@ impl EntityProjection {
                     n += self
                         .resolve_subject_times(cx, tenant, &id, Some(last), times)
                         .await?;
+                    n += self.resolve_members(cx, tenant, &id, Some(last)).await?;
                 }
             }
             _ => {
@@ -706,6 +815,24 @@ impl EntityProjection {
                     && (1..group.len()).all(|i| repeats(&group[..i], group[i]))
             })
             .map(|(id, _)| id.as_str())
+            .collect();
+        // A member of a cluster resolves from every member's graphs, not its own alone.
+        let clustered: std::collections::BTreeSet<String> = if candidates.is_empty() {
+            std::collections::BTreeSet::new()
+        } else {
+            cx.query(
+                "SELECT entity_id FROM view.cluster_member WHERE tenant = $1 AND entity_id = ANY($2)",
+                &[&tenant, &candidates],
+            )
+            .await
+            .map_err(|e| sql(&e))?
+            .iter()
+            .map(|r| r.get(0))
+            .collect()
+        };
+        let candidates: Vec<&str> = candidates
+            .into_iter()
+            .filter(|id| !clustered.contains(*id))
             .collect();
         if candidates.is_empty() {
             return Ok(all());
@@ -871,6 +998,26 @@ impl EntityProjection {
             return Ok(0);
         };
         let mut ids: Vec<EntityId> = entity_subject(&op).into_iter().collect();
+        if !info.tenant.is_empty() && crate::identity::is_link(&op) {
+            // A link changes the clusters of the entities it reaches, which the identity
+            // projection has recomputed: each is resolved again, inside or outside one.
+            let mut seeds: Vec<String> = ids.iter().map(|i| i.as_str().to_string()).collect();
+            if let Some(both) = op.link_ids() {
+                seeds.extend(both.iter().map(|i| i.as_str().to_string()));
+            }
+            if let Operation::Convert { local, .. } = &*op {
+                seeds.push(local.as_str().to_string());
+            }
+            let mut n = 0;
+            for id in crate::identity::component(cx, &info.tenant, seeds).await? {
+                if let Ok(id) = EntityId::parse(&id) {
+                    n += self
+                        .resolve_subject(cx, &info.tenant, &id, Some(record))
+                        .await?;
+                }
+            }
+            return Ok(n);
+        }
         if let Operation::Convert { local, .. } = &*op {
             ids.push(local.clone());
         }
@@ -880,11 +1027,36 @@ impl EntityProjection {
                 n += self.resolve_subject(cx, "", id, Some(record)).await?;
                 for tenant in Self::overlay_tenants(cx, id).await? {
                     n += self.resolve_subject(cx, &tenant, id, Some(record)).await?;
+                    n += self.resolve_members(cx, &tenant, id, Some(record)).await?;
                 }
             } else {
                 n += self
                     .resolve_subject(cx, &info.tenant, id, Some(record))
                     .await?;
+                n += self
+                    .resolve_members(cx, &info.tenant, id, Some(record))
+                    .await?;
+            }
+        }
+        Ok(n)
+    }
+
+    /// Resolves the other members of `id`'s cluster on `tenant` again: each member's row is
+    /// the cluster's fused body, so a change to one changes them all (04 §4.4).
+    async fn resolve_members(
+        &self,
+        cx: &PgCx,
+        tenant: &str,
+        id: &EntityId,
+        current: Option<&Record>,
+    ) -> Result<u64, String> {
+        let Some(m) = crate::identity::membership(cx, tenant, id.as_str()).await? else {
+            return Ok(0);
+        };
+        let mut n = 0;
+        for member in m.members.iter().filter(|m| m.as_str() != id.as_str()) {
+            if let Ok(other) = EntityId::parse(member) {
+                n += self.resolve_subject(cx, tenant, &other, current).await?;
             }
         }
         Ok(n)

@@ -208,9 +208,24 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for IdentityProjection {
     }
 }
 
+/// Whether an operation writes or removes a link between entities: what changes clusters.
+#[must_use]
+pub fn is_link(op: &Operation) -> bool {
+    matches!(
+        op,
+        Operation::SameAs { .. }
+            | Operation::DifferentFrom { .. }
+            | Operation::Convert { .. }
+            | Operation::Remove {
+                link: Some(Link::SameAs { .. } | Link::DifferentFrom { .. }),
+                ..
+            }
+    )
+}
+
 /// The IDs connected to `seeds` on `tenant`: those in a cluster with one (a removed link may
 /// leave them apart), and those the links reach from there, breadth first.
-async fn component(
+pub(crate) async fn component(
     cx: &PgCx,
     tenant: &str,
     seeds: Vec<String>,
@@ -347,6 +362,49 @@ async fn recompute(cx: &PgCx, tenant: &str, seeds: Vec<String>) -> Result<Applie
         }
     }
     Ok(Applied::rows(rows))
+}
+
+/// The cluster an entity is a member of on a tenant.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Membership {
+    /// The cluster's number.
+    pub cluster_id: i64,
+    /// Its canonical member (0004 §4).
+    pub canonical: String,
+    /// Every member, the canonical first, then by rank.
+    pub members: Vec<String>,
+}
+
+/// The cluster `id` is a member of on `tenant`, where it is in one.
+///
+/// # Errors
+///
+/// The database's.
+pub async fn membership<C: PgClient>(
+    client: &C,
+    tenant: &str,
+    id: &str,
+) -> Result<Option<Membership>, String> {
+    let rows = client
+        .query(
+            "SELECT c.cluster_id, c.canonical_id, m2.entity_id FROM view.cluster_member m1
+               JOIN view.cluster c ON c.tenant = m1.tenant AND c.cluster_id = m1.cluster_id
+               JOIN view.cluster_member m2 ON m2.tenant = m1.tenant AND m2.cluster_id = m1.cluster_id
+              WHERE m1.tenant = $1 AND m1.entity_id = $2",
+            &[&tenant, &id],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+    let Some(first) = rows.first() else {
+        return Ok(None);
+    };
+    let mut members: Vec<String> = rows.iter().map(|r| r.get(2)).collect();
+    members.sort_by(order);
+    Ok(Some(Membership {
+        cluster_id: first.get(0),
+        canonical: first.get(1),
+        members,
+    }))
 }
 
 /// The other members of `id`'s cluster on `tenant`, the canonical member first, then in

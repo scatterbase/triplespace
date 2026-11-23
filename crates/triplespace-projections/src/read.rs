@@ -5,8 +5,6 @@
 
 use std::collections::BTreeMap;
 
-use scatter_log::header::Header;
-use scatter_wikibase_changeset::Correction as LocalCorrection;
 use scatter_wikibase_model::id::EntityId;
 use scatter_wikibase_model::id::StatementId;
 use scatter_wikibase_resolve::{Contribution, Correction, Resolved, resolve};
@@ -20,7 +18,8 @@ use scatter_wikibase_ids::TriplespaceId as _;
 pub struct Current {
     /// The resolved view, with per-statement provenance.
     pub resolved: Resolved,
-    /// The contributions, local first then mirrors in provider order.
+    /// The contributions, local first then mirrors in provider order: for a member of a
+    /// cluster, every member's (04 §4.4).
     pub contributions: Vec<Contribution>,
     /// The local corrections (rank overrides and suppressions).
     pub corrections: BTreeMap<StatementId, Correction>,
@@ -47,12 +46,13 @@ impl Current {
             .any(|s| s.members.contains(id) && s.graphs.iter().any(|g| g == "local"))
     }
 
-    /// The local graph's own state, if it contributes.
+    /// The local graph's own state of this entity, if it contributes; another member's
+    /// local state is not this entity's.
     #[must_use]
     pub fn local(&self) -> Option<&scatter_wikibase_model::entity::Entity> {
         self.contributions
             .iter()
-            .find(|c| c.graph == "local")
+            .find(|c| c.graph == "local" && c.entity.id == self.resolved.entity.id)
             .map(|c| &c.entity)
     }
 }
@@ -194,67 +194,18 @@ pub async fn current<C: Partitions>(
     tenant: &str,
     id: &EntityId,
 ) -> Result<Option<Current>, String> {
-    let mut sources = EntityProjection::sources(client, tenant, id).await?;
-    if sources.is_empty() {
+    let own = order.parts(client, tenant, id, None).await?;
+    if own.sources.is_empty() {
         return Ok(None);
     }
-    sources.sort_by_key(|s| {
-        (
-            s.graph != "local",
-            order.mirror_rank(&s.graph),
-            s.graph.clone(),
-        )
-    });
-    let has_local = !tenant.is_empty()
-        && sources
-            .iter()
-            .any(|s| s.graph == "local" && s.tenant == tenant);
-    let local = if has_local {
-        EntityProjection::local(client, tenant, id).await?
-    } else {
-        crate::entities::Local::default()
-    };
-    let mut contributions = Vec::new();
-    let mut headers: Vec<Header> = local.latest.iter().cloned().collect();
-    if let Some(e) = &local.state.entity {
-        contributions.push(Contribution {
-            graph: "local".to_string(),
-            entity: e.clone(),
-            upstream_id: None,
-        });
-    }
-    for s in sources
-        .iter()
-        .filter(|s| s.graph.starts_with("mirror/") || s.graph.starts_with("source/"))
-    {
-        if let Some((entity, header, upstream_id)) =
-            EntityProjection::mirror(client, s, None).await?
-        {
-            headers.push(header);
-            contributions.push(Contribution {
-                graph: s.graph.clone(),
-                entity,
-                upstream_id,
-            });
-        }
-    }
-    let corrections: BTreeMap<StatementId, Correction> = local
-        .state
-        .corrections
-        .iter()
-        .map(|(k, c)| {
-            (
-                k.clone(),
-                match c {
-                    LocalCorrection::Rank(r) => Correction::Rank(*r),
-                    LocalCorrection::Suppress => Correction::Suppress,
-                },
-            )
-        })
-        .collect();
-    let Some(resolved) = resolve(&contributions, &corrections) else {
+    // A member of a cluster reads as the cluster's fused body, under its own ID (04 §4.4).
+    let (contributions, corrections, _) =
+        order.with_cluster(client, tenant, id, &own, None).await?;
+    let crate::entities::Parts { local, headers, .. } = own;
+    let Some(mut resolved) = resolve(&contributions, &corrections) else {
         return Ok(None);
     };
+    resolved.entity.id = id.clone();
     let page_id = headers
         .iter()
         .filter_map(|h| h.page_id)
