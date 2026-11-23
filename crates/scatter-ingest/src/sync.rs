@@ -29,14 +29,16 @@ use scatter_log::cbor::Value;
 use scatter_projection::{Budget, Pipeline, par_map};
 use scatter_providers::{Deletion, Provider, Registry, split_revid};
 use scatter_wikibase_changeset::{Changes, Graph, JobHeader, Mode, Operation, Upstream};
+use scatter_wikibase_ids::IdForm;
 use scatter_wikibase_model::entity::Entity;
 use scatter_wikibase_model::hash::{HashMismatches, Hasher};
-use scatter_wikibase_model::id::{EntityId, IdForm};
+use scatter_wikibase_model::id::EntityId;
 
 use crate::IngestError;
 use crate::job::{Counts, Job, Reject};
 use crate::store::IngestStore;
 use crate::write::{Attestation, Request, write_to};
+use scatter_wikibase_ids::TriplespaceId as _;
 
 /// What an adapter hands the sync, with IDs already in stored form.
 #[derive(Debug, Clone, PartialEq)]
@@ -789,7 +791,7 @@ async fn sync_job<S: IngestStore, H: BeforeCommit<S> + Send>(
         .ok_or_else(|| IngestError::UnknownProvider(slug.clone()))?;
     // The guard recomputes Wikibase's hashes over value IRIs as upstream wrote them, which
     // the adapter stored as IDs (0004 A20).
-    let hasher = Hasher::for_provider(provider).with_iris(std::sync::Arc::new(
+    let hasher = scatter_wikibase_ids::hasher_for(provider).with_iris(std::sync::Arc::new(
         scatter_wikibase_ids::value_iri::ValueIris::new(registry, None),
     ));
     let graph_name = graph.name();

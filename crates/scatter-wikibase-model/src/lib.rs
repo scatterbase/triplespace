@@ -31,6 +31,11 @@
 
 #![forbid(unsafe_code)]
 
+// The README's example compiles and runs as a doctest (0115 §3).
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct ReadmeDoctests;
+
 pub mod entity;
 pub mod hash;
 pub mod id;
@@ -43,7 +48,7 @@ pub mod value;
 
 pub use entity::{Entity, EntityType, PageInfo, ParsedEntity, Sitelink, Term};
 pub use hash::{HashMismatches, Hasher};
-pub use id::{EntityId, IdForm, IdParseError, LexemePart, StatementId, Subject};
+pub use id::{EntityId, IdParseError, LexemePart, StatementId, Subject};
 pub use iris::{ValueIriMap, map_value_iris};
 pub use json::{Form, JsonError};
 pub use php::float_string as php_float_string;
@@ -53,5 +58,23 @@ pub use value::{
     DataType, DataValue, EntityIdValue, GlobeCoordinate, MonolingualText, Quantity, Time, ValueType,
 };
 
-/// The default site-alias registry, `docs/registry/sites.toml`, embedded at build time.
-pub const SITES_TOML: &str = include_str!("../../../docs/registry/sites.toml");
+/// The default site-alias registry, embedded at build time from `registry/sites.toml`, a
+/// symlink to the repository's `docs/registry/sites.toml` that `cargo package` stores as a
+/// file (0115 §2).
+pub const SITES_TOML: &str = include_str!("../registry/sites.toml");
+
+#[cfg(test)]
+mod registry_tests {
+    /// The embedded registry is the repository's: this fails a checkout that did not make
+    /// the symlink, or a copy that has drifted (0115 §2).
+    #[test]
+    fn embedded_registry_is_the_repository_s() {
+        let docs = concat!(
+            env!("CARGO_MANIFEST_DIR"),
+            "/../../docs/registry/sites.toml"
+        );
+        if let Ok(text) = std::fs::read_to_string(docs) {
+            assert_eq!(super::SITES_TOML, text);
+        }
+    }
+}

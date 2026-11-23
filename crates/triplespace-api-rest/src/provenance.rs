@@ -16,13 +16,15 @@ use axum::extract::{Extension, Path, State};
 use axum::http::{HeaderMap, Method, StatusCode, header};
 use axum::response::{IntoResponse, Response};
 use scatter_providers::Registry;
-use scatter_wikibase_model::id::{EntityId, IdForm, StatementId};
+use scatter_wikibase_ids::IdForm;
+use scatter_wikibase_model::id::{EntityId, StatementId};
 use scatter_wikibase_model::statement::Rank;
 use scatter_wikibase_resolve::Correction;
 use serde_json::{Map, Value, json};
 use triplespace_api_action::App;
 
 use crate::entity_route;
+use scatter_wikibase_ids::TriplespaceId as _;
 use triplespace_api_action::entity_json::iso8601;
 use triplespace_api_action::forwarded::Origin;
 use triplespace_api_action::http_cache::{self, Class};

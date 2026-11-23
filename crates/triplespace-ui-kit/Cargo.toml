@@ -12,7 +12,7 @@ publish = false
 [dependencies]
 triplespace-client.workspace = true
 scatter-wikibase-model.workspace = true
-scatter-wikibase-fusion.workspace = true
+scatter-wikibase-fusion = { workspace = true, features = ["providers"] }
 scatter-titles.workspace = true
 scatter-pages.workspace = true
 html5ever.workspace = true

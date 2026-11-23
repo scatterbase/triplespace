@@ -36,7 +36,7 @@
 use axum::extract::{Extension, RawQuery, State};
 use axum::http::{HeaderMap, Method, StatusCode};
 use axum::response::Response;
-use scatter_wikibase_model::id::IdForm;
+use scatter_wikibase_ids::IdForm;
 use serde_json::{Value, json};
 use triplespace_api_action::auth::{Caller, bearer};
 use triplespace_api_action::forwarded::Origin;
@@ -48,6 +48,7 @@ use triplespace_api_action::{App, entity_json, tenant};
 use triplespace_projections::acl_read::{self, Hidden};
 
 use crate::entity_route::{error, internal};
+use scatter_wikibase_ids::TriplespaceId as _;
 
 /// The kinds of entity suggested, in the order of their groups.
 pub const KINDS: [&str; 3] = ["item", "property", "domain"];

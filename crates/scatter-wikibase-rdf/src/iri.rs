@@ -9,8 +9,10 @@ use std::fmt::Write as _;
 use oxrdf::NamedNode;
 use scatter_keyed::KeyedRegistry;
 use scatter_providers::{Registry as ProviderRegistry, UpstreamRef};
+use scatter_wikibase_ids::IdForm;
+use scatter_wikibase_ids::TriplespaceId as _;
 use scatter_wikibase_model::hash::Hasher;
-use scatter_wikibase_model::{EntityId, IdForm, StatementId};
+use scatter_wikibase_model::{EntityId, StatementId};
 
 /// The bases an instance writes its own nodes under.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -325,7 +327,7 @@ impl<'r> IriScheme<'r> {
                 escape_iri(id.uuid())
             )),
             base: predicate_base(concept_base),
-            hasher: Hasher::for_provider(provider).with_iris(std::sync::Arc::new(
+            hasher: scatter_wikibase_ids::hasher_for(provider).with_iris(std::sync::Arc::new(
                 scatter_wikibase_ids::value_iri::ValueIris::new(self.providers, None),
             )),
         })

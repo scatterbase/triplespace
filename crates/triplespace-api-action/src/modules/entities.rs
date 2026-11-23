@@ -5,7 +5,8 @@
 
 use scatter_keyed::keyed::KeyedRegistry;
 use scatter_wikibase_fusion::badges::BadgeRegistry;
-use scatter_wikibase_model::id::{EntityId, IdForm};
+use scatter_wikibase_ids::IdForm;
+use scatter_wikibase_model::id::EntityId;
 use serde_json::{Value, json};
 use triplespace_projections::badges::ClassWalk;
 
@@ -13,6 +14,7 @@ use crate::api::Ctx;
 use crate::edit;
 use crate::entity_json;
 use crate::response::{ApiError, ApiResponse};
+use scatter_wikibase_ids::TriplespaceId as _;
 use triplespace_projections::read;
 
 /// Parses and normalizes an ID as a client wrote it: `q6` → `Q6`, `QQQ6` → `Q6`

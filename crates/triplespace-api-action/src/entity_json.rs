@@ -3,9 +3,11 @@
 //! `modified`, a Domain's derived `mul` label, and the `props` and `languages` filters.
 
 use scatter_providers::Registry;
+use scatter_wikibase_ids::IdForm;
+use scatter_wikibase_ids::TriplespaceId as _;
 use scatter_wikibase_model::entity::{Entity, EntityType, PageInfo};
 use scatter_wikibase_model::hash::Hasher;
-use scatter_wikibase_model::id::{EntityId, IdForm};
+use scatter_wikibase_model::id::EntityId;
 use serde_json::{Map, Value, json};
 use triplespace_projections::read::Current;
 
@@ -51,7 +53,7 @@ pub fn hasher_for(id: &EntityId, registry: &Registry, base: &str) -> Hasher {
     let hasher = if id.form() != IdForm::Local
         && let Ok(f) = registry.parse_foreign_id(id.as_str())
     {
-        Hasher::for_provider(f.provider())
+        scatter_wikibase_ids::hasher_for(f.provider())
     } else {
         Hasher::local()
     };

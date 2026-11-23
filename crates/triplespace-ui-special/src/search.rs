@@ -28,10 +28,12 @@ use axum::body::Body;
 use axum::http::{HeaderMap, HeaderValue, StatusCode, header};
 use axum::response::Response;
 use percent_encoding::{NON_ALPHANUMERIC, utf8_percent_encode};
-use scatter_wikibase_model::id::{EntityId, IdForm};
+use scatter_wikibase_ids::IdForm;
+use scatter_wikibase_model::id::EntityId;
 use serde::Serialize;
 use triplespace_client::{ClientError, Fetched, Hit, Hits, Lookup, SiteInfo};
 
+use scatter_wikibase_ids::TriplespaceId as _;
 use triplespace_ui_kit::Site;
 use triplespace_ui_kit::badge::BadgeModel;
 use triplespace_ui_kit::choice::{Choice, Switch};

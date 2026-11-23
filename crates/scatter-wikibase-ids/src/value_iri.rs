@@ -13,9 +13,11 @@
 
 use std::borrow::Cow;
 
-use scatter_providers::Registry;
+use crate::provider::ProviderModel;
 
-use scatter_wikibase_model::id::{EntityId, IdForm};
+use scatter_wikibase_model::id::EntityId;
+
+use crate::id::{IdForm, TriplespaceId};
 
 /// The map between value IRIs and stored IDs for one tenant.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]
@@ -33,27 +35,12 @@ fn digits(s: &str) -> bool {
 }
 
 impl ValueIris {
-    /// The map for `registry` (a tenant's, with its sources) and the tenant's entity base,
+    /// The map for `registry`'s providers (a tenant's, with its sources; any
+    /// [`ProviderModel`]) and the tenant's entity base,
     /// `{base}/entity/`, where its local IDs are named.
     #[must_use]
-    pub fn new(registry: &Registry, local_entity_base: Option<&str>) -> Self {
-        let mut types = Vec::new();
-        for p in registry.providers() {
-            for t in &p.types {
-                if t.key_mapped {
-                    continue;
-                }
-                let Some((base, "")) = t.iri.split_once("{upstream_id}") else {
-                    continue;
-                };
-                let stored = if p.source {
-                    format!("{}:{}", p.slug, t.upstream_prefix)
-                } else {
-                    format!("{}{}", p.code, t.code)
-                };
-                types.push((stored, format!("{base}{}", t.upstream_prefix)));
-            }
-        }
+    pub fn new(registry: &dyn ProviderModel, local_entity_base: Option<&str>) -> Self {
+        let mut types = registry.value_iri_prefixes();
         types.sort_by_key(|(_, iri)| std::cmp::Reverse(iri.len()));
         Self {
             types,
@@ -142,9 +129,10 @@ impl scatter_wikibase_model::ValueIriMap for ValueIris {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "providers"))]
 mod tests {
     use super::*;
+    use scatter_providers::Registry;
 
     fn iris(base: &str) -> ValueIris {
         ValueIris::new(Registry::default_registry(), Some(base))

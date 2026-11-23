@@ -993,6 +993,7 @@ fn staged(r: &mut Reader, v: &Value, width: usize) -> Option<Staged> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use scatter_wikibase_ids::TriplespaceId as _;
 
     /// The example of 15 §2.3.
     const EXAMPLE: &str = r#"{
@@ -1092,7 +1093,7 @@ mod tests {
         assert!(has(&p, "one or more columns"), "{p:?}");
         // What only the registries know is the caller's to check.
         let known = |id: &EntityId| {
-            (id.form() != scatter_wikibase_model::IdForm::Foreign).then(|| id.clone())
+            (id.form() != scatter_wikibase_ids::IdForm::Foreign).then(|| id.clone())
         };
         let checked = Definition::parse_with(
             r#"{"version": 1, "rows": {"ids": ["XYQ1"]}, "columns": [{"field": "label", "language": "en"}]}"#,

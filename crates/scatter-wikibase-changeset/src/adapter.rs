@@ -12,9 +12,11 @@ use std::collections::BTreeMap;
 use std::fmt::Write as _;
 
 use scatter_providers::{IdError, Provider, Registry};
+use scatter_wikibase_ids::IdForm;
+use scatter_wikibase_ids::TriplespaceId as _;
 use scatter_wikibase_model::entity::Entity;
 use scatter_wikibase_model::hash::Hasher;
-use scatter_wikibase_model::id::{EntityId, IdForm, IdParseError, StatementId, Subject};
+use scatter_wikibase_model::id::{EntityId, IdParseError, StatementId, Subject};
 use scatter_wikibase_model::statement::{Reference, Snak, SnakGroups, Statement};
 use scatter_wikibase_model::value::DataValue;
 use sha1::Digest as _;

@@ -17,7 +17,8 @@
 //! No minted ID contains a colon and every keyed ID does. This module classifies and
 //! canonicalizes IDs by their *shape*; whether a foreign prefix or a keyed prefix is
 //! registered, and whether the rest is valid under its grammar, is checked against the
-//! registries by [`EntityId::validate`], which the adapters and the write path call.
+//! registries by `scatter-wikibase-ids`' `TriplespaceId::validate`, which the adapters and
+//! the write path call (0115 §13).
 //! The model itself stays registry-free so that it can hold IDs from any source in the
 //! form that source wrote them.
 //!
@@ -30,13 +31,14 @@
 
 use std::fmt;
 
-use scatter_keyed::KeyedRegistry;
-use scatter_providers::Registry as ProviderRegistry;
 use serde::{Deserialize, Serialize};
 
-/// Which of the three forms an ID has.
+/// Which of the three shapes an ID has. Private: Triplespace's `IdForm` and its methods
+/// are `scatter-wikibase-ids`' `TriplespaceId` (0115 §13); the model classifies by shape
+/// only to serve `numeric-id` and the implied entity type, until the second phase gives it
+/// an `IdScheme` for that.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum IdForm {
+pub(crate) enum IdForm {
     /// Minted by this instance (`Q5`).
     Local,
     /// Minted by a provider (`WDQ42`).
@@ -59,12 +61,13 @@ pub enum IdParseError {
     /// A local ID with something other than digits after its letter.
     #[error("`{0}` is not a local entity ID: one uppercase letter then digits")]
     Local(String),
-    /// A foreign ID the provider registry rejects.
+    /// A foreign ID the provider registry rejects, with the registry's reason (0115 §13: the
+    /// model knows no registry, so the reason is carried as text).
     #[error("{0}")]
-    Foreign(#[from] scatter_providers::IdError),
-    /// A keyed ID the keyed-type registry rejects.
+    Foreign(String),
+    /// A keyed ID the keyed-type registry rejects, with the registry's reason.
     #[error("{0}")]
-    Keyed(#[from] scatter_keyed::KeyError),
+    Keyed(String),
     /// A statement ID without `$`, or whose entity part is not an ID, or whose GUID part
     /// is not 36 hex-and-hyphen characters.
     #[error("`{0}` is not a statement ID (`<EntityId>$<UUID>`)")]
@@ -110,16 +113,15 @@ fn local_rest(letter: u8, rest: &str) -> Option<String> {
 impl EntityId {
     /// Parses an ID by shape, canonicalizing case: the prefix of a minted ID is uppercased
     /// and a keyed ID's type name is lowercased. The rest is kept as given, because its
-    /// canonical form depends on the registries ([`EntityId::validate`]).
+    /// canonical form depends on the registries (`scatter-wikibase-ids`' `TriplespaceId::validate`).
     ///
     /// The tenant-relative form `QQQ5` (0044 §1) parses as the local ID `Q5`. It has the
     /// shape of a foreign ID under the reserved doubled code `QQ`, so no registered
     /// provider can collide with it; its rest must be digits, as every local grammar is.
     ///
     /// ```
-    /// use scatter_wikibase_model::{EntityId, IdForm};
+    /// use scatter_wikibase_model::EntityId;
     /// assert_eq!(EntityId::parse("q5").unwrap().as_str(), "Q5");
-    /// assert_eq!(EntityId::parse("wdq42").unwrap().form(), IdForm::Foreign);
     /// assert_eq!(EntityId::parse("Domain:example.org").unwrap().as_str(), "domain:example.org");
     /// assert_eq!(EntityId::parse("qqq5").unwrap().as_str(), "Q5");
     /// assert!(EntityId::parse("5").is_err());
@@ -167,30 +169,15 @@ impl EntityId {
         Ok(Self(out))
     }
 
-    /// Checks the ID against the registries and returns it in full canonical form: a
-    /// foreign ID's rest canonicalized by its type's grammar, a keyed ID's key normalized.
-    /// A local ID has nothing to check beyond its shape.
-    pub fn validate(
-        &self,
-        providers: &ProviderRegistry,
-        keyed: &KeyedRegistry,
-    ) -> Result<Self, IdParseError> {
-        match self.form() {
-            IdForm::Local => Ok(self.clone()),
-            IdForm::Foreign => Ok(Self(providers.parse_foreign_id(&self.0)?.to_string())),
-            IdForm::Keyed => Ok(Self(keyed.parse_id(&self.0)?.to_string())),
-        }
-    }
-
     /// The ID as a string.
     #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
 
-    /// Which form the ID has.
+    /// Which shape the ID has.
     #[must_use]
-    pub fn form(&self) -> IdForm {
+    pub(crate) fn shape(&self) -> IdForm {
         if self.0.contains(':') {
             IdForm::Keyed
         } else if self.0.len() >= 4 && self.0.as_bytes()[1].is_ascii_alphabetic() {
@@ -205,7 +192,7 @@ impl EntityId {
     /// foreign IDs under another grammar (0009 §3, 0017 §2).
     #[must_use]
     pub fn numeric_id(&self) -> Option<u64> {
-        let rest = match self.form() {
+        let rest = match self.shape() {
             IdForm::Local => &self.0[1..],
             IdForm::Foreign => &self.0[3..],
             IdForm::Keyed => return None,
@@ -216,28 +203,17 @@ impl EntityId {
     /// For a local ID, its type letter (`Q`, `P`, `L`). For a foreign ID, its type code.
     #[must_use]
     pub fn type_code(&self) -> Option<char> {
-        match self.form() {
+        match self.shape() {
             IdForm::Local => self.0.chars().next(),
             IdForm::Foreign => self.0.chars().nth(2),
             IdForm::Keyed => None,
         }
     }
 
-    /// For a keyed ID, its type name and key.
+    /// For an ID with a colon, the parts either side of it.
     #[must_use]
-    pub fn keyed_parts(&self) -> Option<(&str, &str)> {
+    pub(crate) fn colon_parts(&self) -> Option<(&str, &str)> {
         self.0.split_once(':')
-    }
-
-    /// Whether this ID may be a member of an identity cluster. Keyed entities that are names,
-    /// keywords and notations, never join one (0009 §8): their keyed-type registry entry sets
-    /// `clusters = false`. Every other ID may, a keyed ID of an unknown type included, since
-    /// whether the type exists is checked elsewhere.
-    #[must_use]
-    pub fn joins_clusters(&self) -> bool {
-        self.keyed_parts()
-            .and_then(|(name, _)| KeyedRegistry::default_registry().by_name(name))
-            .is_none_or(|t| t.clusters)
     }
 
     /// The Wikibase `entity-type` this ID's own shape implies, where it can: `item` for a
@@ -246,10 +222,10 @@ impl EntityId {
     /// provider registry: a foreign `M` is whatever that provider's type table says.
     #[must_use]
     pub fn implied_entity_type(&self) -> Option<&str> {
-        if let Some((name, _)) = self.keyed_parts() {
+        if let Some((name, _)) = self.colon_parts() {
             return Some(name);
         }
-        match (self.form(), self.type_code()?) {
+        match (self.shape(), self.type_code()?) {
             (_, 'Q') => Some("item"),
             (_, 'P') => Some("property"),
             (_, 'L') => Some(
@@ -278,7 +254,7 @@ impl EntityId {
     /// ```
     #[must_use]
     pub fn lexeme_part(&self) -> Option<(Self, LexemePart)> {
-        if self.form() == IdForm::Keyed || self.type_code() != Some('L') {
+        if self.shape() == IdForm::Keyed || self.type_code() != Some('L') {
             return None;
         }
         let (lexeme, part) = self.0.rsplit_once('-')?;
@@ -295,7 +271,7 @@ impl EntityId {
     /// (0041 §7, 0017 §1).
     #[must_use]
     pub fn is_derived(&self) -> bool {
-        self.form() == IdForm::Local && self.type_code() == Some('M')
+        self.shape() == IdForm::Local && self.type_code() == Some('M')
     }
 
     /// For a derived `M` ID, the page ID it is derived from.
@@ -588,23 +564,23 @@ mod tests {
     fn three_forms_by_shape() {
         let q = EntityId::parse("q5").unwrap();
         assert_eq!(
-            (q.as_str(), q.form(), q.numeric_id()),
+            (q.as_str(), q.shape(), q.numeric_id()),
             ("Q5", IdForm::Local, Some(5))
         );
         assert_eq!(q.implied_entity_type(), Some("item"));
         let wd = EntityId::parse("wdp31").unwrap();
         assert_eq!(
-            (wd.as_str(), wd.form(), wd.numeric_id()),
+            (wd.as_str(), wd.shape(), wd.numeric_id()),
             ("WDP31", IdForm::Foreign, Some(31))
         );
         assert_eq!(wd.implied_entity_type(), Some("property"));
         let mb = EntityId::parse("MBAb10bbbfc-cf9e-42e0-be17-e2c3e1d2600d").unwrap();
-        assert_eq!(mb.form(), IdForm::Foreign);
+        assert_eq!(mb.shape(), IdForm::Foreign);
         assert_eq!(mb.numeric_id(), None);
         assert_eq!(mb.implied_entity_type(), None);
         let d = EntityId::parse("Domain:en.wikipedia.org").unwrap();
         assert_eq!(
-            (d.as_str(), d.form(), d.numeric_id()),
+            (d.as_str(), d.shape(), d.numeric_id()),
             ("domain:en.wikipedia.org", IdForm::Keyed, None)
         );
         assert_eq!(d.implied_entity_type(), Some("domain"));
@@ -636,7 +612,7 @@ mod tests {
             ),
         ] {
             let id = EntityId::parse(written).unwrap();
-            assert_eq!((id.as_str(), id.form()), (canonical, form), "{written}");
+            assert_eq!((id.as_str(), id.shape()), (canonical, form), "{written}");
             let (base, part) = id.lexeme_part().unwrap();
             assert_eq!(
                 (base.as_str(), part.entity_type()),
@@ -669,14 +645,6 @@ mod tests {
         ] {
             assert!(EntityId::parse(s).is_err(), "{s:?}");
         }
-        // The provider's grammar takes the suffix for its lexeme type only.
-        let p = ProviderRegistry::default_registry();
-        let k = KeyedRegistry::default_registry();
-        let v = |s: &str| EntityId::parse(s).unwrap().validate(p, k);
-        assert_eq!(v("WDL1-f1").unwrap().as_str(), "WDL1-F1");
-        assert_eq!(v("WDL1-S12").unwrap().as_str(), "WDL1-S12");
-        assert!(v("WDQ1-F1").is_err());
-        assert!(v("WDL1-X1").is_err());
         // A statement on a part, as Wikibase writes it (wikibase-compat §2).
         let sid = StatementId::parse("L1-F1$8a3c0c6b-0b7e-4f1e-9d2b-3f4e5a6b7c8d").unwrap();
         assert_eq!(
@@ -696,7 +664,7 @@ mod tests {
         ] {
             let id = EntityId::parse(written).unwrap();
             assert_eq!(id.as_str(), local, "{written}");
-            assert_eq!(id.form(), IdForm::Local);
+            assert_eq!(id.shape(), IdForm::Local);
             assert_eq!(id.implied_entity_type(), Some(kind));
         }
         // 0044 §2: the rest follows the local grammar, which is digits.
@@ -705,16 +673,10 @@ mod tests {
             Err(IdParseError::Local(_))
         ));
         // Only the exact triple is tenant-relative; `QQP5` is a (reserved, unregistered)
-        // foreign shape and is left for the provider registry to reject.
+        // foreign shape and is left for the provider registry to reject
+        // (`scatter-wikibase-ids`' `TriplespaceId::validate`).
         let qqp = EntityId::parse("QQP5").unwrap();
-        assert_eq!((qqp.as_str(), qqp.form()), ("QQP5", IdForm::Foreign));
-        assert!(matches!(
-            qqp.validate(
-                ProviderRegistry::default_registry(),
-                KeyedRegistry::default_registry()
-            ),
-            Err(IdParseError::Foreign(_))
-        ));
+        assert_eq!((qqp.as_str(), qqp.shape()), ("QQP5", IdForm::Foreign));
         // Round trip through serde canonicalizes too, so the form is never stored.
         let id: EntityId = serde_json::from_str(r#""QQQ5""#).unwrap();
         assert_eq!(serde_json::to_string(&id).unwrap(), r#""Q5""#);
@@ -759,30 +721,6 @@ mod tests {
         assert!(StatementId::parse("$C13E7A23-11E7-4C91-A799-3D1806B65444").is_err());
         assert!(Subject::parse("").is_err());
         assert!(Subject::parse("99999999999999999999999").is_err());
-    }
-
-    #[test]
-    fn validation_against_registries() {
-        let p = ProviderRegistry::default_registry();
-        let k = KeyedRegistry::default_registry();
-        let v = |s: &str| EntityId::parse(s).unwrap().validate(p, k);
-        assert_eq!(v("Q5").unwrap().as_str(), "Q5");
-        assert_eq!(
-            v("mbab10BBBFC-CF9E-42E0-BE17-E2C3E1D2600D")
-                .unwrap()
-                .as_str(),
-            "MBAb10bbbfc-cf9e-42e0-be17-e2c3e1d2600d"
-        );
-        assert_eq!(
-            v("domain:Bücher.example").unwrap().as_str(),
-            "domain:xn--bcher-kva.example"
-        );
-        assert!(matches!(v("ZZQ1"), Err(IdParseError::Foreign(_))));
-        assert!(matches!(v("isbn:123"), Err(IdParseError::Keyed(_))));
-        assert!(matches!(
-            v("OAKmachine-learning"),
-            Err(IdParseError::Foreign(_))
-        ));
     }
 
     #[test]

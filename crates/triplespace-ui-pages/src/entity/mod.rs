@@ -40,13 +40,15 @@ use std::collections::{BTreeMap, BTreeSet};
 use axum::http::{HeaderMap, StatusCode};
 use axum::response::Response;
 use scatter_wikibase_fusion::badges::BadgeRegistry;
+use scatter_wikibase_ids::IdForm;
 use scatter_wikibase_model::entity::Entity;
-use scatter_wikibase_model::id::{EntityId, IdForm};
+use scatter_wikibase_model::id::EntityId;
 use scatter_wikibase_model::statement::{Snak, SnakKind};
 use scatter_wikibase_model::value::DataValue;
 use serde_json::Value;
 use triplespace_client::{CacheInfo, ClientError, Provenance, SiteInfo};
 
+use scatter_wikibase_ids::TriplespaceId as _;
 use scatter_wikibase_shape::Roles;
 
 pub use notes::Endnotes;

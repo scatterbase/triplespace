@@ -24,6 +24,7 @@ use serde_json::Value;
 use triplespace_client::{Incoming, Lookup as Found};
 
 use crate::entity::{Lookup, entity_href};
+use scatter_wikibase_ids::TriplespaceId as _;
 use triplespace_ui_kit::Site;
 use triplespace_ui_kit::frame::title_url;
 use triplespace_ui_kit::i18n::Messages;
@@ -496,7 +497,7 @@ fn sheet_data(
     entities: &BTreeMap<String, Value>,
     labels: &Lookup,
 ) -> String {
-    use scatter_wikibase_model::IdForm;
+    use scatter_wikibase_ids::IdForm;
     let m = &cx.m;
     let drawn = model(m, &source.title, def, entities, labels);
     let columns: Vec<Value> = def

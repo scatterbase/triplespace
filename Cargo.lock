@@ -3058,7 +3058,7 @@ dependencies = [
 
 [[package]]
 name = "scatter-providers"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "getrandom 0.3.4",
  "oxrdf",
@@ -3125,6 +3125,7 @@ name = "scatter-wikibase-changeset"
 version = "0.0.1"
 dependencies = [
  "indexmap",
+ "scatter-keyed",
  "scatter-providers",
  "scatter-wikibase-fusion",
  "scatter-wikibase-ids",
@@ -3137,11 +3138,12 @@ dependencies = [
 
 [[package]]
 name = "scatter-wikibase-fusion"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "scatter-keyed",
  "scatter-normalize",
  "scatter-providers",
+ "scatter-wikibase-ids",
  "scatter-wikibase-model",
  "serde",
  "serde_json",
@@ -3152,22 +3154,20 @@ dependencies = [
 
 [[package]]
 name = "scatter-wikibase-ids"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
+ "scatter-keyed",
  "scatter-providers",
  "scatter-wikibase-model",
 ]
 
 [[package]]
 name = "scatter-wikibase-model"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
- "getrandom 0.3.4",
  "indexmap",
  "md-5",
- "scatter-keyed",
  "scatter-normalize",
- "scatter-providers",
  "serde",
  "serde_json",
  "sha1",
@@ -3209,6 +3209,7 @@ version = "0.0.1"
 dependencies = [
  "flate2",
  "getrandom 0.3.4",
+ "scatter-wikibase-ids",
  "scatter-wikibase-model",
  "serde_json",
 ]
@@ -4106,6 +4107,7 @@ dependencies = [
  "scatter-threads",
  "scatter-wikibase-changeset",
  "scatter-wikibase-fusion",
+ "scatter-wikibase-ids",
  "scatter-wikibase-model",
  "scatter-wikibase-resolve",
  "serde",
@@ -4236,6 +4238,7 @@ dependencies = [
  "scatter-titles",
  "scatter-wikibase-changeset",
  "scatter-wikibase-fusion",
+ "scatter-wikibase-ids",
  "scatter-wikibase-model",
  "scatter-wikibase-resolve",
  "scatter-wikitext",
@@ -4415,6 +4418,7 @@ dependencies = [
  "scatter-pages",
  "scatter-titles",
  "scatter-wikibase-fusion",
+ "scatter-wikibase-ids",
  "scatter-wikibase-model",
  "scatter-wikibase-shape",
  "serde",
@@ -4432,6 +4436,7 @@ dependencies = [
  "base64 0.23.1",
  "percent-encoding",
  "scatter-titles",
+ "scatter-wikibase-ids",
  "scatter-wikibase-model",
  "scatter-wikibase-shape",
  "serde",

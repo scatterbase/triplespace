@@ -1,18 +1,27 @@
 [package]
 name = "scatter-wikibase-ids"
-version = "0.0.1"
+version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
 description = "How Triplespace names Wikibase entities: value IRIs stored as entity IDs, and (in 0115 §13's second phase) the foreign, keyed and tenant-relative ID forms"
-# Not yet published: see 0115 §13.
-publish = false
+readme = "README.md"
+homepage = "https://triplespace.readthedocs.io/"
+keywords = ["wikibase", "wikidata", "identifiers", "rdf", "knowledge-graph"]
+categories = ["data-structures", "encoding"]
+# Published on crates.io (0115 §13, §14); LICENSE is a symlink into the repository.
 
 [dependencies]
 scatter-wikibase-model.workspace = true
-scatter-providers.workspace = true
+scatter-providers = { workspace = true, optional = true }
+scatter-keyed.workspace = true
+
+[features]
+default = ["providers"]
+# Triplespace's provider model, `scatter-providers`, as a `ProviderModel`, and `hasher_for`.
+providers = ["dep:scatter-providers"]
 
 [lints]
 workspace = true

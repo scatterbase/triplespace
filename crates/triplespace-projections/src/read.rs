@@ -13,6 +13,7 @@ use scatter_wikibase_resolve::{Contribution, Correction, Resolved, resolve};
 
 use crate::common::Partitions;
 use crate::entities::EntityProjection;
+use scatter_wikibase_ids::TriplespaceId as _;
 
 /// An entity as it stands.
 #[derive(Debug, Clone)]
@@ -108,12 +109,12 @@ impl Current {
                 let id = s.id.clone()?;
                 let subject = id.entity_id()?;
                 let upstream = match subject.form() {
-                    scatter_wikibase_model::id::IdForm::Foreign => registry
+                    scatter_wikibase_ids::IdForm::Foreign => registry
                         .parse_foreign_id(subject.as_str())
                         .ok()
                         .map(|f| scatter_providers::UpstreamRef::of(&f))?,
-                    scatter_wikibase_model::id::IdForm::Keyed => mapped_from(&prov.graphs[0])?,
-                    scatter_wikibase_model::id::IdForm::Local => return None,
+                    scatter_wikibase_ids::IdForm::Keyed => mapped_from(&prov.graphs[0])?,
+                    scatter_wikibase_ids::IdForm::Local => return None,
                 };
                 Some((id, upstream))
             })
@@ -159,7 +160,7 @@ pub async fn mapped_alias<C: Partitions>(
     tenant: &str,
     id: &EntityId,
 ) -> Result<Option<EntityId>, String> {
-    if id.form() != scatter_wikibase_model::id::IdForm::Foreign {
+    if id.form() != scatter_wikibase_ids::IdForm::Foreign {
         return Ok(None);
     }
     let Ok(foreign) = registry.parse_foreign_id(id.as_str()) else {

@@ -37,6 +37,7 @@ use triplespace_projections::revision_state;
 
 use crate::bundle::{Offsets, PartitionRef, Reader, Shown, published, redact};
 pub use crate::records::BuildError;
+use scatter_wikibase_ids::TriplespaceId as _;
 
 /// MediaWiki's `$wgExportPagelistLimit`: how many pages `addns` or `addcat` may add.
 pub const PAGELIST_LIMIT: i64 = 5000;

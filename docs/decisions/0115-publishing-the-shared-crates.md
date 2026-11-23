@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-22
-- **Updated:** 2026-11-22 (A2)
+- **Updated:** 2026-11-23 (A4)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0042](0042-template-expansion-and-parsoid.md), [0097](0097-versioning-and-skins.md)
 
@@ -69,6 +69,22 @@ On Q7, `scatter-wikibase-model`, after its entity IDs were found to be read insi
 - Asked how the extension crates are named, he chose **two crates**, `scatter-wikibase-ids` and `scatter-wikibase-fusion`.
 - Asked how it is delivered, he chose **in phases**: first the fusion keys, the search document, badges and value IRIs; then the ID forms and keyed data types.
 
+For the second phase, after its reach was measured (about 530 uses in 18 crates):
+
+- Asked where Triplespace's canonicalization of IDs (`wdq42` to `WDQ42`, `QQQ5` to `Q5`) happens once the base stops doing it, he chose **at input boundaries**: wherever Triplespace reads IDs from users, through `scatter-wikibase-ids`, while stored JSON is read by the base as written.
+- Asked how the base serializer gets `numeric-id` and the implied entity type for IDs that are not Wikibase's own shape, he chose **an `IdScheme` hook** passed in with the output form, as `ValueIriMap` reaches the hasher.
+- Asked how it is delivered, he chose **two parts**: first the extension trait, with dependents moved to it and behaviour unchanged; then the base made pure Wikibase.
+
+After the first part and the first step of the second (the base knowing no registry), told that moving canonicalization out of the ID type would make the crates purer but Triplespace less resilient, and offered to stop there and publish:
+
+- **"This sounds like the best option"**.
+
+On Q5, offered two ways for `scatter-wikibase-ids` and `scatter-wikibase-fusion` to be published although both use `scatter-providers` (publish it too, or have the two crates take provider information through a small trait):
+
+- **"I like the idea of doing both of these: publish scatter-providers as an opinionated crate, and then provide a trait interface for alternatives"**.
+- Asked whether anything should move out of `scatter-providers`, and told that only the Wikidata code in `scatter-wikibase-fusion` needed it beyond the trait, he chose to get that code through the trait too, and to leave the rest of `scatter-providers` as it is.
+- Asked to confirm that the trait's provider code by slug is `None` unless an implementation gives it, and that the `scatter-providers` implementation sits behind a feature on by default, he confirmed both.
+
 ## Decision
 
 ### 1. Shared crates are published to crates.io from this workspace (amends 0005 §6)
@@ -123,6 +139,10 @@ On Q7, `scatter-wikibase-model`, after its entity IDs were found to be read insi
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §11.3; [06](../architecture/06-statements-and-properties.md) §6.3; [22](../architecture/22-crates-and-stack.md) §3.6.*
 
+### 14. `scatter-providers` is published as Triplespace's provider model, and the extensions take providers through a trait
+
+*Current text: [22](../architecture/22-crates-and-stack.md) §3.6.*
+
 ## Alternatives considered
 
 - **A checked copy of each registry file inside the crate**, with a checker that fails when it differs from `docs/registry/`. It works on every platform, but it is a second copy to regenerate after every registry edit.
@@ -147,7 +167,7 @@ The plan for the other strong candidates. Each depends on the questions before i
 - **Q2. `scatter-wikitext`'s CSS classes.** *Settled by §6.*
 - **Q3. `scatter-talk`.** *Settled by §9.*
 - **Q4. `scatter-vocab`.** *Settled by §12.*
-- **Q5. `scatter-providers`.** Its whole API is Triplespace's provider model: two-letter codes, revision IDs packed as `number << 40 | n`, tenant entity sources, adapters, trust and chip colours. Only `IdGrammar` is general. *Recommendation:* never publish it. Instead, take it out of the dependency tree of the published Wikibase crates (Q7, Q8), and leave it a shared crate for Scatterbase as it is.
+- **Q5. `scatter-providers`.** *Settled by §14.*
 - **Q6. `scatter-normalize`.** *Settled by §11.*
 - **Q7. `scatter-wikibase-model`.** *Settled by §13.*
 - **Q8. `scatter-wikibase-rdf`.** The renderer, both flavours, the dump header, N-Triples and Turtle are general Wikibase RDF 1.0.0. `IriScheme` resolves foreign, source and keyed IDs through the provider and keyed registries, and `with_default_registries` and `Namespaces::triplespace` are Triplespace's. *Recommendation:* concept and document IRIs come through a trait. The registry-backed implementation moves to `triplespace-rdf`, which drops the dependencies on `scatter-providers` and `scatter-normalize`. Publish after Q7. §10 now decides the shape: a base crate of pure Wikibase and an extension crate named for what it holds, both published.
@@ -175,4 +195,20 @@ The plan for the other strong candidates. Each depends on the questions before i
 - **Source:** Direct: Claude, while building the parser's structure, 2026-11-22; confirmed by James, 2026-11-22
 - **Change:** extends §5
 - **Summary:** MediaWiki's rules for bold and italic are in `scatter-wikitext-parse`, as its `quotes` module, and `scatter-wikitext` uses them; balancing HTML tags and making paragraphs stay in `scatter-wikitext`. James asked for all three to move. The apostrophe rules read only the runs of a line and are wikitext's own, of use to any reader of the parser's output. Tag balancing and paragraphs are HTML tree construction (which elements close a paragraph, implied end tags, reopening formatting elements, `tree::Builder`), which a renderer needs and a parser of wikitext does not, so moving them would put an HTML tree builder in the parser. Chapter text: 22 §3.6.
+
+### A3. The base keeps canonicalizing IDs until the write path has one place to do it
+
+- **Date:** 2026-11-23
+- **Source:** Direct: Claude, while building 0115 §13's second phase, 2026-11-23; overturned by James, 2026-11-23 (A4)
+- **Change:** extends §13
+- **Summary:** The second phase's second part is done in two steps. The first is done: provider hashing moved to `scatter-wikibase-ids` (`hasher_for`), and `IdParseError` carries a provider's or keyed-type registry's reason as text, so `scatter-wikibase-model` knows neither registry and depends on neither. The base's `EntityId` still canonicalizes Triplespace's forms (case, the tenant-relative `QQQ5`) and still classifies them for `numeric-id` and the implied entity type, and the keyed data types are still in the model, because client JSON is read into the model by serde in many places across the API and no one place on the write path sees every ID a client writes: `validate_all` is not called outside its crate. Stopping the base's canonicalization before such a place exists would store `wdq42` or `QQQ5` as written, or reject them. The next step is that place, a canonicalizing pass over decoded operations that every write path runs, and then the base change, the `IdScheme` hook and the keyed data types as James chose. Chapter text: 22 §3.6.
+
+### A4. The base keeps its shape rules, and is published
+
+- **Date:** 2026-11-23
+- **Source:** Direct: James, design discussion of 2026-11-23
+- **Change:** amends §13
+- **Summary:** The second phase stops where it is: `scatter-wikibase-model` knows no provider or keyed-type registry, Triplespace's reading of IDs, their validation and provider hashing are in `scatter-wikibase-ids`, and the base keeps its shape rules (case canonicalization, the three-letter and colon ID forms carried as data, the tenant-relative `QQQ5`, the three keyed data types known by name), documented in its README as harmless to anyone else. Canonicalizing in the ID type keeps it on every path that makes an ID, where canonicalizing at each place Triplespace reads input would depend on each such place remembering to, and a missed one would store `wdq42` as written; the crates are purer the other way, but Triplespace is less resilient. It replaces the plan of A3 and of the Direction's answers on canonicalizing at input boundaries and on an `IdScheme` hook. The base is published at 0.1.0. `scatter-wikibase-ids` and `scatter-wikibase-fusion` both depend on `scatter-providers`, which Q5 recommends never publishing, so they wait on Q5. Chapter text: 22 §3.6.
+
+Replaced text: 22 §3.6.
 

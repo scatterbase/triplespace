@@ -11,7 +11,8 @@
 use std::cmp::Ordering;
 use std::collections::BTreeMap;
 
-use scatter_wikibase_model::id::{EntityId, IdForm};
+use scatter_wikibase_ids::IdForm;
+use scatter_wikibase_model::id::EntityId;
 use scatter_wikibase_model::sites::SiteRegistry;
 use scatter_wikibase_model::statement::{Rank, Snak, SnakGroups, SnakKind, Statement};
 use scatter_wikibase_model::value::{
@@ -22,6 +23,7 @@ use scatter_wikibase_shape::{Group, Role, Shape, Thresholds, classify};
 use serde::Serialize;
 
 use super::{Render, chart, values};
+use scatter_wikibase_ids::TriplespaceId as _;
 use triplespace_ui_kit::badge::BadgeModel;
 use triplespace_ui_kit::codex::{Align, Chip, ChipKind, ChipModel, TableModel};
 use triplespace_ui_kit::frame::title_url;

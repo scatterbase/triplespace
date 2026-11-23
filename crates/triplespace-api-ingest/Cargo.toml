@@ -25,7 +25,7 @@ scatter-actors.workspace = true
 thiserror.workspace = true
 scatter-wikibase-changeset.workspace = true
 scatter-wikibase-model.workspace = true
-scatter-wikibase-fusion.workspace = true
+scatter-wikibase-fusion = { workspace = true, features = ["providers"] }
 tokio-postgres.workspace = true
 deadpool-postgres.workspace = true
 serde_json.workspace = true

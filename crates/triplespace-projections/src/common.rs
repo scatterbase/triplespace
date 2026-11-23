@@ -11,7 +11,9 @@ use scatter_log_postgres::PgClient;
 use scatter_log_postgres::ids::partition_to_db;
 use scatter_projection::Applied;
 use scatter_wikibase_changeset::Operation;
-use scatter_wikibase_model::id::{EntityId, IdForm};
+use scatter_wikibase_ids::IdForm;
+use scatter_wikibase_ids::TriplespaceId as _;
+use scatter_wikibase_model::id::EntityId;
 
 /// The change-set payload type.
 pub const PAYLOAD_CHANGESET: &str = "scatter:v0/changeset";

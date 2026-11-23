@@ -11,7 +11,9 @@ use std::sync::OnceLock;
 
 use serde::{Deserialize, Serialize};
 
-use scatter_wikibase_model::id::{EntityId, IdForm};
+use scatter_wikibase_ids::IdForm;
+use scatter_wikibase_ids::TriplespaceId as _;
+use scatter_wikibase_model::id::EntityId;
 use scatter_wikibase_model::statement::Rank;
 
 /// The default badge registry, `docs/registry/badges.toml`, embedded at build time.

@@ -4,10 +4,11 @@
 
 use std::collections::BTreeMap;
 
-use scatter_wikibase_model::id::IdForm;
+use scatter_wikibase_ids::IdForm;
 use scatter_wikibase_model::statement::Statement;
 
 use super::Render;
+use scatter_wikibase_ids::TriplespaceId as _;
 
 impl Render<'_> {
     pub(super) fn pick<'m>(&self, map: &'m BTreeMap<String, String>) -> Option<(&'m str, &'m str)> {

@@ -1,26 +1,36 @@
 [package]
 name = "scatter-wikibase-fusion"
-version = "0.0.1"
+version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
 description = "How Triplespace combines and indexes Wikibase statements: statement keys for fusion, the search document, and badges"
-# Not yet published: it is published with the base model, once 0115 §13's second phase has
-# made scatter-wikibase-model pure Wikibase.
-publish = false
+readme = "README.md"
+homepage = "https://triplespace.readthedocs.io/"
+keywords = ["wikibase", "wikidata", "search", "deduplication", "knowledge-graph"]
+categories = ["data-structures", "text-processing"]
+# Published on crates.io (0115 §13, §14); the registry file and LICENSE are symlinks into the
+# repository, which `cargo package` stores as files (0115 §2).
 
 [dependencies]
 scatter-wikibase-model.workspace = true
+scatter-wikibase-ids.workspace = true
 scatter-normalize.workspace = true
 scatter-keyed.workspace = true
-scatter-providers.workspace = true
+scatter-providers = { workspace = true, optional = true }
 sha2.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 thiserror.workspace = true
 toml.workspace = true
+
+[features]
+default = ["providers"]
+# Triplespace's provider model, `scatter-providers`: `Bound::embedded`, and
+# `scatter-wikibase-ids`'s `providers` feature.
+providers = ["dep:scatter-providers", "scatter-wikibase-ids/providers"]
 
 [lints]
 workspace = true

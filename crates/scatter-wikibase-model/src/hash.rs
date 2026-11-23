@@ -138,17 +138,6 @@ impl Hasher {
         }
     }
 
-    /// The hasher for data mirrored from `provider`: a registry provider's by its code, an
-    /// entity source's by its name.
-    #[must_use]
-    pub fn for_provider(provider: &scatter_providers::Provider) -> Self {
-        if provider.source {
-            Self::mirrored_from_source(&provider.slug)
-        } else {
-            Self::mirrored_from(&provider.code)
-        }
-    }
-
     /// An ID as the source wrote it: a registry provider's foreign ID without its code
     /// (`WDQ42`), a source's colon-form ID without its name (`lb:Q1`).
     fn source_form<'a>(&self, id: &'a EntityId) -> &'a str {
@@ -162,7 +151,7 @@ impl Hasher {
             IdForm::Foreign
         };
         match s.strip_prefix(prefix) {
-            Some(rest) if id.form() == form => rest,
+            Some(rest) if id.shape() == form => rest,
             _ => s,
         }
     }

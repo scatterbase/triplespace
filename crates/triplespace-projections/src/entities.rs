@@ -31,8 +31,9 @@ use scatter_providers::Registry;
 use scatter_wikibase_changeset::apply::{Correction as LocalCorrection, LocalState};
 use scatter_wikibase_changeset::{Operation, Retention};
 use scatter_wikibase_fusion::key::value_key;
+use scatter_wikibase_ids::IdForm;
 use scatter_wikibase_model::entity::Entity;
-use scatter_wikibase_model::id::{EntityId, IdForm, StatementId};
+use scatter_wikibase_model::id::{EntityId, StatementId};
 use scatter_wikibase_model::statement::SnakKind;
 use scatter_wikibase_model::value::{DataType, DataValue};
 use scatter_wikibase_resolve::{Contribution, Correction, Resolved, resolve};
@@ -43,6 +44,7 @@ use crate::common::{
     partition_of, time_of,
 };
 use crate::sources::entity_subject;
+use scatter_wikibase_ids::TriplespaceId as _;
 
 /// The instance's term languages, the languages in which a mirrored entity's terms are
 /// shared rows of `view.term` (05 §5.8; 0070 §6; 0082 §6), as a CTE named

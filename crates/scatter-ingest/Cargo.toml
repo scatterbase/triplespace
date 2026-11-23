@@ -14,7 +14,7 @@ scatter-log.workspace = true
 scatter-projection.workspace = true
 scatter-wikibase-changeset.workspace = true
 scatter-wikibase-model.workspace = true
-scatter-wikibase-ids.workspace = true
+scatter-wikibase-ids = { workspace = true, features = ["providers"] }
 scatter-providers.workspace = true
 mwdump.workspace = true
 serde.workspace = true

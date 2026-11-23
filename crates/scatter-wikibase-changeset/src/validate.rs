@@ -10,14 +10,16 @@ use std::collections::{BTreeMap, HashMap};
 use std::fmt;
 
 use scatter_providers::Registry;
+use scatter_wikibase_ids::IdForm;
 use scatter_wikibase_model::entity::Entity;
-use scatter_wikibase_model::id::{EntityId, IdForm, StatementId, Subject};
+use scatter_wikibase_model::id::{EntityId, StatementId, Subject};
 use scatter_wikibase_model::statement::{Snak, SnakKind, Statement};
 use scatter_wikibase_model::value::{DataType, DataValue};
 
 use crate::job::{Graph, JobHeader, Mode};
 use crate::op::{Link, Operation, Upstream};
 use crate::rank::ProviderOrder;
+use scatter_wikibase_ids::TriplespaceId as _;
 
 /// The property type map (0002 §8.6): what a property's data type is.
 pub trait PropertyTypes {
@@ -479,10 +481,12 @@ fn check_link(
 
 /// Keyed entities that are names, keywords and notations, never join a cluster: a `same-as`
 /// with one on either side is refused as a type mismatch (0009 §8). The keyed-type registry's
-/// `clusters` says which types those are ([`EntityId::joins_clusters`]). `different-from` and
-/// removing a link are not joins, so they are not checked here.
+/// `clusters` says which types those are (`TriplespaceId::joins_clusters`); this reads the
+/// embedded registry, as the model did before 0115 §13 moved the method. `different-from`
+/// and removing a link are not joins, so they are not checked here.
 fn check_clusters(ids: &[EntityId], out: &mut Vec<Problem>) {
-    if !ids.iter().all(EntityId::joins_clusters) && !out.contains(&Problem::LinkTypes) {
+    let keyed = scatter_keyed::KeyedRegistry::default_registry();
+    if !ids.iter().all(|id| id.joins_clusters(keyed)) && !out.contains(&Problem::LinkTypes) {
         out.push(Problem::LinkTypes);
     }
 }
