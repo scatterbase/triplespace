@@ -291,9 +291,9 @@ pub async fn handle(
                 Err(e) => return internal(&e),
             };
         if held.is_none() {
-            // The local item minted for it, until clusters are projected (0078 A10).
+            // The local item minted for it, a member of its cluster (05 §6.6; 04 §4).
             let linked =
-                match triplespace_projections::same_as::linked(client, &tenant.slug, &id).await {
+                match triplespace_projections::identity::members(client, &tenant.slug, &id).await {
                     Ok(l) => l,
                     Err(e) => return internal(&e),
                 };

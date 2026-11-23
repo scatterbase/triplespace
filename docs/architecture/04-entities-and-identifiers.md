@@ -463,9 +463,9 @@ IDs that denote the same thing form an **identity cluster**. Each member of a cl
 
 ### 4.2 Clusters are strictly one-to-one
 
-*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §2.*
+*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §2, A24.*
 
-**A cluster holds at most one member from each namespace.** A set of links that would put two members from one namespace into a cluster is a conflict (§4.11). The links involved are held, not applied. For example:
+**A cluster holds at most one member from each namespace.** A set of links that would put two members from one namespace into a cluster is a conflict (§4.11). The links involved are held, not applied: the links of one tier are grouped by the would-be cluster they join, on top of what the higher tiers formed, and a group that breaks the rule, or joins two IDs a `different-from` keeps apart, is held whole ([0004](../decisions/0004-identity-clusters-and-equivalence.md) A24). For example:
 
 - `WDQ1 = OAW1` and `OAW1 = WDQ2` would join two Wikidata items.
 - Both links are held, so `WDQ1`, `OAW1` and `WDQ2` stay out of each other's clusters until the conflict is resolved.

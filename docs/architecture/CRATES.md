@@ -98,7 +98,7 @@ Provider codes, slugs and numbers, type codes, canonical IRI templates, and ID r
 
 Identity clusters: one member per namespace, link tiers, `different-from`, held conflicts ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §1–5, §10). Generic over namespace and ID types; the lexeme part-ID grammar and `ts-cluster-part` ([0066](../decisions/0066-lexemes.md) §10); the exact-match map (tier 1, tier 2 and `equivalent-property`, never tier-3 inference), `cluster_id` for search documents, and the expansion of an input ID to its cluster's member set ([0082](../decisions/0082-source-form-and-the-shared-view.md) §7)
 
-**As built** (`scatter-identity`): not a crate in the workspace yet.
+**As built** (`scatter-identity`, from its `//!` docs and `implements` claims): Identity clusters (0004 §1–3, §10; chapter 04 §4.1–§4.3, §4.11): which IDs denote one thing, worked out from the links between them. Claims no section in full yet.
 
 ### scatter-normalize
 

@@ -1,0 +1,15 @@
+[package]
+name = "scatter-identity"
+version = "0.0.1"
+edition.workspace = true
+rust-version.workspace = true
+license.workspace = true
+repository.workspace = true
+authors.workspace = true
+description = "Identity clusters: one member per namespace, link tiers, different-from, held conflicts"
+publish = false
+
+[dependencies]
+
+[lints]
+workspace = true

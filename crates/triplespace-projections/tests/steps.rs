@@ -1369,3 +1369,152 @@ async fn references_are_indexed_and_counted() {
     assert!(sorted(&client, refs).await.is_empty());
     assert!(sorted(&client, counts).await.is_empty());
 }
+
+// 04 §4.1–§4.3, §4.11 (0004 §1–3, §10): a tenant's own `same-as` and `different-from`
+// form clusters; links that would put two members of one namespace into a cluster, or join
+// two IDs a `different-from` keeps apart, are held, every one of them; removing the cause
+// applies them again.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn tier_one_links_form_clusters_and_hold_conflicts() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let mut store = PgLog::new(seed(client).await);
+    let p = pipeline();
+    let link = |op: &str, key: &str, a: &str, b: &str| {
+        draft(
+            PAYLOAD_CHANGESET,
+            key,
+            &json!({"op": op, "id": key, "ids": [a, b]}),
+            None,
+            (key == "Q6").then_some(6),
+        )
+    };
+    let unlink = |op: &str, key: &str, a: &str, b: &str| {
+        draft(
+            PAYLOAD_CHANGESET,
+            key,
+            &json!({"op": "remove", "id": key, "link": {"op": op, "ids": [a, b]}}),
+            None,
+            (key == "Q6").then_some(6),
+        )
+    };
+
+    store
+        .append(LOCAL, link("same-as", "Q6", "Q6", "WDQ1"))
+        .await
+        .unwrap();
+    store
+        .append(LOCAL, link("same-as", "WDQ1", "WDQ1", "OAW1"))
+        .await
+        .unwrap();
+    for partition in ALL {
+        p.catch_up(&backend, &store, partition, 2).await.unwrap();
+    }
+    let client = store.into_inner();
+    assert_eq!(
+        cluster_state(&client).await,
+        (vec!["Q6:OA=OAW1,WD=WDQ1,local=Q6".to_string()], vec![]),
+        "the local member is canonical"
+    );
+    assert_eq!(
+        triplespace_projections::identity::members(&client, TENANT, "OAW1")
+            .await
+            .unwrap(),
+        ["Q6", "WDQ1"]
+    );
+
+    // A second Wikidata member: the links are held, and the cluster dissolves.
+    let client = append_local(
+        client,
+        &backend,
+        &p,
+        link("same-as", "WDQ2", "OAW1", "WDQ2"),
+    )
+    .await;
+    let (clusters, held) = cluster_state(&client).await;
+    assert!(clusters.is_empty(), "{clusters:?}");
+    assert_eq!(held, ["OAW1=WDQ1", "OAW1=WDQ2", "Q6=WDQ1"]);
+    assert_eq!(
+        count(
+            &client,
+            "SELECT count(DISTINCT conflict_id) FROM view.link WHERE status = 'held'"
+        )
+        .await,
+        1
+    );
+
+    // Removing the link that caused it applies the others again.
+    let client = append_local(
+        client,
+        &backend,
+        &p,
+        unlink("same-as", "WDQ2", "OAW1", "WDQ2"),
+    )
+    .await;
+    assert_eq!(
+        cluster_state(&client).await.0,
+        ["Q6:OA=OAW1,WD=WDQ1,local=Q6"]
+    );
+
+    // `different-from` keeps two members apart, through the third.
+    let client = append_local(
+        client,
+        &backend,
+        &p,
+        link("different-from", "Q6", "Q6", "OAW1"),
+    )
+    .await;
+    let (clusters, held) = cluster_state(&client).await;
+    assert!(clusters.is_empty());
+    assert_eq!(held, ["OAW1=WDQ1", "Q6=WDQ1"]);
+    let client = append_local(
+        client,
+        &backend,
+        &p,
+        unlink("different-from", "Q6", "Q6", "OAW1"),
+    )
+    .await;
+    assert_eq!(
+        cluster_state(&client).await.0,
+        ["Q6:OA=OAW1,WD=WDQ1,local=Q6"]
+    );
+    assert_eq!(
+        triplespace_projections::identity::members(&client, TENANT, "Q7")
+            .await
+            .unwrap(),
+        Vec::<String>::new()
+    );
+}
+
+/// The tenant's clusters, as `canonical:namespace=member,…`, and its held links.
+async fn cluster_state(client: &Client) -> (Vec<String>, Vec<String>) {
+    let clusters = sorted(
+        client,
+        "SELECT c.canonical_id || ':' || string_agg(m.namespace || '=' || m.entity_id, ',' ORDER BY m.namespace)
+           FROM view.cluster c JOIN view.cluster_member m USING (tenant, cluster_id)
+          WHERE c.tenant = 'librarybase' GROUP BY c.canonical_id",
+    )
+    .await;
+    let held = sorted(
+        client,
+        "SELECT a || '=' || b FROM view.link WHERE tenant = 'librarybase' AND status = 'held'",
+    )
+    .await;
+    (clusters, held)
+}
+
+/// Appends a record to the tenant's local graph and projects it.
+async fn append_local(
+    client: Client,
+    backend: &PgBackend,
+    p: &Pipeline<PgBackend>,
+    record: Draft,
+) -> Client {
+    let mut store = PgLog::new(client);
+    store.append(LOCAL, record).await.unwrap();
+    p.catch_up(backend, &store, LOCAL, 2).await.unwrap();
+    store.into_inner()
+}
