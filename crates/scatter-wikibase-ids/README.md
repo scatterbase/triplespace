@@ -21,6 +21,12 @@ entity ID as data, and this crate says what the IDs mean.
   of a value as the entity ID they name (`WDQ11573`). It expands them back to the IRIs Wikibase
   writes, both for output and before hashes are taken.
 
+- **Entity IRIs in RDF**, with the `rdf` feature. `TriplespaceIris` is an implementation of
+  [`scatter-wikibase-rdf`](https://crates.io/crates/scatter-wikibase-rdf)'s `EntityIris`. It
+  names a foreign ID by its provider's IRI template, and a keyed ID by its type's template. With
+  `providers` as well, `rdf::upstream_nodes` names mirrored statements as their upstream names
+  them.
+
 It does no I/O and builds for `wasm32-unknown-unknown`.
 
 ## Example

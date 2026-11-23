@@ -16,12 +16,24 @@ categories = ["data-structures", "encoding"]
 [dependencies]
 scatter-wikibase-model.workspace = true
 scatter-providers = { workspace = true, optional = true }
+scatter-wikibase-rdf = { workspace = true, optional = true }
+oxrdf = { workspace = true, optional = true }
 scatter-keyed.workspace = true
 
 [features]
 default = ["providers"]
 # Triplespace's provider model, `scatter-providers`, as a `ProviderModel`, and `hasher_for`.
 providers = ["dep:scatter-providers"]
+# Triplespace's entity IRIs for `scatter-wikibase-rdf`: `TriplespaceIris`, and with
+# `providers` the upstream nodes of mirrored statements.
+rdf = ["dep:scatter-wikibase-rdf", "dep:oxrdf"]
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[[test]]
+name = "rdf_upstream"
+required-features = ["rdf", "providers"]
 
 [lints]
 workspace = true

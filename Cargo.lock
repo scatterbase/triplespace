@@ -3114,7 +3114,7 @@ dependencies = [
 
 [[package]]
 name = "scatter-vocab"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "getrandom 0.3.4",
  "oxrdf",
@@ -3156,9 +3156,12 @@ dependencies = [
 name = "scatter-wikibase-ids"
 version = "0.1.1"
 dependencies = [
+ "oxrdf",
  "scatter-keyed",
  "scatter-providers",
  "scatter-wikibase-model",
+ "scatter-wikibase-rdf",
+ "serde_json",
 ]
 
 [[package]]
@@ -3178,16 +3181,12 @@ dependencies = [
 
 [[package]]
 name = "scatter-wikibase-rdf"
-version = "0.0.1"
+version = "0.1.0"
 dependencies = [
  "getrandom 0.3.4",
  "oxrdf",
  "oxttl",
- "scatter-keyed",
- "scatter-normalize",
- "scatter-providers",
  "scatter-vocab",
- "scatter-wikibase-ids",
  "scatter-wikibase-model",
  "serde_json",
  "sha2 0.11.1",
