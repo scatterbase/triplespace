@@ -28,9 +28,11 @@ use scatter_providers::Provider;
 use scatter_wikibase_changeset::{
     Adapter, AdapterError, KeyMap, Upstream, WikibaseAdapter, deterministic_statement_id,
 };
+use scatter_wikibase_ids::IdForm;
+use scatter_wikibase_ids::TriplespaceId as _;
 use scatter_wikibase_model::entity::{Entity, EntityType, ParsedEntity};
 use scatter_wikibase_model::hash::Hasher;
-use scatter_wikibase_model::id::{EntityId, IdForm};
+use scatter_wikibase_model::id::EntityId;
 use scatter_wikibase_model::statement::{Snak, SnakKind, Statement};
 use scatter_wikibase_model::value::{DataType, DataValue};
 

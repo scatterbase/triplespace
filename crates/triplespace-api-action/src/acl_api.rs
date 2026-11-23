@@ -33,6 +33,7 @@ use crate::api::Ctx;
 use crate::edit::now_micros;
 use crate::modules::moderation::{current, denied, expiry, groups, save};
 use crate::response::ApiError;
+use scatter_wikibase_ids::TriplespaceId as _;
 
 /// The refusal for a target that does not exist, or that the caller may not read.
 fn no_target(key: &str) -> ApiError {
@@ -60,7 +61,7 @@ pub fn target_of(kind: &str, id: &str) -> Result<Target, ApiError> {
             .map_err(|_| ApiError::bad_value("id", id)),
         "entity" => {
             let parsed = crate::modules::entities::parse_id(id)?;
-            if parsed.form() == scatter_wikibase_model::id::IdForm::Foreign {
+            if parsed.form() == scatter_wikibase_ids::IdForm::Foreign {
                 return Err(ApiError::new(
                     "ts-not-supported",
                     "A mirrored entity is restricted by its provider, not here.",

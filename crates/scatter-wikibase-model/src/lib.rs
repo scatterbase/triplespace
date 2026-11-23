@@ -43,7 +43,7 @@ pub mod value;
 
 pub use entity::{Entity, EntityType, PageInfo, ParsedEntity, Sitelink, Term};
 pub use hash::{HashMismatches, Hasher};
-pub use id::{EntityId, IdForm, IdParseError, LexemePart, StatementId, Subject};
+pub use id::{EntityId, IdParseError, LexemePart, StatementId, Subject};
 pub use iris::{ValueIriMap, map_value_iris};
 pub use json::{Form, JsonError};
 pub use php::float_string as php_float_string;

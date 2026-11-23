@@ -13,6 +13,7 @@ publish = false
 scatter-wikibase-model.workspace = true
 scatter-wikibase-fusion.workspace = true
 scatter-wikibase-ids.workspace = true
+scatter-keyed.workspace = true
 scatter-providers.workspace = true
 indexmap.workspace = true
 serde.workspace = true

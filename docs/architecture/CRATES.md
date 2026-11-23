@@ -224,15 +224,15 @@ Entities, terms, sitelinks, statements, snaks, data values and data types; the t
 
 ### scatter-wikibase-ids
 
-**Depends on:** `scatter-wikibase-model`, `scatter-providers` · **Rules:** pure
+**Depends on:** `scatter-wikibase-model`, `scatter-providers`, `scatter-keyed` · **Rules:** pure
 
-An extension of the pair [0115](../decisions/0115-publishing-the-shared-crates.md) §13 makes, holding how Triplespace names entities over `scatter-wikibase-model`: value IRIs (`unit`, `globe`, `calendarmodel`) stored as the entity IDs they name and expanded for output and for Wikibase's hashes through the model's `ValueIriMap` ([0004](../decisions/0004-identity-clusters-and-equivalence.md) A20, A23). The foreign, keyed and tenant-relative ID forms and the keyed data types follow in the second phase
+An extension of the pair [0115](../decisions/0115-publishing-the-shared-crates.md) §13 makes, holding how Triplespace names entities over `scatter-wikibase-model`: the local, foreign and keyed ID forms ([0017](../decisions/0017-entity-id-grammar.md) §1–3) as the `TriplespaceId` trait over the model's `EntityId`, with `validate` against the provider and keyed-type registries and `joins_clusters` against a keyed registry passed in ([0009](../decisions/0009-keyed-entity-types-and-domain.md) §8); value IRIs (`unit`, `globe`, `calendarmodel`) stored as the entity IDs they name and expanded for output and for Wikibase's hashes through the model's `ValueIriMap` ([0004](../decisions/0004-identity-clusters-and-equivalence.md) A20, A23). Canonicalizing IDs written by users, the keyed data types and provider hashing follow in the rest of the second phase
 
 **As built** (`scatter-wikibase-ids`, from its `//!` docs and `implements` claims): How Triplespace names Wikibase entities (0115 §13): an extension crate over `scatter-wikibase-model`, under 22 §1.2 rule 12. Claims no section in full yet.
 
 ### scatter-wikibase-fusion
 
-**Depends on:** `scatter-wikibase-model`, `scatter-normalize`, `scatter-keyed`, `scatter-providers`, `sha2` · **Rules:** pure
+**Depends on:** `scatter-wikibase-model`, `scatter-wikibase-ids`, `scatter-normalize`, `scatter-keyed`, `scatter-providers`, `sha2` · **Rules:** pure
 
 An extension of the pair [0115](../decisions/0115-publishing-the-shared-crates.md) §13 makes, holding how Triplespace combines and indexes statements over `scatter-wikibase-model`: statement keys, what the resolved view fuses statements by, with canonical IDs and resolvers passed in ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §7–8); the search-document builder ([0014](../decisions/0014-caches-and-search.md) §9); badges, with the registry embedding `docs/registry/badges.toml` ([0114](../decisions/0114-badges.md))
 
@@ -256,7 +256,7 @@ Reconciliation across source graphs and statement fusion ([0002](../decisions/00
 
 ### scatter-wikibase-changeset
 
-**Depends on:** `scatter-wikibase-model`, `scatter-wikibase-fusion`, `scatter-wikibase-ids`, `scatter-providers` · **Rules:** pure
+**Depends on:** `scatter-wikibase-model`, `scatter-wikibase-fusion`, `scatter-wikibase-ids`, `scatter-providers`, `scatter-keyed` · **Rules:** pure
 
 The change-set operations and the NDJSON wire format ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §8, [0004](../decisions/0004-identity-clusters-and-equivalence.md) §9, [0009](../decisions/0009-keyed-entity-types-and-domain.md) §10), the `put` fields of [0012](../decisions/0012-api-requirements.md) §2.2, eager validation, and the `Adapter` trait with its optional key-mapping capability ([0009](../decisions/0009-keyed-entity-types-and-domain.md) §9, §12); the `adopt` operation and its source fields ([0035](../decisions/0035-adopting-a-wikibase.md) §3); change sets keyed by page ID, restricted to statements ([0038](../decisions/0038-page-metadata-and-categories.md) §1); paths into `forms` and `senses` and the lexeme part operations ([0066](../decisions/0066-lexemes.md) §10); compiling a selection of local assertions into an upstream change set through a cluster map, with Wikibase JSON and QuickStatements V1 output ([0067](../decisions/0067-proposals.md) §9); the diff of a submitted entity against a resolved view and the ownership-aware mapping of what remains to `add`, `remove` and `override`, with `ts-foreign-statement` for a value change on a mirror-owned statement ([0084](../decisions/0084-wikibase-writes-against-the-resolved-view.md) §6); the references of an entity state, each keyed by its statement and by Wikibase's reference hash recomputed from its snaks, and the references added and removed between two states, for a fold over an entity's revisions that keeps only the previous state's keys ([0005](../decisions/0005-crate-organization.md) A128)
 
@@ -272,7 +272,7 @@ Parsing constraints from a property's statements by role; one checker per constr
 
 ### scatter-wikibase-shape
 
-**Depends on:** `scatter-wikibase-model`, `scatter-pages`, `scatter-scope` · **Rules:** pure, wasm
+**Depends on:** `scatter-wikibase-model`, `scatter-wikibase-ids`, `scatter-pages`, `scatter-scope` · **Rules:** pure, wasm
 
 Shape detection and the role map ([0003](../decisions/0003-statement-ui.md) §3, §7). Builds for `wasm32`; the `triplespace-table` content model: definition types, schema validation, canonical serialization and the cell rule ([0045](../decisions/0045-table-content-model.md) §3–5); the `rows` kinds of [0060](../decisions/0060-scopes.md) §6, through `scatter-scope`; lexeme, form and sense term columns ([0066](../decisions/0066-lexemes.md) §10)
 
@@ -564,7 +564,7 @@ The lowest of the site's rendering crates ([0113](../decisions/0113-the-sites-re
 
 ### triplespace-ui-pages
 
-**Depends on:** `triplespace-ui-kit`, `triplespace-client`, `scatter-wikibase-shape`, `scatter-wikibase-model`, `scatter-wikibase-fusion`, `scatter-normalize`, `scatter-providers`, `scatter-titles`, `scatter-pages`, `minijinja`
+**Depends on:** `triplespace-ui-kit`, `triplespace-client`, `scatter-wikibase-shape`, `scatter-wikibase-model`, `scatter-wikibase-ids`, `scatter-wikibase-fusion`, `scatter-normalize`, `scatter-providers`, `scatter-titles`, `scatter-pages`, `minijinja`
 
 The page kinds a title names, over `triplespace-ui-kit` ([0113](../decisions/0113-the-sites-rendering-in-six-crates.md) §1): entity pages with their view models, histories and diffs, `action=render` and its regions ([0057](../decisions/0057-web-tier.md) §8), document pages, talk pages and threads, table pages, the moderation forms, the generated main page and the private tenant's landing page; the scope page and its editor, the scope notice component shared with tables, boards and feeds, and "In n scopes" in About panels ([0060](../decisions/0060-scopes.md) §11); the sprint page, task board, leaderboard and actions, `Special:CreateSprint`, and "open tasks" in About panels ([0061](../decisions/0061-sprints-and-tasks.md) §12); the query page and "Save as Query page" ([0063](../decisions/0063-query-namespace.md) §8); the schema page, entity marker, ad hoc check and EntitySchema special pages ([0064](../decisions/0064-entityschema-and-validation.md) §9); captions, the overlaid foreign-file view and the `thumb` column ([0065](../decisions/0065-mediainfo-captions-and-commons.md) §5); the lexeme page, `NewLexeme`, `MergeLexemes` and the suggester heading ([0066](../decisions/0066-lexemes.md) §10); the proposal thread view, "Propose to…", `Special:Proposals` ([0067](../decisions/0067-proposals.md) §7); the merged talk page, origin filter, destination choice, wikitext composer with upstream preview, pins, and the fork notice's talk choice and About panel controls ([0069](../decisions/0069-synchronized-talk-pages.md) §12); the local preference for entity IDs and labels by cluster ([0082](../decisions/0082-source-form-and-the-shared-view.md) §7); suppress-and-add as one action on a refused value change ([0084](../decisions/0084-wikibase-writes-against-the-resolved-view.md) §6); heading posts, collapsed ranges, post anchors, the imported post's byline and `Special:GoToComment` ([0090](../decisions/0090-converting-talk-pages-comment-by-comment.md) §3, §9); a document page's diff views, text only, side by side and with more context, over the sources and renderings the API serves, and the history's compare form ([0010](../decisions/0010-site-ui.md) §5.6, §6); where one of these names a special page beside its page kind (`Special:CreateSprint`, the EntitySchema special pages, `NewLexeme`, `MergeLexemes`, `Special:Proposals`, `Special:GoToComment`), the special page is `triplespace-ui-special`'s
 
@@ -588,7 +588,7 @@ The special pages that run a wiki or an instance, over `triplespace-ui-kit` and 
 
 ### triplespace-ui-special
 
-**Depends on:** `triplespace-ui-kit`, `triplespace-ui-pages`, `triplespace-client`, `scatter-wikibase-shape`, `scatter-wikibase-model`, `scatter-titles`, No sibling special-page crate
+**Depends on:** `triplespace-ui-kit`, `triplespace-ui-pages`, `triplespace-client`, `scatter-wikibase-shape`, `scatter-wikibase-model`, `scatter-wikibase-ids`, `scatter-titles`, No sibling special-page crate
 
 Every other special page, over `triplespace-ui-kit` and `triplespace-ui-pages` ([0113](../decisions/0113-the-sites-rendering-in-six-crates.md) §1): the feeds, the lists and reports, search, the redirecting pages, comparing, moving and undeleting, the pages about the wiki, and the forms that create and edit entities; `Special:Query` ([0059](../decisions/0059-query-service.md) §8); the scope builder, `Special:CreateWorkspace` and the kit preview ([0062](../decisions/0062-workspaces.md) §10); `Special:MergeUpstream`, the guided conflict view and the About panel actions ([0068](../decisions/0068-merging-with-upstream.md) §6–7); "Propose" on `Special:Corrections` ([0067](../decisions/0067-proposals.md) §9); the special pages `triplespace-ui-pages`' entry names beside a page kind; serves a special page of its own by name or declines, and depends on neither sibling
 

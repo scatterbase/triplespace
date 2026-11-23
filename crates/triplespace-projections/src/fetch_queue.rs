@@ -20,13 +20,15 @@ use scatter_log_postgres::PgClient;
 use scatter_projection::{Applied, Backend, BoxFuture, Projection, Step};
 use scatter_providers::Registry;
 use scatter_wikibase_changeset::Operation;
+use scatter_wikibase_ids::IdForm;
 use scatter_wikibase_model::entity::Entity;
-use scatter_wikibase_model::id::{EntityId, IdForm};
+use scatter_wikibase_model::id::EntityId;
 use scatter_wikibase_model::statement::{Reference, SnakGroups, SnakKind, Statement};
 use scatter_wikibase_model::value::DataValue;
 
 use crate::backend::PgCx;
 use crate::common::{PAYLOAD_CHANGESET, operation, partition_info};
+use scatter_wikibase_ids::TriplespaceId as _;
 
 /// The fetch-queue projection.
 #[derive(Debug, Clone, Default)]

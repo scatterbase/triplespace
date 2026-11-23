@@ -15,12 +15,14 @@ use scatter_log::store::Draft;
 use scatter_projection::{Budget, Inline, Pipeline};
 use scatter_providers::Registry;
 use scatter_wikibase_changeset::{Graph, Operation, deterministic_statement_id_for};
+use scatter_wikibase_ids::IdForm;
 use scatter_wikibase_model::hash::Hasher;
-use scatter_wikibase_model::id::{EntityId, IdForm, Subject};
+use scatter_wikibase_model::id::{EntityId, Subject};
 use scatter_wikibase_model::statement::Statement;
 
 use crate::IngestError;
 use crate::store::{IngestStore, Sequence};
+use scatter_wikibase_ids::TriplespaceId as _;
 
 /// The change-set payload type.
 pub const PAYLOAD_CHANGESET: &str = "scatter:v0/changeset";

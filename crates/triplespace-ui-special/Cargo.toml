@@ -14,6 +14,7 @@ triplespace-ui-kit.workspace = true
 triplespace-ui-pages.workspace = true
 triplespace-client.workspace = true
 scatter-wikibase-model.workspace = true
+scatter-wikibase-ids.workspace = true
 scatter-wikibase-shape.workspace = true
 scatter-titles.workspace = true
 axum.workspace = true

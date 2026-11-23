@@ -10,7 +10,8 @@ use std::collections::BTreeMap;
 use scatter_log::record::Record;
 use scatter_projection::{Applied, Backend, BoxFuture, Projection, Step};
 use scatter_wikibase_changeset::{Operation, Upstream};
-use scatter_wikibase_model::id::{EntityId, IdForm, Subject};
+use scatter_wikibase_ids::IdForm;
+use scatter_wikibase_model::id::{EntityId, Subject};
 
 use crate::backend::PgCx;
 use crate::common::{
@@ -18,6 +19,7 @@ use crate::common::{
     offset_db, operation, parse_surrogate_key, partition_info, quote, time_of,
 };
 use scatter_log_postgres::PgClient;
+use scatter_wikibase_ids::TriplespaceId as _;
 
 fn sql(e: &tokio_postgres::Error) -> String {
     crate::common::describe(e)

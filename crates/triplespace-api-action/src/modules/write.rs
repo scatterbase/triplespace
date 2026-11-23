@@ -5,9 +5,10 @@
 //! `wbremovereferences`. Every one is POST-only, takes `token`, `summary`, `tags`, `bot`
 //! and `baserevid`, and answers with `success: 1` and the new `lastrevid`.
 
+use scatter_wikibase_ids::IdForm;
 use scatter_wikibase_model::entity::{Entity, EntityType};
 use scatter_wikibase_model::hash::Hasher;
-use scatter_wikibase_model::id::{EntityId, IdForm, StatementId};
+use scatter_wikibase_model::id::{EntityId, StatementId};
 use scatter_wikibase_model::json::Form;
 use scatter_wikibase_model::statement::{Reference, Snak, SnakGroups, SnakKind, Statement};
 use scatter_wikibase_model::value::{DataType, DataValue};
@@ -19,6 +20,7 @@ use crate::edit::{self, EditMeta};
 use crate::entity_json;
 use crate::modules::entities::parse_id;
 use crate::response::{ApiError, ApiResponse};
+use scatter_wikibase_ids::TriplespaceId as _;
 
 /// The subject of a write and what it was before.
 struct Subject {

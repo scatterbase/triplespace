@@ -49,6 +49,7 @@ use crate::api::Ctx;
 use crate::edit::now_micros;
 use crate::pages::{self, Page, Site};
 use crate::response::{ApiError, ApiResponse};
+use scatter_wikibase_ids::TriplespaceId as _;
 
 /// The tenant's deletion and suppression groups.
 pub(crate) async fn groups(ctx: &Ctx) -> Result<(String, String), ApiError> {
@@ -325,7 +326,7 @@ fn entity_of(site: &Site, title: &str) -> Result<Option<String>, ApiError> {
     let Some(id) = pages::entity_of_title(site, title) else {
         return Ok(None);
     };
-    if id.form() == scatter_wikibase_model::id::IdForm::Foreign {
+    if id.form() == scatter_wikibase_ids::IdForm::Foreign {
         return Err(ApiError::new(
             "ts-not-supported",
             "A mirrored entity is moderated by its provider, not here.",

@@ -9,7 +9,9 @@
 use std::cmp::Ordering;
 
 use scatter_providers::Registry;
-use scatter_wikibase_model::id::{EntityId, IdForm};
+use scatter_wikibase_ids::IdForm;
+use scatter_wikibase_ids::TriplespaceId as _;
+use scatter_wikibase_model::id::EntityId;
 
 /// The instance's provider order.
 #[derive(Debug, Clone, PartialEq, Eq)]

@@ -15,7 +15,9 @@ use std::borrow::Cow;
 
 use scatter_providers::Registry;
 
-use scatter_wikibase_model::id::{EntityId, IdForm};
+use scatter_wikibase_model::id::EntityId;
+
+use crate::id::{IdForm, TriplespaceId};
 
 /// The map between value IRIs and stored IDs for one tenant.
 #[derive(Debug, Clone, Default, PartialEq, Eq)]

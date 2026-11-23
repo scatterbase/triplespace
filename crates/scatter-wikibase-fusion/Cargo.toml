@@ -13,6 +13,7 @@ publish = false
 
 [dependencies]
 scatter-wikibase-model.workspace = true
+scatter-wikibase-ids.workspace = true
 scatter-normalize.workspace = true
 scatter-keyed.workspace = true
 scatter-providers.workspace = true

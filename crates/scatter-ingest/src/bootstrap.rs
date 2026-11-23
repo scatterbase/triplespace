@@ -58,14 +58,16 @@ use scatter_log::tree::Frontier;
 use scatter_projection::{Budget, Pipeline};
 use scatter_providers::Registry;
 use scatter_wikibase_changeset::{Changes, Graph, JobHeader, Mode, Operation};
+use scatter_wikibase_ids::IdForm;
 use scatter_wikibase_model::hash::{HashMismatches, Hasher};
-use scatter_wikibase_model::id::{EntityId, IdForm};
+use scatter_wikibase_model::id::EntityId;
 
 use crate::IngestError;
 use crate::job::{Counts, Job, Reject};
 use crate::store::{IngestStore, Sequence};
 use crate::sync::{SyncItem, SyncOutcome};
 use crate::write::{Attestation, PAYLOAD_CHANGESET};
+use scatter_wikibase_ids::TriplespaceId as _;
 
 /// What preparing a record needs, fixed for the whole load: shared by the worker threads.
 #[derive(Clone)]

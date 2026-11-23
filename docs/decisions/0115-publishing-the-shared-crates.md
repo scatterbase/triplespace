@@ -69,6 +69,12 @@ On Q7, `scatter-wikibase-model`, after its entity IDs were found to be read insi
 - Asked how the extension crates are named, he chose **two crates**, `scatter-wikibase-ids` and `scatter-wikibase-fusion`.
 - Asked how it is delivered, he chose **in phases**: first the fusion keys, the search document, badges and value IRIs; then the ID forms and keyed data types.
 
+For the second phase, after its reach was measured (about 530 uses in 18 crates):
+
+- Asked where Triplespace's canonicalization of IDs (`wdq42` to `WDQ42`, `QQQ5` to `Q5`) happens once the base stops doing it, he chose **at input boundaries**: wherever Triplespace reads IDs from users, through `scatter-wikibase-ids`, while stored JSON is read by the base as written.
+- Asked how the base serializer gets `numeric-id` and the implied entity type for IDs that are not Wikibase's own shape, he chose **an `IdScheme` hook** passed in with the output form, as `ValueIriMap` reaches the hasher.
+- Asked how it is delivered, he chose **two parts**: first the extension trait, with dependents moved to it and behaviour unchanged; then the base made pure Wikibase.
+
 ## Decision
 
 ### 1. Shared crates are published to crates.io from this workspace (amends 0005 §6)

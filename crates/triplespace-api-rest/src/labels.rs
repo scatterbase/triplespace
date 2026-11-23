@@ -35,8 +35,9 @@ use std::collections::{BTreeMap, BTreeSet};
 use axum::extract::{Extension, RawQuery, State};
 use axum::http::{HeaderMap, Method, StatusCode};
 use axum::response::Response;
+use scatter_wikibase_ids::IdForm;
 use scatter_wikibase_model::entity::{Entity, EntityType};
-use scatter_wikibase_model::id::{EntityId, IdForm};
+use scatter_wikibase_model::id::EntityId;
 use serde_json::{Map, Value, json};
 use triplespace_api_action::auth::{Caller, bearer};
 use triplespace_api_action::forwarded::Origin;
@@ -48,6 +49,7 @@ use triplespace_projections::entities::SHARED_TERM_LANGUAGES;
 use triplespace_projections::read;
 
 use crate::entity_route::{error, internal};
+use scatter_wikibase_ids::TriplespaceId as _;
 
 /// The most IDs one call takes.
 pub const MAX_IDS: usize = 1000;

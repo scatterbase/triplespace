@@ -32,7 +32,8 @@ use axum::http::{HeaderMap, Method, StatusCode, header};
 use axum::response::Response;
 use std::collections::{BTreeMap, BTreeSet};
 
-use scatter_wikibase_model::id::{EntityId, IdForm};
+use scatter_wikibase_ids::IdForm;
+use scatter_wikibase_model::id::EntityId;
 use serde_json::{Value, json};
 use triplespace_api_action::auth::bearer;
 use triplespace_api_action::forwarded::Origin;
@@ -43,6 +44,7 @@ use triplespace_projections::read;
 
 use crate::entity_route::{self, internal};
 use crate::provenance;
+use scatter_wikibase_ids::TriplespaceId as _;
 
 /// The properties of the snaks of an entity's JSON that carry no `datatype`: main
 /// snaks, qualifiers and references.

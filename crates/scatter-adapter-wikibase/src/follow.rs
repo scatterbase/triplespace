@@ -9,8 +9,10 @@
 
 use std::collections::BTreeMap;
 
+use scatter_wikibase_ids::IdForm;
+use scatter_wikibase_ids::TriplespaceId as _;
 use scatter_wikibase_model::entity::{Entity, ParsedEntity};
-use scatter_wikibase_model::id::{EntityId, IdForm};
+use scatter_wikibase_model::id::EntityId;
 use serde::Deserialize;
 
 /// Which namespaces hold entities, from `meta=siteinfo&siprop=namespaces`: those whose

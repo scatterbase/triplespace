@@ -5,7 +5,9 @@
 
 use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
-use scatter_wikibase_model::id::{EntityId, IdForm};
+use scatter_wikibase_ids::IdForm;
+use scatter_wikibase_ids::TriplespaceId as _;
+use scatter_wikibase_model::id::EntityId;
 use serde_json::json;
 use triplespace_api_action::App;
 use triplespace_api_action::auth::{Caller, bearer};

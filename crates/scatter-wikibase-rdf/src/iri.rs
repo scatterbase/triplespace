@@ -9,8 +9,10 @@ use std::fmt::Write as _;
 use oxrdf::NamedNode;
 use scatter_keyed::KeyedRegistry;
 use scatter_providers::{Registry as ProviderRegistry, UpstreamRef};
+use scatter_wikibase_ids::IdForm;
+use scatter_wikibase_ids::TriplespaceId as _;
 use scatter_wikibase_model::hash::Hasher;
-use scatter_wikibase_model::{EntityId, IdForm, StatementId};
+use scatter_wikibase_model::{EntityId, StatementId};
 
 /// The bases an instance writes its own nodes under.
 #[derive(Debug, Clone, PartialEq, Eq)]

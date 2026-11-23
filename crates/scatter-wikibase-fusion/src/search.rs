@@ -21,8 +21,10 @@ use scatter_normalize::domain;
 use serde::Serialize;
 
 use crate::key::Canon;
+use scatter_wikibase_ids::IdForm;
+use scatter_wikibase_ids::TriplespaceId as _;
 use scatter_wikibase_model::entity::Entity;
-use scatter_wikibase_model::id::{EntityId, IdForm};
+use scatter_wikibase_model::id::EntityId;
 use scatter_wikibase_model::statement::{Rank, SnakKind};
 use scatter_wikibase_model::value::DataValue;
 

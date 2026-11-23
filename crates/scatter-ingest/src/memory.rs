@@ -13,7 +13,8 @@ use scatter_log::store::{Appended, Draft};
 use scatter_projection::memory::WorkQueue;
 use scatter_projection::{Backend, ProjectionError, QueueLag, Queued, Work};
 use scatter_wikibase_changeset::{MatchKey, Operation};
-use scatter_wikibase_model::id::{EntityId, IdForm};
+use scatter_wikibase_ids::IdForm;
+use scatter_wikibase_model::id::EntityId;
 use scatter_wikibase_model::statement::SnakKind;
 use scatter_wikibase_model::value::{DataType, DataValue};
 
@@ -21,6 +22,7 @@ use crate::IngestError;
 use crate::job::PAYLOAD_LOGEVENT;
 use crate::store::{Cursor, IngestStore, Sequence};
 use crate::write::{PAYLOAD_CHANGESET, PAYLOAD_KEYED_SURROGATE};
+use scatter_wikibase_ids::TriplespaceId as _;
 
 /// A partition.
 #[derive(Debug, Clone, Default)]

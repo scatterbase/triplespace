@@ -162,7 +162,7 @@ impl Hasher {
             IdForm::Foreign
         };
         match s.strip_prefix(prefix) {
-            Some(rest) if id.form() == form => rest,
+            Some(rest) if id.shape() == form => rest,
             _ => s,
         }
     }
