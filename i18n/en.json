@@ -2401,5 +2401,11 @@
 	"ts-resolver-values": "$1 has more than one $2, so $3 does not name it alone. Its values:",
 	"ts-resolver-invalid": "This is not a valid $1.",
 	"ts-resolver-external": "$1 $2 outside this wiki",
-	"ts-resolver-create": "Create an item with this $1"
+	"ts-resolver-create": "Create an item with this $1",
+	"ts-source-none": "$1 from $2 is not on this wiki yet.",
+	"ts-source-external": "$1 on $2",
+	"ts-source-fetching": "It is queued to be read from $1. Reload this page in a little while.",
+	"ts-source-create": "Create an item for this",
+	"ts-source-invalid": "This is not an ID of $1.",
+	"ts-new-sameas": "The same thing as $1"
 }

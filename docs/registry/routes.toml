@@ -240,8 +240,8 @@ sources = "[0012](../decisions/0012-api-requirements.md) §5"
 
 [[route]]
 routes = ["GET /entity-sources"]
-purpose = "The tenant's sources, as `{\"sources\": [...]}`: name, label, number, namespace, types with IRI templates (absent for an unpublished source), `api`, `entity_data`, `revision_ids`, licence, `promoted_to`, `retired`, and for a tenant source its `tenant` and `base`, with its types as read from the provider. `namespace` waits for the source's namespace (05 §6.5), and `tenant` and `base` for tenant sources (0080); until sources can be unpublished every source's templates are shown (0078 A9). Public, as `GET /resolvers` is"
-sources = "[0078](../decisions/0078-entity-sources.md) §10, A9; [0080](../decisions/0080-tenants-as-entity-sources.md) §8"
+purpose = "The tenant's sources, as `{\"sources\": [...]}`: name, label, number, namespace, types with IRI templates (absent for an unpublished source), `api`, `entity_data`, `revision_ids`, licence, `promoted_to`, `retired`, and for a tenant source its `tenant` and `base`, with its types as read from the provider. `namespace` is the source's namespace, with its number, canonical name and aliases (05 §6.5; 0078 A10); `tenant` and `base` wait for tenant sources (0080); until sources can be unpublished every source's templates are shown (0078 A9). Public, as `GET /resolvers` is"
+sources = "[0078](../decisions/0078-entity-sources.md) §10, A9, A10; [0080](../decisions/0080-tenants-as-entity-sources.md) §8"
 
 [[route]]
 routes = ["GET /entity/E1"]
@@ -716,8 +716,8 @@ sources = "[0047](../decisions/0047-special-pages.md) §11"
 
 [[route]]
 routes = ["GET /resolve?q="]
-purpose = "Resolves any string to its canonical page through the title resolver (§3.3): `kind` `entity`, `resolver` (with `target`, or `candidates` and their `values`) or `page`; `404 unresolved` with `suggestions` where nothing is named. Only resolvers bound to a property serve"
-sources = "[0012](../decisions/0012-api-requirements.md) §5; [0029](../decisions/0029-resolver-namespaces.md) §6, A12; [0051](../decisions/0051-page-redirects.md) §7; [0078](../decisions/0078-entity-sources.md) §10"
+purpose = "Resolves any string to its canonical page through the title resolver (§3.3): `kind` `entity-source` (an entity source's ID by its name or its namespace's, with `target`, else `fetching`), `entity`, `resolver` (with `target`, or `candidates` and their `values`) or `page`; `404 unresolved` with `suggestions` where nothing is named. Only resolvers bound to a property serve"
+sources = "[0012](../decisions/0012-api-requirements.md) §5; [0029](../decisions/0029-resolver-namespaces.md) §6, A12; [0051](../decisions/0051-page-redirects.md) §7; [0078](../decisions/0078-entity-sources.md) §10, A10"
 
 [[route]]
 routes = ["GET /resolvers"]

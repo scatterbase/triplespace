@@ -206,6 +206,8 @@ async fn the_follower_keeps_to_the_set_and_walks_the_closure_to_its_depth() {
         entity_data: None,
         revision_ids: true,
         licence: Some("CC0-1.0".into()),
+        namespace: None,
+        namespace_aliases: vec![],
     }))
     .await
     .expect("source add");

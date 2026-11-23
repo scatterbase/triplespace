@@ -5,6 +5,7 @@
 //! `wbremovereferences`. Every one is POST-only, takes `token`, `summary`, `tags`, `bot`
 //! and `baserevid`, and answers with `success: 1` and the new `lastrevid`.
 
+use scatter_wikibase_changeset::Operation;
 use scatter_wikibase_ids::IdForm;
 use scatter_wikibase_model::entity::{Entity, EntityType};
 use scatter_wikibase_model::hash::Hasher;
@@ -139,6 +140,18 @@ async fn save(
     after: &Entity,
     meta: &EditMeta,
 ) -> Result<(Option<u64>, Option<Current>), ApiError> {
+    save_with(ctx, subject, after, meta, Vec::new()).await
+}
+
+/// [`save`], with `extra` operations written after the edit's in the same change set: a
+/// new item's `same-as` (05 §6.6).
+async fn save_with(
+    ctx: &Ctx,
+    subject: &Subject,
+    after: &Entity,
+    meta: &EditMeta,
+    extra: Vec<Operation>,
+) -> Result<(Option<u64>, Option<Current>), ApiError> {
     if after.id != subject.id {
         return Err(ApiError::new(
             "invalid-entity-id",
@@ -150,7 +163,7 @@ async fn save(
     let mut stored = after.clone();
     entity_json::value_iris(ctx.registry().await?, &ctx.tenant.base).store_entity(&mut stored);
     let after = &stored;
-    let ops = match &subject.before {
+    let mut ops = match &subject.before {
         Some(c) => edit::operations(Some(c), after),
         None if subject.id.form() == IdForm::Keyed => {
             // A Domain exists because its key is valid (0009 §4, §10): the first local
@@ -160,6 +173,7 @@ async fn save(
         }
         None => edit::operations(None, after),
     };
+    ops.extend(extra);
     let saved = edit::commit(ctx, &ops, meta, subject.before.as_ref()).await?;
     // The write is committed; the watch follows it (16 §4.3).
     if let Some(actor) = ctx.caller.identity.actor_key.clone() {
@@ -368,12 +382,54 @@ async fn wbeditentity(ctx: &Ctx, meta: &EditMeta) -> Result<ApiResponse, ApiErro
             )
         })?
         .entity;
-    let (lastrevid, now) = save(ctx, &subject, &after, meta).await?;
+    let extra = same_as_new(ctx, &subject, is_new)
+        .await?
+        .into_iter()
+        .collect();
+    let (lastrevid, now) = save_with(ctx, &subject, &after, meta, extra).await?;
     let changed = subject
         .before
         .as_ref()
         .is_none_or(|b| b.lastrevid != lastrevid);
     Ok(entity_response(ctx, now.as_ref(), lastrevid, changed))
+}
+
+/// `ts-sameas={id}` on `new=item` (05 §6.6): the new item is linked, in the same change
+/// set, by a tier-1 `same-as` to a foreign or source item the tenant can name, so that
+/// "Create an item for this" on `MHC:Q1` mints `Q500` as the same thing. The new item is
+/// the link's key, since a local member outranks every provider's and source's.
+async fn same_as_new(
+    ctx: &Ctx,
+    subject: &Subject,
+    is_new: bool,
+) -> Result<Option<Operation>, ApiError> {
+    let Some(raw) = ctx.params.get("ts-sameas").filter(|v| !v.trim().is_empty()) else {
+        return Ok(None);
+    };
+    if !is_new || subject.base.entity_type != EntityType::Item {
+        return Err(ApiError::new(
+            "param-illegal",
+            "\"ts-sameas\" links a new item: it needs \"new=item\".",
+        ));
+    }
+    let registry = ctx.registry().await?;
+    let other = registry
+        .parse_foreign_id(raw.trim())
+        .ok()
+        .filter(|f| f.entity_type().entity_type == "item")
+        .and_then(|f| EntityId::parse(&f.to_string()).ok())
+        .ok_or_else(|| {
+            ApiError::new(
+                "ts-sameas-invalid",
+                format!("\"{raw}\" is not the ID of a provider's or source's item on this wiki."),
+            )
+        })?;
+    let mut op = Operation::SameAs {
+        id: None,
+        ids: vec![subject.id.clone(), other],
+    };
+    op.complete(&scatter_wikibase_changeset::ProviderOrder::default());
+    Ok(Some(op))
 }
 
 /// Refuses a sitelink whose `badges` name an item that is not a `stored` badge of the

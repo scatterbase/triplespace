@@ -14,6 +14,13 @@
 //! The title is read as the path gives it, before underscores become spaces, since a
 //! resolver's grammar, not MediaWiki's title rules, decides what a key may contain (06
 //! §3.2).
+//!
+//! **An entity source's namespace** is a resolver namespace of the tenant's own (05 §6.5):
+//! `MHC:Q1` redirects to the entity, or to the local item minted for it, where the tenant
+//! knows either; otherwise a `404` page shows the ID, the link to it on the source, whether
+//! it is queued to be read from the source, and for a signed-in reader *Create an item for
+//! this*, which opens `Special:NewItem` with the source entity's label and `ts-sameas`
+//! filled in (05 §6.6).
 
 use axum::http::{HeaderMap, StatusCode, header};
 use axum::response::{IntoResponse, Response};
@@ -41,6 +48,22 @@ pub fn is_resolver_title(raw: &str) -> bool {
                         .iter()
                         .any(|a| a.eq_ignore_ascii_case(prefix.trim()))
             })
+}
+
+/// Whether a title is in one of the tenant's own resolver namespaces, an entity source's
+/// (05 §6.5): its prefix is one of their names, in any case, and something follows it.
+#[must_use]
+pub fn is_own_resolver_title(title: &str, own: &[triplespace_client::api::OwnNamespace]) -> bool {
+    let Some((prefix, rest)) = title.split_once(':') else {
+        return false;
+    };
+    let prefix = prefix.replace('_', " ");
+    let prefix = prefix.trim();
+    !rest.trim().is_empty()
+        && own.iter().filter(|n| n.kind == "resolver").any(|n| {
+            n.canonical.eq_ignore_ascii_case(prefix)
+                || n.aliases.iter().any(|a| a.eq_ignore_ascii_case(prefix))
+        })
 }
 
 /// A link the template draws.
@@ -184,6 +207,45 @@ fn model(
     }
 }
 
+/// The page for a source's entity the tenant does not know (05 §6.5), always a `404`:
+/// what it is, where it is on the source, whether it is being read, and for a signed-in
+/// reader the link that mints a local item for it, with its `label` from the label cache.
+fn source_model(cx: &Context, r: &Resolution, label: Option<&str>) -> ResolverPage {
+    let m = &cx.m;
+    let source = r.label.clone().unwrap_or_default();
+    let Some(id) = r.id.clone().filter(|_| r.invalid.is_none()) else {
+        return ResolverPage {
+            text: m.with("ts-source-invalid", &[&source]),
+            ..ResolverPage::default()
+        };
+    };
+    let external = r.external.clone().map(|href| Link {
+        text: m.with("ts-source-external", &[&id, &source]),
+        href,
+    });
+    let create = cx.user.is_some().then(|| {
+        let enc = |v: &str| {
+            percent_encoding::utf8_percent_encode(v, percent_encoding::NON_ALPHANUMERIC).to_string()
+        };
+        let mut href = format!("/wiki/Special:NewItem?ts-sameas={}", enc(&id));
+        if let Some(l) = label.filter(|l| !l.is_empty()) {
+            href.push_str("&label=");
+            href.push_str(&enc(l));
+        }
+        Link {
+            href,
+            text: m.get("ts-source-create"),
+        }
+    });
+    ResolverPage {
+        text: m.with("ts-source-none", &[&id, &source]),
+        note: r.fetching.then(|| m.with("ts-source-fetching", &[&source])),
+        external,
+        create,
+        ..ResolverPage::default()
+    }
+}
+
 /// `GET /wiki/{namespace}:{key}` in a resolver namespace; `raw` is the title as the path
 /// gives it.
 pub async fn serve(
@@ -205,11 +267,38 @@ pub async fn serve(
         Err(e) => return pages::api_failed(&cx, headers, &e),
     };
     cx.inputs.push(resolved.cache);
-    let Some(r) = resolved.value.filter(|r| r.kind == "resolver") else {
+    let Some(r) = resolved
+        .value
+        .filter(|r| r.kind == "resolver" || r.kind == "entity-source")
+    else {
         return pages::no_page(&cx, headers, title);
     };
     if let Some(t) = &r.target {
         return see_other(&t.title);
+    }
+    if r.kind == "entity-source" {
+        let label = match &r.id {
+            Some(id) if r.invalid.is_none() => {
+                let chain = cx.m.term_chain();
+                let ids = vec![id.clone()];
+                match client.labels_with(&incoming, &ids, &chain, &[]).await {
+                    Ok(t) => {
+                        cx.inputs.push(t.cache);
+                        t.value.0.get(id).map(|l| l.value.clone())
+                    }
+                    Err(e) => return pages::api_failed(&cx, headers, &e),
+                }
+            }
+            _ => None,
+        };
+        let model = source_model(&cx, &r, label.as_deref());
+        let body = cx.draw("resolver.html", &model);
+        return pages::respond(&cx, headers, StatusCode::NOT_FOUND, |_| Page {
+            title: title.clone(),
+            returnto: Some(title.clone()),
+            body,
+            ..Page::default()
+        });
     }
     let ids: Vec<String> = r.candidates.iter().map(|c| c.id.clone()).collect();
     let (labels, descriptions) = if ids.is_empty() {
@@ -241,7 +330,8 @@ pub async fn serve(
 
 #[cfg(test)]
 mod tests {
-    use super::is_resolver_title;
+    use super::{is_own_resolver_title, is_resolver_title};
+    use triplespace_client::api::OwnNamespace;
 
     // 06 §3.2: the DOI namespace is a resolver's, in any case; a page namespace is not.
     #[test]
@@ -251,5 +341,29 @@ mod tests {
         assert!(!is_resolver_title("DOI:"));
         assert!(!is_resolver_title("Item:Q5"));
         assert!(!is_resolver_title("Main Page"));
+    }
+
+    // 05 §6.5: a source's namespace is the tenant's, under any of its names.
+    #[test]
+    fn a_sources_namespace_is_a_resolver_namespace() {
+        let own = [
+            OwnNamespace {
+                id: 3000,
+                canonical: "Miraheze Communities".into(),
+                aliases: vec!["mhc".into()],
+                kind: "resolver".into(),
+            },
+            OwnNamespace {
+                id: 3002,
+                canonical: "Recipe".into(),
+                aliases: vec![],
+                kind: "pages".into(),
+            },
+        ];
+        assert!(is_own_resolver_title("MHC:Q1", &own));
+        assert!(is_own_resolver_title("Miraheze_Communities:Q1", &own));
+        assert!(!is_own_resolver_title("MHC:", &own));
+        assert!(!is_own_resolver_title("Recipe:Soup", &own));
+        assert!(!is_own_resolver_title("Main Page", &own));
     }
 }

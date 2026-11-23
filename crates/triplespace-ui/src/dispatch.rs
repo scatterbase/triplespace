@@ -5,7 +5,9 @@
 //! each asked in turn (0113 §1), and every other title, where the API serves pages, by
 //! [`discussion`] and [`document`]; without pages, the main page is the generated one
 //! and every other title a `404`. This is the one module that names every page kind: the
-//! page kinds call [`triplespace_ui_kit::pages`], never this.
+//! page kinds call [`triplespace_ui_kit::pages`], never this. A title in a resolver
+//! namespace, the registry's (`DOI:`) or an entity source's (05 §6.5), is served by
+//! [`resolver`] when no `action` is asked for.
 
 use std::collections::BTreeMap;
 
@@ -108,6 +110,12 @@ async fn dispatch(
         Ok(cx) => cx,
         Err(r) => return r,
     };
+    // An entity source's namespace, the tenant's own resolver namespace (05 §6.5).
+    if !query.contains_key("action")
+        && resolver::is_own_resolver_title(&title, &cx.site.own_namespaces)
+    {
+        return resolver::serve(site, headers, peer, &title, params).await;
+    }
     if cx.features.has(Feature::Pages) {
         // A talk page or a thread (19 §6.1); every other title is a document page's.
         let cx = match discussion::serve(site, headers, &incoming, cx, &title, params).await {

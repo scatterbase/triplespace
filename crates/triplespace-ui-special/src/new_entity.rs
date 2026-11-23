@@ -10,6 +10,9 @@
 //!   A value is parsed as its data type's value ([`triplespace_ui_kit::values`]): strings and
 //!   entity IDs as written, a quantity, a time, a coordinate or monolingual text in the
 //!   plain forms that module takes; anything else is listed as left out.
+//! - **`ts-sameas={id}`**, on `NewItem`, is Triplespace's too: a ticked box links the new
+//!   item to a provider's or source's item by `same-as` in the same write, which is what
+//!   *Create an item for this* on a source's page sends (05 §6.6).
 //! - **The write** is one `wbeditentity` with `new=`, through the same handler as the API
 //!   (0034 §1.5), so permissions, filters and rate limits are the API's. Success is a `303`
 //!   to the new entity's page (post, redirect, get); a refusal shows the form again with
@@ -134,6 +137,8 @@ struct Input {
     /// The data types offered ([`offered`]).
     datatypes: Vec<String>,
     statements: Vec<String>,
+    /// The item the new one is the same as (`ts-sameas`), for an item.
+    same_as: Option<String>,
 }
 
 impl Input {
@@ -163,6 +168,7 @@ impl Input {
                 .filter(|s| !s.is_empty())
                 .map(str::to_string)
                 .collect(),
+            same_as: get("ts-sameas").filter(|s| !s.is_empty()),
         }
     }
 
@@ -357,6 +363,20 @@ fn field_model(m: &Messages, name: &str, value: &str, key: &str, help: Option<&s
     }
 }
 
+/// The ticked box that links a new item to `id` by `same-as` (05 §6.6).
+fn same_as_box(m: &Messages, id: &str) -> ControlModel {
+    ControlModel::Checkbox {
+        id: Some("ts-new-sameas".into()),
+        name: "ts-sameas".into(),
+        value: id.to_string(),
+        checked: true,
+        label: Some(m.with("ts-new-sameas", &[id])),
+        note: None,
+        disabled: false,
+        described_by: None,
+    }
+}
+
 fn form_model(
     m: &Messages,
     kind: Kind,
@@ -387,6 +407,11 @@ fn form_model(
             }
             Err(why) => left_out.push(Message::block(MessageKind::Warning, why).model()),
         }
+    }
+    if kind == Kind::Item
+        && let Some(id) = &input.same_as
+    {
+        boxes.push(same_as_box(m, id));
     }
     NewEntityForm {
         notices: notices
@@ -624,12 +649,19 @@ pub async fn post(
     }
     let token = form.map.get("token").map_or("", String::as_str);
     let data = edit_data(kind, &input, &prefills);
+    let extra: Vec<(&str, &str)> = input
+        .same_as
+        .as_deref()
+        .filter(|_| kind == Kind::Item)
+        .map(|id| ("ts-sameas", id))
+        .into_iter()
+        .collect();
     match site
         .client()
-        .create_entity(&incoming, kind.api(), &data, token)
+        .create_entity_with(&incoming, kind.api(), &data, token, &extra)
         .await
     {
-        Ok(c) => pages::see_other(&entity_href(&c.id, &c.entity_type), &[]),
+        Ok((c, _)) => pages::see_other(&entity_href(&c.id, &c.entity_type), &[]),
         Err(ClientError::Api { code, info }) => {
             let text = match code.as_str() {
                 "badtoken" => {
@@ -746,6 +778,7 @@ mod tests {
             datatype: "external-id".into(),
             datatypes: vec!["external-id".into()],
             statements: vec![],
+            same_as: None,
         };
         let statement = json!({"mainsnak": {"snaktype": "value", "property": "P12"}});
         let prefills = [
@@ -775,6 +808,32 @@ mod tests {
         assert_eq!(
             edit_data(Kind::Property, &input, &[])["datatype"],
             json!("external-id")
+        );
+    }
+
+    // 05 §6.6: `ts-sameas` on NewItem is a ticked box that links the new item; a
+    // property takes none.
+    #[test]
+    fn a_new_item_can_be_the_same_as_a_sources() {
+        let m = Messages::for_language("en");
+        let input = Input::of(
+            &m,
+            vec![],
+            None,
+            &params(&[("ts-sameas", " mhc:Q1 "), ("label", "Example")]),
+        );
+        assert_eq!(input.same_as.as_deref(), Some("mhc:Q1"));
+        let form = form_model(&m, Kind::Item, "t", &input, &[], &[]);
+        let boxes = form.statements.expect("the link is offered").boxes;
+        assert!(matches!(
+            &boxes[0],
+            ControlModel::Checkbox { name, value, checked: true, .. }
+                if name == "ts-sameas" && value == "mhc:Q1"
+        ));
+        assert!(
+            form_model(&m, Kind::Property, "t", &input, &[], &[])
+                .statements
+                .is_none()
         );
     }
 

@@ -85,6 +85,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0077 A6](0077-special-version.md#a6-licensing-loose-ends-from-building-specialversion) | 2026-10-30 | Licensing: loose ends from building Special:Version |
 | [0077 A8](0077-special-version.md#a8-the-licence-header-on-built-javascript-and-css) | 2026-11-15 | The licence header on built JavaScript and CSS |
 | [0078 A8](0078-entity-sources.md#a8-retiring-keeps-the-record-a-later-record-is-checked-against-it) | 2026-11-20 | Retiring keeps the record; a later record is checked against it |
+| [0078 A10](0078-entity-sources.md#a10-the-sources-namespace-its-resolution-and-minting-as-built) | 2026-11-23 | The source's namespace, its resolution and minting, as built |
 | [0082 A2](0082-source-form-and-the-shared-view.md#a2-the-instances-content-languages) | 2026-11-04 | The instance's content languages |
 | [0085 A2](0085-settings-and-preferences.md#a2-settings-the-calls-made-building-the-backend-slice) | 2026-10-30 | Settings: the calls made building the backend slice |
 | [0085 A4](0085-settings-and-preferences.md#a4-preferences-controls-that-suit-their-keys-and-tabs-as-panes) | 2026-11-09 | Preferences: controls that suit their keys, and tabs as panes |
@@ -133,6 +134,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0111 A2](0111-creating-a-tenant-by-request.md#a2-calls-made-building-the-requests-api-page-and-invitation) | 2026-11-16 | Calls made building the requests' API, page and invitation |
 | [0111 A3](0111-creating-a-tenant-by-request.md#a3-calls-made-building-freezing-deleting-and-the-primary-roles-acceptance) | 2026-11-16 | Calls made building freezing, deleting and the primary role's acceptance |
 | [0114 A2](0114-badges.md#a2-badges-drawn-everywhere-the-site-names-an-entity) | 2026-11-22 | Badges drawn everywhere the site names an entity |
+| [0115 A8](0115-publishing-the-shared-crates.md#a8-the-first-breaking-release-scatter-providers-020) | 2026-11-23 | The first breaking release: `scatter-providers` 0.2.0 |
 
 ## Open questions
 

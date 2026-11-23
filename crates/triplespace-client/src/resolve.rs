@@ -21,7 +21,7 @@ pub struct Named {
     pub values: Vec<String>,
 }
 
-/// What a string names: `kind` is `entity`, `resolver` or `page`.
+/// What a string names: `kind` is `entity-source`, `entity`, `resolver` or `page`.
 #[derive(Debug, Clone, Default, Deserialize, PartialEq, Eq)]
 pub struct Resolution {
     /// What answered.
@@ -53,9 +53,20 @@ pub struct Resolution {
     /// `resolver`, without a target: the entities holding the key.
     #[serde(default)]
     pub candidates: Vec<Named>,
-    /// `resolver`: why the string is not a valid key.
+    /// `resolver`: why the string is not a valid key; `entity-source`: not one of the
+    /// source's IDs.
     #[serde(default)]
     pub invalid: Option<String>,
+    /// `entity-source`: the source's name (`mhc`).
+    #[serde(default)]
+    pub source: Option<String>,
+    /// `entity-source`: the source entity's canonical ID (`mhc:Q1`).
+    #[serde(default)]
+    pub id: Option<String>,
+    /// `entity-source`, without a target: whether the entity is queued for the source's
+    /// mirror.
+    #[serde(default)]
+    pub fetching: bool,
 }
 
 impl Client {

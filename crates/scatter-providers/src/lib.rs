@@ -33,7 +33,8 @@ pub use id::{ForeignId, IdError, UpstreamRef};
 pub use registry::{Chip, Deletion, EntityType, Provider, Registry, RegistryError, Trust};
 pub use revid::{RevidError, provider_revid, split_revid};
 pub use source::{
-    END_SOURCE_NUMBER, EntitySource, FIRST_SOURCE_NUMBER, SourceError, SourceType, is_source_name,
+    END_SOURCE_NUMBER, EntitySource, FIRST_SOURCE_NAMESPACE, FIRST_SOURCE_NUMBER, SourceError,
+    SourceNamespace, SourceType, is_source_name,
 };
 
 /// The default registry, embedded at build time from `registry/providers.toml`, a symlink to

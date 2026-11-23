@@ -42,9 +42,70 @@ fn default_grammar() -> String {
     IdGrammar::Digits.name().to_string()
 }
 
-/// The `entity-source` config record's content (0078 §1).
+/// The first number a source's namespace may take: a tenant's own range (05 §6.5).
+pub const FIRST_SOURCE_NAMESPACE: i32 = 3000;
+
+/// A source's namespace on its tenant (05 §6.5): of kind `resolver`, its talk number the
+/// next, reserved. The server gives it the lowest free even number from 3000 on the tenant
+/// when the source is first declared with one, or first written again (0078 A10); the
+/// number is then fixed, and the names may change.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[non_exhaustive]
+pub struct SourceNamespace {
+    /// Its number, the server's.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<i32>,
+    /// Its canonical name, the tenant's choice: `MHC` or `Miraheze Communities`.
+    pub canonical: String,
+    /// Its other names. The source's name is always one of them.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub aliases: Vec<String>,
+}
+
+impl SourceNamespace {
+    /// A namespace of these names, its number left to the server.
+    #[must_use]
+    pub fn new(canonical: impl Into<String>, aliases: Vec<String>) -> Self {
+        Self {
+            id: None,
+            canonical: canonical.into(),
+            aliases,
+        }
+    }
+
+    /// The namespace a source of this name gets when its declaration names none: the name
+    /// in capitals, `MHC` for `mhc` (0078 A10).
+    #[must_use]
+    pub fn default_for(name: &str) -> Self {
+        Self {
+            id: None,
+            canonical: name.to_ascii_uppercase(),
+            aliases: Vec::new(),
+        }
+    }
+
+    /// Its names, canonical first.
+    pub fn names(&self) -> impl Iterator<Item = &str> {
+        std::iter::once(self.canonical.as_str()).chain(self.aliases.iter().map(String::as_str))
+    }
+
+    /// Whether `prefix` is one of its names, in any case, `_` as a space.
+    #[must_use]
+    pub fn is_named(&self, prefix: &str) -> bool {
+        let want = prefix.replace('_', " ");
+        let want = want.trim();
+        self.names().any(|n| n.eq_ignore_ascii_case(want))
+    }
+}
+
+/// The `entity-source` config record's content (0078 §1).
+///
+/// Built outside this crate with [`EntitySource::new`] and its public fields, so that a new
+/// field is not a breaking change.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+#[non_exhaustive]
 pub struct EntitySource {
     /// The prefix of its IDs: `[a-z][a-z0-9-]*`, at most 32 characters.
     pub name: String,
@@ -68,6 +129,9 @@ pub struct EntitySource {
     /// The number in 2^12..2^13, assigned by the server on the first record.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub number: Option<u32>,
+    /// The source's namespace (05 §6.5); the server fills it in on a write.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub namespace: Option<SourceNamespace>,
     /// Empty, or the registry provider code that replaced the source (0078 §9).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub promoted_to: Option<String>,
@@ -117,6 +181,14 @@ pub enum SourceError {
         /// The provider's code.
         code: String,
     },
+    /// The namespace's names are malformed: empty, or with a colon.
+    #[error("source `{name}`: `{what}` is not a namespace name")]
+    NamespaceName {
+        /// The source.
+        name: String,
+        /// The name refused.
+        what: String,
+    },
     /// The number is outside the sources' range.
     #[error("source `{name}`: number {number} is outside 4096..8191")]
     Number {
@@ -139,6 +211,25 @@ pub fn is_source_name(name: &str) -> bool {
 }
 
 impl EntitySource {
+    /// A source of this name, label and types, with every other field empty: no API, no
+    /// number or namespace yet, not promoted or retired.
+    #[must_use]
+    pub fn new(name: impl Into<String>, label: impl Into<String>, types: Vec<SourceType>) -> Self {
+        Self {
+            name: name.into(),
+            label: label.into(),
+            types,
+            api: None,
+            entity_data: None,
+            revision_ids: false,
+            licence: None,
+            number: None,
+            namespace: None,
+            promoted_to: None,
+            retired: false,
+        }
+    }
+
     /// Checks the declaration against the shape rules and the registry's names (0078 §1,
     /// §6.3 rule 1). The number, when set, must be in range; the server sets it.
     ///
@@ -217,6 +308,16 @@ impl EntitySource {
                 )));
             }
         }
+        if let Some(ns) = &self.namespace
+            && let Some(bad) = ns
+                .names()
+                .find(|n| n.trim().is_empty() || n.contains(':') || n.trim() != *n)
+        {
+            return Err(SourceError::NamespaceName {
+                name: self.name.clone(),
+                what: bad.to_string(),
+            });
+        }
         if let Some(n) = self.number
             && !(FIRST_SOURCE_NUMBER..END_SOURCE_NUMBER).contains(&n)
         {
@@ -271,6 +372,10 @@ impl EntitySource {
         };
         if earlier.number.is_some() && self.number != earlier.number {
             return Err(binding("the number".into()));
+        }
+        let ns_id = |s: &EntitySource| s.namespace.as_ref().and_then(|n| n.id);
+        if ns_id(earlier).is_some() && ns_id(self) != ns_id(earlier) {
+            return Err(binding("the namespace's number".into()));
         }
         for was in &earlier.types {
             let Some(now) = self
@@ -391,6 +496,7 @@ mod tests {
             revision_ids: true,
             licence: Some("CC-BY-SA-4.0".into()),
             number: Some(FIRST_SOURCE_NUMBER),
+            namespace: None,
             promoted_to: None,
             retired: false,
         }
@@ -563,5 +669,36 @@ mod tests {
             later.to_provider().unwrap().entity_data.as_deref(),
             Some("https://creditunions.miraheze.org/wiki/Special:EntityData/")
         );
+    }
+
+    // 05 §6.5, 0078 A10: a later record may rename the namespace but keeps its number.
+    #[test]
+    fn a_namespace_keeps_its_number_and_may_be_renamed() {
+        let mut first = source();
+        first.namespace = Some(SourceNamespace {
+            id: Some(3000),
+            canonical: "OC".into(),
+            aliases: vec!["opencredit".into()],
+        });
+        let mut later = first.clone();
+        later.namespace.as_mut().unwrap().canonical = "Open Credit".into();
+        assert_eq!(later.check_binding(&first), Ok(()));
+        later.namespace.as_mut().unwrap().id = Some(3002);
+        assert!(
+            later
+                .check_binding(&first)
+                .unwrap_err()
+                .to_string()
+                .contains("the namespace's number")
+        );
+        let ns = first.namespace.as_ref().unwrap();
+        assert!(ns.is_named("oc") && ns.is_named("OpenCredit") && !ns.is_named("Item"));
+        assert_eq!(SourceNamespace::default_for("mhc").canonical, "MHC");
+        let mut colon = first.clone();
+        colon.namespace.as_mut().unwrap().canonical = "A:B".into();
+        assert!(matches!(
+            colon.validate_shape(),
+            Err(SourceError::NamespaceName { .. })
+        ));
     }
 }

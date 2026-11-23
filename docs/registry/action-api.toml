@@ -564,8 +564,8 @@ sources = "[0031](../decisions/0031-property-constraints.md) §6"
 [[module]]
 kind = "wikibase"
 modules = ["wbeditentity"]
-changes = "Diffed against the resolved view and mapped by ownership as §2.5 says; an echoed entity is a no-op. `sitelinks` entries may carry `url` in place of `site`+`title`. `new=lexeme`, or on `L` IDs. Terms on `M`"
-sources = "[0084](../decisions/0084-wikibase-writes-against-the-resolved-view.md) §1, §2; [0026](../decisions/0026-sitelinks.md) §7; [0066](../decisions/0066-lexemes.md) §8; [0065](../decisions/0065-mediainfo-captions-and-commons.md) §4"
+changes = "Diffed against the resolved view and mapped by ownership as §2.5 says; an echoed entity is a no-op. `sitelinks` entries may carry `url` in place of `site`+`title`. `new=lexeme`, or on `L` IDs. Terms on `M`. `ts-sameas={id}` with `new=item` links the new item to a provider's or source's item by `same-as` in the same change set (`param-illegal` otherwise, `ts-sameas-invalid` for an ID that names no such item)"
+sources = "[0084](../decisions/0084-wikibase-writes-against-the-resolved-view.md) §1, §2; [0026](../decisions/0026-sitelinks.md) §7; [0066](../decisions/0066-lexemes.md) §8; [0065](../decisions/0065-mediainfo-captions-and-commons.md) §4; [0078](../decisions/0078-entity-sources.md) A10"
 
 [[module]]
 kind = "wikibase"

@@ -199,6 +199,8 @@ async fn a_crawl_queues_what_the_wiki_lists_and_what_it_no_longer_does() {
         entity_data: None,
         revision_ids: true,
         licence: Some("CC0-1.0".into()),
+        namespace: None,
+        namespace_aliases: vec![],
     }))
     .await
     .expect("source add");

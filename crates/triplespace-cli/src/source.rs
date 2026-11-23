@@ -79,6 +79,13 @@ pub struct Add {
     /// The licence of its data, an SPDX identifier.
     #[arg(long)]
     pub licence: Option<String>,
+    /// The canonical name of the source's namespace (05 §6.5); the name in capitals when
+    /// not given, or the name it has already.
+    #[arg(long)]
+    pub namespace: Option<String>,
+    /// Another name of the source's namespace; repeatable. The source's name is always one.
+    #[arg(long = "namespace-alias")]
+    pub namespace_aliases: Vec<String>,
 }
 
 /// Runs a `source` command.
@@ -100,28 +107,30 @@ pub async fn run(cmd: SourceCommand) -> Result<()> {
                     })
                 })
                 .collect::<Result<Vec<_>>>()?;
-            let source = EntitySource {
-                name: args.which.name.clone(),
-                label: args.label.clone(),
-                types,
-                api: args.api.clone(),
-                entity_data: args.entity_data.clone(),
-                revision_ids: args.revision_ids,
-                licence: args.licence.clone(),
-                number: None,
-                promoted_to: None,
-                retired: false,
-            };
+            let mut source = EntitySource::new(&*args.which.name, &*args.label, types);
+            source.api.clone_from(&args.api);
+            source.entity_data.clone_from(&args.entity_data);
+            source.revision_ids = args.revision_ids;
+            source.licence.clone_from(&args.licence);
+            source.namespace = (args.namespace.is_some() || !args.namespace_aliases.is_empty())
+                .then(|| {
+                    scatter_providers::SourceNamespace::new(
+                        args.namespace.clone().unwrap_or_default(),
+                        args.namespace_aliases.clone(),
+                    )
+                });
             let written = write_source(&args.which, Some(source)).await?;
             if let Some(s) = written {
                 println!(
-                    "source `{}` declared on `{}`: number {}, IDs `{}:{}…`, partition source/{}",
+                    "source `{}` declared on `{}`: number {}, IDs `{}:{}…`, partition source/{}, namespace {} ({})",
                     s.name,
                     args.which.at.tenant,
                     s.number.unwrap_or_default(),
                     s.name,
                     s.types.first().map_or("Q", |t| t.upstream_prefix.as_str()),
-                    s.name
+                    s.name,
+                    s.namespace.as_ref().and_then(|n| n.id).unwrap_or_default(),
+                    s.namespace.as_ref().map_or("", |n| n.canonical.as_str()),
                 );
             }
         }
