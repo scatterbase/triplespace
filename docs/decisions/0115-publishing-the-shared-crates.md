@@ -180,7 +180,7 @@ The plan for the other strong candidates. Each depends on the questions before i
 - **Q6. `scatter-normalize`.** *Settled by §11.*
 - **Q7. `scatter-wikibase-model`.** *Settled by §13.*
 - **Q8. `scatter-wikibase-rdf`.** *Settled by §15.*
-- **Q9. The order.** *Recommendation:* the wikitext line first, since it is smaller and nearly ready (Q1, Q2, Q3). Then the general part of `scatter-normalize` (Q6) and `scatter-vocab` (Q4). Then the Wikibase model (Q7) and RDF (Q8), whose split touches most of the workspace.
+- **Q9. The order.** *Settled by §4, §5, §9, §11 and §12–15: the wikitext line, then `scatter-normalize` with `scatter-keyed`, then the Wikibase model with its extensions and `scatter-providers`, then the RDF base with `scatter-vocab`, as recommended.*
 - **Q10. Checks in CI for published crates.** *Settled by §7.*
 - **Q11. `scatter-wikitext-expand` on the wasm list.** *Settled by §8.*
 
@@ -233,7 +233,7 @@ Replaced text: none; §15 is new in this change.
 ### A6. `ProviderModel::upstream_concept`
 
 - **Date:** 2026-11-23
-- **Source:** Direct: Claude, while building the `scatter-wikibase-rdf` split, 2026-11-23; unconfirmed
+- **Source:** Direct: Claude, while building the `scatter-wikibase-rdf` split, 2026-11-23; confirmed by James, 2026-11-23
 - **Change:** amends §15
 - **Summary:** `ProviderModel` gains `upstream_concept`, a foreign ID's concept base and upstream ID, `None` by default, which `TriplespaceIris` names foreign IDs and their properties' predicates from. A provider type whose IRI template puts anything after the upstream ID, which no registered provider has, is then named under the instance's base, where before only its predicates were. Chapter text: 22 §3.6.
 

@@ -133,7 +133,6 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0111 A2](0111-creating-a-tenant-by-request.md#a2-calls-made-building-the-requests-api-page-and-invitation) | 2026-11-16 | Calls made building the requests' API, page and invitation |
 | [0111 A3](0111-creating-a-tenant-by-request.md#a3-calls-made-building-freezing-deleting-and-the-primary-roles-acceptance) | 2026-11-16 | Calls made building freezing, deleting and the primary role's acceptance |
 | [0114 A2](0114-badges.md#a2-badges-drawn-everywhere-the-site-names-an-entity) | 2026-11-22 | Badges drawn everywhere the site names an entity |
-| [0115 A6](0115-publishing-the-shared-crates.md#a6-providermodelupstreamconcept) | 2026-11-23 | `ProviderModel::upstream_concept` |
 
 ## Open questions
 
@@ -524,7 +523,6 @@ Every unsettled question in every ADR (24 §8), with its first sentence. Settle 
 | [0104 Q3](0104-batches-and-the-job-runner.md) | The queue beyond one process | The runner claims queued jobs with the database's row locks, so several server processes could share the queue; nothing partitions the work between them yet, and a job that one process started is finished by that process… |
 | [0109 Q1](0109-the-documentation-site.md) | Rustdoc and the command line's reference | Both need the workspace compiled, which may not fit Read the Docs' build time. |
 | [0111 Q1](0111-creating-a-tenant-by-request.md) | A delay or a second approval | Requests are carried out at once. |
-| [0115 Q9](0115-publishing-the-shared-crates.md) | The order | *Recommendation:* the wikitext line first, since it is smaller and nearly ready (Q1, Q2, Q3). |
 
 ## Pending registry allocations
 
