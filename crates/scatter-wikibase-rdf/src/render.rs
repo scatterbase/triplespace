@@ -1217,4 +1217,90 @@ mod tests {
             "Monolingualtext"
         );
     }
+
+    /// `wikibase:sitelinks` on the entity counts links in the resolved view: "`wikibase:sitelinks` on the entity counts links in the resolved view" (0026 §8).
+    #[test]
+    fn wikibase_sitelinks_counts_links_in_the_resolved_view() {
+        let iris = IriScheme::own(crate::Namespaces::new(
+            "https://example.org/",
+            "https://example.org/wiki/",
+        ));
+        let hasher = Hasher::local();
+        let r = Renderer::new(&iris, &hasher, Produce::PAGE_PROPS);
+        let mut item = Entity::new(EntityId::parse("Q1").unwrap(), EntityType::Item);
+        item.sitelinks.insert(
+            "enwiki".to_string(),
+            Sitelink {
+                site: "enwiki".to_string(),
+                title: "Foo".to_string(),
+                badges: vec![],
+                url: None,
+            },
+        );
+        item.sitelinks.insert(
+            "dewiki".to_string(),
+            Sitelink {
+                site: "dewiki".to_string(),
+                title: "Bar".to_string(),
+                badges: vec![],
+                url: None,
+            },
+        );
+        let doc = iris.document(&item.id);
+        let count = r
+            .entity(&item, None)
+            .into_iter()
+            .filter(|t| {
+                t.subject == oxrdf::NamedOrBlankNode::from(doc.clone())
+                    && t.predicate == scatter_vocab::wikibase::SITELINKS
+            })
+            .map(|t| match t.object {
+                oxrdf::Term::Literal(l) => l.value().parse::<u64>().unwrap(),
+                _ => panic!("expected a literal count"),
+            })
+            .next()
+            .expect("no wikibase:sitelinks triple");
+        assert_eq!(count, 2, "count is the number of resolved sitelinks");
+    }
+
+    /// `schema:name` carries a language tag only then: "`schema:name` carries a language tag only then" (0026 §8).
+    #[test]
+    fn schema_name_language_tag_follows_the_alias() {
+        let iris = IriScheme::own(crate::Namespaces::new(
+            "https://example.org/",
+            "https://example.org/wiki/",
+        ));
+        let hasher = Hasher::local();
+        let r = Renderer::new(&iris, &hasher, Produce::SITELINKS);
+        let mut item = Entity::new(EntityId::parse("Q1").unwrap(), EntityType::Item);
+        item.sitelinks.insert(
+            "unknown-site".to_string(),
+            Sitelink {
+                site: "unknown-site".to_string(),
+                title: "object/1234".to_string(),
+                badges: vec![],
+                url: Some("https://collections.example.museum/object/1234".to_string()),
+            },
+        );
+        let triples = r.entity(&item, None);
+        let names: Vec<&oxrdf::Literal> = triples
+            .iter()
+            .filter(|t| t.predicate == scatter_vocab::schema::NAME)
+            .map(|t| match &t.object {
+                oxrdf::Term::Literal(l) => l,
+                _ => panic!("schema:name object is a literal"),
+            })
+            .collect();
+        assert_eq!(names.len(), 1, "one schema:name per sitelink");
+        assert!(
+            names[0].language().is_none(),
+            "no language tag where no alias supplies one"
+        );
+        assert!(
+            !triples
+                .iter()
+                .any(|t| t.predicate == scatter_vocab::schema::IN_LANGUAGE),
+            "no schema:inLanguage where no alias supplies one"
+        );
+    }
 }

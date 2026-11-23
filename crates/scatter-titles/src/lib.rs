@@ -603,4 +603,26 @@ mod tests {
             "Domain's only allowed model is triplespace-domain"
         );
     }
+
+    /// Template (10) is where `sanitized-css` is allowed, as TemplateStyles' default `$wgTemplateStylesNamespaces`: "Template (10), as TemplateStyles' default `$wgTemplateStylesNamespaces" (0055 §1).
+    #[test]
+    fn template_allows_sanitized_css() {
+        let r = Namespaces::embedded();
+        let template = r.get(TEMPLATE).expect("Template is in the registry");
+        assert!(
+            template.allows_model("sanitized-css"),
+            "Template allows sanitized-css"
+        );
+    }
+
+    /// Project namespace (4) allows the `sanitized-css` content model: "sanitized-css for the site-styles page" (0055 §1).
+    #[test]
+    fn project_allows_sanitized_css() {
+        let r = Namespaces::embedded();
+        let project = r.get(PROJECT).expect("Project is in the registry");
+        assert!(
+            project.allows_model("sanitized-css"),
+            "Project allows sanitized-css"
+        );
+    }
 }

@@ -736,4 +736,45 @@ mod tests {
             m.get("ts-settings-on")
         );
     }
+
+    /// A read-only control shows the named value, never an editor: "a `site-asset` setting or a type set's font file" (0085 §8).
+    #[test]
+    fn a_read_only_control_shows_the_named_value_and_never_an_editor() {
+        let choices: Vec<String> = Vec::new();
+        let value = serde_json::json!({"title": "File:Logo.svg", "sha1": "0123456789abcdef0123456789abcdef01234567"});
+        let control = Control {
+            id: "set-site.logo",
+            name: "site.logo",
+            kind: Kind::ReadOnly,
+            choices: &choices,
+            value: Some(&value),
+            empty_choice: None,
+            described_by: None,
+            choice_label: None,
+        };
+        match control.model() {
+            ControlModel::ReadOnly { id, value } => {
+                assert_eq!(id, "set-site.logo");
+                assert_eq!(value, "File:Logo.svg (01234567)");
+            }
+            other => panic!("an editor was drawn: {other:?}"),
+        }
+    }
+
+    /// A read-only value that is not a title+sha1 object falls back to the JSON text: "A later upload changes nothing until someone with that right names the new version" (0085 §8).
+    #[test]
+    fn a_read_only_value_without_title_and_sha1_is_the_json_text() {
+        assert_eq!(
+            as_text(Kind::ReadOnly, &serde_json::json!("unset")),
+            "unset"
+        );
+        assert_eq!(
+            as_text(Kind::ReadOnly, &serde_json::json!({"other": 1})),
+            "{\"other\":1}"
+        );
+        assert_eq!(
+            as_text(Kind::ReadOnly, &serde_json::json!({"title": "File:A.svg"})),
+            "{\"title\":\"File:A.svg\"}"
+        );
+    }
 }
