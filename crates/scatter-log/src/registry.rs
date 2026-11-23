@@ -870,4 +870,24 @@ mod tests {
             "a projection has no payload types"
         );
     }
+
+    /// Entity-source partitions: `source/{name}` is per-source with placeholder `{name}`, so a declared source instantiates to `source/lexemes` and an undeclared one is refused — "one `source/{name}` partition per entity source" (0028 §2).
+    #[test]
+    fn source_partition_is_per_source_and_instantiates_with_the_source_name() {
+        let r = GraphRegistry::embedded();
+        let (g, slug) = r
+            .lookup("source/{name}")
+            .expect("source/{{name}} is registered");
+        assert_eq!(slug, None, "source/{{name}} is the template row itself");
+        assert_eq!(g.per, Some(Per::Source), "source/{{name}} is per source");
+        assert_eq!(g.instantiate("lexemes"), "source/lexemes");
+        let (g, slug) = r.lookup("source/lexemes").unwrap();
+        assert_eq!(g.name, "source/{name}");
+        assert_eq!(slug, Some("lexemes"));
+        assert!(r.lookup("source/").is_none(), "an empty slug is refused");
+        assert!(
+            r.lookup("source/a/b").is_none(),
+            "a slug with a slash is refused"
+        );
+    }
 }
