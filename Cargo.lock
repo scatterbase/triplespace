@@ -3058,7 +3058,7 @@ dependencies = [
 
 [[package]]
 name = "scatter-providers"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "getrandom 0.3.4",
  "oxrdf",
@@ -3138,7 +3138,7 @@ dependencies = [
 
 [[package]]
 name = "scatter-wikibase-fusion"
-version = "0.1.1"
+version = "0.2.0"
 dependencies = [
  "scatter-keyed",
  "scatter-normalize",
@@ -3154,7 +3154,7 @@ dependencies = [
 
 [[package]]
 name = "scatter-wikibase-ids"
-version = "0.1.2"
+version = "0.2.0"
 dependencies = [
  "oxrdf",
  "scatter-keyed",
