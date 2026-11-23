@@ -10,9 +10,11 @@ expression: main_of(&html)
 	</div>
 	<h1 class="ts-page__title firstHeading mw-first-heading" id="firstHeading">Wikipedia</h1>
 	<div id="contentSub">
-	<div class="ts-terms" data-region="terms">
+		<div id="mw-content-subtitle">
+		<div class="ts-terms" data-region="terms">
 <p class="ts-terms__description">the free encyclopedia</p>
 </div>
+		</div>
 	</div>
 	<nav class="ts-tabs" aria-label="Page">
 		<div class="ts-tabs__views mw-portlet mw-portlet-views" id="p-views">

@@ -706,8 +706,8 @@ pub fn model(
     }
 }
 
-/// MediaWiki's classes on `<body>` (19 §5.10), which site styles written for MediaWiki
-/// key on: `mediawiki`, the direction, the namespace of the title shown (`ns-0` and
+/// MediaWiki's classes on `<body>` (19 §5.10), which styles written for MediaWiki's skins
+/// key on (a wiki's own site styles, scoped to `.mw-parser-output`, do not reach them): `mediawiki`, the direction, the namespace of the title shown (`ns-0` and
 /// `ns-subject`, `ns-1` and `ns-talk`, `ns--1` and `ns-special`), the page and its root
 /// (`page-Main_Page`, `rootpage-Main_Page`), the skin and the action. The skin is
 /// `skin-plain` for every skin that draws Plain's DOM, since the class says which DOM a
@@ -1041,7 +1041,7 @@ mod tests {
             "<main class=\"ts-page mw-body\" id=\"content\">",
             "id=\"firstHeading\"",
             "class=\"mw-indicators\"",
-            "<div id=\"contentSub\">",
+            "<div id=\"contentSub\">\n\t\t<div id=\"mw-content-subtitle\">",
             "<span>sub</span>",
             "id=\"bodyContent\"",
             "<div class=\"ts-sitesub\" id=\"siteSub\">From Librarybase</div>",

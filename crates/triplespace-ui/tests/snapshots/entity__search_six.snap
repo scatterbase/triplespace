@@ -7,6 +7,8 @@ expression: main_of(&html)
 	</div>
 	<h1 class="ts-page__title firstHeading mw-first-heading" id="firstHeading">Search</h1>
 	<div id="contentSub">
+		<div id="mw-content-subtitle">
+		</div>
 	</div>
 	<div class="ts-page__body mw-body-content" id="bodyContent">
 		<div class="ts-sitesub" id="siteSub">From librarybase</div>

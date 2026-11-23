@@ -4,7 +4,7 @@
 
     Beside Codex's classes and Plain's own, the frame draws the IDs and classes
     MediaWiki's skins share (19 §5.10): `#content`, `#firstHeading`, `#bodyContent`,
-    `#mw-content-text`, `#siteSub`, `#contentSub`, `#footer`, the portlets (`#p-personal`,
+    `#mw-content-text`, `#siteSub`, `#contentSub` with `#mw-content-subtitle`, `#footer`, the portlets (`#p-personal`,
     `#p-views`, `#p-cactions`, `#p-tb`, `#p-navigation`, `#p-search`) with an ID per item
     from its key (`ca-edit`, `pt-logout`, `t-info`, `n-recentchanges`), and MediaWiki's
     classes on `<body>`. -#}
@@ -114,9 +114,11 @@
 	</div>
 	<h1 class="ts-page__title firstHeading mw-first-heading" id="firstHeading"{% if title_lang %} lang="{{ title_lang }}" dir="auto"{% endif %}>{{ title }}</h1>
 	<div id="contentSub">
-	{%- if subtitle %}
-	{{ subtitle|safe }}
-	{%- endif %}
+		<div id="mw-content-subtitle">
+		{%- if subtitle %}
+		{{ subtitle|safe }}
+		{%- endif %}
+		</div>
 	</div>
 	{%- if menus["page-tabs"] or menus["page-actions"] or menus.tools or watch %}
 	<nav class="ts-tabs" aria-label="{{ msg("plain-tabs-label") }}">
