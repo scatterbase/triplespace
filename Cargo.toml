@@ -67,12 +67,12 @@ authors = ["Scatter LLC"]
 [workspace.dependencies]
 # Workspace crates
 scatter-vocab = { path = "crates/scatter-vocab", version = "0.1.0" }
-scatter-providers = { path = "crates/scatter-providers", version = "0.1.1" }
+scatter-providers = { path = "crates/scatter-providers", version = "0.1.0" }
 scatter-normalize = { path = "crates/scatter-normalize", version = "0.1.0" }
 scatter-keyed = { path = "crates/scatter-keyed", version = "0.1.0" }
-scatter-wikibase-model = { path = "crates/scatter-wikibase-model", version = "0.1.1" }
-scatter-wikibase-ids = { path = "crates/scatter-wikibase-ids", version = "0.1.1", default-features = false }
-scatter-wikibase-fusion = { path = "crates/scatter-wikibase-fusion", version = "0.1.1", default-features = false }
+scatter-wikibase-model = { path = "crates/scatter-wikibase-model", version = "0.1.0" }
+scatter-wikibase-ids = { path = "crates/scatter-wikibase-ids", version = "0.1.0", default-features = false }
+scatter-wikibase-fusion = { path = "crates/scatter-wikibase-fusion", version = "0.1.0", default-features = false }
 scatter-wikibase-shape = { path = "crates/scatter-wikibase-shape" }
 scatter-wikibase-changeset = { path = "crates/scatter-wikibase-changeset" }
 scatter-wikibase-resolve = { path = "crates/scatter-wikibase-resolve" }

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-22
-- **Updated:** 2026-11-23 (A6)
+- **Updated:** 2026-11-23 (A7)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0042](0042-template-expansion-and-parsoid.md), [0097](0097-versioning-and-skins.md)
 
@@ -238,3 +238,12 @@ Replaced text: none; §15 is new in this change.
 - **Summary:** `ProviderModel` gains `upstream_concept`, a foreign ID's concept base and upstream ID, `None` by default, which `TriplespaceIris` names foreign IDs and their properties' predicates from. A provider type whose IRI template puts anything after the upstream ID, which no registered provider has, is then named under the instance's base, where before only its predicates were. Chapter text: 22 §3.6.
 
 Replaced text: none; §15 is new in this change.
+
+### A7. Requirements on published crates name published versions
+
+- **Date:** 2026-11-23
+- **Source:** Direct: Claude, while preparing the publication of `scatter-wikibase-rdf`, 2026-11-23; confirmed by James, 2026-11-23
+- **Change:** extends §7
+- **Summary:** The bump after the publication of `scatter-providers`, `scatter-wikibase-model`, `scatter-wikibase-ids` and `scatter-wikibase-fusion` raised their requirements in `[workspace.dependencies]` to 0.1.1 along with their versions. `cargo publish --workspace --dry-run` passed, since it lets workspace crates satisfy each other from their paths, and the publication of `scatter-wikibase-rdf` failed on `scatter-wikibase-model = "^0.1.1"`. The requirements go back to 0.1.0, and the *Publishable crates* job first checks that every requirement a publishable crate has on another that crates.io already has is met by a published version. A bump raises a crate's own `version`, never its requirement. Chapter text: 22 §3.6.
+
+Replaced text: in 22 §3.6, "**CI checks every publishable crate on every pull request**, in the *Publishable crates* job (`tools/publish_check.py`): `cargo publish --workspace --dry-run` packages each crate".
