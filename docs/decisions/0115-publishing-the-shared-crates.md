@@ -79,6 +79,12 @@ After the first part and the first step of the second (the base knowing no regis
 
 - **"This sounds like the best option"**.
 
+On Q5, offered two ways for `scatter-wikibase-ids` and `scatter-wikibase-fusion` to be published although both use `scatter-providers` (publish it too, or have the two crates take provider information through a small trait):
+
+- **"I like the idea of doing both of these: publish scatter-providers as an opinionated crate, and then provide a trait interface for alternatives"**.
+- Asked whether anything should move out of `scatter-providers`, and told that only the Wikidata code in `scatter-wikibase-fusion` needed it beyond the trait, he chose to get that code through the trait too, and to leave the rest of `scatter-providers` as it is.
+- Asked to confirm that the trait's provider code by slug is `None` unless an implementation gives it, and that the `scatter-providers` implementation sits behind a feature on by default, he confirmed both.
+
 ## Decision
 
 ### 1. Shared crates are published to crates.io from this workspace (amends 0005 §6)
@@ -133,6 +139,10 @@ After the first part and the first step of the second (the base knowing no regis
 
 *Current text: [03](../architecture/03-storage-caches-and-search.md) §11.3; [06](../architecture/06-statements-and-properties.md) §6.3; [22](../architecture/22-crates-and-stack.md) §3.6.*
 
+### 14. `scatter-providers` is published as Triplespace's provider model, and the extensions take providers through a trait
+
+*Current text: [22](../architecture/22-crates-and-stack.md) §3.6.*
+
 ## Alternatives considered
 
 - **A checked copy of each registry file inside the crate**, with a checker that fails when it differs from `docs/registry/`. It works on every platform, but it is a second copy to regenerate after every registry edit.
@@ -157,7 +167,7 @@ The plan for the other strong candidates. Each depends on the questions before i
 - **Q2. `scatter-wikitext`'s CSS classes.** *Settled by §6.*
 - **Q3. `scatter-talk`.** *Settled by §9.*
 - **Q4. `scatter-vocab`.** *Settled by §12.*
-- **Q5. `scatter-providers`.** Its whole API is Triplespace's provider model: two-letter codes, revision IDs packed as `number << 40 | n`, tenant entity sources, adapters, trust and chip colours. Only `IdGrammar` is general. *Recommendation:* never publish it. Instead, take it out of the dependency tree of the published Wikibase crates (Q7, Q8), and leave it a shared crate for Scatterbase as it is.
+- **Q5. `scatter-providers`.** *Settled by §14.*
 - **Q6. `scatter-normalize`.** *Settled by §11.*
 - **Q7. `scatter-wikibase-model`.** *Settled by §13.*
 - **Q8. `scatter-wikibase-rdf`.** The renderer, both flavours, the dump header, N-Triples and Turtle are general Wikibase RDF 1.0.0. `IriScheme` resolves foreign, source and keyed IDs through the provider and keyed registries, and `with_default_registries` and `Namespaces::triplespace` are Triplespace's. *Recommendation:* concept and document IRIs come through a trait. The registry-backed implementation moves to `triplespace-rdf`, which drops the dependencies on `scatter-providers` and `scatter-normalize`. Publish after Q7. §10 now decides the shape: a base crate of pure Wikibase and an extension crate named for what it holds, both published.
