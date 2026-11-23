@@ -5,7 +5,11 @@ A publishable crate is a workspace crate whose manifest does not say `publish = 
 (22 §3.6). For all of them together it runs `cargo publish --workspace --dry-run`, which packages
 each one, in dependency order, and builds it from its package, so a path-only dependency, a file
 outside the crate's directory (a registry file that is not a symlink, 0115 §2) or a package that
-does not build fails here rather than at James's publication. Then, for each crate crates.io
+does not build fails here rather than at James's publication. The dry run lets workspace crates
+satisfy each other's requirements from their paths, so before it each requirement one publishable
+crate has on another that crates.io already has must be met by a published version: a requirement
+raised past what is published (`^0.1.1` when crates.io has 0.1.0) passes the dry run and fails the
+real publication. Then, for each crate crates.io
 already has, it runs `cargo semver-checks` against the latest published version, so a breaking
 change needs the version raised as 22 §3.5 says; a crate with no published version is listed and
 skipped, since there is nothing to break yet.
@@ -28,22 +32,64 @@ import urllib.request
 INDEX = "https://index.crates.io"
 
 
-def publishable():
-    """The workspace crates whose manifests allow publishing, by name."""
+def metadata():
     out = subprocess.run(
         ["cargo", "metadata", "--format-version", "1", "--no-deps"],
         check=True,
         capture_output=True,
         text=True,
     ).stdout
-    meta = json.loads(out)
+    return json.loads(out)
+
+
+def publishable_packages(meta):
+    """The workspace packages whose manifests allow publishing."""
     members = set(meta["workspace_members"])
     # `publish = false` is `[]` in cargo's metadata; no `publish` key is `null`.
-    return sorted(
-        p["name"]
-        for p in meta["packages"]
-        if p["id"] in members and p.get("publish") != []
-    )
+    return [p for p in meta["packages"] if p["id"] in members and p.get("publish") != []]
+
+
+def publishable():
+    """The workspace crates whose manifests allow publishing, by name."""
+    return sorted(p["name"] for p in publishable_packages(metadata()))
+
+
+def parse_version(v):
+    return tuple(int(x) for x in v.split("-")[0].split("+")[0].split("."))
+
+
+def caret_matches(req, version):
+    """Whether `version` meets a caret requirement (`^0.1.1`, or `0.1.1`, which is the same),
+    by Cargo's rule: at least the requirement, and the same leftmost non-zero part."""
+    req = req.strip().lstrip("^")
+    r = parse_version(req)
+    r = r + (0,) * (3 - len(r))
+    v = parse_version(version)
+    if v < r:
+        return False
+    for i, part in enumerate(r):
+        if part != 0 or i == len(r) - 1:
+            return v[: i + 1] == r[: i + 1]
+    return True
+
+
+def unmet_requirements(meta, versions):
+    """Requirements of publishable crates on publishable crates crates.io has, that no
+    published version meets: `(crate, dependency, requirement, published)`."""
+    out = []
+    names = {p["name"] for p in publishable_packages(meta)}
+    for p in publishable_packages(meta):
+        for d in p["dependencies"]:
+            name, req = d["name"], d.get("req", "*")
+            if d.get("kind") == "dev" or name not in names or not versions.get(name):
+                continue
+            if not req.lstrip("^").strip() or req.strip() == "*":
+                continue
+            if any(c in req for c in "<>=~,*"):
+                continue  # Only caret requirements are written in this workspace.
+            if not any(caret_matches(req, v) for v in versions[name]):
+                out.append((p["name"], name, req, versions[name]))
+    return out
 
 
 def index_path(name):
@@ -95,6 +141,14 @@ def main():
         return 0
 
     failed = []
+    for crate, dep, req, have in unmet_requirements(metadata(), versions):
+        print(
+            f"{crate} requires {dep} {req}, which crates.io does not have "
+            f"(it has {', '.join(have)}): lower the requirement in the workspace's "
+            "[workspace.dependencies] to a published version",
+            file=sys.stderr,
+        )
+        failed.append(f"{crate} → {dep} {req}")
     if run(["cargo", "publish", "--workspace", "--dry-run", "--locked"]) != 0:
         failed.append("cargo publish --dry-run")
 
