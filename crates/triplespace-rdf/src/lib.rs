@@ -44,6 +44,8 @@ use oxrdf::{GraphName, NamedNode, NamedOrBlankNode, Quad, Term, Triple};
 use scatter_actors::{Effective, ReadDecision, Target as AclTarget, Timestamp, read_decision};
 use scatter_keyed::KeyedRegistry;
 use scatter_providers::Registry;
+use scatter_wikibase_ids::TriplespaceIris;
+use scatter_wikibase_ids::rdf::upstream_nodes;
 use scatter_wikibase_model::{EntityId, Hasher, PageInfo};
 use scatter_wikibase_rdf::{
     FORMAT_VERSION, GENID, IriScheme, Namespaces, Produce, Renderer, Seen, dump_header,
@@ -562,7 +564,7 @@ impl Walk<'_> {
             modified: Some(iso8601(current.modified)),
             ..PageInfo::default()
         };
-        let upstream = current.upstream_statements(req.registry);
+        let upstream = upstream_nodes(req.registry, &current.upstream_statements(req.registry));
         let mut triples = Vec::new();
         Renderer::new(&self.iris, &self.hasher, Produce::DUMP_FILE)
             .with_upstream(&upstream)
@@ -688,9 +690,8 @@ async fn write_files(
     name: &str,
 ) -> Result<Manifest, DumpError> {
     let iris = IriScheme::new(
-        Namespaces::triplespace(req.base),
-        req.registry,
-        KeyedRegistry::default_registry(),
+        Namespaces::with_wiki_path(req.base),
+        TriplespaceIris::new(req.registry, KeyedRegistry::default_registry()),
     );
     let base = iris.namespaces().base.clone();
     let entity_base = iris.namespaces().entity();

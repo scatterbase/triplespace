@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-22
-- **Updated:** 2026-11-23 (A4)
+- **Updated:** 2026-11-23 (A6)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0042](0042-template-expansion-and-parsoid.md), [0097](0097-versioning-and-skins.md)
 
@@ -85,6 +85,11 @@ On Q5, offered two ways for `scatter-wikibase-ids` and `scatter-wikibase-fusion`
 - Asked whether anything should move out of `scatter-providers`, and told that only the Wikidata code in `scatter-wikibase-fusion` needed it beyond the trait, he chose to get that code through the trait too, and to leave the rest of `scatter-providers` as it is.
 - Asked to confirm that the trait's provider code by slug is `None` unless an implementation gives it, and that the `scatter-providers` implementation sits behind a feature on by default, he confirmed both.
 
+On Q8, told that only `IriScheme` in `scatter-wikibase-rdf` reads the provider and keyed registries, and that the base would take entity IRIs through a trait:
+
+- Asked where Triplespace's implementation of that trait lives, he chose **`scatter-wikibase-ids`, behind an optional `rdf` feature**, over a new extension crate or `triplespace-rdf`, since that crate holds how Triplespace names entities and a concept IRI is a name.
+- Asked how mirrored statements named as their upstream names them cross into the base, he chose **the caller resolves first**: the base takes the resolved nodes, and `scatter-wikibase-ids` gives the function that resolves them from the provider registry.
+
 ## Decision
 
 ### 1. Shared crates are published to crates.io from this workspace (amends 0005 §6)
@@ -143,6 +148,10 @@ On Q5, offered two ways for `scatter-wikibase-ids` and `scatter-wikibase-fusion`
 
 *Current text: [22](../architecture/22-crates-and-stack.md) §3.6.*
 
+### 15. `scatter-wikibase-rdf` takes entity IRIs through a trait, and Triplespace's are in `scatter-wikibase-ids`
+
+*Current text: [22](../architecture/22-crates-and-stack.md) §3.6.*
+
 ## Alternatives considered
 
 - **A checked copy of each registry file inside the crate**, with a checker that fails when it differs from `docs/registry/`. It works on every platform, but it is a second copy to regenerate after every registry edit.
@@ -170,7 +179,7 @@ The plan for the other strong candidates. Each depends on the questions before i
 - **Q5. `scatter-providers`.** *Settled by §14.*
 - **Q6. `scatter-normalize`.** *Settled by §11.*
 - **Q7. `scatter-wikibase-model`.** *Settled by §13.*
-- **Q8. `scatter-wikibase-rdf`.** The renderer, both flavours, the dump header, N-Triples and Turtle are general Wikibase RDF 1.0.0. `IriScheme` resolves foreign, source and keyed IDs through the provider and keyed registries, and `with_default_registries` and `Namespaces::triplespace` are Triplespace's. *Recommendation:* concept and document IRIs come through a trait. The registry-backed implementation moves to `triplespace-rdf`, which drops the dependencies on `scatter-providers` and `scatter-normalize`. Publish after Q7. §10 now decides the shape: a base crate of pure Wikibase and an extension crate named for what it holds, both published.
+- **Q8. `scatter-wikibase-rdf`.** *Settled by §15.*
 - **Q9. The order.** *Recommendation:* the wikitext line first, since it is smaller and nearly ready (Q1, Q2, Q3). Then the general part of `scatter-normalize` (Q6) and `scatter-vocab` (Q4). Then the Wikibase model (Q7) and RDF (Q8), whose split touches most of the workspace.
 - **Q10. Checks in CI for published crates.** *Settled by §7.*
 - **Q11. `scatter-wikitext-expand` on the wasm list.** *Settled by §8.*
@@ -212,3 +221,20 @@ The plan for the other strong candidates. Each depends on the questions before i
 
 Replaced text: 22 §3.6.
 
+### A5. `Namespaces::with_wiki_path`
+
+- **Date:** 2026-11-23
+- **Source:** Direct: Claude, while building the `scatter-wikibase-rdf` split, 2026-11-23; confirmed by James, 2026-11-23
+- **Change:** amends §15
+- **Summary:** `Namespaces::triplespace` becomes `Namespaces::with_wiki_path` in the base, since the layout it names (articles at `{base}wiki/`) is Wikidata's as well as Triplespace's; the three callers pass the tenant's base as before. Chapter text: 22 §3.6.
+
+Replaced text: none; §15 is new in this change.
+
+### A6. `ProviderModel::upstream_concept`
+
+- **Date:** 2026-11-23
+- **Source:** Direct: Claude, while building the `scatter-wikibase-rdf` split, 2026-11-23; unconfirmed
+- **Change:** amends §15
+- **Summary:** `ProviderModel` gains `upstream_concept`, a foreign ID's concept base and upstream ID, `None` by default, which `TriplespaceIris` names foreign IDs and their properties' predicates from. A provider type whose IRI template puts anything after the upstream ID, which no registered provider has, is then named under the instance's base, where before only its predicates were. Chapter text: 22 §3.6.
+
+Replaced text: none; §15 is new in this change.

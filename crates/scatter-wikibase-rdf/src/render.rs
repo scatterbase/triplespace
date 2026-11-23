@@ -17,9 +17,7 @@ use scatter_wikibase_model::{
 };
 use sha2::{Digest as _, Sha256};
 
-use scatter_providers::UpstreamRef;
-
-use crate::iri::{Family, IriScheme, PropertyIris, rawurlencode, wf_urlencode};
+use crate::iri::{Family, IriScheme, PropertyIris, UpstreamNodes, rawurlencode, wf_urlencode};
 use crate::time::xsd_date_time;
 
 /// Earth, as every Wikibase names it.
@@ -203,7 +201,7 @@ pub struct Renderer<'a> {
     produce: Produce,
     sites: &'a (dyn Sites + Sync),
     datatypes: DatatypeLookup<'a>,
-    upstream: Option<&'a BTreeMap<StatementId, UpstreamRef>>,
+    upstream: Option<&'a BTreeMap<StatementId, UpstreamNodes>>,
     skolem: bool,
 }
 
@@ -248,19 +246,13 @@ impl<'a> Renderer<'a> {
     }
 
     /// Names the statements in `upstream` as their upstream names them: the statement node
-    /// under the provider's concept base, after the entity each is given with (the
-    /// subject of its ID, or for a key-mapped provider's statement stored under a keyed
-    /// subject the item that was mapped onto it, 0002 A44), and its reference and value
-    /// nodes under the provider's base, hashed over the IDs as the provider writes them,
-    /// so that each node is the one the provider's own RDF has (05 §1.5; 0002 A43). Which
-    /// statements qualify is the caller's: those whose every member is a mirror's and that
-    /// no local correction touches. A statement whose upstream is not a Wikibase-shaped
-    /// provider in the registry is named under the instance's base all the same. A value
-    /// the adapter rewrote to a keyed ID (`domain:example.org` for the provider's `Q9`)
-    /// hashes as stored, so a reference that holds one gets a node the provider's RDF does
-    /// not have.
+    /// it gives, and the statement's reference and value nodes under its base, hashed by its
+    /// hasher, so that each node is the one the upstream's own RDF has (05 §1.5; 0002 A43).
+    /// Which statements qualify, and their nodes, are the caller's to say (Triplespace's,
+    /// from its providers, are `scatter-wikibase-ids`' `rdf::upstream_nodes`, 0115 §15).
+    /// Every other statement is named under the instance's base.
     #[must_use]
-    pub fn with_upstream(mut self, upstream: &'a BTreeMap<StatementId, UpstreamRef>) -> Self {
+    pub fn with_upstream(mut self, upstream: &'a BTreeMap<StatementId, UpstreamNodes>) -> Self {
         self.upstream = Some(upstream);
         self
     }
@@ -717,15 +709,12 @@ impl<'a> Renderer<'a> {
             // A statement without an ID has no node to hang on; Wikibase never writes one.
             return;
         };
-        let upstream = self
-            .upstream
-            .and_then(|u| u.get(id))
-            .and_then(|u| self.iris.upstream_nodes(u, id));
+        let upstream = self.upstream.and_then(|u| u.get(id));
         let (node, names) = match upstream {
             Some(u) => (
-                u.statement,
+                u.statement.clone(),
                 NodeNames {
-                    base: u.base,
+                    base: u.base.clone(),
                     hasher: u.hasher.clone(),
                 },
             ),

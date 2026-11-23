@@ -1,16 +1,16 @@
 //! The IRIs Wikibase's RDF names things by (wikibase-compat.md §5.1; 02 §2.3; 05 §1.5).
 //!
 //! Prefix names are conventional and not the contract; the IRIs are. An [`IriScheme`] holds
-//! the instance's bases and the registries that turn a foreign or keyed ID into its concept
-//! IRI, and writes every node and predicate IRI the renderer needs.
+//! the instance's bases and an [`EntityIris`], which names the entities that are not named
+//! under those bases, and writes every node and predicate IRI the renderer needs. A stock
+//! Wikibase names every entity under its own base ([`OwnBase`]); Triplespace's
+//! implementation, for its foreign and keyed IDs, is in `scatter-wikibase-ids` (0115 §15).
 
 use std::fmt::Write as _;
 
+use std::sync::Arc;
+
 use oxrdf::NamedNode;
-use scatter_keyed::KeyedRegistry;
-use scatter_providers::{Registry as ProviderRegistry, UpstreamRef};
-use scatter_wikibase_ids::IdForm;
-use scatter_wikibase_ids::TriplespaceId as _;
 use scatter_wikibase_model::hash::Hasher;
 use scatter_wikibase_model::{EntityId, StatementId};
 
@@ -27,10 +27,10 @@ pub struct Namespaces {
 }
 
 impl Namespaces {
-    /// Bases for a tenant at `base` (`https://example.org/`) with articles at
-    /// `{base}wiki/` (0004 §4).
+    /// Bases for an instance at `base` (`https://example.org/`) with articles at
+    /// `{base}wiki/`, as Wikidata and Triplespace lay them out (0004 §4).
     #[must_use]
-    pub fn triplespace(base: &str) -> Self {
+    pub fn with_wiki_path(base: &str) -> Self {
         let base = with_slash(base);
         Self {
             article_path: format!("{base}wiki/"),
@@ -38,7 +38,8 @@ impl Namespaces {
         }
     }
 
-    /// Bases given in full, for a stock Wikibase's layout.
+    /// Bases given in full, for any other layout: a stock Wikibase's
+    /// `{script}/index.php/`, say.
     #[must_use]
     pub fn new(base: &str, article_path: &str) -> Self {
         Self {
@@ -197,7 +198,34 @@ impl PropertyIris {
     }
 }
 
-/// The nodes of a statement named as its upstream names them.
+/// Names the entities an instance does not name under its own base (0115 §15).
+///
+/// Every method has a default that names the entity under the instance's base, which is
+/// what a stock Wikibase does with every ID: implement only what differs.
+pub trait EntityIris: Send + Sync {
+    /// The concept IRI of an entity named elsewhere: a mirrored entity's upstream IRI, say.
+    /// `None` names it `{base}entity/{id}`.
+    fn concept(&self, _id: &EntityId) -> Option<NamedNode> {
+        None
+    }
+
+    /// For a property named elsewhere, its concept base and its local name there, as
+    /// `("http://www.wikidata.org/entity/", "P31")`: its predicates are named by Wikibase's
+    /// rule from that base ([`predicate_base`]). `None` names them under the instance's
+    /// base, by the property's ID.
+    fn property(&self, _id: &EntityId) -> Option<(String, String)> {
+        None
+    }
+}
+
+/// Every entity named under the instance's own base, as a stock Wikibase names them.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct OwnBase;
+
+impl EntityIris for OwnBase {}
+
+/// The nodes of a statement named as its upstream names them (05 §1.5; 0002 A43), resolved
+/// by the caller and given to [`crate::Renderer::with_upstream`].
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct UpstreamNodes {
     /// The statement node.
@@ -209,36 +237,35 @@ pub struct UpstreamNodes {
 }
 
 /// The IRIs of one instance (or one tenant), for one rendering.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct IriScheme<'r> {
     ns: Namespaces,
-    providers: &'r ProviderRegistry,
-    keyed: &'r KeyedRegistry,
+    entities: Arc<dyn EntityIris + 'r>,
+}
+
+impl std::fmt::Debug for IriScheme<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("IriScheme")
+            .field("ns", &self.ns)
+            .finish_non_exhaustive()
+    }
 }
 
 impl<'r> IriScheme<'r> {
-    /// A scheme over `ns`, resolving foreign and keyed IDs through the registries.
+    /// A scheme over `ns`, naming entities outside its bases through `entities`.
     #[must_use]
-    pub const fn new(
-        ns: Namespaces,
-        providers: &'r ProviderRegistry,
-        keyed: &'r KeyedRegistry,
-    ) -> Self {
+    pub fn new(ns: Namespaces, entities: impl EntityIris + 'r) -> Self {
         Self {
             ns,
-            providers,
-            keyed,
+            entities: Arc::new(entities),
         }
     }
 
-    /// A scheme over `ns` with the embedded registries.
+    /// A scheme over `ns` naming every entity under it, as a stock Wikibase does
+    /// ([`OwnBase`]).
     #[must_use]
-    pub fn with_default_registries(ns: Namespaces) -> IriScheme<'static> {
-        IriScheme::new(
-            ns,
-            ProviderRegistry::default_registry(),
-            KeyedRegistry::default_registry(),
-        )
+    pub fn own(ns: Namespaces) -> IriScheme<'static> {
+        IriScheme::new(ns, OwnBase)
     }
 
     /// The bases.
@@ -247,27 +274,13 @@ impl<'r> IriScheme<'r> {
         &self.ns
     }
 
-    /// An entity's concept IRI. A local ID is `{base}entity/{id}`; a foreign ID is its
-    /// provider type's template applied to the upstream ID (0002 §4; 05 §1.5), and a source
-    /// entity's likewise (0078 §7; 02 §2.3); a keyed ID is its type's template (04 §3.5).
-    /// An ID no registry knows falls back to `{base}entity/{id}`, which is what an
-    /// unpublished source's concept IRI is (02 §2.3).
+    /// An entity's concept IRI: the one [`EntityIris::concept`] gives, or else
+    /// `{base}entity/{id}`.
     #[must_use]
     pub fn concept(&self, id: &EntityId) -> NamedNode {
-        match id.form() {
-            IdForm::Foreign => {
-                if let Ok(f) = self.providers.parse_foreign_id(id.as_str()) {
-                    return f.concept_iri();
-                }
-            }
-            IdForm::Keyed => {
-                if let Ok(k) = self.keyed.parse_id(id.as_str()) {
-                    return k.iri();
-                }
-            }
-            IdForm::Local => {}
-        }
-        NamedNode::new_unchecked(format!("{}{}", self.ns.entity(), escape_iri(id.as_str())))
+        self.entities.concept(id).unwrap_or_else(|| {
+            NamedNode::new_unchecked(format!("{}{}", self.ns.entity(), escape_iri(id.as_str())))
+        })
     }
 
     /// An entity's document node, `{article path}Special:EntityData/{id}`, with the ID as
@@ -280,57 +293,22 @@ impl<'r> IriScheme<'r> {
     /// Where a property's predicates live, by Wikibase's own rule
     /// (`RdfVocabulary::getConceptUriBase`): take the concept base, the part of the
     /// concept IRI before the ID, drop a trailing `entity/` if there is one, and append
-    /// `prop/…`. A local property's concept base is `{base}entity/`, so its predicates are
-    /// `{base}prop/direct/P7`; a foreign property keeps its upstream's,
-    /// `http://www.wikidata.org/prop/direct/P31` (05 §1.5; 0002 A42). A foreign property
-    /// whose template puts anything after the ID, which no Wikibase can, is named under the
-    /// instance's base by its prefixed ID.
+    /// `prop/…`. A property named under the instance's base has the concept base
+    /// `{base}entity/`, so its predicates are `{base}prop/direct/P7`; one
+    /// [`EntityIris::property`] names elsewhere keeps that base's,
+    /// `http://www.wikidata.org/prop/direct/P31` (05 §1.5; 0002 A42).
     #[must_use]
     pub fn property(&self, id: &EntityId) -> PropertyIris {
-        if id.form() == IdForm::Foreign
-            && let Ok(f) = self.providers.parse_foreign_id(id.as_str())
-            && let Some((concept_base, "")) = f.entity_type().iri.split_once("{upstream_id}")
-        {
+        if let Some((concept_base, local)) = self.entities.property(id) {
             return PropertyIris {
-                base: predicate_base(concept_base),
-                local: escape_iri(&f.upstream_id()),
+                base: predicate_base(&concept_base),
+                local: escape_iri(&local),
             };
         }
         PropertyIris {
             base: predicate_base(&self.ns.entity()),
             local: escape_iri(id.as_str()),
         }
-    }
-
-    /// Where a mirrored statement's nodes are named when it says exactly what its upstream
-    /// says (05 §1.5; 0002 A43): its statement node as its upstream names it,
-    /// `{concept base}statement/{upstream ID}-{UUID}`, after the entity `upstream` names
-    /// (the subject of the statement's ID, or for a key-mapped provider's statement the
-    /// item mapped onto the keyed subject, 0002 A44), and its reference and value nodes
-    /// under the upstream's base. `None` when `upstream` is not an entity of a
-    /// Wikibase-shaped provider in the registry: the statement is then named under the
-    /// instance's base.
-    #[must_use]
-    pub fn upstream_nodes(
-        &self,
-        upstream: &UpstreamRef,
-        id: &StatementId,
-    ) -> Option<UpstreamNodes> {
-        let (provider, entity_type) = upstream.resolve(self.providers)?;
-        let Some((concept_base, "")) = entity_type.iri.split_once("{upstream_id}") else {
-            return None;
-        };
-        Some(UpstreamNodes {
-            statement: NamedNode::new_unchecked(format!(
-                "{concept_base}statement/{}-{}",
-                escape_iri(&upstream.id),
-                escape_iri(id.uuid())
-            )),
-            base: predicate_base(concept_base),
-            hasher: scatter_wikibase_ids::hasher_for(provider).with_iris(std::sync::Arc::new(
-                scatter_wikibase_ids::value_iri::ValueIris::new(self.providers, None),
-            )),
-        })
     }
 
     /// A statement node, `{base}entity/statement/{ID with $ as -}`.
@@ -404,8 +382,10 @@ impl<'r> IriScheme<'r> {
 }
 
 /// The base a Wikibase writes its predicates under, from its concept base: the concept
-/// base without a trailing `entity/`, or the concept base itself.
-fn predicate_base(concept_base: &str) -> String {
+/// base without a trailing `entity/`, or the concept base itself
+/// (`RdfVocabulary::getConceptUriBase`).
+#[must_use]
+pub fn predicate_base(concept_base: &str) -> String {
     concept_base
         .strip_suffix("entity/")
         .unwrap_or(concept_base)
@@ -486,37 +466,57 @@ mod tests {
     use super::*;
 
     fn scheme() -> IriScheme<'static> {
-        IriScheme::with_default_registries(Namespaces::triplespace("https://example.org"))
+        IriScheme::own(Namespaces::with_wiki_path("https://example.org"))
     }
 
     #[test]
-    fn local_foreign_and_keyed_concepts() {
+    fn own_base_names_everything_locally() {
         let s = scheme();
         let iri = |id: &str| s.concept(&EntityId::parse(id).unwrap()).into_string();
         assert_eq!(iri("Q5"), "https://example.org/entity/Q5");
-        assert_eq!(iri("WDQ42"), "http://www.wikidata.org/entity/Q42");
+        assert_eq!(iri("WDQ42"), "https://example.org/entity/WDQ42");
         assert_eq!(
-            iri("domain:en.wikipedia.org"),
-            "https://scatter.red/domain/en.wikipedia.org"
-        );
-        assert_eq!(
-            s.document(&EntityId::parse("WDQ42").unwrap()).as_str(),
-            "https://example.org/wiki/Special:EntityData/WDQ42"
-        );
-    }
-
-    #[test]
-    fn foreign_properties_keep_upstream_predicates() {
-        let s = scheme();
-        let wd = s.property(&EntityId::parse("WDP31").unwrap());
-        assert_eq!(
-            wd.iri(Family::Direct).as_str(),
-            "http://www.wikidata.org/prop/direct/P31"
+            s.document(&EntityId::parse("Q5").unwrap()).as_str(),
+            "https://example.org/wiki/Special:EntityData/Q5"
         );
         let local = s.property(&EntityId::parse("P7").unwrap());
         assert_eq!(
             local.iri(Family::QualifierValue).as_str(),
             "https://example.org/prop/qualifier/value/P7"
+        );
+    }
+
+    /// An `EntityIris` names entities and properties elsewhere (0115 §15).
+    #[test]
+    fn entities_named_elsewhere() {
+        struct Zed;
+        impl EntityIris for Zed {
+            fn concept(&self, id: &EntityId) -> Option<NamedNode> {
+                let rest = id.as_str().strip_prefix("ZZ")?;
+                Some(NamedNode::new_unchecked(format!(
+                    "https://zed.example/id/{rest}"
+                )))
+            }
+            fn property(&self, id: &EntityId) -> Option<(String, String)> {
+                let rest = id.as_str().strip_prefix("ZZ")?;
+                Some(("https://zed.example/id/".into(), rest.into()))
+            }
+        }
+        let s = IriScheme::new(Namespaces::with_wiki_path("https://example.org"), Zed);
+        assert_eq!(
+            s.concept(&EntityId::parse("ZZQ5").unwrap()).as_str(),
+            "https://zed.example/id/Q5"
+        );
+        // A concept base that does not end in `entity/` has `prop/` written after it.
+        assert_eq!(
+            s.property(&EntityId::parse("ZZP5").unwrap())
+                .iri(Family::Direct)
+                .as_str(),
+            "https://zed.example/id/prop/direct/P5"
+        );
+        assert_eq!(
+            s.concept(&EntityId::parse("Q5").unwrap()).as_str(),
+            "https://example.org/entity/Q5"
         );
     }
 
@@ -526,70 +526,10 @@ mod tests {
             predicate_base("http://www.wikidata.org/entity/"),
             "http://www.wikidata.org/"
         );
-        // A Wikibase whose concept base does not end in `entity/` writes `prop/` after it.
         assert_eq!(
             predicate_base("https://zed.example/id/"),
             "https://zed.example/id/"
         );
-        let registry = ProviderRegistry::parse(
-            "version = 1\n[[provider]]\ncode = \"ZZ\"\nslug = \"zed\"\nnumber = 99\nissuer = \"zed\"\nrevision_ids = true\nadapter = \"scatter-adapter-wikibase\"\n[[provider.type]]\ncode = \"P\"\nentity_type = \"property\"\nupstream_prefix = \"P\"\niri = \"https://zed.example/id/{upstream_id}\"\nnamespace = \"Property\"\n",
-        )
-        .unwrap();
-        let s = IriScheme::new(
-            Namespaces::triplespace("https://example.org"),
-            &registry,
-            KeyedRegistry::default_registry(),
-        );
-        let p = s.property(&EntityId::parse("ZZP5").unwrap());
-        assert_eq!(
-            p.iri(Family::Direct).as_str(),
-            "https://zed.example/id/prop/direct/P5"
-        );
-    }
-
-    #[test]
-    fn upstream_statement_nodes() {
-        let s = scheme();
-        let id = StatementId::parse("WDQ42$F078E5B3-F9A8-480E-B7AC-D97778CBBEF9").unwrap();
-        let wd = UpstreamRef::of(&s.providers.parse_foreign_id("WDQ42").unwrap());
-        let u = s.upstream_nodes(&wd, &id).unwrap();
-        assert_eq!(
-            u.statement.as_str(),
-            "http://www.wikidata.org/entity/statement/Q42-F078E5B3-F9A8-480E-B7AC-D97778CBBEF9"
-        );
-        assert_eq!(u.base, "http://www.wikidata.org/");
-        // The provider's own hashes, over value IRIs as it wrote them (0004 A20).
-        assert_eq!(
-            u.hasher,
-            Hasher::mirrored_from("WD").with_iris(std::sync::Arc::new(
-                scatter_wikibase_ids::value_iri::ValueIris::new(s.providers, None)
-            ))
-        );
-        // A key-mapped provider's statement is stored under the keyed subject with the
-        // item's UUID; named after the item it was mapped from (0002 A44).
-        let keyed = StatementId::parse("domain:wikipedia.org$F078E5B3-F9A8-480E-B7AC-D97778CBBEF9")
-            .unwrap();
-        let xd = UpstreamRef::mapped(s.providers.by_code("XD").unwrap(), "Q11").unwrap();
-        let u = s.upstream_nodes(&xd, &keyed).unwrap();
-        assert_eq!(
-            u.statement.as_str(),
-            "https://internetdomains.wiki/entity/statement/Q11-F078E5B3-F9A8-480E-B7AC-D97778CBBEF9"
-        );
-        assert_eq!(u.base, "https://internetdomains.wiki/");
-        // The provider's own hashes, over value IRIs as it wrote them (0004 A20).
-        assert_eq!(
-            u.hasher,
-            Hasher::mirrored_from("XD").with_iris(std::sync::Arc::new(
-                scatter_wikibase_ids::value_iri::ValueIris::new(s.providers, None)
-            ))
-        );
-        // A provider the registry does not know names nothing.
-        let unknown = UpstreamRef {
-            provider: "ZZ".into(),
-            type_code: 'Q',
-            id: "Q1".into(),
-        };
-        assert!(s.upstream_nodes(&unknown, &id).is_none());
     }
 
     #[test]
@@ -597,77 +537,5 @@ mod tests {
         assert_eq!(rawurlencode("Douglas adams.jpg"), "Douglas%20adams.jpg");
         assert_eq!(wf_urlencode("Data:Paris (x).map"), "Data:Paris%20(x).map");
         assert_eq!(escape_iri("a b<c>"), "a%20b%3Cc%3E");
-    }
-
-    /// A Domain's document node is `Special:EntityData/domain:en.wikipedia.org` on each
-    /// instance's own article path, though its concept IRI is the same everywhere (0009 §6).
-    #[test]
-    fn keyed_document_node_is_instance_data() {
-        let s = scheme();
-        assert_eq!(
-            s.document(&EntityId::parse("domain:en.wikipedia.org").unwrap())
-                .as_str(),
-            "https://example.org/wiki/Special:EntityData/domain:en.wikipedia.org"
-        );
-        // Another instance with a different base mints the same concept IRI but its own
-        // document node.
-        let other = IriScheme::with_default_registries(Namespaces::triplespace(
-            "https://elsewhere.example",
-        ));
-        assert_eq!(
-            other
-                .document(&EntityId::parse("domain:en.wikipedia.org").unwrap())
-                .as_str(),
-            "https://elsewhere.example/wiki/Special:EntityData/domain:en.wikipedia.org"
-        );
-        assert_eq!(
-            other
-                .concept(&EntityId::parse("domain:en.wikipedia.org").unwrap())
-                .as_str(),
-            "https://scatter.red/domain/en.wikipedia.org"
-        );
-    }
-
-    /// The key is used in A-label form, so the IRI is plain ASCII (0009 §6).
-    #[test]
-    fn keyed_concept_iri_uses_the_a_label() {
-        assert_eq!(
-            scheme()
-                .concept(&EntityId::parse("domain:bücher.example").unwrap())
-                .as_str(),
-            "https://scatter.red/domain/xn--bcher-kva.example"
-        );
-    }
-
-    /// Each keyed type's IRI template is registry data (0017 §3): keyword and notation IDs
-    /// take their own templates, a notation key with its scheme and `=` as they are.
-    #[test]
-    fn keyword_and_notation_concepts_follow_their_templates() {
-        let s = scheme();
-        let iri = |id: &str| s.concept(&EntityId::parse(id).unwrap()).into_string();
-        assert_eq!(
-            iri("keyword:saxophone"),
-            "https://scatter.red/keyword/saxophone"
-        );
-        assert_eq!(
-            iri("notation:osm:amenity=cafe"),
-            "https://scatter.red/notation/osm:amenity=cafe"
-        );
-    }
-
-    /// "A source declared without an `iri` is unpublished. Its concept IRI is then
-    /// `{base}/entity/{name}:{upstream ID}` under the tenant's base" (0078 §7).
-    #[test]
-    fn unpublished_source_falls_back_to_the_tenant_base() {
-        let s = scheme();
-        // An ID no registry knows takes the fallback branch, which is what an unpublished
-        // source's concept IRI is.
-        let iri = s.concept(&EntityId::parse("mhc:Q1").unwrap());
-        assert_eq!(iri.as_str(), "https://example.org/entity/mhc:Q1");
-        // The tenant's own document node carries the ID form regardless.
-        assert_eq!(
-            s.document(&EntityId::parse("mhc:Q1").unwrap()).as_str(),
-            "https://example.org/wiki/Special:EntityData/mhc:Q1"
-        );
     }
 }

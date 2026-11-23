@@ -36,6 +36,8 @@ use scatter_keyed::KeyedRegistry;
 use scatter_log_postgres::PgClient;
 use scatter_projection::{Backend, BoxFuture, Consumer};
 use scatter_providers::Registry;
+use scatter_wikibase_ids::TriplespaceIris;
+use scatter_wikibase_ids::rdf::upstream_nodes;
 use scatter_wikibase_model::{EntityId, Hasher, PageInfo};
 use scatter_wikibase_rdf::{
     Delta, GraphDelta, IriScheme, Namespaces, Produce, Renderer, canonical_lines, diff,
@@ -243,9 +245,8 @@ async fn render<C: Partitions + PgClient>(
         return Ok(shown);
     }
     let iris = IriScheme::new(
-        Namespaces::triplespace(&ctx.base),
-        &ctx.registry,
-        KeyedRegistry::default_registry(),
+        Namespaces::with_wiki_path(&ctx.base),
+        TriplespaceIris::new(&ctx.registry, KeyedRegistry::default_registry()),
     );
     let hasher = Hasher::local().with_iris(std::sync::Arc::new(
         scatter_wikibase_ids::value_iri::ValueIris::new(
@@ -261,7 +262,7 @@ async fn render<C: Partitions + PgClient>(
         modified: Some(iso8601(current.modified)),
         ..PageInfo::default()
     };
-    let upstream = current.upstream_statements(&ctx.registry);
+    let upstream = upstream_nodes(&ctx.registry, &current.upstream_statements(&ctx.registry));
     let triples = Renderer::new(&iris, &hasher, Produce::DUMP_FILE)
         .with_upstream(&upstream)
         .entity(&entity, Some(&page));

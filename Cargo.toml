@@ -66,7 +66,7 @@ authors = ["Scatter LLC"]
 
 [workspace.dependencies]
 # Workspace crates
-scatter-vocab = { path = "crates/scatter-vocab" }
+scatter-vocab = { path = "crates/scatter-vocab", version = "0.1.0" }
 scatter-providers = { path = "crates/scatter-providers", version = "0.1.1" }
 scatter-normalize = { path = "crates/scatter-normalize", version = "0.1.0" }
 scatter-keyed = { path = "crates/scatter-keyed", version = "0.1.0" }
@@ -76,7 +76,7 @@ scatter-wikibase-fusion = { path = "crates/scatter-wikibase-fusion", version = "
 scatter-wikibase-shape = { path = "crates/scatter-wikibase-shape" }
 scatter-wikibase-changeset = { path = "crates/scatter-wikibase-changeset" }
 scatter-wikibase-resolve = { path = "crates/scatter-wikibase-resolve" }
-scatter-wikibase-rdf = { path = "crates/scatter-wikibase-rdf" }
+scatter-wikibase-rdf = { path = "crates/scatter-wikibase-rdf", version = "0.1.0" }
 scatter-ingest = { path = "crates/scatter-ingest" }
 triplespace-api-ingest = { path = "crates/triplespace-api-ingest" }
 triplespace-accounts = { path = "crates/triplespace-accounts" }

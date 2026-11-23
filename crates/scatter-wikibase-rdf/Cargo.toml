@@ -1,21 +1,21 @@
 [package]
 name = "scatter-wikibase-rdf"
-version = "0.0.1"
+version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
 description = "Wikibase RDF format 1.0.0: an entity's triples in the full and truthy flavors, the dump header, and N-Triples and Turtle"
-publish = false
+readme = "README.md"
+homepage = "https://triplespace.readthedocs.io/"
+keywords = ["wikibase", "wikidata", "rdf", "sparql", "linked-data"]
+categories = ["encoding", "parser-implementations"]
+# Published on crates.io (0115 §1, §15); LICENSE is a symlink into the repository.
 
 [dependencies]
 scatter-wikibase-model.workspace = true
-scatter-wikibase-ids = { workspace = true, features = ["providers"] }
 scatter-vocab.workspace = true
-scatter-providers.workspace = true
-scatter-normalize.workspace = true
-scatter-keyed.workspace = true
 oxrdf.workspace = true
 oxttl.workspace = true
 sha2.workspace = true

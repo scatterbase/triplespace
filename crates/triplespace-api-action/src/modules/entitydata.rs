@@ -209,15 +209,20 @@ async fn rdf(
     let (entity, page, upstream) = match &current {
         Some(current) => {
             let (entity, page) = crate::entity_json::served(current);
-            let upstream = crate::entity_json::upstream_statements(current, registry);
+            let upstream = scatter_wikibase_ids::rdf::upstream_nodes(
+                registry,
+                &crate::entity_json::upstream_statements(current, registry),
+            );
             (entity, Some(page), upstream)
         }
         None => (parsed.entity, parsed.page, BTreeMap::new()),
     };
     let iris = IriScheme::new(
-        Namespaces::triplespace(&ctx.tenant.base),
-        registry,
-        scatter_keyed::KeyedRegistry::default_registry(),
+        Namespaces::with_wiki_path(&ctx.tenant.base),
+        scatter_wikibase_ids::TriplespaceIris::new(
+            registry,
+            scatter_keyed::KeyedRegistry::default_registry(),
+        ),
     );
     let hasher =
         Hasher::local().with_iris(crate::entity_json::value_iris(registry, &ctx.tenant.base));

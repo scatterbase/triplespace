@@ -2,13 +2,23 @@
 //! statement node under the provider's concept base, and its reference and value nodes
 //! under the provider's base, hashed over the IDs as the provider writes them, so that each
 //! node is the one the provider's own RDF has. Every other statement is the instance's.
+//! Rendered by `scatter-wikibase-rdf` with the nodes `rdf::upstream_nodes` resolves (0115 §15).
 
 use std::collections::BTreeMap;
 
 use oxrdf::Triple;
 use scatter_providers::{Registry, UpstreamRef};
+use scatter_wikibase_ids::TriplespaceIris;
+use scatter_wikibase_ids::rdf::upstream_nodes;
 use scatter_wikibase_model::{Entity, Hasher, StatementId};
 use scatter_wikibase_rdf::{Flavor, IriScheme, Namespaces, Renderer};
+
+fn scheme(base: &str) -> IriScheme<'static> {
+    IriScheme::new(
+        Namespaces::with_wiki_path(base),
+        TriplespaceIris::embedded(),
+    )
+}
 
 const UPSTREAM: &str = "WDQ42$F078E5B3-F9A8-480E-B7AC-D97778CBBEF9";
 const LOCAL: &str = "WDQ42$0D1A2B3C-0000-4000-8000-000000000001";
@@ -52,7 +62,7 @@ fn mirrored_statements_keep_upstream_nodes() {
     }))
     .unwrap()
     .entity;
-    let iris = IriScheme::with_default_registries(Namespaces::triplespace("https://example.org"));
+    let iris = scheme("https://example.org");
     let hasher = Hasher::local();
     let registry = Registry::default_registry();
     let upstream: BTreeMap<StatementId, UpstreamRef> = [(
@@ -61,7 +71,7 @@ fn mirrored_statements_keep_upstream_nodes() {
     )]
     .into();
     let triples = Renderer::new(&iris, &hasher, Flavor::Dump.produce())
-        .with_upstream(&upstream)
+        .with_upstream(&upstream_nodes(registry, &upstream))
         .entity(&entity, None);
     let concept = "http://www.wikidata.org/entity/Q42";
 
@@ -128,7 +138,7 @@ fn key_mapped_statements_keep_the_items_upstream_nodes() {
         .unwrap()
         .entity
     };
-    let iris = IriScheme::with_default_registries(Namespaces::triplespace("https://example.org"));
+    let iris = scheme("https://example.org");
     let hasher = Hasher::local();
     let registry = Registry::default_registry();
     let xd = registry.by_code("XD").unwrap();
@@ -139,7 +149,8 @@ fn key_mapped_statements_keep_the_items_upstream_nodes() {
         UpstreamRef::mapped(xd, "Q11").unwrap(),
     )]
     .into();
-    let renderer = Renderer::new(&iris, &hasher, Flavor::Dump.produce()).with_upstream(&upstream);
+    let nodes = upstream_nodes(registry, &upstream);
+    let renderer = Renderer::new(&iris, &hasher, Flavor::Dump.produce()).with_upstream(&nodes);
 
     let triples = renderer.entity(&keyed("domain:wikipedia.org", MAPPED), None);
     let concept = "https://scatter.red/domain/wikipedia.org";
@@ -187,7 +198,7 @@ fn shared_lines(base: &str) -> Vec<String> {
     .unwrap()
     .entity;
     let registry = Registry::default_registry();
-    let iris = IriScheme::with_default_registries(Namespaces::triplespace(base));
+    let iris = scheme(base);
     let hasher = Hasher::local().with_iris(std::sync::Arc::new(
         scatter_wikibase_ids::value_iri::ValueIris::new(
             registry,
@@ -205,7 +216,7 @@ fn shared_lines(base: &str) -> Vec<String> {
         ..Default::default()
     };
     let triples = Renderer::new(&iris, &hasher, Flavor::Dump.produce())
-        .with_upstream(&upstream)
+        .with_upstream(&upstream_nodes(registry, &upstream))
         .entity(&entity, Some(&page));
     scatter_wikibase_rdf::canonical_lines(&triples)
 }

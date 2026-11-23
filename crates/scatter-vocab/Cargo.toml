@@ -1,13 +1,18 @@
 [package]
 name = "scatter-vocab"
-version = "0.0.1"
+version = "0.1.0"
 edition.workspace = true
 rust-version.workspace = true
 license.workspace = true
 repository.workspace = true
 authors.workspace = true
 description = "IRI constants for the scatter: vocabulary and the external vocabularies Triplespace and Scatterbase reuse"
-publish = false
+readme = "README.md"
+homepage = "https://triplespace.readthedocs.io/"
+keywords = ["rdf", "vocabulary", "linked-data", "wikibase", "iri"]
+categories = ["data-structures", "encoding"]
+# Published on crates.io once a published crate depends on it, as scatter-wikibase-rdf does
+# (0115 §12, §15); LICENSE is a symlink into the repository.
 
 [dependencies]
 oxrdf.workspace = true

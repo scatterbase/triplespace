@@ -12,9 +12,13 @@
 //!   `calendarmodel` of a value kept as the ID they name (0004 A20), expanded back to the
 //!   IRIs Wikibase writes through the model's [`scatter_wikibase_model::ValueIriMap`].
 //!
+//! - **Entity IRIs in RDF** (`rdf`, with the `rdf` feature): `TriplespaceIris`, which names
+//!   foreign, source and keyed IDs for `scatter-wikibase-rdf`, and `rdf::upstream_nodes`,
+//!   the nodes a mirrored statement is named by as its upstream names them (0115 §15).
+//!
 //! Canonicalizing IDs written by users (the tenant-relative `QQQ5`, case) and the keyed data
-//! types are still in the model, until the write path has one place where client IDs can be
-//! canonicalized (0115 §13).
+//! types stay in the model, so that every path that makes an ID canonicalizes it
+//! (0115 A4).
 //!
 //! Pure (0005 §3, rule 2).
 
@@ -28,10 +32,14 @@ struct ReadmeDoctests;
 pub mod hash;
 pub mod id;
 pub mod provider;
+#[cfg(feature = "rdf")]
+pub mod rdf;
 pub mod value_iri;
 
 #[cfg(feature = "providers")]
 pub use hash::hasher_for;
 pub use id::{IdForm, TriplespaceId};
 pub use provider::ProviderModel;
+#[cfg(feature = "rdf")]
+pub use rdf::TriplespaceIris;
 pub use value_iri::ValueIris;

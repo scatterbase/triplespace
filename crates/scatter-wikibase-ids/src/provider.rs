@@ -28,6 +28,15 @@ pub trait ProviderModel {
     fn code_for_slug(&self, _slug: &str) -> Option<String> {
         None
     }
+
+    /// For a foreign ID whose concept IRI is its upstream ID after a base: that base and
+    /// the upstream ID, as `("http://www.wikidata.org/entity/", "Q42")` for `WDQ42`. Its
+    /// concept IRI is the two together, and a property's predicates are named from the base
+    /// by Wikibase's rule. `None` by default, which names the entity under the instance's
+    /// base, as an ID this model does not know is.
+    fn upstream_concept(&self, _id: &str) -> Option<(String, String)> {
+        None
+    }
 }
 
 #[cfg(feature = "providers")]
@@ -61,6 +70,14 @@ impl ProviderModel for scatter_providers::Registry {
 
     fn code_for_slug(&self, slug: &str) -> Option<String> {
         self.by_slug(slug).map(|p| p.code.clone())
+    }
+
+    fn upstream_concept(&self, id: &str) -> Option<(String, String)> {
+        let f = self.parse_foreign_id(id).ok()?;
+        let (base, "") = f.entity_type().iri.split_once("{upstream_id}")? else {
+            return None;
+        };
+        Some((base.to_string(), f.upstream_id()))
     }
 }
 

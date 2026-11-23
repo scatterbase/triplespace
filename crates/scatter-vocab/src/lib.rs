@@ -12,6 +12,10 @@
 //! Instance data — revision, user, graph and entity IRIs — is *not* here. Those belong to
 //! each instance's base URI (0001 §5) and are built by the surfaces.
 
+#[cfg(doctest)]
+#[doc = include_str!("../README.md")]
+struct ReadmeDoctests;
+
 /// Declares a vocabulary module: its namespace and a list of terms.
 macro_rules! vocabulary {
     (

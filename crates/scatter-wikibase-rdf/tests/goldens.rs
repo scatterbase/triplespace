@@ -25,6 +25,14 @@ const BASE: &str = "http://localhost:8080/";
 const SCRIPT: &str = "http://localhost:8080/index.php/";
 const EDTF: &str = "http://www.w3.org/2001/XMLSchema#edtf";
 
+/// Whether the repository's samples are here: a packaged crate has no `docs/`, and its
+/// tests that read them skip (0115 §3).
+fn samples_present() -> bool {
+    PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+        .join("../../docs/samples")
+        .is_dir()
+}
+
 fn sample(name: &str) -> String {
     let path = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("../../docs/samples/wikibase-1.43")
@@ -40,7 +48,7 @@ fn parse_turtle(text: &str) -> Vec<Triple> {
 }
 
 fn scheme() -> IriScheme<'static> {
-    IriScheme::with_default_registries(Namespaces::new(BASE, SCRIPT))
+    IriScheme::own(Namespaces::new(BASE, SCRIPT))
 }
 
 /// The reference install's one site: `testwiki`, language `en`, group `wikipedia`, whose
@@ -144,6 +152,9 @@ fn diff(rendered: &BTreeSet<String>, expected: &BTreeSet<String>) -> String {
 
 #[test]
 fn q8_full_flavor_matches_wikibase() {
+    if !samples_present() {
+        return;
+    }
     let golden = parse_turtle(&sample("wikibase-rdf-full-dump.ttl"));
     let parsed = q8();
     let iris = scheme();
@@ -157,6 +168,9 @@ fn q8_full_flavor_matches_wikibase() {
 
 #[test]
 fn q8_truthy_flavor_matches_wikibase() {
+    if !samples_present() {
+        return;
+    }
     let golden = parse_turtle(&sample("wikibase-rdf-truthy-dump.ttl"));
     let parsed = q8();
     let iris = scheme();
@@ -187,6 +201,9 @@ const DATATYPES: &[DataType] = &[
 
 #[test]
 fn property_declarations_match_wikibase() {
+    if !samples_present() {
+        return;
+    }
     let terms = [
         "http://www.w3.org/2000/01/rdf-schema#label",
         "http://www.w3.org/2004/02/skos/core#prefLabel",
@@ -272,6 +289,9 @@ fn property_declarations_match_wikibase() {
 
 #[test]
 fn dump_header_matches_wikibase() {
+    if !samples_present() {
+        return;
+    }
     let golden = parse_turtle(&sample("wikibase-rdf-full-dump.ttl"));
     let expected: BTreeSet<String> = golden
         .iter()
@@ -283,6 +303,9 @@ fn dump_header_matches_wikibase() {
 
 #[test]
 fn writers_round_trip() {
+    if !samples_present() {
+        return;
+    }
     let parsed = q8();
     let iris = scheme();
     let hasher = Hasher::local();
@@ -306,6 +329,9 @@ fn writers_round_trip() {
 /// statement nodes without truthy triples or value nodes (`EntityDataSerializationService`).
 #[test]
 fn entity_data_flavors() {
+    if !samples_present() {
+        return;
+    }
     let parsed = q8();
     let iris = scheme();
     let hasher = Hasher::local();
@@ -360,6 +386,9 @@ fn entity_data_flavors() {
 /// names, in order of first mention, never the entity itself, never units or badges.
 #[test]
 fn full_flavor_mentions() {
+    if !samples_present() {
+        return;
+    }
     let parsed = q8();
     let iris = scheme();
     let hasher = Hasher::local();
@@ -392,6 +421,9 @@ fn full_flavor_mentions() {
 /// dump above) and its labels and descriptions in the request's languages only.
 #[test]
 fn stubs() {
+    if !samples_present() {
+        return;
+    }
     let golden = parse_turtle(&sample("wikibase-rdf-full-dump.ttl"));
     let iris = scheme();
     let hasher = Hasher::local();
@@ -438,6 +470,9 @@ fn stubs() {
 /// two forms map one to one and nothing else changes.
 #[test]
 fn skolem_form_maps_one_to_one() {
+    if !samples_present() {
+        return;
+    }
     let parsed = q8();
     let iris = scheme();
     let hasher = Hasher::local();
