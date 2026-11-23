@@ -51,6 +51,7 @@ pub const FIRST_SOURCE_NAMESPACE: i32 = 3000;
 /// number is then fixed, and the names may change.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[non_exhaustive]
 pub struct SourceNamespace {
     /// Its number, the server's.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -63,6 +64,16 @@ pub struct SourceNamespace {
 }
 
 impl SourceNamespace {
+    /// A namespace of these names, its number left to the server.
+    #[must_use]
+    pub fn new(canonical: impl Into<String>, aliases: Vec<String>) -> Self {
+        Self {
+            id: None,
+            canonical: canonical.into(),
+            aliases,
+        }
+    }
+
     /// The namespace a source of this name gets when its declaration names none: the name
     /// in capitals, `MHC` for `mhc` (0078 A10).
     #[must_use]
@@ -89,8 +100,12 @@ impl SourceNamespace {
 }
 
 /// The `entity-source` config record's content (0078 §1).
+///
+/// Built outside this crate with [`EntitySource::new`] and its public fields, so that a new
+/// field is not a breaking change.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
+#[non_exhaustive]
 pub struct EntitySource {
     /// The prefix of its IDs: `[a-z][a-z0-9-]*`, at most 32 characters.
     pub name: String,
@@ -196,6 +211,25 @@ pub fn is_source_name(name: &str) -> bool {
 }
 
 impl EntitySource {
+    /// A source of this name, label and types, with every other field empty: no API, no
+    /// number or namespace yet, not promoted or retired.
+    #[must_use]
+    pub fn new(name: impl Into<String>, label: impl Into<String>, types: Vec<SourceType>) -> Self {
+        Self {
+            name: name.into(),
+            label: label.into(),
+            types,
+            api: None,
+            entity_data: None,
+            revision_ids: false,
+            licence: None,
+            number: None,
+            namespace: None,
+            promoted_to: None,
+            retired: false,
+        }
+    }
+
     /// Checks the declaration against the shape rules and the registry's names (0078 §1,
     /// §6.3 rule 1). The number, when set, must be in range; the server sets it.
     ///

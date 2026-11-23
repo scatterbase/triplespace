@@ -2426,31 +2426,29 @@ async fn a_tenant_declares_and_loads_an_entity_source() {
             .clone(),
         ..Effective::default()
     };
-    let source = |name: &str| EntitySource {
-        name: name.into(),
-        label: "A source".into(),
-        types: vec![
-            SourceType {
-                upstream_prefix: "Q".into(),
-                entity_type: "item".into(),
-                id_grammar: "digits".into(),
-                iri: "https://src.example/entity/{upstream_id}".into(),
-            },
-            SourceType {
-                upstream_prefix: "P".into(),
-                entity_type: "property".into(),
-                id_grammar: "digits".into(),
-                iri: "https://src.example/entity/{upstream_id}".into(),
-            },
-        ],
-        api: Some("https://src.example/w/api.php".into()),
-        entity_data: None,
-        revision_ids: true,
-        licence: Some("CC0-1.0".into()),
-        number: None,
-        namespace: None,
-        promoted_to: None,
-        retired: false,
+    let source = |name: &str| {
+        let mut s = EntitySource::new(
+            name,
+            "A source",
+            vec![
+                SourceType {
+                    upstream_prefix: "Q".into(),
+                    entity_type: "item".into(),
+                    id_grammar: "digits".into(),
+                    iri: "https://src.example/entity/{upstream_id}".into(),
+                },
+                SourceType {
+                    upstream_prefix: "P".into(),
+                    entity_type: "property".into(),
+                    id_grammar: "digits".into(),
+                    iri: "https://src.example/entity/{upstream_id}".into(),
+                },
+            ],
+        );
+        s.api = Some("https://src.example/w/api.php".into());
+        s.revision_ids = true;
+        s.licence = Some("CC0-1.0".into());
+        s
     };
 
     // 1. A registry name is refused (0078 §3 rule 1); a fresh name is numbered and opens

@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-11-22
-- **Updated:** 2026-11-23 (A7)
+- **Updated:** 2026-11-23 (A8)
 - **Author:** James Hare / Claude Opus
 - **Uses:** [0042](0042-template-expansion-and-parsoid.md), [0097](0097-versioning-and-skins.md)
 
@@ -247,3 +247,12 @@ Replaced text: none; §15 is new in this change.
 - **Summary:** The bump after the publication of `scatter-providers`, `scatter-wikibase-model`, `scatter-wikibase-ids` and `scatter-wikibase-fusion` raised their requirements in `[workspace.dependencies]` to 0.1.1 along with their versions. `cargo publish --workspace --dry-run` passed, since it lets workspace crates satisfy each other from their paths, and the publication of `scatter-wikibase-rdf` failed on `scatter-wikibase-model = "^0.1.1"`. The requirements go back to 0.1.0, and the *Publishable crates* job first checks that every requirement a publishable crate has on another that crates.io already has is met by a published version. A bump raises a crate's own `version`, never its requirement. Chapter text: 22 §3.6.
 
 Replaced text: in 22 §3.6, "**CI checks every publishable crate on every pull request**, in the *Publishable crates* job (`tools/publish_check.py`): `cargo publish --workspace --dry-run` packages each crate".
+
+### A8. The first breaking release: `scatter-providers` 0.2.0
+
+- **Date:** 2026-11-23
+- **Source:** Direct: James, 2026-11-23, choosing to release `scatter-providers` 0.2.0 when the entity source's namespace (SCA-460) added a public field to `EntitySource`, with `EntitySource` made `#[non_exhaustive]` so later fields do not break it again. The constructors `EntitySource::new` and `SourceNamespace::new`, and the wording of the exception, Claude, while building it, 2026-11-23; unconfirmed
+- **Change:** extends §7
+- **Summary:** A breaking change to a published crate raises its minor under 0.x, and its requirement in `[workspace.dependencies]` with it, since Cargo's path dependency must meet the requirement; this is the one exception to A7. The *Publishable crates* job's requirement check then fails until James publishes the new version, and the published crates that require the old one (`scatter-wikibase-ids`, `scatter-wikibase-fusion`) take the new one at their next release. `EntitySource` and `SourceNamespace` are `#[non_exhaustive]` and are built outside the crate with `new` and their public fields. Chapter text: 22 §3.6.
+
+Replaced text: in 22 §3.6, "which names the oldest published version that works)".

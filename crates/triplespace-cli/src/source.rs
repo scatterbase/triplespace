@@ -107,25 +107,18 @@ pub async fn run(cmd: SourceCommand) -> Result<()> {
                     })
                 })
                 .collect::<Result<Vec<_>>>()?;
-            let source = EntitySource {
-                name: args.which.name.clone(),
-                label: args.label.clone(),
-                types,
-                api: args.api.clone(),
-                entity_data: args.entity_data.clone(),
-                revision_ids: args.revision_ids,
-                licence: args.licence.clone(),
-                number: None,
-                namespace: (args.namespace.is_some() || !args.namespace_aliases.is_empty()).then(
-                    || scatter_providers::SourceNamespace {
-                        id: None,
-                        canonical: args.namespace.clone().unwrap_or_default(),
-                        aliases: args.namespace_aliases.clone(),
-                    },
-                ),
-                promoted_to: None,
-                retired: false,
-            };
+            let mut source = EntitySource::new(&*args.which.name, &*args.label, types);
+            source.api.clone_from(&args.api);
+            source.entity_data.clone_from(&args.entity_data);
+            source.revision_ids = args.revision_ids;
+            source.licence.clone_from(&args.licence);
+            source.namespace = (args.namespace.is_some() || !args.namespace_aliases.is_empty())
+                .then(|| {
+                    scatter_providers::SourceNamespace::new(
+                        args.namespace.clone().unwrap_or_default(),
+                        args.namespace_aliases.clone(),
+                    )
+                });
             let written = write_source(&args.which, Some(source)).await?;
             if let Some(s) = written {
                 println!(
