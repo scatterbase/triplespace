@@ -141,16 +141,13 @@ pub(crate) struct Fused {
 }
 
 /// The canon for `contributions` on `tenant`: the canonical member of each property and
-/// entity value they name that is a non-canonical member of a cluster. A shared row
-/// (`tenant = ''`) has none until shared clusters exist.
+/// entity value they name that is a non-canonical member of a cluster, the tenant's or,
+/// where the tenant has none of its own for an ID, the shared one.
 pub(crate) async fn canon_for<C: Partitions>(
     client: &C,
     tenant: &str,
     contributions: &[Contribution],
 ) -> Result<BTreeMap<String, String>, String> {
-    if tenant.is_empty() {
-        return Ok(BTreeMap::new());
-    }
     let mut ids: Vec<String> = contributions
         .iter()
         .flat_map(|c| c.entity.all_statements())
@@ -409,7 +406,7 @@ impl EntityProjection {
         current: Option<&Record>,
     ) -> Result<Fused, String> {
         let mut corrections = corrections_of(&own.local);
-        let membership = if tenant.is_empty() || own.contributions.is_empty() {
+        let membership = if own.contributions.is_empty() {
             None
         } else {
             crate::identity::membership(client, tenant, id.as_str()).await?
@@ -752,7 +749,8 @@ impl EntityProjection {
             cx.query(
                 "SELECT entity_id FROM view.entity_source
                  WHERE entity_id = ANY($1) AND NOT (tenant = '' AND graph = $2)
-                 UNION SELECT id FROM view.entity WHERE id = ANY($1) AND tenant <> ''",
+                 UNION SELECT id FROM view.entity WHERE id = ANY($1) AND tenant <> ''
+                 UNION SELECT entity_id FROM view.cluster_member WHERE entity_id = ANY($1)",
                 &[&ids, &graph],
             )
             .await
@@ -1083,6 +1081,7 @@ impl EntityProjection {
         for id in &ids {
             if info.tenant.is_empty() {
                 n += self.resolve_subject(cx, "", id, Some(record)).await?;
+                n += self.resolve_members(cx, "", id, Some(record)).await?;
                 for tenant in Self::overlay_tenants(cx, id).await? {
                     n += self.resolve_subject(cx, &tenant, id, Some(record)).await?;
                     n += self.resolve_members(cx, &tenant, id, Some(record)).await?;
@@ -1122,7 +1121,7 @@ impl EntityProjection {
 
     /// The tenants whose rows a shared-partition record about `id` touches: every tenant
     /// with an overlay row or a local cursor for the key.
-    async fn overlay_tenants(cx: &PgCx, id: &EntityId) -> Result<Vec<String>, String> {
+    pub(crate) async fn overlay_tenants(cx: &PgCx, id: &EntityId) -> Result<Vec<String>, String> {
         let rows = cx
             .query(
                 "SELECT tenant FROM view.entity WHERE id = $1 AND tenant <> ''

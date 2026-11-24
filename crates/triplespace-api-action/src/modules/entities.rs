@@ -97,7 +97,7 @@ pub async fn entity_json(ctx: &Ctx, id: &EntityId, as_given: &str) -> Result<Val
     Ok(entity_json_tagged(ctx, id, as_given).await?.0)
 }
 
-/// [`entity_json`], with the cache tags of the entities its values name, whose clusters
+/// [`entity_json()`], with the cache tags of the entities its values name, whose clusters
 /// decide how they are served (04 §4.12).
 pub async fn entity_json_tagged(
     ctx: &Ctx,

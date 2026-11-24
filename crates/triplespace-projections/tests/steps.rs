@@ -1826,3 +1826,110 @@ async fn label_of_xd(client: &Client) -> Option<String> {
     .get("en")
     .cloned()
 }
+
+// 04 §4.3 (0004 A28): a mirrored statement of a link property the instance names links its
+// entity to the entity its value names, as a shared cluster; a tenant's own link builds on
+// it, and the link lasts only as long as the statement.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn mirror_derived_links_form_shared_clusters() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let client = seed(client).await;
+    client
+        .execute(
+            "INSERT INTO view.registry (tenant, kind, code, config, \"offset\")
+             VALUES ('', 'reconcile', 'default', $1, 1)",
+            &[&json!({"kind": "reconcile", "name": "default",
+                "links": {"XD": [{"property": "P9", "target": "WD"}]}})],
+        )
+        .await
+        .unwrap();
+    let put = |claims: serde_json::Value, revid: u64| {
+        let item = json!({"type": "item", "id": "XDQ10", "labels": {"en": label("en", "Registrar")}, "claims": claims});
+        draft(
+            PAYLOAD_CHANGESET,
+            "XDQ10",
+            &json!({"op": "put", "id": "XDQ10", "entity": item, "upstream": {"revid": revid}, "size": 120}),
+            Some(7),
+            Some(101),
+        )
+    };
+    let mut store = PgLog::new(client);
+    store
+        .append(
+            MIRROR,
+            put(
+                json!({"XDP9": [string_statement("XDP9", "Q42", "XDQ10$00000000-0000-0000-0000-0000000000D9", "external-id")]}),
+                58,
+            ),
+        )
+        .await
+        .unwrap();
+    let p = pipeline();
+    for partition in ALL {
+        p.catch_up(&backend, &store, partition, 2).await.unwrap();
+    }
+    let client = store.into_inner();
+    assert_eq!(
+        shared_clusters(&client).await,
+        ["WDQ42:WDQ42,XDQ10"],
+        "Wikidata ranks first"
+    );
+    assert_eq!(
+        rows(
+            &client,
+            "SELECT a || '=' || b || '|' || tier FROM view.link WHERE tenant = ''"
+        )
+        .await,
+        ["WDQ42=XDQ10|2"]
+    );
+    assert_eq!(
+        triplespace_projections::identity::members(&client, TENANT, "XDQ10")
+            .await
+            .unwrap(),
+        ["WDQ42"],
+        "a tenant with no links of its own reads the shared cluster"
+    );
+
+    // The tenant's own link joins the shared cluster in its view; the shared one is as it was.
+    let client = append_local(
+        client,
+        &backend,
+        &p,
+        draft(
+            PAYLOAD_CHANGESET,
+            "Q6",
+            &json!({"op": "same-as", "id": "Q6", "ids": ["Q6", "XDQ10"]}),
+            None,
+            Some(6),
+        ),
+    )
+    .await;
+    assert_eq!(
+        cluster_state(&client).await.0,
+        ["Q6:WD=WDQ42,XD=XDQ10,local=Q6"]
+    );
+    assert_eq!(shared_clusters(&client).await, ["WDQ42:WDQ42,XDQ10"]);
+
+    // The statement goes upstream: so do the shared link and cluster, in every view.
+    let mut store = PgLog::new(client);
+    store.append(MIRROR, put(json!({}), 59)).await.unwrap();
+    p.catch_up(&backend, &store, MIRROR, 2).await.unwrap();
+    let client = store.into_inner();
+    assert!(shared_clusters(&client).await.is_empty());
+    assert_eq!(cluster_state(&client).await.0, ["Q6:XD=XDQ10,local=Q6"]);
+}
+
+/// The shared clusters, as `canonical:member,…`.
+async fn shared_clusters(client: &Client) -> Vec<String> {
+    sorted(
+        client,
+        "SELECT c.canonical_id || ':' || string_agg(m.entity_id, ',' ORDER BY m.entity_id COLLATE \"C\")
+           FROM view.cluster c JOIN view.cluster_member m USING (tenant, cluster_id)
+          WHERE c.tenant = '' GROUP BY c.canonical_id",
+    )
+    .await
+}

@@ -478,7 +478,7 @@ Holding every conflicting link, not only the later one, makes the result indepen
 
 ### 4.3 Where links come from
 
-*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §3; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5.1.*
+*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §3, A28; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5.1.*
 
 Links come from three tiers of source. A higher tier beats a lower one when they conflict. Conflicting links within one tier are all held (§4.2).
 
@@ -499,6 +499,8 @@ A link value that points at an alias follows the redirect. If Wikidata says an i
 **Inferred links need a unique value.** A value that appears on more than one entity in a namespace produces no link. Values are compared by their normalized keys (§4.7). An inferred link is applied at once, for the identifier properties the **instance's** `reconcile` record names (§4.10); nothing is queued for review, and the registry ships none enabled. A tenant's `reconcile` record may decline inferred links in its own view, and may add link properties for its own entity sources, but cannot add inference properties or change the link properties of a shared provider, so every tenant of a farm infers the same links from a shared graph.
 
 **On a farm,** tier-2 and tier-3 links come from shared graphs and are instance-wide: they are shared rows (`tenant = ''`) of `view.link`, `view.cluster` and `view.cluster_member`, computed under the instance policy (§4.10). Tier-1 links and `different-from` blocks are each tenant's own: `view.cluster`, `view.cluster_member`, `view.link`, `view.different_from` and `view.entity_source` carry the `tenant` column with the `''`-then-tenant lookup of `view.entity` ([03](03-storage-caches-and-search.md)), and `cluster_member`'s unique key is `(tenant, entity_id)`, so a tenant's tier-1 link on `WDQ42` sits as a tenant row beside the shared cluster without touching it, and two tenants' local assertions on one foreign entity no longer collide in `entity_source`. A provider tenant's `same-as` and `convert` records are tier-2 links for every other tenant ([0018](../decisions/0018-tenants.md) §5–6, in [08](08-tenants-and-instances.md)).
+
+**How tier 2 is configured, and read.** The instance's `reconcile:default` record lists the link properties under `links`, by provider: `"links": {"WD": [{"property": "P10283", "target": "OA"}]}`; a value of the property names the target provider's entity as its code followed by the value (`W123` as `OAW123`), and a deprecated statement or a value that is no such ID makes no link. No links ship on. The shared clusters are made of the shared links alone, and a tenant's of the shared links and its own; a tenant's own cluster rows decide an ID its links, blocks or clusters touch, the shared rows the rest. A change to the shared links recomputes the shared clusters, then every tenant's that reaches them, and resolves the entities it reaches again ([0004](../decisions/0004-identity-clusters-and-equivalence.md) A28).
 
 **A `different-from` block beats links from every tier.** Two IDs joined by a local `different-from` never share a cluster. Wikidata's P1889 ("different from") needs no special handling. It relates two Wikidata items, which can never share a cluster anyway.
 

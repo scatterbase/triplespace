@@ -11,8 +11,17 @@
 //! An entity's ACL that deletes or undeletes it recomputes its clusters: a link touching a
 //! deleted entity is kept, `inactive`, and left out (0004 A27).
 //!
-//! Built so far: tier 1 only, per tenant. Mirror-derived and inferred links (tiers 2 and
-//! 3), the shared rows, aliases and tombstoned members are not yet handled (0004 A24, A27).
+//! Mirror-derived links (tier 2, 0004 §3, A28) come from the instance's `reconcile:default`
+//! record, whose `links` name, for each provider, the properties of its mirror whose values
+//! name another provider's entity. A mirror's state of an entity replaces the tier-2 links
+//! its statements make, as shared rows (`tenant = ''`); a change recomputes the shared
+//! clusters around it, the clusters of every tenant whose links or rows reach them (a
+//! tenant's clusters are computed from the shared links and its own), and resolves the
+//! entities it reaches again. A tenant reads its own cluster rows for an ID its links or
+//! blocks touch, and the shared ones otherwise.
+//!
+//! Not built yet: inferred links (tier 3), a tenant's link properties for its own sources,
+//! aliases and tombstoned members (0004 A24, A27, A28).
 
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
@@ -93,6 +102,10 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for IdentityProjection {
         Box::pin(async move {
             let h = record.header();
             let info = partition_info(cx, h.partition).await?;
+            if info.tenant.is_empty() && info.is_mirror() && h.payload_type == PAYLOAD_CHANGESET {
+                let properties = LinkProperties::load(cx).await?;
+                return mirror_links(cx, &info.name, record, &properties).await;
+            }
             if info.tenant.is_empty() || info.is_mirror() {
                 return Ok(Applied::rows(0));
             }
@@ -188,6 +201,39 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for IdentityProjection {
         })
     }
 
+    /// A shared mirror's block reads the instance's link properties once; any other block
+    /// is applied a record at a time.
+    fn apply_many<'a>(
+        &'a self,
+        cx: &'a mut PgCx,
+        records: &'a [Record],
+    ) -> BoxFuture<'a, Result<Applied, String>> {
+        Box::pin(async move {
+            let mut out = Applied::default();
+            let Some(first) = records.first() else {
+                return Ok(out);
+            };
+            let info = partition_info(cx, first.header().partition).await?;
+            if info.tenant.is_empty() && info.is_mirror() {
+                let properties = LinkProperties::load(cx).await?;
+                for record in records {
+                    if record.header().payload_type == PAYLOAD_CHANGESET {
+                        out.rows += mirror_links(cx, &info.name, record, &properties)
+                            .await?
+                            .rows;
+                    }
+                }
+                return Ok(out);
+            }
+            for record in records {
+                let applied = <Self as Projection<B>>::apply(self, cx, record).await?;
+                out.rows += applied.rows;
+                out.fanout.extend(applied.fanout);
+            }
+            Ok(out)
+        })
+    }
+
     fn reset<'a>(&'a self, cx: &'a mut PgCx, partition: u64) -> BoxFuture<'a, Result<(), String>> {
         Box::pin(async move {
             let partition = scatter_log_postgres::ids::partition_to_db(partition);
@@ -210,16 +256,243 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for IdentityProjection {
             }
             let tenants: BTreeSet<String> = touched.iter().map(|(t, _)| t.clone()).collect();
             for t in tenants {
-                let seeds = touched
+                let seeds: Vec<String> = touched
                     .iter()
                     .filter(|(x, _)| *x == t)
                     .map(|(_, id)| id.clone())
                     .collect();
-                recompute(cx, &t, seeds).await?;
+                if t.is_empty() {
+                    shared_change(cx, seeds, false).await?;
+                } else {
+                    recompute(cx, &t, seeds).await?;
+                }
             }
             Ok(())
         })
     }
+}
+
+/// The instance's tier-2 link properties (0004 §3, A28), from `links` in its
+/// `reconcile:default` record: for each provider code, the properties of its mirror, as
+/// stored (`WDP10283` for Wikidata's `P10283`), whose values name an entity of a target
+/// provider (`W123` as `OAW123`).
+#[derive(Debug, Clone, Default, PartialEq, Eq)]
+pub struct LinkProperties(std::collections::BTreeMap<String, Vec<(String, String)>>);
+
+impl LinkProperties {
+    /// Reads `links` from a `reconcile` record's content: `{"WD": [{"property": "P10283",
+    /// "target": "OA"}]}`. An entry without both fields is skipped.
+    #[must_use]
+    pub fn parse(config: &serde_json::Value) -> Self {
+        let mut out: std::collections::BTreeMap<String, Vec<(String, String)>> =
+            std::collections::BTreeMap::new();
+        let Some(links) = config.get("links").and_then(serde_json::Value::as_object) else {
+            return Self(out);
+        };
+        for (code, list) in links {
+            let code = code.to_ascii_uppercase();
+            for item in list.as_array().into_iter().flatten() {
+                let field = |k: &str| item.get(k).and_then(serde_json::Value::as_str);
+                let (Some(property), Some(target)) = (field("property"), field("target")) else {
+                    continue;
+                };
+                let property = property.to_ascii_uppercase();
+                let stored = if property.starts_with(&code) {
+                    property
+                } else {
+                    format!("{code}{property}")
+                };
+                out.entry(code.clone())
+                    .or_default()
+                    .push((stored, target.to_ascii_uppercase()));
+            }
+        }
+        Self(out)
+    }
+
+    /// The instance's, from `view.registry`; none without a record.
+    ///
+    /// # Errors
+    ///
+    /// The database's.
+    pub async fn load<C: PgClient>(client: &C) -> Result<Self, String> {
+        let row = client
+            .query_opt(
+                "SELECT config FROM view.registry
+                  WHERE tenant = '' AND kind = 'reconcile' AND code = 'default'",
+                &[],
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+        Ok(row.map_or_else(Self::default, |r| {
+            Self::parse(&r.get::<_, serde_json::Value>(0))
+        }))
+    }
+
+    /// The tier-2 links a provider's state of `subject` makes: `(a, b, statement)`, `a` the
+    /// lesser ID. A deprecated statement makes none, and neither does a value that is no
+    /// ID of the target provider.
+    #[must_use]
+    pub fn links_of(
+        &self,
+        code: &str,
+        subject: &EntityId,
+        entity: &scatter_wikibase_model::entity::Entity,
+    ) -> Vec<(String, String, String)> {
+        use scatter_wikibase_model::statement::{Rank, SnakKind};
+        use scatter_wikibase_model::value::DataValue;
+        let Some(properties) = self.0.get(code) else {
+            return Vec::new();
+        };
+        let mut out = Vec::new();
+        for statement in entity.all_statements() {
+            if statement.rank == Rank::Deprecated {
+                continue;
+            }
+            let property = statement.mainsnak.property.as_str();
+            let SnakKind::Value(DataValue::String(value)) = &statement.mainsnak.kind else {
+                continue;
+            };
+            for (p, target) in properties {
+                if p != property {
+                    continue;
+                }
+                let Ok(other) = EntityId::parse(&format!("{target}{}", value.trim())) else {
+                    continue;
+                };
+                if other.form() != IdForm::Foreign
+                    || !other.as_str().starts_with(target.as_str())
+                    || other == *subject
+                {
+                    continue;
+                }
+                let (a, b) = if subject.as_str() <= other.as_str() {
+                    (subject.as_str().to_string(), other.as_str().to_string())
+                } else {
+                    (other.as_str().to_string(), subject.as_str().to_string())
+                };
+                let source = statement.id.as_ref().map_or_else(
+                    || format!("{subject}#{property}={value}"),
+                    |i| i.as_str().to_string(),
+                );
+                out.push((a, b, source));
+            }
+        }
+        out.sort();
+        out.dedup();
+        out
+    }
+}
+
+/// A shared mirror's record: the tier-2 links of the entity it puts, tombstones or
+/// redirects are replaced with those its new state makes (0004 §3, A28). Nothing is read
+/// or written for a provider the instance names no link properties for.
+async fn mirror_links(
+    cx: &PgCx,
+    graph: &str,
+    record: &Record,
+    properties: &LinkProperties,
+) -> Result<Applied, String> {
+    let Some(code) = scatter_providers::Registry::default_registry()
+        .providers()
+        .iter()
+        .find(|p| p.mirror_graph() == graph)
+        .map(|p| p.code.clone())
+    else {
+        return Ok(Applied::rows(0));
+    };
+    if !properties.0.contains_key(&code) {
+        return Ok(Applied::rows(0));
+    }
+    let Some(op) = operation(record)? else {
+        return Ok(Applied::rows(0));
+    };
+    let (subject, new) = match op.as_ref() {
+        Operation::Put { id, entity, .. } => (id.clone(), properties.links_of(&code, id, entity)),
+        Operation::Tombstone { id, .. } => (id.clone(), Vec::new()),
+        Operation::Redirect {
+            from,
+            upstream: Some(_),
+            ..
+        } => (from.clone(), Vec::new()),
+        _ => return Ok(Applied::rows(0)),
+    };
+    let old: Vec<(String, String, String)> = cx
+        .query(
+            "SELECT a, b, source FROM view.link WHERE tenant = '' AND subject = $1 ORDER BY a, b, source",
+            &[&subject.as_str()],
+        )
+        .await
+        .map_err(|e| sql(&e))?
+        .iter()
+        .map(|r| (r.get(0), r.get(1), r.get(2)))
+        .collect();
+    if old == new {
+        return Ok(Applied::rows(0));
+    }
+    cx.execute(
+        "DELETE FROM view.link WHERE tenant = '' AND subject = $1",
+        &[&subject.as_str()],
+    )
+    .await
+    .map_err(|e| sql(&e))?;
+    let partition = scatter_log_postgres::ids::partition_to_db(record.header().partition);
+    let offset = offset_db(record)?;
+    for (a, b, source) in &new {
+        cx.execute(
+            "INSERT INTO view.link (tenant, a, b, tier, source, status, \"partition\", \"offset\", subject)
+             VALUES ('', $1, $2, 2, $3, 'applied', $4, $5, $6)
+             ON CONFLICT (tenant, a, b, tier, source) DO NOTHING",
+            &[a, b, source, &partition, &offset, &subject.as_str()],
+        )
+        .await
+        .map_err(|e| sql(&e))?;
+    }
+    let seeds: Vec<String> = old
+        .iter()
+        .chain(&new)
+        .flat_map(|(a, b, _)| [a.clone(), b.clone()])
+        .collect();
+    shared_change(cx, seeds, true).await
+}
+
+/// A change to the shared links around `seeds`: the shared clusters are recomputed, then
+/// every tenant's whose links, blocks or clusters reach them, and with `resolve`, every
+/// entity reached is resolved again, shared and in each tenant that holds a row of it.
+async fn shared_change(cx: &PgCx, seeds: Vec<String>, resolve: bool) -> Result<Applied, String> {
+    let reached = component(cx, "", seeds.clone()).await?;
+    let mut rows = recompute(cx, "", seeds).await?.rows;
+    let list: Vec<String> = reached.iter().cloned().collect();
+    let tenants: Vec<String> = cx
+        .query(
+            "SELECT tenant FROM view.link WHERE tenant <> '' AND (a = ANY($1) OR b = ANY($1))
+             UNION SELECT tenant FROM view.cluster_member WHERE tenant <> '' AND entity_id = ANY($1)
+             UNION SELECT tenant FROM view.different_from WHERE tenant <> '' AND (a = ANY($1) OR b = ANY($1))",
+            &[&list],
+        )
+        .await
+        .map_err(|e| sql(&e))?
+        .iter()
+        .map(|r| r.get(0))
+        .collect();
+    for t in &tenants {
+        rows += recompute(cx, t, list.clone()).await?.rows;
+    }
+    if resolve {
+        let entities = crate::entities::EntityProjection::default();
+        for id in &list {
+            let Ok(id) = EntityId::parse(id) else {
+                continue;
+            };
+            let n = entities.resolve_subject(cx, "", &id, None).await?;
+            rows += usize::try_from(n).unwrap_or(0);
+            for t in crate::entities::EntityProjection::overlay_tenants(cx, &id).await? {
+                let n = entities.resolve_subject(cx, &t, &id, None).await?;
+                rows += usize::try_from(n).unwrap_or(0);
+            }
+        }
+    }
+    Ok(Applied::rows(rows))
 }
 
 /// Whether an operation writes or removes a link between entities: what changes clusters.
@@ -251,7 +524,7 @@ pub(crate) async fn component(
         .query(
             "SELECT m2.entity_id FROM view.cluster_member m1
                JOIN view.cluster_member m2 ON m2.tenant = m1.tenant AND m2.cluster_id = m1.cluster_id
-              WHERE m1.tenant = $1 AND m1.entity_id = ANY($2)",
+              WHERE m1.tenant IN ($1, '') AND m1.entity_id = ANY($2)",
             &[&tenant, &list],
         )
         .await
@@ -259,9 +532,11 @@ pub(crate) async fn component(
     nodes.extend(rows.iter().map(|r| r.get::<_, String>(0)));
     let mut frontier: Vec<String> = nodes.iter().cloned().collect();
     while !frontier.is_empty() && nodes.len() < COMPONENT_LIMIT {
+        // A tenant's clusters are made of the shared links and its own.
         let rows = cx
             .query(
-                "SELECT a, b FROM view.link WHERE tenant = $1 AND (a = ANY($2) OR b = ANY($2))",
+                "SELECT a, b FROM view.link
+                  WHERE tenant IN ($1, '') AND (a = ANY($2) OR b = ANY($2))",
                 &[&tenant, &frontier],
             )
             .await
@@ -357,8 +632,13 @@ async fn mark_links(
         let conflict_id = stable_id(&conflict.key);
         for &i in &conflict.links {
             let r = &link_rows[i];
-            let (a, b, tier, source): (String, String, i16, String) =
-                (r.get(0), r.get(1), r.get(2), r.get(3));
+            let (a, b, tier, source, owner): (String, String, i16, String, String) =
+                (r.get(0), r.get(1), r.get(2), r.get(3), r.get(4));
+            // A shared link's status is the shared view's; a tenant's view of it is its
+            // clusters.
+            if owner != tenant {
+                continue;
+            }
             cx.execute(
                 "UPDATE view.link SET status = 'held', conflict_id = $6
                   WHERE tenant = $1 AND a = $2 AND b = $3 AND tier = $4 AND source = $5",
@@ -385,9 +665,9 @@ async fn recompute(cx: &PgCx, tenant: &str, seeds: Vec<String>) -> Result<Applie
     let deleted = deleted_among(cx, tenant, &list).await?;
     let link_rows: Vec<tokio_postgres::Row> = cx
         .query(
-            "SELECT a, b, tier, source FROM view.link
-              WHERE tenant = $1 AND a = ANY($2) AND b = ANY($2)
-              ORDER BY a, b, tier, source",
+            "SELECT a, b, tier, source, tenant FROM view.link
+              WHERE tenant IN ($1, '') AND a = ANY($2) AND b = ANY($2)
+              ORDER BY a, b, tier, source, tenant",
             &[&tenant, &list],
         )
         .await
@@ -459,6 +739,45 @@ async fn recompute(cx: &PgCx, tenant: &str, seeds: Vec<String>) -> Result<Applie
     Ok(Applied::rows(rows))
 }
 
+/// Which of `ids` a tenant's own cluster rows decide (0004 A28): those in one of its
+/// clusters, or touched by one of its links or blocks. The shared rows decide the rest.
+/// The shared view (`tenant = ''`) decides none of its own.
+async fn governed<C: PgClient>(
+    client: &C,
+    tenant: &str,
+    ids: &[String],
+) -> Result<BTreeSet<String>, String> {
+    if tenant.is_empty() || ids.is_empty() {
+        return Ok(BTreeSet::new());
+    }
+    Ok(client
+        .query(
+            "SELECT x.id FROM unnest($2::text[]) AS x(id)
+              WHERE EXISTS (SELECT 1 FROM view.cluster_member m WHERE m.tenant = $1 AND m.entity_id = x.id)
+                 OR EXISTS (SELECT 1 FROM view.link l WHERE l.tenant = $1 AND (l.a = x.id OR l.b = x.id))
+                 OR EXISTS (SELECT 1 FROM view.different_from d
+                             WHERE d.tenant = $1 AND (d.a = x.id OR d.b = x.id))",
+            &[&tenant, &ids],
+        )
+        .await
+        .map_err(|e| e.to_string())?
+        .iter()
+        .map(|r| r.get(0))
+        .collect())
+}
+
+/// `ids` split by the view that decides their clusters: the tenant's, then the shared.
+async fn by_view<C: PgClient>(
+    client: &C,
+    tenant: &str,
+    ids: &[String],
+) -> Result<[(String, Vec<String>); 2], String> {
+    let own = governed(client, tenant, ids).await?;
+    let (mine, shared): (Vec<String>, Vec<String>) =
+        ids.iter().cloned().partition(|id| own.contains(id));
+    Ok([(tenant.to_string(), mine), (String::new(), shared)])
+}
+
 /// The cluster an entity is a member of on a tenant.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Membership {
@@ -480,13 +799,19 @@ pub async fn membership<C: PgClient>(
     tenant: &str,
     id: &str,
 ) -> Result<Option<Membership>, String> {
+    let ids = [id.to_string()];
+    let view = if governed(client, tenant, &ids).await?.is_empty() {
+        ""
+    } else {
+        tenant
+    };
     let rows = client
         .query(
             "SELECT c.cluster_id, c.canonical_id, m2.entity_id FROM view.cluster_member m1
                JOIN view.cluster c ON c.tenant = m1.tenant AND c.cluster_id = m1.cluster_id
                JOIN view.cluster_member m2 ON m2.tenant = m1.tenant AND m2.cluster_id = m1.cluster_id
               WHERE m1.tenant = $1 AND m1.entity_id = $2",
-            &[&tenant, &id],
+            &[&view, &id],
         )
         .await
         .map_err(|e| e.to_string())?;
@@ -516,20 +841,22 @@ pub async fn exact_matches<C: PgClient>(
 ) -> Result<std::collections::BTreeMap<String, Vec<String>>, String> {
     let mut out: std::collections::BTreeMap<String, Vec<String>> =
         std::collections::BTreeMap::new();
-    if ids.is_empty() || tenant.is_empty() {
-        return Ok(out);
-    }
-    let rows = client
-        .query(
-            "SELECT m1.entity_id, m2.entity_id FROM view.cluster_member m1
-               JOIN view.cluster_member m2 ON m2.tenant = m1.tenant AND m2.cluster_id = m1.cluster_id
-              WHERE m1.tenant = $1 AND m1.entity_id = ANY($2) AND m2.entity_id <> m1.entity_id",
-            &[&tenant, &ids],
-        )
-        .await
-        .map_err(|e| e.to_string())?;
-    for r in &rows {
-        out.entry(r.get(0)).or_default().push(r.get(1));
+    for (view, ids) in by_view(client, tenant, ids).await? {
+        if ids.is_empty() {
+            continue;
+        }
+        let rows = client
+            .query(
+                "SELECT m1.entity_id, m2.entity_id FROM view.cluster_member m1
+                   JOIN view.cluster_member m2 ON m2.tenant = m1.tenant AND m2.cluster_id = m1.cluster_id
+                  WHERE m1.tenant = $1 AND m1.entity_id = ANY($2) AND m2.entity_id <> m1.entity_id",
+                &[&view, &ids],
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+        for r in &rows {
+            out.entry(r.get(0)).or_default().push(r.get(1));
+        }
     }
     Ok(out)
 }
@@ -545,19 +872,26 @@ pub async fn canonical_map<C: PgClient>(
     tenant: &str,
     ids: &[String],
 ) -> Result<std::collections::BTreeMap<String, String>, String> {
-    if ids.is_empty() || tenant.is_empty() {
-        return Ok(std::collections::BTreeMap::new());
+    let mut out = std::collections::BTreeMap::new();
+    for (view, ids) in by_view(client, tenant, ids).await? {
+        if ids.is_empty() {
+            continue;
+        }
+        let rows = client
+            .query(
+                "SELECT m.entity_id, c.canonical_id FROM view.cluster_member m
+                   JOIN view.cluster c ON c.tenant = m.tenant AND c.cluster_id = m.cluster_id
+                  WHERE m.tenant = $1 AND m.entity_id = ANY($2) AND m.entity_id <> c.canonical_id",
+                &[&view, &ids],
+            )
+            .await
+            .map_err(|e| e.to_string())?;
+        out.extend(
+            rows.iter()
+                .map(|r| (r.get::<_, String>(0), r.get::<_, String>(1))),
+        );
     }
-    let rows = client
-        .query(
-            "SELECT m.entity_id, c.canonical_id FROM view.cluster_member m
-               JOIN view.cluster c ON c.tenant = m.tenant AND c.cluster_id = m.cluster_id
-              WHERE m.tenant = $1 AND m.entity_id = ANY($2) AND m.entity_id <> c.canonical_id",
-            &[&tenant, &ids],
-        )
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(rows.iter().map(|r| (r.get(0), r.get(1))).collect())
+    Ok(out)
 }
 
 /// The other members of `id`'s cluster on `tenant`, the canonical member first, then in
@@ -571,18 +905,12 @@ pub async fn members<C: PgClient>(
     tenant: &str,
     id: &str,
 ) -> Result<Vec<String>, String> {
-    let rows = client
-        .query(
-            "SELECT m2.entity_id FROM view.cluster_member m1
-               JOIN view.cluster_member m2 ON m2.tenant = m1.tenant AND m2.cluster_id = m1.cluster_id
-               JOIN view.cluster c ON c.tenant = m1.tenant AND c.cluster_id = m1.cluster_id
-              WHERE m1.tenant = $1 AND m1.entity_id = $2 AND m2.entity_id <> $2
-              ORDER BY m2.entity_id = c.canonical_id DESC, m2.entity_id",
-            &[&tenant, &id],
-        )
-        .await
-        .map_err(|e| e.to_string())?;
-    Ok(rows.iter().map(|r| r.get(0)).collect())
+    let Some(m) = membership(client, tenant, id).await? else {
+        return Ok(Vec::new());
+    };
+    let mut others: Vec<String> = m.members.into_iter().filter(|x| x != id).collect();
+    others.sort_by(|a, b| (*b == m.canonical).cmp(&(*a == m.canonical)).then(a.cmp(b)));
+    Ok(others)
 }
 
 #[cfg(test)]

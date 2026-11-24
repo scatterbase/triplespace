@@ -535,7 +535,7 @@ CREATE TABLE view.entity_ref_delta (            -- changes to the counter not ye
 
 ### 4.4 Statements, clusters, corrections and constraints
 
-*Sources: [0013](../decisions/0013-postgres-storage.md) §5.3; [0031](../decisions/0031-property-constraints.md) §5; [0038](../decisions/0038-page-metadata-and-categories.md) §10; [0066](../decisions/0066-lexemes.md) §5; [0004](../decisions/0004-identity-clusters-and-equivalence.md) A24, A27; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5.1; [0083](../decisions/0083-write-path-in-three-tiers.md) §3.*
+*Sources: [0013](../decisions/0013-postgres-storage.md) §5.3; [0031](../decisions/0031-property-constraints.md) §5; [0038](../decisions/0038-page-metadata-and-categories.md) §10; [0066](../decisions/0066-lexemes.md) §5; [0004](../decisions/0004-identity-clusters-and-equivalence.md) A24, A27, A28; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5.1; [0083](../decisions/0083-write-path-in-three-tiers.md) §3.*
 
 There is no row per statement. A statement's provenance ([0003](../decisions/0003-statement-ui.md) §6) is derivable for the common case: absent a row, the statement is asserted only by the mirror graph of the entity's provider. Rows exist for the exceptions:
 
@@ -576,6 +576,7 @@ CREATE TABLE view.link (                        -- every link, applied or held (
   status text NOT NULL,                         -- applied | held | inactive (a deleted member's, 0004 A27)
   conflict_id bigint,
   partition bigint, "offset" bigint,            -- the record that wrote a local link (0004 A24)
+  subject text,                                 -- a mirror-derived link's statement's entity (0004 A28)
   PRIMARY KEY (tenant, a, b, tier, source)
 );
 CREATE TABLE view.different_from (tenant text NOT NULL DEFAULT '', a text NOT NULL, b text NOT NULL,

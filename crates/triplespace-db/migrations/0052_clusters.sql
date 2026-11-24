@@ -5,7 +5,8 @@
 -- and the shared rows (`tenant = ''`) hold what the shared graphs link.
 --
 -- `partition` and `offset` name the record that wrote a local link, so that a reset or an
--- erasure removes it; a mirror-derived link names its statement in `source`.
+-- erasure removes it; a mirror-derived link names its statement in `source` and the entity
+-- whose statement it is in `subject`, so that the entity's next state replaces its links.
 CREATE TABLE IF NOT EXISTS view.cluster (
   tenant       text   NOT NULL DEFAULT '',
   cluster_id   bigint NOT NULL,
@@ -33,8 +34,10 @@ CREATE TABLE IF NOT EXISTS view.link (
   conflict_id bigint,                              -- the conflict a held link is in (0004 §10)
   "partition" bigint,                              -- the record that wrote a local link
   "offset"    bigint,
+  subject     text,                                -- a mirror-derived link's statement's entity
   PRIMARY KEY (tenant, a, b, tier, source)
 );
+CREATE INDEX IF NOT EXISTS link_subject ON view.link (tenant, subject) WHERE subject IS NOT NULL;
 CREATE INDEX IF NOT EXISTS link_b ON view.link (tenant, b);
 CREATE INDEX IF NOT EXISTS link_partition ON view.link ("partition");
 CREATE INDEX IF NOT EXISTS link_held ON view.link (tenant, conflict_id) WHERE status = 'held';
