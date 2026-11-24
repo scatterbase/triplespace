@@ -11,6 +11,8 @@
 
 use std::future::Future;
 
+use scatter_log::record::Record;
+
 use crate::projection::ProjectionError;
 
 /// Queued work (0013 §7; 0083 §3): a key to re-project, for a consumer, in a tenant,
@@ -77,6 +79,18 @@ impl Lag {
     }
 }
 
+/// What a partition holds at an offset, as composition reads it back
+/// ([`Backend::read_record`]).
+#[derive(Debug, Clone)]
+pub enum Stored {
+    /// A record.
+    Record(Box<Record>),
+    /// The offset was compacted away: nothing to apply.
+    Compacted,
+    /// The offset is at or past the partition's head, as this unit of work sees it.
+    End,
+}
+
 /// The storage a pipeline runs over.
 pub trait Backend: Send + Sync {
     /// A unit of work: a transaction, committed as one.
@@ -107,6 +121,41 @@ pub trait Backend: Send + Sync {
         partition: u64,
         applied: u64,
     ) -> impl Future<Output = Result<(), ProjectionError>> + Send;
+
+    /// Whether a record applied inline in this unit of work has only its in-lock
+    /// projections ([`crate::Projection::in_lock`]) applied there, the rest composed
+    /// after the unit commits (03 §6.2). A backend that says so composes every partition
+    /// named to [`Self::defer`] when it commits. The default composes everything inline.
+    fn defers(&self, _cx: &Self::Cx) -> bool {
+        false
+    }
+
+    /// Notes that `partition` has records whose composition waits for this unit of work
+    /// to commit.
+    fn defer(&self, _cx: &mut Self::Cx, _partition: u64) {}
+
+    /// Takes the right to compose `partition`'s records for the rest of this unit of
+    /// work, waiting for whoever holds it: the projections composed after commit are
+    /// applied to a partition's records by one unit of work at a time, in offset order.
+    /// The default, for a backend with one unit of work at a time, takes nothing.
+    fn lock_composition(
+        &self,
+        _cx: &mut Self::Cx,
+        _partition: u64,
+    ) -> impl Future<Output = Result<(), ProjectionError>> + Send {
+        async { Ok(()) }
+    }
+
+    /// Reads a committed record back, for the composition of records another unit of
+    /// work appended. The default, for a backend that never defers, has none to read.
+    fn read_record(
+        &self,
+        _cx: &mut Self::Cx,
+        _partition: u64,
+        _offset: u64,
+    ) -> impl Future<Output = Result<Stored, ProjectionError>> + Send {
+        async { Ok(Stored::End) }
+    }
 
     /// Queues work for the worker.
     fn queue(

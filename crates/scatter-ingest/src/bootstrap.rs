@@ -721,7 +721,7 @@ where
                     .write_sealed(&mut c, partition, &records, &nodes)
                     .await?;
                 pipeline
-                    .apply_inline_many(store, &mut c, &records, Budget::NONE)
+                    .apply_loaded_many(store, &mut c, &records, Budget::NONE)
                     .await?;
                 // The blocks before this one commit first, or one of them fails.
                 std::future::poll_fn(|_| {

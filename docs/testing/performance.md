@@ -948,3 +948,32 @@ with nothing to do takes 0.7 s at both commits.
   the absolute savings be larger, which was not measured.
 - **Not measured:** one crate for the special pages against the three, which would need the code
   moved again; a release build; and an edit that changes a public signature in the kit.
+
+## 12. An edit's appending transaction, inline and split (2026-11-23)
+
+What SCA-291 asked to be measured before and after the write was split in two
+([0083](../decisions/0083-write-path-in-three-tiers.md) A9): how long an interactive edit holds
+its appending transaction, and with it the partition's lock.
+
+```sh
+export TRIPLESPACE_TEST_DATABASE_URL=…
+cargo test -p triplespace-api-ingest --test end_to_end --release -- --ignored --nocapture lock_time
+```
+
+The test creates a local item of 300 string statements and edits its description 200 times through
+`write_operation`, once with a store that composes inline and once with one that composes after
+commit, timing the appending transaction (the write and its commit) and the composition after it.
+
+| | Appending transaction, median | Composition after commit, median |
+|---|---|---|
+| Inline | 9.75 ms | none |
+| Split | 2.42 ms | 8.05 ms |
+
+- **The lock is held a quarter as long**, and the request as a whole is about 0.7 ms slower: the
+  second transaction's begin and commit, the advisory lock, and reading the record back.
+- **Measured on** an Apple-silicon Mac, a scratch Postgres 18 with `fsync` off and the client on
+  the same machine, so the absolute numbers flatter both rows; with `fsync` on, each transaction's
+  commit adds a flush, and the split has two.
+- **Not measured:** `editpage` (the page projection is still inside the lock), an item fused with
+  a mirrored one, concurrent writers, where the shorter lock is the point, and the Action API's
+  handlers end to end.

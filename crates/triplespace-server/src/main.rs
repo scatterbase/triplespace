@@ -340,6 +340,21 @@ async fn background(app: &triplespace_api_action::App, workers: usize) {
             }
         });
     }
+    // What a write left uncomposed (03 §6.2; 0083 A9): a write composes what it wrote when
+    // it commits, so this finds work only after a request died between its two
+    // transactions or a composition failed.
+    {
+        let app = app.clone();
+        tokio::spawn(async move {
+            let mut every = tokio::time::interval(WORKER_IDLE);
+            loop {
+                every.tick().await;
+                if let Err(e) = app.compose_behind().await {
+                    eprintln!("composition: {e}");
+                }
+            }
+        });
+    }
     // The update stream's housekeeping (02 §6.2; 03 §4.11): streams follow their tenants'
     // `updates.enabled`, and deltas past `updates.retention` are swept, the first on
     // every pass and the second on every sixtieth, which is hourly.

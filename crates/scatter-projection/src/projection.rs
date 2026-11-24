@@ -117,6 +117,15 @@ pub trait Projection<B: Backend>: Send + Sync {
     /// Where it sits in the dependency order.
     fn step(&self) -> Step;
 
+    /// Whether the projection runs inside the appending transaction even where the
+    /// backend composes after commit (03 §6.2; 0083 §1, A9): the steps the write path
+    /// itself reads, and the written subject's own source rows. The rest, clusters,
+    /// resolution and activity, are composed in a unit of work of their own once the
+    /// record is committed. The default follows the step.
+    fn in_lock(&self) -> bool {
+        self.step() <= Step::Sources
+    }
+
     /// Whether this record concerns the projection at all, from its header. Records it
     /// does not accept still advance its position.
     fn accepts(&self, header: &Header) -> bool {

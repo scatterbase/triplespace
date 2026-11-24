@@ -45,5 +45,6 @@ pub mod subsidiaries;
 pub mod talk_import;
 pub mod tenant_requests;
 pub mod threads;
+pub mod worker;
 
 pub use store::PgIngest;

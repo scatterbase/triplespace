@@ -2669,3 +2669,196 @@ async fn a_tenant_declares_and_loads_an_entity_source() {
         1
     );
 }
+
+/// The applied offset of a projection on the tenant's `local` partition.
+async fn applied(client: &Client, projection: &str) -> i64 {
+    client
+        .query_opt(
+            "SELECT applied_offset FROM ops.projection_state WHERE projection = $1 AND partition = $2",
+            &[&projection, &i64::try_from(LOCAL).unwrap()],
+        )
+        .await
+        .unwrap()
+        .map_or(0, |r| r.get(0))
+}
+
+// 03 §6.2 (0083 §1, §2, A9): a store that composes after commit applies only the in-lock
+// projections in the appending transaction and composes the rest when it commits, before
+// it answers; a record a request left uncomposed is composed, in order, by the next write
+// to the partition, whichever way that write composes, or by the sweep.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn a_write_records_in_one_transaction_and_composes_in_the_next() {
+    use scatter_log_postgres::PgClient as _;
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let client = seed(client).await;
+    let store = PgIngest::new(backend.clone());
+    store.compose_after_commit(pipeline());
+    let p = pipeline();
+    let registry = Registry::default_registry();
+    let log_store = PgLog::new(client);
+    p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
+        .await
+        .unwrap();
+    let client = log_store.into_inner();
+    let request = Request::new(TENANT, Attestation::by("librarybase:1"), NOW);
+    let op = |v: serde_json::Value| -> Operation { serde_json::from_value(v).unwrap() };
+    let labels = "SELECT lang FROM view.term WHERE tenant = 'librarybase' AND entity_id = 'Q1' AND kind = 1 ORDER BY lang";
+
+    // Inside the appending transaction: the record, its graph state and its cursor, and
+    // no composed row.
+    let mut cx = store.begin().await.unwrap();
+    let create = op(json!({"op": "create", "id": "Q1", "entity": item("Q1", "One", &json!({}))}));
+    write_operation(&store, &p, &mut cx, &request, &create, registry)
+        .await
+        .unwrap();
+    let inside = |sql: &'static str| {
+        let cx = &cx;
+        async move { cx.query_one(sql, &[]).await.unwrap().get::<_, i64>(0) }
+    };
+    assert_eq!(
+        inside("SELECT count(*) FROM view.entity_source WHERE entity_id = 'Q1'").await,
+        1
+    );
+    assert_eq!(
+        inside("SELECT count(*) FROM view.graph_state WHERE entity_id = 'Q1'").await,
+        1
+    );
+    assert_eq!(
+        inside("SELECT count(*) FROM view.entity WHERE id = 'Q1'").await,
+        0,
+        "nothing composes inside the lock"
+    );
+    // The commit composes it before it returns: whoever wrote reads what it wrote.
+    store.commit(cx).await.unwrap();
+    assert_eq!(
+        count(&client, "SELECT count(*) FROM view.entity WHERE id = 'Q1'").await,
+        1
+    );
+    assert_eq!(rows(&client, labels).await, ["en"]);
+    assert_eq!(applied(&client, "entity_source").await, 1);
+    assert_eq!(applied(&client, "entity").await, 1);
+    assert_eq!(applied(&client, "activity").await, 1);
+
+    // A request that dies between its two transactions: committed, never composed.
+    let mut cx = store.begin().await.unwrap();
+    let french = op(json!({"op": "add", "id": "Q1", "labels": {"fr": "Un"}}));
+    write_operation(&store, &p, &mut cx, &request, &french, registry)
+        .await
+        .unwrap();
+    backend.commit(cx).await.unwrap();
+    assert_eq!(rows(&client, labels).await, ["en"]);
+    assert_eq!(
+        (
+            applied(&client, "entity_source").await,
+            applied(&client, "entity").await
+        ),
+        (2, 1)
+    );
+    // The next write, from a process that composes everything inline, composes it first.
+    let inline = PgIngest::new(backend.clone());
+    let mut cx = inline.begin().await.unwrap();
+    let german = op(json!({"op": "add", "id": "Q1", "labels": {"de": "Eins"}}));
+    write_operation(&inline, &p, &mut cx, &request, &german, registry)
+        .await
+        .unwrap();
+    inline.commit(cx).await.unwrap();
+    assert_eq!(rows(&client, labels).await, ["de", "en", "fr"]);
+    assert_eq!(applied(&client, "entity").await, 3);
+    let history = count(
+        &client,
+        "SELECT count(*) FROM view.activity WHERE tenant = 'librarybase' AND target_id = 'Q1'",
+    )
+    .await;
+    assert_eq!(history, 3, "every record has its activity row, once");
+
+    // Left behind again, and nothing else writes: the sweep composes it.
+    let mut cx = store.begin().await.unwrap();
+    let spanish = op(json!({"op": "add", "id": "Q1", "labels": {"es": "Uno"}}));
+    write_operation(&store, &p, &mut cx, &request, &spanish, registry)
+        .await
+        .unwrap();
+    backend.commit(cx).await.unwrap();
+    assert_eq!(store.compose(LOCAL).await.unwrap(), 1);
+    assert_eq!(rows(&client, labels).await, ["de", "en", "es", "fr"]);
+    assert_eq!(store.compose(LOCAL).await.unwrap(), 0);
+}
+
+// Not a test: the time an interactive edit holds its appending transaction open, composed
+// inline and composed after commit (0083 A9; docs/testing/performance.md). The item has
+// 300 statements, so composition is most of the work. Run
+// with `cargo test -p triplespace-api-ingest --test end_to_end --release -- --ignored
+// --nocapture lock_time`.
+#[tokio::test]
+#[ignore = "a measurement, run by hand"]
+async fn lock_time_of_an_edit_inline_and_split() {
+    const EDITS: usize = 200;
+    if skipped() {
+        return;
+    }
+    let median = |mut v: Vec<std::time::Duration>| {
+        v.sort();
+        v[v.len() / 2]
+    };
+    for split in [false, true] {
+        let (client, backend) = fresh().await;
+        let client = seed(client).await;
+        let store = PgIngest::new(backend.clone());
+        if split {
+            store.compose_after_commit(pipeline());
+        }
+        let p = pipeline();
+        let registry = Registry::default_registry();
+        let log_store = PgLog::new(client);
+        p.catch_up(&store, &log_store, CONFIG_PARTITION, 10)
+            .await
+            .unwrap();
+        drop(log_store.into_inner());
+        let op = |v: serde_json::Value| -> Operation { serde_json::from_value(v).unwrap() };
+        // An item of 300 statements, so that composing it is most of an edit's work.
+        let claims: serde_json::Map<String, serde_json::Value> = (1..=300)
+            .map(|n| {
+                let p = format!("P{n}");
+                let id = format!("Q1$00000000-0000-0000-0000-{n:012}");
+                (
+                    p.clone(),
+                    json!([string_statement(&p, "value", "string", &id)]),
+                )
+            })
+            .collect();
+        let request = Request::new(TENANT, Attestation::by("librarybase:1"), NOW);
+        let create =
+            op(json!({"op": "create", "id": "Q1", "entity": item("Q1", "One", &json!(claims))}));
+        let mut cx = store.begin().await.unwrap();
+        write_operation(&store, &p, &mut cx, &request, &create, registry)
+            .await
+            .unwrap();
+        store.commit(cx).await.unwrap();
+
+        let (mut held, mut after) = (Vec::new(), Vec::new());
+        for n in 0..EDITS {
+            let edit =
+                op(json!({"op": "add", "id": "Q1", "descriptions": {"en": format!("edit {n}")}}));
+            let mut cx = store.begin().await.unwrap();
+            let started = std::time::Instant::now();
+            write_operation(&store, &p, &mut cx, &request, &edit, registry)
+                .await
+                .unwrap();
+            // The appending transaction's own commit, then what the store's commit adds.
+            backend.commit(cx).await.unwrap();
+            held.push(started.elapsed());
+            let started = std::time::Instant::now();
+            store.compose(LOCAL).await.unwrap();
+            after.push(started.elapsed());
+        }
+        println!(
+            "{}: appending transaction {:?} median, composition after commit {:?} median, over {EDITS} edits",
+            if split { "split" } else { "inline" },
+            median(held),
+            median(after)
+        );
+    }
+}

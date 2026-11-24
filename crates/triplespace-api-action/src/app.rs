@@ -145,19 +145,23 @@ impl App {
         let accounts_store = PgIngest::new(PgBackend::new(pools.accounts.clone()));
         let notify_store = PgIngest::new(PgBackend::new(pools.notify.clone()));
         let registry = Registry::default_registry();
-        let pipeline = milestone_pipeline(
-            scatter_actors::issuer::IssuerRegistry::default_registry().clone(),
-            config.farm.clone(),
-        )
-        .and_then(triplespace_notify::with_addressing)
-        .map_err(|e| e.to_string())?;
+        let build = || {
+            milestone_pipeline(
+                scatter_actors::issuer::IssuerRegistry::default_registry().clone(),
+                config.farm.clone(),
+            )
+            .and_then(triplespace_notify::with_addressing)
+            .map_err(|e| e.to_string())
+        };
+        let pipeline = build()?;
+        // A write is two transactions (03 §6.2; 0083 A9): the appending one records, and
+        // each store composes what it wrote when that commits, before it answers.
+        for s in [&store, &accounts_store, &notify_store] {
+            s.compose_after_commit(build()?);
+        }
         // The worker: every projection's fan-out, then the tier-3 consumers (03 §6.1).
-        let worker = Worker::new()
-            .with_all(pipeline.consumers())
-            .and_then(|w| w.with(Arc::new(triplespace_projections::reports::ReportConsumer)))
-            .and_then(|w| w.with(Arc::new(triplespace_projections::refs::RefCountConsumer)))
-            .and_then(|w| w.with(Arc::new(triplespace_rdf::updates::DeltaConsumer)))
-            .map_err(|e| e.to_string())?;
+        let worker =
+            triplespace_api_ingest::worker::worker(&pipeline).map_err(|e| e.to_string())?;
         // Mirror order: every registered provider, registry order (the tenant's opt-in
         // order is a later refinement, 0018 §6).
         let slugs: Vec<&str> = registry
@@ -313,6 +317,47 @@ impl App {
         }
         tx.rollback().await.map_err(|e| e.to_string())?;
         Ok(read)
+    }
+
+    /// Composes every partition whose composed projections are behind its head (03 §6.2;
+    /// 0083 A9). A write composes what it wrote when it commits; this is for what a
+    /// request that died between its two transactions left, and for a composition that
+    /// failed. Cheap when nothing is behind: one query. Returns the records composed.
+    ///
+    /// # Errors
+    ///
+    /// The store's or a projection's error.
+    pub async fn compose_behind(&self) -> Result<usize, String> {
+        let behind: Vec<(i64, String)> = {
+            let client = self.pool().get().await.map_err(|e| e.to_string())?;
+            client
+                .query(
+                    "SELECT p.partition, p.name FROM log.partition p
+                     LEFT JOIN ops.projection_state s
+                       ON s.projection = 'entity' AND s.partition = p.partition
+                     WHERE p.next_offset > coalesce(s.applied_offset, 0)",
+                    &[],
+                )
+                .await
+                .map_err(|e| e.to_string())?
+                .iter()
+                .map(|r| (r.get(0), r.get(1)))
+                .collect()
+        };
+        let mut composed = 0;
+        for (partition, name) in behind {
+            // The accounts partition is composed by the role that writes it (0013 A99).
+            let store = if name == "accounts" {
+                self.accounts_store()
+            } else {
+                self.store()
+            };
+            composed += store
+                .compose(scatter_log_postgres::ids::partition_from_db(partition))
+                .await
+                .map_err(|e| e.to_string())?;
+        }
+        Ok(composed)
     }
 
     /// The worker over the work queue (03 §6.1): every projection's queued fan-out and
