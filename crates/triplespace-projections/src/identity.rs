@@ -1511,6 +1511,25 @@ async fn recompute(cx: &PgCx, tenant: &str, seeds: Vec<String>) -> Result<Applie
         .filter(|r| r.get::<_, String>(5) == "declined")
         .map(key)
         .collect();
+    // What is the tenant's own around these IDs: its links and declined links, its
+    // retired IDs, and the deleted entities it retains. Its blocks are added below.
+    let mut own: BTreeSet<String> = all_rows
+        .iter()
+        .filter(|r| r.get::<_, String>(4) == tenant)
+        .flat_map(|r| [r.get::<_, String>(0), r.get(1)])
+        .collect();
+    own.extend(kept.iter().cloned());
+    if !tenant.is_empty() {
+        let rows = cx
+            .query(
+                "SELECT entity_id, COALESCE(target, entity_id) FROM view.retired
+                  WHERE tenant = $1 AND (entity_id = ANY($2) OR target = ANY($2))",
+                &[&tenant, &list],
+            )
+            .await
+            .map_err(|e| sql(&e))?;
+        own.extend(rows.iter().flat_map(|r| [r.get::<_, String>(0), r.get(1)]));
+    }
     let link_rows: Vec<tokio_postgres::Row> = all_rows
         .into_iter()
         .filter(|r| {
@@ -1544,6 +1563,11 @@ async fn recompute(cx: &PgCx, tenant: &str, seeds: Vec<String>) -> Result<Applie
             )
         })
         .collect();
+    own.extend(blocks.iter().flat_map(|(a, b)| [a.clone(), b.clone()]));
+    let own: BTreeSet<String> = own
+        .iter()
+        .map(|id| target_of(&aliases, id).to_string())
+        .collect();
     let canonical = CanonicalOrder::load(cx, tenant).await?;
     let out = compute(
         &links,
@@ -1570,6 +1594,11 @@ async fn recompute(cx: &PgCx, tenant: &str, seeds: Vec<String>) -> Result<Applie
     .map_err(|e| sql(&e))?;
     let mut rows = 0usize;
     for members in &out.clusters {
+        // A cluster nothing of the tenant's own touches is the shared view's, which the
+        // tenant reads; a row of its own would only repeat it, and only for some histories.
+        if !tenant.is_empty() && !no_inference && !members.iter().any(|m| own.contains(m)) {
+            continue;
+        }
         let canonical = &members[0];
         let id = stable_id(canonical);
         // Whether an inferred link, applied, joins members of the cluster.

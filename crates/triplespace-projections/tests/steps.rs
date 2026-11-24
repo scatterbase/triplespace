@@ -2150,6 +2150,37 @@ async fn inferred_links_join_entities_that_share_a_unique_value() {
     )
     .await;
     assert_eq!(shared_clusters(&client).await, ["WDQ42:WDQ42,XDQ10"]);
+
+    // A rebuild from the log reproduces the links and the clusters.
+    let before = identity_rows(&client).await;
+    let store = PgLog::new(client);
+    let order = [
+        CONFIG_PARTITION,
+        INSTANCE_LOG,
+        WIKIDATA,
+        MIRROR,
+        TENANT_CONFIG,
+        LOCAL,
+        TENANT_LOG,
+    ];
+    p.rebuild(&backend, &store, &order, 3).await.unwrap();
+    assert_eq!(identity_rows(store.client()).await, before);
+}
+
+/// Every row of the cluster tables, but for a cluster's version, which counts recomputations.
+async fn identity_rows(client: &Client) -> Vec<String> {
+    let mut out = Vec::new();
+    for sql in [
+        "SELECT 'link|' || tenant || '|' || a || '|' || b || '|' || tier || '|' || status FROM view.link",
+        "SELECT 'block|' || tenant || '|' || a || '|' || b FROM view.different_from",
+        "SELECT 'retired|' || tenant || '|' || entity_id || '|' || coalesce(target, '-') FROM view.retired",
+        "SELECT 'cluster|' || tenant || '|' || canonical_id || '|' || inferred FROM view.cluster",
+        "SELECT 'member|' || tenant || '|' || namespace || '|' || entity_id FROM view.cluster_member",
+    ] {
+        out.extend(rows(client, sql).await);
+    }
+    out.sort();
+    out
 }
 
 // 04 §4.1, §4.4 (0004 §1, §4, A29): an ID upstream merged into another is an alias of it,
@@ -2331,4 +2362,212 @@ async fn the_record_orders_providers_and_a_correction_drops_a_link() {
         "the tenant deprecated the statement"
     );
     assert_eq!(shared_clusters(&client).await, ["XDQ10:WDQ42,XDQ10"]);
+}
+
+// 04 §4.1 (0004 §1, A29): a local merge, and one a wiki's history brought with it, make the
+// retired ID an alias of its target, so what was linked to it is linked to the target; a
+// whole state of the ID makes it stand for itself again; a rebuild reproduces the rows; and
+// an erased redirect takes its alias with it.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn a_local_merge_makes_an_alias() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let client = seed(client).await;
+    let p = pipeline();
+    let store = PgLog::new(client);
+    for partition in ALL {
+        p.catch_up(&backend, &store, partition, 2).await.unwrap();
+    }
+    let mut client = store.into_inner();
+    let local = |key: &str, op: serde_json::Value, page: u64| {
+        draft(PAYLOAD_CHANGESET, key, &op, None, Some(page))
+    };
+    let adopt = |op: serde_json::Value, revid: u64| {
+        let mut d = draft(PAYLOAD_CHANGESET, "Q8", &op, None, Some(8));
+        d.revid = Some(revid);
+        d
+    };
+    let q8 =
+        json!({"type": "item", "id": "Q8", "labels": {"en": label("en", "Eight")}, "claims": {}});
+    for record in [
+        local(
+            "Q7",
+            json!({"op": "same-as", "id": "Q7", "ids": ["Q7", "XDQ10"]}),
+            7,
+        ),
+        adopt(
+            json!({"op": "adopt", "id": "Q8", "entity": q8, "source_revid": 5, "source_time": "2026-09-20T14:02:11Z", "source_pageid": 8}),
+            950,
+        ),
+        local(
+            "Q8",
+            json!({"op": "same-as", "id": "Q8", "ids": ["Q8", "OAW1"]}),
+            8,
+        ),
+    ] {
+        client = append_local(client, &backend, &p, record).await;
+    }
+    assert_eq!(
+        cluster_state(&client).await.0,
+        ["Q7:XD=XDQ10,local=Q7", "Q8:OA=OAW1,local=Q8"]
+    );
+
+    // Q7 is merged into Q6, and the adopted history turns Q8 into a redirect to Q6.
+    let redirect = local("Q7", json!({"op": "redirect", "from": "Q7", "to": "Q6"}), 7);
+    client = append_local(client, &backend, &p, redirect).await;
+    assert_eq!(
+        cluster_state(&client).await.0,
+        ["Q6:XD=XDQ10,local=Q6", "Q8:OA=OAW1,local=Q8"]
+    );
+    let redirected = adopt(
+        json!({"op": "adopt", "id": "Q8", "redirect": "Q6", "source_revid": 6, "source_parentid": 5, "source_time": "2026-09-21T14:02:11Z", "source_pageid": 8}),
+        951,
+    );
+    client = append_local(client, &backend, &p, redirected).await;
+    assert_eq!(
+        cluster_state(&client).await.0,
+        ["Q6:OA=OAW1,XD=XDQ10,local=Q6"]
+    );
+    assert_eq!(
+        sorted(
+            &client,
+            "SELECT entity_id || '>' || target FROM view.retired"
+        )
+        .await,
+        ["Q7>Q6", "Q8>Q6"]
+    );
+
+    // The history goes on: Q8 is an item again, and stands for itself.
+    let restored = adopt(
+        json!({"op": "adopt", "id": "Q8", "entity": q8, "source_revid": 7, "source_parentid": 6, "source_time": "2026-09-22T14:02:11Z", "source_pageid": 8}),
+        952,
+    );
+    client = append_local(client, &backend, &p, restored).await;
+    assert_eq!(
+        cluster_state(&client).await.0,
+        ["Q6:XD=XDQ10,local=Q6", "Q8:OA=OAW1,local=Q8"]
+    );
+
+    // A rebuild reproduces the rows.
+    let before = identity_rows(&client).await;
+    let mut store = PgLog::new(client);
+    p.rebuild(&backend, &store, &ALL, 3).await.unwrap();
+    assert_eq!(identity_rows(store.client()).await, before);
+
+    // The redirect of Q7 is erased: its alias goes, and Q7 has its link again.
+    let offset: i64 = store
+        .client()
+        .query_one(
+            "SELECT \"offset\" FROM view.retired WHERE entity_id = 'Q7'",
+            &[],
+        )
+        .await
+        .unwrap()
+        .get(0);
+    store
+        .erase_parts(
+            LOCAL,
+            u64::try_from(offset).unwrap(),
+            &[scatter_log::body::CONTENT],
+        )
+        .await
+        .unwrap();
+    p.rebuild(&backend, &store, &ALL, 3).await.unwrap();
+    assert_eq!(
+        cluster_state(store.client()).await.0,
+        ["Q7:XD=XDQ10,local=Q7", "Q8:OA=OAW1,local=Q8"]
+    );
+}
+
+const SOURCE: u64 = 0x2007;
+
+// 04 §4.3, §4.4 (0004 §3, §9, A29): a tenant's record names a link property for one of its
+// own entity sources; a statement of it in the source's graph links the source's entity as
+// the tenant's own tier-2 row, in the tenant's clusters and no one else's, and lasts as
+// long as the statement.
+#[tokio::test]
+async fn a_tenants_source_links_by_its_own_properties() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let client = seed(client).await;
+    more_partitions(&client).await;
+    log::create_partition(
+        &client,
+        SOURCE,
+        Segments::new(8).unwrap(),
+        &PartitionInfo {
+            tenant: Some(TENANT.into()),
+            name: "source/mhc".into(),
+            graph_iri: "https://scatter.example/graph/source/mhc".into(),
+            history: History::Full,
+            integrity: Integrity::Logged,
+            export: Export::Public,
+            hash: "sha-256".into(),
+            origin: None,
+        },
+    )
+    .await
+    .unwrap();
+    let p = pipeline();
+    let mut store = PgLog::new(client);
+    store
+        .append(
+            TENANT_CONFIG,
+            reconcile(&json!({"order": ["mhc"],
+                "links": {"mhc": [{"property": "P9", "target": "local"}]}})),
+        )
+        .await
+        .unwrap();
+    let statement = "mhc:Q1$00000000-0000-0000-0000-0000000000E9";
+    store
+        .append(
+            SOURCE,
+            mirror_put(
+                "mhc:Q1",
+                &json!({"mhc:P9": [string_statement("mhc:P9", "Q6", statement, "external-id")]}),
+                1,
+                3001,
+            ),
+        )
+        .await
+        .unwrap();
+    for partition in [
+        CONFIG_PARTITION,
+        INSTANCE_LOG,
+        MIRROR,
+        TENANT_CONFIG,
+        SOURCE,
+        LOCAL,
+        TENANT_LOG,
+    ] {
+        p.catch_up(&backend, &store, partition, 2).await.unwrap();
+    }
+    let client = store.into_inner();
+    assert_eq!(
+        rows(
+            &client,
+            "SELECT tenant || '|' || a || '=' || b || '|' || tier FROM view.link"
+        )
+        .await,
+        ["librarybase|Q6=mhc:Q1|2"]
+    );
+    assert_eq!(cluster_state(&client).await.0, ["Q6:local=Q6,mhc=mhc:Q1"]);
+    assert!(shared_clusters(&client).await.is_empty());
+
+    // The source drops the statement: the link and the cluster go.
+    let client = append_to(
+        client,
+        &backend,
+        &p,
+        SOURCE,
+        mirror_put("mhc:Q1", &json!({}), 2, 3001),
+    )
+    .await;
+    assert!(cluster_state(&client).await.0.is_empty());
+    assert_eq!(count(&client, "SELECT count(*) FROM view.link").await, 0);
 }
