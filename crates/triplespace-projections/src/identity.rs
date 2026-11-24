@@ -1,16 +1,18 @@
 //! Identity clusters (0004; chapter 04 §4, 03 §4.4): the links a tenant's own graphs assert
 //! (tier 1), its `different-from` blocks, and the clusters they form.
 //!
-//! A `same-as` or a `convert` in a change set of a tenant graph that is not a mirror adds a
+//! A `same-as`, a `convert` or an `equivalent-property` in a change set of a tenant graph that is not a mirror adds a
 //! tier-1 row to `view.link`; a `different-from` a row to `view.different_from`; a `remove`
 //! of either deletes it, and an erased record deletes what it wrote. Each change recomputes
 //! the clusters around the IDs it names with `scatter-identity`: the connected links and
 //! blocks are read, the clusters written to `view.cluster` and `view.cluster_member`, and
 //! each link marked applied or held.
 //!
+//! An entity's ACL that deletes or undeletes it recomputes its clusters: a link touching a
+//! deleted entity is kept, `inactive`, and left out (0004 A27).
+//!
 //! Built so far: tier 1 only, per tenant. Mirror-derived and inferred links (tiers 2 and
-//! 3), the shared rows, `equivalent-property`, aliases, and members that are deleted or
-//! tombstoned are not yet handled (0004 A24).
+//! 3), the shared rows, aliases and tombstoned members are not yet handled (0004 A24, A27).
 
 use std::cmp::Ordering;
 use std::collections::BTreeSet;
@@ -75,6 +77,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for IdentityProjection {
 
     fn accepts(&self, header: &Header) -> bool {
         header.payload_type == PAYLOAD_CHANGESET
+            || header.payload_type == crate::actors::payload::ACL
     }
 
     /// Each record's rows depend only on the links before it, applied in order.
@@ -94,6 +97,9 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for IdentityProjection {
                 return Ok(Applied::rows(0));
             }
             let tenant = info.tenant.as_str();
+            if h.payload_type == crate::actors::payload::ACL {
+                return deletion(cx, tenant, h.key.as_deref()).await;
+            }
             let partition = scatter_log_postgres::ids::partition_to_db(h.partition);
             let offset = offset_db(record)?;
             let Some(op) = operation(record)? else {
@@ -117,8 +123,14 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for IdentityProjection {
             let (a, b) = match op.as_ref() {
                 Operation::SameAs { ids, .. }
                 | Operation::DifferentFrom { ids, .. }
+                | Operation::EquivalentProperty { ids, .. }
                 | Operation::Remove {
-                    link: Some(Link::SameAs { ids } | Link::DifferentFrom { ids }),
+                    link:
+                        Some(
+                            Link::SameAs { ids }
+                            | Link::DifferentFrom { ids }
+                            | Link::EquivalentProperty { ids },
+                        ),
                     ..
                 } => match ids.as_slice() {
                     [a, b] if a != b => (a.as_str().to_string(), b.as_str().to_string()),
@@ -132,7 +144,9 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for IdentityProjection {
             let (a, b) = if a <= b { (a, b) } else { (b, a) };
             let source = offset.to_string();
             let result = match op.as_ref() {
-                Operation::SameAs { .. } | Operation::Convert { .. } => {
+                Operation::SameAs { .. }
+                | Operation::Convert { .. }
+                | Operation::EquivalentProperty { .. } => {
                     cx.execute(
                         "INSERT INTO view.link (tenant, a, b, tier, source, status, \"partition\", \"offset\")
                          VALUES ($1, $2, $3, 1, $4, 'applied', $5, $6)
@@ -152,7 +166,7 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for IdentityProjection {
                     .await
                 }
                 Operation::Remove {
-                    link: Some(Link::SameAs { .. }),
+                    link: Some(Link::SameAs { .. } | Link::EquivalentProperty { .. }),
                     ..
                 } => {
                     cx.execute(
@@ -216,10 +230,8 @@ pub fn is_link(op: &Operation) -> bool {
         Operation::SameAs { .. }
             | Operation::DifferentFrom { .. }
             | Operation::Convert { .. }
-            | Operation::Remove {
-                link: Some(Link::SameAs { .. } | Link::DifferentFrom { .. }),
-                ..
-            }
+            | Operation::EquivalentProperty { .. }
+            | Operation::Remove { link: Some(_), .. }
     )
 }
 
@@ -263,6 +275,103 @@ pub(crate) async fn component(
     Ok(nodes)
 }
 
+/// An entity's ACL may delete or undelete it (04 §4.4): its clusters are recomputed, and the
+/// entities they reach resolved again, since the entities projection reads no ACL.
+async fn deletion(cx: &PgCx, tenant: &str, key: Option<&str>) -> Result<Applied, String> {
+    let Some(Ok(scatter_actors::acl::Target::Entity(id))) =
+        key.map(scatter_actors::acl::Target::parse)
+    else {
+        return Ok(Applied::rows(0));
+    };
+    let linked = cx
+        .query(
+            "SELECT 1 FROM view.link WHERE tenant = $1 AND (a = $2 OR b = $2) LIMIT 1",
+            &[&tenant, &id],
+        )
+        .await
+        .map_err(|e| sql(&e))?;
+    if linked.is_empty() {
+        return Ok(Applied::rows(0));
+    }
+    let reached = component(cx, tenant, vec![id.clone()]).await?;
+    let mut applied = recompute(cx, tenant, vec![id]).await?;
+    let entities = crate::entities::EntityProjection::default();
+    for other in reached {
+        if let Ok(other) = EntityId::parse(&other) {
+            applied.rows +=
+                usize::try_from(entities.resolve_subject(cx, tenant, &other, None).await?)
+                    .unwrap_or(0);
+        }
+    }
+    Ok(applied)
+}
+
+/// Which of `ids` are deleted on `tenant`: its own row's flag, else the shared row's.
+async fn deleted_among(
+    cx: &PgCx,
+    tenant: &str,
+    ids: &[String],
+) -> Result<BTreeSet<String>, String> {
+    Ok(cx
+        .query(
+            "SELECT e.id FROM view.entity e
+              WHERE e.id = ANY($2) AND e.deleted
+                AND (e.tenant = $1 OR (e.tenant = '' AND NOT EXISTS (
+                  SELECT 1 FROM view.entity o WHERE o.tenant = $1 AND o.id = e.id)))",
+            &[&tenant, &ids],
+        )
+        .await
+        .map_err(|e| sql(&e))?
+        .iter()
+        .map(|r| r.get(0))
+        .collect())
+}
+
+/// Writes each link's status: held in its conflict, `inactive` where it touches a deleted
+/// entity, applied otherwise.
+async fn mark_links(
+    cx: &PgCx,
+    tenant: &str,
+    list: &[String],
+    deleted: BTreeSet<String>,
+    conflicts: &[scatter_identity::Conflict<String>],
+    link_rows: &[tokio_postgres::Row],
+) -> Result<usize, String> {
+    let mut n = 0usize;
+    cx.execute(
+        "UPDATE view.link SET status = 'applied', conflict_id = NULL
+          WHERE tenant = $1 AND a = ANY($2) AND b = ANY($2) AND status <> 'applied'",
+        &[&tenant, &list],
+    )
+    .await
+    .map_err(|e| sql(&e))?;
+    let deleted: Vec<String> = deleted.into_iter().collect();
+    cx.execute(
+        "UPDATE view.link SET status = 'inactive', conflict_id = NULL
+          WHERE tenant = $1 AND (a = ANY($2) OR b = ANY($2))",
+        &[&tenant, &deleted],
+    )
+    .await
+    .map_err(|e| sql(&e))?;
+    for conflict in conflicts {
+        let conflict_id = stable_id(&conflict.key);
+        for &i in &conflict.links {
+            let r = &link_rows[i];
+            let (a, b, tier, source): (String, String, i16, String) =
+                (r.get(0), r.get(1), r.get(2), r.get(3));
+            cx.execute(
+                "UPDATE view.link SET status = 'held', conflict_id = $6
+                  WHERE tenant = $1 AND a = $2 AND b = $3 AND tier = $4 AND source = $5",
+                &[&tenant, &a, &b, &tier, &source, &conflict_id],
+            )
+            .await
+            .map_err(|e| sql(&e))?;
+            n += 1;
+        }
+    }
+    Ok(n)
+}
+
 /// Recomputes the clusters around `seeds` on `tenant`: reads every link and block connected
 /// to them, works out the clusters, and writes them and each link's status.
 async fn recompute(cx: &PgCx, tenant: &str, seeds: Vec<String>) -> Result<Applied, String> {
@@ -271,7 +380,10 @@ async fn recompute(cx: &PgCx, tenant: &str, seeds: Vec<String>) -> Result<Applie
         return Ok(Applied::rows(0));
     }
     let list: Vec<String> = nodes.iter().cloned().collect();
-    let link_rows = cx
+    // A deleted member leaves its cluster: its links are kept, and not applied while it is
+    // deleted (04 §4.4).
+    let deleted = deleted_among(cx, tenant, &list).await?;
+    let link_rows: Vec<tokio_postgres::Row> = cx
         .query(
             "SELECT a, b, tier, source FROM view.link
               WHERE tenant = $1 AND a = ANY($2) AND b = ANY($2)
@@ -279,7 +391,12 @@ async fn recompute(cx: &PgCx, tenant: &str, seeds: Vec<String>) -> Result<Applie
             &[&tenant, &list],
         )
         .await
-        .map_err(|e| sql(&e))?;
+        .map_err(|e| sql(&e))?
+        .into_iter()
+        .filter(|r| {
+            !deleted.contains(&r.get::<_, String>(0)) && !deleted.contains(&r.get::<_, String>(1))
+        })
+        .collect();
     let links: Vec<IdLink<String>> = link_rows
         .iter()
         .map(|r| IdLink {
@@ -338,29 +455,7 @@ async fn recompute(cx: &PgCx, tenant: &str, seeds: Vec<String>) -> Result<Applie
         }
         rows += 1 + members.len();
     }
-    cx.execute(
-        "UPDATE view.link SET status = 'applied', conflict_id = NULL
-          WHERE tenant = $1 AND a = ANY($2) AND b = ANY($2) AND status <> 'applied'",
-        &[&tenant, &list],
-    )
-    .await
-    .map_err(|e| sql(&e))?;
-    for conflict in &out.conflicts {
-        let conflict_id = stable_id(&conflict.key);
-        for &i in &conflict.links {
-            let r = &link_rows[i];
-            let (a, b, tier, source): (String, String, i16, String) =
-                (r.get(0), r.get(1), r.get(2), r.get(3));
-            cx.execute(
-                "UPDATE view.link SET status = 'held', conflict_id = $6
-                  WHERE tenant = $1 AND a = $2 AND b = $3 AND tier = $4 AND source = $5",
-                &[&tenant, &a, &b, &tier, &source, &conflict_id],
-            )
-            .await
-            .map_err(|e| sql(&e))?;
-            rows += 1;
-        }
-    }
+    rows += mark_links(cx, tenant, &list, deleted, &out.conflicts, &link_rows).await?;
     Ok(Applied::rows(rows))
 }
 
@@ -437,6 +532,32 @@ pub async fn exact_matches<C: PgClient>(
         out.entry(r.get(0)).or_default().push(r.get(1));
     }
     Ok(out)
+}
+
+/// For each of `ids` that is a non-canonical member of a cluster on `tenant`, its cluster's
+/// canonical member: the canon resolution compares properties and values by (04 §4.6–§4.8).
+///
+/// # Errors
+///
+/// The database's.
+pub async fn canonical_map<C: PgClient>(
+    client: &C,
+    tenant: &str,
+    ids: &[String],
+) -> Result<std::collections::BTreeMap<String, String>, String> {
+    if ids.is_empty() || tenant.is_empty() {
+        return Ok(std::collections::BTreeMap::new());
+    }
+    let rows = client
+        .query(
+            "SELECT m.entity_id, c.canonical_id FROM view.cluster_member m
+               JOIN view.cluster c ON c.tenant = m.tenant AND c.cluster_id = m.cluster_id
+              WHERE m.tenant = $1 AND m.entity_id = ANY($2) AND m.entity_id <> c.canonical_id",
+            &[&tenant, &ids],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+    Ok(rows.iter().map(|r| (r.get(0), r.get(1))).collect())
 }
 
 /// The other members of `id`'s cluster on `tenant`, the canonical member first, then in

@@ -58,7 +58,7 @@ MediaWiki clients depend on numeric IDs from one sequence per wiki: `revid`, `pa
 
 ### 1.4 Normalization: which forms of an entity ID are accepted
 
-*Sources: [0044](../decisions/0044-tenant-relative-ids.md) §3; [0082](../decisions/0082-source-form-and-the-shared-view.md) §2.*
+*Sources: [0044](../decisions/0044-tenant-relative-ids.md) §3; [0082](../decisions/0082-source-form-and-the-shared-view.md) §2; [0004](../decisions/0004-identity-clusters-and-equivalence.md) A27.*
 
 **Every entry point normalizes the entity IDs it is given to the internal form before anything executes.** Two kinds of alternative form are accepted everywhere an entity ID is accepted on input: a tenant-relative ID ([04](04-entities-and-identifiers.md) §2.3), canonicalized as [0044](../decisions/0044-tenant-relative-ids.md) §1 has it; and **any member of an identity cluster** ([04](04-entities-and-identifiers.md) §4), since the stored graph keeps the ID each source wrote and the canonical ID is an attribute of the cluster, never applied to data. A request for `WDQ42` and a request for the local `Q9` it is clustered with name the same entity. The entry points:
 
@@ -69,7 +69,7 @@ MediaWiki clients depend on numeric IDs from one sequence per wiki: `revid`, `pa
 - SPARQL constants, which the query service's rewriting layer expands to the member set at planning time ([02](02-graphs-rdf-and-query.md) §7; property paths are not expanded);
 - titles, and Lua and `#property`/`#statements` ([0043](../decisions/0043-lua-modules.md) §8).
 
-**A lookup by a clustered ID is a lookup over the member set.** Where a parameter names a cluster, the lookup over `entity_ref`, `identifier`, `sitelink` or `term` runs over every member, one indexed probe of `view.cluster_member` per constant with L0 in front of it; and search results collapse to one per cluster, the member the request's preference (§1.6) selects. Because two consumers of one tenant may see different forms of one value (§1.6), this normalization is not optional for any entry point: a URL copied from one view resolves in the other only because every member is accepted.
+**A lookup by a clustered ID is a lookup over the member set.** Where a parameter names a cluster, the lookup over `entity_ref`, `identifier`, `sitelink` or `term` runs over every member, one indexed probe of `view.cluster_member` per constant with L0 in front of it; and search results collapse to one per cluster, the member the request's preference (§1.6) selects. As built, a search reads a shared row only where the tenant has no row of its own and collapses to the canonical member ([0004](../decisions/0004-identity-clusters-and-equivalence.md) A27). Because two consumers of one tenant may see different forms of one value (§1.6), this normalization is not optional for any entry point: a URL copied from one view resolves in the other only because every member is accepted.
 
 ### 1.5 Refusals every write module shares
 

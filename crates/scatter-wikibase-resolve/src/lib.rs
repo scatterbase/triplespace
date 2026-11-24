@@ -12,10 +12,11 @@
 //! | Sitelinks | Union by site; the first graph in order wins a site |
 //! | Corrections | A rank override applies to the fused statement; a suppression removes the member statement it names, and the fused statement once every member is suppressed |
 //!
-//! Clusters are not handled here yet: every ID is taken as its own canonical ID. Values
-//! of a property bound to a resolver are compared by the resolver's key, so a DOI written
-//! in either case is one value ([`Bound::embedded`]; 0029 A12). When `scatter-identity`
-//! exists, the canon becomes a parameter.
+//! Clusters are a parameter ([`resolve_with`]): a property or an entity value that is a
+//! non-canonical member of a cluster is compared as its canonical member, so statements
+//! that say the same thing through two members fuse (0004 §6–§8). Values of a property
+//! bound to a resolver are compared by the resolver's key, so a DOI written in either case
+//! is one value ([`Bound::embedded`]; 0029 A12).
 //!
 //! [`resolve`] also says, per fused statement, which graphs assert it, so that the
 //! `identifier` and `statement_assertion` tables can be written from the same pass.
@@ -24,10 +25,10 @@
 
 use std::collections::{BTreeMap, BTreeSet};
 
-use scatter_wikibase_fusion::key::{Bound, statement_key};
+use scatter_wikibase_fusion::key::{Bound, Canon, statement_key};
 use scatter_wikibase_model::entity::Entity;
 use scatter_wikibase_model::hash::Hasher;
-use scatter_wikibase_model::id::StatementId;
+use scatter_wikibase_model::id::{EntityId, StatementId};
 use scatter_wikibase_model::statement::{Rank, Statement};
 
 /// One graph's state for the entity.
@@ -102,6 +103,25 @@ impl Resolved {
     }
 }
 
+/// The canon resolution compares by: the resolvers [`Bound::embedded`] binds, and a map
+/// from each non-canonical member of a cluster to its canonical member.
+struct ClusterCanon<'a> {
+    clusters: &'a BTreeMap<String, String>,
+}
+
+impl Canon for ClusterCanon<'_> {
+    fn canonical_id(&self, id: &EntityId) -> EntityId {
+        self.clusters
+            .get(id.as_str())
+            .and_then(|c| EntityId::parse(c).ok())
+            .unwrap_or_else(|| id.clone())
+    }
+
+    fn resolver_for(&self, property: &EntityId) -> Option<&scatter_normalize::resolver::Resolver> {
+        Bound::embedded().resolver_for(property)
+    }
+}
+
 /// Resolves the contributions, in graph order, under the corrections. `None` when there
 /// are no contributions.
 #[must_use]
@@ -109,6 +129,20 @@ pub fn resolve(
     contributions: &[Contribution],
     corrections: &BTreeMap<StatementId, Correction>,
 ) -> Option<Resolved> {
+    resolve_with(contributions, corrections, &BTreeMap::new())
+}
+
+/// [`resolve`], comparing properties and entity values by their clusters: `clusters`
+/// maps each non-canonical member the contributions name to its cluster's canonical
+/// member (0004 §6–§8). Stored IDs are not changed; a fused statement keeps the first
+/// graph's.
+#[must_use]
+pub fn resolve_with(
+    contributions: &[Contribution],
+    corrections: &BTreeMap<StatementId, Correction>,
+    clusters: &BTreeMap<String, String>,
+) -> Option<Resolved> {
+    let canon = ClusterCanon { clusters };
     let first = contributions.first()?;
     let mut entity = Entity::new(first.entity.id.clone(), first.entity.entity_type.clone());
     entity.datatype = contributions.iter().find_map(|c| c.entity.datatype.clone());
@@ -124,7 +158,7 @@ pub fn resolve(
             let suppressed =
                 s.id.as_ref()
                     .is_some_and(|id| corrections.get(id) == Some(&Correction::Suppress));
-            let key = statement_key(s, Bound::embedded());
+            let key = statement_key(s, &canon);
             if let Some(&i) = index.get(&key) {
                 let (base, prov, all_suppressed) = &mut fused[i];
                 prov.graphs.push(c.graph.clone());
@@ -182,7 +216,7 @@ pub fn resolve(
         statements.into_iter().map(|p| (p.key.clone(), p)).collect();
     let ordered: Vec<ResolvedStatement> = entity
         .all_statements()
-        .map(|s| by_key[&statement_key(s, Bound::embedded())].clone())
+        .map(|s| by_key[&statement_key(s, &canon)].clone())
         .collect();
 
     Some(Resolved {

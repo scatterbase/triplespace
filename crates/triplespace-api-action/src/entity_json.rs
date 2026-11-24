@@ -96,16 +96,19 @@ pub fn present_preferring(
     v
 }
 
-/// The entity IDs the values of an entity's statements name: main snaks, qualifiers and
-/// references.
+/// The entity IDs an entity's statements name, as properties and as values: main snaks,
+/// qualifiers and references.
 #[must_use]
 pub fn value_ids(entity: &Entity) -> Vec<String> {
     let mut out: Vec<String> = entity
         .all_statements()
         .flat_map(scatter_wikibase_model::statement::Statement::snaks)
-        .filter_map(|snak| match &snak.kind {
-            SnakKind::Value(DataValue::EntityId(v)) => Some(v.id.as_str().to_string()),
-            _ => None,
+        .flat_map(|snak| {
+            let value = match &snak.kind {
+                SnakKind::Value(DataValue::EntityId(v)) => Some(v.id.as_str().to_string()),
+                _ => None,
+            };
+            std::iter::once(snak.property.as_str().to_string()).chain(value)
         })
         .collect();
     out.sort();
@@ -113,24 +116,111 @@ pub fn value_ids(entity: &Entity) -> Vec<String> {
     out
 }
 
-/// Rewrites each entity value `map` names (04 §4.12). Stored values are not changed; the
-/// rewrite is of what is served.
+/// Rewrites each property and entity value `map` names (04 §4.12): a statement, a qualifier
+/// or a reference snak whose property is rewritten moves to that property's group, after
+/// the group's own. Stored IDs are not changed; the rewrite is of what is served.
 pub fn rewrite_values(entity: &mut Entity, map: &BTreeMap<String, String>) {
     if map.is_empty() {
         return;
     }
+    let to = |id: &EntityId| {
+        map.get(id.as_str())
+            .and_then(|t| EntityId::parse(t).ok())
+            .unwrap_or_else(|| id.clone())
+    };
+    let regroup = |groups: &mut scatter_wikibase_model::statement::SnakGroups| {
+        let old = std::mem::take(groups);
+        for (property, snaks) in old {
+            groups.entry(to(&property)).or_default().extend(snaks);
+        }
+    };
     for statement in entity.statements.values_mut().flatten() {
+        regroup(&mut statement.qualifiers);
+        for reference in &mut statement.references {
+            let touched = reference.snaks.values().flatten().any(|snak| {
+                map.contains_key(snak.property.as_str())
+                    || matches!(&snak.kind, SnakKind::Value(DataValue::EntityId(v)) if map.contains_key(v.id.as_str()))
+            });
+            regroup(&mut reference.snaks);
+            if touched {
+                reference.hash = None;
+            }
+        }
         for snak in statement.snaks_mut() {
-            if let SnakKind::Value(DataValue::EntityId(v)) = &mut snak.kind
-                && let Some(to) = map.get(v.id.as_str())
-                && let Ok(id) = EntityId::parse(to)
-            {
-                v.id = id;
-                // The hash upstream gave is of the stored value.
+            let property = to(&snak.property);
+            let mut changed = property != snak.property;
+            snak.property = property;
+            if let SnakKind::Value(DataValue::EntityId(v)) = &mut snak.kind {
+                let value = to(&v.id);
+                changed |= value != v.id;
+                v.id = value;
+            }
+            if changed {
+                // The hash upstream gave is of the stored snak.
                 snak.hash = None;
             }
         }
     }
+    let old = std::mem::take(&mut entity.statements);
+    for (property, statements) in old {
+        entity
+            .statements
+            .entry(to(&property))
+            .or_default()
+            .extend(statements);
+    }
+}
+
+/// At most this many value entities tag a response: a cluster formed or dissolved around
+/// one of them purges it, since it changes how the value is served (0004 A27).
+pub const VALUE_TAG_LIMIT: usize = 200;
+
+/// The rewrite of an entity's values for a request on `tenant` (04 §4.12; 18 §1.6), and
+/// the cache tags of the entities they name. `prefer` is the request's namespace order;
+/// without one, the namespace of the ID asked for.
+///
+/// # Errors
+///
+/// The database's.
+pub async fn preferred_map<C: scatter_log_postgres::PgClient>(
+    client: &C,
+    tenant: &str,
+    id: &EntityId,
+    entity: &Entity,
+    prefer: &[String],
+) -> Result<(BTreeMap<String, String>, Vec<String>), String> {
+    let ids = value_ids(entity);
+    let tags = ids
+        .iter()
+        .take(VALUE_TAG_LIMIT)
+        .map(|v| format!("entity:{v}"))
+        .collect();
+    if ids.is_empty() {
+        return Ok((BTreeMap::new(), tags));
+    }
+    let matches = triplespace_projections::identity::exact_matches(client, tenant, &ids).await?;
+    if matches.is_empty() {
+        return Ok((BTreeMap::new(), tags));
+    }
+    let own;
+    let prefer = if prefer.is_empty() {
+        own = [triplespace_projections::identity::namespace(id.as_str())];
+        &own[..]
+    } else {
+        prefer
+    };
+    Ok((preferred_forms(prefer, &matches), tags))
+}
+
+/// A `prefer` parameter's namespaces: `|` or `,` between them.
+#[must_use]
+pub fn prefer_list(text: Option<&str>) -> Vec<String> {
+    text.unwrap_or_default()
+        .split(['|', ','])
+        .map(str::trim)
+        .filter(|s| !s.is_empty())
+        .map(str::to_string)
+        .collect()
 }
 
 /// Which form of each value to serve, under the namespace order `prefer` (04 §4.12): the
@@ -458,7 +548,7 @@ mod tests {
              "type": "statement", "rank": "normal", "id": "WDQ42$00000000-0000-0000-0000-000000000001"}]}}))
         .unwrap()
         .entity;
-        assert_eq!(value_ids(&entity), ["WDQ5"]);
+        assert_eq!(value_ids(&entity), ["WDP31", "WDQ5"]);
         let contributions = vec![Contribution {
             graph: "mirror/wikidata".into(),
             entity,
@@ -490,5 +580,15 @@ mod tests {
             v["claims"]["WDP31"][0]["mainsnak"]["datavalue"]["value"]["id"],
             "Q9"
         );
+        // A property in a cluster moves its statements to the preferred member's group.
+        let with_property = BTreeMap::from([("WDP31".to_string(), "P1".to_string())]);
+        let v = present_preferring(
+            &current,
+            Registry::default_registry(),
+            "https://example.org",
+            &with_property,
+        );
+        assert!(v["claims"].get("WDP31").is_none(), "{v}");
+        assert_eq!(v["claims"]["P1"][0]["mainsnak"]["property"], "P1");
     }
 }

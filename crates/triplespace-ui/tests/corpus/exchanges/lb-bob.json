@@ -50230,7 +50230,7 @@
   },
   {
     "method": "GET",
-    "path_and_query": "/w/rest.php/triplespace/v0/entity/Domain:wikipedia.org/page",
+    "path_and_query": "/w/rest.php/triplespace/v0/entity/Domain:wikipedia.org/page?prefer=local",
     "credentialed": true,
     "status": 200,
     "headers": {
@@ -50337,7 +50337,7 @@
   },
   {
     "method": "GET",
-    "path_and_query": "/w/rest.php/triplespace/v0/entity/Item:Q5/page",
+    "path_and_query": "/w/rest.php/triplespace/v0/entity/Item:Q5/page?prefer=local",
     "credentialed": true,
     "status": 200,
     "headers": {
@@ -50428,7 +50428,7 @@
   },
   {
     "method": "GET",
-    "path_and_query": "/w/rest.php/triplespace/v0/entity/Item:Q6/page",
+    "path_and_query": "/w/rest.php/triplespace/v0/entity/Item:Q6/page?prefer=local",
     "credentialed": true,
     "status": 200,
     "headers": {
@@ -50908,7 +50908,7 @@
   },
   {
     "method": "GET",
-    "path_and_query": "/w/rest.php/triplespace/v0/entity/Property:P3/page",
+    "path_and_query": "/w/rest.php/triplespace/v0/entity/Property:P3/page?prefer=local",
     "credentialed": true,
     "status": 200,
     "headers": {

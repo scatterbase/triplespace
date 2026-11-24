@@ -40,7 +40,7 @@ use scatter_wikibase_model::entity::Entity;
 use scatter_wikibase_model::id::{EntityId, StatementId};
 use scatter_wikibase_model::statement::SnakKind;
 use scatter_wikibase_model::value::{DataType, DataValue};
-use scatter_wikibase_resolve::{Contribution, Correction, Resolved, resolve};
+use scatter_wikibase_resolve::{Contribution, Correction, Resolved, resolve, resolve_with};
 
 use crate::backend::PgCx;
 use crate::common::{
@@ -125,6 +125,47 @@ pub(crate) struct Parts {
     pub(crate) headers: Vec<Header>,
     /// How many of the contributions are a mirror's or a source's.
     pub(crate) mirror_states: usize,
+}
+
+/// What an entity is resolved from ([`EntityProjection::with_cluster`]).
+pub(crate) struct Fused {
+    /// Every contribution, in graph order.
+    pub(crate) contributions: Vec<Contribution>,
+    /// Every member's local corrections.
+    pub(crate) corrections: BTreeMap<StatementId, Correction>,
+    /// The cluster the entity is in on the tenant, where it is in one.
+    pub(crate) membership: Option<crate::identity::Membership>,
+    /// Each non-canonical member of a cluster the contributions name, as a property or a
+    /// value, to its canonical member (04 §4.6–§4.8).
+    pub(crate) canon: BTreeMap<String, String>,
+}
+
+/// The canon for `contributions` on `tenant`: the canonical member of each property and
+/// entity value they name that is a non-canonical member of a cluster. A shared row
+/// (`tenant = ''`) has none until shared clusters exist.
+pub(crate) async fn canon_for<C: Partitions>(
+    client: &C,
+    tenant: &str,
+    contributions: &[Contribution],
+) -> Result<BTreeMap<String, String>, String> {
+    if tenant.is_empty() {
+        return Ok(BTreeMap::new());
+    }
+    let mut ids: Vec<String> = contributions
+        .iter()
+        .flat_map(|c| c.entity.all_statements())
+        .flat_map(scatter_wikibase_model::statement::Statement::snaks)
+        .flat_map(|snak| {
+            let value = match &snak.kind {
+                SnakKind::Value(DataValue::EntityId(v)) => Some(v.id.as_str().to_string()),
+                _ => None,
+            };
+            std::iter::once(snak.property.as_str().to_string()).chain(value)
+        })
+        .collect();
+    ids.sort();
+    ids.dedup();
+    crate::identity::canonical_map(client, tenant, &ids).await
 }
 
 /// The local graph's corrections, as resolution takes them.
@@ -366,14 +407,7 @@ impl EntityProjection {
         id: &EntityId,
         own: &Parts,
         current: Option<&Record>,
-    ) -> Result<
-        (
-            Vec<Contribution>,
-            BTreeMap<StatementId, Correction>,
-            Option<crate::identity::Membership>,
-        ),
-        String,
-    > {
+    ) -> Result<Fused, String> {
         let mut corrections = corrections_of(&own.local);
         let membership = if tenant.is_empty() || own.contributions.is_empty() {
             None
@@ -381,7 +415,13 @@ impl EntityProjection {
             crate::identity::membership(client, tenant, id.as_str()).await?
         };
         let Some(m) = &membership else {
-            return Ok((own.contributions.clone(), corrections, None));
+            let canon = canon_for(client, tenant, &own.contributions).await?;
+            return Ok(Fused {
+                contributions: own.contributions.clone(),
+                corrections,
+                membership: None,
+                canon,
+            });
         };
         let mut tagged: Vec<(usize, Contribution)> = Vec::new();
         for (i, member) in m.members.iter().enumerate() {
@@ -397,11 +437,14 @@ impl EntityProjection {
             tagged.extend(parts.contributions.into_iter().map(|c| (i, c)));
         }
         tagged.sort_by_key(|(i, c)| (c.graph != "local", self.mirror_rank(&c.graph), *i));
-        Ok((
-            tagged.into_iter().map(|(_, c)| c).collect(),
+        let contributions: Vec<Contribution> = tagged.into_iter().map(|(_, c)| c).collect();
+        let canon = canon_for(client, tenant, &contributions).await?;
+        Ok(Fused {
+            contributions,
             corrections,
             membership,
-        ))
+            canon,
+        })
     }
 
     async fn delete_rows(cx: &PgCx, tenant: &str, id: &EntityId) -> Result<u64, String> {
@@ -428,7 +471,7 @@ impl EntityProjection {
     }
 
     /// Recomputes one `(tenant, id)` row and its terms and identifiers.
-    async fn resolve_subject(
+    pub(crate) async fn resolve_subject(
         &self,
         cx: &PgCx,
         tenant: &str,
@@ -451,8 +494,13 @@ impl EntityProjection {
         times: i64,
     ) -> Result<u64, String> {
         let own = self.parts(cx, tenant, id, current).await?;
-        let (contributions, corrections, membership) =
-            self.with_cluster(cx, tenant, id, &own, current).await?;
+        let Fused {
+            contributions,
+            corrections,
+            membership,
+            canon,
+        } = self.with_cluster(cx, tenant, id, &own, current).await?;
+        let own_corrections = corrections_of(&own.local);
         let Parts {
             sources,
             local,
@@ -461,7 +509,7 @@ impl EntityProjection {
             contributions: own_contributions,
         } = own;
         let mut first_seen = sources.iter().map(|s| s.synced_at).min();
-        let Some(mut resolved) = resolve(&contributions, &corrections) else {
+        let Some(mut resolved) = resolve_with(&contributions, &corrections, &canon) else {
             return Self::delete_rows(cx, tenant, id).await;
         };
         // The fused body under the member's own ID.
@@ -556,11 +604,21 @@ impl EntityProjection {
             .await
             .map_err(|e| sql(&e))
         };
-        let targets = crate::refs::rows(&resolved.entity);
+        // A member of a cluster is indexed by what its own graphs say: a search finds it by
+        // its own label and collapses it into its cluster, and a reference is counted once,
+        // by the member that makes it (0004 A27).
+        let own_resolved;
+        let indexed = if membership.is_some() {
+            own_resolved = resolve_with(&own_contributions, &own_corrections, &canon);
+            own_resolved.as_ref().unwrap_or(&resolved)
+        } else {
+            &resolved
+        };
+        let targets = crate::refs::rows(&indexed.entity);
         let (n, terms, identifiers, refs) = tokio::try_join!(
             entity_row,
-            Self::write_terms(cx, tenant, id, &resolved),
-            Self::write_identifiers(cx, tenant, id, &resolved),
+            Self::write_terms(cx, tenant, id, indexed),
+            Self::write_identifiers(cx, tenant, id, indexed),
             crate::refs::write_one(cx, tenant, id, &targets),
         )?;
         crate::rdf_work::queue(cx, tenant, &[id.as_str()]).await?;

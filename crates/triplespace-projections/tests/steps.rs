@@ -1648,3 +1648,181 @@ async fn a_clusters_members_share_its_fused_body() {
         ("XDQ10".into(), true)
     );
 }
+
+// 04 §4.6–§4.8 (0004 A27): statements that say the same thing through two members of a
+// property cluster fuse into one, with both members in its provenance.
+#[tokio::test]
+async fn statements_fuse_across_a_property_cluster() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let mut store = PgLog::new(seed(client).await);
+    let item = json!({"type": "item", "id": "XDQ10", "labels": {"en": label("en", "Registrar")},
+        "claims": {"XDP4": [string_statement("XDP4", "x", "XDQ10$00000000-0000-0000-0000-0000000000C4", "string")]}});
+    store
+        .append(
+            MIRROR,
+            draft(
+                PAYLOAD_CHANGESET,
+                "XDQ10",
+                &json!({"op": "put", "id": "XDQ10", "entity": item, "upstream": {"revid": 58}, "size": 120}),
+                Some(7),
+                Some(101),
+            ),
+        )
+        .await
+        .unwrap();
+    store
+        .append(
+            LOCAL,
+            draft(
+                PAYLOAD_CHANGESET,
+                "Q6",
+                &json!({"op": "same-as", "id": "Q6", "ids": ["Q6", "XDQ10"]}),
+                None,
+                Some(6),
+            ),
+        )
+        .await
+        .unwrap();
+    let p = pipeline();
+    for partition in ALL {
+        p.catch_up(&backend, &store, partition, 2).await.unwrap();
+    }
+    let client = store.into_inner();
+    assert_eq!(
+        p4_statements(&client).await.len(),
+        2,
+        "P4 and XDP4 are two properties"
+    );
+    let client = append_local(
+        client,
+        &backend,
+        &p,
+        draft(
+            PAYLOAD_CHANGESET,
+            "P4",
+            &json!({"op": "equivalent-property", "id": "P4", "ids": ["P4", "XDP4"]}),
+            None,
+            None,
+        ),
+    )
+    .await;
+    assert_eq!(
+        cluster_state(&client).await.0,
+        ["P4:XD=XDP4,local=P4", "Q6:XD=XDQ10,local=Q6"]
+    );
+    assert_eq!(
+        p4_statements(&client).await,
+        [vec![
+            Q6_P4.to_string(),
+            "XDQ10$00000000-0000-0000-0000-0000000000C4".to_string()
+        ]],
+        "one statement, asserted by both graphs"
+    );
+}
+
+/// The members of each statement of `Q6`'s fused body that `P4` or `XDP4` makes.
+async fn p4_statements(client: &Client) -> Vec<Vec<String>> {
+    let order = triplespace_projections::EntityProjection::default();
+    let q6 = scatter_wikibase_model::id::EntityId::parse("Q6").unwrap();
+    let c = triplespace_projections::read::current(client, &order, TENANT, &q6)
+        .await
+        .unwrap()
+        .unwrap();
+    let mut x: Vec<Vec<String>> = c
+        .resolved
+        .statements
+        .iter()
+        .filter(|s| {
+            s.members
+                .iter()
+                .any(|m| m.as_str().ends_with("C4") || m.as_str() == Q6_P4)
+        })
+        .map(|s| s.members.iter().map(ToString::to_string).collect())
+        .collect();
+    x.sort();
+    x
+}
+
+// 04 §4.4 (0004 A27): a deleted member leaves its cluster, its links kept and not applied;
+// undeleted, it is a member again.
+#[tokio::test]
+async fn a_deleted_member_leaves_its_cluster() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let mut store = PgLog::new(seed(client).await);
+    store
+        .append(
+            LOCAL,
+            draft(
+                PAYLOAD_CHANGESET,
+                "Q6",
+                &json!({"op": "same-as", "id": "Q6", "ids": ["Q6", "XDQ10"]}),
+                None,
+                Some(6),
+            ),
+        )
+        .await
+        .unwrap();
+    let p = pipeline();
+    for partition in ALL {
+        p.catch_up(&backend, &store, partition, 2).await.unwrap();
+    }
+    let acl = |deleted: bool| {
+        let mut v = json!({"target": "acl:entity:Q6", "restrictions": {}});
+        if deleted {
+            v["restrictions"] = json!({"read": {"group": "sysop"}});
+            v["read_kind"] = json!("moderation");
+        }
+        draft(
+            triplespace_projections::actors::payload::ACL,
+            "acl:entity:Q6",
+            &v,
+            None,
+            None,
+        )
+    };
+    store.append(TENANT_LOG, acl(true)).await.unwrap();
+    p.catch_up(&backend, &store, TENANT_LOG, 2).await.unwrap();
+    let client = store.into_inner();
+    assert!(cluster_state(&client).await.0.is_empty(), "Q6 has left");
+    assert_eq!(
+        rows(
+            &client,
+            "SELECT status FROM view.link WHERE tenant = 'librarybase'"
+        )
+        .await,
+        ["inactive"]
+    );
+    assert_eq!(label_of_xd(&client).await.as_deref(), Some("Registrar"));
+
+    let mut store = PgLog::new(client);
+    store.append(TENANT_LOG, acl(false)).await.unwrap();
+    p.catch_up(&backend, &store, TENANT_LOG, 2).await.unwrap();
+    let client = store.into_inner();
+    assert_eq!(cluster_state(&client).await.0, ["Q6:XD=XDQ10,local=Q6"]);
+    assert_eq!(label_of_xd(&client).await.as_deref(), Some("Six"));
+}
+
+/// `XDQ10`'s English label as the tenant reads it.
+async fn label_of_xd(client: &Client) -> Option<String> {
+    let order = triplespace_projections::EntityProjection::default();
+    triplespace_projections::read::current(
+        client,
+        &order,
+        TENANT,
+        &scatter_wikibase_model::id::EntityId::parse("XDQ10").unwrap(),
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .resolved
+    .entity
+    .labels
+    .get("en")
+    .cloned()
+}

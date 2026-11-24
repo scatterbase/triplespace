@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 
 use scatter_wikibase_model::id::EntityId;
 use scatter_wikibase_model::id::StatementId;
-use scatter_wikibase_resolve::{Contribution, Correction, Resolved, resolve};
+use scatter_wikibase_resolve::{Contribution, Correction, Resolved, resolve_with};
 
 use crate::common::Partitions;
 use crate::entities::EntityProjection;
@@ -203,10 +203,14 @@ pub async fn current<C: Partitions>(
         return Ok(None);
     }
     // A member of a cluster reads as the cluster's fused body, under its own ID (04 §4.4).
-    let (contributions, corrections, cluster) =
-        order.with_cluster(client, tenant, id, &own, None).await?;
+    let crate::entities::Fused {
+        contributions,
+        corrections,
+        membership: cluster,
+        canon,
+    } = order.with_cluster(client, tenant, id, &own, None).await?;
     let crate::entities::Parts { local, headers, .. } = own;
-    let Some(mut resolved) = resolve(&contributions, &corrections) else {
+    let Some(mut resolved) = resolve_with(&contributions, &corrections, &canon) else {
         return Ok(None);
     };
     resolved.entity.id = id.clone();

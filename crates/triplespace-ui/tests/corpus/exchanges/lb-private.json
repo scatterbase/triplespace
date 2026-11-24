@@ -2553,7 +2553,7 @@
   },
   {
     "method": "GET",
-    "path_and_query": "/w/rest.php/triplespace/v0/entity/Item:Q6/page",
+    "path_and_query": "/w/rest.php/triplespace/v0/entity/Item:Q6/page?prefer=local",
     "status": 404,
     "headers": {
       "cache-control": "public, max-age=0, s-maxage=60, stale-while-revalidate=300",

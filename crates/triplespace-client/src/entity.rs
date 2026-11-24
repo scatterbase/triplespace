@@ -271,8 +271,9 @@ impl Client {
         incoming: &Incoming,
         id: &str,
     ) -> Result<Fetched<Option<Bundle>>, ClientError> {
+        // The site shows values in the tenant's own form where it has one (18 §1.6).
         let path = format!(
-            "/w/rest.php/triplespace/v0/entity/{}/page",
+            "/w/rest.php/triplespace/v0/entity/{}/page?prefer=local",
             utf8_percent_encode(id, SEGMENT)
         );
         let r = self.get(incoming, &path).await?;

@@ -150,6 +150,8 @@ pub async fn entity_hits(
                       e.cluster_id AS cluster
                FROM m
                JOIN view.entity e ON e.id = m.entity_id AND e.tenant IN ($1, '')
+                 AND (e.tenant = $1 OR NOT EXISTS (
+                   SELECT 1 FROM view.entity o WHERE o.tenant = $1 AND o.id = e.id))
                  AND NOT e.deleted AND e.type = ANY($5)
                  AND NOT (e.id = ANY($7)) AND NOT (e.type = ANY($8))
                JOIN LATERAL (

@@ -504,7 +504,7 @@ A link value that points at an alias follows the redirect. If Wikidata says an i
 
 ### 4.4 The canonical ID
 
-*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §4, A25; [0009](../decisions/0009-keyed-entity-types-and-domain.md) §8; [0082](../decisions/0082-source-form-and-the-shared-view.md) §1, §4, §5.*
+*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §4, A25, A27; [0009](../decisions/0009-keyed-entity-types-and-domain.md) §8; [0082](../decisions/0082-source-form-and-the-shared-view.md) §1, §4, §5.*
 
 **The canonical ID of a cluster is its highest-ranked member.**
 
@@ -515,7 +515,7 @@ So if a local item `Q77` about en.wikipedia.org existed before Domains did, `sam
 
 **The canonical ID is an attribute of the cluster, never applied to data.** `view.cluster` names it. The internal graph is in **source form**: every stored form of an entity keeps the IDs its source wrote. Statement subjects, entity values, qualifier and reference values, `view.entity_ref`, `view.identifier`, the search documents, the RDF dump and the update stream carry `WDQ5` where Wikidata wrote `Q5` and `Q9` where a local editor wrote `Q9`, and nothing rewrites an ID in storage because a cluster formed, changed or dissolved. The resolved view ([0002](../decisions/0002-source-graphs-and-mass-ingest.md) §3, in [05](05-providers-and-ingest.md) §1.4) is the cluster's **fused body**, composed once per cluster from the members' graph states ([03](03-storage-caches-and-search.md)); the per-graph views ([0003](../decisions/0003-statement-ui.md) §6) still show each member's own data. A `materialized` row of `view.entity` means two or more contributing graphs or local deltas, nothing else: a mirrored entity that merely references a clustered entity is `source`, served from its record, so what is materialized is bounded by what tenants have asserted about an entity, never by what references it. **A cluster change recomposes the cluster's members and nothing else**: there is no delta per referrer in the update stream, no re-resolution of referrers, and `entity_ref` is not needed for correctness. The form in which a consumer sees the IDs of a fused body is a property of the response, not of the store (§4.12).
 
-**Each member's row is the fused body.** On a tenant, every member of a cluster has its own row of `view.entity`, holding the cluster's fused body under the member's own ID with the cluster's `cluster_id` and `canonical_id`, and keeping its own page ID, revision and local offset. The members' graphs are ordered local first, the canonical member's before the others', then the mirrors and sources in provider order; every member's local corrections apply. Resolving one member resolves the others, and a link or its removal resolves every entity it reaches ([0004](../decisions/0004-identity-clusters-and-equivalence.md) A25).
+**Each member's row is the fused body.** On a tenant, every member of a cluster has its own row of `view.entity`, holding the cluster's fused body under the member's own ID with the cluster's `cluster_id` and `canonical_id`, and keeping its own page ID, revision and local offset. The members' graphs are ordered local first, the canonical member's before the others', then the mirrors and sources in provider order; every member's local corrections apply. Resolving one member resolves the others, and a link or its removal resolves every entity it reaches ([0004](../decisions/0004-identity-clusters-and-equivalence.md) A25). A member is indexed by its own graphs: its terms, identifiers and references are what its own graphs say, so a search finds either member by its own label and collapses them to the canonical one. **A deleted member leaves its cluster:** a link touching it is kept, `inactive`, and applies again when it is undeleted ([0004](../decisions/0004-identity-clusters-and-equivalence.md) A27).
 
 **In RDF the fused body is emitted under every member.** The resolved graph carries the cluster's fused statements under each member's concept IRI, with `owl:sameAs` between the members and the redirect-form `<member IRI> owl:sameAs <canonical IRI>` from each non-canonical member to the canonical one. Duplication is bounded by cluster size, never by referrers, and a query that reaches `wd:Q5` through a value and asks for its label or its statements succeeds without rewriting, which is why §2.1 leaves property paths alone. The update stream and the dump carry the same ([02](02-graphs-rdf-and-query.md)).
 
@@ -551,7 +551,7 @@ Each of these recomposes the cluster's members; no referrer's row, triple or cac
 
 ### 4.6 Properties
 
-*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §6.*
+*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §6, A27.*
 
 **Wikidata properties are used as they are,** as mirrored `WDP` entities.
 
@@ -580,16 +580,16 @@ A provider that needs vocabulary of its own has a property type in the registry:
 Property links come only from local assertions. Wikidata's P1628 ("equivalent property") points at external vocabularies, not at entities this instance holds, so it is ordinary data.
 
 - **Data types must match.** A link between properties with different data types is rejected when it is written.
-- **The fused body treats the cluster as one property.** Statements on `P12` and on `WDP585` fuse as statements on one property (§4.8); stored predicates keep their IDs (§4.4), and a response shows the group under the property ID the consumer's preference selects (§4.12), `equivalent-property` being an exact match.
+- **The fused body treats the cluster as one property.** Statements on `P12` and on `WDP585` fuse as statements on one property (§4.8); stored predicates keep their IDs (§4.4), and a response shows the group under the property ID the consumer's preference selects (§4.12), `equivalent-property` being an exact match. A statement that fuses with none stays grouped under its own property until a response rewrites it ([0004](../decisions/0004-identity-clusters-and-equivalence.md) A27).
 - **RDF output:** the fused statements are emitted under each property's predicates and property entity IRIs get the redirect-form `owl:sameAs`, as items do. OWL equivalence holds between predicates, not between entity IRIs. So `owl:equivalentProperty` is emitted for each pair of predicates in the same family: `wdt:`, `p:`, `ps:`, `psv:`, `pq:`, `pqv:`, `pr:`, `prv:`, and the normalized forms.
 
 ### 4.7 Values
 
-*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §7, A23.*
+*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §7, A23, A27.*
 
 The resolved view compares values by a canonical form:
 
-- **Entity values** compare by their cluster: two values are one value when their IDs are members of one cluster. The stored IDs are not changed (§4.4).
+- **Entity values** compare by their cluster: two values are one value when their IDs are members of one cluster, compared as the cluster's canonical member, and so are two properties of one property cluster. The stored IDs are not changed (§4.4). A read resolves with the clusters as they stand; a stored row of an entity that only refers to a member keeps the comparison it was resolved with until it is resolved again ([0004](../decisions/0004-identity-clusters-and-equivalence.md) A27).
 - **Literal values** compare by a **normalized key**, derived per data type. A property can override its data type's normalizer.
 
 **The `unit` of a quantity, the `globe` of a coordinate and the `calendarmodel` of a time are entity IDs in the stored form:** `"unit": "WDQ11573"`, `"unit": "Q7"`, `"unit": "1"` unchanged for a dimensionless quantity, never a concept IRI under some base. They are expanded through the current IRI template on output, as every ID is ([08](08-tenants-and-instances.md)); the adapter rewrites them on ingest as it rewrites every other ID ([05](05-providers-and-ingest.md) §3.4); the content hash is over the stored form; and they participate in `entity_ref` and in rewriting (§4.12) as entity values do. [wikibase-compat.md §4](../api/wikibase-compat.md) describes the serialization.
