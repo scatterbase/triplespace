@@ -449,11 +449,11 @@ The rest of what §3 says of a Domain applies unchanged: a remote key exists bec
 
 ### 4.1 Clusters and namespaces
 
-*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §1; [0009](../decisions/0009-keyed-entity-types-and-domain.md) §8; [0017](../decisions/0017-entity-id-grammar.md) §5; [0036](../decisions/0036-openstreetmap-providers.md) §6; [0048](../decisions/0048-notation.md) §3; [0066](../decisions/0066-lexemes.md) §4.*
+*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §1, A29; [0009](../decisions/0009-keyed-entity-types-and-domain.md) §8; [0017](../decisions/0017-entity-id-grammar.md) §5; [0036](../decisions/0036-openstreetmap-providers.md) §6; [0048](../decisions/0048-notation.md) §3; [0066](../decisions/0066-lexemes.md) §4.*
 
 IDs that denote the same thing form an **identity cluster**. Each member of a cluster belongs to a **namespace**, meaning whoever minted the ID: the local instance, Wikidata or OpenAlex. The namespace is the provider, not the type code. A Wikidata item can share a cluster with an OpenAlex work (`OAW`) or an OpenAlex author (`OAA`). An entity source a tenant declares is a namespace in this sense too ([0078](../decisions/0078-entity-sources.md) §2).
 
-**Aliases are not members.** An ID retired by a redirect is an alias of its target. This covers an upstream merge recorded in a mirror graph and a local merge. Aliases are resolved to their targets before clusters are built.
+**Aliases are not members.** An ID retired by a redirect is an alias of its target. This covers an upstream merge recorded in a mirror graph and a local merge. Aliases are resolved to their targets before clusters are built: `view.retired` holds each retired ID with its target, a link that names an alias is a link to its target, through a chain of redirects, and a later state of the ID makes it stand for itself again ([0004](../decisions/0004-identity-clusters-and-equivalence.md) A29).
 
 **A keyed type is a namespace of its own.** Its keys are minted by the thing itself, not by a provider, and a cluster holds at most one member from it, as from any other namespace. The cluster rules do not apply to the provider mapping of key-mapped providers ([0009](../decisions/0009-keyed-entity-types-and-domain.md) §9, in [05](05-providers-and-ingest.md)): that mapping defines which Domain an upstream item is, so it is resolved by the adapter before any cluster is built.
 
@@ -478,7 +478,7 @@ Holding every conflicting link, not only the later one, makes the result indepen
 
 ### 4.3 Where links come from
 
-*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §3, A28; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5.1.*
+*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §3, A28, A29; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5.1.*
 
 Links come from three tiers of source. A higher tier beats a lower one when they conflict. Conflicting links within one tier are all held (§4.2).
 
@@ -502,11 +502,13 @@ A link value that points at an alias follows the redirect. If Wikidata says an i
 
 **How tier 2 is configured, and read.** The instance's `reconcile:default` record lists the link properties under `links`, by provider: `"links": {"WD": [{"property": "P10283", "target": "OA"}]}`; a value of the property names the target provider's entity as its code followed by the value (`W123` as `OAW123`), and a deprecated statement or a value that is no such ID makes no link. No links ship on. The shared clusters are made of the shared links alone, and a tenant's of the shared links and its own; a tenant's own cluster rows decide an ID its links, blocks or clusters touch, the shared rows the rest. A change to the shared links recomputes the shared clusters, then every tenant's that reaches them, and resolves the entities it reaches again ([0004](../decisions/0004-identity-clusters-and-equivalence.md) A28).
 
+**How tier 3 and a tenant's record are configured.** The instance's record names the inference properties under `infer`, as stored (`"infer": ["WDP356"]`). The holders of a value are grouped by namespace; each namespace with exactly one holder is eligible, and the eligible holders are linked to each other as shared tier-3 rows. A cluster such a link joins is marked `inferred`. A tenant's own `reconcile:default` record may set `"infer": false`, and then has clusters of its own, without the inferred links, wherever one reaches; it names link properties for its own entity sources under `links`, keyed by the source's name, with a provider code, `local` or another source's name as the target, and those links are the tenant's rows. A tenant that deprecates or suppresses the mirrored statement a shared link comes from declines that link, a `declined` row of its own beside the shared one ([0004](../decisions/0004-identity-clusters-and-equivalence.md) A29).
+
 **A `different-from` block beats links from every tier.** Two IDs joined by a local `different-from` never share a cluster. Wikidata's P1889 ("different from") needs no special handling. It relates two Wikidata items, which can never share a cluster anyway.
 
 ### 4.4 The canonical ID
 
-*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §4, A25, A27; [0009](../decisions/0009-keyed-entity-types-and-domain.md) §8; [0082](../decisions/0082-source-form-and-the-shared-view.md) §1, §4, §5.*
+*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §4, A25, A27, A29; [0009](../decisions/0009-keyed-entity-types-and-domain.md) §8; [0082](../decisions/0082-source-form-and-the-shared-view.md) §1, §4, §5.*
 
 **The canonical ID of a cluster is its highest-ranked member.**
 
@@ -529,6 +531,8 @@ So if a local item `Q77` about en.wikipedia.org existed before Domains did, `sam
 - A local member is deleted. It leaves the cluster as a member tombstoned under `orphan` does. `same-as` and `different-from` records naming it are kept but not applied, and apply again if it is undeleted ([0023](../decisions/0023-moderation.md) §4, in [09](09-security-and-moderation.md)).
 
 Each of these recomposes the cluster's members; no referrer's row, triple or cache entry changes.
+
+**The order is the record's.** `order` in the instance's `reconcile:default` lists provider codes, highest first, and `order_by_type` gives an entity type an order of its own; a tenant's `order` lists its own sources. The same order ranks an entity's mirror and source graphs in resolution. **A member upstream tombstoned leaves** unless the tenant's local graph sets `retain` on it, or sets nothing and the tenant's `retention.default` is `retain`; its links are kept, `inactive`, and it returns with its next state ([0004](../decisions/0004-identity-clusters-and-equivalence.md) A29).
 
 **The stable handle is the document node.** External consumers are told to cite the document node of any member, `{base}/wiki/Special:EntityData/{id}` ([0015](../decisions/0015-record-format-and-partition-registry.md) §6), which exists for every member and never moves. The resolved view carries `schema:about` from each document node to the current canonical concept IRI, and the update stream ([0032](../decisions/0032-sparql-update-stream.md), in [02](02-graphs-rdf-and-query.md)) keeps that triple current.
 
@@ -658,7 +662,7 @@ A `wbgetentities` request for a non-canonical member returns the fused body unde
 
 ### 4.10 Operations and configuration
 
-*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §9; [0009](../decisions/0009-keyed-entity-types-and-domain.md) §10; [0066](../decisions/0066-lexemes.md) §4; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5.*
+*Sources: [0004](../decisions/0004-identity-clusters-and-equivalence.md) §9, A29; [0009](../decisions/0009-keyed-entity-types-and-domain.md) §10; [0066](../decisions/0066-lexemes.md) §4; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5.*
 
 | Operation | Graph | Meaning |
 |---|---|---|
@@ -685,7 +689,7 @@ A `wbgetentities` request for a non-canonical member returns the fused body unde
 - the role bindings the constraint checker and the adapters read for shared rows ([06](06-statements-and-properties.md) §1, §2.4);
 - the languages that populate shared `view.term` ([05](05-providers-and-ingest.md) §5.8).
 
-**A tenant narrows; it does not reorder.** A tenant's `reconcile` record may hide a provider in its own view and API (a filter on read), restrict its own display languages, decline inferred links in its own view, and add link properties and an order for its own entity sources ([05](05-providers-and-ingest.md) §6), whose graphs are read per tenant anyway. It may not reorder shared providers, change a shared normalizer, add inference properties or rebind a role the instance record binds; a tenant-scope write that tries is refused with **`ts-instance-policy`**, and the tenancy presets ([08](08-tenants-and-instances.md)) say so.
+**A tenant narrows; it does not reorder.** A tenant's `reconcile` record may hide a provider in its own view and API (a filter on read), restrict its own display languages, decline inferred links in its own view, and add link properties and an order for its own entity sources ([05](05-providers-and-ingest.md) §6), whose graphs are read per tenant anyway. It may not reorder shared providers, change a shared normalizer, add inference properties or rebind a role the instance record binds; a tenant-scope write that tries is refused with **`ts-instance-policy`**, and the tenancy presets ([08](08-tenants-and-instances.md)) say so. The record is written with `triplespace-cli reconcile set`, for the instance or with `--tenant`, as an instance act that needs `ts-config` ([0004](../decisions/0004-identity-clusters-and-equivalence.md) A29).
 
 **The shared row names the policy it was computed under.** `view.entity` and the shared rows of its dependents carry `policy`, the policy record's code. Only `default` exists; a shared view computed once per distinct policy record, with tenants bound to a profile, can be added later by adding records and rebuilding the projection, with no change to the log.
 
@@ -711,7 +715,7 @@ Conflicts are listed for review, in the same way as the maintenance tooling for 
 
 ### 4.12 Rewriting in responses
 
-*Sources: [0082](../decisions/0082-source-form-and-the-shared-view.md) §3; [0004](../decisions/0004-identity-clusters-and-equivalence.md) §4, A26; [0018](../decisions/0018-tenants.md) §7.*
+*Sources: [0082](../decisions/0082-source-form-and-the-shared-view.md) §3; [0004](../decisions/0004-identity-clusters-and-equivalence.md) §4, §7, A26, A29; [0018](../decisions/0018-tenants.md) §7.*
 
 **A layer on the way out rewrites entity identifiers to the form the consumer prefers.** It is the read-side rewrite that already turns a provider tenant's `Q6` into `LBQ6` or `lb:Q6` for a reader ([0018](../decisions/0018-tenants.md) §5, in [08](08-tenants-and-instances.md); [05](05-providers-and-ingest.md) §6.7), with the cluster map as one more table: where the consumer prefers the local namespace and `WDQ5` has an exact match `Q9`, the response says `Q9`. The store is never rewritten (§4.4); every entry point accepts every form (§2.1); the two together let a consumer round-trip what it was shown without the server remembering what form it gave out.
 
@@ -723,7 +727,7 @@ Conflicts are listed for review, in the same way as the maintenance tooling for 
 
 **`wbgetentities` answers under the requested ID.** A request for a non-canonical member returns the fused body under that ID, with a `canonical` field naming the cluster's canonical member and GUIDs prefixed with the requested ID. The Wikibase redirect shape (`redirects: {from, to}`) is reserved for true redirects: a `redirect` operation or an upstream merge (§4.1). A clustered Wikidata item is therefore never a redirect to a client library.
 
-**What is rewritten, exactly.** A statement GUID is served under the member asked for only where its subject is another member of the cluster; the provenance keeps the GUIDs as stored, and RDF names a mirrored statement after the member that holds it. `prefer` names namespaces as `local`, a provider code, or a keyed type's or source's name, compared without case. A rewritten value's snak hash is recomputed over the value served ([0004](../decisions/0004-identity-clusters-and-equivalence.md) A26).
+**What is rewritten, exactly.** A statement GUID is served under the member asked for only where its subject is another member of the cluster; the provenance keeps the GUIDs as stored, and RDF names a mirrored statement after the member that holds it. `prefer` names namespaces as `local`, a provider code, or a keyed type's or source's name, compared without case. A rewritten value's snak hash is recomputed over the value served ([0004](../decisions/0004-identity-clusters-and-equivalence.md) A26). The `unit`, `globe` and `calendarmodel` of a value are rewritten as entity values are; `wbsearchentities` takes `prefer` and names each hit by the exact match it selects; and in a cluster an inferred link joins, a GUID is still served under the member asked for, while a value is rewritten only to a member the links of tiers 1 and 2 connect it to ([0004](../decisions/0004-identity-clusters-and-equivalence.md) A29).
 
 Two consumers of one tenant may see different IDs for one value, and a URL copied from one view resolves in the other because §2.1 accepts any member; normalization at every entry point is therefore not optional.
 

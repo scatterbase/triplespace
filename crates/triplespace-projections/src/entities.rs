@@ -96,6 +96,28 @@ impl Default for EntityProjection {
     }
 }
 
+/// The order of an entity's mirror and source graphs ([`EntityProjection::graph_order`]).
+pub(crate) struct GraphOrder {
+    slugs: Vec<String>,
+    sources: Vec<String>,
+}
+
+impl GraphOrder {
+    /// A graph's rank: the mirrors in provider order, then the sources.
+    pub(crate) fn rank(&self, graph: &str) -> (usize, usize) {
+        if let Some(slug) = graph.strip_prefix("mirror/") {
+            let at = self.slugs.iter().position(|s| s == slug);
+            return (0, at.unwrap_or(usize::MAX));
+        }
+        let at = graph.strip_prefix("source/").and_then(|name| {
+            self.sources
+                .iter()
+                .position(|s| s.eq_ignore_ascii_case(name))
+        });
+        (1, at.unwrap_or(usize::MAX))
+    }
+}
+
 /// One source graph's cursor row.
 pub(crate) struct Source {
     pub(crate) tenant: String,
@@ -196,11 +218,28 @@ impl EntityProjection {
         Self { order }
     }
 
-    pub(crate) fn mirror_rank(&self, graph: &str) -> usize {
-        graph
-            .strip_prefix("mirror/")
-            .and_then(|slug| self.order.iter().position(|s| s == slug))
-            .unwrap_or(usize::MAX)
+    /// The order of an entity's mirror and source graphs on `tenant` (04 §4.4): the
+    /// instance's provider order for the entity's type, where its `reconcile:default`
+    /// record sets one, else this projection's; then the tenant's sources in the order its
+    /// own record gives them. Read only where an entity has more than one such graph.
+    pub(crate) async fn graph_order<C: Partitions>(
+        &self,
+        client: &C,
+        tenant: &str,
+        id: &EntityId,
+    ) -> Result<GraphOrder, String> {
+        let policy = crate::identity::Policy::load(client).await?;
+        let mut slugs = policy.slugs(id.implied_entity_type()).unwrap_or_default();
+        for s in &self.order {
+            if !slugs.contains(s) {
+                slugs.push(s.clone());
+            }
+        }
+        let sources = crate::identity::TenantPolicy::load(client, tenant)
+            .await?
+            .source_order()
+            .to_vec();
+        Ok(GraphOrder { slugs, sources })
     }
 
     pub(crate) async fn sources<C: Partitions>(
@@ -343,13 +382,13 @@ impl EntityProjection {
         current: Option<&Record>,
     ) -> Result<Parts, String> {
         let mut sources = Self::sources(client, tenant, id).await?;
-        sources.sort_by_key(|s| {
-            (
-                s.graph != "local",
-                self.mirror_rank(&s.graph),
-                s.graph.clone(),
-            )
-        });
+        let foreign = sources.iter().filter(|s| s.graph != "local").count();
+        if foreign > 1 {
+            let order = self.graph_order(client, tenant, id).await?;
+            sources.sort_by_key(|s| (s.graph != "local", order.rank(&s.graph), s.graph.clone()));
+        } else {
+            sources.sort_by_key(|s| s.graph != "local");
+        }
         let has_local = !tenant.is_empty()
             && sources
                 .iter()
@@ -433,7 +472,8 @@ impl EntityProjection {
             corrections.extend(corrections_of(&parts.local));
             tagged.extend(parts.contributions.into_iter().map(|c| (i, c)));
         }
-        tagged.sort_by_key(|(i, c)| (c.graph != "local", self.mirror_rank(&c.graph), *i));
+        let order = self.graph_order(client, tenant, id).await?;
+        tagged.sort_by_key(|(i, c)| (c.graph != "local", order.rank(&c.graph), *i));
         let contributions: Vec<Contribution> = tagged.into_iter().map(|(_, c)| c).collect();
         let canon = canon_for(client, tenant, &contributions).await?;
         Ok(Fused {

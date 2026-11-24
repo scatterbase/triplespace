@@ -14,7 +14,7 @@ use tokio_postgres::{Config, NoTls};
 use tower::ServiceExt as _;
 use triplespace_accounts::Secret;
 use triplespace_api_action::{App, Config as ServerConfig, Mode, router_with};
-use triplespace_cli::{instance, source, sync};
+use triplespace_cli::{instance, reconcile, source, sync};
 
 const DB: &str = "tssources_test";
 const TENANT: &str = "reader";
@@ -654,6 +654,7 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
     }
 
     clusters(&c).await;
+    policy_records(&database, &dir).await;
 
     // 4. What the first record fixed stays fixed (05 §6.4).
     let add = |name: &str, iri: &str| source::Add {
@@ -853,10 +854,65 @@ async fn clusters(c: &Client) {
         .filter(|id| *id == "lb:Q1" || *id == local)
         .collect();
     assert_eq!(ids, [local.as_str()], "{v}");
+    // Asked for in the source's form, the hit is named as the source names it (04 §4.12).
+    let v = c
+        .get(&format!(
+            "action=wbsearchentities&search={}&language=en&limit=50&prefer=lb",
+            enc(&label)
+        ))
+        .await;
+    let ids: Vec<&str> = v["search"]
+        .as_array()
+        .into_iter()
+        .flatten()
+        .filter_map(|r| r["id"].as_str())
+        .filter(|id| *id == "lb:Q1" || *id == local)
+        .collect();
+    assert_eq!(ids, ["lb:Q1"], "{v}");
     // The page bundle the site reads says so too.
     let (status, bundle) = c
         .raw("/w/rest.php/triplespace/v0/entity/lb:Q1/page?prefer=local")
         .await;
     assert_eq!(status, StatusCode::OK, "{bundle}");
     assert_eq!(bundle["entity"]["canonical"], local.as_str());
+}
+
+/// The tenant's `reconcile:default` record (04 §4.10; 0004 §9, A29): it may order and link
+/// its own sources and decline inferred links; what is the instance's to set is refused
+/// with `ts-instance-policy`, and nothing is written.
+async fn policy_records(database: &str, dir: &std::path::Path) {
+    let set = |name: &str, record: serde_json::Value| {
+        let file = dir.join(name);
+        std::fs::write(&file, record.to_string()).unwrap();
+        reconcile::run(reconcile::ReconcileCommand::Set(reconcile::Set {
+            at: reconcile::At {
+                database: database.to_string(),
+                tenant: Some(TENANT.into()),
+            },
+            file,
+            reason: "the test".into(),
+        }))
+    };
+    for refused in [
+        serde_json::json!({"order": ["WD"]}),
+        serde_json::json!({"infer": ["WDP356"]}),
+        serde_json::json!({"links": {"WD": [{"property": "P10283", "target": "OA"}]}}),
+    ] {
+        let e = set("refused.json", refused).await.expect_err("refused");
+        assert!(e.to_string().contains("ts-instance-policy"), "{e}");
+    }
+    let stored = "SELECT config FROM view.registry WHERE tenant <> '' AND kind = 'reconcile'";
+    assert!(query(database, stored).await.is_empty());
+    set(
+        "own.json",
+        serde_json::json!({"infer": false, "order": ["lb"],
+            "links": {"lb": [{"property": "P1", "target": "WD"}]}}),
+    )
+    .await
+    .expect("a tenant configures its own sources");
+    let rows = query(database, stored).await;
+    let config: Value = rows[0].get(0);
+    assert_eq!(config["kind"], "reconcile");
+    assert_eq!(config["infer"], false);
+    assert_eq!(config["order"][0], "lb");
 }

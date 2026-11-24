@@ -535,7 +535,7 @@ CREATE TABLE view.entity_ref_delta (            -- changes to the counter not ye
 
 ### 4.4 Statements, clusters, corrections and constraints
 
-*Sources: [0013](../decisions/0013-postgres-storage.md) §5.3; [0031](../decisions/0031-property-constraints.md) §5; [0038](../decisions/0038-page-metadata-and-categories.md) §10; [0066](../decisions/0066-lexemes.md) §5; [0004](../decisions/0004-identity-clusters-and-equivalence.md) A24, A27, A28; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5.1; [0083](../decisions/0083-write-path-in-three-tiers.md) §3.*
+*Sources: [0013](../decisions/0013-postgres-storage.md) §5.3; [0031](../decisions/0031-property-constraints.md) §5; [0038](../decisions/0038-page-metadata-and-categories.md) §10; [0066](../decisions/0066-lexemes.md) §5; [0004](../decisions/0004-identity-clusters-and-equivalence.md) A24, A27, A28, A29; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5.1; [0083](../decisions/0083-write-path-in-three-tiers.md) §3.*
 
 There is no row per statement. A statement's provenance ([0003](../decisions/0003-statement-ui.md) §6) is derivable for the common case: absent a row, the statement is asserted only by the mirror graph of the entity's provider. Rows exist for the exceptions:
 
@@ -562,6 +562,7 @@ CREATE TABLE view.record_statement (            -- "History of this value" (0010
 CREATE TABLE view.cluster (                     -- the canonical ID is an attribute of the cluster, never applied to data
   tenant text NOT NULL DEFAULT '', cluster_id bigint NOT NULL, canonical_id text NOT NULL,
   version bigint NOT NULL,                      -- the cluster map version composition records in composed_from
+  inferred boolean NOT NULL DEFAULT false,      -- an inferred link (tier 3) joins its members (0004 A29)
   PRIMARY KEY (tenant, cluster_id)
 );
 CREATE TABLE view.cluster_member (              -- the map; L0 caches hot entries, nothing assumes it fits in a process
@@ -572,8 +573,8 @@ CREATE TABLE view.cluster_member (              -- the map; L0 caches hot entrie
 CREATE TABLE view.link (                        -- every link, applied or held (0004 §3, §10)
   tenant text NOT NULL DEFAULT '',
   a text NOT NULL, b text NOT NULL, tier smallint NOT NULL,   -- a is the lesser ID in text order
-  source text NOT NULL,                         -- statement ID, or the local record's offset
-  status text NOT NULL,                         -- applied | held | inactive (a deleted member's, 0004 A27)
+  source text NOT NULL,                         -- statement ID, the local record's offset, or {property}={value key} (tier 3)
+  status text NOT NULL,                         -- applied | held | inactive (a member that has left, 0004 A27) | declined (0004 A29)
   conflict_id bigint,
   partition bigint, "offset" bigint,            -- the record that wrote a local link (0004 A24)
   subject text,                                 -- a mirror-derived link's statement's entity (0004 A28)
@@ -581,10 +582,15 @@ CREATE TABLE view.link (                        -- every link, applied or held (
 );
 CREATE TABLE view.different_from (tenant text NOT NULL DEFAULT '', a text NOT NULL, b text NOT NULL,
   partition bigint NOT NULL, "offset" bigint NOT NULL, PRIMARY KEY (tenant, a, b));
+CREATE TABLE view.retired (                     -- an alias of its target, or with none, deleted upstream (0004 A29)
+  tenant text NOT NULL DEFAULT '', entity_id text NOT NULL, target text,
+  partition bigint NOT NULL, "offset" bigint NOT NULL, PRIMARY KEY (tenant, entity_id));
 CREATE TABLE view.property_link (a text NOT NULL, b text NOT NULL, "offset" bigint NOT NULL, PRIMARY KEY (a, b));
 ```
 
 `cluster_member`'s primary key is the one-to-one rule of [0004](../decisions/0004-identity-clusters-and-equivalence.md) §2 as a constraint. A link that would violate it is held, with `status = 'held'`, and the conflict list ([0004](../decisions/0004-identity-clusters-and-equivalence.md) §10) is a query on `link`. **The cluster tables carry `tenant`** with the `''`-then-tenant lookup of §4.1: the shared rows hold the clusters the shared graphs' tier-2 and tier-3 links form under the instance policy, and a tenant's tier-1 link on `WDQ42`, or its `different-from`, sits beside the shared cluster in the tenant's own rows, so `(tenant, entity_id)` is the unique key of membership. The member-set expansion that every entry point performs ([04](04-entities-and-identifiers.md)) is one indexed lookup here per constant.
+
+**Retired IDs, declined links and inferred clusters.** `view.retired` holds an ID a redirect retired with its target, and an entity upstream tombstoned with none; a mirror's rows are shared, a local redirect's the tenant's. A tenant's `declined` row of `view.link`, with a shared link's key, leaves that link out of the tenant's clusters. `cluster.inferred` marks a cluster an inferred link joins, whose members are not all exact matches ([0004](../decisions/0004-identity-clusters-and-equivalence.md) A29).
 
 **Cluster and conflict numbers are stable.** A cluster's `cluster_id` is a 63-bit hash of its canonical ID, and a conflict's of the smallest ID its links name, so a rebuild gives the same numbers. A link and a `different-from` name the record that wrote them, so a reset or an erasure removes them, and the clusters around them are recomputed from what remains ([0004](../decisions/0004-identity-clusters-and-equivalence.md) A24).
 

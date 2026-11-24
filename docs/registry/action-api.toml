@@ -576,8 +576,8 @@ sources = "[0026](../decisions/0026-sitelinks.md) §7; [0029](../decisions/0029-
 [[module]]
 kind = "wikibase"
 modules = ["wbsearchentities"]
-changes = "`type=entityschema`; `type=lexeme|form|sense`"
-sources = "[0064](../decisions/0064-entityschema-and-validation.md) §7; [0066](../decisions/0066-lexemes.md) §8"
+changes = "`type=entityschema`; `type=lexeme|form|sense`. `prefer`, a namespace order as `wbgetentities` takes it, names each hit by the exact match of its cluster the order selects ([04](04-entities-and-identifiers.md) §4.12)"
+sources = "[0064](../decisions/0064-entityschema-and-validation.md) §7; [0066](../decisions/0066-lexemes.md) §8; [0004](../decisions/0004-identity-clusters-and-equivalence.md) A29"
 
 [[module]]
 kind = "wikibase"

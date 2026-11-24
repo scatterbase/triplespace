@@ -14,6 +14,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0004 A26](0004-identity-clusters-and-equivalence.md#a26-the-first-rewriting-of-responses) | 2026-11-23 | The first rewriting of responses |
 | [0004 A27](0004-identity-clusters-and-equivalence.md#a27-clusters-in-search-on-the-site-across-properties-and-through-deletion) | 2026-11-23 | Clusters in search, on the site, across properties, and through deletion |
 | [0004 A28](0004-identity-clusters-and-equivalence.md#a28-mirror-derived-links-and-the-shared-clusters) | 2026-11-24 | Mirror-derived links and the shared clusters |
+| [0004 A29](0004-identity-clusters-and-equivalence.md#a29-inferred-links-the-two-records-retired-ids-and-what-is-left-of-the-rewrite) | 2026-11-23 | Inferred links, the two records, retired IDs and what is left of the rewrite |
 | [0006 A26](0006-log-integrity-and-erasure.md#a26-a-nesting-depth-limit-for-canonical-cbor) | 2026-11-06 | A nesting-depth limit for canonical CBOR |
 | [0009 A17](0009-keyed-entity-types-and-domain.md#a17-only-same-as-with-a-keyword-or-notation-is-refused) | 2026-11-20 | Only `same-as` with a keyword or notation is refused |
 | [0010 A47](0010-site-ui.md#a47-the-acl-site-ui-the-calls-made-building-it) | 2026-10-30 | The ACL site UI: the calls made building it |

@@ -1933,3 +1933,402 @@ async fn shared_clusters(client: &Client) -> Vec<String> {
     )
     .await
 }
+
+const WIKIDATA: u64 = 0x2005;
+const TENANT_CONFIG: u64 = 0x2006;
+
+/// Opens a second mirror, Wikidata's, and the tenant's `config`.
+async fn more_partitions(client: &Client) {
+    for (partition, tenant, name) in [
+        (WIKIDATA, None, "mirror/wikidata"),
+        (TENANT_CONFIG, Some(TENANT), "config"),
+    ] {
+        log::create_partition(
+            client,
+            partition,
+            Segments::new(8).unwrap(),
+            &PartitionInfo {
+                tenant: tenant.map(str::to_owned),
+                name: name.into(),
+                graph_iri: format!("https://scatter.example/graph/{name}"),
+                history: History::Full,
+                integrity: Integrity::Logged,
+                export: Export::Public,
+                hash: "sha-256".into(),
+                origin: None,
+            },
+        )
+        .await
+        .unwrap();
+    }
+}
+
+/// A mirror's `put` of an item with the given claims.
+fn mirror_put(id: &str, claims: &serde_json::Value, revid: u64, page_id: u64) -> Draft {
+    let item =
+        json!({"type": "item", "id": id, "labels": {"en": label("en", id)}, "claims": claims});
+    draft(
+        PAYLOAD_CHANGESET,
+        id,
+        &json!({"op": "put", "id": id, "entity": item, "upstream": {"revid": revid}, "size": 120}),
+        Some(7),
+        Some(page_id),
+    )
+}
+
+/// A `reconcile:default` record.
+fn reconcile(content: &serde_json::Value) -> Draft {
+    let mut content = content.clone();
+    content["kind"] = json!("reconcile");
+    content["name"] = json!("default");
+    draft(PAYLOAD_CONFIG, "reconcile:default", &content, None, None)
+}
+
+/// Appends a record and projects its partition.
+async fn append_to(
+    client: Client,
+    backend: &PgBackend,
+    p: &Pipeline<PgBackend>,
+    partition: u64,
+    record: Draft,
+) -> Client {
+    let mut store = PgLog::new(client);
+    store.append(partition, record).await.unwrap();
+    p.catch_up(backend, &store, partition, 2).await.unwrap();
+    store.into_inner()
+}
+
+/// The DOI statement the inference tests share.
+fn doi(subject: &str, value: &str) -> serde_json::Value {
+    json!({"WDP356": [string_statement(
+        "WDP356",
+        value,
+        &format!("{subject}$00000000-0000-0000-0000-000000000356"),
+        "external-id",
+    )]})
+}
+
+// 04 §4.3 (0004 §3 tier 3, A29): two mirrored entities of different namespaces that share a
+// value of an inference property the instance names are one shared cluster; the link is no
+// exact match; a tenant may decline it; and a value that stops being unique links nothing.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn inferred_links_join_entities_that_share_a_unique_value() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let client = seed(client).await;
+    more_partitions(&client).await;
+    let p = pipeline();
+    let mut store = PgLog::new(client);
+    store
+        .append(CONFIG_PARTITION, reconcile(&json!({"infer": ["WDP356"]})))
+        .await
+        .unwrap();
+    store
+        .append(
+            WIKIDATA,
+            mirror_put("WDQ42", &doi("WDQ42", "10.1/x"), 1, 142),
+        )
+        .await
+        .unwrap();
+    store
+        .append(
+            MIRROR,
+            mirror_put("XDQ10", &doi("XDQ10", "10.1/x"), 58, 101),
+        )
+        .await
+        .unwrap();
+    for partition in [
+        CONFIG_PARTITION,
+        INSTANCE_LOG,
+        WIKIDATA,
+        MIRROR,
+        LOCAL,
+        TENANT_LOG,
+    ] {
+        p.catch_up(&backend, &store, partition, 2).await.unwrap();
+    }
+    let client = store.into_inner();
+    assert_eq!(shared_clusters(&client).await, ["WDQ42:WDQ42,XDQ10"]);
+    assert_eq!(
+        rows(
+            &client,
+            "SELECT a || '=' || b || '|' || tier || '|' || split_part(source, '=', 1)
+               FROM view.link WHERE tenant = ''"
+        )
+        .await,
+        ["WDQ42=XDQ10|3|WDP356"]
+    );
+    assert_eq!(
+        count(
+            &client,
+            "SELECT count(*) FROM view.cluster WHERE tenant = '' AND inferred"
+        )
+        .await,
+        1
+    );
+    // The tenant reads the shared cluster, and its fused body; but a shared identifier
+    // value is no exact match, so no response names one member by the other (04 §4.12).
+    assert_eq!(
+        triplespace_projections::identity::members(&client, TENANT, "XDQ10")
+            .await
+            .unwrap(),
+        ["WDQ42"]
+    );
+    assert!(
+        triplespace_projections::identity::exact_matches(&client, TENANT, &["XDQ10".to_string()])
+            .await
+            .unwrap()
+            .is_empty()
+    );
+
+    // The tenant declines inferred links: in its view the two are apart, each with a row
+    // of its own; the shared cluster is as it was.
+    let client = append_to(
+        client,
+        &backend,
+        &p,
+        TENANT_CONFIG,
+        reconcile(&json!({"infer": false})),
+    )
+    .await;
+    assert!(
+        triplespace_projections::identity::members(&client, TENANT, "XDQ10")
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(shared_clusters(&client).await, ["WDQ42:WDQ42,XDQ10"]);
+    assert_eq!(
+        sorted(
+            &client,
+            "SELECT id || '|' || canonical_id FROM view.entity
+              WHERE tenant = 'librarybase' AND id IN ('WDQ42', 'XDQ10')"
+        )
+        .await,
+        ["WDQ42|WDQ42", "XDQ10|XDQ10"]
+    );
+    // It takes them again.
+    let client = append_to(
+        client,
+        &backend,
+        &p,
+        TENANT_CONFIG,
+        reconcile(&json!({"infer": true})),
+    )
+    .await;
+    assert_eq!(
+        triplespace_projections::identity::members(&client, TENANT, "XDQ10")
+            .await
+            .unwrap(),
+        ["WDQ42"]
+    );
+
+    // A second Wikidata item with the value: it is unique in no namespace but the other's,
+    // so nothing is linked. The item loses it, and the link is back.
+    let client = append_to(
+        client,
+        &backend,
+        &p,
+        WIKIDATA,
+        mirror_put("WDQ43", &doi("WDQ43", "10.1/x"), 2, 143),
+    )
+    .await;
+    assert!(shared_clusters(&client).await.is_empty());
+    assert_eq!(
+        count(&client, "SELECT count(*) FROM view.link WHERE tier = 3").await,
+        0
+    );
+    let client = append_to(
+        client,
+        &backend,
+        &p,
+        WIKIDATA,
+        mirror_put("WDQ43", &json!({}), 3, 143),
+    )
+    .await;
+    assert_eq!(shared_clusters(&client).await, ["WDQ42:WDQ42,XDQ10"]);
+}
+
+// 04 §4.1, §4.4 (0004 §1, §4, A29): an ID upstream merged into another is an alias of it,
+// so what was linked to it is linked to its target; an entity upstream deleted leaves its
+// cluster, comes back with its next state, and stays where the tenant retains it.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn a_retired_member_gives_way() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let client = seed(client).await;
+    let p = pipeline();
+    let mut store = PgLog::new(client);
+    for partition in ALL {
+        p.catch_up(&backend, &store, partition, 2).await.unwrap();
+    }
+    store
+        .append(
+            LOCAL,
+            draft(
+                PAYLOAD_CHANGESET,
+                "Q6",
+                &json!({"op": "same-as", "id": "Q6", "ids": ["Q6", "XDQ10"]}),
+                None,
+                Some(6),
+            ),
+        )
+        .await
+        .unwrap();
+    p.catch_up(&backend, &store, LOCAL, 2).await.unwrap();
+    let client = store.into_inner();
+    assert_eq!(cluster_state(&client).await.0, ["Q6:XD=XDQ10,local=Q6"]);
+
+    // Upstream merges XDQ10 into XDQ11.
+    let client = append_to(
+        client,
+        &backend,
+        &p,
+        MIRROR,
+        mirror_put("XDQ11", &json!({}), 60, 111),
+    )
+    .await;
+    let redirect = draft(
+        PAYLOAD_CHANGESET,
+        "XDQ10",
+        &json!({"op": "redirect", "from": "XDQ10", "to": "XDQ11", "upstream": {"revid": 61}}),
+        Some(7),
+        Some(101),
+    );
+    let client = append_to(client, &backend, &p, MIRROR, redirect).await;
+    assert_eq!(cluster_state(&client).await.0, ["Q6:XD=XDQ11,local=Q6"]);
+    assert_eq!(
+        rows(
+            &client,
+            "SELECT entity_id || '>' || target FROM view.retired"
+        )
+        .await,
+        ["XDQ10>XDQ11"]
+    );
+
+    // Upstream deletes XDQ11: under the default policy, `orphan`, it leaves the cluster.
+    let tombstone = |revid: u64| {
+        draft(
+            PAYLOAD_CHANGESET,
+            "XDQ11",
+            &json!({"op": "tombstone", "id": "XDQ11", "upstream": {"revid": revid}}),
+            Some(7),
+            Some(111),
+        )
+    };
+    let client = append_to(client, &backend, &p, MIRROR, tombstone(62)).await;
+    assert!(cluster_state(&client).await.0.is_empty());
+    assert_eq!(
+        rows(
+            &client,
+            "SELECT status FROM view.link WHERE tenant = 'librarybase'"
+        )
+        .await,
+        ["inactive"]
+    );
+    // It comes back upstream, and into the cluster.
+    let client = append_to(
+        client,
+        &backend,
+        &p,
+        MIRROR,
+        mirror_put("XDQ11", &json!({}), 63, 111),
+    )
+    .await;
+    assert_eq!(cluster_state(&client).await.0, ["Q6:XD=XDQ11,local=Q6"]);
+
+    // The tenant retains it; deleted upstream again, it stays.
+    let client = append_local(
+        client,
+        &backend,
+        &p,
+        draft(
+            PAYLOAD_CHANGESET,
+            "XDQ11",
+            &json!({"op": "retain", "id": "XDQ11", "policy": "retain"}),
+            None,
+            Some(111),
+        ),
+    )
+    .await;
+    let client = append_to(client, &backend, &p, MIRROR, tombstone(64)).await;
+    assert_eq!(cluster_state(&client).await.0, ["Q6:XD=XDQ11,local=Q6"]);
+}
+
+// 04 §4.3, §4.4 (0004 §3, §4, A29): the instance's record orders the providers, so the
+// canonical member of a shared cluster follows it; and a tenant that deprecates the
+// mirrored statement a link comes from no longer takes the link.
+#[tokio::test]
+async fn the_record_orders_providers_and_a_correction_drops_a_link() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let client = seed(client).await;
+    let p = pipeline();
+    let statement = "XDQ10$00000000-0000-0000-0000-0000000000D9";
+    let mut store = PgLog::new(client);
+    store
+        .append(
+            CONFIG_PARTITION,
+            reconcile(&json!({"order": ["XD", "WD"],
+                "links": {"XD": [{"property": "P9", "target": "WD"}]}})),
+        )
+        .await
+        .unwrap();
+    store
+        .append(
+            MIRROR,
+            mirror_put(
+                "XDQ10",
+                &json!({"XDP9": [string_statement("XDP9", "Q42", statement, "external-id")]}),
+                58,
+                101,
+            ),
+        )
+        .await
+        .unwrap();
+    for partition in ALL {
+        p.catch_up(&backend, &store, partition, 2).await.unwrap();
+    }
+    let client = store.into_inner();
+    assert_eq!(
+        shared_clusters(&client).await,
+        ["XDQ10:WDQ42,XDQ10"],
+        "the record puts XD before Wikidata"
+    );
+    assert_eq!(
+        triplespace_projections::identity::members(&client, TENANT, "XDQ10")
+            .await
+            .unwrap(),
+        ["WDQ42"]
+    );
+
+    let client = append_local(
+        client,
+        &backend,
+        &p,
+        draft(
+            PAYLOAD_CHANGESET,
+            "XDQ10",
+            &json!({"op": "override", "id": "XDQ10", "statement": statement, "rank": "deprecated"}),
+            None,
+            Some(101),
+        ),
+    )
+    .await;
+    assert!(
+        triplespace_projections::identity::members(&client, TENANT, "XDQ10")
+            .await
+            .unwrap()
+            .is_empty(),
+        "the tenant deprecated the statement"
+    );
+    assert_eq!(shared_clusters(&client).await, ["XDQ10:WDQ42,XDQ10"]);
+}

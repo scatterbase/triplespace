@@ -107,6 +107,8 @@ impl Sets {
 
 /// Works out the clusters `links` form, under the `different-from` `blocks`.
 ///
+/// The one-to-one rule: implements 0004 §2 (A24).
+///
 /// `namespace` names the namespace of an ID, and `order` ranks two IDs, the
 /// higher-ranked first; it should be total, so that the canonical member is defined.
 #[must_use]
@@ -251,7 +253,7 @@ mod tests {
         compute(links, blocks, ns, order)
     }
 
-    // 04 §4.2: a chain that would join two Wikidata items holds both links.
+    // 0004 §2 (04 §4.2): a chain that would join two Wikidata items holds both links.
     #[test]
     fn two_members_of_one_namespace_hold_every_link() {
         let links = [

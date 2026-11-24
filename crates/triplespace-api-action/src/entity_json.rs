@@ -96,8 +96,21 @@ pub fn present_preferring(
     v
 }
 
-/// The entity IDs an entity's statements name, as properties and as values: main snaks,
-/// qualifiers and references.
+/// The entity a value's `unit`, `globe` or `calendarmodel` names, where it is stored as an
+/// entity ID (04 §4.7): not `"1"`, and not an IRI no template matched.
+fn value_iri_id(value: &DataValue) -> Option<&str> {
+    let field = match value {
+        DataValue::Quantity(q) => &q.unit,
+        DataValue::GlobeCoordinate(g) => &g.globe,
+        DataValue::Time(t) => &t.calendarmodel,
+        _ => return None,
+    };
+    (!field.contains('/') && EntityId::parse(field).is_ok_and(|id| id.as_str() == field))
+        .then_some(field.as_str())
+}
+
+/// The entity IDs an entity's statements name, as properties, as values, and as the unit,
+/// globe or calendar model of a value: main snaks, qualifiers and references.
 #[must_use]
 pub fn value_ids(entity: &Entity) -> Vec<String> {
     let mut out: Vec<String> = entity
@@ -106,6 +119,7 @@ pub fn value_ids(entity: &Entity) -> Vec<String> {
         .flat_map(|snak| {
             let value = match &snak.kind {
                 SnakKind::Value(DataValue::EntityId(v)) => Some(v.id.as_str().to_string()),
+                SnakKind::Value(v) => value_iri_id(v).map(str::to_string),
                 _ => None,
             };
             std::iter::once(snak.property.as_str().to_string()).chain(value)
@@ -116,7 +130,8 @@ pub fn value_ids(entity: &Entity) -> Vec<String> {
     out
 }
 
-/// Rewrites each property and entity value `map` names (04 §4.12): a statement, a qualifier
+/// Rewrites each property, entity value and unit, globe or calendar model `map` names
+/// (04 §4.12): a statement, a qualifier
 /// or a reference snak whose property is rewritten moves to that property's group, after
 /// the group's own. Stored IDs are not changed; the rewrite is of what is served.
 pub fn rewrite_values(entity: &mut Entity, map: &BTreeMap<String, String>) {
@@ -139,7 +154,11 @@ pub fn rewrite_values(entity: &mut Entity, map: &BTreeMap<String, String>) {
         for reference in &mut statement.references {
             let touched = reference.snaks.values().flatten().any(|snak| {
                 map.contains_key(snak.property.as_str())
-                    || matches!(&snak.kind, SnakKind::Value(DataValue::EntityId(v)) if map.contains_key(v.id.as_str()))
+                    || match &snak.kind {
+                        SnakKind::Value(DataValue::EntityId(v)) => map.contains_key(v.id.as_str()),
+                        SnakKind::Value(v) => value_iri_id(v).is_some_and(|i| map.contains_key(i)),
+                        _ => false,
+                    }
             });
             regroup(&mut reference.snaks);
             if touched {
@@ -150,10 +169,23 @@ pub fn rewrite_values(entity: &mut Entity, map: &BTreeMap<String, String>) {
             let property = to(&snak.property);
             let mut changed = property != snak.property;
             snak.property = property;
-            if let SnakKind::Value(DataValue::EntityId(v)) = &mut snak.kind {
-                let value = to(&v.id);
-                changed |= value != v.id;
-                v.id = value;
+            match &mut snak.kind {
+                SnakKind::Value(DataValue::EntityId(v)) => {
+                    let value = to(&v.id);
+                    changed |= value != v.id;
+                    v.id = value;
+                }
+                // The unit of a quantity, the globe of a coordinate and the calendar
+                // model of a time are entity IDs as stored, and rewritten as one (04 §4.7).
+                SnakKind::Value(v) => {
+                    if let Some(new) = value_iri_id(v).and_then(|i| map.get(i)).cloned() {
+                        scatter_wikibase_model::iris::map_value_iris(v, |_| {
+                            std::borrow::Cow::Owned(new.clone())
+                        });
+                        changed = true;
+                    }
+                }
+                _ => {}
             }
             if changed {
                 // The hash upstream gave is of the stored snak.
@@ -590,5 +622,52 @@ mod tests {
         );
         assert!(v["claims"].get("WDP31").is_none(), "{v}");
         assert_eq!(v["claims"]["P1"][0]["mainsnak"]["property"], "P1");
+    }
+
+    // 04 §4.7, §4.12 (0004 §7, A29): the unit of a quantity, the globe of a coordinate and
+    // the calendar model of a time are entity IDs as stored, rewritten as entity values are
+    // and expanded to the IRI of the form served; `"1"` is left alone.
+    #[test]
+    fn units_globes_and_calendar_models_are_rewritten() {
+        let snak = |property: &str, datatype: &str, value: Value, kind: &str| {
+            json!({"mainsnak": {"snaktype": "value", "property": property, "datatype": datatype,
+                "datavalue": {"value": value, "type": kind}}, "type": "statement", "rank": "normal"})
+        };
+        let mut entity = Entity::from_value(json!({"type": "item", "id": "Q1", "claims": {
+            "P1": [snak("P1", "quantity", json!({"amount": "+3", "unit": "WDQ11573"}), "quantity"),
+                   snak("P1", "quantity", json!({"amount": "+4", "unit": "1"}), "quantity")],
+            "P2": [snak("P2", "globe-coordinate", json!({"latitude": 1.0, "longitude": 2.0,
+                "altitude": null, "precision": 0.1, "globe": "WDQ2"}), "globecoordinate")],
+            "P3": [snak("P3", "time", json!({"time": "+2019-03-04T00:00:00Z", "timezone": 0,
+                "before": 0, "after": 0, "precision": 11, "calendarmodel": "WDQ1985727"}), "time")]}}))
+        .unwrap()
+        .entity;
+        assert_eq!(
+            value_ids(&entity),
+            ["P1", "P2", "P3", "WDQ11573", "WDQ1985727", "WDQ2"]
+        );
+        let map = BTreeMap::from([
+            ("WDQ11573".to_string(), "Q7".to_string()),
+            ("WDQ2".to_string(), "Q8".to_string()),
+            ("WDQ1985727".to_string(), "Q9".to_string()),
+        ]);
+        rewrite_values(&mut entity, &map);
+        let text = entity.to_wikibase_json(
+            &hasher_for(
+                &entity.id,
+                Registry::default_registry(),
+                "https://example.org",
+            ),
+            None,
+        );
+        let v: Value = serde_json::from_str(&text).unwrap();
+        let value = |p: &str, i: usize| v["claims"][p][i]["mainsnak"]["datavalue"]["value"].clone();
+        assert_eq!(value("P1", 0)["unit"], "https://example.org/entity/Q7");
+        assert_eq!(value("P1", 1)["unit"], "1");
+        assert_eq!(value("P2", 0)["globe"], "https://example.org/entity/Q8");
+        assert_eq!(
+            value("P3", 0)["calendarmodel"],
+            "https://example.org/entity/Q9"
+        );
     }
 }
