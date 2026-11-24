@@ -110,9 +110,13 @@ A **file repository** is also a `config` record, of kind `file-repo`, keyed `fil
 
 ### 2.3 The `reconcile` record is the instance's policy record
 
-*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5, §5.2.*
+*Sources: [0015](../decisions/0015-record-format-and-partition-registry.md) §3; [0082](../decisions/0082-source-form-and-the-shared-view.md) §5, §5.2; [0004](../decisions/0004-identity-clusters-and-equivalence.md) A28, A29.*
 
 The instance `reconcile:default` record is the **policy record** under which the shared rows (`tenant = ''`) of every `view` table are computed ([03](03-storage-caches-and-search.md)). It holds, for shared rows, the provider order among registry providers, an `order_by_type` override, the tier-2 link properties, the identifier properties that drive tier-3 inference, the normalizer overrides, the reconciliation rules, the role bindings the constraint checker and the adapters read (the instance-scope `role` record of §2.2), and the languages that populate shared `view.term` (`entities.term_languages`, §3.2). Each shared row names the policy record it was computed under, so that resolution profiles, one shared view per policy record, can be added later by adding records and rebuilding a projection, with no change to the log; only `default` exists.
+
+Its tier-2 link properties are `links`, a map from a provider's code to a list of `{"property", "target"}`: the property is the provider's own ID, and a value of it names an entity of the target provider ([04](04-entities-and-identifiers.md) §4.3; [0004](../decisions/0004-identity-clusters-and-equivalence.md) A28).
+
+Its other fields are `order`, a list of provider codes, highest-ranked first; `order_by_type`, an entity type's name to such a list; and `infer`, the identifier properties, as stored, that drive tier-3 inference. A tenant's record holds `links` keyed by the name of one of its own entity sources, `order`, a list of its source names, and `infer`, which only `false` changes. `triplespace-cli reconcile set --file record.json [--tenant slug]` writes either, `unset` retires it and `show` prints it ([0004](../decisions/0004-identity-clusters-and-equivalence.md) A29).
 
 **A tenant's `reconcile` record narrows; it does not reorder.** A tenant may hide a provider in its own view and API, restrict its own display languages, switch inference off for itself, and add link properties and ordering for its own entity sources, whose graphs are read per tenant in any case ([05](05-providers-and-ingest.md)). It may not reorder shared providers, change a shared normalizer, add inference properties or rebind a shared role; a tenant-scope write that tries is refused with `ts-instance-policy`, and the tenancy presets say so ([08](08-tenants-and-instances.md)). The operations the record governs are in [04](04-entities-and-identifiers.md).
 

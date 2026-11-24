@@ -94,6 +94,16 @@ pub fn serving_graph(current: &read::Current) -> Option<&str> {
 /// (`XDQ9`) is an alias of the keyed entity it was written under (05 §4.1): the answer is
 /// that entity, under its own ID, with Wikibase's `redirects: {from, to}` beside it.
 pub async fn entity_json(ctx: &Ctx, id: &EntityId, as_given: &str) -> Result<Value, ApiError> {
+    Ok(entity_json_tagged(ctx, id, as_given).await?.0)
+}
+
+/// [`entity_json()`], with the cache tags of the entities its values name, whose clusters
+/// decide how they are served (04 §4.12).
+pub async fn entity_json_tagged(
+    ctx: &Ctx,
+    id: &EntityId,
+    as_given: &str,
+) -> Result<(Value, Vec<String>), ApiError> {
     let registry = ctx.registry().await?;
     check_form(id, registry)?;
     // A source ID in the tenant's table of names, canonicalized (0078 §2).
@@ -105,15 +115,19 @@ pub async fn entity_json(ctx: &Ctx, id: &EntityId, as_given: &str) -> Result<Val
     match edit::current(ctx, id).await? {
         Some(current) => {
             if !crate::pages::entity_readable(ctx, id.as_str(), serving_graph(&current)).await? {
-                return Ok(missing());
+                return Ok((missing(), Vec::new()));
             }
-            Ok(entity_json::present(&current, registry, &ctx.tenant.base))
+            let (rewrite, tags) = preferred(ctx, id, &current).await?;
+            Ok((
+                entity_json::present_preferring(&current, registry, &ctx.tenant.base, &rewrite),
+                tags,
+            ))
         }
         None if id.form() == IdForm::Keyed && !entity_json::is_source_id(id, registry) => {
             if !crate::pages::entity_readable(ctx, id.as_str(), None).await? {
-                return Ok(missing());
+                return Ok((missing(), Vec::new()));
             }
-            Ok(entity_json::empty_keyed(id))
+            Ok((entity_json::empty_keyed(id), Vec::new()))
         }
         None => {
             let alias = read::mapped_alias(&ctx.client, registry, &ctx.tenant.slug, id)
@@ -125,20 +139,40 @@ pub async fn entity_json(ctx: &Ctx, id: &EntityId, as_given: &str) -> Result<Val
                 if !crate::pages::entity_readable(ctx, target.as_str(), serving_graph(&current))
                     .await?
                 {
-                    return Ok(missing());
+                    return Ok((missing(), Vec::new()));
                 }
                 let mut v = entity_json::present(&current, registry, &ctx.tenant.base);
                 v["redirects"] = json!({"from": as_given, "to": target.as_str()});
-                return Ok(v);
+                return Ok((v, Vec::new()));
             }
             // Read and not held: queued for its mirror, which the answer does not wait for
             // (0070 §2.1, A13).
             triplespace_api_ingest::shallow::queue_read(ctx.db(), registry, &ctx.tenant.slug, id)
                 .await
                 .map_err(|e| ApiError::internal(e.to_string()))?;
-            Ok(missing())
+            Ok((missing(), Vec::new()))
         }
     }
+}
+
+/// How the entity values of `current` are served (04 §4.12; 18 §1.6), with the response
+/// tagged by the entities they name.
+async fn preferred(
+    ctx: &Ctx,
+    id: &EntityId,
+    current: &read::Current,
+) -> Result<(std::collections::BTreeMap<String, String>, Vec<String>), ApiError> {
+    let prefer = ctx.params.list("prefer");
+    let (map, tags) = entity_json::preferred_map(
+        &ctx.client,
+        &ctx.tenant.slug,
+        id,
+        &current.resolved.entity,
+        &prefer,
+    )
+    .await
+    .map_err(ApiError::internal)?;
+    Ok((map, tags))
 }
 
 /// Runs `wbgetentities`.
@@ -186,8 +220,9 @@ pub async fn wbgetentities(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     };
     for given in ids {
         let id = parse_id(&given)?;
-        let mut v = entity_json(ctx, &id, &given).await?;
+        let (mut v, tags) = entity_json_tagged(ctx, &id, &given).await?;
         ctx.cache_tags.push(format!("entity:{}", id.as_str()));
+        ctx.cache_tags.extend(tags);
         if v.get("missing").is_none() {
             if let Some(walk) = walk.as_mut()
                 && let Some((key, found)) = class_badges(ctx, walk, &v, &id).await?

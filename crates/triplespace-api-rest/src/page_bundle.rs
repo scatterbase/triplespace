@@ -27,7 +27,7 @@
 //! cached as that response is: by its content, which changes with the entity's
 //! `resolved_version`, under the tag `entity:{id}`.
 
-use axum::extract::{Extension, Path, State};
+use axum::extract::{Extension, Path, Query, State};
 use axum::http::{HeaderMap, Method, StatusCode, header};
 use axum::response::Response;
 use std::collections::{BTreeMap, BTreeSet};
@@ -118,6 +118,7 @@ pub async fn handle(
     method: Method,
     headers: HeaderMap,
     Path(id_text): Path<String>,
+    Query(q): Query<BTreeMap<String, String>>,
 ) -> Response {
     let client = match app.pool().get().await {
         Ok(c) => c,
@@ -160,10 +161,15 @@ pub async fn handle(
         .await
         .unwrap_or_else(|_| app.registry());
     // A keyed ID no graph holds is an empty entity, as `wbgetentities` serves it (0009 §4).
-    let entity = current.as_ref().map_or_else(
-        || entity_json::empty_keyed(&r.id),
-        |c| entity_json::present(c, registry, &r.tenant.base),
-    );
+    let mut tags = vec![format!("entity:{}", r.id.as_str())];
+    let entity = match served_entity(&client, &r, current.as_ref(), registry, q.get("prefer")).await
+    {
+        Ok((entity, value_tags)) => {
+            tags.extend(value_tags);
+            entity
+        }
+        Err(e) => return internal(&e),
+    };
     // The data type of each property a snak names without saying it, from the
     // property's current state.
     let mut datatypes = BTreeMap::new();
@@ -220,8 +226,31 @@ pub async fn handle(
         "application/json; charset=utf-8",
         body,
         class,
-        &[format!("entity:{}", r.id.as_str())],
+        &tags,
     )
+}
+
+/// The entity as the bundle serves it, with its values in the form `prefer` asks for (the
+/// ID asked for's by default; the site asks for local, 04 §4.12; 18 §1.6), and the cache
+/// tags of the entities its values name.
+async fn served_entity(
+    client: &deadpool_postgres::Object,
+    r: &entity_route::Resolved,
+    current: Option<&read::Current>,
+    registry: &scatter_providers::Registry,
+    prefer: Option<&String>,
+) -> Result<(Value, Vec<String>), String> {
+    let Some(c) = current else {
+        return Ok((entity_json::empty_keyed(&r.id), Vec::new()));
+    };
+    let prefer = entity_json::prefer_list(prefer.map(String::as_str));
+    let (rewrite, tags) =
+        entity_json::preferred_map(client, &r.tenant.slug, &r.id, &c.resolved.entity, &prefer)
+            .await?;
+    Ok((
+        entity_json::present_preferring(c, registry, &r.tenant.base, &rewrite),
+        tags,
+    ))
 }
 
 /// The most entities, beyond the entity itself, whose `class` badges one bundle works out:

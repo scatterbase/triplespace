@@ -2927,6 +2927,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "scatter-identity"
+version = "0.0.1"
+
+[[package]]
 name = "scatter-ingest"
 version = "0.0.1"
 dependencies = [
@@ -4226,6 +4230,7 @@ dependencies = [
  "ed25519-dalek",
  "oxrdf",
  "scatter-actors",
+ "scatter-identity",
  "scatter-keyed",
  "scatter-log",
  "scatter-log-postgres",

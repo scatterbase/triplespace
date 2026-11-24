@@ -150,6 +150,8 @@ pub async fn entity_hits(
                       e.cluster_id AS cluster
                FROM m
                JOIN view.entity e ON e.id = m.entity_id AND e.tenant IN ($1, '')
+                 AND (e.tenant = $1 OR NOT EXISTS (
+                   SELECT 1 FROM view.entity o WHERE o.tenant = $1 AND o.id = e.id))
                  AND NOT e.deleted AND e.type = ANY($5)
                  AND NOT (e.id = ANY($7)) AND NOT (e.type = ANY($8))
                JOIN LATERAL (
@@ -232,6 +234,51 @@ async fn display_terms(
     Ok((label, description))
 }
 
+/// Names each hit by the member of its cluster the namespace order `prefer` selects
+/// (04 §4.12): an exact match of the hit that the caller may read, with that member's
+/// page. A hit with no exact match in a preferred namespace stays as found.
+async fn prefer_hits(
+    db: &tokio_postgres::Client,
+    tenant: &str,
+    hidden: &Hidden,
+    prefer: &[String],
+    hits: &mut [EntityHit],
+) -> Result<(), String> {
+    let ids: Vec<String> = hits.iter().map(|h| h.id.clone()).collect();
+    let matches = triplespace_projections::identity::exact_matches(db, tenant, &ids).await?;
+    let forms = crate::entity_json::preferred_forms(prefer, &matches);
+    if forms.is_empty() {
+        return Ok(());
+    }
+    let wanted: Vec<&String> = forms.values().collect();
+    let rows = db
+        .query(
+            "SELECT DISTINCT ON (id) id, type, page_id FROM view.entity
+              WHERE tenant IN ($1, '') AND id = ANY($2) AND NOT deleted
+                AND NOT (id = ANY($3)) AND NOT (type = ANY($4))
+              ORDER BY id, (tenant = $1) DESC",
+            &[
+                &tenant,
+                &wanted,
+                &hidden.entity_ids(),
+                &hidden.entity_types(),
+            ],
+        )
+        .await
+        .map_err(|e| e.to_string())?;
+    for h in hits {
+        let Some(to) = forms.get(&h.id) else {
+            continue;
+        };
+        if let Some(r) = rows.iter().find(|r| r.get::<_, String>(0) == *to) {
+            h.id = r.get(0);
+            h.entity_type = r.get(1);
+            h.page_id = r.get(2);
+        }
+    }
+    Ok(())
+}
+
 /// Runs `wbsearchentities` (compat §4.1): [`entity_hits`] in Wikibase's response shape.
 /// Its public form carries the `Cache-Tag` of each entity it lists.
 pub async fn wbsearchentities(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
@@ -249,7 +296,7 @@ pub async fn wbsearchentities(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
     let limit = u32::try_from(ctx.params.int("limit", 7, 1, 50)?).unwrap_or(7);
     let offset = u32::try_from(ctx.params.int("continue", 0, 0, 10_000)?).unwrap_or(0);
     let chain = language_chain(&language, ctx.params.flag("strictlanguage"));
-    let (hits, more) = entity_hits(
+    let (mut hits, more) = entity_hits(
         ctx.db(),
         &ctx.tenant.slug,
         &hidden,
@@ -260,6 +307,12 @@ pub async fn wbsearchentities(ctx: &mut Ctx) -> Result<ApiResponse, ApiError> {
         offset,
     )
     .await?;
+    let prefer = ctx.params.list("prefer");
+    if !prefer.is_empty() {
+        prefer_hits(ctx.db(), &ctx.tenant.slug, &hidden, &prefer, &mut hits)
+            .await
+            .map_err(ApiError::internal)?;
+    }
     let base = ctx.tenant.base.trim_end_matches('/').to_string();
     let public = ctx.tenant.public_base.trim_end_matches('/').to_string();
     let mut results = Vec::new();

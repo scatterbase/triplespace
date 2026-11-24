@@ -83,7 +83,7 @@ The crate map is [`../registry/crates.toml`](../registry/crates.toml): one entry
 |  | [`scatter-quadstore`](CRATES.md#scatter-quadstore) | The quad-store trait: lookup with wildcards, deltas, and its two backends | `oxrdf` |  |  |
 |  | [`scatter-projection`](CRATES.md#scatter-projection) | The projection trait, including the transactional variant `Backend::apply_in` that applies inside the appending… | `scatter-log` |  | yes |
 |  | [`scatter-providers`](CRATES.md#scatter-providers) | Provider codes, slugs and numbers, type codes, canonical IRI templates, and ID rewriting such as `Q123` ↔ `WDQ123` | `oxrdf` | pure | yes |
-|  | [`scatter-identity`](CRATES.md#scatter-identity) | Identity clusters: one member per namespace, link tiers, `different-from`, held conflicts | — | pure |  |
+|  | [`scatter-identity`](CRATES.md#scatter-identity) | Identity clusters: one member per namespace, link tiers, `different-from`, held conflicts | — | pure | yes |
 |  | [`scatter-normalize`](CRATES.md#scatter-normalize) | Normalized value keys by data type and by property, the URL and host normalizers, and resolvers | `idna` | pure, wasm | yes |
 |  | [`scatter-keyed`](CRATES.md#scatter-keyed) | Keyed entity types: the registry, key grammars and normalizers, IRI templates, notation schemes and surrogates | `scatter-normalize`, `oxrdf` | pure, wasm | yes |
 |  | [`scatter-actors`](CRATES.md#scatter-actors) | The issuer registry, actor keys, IRI templates, the surrogate allocator trait and the account-link rules | `oxrdf`, `ed25519-dalek` | pure | yes |

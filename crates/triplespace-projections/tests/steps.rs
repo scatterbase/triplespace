@@ -1369,3 +1369,1205 @@ async fn references_are_indexed_and_counted() {
     assert!(sorted(&client, refs).await.is_empty());
     assert!(sorted(&client, counts).await.is_empty());
 }
+
+// 04 §4.1–§4.3, §4.11 (0004 §1–3, §10): a tenant's own `same-as` and `different-from`
+// form clusters; links that would put two members of one namespace into a cluster, or join
+// two IDs a `different-from` keeps apart, are held, every one of them; removing the cause
+// applies them again.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn tier_one_links_form_clusters_and_hold_conflicts() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let mut store = PgLog::new(seed(client).await);
+    let p = pipeline();
+    let link = |op: &str, key: &str, a: &str, b: &str| {
+        draft(
+            PAYLOAD_CHANGESET,
+            key,
+            &json!({"op": op, "id": key, "ids": [a, b]}),
+            None,
+            (key == "Q6").then_some(6),
+        )
+    };
+    let unlink = |op: &str, key: &str, a: &str, b: &str| {
+        draft(
+            PAYLOAD_CHANGESET,
+            key,
+            &json!({"op": "remove", "id": key, "link": {"op": op, "ids": [a, b]}}),
+            None,
+            (key == "Q6").then_some(6),
+        )
+    };
+
+    store
+        .append(LOCAL, link("same-as", "Q6", "Q6", "WDQ1"))
+        .await
+        .unwrap();
+    store
+        .append(LOCAL, link("same-as", "WDQ1", "WDQ1", "OAW1"))
+        .await
+        .unwrap();
+    for partition in ALL {
+        p.catch_up(&backend, &store, partition, 2).await.unwrap();
+    }
+    let client = store.into_inner();
+    assert_eq!(
+        cluster_state(&client).await,
+        (vec!["Q6:OA=OAW1,WD=WDQ1,local=Q6".to_string()], vec![]),
+        "the local member is canonical"
+    );
+    assert_eq!(
+        triplespace_projections::identity::members(&client, TENANT, "OAW1")
+            .await
+            .unwrap(),
+        ["Q6", "WDQ1"]
+    );
+
+    // A second Wikidata member: the links are held, and the cluster dissolves.
+    let client = append_local(
+        client,
+        &backend,
+        &p,
+        link("same-as", "WDQ2", "OAW1", "WDQ2"),
+    )
+    .await;
+    let (clusters, held) = cluster_state(&client).await;
+    assert!(clusters.is_empty(), "{clusters:?}");
+    assert_eq!(held, ["OAW1=WDQ1", "OAW1=WDQ2", "Q6=WDQ1"]);
+    assert_eq!(
+        count(
+            &client,
+            "SELECT count(DISTINCT conflict_id) FROM view.link WHERE status = 'held'"
+        )
+        .await,
+        1
+    );
+
+    // Removing the link that caused it applies the others again.
+    let client = append_local(
+        client,
+        &backend,
+        &p,
+        unlink("same-as", "WDQ2", "OAW1", "WDQ2"),
+    )
+    .await;
+    assert_eq!(
+        cluster_state(&client).await.0,
+        ["Q6:OA=OAW1,WD=WDQ1,local=Q6"]
+    );
+
+    // `different-from` keeps two members apart, through the third.
+    let client = append_local(
+        client,
+        &backend,
+        &p,
+        link("different-from", "Q6", "Q6", "OAW1"),
+    )
+    .await;
+    let (clusters, held) = cluster_state(&client).await;
+    assert!(clusters.is_empty());
+    assert_eq!(held, ["OAW1=WDQ1", "Q6=WDQ1"]);
+    let client = append_local(
+        client,
+        &backend,
+        &p,
+        unlink("different-from", "Q6", "Q6", "OAW1"),
+    )
+    .await;
+    assert_eq!(
+        cluster_state(&client).await.0,
+        ["Q6:OA=OAW1,WD=WDQ1,local=Q6"]
+    );
+    assert_eq!(
+        triplespace_projections::identity::members(&client, TENANT, "Q7")
+            .await
+            .unwrap(),
+        Vec::<String>::new()
+    );
+}
+
+/// The tenant's clusters, as `canonical:namespace=member,…`, and its held links.
+async fn cluster_state(client: &Client) -> (Vec<String>, Vec<String>) {
+    let clusters = sorted(
+        client,
+        "SELECT c.canonical_id || ':' || string_agg(m.namespace || '=' || m.entity_id, ',' ORDER BY m.namespace COLLATE \"C\")
+           FROM view.cluster c JOIN view.cluster_member m USING (tenant, cluster_id)
+          WHERE c.tenant = 'librarybase' GROUP BY c.canonical_id",
+    )
+    .await;
+    let held = sorted(
+        client,
+        "SELECT a || '=' || b FROM view.link WHERE tenant = 'librarybase' AND status = 'held'",
+    )
+    .await;
+    (clusters, held)
+}
+
+/// Appends a record to the tenant's local graph and projects it.
+async fn append_local(
+    client: Client,
+    backend: &PgBackend,
+    p: &Pipeline<PgBackend>,
+    record: Draft,
+) -> Client {
+    let mut store = PgLog::new(client);
+    store.append(LOCAL, record).await.unwrap();
+    p.catch_up(backend, &store, LOCAL, 2).await.unwrap();
+    store.into_inner()
+}
+
+// 04 §4.4 (0004 A25): each member of a cluster reads as the cluster's fused body, under its
+// own ID, with the cluster's canonical ID in its row; removing the link parts them again.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn a_clusters_members_share_its_fused_body() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let mut store = PgLog::new(seed(client).await);
+    let p = pipeline();
+    for partition in ALL {
+        p.catch_up(&backend, &store, partition, 2).await.unwrap();
+    }
+    let record =
+        |content: serde_json::Value| draft(PAYLOAD_CHANGESET, "Q6", &content, None, Some(6));
+    store
+        .append(
+            LOCAL,
+            record(json!({"op": "same-as", "id": "Q6", "ids": ["Q6", "XDQ10"]})),
+        )
+        .await
+        .unwrap();
+    p.catch_up(&backend, &store, LOCAL, 2).await.unwrap();
+    let client = store.into_inner();
+    let order = triplespace_projections::EntityProjection::default();
+    let read = |id: &'static str| {
+        let (client, order) = (&client, &order);
+        async move {
+            triplespace_projections::read::current(
+                client,
+                order,
+                TENANT,
+                &scatter_wikibase_model::id::EntityId::parse(id).unwrap(),
+            )
+            .await
+            .unwrap()
+            .unwrap()
+        }
+    };
+    let xd = read("XDQ10").await;
+    assert_eq!(xd.resolved.entity.id.as_str(), "XDQ10", "under its own ID");
+    assert_eq!(
+        xd.resolved.entity.labels.get("en").map(String::as_str),
+        Some("Six"),
+        "the local graph comes first"
+    );
+    let statements: Vec<String> = xd
+        .resolved
+        .entity
+        .all_statements()
+        .filter_map(|s| s.id.as_ref().map(ToString::to_string))
+        .collect();
+    // Q6's statement, read as XDQ10's, is named after XDQ10 and keeps its UUID (04 §4.9);
+    // its provenance keeps the GUID as stored.
+    let as_member = Q6_P2.replacen("Q6", "XDQ10", 1);
+    assert!(statements.contains(&as_member), "{statements:?}");
+    assert!(
+        xd.resolved
+            .statements
+            .iter()
+            .any(|p| p.members.iter().any(|m| m.as_str() == Q6_P2))
+    );
+    assert_eq!(
+        xd.cluster.as_ref().map(|m| m.canonical.as_str()),
+        Some("Q6")
+    );
+    assert!(xd.local().is_none(), "Q6's local state is not XDQ10's");
+    assert_eq!(read("Q6").await.resolved.entity.labels.len(), 2);
+    let canonical =
+        |id: &str| {
+            let client = &client;
+            let id = id.to_string();
+            async move {
+                client
+                .query_one(
+                    "SELECT canonical_id, cluster_id IS NOT NULL, resolved_kind FROM view.entity
+                      WHERE tenant = $1 AND id = $2",
+                    &[&TENANT, &id],
+                )
+                .await
+                .map(|r| (r.get::<_, String>(0), r.get::<_, bool>(1), r.get::<_, String>(2)))
+                .unwrap()
+            }
+        };
+    assert_eq!(
+        canonical("XDQ10").await,
+        ("Q6".into(), true, "materialized".into())
+    );
+    assert_eq!(
+        canonical("Q6").await,
+        ("Q6".into(), true, "materialized".into())
+    );
+
+    // Unlinked, each is itself again.
+    let client = append_local(
+        client,
+        &backend,
+        &p,
+        record(
+            json!({"op": "remove", "id": "Q6", "link": {"op": "same-as", "ids": ["Q6", "XDQ10"]}}),
+        ),
+    )
+    .await;
+    let xd = triplespace_projections::read::current(
+        &client,
+        &order,
+        TENANT,
+        &scatter_wikibase_model::id::EntityId::parse("XDQ10").unwrap(),
+    )
+    .await
+    .unwrap()
+    .unwrap();
+    assert_eq!(
+        xd.resolved.entity.labels.get("en").map(String::as_str),
+        Some("Registrar")
+    );
+    assert_eq!(
+        client
+            .query_one(
+                "SELECT canonical_id, cluster_id IS NULL FROM view.entity WHERE tenant = $1 AND id = 'XDQ10'",
+                &[&TENANT],
+            )
+            .await
+            .map(|r| (r.get::<_, String>(0), r.get::<_, bool>(1)))
+            .unwrap(),
+        ("XDQ10".into(), true)
+    );
+}
+
+// 04 §4.6–§4.8 (0004 A27): statements that say the same thing through two members of a
+// property cluster fuse into one, with both members in its provenance.
+#[tokio::test]
+async fn statements_fuse_across_a_property_cluster() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let mut store = PgLog::new(seed(client).await);
+    let item = json!({"type": "item", "id": "XDQ10", "labels": {"en": label("en", "Registrar")},
+        "claims": {"XDP4": [string_statement("XDP4", "x", "XDQ10$00000000-0000-0000-0000-0000000000C4", "string")]}});
+    store
+        .append(
+            MIRROR,
+            draft(
+                PAYLOAD_CHANGESET,
+                "XDQ10",
+                &json!({"op": "put", "id": "XDQ10", "entity": item, "upstream": {"revid": 58}, "size": 120}),
+                Some(7),
+                Some(101),
+            ),
+        )
+        .await
+        .unwrap();
+    store
+        .append(
+            LOCAL,
+            draft(
+                PAYLOAD_CHANGESET,
+                "Q6",
+                &json!({"op": "same-as", "id": "Q6", "ids": ["Q6", "XDQ10"]}),
+                None,
+                Some(6),
+            ),
+        )
+        .await
+        .unwrap();
+    let p = pipeline();
+    for partition in ALL {
+        p.catch_up(&backend, &store, partition, 2).await.unwrap();
+    }
+    let client = store.into_inner();
+    assert_eq!(
+        p4_statements(&client).await.len(),
+        2,
+        "P4 and XDP4 are two properties"
+    );
+    let client = append_local(
+        client,
+        &backend,
+        &p,
+        draft(
+            PAYLOAD_CHANGESET,
+            "P4",
+            &json!({"op": "equivalent-property", "id": "P4", "ids": ["P4", "XDP4"]}),
+            None,
+            None,
+        ),
+    )
+    .await;
+    assert_eq!(
+        cluster_state(&client).await.0,
+        ["P4:XD=XDP4,local=P4", "Q6:XD=XDQ10,local=Q6"]
+    );
+    assert_eq!(
+        p4_statements(&client).await,
+        [vec![
+            Q6_P4.to_string(),
+            "XDQ10$00000000-0000-0000-0000-0000000000C4".to_string()
+        ]],
+        "one statement, asserted by both graphs"
+    );
+}
+
+/// The members of each statement of `Q6`'s fused body that `P4` or `XDP4` makes.
+async fn p4_statements(client: &Client) -> Vec<Vec<String>> {
+    let order = triplespace_projections::EntityProjection::default();
+    let q6 = scatter_wikibase_model::id::EntityId::parse("Q6").unwrap();
+    let c = triplespace_projections::read::current(client, &order, TENANT, &q6)
+        .await
+        .unwrap()
+        .unwrap();
+    let mut x: Vec<Vec<String>> = c
+        .resolved
+        .statements
+        .iter()
+        .filter(|s| {
+            s.members
+                .iter()
+                .any(|m| m.as_str().ends_with("C4") || m.as_str() == Q6_P4)
+        })
+        .map(|s| s.members.iter().map(ToString::to_string).collect())
+        .collect();
+    x.sort();
+    x
+}
+
+// 04 §4.4 (0004 A27): a deleted member leaves its cluster, its links kept and not applied;
+// undeleted, it is a member again.
+#[tokio::test]
+async fn a_deleted_member_leaves_its_cluster() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let mut store = PgLog::new(seed(client).await);
+    store
+        .append(
+            LOCAL,
+            draft(
+                PAYLOAD_CHANGESET,
+                "Q6",
+                &json!({"op": "same-as", "id": "Q6", "ids": ["Q6", "XDQ10"]}),
+                None,
+                Some(6),
+            ),
+        )
+        .await
+        .unwrap();
+    let p = pipeline();
+    for partition in ALL {
+        p.catch_up(&backend, &store, partition, 2).await.unwrap();
+    }
+    let acl = |deleted: bool| {
+        let mut v = json!({"target": "acl:entity:Q6", "restrictions": {}});
+        if deleted {
+            v["restrictions"] = json!({"read": {"group": "sysop"}});
+            v["read_kind"] = json!("moderation");
+        }
+        draft(
+            triplespace_projections::actors::payload::ACL,
+            "acl:entity:Q6",
+            &v,
+            None,
+            None,
+        )
+    };
+    store.append(TENANT_LOG, acl(true)).await.unwrap();
+    p.catch_up(&backend, &store, TENANT_LOG, 2).await.unwrap();
+    let client = store.into_inner();
+    assert!(cluster_state(&client).await.0.is_empty(), "Q6 has left");
+    assert_eq!(
+        rows(
+            &client,
+            "SELECT status FROM view.link WHERE tenant = 'librarybase'"
+        )
+        .await,
+        ["inactive"]
+    );
+    assert_eq!(label_of_xd(&client).await.as_deref(), Some("Registrar"));
+
+    let mut store = PgLog::new(client);
+    store.append(TENANT_LOG, acl(false)).await.unwrap();
+    p.catch_up(&backend, &store, TENANT_LOG, 2).await.unwrap();
+    let client = store.into_inner();
+    assert_eq!(cluster_state(&client).await.0, ["Q6:XD=XDQ10,local=Q6"]);
+    assert_eq!(label_of_xd(&client).await.as_deref(), Some("Six"));
+}
+
+/// `XDQ10`'s English label as the tenant reads it.
+async fn label_of_xd(client: &Client) -> Option<String> {
+    let order = triplespace_projections::EntityProjection::default();
+    triplespace_projections::read::current(
+        client,
+        &order,
+        TENANT,
+        &scatter_wikibase_model::id::EntityId::parse("XDQ10").unwrap(),
+    )
+    .await
+    .unwrap()
+    .unwrap()
+    .resolved
+    .entity
+    .labels
+    .get("en")
+    .cloned()
+}
+
+// 04 §4.3 (0004 A28): a mirrored statement of a link property the instance names links its
+// entity to the entity its value names, as a shared cluster; a tenant's own link builds on
+// it, and the link lasts only as long as the statement.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn mirror_derived_links_form_shared_clusters() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let client = seed(client).await;
+    client
+        .execute(
+            "INSERT INTO view.registry (tenant, kind, code, config, \"offset\")
+             VALUES ('', 'reconcile', 'default', $1, 1)",
+            &[&json!({"kind": "reconcile", "name": "default",
+                "links": {"XD": [{"property": "P9", "target": "WD"}]}})],
+        )
+        .await
+        .unwrap();
+    let put = |claims: serde_json::Value, revid: u64| {
+        let item = json!({"type": "item", "id": "XDQ10", "labels": {"en": label("en", "Registrar")}, "claims": claims});
+        draft(
+            PAYLOAD_CHANGESET,
+            "XDQ10",
+            &json!({"op": "put", "id": "XDQ10", "entity": item, "upstream": {"revid": revid}, "size": 120}),
+            Some(7),
+            Some(101),
+        )
+    };
+    let mut store = PgLog::new(client);
+    store
+        .append(
+            MIRROR,
+            put(
+                json!({"XDP9": [string_statement("XDP9", "Q42", "XDQ10$00000000-0000-0000-0000-0000000000D9", "external-id")]}),
+                58,
+            ),
+        )
+        .await
+        .unwrap();
+    let p = pipeline();
+    for partition in ALL {
+        p.catch_up(&backend, &store, partition, 2).await.unwrap();
+    }
+    let client = store.into_inner();
+    assert_eq!(
+        shared_clusters(&client).await,
+        ["WDQ42:WDQ42,XDQ10"],
+        "Wikidata ranks first"
+    );
+    assert_eq!(
+        rows(
+            &client,
+            "SELECT a || '=' || b || '|' || tier FROM view.link WHERE tenant = ''"
+        )
+        .await,
+        ["WDQ42=XDQ10|2"]
+    );
+    assert_eq!(
+        triplespace_projections::identity::members(&client, TENANT, "XDQ10")
+            .await
+            .unwrap(),
+        ["WDQ42"],
+        "a tenant with no links of its own reads the shared cluster"
+    );
+
+    // The tenant's own link joins the shared cluster in its view; the shared one is as it was.
+    let client = append_local(
+        client,
+        &backend,
+        &p,
+        draft(
+            PAYLOAD_CHANGESET,
+            "Q6",
+            &json!({"op": "same-as", "id": "Q6", "ids": ["Q6", "XDQ10"]}),
+            None,
+            Some(6),
+        ),
+    )
+    .await;
+    assert_eq!(
+        cluster_state(&client).await.0,
+        ["Q6:WD=WDQ42,XD=XDQ10,local=Q6"]
+    );
+    assert_eq!(shared_clusters(&client).await, ["WDQ42:WDQ42,XDQ10"]);
+
+    // The statement goes upstream: so do the shared link and cluster, in every view.
+    let mut store = PgLog::new(client);
+    store.append(MIRROR, put(json!({}), 59)).await.unwrap();
+    p.catch_up(&backend, &store, MIRROR, 2).await.unwrap();
+    let client = store.into_inner();
+    assert!(shared_clusters(&client).await.is_empty());
+    assert_eq!(cluster_state(&client).await.0, ["Q6:XD=XDQ10,local=Q6"]);
+}
+
+/// The shared clusters, as `canonical:member,…`.
+async fn shared_clusters(client: &Client) -> Vec<String> {
+    sorted(
+        client,
+        "SELECT c.canonical_id || ':' || string_agg(m.entity_id, ',' ORDER BY m.entity_id COLLATE \"C\")
+           FROM view.cluster c JOIN view.cluster_member m USING (tenant, cluster_id)
+          WHERE c.tenant = '' GROUP BY c.canonical_id",
+    )
+    .await
+}
+
+const WIKIDATA: u64 = 0x2005;
+const TENANT_CONFIG: u64 = 0x2006;
+
+/// Opens a second mirror, Wikidata's, and the tenant's `config`.
+async fn more_partitions(client: &Client) {
+    for (partition, tenant, name) in [
+        (WIKIDATA, None, "mirror/wikidata"),
+        (TENANT_CONFIG, Some(TENANT), "config"),
+    ] {
+        log::create_partition(
+            client,
+            partition,
+            Segments::new(8).unwrap(),
+            &PartitionInfo {
+                tenant: tenant.map(str::to_owned),
+                name: name.into(),
+                graph_iri: format!("https://scatter.example/graph/{name}"),
+                history: History::Full,
+                integrity: Integrity::Logged,
+                export: Export::Public,
+                hash: "sha-256".into(),
+                origin: None,
+            },
+        )
+        .await
+        .unwrap();
+    }
+}
+
+/// A mirror's `put` of an item with the given claims.
+fn mirror_put(id: &str, claims: &serde_json::Value, revid: u64, page_id: u64) -> Draft {
+    let item =
+        json!({"type": "item", "id": id, "labels": {"en": label("en", id)}, "claims": claims});
+    draft(
+        PAYLOAD_CHANGESET,
+        id,
+        &json!({"op": "put", "id": id, "entity": item, "upstream": {"revid": revid}, "size": 120}),
+        Some(7),
+        Some(page_id),
+    )
+}
+
+/// A `reconcile:default` record.
+fn reconcile(content: &serde_json::Value) -> Draft {
+    let mut content = content.clone();
+    content["kind"] = json!("reconcile");
+    content["name"] = json!("default");
+    draft(PAYLOAD_CONFIG, "reconcile:default", &content, None, None)
+}
+
+/// Appends a record and projects its partition.
+async fn append_to(
+    client: Client,
+    backend: &PgBackend,
+    p: &Pipeline<PgBackend>,
+    partition: u64,
+    record: Draft,
+) -> Client {
+    let mut store = PgLog::new(client);
+    store.append(partition, record).await.unwrap();
+    p.catch_up(backend, &store, partition, 2).await.unwrap();
+    store.into_inner()
+}
+
+/// The DOI statement the inference tests share.
+fn doi(subject: &str, value: &str) -> serde_json::Value {
+    json!({"WDP356": [string_statement(
+        "WDP356",
+        value,
+        &format!("{subject}$00000000-0000-0000-0000-000000000356"),
+        "external-id",
+    )]})
+}
+
+// 04 §4.3 (0004 §3 tier 3, A29): two mirrored entities of different namespaces that share a
+// value of an inference property the instance names are one shared cluster; the link is no
+// exact match; a tenant may decline it; and a value that stops being unique links nothing.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn inferred_links_join_entities_that_share_a_unique_value() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let client = seed(client).await;
+    more_partitions(&client).await;
+    let p = pipeline();
+    let mut store = PgLog::new(client);
+    store
+        .append(CONFIG_PARTITION, reconcile(&json!({"infer": ["WDP356"]})))
+        .await
+        .unwrap();
+    store
+        .append(
+            WIKIDATA,
+            mirror_put("WDQ42", &doi("WDQ42", "10.1/x"), 1, 142),
+        )
+        .await
+        .unwrap();
+    store
+        .append(
+            MIRROR,
+            mirror_put("XDQ10", &doi("XDQ10", "10.1/x"), 58, 101),
+        )
+        .await
+        .unwrap();
+    for partition in [
+        CONFIG_PARTITION,
+        INSTANCE_LOG,
+        WIKIDATA,
+        MIRROR,
+        LOCAL,
+        TENANT_LOG,
+    ] {
+        p.catch_up(&backend, &store, partition, 2).await.unwrap();
+    }
+    let client = store.into_inner();
+    assert_eq!(shared_clusters(&client).await, ["WDQ42:WDQ42,XDQ10"]);
+    assert_eq!(
+        rows(
+            &client,
+            "SELECT a || '=' || b || '|' || tier || '|' || split_part(source, '=', 1)
+               FROM view.link WHERE tenant = ''"
+        )
+        .await,
+        ["WDQ42=XDQ10|3|WDP356"]
+    );
+    assert_eq!(
+        count(
+            &client,
+            "SELECT count(*) FROM view.cluster WHERE tenant = '' AND inferred"
+        )
+        .await,
+        1
+    );
+    // The tenant reads the shared cluster, and its fused body; but a shared identifier
+    // value is no exact match, so no response names one member by the other (04 §4.12).
+    assert_eq!(
+        triplespace_projections::identity::members(&client, TENANT, "XDQ10")
+            .await
+            .unwrap(),
+        ["WDQ42"]
+    );
+    assert!(
+        triplespace_projections::identity::exact_matches(&client, TENANT, &["XDQ10".to_string()])
+            .await
+            .unwrap()
+            .is_empty()
+    );
+
+    // The tenant declines inferred links: in its view the two are apart, each with a row
+    // of its own; the shared cluster is as it was.
+    let client = append_to(
+        client,
+        &backend,
+        &p,
+        TENANT_CONFIG,
+        reconcile(&json!({"infer": false})),
+    )
+    .await;
+    assert!(
+        triplespace_projections::identity::members(&client, TENANT, "XDQ10")
+            .await
+            .unwrap()
+            .is_empty()
+    );
+    assert_eq!(shared_clusters(&client).await, ["WDQ42:WDQ42,XDQ10"]);
+    assert_eq!(
+        sorted(
+            &client,
+            "SELECT id || '|' || canonical_id FROM view.entity
+              WHERE tenant = 'librarybase' AND id IN ('WDQ42', 'XDQ10')"
+        )
+        .await,
+        ["WDQ42|WDQ42", "XDQ10|XDQ10"]
+    );
+    // It takes them again.
+    let client = append_to(
+        client,
+        &backend,
+        &p,
+        TENANT_CONFIG,
+        reconcile(&json!({"infer": true})),
+    )
+    .await;
+    assert_eq!(
+        triplespace_projections::identity::members(&client, TENANT, "XDQ10")
+            .await
+            .unwrap(),
+        ["WDQ42"]
+    );
+
+    // A second Wikidata item with the value: it is unique in no namespace but the other's,
+    // so nothing is linked. The item loses it, and the link is back.
+    let client = append_to(
+        client,
+        &backend,
+        &p,
+        WIKIDATA,
+        mirror_put("WDQ43", &doi("WDQ43", "10.1/x"), 2, 143),
+    )
+    .await;
+    assert!(shared_clusters(&client).await.is_empty());
+    assert_eq!(
+        count(&client, "SELECT count(*) FROM view.link WHERE tier = 3").await,
+        0
+    );
+    let client = append_to(
+        client,
+        &backend,
+        &p,
+        WIKIDATA,
+        mirror_put("WDQ43", &json!({}), 3, 143),
+    )
+    .await;
+    assert_eq!(shared_clusters(&client).await, ["WDQ42:WDQ42,XDQ10"]);
+
+    // A rebuild from the log reproduces the links and the clusters.
+    let before = identity_rows(&client).await;
+    let store = PgLog::new(client);
+    let order = [
+        CONFIG_PARTITION,
+        INSTANCE_LOG,
+        WIKIDATA,
+        MIRROR,
+        TENANT_CONFIG,
+        LOCAL,
+        TENANT_LOG,
+    ];
+    p.rebuild(&backend, &store, &order, 3).await.unwrap();
+    assert_eq!(identity_rows(store.client()).await, before);
+}
+
+/// Every row of the cluster tables, but for a cluster's version, which counts recomputations.
+async fn identity_rows(client: &Client) -> Vec<String> {
+    let mut out = Vec::new();
+    for sql in [
+        "SELECT 'link|' || tenant || '|' || a || '|' || b || '|' || tier || '|' || status FROM view.link",
+        "SELECT 'block|' || tenant || '|' || a || '|' || b FROM view.different_from",
+        "SELECT 'retired|' || tenant || '|' || entity_id || '|' || coalesce(target, '-') FROM view.retired",
+        "SELECT 'cluster|' || tenant || '|' || canonical_id || '|' || inferred FROM view.cluster",
+        "SELECT 'member|' || tenant || '|' || namespace || '|' || entity_id FROM view.cluster_member",
+    ] {
+        out.extend(rows(client, sql).await);
+    }
+    out.sort();
+    out
+}
+
+// 04 §4.1, §4.4 (0004 §1, §4, A29): an ID upstream merged into another is an alias of it,
+// so what was linked to it is linked to its target; an entity upstream deleted leaves its
+// cluster, comes back with its next state, and stays where the tenant retains it.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn a_retired_member_gives_way() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let client = seed(client).await;
+    let p = pipeline();
+    let mut store = PgLog::new(client);
+    for partition in ALL {
+        p.catch_up(&backend, &store, partition, 2).await.unwrap();
+    }
+    store
+        .append(
+            LOCAL,
+            draft(
+                PAYLOAD_CHANGESET,
+                "Q6",
+                &json!({"op": "same-as", "id": "Q6", "ids": ["Q6", "XDQ10"]}),
+                None,
+                Some(6),
+            ),
+        )
+        .await
+        .unwrap();
+    p.catch_up(&backend, &store, LOCAL, 2).await.unwrap();
+    let client = store.into_inner();
+    assert_eq!(cluster_state(&client).await.0, ["Q6:XD=XDQ10,local=Q6"]);
+
+    // Upstream merges XDQ10 into XDQ11.
+    let client = append_to(
+        client,
+        &backend,
+        &p,
+        MIRROR,
+        mirror_put("XDQ11", &json!({}), 60, 111),
+    )
+    .await;
+    let redirect = draft(
+        PAYLOAD_CHANGESET,
+        "XDQ10",
+        &json!({"op": "redirect", "from": "XDQ10", "to": "XDQ11", "upstream": {"revid": 61}}),
+        Some(7),
+        Some(101),
+    );
+    let client = append_to(client, &backend, &p, MIRROR, redirect).await;
+    assert_eq!(cluster_state(&client).await.0, ["Q6:XD=XDQ11,local=Q6"]);
+    assert_eq!(
+        rows(
+            &client,
+            "SELECT entity_id || '>' || target FROM view.retired"
+        )
+        .await,
+        ["XDQ10>XDQ11"]
+    );
+
+    // Upstream deletes XDQ11: under the default policy, `orphan`, it leaves the cluster.
+    let tombstone = |revid: u64| {
+        draft(
+            PAYLOAD_CHANGESET,
+            "XDQ11",
+            &json!({"op": "tombstone", "id": "XDQ11", "upstream": {"revid": revid}}),
+            Some(7),
+            Some(111),
+        )
+    };
+    let client = append_to(client, &backend, &p, MIRROR, tombstone(62)).await;
+    assert!(cluster_state(&client).await.0.is_empty());
+    assert_eq!(
+        rows(
+            &client,
+            "SELECT status FROM view.link WHERE tenant = 'librarybase'"
+        )
+        .await,
+        ["inactive"]
+    );
+    // It comes back upstream, and into the cluster.
+    let client = append_to(
+        client,
+        &backend,
+        &p,
+        MIRROR,
+        mirror_put("XDQ11", &json!({}), 63, 111),
+    )
+    .await;
+    assert_eq!(cluster_state(&client).await.0, ["Q6:XD=XDQ11,local=Q6"]);
+
+    // The tenant retains it; deleted upstream again, it stays.
+    let client = append_local(
+        client,
+        &backend,
+        &p,
+        draft(
+            PAYLOAD_CHANGESET,
+            "XDQ11",
+            &json!({"op": "retain", "id": "XDQ11", "policy": "retain"}),
+            None,
+            Some(111),
+        ),
+    )
+    .await;
+    let client = append_to(client, &backend, &p, MIRROR, tombstone(64)).await;
+    assert_eq!(cluster_state(&client).await.0, ["Q6:XD=XDQ11,local=Q6"]);
+}
+
+// 04 §4.3, §4.4 (0004 §3, §4, A29): the instance's record orders the providers, so the
+// canonical member of a shared cluster follows it; and a tenant that deprecates the
+// mirrored statement a link comes from no longer takes the link.
+#[tokio::test]
+async fn the_record_orders_providers_and_a_correction_drops_a_link() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let client = seed(client).await;
+    let p = pipeline();
+    let statement = "XDQ10$00000000-0000-0000-0000-0000000000D9";
+    let mut store = PgLog::new(client);
+    store
+        .append(
+            CONFIG_PARTITION,
+            reconcile(&json!({"order": ["XD", "WD"],
+                "links": {"XD": [{"property": "P9", "target": "WD"}]}})),
+        )
+        .await
+        .unwrap();
+    store
+        .append(
+            MIRROR,
+            mirror_put(
+                "XDQ10",
+                &json!({"XDP9": [string_statement("XDP9", "Q42", statement, "external-id")]}),
+                58,
+                101,
+            ),
+        )
+        .await
+        .unwrap();
+    for partition in ALL {
+        p.catch_up(&backend, &store, partition, 2).await.unwrap();
+    }
+    let client = store.into_inner();
+    assert_eq!(
+        shared_clusters(&client).await,
+        ["XDQ10:WDQ42,XDQ10"],
+        "the record puts XD before Wikidata"
+    );
+    assert_eq!(
+        triplespace_projections::identity::members(&client, TENANT, "XDQ10")
+            .await
+            .unwrap(),
+        ["WDQ42"]
+    );
+
+    let client = append_local(
+        client,
+        &backend,
+        &p,
+        draft(
+            PAYLOAD_CHANGESET,
+            "XDQ10",
+            &json!({"op": "override", "id": "XDQ10", "statement": statement, "rank": "deprecated"}),
+            None,
+            Some(101),
+        ),
+    )
+    .await;
+    assert!(
+        triplespace_projections::identity::members(&client, TENANT, "XDQ10")
+            .await
+            .unwrap()
+            .is_empty(),
+        "the tenant deprecated the statement"
+    );
+    assert_eq!(shared_clusters(&client).await, ["XDQ10:WDQ42,XDQ10"]);
+}
+
+// 04 §4.1 (0004 §1, A29): a local merge, and one a wiki's history brought with it, make the
+// retired ID an alias of its target, so what was linked to it is linked to the target; a
+// whole state of the ID makes it stand for itself again; a rebuild reproduces the rows; and
+// an erased redirect takes its alias with it.
+#[tokio::test]
+#[allow(clippy::too_many_lines)]
+async fn a_local_merge_makes_an_alias() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let client = seed(client).await;
+    let p = pipeline();
+    let store = PgLog::new(client);
+    for partition in ALL {
+        p.catch_up(&backend, &store, partition, 2).await.unwrap();
+    }
+    let mut client = store.into_inner();
+    let local = |key: &str, op: serde_json::Value, page: u64| {
+        draft(PAYLOAD_CHANGESET, key, &op, None, Some(page))
+    };
+    let adopt = |op: serde_json::Value, revid: u64| {
+        let mut d = draft(PAYLOAD_CHANGESET, "Q8", &op, None, Some(8));
+        d.revid = Some(revid);
+        d
+    };
+    let q8 =
+        json!({"type": "item", "id": "Q8", "labels": {"en": label("en", "Eight")}, "claims": {}});
+    for record in [
+        local(
+            "Q7",
+            json!({"op": "same-as", "id": "Q7", "ids": ["Q7", "XDQ10"]}),
+            7,
+        ),
+        adopt(
+            json!({"op": "adopt", "id": "Q8", "entity": q8, "source_revid": 5, "source_time": "2026-09-20T14:02:11Z", "source_pageid": 8}),
+            950,
+        ),
+        local(
+            "Q8",
+            json!({"op": "same-as", "id": "Q8", "ids": ["Q8", "OAW1"]}),
+            8,
+        ),
+    ] {
+        client = append_local(client, &backend, &p, record).await;
+    }
+    assert_eq!(
+        cluster_state(&client).await.0,
+        ["Q7:XD=XDQ10,local=Q7", "Q8:OA=OAW1,local=Q8"]
+    );
+
+    // Q7 is merged into Q6, and the adopted history turns Q8 into a redirect to Q6.
+    let redirect = local("Q7", json!({"op": "redirect", "from": "Q7", "to": "Q6"}), 7);
+    client = append_local(client, &backend, &p, redirect).await;
+    assert_eq!(
+        cluster_state(&client).await.0,
+        ["Q6:XD=XDQ10,local=Q6", "Q8:OA=OAW1,local=Q8"]
+    );
+    let redirected = adopt(
+        json!({"op": "adopt", "id": "Q8", "redirect": "Q6", "source_revid": 6, "source_parentid": 5, "source_time": "2026-09-21T14:02:11Z", "source_pageid": 8}),
+        951,
+    );
+    client = append_local(client, &backend, &p, redirected).await;
+    assert_eq!(
+        cluster_state(&client).await.0,
+        ["Q6:OA=OAW1,XD=XDQ10,local=Q6"]
+    );
+    assert_eq!(
+        sorted(
+            &client,
+            "SELECT entity_id || '>' || target FROM view.retired"
+        )
+        .await,
+        ["Q7>Q6", "Q8>Q6"]
+    );
+
+    // The history goes on: Q8 is an item again, and stands for itself.
+    let restored = adopt(
+        json!({"op": "adopt", "id": "Q8", "entity": q8, "source_revid": 7, "source_parentid": 6, "source_time": "2026-09-22T14:02:11Z", "source_pageid": 8}),
+        952,
+    );
+    client = append_local(client, &backend, &p, restored).await;
+    assert_eq!(
+        cluster_state(&client).await.0,
+        ["Q6:XD=XDQ10,local=Q6", "Q8:OA=OAW1,local=Q8"]
+    );
+
+    // A rebuild reproduces the rows.
+    let before = identity_rows(&client).await;
+    let mut store = PgLog::new(client);
+    p.rebuild(&backend, &store, &ALL, 3).await.unwrap();
+    assert_eq!(identity_rows(store.client()).await, before);
+
+    // The redirect of Q7 is erased: its alias goes, and Q7 has its link again.
+    let offset: i64 = store
+        .client()
+        .query_one(
+            "SELECT \"offset\" FROM view.retired WHERE entity_id = 'Q7'",
+            &[],
+        )
+        .await
+        .unwrap()
+        .get(0);
+    store
+        .erase_parts(
+            LOCAL,
+            u64::try_from(offset).unwrap(),
+            &[scatter_log::body::CONTENT],
+        )
+        .await
+        .unwrap();
+    p.rebuild(&backend, &store, &ALL, 3).await.unwrap();
+    assert_eq!(
+        cluster_state(store.client()).await.0,
+        ["Q7:XD=XDQ10,local=Q7", "Q8:OA=OAW1,local=Q8"]
+    );
+}
+
+const SOURCE: u64 = 0x2007;
+
+// 04 §4.3, §4.4 (0004 §3, §9, A29): a tenant's record names a link property for one of its
+// own entity sources; a statement of it in the source's graph links the source's entity as
+// the tenant's own tier-2 row, in the tenant's clusters and no one else's, and lasts as
+// long as the statement.
+#[tokio::test]
+async fn a_tenants_source_links_by_its_own_properties() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let client = seed(client).await;
+    more_partitions(&client).await;
+    log::create_partition(
+        &client,
+        SOURCE,
+        Segments::new(8).unwrap(),
+        &PartitionInfo {
+            tenant: Some(TENANT.into()),
+            name: "source/mhc".into(),
+            graph_iri: "https://scatter.example/graph/source/mhc".into(),
+            history: History::Full,
+            integrity: Integrity::Logged,
+            export: Export::Public,
+            hash: "sha-256".into(),
+            origin: None,
+        },
+    )
+    .await
+    .unwrap();
+    let p = pipeline();
+    let mut store = PgLog::new(client);
+    store
+        .append(
+            TENANT_CONFIG,
+            reconcile(&json!({"order": ["mhc"],
+                "links": {"mhc": [{"property": "P9", "target": "local"}]}})),
+        )
+        .await
+        .unwrap();
+    let statement = "mhc:Q1$00000000-0000-0000-0000-0000000000E9";
+    store
+        .append(
+            SOURCE,
+            mirror_put(
+                "mhc:Q1",
+                &json!({"mhc:P9": [string_statement("mhc:P9", "Q6", statement, "external-id")]}),
+                1,
+                3001,
+            ),
+        )
+        .await
+        .unwrap();
+    for partition in [
+        CONFIG_PARTITION,
+        INSTANCE_LOG,
+        MIRROR,
+        TENANT_CONFIG,
+        SOURCE,
+        LOCAL,
+        TENANT_LOG,
+    ] {
+        p.catch_up(&backend, &store, partition, 2).await.unwrap();
+    }
+    let client = store.into_inner();
+    assert_eq!(
+        rows(
+            &client,
+            "SELECT tenant || '|' || a || '=' || b || '|' || tier FROM view.link"
+        )
+        .await,
+        ["librarybase|Q6=mhc:Q1|2"]
+    );
+    assert_eq!(cluster_state(&client).await.0, ["Q6:local=Q6,mhc=mhc:Q1"]);
+    assert!(shared_clusters(&client).await.is_empty());
+
+    // The source drops the statement: the link and the cluster go.
+    let client = append_to(
+        client,
+        &backend,
+        &p,
+        SOURCE,
+        mirror_put("mhc:Q1", &json!({}), 2, 3001),
+    )
+    .await;
+    assert!(cluster_state(&client).await.0.is_empty());
+    assert_eq!(count(&client, "SELECT count(*) FROM view.link").await, 0);
+}

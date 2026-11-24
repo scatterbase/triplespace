@@ -236,6 +236,10 @@ pub const MIGRATIONS: &[Migration] = &[
         name: "0051_same_as",
         sql: include_str!("../migrations/0051_same_as.sql"),
     },
+    Migration {
+        name: "0052_clusters",
+        sql: include_str!("../migrations/0052_clusters.sql"),
+    },
 ];
 
 /// The crate name migrations are recorded under.

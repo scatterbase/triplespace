@@ -11,6 +11,7 @@ members = [
     "crates/scatter-wikibase-shape",
     "crates/scatter-wikibase-changeset",
     "crates/scatter-wikibase-resolve",
+    "crates/scatter-identity",
     "crates/scatter-wikibase-rdf",
     "crates/scatter-ingest",
     "crates/triplespace-api-ingest",
@@ -76,6 +77,7 @@ scatter-wikibase-fusion = { path = "crates/scatter-wikibase-fusion", version = "
 scatter-wikibase-shape = { path = "crates/scatter-wikibase-shape" }
 scatter-wikibase-changeset = { path = "crates/scatter-wikibase-changeset" }
 scatter-wikibase-resolve = { path = "crates/scatter-wikibase-resolve" }
+scatter-identity = { path = "crates/scatter-identity" }
 scatter-wikibase-rdf = { path = "crates/scatter-wikibase-rdf", version = "0.1.0" }
 scatter-ingest = { path = "crates/scatter-ingest" }
 triplespace-api-ingest = { path = "crates/triplespace-api-ingest" }

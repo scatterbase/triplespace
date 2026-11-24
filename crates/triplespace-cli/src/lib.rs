@@ -28,6 +28,7 @@ pub mod oauth_client;
 pub mod probe;
 pub mod provider;
 pub mod provision;
+pub mod reconcile;
 pub mod registry;
 pub mod restore;
 pub mod rights;

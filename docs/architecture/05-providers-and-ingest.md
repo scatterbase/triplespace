@@ -680,7 +680,7 @@ Not yet: mirroring a source's history is an open question of [0078](../decisions
 
 ### 6.5 The source's namespace
 
-*Sources: [0078](../decisions/0078-entity-sources.md) §5, A10.*
+*Sources: [0078](../decisions/0078-entity-sources.md) §5, A10; [0004](../decisions/0004-identity-clusters-and-equivalence.md) A24.*
 
 **A tenant's own namespaces take numbers from 3000 upward,** the numbers mediawiki.org's Extension default namespaces page leaves to system administrators, or from 100–199, MediaWiki's block for site-specific namespaces, except the numbers `namespaces.toml` lists (120–125, 146 and 147 among them). An adopted wiki (§7) also keeps the numbers it already gave its namespaces. A tenant `namespace` record with a number outside these ranges that `namespaces.toml` does not list is refused with `ts-namespace-number`. This is rule 4 of [0008](../decisions/0008-namespaces-and-document-pages.md) §2; the Triplespace blocks of rule 3 stay the registry's ([10](10-pages-and-content-models.md)).
 
@@ -688,7 +688,7 @@ Not yet: mirroring a source's history is an open question of [0078](../decisions
 
 **Viewing `MHC:Q1`, or resolving `mhc:Q1`, does the following:**
 
-1. **The entity is known to the tenant.** If `mhc:Q1` has a row in the tenant's resolved view (it is mirrored, the tenant asserts something about it, or it is in a cluster), the response is a redirect (HTTP 303) to its canonical page. That is `Item:mhc:Q1`, or `Item:Q500` once the entity is in Q500's cluster (§6.6), by [0008](../decisions/0008-namespaces-and-document-pages.md) §3. Until clusters are projected, a local item the tenant's own `same-as` links to `mhc:Q1` is found through `view.same_as` instead ([03](03-storage-caches-and-search.md) §4.4; [0078](../decisions/0078-entity-sources.md) A10).
+1. **The entity is known to the tenant.** If `mhc:Q1` has a row in the tenant's resolved view (it is mirrored, the tenant asserts something about it, or it is in a cluster), the response is a redirect (HTTP 303) to its canonical page. That is `Item:mhc:Q1`, or `Item:Q500` once the entity is in Q500's cluster (§6.6), by [0008](../decisions/0008-namespaces-and-document-pages.md) §3. A local item the tenant's own `same-as` links to `mhc:Q1` is found as a member of its cluster (`view.cluster_member`, [03](03-storage-caches-and-search.md) §4.4; [0004](../decisions/0004-identity-clusters-and-equivalence.md) A24).
 2. **An item carries its ID.** Otherwise, if the source names a `role`, the upstream ID is looked up as that property's value exactly as [0029](../decisions/0029-resolver-namespaces.md) §3 looks up a DOI, with the same responses: one entity redirects, several show a disambiguation page. Not built yet: the record has no `role` field.
 3. **Nothing is known.** Otherwise a page shows the ID, the external link (the concept IRI, or the source's entity page where the source has `entity_data`), and for a signed-in reader **Create an item for this** (§6.6), which opens `Special:NewItem` with the source entity's label from the label cache and `ts-sameas` filled in. If the source has `api` and its mirror setting is not `off`, the fetch is enqueued as a read enqueues it, and the page says so. The page answers `404`, as a missing page does; a title the source's grammar refuses gets a `404` page saying so.
 

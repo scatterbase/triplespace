@@ -6576,7 +6576,7 @@
   },
   {
     "method": "GET",
-    "path_and_query": "/w/rest.php/triplespace/v0/entity/Item:Q6/page",
+    "path_and_query": "/w/rest.php/triplespace/v0/entity/Item:Q6/page?prefer=local",
     "credentialed": true,
     "status": 200,
     "headers": {

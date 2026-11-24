@@ -1930,7 +1930,12 @@ async fn what_the_site_reads(router: &Router, database: &str) {
     assert_eq!(status, StatusCode::OK);
     let cc = h["cache-control"].to_str().unwrap();
     assert!(cc.starts_with("public, max-age=0, s-maxage=60"), "{cc}");
-    assert_eq!(h["cache-tag"], "entity:Q6, entity:domain:wikipedia.org");
+    // Tagged by the entities served and those their statements name, whose clusters decide
+    // how they are served (04 §4.12; 0004 A27).
+    assert_eq!(
+        h["cache-tag"],
+        "entity:P12, entity:Q6, entity:XDP8, entity:domain:example.org, entity:domain:wikipedia.org"
+    );
     let etag = h["etag"].to_str().unwrap().to_string();
     let (status, h2, _) = send(router, get, &[("if-none-match", etag.clone())]).await;
     assert_eq!(status, StatusCode::NOT_MODIFIED);

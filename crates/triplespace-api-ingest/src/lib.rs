@@ -35,6 +35,7 @@ pub mod import;
 pub mod jobs;
 pub mod labels;
 pub mod membership;
+pub mod reconcile;
 pub mod revert;
 pub mod settings;
 pub mod shallow;
