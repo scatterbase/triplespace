@@ -5,7 +5,7 @@
 //! The values are those of `view.identifier`'s shared rows, the normalized keys of each
 //! mirrored entity's external identifiers (04 §4.7). The identity projection runs before
 //! the entity projection writes them, so for the entities of the block it is applying it
-//! keeps the values itself ([`Values`]): what each held as the block began, replaced by
+//! keeps the values itself (`Values`): what each held as the block began, replaced by
 //! what its record says as the record is applied. A record recomputes the links of every
 //! value its entity holds or held: the namespaces with exactly one holder are linked to
 //! each other, and the shared rows of `view.link` for the value (tier 3, `source`
