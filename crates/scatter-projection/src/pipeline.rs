@@ -7,7 +7,7 @@ use std::time::{Duration, Instant};
 use scatter_log::record::Record;
 use scatter_log::store::{LogStore, Slot};
 
-use crate::backend::{Backend, Lag, Work};
+use crate::backend::{Backend, Lag, Stored, Work};
 use crate::projection::{Applied, BoxFuture, Projection, ProjectionError, Step, Target};
 use crate::worker::Consumer;
 
@@ -21,6 +21,9 @@ pub struct Budget {
     /// Time it may take.
     pub time: Duration,
 }
+
+/// Records one unit of work composes at most ([`Pipeline::compose`]).
+const COMPOSE_BATCH: usize = 200;
 
 impl Default for Budget {
     fn default() -> Self {
@@ -136,6 +139,155 @@ impl<B: Backend> Pipeline<B> {
             .map(AsRef::as_ref)
     }
 
+    /// The synchronous projections composed after commit where the backend defers.
+    fn composed(&self) -> impl Iterator<Item = &dyn Projection<B>> {
+        self.synchronous().filter(|p| !p.in_lock())
+    }
+
+    /// Before records from `offset` on are applied in full inside a unit of work: the
+    /// right to compose the partition is taken, and any earlier record whose composition
+    /// another unit of work deferred and has not yet done is composed here, so that the
+    /// composed projections never pass over a record (0083 A9).
+    async fn compose_before(
+        &self,
+        backend: &B,
+        cx: &mut B::Cx,
+        partition: u64,
+        offset: u64,
+    ) -> Result<(), ProjectionError> {
+        let Some(first) = self.composed().next() else {
+            return Ok(());
+        };
+        backend.lock_composition(cx, partition).await?;
+        if backend.applied(cx, first.name(), partition).await? >= offset {
+            return Ok(());
+        }
+        self.compose_in(backend, cx, partition, Some(offset), Budget::NONE)
+            .await
+            .map(|_| ())
+    }
+
+    /// Composes `partition`'s records from the composed projections' positions on, up to
+    /// `upto` or the head, at most [`COMPOSE_BATCH`] of them, inside a unit of work that
+    /// holds the right to compose the partition. Fan-out is applied within `budget`, the
+    /// rest queued. Returns the records read.
+    async fn compose_in(
+        &self,
+        backend: &B,
+        cx: &mut B::Cx,
+        partition: u64,
+        upto: Option<u64>,
+        budget: Budget,
+    ) -> Result<usize, ProjectionError> {
+        let started = Instant::now();
+        let mut positions: Vec<(&dyn Projection<B>, u64)> = Vec::new();
+        for p in self.composed() {
+            positions.push((p, backend.applied(cx, p.name(), partition).await?));
+        }
+        let Some(from) = positions.iter().map(|(_, at)| *at).min() else {
+            return Ok(0);
+        };
+        let mut pending: Vec<(&dyn Projection<B>, Target, u64)> = Vec::new();
+        let mut read = 0usize;
+        let mut offset = from;
+        while read < COMPOSE_BATCH && upto.is_none_or(|u| offset < u) {
+            let record = match backend.read_record(cx, partition, offset).await? {
+                Stored::End => break,
+                Stored::Compacted => None,
+                Stored::Record(record) => Some(record),
+            };
+            for (p, at) in &mut positions {
+                if *at > offset {
+                    continue;
+                }
+                if let Some(record) = record.as_deref()
+                    && p.accepts(record.header())
+                {
+                    let applied = p
+                        .apply(cx, record)
+                        .await
+                        .map_err(|m| Self::failed(*p, record, m))?;
+                    pending.extend(applied.fanout.into_iter().map(|t| (*p, t, offset)));
+                }
+                *at = offset + 1;
+            }
+            read += 1;
+            offset += 1;
+        }
+        for (p, at) in &positions {
+            backend.set_applied(cx, p.name(), partition, *at).await?;
+        }
+        let mut spent = 0usize;
+        let mut queue = Vec::new();
+        for (p, target, offset) in pending {
+            if spent < budget.rows && started.elapsed() < budget.time {
+                spent += p
+                    .fanout(cx, &target.tenant, &target.key)
+                    .await
+                    .map_err(|message| ProjectionError::Failed {
+                        projection: p.name().into(),
+                        partition,
+                        offset,
+                        message,
+                    })?;
+            } else {
+                queue.push(Work {
+                    projection: p.name().into(),
+                    tenant: target.tenant,
+                    partition,
+                    offset,
+                    key: target.key,
+                });
+            }
+        }
+        if !queue.is_empty() {
+            backend.queue(cx, &queue).await?;
+        }
+        Ok(read)
+    }
+
+    /// Composes what `partition` holds past the composed projections' positions (03 §6.2:
+    /// tier 2, after commit): each batch in a unit of work of its own that holds the right
+    /// to compose the partition, so that two writers' compositions never interleave and a
+    /// record another writer left uncomposed is composed first. A backend that defers
+    /// calls this when a unit of work that appended commits; a server calls it for a
+    /// partition a dead request left behind. Returns the records composed.
+    ///
+    /// # Errors
+    ///
+    /// The backend's or a projection's; the failing batch is rolled back, and what it
+    /// held is composed by the next call.
+    pub async fn compose(
+        &self,
+        backend: &B,
+        partition: u64,
+        budget: Budget,
+    ) -> Result<usize, ProjectionError> {
+        let mut total = 0;
+        loop {
+            let mut cx = backend.begin().await?;
+            let outcome = async {
+                backend.lock_composition(&mut cx, partition).await?;
+                self.compose_in(backend, &mut cx, partition, None, budget)
+                    .await
+            }
+            .await;
+            match outcome {
+                Ok(read) => {
+                    backend.commit(cx).await?;
+                    total += read;
+                    if read < COMPOSE_BATCH {
+                        return Ok(total);
+                    }
+                }
+                Err(e) => {
+                    backend.rollback(cx).await?;
+                    return Err(e);
+                }
+            }
+        }
+    }
+
     fn failed(p: &dyn Projection<B>, record: &Record, message: String) -> ProjectionError {
         ProjectionError::Failed {
             projection: p.name().into(),
@@ -159,7 +311,20 @@ impl<B: Backend> Pipeline<B> {
         let mut out = Inline::default();
         let mut pending: Vec<(&dyn Projection<B>, Target)> = Vec::new();
         let h = record.header();
+        // Where the backend composes after commit, only the in-lock projections run here
+        // and the rest are left behind for it; otherwise everything runs here, after
+        // whatever another unit of work left behind.
+        let defer = backend.defers(cx);
+        if defer {
+            backend.defer(cx, h.partition);
+        } else {
+            self.compose_before(backend, cx, h.partition, h.offset)
+                .await?;
+        }
         for p in self.synchronous() {
+            if defer && !p.in_lock() {
+                continue;
+            }
             if p.accepts(h) {
                 let applied = p
                     .apply(cx, record)
@@ -210,6 +375,30 @@ impl<B: Backend> Pipeline<B> {
     ///
     /// When the records are not consecutive offsets of one partition.
     pub async fn apply_inline_many(
+        &self,
+        backend: &B,
+        cx: &mut B::Cx,
+        records: &[Record],
+        budget: Budget,
+    ) -> Result<Inline, ProjectionError> {
+        if let Some(first) = records.first() {
+            let h = first.header();
+            self.compose_before(backend, cx, h.partition, h.offset)
+                .await?;
+        }
+        self.apply_loaded_many(backend, cx, records, budget).await
+    }
+
+    /// [`Self::apply_inline_many`] for a load into a partition nothing else writes, as
+    /// several units of work at once write a bootstrap load's blocks (0013 A82): no
+    /// record's composition can have been left behind there, so the right to compose
+    /// the partition is neither needed nor taken, and the units do not wait on each
+    /// other for it.
+    ///
+    /// # Panics
+    ///
+    /// When the records are not consecutive offsets of one partition.
+    pub async fn apply_loaded_many(
         &self,
         backend: &B,
         cx: &mut B::Cx,
@@ -401,6 +590,8 @@ impl<B: Backend> Pipeline<B> {
         let batch = batch.max(1);
         loop {
             let mut cx = backend.begin().await?;
+            // A catch-up composes too: one unit of work at a time for the partition.
+            backend.lock_composition(&mut cx, partition).await?;
             let mut positions: BTreeMap<&'static str, u64> = BTreeMap::new();
             for p in &self.projections {
                 positions.insert(

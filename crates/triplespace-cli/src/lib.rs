@@ -40,3 +40,4 @@ pub mod sparql_sync;
 pub mod status;
 pub mod sync;
 pub mod tenant;
+pub mod worker;

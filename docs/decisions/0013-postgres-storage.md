@@ -2,7 +2,7 @@
 
 - **Status:** Proposed
 - **Date:** 2026-09-26
-- **Updated:** 2026-11-21 (A108)
+- **Updated:** 2026-11-23 (A109)
 - **Author:** James Hare / Claude Fable
 - **Uses:** [0004](0004-identity-clusters-and-equivalence.md), [0007](0007-actor-identity.md), [0009](0009-keyed-entity-types-and-domain.md), [0014](0014-caches-and-search.md)
 
@@ -1009,3 +1009,12 @@ Replaced text: 03 §1.2.
 - **Summary:** `view.entity_ref` is written by composition, keyed by the two entity IDs, and its counter is a table folded by the worker, not a column of `view.entity`. Nothing wrote the table before, and the shape the first migration gave it (a row per statement and role) was never used; migration `0047_entity_ref` makes it again. The calls: (1) The target is an ID, since a referenced entity that no graph holds yet has no page ID and its references must be there when it arrives. (2) The source is an ID too, where the text had its page ID: a row's page ID can change when a later record carries a higher one, and the rows are replaced in the same pipelined flush as the row that changes it. (3) One row per pair, with `roles` a bitmask, so `roles` is not in the key. (4) A row is written for the property of every snak, for an entity value, and for the entity a unit, globe or calendar model names; an entity's reference to itself is none. Properties are counted because their use is what ranks them. (5) The counter is `view.entity_ref_count`, a row per tenant and target, and not `view.entity.ref_count`: a tenant's entities refer to shared entities, whose row no tenant owns, and to entities with no row yet. (6) Composition appends changes to `view.entity_ref_delta` and the worker's `ref_count` consumer folds them, so that no write updates a count and two writers that name the same property never wait on one another or deadlock; a count therefore lags the write by the worker. (7) A source a tenant overlays is counted under the tenant and under the shared rows. Not built: `GET /entity/{id}/referrers`, "Links here", the About panel's count, and rows for lexeme parts, which the entity model does not hold. Chapter text: 03 §4.2, §4.3, §5.
 
 Replaced text: 03 §4.2 (the `ref_count` column and "The counters"); 03 §4.3 (the `entity_ref` table and "`entity_ref` is keyed on integers"); 03 §5.
+
+### A109. The page ID lookup opens only the tenant's record tables
+
+- **Date:** 2026-11-23
+- **Source:** Direct: Claude, while building SCA-286's partition pruning for `page_id_of`, 2026-11-23; unconfirmed
+- **Change:** extends §6
+- **Summary:** The lookup of the page ID a key already carries reads `log.record` as a lateral subquery under the tenant's and the shared rows of `log.partition`, the partition its parameter, for one key and for a block's keys alike. `log.record` is partitioned by `partition`, and the earlier join to `log.partition` gave the planner no partition to prune by, so every tenant's record table was opened for every lookup; naming the partitions as an array from a subquery did not prune either, which a test of the plan showed. The shared partitions are still all opened, since a key may be a mirror's. Chapter text: 03 §2.3.
+
+Replaced text: none; 03 §2.3 gains a paragraph.

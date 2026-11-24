@@ -14,7 +14,7 @@ use clap::{Parser, Subcommand};
 use triplespace_cli::{
     accounts, adopt, backup_key, challenge, compact, dump, env_file, fetch, follow, forwarder,
     import_pages, instance, job, log_bundle, logins, oauth_client, provider, provision, reconcile,
-    registry, restore, rights, settings, setup, source, sparql_sync, status, sync, tenant,
+    registry, restore, rights, settings, setup, source, sparql_sync, status, sync, tenant, worker,
 };
 
 /// Triplespace: a Wikibase as an append-only log.
@@ -74,6 +74,11 @@ enum Command {
     Source {
         #[command(subcommand)]
         command: source::SourceCommand,
+    },
+    /// The work queue: run the worker, and list, retry or discard parked items (03 §6.1).
+    Worker {
+        #[command(subcommand)]
+        command: worker::WorkerCommand,
     },
     /// The `reconcile:default` policy record, the instance's or a tenant's (0004 §9).
     Reconcile {
@@ -224,6 +229,7 @@ async fn run() -> Result<()> {
         Command::UpstreamLogin { command } => follow::run_login(command).await,
         Command::Source { command } => source::run(command).await,
         Command::Reconcile { command } => reconcile::run(command).await,
+        Command::Worker { command } => worker::run(command).await,
         Command::Registry { command } => registry::run(command).await,
         Command::Password {
             command: PasswordCommand::Set(args),

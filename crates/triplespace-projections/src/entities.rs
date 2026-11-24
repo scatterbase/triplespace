@@ -30,7 +30,7 @@ use scatter_log::record::Record;
 use scatter_log::store::Slot;
 use scatter_log_postgres::PgClient;
 use scatter_log_postgres::log;
-use scatter_projection::{Applied, Backend, BoxFuture, Projection, Step};
+use scatter_projection::{Applied, Backend, BoxFuture, Projection, Step, Target};
 use scatter_providers::Registry;
 use scatter_wikibase_changeset::apply::{Correction as LocalCorrection, LocalState};
 use scatter_wikibase_changeset::{Operation, Retention};
@@ -826,10 +826,14 @@ impl EntityProjection {
                 applied.rows + usize::try_from(n + written).unwrap_or(0),
             ));
         }
+        let mut fanout = Vec::new();
         for record in slow {
-            n += self.apply_one(cx, record).await?;
+            n += self.apply_one(cx, record, &mut fanout).await?;
         }
-        Ok(Applied::rows(usize::try_from(n).unwrap_or(0)))
+        Ok(Applied {
+            rows: usize::try_from(n).unwrap_or(0),
+            fanout,
+        })
     }
 
     /// A key's records in a tenant's block. A key that repeats where its rows cannot
@@ -854,8 +858,10 @@ impl EntityProjection {
                 }
             }
             _ => {
+                // A tenant's record reaches no other tenant: nothing is fanned out.
+                let mut none = Vec::new();
                 for record in group {
-                    n += self.apply_one(cx, record).await?;
+                    n += self.apply_one(cx, record, &mut none).await?;
                 }
             }
         }
@@ -1088,7 +1094,12 @@ impl EntityProjection {
 
     /// What [`Projection::apply`] does for one record: the subject's row, and on a shared
     /// partition every tenant's overlay of it.
-    async fn apply_one(&self, cx: &PgCx, record: &Record) -> Result<u64, String> {
+    async fn apply_one(
+        &self,
+        cx: &PgCx,
+        record: &Record,
+        fanout: &mut Vec<Target>,
+    ) -> Result<u64, String> {
         let info = partition_info(cx, record.header().partition).await?;
         let Some(op) = operation(record)? else {
             return Ok(0);
@@ -1122,10 +1133,18 @@ impl EntityProjection {
             if info.tenant.is_empty() {
                 n += self.resolve_subject(cx, "", id, Some(record)).await?;
                 n += self.resolve_members(cx, "", id, Some(record)).await?;
-                for tenant in Self::overlay_tenants(cx, id).await? {
-                    n += self.resolve_subject(cx, &tenant, id, Some(record)).await?;
-                    n += self.resolve_members(cx, &tenant, id, Some(record)).await?;
-                }
+                // Every tenant that overlays the entity composes it again, as fan-out:
+                // inside the budget where the write has one, by the worker otherwise
+                // (03 §6.2; 0083 §2).
+                fanout.extend(
+                    Self::overlay_tenants(cx, id)
+                        .await?
+                        .into_iter()
+                        .map(|tenant| Target {
+                            tenant,
+                            key: id.as_str().to_string(),
+                        }),
+                );
             } else {
                 n += self
                     .resolve_subject(cx, &info.tenant, id, Some(record))
@@ -1678,8 +1697,12 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for EntityProjection {
         record: &'a Record,
     ) -> BoxFuture<'a, Result<Applied, String>> {
         Box::pin(async move {
-            let n = self.apply_one(cx, record).await?;
-            Ok(Applied::rows(usize::try_from(n).unwrap_or(0)))
+            let mut fanout = Vec::new();
+            let n = self.apply_one(cx, record, &mut fanout).await?;
+            Ok(Applied {
+                rows: usize::try_from(n).unwrap_or(0),
+                fanout,
+            })
         })
     }
 
@@ -1699,7 +1722,10 @@ impl<B: Backend<Cx = PgCx>> Projection<B> for EntityProjection {
     ) -> BoxFuture<'a, Result<usize, String>> {
         Box::pin(async move {
             let id = EntityId::parse(key).map_err(|e| e.to_string())?;
-            let n = self.resolve_subject(cx, tenant, &id, None).await?;
+            // The tenant's row of the entity, and of the other members of its cluster
+            // there, each of which holds the fused body.
+            let n = self.resolve_subject(cx, tenant, &id, None).await?
+                + self.resolve_members(cx, tenant, &id, None).await?;
             Ok(usize::try_from(n).unwrap_or(0))
         })
     }

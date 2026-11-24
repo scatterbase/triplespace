@@ -14,7 +14,7 @@ use tokio_postgres::{Config, NoTls};
 use tower::ServiceExt as _;
 use triplespace_accounts::Secret;
 use triplespace_api_action::{App, Config as ServerConfig, Mode, router_with};
-use triplespace_cli::{instance, reconcile, source, sync};
+use triplespace_cli::{instance, reconcile, source, sync, worker};
 
 const DB: &str = "tssources_test";
 const TENANT: &str = "reader";
@@ -655,6 +655,7 @@ async fn a_source_is_declared_loaded_and_read_on_its_tenant() {
 
     clusters(&c).await;
     policy_records(&database, &dir).await;
+    standalone_worker(&database).await;
 
     // 4. What the first record fixed stays fixed (05 §6.4).
     let add = |name: &str, iri: &str| source::Add {
@@ -915,4 +916,29 @@ async fn policy_records(database: &str, dir: &std::path::Path) {
     assert_eq!(config["kind"], "reconcile");
     assert_eq!(config["infer"], false);
     assert_eq!(config["order"][0], "lb");
+}
+
+/// `triplespace worker run --until-idle` (03 §6.1; 0083 A8): the standalone worker applies
+/// what every queue holds and stops, and `worker status` reads the queues.
+async fn standalone_worker(database: &str) {
+    let at = || worker::At {
+        database: database.to_string(),
+    };
+    worker::run(worker::WorkerCommand::Run(worker::Run {
+        at: at(),
+        workers: 2,
+        until_idle: true,
+        idle_ms: 10,
+    }))
+    .await
+    .expect("the worker runs until idle");
+    let waiting = query(
+        database,
+        "SELECT count(*) FROM ops.projection_work WHERE attempts < 5",
+    )
+    .await;
+    assert_eq!(waiting[0].get::<_, i64>(0), 0);
+    worker::run(worker::WorkerCommand::Status(at()))
+        .await
+        .expect("status");
 }

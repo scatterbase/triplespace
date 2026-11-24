@@ -1,6 +1,7 @@
 //! [`PgIngest`]: the ingest store over Postgres.
 
 use std::collections::BTreeMap;
+use std::future::Future;
 
 use scatter_ingest::{Cursor, IngestError, IngestStore, Sequence};
 use scatter_log::header::Header;
@@ -9,7 +10,9 @@ use scatter_log::store::{Appended, Draft, Slot};
 use scatter_log_postgres::PgClient;
 use scatter_log_postgres::ids::{from_db, partition_to_db};
 use scatter_log_postgres::{log, sequences};
-use scatter_projection::{Backend, ProjectionError, QueueLag, Queued, Work};
+use scatter_projection::{
+    Backend, Budget, Pipeline, ProjectionError, QueueLag, Queued, Stored, Work,
+};
 use scatter_wikibase_changeset::{MatchKey, Operation};
 use scatter_wikibase_fusion::key::value_key;
 use scatter_wikibase_model::id::EntityId;
@@ -17,10 +20,55 @@ use scatter_wikibase_model::value::{DataType, DataValue};
 use triplespace_projections::common::Partitions;
 use triplespace_projections::{PgBackend, PgCx};
 
+/// The page ID a key's records carry, among a tenant's partitions and the shared ones
+/// (`$1` the key, `$2` the tenant or `NULL`). `log.record` is partitioned by `partition`:
+/// the lateral read is run once for each of those partitions, with the partition as its
+/// parameter, so only their record tables are opened, where a plain join to
+/// `log.partition` opens every tenant's (0013 A109).
+pub const PAGE_ID_OF: &str = "SELECT x.page_id FROM log.partition p
+     CROSS JOIN LATERAL (
+       SELECT r.page_id FROM log.record r
+       WHERE r.partition = p.partition AND r.key = $1 AND r.page_id IS NOT NULL
+       LIMIT 1) x
+     WHERE p.tenant IS NOT DISTINCT FROM $2 OR p.tenant IS NULL
+     LIMIT 1";
+
+/// [`PAGE_ID_OF`] for several keys (`$1` an array): each key with a page ID it carries.
+pub const PAGE_IDS_OF: &str = "SELECT DISTINCT ON (x.key) x.key, x.page_id FROM log.partition p
+     CROSS JOIN LATERAL (
+       SELECT r.key, r.page_id FROM log.record r
+       WHERE r.partition = p.partition AND r.key = ANY($1) AND r.page_id IS NOT NULL
+       OFFSET 0) x
+     WHERE p.tenant IS NOT DISTINCT FROM $2 OR p.tenant IS NULL";
+
 /// The store: the projections' backend plus the ingest reads.
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct PgIngest {
     backend: PgBackend,
+    /// The pipeline that composes after commit (03 §6.2; 0083 A9), where the process
+    /// has given the store one ([`Self::compose_after_commit`]).
+    composer: std::sync::Arc<std::sync::OnceLock<Composer>>,
+}
+
+/// Composes a partition with a store: the pipeline's [`Pipeline::compose`], its type
+/// erased, since the store's commit calls it and it commits with the store.
+type Composer = Box<
+    dyn Fn(
+            PgIngest,
+            u64,
+        )
+            -> std::pin::Pin<Box<dyn Future<Output = Result<usize, ProjectionError>> + Send>>
+        + Send
+        + Sync,
+>;
+
+impl std::fmt::Debug for PgIngest {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("PgIngest")
+            .field("backend", &self.backend)
+            .field("composes_after_commit", &self.composer.get().is_some())
+            .finish()
+    }
 }
 
 /// A cursor from a `view.entity_source` row whose columns from `at` are `offset`,
@@ -68,7 +116,37 @@ impl PgIngest {
     /// Over the projections' backend.
     #[must_use]
     pub fn new(backend: PgBackend) -> Self {
-        Self { backend }
+        Self {
+            backend,
+            composer: std::sync::Arc::default(),
+        }
+    }
+
+    /// Makes this store, and every clone of it, split a write in two (03 §6.2; 0083 §1,
+    /// §2, A9): a record applied inline has only its in-lock projections applied in the
+    /// appending transaction, and when that transaction commits, [`Backend::commit`]
+    /// composes the rest with `pipeline` in a unit of work of its own before it returns,
+    /// so that whoever committed reads what it wrote. A composition that fails is
+    /// reported on standard error and left for the next write to the partition or the
+    /// server's sweep; the record is committed either way. The first pipeline given stays.
+    pub fn compose_after_commit(&self, pipeline: Pipeline<PgIngest>) {
+        let pipeline = std::sync::Arc::new(pipeline);
+        let _ = self.composer.set(Box::new(move |store, partition| {
+            let pipeline = pipeline.clone();
+            Box::pin(async move { pipeline.compose(&store, partition, Budget::default()).await })
+        }));
+    }
+
+    /// Composes whatever `partition` holds uncomposed, as the commit of a write does.
+    ///
+    /// # Errors
+    ///
+    /// The store's or a projection's; nothing is composed without a pipeline.
+    pub async fn compose(&self, partition: u64) -> Result<usize, ProjectionError> {
+        match self.composer.get() {
+            Some(compose) => compose(self.clone(), partition).await,
+            None => Ok(0),
+        }
     }
 
     /// The backend.
@@ -162,8 +240,42 @@ impl Backend for PgIngest {
         self.backend.begin().await
     }
 
-    async fn commit(&self, cx: PgCx) -> Result<(), ProjectionError> {
-        self.backend.commit(cx).await
+    async fn commit(&self, mut cx: PgCx) -> Result<(), ProjectionError> {
+        let deferred = cx.take_deferred();
+        self.backend.commit(cx).await?;
+        // Tier 2, after commit and with no lock on the partition held: the written
+        // records are composed before the writer is answered. The composition's own
+        // units of work defer nothing, so this does not recur.
+        for partition in deferred {
+            let Some(compose) = self.composer.get() else {
+                break;
+            };
+            if let Err(e) = compose(self.clone(), partition).await {
+                eprintln!("composition of partition {partition:#x} after commit: {e}");
+            }
+        }
+        Ok(())
+    }
+
+    fn defers(&self, _cx: &PgCx) -> bool {
+        self.composer.get().is_some()
+    }
+
+    fn defer(&self, cx: &mut PgCx, partition: u64) {
+        cx.defer(partition);
+    }
+
+    async fn lock_composition(&self, cx: &mut PgCx, partition: u64) -> Result<(), ProjectionError> {
+        self.backend.lock_composition(cx, partition).await
+    }
+
+    async fn read_record(
+        &self,
+        cx: &mut PgCx,
+        partition: u64,
+        offset: u64,
+    ) -> Result<Stored, ProjectionError> {
+        self.backend.read_record(cx, partition, offset).await
     }
 
     async fn rollback(&self, cx: PgCx) -> Result<(), ProjectionError> {
@@ -453,12 +565,8 @@ impl IngestStore for PgIngest {
         key: &str,
     ) -> Result<Option<u64>, IngestError> {
         let tenant = (!tenant.is_empty()).then_some(tenant);
-        let row = cx.query_opt(
-                "SELECT r.page_id FROM log.record r JOIN log.partition p ON p.partition = r.partition
-                 WHERE r.key = $1 AND r.page_id IS NOT NULL AND (p.tenant IS NOT DISTINCT FROM $2 OR p.tenant IS NULL)
-                 LIMIT 1",
-                &[&key, &tenant],
-            )
+        let row = cx
+            .query_opt(PAGE_ID_OF, &[&key, &tenant])
             .await
             .map_err(db)?;
         row.map(|r| from_db(r.get(0)).map_err(IngestError::from))
@@ -610,16 +718,7 @@ impl IngestStore for PgIngest {
             return Ok(BTreeMap::new());
         }
         let tenant = (!tenant.is_empty()).then_some(tenant);
-        let rows = cx
-            .query(
-                "SELECT DISTINCT ON (r.key) r.key, r.page_id FROM log.record r
-                 JOIN log.partition p ON p.partition = r.partition
-                 WHERE r.key = ANY($1) AND r.page_id IS NOT NULL
-                   AND (p.tenant IS NOT DISTINCT FROM $2 OR p.tenant IS NULL)",
-                &[&keys, &tenant],
-            )
-            .await
-            .map_err(db)?;
+        let rows = cx.query(PAGE_IDS_OF, &[&keys, &tenant]).await.map_err(db)?;
         rows.iter()
             .map(|r| {
                 Ok((

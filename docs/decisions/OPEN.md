@@ -50,6 +50,7 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0013 A103](0013-postgres-storage.md#a103-the-followers-runner-is-the-one-on-the-accounts-login) | 2026-11-13 | The followers' runner is the one on the accounts login |
 | [0013 A104](0013-postgres-storage.md#a104-the-large-tables-vacuum-after-a-hundredth-of-their-rows-change) | 2026-11-15 | The large tables vacuum after a hundredth of their rows change |
 | [0013 A108](0013-postgres-storage.md#a108-the-reference-index-as-built-keyed-by-id-with-a-folded-counter) | 2026-11-21 | The reference index as built: keyed by ID, with a folded counter |
+| [0013 A109](0013-postgres-storage.md#a109-the-page-id-lookup-opens-only-the-tenants-record-tables) | 2026-11-23 | The page ID lookup opens only the tenant's record tables |
 | [0014 A30](0014-caches-and-search.md#a30-the-postgres-fallback-as-built-ranking-the-page-text-index-and-the-suggest-response) | 2026-11-21 | The Postgres fallback as built: ranking, the page text index, and the suggest response |
 | [0014 A31](0014-caches-and-search.md#a31-entity-search-ranks-by-the-folded-reference-counter) | 2026-11-21 | Entity search ranks by the folded reference counter |
 | [0015 A65](0015-record-format-and-partition-registry.md#a65-where-a-mirror-records-page-id-comes-from-when-its-content-carries-none) | 2026-11-15 | Where a mirror record's page ID comes from when its content carries none |
@@ -93,6 +94,8 @@ Log entries whose Source ends in *unconfirmed*: decisions made in code and logge
 | [0078 A8](0078-entity-sources.md#a8-retiring-keeps-the-record-a-later-record-is-checked-against-it) | 2026-11-20 | Retiring keeps the record; a later record is checked against it |
 | [0078 A10](0078-entity-sources.md#a10-the-sources-namespace-its-resolution-and-minting-as-built) | 2026-11-23 | The source's namespace, its resolution and minting, as built |
 | [0082 A2](0082-source-form-and-the-shared-view.md#a2-the-instances-content-languages) | 2026-11-04 | The instance's content languages |
+| [0083 A8](0083-write-path-in-three-tiers.md#a8-the-workers-commands-and-the-first-fan-out-on-the-queue) | 2026-11-23 | The worker's commands, and the first fan-out on the queue |
+| [0083 A9](0083-write-path-in-three-tiers.md#a9-the-write-in-two-transactions-as-built) | 2026-11-23 | The write in two transactions, as built |
 | [0085 A2](0085-settings-and-preferences.md#a2-settings-the-calls-made-building-the-backend-slice) | 2026-10-30 | Settings: the calls made building the backend slice |
 | [0085 A4](0085-settings-and-preferences.md#a4-preferences-controls-that-suit-their-keys-and-tabs-as-panes) | 2026-11-09 | Preferences: controls that suit their keys, and tabs as panes |
 | [0085 A5](0085-settings-and-preferences.md#a5-a-settings-history-is-the-log-narrowed-to-it) | 2026-11-15 | A setting's history is the log narrowed to it |

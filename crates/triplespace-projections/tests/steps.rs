@@ -2571,3 +2571,76 @@ async fn a_tenants_source_links_by_its_own_properties() {
     assert!(cluster_state(&client).await.0.is_empty());
     assert_eq!(count(&client, "SELECT count(*) FROM view.link").await, 0);
 }
+
+// 03 §6.2 (0083 §2): a shared mirror's record composes the shared row at once and queues
+// the overlay of every tenant that holds one; the worker composes it.
+#[tokio::test]
+async fn a_tenants_overlay_is_composed_by_the_worker() {
+    if skipped() {
+        return;
+    }
+    let (client, backend) = fresh().await;
+    let client = seed(client).await;
+    let p = pipeline();
+    let worker = Worker::new().with_all(p.consumers()).unwrap();
+    let mut store = PgLog::new(client);
+    for partition in ALL {
+        p.catch_up(&backend, &store, partition, 2).await.unwrap();
+    }
+    worker.run_until_idle(&backend, 100).await.unwrap();
+    // The tenant's rows hold every language; the shared row is told by its version.
+    let german = "SELECT text FROM view.term WHERE tenant = 'librarybase'
+                   AND entity_id = 'domain:example.org' AND kind = 1 AND lang = 'de'";
+    let shared = "SELECT resolved_version FROM view.entity
+                   WHERE tenant = '' AND id = 'domain:example.org'";
+    assert_eq!(sorted(store.client(), german).await, ["example.org (de)"]);
+    let before = count(store.client(), shared).await;
+
+    // Upstream changes the German label.
+    let domain = json!({"type": "domain", "id": DOMAIN,
+        "labels": {"en": label("en", "example.org"), "de": label("de", "beispiel.org")},
+        "claims": {"P1": [string_statement("P1", "a", M_P1, "string")],
+                   "P5": [string_statement("P5", "10.1/x", M_P5, "external-id")]}});
+    store
+        .append(
+            MIRROR,
+            draft(
+                PAYLOAD_CHANGESET,
+                SURROGATE,
+                &json!({"op": "put", "id": DOMAIN, "entity": domain, "upstream": {"revid": 57},
+                    "size": 400, "upstream_id": "Q9"}),
+                Some(7),
+                Some(100),
+            ),
+        )
+        .await
+        .unwrap();
+    p.catch_up(&backend, &store, MIRROR, 2).await.unwrap();
+    assert!(
+        count(store.client(), shared).await > before,
+        "the shared row is composed with the record"
+    );
+    assert_eq!(
+        sorted(store.client(), german).await,
+        ["example.org (de)"],
+        "the tenant's overlay is queued"
+    );
+    assert_eq!(
+        rows(
+            store.client(),
+            "SELECT tenant || '|' || key FROM ops.projection_work WHERE projection = 'entity'"
+        )
+        .await,
+        ["librarybase|domain:example.org"]
+    );
+    worker.run_until_idle(&backend, 100).await.unwrap();
+    assert_eq!(sorted(store.client(), german).await, ["beispiel.org"]);
+    assert_eq!(
+        count(
+            store.client(),
+            "SELECT count(*) FROM ops.projection_work WHERE projection = 'entity'"
+        )
+        .await,
+        0
+    );
+}

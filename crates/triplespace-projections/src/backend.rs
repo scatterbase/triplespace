@@ -31,7 +31,7 @@ use std::sync::Mutex;
 use deadpool_postgres::{ClientWrapper, Object, Pool};
 use scatter_log_postgres::ids::{partition_to_db, to_db};
 use scatter_log_postgres::{Frontiers, PgClient};
-use scatter_projection::{Backend, ProjectionError, QueueLag, Queued, Work};
+use scatter_projection::{Backend, ProjectionError, QueueLag, Queued, Stored, Work};
 use triplespace_db::projection_state;
 
 use crate::common::{PartitionInfo, Partitions};
@@ -79,6 +79,9 @@ pub struct PgCx {
     partitions: Mutex<PartitionCache>,
     /// The Merkle frontiers of the partitions appended to.
     frontiers: Frontiers,
+    /// The partitions with records whose composition waits for this unit of work to
+    /// commit (03 §6.2), where the store composes after commit.
+    deferred: Vec<u64>,
 }
 
 #[derive(Debug, Default)]
@@ -88,6 +91,18 @@ struct PartitionCache {
 }
 
 impl PgCx {
+    /// Notes that `partition` has records to compose once this unit of work commits.
+    pub fn defer(&mut self, partition: u64) {
+        if !self.deferred.contains(&partition) {
+            self.deferred.push(partition);
+        }
+    }
+
+    /// The partitions noted with [`Self::defer`], which are then forgotten.
+    pub fn take_deferred(&mut self) -> Vec<u64> {
+        std::mem::take(&mut self.deferred)
+    }
+
     /// The driver's own client, for SQL outside the store's functions. Statements sent
     /// through it are not prepared; the write path sends its SQL through `PgCx` itself
     /// as a [`PgClient`], which caches them.
@@ -217,6 +232,7 @@ impl Backend for PgBackend {
             positions: BTreeMap::new(),
             partitions: Mutex::new(PartitionCache::default()),
             frontiers: Frontiers::new(),
+            deferred: Vec::new(),
         })
     }
 
@@ -309,6 +325,32 @@ impl Backend for PgBackend {
             .await
             .map_err(pg)?;
         Ok(rows.iter().map(|r| r.get(0)).collect())
+    }
+
+    /// A transaction-scoped advisory lock keyed by the partition, waited for.
+    async fn lock_composition(&self, cx: &mut PgCx, partition: u64) -> Result<(), ProjectionError> {
+        cx.execute(
+            "SELECT pg_advisory_xact_lock(hashtext('composition'), hashtext($1))",
+            &[&partition.to_string()],
+        )
+        .await
+        .map_err(pg)?;
+        Ok(())
+    }
+
+    async fn read_record(
+        &self,
+        cx: &mut PgCx,
+        partition: u64,
+        offset: u64,
+    ) -> Result<Stored, ProjectionError> {
+        use scatter_log::store::{Slot, StoreError};
+        match scatter_log_postgres::log::read(&*cx, partition, offset).await {
+            Ok(Slot::Record(record)) => Ok(Stored::Record(Box::new(record))),
+            Ok(Slot::Compacted { .. }) => Ok(Stored::Compacted),
+            Err(StoreError::NoOffset { .. }) => Ok(Stored::End),
+            Err(e) => Err(e.into()),
+        }
     }
 
     async fn lock_tenant(
